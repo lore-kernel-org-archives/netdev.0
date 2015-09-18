@@ -1,55 +1,65 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 3/6] comment: Fix remaining listings of wrong FSF address
-Date: Fri, 18 Sep 2015 20:17:02 +0200
-Message-ID: <1442600225-18355-4-git-send-email-phil@nwl.cc>
-References: <1442600225-18355-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:59321 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149AbbIRSRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2015 14:17:08 -0400
-In-Reply-To: <1442600225-18355-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH next 0/14] netfilter: Stop guessing net
+Date: Fri, 18 Sep 2015 13:15:14 -0500
+Message-ID: <8737ybppal.fsf@x220.int.ebiederm.org>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<87pp1fpy1b.fsf@x220.int.ebiederm.org> <55FC3CB5.7040003@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: nicolas.dichtel@6wind.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <55FC3CB5.7040003@6wind.com> (Nicolas Dichtel's message of "Fri,
+	18 Sep 2015 18:32:53 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch follows the changes of commit 4d98ab0 ("Fix FSF address in
-file headers"), fixing file headers added after it.
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- include/linux/tc_act/tc_skbedit.h | 3 +--
- tc/m_connmark.c                   | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+> Le 18/09/2015 17:06, Eric W. Biederman a =C3=A9crit :
+>>
+>> This is the next installment of my work to pass struct net through t=
+he
+>> output path so the code does not need to guess how to figure out whi=
+ch
+>> network namespace it is in, and ultimately routes can have output
+>> devices in another network namespace.
+>>
+>> This round the changes focus on using nf_hook_state->net in the
+>> netfilter functions, and not passing nf_hook_ops to the functions on=
+ the
+>> netfilter chains.
+>>
+>> Given the way per network namespace operations are implemented calle=
+rs
+>> can not rely on addresses or games with container_of.  None of the
+>> netfilter hooks do but we should remove the temptation.  Plus removi=
+ng
+>> the extra parameter and the extra jump to get at values should reduc=
+e
+>> the number of cache line misses.
+>>
+>> At a practical matter this is the bulk of the work that other pieces=
+ of
+>> code in the netfilter stack will depend on.
+> Great!
+>
+> LGTM.
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-diff --git a/include/linux/tc_act/tc_skbedit.h b/include/linux/tc_act/tc_skbedit.h
-index 7a2e910..73026b3 100644
---- a/include/linux/tc_act/tc_skbedit.h
-+++ b/include/linux/tc_act/tc_skbedit.h
-@@ -11,8 +11,7 @@
-  * more details.
-  *
-  * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-- * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ * this program; if not, see <http://www.gnu.org/licenses>.
-  *
-  * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-  */
-diff --git a/tc/m_connmark.c b/tc/m_connmark.c
-index 51938dc..41ca4b2 100644
---- a/tc/m_connmark.c
-+++ b/tc/m_connmark.c
-@@ -13,8 +13,7 @@
-  * more details.
-  *
-  * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-- * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ * this program; if not, see <http://www.gnu.org/licenses>.
-  */
- 
- #include <stdio.h>
--- 
-2.1.2
+Grr.  A build bot failed to build this patchset and let me know.
+Apparently a gremlin got in and disabled CONFIG_NET_ACT_CONNMARK in my
+test config.
+
+I will respin in a minute.
+
+Eric
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
