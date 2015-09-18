@@ -1,128 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH v4] netlink: Fix autobind race condition that leads to zero
- port ID
-Date: Fri, 18 Sep 2015 19:16:50 +0800
-Message-ID: <20150918111650.GA7508@gondor.apana.org.au>
-References: <20150917022909.GA22754@htj.duckdns.org>
- <20150917030845.GA19162@gondor.apana.org.au>
- <20150917034134.GA19327@gondor.apana.org.au>
- <CAHA+R7OdJyZiidHarKhp-U6R5fkHj=5KjugK=XoWj=q4D8krxw@mail.gmail.com>
- <20150917051503.GA19978@gondor.apana.org.au>
- <20150917113034.GA14471@htj.duckdns.org>
- <20150918063609.GA31747@gondor.apana.org.au>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: mvneta: SGMII fixed-link not so fixed
+Date: Fri, 18 Sep 2015 14:29:34 +0300
+Message-ID: <55FBF59E.3010205@list.ru>
+References: <20150914103207.GH21084@n2100.arm.linux.org.uk>
+ <55F6AA25.2070603@list.ru> <20150914114209.GL21084@n2100.arm.linux.org.uk>
+ <20150917.151247.2129216999071943354.davem@davemloft.net>
+ <20150917231422.GY21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>, kafai@fb.com,
-	kernel-team <kernel-team@fb.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150918063609.GA31747@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: andrew@lunn.ch, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp35.i.mail.ru ([94.100.177.95]:42310 "EHLO smtp35.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751190AbbIRL3k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2015 07:29:40 -0400
+In-Reply-To: <20150917231422.GY21084@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 02:36:09PM +0800, Herbert Xu wrote:
-> 
-> But yes there are ordering issues here so I've decided to make
-> rhashtable use a new field for its hash instead.
-> 
-> Note that I've dropped the acks as this patch is now substantially
-> different.
+18.09.2015 02:14, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+> 3. Having DT specify a fixed-link with parameters along with in-band
+>    negotiation results in the fixed-link parameters being ignored.
+>    This means if a fixed-link DT declaration specifies a speed, that
+>    declaration will be ignored.  What I'm basically saying is that:
+>=20
+> 		phy-mode =3D "sgmii";
+> 		fixed-link {
+> 			speed =3D <1000>;
+> 		};
+>=20
+>    specifies a fixed-speed serdes link at 1000mbps, but:
+>=20
+> 		phy-mode =3D "sgmii";
+> 		managed =3D "in-band-status";
+> 		fixed-link {
+> 			speed =3D <1000>;
+> 		};
+>=20
+>    does not fix the speed at all.
+I think the fixed-link DT parsing should be moved from of_mdio.c
+to fixed-phy.c. Then fixed-phy will be able to back up the initial
+values and use them whenever needed.
+I can even do such a simple patch, but since it is not strictly
+speaking a regression from my changes, I'd rather prefer someone
+else do. :)
 
-v3 doesn't apply to the current tree anymore so here is a respin
-rebased on rc1.
 
----8<---
-The commit c0bb07df7d981e4091432754e30c9c720e2c0c78 ("netlink:
-Reset portid after netlink_insert failure") introduced a race
-condition where if two threads try to autobind the same socket
-one of them may end up with a zero port ID.  This led to kernel
-deadlocks that were observed by multiple people.
+>  _But_ using the in-band status
+>    property fundamentally requires this for mvneta to behave correctl=
+y:
+>=20
+> 		phy-mode =3D "sgmii";
+> 		managed =3D "in-band-status";
+> 		fixed-link {
+> 		};
+>=20
+>    with _no_ phy node.
+I don't understand this one.
+At least for me it works without empty fixed-link.
+There may be some bug.
 
-This patch reverts that commit and instead fixes it by introducing
-a separte rhash_portid variable so that the real portid is only set
-after the socket has been successfully hashed.
-
-Fixes: c0bb07df7d98 ("netlink: Reset portid after netlink_insert failure")
-Reported-by: Tejun Heo <tj@kernel.org>
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7f86d3b..303efb7 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1015,7 +1015,7 @@ static inline int netlink_compare(struct rhashtable_compare_arg *arg,
- 	const struct netlink_compare_arg *x = arg->key;
- 	const struct netlink_sock *nlk = ptr;
- 
--	return nlk->portid != x->portid ||
-+	return nlk->rhash_portid != x->portid ||
- 	       !net_eq(sock_net(&nlk->sk), read_pnet(&x->pnet));
- }
- 
-@@ -1041,7 +1041,7 @@ static int __netlink_insert(struct netlink_table *table, struct sock *sk)
- {
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->portid);
-+	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->rhash_portid);
- 	return rhashtable_lookup_insert_key(&table->hash, &arg,
- 					    &nlk_sk(sk)->node,
- 					    netlink_rhashtable_params);
-@@ -1103,7 +1103,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
- 		goto err;
- 
--	nlk_sk(sk)->portid = portid;
-+	nlk_sk(sk)->rhash_portid = portid;
- 	sock_hold(sk);
- 
- 	err = __netlink_insert(table, sk);
-@@ -1115,10 +1115,12 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 			err = -EOVERFLOW;
- 		if (err == -EEXIST)
- 			err = -EADDRINUSE;
--		nlk_sk(sk)->portid = 0;
- 		sock_put(sk);
-+		goto err;
- 	}
- 
-+	nlk_sk(sk)->portid = portid;
-+
- err:
- 	release_sock(sk);
- 	return err;
-@@ -3255,7 +3257,7 @@ static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
- 	const struct netlink_sock *nlk = data;
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
-+	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->rhash_portid);
- 	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
- }
- 
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index 8900840..c96dfa3 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -25,6 +25,7 @@ struct netlink_ring {
- struct netlink_sock {
- 	/* struct sock has to be the first member of netlink_sock */
- 	struct sock		sk;
-+	u32			rhash_portid;
- 	u32			portid;
- 	u32			dst_portid;
- 	u32			dst_group;
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>=20
+> 4. Going back to the SFP problem, the link is only up when the SFP
+>    module pins indicate that there's no transmitter fault, no loss of
+>    signal _and_ the PCS layer at the MAC indicates that it has comple=
+ted
+>    negotiation.  This pretty much rules out trying to emulate a SFP c=
+age
+>    as a software-based PHY.  I've code right now doing exactly that, =
+and
+>    it results in netif_carrier_on() being called far too early.
+>=20
+> What I don't know is how many generations of the mvneta hardware have
+> support for both serdes modes, but what I'm basically saying is that
+> the solution we now have seems to be somewhat lacking - maybe it shou=
+ld
+> have been "auto", "in-band-sgmii" and "in-band-1000base-x" with the
+> ability to add additional modes later.
+Well, you need to be quick with such a change, esp now when the patch
+was queued to -stable.
+What alternatives do we have here?
+Will the following work too?
+ 		phy-mode =3D "1000base-x";
+ 		managed =3D "in-band-status";
