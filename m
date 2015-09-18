@@ -1,46 +1,89 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [net-next:master 33/33] net/sched/sch_dsmark.c:316:1: error:
- unrecognizable insn:
-Date: Fri, 18 Sep 2015 21:18:59 +0800
-Message-ID: <20150918131859.GA16463@wfg-t540p.sh.intel.com>
-References: <201509181536.Z7Byr84l%fengguang.wu@intel.com>
- <1442577669.7946.18.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v3] netlink: Fix autobind race condition that leads to
+ zero port ID
+Date: Fri, 18 Sep 2015 09:37:19 -0400
+Message-ID: <20150918133719.GB10877@mtj.duckdns.org>
+References: <20150917022909.GA22754@htj.duckdns.org>
+ <20150917030845.GA19162@gondor.apana.org.au>
+ <20150917034134.GA19327@gondor.apana.org.au>
+ <CAHA+R7OdJyZiidHarKhp-U6R5fkHj=5KjugK=XoWj=q4D8krxw@mail.gmail.com>
+ <20150917051503.GA19978@gondor.apana.org.au>
+ <20150917113034.GA14471@htj.duckdns.org>
+ <20150918063609.GA31747@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>, kbuild-all@01.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56838 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753278AbbIRNS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2015 09:18:59 -0400
+Cc: Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>, kafai@fb.com,
+	kernel-team <kernel-team@fb.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1442577669.7946.18.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150918063609.GA31747@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > All error/warnings (new ones prefixed by >>):
+Hello, Herbert.
+
+On Fri, Sep 18, 2015 at 02:36:10PM +0800, Herbert Xu wrote:
+> On Thu, Sep 17, 2015 at 07:30:34AM -0400, Tejun Heo wrote:
+> >
+> > Maybe add that this led to a deadlock and add a Link tag to this
+> > thread?
+> 
+> I'll add a note about the deadlock but I don't like Link tags
+> because websites die and you can always just google the patch
+> subject.
+
+That's why we use http://lkml.kernel.org/r/MSG_ID links.
+
+> > > +	nlk_sk(sk)->bound = !!portid;
 > > 
-> >    net/sched/sch_dsmark.c: In function 'dsmark_dequeue':
-> > >> net/sched/sch_dsmark.c:316:1: error: unrecognizable insn:
-> >    (insn 245 244 119 15 (set (reg:QI 11 r11 [179])
-> >            (and:QI (mem/s/j:QI (reg/f:SI 2 r2 [orig:48 D.44551 ] [48]) [0 D.44551_34->mask+0 S1 A8])
-> >                (reg:QI 11 r11 [179]))) include/net/dsfield.h:33 -1
-> >         (nil))
-> > >> net/sched/sch_dsmark.c:316:1: internal compiler error: in extract_insn, at recog.c:2109
-> >    Please submit a full bug report,
-> >    with preprocessed source if appropriate.
-> >    See <http://gcc.gnu.org/bugs.html> for instructions.
+> > !! isn't necessasry and this creates ordering between two stores.
+> 
+> !! was necessary because we're going from a u32 to a bool.
 
-> I assume this is an informational message, and that you'll submit a gcc
-> bug report ?
+bool casting actually collapses the source value to a boolean value.
+No need for casting regardless of data type.
 
-I'm not sure if gcc people would be interested because that's a pretty
-old cross compiler for ARCH=cris.
+> @@ -1076,17 +1076,19 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>  	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
+>  		goto err;
+>  
+> -	nlk_sk(sk)->portid = portid;
+> +	nlk_sk(sk)->rhash_portid = portid;
+>  	sock_hold(sk);
+>  
+>  	err = __netlink_insert(table, sk);
+>  	if (err) {
+>  		if (err == -EEXIST)
+>  			err = -EADDRINUSE;
+> -		nlk_sk(sk)->portid = 0;
+>  		sock_put(sk);
+> +		goto err;
+>  	}
+>  
+> +	nlk_sk(sk)->portid = portid;
 
-Someday 0day will be able to track regressions in gcc, which may be
-useful for them. :)
+So, this doesn't necessarily make the ordering problem go away.  The
+hash lookup would be fine but imagine a code path like the following.
 
-Thanks,
-Fengguang
+	rcu_read_lock();
+	sock = rhash lookup(some port number);
+	do some operation which may use sock->portid;
+	rcu_read_unlock();
+
+Now, that some operation may see 0 as the port number.  I don't think
+you can avoid doing some type of memory barrier operations if you
+wanna gate autobind w/o grabbing locks.
+
+Thanks.
+
+-- 
+tejun
