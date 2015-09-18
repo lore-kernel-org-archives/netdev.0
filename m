@@ -1,66 +1,41 @@
-From: martinbj2008@gmail.com
-Subject: [PATCH V2 net-next] net: only check perm protocol when register proto
-Date: Fri, 18 Sep 2015 00:00:05 -0400
-Message-ID: <1442548805-5489-1-git-send-email-martinbj2008@gmail.com>
-References: <20150917.162041.2147817140272126896.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Junwei Zhang <martinbj2008@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150917.162041.2147817140272126896.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] tcp: provide skb->hash to synack packets
+Date: Thu, 17 Sep 2015 21:01:13 -0700 (PDT)
+Message-ID: <20150917.210113.705380890765888132.davem@davemloft.net>
+References: <1442355860.4116.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tom@herbertland.com, maheshb@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48147 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbbIREBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 00:01:16 -0400
+In-Reply-To: <1442355860.4116.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Junwei Zhang <martinbj2008@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Sep 2015 15:24:20 -0700
 
-The permanent protocol nodes are at the head of the list,
-So only need check all these nodes.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In commit b73c3d0e4f0e ("net: Save TX flow hash in sock and set in skbuf
+> on xmit"), Tom provided a l4 hash to most outgoing TCP packets.
+> 
+> We'd like to provide one as well for SYNACK packets, so that all packets
+> of a given flow share same txhash, to later enable bonding driver to
+> also use skb->hash to perform slave selection.
+> 
+> Note that a SYNACK retransmit shuffles the tx hash, as Tom did
+> in commit 265f94ff54d62 ("net: Recompute sk_txhash on negative routing
+> advice") for established sockets.
+> 
+> This has nice effect making TCP flows resilient to some kind of black
+> holes, even at connection establish phase.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-No matter the new node is permanent or not,
-insert the new node after the last permanent protocol node,
-
-If the new node conflicts with existing permanent node,
-return error.
-
-Signed-off-by: Martin Zhang <martinbj2008@gmail.com>
----
-V2: Fix indentation
-    rewrite statement
- 
- net/ipv4/af_inet.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1d0c3ad..8a55664 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1043,22 +1043,16 @@ void inet_register_protosw(struct inet_protosw *p)
- 		goto out_illegal;
- 
- 	/* If we are trying to override a permanent protocol, bail. */
--	answer = NULL;
- 	last_perm = &inetsw[p->type];
- 	list_for_each(lh, &inetsw[p->type]) {
- 		answer = list_entry(lh, struct inet_protosw, list);
--
- 		/* Check only the non-wild match. */
--		if (INET_PROTOSW_PERMANENT & answer->flags) {
--			if (protocol == answer->protocol)
--				break;
--			last_perm = lh;
--		}
--
--		answer = NULL;
-+		if ((INET_PROTOSW_PERMANENT & answer->flags) == 0)
-+			break;
-+		if (protocol == answer->protocol)
-+			goto out_permanent;
-+		last_perm = lh;
- 	}
--	if (answer)
--		goto out_permanent;
- 
- 	/* Add the new entry after the last permanent entry if any, so that
- 	 * the new entry does not override a permanent entry when matched with
--- 
-2.1.4
+Applied.
