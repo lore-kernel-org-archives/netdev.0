@@ -1,54 +1,54 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 0/7] bridge: don't age out externally added FDB entries
-Date: Fri, 18 Sep 2015 12:55:44 -0700
-Message-ID: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 3/7] rocker: adding port ageing_time for ageing out FDB entries
+Date: Fri, 18 Sep 2015 12:55:47 -0700
+Message-ID: <1442606151-50429-4-git-send-email-sfeldma@gmail.com>
+References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
 	stephen@networkplumber.org, roopa@cumulusnetworks.com,
 	andrew@lunn.ch, f.fainelli@gmail.com,
 	vivien.didelot@savoirfairelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35678 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbbIRTxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:53:06 -0400
-Received: by pacfv12 with SMTP id fv12so59938626pac.2
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 12:53:05 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35719 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893AbbIRTxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:53:10 -0400
+Received: by pacfv12 with SMTP id fv12so59939692pac.2
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 12:53:09 -0700 (PDT)
+In-Reply-To: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Siva originally proposed skipping externally added FDB entries in the bridge's
-FDB garbage collection func, and moving the ageing of externally added entries
-to the port driver/device.  This broke rocker, since rocker didn't have a
-hardware (or software) mechanism for ageing out its learned FDB entries.
+Follow-up patcheset will allow user to change ageing_time, but for now
+just hard-code it to a fixed value (the same value used as the default
+for the bridge driver).
 
-This patchset reintroduces Siva's bridge driver patch to skip externally added
-entries and adds support in rocker so rocker can age out its own entries.
-Rocker does this using a software timer similar to the bridge's FDB garbage
-collection timer.  Other switchdev devices/drivers can use this software timer
-method or program the device to nofity aged-out entries to the driver.
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ drivers/net/ethernet/rocker/rocker.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Updated switchdev.txt documentation to reflect current state-of-the-art.  This
-removes one more XXX todo comment in switchdev.txt.
-
-Scott Feldman (6):
-  rocker: track when FDB entry is touched.
-  rocker: store rocker_port in fdb key rather than pport
-  rocker: adding port ageing_time for ageing out FDB entries
-  bridge: define some min/max ageing time constants we'll use next
-  rocker: add FDB cleanup timer
-  switchdev: update documentation on FDB ageing_time
-
-Siva Mannem (1):
-  bridge: don't age externally added FDB entries
-
- Documentation/networking/switchdev.txt |   24 +++++------
- drivers/net/ethernet/rocker/rocker.c   |   69 +++++++++++++++++++++++++++-----
- include/linux/if_bridge.h              |    4 ++
- net/bridge/br_fdb.c                    |    2 +
- 4 files changed, 77 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index f55ed2c..eba22f5 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -221,6 +221,7 @@ struct rocker_port {
+ 	__be16 internal_vlan_id;
+ 	int stp_state;
+ 	u32 brport_flags;
++	unsigned long ageing_time;
+ 	bool ctrls[ROCKER_CTRL_MAX];
+ 	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
+ 	struct napi_struct napi_tx;
+@@ -4975,6 +4976,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_port->port_number = port_number;
+ 	rocker_port->pport = port_number + 1;
+ 	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
++	rocker_port->ageing_time = 300 * HZ;
+ 	INIT_LIST_HEAD(&rocker_port->trans_mem);
+ 
+ 	rocker_port_dev_addr_init(rocker_port);
 -- 
 1.7.10.4
