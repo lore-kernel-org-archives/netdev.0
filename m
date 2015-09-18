@@ -1,72 +1,72 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: [PATCH] Revert "net/phy: Add Vitesse 8641 phy ID"
-Date: Fri, 18 Sep 2015 15:42:30 +0800
-Message-ID: <1442562150-19720-1-git-send-email-haokexin@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: netdev@vger.kernel.org
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [net-next:master 92/95] drivers/net/ethernet/broadcom/genet/bcmgenet.c:527:30-56:
+ duplicated argument to && or ||
+Date: Fri, 18 Sep 2015 09:47:18 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1509180946350.2468@hadrien>
+References: <201509181511.Gm3BfYBv%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:35385 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777AbbIRHmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 03:42:44 -0400
-Received: by ykdu9 with SMTP id u9so39625061ykd.2
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 00:42:44 -0700 (PDT)
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:28498
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751006AbbIRHrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 03:47:21 -0400
+In-Reply-To: <201509181511.Gm3BfYBv%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 1298267b548a78840bd4b3e030993ff8747ca5e6.
+Two uses of ec->tx_coalesce_usecs_high.  Please check.
 
-That commit claim that the Vitesse VSC8641 is compatible with Vitesse
-82xx. But this is not true. It seems that all the registers used
-in Vitesse phy driver are not compatible between 8641 and 82xx.
-It does cause malfunction of the Ethernet on p1010rdb-pa board.
-So we definitely need a rework in order to support the 8641 phy
-in this driver.
+julia
 
-Signed-off-by: Kevin Hao <haokexin@gmail.com>
----
- drivers/net/phy/vitesse.c | 14 --------------
- 1 file changed, 14 deletions(-)
+On Fri, 18 Sep 2015, kbuild test robot wrote:
 
-diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 17cad185169d..76cad712ddb2 100644
---- a/drivers/net/phy/vitesse.c
-+++ b/drivers/net/phy/vitesse.c
-@@ -66,7 +66,6 @@
- #define PHY_ID_VSC8244			0x000fc6c0
- #define PHY_ID_VSC8514			0x00070670
- #define PHY_ID_VSC8574			0x000704a0
--#define PHY_ID_VSC8641			0x00070431
- #define PHY_ID_VSC8662			0x00070660
- #define PHY_ID_VSC8221			0x000fc550
- #define PHY_ID_VSC8211			0x000fc4b0
-@@ -273,18 +272,6 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.config_intr    = &vsc82xx_config_intr,
- 	.driver         = { .owner = THIS_MODULE,},
- }, {
--	.phy_id         = PHY_ID_VSC8641,
--	.name           = "Vitesse VSC8641",
--	.phy_id_mask    = 0x000ffff0,
--	.features       = PHY_GBIT_FEATURES,
--	.flags          = PHY_HAS_INTERRUPT,
--	.config_init    = &vsc824x_config_init,
--	.config_aneg    = &vsc82x4_config_aneg,
--	.read_status    = &genphy_read_status,
--	.ack_interrupt  = &vsc824x_ack_interrupt,
--	.config_intr    = &vsc82xx_config_intr,
--	.driver         = { .owner = THIS_MODULE,},
--}, {
- 	.phy_id         = PHY_ID_VSC8662,
- 	.name           = "Vitesse VSC8662",
- 	.phy_id_mask    = 0x000ffff0,
-@@ -331,7 +318,6 @@ static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
- 	{ PHY_ID_VSC8244, 0x000fffc0 },
- 	{ PHY_ID_VSC8514, 0x000ffff0 },
- 	{ PHY_ID_VSC8574, 0x000ffff0 },
--	{ PHY_ID_VSC8641, 0x000ffff0 },
- 	{ PHY_ID_VSC8662, 0x000ffff0 },
- 	{ PHY_ID_VSC8221, 0x000ffff0 },
- 	{ PHY_ID_VSC8211, 0x000ffff0 },
--- 
-2.4.3
+> TO: Florian Fainelli <f.fainelli@gmail.com>
+> CC: kbuild-all@01.org
+> CC: netdev@vger.kernel.org
+>
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   47bbbb30b4331ec58a74a66a044341f0114b02b3
+> commit: 2f9130709d2c19e2eef336bda0fb0c807cbc1f64 [92/95] net: bcmgenet: Implement TX coalescing control knobs
+> :::::: branch date: 2 hours ago
+> :::::: commit date: 2 hours ago
+>
+> >> drivers/net/ethernet/broadcom/genet/bcmgenet.c:527:30-56: duplicated argument to && or ||
+>
+> git remote add net-next https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+> git remote update net-next
+> git checkout 2f9130709d2c19e2eef336bda0fb0c807cbc1f64
+> vim +527 drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>
+> 2f913070 Florian Fainelli 2015-09-16  511  }
+> 2f913070 Florian Fainelli 2015-09-16  512
+> 2f913070 Florian Fainelli 2015-09-16  513  static int bcmgenet_set_coalesce(struct net_device *dev,
+> 2f913070 Florian Fainelli 2015-09-16  514  				 struct ethtool_coalesce *ec)
+> 2f913070 Florian Fainelli 2015-09-16  515  {
+> 2f913070 Florian Fainelli 2015-09-16  516  	struct bcmgenet_priv *priv = netdev_priv(dev);
+> 2f913070 Florian Fainelli 2015-09-16  517  	unsigned int i;
+> 2f913070 Florian Fainelli 2015-09-16  518
+> 2f913070 Florian Fainelli 2015-09-16  519  	if (ec->tx_max_coalesced_frames > DMA_INTR_THRESHOLD_MASK ||
+> 2f913070 Florian Fainelli 2015-09-16  520  	    ec->tx_max_coalesced_frames == 0)
+> 2f913070 Florian Fainelli 2015-09-16  521  		return -EINVAL;
+> 2f913070 Florian Fainelli 2015-09-16  522
+> 2f913070 Florian Fainelli 2015-09-16  523  	/* GENET TDMA hardware does not support a configurable timeout, but will
+> 2f913070 Florian Fainelli 2015-09-16  524  	 * always generate an interrupt either after MBDONE packets have been
+> 2f913070 Florian Fainelli 2015-09-16  525  	 * transmitted, or when the ring is emtpy.
+> 2f913070 Florian Fainelli 2015-09-16  526  	 */
+> 2f913070 Florian Fainelli 2015-09-16 @527  	if (ec->tx_coalesce_usecs || ec->tx_coalesce_usecs_high ||
+> 2f913070 Florian Fainelli 2015-09-16  528  	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_high ||
+> 2f913070 Florian Fainelli 2015-09-16  529  	    ec->tx_coalesce_usecs_low)
+> 2f913070 Florian Fainelli 2015-09-16  530  		return -EOPNOTSUPP;
+> 2f913070 Florian Fainelli 2015-09-16  531
+> 2f913070 Florian Fainelli 2015-09-16  532  	/* Program all TX queues with the same values, as there is no
+> 2f913070 Florian Fainelli 2015-09-16  533  	 * ethtool knob to do coalescing on a per-queue basis
+> 2f913070 Florian Fainelli 2015-09-16  534  	 */
+> 2f913070 Florian Fainelli 2015-09-16  535  	for (i = 0; i < priv->hw_params->tx_queues; i++)
+>
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+>
