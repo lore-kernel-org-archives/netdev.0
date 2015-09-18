@@ -1,72 +1,52 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [net-next:master 92/95] drivers/net/ethernet/broadcom/genet/bcmgenet.c:527:30-56:
- duplicated argument to && or ||
-Date: Fri, 18 Sep 2015 09:47:18 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1509180946350.2468@hadrien>
-References: <201509181511.Gm3BfYBv%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:28498
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751006AbbIRHrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 03:47:21 -0400
-In-Reply-To: <201509181511.Gm3BfYBv%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: [PATCH 0/1] macvtap regression since 3.18
+Date: Fri, 18 Sep 2015 09:54:43 +0200
+Message-ID: <1442562884-27310-1-git-send-email-borntraeger@de.ibm.com>
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+	kvm@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Two uses of ec->tx_coalesce_usecs_high.  Please check.
+Michael,
 
-julia
+here is a fixup for macvtap. It was detected by running
+several different patterns via uperf over multiple network
+cards. Within some minutes, the network traffic stalled
+and Matt bisected it down to 39ec7de7092b ("macvtap: fix
+uninitialized access on TUNSETIFF"). Turns out that
+this patch broke sndbuf setting. I dont know exactly what
+went wrong in that testcase, but an earlier version of
+the patch did the trick and the testcase is now stable
+again.
 
-On Fri, 18 Sep 2015, kbuild test robot wrote:
+I was tempted to add another variable, but u,up,s,sp seem
+to have a meaning (signed,signed pointer) so I  made u
+an unsigned int again. Long term we might want to refactor
+the code to have 
 
-> TO: Florian Fainelli <f.fainelli@gmail.com>
-> CC: kbuild-all@01.org
-> CC: netdev@vger.kernel.org
->
-> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   47bbbb30b4331ec58a74a66a044341f0114b02b3
-> commit: 2f9130709d2c19e2eef336bda0fb0c807cbc1f64 [92/95] net: bcmgenet: Implement TX coalescing control knobs
-> :::::: branch date: 2 hours ago
-> :::::: commit date: 2 hours ago
->
-> >> drivers/net/ethernet/broadcom/genet/bcmgenet.c:527:30-56: duplicated argument to && or ||
->
-> git remote add net-next https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-> git remote update net-next
-> git checkout 2f9130709d2c19e2eef336bda0fb0c807cbc1f64
-> vim +527 drivers/net/ethernet/broadcom/genet/bcmgenet.c
->
-> 2f913070 Florian Fainelli 2015-09-16  511  }
-> 2f913070 Florian Fainelli 2015-09-16  512
-> 2f913070 Florian Fainelli 2015-09-16  513  static int bcmgenet_set_coalesce(struct net_device *dev,
-> 2f913070 Florian Fainelli 2015-09-16  514  				 struct ethtool_coalesce *ec)
-> 2f913070 Florian Fainelli 2015-09-16  515  {
-> 2f913070 Florian Fainelli 2015-09-16  516  	struct bcmgenet_priv *priv = netdev_priv(dev);
-> 2f913070 Florian Fainelli 2015-09-16  517  	unsigned int i;
-> 2f913070 Florian Fainelli 2015-09-16  518
-> 2f913070 Florian Fainelli 2015-09-16  519  	if (ec->tx_max_coalesced_frames > DMA_INTR_THRESHOLD_MASK ||
-> 2f913070 Florian Fainelli 2015-09-16  520  	    ec->tx_max_coalesced_frames == 0)
-> 2f913070 Florian Fainelli 2015-09-16  521  		return -EINVAL;
-> 2f913070 Florian Fainelli 2015-09-16  522
-> 2f913070 Florian Fainelli 2015-09-16  523  	/* GENET TDMA hardware does not support a configurable timeout, but will
-> 2f913070 Florian Fainelli 2015-09-16  524  	 * always generate an interrupt either after MBDONE packets have been
-> 2f913070 Florian Fainelli 2015-09-16  525  	 * transmitted, or when the ring is emtpy.
-> 2f913070 Florian Fainelli 2015-09-16  526  	 */
-> 2f913070 Florian Fainelli 2015-09-16 @527  	if (ec->tx_coalesce_usecs || ec->tx_coalesce_usecs_high ||
-> 2f913070 Florian Fainelli 2015-09-16  528  	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_high ||
-> 2f913070 Florian Fainelli 2015-09-16  529  	    ec->tx_coalesce_usecs_low)
-> 2f913070 Florian Fainelli 2015-09-16  530  		return -EOPNOTSUPP;
-> 2f913070 Florian Fainelli 2015-09-16  531
-> 2f913070 Florian Fainelli 2015-09-16  532  	/* Program all TX queues with the same values, as there is no
-> 2f913070 Florian Fainelli 2015-09-16  533  	 * ethtool knob to do coalescing on a per-queue basis
-> 2f913070 Florian Fainelli 2015-09-16  534  	 */
-> 2f913070 Florian Fainelli 2015-09-16  535  	for (i = 0; i < priv->hw_params->tx_queues; i++)
->
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
->
+int sk_sendbuf;
+short ifr_flags;
+int vnet_hdr_sz;
+
+or something like that. But this rework would be to big
+for stable.
+
+Some of the casts that I added are not strictly necessary
+as get/put_user already do this, but better safe than
+sorry as we dont want to rely on the implementation of
+macros. Opinions?
+
+
+Christian Borntraeger (1):
+  macvtap: Fix regression for macvtap ioctls
+
+ drivers/net/macvtap.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+-- 
+2.3.0
+
