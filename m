@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 12/15] ipvs: Read hooknum from state rather than ops->hooknum
-Date: Fri, 18 Sep 2015 14:33:05 -0500
-Message-ID: <1442604788-19718-12-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 14/15] netfilter: Pass net into nf_xfrm_me_harder
+Date: Fri, 18 Sep 2015 14:33:07 -0500
+Message-ID: <1442604788-19718-14-git-send-email-ebiederm@xmission.com>
 References: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
@@ -12,90 +12,96 @@ In-Reply-To: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This should be more cache efficient as state is more likely to be in
-core, and the netfilter core will stop passing in ops soon.
+Instead of calling dev_net on a likley looking network device
+pass state->net into nf_xfrm_me_harder.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/netfilter/ipvs/ip_vs_core.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ include/net/netfilter/nf_nat_core.h      | 2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 4 ++--
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 4 ++--
+ net/netfilter/nf_nat_core.c              | 4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 38fbc194b9cb..0be5f12cb12d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1286,7 +1286,7 @@ static unsigned int
- ip_vs_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	     const struct nf_hook_state *state)
- {
--	return ip_vs_out(ops->hooknum, skb, AF_INET);
-+	return ip_vs_out(state->hook, skb, AF_INET);
+diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
+index fbfd1ba4254e..186c54138f35 100644
+--- a/include/net/netfilter/nf_nat_core.h
++++ b/include/net/netfilter/nf_nat_core.h
+@@ -10,7 +10,7 @@
+ unsigned int nf_nat_packet(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 			   unsigned int hooknum, struct sk_buff *skb);
+ 
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family);
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family);
+ 
+ static inline int nf_nat_initialized(struct nf_conn *ct,
+ 				     enum nf_nat_manip_type manip)
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index 8593a9d88619..bc3b9dcbf080 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -396,7 +396,7 @@ nf_nat_ipv4_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -440,7 +440,7 @@ nf_nat_ipv4_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 357f57ba47e4..18e835ffbef3 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -403,7 +403,7 @@ nf_nat_ipv6_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -446,7 +446,7 @@ nf_nat_ipv6_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 5113dfd39df9..06a9f45771ab 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -83,7 +83,7 @@ out:
+ 	rcu_read_unlock();
  }
  
- /*
-@@ -1297,7 +1297,7 @@ static unsigned int
- ip_vs_local_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		   const struct nf_hook_state *state)
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family)
  {
--	return ip_vs_out(ops->hooknum, skb, AF_INET);
-+	return ip_vs_out(state->hook, skb, AF_INET);
- }
+ 	struct flowi fl;
+ 	unsigned int hh_len;
+@@ -99,7 +99,7 @@ int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
+ 		dst = ((struct xfrm_dst *)dst)->route;
+ 	dst_hold(dst);
  
- #ifdef CONFIG_IP_VS_IPV6
-@@ -1311,7 +1311,7 @@ static unsigned int
- ip_vs_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	     const struct nf_hook_state *state)
- {
--	return ip_vs_out(ops->hooknum, skb, AF_INET6);
-+	return ip_vs_out(state->hook, skb, AF_INET6);
- }
+-	dst = xfrm_lookup(dev_net(dst->dev), dst, &fl, skb->sk, 0);
++	dst = xfrm_lookup(net, dst, &fl, skb->sk, 0);
+ 	if (IS_ERR(dst))
+ 		return PTR_ERR(dst);
  
- /*
-@@ -1322,7 +1322,7 @@ static unsigned int
- ip_vs_local_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		   const struct nf_hook_state *state)
- {
--	return ip_vs_out(ops->hooknum, skb, AF_INET6);
-+	return ip_vs_out(state->hook, skb, AF_INET6);
- }
- 
- #endif
-@@ -1779,7 +1779,7 @@ static unsigned int
- ip_vs_remote_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct nf_hook_state *state)
- {
--	return ip_vs_in(ops->hooknum, skb, AF_INET);
-+	return ip_vs_in(state->hook, skb, AF_INET);
- }
- 
- /*
-@@ -1790,7 +1790,7 @@ static unsigned int
- ip_vs_local_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct nf_hook_state *state)
- {
--	return ip_vs_in(ops->hooknum, skb, AF_INET);
-+	return ip_vs_in(state->hook, skb, AF_INET);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -1803,7 +1803,7 @@ static unsigned int
- ip_vs_remote_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct nf_hook_state *state)
- {
--	return ip_vs_in(ops->hooknum, skb, AF_INET6);
-+	return ip_vs_in(state->hook, skb, AF_INET6);
- }
- 
- /*
-@@ -1814,7 +1814,7 @@ static unsigned int
- ip_vs_local_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct nf_hook_state *state)
- {
--	return ip_vs_in(ops->hooknum, skb, AF_INET6);
-+	return ip_vs_in(state->hook, skb, AF_INET6);
- }
- 
- #endif
 -- 
 2.2.1
 
