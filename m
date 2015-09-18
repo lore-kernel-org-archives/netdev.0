@@ -1,45 +1,31 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: bcmgenet: Remove duplicate test for tx_coalesce_usecs_high
-Date: Fri, 18 Sep 2015 14:16:53 -0700
-Message-ID: <1442611013-9470-1-git-send-email-f.fainelli@gmail.com>
-Cc: julia.lawall@lip6.fr, kbuild-all@01.org,
-	Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-	jaedon.shin@gmail.com, pgynther@google.com
-To: netdev@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 6/7] bridge: don't age externally added FDB
+ entries
+Date: Fri, 18 Sep 2015 17:26:19 -0400
+Message-ID: <20150918212619.GB20215@ketchup.mtl.sfl>
+References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
+ <1442606151-50429-7-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
+	stephen@networkplumber.org, roopa@cumulusnetworks.com,
+	andrew@lunn.ch, f.fainelli@gmail.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33544 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbbIRVRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:17:01 -0400
-Received: by pacex6 with SMTP id ex6so60646743pac.0
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 14:17:00 -0700 (PDT)
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:50945
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753327AbbIRVcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:32:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1442606151-50429-7-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We were checking twice for ec->tx_coalesce_usecs_high, remove the
-duplicate test.
+On Sep. Friday 18 (38) 12:55 PM, sfeldma@gmail.com wrote:
+> From: Siva Mannem <siva.mannem.lnx@gmail.com>
+> 
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Reported-by: kbuild-all@01.org
-Fixes: 2f9130709d2c19 ("net: bcmgenet: Implement TX coalescing control knobs")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 1e72722abbf1..efcb1119076f 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -608,8 +608,7 @@ static int bcmgenet_set_coalesce(struct net_device *dev,
- 	 * transmitted, or when the ring is emtpy.
- 	 */
- 	if (ec->tx_coalesce_usecs || ec->tx_coalesce_usecs_high ||
--	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_high ||
--	    ec->tx_coalesce_usecs_low)
-+	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_low)
- 		return -EOPNOTSUPP;
- 
- 	/* Program all TX queues with the same values, as there is no
--- 
-2.1.0
+Acked-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
