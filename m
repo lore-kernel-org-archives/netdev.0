@@ -1,36 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
-Date: Fri, 18 Sep 2015 10:56:14 +0200
-Message-ID: <20150918085614.GA3700@salvia>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <20150917.171904.119452251415625585.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ebiederm@xmission.com, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48230 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751945AbbIRIth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2015 04:49:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20150917.171904.119452251415625585.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1/4] netfilter: nf_log: don't zap all loggers on unregister
+Date: Fri, 18 Sep 2015 11:17:53 +0200
+Message-ID: <1442567876-4046-2-git-send-email-pablo@netfilter.org>
+References: <1442567876-4046-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1442567876-4046-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 17, 2015 at 05:19:04PM -0700, David Miller wrote:
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 15 Sep 2015 19:59:49 -0500
-> 
-> > Pablo, Dave I don't know whose tree this makes more sense to go
-> > through.  I am assuming at least initially Pablos as netfilter is
-> > involved.  From what I have seen there will be a lot of back and forth
-> > between the netfilter code paths and the routing code paths.
-> 
-> I think it might reduce conflicts actually if it went via my net-next
-> tree.
-> 
-> Pablo, any objections?
+From: Florian Westphal <fw@strlen.de>
 
-This looks good, thanks for taking these David.
+like nf_log_unset, nf_log_unregister must not reset the list of loggers.
+Otherwise, a call to nf_log_unregister() will render loggers of other nf
+protocols unusable:
+
+iptables -A INPUT -j LOG
+modprobe nf_log_arp ; rmmod nf_log_arp
+iptables -A INPUT -j LOG
+iptables: No chain/target/match by that name
+
+Fixes: 30e0c6a6be ("netfilter: nf_log: prepare net namespace support for loggers")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_log.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 675d12c..a5ebd7d 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -107,11 +107,15 @@ EXPORT_SYMBOL(nf_log_register);
+ 
+ void nf_log_unregister(struct nf_logger *logger)
+ {
++	const struct nf_logger *log;
+ 	int i;
+ 
+ 	mutex_lock(&nf_log_mutex);
+-	for (i = 0; i < NFPROTO_NUMPROTO; i++)
+-		RCU_INIT_POINTER(loggers[i][logger->type], NULL);
++	for (i = 0; i < NFPROTO_NUMPROTO; i++) {
++		log = nft_log_dereference(loggers[i][logger->type]);
++		if (log == logger)
++			RCU_INIT_POINTER(loggers[i][logger->type], NULL);
++	}
+ 	mutex_unlock(&nf_log_mutex);
+ }
+ EXPORT_SYMBOL(nf_log_unregister);
+-- 
+1.7.10.4
+
