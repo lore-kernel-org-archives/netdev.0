@@ -1,191 +1,70 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 2/7] phy: fix mdiobus module safety
-Date: Fri, 18 Sep 2015 10:47:19 +0100
-Message-ID: <E1ZcsGF-0000uL-3H@rmk-PC.arm.linux.org.uk>
-References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>, Robert Richter <rric@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Rob Herring <robh+dt@kernel.org>, Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org, Sören Brinkmann <soren.brinkmann@xilinx.com>, Iyappan Subramanian <isubramanian@apm.com>, Grant Likely <grant.likely@linaro.org>, Li Yang <leoli@freescale.com>, Keyur Chudgar <kchudgar@apm.com>, linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20150918094625.GB21084@n2100.arm.linux.org.uk>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net 2/2] ip6tunnel: make rx/tx bytes counters consistent
+Date: Fri, 18 Sep 2015 11:47:41 +0200
+Message-ID: <1442569661-5528-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1442569661-5528-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:46679 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753068AbbIRJsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 05:48:18 -0400
+In-Reply-To: <1442569661-5528-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Re-implement the mdiobus module refcounting to ensure that we actually
-ensure that the mdiobus module code does not go away while we might call
-into it.
+Like the previous patch, which fixes ipv4 tunnels, here is the ipv6 part.
 
-The old scheme using bus->dev.driver was buggy, because bus->dev is a
-class device which never has a struct device_driver associated with it,
-and hence the associated code trying to obtain a refcount did nothing
-useful.
+Before the patch, the external ipv6 header + gre header were included on
+tx.
 
-Instead, take the approach that other subsystems do: pass the module
-when calling mdiobus_register(), and record that in the mii_bus struct.
-When we need to increment the module use count in the phy code, use
-this stored pointer.  When the phy is deteched, drop the module
-refcount, remembering that the phy device might go away at that point.
+After the patch:
+$ ping -c1 192.168.6.121 ; ip -s l ls dev ip6gre1
+PING 192.168.6.121 (192.168.6.121) 56(84) bytes of data.
+64 bytes from 192.168.6.121: icmp_req=1 ttl=64 time=1.92 ms
 
-This doesn't stop the mii_bus going away while there are in-use phys -
-it merely stops the underlying code vanishing.
+--- 192.168.6.121 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 1.923/1.923/1.923/0.000 ms
+7: ip6gre1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1440 qdisc noqueue state UNKNOWN mode DEFAULT group default
+    link/gre6 20:01:06:60:30:08:c1:c3:00:00:00:00:00:00:01:23 peer 20:01:06:60:30:08:c1:c3:00:00:00:00:00:00:01:21
+    RX: bytes  packets  errors  dropped overrun mcast
+    84         1        0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    84         1        0       0       0       0
+$ ping -c1 192.168.1.121 ; ip -s l ls dev ip6tnl1
+PING 192.168.1.121 (192.168.1.121) 56(84) bytes of data.
+64 bytes from 192.168.1.121: icmp_req=1 ttl=64 time=2.28 ms
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+--- 192.168.1.121 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 2.288/2.288/2.288/0.000 ms
+8: ip6tnl1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1452 qdisc noqueue state UNKNOWN mode DEFAULT group default
+    link/tunnel6 2001:660:3008:c1c3::123 peer 2001:660:3008:c1c3::121
+    RX: bytes  packets  errors  dropped overrun mcast
+    84         1        0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    84         1        0       0       0       0
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/phy/mdio_bus.c   |  5 +++--
- drivers/net/phy/phy_device.c | 32 ++++++++++++++++++--------------
- include/linux/phy.h          |  5 ++++-
- 3 files changed, 25 insertions(+), 17 deletions(-)
+ include/net/ip6_tunnel.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 67553e13bd36..992406624b7c 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -244,7 +244,7 @@ static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
-  *
-  * Returns 0 on success or < 0 on error.
-  */
--int mdiobus_register(struct mii_bus *bus)
-+int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- {
- 	int i, err;
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 65c2a9397b3c..fa915fa0f703 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -86,7 +86,7 @@ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 	struct net_device_stats *stats = &dev->stats;
+ 	int pkt_len, err;
  
-@@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
- 	BUG_ON(bus->state != MDIOBUS_ALLOCATED &&
- 	       bus->state != MDIOBUS_UNREGISTERED);
+-	pkt_len = skb->len;
++	pkt_len = skb->len - skb_inner_network_offset(skb);
+ 	err = ip6_local_out_sk(sk, skb);
  
-+	bus->owner = owner;
- 	bus->dev.parent = bus->parent;
- 	bus->dev.class = &mdio_bus_class;
- 	bus->dev.groups = NULL;
-@@ -296,7 +297,7 @@ int mdiobus_register(struct mii_bus *bus)
- 	device_del(&bus->dev);
- 	return err;
- }
--EXPORT_SYMBOL(mdiobus_register);
-+EXPORT_SYMBOL(__mdiobus_register);
- 
- void mdiobus_unregister(struct mii_bus *bus)
- {
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index c0f211127274..03adf328f49b 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -582,10 +582,15 @@ EXPORT_SYMBOL(phy_init_hw);
- int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		      u32 flags, phy_interface_t interface)
- {
-+	struct mii_bus *bus = phydev->bus;
- 	struct device *d = &phydev->dev;
--	struct module *bus_module;
- 	int err;
- 
-+	if (!try_module_get(bus->owner)) {
-+		dev_err(&dev->dev, "failed to get the bus module\n");
-+		return -EIO;
-+	}
-+
- 	/* Assume that if there is no driver, that it doesn't
- 	 * exist, and we should use the genphy driver.
- 	 */
-@@ -600,20 +605,13 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 			err = device_bind_driver(d);
- 
- 		if (err)
--			return err;
-+			goto error;
- 	}
- 
- 	if (phydev->attached_dev) {
- 		dev_err(&dev->dev, "PHY already attached\n");
--		return -EBUSY;
--	}
--
--	/* Increment the bus module reference count */
--	bus_module = phydev->bus->dev.driver ?
--		     phydev->bus->dev.driver->owner : NULL;
--	if (!try_module_get(bus_module)) {
--		dev_err(&dev->dev, "failed to get the bus module\n");
--		return -EIO;
-+		err = -EBUSY;
-+		goto error;
- 	}
- 
- 	phydev->attached_dev = dev;
-@@ -636,6 +634,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		phy_resume(phydev);
- 
- 	return err;
-+
-+error:
-+	module_put(bus->owner);
-+	return err;
- }
- EXPORT_SYMBOL(phy_attach_direct);
- 
-@@ -680,11 +682,9 @@ EXPORT_SYMBOL(phy_attach);
-  */
- void phy_detach(struct phy_device *phydev)
- {
-+	struct mii_bus *bus;
- 	int i;
- 
--	if (phydev->bus->dev.driver)
--		module_put(phydev->bus->dev.driver->owner);
--
- 	phydev->attached_dev->phydev = NULL;
- 	phydev->attached_dev = NULL;
- 	phy_suspend(phydev);
-@@ -700,6 +700,10 @@ void phy_detach(struct phy_device *phydev)
- 			break;
- 		}
- 	}
-+
-+	bus = phydev->bus;
-+
-+	module_put(bus->owner);
- }
- EXPORT_SYMBOL(phy_detach);
- 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 962387a192f1..11bce44f6d65 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -19,6 +19,7 @@
- #include <linux/spinlock.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
-+#include <linux/module.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/mod_devicetable.h>
-@@ -153,6 +154,7 @@ struct sk_buff;
-  * PHYs should register using this structure
-  */
- struct mii_bus {
-+	struct module *owner;
- 	const char *name;
- 	char id[MII_BUS_ID_SIZE];
- 	void *priv;
-@@ -198,7 +200,8 @@ static inline struct mii_bus *mdiobus_alloc(void)
- 	return mdiobus_alloc_size(0);
- }
- 
--int mdiobus_register(struct mii_bus *bus);
-+int __mdiobus_register(struct mii_bus *bus, struct module *owner);
-+#define mdiobus_register(bus) __mdiobus_register(bus, THIS_MODULE)
- void mdiobus_unregister(struct mii_bus *bus);
- void mdiobus_free(struct mii_bus *bus);
- struct mii_bus *devm_mdiobus_alloc_size(struct device *dev, int sizeof_priv);
+ 	if (net_xmit_eval(err) == 0) {
 -- 
-2.1.0
+2.4.2
