@@ -1,77 +1,159 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
-Date: Fri, 18 Sep 2015 12:04:36 -0400
-Message-ID: <f7tvbb7zpbf.fsf@aconole.bos.csb>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:34005 "EHLO
-	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752233AbbIRQEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:04:39 -0400
-Received: by qkfq186 with SMTP id q186so21250714qkf.1
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 09:04:38 -0700 (PDT)
-Received: from aconole.bos.csb (nat-pool-bos-t.redhat.com. [66.187.233.206])
-        by smtp.gmail.com with ESMTPSA id 145sm3834831qhb.20.2015.09.18.09.04.37
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 18 Sep 2015 09:04:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH next 01/14] ebtables: Simplify the arguments to ebt_do_table
+Date: Fri, 18 Sep 2015 11:05:47 -0500
+Message-ID: <1442592360-2575-1-git-send-email-ebiederm@xmission.com>
+References: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-AF_UNIX sockets now return multiple skbs from recv() when MSG_PEEK flag
-is set.
+Nearly everything thing of interest to ebt_do_table is already present
+in nf_hook_state.  Simplify ebt_do_table by just passing in the skb,
+nf_hook_state, and the table.  This make the code easier to read and
+maintenance easier.
 
-This is referenced in kernel bugzilla #12323 @
-https://bugzilla.kernel.org/show_bug.cgi?id=12323
+To support this create an nf_hook_state on the stack in ebt_broute
+(the only caller without a nf_hook_state already available).  This new
+nf_hook_state adds no new computations to ebt_broute, but does use a
+few more bytes of stack.
 
-As described both in the BZ and lkml thread @
-http://lkml.org/lkml/2008/1/8/444 calling recv() with MSG_PEEK on an
-AF_UNIX socket only reads a single skb, where the desired effect is
-to return as much skb data has been queued, until hitting the recv
-buffer size (whichever comes first).
-
-The modified MSG_PEEK path will now move to the next skb in the tree
-and jump to the again: label, rather than following the natural loop
-structure. This requires duplicating some of the loop head actions.
-
-This was tested using the python socketpair() code attached to the
-bugzilla issue.
-
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/unix/af_unix.c | 17+-
- 1 file changed, 15 insertions(+), 2 deletions(-)
+ include/linux/netfilter_bridge/ebtables.h |  6 +++---
+ net/bridge/netfilter/ebtable_broute.c     |  8 ++++++--
+ net/bridge/netfilter/ebtable_filter.c     |  6 ++----
+ net/bridge/netfilter/ebtable_nat.c        |  6 ++----
+ net/bridge/netfilter/ebtables.c           | 13 +++++++------
+ 5 files changed, 20 insertions(+), 19 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 03ee4d3..d2fd342 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2179,9 +2181,22 @@ unlock:
- 			if (UNIXCB(skb).fp)
- 				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 8ca6d6464ea3..2ea517c7c6b9 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -111,9 +111,9 @@ struct ebt_table {
+ extern struct ebt_table *ebt_register_table(struct net *net,
+ 					    const struct ebt_table *table);
+ extern void ebt_unregister_table(struct net *net, struct ebt_table *table);
+-extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff *skb,
+-   const struct net_device *in, const struct net_device *out,
+-   struct ebt_table *table);
++extern unsigned int ebt_do_table(struct sk_buff *skb,
++				 const struct nf_hook_state *state,
++				 struct ebt_table *table);
  
--			sk_peek_offset_fwd(sk, chunk);
-+			if (skip)
-+			{
-+				sk_peek_offset_fwd(sk, chunk);
-+				skip -= chunk;
-+			}
+ /* Used in the kernel match() functions */
+ #define FWINV(bool,invflg) ((bool) ^ !!(info->invflags & invflg))
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index d2cdf5d6e98c..ec94c6f1ae88 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -50,10 +50,14 @@ static const struct ebt_table broute_table = {
  
--			break;
-+			if (UNIXCB(skb).fp)
-+				break;
+ static int ebt_broute(struct sk_buff *skb)
+ {
++	struct nf_hook_state state;
+ 	int ret;
+ 
+-	ret = ebt_do_table(NF_BR_BROUTING, skb, skb->dev, NULL,
+-			   dev_net(skb->dev)->xt.broute_table);
++	nf_hook_state_init(&state, NULL, NF_BR_BROUTING, INT_MIN,
++			   NFPROTO_BRIDGE, skb->dev, NULL, NULL,
++			   dev_net(skb->dev), NULL);
 +
-+			/* XXX - this is ugly; better would be rewrite the function  */
-+			last = skb;
-+			last_len = skb->len;
-+			unix_state_lock(&sk);
-+			skb = skb_peek_next(skb, &sk->sk_receive_queue);
-+			if (skb) goto again;
-+			goto unlock;
- 		}
- 	} while (size);
++	ret = ebt_do_table(skb, &state, state.net->xt.broute_table);
+ 	if (ret == NF_DROP)
+ 		return 1; /* route it */
+ 	return 0; /* bridge it */
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index ab20d6ed6e2f..118ce40ac181 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -60,16 +60,14 @@ static unsigned int
+ ebt_in_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	    const struct nf_hook_state *state)
+ {
+-	return ebt_do_table(ops->hooknum, skb, state->in, state->out,
+-			    state->net->xt.frame_filter);
++	return ebt_do_table(skb, state, state->net->xt.frame_filter);
+ }
  
---
-1.9.1
+ static unsigned int
+ ebt_out_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	     const struct nf_hook_state *state)
+ {
+-	return ebt_do_table(ops->hooknum, skb, state->in, state->out,
+-			    state->net->xt.frame_filter);
++	return ebt_do_table(skb, state, state->net->xt.frame_filter);
+ }
+ 
+ static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index ad81a5a65644..56c3329d6c37 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -60,16 +60,14 @@ static unsigned int
+ ebt_nat_in(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	   const struct nf_hook_state *state)
+ {
+-	return ebt_do_table(ops->hooknum, skb, state->in, state->out,
+-			    state->net->xt.frame_nat);
++	return ebt_do_table(skb, state, state->net->xt.frame_nat);
+ }
+ 
+ static unsigned int
+ ebt_nat_out(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	    const struct nf_hook_state *state)
+ {
+-	return ebt_do_table(ops->hooknum, skb, state->in, state->out,
+-			    state->net->xt.frame_nat);
++	return ebt_do_table(skb, state, state->net->xt.frame_nat);
+ }
+ 
+ static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 48b6b01295de..8d5a3975b963 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -183,10 +183,11 @@ struct ebt_entry *ebt_next_entry(const struct ebt_entry *entry)
+ }
+ 
+ /* Do some firewalling */
+-unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+-   const struct net_device *in, const struct net_device *out,
+-   struct ebt_table *table)
++unsigned int ebt_do_table(struct sk_buff *skb,
++			  const struct nf_hook_state *state,
++			  struct ebt_table *table)
+ {
++	unsigned int hook = state->hook;
+ 	int i, nentries;
+ 	struct ebt_entry *point;
+ 	struct ebt_counter *counter_base, *cb_base;
+@@ -199,8 +200,8 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	struct xt_action_param acpar;
+ 
+ 	acpar.family  = NFPROTO_BRIDGE;
+-	acpar.in      = in;
+-	acpar.out     = out;
++	acpar.in      = state->in;
++	acpar.out     = state->out;
+ 	acpar.hotdrop = false;
+ 	acpar.hooknum = hook;
+ 
+@@ -220,7 +221,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	base = private->entries;
+ 	i = 0;
+ 	while (i < nentries) {
+-		if (ebt_basic_match(point, skb, in, out))
++		if (ebt_basic_match(point, skb, state->in, state->out))
+ 			goto letscontinue;
+ 
+ 		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
+-- 
+2.2.1
+
