@@ -1,230 +1,202 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 03/14] inet netfilter: Prefer state->hook to ops->hooknum
-Date: Fri, 18 Sep 2015 11:05:49 -0500
-Message-ID: <1442592360-2575-3-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 09/14] net: Pass net to nf_dup_ipv4 and nf_dup_ipv6
+Date: Fri, 18 Sep 2015 11:05:55 -0500
+Message-ID: <1442592360-2575-9-git-send-email-ebiederm@xmission.com>
 References: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:39797 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753552AbbIRQNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:13:21 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-The values of nf_hook_state.hook and nf_hook_ops.hooknum must be the
-same by definition.
-
-We are more likely to access the fields in nf_hook_state over the
-fields in nf_hook_ops so with a little luck this results in
-fewer cache line misses, and slightly more consistent code.
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  4 ++--
- net/ipv4/netfilter/nf_defrag_ipv4.c            |  2 +-
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       | 14 +++++++-------
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  4 ++--
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |  4 ++--
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       | 14 +++++++-------
- 6 files changed, 21 insertions(+), 21 deletions(-)
+ include/net/netfilter/ipv4/nf_dup_ipv4.h |  2 +-
+ include/net/netfilter/ipv6/nf_dup_ipv6.h |  2 +-
+ net/ipv4/netfilter/nf_dup_ipv4.c         | 23 ++++-------------------
+ net/ipv4/netfilter/nft_dup_ipv4.c        |  2 +-
+ net/ipv6/netfilter/nf_dup_ipv6.c         | 23 ++++-------------------
+ net/ipv6/netfilter/nft_dup_ipv6.c        |  2 +-
+ net/netfilter/xt_TEE.c                   |  4 ++--
+ 7 files changed, 14 insertions(+), 44 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 9564684876c9..15749cc5cf2b 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -147,7 +147,7 @@ static unsigned int ipv4_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct nf_hook_state *state)
- {
--	return nf_conntrack_in(state->net, PF_INET, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET, state->hook, skb);
- }
+diff --git a/include/net/netfilter/ipv4/nf_dup_ipv4.h b/include/net/netfilter/ipv4/nf_dup_ipv4.h
+index 42008f10dfc4..0a14733e8b82 100644
+--- a/include/net/netfilter/ipv4/nf_dup_ipv4.h
++++ b/include/net/netfilter/ipv4/nf_dup_ipv4.h
+@@ -1,7 +1,7 @@
+ #ifndef _NF_DUP_IPV4_H_
+ #define _NF_DUP_IPV4_H_
  
- static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
-@@ -158,7 +158,7 @@ static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
--	return nf_conntrack_in(state->net, PF_INET, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET, state->hook, skb);
- }
+-void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in_addr *gw, int oif);
  
- /* Connection tracking may drop packets, but never alters them, so
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index 9306ec4fab41..8aea536d2e83 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -83,7 +83,7 @@ static unsigned int ipv4_conntrack_defrag(const struct nf_hook_ops *ops,
- 	/* Gather fragments. */
- 	if (ip_is_fragment(ip_hdr(skb))) {
- 		enum ip_defrag_users user =
--			nf_ct_defrag_user(ops->hooknum, skb);
-+			nf_ct_defrag_user(state->hook, skb);
+ #endif /* _NF_DUP_IPV4_H_ */
+diff --git a/include/net/netfilter/ipv6/nf_dup_ipv6.h b/include/net/netfilter/ipv6/nf_dup_ipv6.h
+index ed6bd66fa5a0..fa6237b382a3 100644
+--- a/include/net/netfilter/ipv6/nf_dup_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_dup_ipv6.h
+@@ -1,7 +1,7 @@
+ #ifndef _NF_DUP_IPV6_H_
+ #define _NF_DUP_IPV6_H_
  
- 		if (nf_ct_ipv4_gather_frags(skb, user))
- 			return NF_STOLEN;
-diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-index 22f4579b0c2a..16da45a76dac 100644
---- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-@@ -266,7 +266,7 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
- 	/* maniptype == SRC for postrouting. */
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(state->hook);
+-void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in6_addr *gw, int oif);
  
- 	/* We never see fragments: conntrack defrags on pre-routing
- 	 * and local-out, and nf_nat_out protects post-routing.
-@@ -295,7 +295,7 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	case IP_CT_RELATED_REPLY:
- 		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
- 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
--							   ops->hooknum))
-+							   state->hook))
- 				return NF_DROP;
- 			else
- 				return NF_ACCEPT;
-@@ -312,17 +312,17 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 
--			if (nf_nat_initialized(ct, HOOK2MANIP(ops->hooknum)))
-+			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
- 				break;
- 
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
-+			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat,
-+			if (nf_nat_oif_changed(state->hook, ctinfo, nat,
- 					       state->out))
- 				goto oif_changed;
- 		}
-@@ -332,11 +332,11 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+		if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 			goto oif_changed;
- 	}
- 
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, state->hook, skb);
- 
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 1ef1b79def56..339be1d59afc 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -169,7 +169,7 @@ static unsigned int ipv6_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct nf_hook_state *state)
- {
--	return nf_conntrack_in(state->net, PF_INET6, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET6, state->hook, skb);
- }
- 
- static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
-@@ -181,7 +181,7 @@ static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
- 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
- 		return NF_ACCEPT;
- 	}
--	return nf_conntrack_in(state->net, PF_INET6, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET6, state->hook, skb);
- }
- 
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index 6b576be3c83e..a9c08520596b 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -63,7 +63,7 @@ static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
- 		return NF_ACCEPT;
+ #endif /* _NF_DUP_IPV6_H_ */
+diff --git a/net/ipv4/netfilter/nf_dup_ipv4.c b/net/ipv4/netfilter/nf_dup_ipv4.c
+index 2d79e6e8d934..ce2a59e5c665 100644
+--- a/net/ipv4/netfilter/nf_dup_ipv4.c
++++ b/net/ipv4/netfilter/nf_dup_ipv4.c
+@@ -23,25 +23,10 @@
+ #include <net/netfilter/nf_conntrack.h>
  #endif
  
--	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(ops->hooknum, skb));
-+	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(state->hook, skb));
- 	/* queued */
- 	if (reasm == NULL)
- 		return NF_STOLEN;
-@@ -74,7 +74,7 @@ static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
+-static struct net *pick_net(struct sk_buff *skb)
+-{
+-#ifdef CONFIG_NET_NS
+-	const struct dst_entry *dst;
+-
+-	if (skb->dev != NULL)
+-		return dev_net(skb->dev);
+-	dst = skb_dst(skb);
+-	if (dst != NULL && dst->dev != NULL)
+-		return dev_net(dst->dev);
+-#endif
+-	return &init_net;
+-}
+-
+-static bool nf_dup_ipv4_route(struct sk_buff *skb, const struct in_addr *gw,
+-			      int oif)
++static bool nf_dup_ipv4_route(struct net *net, struct sk_buff *skb,
++			      const struct in_addr *gw, int oif)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+-	struct net *net = pick_net(skb);
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
  
- 	nf_ct_frag6_consume_orig(reasm);
+@@ -65,7 +50,7 @@ static bool nf_dup_ipv4_route(struct sk_buff *skb, const struct in_addr *gw,
+ 	return true;
+ }
  
--	NF_HOOK_THRESH(NFPROTO_IPV6, ops->hooknum, state->net, state->sk, reasm,
-+	NF_HOOK_THRESH(NFPROTO_IPV6, state->hook, state->net, state->sk, reasm,
- 		       state->in, state->out,
- 		       state->okfn, NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
+-void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in_addr *gw, int oif)
+ {
+ 	struct iphdr *iph;
+@@ -105,7 +90,7 @@ void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
+ 		--iph->ttl;
+ 	ip_send_check(iph);
  
-diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-index 70fbaed49edb..8bc94907dbd9 100644
---- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-@@ -272,7 +272,7 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(state->hook);
- 	__be16 frag_off;
- 	int hdrlen;
- 	u8 nexthdr;
-@@ -303,7 +303,7 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
+-	if (nf_dup_ipv4_route(skb, gw, oif)) {
++	if (nf_dup_ipv4_route(net, skb, gw, oif)) {
+ 		__this_cpu_write(nf_skb_duplicated, true);
+ 		ip_local_out(skb);
+ 		__this_cpu_write(nf_skb_duplicated, false);
+diff --git a/net/ipv4/netfilter/nft_dup_ipv4.c b/net/ipv4/netfilter/nft_dup_ipv4.c
+index 30bcf820e8bd..bf855e64fc45 100644
+--- a/net/ipv4/netfilter/nft_dup_ipv4.c
++++ b/net/ipv4/netfilter/nft_dup_ipv4.c
+@@ -30,7 +30,7 @@ static void nft_dup_ipv4_eval(const struct nft_expr *expr,
+ 	};
+ 	int oif = regs->data[priv->sreg_dev];
  
- 		if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
- 			if (!nf_nat_icmpv6_reply_translation(skb, ct, ctinfo,
--							     ops->hooknum,
-+							     state->hook,
- 							     hdrlen))
- 				return NF_DROP;
- 			else
-@@ -321,17 +321,17 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 			if (ret != NF_ACCEPT)
- 				return ret;
+-	nf_dup_ipv4(pkt->skb, pkt->hook, &gw, oif);
++	nf_dup_ipv4(pkt->net, pkt->skb, pkt->hook, &gw, oif);
+ }
  
--			if (nf_nat_initialized(ct, HOOK2MANIP(ops->hooknum)))
-+			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
- 				break;
+ static int nft_dup_ipv4_init(const struct nft_ctx *ctx,
+diff --git a/net/ipv6/netfilter/nf_dup_ipv6.c b/net/ipv6/netfilter/nf_dup_ipv6.c
+index c8ab626556a0..ee0d9a5b16c3 100644
+--- a/net/ipv6/netfilter/nf_dup_ipv6.c
++++ b/net/ipv6/netfilter/nf_dup_ipv6.c
+@@ -19,25 +19,10 @@
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
  
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
-+			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+			if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 				goto oif_changed;
- 		}
- 		break;
-@@ -340,11 +340,11 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+		if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 			goto oif_changed;
+-static struct net *pick_net(struct sk_buff *skb)
+-{
+-#ifdef CONFIG_NET_NS
+-	const struct dst_entry *dst;
+-
+-	if (skb->dev != NULL)
+-		return dev_net(skb->dev);
+-	dst = skb_dst(skb);
+-	if (dst != NULL && dst->dev != NULL)
+-		return dev_net(dst->dev);
+-#endif
+-	return &init_net;
+-}
+-
+-static bool nf_dup_ipv6_route(struct sk_buff *skb, const struct in6_addr *gw,
+-			      int oif)
++static bool nf_dup_ipv6_route(struct net *net, struct sk_buff *skb,
++			      const struct in6_addr *gw, int oif)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+-	struct net *net = pick_net(skb);
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6;
+ 
+@@ -61,7 +46,7 @@ static bool nf_dup_ipv6_route(struct sk_buff *skb, const struct in6_addr *gw,
+ 	return true;
+ }
+ 
+-void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in6_addr *gw, int oif)
+ {
+ 	if (this_cpu_read(nf_skb_duplicated))
+@@ -81,7 +66,7 @@ void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
+ 		struct ipv6hdr *iph = ipv6_hdr(skb);
+ 		--iph->hop_limit;
  	}
+-	if (nf_dup_ipv6_route(skb, gw, oif)) {
++	if (nf_dup_ipv6_route(net, skb, gw, oif)) {
+ 		__this_cpu_write(nf_skb_duplicated, true);
+ 		ip6_local_out(skb);
+ 		__this_cpu_write(nf_skb_duplicated, false);
+diff --git a/net/ipv6/netfilter/nft_dup_ipv6.c b/net/ipv6/netfilter/nft_dup_ipv6.c
+index c81204faf15d..8bfd470cbe72 100644
+--- a/net/ipv6/netfilter/nft_dup_ipv6.c
++++ b/net/ipv6/netfilter/nft_dup_ipv6.c
+@@ -28,7 +28,7 @@ static void nft_dup_ipv6_eval(const struct nft_expr *expr,
+ 	struct in6_addr *gw = (struct in6_addr *)&regs->data[priv->sreg_addr];
+ 	int oif = regs->data[priv->sreg_dev];
  
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, state->hook, skb);
+-	nf_dup_ipv6(pkt->skb, pkt->hook, gw, oif);
++	nf_dup_ipv6(pkt->net, pkt->skb, pkt->hook, gw, oif);
+ }
  
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
+ static int nft_dup_ipv6_init(const struct nft_ctx *ctx,
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index fd980aa7715d..899b06115fc5 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -32,7 +32,7 @@ tee_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tee_tginfo *info = par->targinfo;
+ 
+-	nf_dup_ipv4(skb, par->hooknum, &info->gw.in, info->priv->oif);
++	nf_dup_ipv4(par->net, skb, par->hooknum, &info->gw.in, info->priv->oif);
+ 
+ 	return XT_CONTINUE;
+ }
+@@ -43,7 +43,7 @@ tee_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tee_tginfo *info = par->targinfo;
+ 
+-	nf_dup_ipv6(skb, par->hooknum, &info->gw.in6, info->priv->oif);
++	nf_dup_ipv6(par->net, skb, par->hooknum, &info->gw.in6, info->priv->oif);
+ 
+ 	return XT_CONTINUE;
+ }
 -- 
 2.2.1
+
