@@ -1,59 +1,100 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/2 v2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-Date: Fri, 18 Sep 2015 16:40:02 -0500
-Message-ID: <1442612402.14759.10.camel@redhat.com>
-References: <1442330289-2907-1-git-send-email-linux@rainbow-software.org>
-	 <1442595275.14759.1.camel@redhat.com>
-	 <201509182206.41988.linux@rainbow-software.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] sunvnet:Invoke SET_NETDEV_DEV() to set up the vdev
+ in vnet_new()
+Date: Fri, 18 Sep 2015 17:47:55 -0400
+Message-ID: <20150918214755.GI26826@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201509182206.41988.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, david.stevens@oracle.com,
+	sowmini.varadhan@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25503 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753353AbbIRVsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:48:00 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-09-18 at 22:06 +0200, Ondrej Zary wrote:
-> On Friday 18 September 2015 18:54:35 Dan Williams wrote:
-> > On Tue, 2015-09-15 at 17:18 +0200, Ondrej Zary wrote:
-> > > IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
-> > > wpa_supplicant uses it for both no encryption and WEP open system.
-> > > Cache the last mode set (only of these two) and use it here.
-> > >
-> > > This allows wpa_supplicant to work with unencrypted APs.
-> >
-> > It seems like this will work; but to make the code clearer, define a
-> > small static function like:
-> >
-> > static inline void set_auth_type(struct airo_info *local, int auth_type)
-> > {
-> > 	local->config.authType = local->last_auth = auth_type;
-> > }
-> >
-> > and call that from everywhere that you're currently setting authType and
-> > last_auth, except for airo_set_auth().  Less code and less probability
-> > to forget to set last_auth in the future.
-> 
-> Good idea, thanks.
-> 
-> BTW. What about WPA? Found some old patches adding WPA support to the airo 
-> driver. Something on your web: http://people.redhat.com/dcbw/airo-wpa/ and 
-> a "recent" (4 years) version at 
-> http://svn.gna.org/viewcvs/airo-wpa/branches/kernel/
-> 
-> It looks ugly (wpa_enabled module parameter) but seems to work with WPA-PSK. 
-> Do you remember what's the problem with switching between WPA and WEP? I'm 
-> going to remove the wpa_enabled module parameter and allow run-time switching 
-> between WPA and WEP to see what breaks.
+`ls /sys/devices/channel-devices/vnet-port-0-0/net' is missing without
+this change, and applications like NetworkManager are looking in
+sysfs for the information.
 
-I think the module parameter was the deal-breaker.  If you can get it
-working reliably with runtime switching based on the supplicant's
-requested config, that would be great.  One problem was that you cannot
-require the WPA-enabled firmware, so you'll have to make sure that
-anything that does WPA-type stuff is protected by the "wpa_capable" flag
-or whatever it was.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-Dan
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 53fe200..cc106d8 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -1756,7 +1756,8 @@ static const struct net_device_ops vnet_ops = {
+ #endif
+ };
+ 
+-static struct vnet *vnet_new(const u64 *local_mac)
++static struct vnet *vnet_new(const u64 *local_mac,
++			     struct vio_dev *vdev)
+ {
+ 	struct net_device *dev;
+ 	struct vnet *vp;
+@@ -1790,6 +1791,8 @@ static struct vnet *vnet_new(const u64 *local_mac)
+ 			   NETIF_F_HW_CSUM | NETIF_F_SG;
+ 	dev->features = dev->hw_features;
+ 
++	SET_NETDEV_DEV(dev, &vdev->dev);
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		pr_err("Cannot register net device, aborting\n");
+@@ -1808,7 +1811,8 @@ static struct vnet *vnet_new(const u64 *local_mac)
+ 	return ERR_PTR(err);
+ }
+ 
+-static struct vnet *vnet_find_or_create(const u64 *local_mac)
++static struct vnet *vnet_find_or_create(const u64 *local_mac,
++					struct vio_dev *vdev)
+ {
+ 	struct vnet *iter, *vp;
+ 
+@@ -1821,7 +1825,7 @@ static struct vnet *vnet_find_or_create(const u64 *local_mac)
+ 		}
+ 	}
+ 	if (!vp)
+-		vp = vnet_new(local_mac);
++		vp = vnet_new(local_mac, vdev);
+ 	mutex_unlock(&vnet_list_mutex);
+ 
+ 	return vp;
+@@ -1848,7 +1852,8 @@ static void vnet_cleanup(void)
+ static const char *local_mac_prop = "local-mac-address";
+ 
+ static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
+-						u64 port_node)
++				     u64 port_node,
++				     struct vio_dev *vdev)
+ {
+ 	const u64 *local_mac = NULL;
+ 	u64 a;
+@@ -1869,7 +1874,7 @@ static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
+ 	if (!local_mac)
+ 		return ERR_PTR(-ENODEV);
+ 
+-	return vnet_find_or_create(local_mac);
++	return vnet_find_or_create(local_mac, vdev);
+ }
+ 
+ static struct ldc_channel_config vnet_ldc_cfg = {
+@@ -1923,7 +1928,7 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 
+ 	hp = mdesc_grab();
+ 
+-	vp = vnet_find_parent(hp, vdev->mp);
++	vp = vnet_find_parent(hp, vdev->mp, vdev);
+ 	if (IS_ERR(vp)) {
+ 		pr_err("Cannot find port parent vnet\n");
+ 		err = PTR_ERR(vp);
+-- 
+1.7.1
