@@ -1,39 +1,81 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: Re: [PATCH 0/7] Phy and mdiobus fixes
-Date: Fri, 18 Sep 2015 10:56:00 +0100
-Message-ID: <20150918095600.GC21084@n2100.arm.linux.org.uk>
-References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/1] macvtap: Fix regression for macvtap ioctls
+Date: Fri, 18 Sep 2015 13:39:19 +0300
+Message-ID: <20150918132119-mutt-send-email-mst@redhat.com>
+References: <1442562884-27310-1-git-send-email-borntraeger@de.ibm.com>
+ <1442562884-27310-2-git-send-email-borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+	kvm@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150918094625.GB21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1442562884-27310-2-git-send-email-borntraeger@de.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry guys, some of you will get the patches twice, as S=F6ren's name
-in the header caused vger to reject all the patches.
+On Fri, Sep 18, 2015 at 09:54:44AM +0200, Christian Borntraeger wrote:
+> To avoid overwriting the upper bits of the flags, commit
+> 39ec7de7092b ("macvtap: fix uninitialized access on
+> TUNSETIFF") changed the variable u from unsigned int to
+> unsigned short and added some ORing logic for the flags.
+> This introduced at least one regression:
+> - TUNSETSNDBUF supports int as its size and also uses the now
+>   short u as buffer - this breaks any sendbuf size > 64k
+> 
+> Let's change u back to unsigned int, keep the ORing and
+> handle the overwrite issue with casts and masking.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Reported-by: Mark A. Peloquin
+> Bisected-by: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> Fixes: 39ec7de7092b ("macvtap: fix uninitialized access on TUNSETIFF")
+> Cc: stable@vger.kernel.org
+> ---
+>  drivers/net/macvtap.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index edd7734..c33fe41 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1060,7 +1060,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  	void __user *argp = (void __user *)arg;
+>  	struct ifreq __user *ifr = argp;
+>  	unsigned int __user *up = argp;
+> -	unsigned short u;
+> +	unsigned int u;
+>  	int __user *sp = argp;
+>  	struct sockaddr sa;
+>  	int s;
+> @@ -1076,7 +1076,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		if ((u & ~MACVTAP_FEATURES) != (IFF_NO_PI | IFF_TAP))
+>  			ret = -EINVAL;
+>  		else
+> -			q->flags = (q->flags & ~MACVTAP_FEATURES) | u;
+> +			q->flags = (q->flags & ~MACVTAP_FEATURES) | (short) u;
+>  
+>  		return ret;
+>  
+> @@ -1089,9 +1089,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		}
+>  
+>  		ret = 0;
+> -		u = q->flags;
+>  		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
+> -		    put_user(u, &ifr->ifr_flags))
+> +		    put_user((short) q->flags, &ifr->ifr_flags))
+>  			ret = -EFAULT;
+>  		macvtap_put_vlan(vlan);
+>  		rtnl_unlock();
 
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I agree it's a bug, but I don't think it's reasonable to
+read 32 bit from the flags field.
+I'll send a patch shortly.
+
+> -- 
+> 2.3.0
