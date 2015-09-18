@@ -1,43 +1,44 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH] Revert "net/phy: Add Vitesse 8641 phy ID"
-Date: Fri, 18 Sep 2015 09:36:42 +0000
-Message-ID: <BLUPR03MB14759657A388F648ED6928FDE2590@BLUPR03MB1475.namprd03.prod.outlook.com>
-References: <1442562150-19720-1-git-send-email-haokexin@gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH] tipc: reinitialize pointer after skb
+ linearize
+Date: Fri, 18 Sep 2015 17:44:02 +0800
+Message-ID: <55FBDCE2.3050906@windriver.com>
+References: <1442565991-4531-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-To: Kevin Hao <haokexin@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0110.outbound.protection.outlook.com ([207.46.100.110]:61883
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751714AbbIRJgo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 05:36:44 -0400
-In-Reply-To: <1442562150-19720-1-git-send-email-haokexin@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: tipc-discussion@lists.sourceforge.net
+To: <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1442565991-4531-1-git-send-email-erik.hugne@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Kevin Hao [mailto:haokexin@gmail.com]
-> Sent: Friday, September 18, 2015 3:43 PM
-> To: netdev@vger.kernel.org
-> Cc: Florian Fainelli; Xie Shaohui-B21989
-> Subject: [PATCH] Revert "net/phy: Add Vitesse 8641 phy ID"
-> 
-> This reverts commit 1298267b548a78840bd4b3e030993ff8747ca5e6.
-> 
-> That commit claim that the Vitesse VSC8641 is compatible with Vitesse
-> 82xx. But this is not true. It seems that all the registers used in
-> Vitesse phy driver are not compatible between 8641 and 82xx.
-[S.H] There are differences between some register's bit define. 
-But some are not used by driver. 
-
-> It does cause malfunction of the Ethernet on p1010rdb-pa board.
-[S.H] Which exact register's setting caused problem? If it needs different setting,
-It can be handled by distinguishing phy_id, or replacing relative API for VSC8641.
-
-Thanks!
-Shaohui
+T24gMDkvMTgvMjAxNSAwNDo0NiBQTSwgZXJpay5odWduZUBlcmljc3Nvbi5jb20gd3JvdGU6Cj4g
+RnJvbTogRXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+Cj4gCj4gVGhlIG1zZyBw
+b2ludGVyIGludG8gaGVhZGVyIG1heSBjaGFuZ2UgYWZ0ZXIgc2tiIGxpbmVhcml6YXRpb24uCj4g
+V2UgbXVzdCByZWluaXRpYWxpemUgaXQgYWZ0ZXIgY2FsbGluZyBza2JfbGluZWFyaXplIHRvIHBy
+ZXZlbnQKPiBvcGVyYXRpbmcgb24gYSBmcmVlZCBvciBpbnZhbGlkIHBvaW50ZXIuCj4gCj4gU2ln
+bmVkLW9mZi1ieTogRXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+Cj4gUmVwb3J0
+ZWQtYnk6IFRhbcOhcyBWw6lnaCA8dGFtYXMudmVnaEBlcmljc3Nvbi5jb20+CgpBY2tlZC1ieTog
+WWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+Cgo+IC0tLQo+ICBuZXQvdGlwYy9tc2cu
+YyB8IDEgKwo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykKPiAKPiBkaWZmIC0tZ2l0
+IGEvbmV0L3RpcGMvbXNnLmMgYi9uZXQvdGlwYy9tc2cuYwo+IGluZGV4IDU2MmM5MjYuLmM1YWM0
+MzYgMTAwNjQ0Cj4gLS0tIGEvbmV0L3RpcGMvbXNnLmMKPiArKysgYi9uZXQvdGlwYy9tc2cuYwo+
+IEBAIC01MzksNiArNTM5LDcgQEAgYm9vbCB0aXBjX21zZ19sb29rdXBfZGVzdChzdHJ1Y3QgbmV0
+ICpuZXQsIHN0cnVjdCBza19idWZmICpza2IsIGludCAqZXJyKQo+ICAJKmVyciA9IC1USVBDX0VS
+Ul9OT19OQU1FOwo+ICAJaWYgKHNrYl9saW5lYXJpemUoc2tiKSkKPiAgCQlyZXR1cm4gZmFsc2U7
+Cj4gKwltc2cgPSBidWZfbXNnKHNrYik7Cj4gIAlpZiAobXNnX3Jlcm91dGVfY250KG1zZykpCj4g
+IAkJcmV0dXJuIGZhbHNlOwo+ICAJZG5vZGUgPSBhZGRyX2RvbWFpbihuZXQsIG1zZ19sb29rdXBf
+c2NvcGUobXNnKSk7Cj4gCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCnRpcGMtZGlzY3Vzc2lvbiBtYWlsaW5nIGxp
+c3QKdGlwYy1kaXNjdXNzaW9uQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNv
+dXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby90aXBjLWRpc2N1c3Npb24K
