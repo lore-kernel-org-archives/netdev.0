@@ -1,67 +1,147 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates 2015-09-17
-Date: Thu, 17 Sep 2015 17:17:52 -0700
-Message-ID: <1442535480-65222-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 3/8] i40e/i40evf: add handling of writeback descriptor
+Date: Thu, 17 Sep 2015 17:17:55 -0700
+Message-ID: <1442535480-65222-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1442535480-65222-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18405 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:57564 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751702AbbIRASF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 20:18:05 -0400
+	id S1752035AbbIRASH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 20:18:07 -0400
+In-Reply-To: <1442535480-65222-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Shannon provides updates to i40e and i40evf to resolve an issue with the
-nvmupdate utility.  First renames a variable name to reduce confusion and
-to differentiate it from the actual user variable.  Then added the ability
-to save the admin queue write back descriptor if a caller supplies a
-buffer for it to be saved into.  Added a new GetStatus command so that
-the NVM update tool can query the current status instead of doing fake
-write requests to probe for readiness.  Added wait states to the NVM
-update state machine to signify when waiting for an update operation to
-finish, whether we are in the middle of a set of write operations, or we
-are now idle but waiting.  Then added a facility to run admin queue
-commands through the NVM update utility in order to allow the update
-tools to interact with the firmware and do special commands needed for
-updates and configuration changes.  Also added a facility to recover the
-result of a previously run admin queue command.
+If the writeback descriptor buffer was previously created, this gives it
+to the AQ command request to be used to save the results.
 
+Change-ID: I8c8a1af81e6ebed6d0a15ed31697fe1a6c4e3708
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-Waiting for Dave to update his net-next tree before pushing this series
-to my next-queue tree.
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c    | 26 ++++++++++++++++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_type.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h |  1 +
+ 3 files changed, 24 insertions(+), 4 deletions(-)
 
-The following are changes since commit 9adbac599a71bc25a2617850ffcaa4388dc5c20d:
-  fm10k: fix iov_msg_mac_vlan_pf VID checks
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e to 1.3.21 and i40evf to 1.3.13
-
-Shannon Nelson (7):
-  i40e: rename variable to prevent clash of understanding
-  i40e/i40evf: save aq writeback for future inspection
-  i40e/i40evf: add handling of writeback descriptor
-  i40e/i40evf: add GetStatus command for nvmupdate
-  i40e/i40evf: add wait states to NVM state machine
-  i40e/i40evf: add exec_aq command to nvmupdate utility
-  i40e/i40evf: add get AQ result command to nvmupdate utility
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   |  20 ++
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |   1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c     |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 386 +++++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_type.h     |  10 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |   7 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h   |  10 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |   2 +-
- 9 files changed, 354 insertions(+), 85 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 3f2fec9..e71ce23 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -418,6 +418,10 @@ static i40e_status i40e_write_nvm_aq(struct i40e_hw *hw, u8 module_pointer,
+ 				     bool last_command)
+ {
+ 	i40e_status ret_code = I40E_ERR_NVM;
++	struct i40e_asq_cmd_details cmd_details;
++
++	memset(&cmd_details, 0, sizeof(cmd_details));
++	cmd_details.wb_desc = &hw->nvm_wb_desc;
+ 
+ 	/* Here we are checking the SR limit only for the flat memory model.
+ 	 * We cannot do it for the module-based model, as we did not acquire
+@@ -443,7 +447,7 @@ static i40e_status i40e_write_nvm_aq(struct i40e_hw *hw, u8 module_pointer,
+ 		ret_code = i40e_aq_update_nvm(hw, module_pointer,
+ 					      2 * offset,  /*bytes*/
+ 					      2 * words,   /*bytes*/
+-					      data, last_command, NULL);
++					      data, last_command, &cmd_details);
+ 
+ 	return ret_code;
+ }
+@@ -1041,6 +1045,7 @@ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
+ 					struct i40e_nvm_access *cmd,
+ 					u8 *bytes, int *perrno)
+ {
++	struct i40e_asq_cmd_details cmd_details;
+ 	i40e_status status;
+ 	u8 module, transaction;
+ 	bool last;
+@@ -1049,8 +1054,11 @@ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction == I40E_NVM_LCB) || (transaction == I40E_NVM_SA);
+ 
++	memset(&cmd_details, 0, sizeof(cmd_details));
++	cmd_details.wb_desc = &hw->nvm_wb_desc;
++
+ 	status = i40e_aq_read_nvm(hw, module, cmd->offset, (u16)cmd->data_size,
+-				  bytes, last, NULL);
++				  bytes, last, &cmd_details);
+ 	if (status) {
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_read mod 0x%x  off 0x%x  len 0x%x\n",
+@@ -1077,14 +1085,19 @@ static i40e_status i40e_nvmupd_nvm_erase(struct i40e_hw *hw,
+ 					 int *perrno)
+ {
+ 	i40e_status status = 0;
++	struct i40e_asq_cmd_details cmd_details;
+ 	u8 module, transaction;
+ 	bool last;
+ 
+ 	transaction = i40e_nvmupd_get_transaction(cmd->config);
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction & I40E_NVM_LCB);
++
++	memset(&cmd_details, 0, sizeof(cmd_details));
++	cmd_details.wb_desc = &hw->nvm_wb_desc;
++
+ 	status = i40e_aq_erase_nvm(hw, module, cmd->offset, (u16)cmd->data_size,
+-				   last, NULL);
++				   last, &cmd_details);
+ 	if (status) {
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_erase mod 0x%x  off 0x%x len 0x%x\n",
+@@ -1112,6 +1125,7 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
+ 					 u8 *bytes, int *perrno)
+ {
+ 	i40e_status status = 0;
++	struct i40e_asq_cmd_details cmd_details;
+ 	u8 module, transaction;
+ 	bool last;
+ 
+@@ -1119,8 +1133,12 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction & I40E_NVM_LCB);
+ 
++	memset(&cmd_details, 0, sizeof(cmd_details));
++	cmd_details.wb_desc = &hw->nvm_wb_desc;
++
+ 	status = i40e_aq_update_nvm(hw, module, cmd->offset,
+-				    (u16)cmd->data_size, bytes, last, NULL);
++				    (u16)cmd->data_size, bytes, last,
++				    &cmd_details);
+ 	if (status) {
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_write mod 0x%x off 0x%x len 0x%x\n",
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 4842239..a4fec8b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -492,6 +492,7 @@ struct i40e_hw {
+ 
+ 	/* state of nvm update process */
+ 	enum i40e_nvmupd_state nvmupd_state;
++	struct i40e_aq_desc nvm_wb_desc;
+ 
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 24a2693..cf865cc 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -486,6 +486,7 @@ struct i40e_hw {
+ 
+ 	/* state of nvm update process */
+ 	enum i40e_nvmupd_state nvmupd_state;
++	struct i40e_aq_desc nvm_wb_desc;
+ 
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
 -- 
 2.4.3
