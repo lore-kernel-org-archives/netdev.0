@@ -1,48 +1,32 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v2] geneve: remove vlan-related feature assignment
-Date: Fri, 18 Sep 2015 16:20:32 -0400
-Message-ID: <1442607632-16580-1-git-send-email-linville@tuxdriver.com>
-References: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
-Cc: davem@davemloft.net, Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
+Date: Fri, 18 Sep 2015 13:30:36 -0700
+Message-ID: <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
+References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com> <1442522094-876-1-git-send-email-linville@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47474 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659AbbIRUaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 16:30:17 -0400
-In-Reply-To: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:34884 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659AbbIRUa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 16:30:57 -0400
+Received: by lagj9 with SMTP id j9so37566041lag.2
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 13:30:56 -0700 (PDT)
+In-Reply-To: <1442522094-876-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code handling vlan tag insertion was dropped in commit 371bd1061d29
-("geneve: Consolidate Geneve functionality in single module.").  Now we
-need to drop the related vlan feature bits in the netdev structure.
+On Thu, Sep 17, 2015 at 1:34 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> This seems to have been a "thinko".  IP_ECN_decapsulate needs info
+> from both internal and external headers.
+>
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-v2 -- replace earlier patch "geneve: restore vlan bits in xmit path"
-
- drivers/net/geneve.c | 4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 549febac0579..63fc4eb85cbe 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -748,12 +748,8 @@ static void geneve_setup(struct net_device *dev)
- 	dev->features    |= NETIF_F_RXCSUM;
- 	dev->features    |= NETIF_F_GSO_SOFTWARE;
- 
--	dev->vlan_features = dev->features;
--	dev->features    |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
--
- 	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
- 	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
--	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
- 
- 	netif_keep_dst(dev);
- 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
--- 
-2.4.3
+This looks good to me although I realized that the transmit path is
+also conditional based on !collect_md metadata. I suppose that means
+that this difference is intentional and I guess I could see arguments
+either way but I still think it is better to be consistent across
+different code paths in this respect.
