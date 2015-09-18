@@ -1,174 +1,77 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: mvneta: SGMII fixed-link not so fixed
-Date: Fri, 18 Sep 2015 19:04:09 +0300
-Message-ID: <55FC35F9.9040403@list.ru>
-References: <20150914114209.GL21084@n2100.arm.linux.org.uk>
- <20150917.151247.2129216999071943354.davem@davemloft.net>
- <20150917231422.GY21084@n2100.arm.linux.org.uk> <55FBF59E.3010205@list.ru>
- <20150918121311.GD21084@n2100.arm.linux.org.uk> <55FC070A.6020707@list.ru>
- <20150918131257.GF21084@n2100.arm.linux.org.uk> <55FC151F.6040708@list.ru>
- <20150918135746.GG21084@n2100.arm.linux.org.uk> <55FC2387.9080304@list.ru>
- <20150918154339.GJ21084@n2100.arm.linux.org.uk>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
+Date: Fri, 18 Sep 2015 12:04:36 -0400
+Message-ID: <f7tvbb7zpbf.fsf@aconole.bos.csb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, andrew@lunn.ch,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp24.mail.ru ([94.100.181.179]:41570 "EHLO smtp24.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752786AbbIRQER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2015 12:04:17 -0400
-In-Reply-To: <20150918154339.GJ21084@n2100.arm.linux.org.uk>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:34005 "EHLO
+	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752233AbbIRQEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:04:39 -0400
+Received: by qkfq186 with SMTP id q186so21250714qkf.1
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 09:04:38 -0700 (PDT)
+Received: from aconole.bos.csb (nat-pool-bos-t.redhat.com. [66.187.233.206])
+        by smtp.gmail.com with ESMTPSA id 145sm3834831qhb.20.2015.09.18.09.04.37
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 18 Sep 2015 09:04:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-18.09.2015 18:43, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
-> On Fri, Sep 18, 2015 at 05:45:27PM +0300, Stas Sergeev wrote:
->> 18.09.2015 16:57, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=B5=D1=
-=82:
->>> On Fri, Sep 18, 2015 at 04:43:59PM +0300, Stas Sergeev wrote:
->>>> 18.09.2015 16:12, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=B5=
-=D1=82:
->>>>> On Fri, Sep 18, 2015 at 03:43:54PM +0300, Stas Sergeev wrote:
->>>>>> 18.09.2015 15:13, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=
-=B5=D1=82:
->>>>>>> On Fri, Sep 18, 2015 at 02:29:34PM +0300, Stas Sergeev wrote:
->>>>>>>> 18.09.2015 02:14, Russell King - ARM Linux =D0=BF=D0=B8=D1=88=D0=
-=B5=D1=82:
->>>>>>>>>  _But_ using the in-band status
->>>>>>>>>    property fundamentally requires this for mvneta to behave =
-correctly:
->>>>>>>>>
->>>>>>>>> 		phy-mode =3D "sgmii";
->>>>>>>>> 		managed =3D "in-band-status";
->>>>>>>>> 		fixed-link {
->>>>>>>>> 		};
->>>>>>>>>
->>>>>>>>>    with _no_ phy node.
->>>>>>>> I don't understand this one.
->>>>>>>> At least for me it works without empty fixed-link.
->>>>>>>> There may be some bug.
->>>>>>>
->>>>>>>         if (cause_rx_tx & MVNETA_MISCINTR_INTR_MASK) {
->>>>>>>                 u32 cause_misc =3D mvreg_read(pp, MVNETA_INTR_M=
-ISC_CAUSE);
->>>>>>>
->>>>>>>                 mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
->>>>>>>                 if (pp->use_inband_status && (cause_misc &
->>>>>>>                                 (MVNETA_CAUSE_PHY_STATUS_CHANGE=
- |
->>>>>>>                                  MVNETA_CAUSE_LINK_CHANGE |
->>>>>>>                                  MVNETA_CAUSE_PSC_SYNC_CHANGE))=
-) {
->>>>>>>                         mvneta_fixed_link_update(pp, pp->phy_de=
-v);
->>>>>>>                 }
->>>>>>>
->>>>>>> pp->use_inband_status is set when managed =3D "in-band-status" =
+AF_UNIX sockets now return multiple skbs from recv() when MSG_PEEK flag
 is set.
->>>>>>> We detect changes in the in-band status, and call mvneta_fixed_=
-link_update():
->>>>>>>
->>>>>>> mvneta_fixed_link_update() reads the status, and communicates t=
-hat into
->>>>>>> the fixed-link phy:
->>>>>>>
->>>>>>>         u32 gmac_stat =3D mvreg_read(pp, MVNETA_GMAC_STATUS);
->>>>>>>
->>>>>>> 	... code setting status.* values from gmac_stat ...
->>>>>>>         changed.link =3D 1;
->>>>>>>         changed.speed =3D 1;
->>>>>>>         changed.duplex =3D 1;
->>>>>>> 	fixed_phy_update_state(phy, &status, &changed);
->>>>>>>
->>>>>>> fixed_phy_update_state() then looks up the phy in its list, com=
-paring only
->>>>>>> the address:
->>>>>>>
->>>>>>>         if (!phydev || !phydev->bus)
->>>>>>>                 return -EINVAL;
->>>>>>>
->>>>>>>         list_for_each_entry(fp, &fmb->phys, node) {
->>>>>>>                 if (fp->addr =3D=3D phydev->addr) {
->>>>>>>
->>>>>>> updating fp->* with the new state, calling fixed_phy_update_reg=
-s().  This
->>>>>>> updates the fixed-link phy emulated registers, and phylib then =
-notices
->>>>>>> the change in link status, and notifies the netdevice attached =
-to the
->>>>>>> PHY it found of the change.
->>>>>>>
->>>>>>> Now, one of two things happens as a result of this:
->>>>>>>
->>>>>>> 1. If pp->phy_dev is a fixed-link phy, this finds the correct f=
-ixed-link
->>>>>>>    phy to update its "fixed-link" properties, and the "not so f=
-ixed" phy
->>>>>>>    changes its parameters according to the new status.
->>>>>>>
->>>>>>> 2. If pp->phy_dev is a MDIO phy which matches the address of a =
-fixed-link
->>>>>>>    phy,
->>>>>> Doesn't the above loop iterates only "fixed_mdio_bus platform_fm=
-b"?
->>>>>> I don't think MDIO PHYs can appear there. If they can - the bug =
-is
->>>>>> very nasty. Have you seen exactly when/why that happens?
->>>>>
->>>>> I think I explained it fully - please follow the code paths I've =
-detailed
->>>>> above.
->>>> I try. What I don't understand is why both PHYs get the
->>>> same address on the "Fixed MDIO bus".
->>>
->>> They aren't both on the fixed MDIO bus - that's the whole point I'm
->>> making.  They get the same phydev->addr but on _different_ buses.
->>
->> So you have an MDIO phy for which mvneta seems to have
->> use_inband_status=3D=3Dtrue, correct?
->=20
-> That is one very real possibililty.  Cisco SGMII in-band status is fo=
-r a
-> SGMII PHY to inform the MAC about the properties of the link to which=
- the
-> PHY is attached.
->=20
-> So, specifying "managed =3D in-band-status" along with a real PHY is =
-very
-> much a _real_ possibility, as I've previously explained.
->=20
->> AFAICS if it has use_inband_status=3D=3Dtrue,
->> then it went through of_phy_register_fixed_link(dn),
->=20
-> That's totally incorrect.  The test for setting use_inband_status in
-> mvneta is:
->=20
->         err =3D of_property_read_string(dn, "managed", &managed);
->         pp->use_inband_status =3D (err =3D=3D 0 &&
->                                  strcmp(managed, "in-band-status") =3D=
-=3D 0);
 
-Arrrr! I was looking at the branch without the last
-patch applied, so it occurred to me as
+This is referenced in kernel bugzilla #12323 @
+https://bugzilla.kernel.org/show_bug.cgi?id=12323
 
-	pp->use_inband_status =3D (phy_mode =3D=3D PHY_INTERFACE_MODE_SGMII) &=
-&
-		fixed_phy;
+As described both in the BZ and lkml thread @
+http://lkml.org/lkml/2008/1/8/444 calling recv() with MSG_PEEK on an
+AF_UNIX socket only reads a single skb, where the desired effect is
+to return as much skb data has been queued, until hitting the recv
+buffer size (whichever comes first).
 
-Sorry for that.
-So we seem to indeed have a nasty regression with the patch
-that just went to stable. :( Great news.
-Thanks for you time.
+The modified MSG_PEEK path will now move to the next skb in the tree
+and jump to the again: label, rather than following the natural loop
+structure. This requires duplicating some of the loop head actions.
 
-I still have problems with this part though:
-> If there's neither a MDIO PHY nor a fixed-link, then the network driv=
-er
-> fails to initialise the device.
+This was tested using the python socketpair() code attached to the
+bugzilla issue.
 
-I think I am looking into the right source this time, seems like
-if we don't have both but still have managed=3D"in-band-status", that
-should go the fixed-link path and still work... no?
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
+ net/unix/af_unix.c | 17+-
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 03ee4d3..d2fd342 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2179,9 +2181,22 @@ unlock:
+ 			if (UNIXCB(skb).fp)
+ 				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
+ 
+-			sk_peek_offset_fwd(sk, chunk);
++			if (skip)
++			{
++				sk_peek_offset_fwd(sk, chunk);
++				skip -= chunk;
++			}
+ 
+-			break;
++			if (UNIXCB(skb).fp)
++				break;
++
++			/* XXX - this is ugly; better would be rewrite the function  */
++			last = skb;
++			last_len = skb->len;
++			unix_state_lock(&sk);
++			skb = skb_peek_next(skb, &sk->sk_receive_queue);
++			if (skb) goto again;
++			goto unlock;
+ 		}
+ 	} while (size);
+ 
+--
+1.9.1
