@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 5/7] net: fix phy refcounting in a bunch of drivers
-Date: Fri, 18 Sep 2015 10:47:34 +0100
-Message-ID: <E1ZcsGU-0000ud-Uf@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 3/7] phy: add proper phy struct device refcounting
+Date: Fri, 18 Sep 2015 10:47:24 +0100
+Message-ID: <E1ZcsGK-0000uR-Fr@rmk-PC.arm.linux.org.uk>
 References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,177 +22,69 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-of_phy_find_device() increments the phy struct device refcount,
-which we need to properly balance.  Add code to network drivers
-using this function to ensure that the struct device refcount is
-correctly balanced.
+Take a refcount on the phy struct device when the phy device is attached
+to a network device, and drop it after it's detached.  This ensures that
+a refcount is held on the phy device while the device is being used by
+a network device, thereby preventing the phy_device from being
+unexpectedly kfree()'d by phy_device_release().
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 23 +++++++++++++++--------
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 19 +++++++++++++++++++
- drivers/net/ethernet/freescale/gianfar.c          |  3 +++
- drivers/net/ethernet/freescale/ucc_geth.c         |  8 +++++++-
- drivers/net/ethernet/marvell/mvneta.c             |  2 ++
- drivers/net/ethernet/xilinx/xilinx_emaclite.c     |  2 ++
- 6 files changed, 48 insertions(+), 9 deletions(-)
+ drivers/net/phy/phy_device.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index cfa37041ab71..d2103a3199eb 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -689,16 +689,23 @@ static int xgene_enet_phy_connect(struct net_device *ndev)
- 			netdev_dbg(ndev, "No phy-handle found in DT\n");
- 			return -ENODEV;
- 		}
--		pdata->phy_dev = of_phy_find_device(phy_np);
--	}
- 
--	phy_dev = pdata->phy_dev;
-+		pdata->phy_dev = of_phy_connect(ndev, phy_np,
-+						&xgene_enet_adjust_link,
-+						pdata->phy_mode);
-+		if (!pdata->phy_dev) {
-+			netdev_err(ndev, "Could not connect to PHY\n");
-+			return -ENODEV;
-+		}
-+	} else {
-+		phy_dev = pdata->phy_dev;
- 
--	if (!phy_dev ||
--	    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
--			       pdata->phy_mode)) {
--		netdev_err(ndev, "Could not connect to PHY\n");
--		return  -ENODEV;
-+		if (!phy_dev ||
-+		    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
-+				       pdata->phy_mode)) {
-+			netdev_err(ndev, "Could not connect to PHY\n");
-+			return  -ENODEV;
-+		}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 03adf328f49b..97a4f52addac 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -578,6 +578,7 @@ EXPORT_SYMBOL(phy_init_hw);
+  *     generic driver is used.  The phy_device is given a ptr to
+  *     the attaching device, and given a callback for link status
+  *     change.  The phy_device is returned to the attaching driver.
++ *     This function takes a reference on the phy device.
+  */
+ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		      u32 flags, phy_interface_t interface)
+@@ -591,6 +592,8 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		return -EIO;
  	}
  
- 	pdata->phy_speed = SPEED_UNKNOWN;
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 574c49278900..529d212bd071 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1000,6 +1000,20 @@ static int bgx_init_phy(struct bgx *bgx)
- 	return bgx_init_of_phy(bgx);
- }
- 
-+/*
-+ * This drops the refcount obtained from of_phy_find_device() above.
-+ * We do not need to keep the refcount after phy_connect_direct() has
-+ * taken its own reference.
-+ */
-+static void bgx_drop_phy_ref(struct bgx *bgx)
-+{
-+	unsigned int lmac;
++	get_device(d);
 +
-+	for (lmac = 0; lmac < bgx->lmac_count; lmac++)
-+		if (bgx->lmac[lmac].phydev)
-+			put_device(&bgx->lmac[lmac].phydev->dev);
-+}
-+
- static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
- 	int err;
-@@ -1056,9 +1070,14 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		}
- 	}
- 
-+	if (np)
-+		bgx_drop_phy_ref(bgx);
-+
- 	return 0;
- 
- err_enable:
-+	if (np)
-+		bgx_drop_phy_ref(bgx);
- 	bgx_vnic[bgx->bgx_id] = NULL;
- err_release_regions:
- 	pci_release_regions(pdev);
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4b69d061d90f..65a16086faec 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1702,6 +1702,7 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	tbiphy = of_phy_find_device(priv->tbi_node);
- 	if (!tbiphy) {
- 		dev_err(&dev->dev, "error: Could not get TBI device\n");
-+		put_device(&tbiphy->dev);
- 		return;
- 	}
- 
-@@ -1723,6 +1724,8 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	phy_write(tbiphy, MII_BMCR,
- 		  BMCR_ANENABLE | BMCR_ANRESTART | BMCR_FULLDPLX |
- 		  BMCR_SPEED1000);
-+
-+	put_device(&tbiphy->dev);
- }
- 
- static int __gfar_is_rx_idle(struct gfar_private *priv)
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 4dd40e057f40..650f7888e32b 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -1384,6 +1384,8 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 		value = phy_read(tbiphy, ENET_TBI_MII_CR);
- 		value &= ~0x1000;	/* Turn off autonegotiation */
- 		phy_write(tbiphy, ENET_TBI_MII_CR, value);
-+
-+		put_device(&tbiphy->dev);
- 	}
- 
- 	init_check_frame_length_mode(ug_info->lengthCheckRx, &ug_regs->maccfg2);
-@@ -1702,8 +1704,10 @@ static void uec_configure_serdes(struct net_device *dev)
- 	 * everything for us?  Resetting it takes the link down and requires
- 	 * several seconds for it to come back.
+ 	/* Assume that if there is no driver, that it doesn't
+ 	 * exist, and we should use the genphy driver.
  	 */
--	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS)
-+	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS) {
-+		put_device(&tbiphy->dev);
- 		return;
-+	}
+@@ -636,6 +639,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	return err;
  
- 	/* Single clk mode, mii mode off(for serdes communication) */
- 	phy_write(tbiphy, ENET_TBI_MII_ANA, TBIANA_SETTINGS);
-@@ -1711,6 +1715,8 @@ static void uec_configure_serdes(struct net_device *dev)
- 	phy_write(tbiphy, ENET_TBI_MII_TBICON, TBICON_CLK_SELECT);
- 
- 	phy_write(tbiphy, ENET_TBI_MII_CR, TBICR_SETTINGS);
-+
-+	put_device(&tbiphy->dev);
+ error:
++	put_device(d);
+ 	module_put(bus->owner);
+ 	return err;
  }
- 
- /* Configure the PHY for dev.
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index fe2299ac4f5c..0dce037a2682 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3173,6 +3173,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 		struct phy_device *phy = of_phy_find_device(dn);
- 
- 		mvneta_fixed_link_update(pp, phy);
-+
-+		put_device(&phy->dev);
+@@ -679,6 +683,9 @@ EXPORT_SYMBOL(phy_attach);
+ /**
+  * phy_detach - detach a PHY device from its network device
+  * @phydev: target phy_device struct
++ *
++ * This detaches the phy device from its network device and the phy
++ * driver, and drops the reference count taken in phy_attach_direct().
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
+@@ -701,8 +708,13 @@ void phy_detach(struct phy_device *phydev)
+ 		}
  	}
  
- 	return 0;
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 6008eee01a33..cf468c87ce57 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -828,6 +828,8 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 		if (!phydev)
- 			dev_info(dev,
- 				 "MDIO of the phy is not registered yet\n");
-+		else
-+			put_device(&phydev->dev);
- 		return 0;
- 	}
++	/*
++	 * The phydev might go away on the put_device() below, so avoid
++	 * a use-after-free bug by reading the underlying bus first.
++	 */
+ 	bus = phydev->bus;
  
++	put_device(&phydev->dev);
+ 	module_put(bus->owner);
+ }
+ EXPORT_SYMBOL(phy_detach);
 -- 
 2.1.0
