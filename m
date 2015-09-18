@@ -1,167 +1,228 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/8] i40e/i40evf: add GetStatus command for nvmupdate
-Date: Thu, 17 Sep 2015 17:17:56 -0700
-Message-ID: <1442535480-65222-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/8] i40e/i40evf: add exec_aq command to nvmupdate utility
+Date: Thu, 17 Sep 2015 17:17:58 -0700
+Message-ID: <1442535480-65222-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1442535480-65222-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18405 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:57564 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751854AbbIRASH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 20:18:07 -0400
+	id S1752134AbbIRASI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 20:18:08 -0400
 In-Reply-To: <1442535480-65222-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-This adds a new GetStatus command so that the NVM update tool can query
-the current status instead of doing fake write requests to probe for
-readiness.
+Add a facility to run AQ commands through the nvmupdate utility in order
+to allow the update tools to interact with the FW and do special
+commands needed for updates and configuration changes.
 
-Change-ID: I671ec6ccd4dfc9dbac3a03b964589d693fda5cd8
+Change-ID: I5c41523e4055b37f8e4ee479f7a0574368f4a588
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c    | 42 ++++++++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_type.h   |  2 ++
- drivers/net/ethernet/intel/i40evf/i40e_type.h |  2 ++
- 3 files changed, 35 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   |  3 +
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 83 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_type.h     |  2 +
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  3 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h   |  2 +
+ 5 files changed, 93 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index ea1e930..199275d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -657,6 +657,9 @@ i40e_status i40e_shutdown_adminq(struct i40e_hw *hw)
+ 
+ 	/* destroy the locks */
+ 
++	if (hw->nvm_buff.va)
++		i40e_free_virt_mem(hw, &hw->nvm_buff);
++
+ 	return ret_code;
+ }
+ 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index e71ce23..7ff3099 100644
+index 7bcbe59..50d4aa3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -638,6 +638,7 @@ static char *i40e_nvm_update_state_str[] = {
- 	"I40E_NVMUPD_CSUM_CON",
+@@ -615,6 +615,9 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
+ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
+ 					struct i40e_nvm_access *cmd,
+ 					u8 *bytes, int *perrno);
++static i40e_status i40e_nvmupd_exec_aq(struct i40e_hw *hw,
++				       struct i40e_nvm_access *cmd,
++				       u8 *bytes, int *perrno);
+ static inline u8 i40e_nvmupd_get_module(u32 val)
+ {
+ 	return (u8)(val & I40E_NVM_MOD_PNT_MASK);
+@@ -639,6 +642,7 @@ static char *i40e_nvm_update_state_str[] = {
  	"I40E_NVMUPD_CSUM_SA",
  	"I40E_NVMUPD_CSUM_LCB",
-+	"I40E_NVMUPD_STATUS",
+ 	"I40E_NVMUPD_STATUS",
++	"I40E_NVMUPD_EXEC_AQ",
  };
  
  /**
-@@ -654,10 +655,34 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
- 				u8 *bytes, int *perrno)
- {
- 	i40e_status status;
-+	enum i40e_nvmupd_cmd upd_cmd;
+@@ -824,6 +828,10 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 		}
+ 		break;
  
- 	/* assume success */
- 	*perrno = 0;
- 
-+	/* early check for status command and debug msgs */
-+	upd_cmd = i40e_nvmupd_validate_command(hw, cmd, perrno);
++	case I40E_NVMUPD_EXEC_AQ:
++		status = i40e_nvmupd_exec_aq(hw, cmd, bytes, perrno);
++		break;
 +
-+	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
-+		   i40e_nvm_update_state_str[upd_cmd],
-+		   hw->nvmupd_state,
-+		   hw->aq.nvm_release_on_done);
-+
-+	if (upd_cmd == I40E_NVMUPD_INVALID) {
-+		*perrno = -EFAULT;
-+		i40e_debug(hw, I40E_DEBUG_NVM,
-+			   "i40e_nvmupd_validate_command returns %d errno %d\n",
-+			   upd_cmd, *perrno);
-+	}
-+
-+	/* a status request returns immediately rather than
-+	 * going into the state machine
-+	 */
-+	if (upd_cmd == I40E_NVMUPD_STATUS) {
-+		bytes[0] = hw->nvmupd_state;
-+		return 0;
-+	}
-+
- 	switch (hw->nvmupd_state) {
- 	case I40E_NVMUPD_STATE_INIT:
- 		status = i40e_nvmupd_state_init(hw, cmd, bytes, perrno);
-@@ -954,12 +979,13 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 						 int *perrno)
- {
- 	enum i40e_nvmupd_cmd upd_cmd;
--	u8 transaction;
-+	u8 module, transaction;
- 
- 	/* anything that doesn't match a recognized case is an error */
- 	upd_cmd = I40E_NVMUPD_INVALID;
- 
- 	transaction = i40e_nvmupd_get_transaction(cmd->config);
-+	module = i40e_nvmupd_get_module(cmd->config);
- 
- 	/* limits on data size */
- 	if ((cmd->data_size < 1) ||
-@@ -986,6 +1012,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 		case I40E_NVM_SA:
- 			upd_cmd = I40E_NVMUPD_READ_SA;
+ 	default:
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "NVMUPD: bad cmd %s in init state\n",
+@@ -1069,6 +1077,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
+ 		case (I40E_NVM_CSUM|I40E_NVM_LCB):
+ 			upd_cmd = I40E_NVMUPD_CSUM_LCB;
  			break;
 +		case I40E_NVM_EXEC:
-+			if (module == 0xf)
-+				upd_cmd = I40E_NVMUPD_STATUS;
++			if (module == 0)
++				upd_cmd = I40E_NVMUPD_EXEC_AQ;
 +			break;
  		}
  		break;
- 
-@@ -1018,17 +1048,7 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 		}
- 		break;
  	}
--	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
--		   i40e_nvm_update_state_str[upd_cmd],
--		   hw->nvmupd_state,
--		   hw->aq.nvm_release_on_done);
- 
--	if (upd_cmd == I40E_NVMUPD_INVALID) {
--		*perrno = -EFAULT;
--		i40e_debug(hw, I40E_DEBUG_NVM,
--			   "i40e_nvmupd_validate_command returns %d errno %d\n",
--			   upd_cmd, *perrno);
--	}
- 	return upd_cmd;
+@@ -1077,6 +1089,77 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
  }
  
+ /**
++ * i40e_nvmupd_exec_aq - Run an AQ command
++ * @hw: pointer to hardware structure
++ * @cmd: pointer to nvm update command buffer
++ * @bytes: pointer to the data buffer
++ * @perrno: pointer to return error code
++ *
++ * cmd structure contains identifiers and data buffer
++ **/
++static i40e_status i40e_nvmupd_exec_aq(struct i40e_hw *hw,
++				       struct i40e_nvm_access *cmd,
++				       u8 *bytes, int *perrno)
++{
++	struct i40e_asq_cmd_details cmd_details;
++	i40e_status status;
++	struct i40e_aq_desc *aq_desc;
++	u32 buff_size = 0;
++	u8 *buff = NULL;
++	u32 aq_desc_len;
++	u32 aq_data_len;
++
++	i40e_debug(hw, I40E_DEBUG_NVM, "NVMUPD: %s\n", __func__);
++	memset(&cmd_details, 0, sizeof(cmd_details));
++	cmd_details.wb_desc = &hw->nvm_wb_desc;
++
++	aq_desc_len = sizeof(struct i40e_aq_desc);
++	memset(&hw->nvm_wb_desc, 0, aq_desc_len);
++
++	/* get the aq descriptor */
++	if (cmd->data_size < aq_desc_len) {
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVMUPD: not enough aq desc bytes for exec, size %d < %d\n",
++			   cmd->data_size, aq_desc_len);
++		*perrno = -EINVAL;
++		return I40E_ERR_PARAM;
++	}
++	aq_desc = (struct i40e_aq_desc *)bytes;
++
++	/* if data buffer needed, make sure it's ready */
++	aq_data_len = cmd->data_size - aq_desc_len;
++	buff_size = max_t(u32, aq_data_len, le16_to_cpu(aq_desc->datalen));
++	if (buff_size) {
++		if (!hw->nvm_buff.va) {
++			status = i40e_allocate_virt_mem(hw, &hw->nvm_buff,
++							hw->aq.asq_buf_size);
++			if (status)
++				i40e_debug(hw, I40E_DEBUG_NVM,
++					   "NVMUPD: i40e_allocate_virt_mem for exec buff failed, %d\n",
++					   status);
++		}
++
++		if (hw->nvm_buff.va) {
++			buff = hw->nvm_buff.va;
++			memcpy(buff, &bytes[aq_desc_len], aq_data_len);
++		}
++	}
++
++	/* and away we go! */
++	status = i40e_asq_send_command(hw, aq_desc, buff,
++				       buff_size, &cmd_details);
++	if (status) {
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_exec_aq err %s aq_err %s\n",
++			   i40e_stat_str(hw, status),
++			   i40e_aq_str(hw, hw->aq.asq_last_status));
++		*perrno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
++	}
++
++	return status;
++}
++
++/**
+  * i40e_nvmupd_nvm_read - Read NVM
+  * @hw: pointer to hardware structure
+  * @cmd: pointer to nvm update command buffer
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index a4fec8b..f63f538 100644
+index 3f79930..a78b077 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -305,6 +305,7 @@ enum i40e_nvmupd_cmd {
- 	I40E_NVMUPD_CSUM_CON,
+@@ -306,6 +306,7 @@ enum i40e_nvmupd_cmd {
  	I40E_NVMUPD_CSUM_SA,
  	I40E_NVMUPD_CSUM_LCB,
-+	I40E_NVMUPD_STATUS,
+ 	I40E_NVMUPD_STATUS,
++	I40E_NVMUPD_EXEC_AQ,
  };
  
  enum i40e_nvmupd_state {
-@@ -329,6 +330,7 @@ enum i40e_nvmupd_state {
- #define I40E_NVM_SA		(I40E_NVM_SNT | I40E_NVM_LCB)
- #define I40E_NVM_ERA		0x4
- #define I40E_NVM_CSUM		0x8
-+#define I40E_NVM_EXEC		0xf
+@@ -497,6 +498,7 @@ struct i40e_hw {
+ 	/* state of nvm update process */
+ 	enum i40e_nvmupd_state nvmupd_state;
+ 	struct i40e_aq_desc nvm_wb_desc;
++	struct i40e_virt_mem nvm_buff;
  
- #define I40E_NVM_ADAPT_SHIFT	16
- #define I40E_NVM_ADAPT_MASK	(0xffff << I40E_NVM_ADAPT_SHIFT)
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index 15c8ac8..0940db7 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -596,6 +596,9 @@ i40e_status i40evf_shutdown_adminq(struct i40e_hw *hw)
+ 
+ 	/* destroy the locks */
+ 
++	if (hw->nvm_buff.va)
++		i40e_free_virt_mem(hw, &hw->nvm_buff);
++
+ 	return ret_code;
+ }
+ 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index cf865cc..7f3c05c 100644
+index 439a4e1..4d36615 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -304,6 +304,7 @@ enum i40e_nvmupd_cmd {
- 	I40E_NVMUPD_CSUM_CON,
+@@ -305,6 +305,7 @@ enum i40e_nvmupd_cmd {
  	I40E_NVMUPD_CSUM_SA,
  	I40E_NVMUPD_CSUM_LCB,
-+	I40E_NVMUPD_STATUS,
+ 	I40E_NVMUPD_STATUS,
++	I40E_NVMUPD_EXEC_AQ,
  };
  
  enum i40e_nvmupd_state {
-@@ -328,6 +329,7 @@ enum i40e_nvmupd_state {
- #define I40E_NVM_SA		(I40E_NVM_SNT | I40E_NVM_LCB)
- #define I40E_NVM_ERA		0x4
- #define I40E_NVM_CSUM		0x8
-+#define I40E_NVM_EXEC		0xf
+@@ -491,6 +492,7 @@ struct i40e_hw {
+ 	/* state of nvm update process */
+ 	enum i40e_nvmupd_state nvmupd_state;
+ 	struct i40e_aq_desc nvm_wb_desc;
++	struct i40e_virt_mem nvm_buff;
  
- #define I40E_NVM_ADAPT_SHIFT	16
- #define I40E_NVM_ADAPT_MASK	(0xffff << I40E_NVM_ADAPT_SHIFT)
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
 -- 
 2.4.3
