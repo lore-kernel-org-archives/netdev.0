@@ -1,100 +1,39 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 7/7] phy: add phy_device_remove()
-Date: Fri, 18 Sep 2015 10:47:45 +0100
-Message-ID: <E1ZcsGf-0000ur-EZ@rmk-PC.arm.linux.org.uk>
+From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: Re: [PATCH 0/7] Phy and mdiobus fixes
+Date: Fri, 18 Sep 2015 10:56:00 +0100
+Message-ID: <20150918095600.GC21084@n2100.arm.linux.org.uk>
 References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>, Robert Richter <rric@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Rob Herring <robh+dt@kernel.org>, Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org, Sören Brinkmann <soren.brinkmann@xilinx.com>, Iyappan Subramanian <isubramanian@apm.com>, Grant Likely <grant.likely@linaro.org>, Keyur Chudgar <kchudgar@apm.com>, linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20150918094625.GB21084@n2100.arm.linux.org.uk>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20150918094625.GB21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-QWRkIGEgcGh5X2RldmljZV9yZW1vdmUoKSBmdW5jdGlvbiB0byBjb21wbGVtZW50IHBoeV9kZXZp
-Y2VfcmVnaXN0ZXIoKSwKd2hpY2ggdW5kb2VzIHRoZSBlZmZlY3RzIG9mIHBoeV9kZXZpY2VfcmVn
-aXN0ZXIoKSBieSByZW1vdmluZyB0aGUgcGh5CmRldmljZSBmcm9tIHZpc2liaWxpdHksIGJ1dCBu
-b3QgZnJlZWluZyBpdC4KClRoaXMgYWxsb3dzIHRoZXNlIGRldGFpbHMgdG8gYmUgbW92ZWQgb3V0
-IG9mIHRoZSBtZGlvIGJ1cyBjb2RlIGludG8KdGhlIHBoeSBjb2RlIHdoZXJlIHRoaXMgYWN0aW9u
-IGJlbG9uZ3MuCgpTaWduZWQtb2ZmLWJ5OiBSdXNzZWxsIEtpbmcgPHJtaytrZXJuZWxAYXJtLmxp
-bnV4Lm9yZy51az4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5j
-IHwgIDUgKysrLS0KIGRyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jICAgICAgICAgICAgICAgfCAx
-NSArKysrKysrKysrLS0tLS0KIGRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgICAgICAgICAg
-ICAgfCAxOCArKysrKysrKysrKysrKysrKysKIGluY2x1ZGUvbGludXgvcGh5LmggICAgICAgICAg
-ICAgICAgICAgICAgfCAgMSArCiA0IGZpbGVzIGNoYW5nZWQsIDMyIGluc2VydGlvbnMoKyksIDcg
-ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2dpYW5mYXIuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMKaW5k
-ZXggNjVhMTYwODZmYWVjLi45MDMyMTFkZjMyODggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL2dpYW5mYXIuYwpAQCAtMTcwMiw3ICsxNzAyLDYgQEAgc3RhdGljIHZvaWQgZ2Zhcl9j
-b25maWd1cmVfc2VyZGVzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJdGJpcGh5ID0gb2ZfcGh5
-X2ZpbmRfZGV2aWNlKHByaXYtPnRiaV9ub2RlKTsKIAlpZiAoIXRiaXBoeSkgewogCQlkZXZfZXJy
-KCZkZXYtPmRldiwgImVycm9yOiBDb3VsZCBub3QgZ2V0IFRCSSBkZXZpY2VcbiIpOwotCQlwdXRf
-ZGV2aWNlKCZ0YmlwaHktPmRldik7CiAJCXJldHVybjsKIAl9CiAKQEAgLTE3MTEsOCArMTcxMCwx
-MCBAQCBzdGF0aWMgdm9pZCBnZmFyX2NvbmZpZ3VyZV9zZXJkZXMoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldikKIAkgKiBldmVyeXRoaW5nIGZvciB1cz8gIFJlc2V0dGluZyBpdCB0YWtlcyB0aGUgbGlu
-ayBkb3duIGFuZCByZXF1aXJlcwogCSAqIHNldmVyYWwgc2Vjb25kcyBmb3IgaXQgdG8gY29tZSBi
-YWNrLgogCSAqLwotCWlmIChwaHlfcmVhZCh0YmlwaHksIE1JSV9CTVNSKSAmIEJNU1JfTFNUQVRV
-UykKKwlpZiAocGh5X3JlYWQodGJpcGh5LCBNSUlfQk1TUikgJiBCTVNSX0xTVEFUVVMpIHsKKwkJ
-cHV0X2RldmljZSgmdGJpcGh5LT5kZXYpOwogCQlyZXR1cm47CisJfQogCiAJLyogU2luZ2xlIGNs
-ayBtb2RlLCBtaWkgbW9kZSBvZmYoZm9yIHNlcmRlcyBjb21tdW5pY2F0aW9uKSAqLwogCXBoeV93
-cml0ZSh0YmlwaHksIE1JSV9UQklDT04sIFRCSUNPTl9DTEtfU0VMRUNUKTsKZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jIGIvZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmMK
-aW5kZXggOTkyNDA2NjI0YjdjLi5jMzQwZTQxMmIzOGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
-L3BoeS9tZGlvX2J1cy5jCisrKyBiL2RyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jCkBAIC0yOTEs
-OCArMjkxLDExIEBAIGludCBfX21kaW9idXNfcmVnaXN0ZXIoc3RydWN0IG1paV9idXMgKmJ1cywg
-c3RydWN0IG1vZHVsZSAqb3duZXIpCiAKIGVycm9yOgogCXdoaWxlICgtLWkgPj0gMCkgewotCQlp
-ZiAoYnVzLT5waHlfbWFwW2ldKQotCQkJZGV2aWNlX3VucmVnaXN0ZXIoJmJ1cy0+cGh5X21hcFtp
-XS0+ZGV2KTsKKwkJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IGJ1cy0+cGh5X21hcFtpXTsK
-KwkJaWYgKHBoeWRldikgeworCQkJcGh5X2RldmljZV9yZW1vdmUocGh5ZGV2KTsKKwkJCXBoeV9k
-ZXZpY2VfZnJlZShwaHlkZXYpOworCQl9CiAJfQogCWRldmljZV9kZWwoJmJ1cy0+ZGV2KTsKIAly
-ZXR1cm4gZXJyOwpAQCAtMzA3LDkgKzMxMCwxMSBAQCB2b2lkIG1kaW9idXNfdW5yZWdpc3Rlcihz
-dHJ1Y3QgbWlpX2J1cyAqYnVzKQogCWJ1cy0+c3RhdGUgPSBNRElPQlVTX1VOUkVHSVNURVJFRDsK
-IAogCWZvciAoaSA9IDA7IGkgPCBQSFlfTUFYX0FERFI7IGkrKykgewotCQlpZiAoYnVzLT5waHlf
-bWFwW2ldKQotCQkJZGV2aWNlX3VucmVnaXN0ZXIoJmJ1cy0+cGh5X21hcFtpXS0+ZGV2KTsKLQkJ
-YnVzLT5waHlfbWFwW2ldID0gTlVMTDsKKwkJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IGJ1
-cy0+cGh5X21hcFtpXTsKKwkJaWYgKHBoeWRldikgeworCQkJcGh5X2RldmljZV9yZW1vdmUocGh5
-ZGV2KTsKKwkJCXBoeV9kZXZpY2VfZnJlZShwaHlkZXYpOworCQl9CiAJfQogCWRldmljZV9kZWwo
-JmJ1cy0+ZGV2KTsKIH0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMg
-Yi9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jCmluZGV4IDk3YTRmNTJhZGRhYy4uZjc2MTI4
-OGFiZTY2IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jCisrKyBiL2Ry
-aXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMKQEAgLTM4NCw2ICszODQsMjQgQEAgaW50IHBoeV9k
-ZXZpY2VfcmVnaXN0ZXIoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKIEVYUE9SVF9TWU1CT0wo
-cGh5X2RldmljZV9yZWdpc3Rlcik7CiAKIC8qKgorICogcGh5X2RldmljZV9yZW1vdmUgLSBSZW1v
-dmUgYSBwcmV2aW91c2x5IHJlZ2lzdGVyZWQgcGh5IGRldmljZSBmcm9tIHRoZSBNRElPIGJ1cwor
-ICogQHBoeWRldjogcGh5X2RldmljZSBzdHJ1Y3R1cmUgdG8gcmVtb3ZlCisgKgorICogVGhpcyBk
-b2Vzbid0IGZyZWUgdGhlIHBoeV9kZXZpY2UgaXRzZWxmLCBpdCBtZXJlbHkgcmV2ZXJzZXMgdGhl
-IGVmZmVjdHMKKyAqIG9mIHBoeV9kZXZpY2VfcmVnaXN0ZXIoKS4gVXNlIHBoeV9kZXZpY2VfZnJl
-ZSgpIHRvIGZyZWUgdGhlIGRldmljZQorICogYWZ0ZXIgY2FsbGluZyB0aGlzIGZ1bmN0aW9uLgor
-ICovCit2b2lkIHBoeV9kZXZpY2VfcmVtb3ZlKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpCit7
-CisJc3RydWN0IG1paV9idXMgKmJ1cyA9IHBoeWRldi0+YnVzOworCWludCBhZGRyID0gcGh5ZGV2
-LT5hZGRyOworCisJZGV2aWNlX2RlbCgmcGh5ZGV2LT5kZXYpOworCWJ1cy0+cGh5X21hcFthZGRy
-XSA9IE5VTEw7Cit9CitFWFBPUlRfU1lNQk9MKHBoeV9kZXZpY2VfcmVtb3ZlKTsKKworLyoqCiAg
-KiBwaHlfZmluZF9maXJzdCAtIGZpbmRzIHRoZSBmaXJzdCBQSFkgZGV2aWNlIG9uIHRoZSBidXMK
-ICAqIEBidXM6IHRoZSB0YXJnZXQgTUlJIGJ1cwogICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xp
-bnV4L3BoeS5oIGIvaW5jbHVkZS9saW51eC9waHkuaAppbmRleCAxMWJjZTQ0ZjZkNjUuLjRhNGUz
-YTA5MjMzNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9waHkuaAorKysgYi9pbmNsdWRlL2xp
-bnV4L3BoeS5oCkBAIC03NDUsNiArNzQ1LDcgQEAgc3RydWN0IHBoeV9kZXZpY2UgKnBoeV9kZXZp
-Y2VfY3JlYXRlKHN0cnVjdCBtaWlfYnVzICpidXMsIGludCBhZGRyLCBpbnQgcGh5X2lkLAogCQkJ
-CSAgICAgc3RydWN0IHBoeV9jNDVfZGV2aWNlX2lkcyAqYzQ1X2lkcyk7CiBzdHJ1Y3QgcGh5X2Rl
-dmljZSAqZ2V0X3BoeV9kZXZpY2Uoc3RydWN0IG1paV9idXMgKmJ1cywgaW50IGFkZHIsIGJvb2wg
-aXNfYzQ1KTsKIGludCBwaHlfZGV2aWNlX3JlZ2lzdGVyKHN0cnVjdCBwaHlfZGV2aWNlICpwaHkp
-Owordm9pZCBwaHlfZGV2aWNlX3JlbW92ZShzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGlu
-dCBwaHlfaW5pdF9odyhzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGludCBwaHlfc3VzcGVu
-ZChzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGludCBwaHlfcmVzdW1lKHN0cnVjdCBwaHlf
-ZGV2aWNlICpwaHlkZXYpOwotLSAKMi4xLjAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2
-QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4
-cHBjLWRldg==
+Sorry guys, some of you will get the patches twice, as S=F6ren's name
+in the header caused vger to reject all the patches.
+
+--=20
+=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
