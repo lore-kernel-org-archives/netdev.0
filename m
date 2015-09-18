@@ -1,94 +1,113 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [RFC net-next 03/11] net: Add support for l3mdev ops to VRF driver
-Date: Fri, 18 Sep 2015 10:06:17 -0700
-Message-ID: <1442595985-7049-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [RFC net-next 08/11] net: Remove vrf header file
+Date: Fri, 18 Sep 2015 10:06:22 -0700
+Message-ID: <1442595985-7049-9-git-send-email-dsa@cumulusnetworks.com>
 References: <1442595985-7049-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	nikolay@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33260 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753779AbbIRRGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 13:06:42 -0400
-Received: by pacex6 with SMTP id ex6so56180041pac.0
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 10:06:42 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34701 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305AbbIRRGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 13:06:48 -0400
+Received: by padhy16 with SMTP id hy16so56045637pad.1
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 10:06:47 -0700 (PDT)
 In-Reply-To: <1442595985-7049-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Move remaining structs to VRF driver and delete the vrf header file.
+
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/Kconfig |  1 +
- drivers/net/vrf.c   | 29 +++++++++++++++++++++++++++++
- 2 files changed, 30 insertions(+)
+ MAINTAINERS       |  1 -
+ drivers/net/vrf.c | 16 +++++++++++++++-
+ include/net/vrf.h | 29 -----------------------------
+ 3 files changed, 15 insertions(+), 31 deletions(-)
+ delete mode 100644 include/net/vrf.h
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index d18eb607bee6..b9ebd0d18a52 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -299,6 +299,7 @@ config NLMON
- config NET_VRF
- 	tristate "Virtual Routing and Forwarding (Lite)"
- 	depends on IP_MULTIPLE_TABLES && IPV6_MULTIPLE_TABLES
-+	depends on NET_L3_MASTER_DEV
- 	---help---
- 	  This option enables the support for mapping interfaces into VRF's. The
- 	  support enables VRF devices.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a88c99988022..9ec9423c57c3 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -11249,7 +11249,6 @@ M:	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/net/vrf.c
+-F:	include/net/vrf.h
+ 
+ VT1211 HARDWARE MONITOR DRIVER
+ M:	Juerg Haefliger <juergh@gmail.com>
 diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 86616e786413..75d34a9b525a 100644
+index c4f036b400eb..a3d5bcabbc48 100644
 --- a/drivers/net/vrf.c
 +++ b/drivers/net/vrf.c
-@@ -35,6 +35,7 @@
+@@ -34,7 +34,6 @@
+ #include <net/rtnetlink.h>
  #include <net/route.h>
  #include <net/addrconf.h>
- #include <net/vrf.h>
-+#include <net/l3mdev.h>
+-#include <net/vrf.h>
+ #include <net/l3mdev.h>
  
  #define DRV_NAME	"vrf"
- #define DRV_VERSION	"1.0"
-@@ -528,6 +529,33 @@ static const struct net_device_ops vrf_netdev_ops = {
- 	.ndo_del_slave		= vrf_del_slave,
- };
+@@ -45,6 +44,21 @@
+ #define vrf_master_get_rcu(dev) \
+ 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
  
-+static u32 vrf_fib_table(const struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+
-+	return vrf->tb_id;
-+}
-+
-+static struct rtable *vrf_get_rtable(const struct net_device *dev,
-+				     const struct flowi4 *fl4)
-+{
-+	struct rtable *rth = NULL;
-+
-+	if (!(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-+		struct net_vrf *vrf = netdev_priv(dev);
-+
-+		rth = vrf->rth;
-+		atomic_inc(&rth->dst.__refcnt);
-+	}
-+
-+	return rth;
-+}
-+
-+static const struct l3mdev_ops vrf_l3mdev_ops = {
-+	.l3mdev_fib_table	= vrf_fib_table,
-+	.l3mdev_get_rtable	= vrf_get_rtable,
++struct slave {
++	struct list_head        list;
++	struct net_device       *dev;
 +};
 +
- static void vrf_get_drvinfo(struct net_device *dev,
- 			    struct ethtool_drvinfo *info)
- {
-@@ -545,6 +573,7 @@ static void vrf_setup(struct net_device *dev)
- 
- 	/* Initialize the device structure. */
- 	dev->netdev_ops = &vrf_netdev_ops;
-+	dev->l3mdev_ops = &vrf_l3mdev_ops;
- 	dev->ethtool_ops = &vrf_ethtool_ops;
- 	dev->destructor = free_netdev;
- 
++struct slave_queue {
++	struct list_head        all_slaves;
++};
++
++struct net_vrf {
++	struct slave_queue      queue;
++	struct rtable           *rth;
++	u32                     tb_id;
++};
++
+ struct pcpu_dstats {
+ 	u64			tx_pkts;
+ 	u64			tx_bytes;
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+deleted file mode 100644
+index e83fc38770dd..000000000000
+--- a/include/net/vrf.h
++++ /dev/null
+@@ -1,29 +0,0 @@
+-/*
+- * include/net/net_vrf.h - adds vrf dev structure definitions
+- * Copyright (c) 2015 Cumulus Networks
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- */
+-
+-#ifndef __LINUX_NET_VRF_H
+-#define __LINUX_NET_VRF_H
+-
+-struct slave {
+-	struct list_head	list;
+-	struct net_device	*dev;
+-};
+-
+-struct slave_queue {
+-	struct list_head	all_slaves;
+-};
+-
+-struct net_vrf {
+-	struct slave_queue	queue;
+-	struct rtable           *rth;
+-	u32			tb_id;
+-};
+-
+-#endif /* __LINUX_NET_VRF_H */
 -- 
 1.9.1
