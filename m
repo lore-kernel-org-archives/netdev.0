@@ -1,143 +1,100 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
 Subject: [PATCH 7/7] phy: add phy_device_remove()
-Date: Fri, 18 Sep 2015 10:55:27 +0100
-Message-ID: <E1ZcsO7-0001G8-JO@rmk-PC.arm.linux.org.uk>
+Date: Fri, 18 Sep 2015 10:47:45 +0100
+Message-ID: <E1ZcsGf-0000ur-EZ@rmk-PC.arm.linux.org.uk>
 References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: devicetree@vger.kernel.org, Frank Rowand <frowand.list@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, Li Yang <leoli@freescale.com>,
-	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	Robert Richter <rric@kernel.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"Soren Brinkmann" <soren.brinkmann@xilinx.com>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>, Robert Richter <rric@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Rob Herring <robh+dt@kernel.org>, Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org, Sören Brinkmann <soren.brinkmann@xilinx.com>, Iyappan Subramanian <isubramanian@apm.com>, Grant Likely <grant.likely@linaro.org>, Keyur Chudgar <kchudgar@apm.com>, linux-arm-kernel@lists.infradead.org
 To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Add a phy_device_remove() function to complement phy_device_register(),
-which undoes the effects of phy_device_register() by removing the phy
-device from visibility, but not freeing it.
-
-This allows these details to be moved out of the mdio bus code into
-the phy code where this action belongs.
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/ethernet/freescale/gianfar.c |  5 +++--
- drivers/net/phy/mdio_bus.c               | 15 ++++++++++-----
- drivers/net/phy/phy_device.c             | 18 ++++++++++++++++++
- include/linux/phy.h                      |  1 +
- 4 files changed, 32 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 65a16086faec..903211df3288 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1702,7 +1702,6 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	tbiphy = of_phy_find_device(priv->tbi_node);
- 	if (!tbiphy) {
- 		dev_err(&dev->dev, "error: Could not get TBI device\n");
--		put_device(&tbiphy->dev);
- 		return;
- 	}
- 
-@@ -1711,8 +1710,10 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	 * everything for us?  Resetting it takes the link down and requires
- 	 * several seconds for it to come back.
- 	 */
--	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS)
-+	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS) {
-+		put_device(&tbiphy->dev);
- 		return;
-+	}
- 
- 	/* Single clk mode, mii mode off(for serdes communication) */
- 	phy_write(tbiphy, MII_TBICON, TBICON_CLK_SELECT);
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 992406624b7c..c340e412b38f 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -291,8 +291,11 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 
- error:
- 	while (--i >= 0) {
--		if (bus->phy_map[i])
--			device_unregister(&bus->phy_map[i]->dev);
-+		struct phy_device *phydev = bus->phy_map[i];
-+		if (phydev) {
-+			phy_device_remove(phydev);
-+			phy_device_free(phydev);
-+		}
- 	}
- 	device_del(&bus->dev);
- 	return err;
-@@ -307,9 +310,11 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	bus->state = MDIOBUS_UNREGISTERED;
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		if (bus->phy_map[i])
--			device_unregister(&bus->phy_map[i]->dev);
--		bus->phy_map[i] = NULL;
-+		struct phy_device *phydev = bus->phy_map[i];
-+		if (phydev) {
-+			phy_device_remove(phydev);
-+			phy_device_free(phydev);
-+		}
- 	}
- 	device_del(&bus->dev);
- }
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 97a4f52addac..f761288abe66 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -384,6 +384,24 @@ int phy_device_register(struct phy_device *phydev)
- EXPORT_SYMBOL(phy_device_register);
- 
- /**
-+ * phy_device_remove - Remove a previously registered phy device from the MDIO bus
-+ * @phydev: phy_device structure to remove
-+ *
-+ * This doesn't free the phy_device itself, it merely reverses the effects
-+ * of phy_device_register(). Use phy_device_free() to free the device
-+ * after calling this function.
-+ */
-+void phy_device_remove(struct phy_device *phydev)
-+{
-+	struct mii_bus *bus = phydev->bus;
-+	int addr = phydev->addr;
-+
-+	device_del(&phydev->dev);
-+	bus->phy_map[addr] = NULL;
-+}
-+EXPORT_SYMBOL(phy_device_remove);
-+
-+/**
-  * phy_find_first - finds the first PHY device on the bus
-  * @bus: the target MII bus
-  */
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 11bce44f6d65..4a4e3a092337 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -745,6 +745,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 				     struct phy_c45_device_ids *c45_ids);
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
- int phy_device_register(struct phy_device *phy);
-+void phy_device_remove(struct phy_device *phydev);
- int phy_init_hw(struct phy_device *phydev);
- int phy_suspend(struct phy_device *phydev);
- int phy_resume(struct phy_device *phydev);
--- 
-2.1.0
+QWRkIGEgcGh5X2RldmljZV9yZW1vdmUoKSBmdW5jdGlvbiB0byBjb21wbGVtZW50IHBoeV9kZXZp
+Y2VfcmVnaXN0ZXIoKSwKd2hpY2ggdW5kb2VzIHRoZSBlZmZlY3RzIG9mIHBoeV9kZXZpY2VfcmVn
+aXN0ZXIoKSBieSByZW1vdmluZyB0aGUgcGh5CmRldmljZSBmcm9tIHZpc2liaWxpdHksIGJ1dCBu
+b3QgZnJlZWluZyBpdC4KClRoaXMgYWxsb3dzIHRoZXNlIGRldGFpbHMgdG8gYmUgbW92ZWQgb3V0
+IG9mIHRoZSBtZGlvIGJ1cyBjb2RlIGludG8KdGhlIHBoeSBjb2RlIHdoZXJlIHRoaXMgYWN0aW9u
+IGJlbG9uZ3MuCgpTaWduZWQtb2ZmLWJ5OiBSdXNzZWxsIEtpbmcgPHJtaytrZXJuZWxAYXJtLmxp
+bnV4Lm9yZy51az4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5j
+IHwgIDUgKysrLS0KIGRyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jICAgICAgICAgICAgICAgfCAx
+NSArKysrKysrKysrLS0tLS0KIGRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgICAgICAgICAg
+ICAgfCAxOCArKysrKysrKysrKysrKysrKysKIGluY2x1ZGUvbGludXgvcGh5LmggICAgICAgICAg
+ICAgICAgICAgICAgfCAgMSArCiA0IGZpbGVzIGNoYW5nZWQsIDMyIGluc2VydGlvbnMoKyksIDcg
+ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2dpYW5mYXIuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMKaW5k
+ZXggNjVhMTYwODZmYWVjLi45MDMyMTFkZjMyODggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2dpYW5mYXIuYwpAQCAtMTcwMiw3ICsxNzAyLDYgQEAgc3RhdGljIHZvaWQgZ2Zhcl9j
+b25maWd1cmVfc2VyZGVzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJdGJpcGh5ID0gb2ZfcGh5
+X2ZpbmRfZGV2aWNlKHByaXYtPnRiaV9ub2RlKTsKIAlpZiAoIXRiaXBoeSkgewogCQlkZXZfZXJy
+KCZkZXYtPmRldiwgImVycm9yOiBDb3VsZCBub3QgZ2V0IFRCSSBkZXZpY2VcbiIpOwotCQlwdXRf
+ZGV2aWNlKCZ0YmlwaHktPmRldik7CiAJCXJldHVybjsKIAl9CiAKQEAgLTE3MTEsOCArMTcxMCwx
+MCBAQCBzdGF0aWMgdm9pZCBnZmFyX2NvbmZpZ3VyZV9zZXJkZXMoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldikKIAkgKiBldmVyeXRoaW5nIGZvciB1cz8gIFJlc2V0dGluZyBpdCB0YWtlcyB0aGUgbGlu
+ayBkb3duIGFuZCByZXF1aXJlcwogCSAqIHNldmVyYWwgc2Vjb25kcyBmb3IgaXQgdG8gY29tZSBi
+YWNrLgogCSAqLwotCWlmIChwaHlfcmVhZCh0YmlwaHksIE1JSV9CTVNSKSAmIEJNU1JfTFNUQVRV
+UykKKwlpZiAocGh5X3JlYWQodGJpcGh5LCBNSUlfQk1TUikgJiBCTVNSX0xTVEFUVVMpIHsKKwkJ
+cHV0X2RldmljZSgmdGJpcGh5LT5kZXYpOwogCQlyZXR1cm47CisJfQogCiAJLyogU2luZ2xlIGNs
+ayBtb2RlLCBtaWkgbW9kZSBvZmYoZm9yIHNlcmRlcyBjb21tdW5pY2F0aW9uKSAqLwogCXBoeV93
+cml0ZSh0YmlwaHksIE1JSV9UQklDT04sIFRCSUNPTl9DTEtfU0VMRUNUKTsKZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jIGIvZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmMK
+aW5kZXggOTkyNDA2NjI0YjdjLi5jMzQwZTQxMmIzOGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
+L3BoeS9tZGlvX2J1cy5jCisrKyBiL2RyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jCkBAIC0yOTEs
+OCArMjkxLDExIEBAIGludCBfX21kaW9idXNfcmVnaXN0ZXIoc3RydWN0IG1paV9idXMgKmJ1cywg
+c3RydWN0IG1vZHVsZSAqb3duZXIpCiAKIGVycm9yOgogCXdoaWxlICgtLWkgPj0gMCkgewotCQlp
+ZiAoYnVzLT5waHlfbWFwW2ldKQotCQkJZGV2aWNlX3VucmVnaXN0ZXIoJmJ1cy0+cGh5X21hcFtp
+XS0+ZGV2KTsKKwkJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IGJ1cy0+cGh5X21hcFtpXTsK
+KwkJaWYgKHBoeWRldikgeworCQkJcGh5X2RldmljZV9yZW1vdmUocGh5ZGV2KTsKKwkJCXBoeV9k
+ZXZpY2VfZnJlZShwaHlkZXYpOworCQl9CiAJfQogCWRldmljZV9kZWwoJmJ1cy0+ZGV2KTsKIAly
+ZXR1cm4gZXJyOwpAQCAtMzA3LDkgKzMxMCwxMSBAQCB2b2lkIG1kaW9idXNfdW5yZWdpc3Rlcihz
+dHJ1Y3QgbWlpX2J1cyAqYnVzKQogCWJ1cy0+c3RhdGUgPSBNRElPQlVTX1VOUkVHSVNURVJFRDsK
+IAogCWZvciAoaSA9IDA7IGkgPCBQSFlfTUFYX0FERFI7IGkrKykgewotCQlpZiAoYnVzLT5waHlf
+bWFwW2ldKQotCQkJZGV2aWNlX3VucmVnaXN0ZXIoJmJ1cy0+cGh5X21hcFtpXS0+ZGV2KTsKLQkJ
+YnVzLT5waHlfbWFwW2ldID0gTlVMTDsKKwkJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IGJ1
+cy0+cGh5X21hcFtpXTsKKwkJaWYgKHBoeWRldikgeworCQkJcGh5X2RldmljZV9yZW1vdmUocGh5
+ZGV2KTsKKwkJCXBoeV9kZXZpY2VfZnJlZShwaHlkZXYpOworCQl9CiAJfQogCWRldmljZV9kZWwo
+JmJ1cy0+ZGV2KTsKIH0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMg
+Yi9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jCmluZGV4IDk3YTRmNTJhZGRhYy4uZjc2MTI4
+OGFiZTY2IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jCisrKyBiL2Ry
+aXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMKQEAgLTM4NCw2ICszODQsMjQgQEAgaW50IHBoeV9k
+ZXZpY2VfcmVnaXN0ZXIoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKIEVYUE9SVF9TWU1CT0wo
+cGh5X2RldmljZV9yZWdpc3Rlcik7CiAKIC8qKgorICogcGh5X2RldmljZV9yZW1vdmUgLSBSZW1v
+dmUgYSBwcmV2aW91c2x5IHJlZ2lzdGVyZWQgcGh5IGRldmljZSBmcm9tIHRoZSBNRElPIGJ1cwor
+ICogQHBoeWRldjogcGh5X2RldmljZSBzdHJ1Y3R1cmUgdG8gcmVtb3ZlCisgKgorICogVGhpcyBk
+b2Vzbid0IGZyZWUgdGhlIHBoeV9kZXZpY2UgaXRzZWxmLCBpdCBtZXJlbHkgcmV2ZXJzZXMgdGhl
+IGVmZmVjdHMKKyAqIG9mIHBoeV9kZXZpY2VfcmVnaXN0ZXIoKS4gVXNlIHBoeV9kZXZpY2VfZnJl
+ZSgpIHRvIGZyZWUgdGhlIGRldmljZQorICogYWZ0ZXIgY2FsbGluZyB0aGlzIGZ1bmN0aW9uLgor
+ICovCit2b2lkIHBoeV9kZXZpY2VfcmVtb3ZlKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpCit7
+CisJc3RydWN0IG1paV9idXMgKmJ1cyA9IHBoeWRldi0+YnVzOworCWludCBhZGRyID0gcGh5ZGV2
+LT5hZGRyOworCisJZGV2aWNlX2RlbCgmcGh5ZGV2LT5kZXYpOworCWJ1cy0+cGh5X21hcFthZGRy
+XSA9IE5VTEw7Cit9CitFWFBPUlRfU1lNQk9MKHBoeV9kZXZpY2VfcmVtb3ZlKTsKKworLyoqCiAg
+KiBwaHlfZmluZF9maXJzdCAtIGZpbmRzIHRoZSBmaXJzdCBQSFkgZGV2aWNlIG9uIHRoZSBidXMK
+ICAqIEBidXM6IHRoZSB0YXJnZXQgTUlJIGJ1cwogICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xp
+bnV4L3BoeS5oIGIvaW5jbHVkZS9saW51eC9waHkuaAppbmRleCAxMWJjZTQ0ZjZkNjUuLjRhNGUz
+YTA5MjMzNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9waHkuaAorKysgYi9pbmNsdWRlL2xp
+bnV4L3BoeS5oCkBAIC03NDUsNiArNzQ1LDcgQEAgc3RydWN0IHBoeV9kZXZpY2UgKnBoeV9kZXZp
+Y2VfY3JlYXRlKHN0cnVjdCBtaWlfYnVzICpidXMsIGludCBhZGRyLCBpbnQgcGh5X2lkLAogCQkJ
+CSAgICAgc3RydWN0IHBoeV9jNDVfZGV2aWNlX2lkcyAqYzQ1X2lkcyk7CiBzdHJ1Y3QgcGh5X2Rl
+dmljZSAqZ2V0X3BoeV9kZXZpY2Uoc3RydWN0IG1paV9idXMgKmJ1cywgaW50IGFkZHIsIGJvb2wg
+aXNfYzQ1KTsKIGludCBwaHlfZGV2aWNlX3JlZ2lzdGVyKHN0cnVjdCBwaHlfZGV2aWNlICpwaHkp
+Owordm9pZCBwaHlfZGV2aWNlX3JlbW92ZShzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGlu
+dCBwaHlfaW5pdF9odyhzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGludCBwaHlfc3VzcGVu
+ZChzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KTsKIGludCBwaHlfcmVzdW1lKHN0cnVjdCBwaHlf
+ZGV2aWNlICpwaHlkZXYpOwotLSAKMi4xLjAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2
+QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4
+cHBjLWRldg==
