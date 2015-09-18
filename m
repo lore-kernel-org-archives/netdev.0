@@ -1,55 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Fri, 18 Sep 2015 13:42:53 +0300
-Message-ID: <20150918134253-mutt-send-email-mst@redhat.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH] macvtap: fix TUNSETSNDBUF values > 64k
+Date: Fri, 18 Sep 2015 12:49:07 +0200
+Message-ID: <55FBEC23.8080409@de.ibm.com>
+References: <1442572808-6438-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cornelia.huck@de.ibm.com, mst@redhat.com, pmorel@linux.vnet.ibm.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Jason Wang <jasowang@redhat.com>,
+	David Gibson <david@gibson.dropbear.id.au>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Justin Cormack <justin@myriabit.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1442572808-6438-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 997e120843e82609c8d99a9d5714e6cf91e14cbe:
+Am 18.09.2015 um 12:41 schrieb Michael S. Tsirkin:
+> Upon TUNSETSNDBUF,  macvtap reads the requested sndbuf size into
+> a local variable u.
+> commit 39ec7de7092b ("macvtap: fix uninitialized access on
+> TUNSETIFF") changed its type to u16 (which is the right thing to
+> do for all other macvtap ioctls), breaking all values > 64k.
+> 
+> The value of TUNSETSNDBUF is actually a signed 32 bit integer, so
+> the right thing to do is to read it into an int.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Fixes: 39ec7de7092b ("macvtap: fix uninitialized access on TUNSETIFF")
+> Reported-by: Mark A. Peloquin
+> Bisected-by: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-  virtio_balloon: do not change memory amount visible via /proc/meminfo (2015-09-08 13:32:11 +0300)
+You can add
+Tested-by:  Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+as this looks identical to an early version of my patch which was tested,
+by Matt. (I send you the other version that changes back u as I felt that
+u and up are named to identify unsigned)
 
-are available in the git repository at:
+and please add
+Acked-by: Christian Borntraeger <borntraeger@de.ibm.com>
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+what about
+CC: stable@vger.kernel.org
 
-for you to fetch changes up to ad2aa04218de9bd734d593adb0ac59854ec0cb68:
+Christian
 
-  virtio/s390: handle failures of READ_VQ_CONF ccw (2015-09-16 12:48:08 +0300)
-
-----------------------------------------------------------------
-virtio: fixes on top of 4.3-rc1
-
-This fixes the virtio-test tool, and improves
-the error handling for virtio-ccw.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Michael S. Tsirkin (3):
-      tools/virtio: fix build after 4.2 changes
-      vhost: move features to core
-      tools/virtio: propagate V=X to kernel build
-
-Pierre Morel (1):
-      virtio/s390: handle failures of READ_VQ_CONF ccw
-
- drivers/vhost/vhost.h            |  4 +++-
- tools/virtio/asm/barrier.h       |  2 ++
- tools/virtio/linux/export.h      |  3 +++
- tools/virtio/linux/kernel.h      |  8 ++++++++
- drivers/s390/virtio/virtio_ccw.c | 10 +++++++++-
- drivers/vhost/net.c              |  3 +--
- drivers/vhost/scsi.c             |  4 +---
- drivers/vhost/test.c             |  3 +++
- tools/virtio/Makefile            |  2 +-
- 9 files changed, 31 insertions(+), 8 deletions(-)
- create mode 100644 tools/virtio/linux/export.h
+> ---
+> 
+> This patch probably makes sense on stable.
+> 
+>  drivers/net/macvtap.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index edd7734..248478c 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1111,10 +1111,10 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		return 0;
+> 
+>  	case TUNSETSNDBUF:
+> -		if (get_user(u, up))
+> +		if (get_user(s, sp))
+>  			return -EFAULT;
+> 
+> -		q->sk.sk_sndbuf = u;
+> +		q->sk.sk_sndbuf = s;
+>  		return 0;
+> 
+>  	case TUNGETVNETHDRSZ:
+> 
