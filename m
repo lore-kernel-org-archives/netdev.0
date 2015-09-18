@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 1/7] phy: fix of_mdio_find_bus() device refcount leak
-Date: Fri, 18 Sep 2015 10:54:55 +0100
-Message-ID: <E1ZcsNb-0001Bf-U5@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 2/7] phy: fix mdiobus module safety
+Date: Fri, 18 Sep 2015 10:55:01 +0100
+Message-ID: <E1ZcsNh-0001Bl-9h@rmk-PC.arm.linux.org.uk>
 References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -26,91 +26,170 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-of_mdio_find_bus() leaks a struct device refcount, caused by using
-class_find_device() and not realising that the device reference has
-its refcount incremented:
+Re-implement the mdiobus module refcounting to ensure that we actually
+ensure that the mdiobus module code does not go away while we might call
+into it.
 
- * Note, you will need to drop the reference with put_device() after use.
-...
-        while ((dev = class_dev_iter_next(&iter))) {
-                if (match(dev, data)) {
-                        get_device(dev);
-                        break;
-                }
+The old scheme using bus->dev.driver was buggy, because bus->dev is a
+class device which never has a struct device_driver associated with it,
+and hence the associated code trying to obtain a refcount did nothing
+useful.
 
-Update the comment, and arrange for the only user of this function
-to drop this refcount when disposing of a reference to it.
+Instead, take the approach that other subsystems do: pass the module
+when calling mdiobus_register(), and record that in the mii_bus struct.
+When we need to increment the module use count in the phy code, use
+this stored pointer.  When the phy is deteched, drop the module
+refcount, remembering that the phy device might go away at that point.
+
+This doesn't stop the mii_bus going away while there are in-use phys -
+it merely stops the underlying code vanishing.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/mdio-mux.c | 19 +++++++++++++------
- drivers/net/phy/mdio_bus.c |  4 +++-
- 2 files changed, 16 insertions(+), 7 deletions(-)
+ drivers/net/phy/mdio_bus.c   |  5 +++--
+ drivers/net/phy/phy_device.c | 32 ++++++++++++++++++--------------
+ include/linux/phy.h          |  5 ++++-
+ 3 files changed, 25 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 4d4d25efc1e1..280c7c311f72 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -113,18 +113,18 @@ int mdio_mux_init(struct device *dev,
- 	if (!parent_bus_node)
- 		return -ENODEV;
- 
--	parent_bus = of_mdio_find_bus(parent_bus_node);
--	if (parent_bus == NULL) {
--		ret_val = -EPROBE_DEFER;
--		goto err_parent_bus;
--	}
--
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
- 	if (pb == NULL) {
- 		ret_val = -ENOMEM;
- 		goto err_parent_bus;
- 	}
- 
-+	parent_bus = of_mdio_find_bus(parent_bus_node);
-+	if (parent_bus == NULL) {
-+		ret_val = -EPROBE_DEFER;
-+		goto err_parent_bus;
-+	}
-+
- 	pb->switch_data = data;
- 	pb->switch_fn = switch_fn;
- 	pb->current_child = -1;
-@@ -173,6 +173,10 @@ int mdio_mux_init(struct device *dev,
- 		dev_info(dev, "Version " DRV_VERSION "\n");
- 		return 0;
- 	}
-+
-+	/* balance the reference of_mdio_find_bus() took */
-+	put_device(&pb->mii_bus->dev);
-+
- err_parent_bus:
- 	of_node_put(parent_bus_node);
- 	return ret_val;
-@@ -189,6 +193,9 @@ void mdio_mux_uninit(void *mux_handle)
- 		mdiobus_free(cb->mii_bus);
- 		cb = cb->next;
- 	}
-+
-+	/* balance the reference of_mdio_find_bus() in mdio_mux_init() took */
-+	put_device(&pb->mii_bus->dev);
- }
- EXPORT_SYMBOL_GPL(mdio_mux_uninit);
- 
 diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 02a4615b65f8..67553e13bd36 100644
+index 67553e13bd36..992406624b7c 100644
 --- a/drivers/net/phy/mdio_bus.c
 +++ b/drivers/net/phy/mdio_bus.c
-@@ -167,7 +167,9 @@ static int of_mdio_bus_match(struct device *dev, const void *mdio_bus_np)
-  * of_mdio_find_bus - Given an mii_bus node, find the mii_bus.
-  * @mdio_bus_np: Pointer to the mii_bus.
+@@ -244,7 +244,7 @@ static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
   *
-- * Returns a pointer to the mii_bus, or NULL if none found.
-+ * Returns a reference to the mii_bus, or NULL if none found.  The
-+ * embedded struct device will have its reference count incremented,
-+ * and this must be put once the bus is finished with.
-  *
-  * Because the association of a device_node and mii_bus is made via
-  * of_mdiobus_register(), the mii_bus cannot be found before it is
+  * Returns 0 on success or < 0 on error.
+  */
+-int mdiobus_register(struct mii_bus *bus)
++int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ {
+ 	int i, err;
+ 
+@@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 	BUG_ON(bus->state != MDIOBUS_ALLOCATED &&
+ 	       bus->state != MDIOBUS_UNREGISTERED);
+ 
++	bus->owner = owner;
+ 	bus->dev.parent = bus->parent;
+ 	bus->dev.class = &mdio_bus_class;
+ 	bus->dev.groups = NULL;
+@@ -296,7 +297,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 	device_del(&bus->dev);
+ 	return err;
+ }
+-EXPORT_SYMBOL(mdiobus_register);
++EXPORT_SYMBOL(__mdiobus_register);
+ 
+ void mdiobus_unregister(struct mii_bus *bus)
+ {
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index c0f211127274..03adf328f49b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -582,10 +582,15 @@ EXPORT_SYMBOL(phy_init_hw);
+ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		      u32 flags, phy_interface_t interface)
+ {
++	struct mii_bus *bus = phydev->bus;
+ 	struct device *d = &phydev->dev;
+-	struct module *bus_module;
+ 	int err;
+ 
++	if (!try_module_get(bus->owner)) {
++		dev_err(&dev->dev, "failed to get the bus module\n");
++		return -EIO;
++	}
++
+ 	/* Assume that if there is no driver, that it doesn't
+ 	 * exist, and we should use the genphy driver.
+ 	 */
+@@ -600,20 +605,13 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 			err = device_bind_driver(d);
+ 
+ 		if (err)
+-			return err;
++			goto error;
+ 	}
+ 
+ 	if (phydev->attached_dev) {
+ 		dev_err(&dev->dev, "PHY already attached\n");
+-		return -EBUSY;
+-	}
+-
+-	/* Increment the bus module reference count */
+-	bus_module = phydev->bus->dev.driver ?
+-		     phydev->bus->dev.driver->owner : NULL;
+-	if (!try_module_get(bus_module)) {
+-		dev_err(&dev->dev, "failed to get the bus module\n");
+-		return -EIO;
++		err = -EBUSY;
++		goto error;
+ 	}
+ 
+ 	phydev->attached_dev = dev;
+@@ -636,6 +634,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		phy_resume(phydev);
+ 
+ 	return err;
++
++error:
++	module_put(bus->owner);
++	return err;
+ }
+ EXPORT_SYMBOL(phy_attach_direct);
+ 
+@@ -680,11 +682,9 @@ EXPORT_SYMBOL(phy_attach);
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
++	struct mii_bus *bus;
+ 	int i;
+ 
+-	if (phydev->bus->dev.driver)
+-		module_put(phydev->bus->dev.driver->owner);
+-
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+ 	phy_suspend(phydev);
+@@ -700,6 +700,10 @@ void phy_detach(struct phy_device *phydev)
+ 			break;
+ 		}
+ 	}
++
++	bus = phydev->bus;
++
++	module_put(bus->owner);
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 962387a192f1..11bce44f6d65 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -19,6 +19,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
++#include <linux/module.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/mod_devicetable.h>
+@@ -153,6 +154,7 @@ struct sk_buff;
+  * PHYs should register using this structure
+  */
+ struct mii_bus {
++	struct module *owner;
+ 	const char *name;
+ 	char id[MII_BUS_ID_SIZE];
+ 	void *priv;
+@@ -198,7 +200,8 @@ static inline struct mii_bus *mdiobus_alloc(void)
+ 	return mdiobus_alloc_size(0);
+ }
+ 
+-int mdiobus_register(struct mii_bus *bus);
++int __mdiobus_register(struct mii_bus *bus, struct module *owner);
++#define mdiobus_register(bus) __mdiobus_register(bus, THIS_MODULE)
+ void mdiobus_unregister(struct mii_bus *bus);
+ void mdiobus_free(struct mii_bus *bus);
+ struct mii_bus *devm_mdiobus_alloc_size(struct device *dev, int sizeof_priv);
 -- 
 2.1.0
