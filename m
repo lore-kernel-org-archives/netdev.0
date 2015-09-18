@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
-Date: Thu, 17 Sep 2015 22:38:46 -0700 (PDT)
-Message-ID: <20150917.223846.760880389155481640.davem@davemloft.net>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
-	<20150917.171904.119452251415625585.davem@davemloft.net>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH][RESEND] MAINTAINERS: add arcnet and take maintainership
+Date: Fri, 18 Sep 2015 07:56:04 +0200
+Message-ID: <20150918055604.GR5327@pengutronix.de>
+References: <1442496376-14612-1-git-send-email-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150917.171904.119452251415625585.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, davem@davemloft.net, kernel@pengutronix.de
+To: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1442496376-14612-1-git-send-email-m.grzeschik@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 17 Sep 2015 17:19:04 -0700 (PDT)
+Hello,
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 15 Sep 2015 19:59:49 -0500
-> 
->> Pablo, Dave I don't know whose tree this makes more sense to go
->> through.  I am assuming at least initially Pablos as netfilter is
->> involved.  From what I have seen there will be a lot of back and forth
->> between the netfilter code paths and the routing code paths.
-> 
-> I think it might reduce conflicts actually if it went via my net-next
-> tree.
-> 
-> Pablo, any objections?
+On Thu, Sep 17, 2015 at 03:26:16PM +0200, Michael Grzeschik wrote:
+> +ARCNET NETWORK LAYER
+> +M:	Michael Grzeschik <m.grzeschik@pengutronix.de>
+> +L:	netdev@vger.kernel.org
+> +S:	Maintained
+> +F:	drivers/net/arcnet/
+> +F:	include/uapi/linux/if_arcnet.h
+> +
 
-I actually decided to just push it out to my tree, if there are any
-problems with that I will revert.
+What about
 
-Thanks.
+	Documentation/networking/arcnet-hardware.txt
+	Documentation/networking/arcnet.txt
+
+?
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
