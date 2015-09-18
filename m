@@ -1,42 +1,45 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2] geneve: remove use of internal IP header when calling
- IP_ECN_decapsulate
-Date: Fri, 18 Sep 2015 16:40:23 -0400
-Message-ID: <20150918204023.GD18191@tuxdriver.com>
-References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
- <1442522094-876-1-git-send-email-linville@tuxdriver.com>
- <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: bcmgenet: Remove duplicate test for tx_coalesce_usecs_high
+Date: Fri, 18 Sep 2015 14:16:53 -0700
+Message-ID: <1442611013-9470-1-git-send-email-f.fainelli@gmail.com>
+Cc: julia.lawall@lip6.fr, kbuild-all@01.org,
+	Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+	jaedon.shin@gmail.com, pgynther@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47735 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659AbbIRUpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 16:45:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33544 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853AbbIRVRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:17:01 -0400
+Received: by pacex6 with SMTP id ex6so60646743pac.0
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 14:17:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 01:30:36PM -0700, Jesse Gross wrote:
-> On Thu, Sep 17, 2015 at 1:34 PM, John W. Linville
-> <linville@tuxdriver.com> wrote:
-> > This seems to have been a "thinko".  IP_ECN_decapsulate needs info
-> > from both internal and external headers.
-> >
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> 
-> This looks good to me although I realized that the transmit path is
-> also conditional based on !collect_md metadata. I suppose that means
-> that this difference is intentional and I guess I could see arguments
-> either way but I still think it is better to be consistent across
-> different code paths in this respect.
+We were checking twice for ec->tx_coalesce_usecs_high, remove the
+duplicate test.
 
-I'm happy with the v2 patch if you are. :-)
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Reported-by: kbuild-all@01.org
+Fixes: 2f9130709d2c19 ("net: bcmgenet: Implement TX coalescing control knobs")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-John
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 1e72722abbf1..efcb1119076f 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -608,8 +608,7 @@ static int bcmgenet_set_coalesce(struct net_device *dev,
+ 	 * transmitted, or when the ring is emtpy.
+ 	 */
+ 	if (ec->tx_coalesce_usecs || ec->tx_coalesce_usecs_high ||
+-	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_high ||
+-	    ec->tx_coalesce_usecs_low)
++	    ec->tx_coalesce_usecs_irq || ec->tx_coalesce_usecs_low)
+ 		return -EOPNOTSUPP;
+ 
+ 	/* Program all TX queues with the same values, as there is no
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+2.1.0
