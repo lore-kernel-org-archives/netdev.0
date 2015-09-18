@@ -1,100 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next] sunvnet:Invoke SET_NETDEV_DEV() to set up the vdev
- in vnet_new()
-Date: Fri, 18 Sep 2015 17:47:55 -0400
-Message-ID: <20150918214755.GI26826@oracle.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
+Date: Fri, 18 Sep 2015 14:49:30 -0700
+Message-ID: <CAEP_g=_aDApp8+Uj8JOpg=jzxEs73XzSufgWzA-ODpfXS-ss-Q@mail.gmail.com>
+References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+ <1442522094-876-1-git-send-email-linville@tuxdriver.com> <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
+ <20150918204023.GD18191@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, david.stevens@oracle.com,
-	sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25503 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353AbbIRVsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:48:00 -0400
-Content-Disposition: inline
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:36155 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753463AbbIRVtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 17:49:53 -0400
+Received: by lbcao8 with SMTP id ao8so31252037lbc.3
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 14:49:49 -0700 (PDT)
+In-Reply-To: <20150918204023.GD18191@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-`ls /sys/devices/channel-devices/vnet-port-0-0/net' is missing without
-this change, and applications like NetworkManager are looking in
-sysfs for the information.
+On Fri, Sep 18, 2015 at 1:40 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> On Fri, Sep 18, 2015 at 01:30:36PM -0700, Jesse Gross wrote:
+>> On Thu, Sep 17, 2015 at 1:34 PM, John W. Linville
+>> <linville@tuxdriver.com> wrote:
+>> > This seems to have been a "thinko".  IP_ECN_decapsulate needs info
+>> > from both internal and external headers.
+>> >
+>> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>>
+>> This looks good to me although I realized that the transmit path is
+>> also conditional based on !collect_md metadata. I suppose that means
+>> that this difference is intentional and I guess I could see arguments
+>> either way but I still think it is better to be consistent across
+>> different code paths in this respect.
+>
+> I'm happy with the v2 patch if you are. :-)
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 53fe200..cc106d8 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1756,7 +1756,8 @@ static const struct net_device_ops vnet_ops = {
- #endif
- };
- 
--static struct vnet *vnet_new(const u64 *local_mac)
-+static struct vnet *vnet_new(const u64 *local_mac,
-+			     struct vio_dev *vdev)
- {
- 	struct net_device *dev;
- 	struct vnet *vp;
-@@ -1790,6 +1791,8 @@ static struct vnet *vnet_new(const u64 *local_mac)
- 			   NETIF_F_HW_CSUM | NETIF_F_SG;
- 	dev->features = dev->hw_features;
- 
-+	SET_NETDEV_DEV(dev, &vdev->dev);
-+
- 	err = register_netdev(dev);
- 	if (err) {
- 		pr_err("Cannot register net device, aborting\n");
-@@ -1808,7 +1811,8 @@ static struct vnet *vnet_new(const u64 *local_mac)
- 	return ERR_PTR(err);
- }
- 
--static struct vnet *vnet_find_or_create(const u64 *local_mac)
-+static struct vnet *vnet_find_or_create(const u64 *local_mac,
-+					struct vio_dev *vdev)
- {
- 	struct vnet *iter, *vp;
- 
-@@ -1821,7 +1825,7 @@ static struct vnet *vnet_find_or_create(const u64 *local_mac)
- 		}
- 	}
- 	if (!vp)
--		vp = vnet_new(local_mac);
-+		vp = vnet_new(local_mac, vdev);
- 	mutex_unlock(&vnet_list_mutex);
- 
- 	return vp;
-@@ -1848,7 +1852,8 @@ static void vnet_cleanup(void)
- static const char *local_mac_prop = "local-mac-address";
- 
- static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
--						u64 port_node)
-+				     u64 port_node,
-+				     struct vio_dev *vdev)
- {
- 	const u64 *local_mac = NULL;
- 	u64 a;
-@@ -1869,7 +1874,7 @@ static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
- 	if (!local_mac)
- 		return ERR_PTR(-ENODEV);
- 
--	return vnet_find_or_create(local_mac);
-+	return vnet_find_or_create(local_mac, vdev);
- }
- 
- static struct ldc_channel_config vnet_ldc_cfg = {
-@@ -1923,7 +1928,7 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 
- 	hp = mdesc_grab();
- 
--	vp = vnet_find_parent(hp, vdev->mp);
-+	vp = vnet_find_parent(hp, vdev->mp, vdev);
- 	if (IS_ERR(vp)) {
- 		pr_err("Cannot find port parent vnet\n");
- 		err = PTR_ERR(vp);
--- 
-1.7.1
+I'm happy with this part of the code path after this patch. However,
+my concern was that this patch, while correct, will make receive
+inconsistent with transmit. Presumably we should update the transmit
+side as well.
