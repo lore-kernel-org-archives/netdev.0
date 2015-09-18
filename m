@@ -1,113 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [GIT-PULL nf-next 00/15] IPVS Updates for v4.4
-Date: Fri, 18 Sep 2015 09:20:42 -0500
-Message-ID: <87io77stad.fsf@x220.int.ebiederm.org>
-References: <1442468451-24012-1-git-send-email-horms@verge.net.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] iplink_geneve: add UDP destination port configuration at
+ link creation
+Date: Fri, 18 Sep 2015 10:26:18 -0400
+Message-ID: <20150918142618.GA18191@tuxdriver.com>
+References: <1442518065-23294-1-git-send-email-linville@tuxdriver.com>
+ <1442522989.7946.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:33044 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbbIRO2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 10:28:01 -0400
-In-Reply-To: <1442468451-24012-1-git-send-email-horms@verge.net.au> (Simon
-	Horman's message of "Thu, 17 Sep 2015 14:40:36 +0900")
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41255 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902AbbIROaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 10:30:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1442522989.7946.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simon Horman <horms@verge.net.au> writes:
+On Thu, Sep 17, 2015 at 01:49:49PM -0700, Eric Dumazet wrote:
+> On Thu, 2015-09-17 at 15:27 -0400, John W. Linville wrote:
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> > ---
+> 
+> >  }
+> >  
+> > @@ -150,6 +159,10 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+> >  		else
+> >  			fprintf(f, "tos %#x ", tos);
+> >  	}
+> > +
+> > +	if (tb[IFLA_GENEVE_PORT])
+> > +		fprintf(f, "dstport %u ",
+> > +			ntohs(rta_getattr_u16(tb[IFLA_GENEVE_PORT])));
+> 
+> This looks strange.
+> 
+> Kernel does :
+> 
+> if (nla_put_u16(skb, IFLA_GENEVE_PORT, ntohs(geneve->dst_port)))
+>         goto nla_put_failure;
 
-> Hi Pablo,
->
-> please consider these IPVS Updates for v4.4.
+Indeed, you are right.  I had essentially copied some vxlan code when
+I did my version of adding the port attribute, and didn't take much
+care when adapting that code for the version that actually got merged.
 
-Just a quick heads up.
+The current geneve code is using host byte-order for the UDP port in
+the netlink messages.  But, I see that vxlan, gre, iptnl, etc are using
+network byte order for specifying UDP ports in their netlink stuff.
+Should geneve follow that practice as well?  Or does it matter?
 
-In my work to pass struct net down into the netfilter functions so they
-don't have to guess, I wound up performing some significant surgery on
-ipvs.  In particular so the code stayed clean I wound up turning the
-relationship between struct net, and the structures netns_ipvs,
-ip_vs_conn_param, ip_vs_conn, ip_vs_service inside out.  That is in
-every structure holds a struct net reference and in every function that
-takes a struct net reference I use a struct netns_ipvs reference
-instead.
-
-In most cases netns_ipvs is what the code actually wants so this just
-reduces the unncessary rigamarole the code has to go through, and just
-plain feels cleaner.  For example all of the sysctl wrappers wind up
-taking struct netns_ipvs reference because it has become the natural
-thing for them to do.
-
-There are also quite a few functions where I have added a netns_ipvs
-parameter so they would not have to guess, so in the addition of
-parameters the code change is about the same as my previous patch.
-
-I do not think there are any conflicts that will be difficult to resolve
-between this patchset and my pending changes, as my pending changes
-barely perform any changes of substance.  My changes do result in
-conflicts.
-
-For example in my pending changes and in this patchset they both change
-the function prototype of ip_vs_protocol.conn_in_get.  My pending
-changes add struct netns_ipvs as the first parameter and these patches
-remove the final inverse parameter.
-
-Eric
-
-> The updates include the following from Alex Gartrell:
-> * Scheduling of ICMP
-> * Sysctl to ignore tunneled packets; and hence some packet-looping scenarios
->
-> The following changes since commit 851345c5bbb4644911f7c351c042559a71f57d19:
->
->   netfilter: reduce sparse warnings (2015-08-28 21:04:12 +0200)
->
-> are available in the git repository at:
->
->   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.4
->
-> for you to fetch changes up to 4e478098ac0ac1b6ef9a70fcdc2ec8b93f1b59a1:
->
->   ipvs: add sysctl to ignore tunneled packets (2015-09-17 11:50:02 +0900)
->
-> ----------------------------------------------------------------
-> Alex Gartrell (15):
->       ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off
->       ipvs: Add hdr_flags to iphdr
->       ipvs: Handle inverse and icmp headers in ip_vs_leave
->       ipvs: pull out ip_vs_try_to_schedule function
->       ipvs: drop inverse argument to conn_{in,out}_get
->       ipvs: Make ip_vs_schedule aware of inverse iph'es
->       ipvs: add schedule_icmp sysctl
->       ipvs: Use outer header in ip_vs_bypass_xmit_v6
->       ipvs: sh: support scheduling icmp/inverse packets consistently
->       ipvs: attempt to schedule icmp packets
->       ipvs: ensure that ICMP cannot be sent in reply to ICMP
->       ipvs: support scheduling inverse and icmp TCP packets
->       ipvs: support scheduling inverse and icmp UDP packets
->       ipvs: support scheduling inverse and icmp SCTP packets
->       ipvs: add sysctl to ignore tunneled packets
->
->  Documentation/networking/ipvs-sysctl.txt |  10 ++
->  include/net/ip_vs.h                      | 120 ++++++++++---
->  net/netfilter/ipvs/ip_vs_conn.c          |  12 +-
->  net/netfilter/ipvs/ip_vs_core.c          | 299 +++++++++++++++++++------------
->  net/netfilter/ipvs/ip_vs_ctl.c           |  15 +-
->  net/netfilter/ipvs/ip_vs_pe_sip.c        |   2 +-
->  net/netfilter/ipvs/ip_vs_proto_ah_esp.c  |  17 +-
->  net/netfilter/ipvs/ip_vs_proto_sctp.c    |  34 ++--
->  net/netfilter/ipvs/ip_vs_proto_tcp.c     |  38 +++-
->  net/netfilter/ipvs/ip_vs_proto_udp.c     |  25 ++-
->  net/netfilter/ipvs/ip_vs_sh.c            |  45 +++--
->  net/netfilter/ipvs/ip_vs_xmit.c          |  24 +--
->  net/netfilter/xt_ipvs.c                  |   4 +-
->  13 files changed, 427 insertions(+), 218 deletions(-)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
