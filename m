@@ -1,65 +1,107 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] iplink_geneve: add UDP destination port configuration at
- link creation
-Date: Fri, 18 Sep 2015 09:15:56 -0700
-Message-ID: <CAEP_g=8vCm48Hgjnm2ZYTNc1K4QCN=Jvd6hfSRA5b3YEw1cA0w@mail.gmail.com>
-References: <1442518065-23294-1-git-send-email-linville@tuxdriver.com>
- <1442522989.7946.4.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150918142618.GA18191@tuxdriver.com> <1442587524.7946.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:32803 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753152AbbIRQQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:16:17 -0400
-Received: by lamp12 with SMTP id p12so32840077lam.0
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 09:16:15 -0700 (PDT)
-In-Reply-To: <1442587524.7946.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH next 13/14] netfilter: Pass net into nf_xfrm_me_harder
+Date: Fri, 18 Sep 2015 11:05:59 -0500
+Message-ID: <1442592360-2575-13-git-send-email-ebiederm@xmission.com>
+References: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 18, 2015 at 7:45 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2015-09-18 at 10:26 -0400, John W. Linville wrote:
->> On Thu, Sep 17, 2015 at 01:49:49PM -0700, Eric Dumazet wrote:
->> > On Thu, 2015-09-17 at 15:27 -0400, John W. Linville wrote:
->> > > Signed-off-by: John W. Linville <linville@tuxdriver.com>
->> > > ---
->> >
->> > >  }
->> > >
->> > > @@ -150,6 +159,10 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
->> > >           else
->> > >                   fprintf(f, "tos %#x ", tos);
->> > >   }
->> > > +
->> > > + if (tb[IFLA_GENEVE_PORT])
->> > > +         fprintf(f, "dstport %u ",
->> > > +                 ntohs(rta_getattr_u16(tb[IFLA_GENEVE_PORT])));
->> >
->> > This looks strange.
->> >
->> > Kernel does :
->> >
->> > if (nla_put_u16(skb, IFLA_GENEVE_PORT, ntohs(geneve->dst_port)))
->> >         goto nla_put_failure;
->>
->> Indeed, you are right.  I had essentially copied some vxlan code when
->> I did my version of adding the port attribute, and didn't take much
->> care when adapting that code for the version that actually got merged.
->>
->> The current geneve code is using host byte-order for the UDP port in
->> the netlink messages.  But, I see that vxlan, gre, iptnl, etc are using
->> network byte order for specifying UDP ports in their netlink stuff.
->> Should geneve follow that practice as well?  Or does it matter?
->
-> It might be too late to change the ABI, as geneve is in linux-4.2
+Instead of calling dev_net on a likley looking network device
+pass state->net into nf_xfrm_me_harder.
 
-We might be in luck actually. Geneve itself came earlier but I think
-the ability to specify the dest port is in 4.3 only, so we still have
-a chance to make it consistent.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/net/netfilter/nf_nat_core.h      | 2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 4 ++--
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 4 ++--
+ net/netfilter/nf_nat_core.c              | 4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
+index fbfd1ba4254e..186c54138f35 100644
+--- a/include/net/netfilter/nf_nat_core.h
++++ b/include/net/netfilter/nf_nat_core.h
+@@ -10,7 +10,7 @@
+ unsigned int nf_nat_packet(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 			   unsigned int hooknum, struct sk_buff *skb);
+ 
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family);
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family);
+ 
+ static inline int nf_nat_initialized(struct nf_conn *ct,
+ 				     enum nf_nat_manip_type manip)
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index 8593a9d88619..bc3b9dcbf080 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -396,7 +396,7 @@ nf_nat_ipv4_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -440,7 +440,7 @@ nf_nat_ipv4_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 357f57ba47e4..18e835ffbef3 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -403,7 +403,7 @@ nf_nat_ipv6_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -446,7 +446,7 @@ nf_nat_ipv6_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 5113dfd39df9..06a9f45771ab 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -83,7 +83,7 @@ out:
+ 	rcu_read_unlock();
+ }
+ 
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family)
+ {
+ 	struct flowi fl;
+ 	unsigned int hh_len;
+@@ -99,7 +99,7 @@ int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
+ 		dst = ((struct xfrm_dst *)dst)->route;
+ 	dst_hold(dst);
+ 
+-	dst = xfrm_lookup(dev_net(dst->dev), dst, &fl, skb->sk, 0);
++	dst = xfrm_lookup(net, dst, &fl, skb->sk, 0);
+ 	if (IS_ERR(dst))
+ 		return PTR_ERR(dst);
+ 
+-- 
+2.2.1
+
