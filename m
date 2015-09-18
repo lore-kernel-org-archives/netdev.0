@@ -1,68 +1,49 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH/RFC net-next v3 3/4] ravb: Document binding for r8a7795 SoC
-Date: Fri, 18 Sep 2015 09:27:11 +0200
-Message-ID: <CAMuHMdUFMq1szvY=8twhzcM36zyBjDF1fnkNd2kw+s=qxXYVmg@mail.gmail.com>
-References: <1442556203-657-1-git-send-email-horms+renesas@verge.net.au>
-	<1442556203-657-4-git-send-email-horms+renesas@verge.net.au>
+From: Phil Reid <preid@electromag.com.au>
+Subject: rfi: stmmac: creating an of mdio bus for attached dsa
+Date: Fri, 18 Sep 2015 15:26:36 +0800
+Message-ID: <55FBBCAC.1080904@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:32779 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752504AbbIRH1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 03:27:11 -0400
-In-Reply-To: <1442556203-657-4-git-send-email-horms+renesas@verge.net.au>
+Received: from anchovy2.45ru.net.au ([203.30.46.146]:33246 "EHLO
+	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752654AbbIRHdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 03:33:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 8:03 AM, Simon Horman
-<horms+renesas@verge.net.au> wrote:
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> This patch updates the ravb binding to support the r8a7795 SoC by:
-> - Adding a compat string for the new hardware
-> - Adding 25 named interrupts to binding for the new SoC;
->   older SoCs continue to use a single multiplexed interrupt
->
-> The example is also updated to reflect the r8a7795 as this is the
-> more complex case.
->
-> Based on work by Kazuya Mizuguchi and others.
->
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+G'day All,
 
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Prior to submitting a patch I'd just like to get an idea on what the 
+correct way is to create and register an mdio bus for use by the marvell 
+dsa driver.
+On our system the cpu ethernet port is connected directly to a switch 
+with a fixed link (1Gbit).
+So the driver needs to create and persist the mdio bus for the dsa 
+driver using of_mdiobus_register.
+The trunk stmmac driver currently doesn't create the mdio bus if a fixed 
+link is found.
+stmmac_probe_config_dt does hte following check.
+     if (plat->phy_node || plat->phy_bus_name)
+         plat->mdio_bus_data = NULL;
+phy_node is set because a fixed-link is found above and setting 
+mdio_bus_data to null skips mdio bus creation.
+removing the phy_node check gets things working.
 
-Modulo the minor nit below...
+I've also modified stmmac_mdio_register to use of_mdiobus_register and 
+setup the dt to probe for a phy (that doesn't really exist, the switch 
+is on the mdio).
+This cause a fair bit of log spamming but does seem to work as the 
+switch is detected.
+eg: eth0: PHY ID 00000000 at 27 IRQ POLL (stmmac-0:1b)
+Currently if no phy is found the mdio bus gets de registered so this 
+seems to be required.
 
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+In summary what is the correct way to make sure the mdio bus stays 
+registered when a fixed-link is in use?
+Am I configuring the link to the switch incorrectly?
 
-> @@ -18,6 +22,12 @@ Required properties:
->  Optional properties:
->  - interrupt-parent: the phandle for the interrupt controller that services
->                     interrupts for this device.
-> +- interrupt-names: A list of interrupt names.
-> +                  For the R8A7795 SoC this property is mandatory;
-> +                  it should include one entry per channel, named "ch%u",
-> +                  where %u is the channel number ranging from 0 to 24.
-> +                  For other SoCs this property is optional; if present
-> +                  is should contain "mux" for a single muxed interrupt.
 
-it
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Phil
