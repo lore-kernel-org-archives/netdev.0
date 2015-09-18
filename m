@@ -1,48 +1,35 @@
 From: Luis de Bethencourt <luis@debethencourt.com>
-Subject: [PATCH 0/6] net: Fix module autoload for OF platform drivers
-Date: Fri, 18 Sep 2015 17:53:32 +0200
-Message-ID: <20150918155332.GA24705@goodgumbo.baconseed.org>
+Subject: [PATCH 1/6] net: arc: Fix module autoload for OF platform driver
+Date: Fri, 18 Sep 2015 17:54:00 +0200
+Message-ID: <20150918155400.GA24716@goodgumbo.baconseed.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfram Sang <wsa@the-dreams.de>,
-	Joe Perches <joe@perches.com>,
-	Tobias Klauser <tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This platform driver has a OF device ID table but the OF module
+alias information is not created so module autoloading won't work.
 
-These patches add the missing MODULE_DEVICE_TABLE() for OF to export
-the information so modules have the correct aliases built-in and
-autoloading works correctly.
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
+ drivers/net/ethernet/arc/emac_arc.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-A longer explanation by Javier Canillas can be found here:
-https://lkml.org/lkml/2015/7/30/519
-
-Thanks,
-Luis
-
-Luis de Bethencourt (6):
-  net: arc: Fix module autoload for OF platform driver
-  net: systemport: Fix module autoload for OF platform driver
-  net: bcmgenet: Fix module autoload for OF platform driver
-  net: freescale: Fix module autoload for OF platform driver
-  net: ks8851: Fix module autoload for OF platform driver
-  net: moxa: Fix module autoload for OF platform driver
-
- drivers/net/ethernet/arc/emac_arc.c            | 1 +
- drivers/net/ethernet/broadcom/bcmsysport.c     | 1 +
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 1 +
- drivers/net/ethernet/freescale/gianfar_ptp.c   | 1 +
- drivers/net/ethernet/micrel/ks8851.c           | 1 +
- drivers/net/ethernet/moxa/moxart_ether.c       | 1 +
- 6 files changed, 6 insertions(+)
-
+diff --git a/drivers/net/ethernet/arc/emac_arc.c b/drivers/net/ethernet/arc/emac_arc.c
+index f9cb99b..ffd1805 100644
+--- a/drivers/net/ethernet/arc/emac_arc.c
++++ b/drivers/net/ethernet/arc/emac_arc.c
+@@ -78,6 +78,7 @@ static const struct of_device_id emac_arc_dt_ids[] = {
+ 	{ .compatible = "snps,arc-emac" },
+ 	{ /* Sentinel */ }
+ };
++MODULE_DEVICE_TABLE(of, emac_arc_dt_ids);
+ 
+ static struct platform_driver emac_arc_driver = {
+ 	.probe = emac_arc_probe,
 -- 
 2.4.6
