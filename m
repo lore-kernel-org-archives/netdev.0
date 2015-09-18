@@ -1,44 +1,104 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH] tipc: reinitialize pointer after skb
- linearize
-Date: Fri, 18 Sep 2015 17:44:02 +0800
-Message-ID: <55FBDCE2.3050906@windriver.com>
-References: <1442565991-4531-1-git-send-email-erik.hugne@ericsson.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: [PATCH 0/7] Phy and mdiobus fixes
+Date: Fri, 18 Sep 2015 10:46:25 +0100
+Message-ID: <20150918094625.GB21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: tipc-discussion@lists.sourceforge.net
-To: <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1442565991-4531-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree@vger.kernel.org, Frank Rowand <frowand.list@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, Li Yang <leoli@freescale.com>,
+	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
+	Robert Richter <rric@kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	=?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:57535 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752131AbbIRJqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 05:46:40 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDkvMTgvMjAxNSAwNDo0NiBQTSwgZXJpay5odWduZUBlcmljc3Nvbi5jb20gd3JvdGU6Cj4g
-RnJvbTogRXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+Cj4gCj4gVGhlIG1zZyBw
-b2ludGVyIGludG8gaGVhZGVyIG1heSBjaGFuZ2UgYWZ0ZXIgc2tiIGxpbmVhcml6YXRpb24uCj4g
-V2UgbXVzdCByZWluaXRpYWxpemUgaXQgYWZ0ZXIgY2FsbGluZyBza2JfbGluZWFyaXplIHRvIHBy
-ZXZlbnQKPiBvcGVyYXRpbmcgb24gYSBmcmVlZCBvciBpbnZhbGlkIHBvaW50ZXIuCj4gCj4gU2ln
-bmVkLW9mZi1ieTogRXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+Cj4gUmVwb3J0
-ZWQtYnk6IFRhbcOhcyBWw6lnaCA8dGFtYXMudmVnaEBlcmljc3Nvbi5jb20+CgpBY2tlZC1ieTog
-WWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+Cgo+IC0tLQo+ICBuZXQvdGlwYy9tc2cu
-YyB8IDEgKwo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykKPiAKPiBkaWZmIC0tZ2l0
-IGEvbmV0L3RpcGMvbXNnLmMgYi9uZXQvdGlwYy9tc2cuYwo+IGluZGV4IDU2MmM5MjYuLmM1YWM0
-MzYgMTAwNjQ0Cj4gLS0tIGEvbmV0L3RpcGMvbXNnLmMKPiArKysgYi9uZXQvdGlwYy9tc2cuYwo+
-IEBAIC01MzksNiArNTM5LDcgQEAgYm9vbCB0aXBjX21zZ19sb29rdXBfZGVzdChzdHJ1Y3QgbmV0
-ICpuZXQsIHN0cnVjdCBza19idWZmICpza2IsIGludCAqZXJyKQo+ICAJKmVyciA9IC1USVBDX0VS
-Ul9OT19OQU1FOwo+ICAJaWYgKHNrYl9saW5lYXJpemUoc2tiKSkKPiAgCQlyZXR1cm4gZmFsc2U7
-Cj4gKwltc2cgPSBidWZfbXNnKHNrYik7Cj4gIAlpZiAobXNnX3Jlcm91dGVfY250KG1zZykpCj4g
-IAkJcmV0dXJuIGZhbHNlOwo+ICAJZG5vZGUgPSBhZGRyX2RvbWFpbihuZXQsIG1zZ19sb29rdXBf
-c2NvcGUobXNnKSk7Cj4gCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCnRpcGMtZGlzY3Vzc2lvbiBtYWlsaW5nIGxp
-c3QKdGlwYy1kaXNjdXNzaW9uQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNv
-dXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby90aXBjLWRpc2N1c3Npb24K
+Hi,
+
+While looking at the phy code, I identified a number of weaknesses
+where refcounting on device structures was being leaked, where
+modules could be removed while in-use, and where the fixed-phy could
+end up having unintended consequences caused by incorrect calls to
+fixed_phy_update_state().
+
+This patch series resolves those issues, some of which were discovered
+with testing on an Armada 388 board.  Not all patches are fully tested,
+particularly the one which touches several network drivers.
+
+When resolving the struct device refcounting problems, several different
+solutions were considered before settling on the implementation here -
+one of the considerations was to avoid touching many network drivers.
+The solution here is:
+
+	phy_attach*() - takes a refcount
+	phy_detach*() - drops the phy_attach refcount
+
+Provided drivers always attach and detach their phys, which they should
+already be doing, this should change nothing, even if they leak a refcount.
+
+	of_phy_find_device() and of_* functions which use that take
+	a refcount.  Arrange for this refcount to be dropped once
+	the phy is attached.
+
+This is the reason why the previous change is important - we can't drop
+this refcount taken by of_phy_find_device() until something else holds
+a reference on the device.  This resolves the leaked refcount caused by
+using of_phy_connect() or of_phy_attach().
+
+Even without the above changes, these drivers are leaking by calling
+of_phy_find_device().  These drivers are addressed by adding the
+appropriate release of that refcount.
+
+The mdiobus code also suffered from the same kind of leak, but thankfully
+this only happened in one place - the mdio-mux code.
+
+I also found that the try_module_get() in the phy layer code was utterly
+useless: phydev->dev.driver was guaranteed to always be NULL, so
+try_module_get() was always being called with a NULL argument.  I proved
+this with my SFP code, which declares its own MDIO bus - the module use
+count was never incremented irrespective of how I set the MDIO bus up.
+This allowed the MDIO bus code to be removed from the kernel while there
+were still PHYs attached to it.
+
+One other bug was discovered: while using in-band-status with mvneta, it
+was found that if a real phy is attached with in-band-status enabled,
+and another ethernet interface is using the fixed-phy infrastructure, the
+interface using the fixed-phy infrastructure is configured according to
+the other interface using the in-band-status - which is caused by the
+fixed-phy code not verifying that the phy_device passed in is actually
+a fixed-phy device, rather than a real MDIO phy.
+
+Lastly, having mdio_bus reversing phy_device_register() internals seems
+like a layering violation - it's trivial to move that code to the phy
+device layer.
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 23 ++++++---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 19 +++++++
+ drivers/net/ethernet/freescale/gianfar.c          |  6 ++-
+ drivers/net/ethernet/freescale/ucc_geth.c         |  8 ++-
+ drivers/net/ethernet/marvell/mvneta.c             |  2 +
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c     |  2 +
+ drivers/net/phy/fixed_phy.c                       |  2 +-
+ drivers/net/phy/mdio-mux.c                        | 19 ++++---
+ drivers/net/phy/mdio_bus.c                        | 24 ++++++---
+ drivers/net/phy/phy_device.c                      | 62 ++++++++++++++++++-----
+ drivers/of/of_mdio.c                              | 27 ++++++++--
+ include/linux/phy.h                               |  6 ++-
+ 12 files changed, 156 insertions(+), 44 deletions(-)
+
+-- 
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
