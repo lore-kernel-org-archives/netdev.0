@@ -1,79 +1,220 @@
-From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
-Subject: [PATCH net-next] tcp: Fix CWV being too strict on thin streams
-Date: Sat, 19 Sep 2015 01:38:23 +0200
-Message-ID: <1442619503-2282-1-git-send-email-bro.devel+kernel@gmail.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: RE: [PATCH net] bna: check for dma mapping errors
+Date: Fri, 18 Sep 2015 23:56:20 +0000
+Message-ID: <2552F74A0BCCBE4DBE2AD218C81B2811085BE261@avmb3.qlogic.org>
+References: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=
-	<bro.devel+kernel@gmail.com>, Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Ivan Vecera <ivecera@redhat.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:35210 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752217AbbIRXjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 19:39:41 -0400
-Received: by lagj9 with SMTP id j9so39369610lag.2
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 16:39:40 -0700 (PDT)
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5302 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754589AbbIRX4Z convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2015 19:56:25 -0400
+In-Reply-To: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Application limited streams such as thin streams, that transmit small
-amounts of payload in relatively few packets per RTT, are prevented fro=
-m
-growing the CWND after experiencing loss. This leads to increased
-sojourn times for data segments in streams that often transmit
-time-dependent data.
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> Sent: Wednesday, September 16, 2015 6:28 AM
+> 
+> Check for DMA mapping errors, recover from them and register them in
+> ethtool stats like other errors.
 
-After the CWND is reduced due to loss, and an ACK has made room in the
-send window for more packets to be transmitted, the CWND will not grow
-unless there is more unsent data buffered in the output queue than the
-CWND permits to be sent. That is because tcp_cwnd_validate(), which
-updates tp->is_cwnd_limited, is only called in tcp_write_xmit() when at
-least one packet with new data has been sent. However, if all the
-buffered data in the output queue was sent within the current CWND,
-is_cwnd_limited will remain false even when there is no more room in th=
-e
-CWND. While the CWND is fully utilized, any new data put on the output
-queue will be held back (i.e. limited by the CWND), but
-tp->is_cwnd_limited will not be updated as no packets were transmitted.
+Acked-by: Rasesh Mody <rasesh.mody@qlogic.com>
 
-=46ix by updating tp->is_cwnd_limited if no packets are sent due to the
-CWND being fully utilized.
-
-Cc: Andreas Petlund <apetlund@simula.no>
-Cc: Carsten Griwodz <griff@simula.no>
-Cc: Jonas Markussen <jonassm@ifi.uio.no>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
----
- net/ipv4/tcp_output.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index d0ad355..7096b8b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2145,6 +2145,11 @@ repair:
- 		tcp_cwnd_validate(sk, is_cwnd_limited);
- 		return false;
- 	}
-+	/* We are prevented from transmitting because we are limited
-+	 * by the CWND, so update tcp sock with correct value.
-+	 */
-+	if (is_cwnd_limited)
-+		tp->is_cwnd_limited =3D is_cwnd_limited;
- 	return !tp->packets_out && tcp_send_head(sk);
- }
-=20
---=20
-1.9.1
+Thanks!
+Rasesh
+ 
+> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> ---
+>  drivers/net/ethernet/brocade/bna/bna_tx_rx.c    |  2 ++
+>  drivers/net/ethernet/brocade/bna/bna_types.h    |  1 +
+>  drivers/net/ethernet/brocade/bna/bnad.c         | 29
+> ++++++++++++++++++++++++-
+>  drivers/net/ethernet/brocade/bna/bnad.h         |  2 ++
+>  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |  4 ++++
+>  5 files changed, 37 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> index 5d0753c..04b0d16 100644
+> --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> @@ -2400,6 +2400,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+>  		q0->rcb->id = 0;
+>  		q0->rx_packets = q0->rx_bytes = 0;
+>  		q0->rx_packets_with_error = q0->rxbuf_alloc_failed = 0;
+> +		q0->rxbuf_map_failed = 0;
+> 
+>  		bna_rxq_qpt_setup(q0, rxp, dpage_count, PAGE_SIZE,
+>  			&dqpt_mem[i], &dsqpt_mem[i], &dpage_mem[i]);
+> @@ -2428,6 +2429,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+>  					: rx_cfg->q1_buf_size;
+>  			q1->rx_packets = q1->rx_bytes = 0;
+>  			q1->rx_packets_with_error = q1->rxbuf_alloc_failed
+> = 0;
+> +			q1->rxbuf_map_failed = 0;
+> 
+>  			bna_rxq_qpt_setup(q1, rxp, hpage_count,
+> PAGE_SIZE,
+>  				&hqpt_mem[i], &hsqpt_mem[i],
+> diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h
+> b/drivers/net/ethernet/brocade/bna/bna_types.h
+> index e0e797f..c438d03 100644
+> --- a/drivers/net/ethernet/brocade/bna/bna_types.h
+> +++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+> @@ -587,6 +587,7 @@ struct bna_rxq {
+>  	u64		rx_bytes;
+>  	u64		rx_packets_with_error;
+>  	u64		rxbuf_alloc_failed;
+> +	u64		rxbuf_map_failed;
+>  };
+> 
+>  /* RxQ pair */
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c
+> b/drivers/net/ethernet/brocade/bna/bnad.c
+> index 506047c..21a0cfc 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad.c
+> +++ b/drivers/net/ethernet/brocade/bna/bnad.c
+> @@ -399,7 +399,13 @@ bnad_rxq_refill_page(struct bnad *bnad, struct
+> bna_rcb *rcb, u32 nalloc)
+>  		}
+> 
+>  		dma_addr = dma_map_page(&bnad->pcidev->dev, page,
+> page_offset,
+> -				unmap_q->map_size, DMA_FROM_DEVICE);
+> +					unmap_q->map_size,
+> DMA_FROM_DEVICE);
+> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
+> +			put_page(page);
+> +			BNAD_UPDATE_CTR(bnad, rxbuf_map_failed);
+> +			rcb->rxq->rxbuf_map_failed++;
+> +			goto finishing;
+> +		}
+> 
+>  		unmap->page = page;
+>  		unmap->page_offset = page_offset;
+> @@ -454,8 +460,15 @@ bnad_rxq_refill_skb(struct bnad *bnad, struct
+> bna_rcb *rcb, u32 nalloc)
+>  			rcb->rxq->rxbuf_alloc_failed++;
+>  			goto finishing;
+>  		}
+> +
+>  		dma_addr = dma_map_single(&bnad->pcidev->dev, skb-
+> >data,
+>  					  buff_sz, DMA_FROM_DEVICE);
+> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
+> +			dev_kfree_skb_any(skb);
+> +			BNAD_UPDATE_CTR(bnad, rxbuf_map_failed);
+> +			rcb->rxq->rxbuf_map_failed++;
+> +			goto finishing;
+> +		}
+> 
+>  		unmap->skb = skb;
+>  		dma_unmap_addr_set(&unmap->vector, dma_addr,
+> dma_addr); @@ -3025,6 +3038,11 @@ bnad_start_xmit(struct sk_buff *skb,
+> struct net_device *netdev)
+>  	unmap = head_unmap;
+>  	dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
+>  				  len, DMA_TO_DEVICE);
+> +	if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
+> +		dev_kfree_skb_any(skb);
+> +		BNAD_UPDATE_CTR(bnad, tx_skb_map_failed);
+> +		return NETDEV_TX_OK;
+> +	}
+>  	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[0].host_addr);
+>  	txqent->vector[0].length = htons(len);
+>  	dma_unmap_addr_set(&unmap->vectors[0], dma_addr,
+> dma_addr); @@ -3056,6 +3074,15 @@ bnad_start_xmit(struct sk_buff *skb,
+> struct net_device *netdev)
+> 
+>  		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
+>  					    0, size, DMA_TO_DEVICE);
+> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
+> +			/* Undo the changes starting at tcb->producer_index
+> */
+> +			bnad_tx_buff_unmap(bnad, unmap_q, q_depth,
+> +					   tcb->producer_index);
+> +			dev_kfree_skb_any(skb);
+> +			BNAD_UPDATE_CTR(bnad, tx_skb_map_failed);
+> +			return NETDEV_TX_OK;
+> +		}
+> +
+>  		dma_unmap_len_set(&unmap->vectors[vect_id], dma_len,
+> size);
+>  		BNA_SET_DMA_ADDR(dma_addr, &txqent-
+> >vector[vect_id].host_addr);
+>  		txqent->vector[vect_id].length = htons(size); diff --git
+> a/drivers/net/ethernet/brocade/bna/bnad.h
+> b/drivers/net/ethernet/brocade/bna/bnad.h
+> index faedbf2..f4ed816 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad.h
+> +++ b/drivers/net/ethernet/brocade/bna/bnad.h
+> @@ -175,6 +175,7 @@ struct bnad_drv_stats {
+>  	u64		tx_skb_headlen_zero;
+>  	u64		tx_skb_frag_zero;
+>  	u64		tx_skb_len_mismatch;
+> +	u64		tx_skb_map_failed;
+> 
+>  	u64		hw_stats_updates;
+>  	u64		netif_rx_dropped;
+> @@ -189,6 +190,7 @@ struct bnad_drv_stats {
+>  	u64		rx_unmap_q_alloc_failed;
+> 
+>  	u64		rxbuf_alloc_failed;
+> +	u64		rxbuf_map_failed;
+>  };
+> 
+>  /* Complete driver stats */
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> index 2bdfc5d..0e4fdc3 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> +++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> @@ -90,6 +90,7 @@ static const char
+> *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+>  	"tx_skb_headlen_zero",
+>  	"tx_skb_frag_zero",
+>  	"tx_skb_len_mismatch",
+> +	"tx_skb_map_failed",
+>  	"hw_stats_updates",
+>  	"netif_rx_dropped",
+> 
+> @@ -102,6 +103,7 @@ static const char
+> *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+>  	"tx_unmap_q_alloc_failed",
+>  	"rx_unmap_q_alloc_failed",
+>  	"rxbuf_alloc_failed",
+> +	"rxbuf_map_failed",
+> 
+>  	"mac_stats_clr_cnt",
+>  	"mac_frame_64",
+> @@ -807,6 +809,7 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf,
+> int bi)
+> 
+> 	rx_packets_with_error;
+>  					buf[bi++] = rcb->rxq->
+>  							rxbuf_alloc_failed;
+> +					buf[bi++] = rcb->rxq-
+> >rxbuf_map_failed;
+>  					buf[bi++] = rcb->producer_index;
+>  					buf[bi++] = rcb->consumer_index;
+>  				}
+> @@ -821,6 +824,7 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf,
+> int bi)
+> 
+> 	rx_packets_with_error;
+>  					buf[bi++] = rcb->rxq->
+>  							rxbuf_alloc_failed;
+> +					buf[bi++] = rcb->rxq-
+> >rxbuf_map_failed;
+>  					buf[bi++] = rcb->producer_index;
+>  					buf[bi++] = rcb->consumer_index;
+>  				}
+> --
+> 2.4.6
