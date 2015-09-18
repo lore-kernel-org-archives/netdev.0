@@ -1,58 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH next 0/15] netfilter: Stop guessing net (take 2)
-Date: Fri, 18 Sep 2015 22:21:19 +0200
-Message-ID: <20150918202119.GA31424@salvia>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <87pp1fpy1b.fsf@x220.int.ebiederm.org>
- <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH v2] geneve: remove vlan-related feature assignment
+Date: Fri, 18 Sep 2015 16:20:32 -0400
+Message-ID: <1442607632-16580-1-git-send-email-linville@tuxdriver.com>
+References: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
+Cc: davem@davemloft.net, Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47474 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659AbbIRUaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 16:30:17 -0400
+In-Reply-To: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 02:28:40PM -0500, Eric W. Biederman wrote:
-> 
-> This is the next installment of my work to pass struct net through the
-> output path so the code does not need to guess how to figure out which
-> network namespace it is in, and ultimately routes can have output
-> devices in another network namespace.
-> 
-> This round the changes focus on using nf_hook_state->net in the
-> netfilter functions, and not passing nf_hook_ops to the functions on the
-> netfilter chains.
-> 
-> Given the way per network namespace operations are implemented callers
-> can not rely on addresses or games with container_of.  None of the
-> netfilter hooks do but we should remove the temptation.  Plus removing
-> the extra parameter and the extra jump to get at values should reduce
-> the number of cache line misses.
-> 
-> At a practical matter this is the bulk of the work that other pieces of
-> code in the netfilter stack will depend on.
-> 
-> Since the last round I have fixed my test config to build act_connmark
-> and added the patch that modifies act_connmark to track which network
-> namespace it was it.
+The code handling vlan tag insertion was dropped in commit 371bd1061d29
+("geneve: Consolidate Geneve functionality in single module.").  Now we
+need to drop the related vlan feature bits in the netdev structure.
 
-I'm going to place this series in the nf-next tree, thanks! If there's
-some fallout, please send me an incremental fix.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+v2 -- replace earlier patch "geneve: restore vlan bits in xmit path"
 
-> The changes are also available against net-next at:
-> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
-> 
-> My entire pending set of changes for those who want to look ahead is at:
-> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git for-testing
+ drivers/net/geneve.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-I can see quite a lot of changes for IPVS. I'd suggest you route IPVS
-changes through ipvs-devel mailing list so Simon picks them from
-there.
-
-Will be preparing a batch with Netfilter updates for net-next to pass
-up to David asap.
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 549febac0579..63fc4eb85cbe 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -748,12 +748,8 @@ static void geneve_setup(struct net_device *dev)
+ 	dev->features    |= NETIF_F_RXCSUM;
+ 	dev->features    |= NETIF_F_GSO_SOFTWARE;
+ 
+-	dev->vlan_features = dev->features;
+-	dev->features    |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
+-
+ 	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+ 	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+-	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
+ 
+ 	netif_keep_dst(dev);
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
+-- 
+2.4.3
