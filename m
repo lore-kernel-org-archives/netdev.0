@@ -1,40 +1,36 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH] tipc: reinitialize pointer after skb
-	linearize
-Date: Fri, 18 Sep 2015 10:46:31 +0200
-Message-ID: <1442565991-4531-1-git-send-email-erik.hugne@ericsson.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
+Date: Fri, 18 Sep 2015 10:56:14 +0200
+Message-ID: <20150918085614.GA3700@salvia>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+ <20150917.171904.119452251415625585.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ebiederm@xmission.com, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48230 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751945AbbIRIth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2015 04:49:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20150917.171904.119452251415625585.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+CgpUaGUgbXNnIHBvaW50
-ZXIgaW50byBoZWFkZXIgbWF5IGNoYW5nZSBhZnRlciBza2IgbGluZWFyaXphdGlvbi4KV2UgbXVz
-dCByZWluaXRpYWxpemUgaXQgYWZ0ZXIgY2FsbGluZyBza2JfbGluZWFyaXplIHRvIHByZXZlbnQK
-b3BlcmF0aW5nIG9uIGEgZnJlZWQgb3IgaW52YWxpZCBwb2ludGVyLgoKU2lnbmVkLW9mZi1ieTog
-RXJpayBIdWduZSA8ZXJpay5odWduZUBlcmljc3Nvbi5jb20+ClJlcG9ydGVkLWJ5OiBUYW3DoXMg
-VsOpZ2ggPHRhbWFzLnZlZ2hAZXJpY3Nzb24uY29tPgotLS0KIG5ldC90aXBjL21zZy5jIHwgMSAr
-CiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykKCmRpZmYgLS1naXQgYS9uZXQvdGlwYy9t
-c2cuYyBiL25ldC90aXBjL21zZy5jCmluZGV4IDU2MmM5MjYuLmM1YWM0MzYgMTAwNjQ0Ci0tLSBh
-L25ldC90aXBjL21zZy5jCisrKyBiL25ldC90aXBjL21zZy5jCkBAIC01MzksNiArNTM5LDcgQEAg
-Ym9vbCB0aXBjX21zZ19sb29rdXBfZGVzdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBza19idWZm
-ICpza2IsIGludCAqZXJyKQogCSplcnIgPSAtVElQQ19FUlJfTk9fTkFNRTsKIAlpZiAoc2tiX2xp
-bmVhcml6ZShza2IpKQogCQlyZXR1cm4gZmFsc2U7CisJbXNnID0gYnVmX21zZyhza2IpOwogCWlm
-IChtc2dfcmVyb3V0ZV9jbnQobXNnKSkKIAkJcmV0dXJuIGZhbHNlOwogCWRub2RlID0gYWRkcl9k
-b21haW4obmV0LCBtc2dfbG9va3VwX3Njb3BlKG1zZykpOwotLSAKMi4xLjQKCgotLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMuc291
-cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZv
-L3RpcGMtZGlzY3Vzc2lvbgo=
+On Thu, Sep 17, 2015 at 05:19:04PM -0700, David Miller wrote:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 15 Sep 2015 19:59:49 -0500
+> 
+> > Pablo, Dave I don't know whose tree this makes more sense to go
+> > through.  I am assuming at least initially Pablos as netfilter is
+> > involved.  From what I have seen there will be a lot of back and forth
+> > between the netfilter code paths and the routing code paths.
+> 
+> I think it might reduce conflicts actually if it went via my net-next
+> tree.
+> 
+> Pablo, any objections?
+
+This looks good, thanks for taking these David.
