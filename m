@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sch_dsmark: improve memory locality
-Date: Thu, 17 Sep 2015 22:37:59 -0700 (PDT)
-Message-ID: <20150917.223759.1258155849005087677.davem@davemloft.net>
-References: <1442533033.7946.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
+Date: Thu, 17 Sep 2015 22:38:46 -0700 (PDT)
+Message-ID: <20150917.223846.760880389155481640.davem@davemloft.net>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<20150917.171904.119452251415625585.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48690 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbbIRFiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 01:38:00 -0400
-In-Reply-To: <1442533033.7946.9.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150917.171904.119452251415625585.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 17 Sep 2015 16:37:13 -0700
+From: David Miller <davem@davemloft.net>
+Date: Thu, 17 Sep 2015 17:19:04 -0700 (PDT)
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 15 Sep 2015 19:59:49 -0500
 > 
-> Memory placement in sch_dsmark is silly : Better place mask/value
-> in the same cache line.
+>> Pablo, Dave I don't know whose tree this makes more sense to go
+>> through.  I am assuming at least initially Pablos as netfilter is
+>> involved.  From what I have seen there will be a lot of back and forth
+>> between the netfilter code paths and the routing code paths.
 > 
-> Also, we can embed small arrays in the first cache line and
-> remove a potential cache miss.
+> I think it might reduce conflicts actually if it went via my net-next
+> tree.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Pablo, any objections?
 
-Applied, thanks.
+I actually decided to just push it out to my tree, if there are any
+problems with that I will revert.
+
+Thanks.
