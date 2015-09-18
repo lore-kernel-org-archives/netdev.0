@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] atm: deal with setting entry before mkip was called
-Date: Thu, 17 Sep 2015 22:13:54 -0700 (PDT)
-Message-ID: <20150917.221354.1560252457487972419.davem@davemloft.net>
-References: <1442431821-8217-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net 1/6] lan78xx: Check device ready bit
+ (PMT_CTL_READY_) after reset the PHY
+Date: Thu, 17 Sep 2015 22:16:11 -0700 (PDT)
+Message-ID: <20150917.221611.1809503530048246329.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D55C688@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442431821-8217-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48574 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbbIRFQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 01:16:12 -0400
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D55C688@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Wed, 16 Sep 2015 15:30:21 -0400
 
-> If we didn't call ATMARP_MKIP before ATMARP_ENCAP the VCC descriptor is
-> non-existant and we'll end up dereferencing a NULL ptr:
- ...
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+All 6 patches applied, thanks.
 
-Applied, thanks.
+But in the future, please provide an initial "[PATCH net 0/6]" posting which
+gives a top-level overview of what your patch series is doing.
