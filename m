@@ -1,54 +1,56 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next 3/7] rocker: adding port ageing_time for ageing out FDB entries
-Date: Fri, 18 Sep 2015 12:55:47 -0700
-Message-ID: <1442606151-50429-4-git-send-email-sfeldma@gmail.com>
-References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
-	stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org
+From: Luis de Bethencourt <luis@debethencourt.com>
+Subject: Re: [PATCH] net: gianfar_ptp: Fix module autoload for OF platform
+ driver
+Date: Fri, 18 Sep 2015 21:54:18 +0200
+Message-ID: <20150918195418.GA3482@goodgumbo.baconseed.org>
+References: <20150918195244.GA3221@goodgumbo.baconseed.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35719 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893AbbIRTxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:53:10 -0400
-Received: by pacfv12 with SMTP id fv12so59939692pac.2
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 12:53:09 -0700 (PDT)
-In-Reply-To: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:33227 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754109AbbIRTyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:54:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20150918195244.GA3221@goodgumbo.baconseed.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+Please ignore this. It has the wrong [PATCH] tag.
 
-Follow-up patcheset will allow user to change ageing_time, but for now
-just hard-code it to a fixed value (the same value used as the default
-for the bridge driver).
+Apologies,
+Luis
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- drivers/net/ethernet/rocker/rocker.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index f55ed2c..eba22f5 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -221,6 +221,7 @@ struct rocker_port {
- 	__be16 internal_vlan_id;
- 	int stp_state;
- 	u32 brport_flags;
-+	unsigned long ageing_time;
- 	bool ctrls[ROCKER_CTRL_MAX];
- 	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
- 	struct napi_struct napi_tx;
-@@ -4975,6 +4976,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	rocker_port->port_number = port_number;
- 	rocker_port->pport = port_number + 1;
- 	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
-+	rocker_port->ageing_time = 300 * HZ;
- 	INIT_LIST_HEAD(&rocker_port->trans_mem);
- 
- 	rocker_port_dev_addr_init(rocker_port);
--- 
-1.7.10.4
+On Fri, Sep 18, 2015 at 09:52:44PM +0200, Luis de Bethencourt wrote:
+> This platform driver has a OF device ID table but the OF module
+> alias information is not created so module autoloading won't work.
+> 
+> Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+> ---
+> 
+> Corrected the subject line as requested by Richard.
+> https://lkml.org/lkml/2015/9/18/717
+> 
+> Thanks for the review,
+> Luis
+> 
+>  drivers/net/ethernet/freescale/gianfar_ptp.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+> index 8e3cd77..664d0c2 100644
+> --- a/drivers/net/ethernet/freescale/gianfar_ptp.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+> @@ -557,6 +557,7 @@ static const struct of_device_id match_table[] = {
+>  	{ .compatible = "fsl,etsec-ptp" },
+>  	{},
+>  };
+> +MODULE_DEVICE_TABLE(of, match_table);
+>  
+>  static struct platform_driver gianfar_ptp_driver = {
+>  	.driver = {
+> -- 
+> 2.4.6
+> 
