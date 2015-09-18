@@ -1,45 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] netlink: make sure -EBUSY won't escape from
- netlink_insert
-Date: Fri, 18 Sep 2015 10:09:22 +0800
-Message-ID: <20150918020922.GA30070@gondor.apana.org.au>
-References: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
- <20150810.110015.1616067694505641781.davem@davemloft.net>
- <20150917054114.GN1983@Chimay.local>
- <CA+55aFxyqfxJphqDF_X4hG40b21XWP0fFdMhFJKn6riy5-kmtA@mail.gmail.com>
+From: Sathya Perla <sathya.perla@avagotech.com>
+Subject: Re: [PATCH net 4/5] be2net: allow offloading with the same port for
+ IPv4 and IPv6
+Date: Fri, 18 Sep 2015 09:00:15 +0530
+Message-ID: <CAKvpyk3i7+q8JfV2b2+SgnYC-RAY5coFiVLaY1Pv-2nBPqW-6w@mail.gmail.com>
+References: <cover.1442498316.git.jbenc@redhat.com>
+	<1b2a27cefac4b736f098624b8c411aee6ccef9f2.1442498316.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Paasch <christoph.paasch@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	Ajit Khaparde <ajit.khaparde@avagotech.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:60925 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752043AbbIRCJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 22:09:40 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxyqfxJphqDF_X4hG40b21XWP0fFdMhFJKn6riy5-kmtA@mail.gmail.com>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:33195 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152AbbIRDaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 23:30:16 -0400
+Received: by ykft14 with SMTP id t14so36065086ykf.0
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 20:30:15 -0700 (PDT)
+In-Reply-To: <1b2a27cefac4b736f098624b8c411aee6ccef9f2.1442498316.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 17, 2015 at 11:47:12AM -0700, Linus Torvalds wrote:
-> On Wed, Sep 16, 2015 at 10:41 PM, Christoph Paasch
-> <christoph.paasch@gmail.com> wrote:
-> >
-> > can this patch get queued up for 4.1 as well?
-> > It seems to fix a similar issue in 4.1.6.
-> 
-> I think Herbert has an additional patch for this issue. But yes, I
-> think should be scheduled for stable. Herbert?
+On Thu, Sep 17, 2015 at 7:41 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> The callback for adding vxlan port can be called with the same port for both
+> IPv4 and IPv6. Do not disable the offloading if this occurs.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  drivers/net/ethernet/emulex/benet/be.h      |  1 +
+>  drivers/net/ethernet/emulex/benet/be_main.c | 10 ++++++++++
+>  2 files changed, 11 insertions(+)
 
-Yes this should be safe for stable, even though the real cause of
-the problem is probably the one that Tejun spotted.
+Acked-by: Sathya Perla <sathya.perla@avagotech.com>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks!
