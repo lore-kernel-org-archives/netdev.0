@@ -1,42 +1,99 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 14/14] netfilter: Use nf_ct_net instead of dev_net(out) in nf_nat_masquerade_ipv6
-Date: Fri, 18 Sep 2015 11:06:00 -0500
-Message-ID: <1442592360-2575-14-git-send-email-ebiederm@xmission.com>
-References: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: David Miller <davem@davemloft.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] configure: Check for Berkeley DB for arpd compilation
+Date: Fri, 18 Sep 2015 19:17:13 +0300
+Message-ID: <1442593033-27449-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51487 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633AbbIRQS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:18:56 -0400
-In-Reply-To: <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:38726 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751195AbbIRQUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 12:20:33 -0400
+Received: by wiclk2 with SMTP id lk2so37553666wic.1
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 09:20:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use nf_ct_net(ct) instead of guessing that the netdevice out can
-reliably report the network namespace the conntrack operation is
-happening in.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Add check for Berkeley DB header & lib before compile arpd util.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- net/ipv6/netfilter/nf_nat_masquerade_ipv6.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ configure     | 29 +++++++++++++++++++++++++++--
+ misc/Makefile |  6 +++++-
+ 2 files changed, 32 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-index 7745609665cd..31ba7ca19757 100644
---- a/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-@@ -34,7 +34,7 @@ nf_nat_masquerade_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
- 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
- 			    ctinfo == IP_CT_RELATED_REPLY));
+diff --git a/configure b/configure
+index 3ae4c95..d2540b0 100755
+--- a/configure
++++ b/configure
+@@ -289,12 +289,34 @@ check_mnl()
+ 	if ${PKG_CONFIG} libmnl --exists
+ 	then
+ 		echo "HAVE_MNL:=y" >>Config
+-		echo -n "yes"
++		echo "yes"
+ 	else
+-		echo -n "no"
++		echo "no"
+ 	fi
+ }
  
--	if (ipv6_dev_get_saddr(dev_net(out), out,
-+	if (ipv6_dev_get_saddr(nf_ct_net(ct), out,
- 			       &ipv6_hdr(skb)->daddr, 0, &src) < 0)
- 		return NF_DROP;
++check_berkeley_db()
++{
++    cat >$TMPDIR/dbtest.c <<EOF
++#include <fcntl.h>
++#include <stdlib.h>
++#include <db_185.h>
++int main(int argc, char **argv) {
++	dbopen("/tmp/xxx_test_db.db", O_CREAT|O_RDWR, 0644, DB_HASH, NULL);
++	return 0;
++}
++EOF
++    $CC -I$INCLUDE -o $TMPDIR/dbtest $TMPDIR/dbtest.c -ldb >/dev/null 2>&1
++    if [ $? -eq 0 ]
++    then
++	echo "HAVE_BERKELEY_DB:=y" >>Config
++	echo "yes"
++    else
++	echo "no"
++    fi
++    rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
++}
++
+ echo "# Generated config based on" $INCLUDE >Config
+ check_toolchain
  
+@@ -328,6 +350,9 @@ check_elf
+ echo -n "libmnl support: "
+ check_mnl
+ 
++echo -n "Berkeley DB: "
++check_berkeley_db
++
+ echo
+ echo -n "docs:"
+ check_docs
+diff --git a/misc/Makefile b/misc/Makefile
+index 6185217..389c1b0 100644
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -1,10 +1,14 @@
+ SSOBJ=ss.o ssfilter.o
+ LNSTATOBJ=lnstat.o lnstat_util.o
+ 
+-TARGETS=ss nstat ifstat rtacct arpd lnstat
++TARGETS=ss nstat ifstat rtacct lnstat
+ 
+ include ../Config
+ 
++ifeq ($(HAVE_BERKELEY_DB),y)
++	TARGETS += arpd
++endif
++
+ ifeq ($(HAVE_SELINUX),y)
+ 	LDLIBS += $(shell pkg-config --libs libselinux)
+ 	CFLAGS += $(shell pkg-config --cflags libselinux) -DHAVE_SELINUX
 -- 
-2.2.1
+2.4.2
