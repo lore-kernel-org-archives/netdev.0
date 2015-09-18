@@ -1,158 +1,54 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC net-next v3 3/4] ravb: Document binding for r8a7795 SoC
-Date: Fri, 18 Sep 2015 15:03:22 +0900
-Message-ID: <1442556203-657-4-git-send-email-horms+renesas@verge.net.au>
-References: <1442556203-657-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: ATL1E 0000:02:00.0: swiotlb buffer is full (sz: 529461 bytes)
+Date: Fri, 18 Sep 2015 08:21:33 +0200
+Message-ID: <20150918062133.GA411@x4>
+References: <20150912065155.GA421@x4>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:58825 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752131AbbIRGDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 02:03:53 -0400
-In-Reply-To: <1442556203-657-1-git-send-email-horms+renesas@verge.net.au>
+Received: from ud10.udmedia.de ([194.117.254.50]:52491 "EHLO
+	mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752165AbbIRGVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 02:21:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20150912065155.GA421@x4>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+On 2015.09.12 at 08:51 +0200, Markus Trippelsdorf wrote:
+> With the current Linus git tree I get an occasional swiotlb allocation
+> error during network setup at boot-time:
+> 
+>  ATL1E 0000:02:00.0: swiotlb buffer is full (sz: 529461 bytes)
+>  swiotlb: coherent allocation failed for device 0000:02:00.0 size=529461
+>  CPU: 0 PID: 200 Comm: ifconfig Not tainted 4.2.0-11400-gdfb22fc5c0eb-dirty #113
+>  Hardware name: System manufacturer System Product Name/M4A78T-E, BIOS 3503    04/13/2011
+>   00000000ffffffff ffffffff812b8d33 ffffffffffffffff ffffffff812da574
+>   ffffffff00000008 ffff880216827000 ffff880216827740 ffff880216af0000
+>   0000000000081435 ffffffff81c163c0 ffff880216b1b800 ffffffff814e3b1d
+>  Call Trace:
+>   [<ffffffff812b8d33>] ? dump_stack+0x40/0x6d
+>   [<ffffffff812da574>] ? swiotlb_alloc_coherent+0x134/0x160
+>   [<ffffffff814e3b1d>] ? atl1e_open+0xfd/0x460
+>   [<ffffffff815ddfa2>] ? __dev_open+0x82/0x100
+>   [<ffffffff815de271>] ? __dev_change_flags+0x91/0x160
+>   [<ffffffff815de35e>] ? dev_change_flags+0x1e/0x60
+>   [<ffffffff815d9b14>] ? dev_get_by_name_rcu+0x54/0x80
+>   [<ffffffff8164c256>] ? devinet_ioctl+0x5d6/0x6a0
+>   [<ffffffff815c418d>] ? sock_ioctl+0xed/0x1e0
+>   [<ffffffff811258b1>] ? do_vfs_ioctl+0x291/0x480
+>   [<ffffffff81063940>] ? __do_page_fault+0x140/0x380
+>   [<ffffffff81125ad6>] ? SyS_ioctl+0x36/0x80
+>   [<ffffffff8106a297>] ? entry_SYSCALL_64_fastpath+0x12/0x66
+>  ATL1E 0000:02:00.0 eth0: pci_alloc_consistent failed, size = D529461
+> 
+> This happens every forth or fifth boot, so the issue is not bisectable.
 
-This patch updates the ravb binding to support the r8a7795 SoC by:
-- Adding a compat string for the new hardware
-- Adding 25 named interrupts to binding for the new SoC;
-  older SoCs continue to use a single multiplexed interrupt
+Adding CC.
 
-The example is also updated to reflect the r8a7795 as this is the
-more complex case.
-
-Based on work by Kazuya Mizuguchi and others.
-
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
----
-v2
-* First post; broken out of a driver update patch
-* As discussed with Geert Uytterhoeven and Sergei Shtylyov
-  - Binding: Make all interrupts mandatory as named-interrupts of
-    the form ch%u
-
-v3
-* A suggested by Geert Uytterhoeven
-  - Reword description of interrupts and interrupt-names to
-    make things clearer. It is now based to some extent on
-    spi-rspi.txt and renesas,usb-dmac.txt.
-* As suggested by Sergei Shtylyov
-  - Drop phy-reset-gpio from example
-* Added power-domains to example
----
- .../devicetree/bindings/net/renesas,ravb.txt       | 69 +++++++++++++++++++---
- 1 file changed, 62 insertions(+), 7 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-index 1fd8831437bf..ae454d9df136 100644
---- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -6,8 +6,12 @@ interface contains.
- Required properties:
- - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
- 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-+	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
- - reg: offset and length of (1) the register block and (2) the stream buffer.
--- interrupts: interrupt specifier for the sole interrupt.
-+- interrupts: A list of interrupt-specifiers, one for each entry in
-+	      interrupt-names.
-+	      If interrupt-names is not present, an interrupt specifier
-+	      for a single muxed interrupt.
- - phy-mode: see ethernet.txt file in the same directory.
- - phy-handle: see ethernet.txt file in the same directory.
- - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
-@@ -18,6 +22,12 @@ Required properties:
- Optional properties:
- - interrupt-parent: the phandle for the interrupt controller that services
- 		    interrupts for this device.
-+- interrupt-names: A list of interrupt names.
-+		   For the R8A7795 SoC this property is mandatory;
-+		   it should include one entry per channel, named "ch%u",
-+		   where %u is the channel number ranging from 0 to 24.
-+		   For other SoCs this property is optional; if present
-+		   is should contain "mux" for a single muxed interrupt.
- - pinctrl-names: pin configuration state name ("default").
- - renesas,no-ether-link: boolean, specify when a board does not provide a proper
- 			 AVB_LINK signal.
-@@ -27,13 +37,46 @@ Optional properties:
- Example:
- 
- 	ethernet@e6800000 {
--		compatible = "renesas,etheravb-r8a7790";
--		reg = <0 0xe6800000 0 0x800>, <0 0xee0e8000 0 0x4000>;
-+		compatible = "renesas,etheravb-r8a7795";
-+		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
- 		interrupt-parent = <&gic>;
--		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
--		clocks = <&mstp8_clks R8A7790_CLK_ETHERAVB>;
--		phy-mode = "rmii";
-+		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "ch0", "ch1", "ch2", "ch3",
-+				  "ch4", "ch5", "ch6", "ch7",
-+				  "ch8", "ch9", "ch10", "ch11",
-+				  "ch12", "ch13", "ch14", "ch15",
-+				  "ch16", "ch17", "ch18", "ch19",
-+				  "ch20", "ch21", "ch22", "ch23",
-+				  "ch24";
-+		clocks = <&mstp8_clks R8A7795_CLK_ETHERAVB>;
-+		power-domains = <&cpg_clocks>;
-+		phy-mode = "rgmii-id";
- 		phy-handle = <&phy0>;
-+
- 		pinctrl-0 = <&ether_pins>;
- 		pinctrl-names = "default";
- 		renesas,no-ether-link;
-@@ -41,8 +84,20 @@ Example:
- 		#size-cells = <0>;
- 
- 		phy0: ethernet-phy@0 {
-+			rxc-skew-ps = <900>;
-+			rxdv-skew-ps = <0>;
-+			rxd0-skew-ps = <0>;
-+			rxd1-skew-ps = <0>;
-+			rxd2-skew-ps = <0>;
-+			rxd3-skew-ps = <0>;
-+			txc-skew-ps = <900>;
-+			txen-skew-ps = <0>;
-+			txd0-skew-ps = <0>;
-+			txd1-skew-ps = <0>;
-+			txd2-skew-ps = <0>;
-+			txd3-skew-ps = <0>;
- 			reg = <0>;
- 			interrupt-parent = <&gpio2>;
--			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
-+			interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
- 		};
- 	};
 -- 
-2.1.4
+Markus
