@@ -1,44 +1,52 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH][RESEND] MAINTAINERS: add arcnet and take maintainership
-Date: Fri, 18 Sep 2015 07:56:04 +0200
-Message-ID: <20150918055604.GR5327@pengutronix.de>
-References: <1442496376-14612-1-git-send-email-m.grzeschik@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	joe@perches.com, davem@davemloft.net, kernel@pengutronix.de
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1442496376-14612-1-git-send-email-m.grzeschik@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH/RFC net-next v3 0/4] ravb: Add support for r8a7795 SoC
+Date: Fri, 18 Sep 2015 15:03:19 +0900
+Message-ID: <1442556203-657-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This series enhances the ravb driver to support the r8a7795 SoC.
 
-On Thu, Sep 17, 2015 at 03:26:16PM +0200, Michael Grzeschik wrote:
-> +ARCNET NETWORK LAYER
-> +M:	Michael Grzeschik <m.grzeschik@pengutronix.de>
-> +L:	netdev@vger.kernel.org
-> +S:	Maintained
-> +F:	drivers/net/arcnet/
-> +F:	include/uapi/linux/if_arcnet.h
-> +
+Changes:
 
-What about
+* Details in changelog of individual patches
 
-	Documentation/networking/arcnet-hardware.txt
-	Documentation/networking/arcnet.txt
+Base:
 
-?
+* net-next/master
 
-Best regards
-Uwe
+Availability:
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+To aid review of this and other EtherAVB the following branches are
+available in my renesas tree on kernel.org.
+
+* me/r8a7795-ravb-driver-v3: this series
+* me/r8a7795-ravb-pfc-v2: r8a7795 sh-pfc update for EthernetAVB
+* me/r8a7795-ravb-integration-v3: enable EthernetAVB on r8a7795
+* me/r8a7795-ravb-driver-and-integration-v3.runtime:
+      the above three branches with their runtime dependencies
+
+
+Kazuya Mizuguchi (3):
+  ravb: Provide dev parameter to DMA API
+  ravb: Document binding for r8a7795 SoC
+  ravb: Add support for r8a7795 SoC
+
+Simon Horman (1):
+  phylib: Add phy_set_max_speed helper
+
+ .../devicetree/bindings/net/renesas,ravb.txt       |  69 ++++++++++++--
+ drivers/net/ethernet/renesas/ravb.h                |   7 ++
+ drivers/net/ethernet/renesas/ravb_main.c           | 101 +++++++++++++++------
+ drivers/net/phy/phy_device.c                       |  59 ++++++++----
+ include/linux/phy.h                                |   1 +
+ 5 files changed, 184 insertions(+), 53 deletions(-)
+
+-- 
+2.1.4
+
