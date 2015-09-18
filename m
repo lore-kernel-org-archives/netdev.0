@@ -1,52 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip: find correct route for socket which is not bound
- to a device
-Date: Thu, 17 Sep 2015 21:20:00 -0700 (PDT)
-Message-ID: <20150917.212000.1163539662854684723.davem@davemloft.net>
-References: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
+Subject: Re: xfrm4_garbage_collect reaching limit
+Date: Thu, 17 Sep 2015 21:23:35 -0700 (PDT)
+Message-ID: <20150917.212335.346651920275379240.davem@davemloft.net>
+References: <20150911094808.GI25499@secunet.com>
+	<CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
+	<20150916084541.GB7701@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wen.gang.wang@oracle.com
+Cc: dan.streetman@canonical.com, ddstreet@ieee.org,
+	jay.vosburgh@canonical.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48252 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48279 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751381AbbIREUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 00:20:01 -0400
-In-Reply-To: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
+	with ESMTP id S1751278AbbIREXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 00:23:36 -0400
+In-Reply-To: <20150916084541.GB7701@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Date: Wed, 16 Sep 2015 14:34:15 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 16 Sep 2015 10:45:41 +0200
 
-> For multi-cast, we should find valid route(thus get the meaniful pmtu) for
-> the package on the socket which is not bound to a device(sk_bound_dev_if
-> being 0) too.
+> index 1e06c4f..3dffc73 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -248,7 +248,7 @@ static struct dst_ops xfrm4_dst_ops = {
+>  	.destroy =		xfrm4_dst_destroy,
+>  	.ifdown =		xfrm4_dst_ifdown,
+>  	.local_out =		__ip_local_out,
+> -	.gc_thresh =		32768,
+> +	.gc_thresh =		INT_MAX,
+>  };
+>  
+>  static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
 
-Your patch breaks exactly the situation explained in full detail
-in the huge comment about the first change you are making:
+This means the dst_ops->gc() for xfrm will never be invoked.
 
-			/* Special hack: user can direct multicasts
-			   and limited broadcast via necessary interface
-			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-			   This hack is not just for fun, it allows
-			   vic,vat and friends to work.
-			   They bind socket to loopback, set ttl to zero
-			   and expect that it will work.
-			   From the viewpoint of routing cache they are broken,
-			   because we are not allowed to build multicast path
-			   with loopback source addr (look, routing cache
-			   cannot know, that ttl is zero, so that packet
-			   will not leave this host and route is valid).
-			   Luckily, this hack is good workaround.
-			 */
-
-That situation will now fail after your patch.
-
-So I cannot apply this patch, sorry.
-
-I know what you want, you want to end up with a cached route that
-will track the PMTU.  But this hack will break other things at
-the same time so is not acceptable.
+Is that intentional?
