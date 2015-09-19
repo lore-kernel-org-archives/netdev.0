@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 13/15] RDS: mark rds_ib_fmr_wq static
-Date: Sat, 19 Sep 2015 19:04:50 -0400
-Message-ID: <1442703892-26692-14-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 14/15] RDS: use max_mr from HCA caps than max_fmr
+Date: Sat, 19 Sep 2015 19:04:51 -0400
+Message-ID: <1442703892-26692-15-git-send-email-santosh.shilimkar@oracle.com>
 References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	ssantosh@kernel.org,
@@ -12,28 +12,33 @@ In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix below warning by marking rds_ib_fmr_wq static
+From: Santosh Shilimkar <ssantosh@kernel.org>
 
-net/rds/ib_rdma.c:87:25: warning: symbol 'rds_ib_fmr_wq' was not declared. Should it be static?
+All HCA drivers seems to popullate max_mr caps and few of
+them do both max_mr and max_fmr.
+
+Hence update RDS code to make use of max_mr.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_rdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rds/ib.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 52d889a..bb62024 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -83,7 +83,7 @@ struct rds_ib_mr_pool {
- 	struct ib_fmr_attr	fmr_attr;
- };
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 2d3f2ab..883813a 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -148,8 +148,8 @@ static void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_sge = min(dev_attr->max_sge, RDS_IB_MAX_SGE);
  
--struct workqueue_struct *rds_ib_fmr_wq;
-+static struct workqueue_struct *rds_ib_fmr_wq;
+ 	rds_ibdev->fmr_max_remaps = dev_attr->max_map_per_fmr?: 32;
+-	rds_ibdev->max_fmrs = dev_attr->max_fmr ?
+-			min_t(unsigned int, dev_attr->max_fmr, fmr_pool_size) :
++	rds_ibdev->max_fmrs = dev_attr->max_mr ?
++			min_t(unsigned int, dev_attr->max_mr, fmr_pool_size) :
+ 			fmr_pool_size;
  
- int rds_ib_fmr_init(void)
- {
+ 	rds_ibdev->max_initiator_depth = dev_attr->max_qp_init_rd_atom;
 -- 
 1.9.1
