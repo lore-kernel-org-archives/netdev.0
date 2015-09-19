@@ -1,84 +1,80 @@
-From: "D. Hugh Redelmeier" <hugh@mimosa.com>
-Subject: Re: PATCH: netdev: add a cast NLMSG_OK to avoid a GCC warning in
- users' code
-Date: Sat, 19 Sep 2015 17:43:29 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1509191646070.1669@redclaw.mimosa.com>
-References: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com> <20150909.123717.2263645868892698375.davem@davemloft.net>
-Reply-To: "D. Hugh Redelmeier" <hugh@mimosa.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH 03/15] RDS: fix rds_sock reference bug while doing bind
+Date: Sat, 19 Sep 2015 19:04:40 -0400
+Message-ID: <1442703892-26692-4-git-send-email-santosh.shilimkar@oracle.com>
+References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	ssantosh@kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-d.mimosa.com ([209.161.207.149]:51208 "EHLO gw-d.mimosa.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751666AbbISVnb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Sep 2015 17:43:31 -0400
-In-Reply-To: <20150909.123717.2263645868892698375.davem@davemloft.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:47467 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751572AbbISXF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 19:05:26 -0400
+In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes have been proposed for this problem at least twice before.
+One need to take rds socket reference while using it and release it
+once done with it. rds_add_bind() code path does not do that so
+lets fix it.
 
-================
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/bind.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-(These messages are not presented as a thread so I've put links to
-each of them)
-
-Problem report: <https://lkml.org/lkml/2013/12/15/59>
-Patch proposal: <https://lkml.org/lkml/2013/12/15/60>
-Reply suggesting improved presentation:  <https://lkml.org/lkml/2013/12/15/62>
-Revised patch proposal: <https://lkml.org/lkml/2013/12/15/96>
-Duplicate revised patch proposal: <https://lkml.org/lkml/2013/12/15/97>
-
-Doron Tsur proposed:
--			   (nlh)->nlmsg_len <= (len))
-+			   (int)(nlh)->nlmsg_len <= (len))
-
-This would correctly function as long as nlmsg_length were <= INT_MAX.
-I imagine that this would always be the case since Linux isn't used on
-machines with ints narrower than 32 bits.
-
-It would cause a GCC warning on 32-bit machines when len has an
-unsigned type that is the same width as int.
-
-Programs conforming the the netlink documentation would not get
-warnings.
-
-There was no reply to the revised patch proposal.
-
-================
-
-<https://lkml.org/lkml/2015/3/5/38>
-Mike Frysinger proposed:
--#define NLMSG_OK(nlh,len) ((len) >= (int)sizeof(struct nlmsghdr) && \
-+#define NLMSG_OK(nlh,len) ((len) >= sizeof(struct nlmsghdr) && \
-
-This should correctly function as long as len is an unsigned type or
-it has a non-negative value.  It won't work correctly if len is size_t
-and has the value -1 (the error indicator).
-
-David Miller replied:
-
-	I don't think we can change this.  If you get rid of the 'int'
-	cast then code is going to end up with a signed comparison for
-	the first test even if 'len' is signed, and that's a potential
-	security issue.
-
-I don't understand this response.  If you get rid of the int cast, and
-the type of len, after the "integral promotions", is the same width as
-size_t, the "usual arithmetic conversions" of the C language will
-cause the comparison to be done in unsigned.
-
-I would agree with a variant of the reply:
-
-	I don't think we can change this.  If you get rid of the 'int'
-	cast then IN MOST ENVIRONMENTS the code is going to end up
-	with an UNSIGNED comparison for the first test even if 'len'
-	is signed, and that's a potential security issue.
-
-	Consider the case where len is a signed type with a negative
-	value, such as -1, the error indicator described in recv(2).
-
-The example code in netlink(7) about reading netlink message is a good
-example of code that would misbehave if the cast were removed.
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index 01989e2..166c605 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -61,8 +61,10 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+ 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+ 		      be16_to_cpu(rs->rs_bound_port);
+ 
+-		if (cmp == needle)
++		if (cmp == needle) {
++			rds_sock_addref(rs);
+ 			return rs;
++		}
+ 	}
+ 
+ 	if (insert) {
+@@ -94,10 +96,10 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ 	rs = rds_bind_lookup(addr, port, NULL);
+ 	read_unlock_irqrestore(&rds_bind_lock, flags);
+ 
+-	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
+-		rds_sock_addref(rs);
+-	else
++	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
++		rds_sock_put(rs);
+ 		rs = NULL;
++	}
+ 
+ 	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
+ 		ntohs(port));
+@@ -123,14 +125,18 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	write_lock_irqsave(&rds_bind_lock, flags);
+ 
+ 	do {
++		struct rds_sock *rrs;
+ 		if (rover == 0)
+ 			rover++;
+-		if (!rds_bind_lookup(addr, cpu_to_be16(rover), rs)) {
++		rrs = rds_bind_lookup(addr, cpu_to_be16(rover), rs);
++		if (!rrs) {
+ 			*port = rs->rs_bound_port;
+ 			ret = 0;
+ 			rdsdebug("rs %p binding to %pI4:%d\n",
+ 			  rs, &addr, (int)ntohs(*port));
+ 			break;
++		} else {
++			rds_sock_put(rrs);
+ 		}
+ 	} while (rover++ != last);
+ 
+-- 
+1.9.1
