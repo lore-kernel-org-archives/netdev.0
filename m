@@ -1,116 +1,94 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/7] Phy and mdiobus fixes
-Date: Sat, 19 Sep 2015 13:49:35 -0700
-Message-ID: <55FDCA5F.9090604@gmail.com>
-References: <20150918094625.GB21084@n2100.arm.linux.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: rfi: stmmac: creating an of mdio bus for attached dsa
+Date: Sat, 19 Sep 2015 13:58:39 -0700
+Message-ID: <55FDCC7F.10601@gmail.com>
+References: <55FBBCAC.1080904@electromag.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	=?UTF-8?Q?S=c3=b6ren_Brinkmann?= <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150918094625.GB21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Phil Reid <preid@electromag.com.au>, netdev@vger.kernel.org,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:33566 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbbISU6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 16:58:41 -0400
+Received: by obbbh8 with SMTP id bh8so59573589obb.0
+        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 13:58:40 -0700 (PDT)
+In-Reply-To: <55FBBCAC.1080904@electromag.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 09/18/15 02:46, Russell King - ARM Linux a =C3=A9crit :
-> Hi,
++Andrew,
+
+Le 09/18/15 00:26, Phil Reid a =C3=A9crit :
+> G'day All,
 >=20
-> While looking at the phy code, I identified a number of weaknesses
-> where refcounting on device structures was being leaked, where
-> modules could be removed while in-use, and where the fixed-phy could
-> end up having unintended consequences caused by incorrect calls to
-> fixed_phy_update_state().
+> Prior to submitting a patch I'd just like to get an idea on what the
+> correct way is to create and register an mdio bus for use by the marv=
+ell
+> dsa driver.
+> On our system the cpu ethernet port is connected directly to a switch
+> with a fixed link (1Gbit).
+> So the driver needs to create and persist the mdio bus for the dsa
+> driver using of_mdiobus_register.
+> The trunk stmmac driver currently doesn't create the mdio bus if a fi=
+xed
+> link is found.
+> stmmac_probe_config_dt does hte following check.
+>     if (plat->phy_node || plat->phy_bus_name)
+>         plat->mdio_bus_data =3D NULL;
+> phy_node is set because a fixed-link is found above and setting
+> mdio_bus_data to null skips mdio bus creation.
+> removing the phy_node check gets things working.
+
+It seems to me like you should have the stmmac driver always register
+its MDIO bus driver, whether or not it will end-up being used depends o=
+n
+the information provided via OF/platform_data.
+
+Even in topologies where a stmmac block is unused, you would expect
+power/clock gating to be applied for the Ethernet MAC, but still have
+the ability to use the MDIO bus of this stmmac instance if it connects
+to a particular device. In your case, I would assume that the stmmac
+Ethernet MAC and MDIO will be used, so this make even more sense.
+
 >=20
-> This patch series resolves those issues, some of which were discovere=
+> I've also modified stmmac_mdio_register to use of_mdiobus_register an=
 d
-> with testing on an Armada 388 board.  Not all patches are fully teste=
-d,
-> particularly the one which touches several network drivers.
+> setup the dt to probe for a phy (that doesn't really exist, the switc=
+h
+> is on the mdio).
+> This cause a fair bit of log spamming but does seem to work as the
+> switch is detected.
+> eg: eth0: PHY ID 00000000 at 27 IRQ POLL (stmmac-0:1b)
+> Currently if no phy is found the mdio bus gets de registered so this
+> seems to be required.
 >=20
-> When resolving the struct device refcounting problems, several differ=
-ent
-> solutions were considered before settling on the implementation here =
--
-> one of the considerations was to avoid touching many network drivers.
-> The solution here is:
->=20
-> 	phy_attach*() - takes a refcount
-> 	phy_detach*() - drops the phy_attach refcount
->=20
-> Provided drivers always attach and detach their phys, which they shou=
-ld
-> already be doing, this should change nothing, even if they leak a ref=
-count.
->=20
-> 	of_phy_find_device() and of_* functions which use that take
-> 	a refcount.  Arrange for this refcount to be dropped once
-> 	the phy is attached.
->=20
-> This is the reason why the previous change is important - we can't dr=
-op
-> this refcount taken by of_phy_find_device() until something else hold=
-s
-> a reference on the device.  This resolves the leaked refcount caused =
-by
-> using of_phy_connect() or of_phy_attach().
->=20
-> Even without the above changes, these drivers are leaking by calling
-> of_phy_find_device().  These drivers are addressed by adding the
-> appropriate release of that refcount.
->=20
-> The mdiobus code also suffered from the same kind of leak, but thankf=
-ully
-> this only happened in one place - the mdio-mux code.
->=20
-> I also found that the try_module_get() in the phy layer code was utte=
-rly
-> useless: phydev->dev.driver was guaranteed to always be NULL, so
-> try_module_get() was always being called with a NULL argument.  I pro=
-ved
-> this with my SFP code, which declares its own MDIO bus - the module u=
-se
-> count was never incremented irrespective of how I set the MDIO bus up=
-=2E
-> This allowed the MDIO bus code to be removed from the kernel while th=
-ere
-> were still PHYs attached to it.
->=20
-> One other bug was discovered: while using in-band-status with mvneta,=
- it
-> was found that if a real phy is attached with in-band-status enabled,
-> and another ethernet interface is using the fixed-phy infrastructure,=
- the
-> interface using the fixed-phy infrastructure is configured according =
-to
-> the other interface using the in-band-status - which is caused by the
-> fixed-phy code not verifying that the phy_device passed in is actuall=
-y
-> a fixed-phy device, rather than a real MDIO phy.
->=20
-> Lastly, having mdio_bus reversing phy_device_register() internals see=
-ms
-> like a layering violation - it's trivial to move that code to the phy
-> device layer.
+> In summary what is the correct way to make sure the mdio bus stays
+> registered when a fixed-link is in use?
+> Am I configuring the link to the switch incorrectly?
 
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+This seems reasonable to me. One of the problems with DSA right now is
+that you need to provide a fixed-link emulated PHY for your Ethernet MA=
+C
+controller to keep "working" (that is: get link status/parameters etc.)=
+,
+while the switch sits on the MDIO bus and does not look like (yet) a PH=
+Y
+device.
 
-Thanks!
+The "problem" here is that the STMMAC driver treats fixed link as there
+is no MDIO device connected here, so why bother with registering a MDIO
+bus driver in the first place, which is a valid design shortcut, but no=
+t
+in the case of DSA right now.
+
+In the future, I hope we can have DSA switch devices look like almost
+regular PHY devices, such that we do not have to use the fixed PHY to
+keep having the Ethernet MAC controller be happy with link parameters
+to/from the switch, see [1].
+
+[1]: https://lwn.net/Articles/643149/
 --=20
 =46lorian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
