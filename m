@@ -1,64 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] inet: fix races in reqsk_queue_hash_req()
-Date: Sat, 19 Sep 2015 09:48:04 -0700
-Message-ID: <1442681284.29850.27.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 3/7] rocker: adding port ageing_time for ageing
+ out FDB entries
+Date: Sat, 19 Sep 2015 10:16:03 -0700
+Message-ID: <CAE4R7bDvV5uZPTvKZRj7BWoOr_JayfpaBY9HcM7V2-K6_8vt+w@mail.gmail.com>
+References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
+ <1442606151-50429-4-git-send-email-sfeldma@gmail.com> <20150919063058.GA2067@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34519 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754814AbbISQsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 12:48:07 -0400
-Received: by padhy16 with SMTP id hy16so77683194pad.1
-        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 09:48:06 -0700 (PDT)
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34754 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754814AbbISRQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 13:16:23 -0400
+Received: by oiev17 with SMTP id v17so40881615oie.1
+        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 10:16:23 -0700 (PDT)
+In-Reply-To: <20150919063058.GA2067@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Sep 18, 2015 at 11:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Sep 18, 2015 at 09:55:47PM CEST, sfeldma@gmail.com wrote:
+>>From: Scott Feldman <sfeldma@gmail.com>
+>>
+>>Follow-up patcheset will allow user to change ageing_time, but for now
+>>just hard-code it to a fixed value (the same value used as the default
+>>for the bridge driver).
+>>
+>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>---
+>> drivers/net/ethernet/rocker/rocker.c |    2 ++
+>> 1 file changed, 2 insertions(+)
+>>
+>>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>index f55ed2c..eba22f5 100644
+>>--- a/drivers/net/ethernet/rocker/rocker.c
+>>+++ b/drivers/net/ethernet/rocker/rocker.c
+>>@@ -221,6 +221,7 @@ struct rocker_port {
+>>       __be16 internal_vlan_id;
+>>       int stp_state;
+>>       u32 brport_flags;
+>>+      unsigned long ageing_time;
+>>       bool ctrls[ROCKER_CTRL_MAX];
+>>       unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
+>>       struct napi_struct napi_tx;
+>>@@ -4975,6 +4976,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+>>       rocker_port->port_number = port_number;
+>>       rocker_port->pport = port_number + 1;
+>>       rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
+>>+      rocker_port->ageing_time = 300 * HZ;
+>
+> How about to add also "BR_DEFAULT_AGEING_TIME" and use it here?
 
-Before allowing lockless LISTEN processing, we need to make
-sure to arm the SYN_RECV timer before the req socket is visible
-in hash tables.
-
-Also, req->rsk_hash should be written before we set rsk_refcnt
-to a non zero value.
-
-Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ying Cai <ycai@google.com>
----
- net/ipv4/inet_connection_sock.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 134957159c27..7bb9c39e0a4d 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -685,20 +685,20 @@ void reqsk_queue_hash_req(struct request_sock_queue *queue,
- 	req->num_timeout = 0;
- 	req->sk = NULL;
- 
-+	setup_timer(&req->rsk_timer, reqsk_timer_handler, (unsigned long)req);
-+	mod_timer_pinned(&req->rsk_timer, jiffies + timeout);
-+	req->rsk_hash = hash;
-+
- 	/* before letting lookups find us, make sure all req fields
- 	 * are committed to memory and refcnt initialized.
- 	 */
- 	smp_wmb();
- 	atomic_set(&req->rsk_refcnt, 2);
--	setup_timer(&req->rsk_timer, reqsk_timer_handler, (unsigned long)req);
--	req->rsk_hash = hash;
- 
- 	spin_lock(&queue->syn_wait_lock);
- 	req->dl_next = lopt->syn_table[hash];
- 	lopt->syn_table[hash] = req;
- 	spin_unlock(&queue->syn_wait_lock);
--
--	mod_timer_pinned(&req->rsk_timer, jiffies + timeout);
- }
- EXPORT_SYMBOL(reqsk_queue_hash_req);
- 
+Yes, added for v2
