@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 02/15] RDS: make socket bind/release locking scheme simple and more efficient
-Date: Sat, 19 Sep 2015 19:04:39 -0400
-Message-ID: <1442703892-26692-3-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 07/15] RDS: use rds_send_xmit() state instead of RDS_LL_SEND_FULL
+Date: Sat, 19 Sep 2015 19:04:44 -0400
+Message-ID: <1442703892-26692-8-git-send-email-santosh.shilimkar@oracle.com>
 References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	ssantosh@kernel.org,
@@ -12,173 +12,64 @@ In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RDS bind and release locking scheme is very inefficient. It
-uses RCU for maintaining the bind hash-table which is great but
-it also needs to hold spinlock for [add/remove]_bound(). So
-overall usecase, the hash-table concurrent speedup doesn't pay off.
-In fact blocking nature of synchronize_rcu() makes the RDS
-socket shutdown too slow which hurts RDS performance since
-connection shutdown and re-connect happens quite often to
-maintain the RC part of the protocol.
+In Transport indepedent rds_sendmsg(), we shouldn't make decisions based
+on RDS_LL_SEND_FULL which is used to manage the ring for RDMA based
+transports. We can safely issue rds_send_xmit() and the using its
+return value take decision on deferred work. This will also fix
+the scenario where at times we are seeing connections stuck with
+the LL_SEND_FULL bit getting set and never cleared.
 
-So we make the locking scheme simpler and more efficient by
-replacing spin_locks with reader/writer locks and getting rid
-off rcu for bind hash-table.
-
-In subsequent patch, we also covert the global lock with per-bucket
-lock to reduce the global lock contention.
+We kick krdsd after any time we see -ENOMEM or -EAGAIN from the
+ring allocation code.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/af_rds.c |  6 ------
- net/rds/bind.c   | 35 +++++++++++++++--------------------
- 2 files changed, 15 insertions(+), 26 deletions(-)
+ net/rds/send.c    | 10 ++++++----
+ net/rds/threads.c |  2 ++
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index a2f28a6..dc08766 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -72,13 +72,7 @@ static int rds_release(struct socket *sock)
- 	rds_clear_recv_queue(rs);
- 	rds_cong_remove_socket(rs);
+diff --git a/net/rds/send.c b/net/rds/send.c
+index f1e709c..9d8b52d 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1122,8 +1122,9 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 	 */
+ 	rds_stats_inc(s_send_queued);
  
--	/*
--	 * the binding lookup hash uses rcu, we need to
--	 * make sure we synchronize_rcu before we free our
--	 * entry
--	 */
- 	rds_remove_bound(rs);
--	synchronize_rcu();
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		rds_send_xmit(conn);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
  
- 	rds_send_drop_to(rs, NULL);
- 	rds_rdma_drop_keys(rs);
-diff --git a/net/rds/bind.c b/net/rds/bind.c
-index dd666fb..01989e2 100644
---- a/net/rds/bind.c
-+++ b/net/rds/bind.c
-@@ -40,7 +40,7 @@
+ 	rds_message_put(rm);
+ 	return payload_len;
+@@ -1179,8 +1180,9 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 	rds_stats_inc(s_send_queued);
+ 	rds_stats_inc(s_send_pong);
  
- #define BIND_HASH_SIZE 1024
- static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
--static DEFINE_SPINLOCK(rds_bind_lock);
-+static DEFINE_RWLOCK(rds_bind_lock);
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
  
- static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
- {
-@@ -48,6 +48,7 @@ static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
- 				  (BIND_HASH_SIZE - 1));
- }
+ 	rds_message_put(rm);
+ 	return 0;
+diff --git a/net/rds/threads.c b/net/rds/threads.c
+index dc2402e..454aa6d 100644
+--- a/net/rds/threads.c
++++ b/net/rds/threads.c
+@@ -162,7 +162,9 @@ void rds_send_worker(struct work_struct *work)
+ 	int ret;
  
-+/* must hold either read or write lock (write lock for insert != NULL) */
- static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
- 					struct rds_sock *insert)
- {
-@@ -56,30 +57,24 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
- 	u64 cmp;
- 	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
- 
--	rcu_read_lock();
--	hlist_for_each_entry_rcu(rs, head, rs_bound_node) {
-+	hlist_for_each_entry(rs, head, rs_bound_node) {
- 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
- 		      be16_to_cpu(rs->rs_bound_port);
- 
--		if (cmp == needle) {
--			rcu_read_unlock();
-+		if (cmp == needle)
- 			return rs;
--		}
- 	}
--	rcu_read_unlock();
- 
- 	if (insert) {
- 		/*
- 		 * make sure our addr and port are set before
--		 * we are added to the list, other people
--		 * in rcu will find us as soon as the
--		 * hlist_add_head_rcu is done
-+		 * we are added to the list.
- 		 */
- 		insert->rs_bound_addr = addr;
- 		insert->rs_bound_port = port;
- 		rds_sock_addref(insert);
- 
--		hlist_add_head_rcu(&insert->rs_bound_node, head);
-+		hlist_add_head(&insert->rs_bound_node, head);
- 	}
- 	return NULL;
- }
-@@ -93,8 +88,11 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
- struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
- {
- 	struct rds_sock *rs;
-+	unsigned long flags;
- 
-+	read_lock_irqsave(&rds_bind_lock, flags);
- 	rs = rds_bind_lookup(addr, port, NULL);
-+	read_unlock_irqrestore(&rds_bind_lock, flags);
- 
- 	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
- 		rds_sock_addref(rs);
-@@ -103,6 +101,7 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
- 
- 	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
- 		ntohs(port));
-+
- 	return rs;
- }
- 
-@@ -121,7 +120,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
- 		last = rover - 1;
- 	}
- 
--	spin_lock_irqsave(&rds_bind_lock, flags);
-+	write_lock_irqsave(&rds_bind_lock, flags);
- 
- 	do {
- 		if (rover == 0)
-@@ -135,7 +134,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
- 		}
- 	} while (rover++ != last);
- 
--	spin_unlock_irqrestore(&rds_bind_lock, flags);
-+	write_unlock_irqrestore(&rds_bind_lock, flags);
- 
- 	return ret;
- }
-@@ -144,19 +143,19 @@ void rds_remove_bound(struct rds_sock *rs)
- {
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&rds_bind_lock, flags);
-+	write_lock_irqsave(&rds_bind_lock, flags);
- 
- 	if (rs->rs_bound_addr) {
- 		rdsdebug("rs %p unbinding from %pI4:%d\n",
- 		  rs, &rs->rs_bound_addr,
- 		  ntohs(rs->rs_bound_port));
- 
--		hlist_del_init_rcu(&rs->rs_bound_node);
-+		hlist_del_init(&rs->rs_bound_node);
- 		rds_sock_put(rs);
- 		rs->rs_bound_addr = 0;
- 	}
- 
--	spin_unlock_irqrestore(&rds_bind_lock, flags);
-+	write_unlock_irqrestore(&rds_bind_lock, flags);
- }
- 
- int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-@@ -200,9 +199,5 @@ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 
- out:
- 	release_sock(sk);
--
--	/* we might have called rds_remove_bound on error */
--	if (ret)
--		synchronize_rcu();
- 	return ret;
- }
+ 	if (rds_conn_state(conn) == RDS_CONN_UP) {
++		clear_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+ 		ret = rds_send_xmit(conn);
++		cond_resched();
+ 		rdsdebug("conn %p ret %d\n", conn, ret);
+ 		switch (ret) {
+ 		case -EAGAIN:
 -- 
 1.9.1
