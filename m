@@ -1,32 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 7/7] switchdev: update documentation on FDB
- ageing_time
-Date: Sat, 19 Sep 2015 08:58:57 +0200
-Message-ID: <20150919065857.GG2067@nanopsycho.orion>
-References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
- <1442606151-50429-8-git-send-email-sfeldma@gmail.com>
+From: "ALLIANCE & LEICESTER LOANS" <alliance@laons.com>
+Subject: Apply Loan!
+Date: Sat, 19 Sep 2015 02:23:04 +0200
+Message-ID: <20150919002312.6842B5533FE@mail.tranzit.com.co>
+Reply-To: richardjose009@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, siva.mannem.lnx@gmail.com,
-	pjonnala@broadcom.com, stephen@networkplumber.org,
-	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: United Nations <alliance@laons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37445 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768AbbISG7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 02:59:01 -0400
-Received: by wicfx3 with SMTP id fx3so53845712wic.0
-        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 23:58:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1442606151-50429-8-git-send-email-sfeldma@gmail.com>
+Received: from mail.tranzit.com.co ([190.85.158.155]:9441 "EHLO
+	mail.tranzit.com.co" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752761AbbISJsZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 05:48:25 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Sep 18, 2015 at 09:55:51PM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+ALLIANCE & LEICESTER LOANS
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Do you need a loan? Arrangements to borrow up to =A3 100,000,000.00, ch=
+oose between 1 to 25 years repayment period, choose between monthly and=
+ annual repayment plan, flexible loan terms and conditions. All this pl=
+an and more by contacting us
+
+Dr. Richard Jose
+Head of Finance,
+ALLIANCE & LEICESTER PLC,
+Tel:+1-314 329-0172
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
