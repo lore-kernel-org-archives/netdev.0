@@ -1,44 +1,51 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 11/15] RDS: fix the rds_ib_fmr_wq kick call
-Date: Sat, 19 Sep 2015 19:04:48 -0400
-Message-ID: <1442703892-26692-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 05/15] RDS: increase size of hash-table to 8K
+Date: Sat, 19 Sep 2015 19:04:42 -0400
+Message-ID: <1442703892-26692-6-git-send-email-santosh.shilimkar@oracle.com>
 References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	ssantosh@kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36458 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753071AbbISXF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 19:05:29 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RDS IB mr pool has its own workqueue 'rds_ib_fmr_wq', so we need
-to use queue_delayed_work() to kick the work. This was hurting
-the performance since pool maintenance was less often triggered
-from other path.
+Even with per bucket locking scheme, in a massive parallel
+system with active rds sockets which could be in excess of multiple
+of 10K, rds_bin_lookup() workload is siginificant because of smaller
+hashtable size.
+
+With some tests, it was found that we get modest but still nice
+reduction in rds_bind_lookup with bigger bucket.
+
+	Hashtable	Baseline(1k)	Delta
+	2048:		8.28%     	-2.45%
+	4096:		8.28%		-4.60%
+	8192:		8.28%		-6.46%
+	16384:		8.28%		-6.75%
+
+Based on the data, we set 8K as the bind hash-table size.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_rdma.c | 2 +-
+ net/rds/bind.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 872f523..b6644fa 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -319,7 +319,7 @@ static struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev)
- 	int err = 0, iter = 0;
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index bc6b93e..fb2d545 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -43,7 +43,7 @@ struct bind_bucket {
+ 	struct hlist_head	head;
+ };
  
- 	if (atomic_read(&pool->dirty_count) >= pool->max_items / 10)
--		schedule_delayed_work(&pool->flush_worker, 10);
-+		queue_delayed_work(rds_ib_fmr_wq, &pool->flush_worker, 10);
+-#define BIND_HASH_SIZE 1024
++#define BIND_HASH_SIZE 8192
+ static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
  
- 	while (1) {
- 		ibmr = rds_ib_reuse_fmr(pool);
+ static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
 -- 
 1.9.1
