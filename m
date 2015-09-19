@@ -1,220 +1,65 @@
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Subject: RE: [PATCH net] bna: check for dma mapping errors
-Date: Fri, 18 Sep 2015 23:56:20 +0000
-Message-ID: <2552F74A0BCCBE4DBE2AD218C81B2811085BE261@avmb3.qlogic.org>
-References: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH v2] geneve: remove use of internal IP header when calling
+ IP_ECN_decapsulate
+Date: Fri, 18 Sep 2015 21:36:38 -0400
+Message-ID: <20150919013638.GF18191@tuxdriver.com>
+References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+ <1442522094-876-1-git-send-email-linville@tuxdriver.com>
+ <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
+ <20150918204023.GD18191@tuxdriver.com>
+ <CAEP_g=_aDApp8+Uj8JOpg=jzxEs73XzSufgWzA-ODpfXS-ss-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Ivan Vecera <ivecera@redhat.com>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5302 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754589AbbIRX4Z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2015 19:56:25 -0400
-In-Reply-To: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49782 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217AbbISBpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 21:45:14 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=_aDApp8+Uj8JOpg=jzxEs73XzSufgWzA-ODpfXS-ss-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Ivan Vecera [mailto:ivecera@redhat.com]
-> Sent: Wednesday, September 16, 2015 6:28 AM
+On Fri, Sep 18, 2015 at 02:49:30PM -0700, Jesse Gross wrote:
+> On Fri, Sep 18, 2015 at 1:40 PM, John W. Linville
+> <linville@tuxdriver.com> wrote:
+> > On Fri, Sep 18, 2015 at 01:30:36PM -0700, Jesse Gross wrote:
+> >> On Thu, Sep 17, 2015 at 1:34 PM, John W. Linville
+> >> <linville@tuxdriver.com> wrote:
+> >> > This seems to have been a "thinko".  IP_ECN_decapsulate needs info
+> >> > from both internal and external headers.
+> >> >
+> >> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> >>
+> >> This looks good to me although I realized that the transmit path is
+> >> also conditional based on !collect_md metadata. I suppose that means
+> >> that this difference is intentional and I guess I could see arguments
+> >> either way but I still think it is better to be consistent across
+> >> different code paths in this respect.
+> >
+> > I'm happy with the v2 patch if you are. :-)
 > 
-> Check for DMA mapping errors, recover from them and register them in
-> ethtool stats like other errors.
+> I'm happy with this part of the code path after this patch. However,
+> my concern was that this patch, while correct, will make receive
+> inconsistent with transmit. Presumably we should update the transmit
+> side as well.
 
-Acked-by: Rasesh Mody <rasesh.mody@qlogic.com>
+Oh, sorry -- I missed your point.  You mean something like this?
 
-Thanks!
-Rasesh
+@@ -812,19 +815,16 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+		if (unlikely(err))
+			goto err;
  
-> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/ethernet/brocade/bna/bna_tx_rx.c    |  2 ++
->  drivers/net/ethernet/brocade/bna/bna_types.h    |  1 +
->  drivers/net/ethernet/brocade/bna/bnad.c         | 29
-> ++++++++++++++++++++++++-
->  drivers/net/ethernet/brocade/bna/bnad.h         |  2 ++
->  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |  4 ++++
->  5 files changed, 37 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-> b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-> index 5d0753c..04b0d16 100644
-> --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-> +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-> @@ -2400,6 +2400,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
->  		q0->rcb->id = 0;
->  		q0->rx_packets = q0->rx_bytes = 0;
->  		q0->rx_packets_with_error = q0->rxbuf_alloc_failed = 0;
-> +		q0->rxbuf_map_failed = 0;
-> 
->  		bna_rxq_qpt_setup(q0, rxp, dpage_count, PAGE_SIZE,
->  			&dqpt_mem[i], &dsqpt_mem[i], &dpage_mem[i]);
-> @@ -2428,6 +2429,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
->  					: rx_cfg->q1_buf_size;
->  			q1->rx_packets = q1->rx_bytes = 0;
->  			q1->rx_packets_with_error = q1->rxbuf_alloc_failed
-> = 0;
-> +			q1->rxbuf_map_failed = 0;
-> 
->  			bna_rxq_qpt_setup(q1, rxp, hpage_count,
-> PAGE_SIZE,
->  				&hqpt_mem[i], &hsqpt_mem[i],
-> diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h
-> b/drivers/net/ethernet/brocade/bna/bna_types.h
-> index e0e797f..c438d03 100644
-> --- a/drivers/net/ethernet/brocade/bna/bna_types.h
-> +++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-> @@ -587,6 +587,7 @@ struct bna_rxq {
->  	u64		rx_bytes;
->  	u64		rx_packets_with_error;
->  	u64		rxbuf_alloc_failed;
-> +	u64		rxbuf_map_failed;
->  };
-> 
->  /* RxQ pair */
-> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c
-> b/drivers/net/ethernet/brocade/bna/bnad.c
-> index 506047c..21a0cfc 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad.c
-> +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-> @@ -399,7 +399,13 @@ bnad_rxq_refill_page(struct bnad *bnad, struct
-> bna_rcb *rcb, u32 nalloc)
->  		}
-> 
->  		dma_addr = dma_map_page(&bnad->pcidev->dev, page,
-> page_offset,
-> -				unmap_q->map_size, DMA_FROM_DEVICE);
-> +					unmap_q->map_size,
-> DMA_FROM_DEVICE);
-> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
-> +			put_page(page);
-> +			BNAD_UPDATE_CTR(bnad, rxbuf_map_failed);
-> +			rcb->rxq->rxbuf_map_failed++;
-> +			goto finishing;
-> +		}
-> 
->  		unmap->page = page;
->  		unmap->page_offset = page_offset;
-> @@ -454,8 +460,15 @@ bnad_rxq_refill_skb(struct bnad *bnad, struct
-> bna_rcb *rcb, u32 nalloc)
->  			rcb->rxq->rxbuf_alloc_failed++;
->  			goto finishing;
->  		}
-> +
->  		dma_addr = dma_map_single(&bnad->pcidev->dev, skb-
-> >data,
->  					  buff_sz, DMA_FROM_DEVICE);
-> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
-> +			dev_kfree_skb_any(skb);
-> +			BNAD_UPDATE_CTR(bnad, rxbuf_map_failed);
-> +			rcb->rxq->rxbuf_map_failed++;
-> +			goto finishing;
-> +		}
-> 
->  		unmap->skb = skb;
->  		dma_unmap_addr_set(&unmap->vector, dma_addr,
-> dma_addr); @@ -3025,6 +3038,11 @@ bnad_start_xmit(struct sk_buff *skb,
-> struct net_device *netdev)
->  	unmap = head_unmap;
->  	dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
->  				  len, DMA_TO_DEVICE);
-> +	if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
-> +		dev_kfree_skb_any(skb);
-> +		BNAD_UPDATE_CTR(bnad, tx_skb_map_failed);
-> +		return NETDEV_TX_OK;
-> +	}
->  	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[0].host_addr);
->  	txqent->vector[0].length = htons(len);
->  	dma_unmap_addr_set(&unmap->vectors[0], dma_addr,
-> dma_addr); @@ -3056,6 +3074,15 @@ bnad_start_xmit(struct sk_buff *skb,
-> struct net_device *netdev)
-> 
->  		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
->  					    0, size, DMA_TO_DEVICE);
-> +		if (dma_mapping_error(&bnad->pcidev->dev, dma_addr)) {
-> +			/* Undo the changes starting at tcb->producer_index
-> */
-> +			bnad_tx_buff_unmap(bnad, unmap_q, q_depth,
-> +					   tcb->producer_index);
-> +			dev_kfree_skb_any(skb);
-> +			BNAD_UPDATE_CTR(bnad, tx_skb_map_failed);
-> +			return NETDEV_TX_OK;
-> +		}
-> +
->  		dma_unmap_len_set(&unmap->vectors[vect_id], dma_len,
-> size);
->  		BNA_SET_DMA_ADDR(dma_addr, &txqent-
-> >vector[vect_id].host_addr);
->  		txqent->vector[vect_id].length = htons(size); diff --git
-> a/drivers/net/ethernet/brocade/bna/bnad.h
-> b/drivers/net/ethernet/brocade/bna/bnad.h
-> index faedbf2..f4ed816 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad.h
-> +++ b/drivers/net/ethernet/brocade/bna/bnad.h
-> @@ -175,6 +175,7 @@ struct bnad_drv_stats {
->  	u64		tx_skb_headlen_zero;
->  	u64		tx_skb_frag_zero;
->  	u64		tx_skb_len_mismatch;
-> +	u64		tx_skb_map_failed;
-> 
->  	u64		hw_stats_updates;
->  	u64		netif_rx_dropped;
-> @@ -189,6 +190,7 @@ struct bnad_drv_stats {
->  	u64		rx_unmap_q_alloc_failed;
-> 
->  	u64		rxbuf_alloc_failed;
-> +	u64		rxbuf_map_failed;
->  };
-> 
->  /* Complete driver stats */
-> diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> index 2bdfc5d..0e4fdc3 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> +++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> @@ -90,6 +90,7 @@ static const char
-> *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
->  	"tx_skb_headlen_zero",
->  	"tx_skb_frag_zero",
->  	"tx_skb_len_mismatch",
-> +	"tx_skb_map_failed",
->  	"hw_stats_updates",
->  	"netif_rx_dropped",
-> 
-> @@ -102,6 +103,7 @@ static const char
-> *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
->  	"tx_unmap_q_alloc_failed",
->  	"rx_unmap_q_alloc_failed",
->  	"rxbuf_alloc_failed",
-> +	"rxbuf_map_failed",
-> 
->  	"mac_stats_clr_cnt",
->  	"mac_frame_64",
-> @@ -807,6 +809,7 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf,
-> int bi)
-> 
-> 	rx_packets_with_error;
->  					buf[bi++] = rcb->rxq->
->  							rxbuf_alloc_failed;
-> +					buf[bi++] = rcb->rxq-
-> >rxbuf_map_failed;
->  					buf[bi++] = rcb->producer_index;
->  					buf[bi++] = rcb->consumer_index;
->  				}
-> @@ -821,6 +824,7 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf,
-> int bi)
-> 
-> 	rx_packets_with_error;
->  					buf[bi++] = rcb->rxq->
->  							rxbuf_alloc_failed;
-> +					buf[bi++] = rcb->rxq-
-> >rxbuf_map_failed;
->  					buf[bi++] = rcb->producer_index;
->  					buf[bi++] = rcb->consumer_index;
->  				}
-> --
-> 2.4.6
+-		tos = key->tos;
++		tos = ip_tunnel_ecn_encap(key->tos, iip, skb);
+		ttl = key->ttl;
+		df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
+
+Am I understanding now?
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
