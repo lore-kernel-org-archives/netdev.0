@@ -1,58 +1,108 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 01/15] RDS: use kfree_rcu in rds_ib_remove_ipaddr
-Date: Sat, 19 Sep 2015 19:04:38 -0400
-Message-ID: <1442703892-26692-2-git-send-email-santosh.shilimkar@oracle.com>
-References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org,
-	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+From: Matthew Monaco <Matthew.Monaco@Colorado.EDU>
+Subject: sr-iov and bridges (mlx4)
+Date: Sat, 19 Sep 2015 17:58:23 -0600
+Message-ID: <55FDF69F.6000105@colorado.edu>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="Q5kWemDN8KPFknIxPkQH5McRh9sXjmq9q"
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33417 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752475AbbISX63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 19:58:29 -0400
+Received: by iofh134 with SMTP id h134so89311130iof.0
+        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 16:58:29 -0700 (PDT)
+Received: from joshua.monaco.cx (c-67-176-93-83.hsd1.co.comcast.net. [67.176.93.83])
+        by smtp.gmail.com with ESMTPSA id v98sm7009779ioi.24.2015.09.19.16.58.27
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sat, 19 Sep 2015 16:58:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-synchronize_rcu() slowing down un-necessarily the socket shutdown
-path. It is used just kfree() the ip addresses in rds_ib_remove_ipaddr()
-which is perfect usecase for kfree_rcu();
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Q5kWemDN8KPFknIxPkQH5McRh9sXjmq9q
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-So lets use that to gain some speedup.
+Hello. I have a Mellanox ConnectX-3 Pro EN (MCX314A-BCCT). I'm only using=
+ a
+single port so it must provide IP for my host as well as connectivity for=
+ VMs.
+SR-IOV VFs are working great, my KVM VMs have Ethernet and RDMA.
 
-Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
- net/rds/ib.h      | 1 +
- net/rds/ib_rdma.c | 6 ++----
- 2 files changed, 3 insertions(+), 4 deletions(-)
+However, I also want to support virtio VMs. Assuming eth0 is the first po=
+rt on
+my mlx nic, I've tried placing VMs on a bridge with the primary physical
+interface, and giving an IP for management to a VF:
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index aae60fd..f1fd5ff 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -164,6 +164,7 @@ struct rds_ib_connection {
- struct rds_ib_ipaddr {
- 	struct list_head	list;
- 	__be32			ipaddr;
-+	struct rcu_head		rcu;
- };
- 
- struct rds_ib_device {
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 251d1ce..872f523 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -159,10 +159,8 @@ static void rds_ib_remove_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
- 	}
- 	spin_unlock_irq(&rds_ibdev->spinlock);
- 
--	if (to_free) {
--		synchronize_rcu();
--		kfree(to_free);
--	}
-+	if (to_free)
-+		kfree_rcu(to_free, rcu);
- }
- 
- int rds_ib_update_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
--- 
-1.9.1
+br0
+|--- eth0
+|--- VM
+|--- VM
+vf0 (IP)
+vf1 -> VM
+vf2 -> VM
+vf3 -> VM
+
+I've tried placing VMs on a bridge with one of the VFs and using the prim=
+ary
+iface for IP.
+
+eth0 (IP)
+br0
+|--- vf0
+|--- VM
+|--- VM
+vf1 -> VM
+vf2 -> VM
+vf3 -> VM
+
+And I've also tried using a veth pair to really spread things out:
+
+br0 (IP)
+|--- eth0
+|--- veth-a
+br1       |
+|--- veth-b
+|--- VM
+|--- VM
+vf1 -> VM
+vf2 -> VM
+vf3 -> VM
+
+In all cases, VMs with SR-IOV work fine, IP on the host works fine, outbo=
+und
+DHCP from the virtio VMs work fine, but inbound frames are not making it =
+back to
+the VM.
+
+Is there a know limitation of mixing SR-IOV and bridges in general? Does =
+the
+SR-IOV switch specific to the mlx4 hardware not work well with linux brid=
+ges? ...?
+
+Thanks!
+Matt
+
+
+--Q5kWemDN8KPFknIxPkQH5McRh9sXjmq9q
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCgAGBQJV/fafAAoJEAi+uryZEuPokVsIAIBbzxPt9ax5XgOVZjPBqa2V
+zjLZXp7n5YFOMM0TaOuRSEMqFXk3k5CP9Dqgk2YOpebfiTTcPnKBeErEGhChfm9h
+tCfrnSwaMkI2LOe4qMZOXPkBPOWF7AavKO+j+zMMxtO0vVbyfIcDPAigUB0oFDlz
+/cHb/kkzIBhdr2pBmDPHq+asfWdQ5m7aXT+mWOUiHfUfauf9pLoWeO8DjKmeUUR+
+Uo3ZuGJONsLn7LhH5ggGG1RfSuB6KwdmAxPWXngYv6uLMS+u2nokb1lXhMQ0xkaL
+bqxoLiuBRCIDmbdlQWext+ZyFQaa1wV/3mn30+JKa3/1EzScRiZqAOh7ZWveWGE=
+=73NT
+-----END PGP SIGNATURE-----
+
+--Q5kWemDN8KPFknIxPkQH5McRh9sXjmq9q--
