@@ -1,90 +1,206 @@
-From: Jonathan Marler <johnnymarler@gmail.com>
-Subject: Re: epoll, missed opportunity?
-Date: Sat, 19 Sep 2015 09:51:22 -0600
-Message-ID: <CACKT+Ao8OLchwUHPn-PKebx3pi2opMg9LH+SGaj+xdghfbSVag@mail.gmail.com>
-References: <CACKT+AqSZS+o-C2osio7PWy+2bKuveT-uU2znSOHBjNRKxc0-A@mail.gmail.com>
-	<1442676118.29850.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACKT+Ap2n7d0C06=1bq=qvJ9o-6X+-EUNcGdLreszL=fABTguQ@mail.gmail.com>
-	<CALx6S35cR5hwEyBT2zCg2PcFeOQQqr0Hek4bP=iG7aT7D5wMZw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp/dccp: fix timewait races in timer handling
+Date: Sat, 19 Sep 2015 09:08:34 -0700
+Message-ID: <1442678914.29850.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:34755 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755098AbbISPvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 11:51:23 -0400
-Received: by obbda8 with SMTP id da8so57040650obb.1
-        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 08:51:22 -0700 (PDT)
-In-Reply-To: <CALx6S35cR5hwEyBT2zCg2PcFeOQQqr0Hek4bP=iG7aT7D5wMZw@mail.gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35091 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754249AbbISQIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 12:08:38 -0400
+Received: by pacfv12 with SMTP id fv12so78528309pac.2
+        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 09:08:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wow how did I miss that?! This is perfect though, there is a context
-pointer!  Finally my dream of a perfect polling interface exists in
-linux.  Thanks so much for the quick response.
+From: Eric Dumazet <edumazet@google.com>
 
-On Sat, Sep 19, 2015 at 9:46 AM, Tom Herbert <tom@herbertland.com> wrote:
-> On Sat, Sep 19, 2015 at 8:30 AM, Jonathan Marler <johnnymarler@gmail.com> wrote:
->> The data field holds the file descriptor you are waiting on, it has to
->> be the file descriptor, otherwise, how would the kernel know which
->> file descriptor you are trying to wait on?
->>
-> fd is the third argument in epoll_ctl.
->
-> int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
->
->> On Sat, Sep 19, 2015 at 9:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> On Fri, 2015-09-18 at 22:51 -0600, Jonathan Marler wrote:
->>>> I'm curious why there wasn't another field added to the epoll_event
->>>> struct for the application to store the descriptor's context. Any
->>>> useful multi-plexing application will have a context that will need to
->>>> be retrieved every time a descriptor needs to be serviced. Since the
->>>> epoll api has no way of storing this context, it has to be looked up
->>>> using the descriptor, which will take more time/memory as the number
->>>> of descriptors increase. The memory saved from omitting this context
->>>> can't be worth it since you'll have to allocate the memory in the
->>>> application anyway, plus you're now adding the extra lookup.
->>>>
->>>> This "lookup" problem has always existed in multi-plexed applications.
->>>> It was impossible to fix with older polling interfaces, however, since
->>>> epoll is stateful, it provides an opportunity to fix this problem by
->>>> storing the descriptor context in epoll's "state". What was the reason
->>>> for not doing this?  Was it an oversight or am I missing something?
->>>
->>>
->>> typedef union epoll_data
->>> {
->>>   void *ptr;
->>>   int fd;
->>>   uint32_t u32;
->>>   uint64_t u64;
->>> } epoll_data_t;
->>>
->>> struct epoll_event
->>> {
->>>   uint32_t events;      /* Epoll events */
->>>   epoll_data_t data;    /* User data variable */
->>> } __EPOLL_PACKED;
->>>
->>>
->>>
->>> Application is free to use whatever is needed in poll_data_t
->>>
->>> You can store a pointer to your own data (ptr)
->>> Or a 32 bit cookie (u32)
->>> Or a 64 bit cookie (u64)
->>>
->>> (But is an union, you have to pick one of them)
->>>
->>> Nothing forces you to use 'fd', kernel does not care.
->>>
->>>
->>>
->>>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+When creating a timewait socket, we need to arm the timer before
+allowing other cpus to find it. The signal allowing cpus to find
+the socket is setting tw_refcnt to non zero value.
+
+As we set tw_refcnt in __inet_twsk_hashdance(), we therefore need to
+call inet_twsk_schedule() first.
+
+This also means we need to remove tw_refcnt changes from
+inet_twsk_schedule() and let the caller handle it.
+
+Note that because we use mod_timer_pinned(), we have the guarantee
+the timer wont expire before we set tw_refcnt as we run in BH context.
+
+To make things more readable I introduced inet_twsk_reschedule() helper.
+
+When rearming the timer, we can use mod_timer_pending() to make sure
+we do not rearm a canceled timer.
+
+Note: This bug can possibly trigger if packets of a flow can hit
+multiple cpus. This does not normally happen, unless flow steering
+is broken somehow. This explains this bug was spotted ~5 months after
+its introduction.
+
+A similar fix is needed for SYN_RECV sockets in reqsk_queue_hash_req(),
+but will be provided in a separate patch for proper tracking.
+
+Fixes: 789f558cfb36 ("tcp/dccp: get rid of central timewait timer")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Ying Cai <ycai@google.com>
+---
+ include/net/inet_timewait_sock.h |   14 +++++++++++++-
+ net/dccp/minisocks.c             |    4 ++--
+ net/ipv4/inet_timewait_sock.c    |   16 ++++++++++------
+ net/ipv4/tcp_minisocks.c         |   13 ++++++-------
+ 4 files changed, 31 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index 879d6e5a973b..186f3a1e1b1f 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -110,7 +110,19 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
+ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
+ 			   struct inet_hashinfo *hashinfo);
+ 
+-void inet_twsk_schedule(struct inet_timewait_sock *tw, const int timeo);
++void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo,
++			  bool rearm);
++
++static void inline inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo)
++{
++	__inet_twsk_schedule(tw, timeo, false);
++}
++
++static void inline inet_twsk_reschedule(struct inet_timewait_sock *tw, int timeo)
++{
++	__inet_twsk_schedule(tw, timeo, true);
++}
++
+ void inet_twsk_deschedule_put(struct inet_timewait_sock *tw);
+ 
+ void inet_twsk_purge(struct inet_hashinfo *hashinfo,
+diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+index 30addee2dd03..838f524cf11a 100644
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -48,8 +48,6 @@ void dccp_time_wait(struct sock *sk, int state, int timeo)
+ 			tw->tw_ipv6only = sk->sk_ipv6only;
+ 		}
+ #endif
+-		/* Linkage updates. */
+-		__inet_twsk_hashdance(tw, sk, &dccp_hashinfo);
+ 
+ 		/* Get the TIME_WAIT timeout firing. */
+ 		if (timeo < rto)
+@@ -60,6 +58,8 @@ void dccp_time_wait(struct sock *sk, int state, int timeo)
+ 			timeo = DCCP_TIMEWAIT_LEN;
+ 
+ 		inet_twsk_schedule(tw, timeo);
++		/* Linkage updates. */
++		__inet_twsk_hashdance(tw, sk, &dccp_hashinfo);
+ 		inet_twsk_put(tw);
+ 	} else {
+ 		/* Sorry, if we're out of memory, just CLOSE this
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index ae22cc24fbe8..c67f9bd7699c 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -123,13 +123,15 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
+ 	/*
+ 	 * Step 2: Hash TW into tcp ehash chain.
+ 	 * Notes :
+-	 * - tw_refcnt is set to 3 because :
++	 * - tw_refcnt is set to 4 because :
+ 	 * - We have one reference from bhash chain.
+ 	 * - We have one reference from ehash chain.
++	 * - We have one reference from timer.
++	 * - One reference for ourself (our caller will release it).
+ 	 * We can use atomic_set() because prior spin_lock()/spin_unlock()
+ 	 * committed into memory all tw fields.
+ 	 */
+-	atomic_set(&tw->tw_refcnt, 1 + 1 + 1);
++	atomic_set(&tw->tw_refcnt, 4);
+ 	inet_twsk_add_node_rcu(tw, &ehead->chain);
+ 
+ 	/* Step 3: Remove SK from hash chain */
+@@ -217,7 +219,7 @@ void inet_twsk_deschedule_put(struct inet_timewait_sock *tw)
+ }
+ EXPORT_SYMBOL(inet_twsk_deschedule_put);
+ 
+-void inet_twsk_schedule(struct inet_timewait_sock *tw, const int timeo)
++void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo, bool rearm)
+ {
+ 	/* timeout := RTO * 3.5
+ 	 *
+@@ -245,12 +247,14 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw, const int timeo)
+ 	 */
+ 
+ 	tw->tw_kill = timeo <= 4*HZ;
+-	if (!mod_timer_pinned(&tw->tw_timer, jiffies + timeo)) {
+-		atomic_inc(&tw->tw_refcnt);
++	if (!rearm) {
++		BUG_ON(mod_timer_pinned(&tw->tw_timer, jiffies + timeo));
+ 		atomic_inc(&tw->tw_dr->tw_count);
++	} else {
++		mod_timer_pending(&tw->tw_timer, jiffies + timeo);
+ 	}
+ }
+-EXPORT_SYMBOL_GPL(inet_twsk_schedule);
++EXPORT_SYMBOL_GPL(__inet_twsk_schedule);
+ 
+ void inet_twsk_purge(struct inet_hashinfo *hashinfo,
+ 		     struct inet_timewait_death_row *twdr, int family)
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 6d8795b066ac..def765911ff8 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -162,9 +162,9 @@ kill_with_rst:
+ 		if (tcp_death_row.sysctl_tw_recycle &&
+ 		    tcptw->tw_ts_recent_stamp &&
+ 		    tcp_tw_remember_stamp(tw))
+-			inet_twsk_schedule(tw, tw->tw_timeout);
++			inet_twsk_reschedule(tw, tw->tw_timeout);
+ 		else
+-			inet_twsk_schedule(tw, TCP_TIMEWAIT_LEN);
++			inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
+ 		return TCP_TW_ACK;
+ 	}
+ 
+@@ -201,7 +201,7 @@ kill:
+ 				return TCP_TW_SUCCESS;
+ 			}
+ 		}
+-		inet_twsk_schedule(tw, TCP_TIMEWAIT_LEN);
++		inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
+ 
+ 		if (tmp_opt.saw_tstamp) {
+ 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
+@@ -251,7 +251,7 @@ kill:
+ 		 * Do not reschedule in the last case.
+ 		 */
+ 		if (paws_reject || th->ack)
+-			inet_twsk_schedule(tw, TCP_TIMEWAIT_LEN);
++			inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
+ 
+ 		return tcp_timewait_check_oow_rate_limit(
+ 			tw, skb, LINUX_MIB_TCPACKSKIPPEDTIMEWAIT);
+@@ -322,9 +322,6 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 		} while (0);
+ #endif
+ 
+-		/* Linkage updates. */
+-		__inet_twsk_hashdance(tw, sk, &tcp_hashinfo);
+-
+ 		/* Get the TIME_WAIT timeout firing. */
+ 		if (timeo < rto)
+ 			timeo = rto;
+@@ -338,6 +335,8 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 		}
+ 
+ 		inet_twsk_schedule(tw, timeo);
++		/* Linkage updates. */
++		__inet_twsk_hashdance(tw, sk, &tcp_hashinfo);
+ 		inet_twsk_put(tw);
+ 	} else {
+ 		/* Sorry, if we're out of memory, just CLOSE this
