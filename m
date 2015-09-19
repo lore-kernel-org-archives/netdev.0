@@ -1,65 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2] geneve: remove use of internal IP header when calling
- IP_ECN_decapsulate
-Date: Fri, 18 Sep 2015 21:36:38 -0400
-Message-ID: <20150919013638.GF18191@tuxdriver.com>
-References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
- <1442522094-876-1-git-send-email-linville@tuxdriver.com>
- <CAEP_g=-EGH-hfCRYQ8WStY2btq=1g-y=g=PvC_e-aC8QZKugJA@mail.gmail.com>
- <20150918204023.GD18191@tuxdriver.com>
- <CAEP_g=_aDApp8+Uj8JOpg=jzxEs73XzSufgWzA-ODpfXS-ss-Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net] openvswitch: Zero flows on allocation.
+Date: Fri, 18 Sep 2015 19:06:14 -0700
+Message-ID: <1442628374-57025-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49782 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752217AbbISBpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 21:45:14 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=_aDApp8+Uj8JOpg=jzxEs73XzSufgWzA-ODpfXS-ss-Q@mail.gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33561 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196AbbISCGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 22:06:20 -0400
+Received: by pacex6 with SMTP id ex6so65317062pac.0
+        for <netdev@vger.kernel.org>; Fri, 18 Sep 2015 19:06:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 02:49:30PM -0700, Jesse Gross wrote:
-> On Fri, Sep 18, 2015 at 1:40 PM, John W. Linville
-> <linville@tuxdriver.com> wrote:
-> > On Fri, Sep 18, 2015 at 01:30:36PM -0700, Jesse Gross wrote:
-> >> On Thu, Sep 17, 2015 at 1:34 PM, John W. Linville
-> >> <linville@tuxdriver.com> wrote:
-> >> > This seems to have been a "thinko".  IP_ECN_decapsulate needs info
-> >> > from both internal and external headers.
-> >> >
-> >> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> >>
-> >> This looks good to me although I realized that the transmit path is
-> >> also conditional based on !collect_md metadata. I suppose that means
-> >> that this difference is intentional and I guess I could see arguments
-> >> either way but I still think it is better to be consistent across
-> >> different code paths in this respect.
-> >
-> > I'm happy with the v2 patch if you are. :-)
-> 
-> I'm happy with this part of the code path after this patch. However,
-> my concern was that this patch, while correct, will make receive
-> inconsistent with transmit. Presumably we should update the transmit
-> side as well.
+OVS tries to be clever about not touching the parts of a flow that
+aren't used. This can include leaving pieces of memory uninitialized
+if the mask is zero and therefore the value would be ignored anyways.
 
-Oh, sorry -- I missed your point.  You mean something like this?
+While this works fine for the purposes of matching (which must always
+look at the mask), serialization to netlink can be problematic. Since
+the flow and the mask are serialized separately, the uninitialized
+portions of the flow can be encoded with whatever values happen to be
+present.
 
-@@ -812,19 +815,16 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev)
-		if (unlikely(err))
-			goto err;
+In terms of functionality, this has little effect since these fields
+will be masked out by definition. However, it leaks kernel memory to
+userspace, which is a potential security vulnerability.
+
+This zeros the flows as they are allocated and installed. This was
+always intended to be the case as the memory optimizations were only
+supposed to apply to per-packet flow operations.
+
+Fixes: 07148121 ("openvswitch: Eliminate memset() from flow_extract.")
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/openvswitch/flow_table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index d22d8e9..5248322 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -80,7 +80,7 @@ struct sw_flow *ovs_flow_alloc(void)
+ 	struct flow_stats *stats;
+ 	int node;
  
--		tos = key->tos;
-+		tos = ip_tunnel_ecn_encap(key->tos, iip, skb);
-		ttl = key->ttl;
-		df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
-
-Am I understanding now?
-
-John
+-	flow = kmem_cache_alloc(flow_cache, GFP_KERNEL);
++	flow = kmem_cache_alloc(flow_cache, GFP_KERNEL | __GFP_ZERO);
+ 	if (!flow)
+ 		return ERR_PTR(-ENOMEM);
+ 
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+2.1.4
