@@ -1,59 +1,86 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 7/7] switchdev: update documentation on FDB ageing_time
-Date: Sun, 20 Sep 2015 08:56:26 -0700
-Message-ID: <CAE4R7bCovheUFmync5R+Gr0qnLHp4_jwRsHJY1y6w5-=AnH5=w@mail.gmail.com>
-References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
- <1442606151-50429-8-git-send-email-sfeldma@gmail.com> <55FE0A2C.9040205@cumulusnetworks.com>
- <CAE4R7bD_FchEJ_HuuJcGx0_fqwjxCG_EsYETogVO6O-6uoLj1g@mail.gmail.com> <55FEC19F.80601@cumulusnetworks.com>
+From: Matthew Monaco <Matthew.Monaco@Colorado.EDU>
+Subject: Re: sr-iov and bridges (mlx4)
+Date: Sun, 20 Sep 2015 10:21:18 -0600
+Message-ID: <55FEDCFE.30506@colorado.edu>
+References: <55FDF69F.6000105@colorado.edu>
+ <CAJ3xEMg1HR+WfhUNMCu9mnXp6F9Vuw8=VkrUvcynAn3VWoP2Gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="pAFbv6gXkHpb8th9UDobOIGPkDmEjiCmG"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:35574 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753071AbbITP4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 11:56:47 -0400
-Received: by oiww128 with SMTP id w128so47751281oiw.2
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 08:56:46 -0700 (PDT)
-In-Reply-To: <55FEC19F.80601@cumulusnetworks.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:36546 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753792AbbITQVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 12:21:31 -0400
+Received: by igcrk20 with SMTP id rk20so46690735igc.1
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 09:21:30 -0700 (PDT)
+In-Reply-To: <CAJ3xEMg1HR+WfhUNMCu9mnXp6F9Vuw8=VkrUvcynAn3VWoP2Gw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 20, 2015 at 7:24 AM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 9/19/15, 7:21 PM, Scott Feldman wrote:
->>
->> Yes, your switch driver is in user-space so you have to use NTF_USE to
->> refresh the entry since you cannot use the kernel driver model to
->> call_switchdev_notifiers(SWITCHDEV_FDB_ADD, ...).  Consequently, your
->> entries are not marked with NTF_EXT_LEARNED, so this patch is a no-op
->> for you.  You can continue to use the bridge driver to age out your
->> entries.
->
-> yes, correct.  I was not really saying this because it will cause us any
-> problems.
-> I was trying to say this for switchdev in general.
->
->> I'd rather someone add that knob when it's actually needed. When the first
->> in-kernel switchdev driver that wants to use the bridge driver's ageing
->> function, then we can make that adjustment.
->
-> I was suggesting the other way around. Keep the default to what is in the
-> kernel today and the first in-kernel switchdev driver that wants to age,
-> should introduce the ability to not age in the bridge driver (Rocker will
-> continue to work as it does today). Because, I am only concerned that rocker
-> may end up being the only device that uses the default behavior introduced
-> by this patch. And every real hardware uses the bridge driver to age
-> (because there are no in kernel examples today).  I am curious to know who
-> else is using hardware ageing today.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--pAFbv6gXkHpb8th9UDobOIGPkDmEjiCmG
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-A driver patch for a (real) hardware device which does the ageing in
-hw is around the corner.
+On 09/20/2015 05:01 AM, Or Gerlitz wrote:
+> On Sun, Sep 20, 2015 at 2:58 AM, Matthew Monaco
+> <Matthew.Monaco@colorado.edu> wrote:
+> [...]
+>> In all cases, VMs with SR-IOV work fine, IP on the host works fine, ou=
+tbound
+>> DHCP from the virtio VMs work fine, but inbound frames are not making =
+it back to
+>> the VM.
+> [...]
+>> Is there a know limitation of mixing SR-IOV and bridges in general? Do=
+es the
+>> SR-IOV switch specific to the mlx4 hardware not work well with linux b=
+ridges? ...?
+>=20
+> It would be a bit hard for bridge based promiscuous environment to work=
+ OOB
+> for one of the functions (PF or VF) in SRIOV, this is generic issue,
+> and not related
+> to specific vendor.
+>=20
+> You need to use the bridge (8) tool (part of iproute2) and add the P.V
+> VM MACs to
+> the PF interface as "self" see some slides  (21/22/23) from netdev 0.1
+> that deal with that
+> https://netdev01.org/docs/netdev_tutorial_bridge_makita_150213.pdf
+>=20
+> Or.
+>=20
+> It also possible to mark one bridge port (the PF) as non-promiscuous,
+> but I haven't
+> played with that myself yet (slide 32), so can't just send you doing it=
+=2E..
+>
+
+Many thanks, that helps. Now to figure out the best approach for shoving =
+this
+into OpenStack =3D)
+
+
+--pAFbv6gXkHpb8th9UDobOIGPkDmEjiCmG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCgAGBQJV/t0DAAoJEAi+uryZEuPog5cIAIRF87yXwDV/1au+zQIa1i7o
+UnncdA/lPyplcLf8VE1OJtxtQoF9ERguam/r0CXiPyrNZ0nIxNbyCtI1GQwEkgnv
+qVBOH0Nn3GqBI33ijoMdcL6/Nwp57J58KNk/gtcu4GalxyDELRwSpcC3TLsWoMS0
+4Y/+ujnsTFKK6EP+GK+THLbKM+J3exbt5+6IFvUgJY+15JjRi3rvTaRZyAHPXnP3
+okk/w6OJqRvC0CRNiRcf/dnJ36sLTdftfrMxAfUTsdRO/Ck+SKb9y+IA85+2nuaC
+BBbFfSA+AHq9YMShYa1yNVXXD3czw+z/eKGIePSRlgwUfmynXSGIMTn2DFA0lwQ=
+=qh6j
+-----END PGP SIGNATURE-----
+
+--pAFbv6gXkHpb8th9UDobOIGPkDmEjiCmG--
