@@ -1,46 +1,44 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: sr-iov and bridges (mlx4)
-Date: Sun, 20 Sep 2015 14:01:25 +0300
-Message-ID: <CAJ3xEMg1HR+WfhUNMCu9mnXp6F9Vuw8=VkrUvcynAn3VWoP2Gw@mail.gmail.com>
-References: <55FDF69F.6000105@colorado.edu>
+Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Add port attribute when
+ tracking counters"
+Date: Sun, 20 Sep 2015 16:51:07 +0300
+Message-ID: <CAJ3xEMgRq60Yfv2R13yCwH1O15JMwy00zzJSTNqG+SxSpvo_4w@mail.gmail.com>
+References: <1440770776-27951-1-git-send-email-aik@ozlabs.ru>
+	<CAJ3xEMjbTFSKxURSuqFsjQNS6gJfdvgwo4NfYPrv2PrkgCt5YQ@mail.gmail.com>
+	<55E3BE76.60801@ozlabs.ru>
+	<CAKHjkjkLK2TJiKTxZ17jb0YH=oT-mBdKoYNb9aRQJm_vme_KkA@mail.gmail.com>
+	<55E911A7.6090801@ozlabs.ru>
+	<55F7F5C7.2060509@ozlabs.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Matthew Monaco <Matthew.Monaco@colorado.edu>
+Cc: eran ben elisha <eranlinuxmellanox@gmail.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Richard Yang <weiyang@linux.vnet.ibm.com>,
+	Gavin Shan <gwshan@linux.vnet.ibm.com>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	"talal@mellanox.com" <talal@mellanox.com>
+To: Alexey Kardashevskiy <aik@ozlabs.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:32949 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754991AbbITLBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 07:01:25 -0400
-Received: by obbbh8 with SMTP id bh8so65091663obb.0
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 04:01:25 -0700 (PDT)
-In-Reply-To: <55FDF69F.6000105@colorado.edu>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33618 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755293AbbITNvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 09:51:08 -0400
+Received: by oixx17 with SMTP id x17so47116360oix.0
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 06:51:08 -0700 (PDT)
+In-Reply-To: <55F7F5C7.2060509@ozlabs.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 20, 2015 at 2:58 AM, Matthew Monaco
-<Matthew.Monaco@colorado.edu> wrote:
-[...]
-> In all cases, VMs with SR-IOV work fine, IP on the host works fine, outbound
-> DHCP from the virtio VMs work fine, but inbound frames are not making it back to
-> the VM.
-[...]
-> Is there a know limitation of mixing SR-IOV and bridges in general? Does the
-> SR-IOV switch specific to the mlx4 hardware not work well with linux bridges? ...?
+On Tue, Sep 15, 2015 at 1:41 PM, Alexey Kardashevskiy <aik@ozlabs.ru> wrote:
+> Any luck with that?
 
-It would be a bit hard for bridge based promiscuous environment to work OOB
-for one of the functions (PF or VF) in SRIOV, this is generic issue,
-and not related
-to specific vendor.
-
-You need to use the bridge (8) tool (part of iproute2) and add the P.V
-VM MACs to
-the PF interface as "self" see some slides  (21/22/23) from netdev 0.1
-that deal with that
-https://netdev01.org/docs/netdev_tutorial_bridge_makita_150213.pdf
+I am checking with the team if they can set a PPC node to try and
+reproduce the crash, on x86 they don't see it.
 
 Or.
-
-It also possible to mark one bridge port (the PF) as non-promiscuous,
-but I haven't
-played with that myself yet (slide 32), so can't just send you doing it...
