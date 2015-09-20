@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 17/84] ipvs: Pass ipvs not net to ip_vs_dest_trash_expire
-Date: Sun, 20 Sep 2015 01:22:33 -0500
-Message-ID: <1442730220-32458-17-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 43/84] ipvs: Pass ipvs not net to ip_vs_sync_net_init
+Date: Sun, 20 Sep 2015 01:22:59 -0500
+Message-ID: <1442730220-32458-43-git-send-email-ebiederm@xmission.com>
 References: <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
 Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
@@ -9,42 +9,53 @@ Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53154 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755110AbbITGem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 02:34:42 -0400
+Return-path: <lvs-devel-owner@vger.kernel.org>
 In-Reply-To: <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ include/net/ip_vs.h             | 2 +-
+ net/netfilter/ipvs/ip_vs_core.c | 2 +-
+ net/netfilter/ipvs/ip_vs_sync.c | 4 +---
+ 3 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 4f08611347a2..9169a27be6e7 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1124,8 +1124,7 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index b10b337ce974..47a4cddb7c33 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1328,7 +1328,7 @@ int ip_vs_control_net_init(struct net *net);
+ int ip_vs_protocol_net_init(struct net *net);
+ int ip_vs_app_net_init(struct net *net);
+ int ip_vs_conn_net_init(struct net *net);
+-int ip_vs_sync_net_init(struct net *net);
++int ip_vs_sync_net_init(struct netns_ipvs *ipvs);
+ void ip_vs_conn_net_cleanup(struct net *net);
+ void ip_vs_app_net_cleanup(struct net *net);
+ void ip_vs_protocol_net_cleanup(struct net *net);
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index a8128b06f73b..5a5a6d63b3d9 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -2087,7 +2087,7 @@ static int __net_init __ip_vs_init(struct net *net)
+ 	if (ip_vs_conn_net_init(net) < 0)
+ 		goto conn_fail;
  
- static void ip_vs_dest_trash_expire(unsigned long data)
+-	if (ip_vs_sync_net_init(net) < 0)
++	if (ip_vs_sync_net_init(ipvs) < 0)
+ 		goto sync_fail;
+ 
+ 	printk(KERN_INFO "IPVS: Creating netns size=%zu id=%d\n",
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index e3f72cbc1204..11b4f17e2e1a 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -2007,10 +2007,8 @@ int stop_sync_thread(struct netns_ipvs *ipvs, int state)
+ /*
+  * Initialize data struct for each netns
+  */
+-int __net_init ip_vs_sync_net_init(struct net *net)
++int __net_init ip_vs_sync_net_init(struct netns_ipvs *ipvs)
  {
--	struct net *net = (struct net *) data;
 -	struct netns_ipvs *ipvs = net_ipvs(net);
-+	struct netns_ipvs *ipvs = (struct netns_ipvs *)data;
- 	struct ip_vs_dest *dest, *next;
- 	unsigned long now = jiffies;
- 
-@@ -3966,7 +3965,7 @@ int __net_init ip_vs_control_net_init(struct net *net)
- 	INIT_LIST_HEAD(&ipvs->dest_trash);
- 	spin_lock_init(&ipvs->dest_trash_lock);
- 	setup_timer(&ipvs->dest_trash_timer, ip_vs_dest_trash_expire,
--		    (unsigned long) net);
-+		    (unsigned long) ipvs);
- 	atomic_set(&ipvs->ftpsvc_counter, 0);
- 	atomic_set(&ipvs->nullsvc_counter, 0);
- 
--- 
-2.2.1
