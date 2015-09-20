@@ -1,7 +1,7 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v2 1/7] rocker: track when FDB entry is touched.
-Date: Sun, 20 Sep 2015 08:48:23 -0700
-Message-ID: <1442764109-11110-2-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v2 4/7] rocker: adding port ageing_time for ageing out FDB entries
+Date: Sun, 20 Sep 2015 08:48:26 -0700
+Message-ID: <1442764109-11110-5-git-send-email-sfeldma@gmail.com>
 References: <1442764109-11110-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
 	stephen@networkplumber.org, roopa@cumulusnetworks.com,
@@ -9,70 +9,46 @@ Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
 	vivien.didelot@savoirfairelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33940 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753198AbbITPpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 11:45:42 -0400
-Received: by padhy16 with SMTP id hy16so93641351pad.1
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 08:45:42 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35816 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753558AbbITPpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 11:45:47 -0400
+Received: by pacfv12 with SMTP id fv12so95508225pac.2
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 08:45:46 -0700 (PDT)
 In-Reply-To: <1442764109-11110-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-The entry is touched once when created, and touched again for each update.
-The touched time is used to calculate FDB entry age.
+Follow-up patcheset will allow user to change ageing_time, but for now
+just hard-code it to a fixed value (the same value used as the default
+for the bridge driver).
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/rocker/rocker.c |   18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 34ac41a..e517e9c 100644
+index f55ed2c..be8bb04 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -152,6 +152,7 @@ struct rocker_fdb_tbl_entry {
- 	struct hlist_node entry;
- 	u32 key_crc32; /* key */
- 	bool learned;
-+	unsigned long touched;
- 	struct rocker_fdb_tbl_key {
- 		u32 pport;
- 		u8 addr[ETH_ALEN];
-@@ -3629,6 +3630,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 		return -ENOMEM;
+@@ -221,6 +221,7 @@ struct rocker_port {
+ 	__be16 internal_vlan_id;
+ 	int stp_state;
+ 	u32 brport_flags;
++	unsigned long ageing_time;
+ 	bool ctrls[ROCKER_CTRL_MAX];
+ 	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
+ 	struct napi_struct napi_tx;
+@@ -4975,6 +4976,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_port->port_number = port_number;
+ 	rocker_port->pport = port_number + 1;
+ 	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
++	rocker_port->ageing_time = BR_DEFAULT_AGEING_TIME;
+ 	INIT_LIST_HEAD(&rocker_port->trans_mem);
  
- 	fdb->learned = (flags & ROCKER_OP_FLAG_LEARNED);
-+	fdb->touched = jiffies;
- 	fdb->key.pport = rocker_port->pport;
- 	ether_addr_copy(fdb->key.addr, addr);
- 	fdb->key.vlan_id = vlan_id;
-@@ -3638,13 +3640,17 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 
- 	found = rocker_fdb_tbl_find(rocker, fdb);
- 
--	if (removing && found) {
--		rocker_port_kfree(trans, fdb);
--		if (trans != SWITCHDEV_TRANS_PREPARE)
--			hash_del(&found->entry);
--	} else if (!removing && !found) {
-+	if (found) {
-+		found->touched = jiffies;
-+		if (removing) {
-+			rocker_port_kfree(trans, fdb);
-+			if (trans != SWITCHDEV_TRANS_PREPARE)
-+				hash_del(&found->entry);
-+		}
-+	} else if (!removing) {
- 		if (trans != SWITCHDEV_TRANS_PREPARE)
--			hash_add(rocker->fdb_tbl, &fdb->entry, fdb->key_crc32);
-+			hash_add(rocker->fdb_tbl, &fdb->entry,
-+				 fdb->key_crc32);
- 	}
- 
- 	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
+ 	rocker_port_dev_addr_init(rocker_port);
 -- 
 1.7.10.4
