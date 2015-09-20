@@ -1,70 +1,56 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [PATCH v2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
-Date: Sun, 20 Sep 2015 15:38:38 -0400
-Message-ID: <87d1xc7uf5.fsf@bytheb.org>
-References: <1442740705-16452-1-git-send-email-aconole@bytheb.org>
-	<1442767564.29850.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87twqo7vub.fsf@bytheb.org>
-	<1442776905.29850.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87h9mo7ui9.fsf@bytheb.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH 2/2 v3] airo: Implement netif_carrier_on/off
+Date: Sun, 20 Sep 2015 23:30:27 +0200
+Message-ID: <1442784627-26709-2-git-send-email-linux@rainbow-software.org>
+References: <1442784627-26709-1-git-send-email-linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:36510 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755421AbbITTik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 15:38:40 -0400
-Received: by qgx61 with SMTP id 61so75381499qgx.3
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 12:38:39 -0700 (PDT)
-In-Reply-To: <87h9mo7ui9.fsf@bytheb.org> (Aaron Conole's message of "Sun, 20
-	Sep 2015 15:36:46 -0400")
+Received: from ns.gsystem.sk ([62.176.172.50]:45204 "EHLO gsystem.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752457AbbITVaj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Sep 2015 17:30:39 -0400
+In-Reply-To: <1442784627-26709-1-git-send-email-linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add calls to netif_carrier_on and netif_carrier_off
 
-Resending, I accidentally dropped the list.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/wireless/airo.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
->
->> On Sun, 2015-09-20 at 15:07 -0400, Aaron Conole wrote:
->>> Eric Dumazet <eric.dumazet@gmail.com> writes:
->>> 
->>> > On Sun, 2015-09-20 at 05:18 -0400, Aaron Conole wrote:
->>> >> From: Aaron Conole <aaron@bytheb.org>
->>> >> 
->>> >
->>> > I am wondering what this is expected to do, and how this code would
->>> > possibly not trigger a crash.
->>> Are you suspecting it should crash from a possible double-lock case?
->>> On line 2125, there is an unconditional unlock, which should be 
->>> guaranteeing that there is no longer a condition to 'double lock' the
->>> socket.
->>
->> Not at all.
->>
->> I am suggesting there is a big difference between
->>
->> unix_state_lock(&sk);
->>
->> and
->>
->> unix_state_lock(sk);
->>
->> Can you see it ?
-
-Wow!
-
-That's an excellent catch, thank you! I did test the originally
-submitted patch, and got no oops, bug, panic, etc (I usually have
-panic_on_oops set to 1 when first testing new code).
-
-I guess I got very lucky, somehow. I'll change this, and make sure
-to retest.
-
-I will also try to enhance the python case attached to the bug to
-include a filepointer as well, and will repost a v3 when I have done
-this.
-
-Thanks,
--Aaron
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+index 67001a8..8ae838d 100644
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -3267,6 +3267,7 @@ static void airo_handle_link(struct airo_info *ai)
+ 			wake_up_interruptible(&ai->thr_wait);
+ 		} else
+ 			airo_send_event(ai->dev);
++		netif_carrier_on(ai->dev);
+ 	} else if (!scan_forceloss) {
+ 		if (auto_wep && !ai->expires) {
+ 			ai->expires = RUN_AT(3*HZ);
+@@ -3277,6 +3278,9 @@ static void airo_handle_link(struct airo_info *ai)
+ 		eth_zero_addr(wrqu.ap_addr.sa_data);
+ 		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+ 		wireless_send_event(ai->dev, SIOCGIWAP, &wrqu, NULL);
++		netif_carrier_off(ai->dev);
++	} else {
++		netif_carrier_off(ai->dev);
+ 	}
+ }
+ 
+@@ -3613,6 +3617,7 @@ static void disable_MAC( struct airo_info *ai, int lock ) {
+ 		return;
+ 
+ 	if (test_bit(FLAG_ENABLED, &ai->flags)) {
++		netif_carrier_off(ai->dev);
+ 		memset(&cmd, 0, sizeof(cmd));
+ 		cmd.cmd = MAC_DISABLE; // disable in case already enabled
+ 		issuecommand(ai, &cmd, &rsp);
+-- 
+Ondrej Zary
