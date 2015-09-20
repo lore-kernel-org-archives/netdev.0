@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 39/84] ipvs: Pass ipvs not net to ip_vs_sync_conn_v0
-Date: Sun, 20 Sep 2015 01:22:55 -0500
-Message-ID: <1442730220-32458-39-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 53/84] ipvs: Pass ipvs not net into ip_vs_app_inc_new
+Date: Sun, 20 Sep 2015 01:23:09 -0500
+Message-ID: <1442730220-32458-53-git-send-email-ebiederm@xmission.com>
 References: <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
 Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
@@ -10,9 +10,9 @@ To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:59278 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754935AbbITGej (ORCPT
+Received: from out01.mta.xmission.com ([166.70.13.231]:53117 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754885AbbITGej (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 02:34:39 -0400
 In-Reply-To: <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
@@ -20,42 +20,38 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/netfilter/ipvs/ip_vs_sync.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/netfilter/ipvs/ip_vs_app.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 280e1c03e598..58ec7850ab06 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -533,10 +533,9 @@ set:
-  *      Version 0 , could be switched in by sys_ctl.
-  *      Add an ip_vs_conn information into the current sync_buff.
+diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
+index f20f72c4ac80..951516b7783b 100644
+--- a/net/netfilter/ipvs/ip_vs_app.c
++++ b/net/netfilter/ipvs/ip_vs_app.c
+@@ -75,10 +75,9 @@ static void ip_vs_app_inc_rcu_free(struct rcu_head *head)
+  *	Allocate/initialize app incarnation and register it in proto apps.
   */
--static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
-+static void ip_vs_sync_conn_v0(struct netns_ipvs *ipvs, struct ip_vs_conn *cp,
- 			       int pkts)
+ static int
+-ip_vs_app_inc_new(struct net *net, struct ip_vs_app *app, __u16 proto,
++ip_vs_app_inc_new(struct netns_ipvs *ipvs, struct ip_vs_app *app, __u16 proto,
+ 		  __u16 port)
  {
 -	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_sync_mesg_v0 *m;
- 	struct ip_vs_sync_conn_v0 *s;
- 	struct ip_vs_sync_buff *buff;
-@@ -615,7 +614,7 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
- 			pkts = atomic_add_return(1, &cp->in_pkts);
- 		else
- 			pkts = sysctl_sync_threshold(ipvs);
--		ip_vs_sync_conn(net, cp, pkts);
-+		ip_vs_sync_conn(ipvs->net, cp, pkts);
- 	}
- }
+ 	struct ip_vs_protocol *pp;
+ 	struct ip_vs_app *inc;
+ 	int ret;
+@@ -180,11 +179,12 @@ int
+ register_ip_vs_app_inc(struct net *net, struct ip_vs_app *app, __u16 proto,
+ 		       __u16 port)
+ {
++	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	int result;
  
-@@ -637,7 +636,7 @@ void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts)
+ 	mutex_lock(&__ip_vs_app_mutex);
  
- 	/* Handle old version of the protocol */
- 	if (sysctl_sync_ver(ipvs) == 0) {
--		ip_vs_sync_conn_v0(net, cp, pkts);
-+		ip_vs_sync_conn_v0(ipvs, cp, pkts);
- 		return;
- 	}
- 	/* Do not sync ONE PACKET */
+-	result = ip_vs_app_inc_new(net, app, proto, port);
++	result = ip_vs_app_inc_new(ipvs, app, proto, port);
+ 
+ 	mutex_unlock(&__ip_vs_app_mutex);
+ 
 -- 
 2.2.1
