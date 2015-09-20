@@ -1,159 +1,71 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 1/2 v3] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-Date: Sun, 20 Sep 2015 23:30:26 +0200
-Message-ID: <1442784627-26709-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC 1/3] rcu: Add list_next_or_null_rcu
+Date: Sun, 20 Sep 2015 15:29:19 -0700
+Message-ID: <1442788161-2626305-2-git-send-email-tom@herbertland.com>
+References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:24817 "EHLO
+	m0001303.ppops.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755393AbbITWbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 18:31:03 -0400
+Received: from pps.filterd (m0001303 [127.0.0.1])
+	by m0001303.ppops.net (8.14.5/8.14.5) with SMTP id t8KMTJhh006046
+	for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 15:31:02 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 1x1xkjhfrd-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 15:31:02 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 456096c25fe711e5975c0002c992ebde-78dfd240 for <netdev@vger.kernel.org>;	Sun,
+ 20 Sep 2015 15:31:01 -0700
+In-Reply-To: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
-wpa_supplicant uses it for both no encryption and WEP open system.
-Cache the last mode set (only of these two) and use it here.
+This is a convenienve function that returns the next enrty in abn RCU
+list or NULL if at the end of the list.
 
-This allows wpa_supplicant to work with unencrypted APs.
-
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/wireless/airo.c |   59 +++++++++++++++++++++++++------------------
- 1 file changed, 35 insertions(+), 24 deletions(-)
+ include/linux/rculist.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index d0c97c2..67001a8 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -1237,6 +1237,7 @@ struct airo_info {
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index 17c6b1f..3e8e2aa 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -293,6 +293,27 @@ static inline void list_splice_init_rcu(struct list_head *list,
+ })
  
- 	int			wep_capable;
- 	int			max_wep_idx;
-+	int			last_auth;
- 
- 	/* WPA-related stuff */
- 	unsigned int bssListFirst;
-@@ -3786,6 +3787,16 @@ badrx:
- 	}
- }
- 
-+static inline void set_auth_type(struct airo_info *local, int auth_type)
-+{
-+	local->config.authType = auth_type;
-+	/* Cache the last auth type used (of AUTH_OPEN and AUTH_ENCRYPT).
-+	 * Used by airo_set_auth()
-+	 */
-+	if (auth_type == AUTH_OPEN || auth_type == AUTH_ENCRYPT)
-+		local->last_auth = auth_type;
-+}
+ /**
++ * list_next_or_null_rcu - get the first element from a list
++ * @head:	the head for the list.
++ * @ptr:        the list head to take the next element from.
++ * @type:       the type of the struct this is embedded in.
++ * @member:     the name of the list_head within the struct.
++ *
++ * Note that if the ptr is at the end of the list, NULL is returned.
++ *
++ * This primitive may safely run concurrently with the _rcu list-mutation
++ * primitives such as list_add_rcu() as long as it's guarded by rcu_read_lock().
++ */
++#define list_next_or_null_rcu(head, ptr, type, member) \
++({ \
++	struct list_head *__head = (head); \
++	struct list_head *__ptr = (ptr); \
++	struct list_head *__next = READ_ONCE(__ptr->next); \
++	likely(__next != __head) ? list_entry_rcu(__next, type, \
++						  member) : NULL; \
++})
 +
- static u16 setup_card(struct airo_info *ai, u8 *mac, int lock)
- {
- 	Cmd cmd;
-@@ -3862,7 +3873,7 @@ static u16 setup_card(struct airo_info *ai, u8 *mac, int lock)
- 						"level scale");
- 		}
- 		ai->config.opmode = adhoc ? MODE_STA_IBSS : MODE_STA_ESS;
--		ai->config.authType = AUTH_OPEN;
-+		set_auth_type(ai, AUTH_OPEN);
- 		ai->config.modulation = MOD_CCK;
- 
- 		if (le16_to_cpu(cap_rid.len) >= sizeof(cap_rid) &&
-@@ -4880,13 +4891,13 @@ static void proc_config_on_close(struct inode *inode, struct file *file)
- 			line += 5;
- 			switch( line[0] ) {
- 			case 's':
--				ai->config.authType = AUTH_SHAREDKEY;
-+				set_auth_type(ai, AUTH_SHAREDKEY);
- 				break;
- 			case 'e':
--				ai->config.authType = AUTH_ENCRYPT;
-+				set_auth_type(ai, AUTH_ENCRYPT);
- 				break;
- 			default:
--				ai->config.authType = AUTH_OPEN;
-+				set_auth_type(ai, AUTH_OPEN);
- 				break;
- 			}
- 			set_bit (FLAG_COMMIT, &ai->flags);
-@@ -6368,9 +6379,8 @@ static int airo_set_encode(struct net_device *dev,
- 		 * should be enabled (user may turn it off later)
- 		 * This is also how "iwconfig ethX key on" works */
- 		if((index == current_index) && (key.len > 0) &&
--		   (local->config.authType == AUTH_OPEN)) {
--			local->config.authType = AUTH_ENCRYPT;
--		}
-+		   (local->config.authType == AUTH_OPEN))
-+			set_auth_type(local, AUTH_ENCRYPT);
- 	} else {
- 		/* Do we want to just set the transmit key index ? */
- 		int index = (dwrq->flags & IW_ENCODE_INDEX) - 1;
-@@ -6389,12 +6399,12 @@ static int airo_set_encode(struct net_device *dev,
- 		}
- 	}
- 	/* Read the flags */
--	if(dwrq->flags & IW_ENCODE_DISABLED)
--		local->config.authType = AUTH_OPEN;	// disable encryption
-+	if (dwrq->flags & IW_ENCODE_DISABLED)
-+		set_auth_type(local, AUTH_OPEN);	/* disable encryption */
- 	if(dwrq->flags & IW_ENCODE_RESTRICTED)
--		local->config.authType = AUTH_SHAREDKEY;	// Only Both
--	if(dwrq->flags & IW_ENCODE_OPEN)
--		local->config.authType = AUTH_ENCRYPT;	// Only Wep
-+		set_auth_type(local, AUTH_SHAREDKEY);	/* Only Both */
-+	if (dwrq->flags & IW_ENCODE_OPEN)
-+		set_auth_type(local, AUTH_ENCRYPT);	/* Only Wep */
- 	/* Commit the changes to flags if needed */
- 	if (local->config.authType != currentAuthType)
- 		set_bit (FLAG_COMMIT, &local->flags);
-@@ -6549,12 +6559,12 @@ static int airo_set_encodeext(struct net_device *dev,
- 	}
- 
- 	/* Read the flags */
--	if(encoding->flags & IW_ENCODE_DISABLED)
--		local->config.authType = AUTH_OPEN;	// disable encryption
-+	if (encoding->flags & IW_ENCODE_DISABLED)
-+		set_auth_type(local, AUTH_OPEN);	/* disable encryption */
- 	if(encoding->flags & IW_ENCODE_RESTRICTED)
--		local->config.authType = AUTH_SHAREDKEY;	// Only Both
--	if(encoding->flags & IW_ENCODE_OPEN)
--		local->config.authType = AUTH_ENCRYPT;	// Only Wep
-+		set_auth_type(local, AUTH_SHAREDKEY);	/* Only Both */
-+	if (encoding->flags & IW_ENCODE_OPEN)
-+		set_auth_type(local, AUTH_ENCRYPT);
- 	/* Commit the changes to flags if needed */
- 	if (local->config.authType != currentAuthType)
- 		set_bit (FLAG_COMMIT, &local->flags);
-@@ -6659,9 +6669,9 @@ static int airo_set_auth(struct net_device *dev,
- 		if (param->value) {
- 			/* Only change auth type if unencrypted */
- 			if (currentAuthType == AUTH_OPEN)
--				local->config.authType = AUTH_ENCRYPT;
-+				set_auth_type(local, AUTH_ENCRYPT);
- 		} else {
--			local->config.authType = AUTH_OPEN;
-+			set_auth_type(local, AUTH_OPEN);
- 		}
- 
- 		/* Commit the changes to flags if needed */
-@@ -6670,13 +6680,14 @@ static int airo_set_auth(struct net_device *dev,
- 		break;
- 
- 	case IW_AUTH_80211_AUTH_ALG: {
--			/* FIXME: What about AUTH_OPEN?  This API seems to
--			 * disallow setting our auth to AUTH_OPEN.
--			 */
- 			if (param->value & IW_AUTH_ALG_SHARED_KEY) {
--				local->config.authType = AUTH_SHAREDKEY;
-+				set_auth_type(local, AUTH_SHAREDKEY);
- 			} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
--				local->config.authType = AUTH_ENCRYPT;
-+				/* We don't know here if WEP open system or
-+				 * unencrypted mode was requested - so use the
-+				 * last mode (of these two) used last time
-+				 */
-+				set_auth_type(local, local->last_auth);
- 			} else
- 				return -EINVAL;
- 
++/**
+  * list_for_each_entry_rcu	-	iterate over rcu list of given type
+  * @pos:	the type * to use as a loop cursor.
+  * @head:	the head for your list.
 -- 
-Ondrej Zary
+1.8.1
