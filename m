@@ -1,109 +1,176 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 7/7] switchdev: update documentation on FDB ageing_time
-Date: Sat, 19 Sep 2015 19:21:39 -0700
-Message-ID: <CAE4R7bD_FchEJ_HuuJcGx0_fqwjxCG_EsYETogVO6O-6uoLj1g@mail.gmail.com>
-References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com>
- <1442606151-50429-8-git-send-email-sfeldma@gmail.com> <55FE0A2C.9040205@cumulusnetworks.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH next 00/84] ipvs: Stop guessing the network namespace
+Date: Sun, 20 Sep 2015 01:21:25 -0500
+Message-ID: <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<87pp1fpy1b.fsf@x220.int.ebiederm.org>
+	<87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:33688 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753889AbbITCWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2015 22:22:00 -0400
-Received: by obbbh8 with SMTP id bh8so61762140obb.0
-        for <netdev@vger.kernel.org>; Sat, 19 Sep 2015 19:21:59 -0700 (PDT)
-In-Reply-To: <55FE0A2C.9040205@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	lvs-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 18 Sep 2015 14:28:40 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 19, 2015 at 6:21 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 9/18/15, 12:55 PM, sfeldma@gmail.com wrote:
->>
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>   Documentation/networking/switchdev.txt |   24 ++++++++++++------------
->>   1 file changed, 12 insertions(+), 12 deletions(-)
->>
->> diff --git a/Documentation/networking/switchdev.txt
->> b/Documentation/networking/switchdev.txt
->> index 476df04..67e43ee 100644
->> --- a/Documentation/networking/switchdev.txt
->> +++ b/Documentation/networking/switchdev.txt
->> @@ -239,20 +239,20 @@ The driver should initialize the attributes to the
->> hardware defaults.
->>   FDB Ageing
->>   ^^^^^^^^^^
->>   -There are two FDB ageing models supported: 1) ageing by the device, and
->> 2)
->> -ageing by the kernel.  Ageing by the device is preferred if many FDB
->> entries
->> -are supported.  The driver calls
->> call_switchdev_notifiers(SWITCHDEV_FDB_DEL,
->> -...) to age out the FDB entry.  In this model, ageing by the kernel
->> should be
->> -turned off.  XXX: how to turn off ageing in kernel on a per-port basis or
->> -otherwise prevent the kernel from ageing out the FDB entry?
->> -
->> -In the kernel ageing model, the standard bridge ageing mechanism is used
->> to age
->> -out stale FDB entries.  To keep an FDB entry "alive", the driver should
->> refresh
->> -the FDB entry by calling call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
->> ...).  The
->> +The bridge will skip ageing FDB entries marked with NTF_EXT_LEARNED and
->> it is
->> +the responsibility of the port driver/device to age out these entries.
->> If the
->> +port device supports ageing, when the FDB entry expires, it will notify
->> the
->> +driver which in turn will notify the bridge with SWITCHDEV_FDB_DEL.  If
->> the
->> +device does not support ageing, the driver can simulate ageing using a
->> +garbage collection timer to monitor FBD entries.  Expired entries will be
->> +notified to the bridge using SWITCHDEV_FDB_DEL.  See rocker driver for
->> +example of driver running ageing timer.
->
-> We do rely on the bridge driver ageing out entries. We have gone from
-> hardware ageing to ageing in the switch driver to ultimately ageing in the
-> bridge driver.  :). And we keep the fdb entries in the bridge driver "alive"
-> by using 'NTF_USE' from the user-space driver.
 
-Yes, your switch driver is in user-space so you have to use NTF_USE to
-refresh the entry since you cannot use the kernel driver model to
-call_switchdev_notifiers(SWITCHDEV_FDB_ADD, ...).  Consequently, your
-entries are not marked with NTF_EXT_LEARNED, so this patch is a no-op
-for you.  You can continue to use the bridge driver to age out your
-entries.
+I am gradually working my way through the netfilter stack passing struct
+down into the netfilter hooks and from the netfilter hooks and from
+there down into the functions that actually care.  This removes the need
+for netfilter functions to guess how to figure out how to compute which
+network namespace they are in and instead provides a simple and reliable
+method to do so.
 
->> +To keep an NTF_EXT_LEARNED entry "alive", the driver should refresh the
->> FDB
->> +entry by calling call_switchdev_notifiers(SWITCHDEV_FDB_ADD, ...).  The
->>
-> Even with your current patches, looks like the switch driver will need to
-> refresh the entries anyways to keep the "last-used" time to now.
-> In which case is there much value in switch driver doing the ageing ?.
+The cleanups stand on their own but this is part of a larger effort
+to have routes with an output device that is not in the current network
+namespace.
 
-"should" not "must".
+The IPVS code has been a bit more of a challenge than most.  Just
+passing struct net through to where it is needed did not feel clean
+to me.  The practical issue is that the ipvs code in most places
+actually wants struct netns_ipvs and not struct net.
 
-Value is for the many learned FDB entries case, to move the ageing
-function to hardware.
+So as part of this process I have turned the relationship between struct
+net and the structs netns_ipvs, ip_vs_conn_param, ip_vs_conn, and
+ip_vs_service inside out.  I have modified the ipvs functions to take a
+struct netns_ipvs not a struct net.  The net is code with fewer
+conversions from one type of structure to another.  I did wind up adding
+a struct netns_ipvs parameter to quite a few functions that did not have
+it before so I could pass the structure down from the netfilter hooks to
+where it is actually needed to avoid guessing.
 
-> I am thinking keeping the default behavior of the bridge driver to age and
-> anything else configurable might be a better option.
+I have broken up the work in a bunch of small patches so there is at
+least a chance and reviewing that each step I took is correct.  The
+series compiles at each step so bisecting it should not be a problem
+if something weird comes up.
 
-I'd rather someone add that knob when it's actually needed.  When the
-first in-kernel switchdev driver that wants to use the bridge driver's
-ageing function, then we can make that adjustment.
+The first two changes in this series are actually bug fixes.  The first
+is a compile fix for a bug in sctp that came in, in the last round of
+ipvs changes merged into nf-next.  The second fixes an older bug where
+in pathological circumstances the wrong network namespace could be used
+when a proc file is written to.
+
+The rest of the patchset is a bunch of boring changes getting pushing
+struct netns_ipvs (and by extension ipvs->net) where it needs to be.
+Either by replacing struct net pointers or adding new struct netns_ipvs
+pointers.  With a handful of other minor cleanups (like removing skb_net).
+
+The changes are also available against nf-next at:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
+
+My entire pending set of changes for those who want to look ahead is at:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git for-testing
+
+Eric
+
+Eric W. Biederman (84):
+      ipvs: Hoist computation of ipvs earlier in sctp_conn_schedule
+      ipvs: Don't use current in proc_do_defense_mode
+      ipvs: Use state->net in the ipvs forward functions
+      ipvs: Store ipvs not net in struct ip_vs_conn
+      ipvs: Store ipvs not net in struct ip_vs_conn_param
+      ipvs: Pass ipvs not net to ip_vs_fill_conn
+      ipvs: Store ipvs not net in struct ip_vs_service
+      ipvs: Pass ipvs not net to ip_vs_svc_fwm_hashkey
+      ipvs: Pass ipvs not net to __ip_vs_svc_fwm_find
+      ipvs: Pass ipvs not net to ip_vs_svc_hashkey
+      ipvs: Pass ipvs not net to __ip_vs_service_find
+      ipvs: Pass ipvs not net to ipvs_service_find
+      ipvs: Pass ipvs not net to ip_vs_has_real_service
+      ipvs: Pass ipvs not net to ip_vs_find_dest
+      ipvs: Pass ipvs not net to ip_vs_trash_cleanup
+      ipvs: Pass ipvs not net to __ip_vs_del_dest
+      ipvs: Pass ipvs not net to ip_vs_dest_trash_expire
+      ipvs: Cache ipvs in ip_vs_genl_set_cmd
+      ipvs: Pass ipvs not net to ip_vs_add_service
+      ipvs: Pass ipvs not net to ip_vs_flush
+      ipvs: Pass ipvs not net to ip_vs_service_net_cleanup
+      ipvs: Pass ipvs not net to ip_vs_zero_all
+      ipvs: Cache ipvs in ip_vs_in_icmp and ip_vs_in_icmp_v6
+      ipvs: Pass ipvs not net to ip_vs_proto_data_get
+      ipvs: Pass ipvs not net to ip_vs_set_timeout
+      ipvs: Pass ipvs not net to __ip_vs_get_servie_entries
+      ipvs: Pass ipvs not net to __ip_vs_get_dest_entries
+      ipvs: Pass ipvs not net to __ip_vs_get_timeouts
+      ipvs: Pass ipvs not net to ip_vs_genl_parse_service
+      ipvs: Pass ipvs not net to ip_vs_genl_find_service
+      ipvs: Pass ipvs not net to ip_vs_genl_new_daemon
+      ipvs: Pass ipvs not net to ip_vs_genl_del_daemon
+      ipvs: Pass ipvs not net to start_sync_thread
+      ipvs: Pass ipvs not net to stop_sync_thread
+      ipvs: Pass ipvs not net to make_send_sock
+      ipvs: Pass ipvs not net to make_receive_sock
+      ipvs: Store ipvs not net in struct ip_vs_sync_thread_data
+      ipvs: Pass ipvs not net to ip_vs_process_message
+      ipvs: Pass ipvs not net to ip_vs_sync_conn_v0
+      ipvs: Pass ipvs not net to ip_vs_sync_conn
+      ipvs: Pass ipvs not net to ip_vs_proc_conn
+      ipvs: Pass ipvs not net to ip_vs_proc_sync_conn
+      ipvs: Pass ipvs not net to ip_vs_sync_net_init
+      ipvs: Pass ipvs not net to ip_vs_sync_net_cleanup
+      ipvs: Pass ipvs not net to ip_vs_genl_set_config
+      ipvs: Pass ipvs not net to ip_vs_start_estimator aned ip_vs_stop_estimator
+      ipvs: Pass ipvs not net to ip_vs_random_drop_entry
+      ipvs: Pass ipvs not net to ip_vs_control_net_(init|cleanup)_sysctl
+      ipvs: Pass ipvs not net into ip_vs_control_net_(init|cleanup)
+      ipvs: Pass ipvs not net to estimation_timer
+      ipvs: Pass ipvs not net to ip_vs_estimator_net_init and ip_vs_estimator_cleanup
+      ipvs: Pass ipvs not net into register_app and unregister_app
+      ipvs: Pass ipvs not net into ip_vs_app_inc_new
+      ipvs: Pass ipvs not net to register_ip_vs_app_inc
+      ipvs: Pass ipvs not net to register_ip_vs_app and unregister_ip_vs_app
+      ipvs: Pass ipvs not net into ip_vs_app_inc_release
+      ipvs: Pass ipvs not net into ip_vs_app_net_init and ip_vs_app_net_cleanup
+      ipvs: Pass ipvs not net into [un]register_ip_vs_proto_netns
+      ipvs: Pass ipvs not net into init_netns and exit_netns
+      ipvs: Pass ipvs into ip_vs_conn_fill_param_proto
+      ipvs: Pass ipvs into .conn_in_get and ip_vs_conn_in_get_proto
+      ipvs: Pass ipvs into conn_out_get
+      ipvs: Pass ipvs not net to ip_vs_conn_hashkey
+      ipvs: Pass ipvs not net into ip_vs_conn_net_flush
+      ipvs: Pass ipvs not net into ip_vs_conn_net_init and ip_vs_conn_net_cleanup
+      ipvs: Pass ipvs into .conn_schedule and ip_vs_try_to_schedule
+      ipvs: Better derivation of ipvs in ip_vs_tunnel_xmit
+      ipvs: Pass ipvs into __ip_vs_get_out_rt
+      ipvs: Pass ipvs into __ip_vs_get_out_rt_v6
+      ipvs: Pass ipvs into ensure_mtu_is adequate
+      ipvs: Better derivation of ipvs in ip_vs_in_stats and ip_vs_out_stats
+      ipvs: Wrap sysctl_cache_bypass and remove ifdefs in ip_vs_leave
+      ipvs: Simplify ipvs and net access in ip_vs_leave
+      ipvs: Pass ipvs not net into sysctl_nat_icmp_send
+      ipvs: Pass ipvs into ip_vs_out
+      ipvs: Pass ipvs into ip_vs_in
+      ipvs: Pass ipvs into ip_vs_in_icmp and ip_vs_in_icmp_v6
+      ipvs: Pass ipvs into ip_vs_out_icmp and ip_vs_out_icmp_v6
+      ipvs: Pass ipvs through ip_vs_route_me_harder into sysctl_snat_reroute
+      ipvs: Remove net argument from ip_vs_tcp_conn_listen
+      ipvs: Pass ipvs not net to ip_vs_protocol_net_(init|cleanup)
+      ipvs: Remove skb_net
+      ipvs: Remove skb_sknet
+      ipvs: Pass ipvs into ip_vs_gather_frags
+
+ include/net/ip_vs.h                     | 179 +++++++--------------
+ net/netfilter/ipvs/ip_vs_app.c          |  36 ++---
+ net/netfilter/ipvs/ip_vs_conn.c         |  76 ++++-----
+ net/netfilter/ipvs/ip_vs_core.c         | 228 ++++++++++++--------------
+ net/netfilter/ipvs/ip_vs_ctl.c          | 276 ++++++++++++++++----------------
+ net/netfilter/ipvs/ip_vs_est.c          |  20 +--
+ net/netfilter/ipvs/ip_vs_ftp.c          |  25 ++-
+ net/netfilter/ipvs/ip_vs_lblc.c         |   3 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c        |   3 +-
+ net/netfilter/ipvs/ip_vs_nfct.c         |   5 +-
+ net/netfilter/ipvs/ip_vs_proto.c        |  33 ++--
+ net/netfilter/ipvs/ip_vs_proto_ah_esp.c |  19 ++-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c   |  28 ++--
+ net/netfilter/ipvs/ip_vs_proto_tcp.c    |  33 ++--
+ net/netfilter/ipvs/ip_vs_proto_udp.c    |  28 ++--
+ net/netfilter/ipvs/ip_vs_sync.c         |  87 +++++-----
+ net/netfilter/ipvs/ip_vs_xmit.c         |  55 ++++---
+ net/netfilter/xt_ipvs.c                 |   3 +-
+ 18 files changed, 499 insertions(+), 638 deletions(-)
