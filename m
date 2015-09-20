@@ -1,108 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] [net] af_unix: return data from multiple SKBs on
- recv() with MSG_PEEK flag
-Date: Sun, 20 Sep 2015 09:46:04 -0700
-Message-ID: <1442767564.29850.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442740705-16452-1-git-send-email-aconole@bytheb.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH next 00/84] ipvs: Stop guessing the network namespace
+Date: Sun, 20 Sep 2015 11:41:20 -0500
+Message-ID: <87si69jb67.fsf@x220.int.ebiederm.org>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<87pp1fpy1b.fsf@x220.int.ebiederm.org>
+	<87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
+	<87h9mplifu.fsf_-_@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1509201719370.4441@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Aaron Conole <aaron@bytheb.org>
-To: Aaron Conole <aconole@bytheb.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34700 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751313AbbITQqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 12:46:07 -0400
-Received: by padhy16 with SMTP id hy16so94353500pad.1
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 09:46:06 -0700 (PDT)
-In-Reply-To: <1442740705-16452-1-git-send-email-aconole@bytheb.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	lvs-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1509201719370.4441@ja.home.ssi.bg> (Julian
+	Anastasov's message of "Sun, 20 Sep 2015 17:38:32 +0300 (EEST)")
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-09-20 at 05:18 -0400, Aaron Conole wrote:
-> From: Aaron Conole <aaron@bytheb.org>
-> 
-> AF_UNIX sockets now return multiple skbs from recv() when MSG_PEEK flag
-> is set.
-> 
-> This is referenced in kernel bugzilla #12323 @
-> https://bugzilla.kernel.org/show_bug.cgi?id=12323
-> 
-> As described both in the BZ and lkml thread @
-> http://lkml.org/lkml/2008/1/8/444 calling recv() with MSG_PEEK on an
-> AF_UNIX socket only reads a single skb, where the desired effect is
-> to return as much skb data has been queued, until hitting the recv
-> buffer size (whichever comes first).
-> 
-> The modified MSG_PEEK path will now move to the next skb in the tree
-> and jump to the again: label, rather than following the natural loop
-> structure. This requires duplicating some of the loop head actions.
-> 
-> This was tested using the python socketpair python code attached to
-> the bugzilla issue.
-> 
-> Signed-off-by: Aaron Conole <aaron@bytheb.org>
-> ---
->  net/unix/af_unix.c | 19 +++++++++++++++++--
->  1 file changed, 17 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 03ee4d3..988fbbd4 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -2179,9 +2179,24 @@ unlock:
->  			if (UNIXCB(skb).fp)
->  				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
+Julian Anastasov <ja@ssi.bg> writes:
+
+> 	Hello,
+>
+>
+> 	I reviewed the patchset. Nice work, thanks!
+
+Welcome.
+
+> Here are some comments:
+>
+> 01/84 ipvs: Hoist computation of ipvs earlier in sctp_conn_schedule
+>
+> 	Simon had a fix for this problem, not sure what happened,
+> may be it was lost...
+>
+> 04/84 ipvs: Store ipvs not net in struct ip_vs_conn
+>
+> 	Lost '!' here:
+
+Very good catch thank you.
+
+> @@ -359,7 +359,7 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct
+> ip_vs_conn_param *p)
 >  
-> -			sk_peek_offset_fwd(sk, chunk);
-> +			if (skip) {
-> +				sk_peek_offset_fwd(sk, chunk);
-> +				skip -= chunk;
-> +			}
->  
-> -			break;
-> +			if (UNIXCB(skb).fp)
-> +				break;
-> +
-> +			/* XXX - this is ugly; a better approach would be
-> +			 * rewriting this function
-> +			 */
-> +			last = skb;
-> +			last_len = skb->len;
-> +			unix_state_lock(&sk);
+>         hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
+>                 if (unlikely(p->pe_data && p->pe->ct_match)) {
+> -                       if (!ip_vs_conn_net_eq(cp, p->net))
+> +                       if (net_eq(cp->ipvs->net, p->net))
+>                                 continue;
+>
+> 	Problem is then propagated to patch 05/84:
+>
+> -                       if (net_eq(cp->ipvs->net, p->net))
+> +                       if (cp->ipvs == p->ipvs)
+>
+> 26/84 ipvs: Pass ipvs not net to __ip_vs_get_servie_entries
+>
+> 	Missing 'c' in Subject
+>
+> 55/84 ipvs: Pass ipvs not net to register_ip_vs_app and 
+> unregister_ip_vs_app
+>
+> 	Empty line after ipvs declaration:
+>
+>  void __net_exit ip_vs_app_net_cleanup(struct net *net)
+>  {
+> -       unregister_ip_vs_app(net, NULL /* all */);
+> +       struct netns_ipvs *ipvs = net_ipvs(net);
+> +       unregister_ip_vs_app(ipvs, NULL /* all */);
+>
+> 	here too:
+>
+>  static void __ip_vs_ftp_exit(struct net *net)
+>  {
+> -       unregister_ip_vs_app(net, &ip_vs_ftp);
+> +       struct netns_ipvs *ipvs = net_ipvs(net);
+> +       if (!ipvs)
+>
+> 61/84 ipvs: Pass ipvs into .conn_in_get and ip_vs_conn_in_get_proto
+>
+> 	"dreive"
+>
+> 62/84 ipvs: Pass ipvs into conn_out_get
+>
+> 	"dreive"
 
-I am wondering what this is expected to do, and how this code would
-possibly not trigger a crash.
+I have fixed the above, and pushed the changes into my git tree.
+I will resend the patchset tomorrow if nothing else shows up.
 
-Are you 100% sure you tested this patch and code path ?
+> 	Also, scripts/checkpatch.pl --strict /tmp/*.patch gives
+> me warnings, sometimes for inherited syntax...
 
-Before resending v3, please make sure to compile and test with
-CONFIG_LOCKDEP=y. Add a temporary (in your tree, not final patch)
+I looked and I have fixed one or two of those, but mostly inherited
+syntax and lines too long I am not tocuhing.  The odds of introducing
+or obscuring an error right now far outweigh the odds of making
+something better.
 
-pr_err_once("went there at least one time\n");
-
-(to make sure this code path was tested)
-
-It might be time to get rid of unix_sk macro for a proper function to
-avoid these kind of errors.
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 4a167b30a12f..cb1b9bbda332 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -63,7 +63,11 @@ struct unix_sock {
- #define UNIX_GC_MAYBE_CYCLE	1
- 	struct socket_wq	peer_wq;
- };
--#define unix_sk(__sk) ((struct unix_sock *)__sk)
-+
-+static inline struct unix_sock *unix_sk(struct sock *sk)
-+{
-+	return (struct unix_sock *)sk;
-+}
- 
- #define peer_wait peer_wq.wait
- 
-
-Thanks.
+Eric
