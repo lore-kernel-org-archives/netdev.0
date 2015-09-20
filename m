@@ -1,81 +1,83 @@
-From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
-Subject: Re: sr-iov and bridges (mlx4)
-Date: Sun, 20 Sep 2015 20:18:47 +0200
-Message-ID: <8f15ec904f631f2d792388128b34732a@justnet.pl>
-References: <55FDF69F.6000105@colorado.edu>
- <CAJ3xEMg1HR+WfhUNMCu9mnXp6F9Vuw8=VkrUvcynAn3VWoP2Gw@mail.gmail.com>
- <55FEDCFE.30506@colorado.edu>
-Reply-To: adam.niescierowicz@justnet.pl
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH v2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
+Date: Sun, 20 Sep 2015 15:07:56 -0400
+Message-ID: <87twqo7vub.fsf@bytheb.org>
+References: <1442740705-16452-1-git-send-email-aconole@bytheb.org>
+	<1442767564.29850.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org
-To: Matthew Monaco <Matthew.Monaco@colorado.edu>
+Content-Type: text/plain
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from justnet.pl ([195.54.47.50]:43773 "EHLO mail.justnet.pl"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755343AbbITSws (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Sep 2015 14:52:48 -0400
-In-Reply-To: <55FEDCFE.30506@colorado.edu>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:34263 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755882AbbITTH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 15:07:59 -0400
+Received: by qgez77 with SMTP id z77so75432320qge.1
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 12:07:58 -0700 (PDT)
+In-Reply-To: <1442767564.29850.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Sun, 20 Sep 2015 09:46:04 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matthew,
-in near future i want to do exactly the same, if you make progress with=
-=20
-SR-IOV+Bridge+OpenStack please leave here some advice.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
----
-Pozdrawiam
-Adam Nie=C5=9Bcierowicz
+> On Sun, 2015-09-20 at 05:18 -0400, Aaron Conole wrote:
+>> From: Aaron Conole <aaron@bytheb.org>
+>> 
+>
+> I am wondering what this is expected to do, and how this code would
+> possibly not trigger a crash.
+Are you suspecting it should crash from a possible double-lock case?
+On line 2125, there is an unconditional unlock, which should be 
+guaranteeing that there is no longer a condition to 'double lock' the
+socket.
 
-W dniu 20.09.2015 18:21, Matthew Monaco napisa=C5=82(a):
+With my patch, I re-do a lock just before entering skb_peek_next, and
+then loop to again: label (line 2078); I admit that there is a check
+at the top of the loop which I do not include (the check for SOCK_DEAD).
+Do you think this check is needed (and the cause for your concern on
+the suspected crash)?
 
-> On 09/20/2015 05:01 AM, Or Gerlitz wrote: On Sun, Sep 20, 2015 at 2:5=
-8=20
-> AM, Matthew Monaco
-> <Matthew.Monaco@colorado.edu> wrote:
-> [...] In all cases, VMs with SR-IOV work fine, IP on the host works=20
-> fine, outbound
-> DHCP from the virtio VMs work fine, but inbound frames are not making=
-=20
-> it back to
-> the VM. [...] Is there a know limitation of mixing SR-IOV and bridges=
-=20
-> in general? Does the
-> SR-IOV switch specific to the mlx4 hardware not work well with linux=20
-> bridges? ...?
-> It would be a bit hard for bridge based promiscuous environment to wo=
-rk=20
-> OOB
-> for one of the functions (PF or VF) in SRIOV, this is generic issue,
-> and not related
-> to specific vendor.
->=20
-> You need to use the bridge (8) tool (part of iproute2) and add the P.=
-V
-> VM MACs to
-> the PF interface as "self" see some slides (21/22/23) from netdev 0.1
-> that deal with that
-> https://netdev01.org/docs/netdev_tutorial_bridge_makita_150213.pdf [1=
-]
->=20
-> Or.
->=20
-> It also possible to mark one bridge port (the PF) as non-promiscuous,
-> but I haven't
-> played with that myself yet (slide 32), so can't just send you doing=20
-> it...
+I will re-do the testing as you outline later, and report the results.
 
-  Many thanks, that helps. Now to figure out the best approach for=20
-shoving this
-  into OpenStack =3D)
+> Are you 100% sure you tested this patch and code path ?
+Yes, 100%; I used the python code attached to the bug before hacking on
+this function whatsoever to ensure that the bug still exists in current
+kernel (it does). Then after my patch, I reran the same test. There 
+were no oops, bugs, panics, or other errors reported.
 
+> Before resending v3, please make sure to compile and test with
+> CONFIG_LOCKDEP=y. Add a temporary (in your tree, not final patch)
+>
+> pr_err_once("went there at least one time\n");
+>
+> (to make sure this code path was tested)
+I will do this testing as requested; my current config does include
+LOCKDEP_SUPPORT=y.
 
+> It might be time to get rid of unix_sk macro for a proper function to
+> avoid these kind of errors.
+>
+> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+> index 4a167b30a12f..cb1b9bbda332 100644
+> --- a/include/net/af_unix.h
+> +++ b/include/net/af_unix.h
+> @@ -63,7 +63,11 @@ struct unix_sock {
+>  #define UNIX_GC_MAYBE_CYCLE	1
+>  	struct socket_wq	peer_wq;
+>  };
+> -#define unix_sk(__sk) ((struct unix_sock *)__sk)
+> +
+> +static inline struct unix_sock *unix_sk(struct sock *sk)
+> +{
+> +	return (struct unix_sock *)sk;
+> +}
+>  
+>  #define peer_wait peer_wq.wait
+If you'd like, I'll add this to a V3 version of this patch, re-do
+testing with your requested config above, and report the results.
 
-Links:
-------
-[1] https://netdev01.org/docs/netdev_tutorial_bridge_makita_150213.pdf
+> Thanks.
+Thank you for the feedback, it is very good.
+
+-Aaron
