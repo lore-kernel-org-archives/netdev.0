@@ -1,54 +1,48 @@
-From: Sagi Grimberg <sagig@dev.mellanox.co.il>
-Subject: Re: [PATCH 00/15] RDS: connection scalability and performance
- improvements
-Date: Sun, 20 Sep 2015 11:37:52 +0300
-Message-ID: <55FE7060.6010205@dev.mellanox.co.il>
-References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 3/6] rocker: switch to local transaction
+ phase enum
+Date: Sun, 20 Sep 2015 10:59:20 +0200
+Message-ID: <20150920085920.GC2203@nanopsycho.orion>
+References: <1442665751-10949-1-git-send-email-jiri@resnulli.us>
+ <1442665751-10949-4-git-send-email-jiri@resnulli.us>
+ <20150919192504.GB4907@ketchup>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	linux@roeck-us.net
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34935 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964AbbITIhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 04:37:33 -0400
-Received: by wicge5 with SMTP id ge5so79184293wic.0
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 01:37:32 -0700 (PDT)
-In-Reply-To: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:37877 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424AbbITI7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 04:59:23 -0400
+Received: by wicfx3 with SMTP id fx3so75791516wic.0
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 01:59:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150919192504.GB4907@ketchup>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/20/2015 2:04 AM, Santosh Shilimkar wrote:
-> This series addresses RDS connection bottlenecks on massive workloads and
-> improve the RDMA performance almost by 3X. RDS TCP also gets a small gain
-> of about 12%.
+Sat, Sep 19, 2015 at 09:25:04PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>Hi Jiri,
 >
-> RDS is being used in massive systems with high scalability where several
-> hundred thousand end points and tens of thousands of local processes
-> are operating in tens of thousand sockets. Being RC(reliable connection),
-> socket bind and release happens very often and any inefficiencies in
-> bind hash look ups hurts the overall system performance. RDS bin hash-table
-> uses global spin-lock which is the biggest bottleneck. To make matter worst,
-> it uses rcu inside global lock for hash buckets.
-> This is being addressed by simply using per bucket rw lock which makes the
-> locking simple and very efficient. The hash table size is also scaled up
-> accordingly.
+>On Sep. Saturday 19 (38) 02:29 PM, Jiri Pirko wrote:
+>> Since switchdev_trans_ph anum is going to be removed, and rocker code is
+>> way too complicated in this matter to be converted, just introduce local
+>> enum for transaction phase. Pass it around in local transaction
+>> structure.
 >
-> For RDS RDMA improvement, the completion handling is revamped so that we
-> can do batch completions. Both send and receive completion handlers are
-> split logically to achieve the same. RDS 8K messages being one of the
-> key usecase, mr pool is adapted to have the 8K mrs along with default 1M
-> mrs. And while doing this, few fixes and couple of bottlenecks seen with
-> rds_sendmsg() are addressed.
+>I missed this typo here: s/anum/enum/.
+>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>I found the renaming trick is a bit hard to follow. I am wondering if
+>this patch could be used first and drop patch 1/6?
+>
+>That way, you can first add the rocker_trans structure and set its ph
+>member to obj->trans in obj_add/attr_set, then the following patch
+>(currently 2/6) would just assign it to the new trans parameter.
 
-Hi Santosh,
-
-I think that can get a more effective code review if you CC the
-Linux-rdma mailing list.
-
-Sagi.
+That could work locally for rocker, but for the rest of the code, I
+belive it would not. Anyway, the result would be the same.
