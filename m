@@ -1,44 +1,51 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Add port attribute when
- tracking counters"
-Date: Sun, 20 Sep 2015 16:51:07 +0300
-Message-ID: <CAJ3xEMgRq60Yfv2R13yCwH1O15JMwy00zzJSTNqG+SxSpvo_4w@mail.gmail.com>
-References: <1440770776-27951-1-git-send-email-aik@ozlabs.ru>
-	<CAJ3xEMjbTFSKxURSuqFsjQNS6gJfdvgwo4NfYPrv2PrkgCt5YQ@mail.gmail.com>
-	<55E3BE76.60801@ozlabs.ru>
-	<CAKHjkjkLK2TJiKTxZ17jb0YH=oT-mBdKoYNb9aRQJm_vme_KkA@mail.gmail.com>
-	<55E911A7.6090801@ozlabs.ru>
-	<55F7F5C7.2060509@ozlabs.ru>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 7/7] switchdev: update documentation on FDB ageing_time
+Date: Sun, 20 Sep 2015 07:24:31 -0700
+Message-ID: <55FEC19F.80601@cumulusnetworks.com>
+References: <1442606151-50429-1-git-send-email-sfeldma@gmail.com> <1442606151-50429-8-git-send-email-sfeldma@gmail.com> <55FE0A2C.9040205@cumulusnetworks.com> <CAE4R7bD_FchEJ_HuuJcGx0_fqwjxCG_EsYETogVO6O-6uoLj1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: eran ben elisha <eranlinuxmellanox@gmail.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Richard Yang <weiyang@linux.vnet.ibm.com>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	"talal@mellanox.com" <talal@mellanox.com>
-To: Alexey Kardashevskiy <aik@ozlabs.ru>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:33618 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755293AbbITNvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 09:51:08 -0400
-Received: by oixx17 with SMTP id x17so47116360oix.0
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 06:51:08 -0700 (PDT)
-In-Reply-To: <55F7F5C7.2060509@ozlabs.ru>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34856 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbbITOYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 10:24:35 -0400
+Received: by pacfv12 with SMTP id fv12so94528586pac.2
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2015 07:24:34 -0700 (PDT)
+In-Reply-To: <CAE4R7bD_FchEJ_HuuJcGx0_fqwjxCG_EsYETogVO6O-6uoLj1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 1:41 PM, Alexey Kardashevskiy <aik@ozlabs.ru> wrote:
-> Any luck with that?
+On 9/19/15, 7:21 PM, Scott Feldman wrote:
+> Yes, your switch driver is in user-space so you have to use NTF_USE to
+> refresh the entry since you cannot use the kernel driver model to
+> call_switchdev_notifiers(SWITCHDEV_FDB_ADD, ...).  Consequently, your
+> entries are not marked with NTF_EXT_LEARNED, so this patch is a no-op
+> for you.  You can continue to use the bridge driver to age out your
+> entries.
+yes, correct.  I was not really saying this because it will cause us any 
+problems.
+I was trying to say this for switchdev in general.
 
-I am checking with the team if they can set a PPC node to try and
-reproduce the crash, on x86 they don't see it.
-
-Or.
+> I'd rather someone add that knob when it's actually needed. When the 
+> first in-kernel switchdev driver that wants to use the bridge driver's 
+> ageing function, then we can make that adjustment. 
+I was suggesting the other way around. Keep the default to what is in 
+the kernel today and the first in-kernel switchdev driver that wants to age,
+should introduce the ability to not age in the bridge driver (Rocker 
+will continue to work as it does today). Because, I am only concerned 
+that rocker may end up being the only device that uses the default 
+behavior introduced by this patch. And every real hardware uses the 
+bridge driver to age (because there are no in kernel examples today).  I 
+am curious to know who else is using hardware ageing today.
