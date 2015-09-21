@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: phy: Fix module autoload for OF platform
- drivers
-Date: Mon, 21 Sep 2015 16:11:36 -0700 (PDT)
-Message-ID: <20150921.161136.1004526057855335063.davem@davemloft.net>
-References: <20150918161553.GA25782@goodgumbo.baconseed.org>
+Subject: Re: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for
+ time management
+Date: Mon, 21 Sep 2015 16:12:35 -0700 (PDT)
+Message-ID: <20150921.161235.605756522215336833.davem@davemloft.net>
+References: <87eghyso6u.fsf@belgarion.home>
+	<20150917.145106.1238429841434804906.davem@davemloft.net>
+	<87si6br8ev.fsf@belgarion.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org
-To: luis@debethencourt.com
+Cc: samuel@sortiz.org, petr.cvek@tul.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, arnd@arndb.de
+To: robert.jarzmik@free.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150918161553.GA25782@goodgumbo.baconseed.org>
+In-Reply-To: <87si6br8ev.fsf@belgarion.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Luis de Bethencourt <luis@debethencourt.com>
-Date: Fri, 18 Sep 2015 18:15:53 +0200
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Fri, 18 Sep 2015 18:36:56 +0200
 
-> These patches add the missing MODULE_DEVICE_TABLE() for OF to export
-> the information so modules have the correct aliases built-in and
-> autoloading works correctly.
+> Which brings me to wonder which is the more correct :
+>  (a) replace to reproduce the same calculation
+>      Previously mtt was compared to a difference of 76ns steps (as 307ns / 4 =
+>      76ns):
+>      while ((sched_clock() - si->last_clk) * 76 < mtt)
 > 
-> A longer explanation by Javier Canillas can be found here:
-> https://lkml.org/lkml/2015/7/30/519
+>  (b) change the calculation assuming mtt is in microseconds :
+>      while ((sched_clock() - si->last_clk) * 1000 < mtt)
 > 
-> Sorry if these two patches should've been part of the ethernet series:
-> https://lkml.org/lkml/2015/9/18/567
+> I have no IRDA protocol knowledge so unless someone points me to the correct
+> calculation I'll try my luck with (b).
 
-Series applied, thanks.
+"a" would be "safer" and less likely to break anything, although as
+you say "b" might be more correct.
