@@ -1,59 +1,85 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC net-next v3 3/4] ravb: Document binding for r8a7795
- SoC
-Date: Mon, 21 Sep 2015 09:27:54 +0900
-Message-ID: <20150921002751.GA24857@verge.net.au>
-References: <1442556203-657-1-git-send-email-horms+renesas@verge.net.au>
- <1442556203-657-4-git-send-email-horms+renesas@verge.net.au>
- <CAMuHMdUFMq1szvY=8twhzcM36zyBjDF1fnkNd2kw+s=qxXYVmg@mail.gmail.com>
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: Re: [PATCH] ip: find correct route for socket which is not bound to a
+ device
+Date: Mon, 21 Sep 2015 10:04:59 +0800
+Message-ID: <55FF65CB.1020205@oracle.com>
+References: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
+ <20150917.212000.1163539662854684723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdUFMq1szvY=8twhzcM36zyBjDF1fnkNd2kw+s=qxXYVmg@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39866 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755657AbbIUCDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2015 22:03:36 -0400
+In-Reply-To: <20150917.212000.1163539662854684723.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 18, 2015 at 09:27:11AM +0200, Geert Uytterhoeven wrote:
-> On Fri, Sep 18, 2015 at 8:03 AM, Simon Horman
-> <horms+renesas@verge.net.au> wrote:
-> > From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> > This patch updates the ravb binding to support the r8a7795 SoC by:
-> > - Adding a compat string for the new hardware
-> > - Adding 25 named interrupts to binding for the new SoC;
-> >   older SoCs continue to use a single multiplexed interrupt
-> >
-> > The example is also updated to reflect the r8a7795 as this is the
-> > more complex case.
-> >
-> > Based on work by Kazuya Mizuguchi and others.
-> >
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> 
-> Modulo the minor nit below...
-> 
-> > --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> 
-> > @@ -18,6 +22,12 @@ Required properties:
-> >  Optional properties:
-> >  - interrupt-parent: the phandle for the interrupt controller that services
-> >                     interrupts for this device.
-> > +- interrupt-names: A list of interrupt names.
-> > +                  For the R8A7795 SoC this property is mandatory;
-> > +                  it should include one entry per channel, named "ch%u",
-> > +                  where %u is the channel number ranging from 0 to 24.
-> > +                  For other SoCs this property is optional; if present
-> > +                  is should contain "mux" for a single muxed interrupt.
-> 
-> it
+Hi David,
 
-Thanks, I will fix that.
+Thanks for your review on this.
+
+=E5=9C=A8 2015=E5=B9=B409=E6=9C=8818=E6=97=A5 12:20, David Miller =E5=86=
+=99=E9=81=93:
+> From: Wengang Wang <wen.gang.wang@oracle.com>
+> Date: Wed, 16 Sep 2015 14:34:15 +0800
+>
+>> For multi-cast, we should find valid route(thus get the meaniful pmt=
+u) for
+>> the package on the socket which is not bound to a device(sk_bound_de=
+v_if
+>> being 0) too.
+> Your patch breaks exactly the situation explained in full detail
+> in the huge comment about the first change you are making:
+>
+> 			/* Special hack: user can direct multicasts
+> 			   and limited broadcast via necessary interface
+> 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+> 			   This hack is not just for fun, it allows
+> 			   vic,vat and friends to work.
+> 			   They bind socket to loopback, set ttl to zero
+> 			   and expect that it will work.
+> 			   From the viewpoint of routing cache they are broken,
+> 			   because we are not allowed to build multicast path
+> 			   with loopback source addr (look, routing cache
+> 			   cannot know, that ttl is zero, so that packet
+> 			   will not leave this host and route is valid).
+> 			   Luckily, this hack is good workaround.
+> 			 */
+>
+> That situation will now fail after your patch.
+
+Yes, I noticed the above comment before I made the patch. I have=20
+question regarding that
+comment: Seems it's talking about the loopback source address(loopback=20
+device interface
+is with the index of 1). Do you think we can make something specific to=
+=20
+loopback device and
+let the package with other outbound devices go through the routing cach=
+e?
+
+
+> So I cannot apply this patch, sorry.
+>
+> I know what you want, you want to end up with a cached route that
+> will track the PMTU.
+Yes, that's exactly what I want.
+Actually the user space can work fine by adding a syscall=20
+setsockopt(..., SO_BINDTODEVICE, ..) to
+bind socket to the device. Well, the problem here is that there are a=20
+lot of user space applications which
+don't bind sockets and they are working fine with old kernel(2.6.39).=20
+When moving to new kernel(4.x),
+the problem appeared. And seems it's hard for force all of them change=20
+to bind sockets and recompile.
+  -- that's the pain.  Do you have any idea which won't break the=20
+existing hack but can help with my case?
+
+thanks,
+wengang
