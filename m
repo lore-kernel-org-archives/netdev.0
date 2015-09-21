@@ -1,47 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 05/15] RDS: increase size of hash-table to 8K
-Date: Mon, 21 Sep 2015 16:05:27 -0700 (PDT)
-Message-ID: <20150921.160527.1218605543469993281.davem@davemloft.net>
-References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
-	<1442703892-26692-6-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH 0/6] net: Fix module autoload for OF platform drivers
+Date: Mon, 21 Sep 2015 16:09:56 -0700 (PDT)
+Message-ID: <20150921.160956.1076951919224201109.davem@davemloft.net>
+References: <20150918155332.GA24705@goodgumbo.baconseed.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: santosh.shilimkar@oracle.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, richardcochran@gmail.com, wsa@the-dreams.de,
+	joe@perches.com, tklauser@distanz.ch
+To: luis@debethencourt.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442703892-26692-6-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <20150918155332.GA24705@goodgumbo.baconseed.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Sat, 19 Sep 2015 19:04:42 -0400
+From: Luis de Bethencourt <luis@debethencourt.com>
+Date: Fri, 18 Sep 2015 17:53:32 +0200
 
-> Even with per bucket locking scheme, in a massive parallel
-> system with active rds sockets which could be in excess of multiple
-> of 10K, rds_bin_lookup() workload is siginificant because of smaller
-> hashtable size.
+> Hi,
 > 
-> With some tests, it was found that we get modest but still nice
-> reduction in rds_bind_lookup with bigger bucket.
+> These patches add the missing MODULE_DEVICE_TABLE() for OF to export
+> the information so modules have the correct aliases built-in and
+> autoloading works correctly.
 > 
-> 	Hashtable	Baseline(1k)	Delta
-> 	2048:		8.28%     	-2.45%
-> 	4096:		8.28%		-4.60%
-> 	8192:		8.28%		-6.46%
-> 	16384:		8.28%		-6.75%
-> 
-> Based on the data, we set 8K as the bind hash-table size.
-> 
-> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> A longer explanation by Javier Canillas can be found here:
+> https://lkml.org/lkml/2015/7/30/519
 
-Like others I would strongly prefer that you use a dynamically sized
-hash table.
-
-Eating 8k just because a module just happened to get loaded is really
-not appropriate.
-
-And there are many other places that use such a scheme, one example is
-the AF_NETLINK socket hash table.
+ks8851 already has this issue fixed, thus rest of series
+applied, thanks.
