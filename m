@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for
- time management
-Date: Mon, 21 Sep 2015 16:12:35 -0700 (PDT)
-Message-ID: <20150921.161235.605756522215336833.davem@davemloft.net>
-References: <87eghyso6u.fsf@belgarion.home>
-	<20150917.145106.1238429841434804906.davem@davemloft.net>
-	<87si6br8ev.fsf@belgarion.home>
+Subject: Re: [PATCH] usbnet: New driver for QinHeng CH9200 devices
+Date: Mon, 21 Sep 2015 16:17:11 -0700 (PDT)
+Message-ID: <20150921.161711.629698208228095818.davem@davemloft.net>
+References: <1442741138-8193-1-git-send-email-mjg59@coreos.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, petr.cvek@tul.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, arnd@arndb.de
-To: robert.jarzmik@free.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87si6br8ev.fsf@belgarion.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, oneukum@suse.com, mjg59@srcf.ucam.org
+To: mjg59@coreos.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56332 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757197AbbIUXRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 19:17:12 -0400
+In-Reply-To: <1442741138-8193-1-git-send-email-mjg59@coreos.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Date: Fri, 18 Sep 2015 18:36:56 +0200
+From: Matthew Garrett <mjg59@coreos.com>
+Date: Sun, 20 Sep 2015 02:25:38 -0700
 
-> Which brings me to wonder which is the more correct :
->  (a) replace to reproduce the same calculation
->      Previously mtt was compared to a difference of 76ns steps (as 307ns / 4 =
->      76ns):
->      while ((sched_clock() - si->last_clk) * 76 < mtt)
+> From: Matthew Garrett <mjg59@srcf.ucam.org>
 > 
->  (b) change the calculation assuming mtt is in microseconds :
->      while ((sched_clock() - si->last_clk) * 1000 < mtt)
+> There's a bunch of cheap USB 10/100 devices based on QinHeng chipsets. The
+> vendor driver supports the CH9100 and CH9200 devices, but the majority of
+> the code is of the if (ch9100) {} else {} form, with the most significant
+> difference being that CH9200 provides a real MII interface but CH9100 fakes
+> one with a bunch of global variables and magic commands. I don't have a
+> CH9100, so it's probably better if someone who does provides an independent
+> driver for it. In any case, this is a lightly cleaned up version of the
+> vendor driver with all the CH9100 code dropped.
 > 
-> I have no IRDA protocol knowledge so unless someone points me to the correct
-> calculation I'll try my luck with (b).
+> Signed-off-by: Matthew Garrett <mjg59@srcf.ucam.org>
 
-"a" would be "safer" and less likely to break anything, although as
-you say "b" might be more correct.
+Applied, thanks.
