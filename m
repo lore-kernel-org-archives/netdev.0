@@ -1,65 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: actually force the speed on the CPU port
-Date: Sun, 20 Sep 2015 21:36:30 -0700 (PDT)
-Message-ID: <20150920.213630.1367205638417597647.davem@davemloft.net>
-References: <E1ZbSZE-0007KQ-HO@rmk-PC.arm.linux.org.uk>
+Subject: Re: [PATCH net] bna: check for dma mapping errors
+Date: Sun, 20 Sep 2015 21:37:13 -0700 (PDT)
+Message-ID: <20150920.213713.2280384805982820360.davem@davemloft.net>
+References: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org
-To: rmk+kernel@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48467 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48471 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280AbbIUEgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:36:31 -0400
-In-Reply-To: <E1ZbSZE-0007KQ-HO@rmk-PC.arm.linux.org.uk>
+	with ESMTP id S1751903AbbIUEhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:37:14 -0400
+In-Reply-To: <1442410063-30635-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Mon, 14 Sep 2015 13:09:04 +0100
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Wed, 16 Sep 2015 15:27:43 +0200
 
-> Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
-> code into mv88e6xxx.") merged in the 4.2 merge window broke the link
-> speed forcing for the CPU port of Marvell DSA switches.  The original
-> code was:
+> Check for DMA mapping errors, recover from them and register them in
+> ethtool stats like other errors.
 > 
->         /* MAC Forcing register: don't force link, speed, duplex
->          * or flow control state to any particular values on physical
->          * ports, but force the CPU port and all DSA ports to 1000 Mb/s
->          * full duplex.
->          */
->         if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
->                 REG_WRITE(addr, 0x01, 0x003e);
->         else
->                 REG_WRITE(addr, 0x01, 0x0003);
-> 
-> but the new code does a read-modify-write:
-> 
->                 reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
->                 if (dsa_is_cpu_port(ds, port) ||
->                     ds->dsa_port_mask & (1 << port)) {
->                         reg |= PORT_PCS_CTRL_FORCE_LINK |
->                                 PORT_PCS_CTRL_LINK_UP |
->                                 PORT_PCS_CTRL_DUPLEX_FULL |
->                                 PORT_PCS_CTRL_FORCE_DUPLEX;
->                         if (mv88e6xxx_6065_family(ds))
->                                 reg |= PORT_PCS_CTRL_100;
->                         else
->                                 reg |= PORT_PCS_CTRL_1000;
-> 
-> The link speed in the PCS control register is a two bit field.  Forcing
-> the link speed in this way doesn't ensure that the bit field is set to
-> the correct value - on the hardware I have here, the speed bitfield
-> remains set to 0x03, resulting in the speed not being forced to gigabit.
-> 
-> We must clear both bits before forcing the link speed.
-> 
-> Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-This code looks really different now in the current tree, can you
-please respin?
-
-Thanks.
+Applied, thanks.
