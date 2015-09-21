@@ -1,31 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip: find correct route for socket which is not bound
- to a device
-Date: Sun, 20 Sep 2015 21:22:44 -0700 (PDT)
-Message-ID: <20150920.212244.2117861245279846276.davem@davemloft.net>
-References: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
-	<20150917.212000.1163539662854684723.davem@davemloft.net>
-	<55FF65CB.1020205@oracle.com>
+Subject: Re: [PATCH] net: dsa: actually force the speed on the CPU port
+Date: Sun, 20 Sep 2015 21:36:30 -0700 (PDT)
+Message-ID: <20150920.213630.1367205638417597647.davem@davemloft.net>
+References: <E1ZbSZE-0007KQ-HO@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wen.gang.wang@oracle.com
+Cc: andrew@lunn.ch, netdev@vger.kernel.org
+To: rmk+kernel@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48425 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48467 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbbIUEWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:22:45 -0400
-In-Reply-To: <55FF65CB.1020205@oracle.com>
+	with ESMTP id S1751280AbbIUEgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:36:31 -0400
+In-Reply-To: <E1ZbSZE-0007KQ-HO@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Date: Mon, 21 Sep 2015 10:04:59 +0800
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Mon, 14 Sep 2015 13:09:04 +0100
 
->  Do you have any idea which won't break the existing
->  -- hack but can help with my case?
+> Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
+> code into mv88e6xxx.") merged in the 4.2 merge window broke the link
+> speed forcing for the CPU port of Marvell DSA switches.  The original
+> code was:
+> 
+>         /* MAC Forcing register: don't force link, speed, duplex
+>          * or flow control state to any particular values on physical
+>          * ports, but force the CPU port and all DSA ports to 1000 Mb/s
+>          * full duplex.
+>          */
+>         if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
+>                 REG_WRITE(addr, 0x01, 0x003e);
+>         else
+>                 REG_WRITE(addr, 0x01, 0x0003);
+> 
+> but the new code does a read-modify-write:
+> 
+>                 reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
+>                 if (dsa_is_cpu_port(ds, port) ||
+>                     ds->dsa_port_mask & (1 << port)) {
+>                         reg |= PORT_PCS_CTRL_FORCE_LINK |
+>                                 PORT_PCS_CTRL_LINK_UP |
+>                                 PORT_PCS_CTRL_DUPLEX_FULL |
+>                                 PORT_PCS_CTRL_FORCE_DUPLEX;
+>                         if (mv88e6xxx_6065_family(ds))
+>                                 reg |= PORT_PCS_CTRL_100;
+>                         else
+>                                 reg |= PORT_PCS_CTRL_1000;
+> 
+> The link speed in the PCS control register is a two bit field.  Forcing
+> the link speed in this way doesn't ensure that the bit field is set to
+> the correct value - on the hardware I have here, the speed bitfield
+> remains set to 0x03, resulting in the speed not being forced to gigabit.
+> 
+> We must clear both bits before forcing the link speed.
+> 
+> Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Although I am obligated to find deficiencies and shortcomings in your
-submissions, I am not obligated to design or implement your changes
-correctly for you, sorry.
+This code looks really different now in the current tree, can you
+please respin?
+
+Thanks.
