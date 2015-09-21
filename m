@@ -1,70 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
- show table id
-Date: Mon, 21 Sep 2015 16:23:13 -0600
-Message-ID: <56008351.7010005@cumulusnetworks.com>
-References: <56007695.3070003@cumulusnetworks.com>
- <20150921.145800.1946648892912159723.davem@davemloft.net>
- <56007E94.8000506@cumulusnetworks.com>
- <20150921.150346.926573540048522271.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
+Date: Tue, 22 Sep 2015 00:25:38 +0200
+Message-ID: <20150921222538.GA31246@pox.localdomain>
+References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
+ <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36807 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932632AbbIUWXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:23:08 -0400
-Received: by padbj2 with SMTP id bj2so3264671pad.3
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 15:23:07 -0700 (PDT)
-In-Reply-To: <20150921.150346.926573540048522271.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kcc@google.com,
+	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/21/15 4:03 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Mon, 21 Sep 2015 16:03:00 -0600
->
->> On 9/21/15 3:58 PM, David Miller wrote:
->>> I think if it always gave MAIN in older kernels, iproute should
->>> continue
->>> to do so.
->>>
->>> You can't just remove the table ID output just because you disagree
->>> with
->>> the semantics given by old kernels.
->>>
->>
->> Current semantics are maintained. Kernel was hardcoded to return main;
->> iproute2 was hardcoded to not show main.
->
-> Since iproute2 always showed MAIN, it should conitnue to do so when
-> run on older kernels.
->
-> And again this is regardless of whether you disagree with those
-> semantics or not.
->
+On 09/21/15 at 07:51am, Eric Dumazet wrote:
+> The important part here is that we rehash an item, so we need to make
+> sure to maintain consistent ->next field, and need to prevent compiler
+> from using ->next as a temporary variable.
+> 
+> ptr->next = 1UL | ((base + offset) << 1);
+> 
+> Is dangerous because compiler could issue :
+> 
+> ptr->next = (base + offset);
+> 
+> ptr->next <<= 1;
+> 
+> ptr->next += 1UL;
+> 
+> Frankly, all this looks like an oversight in this code.
+> 
+> Not sure why the NULLS value is even recomputed.
 
-Dave:
+The hash of the chain is part of the NULLS value. Since the
+entry might have been moved to a different chain, the NULLS
+value must be recalculated to contain the proper hash.
 
-ip does *not* show the table id or string today:
-
-root@vm-wheezy2:~# ip route get 10.2.1.254
-10.2.1.254 dev eth1 src 10.2.1.2
-cache
-
-
-With the new flag a AND kernel that supports it ip will only show the 
-table id IF it is not main:
-
-root@vm-wheezy2:~# ./ip route get 10.0.0.20
-10.0.0.20 dev eth0  src 10.0.0.2
-     cache
-
-root@vm-wheezy2:~# ./ip route get 10.2.1.254
-10.2.1.254 dev eth1  table 10  src 10.2.1.2
-     cache
-
-That's my point. I have not changed existing users.
+However, nobody is using the hash today as far as I can
+see so we could as well just remove it and use the base
+value only for the nulls marker.
