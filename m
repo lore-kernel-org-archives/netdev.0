@@ -1,42 +1,34 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
-Date: Mon, 21 Sep 2015 18:53:33 -0400
-Message-ID: <20150921225333.GE3861@oracle.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
- <20150921122422.GA31092@oracle.com>
- <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
- <20150921212624.GD3861@oracle.com>
- <CALx6S349QY_U8KVtnwDc_yFMXdZ9h1WvnpjWU9FYPTNuQ0yt7w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth-next 2015-09-18
+Date: Mon, 21 Sep 2015 16:01:03 -0700 (PDT)
+Message-ID: <20150921.160103.1885364190620809968.davem@davemloft.net>
+References: <20150918105455.GA12472@t440s.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:47369 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932422AbbIUWxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:53:42 -0400
-Content-Disposition: inline
-In-Reply-To: <CALx6S349QY_U8KVtnwDc_yFMXdZ9h1WvnpjWU9FYPTNuQ0yt7w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56098 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932632AbbIUXBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 19:01:06 -0400
+In-Reply-To: <20150918105455.GA12472@t440s.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (09/21/15 15:36), Tom Herbert wrote:
-> segments. What we need to do, which you're probably doing for RDS, is
-> do message delineation on the stream as a sequence of:
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Fri, 18 Sep 2015 13:54:55 +0300
+
+> Here's the first bluetooth-next pull request for the 4.4 kernel:
 > 
-> 1) Read protocol header to determine message length (BPF used here)
+>  - ieee802154 cleanups & fixes
+>  - debugfs support for the at86rf230 driver
+>  - Support for quirky (seemingly counterfeit) CSR Bluetooth controllers
+>  - Power management and device config improvements for Intel controllers
+>  - Fix for devices with incorrect advertising data length
+>  - Fix for closing HCI user channel socket
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-right, that's what rds does- first reads the sizeof(rds_header),
-and from that, figures out payload len, to stitch each rds dgram 
-together from intermediate tcp segments..
-
-> 2) Read data up to the length of the message
-> 3) Deliver message
-> 4) Goto #1 (i.e. process next message in the stream).
-
-Thanks for the rest of the responses.
-
---Sowmini
+Pulled, thanks Johan.
