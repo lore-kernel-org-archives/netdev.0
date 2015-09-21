@@ -1,160 +1,142 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 7/7] 8139cp: Avoid gratuitous writes to TxPoll register when
- already running
-Date: Mon, 21 Sep 2015 15:05:40 +0100
-Message-ID: <1442844340.7367.19.camel@infradead.org>
-References: <1442843991.7367.4.camel@infradead.org>
+Subject: Re: [PATCH 2/2] 8139cp: Call __cp_set_rx_mode() from cp_tx_timeout()
+Date: Mon, 21 Sep 2015 15:11:55 +0100
+Message-ID: <1442844715.7367.26.camel@infradead.org>
+References: <1442531948.97487.8.camel@infradead.org>
+	 <1442532114.97487.11.camel@infradead.org>
+	 <20150920.222419.405045524676501807.davem@davemloft.net>
+	 <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-m4qo/7prbzZiFgQ+zMZW"
-Cc: romieu@fr.zoreil.com
-To: netdev@vger.kernel.org
+	boundary="=-XOUX/+3afaw9RSmzAjyb"
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:48818 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:46300 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077AbbIUOFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:05:44 -0400
+	with ESMTP id S932757AbbIUOL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:11:59 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-m4qo/7prbzZiFgQ+zMZW
+--=-XOUX/+3afaw9RSmzAjyb
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-From: David Woodhouse <David.Woodhouse@intel.com>
+On Mon, 2015-09-21 at 14:59 +0100, David Woodhouse wrote:
 
-This is a minor optimisation, but as a side-effect it means we can know
-precisely which descriptors were already in the ring when we last
-prodded it to run.
+> After which, I think we might be able to turn on TX checksumming by
+> default and I also have a way to implement early detection of the TX
+> stall I've been seeing.
 
-This will give us a better chance to catch the case where we get a
-TxEmpty interrupt when it hasn't actually finished the descriptors we
-*know* it should have seen, before it ends up being a full-blown TX
-timeout and reset.
+This is a patch I've been playing with to catch the TX stall.
 
-Since QEMU's emulation doesn't give TxEmpty interrupts, *always* bash on
-TxPoll until we see the first TxEmpty interrupt and cp->txempty_seen
-gets set.
+When it happens we get a TxEmpty interrupt *without* TxDone.
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
----
-I'm actually having second thoughts about this one since realising that
-QEMU doesn't implement it correctly. The workaround isn't *that* horrid
-but it's not clear it's enough of a performance win =E2=80=94 or whether it=
-'s
-entirely necessary for catching my TX stall.
+After loading the driver, we never get TxEmpty without TxDone until the
+problem has happened. I've got a minimal cp_tx_timeout() which just
+clears the TxOn bit in the Cmd register and turns it back on again,
+after moving the descriptors all down to the start of the TX ring.
 
- drivers/net/ethernet/realtek/8139cp.c | 37 +++++++++++++++++++++++++++++--=
-----
- 1 file changed, 31 insertions(+), 6 deletions(-)
+Strangely, *after* this has happened we do see a lot of instances of
+TxEmpty without TxDone. But then the TxDone usually comes immediately
+afterwards. Until the driver is reloaded, at which point the next
+instance of TxEmpty without TxDone *is* the hardware stalling again.
+
+I'm very confused about what's going on there. I think I possibly need
+to set a timer when the TxEmpty/!TxDone interrupt happens, and do a
+preemptive reset of the TX queue (as shown below) if the timer manages
+to expire before the TxDone actually happens.
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 6feff9f..67a4fcf 100644
+index 67a4fcf..64b44ec 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -340,6 +340,9 @@ struct cp_private {
+@@ -592,8 +592,8 @@ static irqreturn_t cp_interrupt (int irq, void *dev_ins=
+tance)
+ 	if (!status || (status =3D=3D 0xFFFF))
+ 		goto out_unlock;
 =20
- 	unsigned		tx_head		____cacheline_aligned;
- 	unsigned		tx_tail;
-+	unsigned		tx_running;
-+	unsigned		txempty_seen;
-+
- 	struct cp_desc		*tx_ring;
- 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
- 	u32			tx_opts[CP_TX_RING_SIZE];
-@@ -611,6 +614,22 @@ static irqreturn_t cp_interrupt (int irq, void *dev_in=
+-	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
+-		  status, cpr8(Cmd), cpr16(CpCmd));
++	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x desc %04x=
+\n",
++		  status, cpr8(Cmd), cpr16(CpCmd), cpr16(TxDmaOkLowDesc));
+=20
+ 	cpw16(IntrStatus, status & ~cp_rx_intr_mask);
+=20
+@@ -623,6 +623,10 @@ static irqreturn_t cp_interrupt (int irq, void *dev_in=
 stance)
- 	if (status & (TxOK | TxErr | TxEmpty | SWInt))
- 		handled |=3D cp_tx(cp);
-=20
-+	if ((status & TxEmpty) && cp->tx_running) {
-+		handled =3D 1;
-+		/* Qemu's emulation doesn't give TxEmpty interrupts */
-+		cp->txempty_seen =3D 1;
-+		if (cp->tx_head =3D=3D cp->tx_tail) {
-+			/* Out of descriptors and we have nothing more for it.
-+			   Let it stop. */
-+			cp->tx_running =3D 0;
-+		} else {
-+			/* The hardware raced with us adding a new descriptor,
-+			   and we didn't get the TxEmpty IRQ in time so we
-+			   didn't prod it. Prod it now to restart. */
-+			cpw8(TxPoll, NormalTxPoll);
+ 			   Let it stop. */
+ 			cp->tx_running =3D 0;
+ 		} else {
++			if (!(status & (TxOK | TxErr)))
++				netdev_warn(dev, "TxEmpty without TxDone. h %d t %d d %04x\n",
++					    cp->tx_head, cp->tx_tail, cpr16(TxDmaOkLowDesc));
++
+ 			/* The hardware raced with us adding a new descriptor,
+ 			   and we didn't get the TxEmpty IRQ in time so we
+ 			   didn't prod it. Prod it now to restart. */
+@@ -1307,12 +1311,49 @@ static void cp_tx_timeout(struct net_device *dev)
+ 			  le64_to_cpu(cp->tx_ring[i].addr),
+ 			  cp->tx_skb[i]);
+ 	}
+-
++#if 1
++	/* Stop the TX (which is already stopped), move the
++	   descriptors down, and start it again */
++	cpw8_f(Cmd, RxOn);
++	if (cp->tx_tail =3D=3D 0) {
++		/* Do nothing */
++	} else if (cp->tx_head > cp->tx_tail) {
++		for (i =3D 0; i < cp->tx_head - cp->tx_tail; i++) {
++			int from =3D i + cp->tx_tail;
++			cp->tx_ring[i].addr =3D cp->tx_ring[from].addr;
++			cp->tx_ring[i].opts2 =3D cp->tx_ring[from].opts2;
++			cp->tx_ring[i].opts1 =3D cp->tx_ring[from].opts1;
++			cp->tx_ring[from].opts1 &=3D ~cpu_to_le32(DescOwn);
++			cp->tx_opts[i] =3D cp->tx_opts[from];
++			cp->tx_skb[i] =3D cp->tx_skb[from];
++			cp->tx_skb[from] =3D NULL;
++			printk("Ring move %d->%d\n", from, i);
++		}
++	} else {
++		for (i =3D cp->tx_tail - cp->tx_head - 1; i >=3D 0; i--) {
++			int from =3D (i + cp->tx_tail) & (CP_TX_RING_SIZE - 1);
++			cp->tx_ring[i].addr =3D cp->tx_ring[from].addr;
++			cp->tx_ring[i].opts2 =3D cp->tx_ring[from].opts2;
++			cp->tx_ring[i].opts1 =3D cp->tx_ring[from].opts1;
++			cp->tx_ring[from].opts1 &=3D ~cpu_to_le32(DescOwn);
++			cp->tx_opts[i] =3D cp->tx_opts[from];
++			cp->tx_skb[i] =3D cp->tx_skb[from];
++			cp->tx_skb[from] =3D NULL;
++			printk("Ring move %d->%d\n", from, i);
 +		}
 +	}
-+
- 	if (status & LinkChg) {
- 		handled =3D 1;
- 		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
-@@ -796,8 +815,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
++	cpw8_f(Cmd, RxOn|TxOn);
++	cp->tx_head =3D (cp->tx_head - cp->tx_tail) & (CP_TX_RING_SIZE - 1);
++	cp->tx_tail =3D 0;
++	printk("head %d tail %d\n", cp->tx_head, cp->tx_tail);
++	cpw8(TxPoll, NormalTxPoll);
++#else
+ 	cp_stop_hw(cp);
+ 	cp_clean_rings(cp);
+ 	rc =3D cp_init_rings(cp);
+ 	cp_start_hw(cp);
+ 	__cp_set_rx_mode(dev);
++#endif
+ 	cpw16_f(IntrMask, cp_norx_intr_mask);
 =20
- 		cp->tx_skb[entry] =3D skb;
- 		cp->tx_opts[entry] =3D flags;
--		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
--			  entry, skb->len);
-+		netif_dbg(cp, tx_queued, cp->dev,
-+			  "tx queued, slot %d, skblen %d r %d\n",
-+			  entry, skb->len, cp->tx_running);
- 	} else {
- 		struct cp_desc *txd;
- 		u32 first_len, first_eor, ctrl;
-@@ -886,8 +906,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		wmb();
-=20
- 		cp->tx_opts[first_entry] =3D ctrl;
--		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
--			  first_entry, entry, skb->len);
-+		netif_dbg(cp, tx_queued, cp->dev,
-+			  "tx queued, slots %d-%d, skblen %d r %d\n",
-+			  first_entry, entry, skb->len, cp->tx_running);
- 	}
- 	cp->tx_head =3D NEXT_TX(entry);
-=20
-@@ -895,11 +916,13 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
-,
- 	if (TX_BUFFS_AVAIL(cp) <=3D (MAX_SKB_FRAGS + 1))
- 		netif_stop_queue(dev);
-=20
-+	if (!cp->tx_running || !cp->txempty_seen) {
-+		cpw8(TxPoll, NormalTxPoll);
-+		cp->tx_running =3D 1;
-+	}
- out_unlock:
- 	spin_unlock_irqrestore(&cp->lock, intr_flags);
-=20
--	cpw8(TxPoll, NormalTxPoll);
--
- 	return NETDEV_TX_OK;
- out_dma_error:
- 	dev_kfree_skb_any(skb);
-@@ -989,6 +1012,7 @@ static void cp_stop_hw (struct cp_private *cp)
-=20
- 	cp->rx_tail =3D 0;
- 	cp->tx_head =3D cp->tx_tail =3D 0;
-+	cp->tx_running =3D 0;
-=20
- 	netdev_reset_queue(cp->dev);
- }
-@@ -1041,6 +1065,7 @@ static inline void cp_start_hw (struct cp_private *cp=
-)
- 	 * This variant appears to work fine.
- 	 */
- 	cpw8(Cmd, RxOn | TxOn);
-+	cp->tx_running =3D 0;
-=20
- 	netdev_reset_queue(cp->dev);
- }
---=20
-2.4.3
+ 	netif_wake_queue(dev);
 
 --=20
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+dwmw2
 
---=-m4qo/7prbzZiFgQ+zMZW
+
+--=-XOUX/+3afaw9RSmzAjyb
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -247,18 +229,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwNTQwWjAjBgkqhkiG9w0BCQQxFgQUV+PWvxqajiOVj8BZObrYaLphXDEw
+CQUxDxcNMTUwOTIxMTQxMTU1WjAjBgkqhkiG9w0BCQQxFgQU3Lb4MZ1BTN2Bs2y/UJ5yASgbAygw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQCaoVjosSikmocKnAijt/9KoNC+IMv5wNjK+PwNayx6ZnpP0ogl+vuVdwUr
-0LKYOLNAYlKtr85n7MZIBrYEvRep3O73EXJioI5iyE8EbMFNN98/knvZG6tKjHB5i3u2C1iI2Ypb
-Te7D7YDsqvYNa69y74U+l9w6GeY+1SfTFgupJDIM1TDQB9T/2v5jTTx3/AVm7gZ0m8Svc9U/dCgL
-MjP79S6JYnRXgbgWTOCdQNSwfWdlHd7374exQaUfkXDPJ2boKNcXJcv0eZOfRdaqIRz8J2b8cGGT
-FTixyr8CXPgvKIhwDmYa26Z2SZ0Knx414JP/UeGrd+o6Cvix/DYIWxYhAAAAAAAA
+hkiG9w0BAQEFAASCAQAF8Qz0l8gj8OV64/oXefw45JrDZX/fcYkvRmk1cbsBMNeqIJnG8LZC20aO
+urcFIQCFzrXCEutKEMr/lnW2uOTiV2hkZmafCVojxR23CwRPfK6FcJCKOYwfZI3pP+POe7CrKp+q
+f7HXojdu5vqHp+j7LdvYfhVajcohaPo5tnKIbKY5bZrUxyS1b9UdOmOPyd9sAY/WV73/zqxGDGS1
+gCrveehhiofDwWmYMTr8D55RwRGS4ddKSJnuoQDR5SxI0ZJQXkM3u0VzinqEpFOEfDVABzhRCxgZ
+zmeKFhTybQdLHXpuKUbla56tQWIDRU38ELpl6A6AQJ8I0SFIBKSj3fs/AAAAAAAA
 
 
---=-m4qo/7prbzZiFgQ+zMZW--
+--=-XOUX/+3afaw9RSmzAjyb--
