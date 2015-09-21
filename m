@@ -1,75 +1,54 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Subject: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND flag
-Date: Mon, 21 Sep 2015 16:47:09 +0100
-Message-ID: <1442850433-5903-14-git-send-email-sudeep.holla@arm.com>
-References: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
-Cc: Sudeep Holla <sudeep.holla@arm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Kevin Hao <haokexin@gmail.com>, netdev@vger.kernel.org
-To: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH 05/15] RDS: increase size of hash-table to 8K
+Date: Mon, 21 Sep 2015 08:52:07 -0700
+Message-ID: <560027A7.4040002@oracle.com>
+References: <1442703892-26692-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1442703892-26692-6-git-send-email-santosh.shilimkar@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB9BCF3@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ssantosh@kernel.org" <ssantosh@kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB9BCF3@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device is set as wakeup capable using proper wakeup API but the
-driver misuses IRQF_NO_SUSPEND to set the interrupt as wakeup source
-which is incorrect.
+On 9/21/2015 1:31 AM, David Laight wrote:
+> From: Santosh Shilimkar
+>> Sent: 20 September 2015 00:05
+>> Even with per bucket locking scheme, in a massive parallel
+>> system with active rds sockets which could be in excess of multiple
+>> of 10K, rds_bin_lookup() workload is significant because of smaller
+>> hashtable size.
+>>
+>> With some tests, it was found that we get modest but still nice
+>> reduction in rds_bind_lookup with bigger bucket.
+>>
+>> 	Hashtable	Baseline(1k)	Delta
+>> 	2048:		8.28%     	-2.45%
+>> 	4096:		8.28%		-4.60%
+>> 	8192:		8.28%		-6.46%
+>> 	16384:		8.28%		-6.75%
+>>
+>> Based on the data, we set 8K as the bind hash-table size.
+>
+> Can't you use of on the dynamically sizing hash tables?
+> 8k hash table entries is OTT for a lot of systems.
+>
+Do you know an example in Linux kernel uses that ? What I
+certainly don't want is over-head of re-sizing whenever
+that happens in running systems running multiple databases.
 
-This patch removes the use of IRQF_NO_SUSPEND flags replacing it with
-enable_irq_wake instead.
+Memory is certainly not an issue on the systems where RDS
+has been deployed. I certainly don't want to over-use the
+memory but in the system where RDS being used and also
+amount of connection it needs to handle, it needs
+bigger bucket.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-Cc: Kevin Hao <haokexin@gmail.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4b69d061d90f..803ed4c93503 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1970,8 +1970,7 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
- 		/* Install our interrupt handlers for Error,
- 		 * Transmit, and Receive
- 		 */
--		err = request_irq(gfar_irq(grp, ER)->irq, gfar_error,
--				  IRQF_NO_SUSPEND,
-+		err = request_irq(gfar_irq(grp, ER)->irq, gfar_error, 0,
- 				  gfar_irq(grp, ER)->name, grp);
- 		if (err < 0) {
- 			netif_err(priv, intr, dev, "Can't get IRQ %d\n",
-@@ -1979,6 +1978,8 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
- 
- 			goto err_irq_fail;
- 		}
-+		enable_irq_wake(gfar_irq(grp, ER)->irq);
-+
- 		err = request_irq(gfar_irq(grp, TX)->irq, gfar_transmit, 0,
- 				  gfar_irq(grp, TX)->name, grp);
- 		if (err < 0) {
-@@ -1994,14 +1995,14 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
- 			goto rx_irq_fail;
- 		}
- 	} else {
--		err = request_irq(gfar_irq(grp, TX)->irq, gfar_interrupt,
--				  IRQF_NO_SUSPEND,
-+		err = request_irq(gfar_irq(grp, TX)->irq, gfar_interrupt, 0,
- 				  gfar_irq(grp, TX)->name, grp);
- 		if (err < 0) {
- 			netif_err(priv, intr, dev, "Can't get IRQ %d\n",
- 				  gfar_irq(grp, TX)->irq);
- 			goto err_irq_fail;
- 		}
-+		enable_irq_wake(gfar_irq(grp, TX)->irq);
- 	}
- 
- 	return 0;
--- 
-1.9.1
+Regards,
+Santosh
