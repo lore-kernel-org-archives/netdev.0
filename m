@@ -1,54 +1,142 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 2/2] 8139cp: Call __cp_set_rx_mode() from cp_tx_timeout()
-Date: Mon, 21 Sep 2015 14:59:51 +0100
-Message-ID: <1442843991.7367.4.camel@infradead.org>
-References: <1442531948.97487.8.camel@infradead.org>
-	 <1442532114.97487.11.camel@infradead.org>
-	 <20150920.222419.405045524676501807.davem@davemloft.net>
+Subject: [PATCH 1/7] 8139cp: Improve accuracy of cp_interrupt() return, to
+ survive IRQ storms
+Date: Mon, 21 Sep 2015 15:01:49 +0100
+Message-ID: <1442844109.7367.5.camel@infradead.org>
+References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-9NX68ln424ryr85zwAOK"
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: David Miller <davem@davemloft.net>
+	boundary="=-POVtiSm9AzR9aYzeTjQ+"
+Cc: romieu@fr.zoreil.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:43039 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:43888 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756283AbbIUN7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 09:59:55 -0400
-In-Reply-To: <20150920.222419.405045524676501807.davem@davemloft.net>
+	with ESMTP id S932077AbbIUOBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:01:52 -0400
+In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-9NX68ln424ryr85zwAOK
+--=-POVtiSm9AzR9aYzeTjQ+
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2015-09-20 at 22:24 -0700, David Miller wrote:
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Fri, 18 Sep 2015 00:21:54 +0100
->=20
-> > Unless we reset the RX config, on real hardware I don't seem to
-> receive
-> > any packets after a TX timeout.
-> >=20
-> > Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
->=20
-> Applied.
+From: David Woodhouse <David.Woodhouse@intel.com>
 
-Thanks. I'll send another batch, including the original patches 3/2 and
-4/3 from this series, in reply to this message.
+The TX timeout handling has been observed to trigger RX IRQ storms. And
+since cp_interrupt() just keeps saying that it handled the interrupt,
+the machine then dies. Fix the return value from cp_interrupt(), and
+the offending IRQ gets disabled and the machine survives.
 
-After which, I think we might be able to turn on TX checksumming by
-default and I also have a way to implement early detection of the TX
-stall I've been seeing.
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 25 ++++++++++++++++---------
+ 1 file changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
+ealtek/8139cp.c
+index ba3dab7..f1054ad 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -371,7 +371,7 @@ struct cp_private {
+=20
+=20
+ static void __cp_set_rx_mode (struct net_device *dev);
+-static void cp_tx (struct cp_private *cp);
++static int cp_tx (struct cp_private *cp);
+ static void cp_clean_rings (struct cp_private *cp);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void cp_poll_controller(struct net_device *dev);
+@@ -587,8 +587,6 @@ static irqreturn_t cp_interrupt (int irq, void *dev_ins=
+tance)
+ 	if (!status || (status =3D=3D 0xFFFF))
+ 		goto out_unlock;
+=20
+-	handled =3D 1;
+-
+ 	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
+ 		  status, cpr8(Cmd), cpr16(CpCmd));
+=20
+@@ -596,25 +594,30 @@ static irqreturn_t cp_interrupt (int irq, void *dev_i=
+nstance)
+=20
+ 	/* close possible race's with dev_close */
+ 	if (unlikely(!netif_running(dev))) {
++		handled =3D 1;
+ 		cpw16(IntrMask, 0);
+ 		goto out_unlock;
+ 	}
+=20
+-	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr))
++	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr)) {
+ 		if (napi_schedule_prep(&cp->napi)) {
++			handled =3D 1;
+ 			cpw16_f(IntrMask, cp_norx_intr_mask);
+ 			__napi_schedule(&cp->napi);
+ 		}
+-
++	}
+ 	if (status & (TxOK | TxErr | TxEmpty | SWInt))
+-		cp_tx(cp);
+-	if (status & LinkChg)
+-		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
++		handled |=3D cp_tx(cp);
+=20
++	if (status & LinkChg) {
++		handled =3D 1;
++		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
++	}
+=20
+ 	if (status & PciErr) {
+ 		u16 pci_status;
+=20
++		handled =3D 1;
+ 		pci_read_config_word(cp->pdev, PCI_STATUS, &pci_status);
+ 		pci_write_config_word(cp->pdev, PCI_STATUS, pci_status);
+ 		netdev_err(dev, "PCI bus error, status=3D%04x, PCI status=3D%04x\n",
+@@ -645,11 +648,12 @@ static void cp_poll_controller(struct net_device *dev=
+)
+ }
+ #endif
+=20
+-static void cp_tx (struct cp_private *cp)
++static int cp_tx (struct cp_private *cp)
+ {
+ 	unsigned tx_head =3D cp->tx_head;
+ 	unsigned tx_tail =3D cp->tx_tail;
+ 	unsigned bytes_compl =3D 0, pkts_compl =3D 0;
++	int handled =3D 0;
+=20
+ 	while (tx_tail !=3D tx_head) {
+ 		struct cp_desc *txd =3D cp->tx_ring + tx_tail;
+@@ -661,6 +665,7 @@ static void cp_tx (struct cp_private *cp)
+ 		if (status & DescOwn)
+ 			break;
+=20
++		handled =3D 1;
+ 		skb =3D cp->tx_skb[tx_tail];
+ 		BUG_ON(!skb);
+=20
+@@ -704,6 +709,8 @@ static void cp_tx (struct cp_private *cp)
+ 	netdev_completed_queue(cp->dev, pkts_compl, bytes_compl);
+ 	if (TX_BUFFS_AVAIL(cp) > (MAX_SKB_FRAGS + 1))
+ 		netif_wake_queue(cp->dev);
++
++	return handled;
+ }
+=20
+ static inline u32 cp_tx_vlan_tag(struct sk_buff *skb)
+--=20
+2.4.3
 
 --=20
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
 
---=-9NX68ln424ryr85zwAOK
+--=-POVtiSm9AzR9aYzeTjQ+
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -141,18 +229,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTM1OTUxWjAjBgkqhkiG9w0BCQQxFgQU65cEblxgwpCmeVl2lmsE3B91Zz8w
+CQUxDxcNMTUwOTIxMTQwMTQ5WjAjBgkqhkiG9w0BCQQxFgQU5kkbIkf3tU/Qi4QoeGizBJh/NPsw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQCnwl7jIIxhPF6oq9at2IMXqlXatVpLHI/IbIbhrIZYwP4yb7wsptPVVF9r
-3sbVhQd5sLMPKO3byeMYvL8fUXcXKWn/I/hHwUVSKx1SL1A8G1e+gkCi7I92dbi+s9P7FBDiWUPQ
-5FQZEigluY6MqrP93o72YXq8U5su9dSIk4AnFGJ9/Hu0IWT4ChlmBjkA5N5qVWokq3tEtt9Etp+R
-LeUbUNxlWkdBGF2oww3y4DXAjeJ6w+Hde77KaTTNcLXvOphY1KnSIwJLLAMWJsHs4brdAnvQNb10
-ZTT853ariU9k0Wx52cR560Y+YCziGGkAIuAF+H7GLnizC4D8bJxq1jK1AAAAAAAA
+hkiG9w0BAQEFAASCAQCPd1+2GLIzQ3tt9b5euFbqGCnGaxRMXGsbY6WmuKYwVe2VE3DTyyvkEdby
+/5Y7D1KsCpp2YHkvgfDG1P2U3zCQ0wn7S03Fnh00z8Onpub43s4WJPMUiD7JiHPLe3ise4OZgBV4
+yJkHnRM6tnJhyXggoQHBm3eFO3To/BdnmIpVOGDs9bdhCJ/vGd+Vd+g1YI52EMuEFHBBLj29Oscm
+mOpBKM5BCDSVyMDnxJLfcI6Nqu583QsEsiA2c5elZe4jDtnYmePJ/RO3FkQ+3GG3uJkXgm2JngAr
+aZPvk1Pq9eVoh5SZzDbV2IM8blxV4BKN5rEVNVAQ/RUy9GIB+oTgS5gjAAAAAAAA
 
 
---=-9NX68ln424ryr85zwAOK--
+--=-POVtiSm9AzR9aYzeTjQ+--
