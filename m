@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 33/84] ipvs: Pass ipvs not net to start_sync_thread
-Date: Mon, 21 Sep 2015 13:02:10 -0500
-Message-ID: <1442858581-15869-33-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 36/84] ipvs: Pass ipvs not net to make_receive_sock
+Date: Mon, 21 Sep 2015 13:02:13 -0500
+Message-ID: <1442858581-15869-36-git-send-email-ebiederm@xmission.com>
 References: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
 Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
@@ -10,104 +10,50 @@ To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:35012 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753072AbbIUSN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 14:13:57 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:46875 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756489AbbIUSOC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 14:14:02 -0400
 In-Reply-To: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/ip_vs.h             |  2 +-
- net/netfilter/ipvs/ip_vs_ctl.c  |  4 ++--
- net/netfilter/ipvs/ip_vs_sync.c | 11 +++++------
- 3 files changed, 8 insertions(+), 9 deletions(-)
+ net/netfilter/ipvs/ip_vs_sync.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 3c077e8a038c..dd7cd3a48fd4 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1449,7 +1449,7 @@ static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
- /* IPVS sync daemon data and function prototypes
-  * (from ip_vs_sync.c)
-  */
--int start_sync_thread(struct net *net, struct ipvs_sync_daemon_cfg *cfg,
-+int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *cfg,
- 		      int state);
- int stop_sync_thread(struct net *net, int state);
- void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts);
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 08d772c289d7..b63b4c186040 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2350,7 +2350,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 			cfg.syncid = dm->syncid;
- 			rtnl_lock();
- 			mutex_lock(&ipvs->sync_mutex);
--			ret = start_sync_thread(net, &cfg, dm->state);
-+			ret = start_sync_thread(ipvs, &cfg, dm->state);
- 			mutex_unlock(&ipvs->sync_mutex);
- 			rtnl_unlock();
- 		} else {
-@@ -3432,7 +3432,7 @@ static int ip_vs_genl_new_daemon(struct netns_ipvs *ipvs, struct nlattr **attrs)
- 
- 	rtnl_lock();
- 	mutex_lock(&ipvs->sync_mutex);
--	ret = start_sync_thread(ipvs->net, &c,
-+	ret = start_sync_thread(ipvs, &c,
- 				nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]));
- 	mutex_unlock(&ipvs->sync_mutex);
- 	rtnl_unlock();
 diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index d158e0713ab9..90c455c0b42b 100644
+index dc987762ca2c..304eade977d2 100644
 --- a/net/netfilter/ipvs/ip_vs_sync.c
 +++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1778,13 +1778,12 @@ static int sync_thread_backup(void *data)
- }
- 
- 
--int start_sync_thread(struct net *net, struct ipvs_sync_daemon_cfg *c,
-+int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
- 		      int state)
+@@ -1549,16 +1549,15 @@ error:
+ /*
+  *      Set up receiving multicast socket over UDP
+  */
+-static struct socket *make_receive_sock(struct net *net, int id)
++static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
  {
- 	struct ip_vs_sync_thread_data *tinfo;
- 	struct task_struct **array = NULL, *task;
- 	struct socket *sock;
 -	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct net_device *dev;
- 	char *name;
- 	int (*threadfn)(void *data);
-@@ -1811,7 +1810,7 @@ int start_sync_thread(struct net *net, struct ipvs_sync_daemon_cfg *c,
- 	if (!c->mcast_ttl)
- 		c->mcast_ttl = 1;
+ 	/* multicast addr */
+ 	union ipvs_sockaddr mcast_addr;
+ 	struct socket *sock;
+ 	int result, salen;
  
--	dev = __dev_get_by_name(net, c->mcast_ifn);
-+	dev = __dev_get_by_name(ipvs->net, c->mcast_ifn);
- 	if (!dev) {
- 		pr_err("Unknown mcast interface: %s\n", c->mcast_ifn);
- 		return -ENODEV;
-@@ -1873,9 +1872,9 @@ int start_sync_thread(struct net *net, struct ipvs_sync_daemon_cfg *c,
- 	tinfo = NULL;
- 	for (id = 0; id < count; id++) {
+ 	/* First create a socket */
+-	result = sock_create_kern(net, ipvs->bcfg.mcast_af, SOCK_DGRAM,
++	result = sock_create_kern(ipvs->net, ipvs->bcfg.mcast_af, SOCK_DGRAM,
+ 				  IPPROTO_UDP, &sock);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+@@ -1873,7 +1872,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
  		if (state == IP_VS_STATE_MASTER)
--			sock = make_send_sock(net, id);
-+			sock = make_send_sock(ipvs->net, id);
+ 			sock = make_send_sock(ipvs, id);
  		else
--			sock = make_receive_sock(net, id);
-+			sock = make_receive_sock(ipvs->net, id);
+-			sock = make_receive_sock(ipvs->net, id);
++			sock = make_receive_sock(ipvs, id);
  		if (IS_ERR(sock)) {
  			result = PTR_ERR(sock);
  			goto outtinfo;
-@@ -1883,7 +1882,7 @@ int start_sync_thread(struct net *net, struct ipvs_sync_daemon_cfg *c,
- 		tinfo = kmalloc(sizeof(*tinfo), GFP_KERNEL);
- 		if (!tinfo)
- 			goto outsocket;
--		tinfo->net = net;
-+		tinfo->net = ipvs->net;
- 		tinfo->sock = sock;
- 		if (state == IP_VS_STATE_BACKUP) {
- 			tinfo->buf = kmalloc(ipvs->bcfg.sync_maxlen,
 -- 
 2.2.1
