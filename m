@@ -1,39 +1,44 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] [net] Fix error handling in ezusb_probe()
-Date: Mon, 21 Sep 2015 13:24:02 +0300
-Message-ID: <87eghsqddp.fsf@kamboji.qca.qualcomm.com>
-References: <4fb5a5fe.340c.14fe3857f23.Coremail.zy900702@163.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 0/4] Add support for reading macid when DT macid not found
+Date: Mon, 21 Sep 2015 15:56:49 +0530
+Message-ID: <1442831213-3913-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: RUC_Soft_Sec <zy900702@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4fb5a5fe.340c.14fe3857f23.Coremail.zy900702@163.com> (RUC Soft
-	Sec's message of "Sat, 19 Sep 2015 10:53:41 +0800 (CST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-omap@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Tony Lindgren <tony@atomide.com>, <devicetree@vger.kernel.org>,
+	Sekhar Nori <nsekhar@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:54582 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932069AbbIUK1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 06:27:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RUC_Soft_Sec <zy900702@163.com> writes:
+Did a boot test on dra7-evm [1] and am437x-gp-evm [2].
+Pushed a branch [3] for others to test the patch.
 
-> Current code assigns 0 to variable 'retval', which makes ezusb_probe()
-> to return success even if alloc_orinocodev() fails.
->
-> Fix it by checking the return value from alloc_orinocodev() and
-> assigns '-ENOMEM' to variable 'retval' in the case of error.
->
->
-> Signed-off-by: RUC_Soft_Sec <zy900702@163.com>
+[1]: http://pastebin.ubuntu.com/12513420/
+[2]: http://pastebin.ubuntu.com/12513428/
+[3]: git://git.ti.com/~mugunthanvnm/ti-linux-kernel/linux.git cpsw-macid-read-support
 
-Please use your real name both in From header and in Signed-off-by line.
-Also use "orinoco_usb:" as the prefix in the commit title.
+Mugunthan V N (4):
+  drivers: net: cpsw: davinci_emac: move reading mac id to common file
+  drivers: net: cpsw-common: add support for reading mac address for
+    dra7 and am437x platforms
+  arm: dts: dra7: add syscon phandle to cpsw node
+  arm: dts: am4372: add syscon phandle to cpsw node
 
-> ---
->  orinoco_usb.c |    1 +
->  1 file changed, 1 insertion(+)
-
-This is wrong, the patch should contain the full source path.
-
+ arch/arm/boot/dts/am4372.dtsi          |  1 +
+ arch/arm/boot/dts/dra7.dtsi            |  1 +
+ drivers/net/ethernet/ti/cpsw-common.c  | 64 +++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ti/cpsw.c         | 11 +++---
+ drivers/net/ethernet/ti/cpsw.h         |  3 +-
+ drivers/net/ethernet/ti/davinci_emac.c | 44 ++---------------------
+ 6 files changed, 65 insertions(+), 59 deletions(-)
 
 -- 
-Kalle Valo
+2.6.0.rc2.10.gf4d9753
