@@ -1,107 +1,72 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next RFC 0/6] switchdev: introduce tranction enfra and
- for pre-commit split
-Date: Mon, 21 Sep 2015 09:34:33 -0700
-Message-ID: <CAE4R7bAoHdPHtPXiQgvSWBiSkT+Sdq-wcag4Bn+vQiEUxOOksQ@mail.gmail.com>
-References: <1442665751-10949-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bArD_uYEnsQtvYg94qsydtEJAjYwC9Q3ZfaZH8Wqs0SEQ@mail.gmail.com> <20150921080949.GC2141@nanopsycho.orion>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Subject: Re: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND flag
+Date: Mon, 21 Sep 2015 17:38:48 +0100
+Message-ID: <56003298.2010404@arm.com>
+References: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
+ <1442850433-5903-14-git-send-email-sudeep.holla@arm.com>
+ <BY2PR0301MB072700F43F00CFC273FED1B59C460@BY2PR0301MB0727.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sudeep Holla <sudeep.holla@arm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:36559 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757253AbbIUQex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 12:34:53 -0400
-Received: by obbmp4 with SMTP id mp4so51930865obb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 09:34:52 -0700 (PDT)
-In-Reply-To: <20150921080949.GC2141@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Kevin Hao <haokexin@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Manoil Claudiu <claudiu.manoil@freescale.com>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BY2PR0301MB072700F43F00CFC273FED1B59C460@BY2PR0301MB0727.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 21, 2015 at 1:09 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Sep 21, 2015 at 09:23:24AM CEST, sfeldma@gmail.com wrote:
->>On Sat, Sep 19, 2015 at 5:29 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Jiri Pirko (6):
->>>   switchdev: rename "trans" to "trans_ph".
->>>   switchdev: introduce transaction infrastructure for attr_set and
->>>     obj_add
->>>   rocker: switch to local transaction phase enum
->>>   switchdev: move transaction phase enum under transaction structure
->>>   rocker: use switchdev transaction queue for allocated memory
->>>   switchdev: split commit and prepare phase into two callbacks
->>
->>Patches compile, but first test bombs.  Cut-and-paste of dump at end
->>of this email.
->
-> Told you :)
->
->
->>
->>I'm not sure I'm liking this patchset because it looks like a way for
->>switchdev drivers to easily opt-out of the prepare-commit transaction
->>model by simply not implementing the *_pre op.  I would rather drivers
->>explicitly handle the PREPARE phase in code, even if that means
->>skipping it gracefully (in code) with a comment (in code) explaining
->>why it does not matter for this device/operation.  That's what DSA had
->>done, mostly because it was a retro-fit.
->
-> Each driver should handle this inside it. If it does not need prepare
-> state, it simply does not implement it. That is the same for all cb,
-> ndos, netdev notifiers, etc. It is much cleaner and nicer to have these as
-> separate callbacks. Implementing multiple callback in one is just ugly,
-> sorry.
->
->
->>
->>Also, the patchset removes the ABORT callback in case of a rollback
->>due to a failed PREPARE.  We can't make the assumption that it's just
->>a memory list to destroy on ABORT.  The driver, on PREPARE, may have
->>reserved device space or staged an operation on the device which we'll
->>need to undo on ABORT.
->
-> Yep, just register an item with custom destructor, there you can do
-> whatever. Also, I believe much nicer comparing to current code.
->
->
->>
->>So we need ABORT back, and we need PREPARE to not be optional, so
->>what's left list enqueue/dequeue helpers, which I'm not seeing much
->>value in up-leveling as the driver can do list_add/del itself.
->
-> Why would every driver do it itself, over and over when there can be a
-> clean infrastructure to do that. Including abort phase. Without the driver
-> needed to be involved.
->
->
->>
->>Am I missing something?  I didn't see a motivation statement for the
->>RFC so I'm not sure where you wanted to take this.
->
-> I want to make current code much nicer, easier to read and implement in
-> other drivers. Look at rocker.c and how often there is == PREPARE there.
-> It's nearly impossible to followthe code, sorry.
 
-You're going to end up duplicate a lot of code and make it easier to
-make mistakes.  The reason why the == PREPARE checks are there is the
-same code is run for both PREPARE and COMMIT, with == PREPARE checks
-right at the last moment to avoid a irreversible change, such as
-deleting an entry from a table or changing a state variable or bumping
-a hardware desc pointer.  Otherwise the code paths should be the same
-for PREPARE and COMMIT.  If you split these, you're going to duplicate
-lots of code and one path will deviate from the other over time and
-now we've broken the prepare-commit model.  We want PREPARE to answer
-the question "is it OK to do this?" and COMMIT to do without failure.
 
-Do you have a specific example where you can't follow the code with == PREPARE?
+On 21/09/15 17:24, Manoil Claudiu wrote:
+>> -----Original Message-----
+>> From: Sudeep Holla [mailto:sudeep.holla@arm.com]
+>> Sent: Monday, September 21, 2015 6:47 PM
+>> To: linux-pm@vger.kernel.org; linux-kernel@vger.kernel.org
+>> Cc: Sudeep Holla <sudeep.holla@arm.com>; Thomas Gleixner
+>> <tglx@linutronix.de>; Rafael J. Wysocki <rjw@rjwysocki.net>; David S. Miller
+>> <davem@davemloft.net>; Manoil Claudiu-B08782
+>> <claudiu.manoil@freescale.com>; Kevin Hao <haokexin@gmail.com>;
+>> netdev@vger.kernel.org
+>> Subject: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND
+>> flag
+>>
+>> The device is set as wakeup capable using proper wakeup API but the
+>> driver misuses IRQF_NO_SUSPEND to set the interrupt as wakeup source
+>> which is incorrect.
+>>
+>> This patch removes the use of IRQF_NO_SUSPEND flags replacing it with
+>> enable_irq_wake instead.
+>>
+>
+> What would be the purpose of IRQF_NO_SUSPEND flag then?
 
-> My next patchset is to un-mess rocker.c (that freaking ofdpa stuff is everywhere)
+If you look at the section "IRQF_NO_SUSPEND Flag" in
+Documentation/power/suspend-and-interrupts.txt, it states it doesn't
+guarantee that the interrupt will wake the system from a suspended state
+-- for such cases it is necessary to use enable_irq_wake().
 
-Rocker implements OF-DPA so it's seems natural that freaking OF-DPA
-stuff would be everywhere.
+> The flag is a friendlier API compared to calling enable_irq_wake().
+
+In what sense ?
+
+> For older kernels, on PPC architectures, the flag did the job.
+
+Agreed, it does the job even now, just that it's not designed for that.
+One can change that anytime internally as the APIs for configuring
+wakeups as in place now. I am just making use of right APIs.
+
+> When did this change? Since when using IRQF_NO_SUSPEND is a "misuse"?
+>
+
+Sorry if the term "misuse" is not appropriate here, since the intention
+of the flag usage doesn't meet the requirements, I mentioned it as misuse.
+
+Regards,
+Sudeep
