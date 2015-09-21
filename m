@@ -1,131 +1,132 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: Re: xfrm4_garbage_collect reaching limit
-Date: Mon, 21 Sep 2015 10:52:46 -0400
-Message-ID: <CAOZ2QJPxzBV8Hax-jdOcoyJ7eJedUfTN_rEx=vpZfC3yCh6FAQ@mail.gmail.com>
-References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
- <20150911094808.GI25499@secunet.com> <CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
- <20150916084541.GB7701@secunet.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
+Date: Mon, 21 Sep 2015 17:10:06 +0200
+Message-ID: <CACT4Y+ZSGBi00ZbCN6NE=NdJ7Lm76LVjkSFMsC5diLHHD66Cfw@mail.gmail.com>
+References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
+ <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com> <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Dan Streetman <ddstreet@ieee.org>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:35695 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752862AbbIUOx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:53:26 -0400
-Received: by ioiz6 with SMTP id z6so121813265ioi.2
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:53:26 -0700 (PDT)
-In-Reply-To: <20150916084541.GB7701@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	ktsan@googlegroups.com, Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 16, 2015 at 4:45 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Mon, Sep 14, 2015 at 11:14:59PM -0400, Dan Streetman wrote:
->> On Fri, Sep 11, 2015 at 5:48 AM, Steffen Klassert
->> <steffen.klassert@secunet.com> wrote:
+On Mon, Sep 21, 2015 at 4:51 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> On Mon, 2015-09-21 at 06:31 -0700, Eric Dumazet wrote:
+>> On Mon, 2015-09-21 at 10:08 +0200, Dmitry Vyukov wrote:
+>> > rhashtable_rehash_one() uses plain writes to update entry->next,
+>> > while it is being concurrently accessed by readers.
+>> > Unfortunately, the compiler is within its rights to (for example) =
+use
+>> > byte-at-a-time writes to update the pointer, which would fatally c=
+onfuse
+>> > concurrent readers.
 >> >
->> >> Possibly the
->> >> default value of xfrm4_gc_thresh could be set proportional to
->> >> num_online_cpus(), but that doesn't help when cpus are onlined after
->> >> boot.
->> >
->> > This could be an option, we could change the xfrm4_gc_thresh value with
->> > a cpu notifier callback if more cpus come up after boot.
+>> This is bogus.
 >>
->> the issue there is, if the value is changed by the user, does a cpu
->> hotplug reset it back to default...
+>> 1) Linux is certainly not working if some arch or compiler is not do=
+ing
+>> single word writes. WRITE_ONCE() would not help at all to enforce th=
+is.
+>>
+>> 2) If  new node is not yet visible, we don't care if we write
+>> entry->next using any kind of operation.
+>>
+>> So the WRITE_ONCE() is not needed at all.
+>>
+>>
+>>
+>> > +   WRITE_ONCE(entry->next, head);
+>>
+>>
+>> The rcu_assign_pointer() immediately following is enough in this cas=
+e.
+>>
+>> We have hundred of similar cases in the kernel.
+>>
+>>
 >
-> What about the patch below? With this we are independent of the number
-> of cpus. It should cover most, if not all usecases.
+> The changelog and comment are totally confusing.
 >
-> While we are at it, we could think about increasing the flowcache
-> percpu limit. This value was choosen back in 2003, so maybe we could
-> have more than 4k cache entries per cpu these days.
+> Please remove the bogus parts in them, and/or rephrase.
+>
+> The important part here is that we rehash an item, so we need to make
+> sure to maintain consistent ->next field, and need to prevent compile=
+r
+> from using ->next as a temporary variable.
+>
+> ptr->next =3D 1UL | ((base + offset) << 1);
+>
+> Is dangerous because compiler could issue :
+>
+> ptr->next =3D (base + offset);
+>
+> ptr->next <<=3D 1;
+>
+> ptr->next +=3D 1UL;
+>
+> Frankly, all this looks like an oversight in this code.
+>
+> Not sure why the NULLS value is even recomputed.
 
-Sounds reasonable, though I don't have any data on a good value, so
-I'll leave that up to you :-)
+I have not looked in detail yet, but the NULLS recomputation uses
+new_hash, which obviously wasn't available when the value was
+previously computed. Don't know yet whether it is important or not.
+
+
 
 >
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index cc0c69710dcf..0a29f07ba45a 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -187,10 +187,7 @@ static int rhashtable_rehash_one(struct rhashtab=
+le *ht, unsigned int old_hash)
+>         head =3D rht_dereference_bucket(new_tbl->buckets[new_hash],
+>                                       new_tbl, new_hash);
 >
-> Subject: [PATCH RFC] xfrm: Let the flowcache handle its size by default.
+> -       if (rht_is_a_nulls(head))
+> -               INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
+> -       else
+> -               RCU_INIT_POINTER(entry->next, head);
+> +       RCU_INIT_POINTER(entry->next, head);
 >
-> The xfrm flowcache size is limited by the flowcache limit
-> (4096 * number of online cpus) and the xfrm garbage collector
-> threshold (2 * 32768), whatever is reached first. This means
-> that we can hit the garbage collector limit only on systems
-> with more than 16 cpus. On such systems we simply refuse
-> new allocations if we reach the limit, so new flows are dropped.
-> On syslems with 16 or less cpus, we hit the flowcache limit.
-> In this case, we shrink the flow cache instead of refusing new
-> flows.
->
-> We increase the xfrm garbage collector threshold to INT_MAX
-> to get the same behaviour, independent of the number of cpus.
->
-> The xfrm garbage collector threshold can still be set below
-> the flowcache limit to reduce the memory usage of the flowcache.
->
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  Documentation/networking/ip-sysctl.txt | 6 ++++--
->  net/ipv4/xfrm4_policy.c                | 2 +-
->  net/ipv6/xfrm6_policy.c                | 2 +-
->  3 files changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index ebe94f2..260f30b 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1199,7 +1199,8 @@ tag - INTEGER
->  xfrm4_gc_thresh - INTEGER
->         The threshold at which we will start garbage collecting for IPv4
->         destination cache entries.  At twice this value the system will
-> -       refuse new allocations.
-> +       refuse new allocations. The value must be set below the flowcache
-> +       limit (4096 * number of online cpus) to take effect.
->
->  igmp_link_local_mcast_reports - BOOLEAN
->         Enable IGMP reports for link local multicast groups in the
-> @@ -1645,7 +1646,8 @@ ratelimit - INTEGER
->  xfrm6_gc_thresh - INTEGER
->         The threshold at which we will start garbage collecting for IPv6
->         destination cache entries.  At twice this value the system will
-> -       refuse new allocations.
-> +       refuse new allocations. The value must be set below the flowcache
-> +       limit (4096 * number of online cpus) to take effect.
+>         rcu_assign_pointer(new_tbl->buckets[new_hash], entry);
+>         spin_unlock(new_bucket_lock);
 >
 >
->  IPv6 Update by:
-> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-> index 1e06c4f..3dffc73 100644
-> --- a/net/ipv4/xfrm4_policy.c
-> +++ b/net/ipv4/xfrm4_policy.c
-> @@ -248,7 +248,7 @@ static struct dst_ops xfrm4_dst_ops = {
->         .destroy =              xfrm4_dst_destroy,
->         .ifdown =               xfrm4_dst_ifdown,
->         .local_out =            __ip_local_out,
-> -       .gc_thresh =            32768,
-> +       .gc_thresh =            INT_MAX,
->  };
->
->  static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
-> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-> index f10b940..e9af39a 100644
-> --- a/net/ipv6/xfrm6_policy.c
-> +++ b/net/ipv6/xfrm6_policy.c
-> @@ -289,7 +289,7 @@ static struct dst_ops xfrm6_dst_ops = {
->         .destroy =              xfrm6_dst_destroy,
->         .ifdown =               xfrm6_dst_ifdown,
->         .local_out =            __ip6_local_out,
-> -       .gc_thresh =            32768,
-> +       .gc_thresh =            INT_MAX,
->  };
->
->  static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
 > --
-> 1.9.1
->
+> You received this message because you are subscribed to the Google Gr=
+oups "ktsan" group.
+> To unsubscribe from this group and stop receiving emails from it, sen=
+d an email to ktsan+unsubscribe@googlegroups.com.
+> To post to this group, send email to ktsan@googlegroups.com.
+> To view this discussion on the web visit https://groups.google.com/d/=
+msgid/ktsan/1442847108.29850.56.camel%40edumazet-glaptop2.roam.corp.goo=
+gle.com.
+> For more options, visit https://groups.google.com/d/optout.
+
+
+
+--=20
+Dmitry Vyukov, Software Engineer, dvyukov@google.com
+Google Germany GmbH, Dienerstra=C3=9Fe 12, 80331, M=C3=BCnchen
+Gesch=C3=A4ftsf=C3=BChrer: Graham Law, Christine Elizabeth Flores
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
+Diese E-Mail ist vertraulich. Wenn Sie nicht der richtige Adressat
+sind, leiten Sie diese bitte nicht weiter, informieren Sie den
+Absender und l=C3=B6schen Sie die E-Mail und alle Anh=C3=A4nge. Vielen =
+Dank.
+This e-mail is confidential. If you are not the right addressee please
+do not forward it, please inform the sender, and please erase this
+e-mail including any attachments. Thanks.
