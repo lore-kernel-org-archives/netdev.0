@@ -1,95 +1,132 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
-Date: Mon, 21 Sep 2015 08:24:22 -0400
-Message-ID: <20150921122422.GA31092@oracle.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
+Date: Mon, 21 Sep 2015 06:31:55 -0700
+Message-ID: <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:24560 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbbIUMY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 08:24:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kcc@google.com,
+	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
+	paulmck@linux.vnet.ibm.com
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442822930-35319-1-git-send-email-dvyukov@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (09/20/15 15:29), Tom Herbert wrote:
+On Mon, 2015-09-21 at 10:08 +0200, Dmitry Vyukov wrote:
+> rhashtable_rehash_one() uses plain writes to update entry->next,
+> while it is being concurrently accessed by readers.
+> Unfortunately, the compiler is within its rights to (for example) use
+> byte-at-a-time writes to update the pointer, which would fatally confuse
+> concurrent readers.
 > 
-> Kernel Connection Multiplexor (KCM) is a facility that provides a
-> message based interface over TCP for generic application protocols.
-> The motivation for this is based on the observation that although
-> TCP is byte stream transport protocol with no concept of message
-> boundaries, a common use case is to implement a framed application
-> layer protocol running over TCP. To date, most TCP stacks offer
-> byte stream API for applications, which places the burden of message
-> delineation, message I/O operation atomicity, and load balancing
-> in the application. With KCM an application can efficiently send
-> and receive application protocol messages over TCP using a
-> datagram interface.
+> Use WRITE_ONCE to update entry->next in rhashtable_rehash_one().
+> 
+> The data race was found with KernelThreadSanitizer (KTSAN).
+> 
+> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
+> ---
+> KTSAN report for the record:
+> 
+> ThreadSanitizer: data-race in netlink_lookup
+> 
+> Atomic read at 0xffff880480443bd0 of size 8 by thread 2747 on CPU 11:
+>  [<     inline     >] rhashtable_lookup_fast include/linux/rhashtable.h:543
+>  [<     inline     >] __netlink_lookup net/netlink/af_netlink.c:1026
+>  [<ffffffff81bd9a84>] netlink_lookup+0x134/0x1c0 net/netlink/af_netlink.c:1046
+>  [<     inline     >] netlink_getsockbyportid net/netlink/af_netlink.c:1616
+>  [<ffffffff81bdc701>] netlink_unicast+0x111/0x300 net/netlink/af_netlink.c:1812
+>  [<ffffffff81bdcdb9>] netlink_sendmsg+0x4c9/0x5f0 net/netlink/af_netlink.c:2443
+>  [<     inline     >] sock_sendmsg_nosec net/socket.c:610
+>  [<ffffffff81b5d6f3>] sock_sendmsg+0x83/0x90 net/socket.c:620
+>  [<ffffffff81b5e59f>] ___sys_sendmsg+0x3cf/0x3e0 net/socket.c:1952
+>  [<ffffffff81b5f6ac>] __sys_sendmsg+0x4c/0xb0 net/socket.c:1986
+>  [<     inline     >] SYSC_sendmsg net/socket.c:1997
+>  [<ffffffff81b5f740>] SyS_sendmsg+0x30/0x50 net/socket.c:1993
+>  [<ffffffff81ee3e11>] entry_SYSCALL_64_fastpath+0x31/0x95
+> arch/x86/entry/entry_64.S:188
+> 
+> Previous write at 0xffff880480443bd0 of size 8 by thread 213 on CPU 4:
+>  [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:193
+>  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
+>  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
+>  [<ffffffff8156f7e0>] rht_deferred_worker+0x3b0/0x6d0 lib/rhashtable.c:373
+>  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
+>  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
+>  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
+>  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+> 
+> Mutexes locked by thread 213:
+> Mutex 217217 is locked here:
+>  [<ffffffff81ee0407>] mutex_lock+0x57/0x70 kernel/locking/mutex.c:108
+>  [<ffffffff8156f475>] rht_deferred_worker+0x45/0x6d0 lib/rhashtable.c:363
+>  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
+>  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
+>  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
+>  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+> 
+> Mutex 431216 is locked here:
+>  [<     inline     >] __raw_spin_lock_bh include/linux/spinlock_api_smp.h:149
+>  [<ffffffff81ee3195>] _raw_spin_lock_bh+0x65/0x80 kernel/locking/spinlock.c:175
+>  [<     inline     >] spin_lock_bh include/linux/spinlock.h:317
+>  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:212
+>  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
+>  [<ffffffff8156f616>] rht_deferred_worker+0x1e6/0x6d0 lib/rhashtable.c:373
+>  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
+>  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
+>  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
+>  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+> 
+> Mutex 432766 is locked here:
+>  [<     inline     >] __raw_spin_lock include/linux/spinlock_api_smp.h:158
+>  [<ffffffff81ee37d0>] _raw_spin_lock+0x50/0x70 kernel/locking/spinlock.c:151
+>  [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:186
+>  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
+>  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
+>  [<ffffffff8156f79b>] rht_deferred_worker+0x36b/0x6d0 lib/rhashtable.c:373
+>  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
+>  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
+>  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
+>  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+> ---
+>  lib/rhashtable.c | 9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+> 
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index cc0c697..978624d 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -188,9 +188,12 @@ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned int old_hash)
+>  				      new_tbl, new_hash);
+>  
+>  	if (rht_is_a_nulls(head))
+> -		INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
+> -	else
+> -		RCU_INIT_POINTER(entry->next, head);
+> +		head = (struct rhash_head *)rht_marker(ht, new_hash);
+> +	/* We don't insert any new nodes that were not previously accessible
+> +	 * to readers, so we don't need to use rcu_assign_pointer().
+> +	 * But entry is being concurrently accessed by readers, so we need to
+> +	 * use at least WRITE_ONCE. */
 
-A lot of this design is very similar to the PF_RDS/RDS-TCP
-design. There too, we have a PF_RDS dgram socket (that already 
-supports SEQPACKET semantics today) that can be tunneled over TCP.
+This is bogus.
 
-The biggest design difference that I see in your proposal is 
-that you are using BPF so presumably the demux has more flexibility
-than RDS, which does the demux based on RDS port numbers?
+1) Linux is certainly not working if some arch or compiler is not doing
+single word writes. WRITE_ONCE() would not help at all to enforce this.
 
-Would it make sense to build your solution on top of RDS,
-rather than re-invent solutions for many of the challenges
-that one encounters when building a dgram-over-stream hybrid
-socket (see "lessons learned" list below)?
+2) If  new node is not yet visible, we don't care if we write
+entry->next using any kind of operation.
 
-Some things that were not clear to me from the patch-set:
+So the WRITE_ONCE() is not needed at all.
 
-The doc statses that we re-assemble packets the "stated length" -
-but how will the receiver know the "stated length"? 
-(fwiw, RDS figures that out from the header len in RDS,
-and elsewhere I think you allude to some similar encaps
-header - is that a correct understanding?)
 
-not clear from the diagram: Is there one TCP socket per kcm-socket? 
-what is the relation (one-one, many-one etc.)  between a kcm-socket and
-a psock?  How does the ksock-psock-tcp-sock association get set up? 
 
-the notes say one can "accept()" over a kcm socket- but "accept()"
-is itself a connection-oriented concept- one does not accept() on
-a dgram socket. So what exactly does this mean, and why not just
-use the well-defined TCP socket semantics at that point (with something
-like XDR for message boundary marking)?
+> +	WRITE_ONCE(entry->next, head);
 
-In the "fwiw" bucket of lessons learned from RDS..  please ignore if
-you were already aware of these- 
 
-In the case of RDS, since multiple rds/dgram sockets share a single TCP
-socket, some issues that have to be dealt with are
+The rcu_assign_pointer() immediately following is enough in this case.
 
-- congestion/starvation: we dont want tcp to start advertising
-  zero-window because one dgram socket pair has flooded the pipe
-  and the peer is not reading. So the RDS protocol has port-congestion
-  RDS control plane messages that track congestion at the RDS port.
-
-- imposes some constraints on the TCP send side- if sock1 and sock2
-  are sharing a tcp socket, and both are sending dgrams over the 
-  stream, dgrams from sock1 may get interleaved  (see comments above
-  rds_send_xmit() for a note on how rds deals witt this). There are ways
-  to fan this out over multiple tcp sockets (and I'm working on those,
-  to improve the scaling), but just a note that there is some complexity
-  to be dealt with here. Not sure if this was considered in the "KCM
-  sockets" section in patch2..
-
-- in general the "dgram-over-stream" hybrid has some peculiar issues. E.g.,
-  dgram APIs like BINDTODEVICE and IP_PKTINFO cannot be applied
-  to the underlying stream. In the typical use case for RDS (database 
-  clusters) there's a reasonable workaround for this using network
-  namespaces to define bundles of outgoing interfaces, but that solution
-  may not always be workable for other use-cases. Thus it might actually
-  be more obvious to simply use tcp sockets (and use something like XDR
-  for message boundary markers on the stream).
-
---Sowmini
- 
+We have hundred of similar cases in the kernel.
