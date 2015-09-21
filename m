@@ -1,112 +1,161 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: [PATCH] lib: fix data race in rhashtable_rehash_one
-Date: Mon, 21 Sep 2015 10:08:50 +0200
-Message-ID: <1442822930-35319-1-git-send-email-dvyukov@google.com>
-Cc: kcc@google.com, andreyknvl@google.com, glider@google.com,
-	ktsan@googlegroups.com, paulmck@linux.vnet.ibm.com,
-	Dmitry Vyukov <dvyukov@google.com>
-To: tgraf@suug.ch, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/6] switchdev: introduce tranction enfra
+ and for pre-commit split
+Date: Mon, 21 Sep 2015 10:09:49 +0200
+Message-ID: <20150921080949.GC2141@nanopsycho.orion>
+References: <1442665751-10949-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bArD_uYEnsQtvYg94qsydtEJAjYwC9Q3ZfaZH8Wqs0SEQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:34418 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755990AbbIUIJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 04:09:52 -0400
+Received: by wicfx3 with SMTP id fx3so133697365wic.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 01:09:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bArD_uYEnsQtvYg94qsydtEJAjYwC9Q3ZfaZH8Wqs0SEQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rhashtable_rehash_one() uses plain writes to update entry->next,
-while it is being concurrently accessed by readers.
-Unfortunately, the compiler is within its rights to (for example) use
-byte-at-a-time writes to update the pointer, which would fatally confuse
-concurrent readers.
+Mon, Sep 21, 2015 at 09:23:24AM CEST, sfeldma@gmail.com wrote:
+>On Sat, Sep 19, 2015 at 5:29 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Jiri Pirko (6):
+>>   switchdev: rename "trans" to "trans_ph".
+>>   switchdev: introduce transaction infrastructure for attr_set and
+>>     obj_add
+>>   rocker: switch to local transaction phase enum
+>>   switchdev: move transaction phase enum under transaction structure
+>>   rocker: use switchdev transaction queue for allocated memory
+>>   switchdev: split commit and prepare phase into two callbacks
+>
+>Patches compile, but first test bombs.  Cut-and-paste of dump at end
+>of this email.
 
-Use WRITE_ONCE to update entry->next in rhashtable_rehash_one().
+Told you :)
 
-The data race was found with KernelThreadSanitizer (KTSAN).
 
-Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
----
-KTSAN report for the record:
+>
+>I'm not sure I'm liking this patchset because it looks like a way for
+>switchdev drivers to easily opt-out of the prepare-commit transaction
+>model by simply not implementing the *_pre op.  I would rather drivers
+>explicitly handle the PREPARE phase in code, even if that means
+>skipping it gracefully (in code) with a comment (in code) explaining
+>why it does not matter for this device/operation.  That's what DSA had
+>done, mostly because it was a retro-fit.
 
-ThreadSanitizer: data-race in netlink_lookup
+Each driver should handle this inside it. If it does not need prepare
+state, it simply does not implement it. That is the same for all cb,
+ndos, netdev notifiers, etc. It is much cleaner and nicer to have these as
+separate callbacks. Implementing multiple callback in one is just ugly,
+sorry.
 
-Atomic read at 0xffff880480443bd0 of size 8 by thread 2747 on CPU 11:
- [<     inline     >] rhashtable_lookup_fast include/linux/rhashtable.h:543
- [<     inline     >] __netlink_lookup net/netlink/af_netlink.c:1026
- [<ffffffff81bd9a84>] netlink_lookup+0x134/0x1c0 net/netlink/af_netlink.c:1046
- [<     inline     >] netlink_getsockbyportid net/netlink/af_netlink.c:1616
- [<ffffffff81bdc701>] netlink_unicast+0x111/0x300 net/netlink/af_netlink.c:1812
- [<ffffffff81bdcdb9>] netlink_sendmsg+0x4c9/0x5f0 net/netlink/af_netlink.c:2443
- [<     inline     >] sock_sendmsg_nosec net/socket.c:610
- [<ffffffff81b5d6f3>] sock_sendmsg+0x83/0x90 net/socket.c:620
- [<ffffffff81b5e59f>] ___sys_sendmsg+0x3cf/0x3e0 net/socket.c:1952
- [<ffffffff81b5f6ac>] __sys_sendmsg+0x4c/0xb0 net/socket.c:1986
- [<     inline     >] SYSC_sendmsg net/socket.c:1997
- [<ffffffff81b5f740>] SyS_sendmsg+0x30/0x50 net/socket.c:1993
- [<ffffffff81ee3e11>] entry_SYSCALL_64_fastpath+0x31/0x95
-arch/x86/entry/entry_64.S:188
 
-Previous write at 0xffff880480443bd0 of size 8 by thread 213 on CPU 4:
- [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:193
- [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
- [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
- [<ffffffff8156f7e0>] rht_deferred_worker+0x3b0/0x6d0 lib/rhashtable.c:373
- [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
- [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
- [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
- [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+>
+>Also, the patchset removes the ABORT callback in case of a rollback
+>due to a failed PREPARE.  We can't make the assumption that it's just
+>a memory list to destroy on ABORT.  The driver, on PREPARE, may have
+>reserved device space or staged an operation on the device which we'll
+>need to undo on ABORT.
 
-Mutexes locked by thread 213:
-Mutex 217217 is locked here:
- [<ffffffff81ee0407>] mutex_lock+0x57/0x70 kernel/locking/mutex.c:108
- [<ffffffff8156f475>] rht_deferred_worker+0x45/0x6d0 lib/rhashtable.c:363
- [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
- [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
- [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
- [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
+Yep, just register an item with custom destructor, there you can do
+whatever. Also, I believe much nicer comparing to current code.
 
-Mutex 431216 is locked here:
- [<     inline     >] __raw_spin_lock_bh include/linux/spinlock_api_smp.h:149
- [<ffffffff81ee3195>] _raw_spin_lock_bh+0x65/0x80 kernel/locking/spinlock.c:175
- [<     inline     >] spin_lock_bh include/linux/spinlock.h:317
- [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:212
- [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
- [<ffffffff8156f616>] rht_deferred_worker+0x1e6/0x6d0 lib/rhashtable.c:373
- [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
- [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
- [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
- [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
 
-Mutex 432766 is locked here:
- [<     inline     >] __raw_spin_lock include/linux/spinlock_api_smp.h:158
- [<ffffffff81ee37d0>] _raw_spin_lock+0x50/0x70 kernel/locking/spinlock.c:151
- [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:186
- [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
- [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
- [<ffffffff8156f79b>] rht_deferred_worker+0x36b/0x6d0 lib/rhashtable.c:373
- [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
- [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
- [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
- [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
----
- lib/rhashtable.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+>
+>So we need ABORT back, and we need PREPARE to not be optional, so
+>what's left list enqueue/dequeue helpers, which I'm not seeing much
+>value in up-leveling as the driver can do list_add/del itself.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index cc0c697..978624d 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -188,9 +188,12 @@ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned int old_hash)
- 				      new_tbl, new_hash);
- 
- 	if (rht_is_a_nulls(head))
--		INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
--	else
--		RCU_INIT_POINTER(entry->next, head);
-+		head = (struct rhash_head *)rht_marker(ht, new_hash);
-+	/* We don't insert any new nodes that were not previously accessible
-+	 * to readers, so we don't need to use rcu_assign_pointer().
-+	 * But entry is being concurrently accessed by readers, so we need to
-+	 * use at least WRITE_ONCE. */
-+	WRITE_ONCE(entry->next, head);
- 
- 	rcu_assign_pointer(new_tbl->buckets[new_hash], entry);
- 	spin_unlock(new_bucket_lock);
--- 
-2.6.0.rc0.131.gf624c3d
+Why would every driver do it itself, over and over when there can be a
+clean infrastructure to do that. Including abort phase. Without the driver
+needed to be involved.
+
+
+>
+>Am I missing something?  I didn't see a motivation statement for the
+>RFC so I'm not sure where you wanted to take this.
+
+I want to make current code much nicer, easier to read and implement in
+other drivers. Look at rocker.c and how often there is == PREPARE there.
+It's nearly impossible to followthe code, sorry.
+
+My next patchset is to un-mess rocker.c (that freaking ofdpa stuff is everywhere)
+
+
+>
+>-scott
+>
+>
+>
+>[    1.998791] BUG: unable to handle kernel NULL pointer dereference
+>at 0000000000000008
+>[    2.000005] IP: [<ffffffffa005a2c5>]
+>rocker_port_kzalloc.isra.50+0x5/0x10 [rocker]
+>[    2.000005] PGD 0
+>[    2.000005] Oops: 0000 [#1] SMP
+>[    2.000005] Modules linked in: floppy(+) ata_piix(+) libata
+>rocker(+) virtio_pci(+) virtio_ring virtio scsi_mod
+>[    2.000005] CPU: 0 PID: 91 Comm: modprobe Not tainted 4.2.0+ #3
+>[    2.000005] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+>BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+>[    2.000005] task: ffff88000f5e0800 ti: ffff88000f5f8000 task.ti:
+>ffff88000f5f8000
+>[    2.000005] RIP: 0010:[<ffffffffa005a2c5>]  [<ffffffffa005a2c5>]
+>rocker_port_kzalloc.isra.50+0x5/0x10 [rocker]
+>[    2.000005] RSP: 0018:ffff88000f5fba20  EFLAGS: 00010246
+>[    2.000005] RAX: ffff88000f17c050 RBX: ffff88000b400000 RCX: 0000000000000020
+>[    2.000005] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+>[    2.000005] RBP: 0000000000000000 R08: 0000000000000000 R09: ffffffffa0058680
+>[    2.000005] R10: 0000000000000001 R11: 0000000000009319 R12: 0000000000000000
+>[    2.000005] R13: ffff88000f5b7000 R14: ffff88000f5b7840 R15: 0000000000000000
+>[    2.000005] FS:  00007fd132237700(0000) GS:ffff88000fc00000(0000)
+>knlGS:0000000000000000
+>[    2.000005] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>[    2.000005] CR2: 0000000000000008 CR3: 000000000f5d5000 CR4: 00000000000006f0
+>[    2.000005] Stack:
+>[    2.000005]  ffffffffa005a32a 0000000000000001 00ff88000f5b7000
+>ffffffff8175725a
+>[    2.000005]  ffffffffa0057750 0000000000000000 ffffffffa0058680
+>000000200000001a
+>[    2.000005]  ffff88000b400000 0000000000000000 ffff88000ea06000
+>ffff88000f5b7000
+>[    2.000005] Call Trace:
+>[    2.000005]  [<ffffffffa005a32a>] ? rocker_cmd_exec+0x5a/0x1f0 [rocker]
+>[    2.000005]  [<ffffffffa0057750>] ?
+>rocker_cmd_get_port_stats_prep+0x90/0x90 [rocker]
+>[    2.000005]  [<ffffffffa0058680>] ?
+>rocker_cmd_get_port_settings_phys_name_proc+0xb0/0xb0 [rocker]
+>[    2.000005]  [<ffffffffa005e37a>] ? rocker_probe+0xb6a/0xe59 [rocker]
+>[    2.000005]  [<ffffffff812b6608>] ? local_pci_probe+0x48/0xa0
+>[    2.000005]  [<ffffffff812b7142>] ? pci_device_probe+0x112/0x130
+>[    2.000005]  [<ffffffff81384b46>] ? driver_probe_device+0x196/0x2a0
+>[    2.000005]  [<ffffffff81384c50>] ? driver_probe_device+0x2a0/0x2a0
+>[    2.000005]  [<ffffffff81384cdd>] ? __driver_attach+0x8d/0x90
+>[    2.000005]  [<ffffffff81384c50>] ? driver_probe_device+0x2a0/0x2a0
+>[    2.000005]  [<ffffffff81382f3c>] ? bus_for_each_dev+0x4c/0x80
+>[    2.000005]  [<ffffffff81384219>] ? bus_add_driver+0x119/0x220
+>[    2.000005]  [<ffffffffa0065000>] ? 0xffffffffa0065000
+>[    2.000005]  [<ffffffff813854ba>] ? driver_register+0x5a/0xe0
+>[    2.000005]  [<ffffffffa0065000>] ? 0xffffffffa0065000
+>[    2.000005]  [<ffffffffa0065033>] ? rocker_module_init+0x33/0x1000 [rocker]
+>[    2.000005]  [<ffffffff81002110>] ? do_one_initcall+0x90/0x1e0
+>[    2.000005]  [<ffffffff81110bd0>] ? do_init_module+0x50/0x1d8
+>[    2.000005]  [<ffffffff810d632c>] ? load_module+0x1c1c/0x2240
+>[    2.000005]  [<ffffffff810d33e0>] ? show_initstate+0x50/0x50
+>[    2.000005]  [<ffffffff810d6a54>] ? SyS_init_module+0x104/0x130
+>[    2.000005]  [<ffffffff81508ef6>] ? entry_SYSCALL_64_fastpath+0x16/0x75
+>[    2.000005] Code: 48 89 c1 48 c7 c2 10 dc 15 81 48 89 c6 e8 e4 0d
+>4a e1 48 8b 3b e8 1c 1b 4a e1 eb b6 66 2e 0f 1f 84 00 00 00 00 00 48
+>89 d1 89 f2 <8b> 77 08 e9 73 ff ff ff 0f 1f 00 48 83 ec 68 4c 89 7c 24
+>60 41
+>[    2.000005] RIP  [<ffffffffa005a2c5>]
+>rocker_port_kzalloc.isra.50+0x5/0x10 [rocker]
