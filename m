@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 2/4] drivers: net: cpsw-common: add support for reading mac address for dra7 and am437x platforms
-Date: Mon, 21 Sep 2015 15:56:51 +0530
-Message-ID: <1442831213-3913-3-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 3/4] arm: dts: dra7: add syscon phandle to cpsw node
+Date: Mon, 21 Sep 2015 15:56:52 +0530
+Message-ID: <1442831213-3913-4-git-send-email-mugunthanvnm@ti.com>
 References: <1442831213-3913-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,38 +12,34 @@ Cc: <linux-omap@vger.kernel.org>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:56338 "EHLO arroyo.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:60208 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932165AbbIUK1l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2015 06:27:41 -0400
+	id S932069AbbIUK1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2015 06:27:43 -0400
 In-Reply-To: <1442831213-3913-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding support for reading mac address using syscon driver for
-dra7 and am437x platforms
+There are 2 MACIDs stored in the control module of the dra7.
+These are read by the cpsw driver if no valid MACID was found
+in the devicetree.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw-common.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm/boot/dts/dra7.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw-common.c b/drivers/net/ethernet/ti/cpsw-common.c
-index c70417c..c08be62 100644
---- a/drivers/net/ethernet/ti/cpsw-common.c
-+++ b/drivers/net/ethernet/ti/cpsw-common.c
-@@ -87,6 +87,12 @@ int ti_cm_get_macid(struct device *dev, int slave, u8 *mac_addr)
- 	if (of_device_is_compatible(dev->of_node, "ti,dm816-emac"))
- 		return cpsw_am33xx_cm_get_macid(dev, 0x30, slave, mac_addr);
+diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
+index 5d65db9..76c739d 100644
+--- a/arch/arm/boot/dts/dra7.dtsi
++++ b/arch/arm/boot/dts/dra7.dtsi
+@@ -1447,6 +1447,7 @@
+ 				     <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
+ 			ranges;
++			syscon = <&scm_conf>;
+ 			status = "disabled";
  
-+	if (of_machine_is_compatible("ti,am4372"))
-+		return cpsw_am33xx_cm_get_macid(dev, 0x630, slave, mac_addr);
-+
-+	if (of_machine_is_compatible("ti,dra7"))
-+		return davinci_emac_3517_get_macid(dev, 0x514, slave, mac_addr);
-+
- 	dev_err(dev, "incompatible machine/device type for reading mac address\n");
- 	return -ENOENT;
- }
+ 			davinci_mdio: mdio@48485000 {
 -- 
 2.6.0.rc2.10.gf4d9753
