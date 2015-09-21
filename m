@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2015-09-17
-Date: Sun, 20 Sep 2015 21:59:09 -0700 (PDT)
-Message-ID: <20150920.215909.2205622711838491288.davem@davemloft.net>
-References: <55FB2BA0.6070300@pengutronix.de>
+Subject: Re: [PATCH 1/2] 8139cp: Use dev_kfree_skb_any() instead of
+ dev_kfree_skb() in cp_clean_rings()
+Date: Sun, 20 Sep 2015 22:24:01 -0700 (PDT)
+Message-ID: <20150920.222401.1051937779601337236.davem@davemloft.net>
+References: <1442531948.97487.8.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55FB2BA0.6070300@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: dwmw2@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbbIUFYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 01:24:06 -0400
+In-Reply-To: <1442531948.97487.8.camel@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 17 Sep 2015 23:07:44 +0200
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Fri, 18 Sep 2015 00:19:08 +0100
 
-> this is a pull request of two patches for net-next/master.
+> This can be called from cp_tx_timeout() with interrupts disabled.
+> Spotted by Francois Romieu <romieu@fr.zoreil.com>
 > 
-> Gerhard Bertelsmann adds support for the CAN controller found on the
-> Allwinner A10/A20 SoC.
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-Pulled, thanks.
+Applied.
