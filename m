@@ -1,98 +1,91 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 3/7] 8139cp: Fix tx_queued debug message to print correct
- slot numbers
-Date: Mon, 21 Sep 2015 15:02:33 +0100
-Message-ID: <1442844153.7367.13.camel@infradead.org>
+Subject: [PATCH 4/7] 8139cp: Fix TSO/scatter-gather descriptor setup
+Date: Mon, 21 Sep 2015 15:02:45 +0100
+Message-ID: <1442844165.7367.14.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-Hzt6ruS2T6HeUdshYXdq"
+	boundary="=-K0Q4d7VGPtsij1HvYHD5"
 Cc: romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44377 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:44527 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755276AbbIUOCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:02:36 -0400
+	with ESMTP id S932630AbbIUOCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:02:48 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Hzt6ruS2T6HeUdshYXdq
+--=-K0Q4d7VGPtsij1HvYHD5
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-After a certain amount of staring at the debug output of this driver, I
-realised it was lying to me.
+When sending a TSO frame in multiple buffers, we were neglecting to set
+the first descriptor up in TSO mode.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index d12fc50..058f835 100644
+index 058f835..07621b5 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -793,7 +793,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		wmb();
-=20
- 		cp->tx_skb[entry] =3D skb;
--		entry =3D NEXT_TX(entry);
-+		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
-+			  entry, skb->len);
+@@ -797,7 +797,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			  entry, skb->len);
  	} else {
  		struct cp_desc *txd;
- 		u32 first_len, first_eor;
-@@ -812,7 +813,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 			goto out_dma_error;
-=20
- 		cp->tx_skb[entry] =3D skb;
--		entry =3D NEXT_TX(entry);
-=20
+-		u32 first_len, first_eor;
++		u32 first_len, first_eor, ctrl;
+ 		dma_addr_t first_mapping;
+ 		int frag, first_entry =3D entry;
+ 		const struct iphdr *ip =3D ip_hdr(skb);
+@@ -817,7 +817,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
  		for (frag =3D 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
  			const skb_frag_t *this_frag =3D &skb_shinfo(skb)->frags[frag];
-@@ -820,6 +820,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 			u32 ctrl;
+ 			u32 len;
+-			u32 ctrl;
  			dma_addr_t mapping;
 =20
-+			entry =3D NEXT_TX(entry);
-+
- 			len =3D skb_frag_size(this_frag);
- 			mapping =3D dma_map_single(&cp->pdev->dev,
- 						 skb_frag_address(this_frag),
-@@ -855,9 +857,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
-=20
- 			txd->opts1 =3D cpu_to_le32(ctrl);
- 			wmb();
--
- 			cp->tx_skb[entry] =3D skb;
--			entry =3D NEXT_TX(entry);
- 		}
-=20
- 		txd =3D &cp->tx_ring[first_entry];
-@@ -880,12 +880,13 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
+ 			entry =3D NEXT_TX(entry);
+@@ -865,20 +864,20 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
 ,
- 			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
- 						 FirstFrag | DescOwn);
+ 		txd->addr =3D cpu_to_le64(first_mapping);
  		wmb();
+=20
+-		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
++		ctrl =3D first_eor | first_len | FirstFrag | DescOwn;
++		if (mss)
++			ctrl |=3D LargeSend |
++				((mss & MSSMask) << MSSShift);
++		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 			if (ip->protocol =3D=3D IPPROTO_TCP)
+-				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
+-							 FirstFrag | DescOwn |
+-							 IPCS | TCPCS);
++				ctrl |=3D IPCS | TCPCS;
+ 			else if (ip->protocol =3D=3D IPPROTO_UDP)
+-				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
+-							 FirstFrag | DescOwn |
+-							 IPCS | UDPCS);
++				ctrl |=3D IPCS | UDPCS;
+ 			else
+ 				BUG();
+-		} else
+-			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
+-						 FirstFrag | DescOwn);
++		}
 +
-+		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
-+			  first_entry, entry, skb->len);
- 	}
--	cp->tx_head =3D entry;
-+	cp->tx_head =3D NEXT_TX(entry);
++		txd->opts1 =3D cpu_to_le32(ctrl);
+ 		wmb();
 =20
- 	netdev_sent_queue(dev, skb->len);
--	netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
--		  entry, skb->len);
- 	if (TX_BUFFS_AVAIL(cp) <=3D (MAX_SKB_FRAGS + 1))
- 		netif_stop_queue(dev);
-=20
+ 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
 --=20
 2.4.3
 
@@ -100,7 +93,7 @@ index d12fc50..058f835 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-Hzt6ruS2T6HeUdshYXdq
+--=-K0Q4d7VGPtsij1HvYHD5
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -193,18 +186,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwMjMzWjAjBgkqhkiG9w0BCQQxFgQUv96AGrQJI18XcHUuY5nNuYb49Fow
+CQUxDxcNMTUwOTIxMTQwMjQ1WjAjBgkqhkiG9w0BCQQxFgQUDhVvl9TgpKzyM/plI6i0pDRy2rEw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQACjyvrdAkKQPB3ZZzxEH5Ay86ym3HZoObX3d49U5beZdcywO5l7I7kFg7Z
-2XNXExqlRnPpF0ejc9miKu7jFfUzYT4wnhzxpvhPLXc9NYUflc3KAtngiLI0yaBxY3/DxQzxP7hE
-GnnVnrfv0dYYQiC5ekusiZBfzEM5Du8U7Imt4vphP+PjkhfctmjF6XCpdSw0vGrmFhbZEjyK3Qey
-yxwhZBvANkqdxVR2HFOnbE89NWTIjz+Wo/wWmApe3DQbXN2UXoe4GmDsJC6kq3E0KgQqiFX25XYw
-acEZx//3C5ltVIznXDN+V9OFZjREDiWJn6ed2um8MWls6hMu0CYYEL04AAAAAAAA
+hkiG9w0BAQEFAASCAQCheXCTdSdEUChLNBzHB8gup8IumYAz5UJp38CL9BV7YA31Rhv0bMCVQa+P
+OTORCFTm3FV+Dx6AcsSEmPLuKM/AtXt3tZW8kI+YEo0dVcWTlEOdjRrrwhgS0ceR5qXVlGfOzyGx
+CaRyWpoeOaQ7cXnK6hK27TFUS9oqFFePGXR45lDzWK9OWn9Hxd+TYOFeAqX8oHOFOsIBYKg3AuND
+KaZ4DFjIVcRMBpOfvDnVGt6EnZhMbVG8rboGSyN31R+TXY4NkS70u6Eo3vmksYknzHEpoESj2wQ9
+9y7BoquKHwHw9Uu/Wqgedw8bjC3Kpx2JHzZpvhkYdYeVQp8XE8UqsUkyAAAAAAAA
 
 
---=-Hzt6ruS2T6HeUdshYXdq--
+--=-K0Q4d7VGPtsij1HvYHD5--
