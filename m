@@ -1,100 +1,40 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: Re: bnx2x - occasional high packet loss (on LAN)
-Date: Mon, 21 Sep 2015 12:58:40 +0200
-Message-ID: <20150921105840.GJ9248@pcnci.linuxbox.cz>
-References: <20150915041726.GD6850@pcnci.linuxbox.cz>
- <81D78EA7F834FA4C83B64260D494C8590870F221@avmb3.qlogic.org>
- <20150916081833.GE6850@pcnci.linuxbox.cz>
- <20150921103200.GF6850@pcnci.linuxbox.cz>
- <81D78EA7F834FA4C83B64260D494C859087192AE@avmb3.qlogic.org>
+From: Kalle Valo <kvalo@adurom.com>
+Subject: Re: [PATCH 1/2 v2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
+Date: Mon, 21 Sep 2015 14:39:28 +0300
+Message-ID: <87d1xc2e8f.fsf@purkki.adurom.net>
+References: <1442330289-2907-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZxoMK3jQATP4mxSH"
-Cc: netdev <netdev@vger.kernel.org>,
-	"nik@linuxbox.cz" <nik@linuxbox.cz>
-To: Ariel Elior <Ariel.Elior@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:40206 "EHLO gwu.lbox.cz"
+Received: from purkki.adurom.net ([80.68.90.206]:43225 "EHLO purkki.adurom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932164AbbIUK6r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2015 06:58:47 -0400
-Content-Disposition: inline
-In-Reply-To: <81D78EA7F834FA4C83B64260D494C859087192AE@avmb3.qlogic.org>
+	id S1752476AbbIUMLc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2015 08:11:32 -0400
+In-Reply-To: <1442330289-2907-1-git-send-email-linux@rainbow-software.org>
+	(Ondrej Zary's message of "Tue, 15 Sep 2015 17:18:08 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ondrej Zary <linux@rainbow-software.org> writes:
 
---ZxoMK3jQATP4mxSH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
+> wpa_supplicant uses it for both no encryption and WEP open system.
+> Cache the last mode set (only of these two) and use it here.
+>
+> This allows wpa_supplicant to work with unencrypted APs.
+>
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> ---
+>  drivers/net/wireless/airo.c |   33 ++++++++++++++++++++++++---------
+>  1 file changed, 24 insertions(+), 9 deletions(-)
 
-> Hi Nikola,
-> Seems like the link below is the same file you shared before - I don't se=
-e any errors there.
+You should CC linux-wireless mailing list, otherwise patchwork won't see
+it and I will miss your patch:
 
-ouch, the file was correct, but the permissions were wrong..
-so maybe you were getting older file from some proxy?
+https://patchwork.kernel.org/project/linux-wireless/list/
 
-anyways, I've copied file so you can get it from
-new location:
-
-http://nik.lbox.cz/download/dmesg2.txt
-
-
-
->=20
-> Two things you can collect for me to help debug this issue:
->=20
-> 1.
-> Output of ethtool -d eth1 after problem occurs (redirect to a file)
-
-here it is:
-http://nik.lbox.cz/download/ethtool-eth4.txt
-http://nik.lbox.cz/download/ethtool-eth5.txt
-
-> 2.
-> dmesg after enabling link related debug messages. Use
-> modprobe bnx2x debug=3D0x4
-> Or
-> ethtool -s eth1 msglvl 0x4
-
-I have set this for both interfaces, but don't see anything new
-in dmesg..
-
-
-> to enable these prints.
->=20
-> This holds for both of your problems (unless it is the same issue).
->=20
-> Thanks,
-> Ariel
->=20
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28.rijna 168, 709 00 Ostrava
-
-tel.:   +420 591 166 214
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---ZxoMK3jQATP4mxSH
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEARECAAYFAlX/4uAACgkQ3xdJJrLygV5MQACfUQzGwg+bJ6yw97jyv1IGIdaK
-OsYAn0fceGJiPo3jWZdQj1sBWo4uonYf
-=8wjV
------END PGP SIGNATURE-----
-
---ZxoMK3jQATP4mxSH--
+-- 
+Kalle Valo
