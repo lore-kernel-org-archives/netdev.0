@@ -1,129 +1,195 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 12/84] ipvs: Pass ipvs not net to ip_vs_service_find
-Date: Mon, 21 Sep 2015 13:01:49 -0500
-Message-ID: <1442858581-15869-12-git-send-email-ebiederm@xmission.com>
-References: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
-Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/6] switchdev: introduce tranction enfra
+ and for pre-commit split
+Date: Mon, 21 Sep 2015 20:25:39 +0200
+Message-ID: <20150921182539.GB2291@nanopsycho>
+References: <1442665751-10949-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bArD_uYEnsQtvYg94qsydtEJAjYwC9Q3ZfaZH8Wqs0SEQ@mail.gmail.com>
+ <20150921080949.GC2141@nanopsycho.orion>
+ <20150921171357.GA11812@ketchup.mtl.sfl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35746 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756374AbbIUSZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 14:25:42 -0400
+Received: by wicge5 with SMTP id ge5so128181187wic.0
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 11:25:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150921171357.GA11812@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/ip_vs.h                   | 2 +-
- net/netfilter/ipvs/ip_vs_ctl.c        | 5 ++---
- net/netfilter/ipvs/ip_vs_proto_sctp.c | 4 ++--
- net/netfilter/ipvs/ip_vs_proto_tcp.c  | 4 ++--
- net/netfilter/ipvs/ip_vs_proto_udp.c  | 6 ++++--
- 5 files changed, 11 insertions(+), 10 deletions(-)
+Mon, Sep 21, 2015 at 07:13:58PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>Hi Jiri, Scott,
+>
+>On Sep. Monday 21 (39) 10:09 AM, Jiri Pirko wrote:
+>> Mon, Sep 21, 2015 at 09:23:24AM CEST, sfeldma@gmail.com wrote:
+>> >On Sat, Sep 19, 2015 at 5:29 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> >> Jiri Pirko (6):
+>> >>   switchdev: rename "trans" to "trans_ph".
+>> >>   switchdev: introduce transaction infrastructure for attr_set and
+>> >>     obj_add
+>> >>   rocker: switch to local transaction phase enum
+>> >>   switchdev: move transaction phase enum under transaction structure
+>> >>   rocker: use switchdev transaction queue for allocated memory
+>> >>   switchdev: split commit and prepare phase into two callbacks
+>> >
+>> >Patches compile, but first test bombs.  Cut-and-paste of dump at end
+>> >of this email.
+>> 
+>> Told you :)
+>> 
+>> 
+>> >
+>> >I'm not sure I'm liking this patchset because it looks like a way for
+>> >switchdev drivers to easily opt-out of the prepare-commit transaction
+>> >model by simply not implementing the *_pre op.  I would rather drivers
+>> >explicitly handle the PREPARE phase in code, even if that means
+>> >skipping it gracefully (in code) with a comment (in code) explaining
+>> >why it does not matter for this device/operation.  That's what DSA had
+>> >done, mostly because it was a retro-fit.
+>> 
+>> Each driver should handle this inside it. If it does not need prepare
+>> state, it simply does not implement it. That is the same for all cb,
+>> ndos, netdev notifiers, etc. It is much cleaner and nicer to have these as
+>> separate callbacks. Implementing multiple callback in one is just ugly,
+>> sorry.
+>
+>This is true, (in DSA) we don't have to implement the prepare phase if
+>we fully support the feature in hardware.
+>
+>To give a real example, Marvell switch drivers currently implement all
+>add/del/dump calls for VLAN FDB (where VID 0 means the port itself). No
+>prepare phase needed.
+>
+>Now, I have local patches to enable strict 802.1Q mode in these switches
+>(all the logic is based on the hardware VLAN table). But it does not use
+>per-port FDB, so fdb_add with VID 0 doesn't make sense anymore. That's
+>why we need to push the feature checking down to the drivers in DSA.
+>
+>I have another pending patch to add .port_fdb_pre_add, where mv88e6xxx
+>code will return -EOPNOTSUPP if the given VID is 0.
+>
+>Another example: mv88e6xxx support tagged VLANs, so no hardware check
+>needed. But the Broadcom Starfighter 2 only supports port-based VLANs
+>(which is today wrongly implemented through "bridge_join/leave"). By
+>implementing .port_vlan_pre_add (another pending patch for DSA), the
+>driver will be able to return -EOPNOTSUPP if !BRIDGE_VLAN_INFO_PVID.
+>
+>Also, having logic in switchdev drivers to check SWITCHDEV_TRANS_NONE
+>and SWITCHDEV_TRANS_ABORT is not really nice. Having switchdev handle
+>the abort phase (calling each destructor) and getting rid of the
+>SWITCHDEV_TRANS_* flags sounds better to me.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 2c22380b9ad7..828b19b23e02 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1410,7 +1410,7 @@ extern struct ip_vs_stats ip_vs_stats;
- extern int sysctl_ip_vs_sync_ver;
- 
- struct ip_vs_service *
--ip_vs_service_find(struct net *net, int af, __u32 fwmark, __u16 protocol,
-+ip_vs_service_find(struct netns_ipvs *ipvs, int af, __u32 fwmark, __u16 protocol,
- 		  const union nf_inet_addr *vaddr, __be16 vport);
- 
- bool ip_vs_has_real_service(struct net *net, int af, __u16 protocol,
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index fd8de5ceffca..67fe0c92e3f7 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -406,11 +406,10 @@ __ip_vs_svc_fwm_find(struct netns_ipvs *ipvs, int af, __u32 fwmark)
- 
- /* Find service, called under RCU lock */
- struct ip_vs_service *
--ip_vs_service_find(struct net *net, int af, __u32 fwmark, __u16 protocol,
-+ip_vs_service_find(struct netns_ipvs *ipvs, int af, __u32 fwmark, __u16 protocol,
- 		   const union nf_inet_addr *vaddr, __be16 vport)
- {
- 	struct ip_vs_service *svc;
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	/*
- 	 *	Check the table hashed by fwmark first
-@@ -612,7 +611,7 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int svc_af, int dest_af,
- 	struct ip_vs_service *svc;
- 	__be16 port = dport;
- 
--	svc = ip_vs_service_find(net, svc_af, fwmark, protocol, vaddr, vport);
-+	svc = ip_vs_service_find(net_ipvs(net), svc_af, fwmark, protocol, vaddr, vport);
- 	if (!svc)
- 		return NULL;
- 	if (fwmark && (flags & IP_VS_CONN_F_FWD_MASK) != IP_VS_CONN_F_MASQ)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index ce615866bd63..373a4751c328 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -45,10 +45,10 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 
- 	rcu_read_lock();
- 	if (likely(!ip_vs_iph_inverse(iph)))
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->daddr, ports[1]);
- 	else
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->saddr, ports[0]);
- 	if (svc) {
- 		int ignored;
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index e00623a88518..48af3ca6be03 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -70,10 +70,10 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	rcu_read_lock();
- 
- 	if (likely(!ip_vs_iph_inverse(iph)))
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->daddr, ports[1]);
- 	else
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->saddr, ports[0]);
- 
- 	if (svc) {
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index 3b0a2dc1826b..e9f5f7e30bef 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -34,6 +34,7 @@ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 		  struct ip_vs_iphdr *iph)
- {
- 	struct net *net;
-+	struct netns_ipvs *ipvs;
- 	struct ip_vs_service *svc;
- 	struct udphdr _udph, *uh;
- 	__be16 _ports[2], *ports = NULL;
-@@ -54,12 +55,13 @@ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	}
- 
- 	net = skb_net(skb);
-+	ipvs = net_ipvs(net);
- 	rcu_read_lock();
- 	if (likely(!ip_vs_iph_inverse(iph)))
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->daddr, ports[1]);
- 	else
--		svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
-+		svc = ip_vs_service_find(ipvs, af, skb->mark, iph->protocol,
- 					 &iph->saddr, ports[0]);
- 
- 	if (svc) {
--- 
-2.2.1
+Agree, if pre/commit is going to be in one function, we should have
+only prepare/commit enums. It can be carried around as a single bool
+value in switchdev_trans structure. Will include that in my transaction
+patchset.
 
+
+>
+>> >Also, the patchset removes the ABORT callback in case of a rollback
+>> >due to a failed PREPARE.  We can't make the assumption that it's just
+>> >a memory list to destroy on ABORT.  The driver, on PREPARE, may have
+>> >reserved device space or staged an operation on the device which we'll
+>> >need to undo on ABORT.
+>> 
+>> Yep, just register an item with custom destructor, there you can do
+>> whatever. Also, I believe much nicer comparing to current code.
+>> 
+>> 
+>> >
+>> >So we need ABORT back, and we need PREPARE to not be optional, so
+>> >what's left list enqueue/dequeue helpers, which I'm not seeing much
+>> >value in up-leveling as the driver can do list_add/del itself.
+>> 
+>> Why would every driver do it itself, over and over when there can be a
+>> clean infrastructure to do that. Including abort phase. Without the driver
+>> needed to be involved.
+>
+>Maybe the term ".destructor" has a too strong meaning to deallocation,
+>but you can indeed do whatever you need in this function.
+
+It is a destructor. Don't know about a better name, suggestions?
+
+>
+>> >Am I missing something?  I didn't see a motivation statement for the
+>> >RFC so I'm not sure where you wanted to take this.
+>> 
+>> I want to make current code much nicer, easier to read and implement in
+>> other drivers. Look at rocker.c and how often there is == PREPARE there.
+>> It's nearly impossible to followthe code, sorry.
+>> 
+>> My next patchset is to un-mess rocker.c (that freaking ofdpa stuff is
+>> everywhere)
+>
+>I'm basically for this patchset, but I do have some concerns about the
+>general switchdev transaction design.
+>
+>I certainly don't have the perspective that you guys have, so please
+>tell me if I'm totally wrong. From my point of view (with DSA drivers),
+>the emphase should be done on asking the hardware if it can handle or
+>not a given transaction (not simply an hardware feature!).
+>
+>The driver can handle any allocation and preparation itself, and also
+>errors can actually occur *during* a commit phase.
+
+But during commit phase, the odds that error is going to happen is a lot
+smaller. Prepare phase should resolve all common fails like memory
+allocations and resource limitation checks.
+
+
+>
+>Being able to return -EOPNOTSUPP from any add/del/dump function would be
+>just perfect.
+
+Looking at this, I agree that for switchdev_port_obj_add and
+switchdev_port_attr_set if would make more sense to return 0 in case of
+hw does not actuall support. Callers check for -EOPNOTSUP and treat
+that as 0 anyway. Feel free to send a patch for this.
+
+
+>
+>I ideally imagine the following implementation in switchdev drivers:
+>
+>    int foo_port_obj_add(struct net_device *dev, int id, void *obj)
+>    {
+>        struct foo *foo = netdev_priv(dev);
+>	struct switchdev_obj_port_fdb *fdb;
+>	struct switchdev_obj_port_vlan *vlan;
+>        int err;
+>
+>        switch(id) {
+>	case SWITCHDEV_OBJ_PORT_FDB:
+>	    fdb = obj;
+>	    err = foo_port_fdb_add(foo, fdb);
+>	    break;
+>        case SWITCHDEV_OBJ_PORT_VLAN:
+>	    vlan = obj;
+>	    err = foo_port_vlan_add(foo, vlan);
+>	    break;
+>	default:
+>	    err = -EOPNOTSUPP;
+>	    break;
+>	}
+>
+>	return err;
+>    }
+>
+>Where foo_port_{fdb,vlan}_add can still return -EOPNOTSUPP depending on
+>their current state.
+
+Yep, seems correct.
+
+
+>
+>Thanks,
+>-v
