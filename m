@@ -1,43 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
- show table id
-Date: Mon, 21 Sep 2015 15:03:46 -0700 (PDT)
-Message-ID: <20150921.150346.926573540048522271.davem@davemloft.net>
-References: <56007695.3070003@cumulusnetworks.com>
-	<20150921.145800.1946648892912159723.davem@davemloft.net>
-	<56007E94.8000506@cumulusnetworks.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 1/7] phy: fix of_mdio_find_bus() device refcount leak
+Date: Mon, 21 Sep 2015 15:08:27 -0700 (PDT)
+Message-ID: <20150921.150827.116958889622345434.davem@redhat.com>
+References: <E1ZcsNb-0001Bf-U5@rmk-PC.arm.linux.org.uk>
+	<20150921.120159.326170798236851436.davem@davemloft.net>
+	<20150921193206.GU21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55723 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756728AbbIUWDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:03:47 -0400
-In-Reply-To: <56007E94.8000506@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
+	frowand.list@gmail.com, grant.likely@linaro.org,
+	isubramanian@apm.com, kchudgar@apm.com,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, leoli@freescale.com,
+	michal.simek@xilinx.com, netdev@vger.kernel.org, rric@kernel.org,
+	robh+dt@kernel.org, soren.brinkmann@xilinx.com,
+	sgoutham@cavium.com, thomas.petazzoni@free-electrons.com,
+	linux-kernel@vger.kernel.org
+To: linux@arm.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150921193206.GU21084@n2100.arm.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 21 Sep 2015 16:03:00 -0600
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Mon, 21 Sep 2015 20:32:07 +0100
 
-> On 9/21/15 3:58 PM, David Miller wrote:
->> I think if it always gave MAIN in older kernels, iproute should
->> continue
->> to do so.
->>
->> You can't just remove the table ID output just because you disagree
->> with
->> the semantics given by old kernels.
->>
+> In the case of the mdio mux code, I'm dropping the reference when
+> either (a) we've encountered an error during initialisation and
+> we're cleaning up, or (b) when the mdio mux code is being torn down
+> after the mdiomux bus has been unregistered and freed.  In both
+> cases, we're done with the mdio bus that was returned from
+> of_mdio_find_bus().
 > 
-> Current semantics are maintained. Kernel was hardcoded to return main;
-> iproute2 was hardcoded to not show main.
+> In case (a), the devres code will release the kmalloc'd memory when
+> mdio_mux_gpio_probe() or mdio_mux_mmioreg_probe() propagates the error
+> out of their probe() function.
+> 
+> I'm not sure why you think anything is wrong here - maybe it's the odd
+> code structure to the success path at the bottom of mdio_mux_init()?
 
-Since iproute2 always showed MAIN, it should conitnue to do so when
-run on older kernels.
+Ok I may have misread your change.  I'll restudy it when you respin
+the series with the commit message fixed and the DSA change added.
 
-And again this is regardless of whether you disagree with those
-semantics or not.
+Thanks.
