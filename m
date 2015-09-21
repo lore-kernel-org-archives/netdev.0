@@ -1,45 +1,44 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [iproute2 PATCH] ip-link: do not support 'ip link add dev
- help'
-Date: Mon, 21 Sep 2015 22:13:49 +0200
-Message-ID: <20150921221349.83034aoqadvokjr1@berry.schulz.ip-v6.eu>
-References: <CAK8ArgOM2Vyr4DJO73wzhgFFbGMm9p+XMGcD2JAWeZ8G+_3PSw@mail.gmail.com>
- <1442863981-19112-1-git-send-email-phil@nwl.cc>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/7] 8139cp: Improve accuracy of cp_interrupt() return,
+ to survive IRQ storms
+Date: Mon, 21 Sep 2015 22:25:41 +0200
+Message-ID: <20150921202541.GA4128@electric-eye.fr.zoreil.com>
+References: <1442843991.7367.4.camel@infradead.org>
+ <1442844109.7367.5.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Wilhelm Wijkander <lists@0x5e.se>,
-	Vadim Kochan <vadim4j@gmail.com>
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1137-han.de-nserver.de ([77.75.249.171]:54640 "EHLO
-	server1137-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754685AbbIUUNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 16:13:54 -0400
-In-Reply-To: <1442863981-19112-1-git-send-email-phil@nwl.cc>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:40263 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755696AbbIUU0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 16:26:36 -0400
 Content-Disposition: inline
+In-Reply-To: <1442844109.7367.5.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+David Woodhouse <dwmw2@infradead.org> :
+> From: David Woodhouse <David.Woodhouse@intel.com>
+> 
+> The TX timeout handling has been observed to trigger RX IRQ storms. And
+> since cp_interrupt() just keeps saying that it handled the interrupt,
+> the machine then dies. Fix the return value from cp_interrupt(), and
+> the offending IRQ gets disabled and the machine survives.
 
-Phil Sutter schrieb am Mon, 21 Sep 2015 21:33:01 +0200:
+I am not fond of the way it dissociates the hardware status word and the
+software "handled" variable.
 
-> Commit 0532555 ('Support "ip link add help" for rtnl_link API') added a
-> check for specified help parameter. Though due to the place where it has
-> been added to, it is not possible anymore to force a given parameter to
-> be interpreted as interface name by prefixing it with 'dev '. Fix this
-> by forcing whatever follows 'dev' to be presumed as interface name.
+What you are describing - RX IRQ storms - looks like a problem between
+the irq and poll handlers. That's where I expect the problem to be solved.
+Sprinkling "handled" operations does not make me terribly confortable,
+especially as I'd happily trade the old-style part irq, part napi
+processing for a plain napi processing (I can get over it though :o) ).
 
-I proposed a similar fix which also handles other ip commands, see  
-http://patchwork.ozlabs.org/patch/519171/ . Does my patch also work  
-for you?
+Once the code is past the "if (!status || (status == 0xFFFF))" test -
+or whatever test against some mask - I don't see why the driver could
+refuse to take ownership of the irq.
 
-
-Regards,
-
-Christoph Schulz
+-- 
+Ueimor
