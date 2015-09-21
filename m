@@ -1,51 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] net: Hisilicon Network Subsystem support
-Date: Sun, 20 Sep 2015 21:44:21 -0700 (PDT)
-Message-ID: <20150920.214421.16012758847156956.davem@davemloft.net>
-References: <1442472710-20909-1-git-send-email-huangdaode@hisilicon.com>
+Subject: Re: [PATCH v4] net: Fix behaviour of unreachable, blackhole and
+ prohibit routes
+Date: Sun, 20 Sep 2015 21:45:18 -0700 (PDT)
+Message-ID: <20150920.214518.331533621425531441.davem@davemloft.net>
+References: <1442498492.2914.1.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com,
-	liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-	paul.gortmaker@windriver.com, dingtianhong@huawei.com,
-	zhangfei.gao@linaro.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
-	xuwei5@hisilicon.com, lisheng011@huawei.com
-To: huangdaode@hisilicon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442472710-20909-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: nforro@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48549 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733AbbIUEpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:45:18 -0400
+In-Reply-To: <1442498492.2914.1.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: huangdaode <huangdaode@hisilicon.com>
-Date: Thu, 17 Sep 2015 14:51:45 +0800
-
-> This is V2 of Hisilicon Network Subsystem(HNS) patchesets taking care
-> about LKML comments.
-> 
-> Please find out the changes from the change logs. 
-> This patchset is rebased on mainline kernel Linux 4.3-rc1 branch.
-> 
-> [PATCH v2 1/5] Device Tree Binding Documentation
-> [PATCH v2 2/5] Merge MDIO Module
-> [PATCH v2 3/5] Hisilicon Network Acceleration Engine Framework
-> [PATCH v2 4/5] Distributed System Area Fabric Module
-> [PATCH v2 5/5] Basic Ethernet Driver Module
-> 
-> Changes from V1:
-> 1. Remove "inline" in C file (according to LKML comment, same in below).
-> 2. Fix a bug about class_find_device.
-> 3. Change the DTS pattern on hnae, restruct it to compatible with Hi1610 soc.
-> 4. Unified hip04_mdio and hip05_mdio into hns_mdio, which is more usaul for 
->    later SOCs.
-> 
-> V1 Patches Reference: https://lkml.org/lkml/2015/8/14/165
-
-Series applied, thanks.
-
- 
+RnJvbTogTmlrb2xhIEZvcnLDsyA8bmZvcnJvQHJlZGhhdC5jb20+DQpEYXRlOiBUaHUsIDE3IFNl
+cCAyMDE1IDE2OjAxOjMyICswMjAwDQoNCj4gTWFuIHBhZ2Ugb2YgaXAtcm91dGUoOCkgc2F5cyBm
+b2xsb3dpbmcgYWJvdXQgcm91dGUgdHlwZXM6DQo+IA0KPiAgIHVucmVhY2hhYmxlIC0gdGhlc2Ug
+ZGVzdGluYXRpb25zIGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tldHMgYXJlIGRpc+KAkA0KPiAgIGNh
+cmRlZCBhbmQgdGhlIElDTVAgbWVzc2FnZSBob3N0IHVucmVhY2hhYmxlIGlzIGdlbmVyYXRlZC4g
+IFRoZSBsb2NhbA0KPiAgIHNlbmRlcnMgZ2V0IGFuIEVIT1NUVU5SRUFDSCBlcnJvci4NCj4gDQo+
+ICAgYmxhY2tob2xlIC0gdGhlc2UgZGVzdGluYXRpb25zIGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tl
+dHMgYXJlIGRpc+KAkA0KPiAgIGNhcmRlZCBzaWxlbnRseS4gIFRoZSBsb2NhbCBzZW5kZXJzIGdl
+dCBhbiBFSU5WQUwgZXJyb3IuDQo+IA0KPiAgIHByb2hpYml0IC0gdGhlc2UgZGVzdGluYXRpb25z
+IGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tldHMgYXJlIGRpc2NhcmRlZA0KPiAgIGFuZCB0aGUgSUNN
+UCBtZXNzYWdlIGNvbW11bmljYXRpb24gYWRtaW5pc3RyYXRpdmVseSBwcm9oaWJpdGVkIGlzDQo+
+ICAgZ2VuZXJhdGVkLiAgVGhlIGxvY2FsIHNlbmRlcnMgZ2V0IGFuIEVBQ0NFUyBlcnJvci4NCj4g
+DQo+IEluIHRoZSBpbmV0NiBhZGRyZXNzIGZhbWlseSwgdGhpcyB3YXMgY29ycmVjdCwgZXhjZXB0
+IHRoZSBsb2NhbCBzZW5kZXJzDQo+IGdvdCBFTkVUVU5SRUFDSCBlcnJvciBpbnN0ZWFkIG9mIEVI
+T1NUVU5SRUFDSCBpbiBjYXNlIG9mIHVucmVhY2hhYmxlIHJvdXRlLg0KPiBJbiB0aGUgaW5ldCBh
+ZGRyZXNzIGZhbWlseSwgYWxsIHRocmVlIHJvdXRlIHR5cGVzIGdlbmVyYXRlZCBJQ01QIG1lc3Nh
+Z2UNCj4gbmV0IHVucmVhY2hhYmxlLCBhbmQgdGhlIGxvY2FsIHNlbmRlcnMgZ290IEVORVRVTlJF
+QUNIIGVycm9yLg0KPiANCj4gSW4gYm90aCBhZGRyZXNzIGZhbWlsaWVzIGFsbCB0aHJlZSByb3V0
+ZSB0eXBlcyBub3cgYmVoYXZlIGNvbnNpc3RlbnRseQ0KPiB3aXRoIGRvY3VtZW50YXRpb24uDQo+
+IA0KPiBTaWduZWQtb2ZmLWJ5OiBOaWtvbGEgRm9ycsOzIDxuZm9ycm9AcmVkaGF0LmNvbT4NCg0K
+QXBwbGllZCwgdGhhbmtzLg0K
