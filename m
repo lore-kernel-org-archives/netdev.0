@@ -1,80 +1,40 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
-Date: Mon, 21 Sep 2015 15:36:41 -0700
-Message-ID: <CALx6S349QY_U8KVtnwDc_yFMXdZ9h1WvnpjWU9FYPTNuQ0yt7w@mail.gmail.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
-	<20150921122422.GA31092@oracle.com>
-	<CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
-	<20150921212624.GD3861@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
+ show table id
+Date: Mon, 21 Sep 2015 15:36:37 -0700 (PDT)
+Message-ID: <20150921.153637.12993039889083787.davem@davemloft.net>
+References: <56007E94.8000506@cumulusnetworks.com>
+	<20150921.150346.926573540048522271.davem@davemloft.net>
+	<56008351.7010005@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:38883 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933186AbbIUWgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:36:42 -0400
-Received: by igxx6 with SMTP id x6so67860199igx.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 15:36:41 -0700 (PDT)
-In-Reply-To: <20150921212624.GD3861@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55934 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933047AbbIUWgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:36:40 -0400
+In-Reply-To: <56008351.7010005@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2015 at 2:26 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (09/21/15 10:33), Tom Herbert wrote:
->> >
->> > Some things that were not clear to me from the patch-set:
->> >
->> > The doc statses that we re-assemble packets the "stated length" -
->> > but how will the receiver know the "stated length"?
->>
->> BPF program returns the length of the next message. In my testing so
->> far I've been using HTTP/2 which defines a frame format with first 3
->> bytes being header length field . The BPF program (using LLVM/Clang--
->> thanks Alexei!) is just:
->
-> Maybe I dont see something about the mux/demux here (I have to
-> take a closer look at reserve_psock/unreserve_psock), but
-> will every tcp segment have a 3 byte length in the payload?
->
-No, there is no provision in TCP that application layer headers align
-with TCP segments or that message boundaries are respected with TCP
-segments. What we need to do, which you're probably doing for RDS, is
-do message delineation on the stream as a sequence of:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 21 Sep 2015 16:23:13 -0600
 
-1) Read protocol header to determine message length (BPF used here)
-2) Read data up to the length of the message
-3) Deliver message
-4) Goto #1 (i.e. process next message in the stream).
+> With the new flag a AND kernel that supports it ip will only show the
+> table id IF it is not main:
+> 
+> root@vm-wheezy2:~# ./ip route get 10.0.0.20
+> 10.0.0.20 dev eth0  src 10.0.0.2
+>     cache
+> 
+> root@vm-wheezy2:~# ./ip route get 10.2.1.254
+> 10.2.1.254 dev eth1  table 10  src 10.2.1.2
+>     cache
+> 
+> That's my point. I have not changed existing users.
 
-> Not every TCP segment in the RDS-TCP case will have a RDS header,
-> thus the comments before rds_send_xmit(), thus applying the bpf filter
-> to a TCP segment holding some "from-the-middle" piece of the RDS dgram
-> may not be possible
->
->> > the notes say one can "accept()" over a kcm socket- but "accept()"
->> > is itself a connection-oriented concept- one does not accept() on
->     :
->> The accept method is overloaded on KCM sockets to do the socket
->> cloning operation. This is unrelated to TCP semantics, connection
->> management is performed on TCP sockets (i.e. before being attached to
->> a KCM multiplexor).
->
-> If possible,it might be better to use some other
-> glibc-func/name/syscall/sockopt/whatever
-> for this, rather than overloading accept().. feels like that would
-> keep the semantics cleaner, and probably less likely to trip
-> up on accept code in the kernel..
->
-I'll a look at alternatives, but I sort of think this is okay since
-the semantics of accept are defined per protocol (in this case the
-"protocol" is KCM).
-
-Thanks,
-Tom
-
-> --Sowmini
+Ok, thanks for the clarification.  I misread the conditional
+statements around the area your patch touches, sorry.
