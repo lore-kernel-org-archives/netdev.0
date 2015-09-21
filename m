@@ -1,91 +1,107 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 4/7] 8139cp: Fix TSO/scatter-gather descriptor setup
-Date: Mon, 21 Sep 2015 15:02:45 +0100
-Message-ID: <1442844165.7367.14.camel@infradead.org>
+Subject: [PATCH 5/7] 8139cp: Fix DMA unmapping of transmitted buffers
+Date: Mon, 21 Sep 2015 15:03:00 +0100
+Message-ID: <1442844180.7367.15.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-K0Q4d7VGPtsij1HvYHD5"
+	boundary="=-69UALe/sDwJrpQ4YRt2O"
 Cc: romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44527 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:44698 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932630AbbIUOCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:02:48 -0400
+	with ESMTP id S1756240AbbIUODD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:03:03 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-K0Q4d7VGPtsij1HvYHD5
+--=-69UALe/sDwJrpQ4YRt2O
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-When sending a TSO frame in multiple buffers, we were neglecting to set
-the first descriptor up in TSO mode.
+The low 16 bits of the 'opts1' field in the TX descriptor are supposed
+to still contain the buffer length when the descriptor is handed back to
+us. In practice, at least on my hardware, they don't. So stash the
+original value of the opts1 field and get the length to unmap from
+there.
+
+There are other ways we could have worked out the length, but I actually
+want a stash of the opts1 field anyway so that I can dump it alongside
+the contents of the descriptor ring when we suffer a TX timeout.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 058f835..07621b5 100644
+index 07621b5..036ad85 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -797,7 +797,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+@@ -341,6 +341,7 @@ struct cp_private {
+ 	unsigned		tx_tail;
+ 	struct cp_desc		*tx_ring;
+ 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
++	u32			tx_opts[CP_TX_RING_SIZE];
+=20
+ 	unsigned		rx_buf_sz;
+ 	unsigned		wol_enabled : 1; /* Is Wake-on-LAN enabled? */
+@@ -670,7 +671,7 @@ static int cp_tx (struct cp_private *cp)
+ 		BUG_ON(!skb);
+=20
+ 		dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
+-				 le32_to_cpu(txd->opts1) & 0xffff,
++				 cp->tx_opts[tx_tail] & 0xffff,
+ 				 PCI_DMA_TODEVICE);
+=20
+ 		if (status & LastFrag) {
+@@ -793,6 +794,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		wmb();
+=20
+ 		cp->tx_skb[entry] =3D skb;
++		cp->tx_opts[entry] =3D flags;
+ 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
  			  entry, skb->len);
  	} else {
- 		struct cp_desc *txd;
--		u32 first_len, first_eor;
-+		u32 first_len, first_eor, ctrl;
- 		dma_addr_t first_mapping;
- 		int frag, first_entry =3D entry;
- 		const struct iphdr *ip =3D ip_hdr(skb);
-@@ -817,7 +817,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		for (frag =3D 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
- 			const skb_frag_t *this_frag =3D &skb_shinfo(skb)->frags[frag];
- 			u32 len;
--			u32 ctrl;
- 			dma_addr_t mapping;
+@@ -856,6 +858,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
 =20
- 			entry =3D NEXT_TX(entry);
-@@ -865,20 +864,20 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
-,
- 		txd->addr =3D cpu_to_le64(first_mapping);
- 		wmb();
-=20
--		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
-+		ctrl =3D first_eor | first_len | FirstFrag | DescOwn;
-+		if (mss)
-+			ctrl |=3D LargeSend |
-+				((mss & MSSMask) << MSSShift);
-+		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
- 			if (ip->protocol =3D=3D IPPROTO_TCP)
--				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--							 FirstFrag | DescOwn |
--							 IPCS | TCPCS);
-+				ctrl |=3D IPCS | TCPCS;
- 			else if (ip->protocol =3D=3D IPPROTO_UDP)
--				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--							 FirstFrag | DescOwn |
--							 IPCS | UDPCS);
-+				ctrl |=3D IPCS | UDPCS;
- 			else
- 				BUG();
--		} else
--			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--						 FirstFrag | DescOwn);
-+		}
+ 			txd->opts1 =3D cpu_to_le32(ctrl);
+ 			wmb();
 +
-+		txd->opts1 =3D cpu_to_le32(ctrl);
++			cp->tx_opts[entry] =3D ctrl;
+ 			cp->tx_skb[entry] =3D skb;
+ 		}
+=20
+@@ -880,6 +884,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		txd->opts1 =3D cpu_to_le32(ctrl);
  		wmb();
 =20
++		cp->tx_opts[first_entry] =3D ctrl;
  		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
+ 			  first_entry, entry, skb->len);
+ 	}
+@@ -1122,6 +1127,7 @@ static int cp_init_rings (struct cp_private *cp)
+ {
+ 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
+ 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 =3D cpu_to_le32(RingEnd);
++	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
+=20
+ 	cp_init_rings_index(cp);
+=20
+@@ -1179,6 +1185,7 @@ static void cp_clean_rings (struct cp_private *cp)
+=20
+ 	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
+ 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
++	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
+=20
+ 	memset(cp->rx_skb, 0, sizeof(struct sk_buff *) * CP_RX_RING_SIZE);
+ 	memset(cp->tx_skb, 0, sizeof(struct sk_buff *) * CP_TX_RING_SIZE);
 --=20
 2.4.3
 
@@ -93,7 +109,7 @@ index 058f835..07621b5 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-K0Q4d7VGPtsij1HvYHD5
+--=-69UALe/sDwJrpQ4YRt2O
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -186,18 +202,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwMjQ1WjAjBgkqhkiG9w0BCQQxFgQUDhVvl9TgpKzyM/plI6i0pDRy2rEw
+CQUxDxcNMTUwOTIxMTQwMzAwWjAjBgkqhkiG9w0BCQQxFgQU21ctn8yyv8CwJy/WqItkG1i+d+kw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQCheXCTdSdEUChLNBzHB8gup8IumYAz5UJp38CL9BV7YA31Rhv0bMCVQa+P
-OTORCFTm3FV+Dx6AcsSEmPLuKM/AtXt3tZW8kI+YEo0dVcWTlEOdjRrrwhgS0ceR5qXVlGfOzyGx
-CaRyWpoeOaQ7cXnK6hK27TFUS9oqFFePGXR45lDzWK9OWn9Hxd+TYOFeAqX8oHOFOsIBYKg3AuND
-KaZ4DFjIVcRMBpOfvDnVGt6EnZhMbVG8rboGSyN31R+TXY4NkS70u6Eo3vmksYknzHEpoESj2wQ9
-9y7BoquKHwHw9Uu/Wqgedw8bjC3Kpx2JHzZpvhkYdYeVQp8XE8UqsUkyAAAAAAAA
+hkiG9w0BAQEFAASCAQA9HhCLjr6zLOEPYzXnEA0pHgXfmevtucdxeJP5zw1rEBQEavg/bding9Pi
+ekUUrkLRTVe52iMW9yIBRVs12s/nOhbiEOs0iA1/7f8Yv+5qKyaY0CoGuoDwtSENMfSv2AK57m5Z
+VM7diPcTALKYwJu5pori04luJXIWPO2ckPKyzonLOZTwi7lg2rWka/40sQt1OIs4xzvdl/npwlnk
+OwUgNfoLtkZlxEyQ/jaRLYVlDUobAhFI1Z5nmA13D2DgtcGqEV5PiG4xbjPiW7FKvTd3lrkMf/fs
+2yawxSQWWu2wRS4vJJYB6TQf+t8W7ks07dm0kXDA2ux7HUjKiarONXHzAAAAAAAA
 
 
---=-K0Q4d7VGPtsij1HvYHD5--
+--=-69UALe/sDwJrpQ4YRt2O--
