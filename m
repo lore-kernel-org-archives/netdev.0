@@ -1,59 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
-Date: Mon, 21 Sep 2015 17:26:24 -0400
-Message-ID: <20150921212624.GD3861@oracle.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
- <20150921122422.GA31092@oracle.com>
- <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
+ show table id
+Date: Mon, 21 Sep 2015 15:28:53 -0600
+Message-ID: <56007695.3070003@cumulusnetworks.com>
+References: <1442859588-14831-1-git-send-email-dsa@cumulusnetworks.com>
+ <20150921141929.681ebf69@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33065 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756836AbbIUV0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:26:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:32967 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753564AbbIUV2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:28:47 -0400
+Received: by iofh134 with SMTP id h134so133767139iof.0
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 14:28:47 -0700 (PDT)
+In-Reply-To: <20150921141929.681ebf69@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (09/21/15 10:33), Tom Herbert wrote:
-> >
-> > Some things that were not clear to me from the patch-set:
-> >
-> > The doc statses that we re-assemble packets the "stated length" -
-> > but how will the receiver know the "stated length"?
-> 
-> BPF program returns the length of the next message. In my testing so
-> far I've been using HTTP/2 which defines a frame format with first 3
-> bytes being header length field . The BPF program (using LLVM/Clang--
-> thanks Alexei!) is just:
+On 9/21/15 3:19 PM, Stephen Hemminger wrote:
+>> @@ -1638,6 +1638,8 @@ static int iproute_get(int argc, char **argv)
+>>   	if (req.r.rtm_family == AF_UNSPEC)
+>>   		req.r.rtm_family = AF_INET;
+>>
+>> +	req.r.rtm_flags |= RTM_F_LOOKUP_TABLE;
+>> +
+>>   	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
+>>   		exit(2);
+>>
+>
+> How will this work (or not) on older kernels?
+>
 
-Maybe I dont see something about the mux/demux here (I have to 
-take a closer look at reserve_psock/unreserve_psock), but 
-will every tcp segment have a 3 byte length in the payload?
+It works just fine. First test used the wrong VM and was puzzled to not 
+see the table id in the output. Then I realized the older kernel did not 
+recognize the RTM_F_LOOKUP_TABLE; silently ignores the flag. With a 
+kernel that does recognize it I get the table id in the output when it 
+is not main.
 
-Not every TCP segment in the RDS-TCP case will have a RDS header,
-thus the comments before rds_send_xmit(), thus applying the bpf filter
-to a TCP segment holding some "from-the-middle" piece of the RDS dgram
-may not be possible 
-
-> > the notes say one can "accept()" over a kcm socket- but "accept()"
-> > is itself a connection-oriented concept- one does not accept() on
-    :
-> The accept method is overloaded on KCM sockets to do the socket
-> cloning operation. This is unrelated to TCP semantics, connection
-> management is performed on TCP sockets (i.e. before being attached to
-> a KCM multiplexor).
-
-If possible,it might be better to use some other
-glibc-func/name/syscall/sockopt/whatever
-for this, rather than overloading accept().. feels like that would
-keep the semantics cleaner, and probably less likely to trip 
-up on accept code in the kernel..
-
---Sowmini
+David
