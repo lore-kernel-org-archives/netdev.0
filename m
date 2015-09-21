@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net: Fix behaviour of unreachable, blackhole and
- prohibit routes
-Date: Sun, 20 Sep 2015 21:45:18 -0700 (PDT)
-Message-ID: <20150920.214518.331533621425531441.davem@davemloft.net>
-References: <1442498492.2914.1.camel@redhat.com>
+Subject: Re: [PATCH] Replace get_seconds with ktime_get_seconds
+Date: Sun, 20 Sep 2015 21:54:09 -0700 (PDT)
+Message-ID: <20150920.215409.880507139977194497.davem@davemloft.net>
+References: <1442506373-3326-1-git-send-email-ksenija.stanojevic@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: nforro@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dhowells@redhat.com, arnd@arndb.de
+To: ksenija.stanojevic@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48549 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48588 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753733AbbIUEpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:45:18 -0400
-In-Reply-To: <1442498492.2914.1.camel@redhat.com>
+	with ESMTP id S1755471AbbIUEyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 00:54:11 -0400
+In-Reply-To: <1442506373-3326-1-git-send-email-ksenija.stanojevic@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTmlrb2xhIEZvcnLDsyA8bmZvcnJvQHJlZGhhdC5jb20+DQpEYXRlOiBUaHUsIDE3IFNl
-cCAyMDE1IDE2OjAxOjMyICswMjAwDQoNCj4gTWFuIHBhZ2Ugb2YgaXAtcm91dGUoOCkgc2F5cyBm
-b2xsb3dpbmcgYWJvdXQgcm91dGUgdHlwZXM6DQo+IA0KPiAgIHVucmVhY2hhYmxlIC0gdGhlc2Ug
-ZGVzdGluYXRpb25zIGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tldHMgYXJlIGRpc+KAkA0KPiAgIGNh
-cmRlZCBhbmQgdGhlIElDTVAgbWVzc2FnZSBob3N0IHVucmVhY2hhYmxlIGlzIGdlbmVyYXRlZC4g
-IFRoZSBsb2NhbA0KPiAgIHNlbmRlcnMgZ2V0IGFuIEVIT1NUVU5SRUFDSCBlcnJvci4NCj4gDQo+
-ICAgYmxhY2tob2xlIC0gdGhlc2UgZGVzdGluYXRpb25zIGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tl
-dHMgYXJlIGRpc+KAkA0KPiAgIGNhcmRlZCBzaWxlbnRseS4gIFRoZSBsb2NhbCBzZW5kZXJzIGdl
-dCBhbiBFSU5WQUwgZXJyb3IuDQo+IA0KPiAgIHByb2hpYml0IC0gdGhlc2UgZGVzdGluYXRpb25z
-IGFyZSB1bnJlYWNoYWJsZS4gIFBhY2tldHMgYXJlIGRpc2NhcmRlZA0KPiAgIGFuZCB0aGUgSUNN
-UCBtZXNzYWdlIGNvbW11bmljYXRpb24gYWRtaW5pc3RyYXRpdmVseSBwcm9oaWJpdGVkIGlzDQo+
-ICAgZ2VuZXJhdGVkLiAgVGhlIGxvY2FsIHNlbmRlcnMgZ2V0IGFuIEVBQ0NFUyBlcnJvci4NCj4g
-DQo+IEluIHRoZSBpbmV0NiBhZGRyZXNzIGZhbWlseSwgdGhpcyB3YXMgY29ycmVjdCwgZXhjZXB0
-IHRoZSBsb2NhbCBzZW5kZXJzDQo+IGdvdCBFTkVUVU5SRUFDSCBlcnJvciBpbnN0ZWFkIG9mIEVI
-T1NUVU5SRUFDSCBpbiBjYXNlIG9mIHVucmVhY2hhYmxlIHJvdXRlLg0KPiBJbiB0aGUgaW5ldCBh
-ZGRyZXNzIGZhbWlseSwgYWxsIHRocmVlIHJvdXRlIHR5cGVzIGdlbmVyYXRlZCBJQ01QIG1lc3Nh
-Z2UNCj4gbmV0IHVucmVhY2hhYmxlLCBhbmQgdGhlIGxvY2FsIHNlbmRlcnMgZ290IEVORVRVTlJF
-QUNIIGVycm9yLg0KPiANCj4gSW4gYm90aCBhZGRyZXNzIGZhbWlsaWVzIGFsbCB0aHJlZSByb3V0
-ZSB0eXBlcyBub3cgYmVoYXZlIGNvbnNpc3RlbnRseQ0KPiB3aXRoIGRvY3VtZW50YXRpb24uDQo+
-IA0KPiBTaWduZWQtb2ZmLWJ5OiBOaWtvbGEgRm9ycsOzIDxuZm9ycm9AcmVkaGF0LmNvbT4NCg0K
-QXBwbGllZCwgdGhhbmtzLg0K
+From: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
+Date: Thu, 17 Sep 2015 18:12:53 +0200
+
+> Replace time_t type and get_seconds function which are not y2038 safe
+> on 32-bit systems. Function ktime_get_seconds use monotonic instead of
+> real time and therefore will not cause overflow.
+> 
+> Signed-off-by: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
+> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+
+Applied to net-next, thanks.
