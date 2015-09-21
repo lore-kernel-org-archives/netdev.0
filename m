@@ -1,107 +1,77 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 5/7] 8139cp: Fix DMA unmapping of transmitted buffers
-Date: Mon, 21 Sep 2015 15:03:00 +0100
-Message-ID: <1442844180.7367.15.camel@infradead.org>
+Subject: [PATCH 6/7] 8139cp: Dump contents of descriptor ring on TX timeout
+Date: Mon, 21 Sep 2015 15:03:19 +0100
+Message-ID: <1442844199.7367.16.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-69UALe/sDwJrpQ4YRt2O"
+	boundary="=-81X+4P3CH+tjJV/pAgUR"
 Cc: romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44698 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:44930 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756240AbbIUODD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:03:03 -0400
+	with ESMTP id S932103AbbIUODX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:03:23 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-69UALe/sDwJrpQ4YRt2O
+--=-81X+4P3CH+tjJV/pAgUR
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-The low 16 bits of the 'opts1' field in the TX descriptor are supposed
-to still contain the buffer length when the descriptor is handed back to
-us. In practice, at least on my hardware, they don't. So stash the
-original value of the opts1 field and get the length to unmap from
-there.
-
-There are other ways we could have worked out the length, but I actually
-want a stash of the opts1 field anyway so that I can dump it alongside
-the contents of the descriptor ring when we suffer a TX timeout.
+We are seeing unexplained TX timeouts under heavy load. Let's try to get
+a better idea of what's going on.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/8139cp.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 07621b5..036ad85 100644
+index 036ad85..6feff9f 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -341,6 +341,7 @@ struct cp_private {
- 	unsigned		tx_tail;
- 	struct cp_desc		*tx_ring;
- 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
-+	u32			tx_opts[CP_TX_RING_SIZE];
-=20
- 	unsigned		rx_buf_sz;
- 	unsigned		wol_enabled : 1; /* Is Wake-on-LAN enabled? */
-@@ -670,7 +671,7 @@ static int cp_tx (struct cp_private *cp)
- 		BUG_ON(!skb);
-=20
- 		dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
--				 le32_to_cpu(txd->opts1) & 0xffff,
-+				 cp->tx_opts[tx_tail] & 0xffff,
- 				 PCI_DMA_TODEVICE);
-=20
- 		if (status & LastFrag) {
-@@ -793,6 +794,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		wmb();
-=20
- 		cp->tx_skb[entry] =3D skb;
-+		cp->tx_opts[entry] =3D flags;
- 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
- 			  entry, skb->len);
- 	} else {
-@@ -856,6 +858,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
-=20
- 			txd->opts1 =3D cpu_to_le32(ctrl);
- 			wmb();
-+
-+			cp->tx_opts[entry] =3D ctrl;
- 			cp->tx_skb[entry] =3D skb;
- 		}
-=20
-@@ -880,6 +884,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		txd->opts1 =3D cpu_to_le32(ctrl);
- 		wmb();
-=20
-+		cp->tx_opts[first_entry] =3D ctrl;
- 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
- 			  first_entry, entry, skb->len);
- 	}
-@@ -1122,6 +1127,7 @@ static int cp_init_rings (struct cp_private *cp)
+@@ -157,6 +157,7 @@ enum {
+ 	NWayAdvert	=3D 0x66, /* MII ADVERTISE */
+ 	NWayLPAR	=3D 0x68, /* MII LPA */
+ 	NWayExpansion	=3D 0x6A, /* MII Expansion */
++	TxDmaOkLowDesc  =3D 0x82, /* Low 16 bit address of a Tx descriptor. */
+ 	Config5		=3D 0xD8,	/* Config5 */
+ 	TxPoll		=3D 0xD9,	/* Tell chip to check Tx descriptors for work */
+ 	RxMaxSize	=3D 0xDA, /* Max size of an Rx packet (8169 only) */
+@@ -1263,7 +1264,7 @@ static void cp_tx_timeout(struct net_device *dev)
  {
- 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
- 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 =3D cpu_to_le32(RingEnd);
-+	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
+ 	struct cp_private *cp =3D netdev_priv(dev);
+ 	unsigned long flags;
+-	int rc;
++	int rc, i;
 =20
- 	cp_init_rings_index(cp);
+ 	netdev_warn(dev, "Transmit timeout, status %2x %4x %4x %4x\n",
+ 		    cpr8(Cmd), cpr16(CpCmd),
+@@ -1271,6 +1272,17 @@ static void cp_tx_timeout(struct net_device *dev)
 =20
-@@ -1179,6 +1185,7 @@ static void cp_clean_rings (struct cp_private *cp)
+ 	spin_lock_irqsave(&cp->lock, flags);
 =20
- 	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
- 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
-+	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
-=20
- 	memset(cp->rx_skb, 0, sizeof(struct sk_buff *) * CP_RX_RING_SIZE);
- 	memset(cp->tx_skb, 0, sizeof(struct sk_buff *) * CP_TX_RING_SIZE);
++	netif_dbg(cp, tx_err, cp->dev, "TX ring head %d tail %d desc %x\n",
++		  cp->tx_head, cp->tx_tail, cpr16(TxDmaOkLowDesc));
++	for (i =3D 0; i < CP_TX_RING_SIZE; i++) {
++		netif_dbg(cp, tx_err, cp->dev,
++			  "TX slot %d @%p: %08x (%08x) %08x %llx %p\n",
++			  i, &cp->tx_ring[i], le32_to_cpu(cp->tx_ring[i].opts1),
++			  cp->tx_opts[i], le32_to_cpu(cp->tx_ring[i].opts2),
++			  le64_to_cpu(cp->tx_ring[i].addr),
++			  cp->tx_skb[i]);
++	}
++
+ 	cp_stop_hw(cp);
+ 	cp_clean_rings(cp);
+ 	rc =3D cp_init_rings(cp);
 --=20
 2.4.3
 
@@ -109,7 +79,7 @@ index 07621b5..036ad85 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-69UALe/sDwJrpQ4YRt2O
+--=-81X+4P3CH+tjJV/pAgUR
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -202,18 +172,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwMzAwWjAjBgkqhkiG9w0BCQQxFgQU21ctn8yyv8CwJy/WqItkG1i+d+kw
+CQUxDxcNMTUwOTIxMTQwMzE5WjAjBgkqhkiG9w0BCQQxFgQUiuLmTFbEKqEqzUwoqUDgItBDFLsw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQA9HhCLjr6zLOEPYzXnEA0pHgXfmevtucdxeJP5zw1rEBQEavg/bding9Pi
-ekUUrkLRTVe52iMW9yIBRVs12s/nOhbiEOs0iA1/7f8Yv+5qKyaY0CoGuoDwtSENMfSv2AK57m5Z
-VM7diPcTALKYwJu5pori04luJXIWPO2ckPKyzonLOZTwi7lg2rWka/40sQt1OIs4xzvdl/npwlnk
-OwUgNfoLtkZlxEyQ/jaRLYVlDUobAhFI1Z5nmA13D2DgtcGqEV5PiG4xbjPiW7FKvTd3lrkMf/fs
-2yawxSQWWu2wRS4vJJYB6TQf+t8W7ks07dm0kXDA2ux7HUjKiarONXHzAAAAAAAA
+hkiG9w0BAQEFAASCAQAfy/1HESpfPcYoLNX3i1CO0mhiVOoHdYOH8jKn355bAZiLsfvkyPRzYtq4
+msorF1T2pq7D7BK5/fOqixPjgVNPaATVwlhiBs8pyzqsXDizyNr3b1WCngD0vIKcNa4OIGlzDg2r
+WRZ1WaRpkK9bN6Fwmebz6Ws116JH4LIP5JJHQNTo2s8shNGSQhW8oe1YlF41j28cPRONHVnQvVeS
+S178Mg+CnWo2jhFsUKARU4dGctVd1onaAYQ/7PviAeLq8Kx1FOu3DSJez1pHiMLvbm2H+wTp8qOJ
+dx5Sb1wz1pDcB6No8CZtjjD+N301XFmweuB9v6r5D1sYl9Ixh7KxTf/6AAAAAAAA
 
 
---=-69UALe/sDwJrpQ4YRt2O--
+--=-81X+4P3CH+tjJV/pAgUR--
