@@ -1,62 +1,98 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 2/7] 8139cp: Do not re-enable RX interrupts in
- cp_tx_timeout()
-Date: Mon, 21 Sep 2015 15:02:07 +0100
-Message-ID: <1442844127.7367.11.camel@infradead.org>
+Subject: [PATCH 3/7] 8139cp: Fix tx_queued debug message to print correct
+ slot numbers
+Date: Mon, 21 Sep 2015 15:02:33 +0100
+Message-ID: <1442844153.7367.13.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-BRg+wPE5arB+cWBsVeY0"
+	boundary="=-Hzt6ruS2T6HeUdshYXdq"
 Cc: romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44100 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:44377 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077AbbIUOCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:02:11 -0400
+	with ESMTP id S1755276AbbIUOCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:02:36 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-BRg+wPE5arB+cWBsVeY0
+--=-Hzt6ruS2T6HeUdshYXdq
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-If an RX interrupt was already received but NAPI has not yet run when
-the RX timeout happens, we end up in cp_tx_timeout() with RX interrupts
-already disabled. Blindly re-enabling them will cause an IRQ storm.
-
-This is somewhat less painful than it was a few minutes ago before I
-fixed the return value from cp_interrupt(), but still suboptimal.
-
-Unconditionally leave RX interrupts disabled after the reset, and
-schedule NAPI to check the receive ring and re-enable them.
+After a certain amount of staring at the debug output of this driver, I
+realised it was lying to me.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/8139cp.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index f1054ad..d12fc50 100644
+index d12fc50..058f835 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1269,9 +1269,10 @@ static void cp_tx_timeout(struct net_device *dev)
- 	rc =3D cp_init_rings(cp);
- 	cp_start_hw(cp);
- 	__cp_set_rx_mode(dev);
--	cp_enable_irq(cp);
-+	cpw16_f(IntrMask, cp_norx_intr_mask);
+@@ -793,7 +793,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		wmb();
 =20
- 	netif_wake_queue(dev);
-+	napi_schedule_irqoff(&cp->napi);
+ 		cp->tx_skb[entry] =3D skb;
+-		entry =3D NEXT_TX(entry);
++		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
++			  entry, skb->len);
+ 	} else {
+ 		struct cp_desc *txd;
+ 		u32 first_len, first_eor;
+@@ -812,7 +813,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			goto out_dma_error;
 =20
- 	spin_unlock_irqrestore(&cp->lock, flags);
- }
+ 		cp->tx_skb[entry] =3D skb;
+-		entry =3D NEXT_TX(entry);
+=20
+ 		for (frag =3D 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
+ 			const skb_frag_t *this_frag =3D &skb_shinfo(skb)->frags[frag];
+@@ -820,6 +820,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			u32 ctrl;
+ 			dma_addr_t mapping;
+=20
++			entry =3D NEXT_TX(entry);
++
+ 			len =3D skb_frag_size(this_frag);
+ 			mapping =3D dma_map_single(&cp->pdev->dev,
+ 						 skb_frag_address(this_frag),
+@@ -855,9 +857,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+=20
+ 			txd->opts1 =3D cpu_to_le32(ctrl);
+ 			wmb();
+-
+ 			cp->tx_skb[entry] =3D skb;
+-			entry =3D NEXT_TX(entry);
+ 		}
+=20
+ 		txd =3D &cp->tx_ring[first_entry];
+@@ -880,12 +880,13 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
+,
+ 			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
+ 						 FirstFrag | DescOwn);
+ 		wmb();
++
++		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
++			  first_entry, entry, skb->len);
+ 	}
+-	cp->tx_head =3D entry;
++	cp->tx_head =3D NEXT_TX(entry);
+=20
+ 	netdev_sent_queue(dev, skb->len);
+-	netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
+-		  entry, skb->len);
+ 	if (TX_BUFFS_AVAIL(cp) <=3D (MAX_SKB_FRAGS + 1))
+ 		netif_stop_queue(dev);
+=20
 --=20
 2.4.3
 
@@ -64,7 +100,7 @@ index f1054ad..d12fc50 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-BRg+wPE5arB+cWBsVeY0
+--=-Hzt6ruS2T6HeUdshYXdq
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -157,18 +193,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwMjA3WjAjBgkqhkiG9w0BCQQxFgQU5dyvLHx2GooEC8JyyGwVVu7RALww
+CQUxDxcNMTUwOTIxMTQwMjMzWjAjBgkqhkiG9w0BCQQxFgQUv96AGrQJI18XcHUuY5nNuYb49Fow
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQBdFhkFH1lYJpxkDTQKlqdCuKQvgTQEaWKXN0W2bgQxs8c3eabDK+fen57i
-dikIsBUItSxw5ORYiHEE4YTpWIHfqbt70lcdbUQibj1mDja0wvZTSXHAeJXBUdJMtutd/B8Um8sm
-w/FqbuPUbG/zqs3yT9RktUTg06y0EtbhX/zt+tEQ2ONtwXfuppU4x+5BZytlkUEyG8H3psNpYaOt
-7gABPGbr6PFPUxA+sx/AxO9vsVVMpaQLywqB2N3hcX0p0nWIf5/40qQ9rmVtTVT5jNa8aEsZaV22
-BVxQ+LGFIkC/zWHJ9CT1do3kSGkCkFYNJGqaX247041jMEmyIXlnD+XmAAAAAAAA
+hkiG9w0BAQEFAASCAQACjyvrdAkKQPB3ZZzxEH5Ay86ym3HZoObX3d49U5beZdcywO5l7I7kFg7Z
+2XNXExqlRnPpF0ejc9miKu7jFfUzYT4wnhzxpvhPLXc9NYUflc3KAtngiLI0yaBxY3/DxQzxP7hE
+GnnVnrfv0dYYQiC5ekusiZBfzEM5Du8U7Imt4vphP+PjkhfctmjF6XCpdSw0vGrmFhbZEjyK3Qey
+yxwhZBvANkqdxVR2HFOnbE89NWTIjz+Wo/wWmApe3DQbXN2UXoe4GmDsJC6kq3E0KgQqiFX25XYw
+acEZx//3C5ltVIznXDN+V9OFZjREDiWJn6ed2um8MWls6hMu0CYYEL04AAAAAAAA
 
 
---=-BRg+wPE5arB+cWBsVeY0--
+--=-Hzt6ruS2T6HeUdshYXdq--
