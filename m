@@ -1,40 +1,80 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute2 PATCH] ip-link: do not support 'ip link add dev help'
-Date: Mon, 21 Sep 2015 22:26:59 +0200
-Message-ID: <20150921202659.GU24212@orbit.nwl.cc>
-References: <CAK8ArgOM2Vyr4DJO73wzhgFFbGMm9p+XMGcD2JAWeZ8G+_3PSw@mail.gmail.com>
- <1442863981-19112-1-git-send-email-phil@nwl.cc>
- <20150921221349.83034aoqadvokjr1@berry.schulz.ip-v6.eu>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH] net: dsa: actually force the speed on the CPU port
+Date: Mon, 21 Sep 2015 21:42:59 +0100
+Message-ID: <E1Ze7vP-00073u-57@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Wilhelm Wijkander <lists@0x5e.se>,
-	Vadim Kochan <vadim4j@gmail.com>
-To: Christoph Schulz <develop@kristov.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:44073 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932383AbbIUU1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2015 16:27:00 -0400
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:37441 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752306AbbIUUnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 16:43:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20150921221349.83034aoqadvokjr1@berry.schulz.ip-v6.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2015 at 10:13:49PM +0200, Christoph Schulz wrote:
-> Phil Sutter schrieb am Mon, 21 Sep 2015 21:33:01 +0200:
-> 
-> > Commit 0532555 ('Support "ip link add help" for rtnl_link API') added a
-> > check for specified help parameter. Though due to the place where it has
-> > been added to, it is not possible anymore to force a given parameter to
-> > be interpreted as interface name by prefixing it with 'dev '. Fix this
-> > by forcing whatever follows 'dev' to be presumed as interface name.
-> 
-> I proposed a similar fix which also handles other ip commands, see  
-> http://patchwork.ozlabs.org/patch/519171/ . Does my patch also work  
-> for you?
+Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
+code into mv88e6xxx.") merged in the 4.2 merge window broke the link
+speed forcing for the CPU port of Marvell DSA switches.  The original
+code was:
 
-Yes, this works just as well. Although I would personally prefer
-reordering the conditionals, but that's probably just a matter of taste.
+        /* MAC Forcing register: don't force link, speed, duplex
+         * or flow control state to any particular values on physical
+         * ports, but force the CPU port and all DSA ports to 1000 Mb/s
+         * full duplex.
+         */
+        if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
+                REG_WRITE(addr, 0x01, 0x003e);
+        else
+                REG_WRITE(addr, 0x01, 0x0003);
 
-Cheers, Phil
+but the new code does a read-modify-write:
+
+                reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
+                if (dsa_is_cpu_port(ds, port) ||
+                    ds->dsa_port_mask & (1 << port)) {
+                        reg |= PORT_PCS_CTRL_FORCE_LINK |
+                                PORT_PCS_CTRL_LINK_UP |
+                                PORT_PCS_CTRL_DUPLEX_FULL |
+                                PORT_PCS_CTRL_FORCE_DUPLEX;
+                        if (mv88e6xxx_6065_family(ds))
+                                reg |= PORT_PCS_CTRL_100;
+                        else
+                                reg |= PORT_PCS_CTRL_1000;
+
+The link speed in the PCS control register is a two bit field.  Forcing
+the link speed in this way doesn't ensure that the bit field is set to
+the correct value - on the hardware I have here, the speed bitfield
+remains set to 0x03, resulting in the speed not being forced to gigabit.
+
+We must clear both bits before forcing the link speed.
+
+Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+Dave,
+
+Here's the updated patch, sorry for not sending it sooner.
+
+Thanks.
+
+ drivers/net/dsa/mv88e6xxx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 6f13f7206762..f8baa897d1a0 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2000,6 +2000,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		 */
+ 		reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
+ 		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
++			reg &= ~PORT_PCS_CTRL_UNFORCED;
+ 			reg |= PORT_PCS_CTRL_FORCE_LINK |
+ 				PORT_PCS_CTRL_LINK_UP |
+ 				PORT_PCS_CTRL_DUPLEX_FULL |
+-- 
+2.1.0
