@@ -1,94 +1,75 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net] net: Handle negative checksum offset in
- skb-checksum-help
-Date: Mon, 21 Sep 2015 08:47:06 -0700
-Message-ID: <5600267A.3060508@gmail.com>
-References: <1442818397-2210-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33951 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480AbbIUPrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 11:47:07 -0400
-Received: by padhy16 with SMTP id hy16so119777848pad.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 08:47:07 -0700 (PDT)
-In-Reply-To: <1442818397-2210-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Subject: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND flag
+Date: Mon, 21 Sep 2015 16:47:09 +0100
+Message-ID: <1442850433-5903-14-git-send-email-sudeep.holla@arm.com>
+References: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
+Cc: Sudeep Holla <sudeep.holla@arm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Kevin Hao <haokexin@gmail.com>, netdev@vger.kernel.org
+To: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/20/2015 11:53 PM, Pravin B Shelar wrote:
-> VXLAN device can receive skb with checksum partial. But the checksum
-> offset could be in outer header which is pulled on receive. This results
-> in negative checksum offset for the skb. Such skb can cause the assert
-> failure in skb_checksum_help(). The patch fixes the bug by checking for
-> negative offset in skb_checksum_help().
->
-> Following is the kernel panic msg from old kernel hitting the bug.
->
-> ------------[ cut here ]------------
-> kernel BUG at net/core/dev.c:1906!
-> RIP: 0010:[<ffffffff81518034>] skb_checksum_help+0x144/0x150
-> Call Trace:
-> <IRQ>
-> [<ffffffffa0164c28>] queue_userspace_packet+0x408/0x470 [openvswitch]
-> [<ffffffffa016614d>] ovs_dp_upcall+0x5d/0x60 [openvswitch]
-> [<ffffffffa0166236>] ovs_dp_process_packet_with_key+0xe6/0x100 [openvswitch]
-> [<ffffffffa016629b>] ovs_dp_process_received_packet+0x4b/0x80 [openvswitch]
-> [<ffffffffa016c51a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-> [<ffffffffa0171383>] vxlan_rcv+0x53/0x60 [openvswitch]
-> [<ffffffffa01734cb>] vxlan_udp_encap_recv+0x8b/0xf0 [openvswitch]
-> [<ffffffff8157addc>] udp_queue_rcv_skb+0x2dc/0x3b0
-> [<ffffffff8157b56f>] __udp4_lib_rcv+0x1cf/0x6c0
-> [<ffffffff8157ba7a>] udp_rcv+0x1a/0x20
-> [<ffffffff8154fdbd>] ip_local_deliver_finish+0xdd/0x280
-> [<ffffffff81550128>] ip_local_deliver+0x88/0x90
-> [<ffffffff8154fa7d>] ip_rcv_finish+0x10d/0x370
-> [<ffffffff81550365>] ip_rcv+0x235/0x300
-> [<ffffffff8151ba1d>] __netif_receive_skb+0x55d/0x620
-> [<ffffffff8151c360>] netif_receive_skb+0x80/0x90
-> [<ffffffff81459935>] virtnet_poll+0x555/0x6f0
-> [<ffffffff8151cd04>] net_rx_action+0x134/0x290
-> [<ffffffff810683d8>] __do_softirq+0xa8/0x210
-> [<ffffffff8162fe6c>] call_softirq+0x1c/0x30
-> [<ffffffff810161a5>] do_softirq+0x65/0xa0
-> [<ffffffff810687be>] irq_exit+0x8e/0xb0
-> [<ffffffff81630733>] do_IRQ+0x63/0xe0
-> [<ffffffff81625f2e>] common_interrupt+0x6e/0x6e
->
-> Reported-by: Anupam Chanda <achanda@vmware.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->   net/core/dev.c |    4 +++-
->   1 files changed, 3 insertions(+), 1 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index ee0d628..008f1ae 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2408,6 +2408,9 @@ int skb_checksum_help(struct sk_buff *skb)
->   		skb_warn_bad_offload(skb);
->   		return -EINVAL;
->   	}
-> +	offset = skb_checksum_start_offset(skb);
-> +	if (offset < 0)
-> +		goto out_set_summed;
->   
->   	/* Before computing a checksum, we should make sure no frag could
->   	 * be modified by an external entity : checksum could be wrong.
-> @@ -2418,7 +2421,6 @@ int skb_checksum_help(struct sk_buff *skb)
->   			goto out;
->   	}
->   
-> -	offset = skb_checksum_start_offset(skb);
->   	BUG_ON(offset >= skb_headlen(skb));
->   	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+The device is set as wakeup capable using proper wakeup API but the
+driver misuses IRQF_NO_SUSPEND to set the interrupt as wakeup source
+which is incorrect.
 
-It seems like this is just masking an error instead of fixing it. If the 
-offload is bad when you are calling this maybe you should be looking at 
-instead clearing the flag that is getting you into the state where you 
-are triggering a call to this function.
+This patch removes the use of IRQF_NO_SUSPEND flags replacing it with
+enable_irq_wake instead.
 
-- Alex
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+Cc: Kevin Hao <haokexin@gmail.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4b69d061d90f..803ed4c93503 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1970,8 +1970,7 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
+ 		/* Install our interrupt handlers for Error,
+ 		 * Transmit, and Receive
+ 		 */
+-		err = request_irq(gfar_irq(grp, ER)->irq, gfar_error,
+-				  IRQF_NO_SUSPEND,
++		err = request_irq(gfar_irq(grp, ER)->irq, gfar_error, 0,
+ 				  gfar_irq(grp, ER)->name, grp);
+ 		if (err < 0) {
+ 			netif_err(priv, intr, dev, "Can't get IRQ %d\n",
+@@ -1979,6 +1978,8 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
+ 
+ 			goto err_irq_fail;
+ 		}
++		enable_irq_wake(gfar_irq(grp, ER)->irq);
++
+ 		err = request_irq(gfar_irq(grp, TX)->irq, gfar_transmit, 0,
+ 				  gfar_irq(grp, TX)->name, grp);
+ 		if (err < 0) {
+@@ -1994,14 +1995,14 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
+ 			goto rx_irq_fail;
+ 		}
+ 	} else {
+-		err = request_irq(gfar_irq(grp, TX)->irq, gfar_interrupt,
+-				  IRQF_NO_SUSPEND,
++		err = request_irq(gfar_irq(grp, TX)->irq, gfar_interrupt, 0,
+ 				  gfar_irq(grp, TX)->name, grp);
+ 		if (err < 0) {
+ 			netif_err(priv, intr, dev, "Can't get IRQ %d\n",
+ 				  gfar_irq(grp, TX)->irq);
+ 			goto err_irq_fail;
+ 		}
++		enable_irq_wake(gfar_irq(grp, TX)->irq);
+ 	}
+ 
+ 	return 0;
+-- 
+1.9.1
