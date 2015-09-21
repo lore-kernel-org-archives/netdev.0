@@ -1,42 +1,76 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 4/7] 8139cp: Fix TSO/scatter-gather descriptor setup
-Date: Mon, 21 Sep 2015 22:06:49 +0100
-Message-ID: <1442869609.7367.78.camel@infradead.org>
+Subject: Re: [PATCH 7/7] 8139cp: Avoid gratuitous writes to TxPoll register
+ when already running
+Date: Mon, 21 Sep 2015 22:10:32 +0100
+Message-ID: <1442869832.7367.81.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
-	 <1442844165.7367.14.camel@infradead.org>
-	 <20150921210139.GB4559@electric-eye.fr.zoreil.com>
+	 <1442844340.7367.19.camel@infradead.org>
+	 <20150921205440.GA4559@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-z8IrQ1mdXVNpchvVGmxZ"
+	boundary="=-J7Xqmct/LcTbLm04MFVX"
 Cc: netdev@vger.kernel.org
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:57885 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:32832 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756298AbbIUVGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:06:52 -0400
-In-Reply-To: <20150921210139.GB4559@electric-eye.fr.zoreil.com>
+	with ESMTP id S1756029AbbIUVKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:10:36 -0400
+In-Reply-To: <20150921205440.GA4559@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-z8IrQ1mdXVNpchvVGmxZ
+--=-J7Xqmct/LcTbLm04MFVX
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2015-09-21 at 23:01 +0200, Francois Romieu wrote:
-> Can you pile a patch to replace BUG with WARN_ON_ONCE(1) ?
+On Mon, 2015-09-21 at 22:54 +0200, Francois Romieu wrote:
+> David Woodhouse <dwmw2@infradead.org> :
+> [...]
+> > I'm actually having second thoughts about this one since realising that
+> > QEMU doesn't implement it correctly. The workaround isn't *that* horrid
+> > but it's not clear it's enough of a performance win =E2=80=94 or whethe=
+r it's
+> > entirely necessary for catching my TX stall.
+>=20
+> It don't indulge in this kind of fetish but I'm fine with people who want
+> to play with QEMU 8139cp emulation where they could use virtio. They shou=
+ld
+> imvho realize that it's their job to fix QEMU 8139cp emulation, not the
+> other way around.
 
-OK. I can probably contrive a userspace program using AF_PACKET and
-PACKET_VNET_HDR to trigger it, too=C2=B9 :)
+Oh, I'll fix the QEMU emulation (but not this week; updating my router
+has taken long enough already and I have Real Work=E2=84=A2 to do).
+
+But those fixes will take time to propagate to actual users. I'm not
+sure it's so reasonable to knowingly break the 8139cp driver for all
+currently-released versions of QEMU.
+
+It wouldn't surprise me to find that QEMU probably accounts for the
+*majority* of 8139cp use on modern Linux kernels. I've had to fix
+regressions which *only* fail on real hardware, and were *only* tested
+on QEMU :)
+
+> Please keep things sane (*cough*) and avoid the qemu workaround.
+
+I don't even know that I need it. As you saw in my last WIP patch for
+catching the TX stall, I was just checking for TxEmpty without TxDone.
+An earlier iteration had actually remembered the last slot that was
+already present when we prodded the TxPoll, and would warn on getting a
+TxEmpty interrupt while that slot was still owned by the hardware. But
+that has the *same* false positives, only *after* the initial stall,
+that my current version has.
+
+So I'm just not sure I care about eliminating the gratuitous TxPoll
+writes. It's not as if we even wait for them. It's an MMIO write which
+can complete later.
 
 --=20
 dwmw2
 
 
-=C2=B9 http://comments.gmane.org/gmane.linux.network/254981
-
---=-z8IrQ1mdXVNpchvVGmxZ
+--=-J7Xqmct/LcTbLm04MFVX
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -129,18 +163,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMjEwNjQ5WjAjBgkqhkiG9w0BCQQxFgQUUUxRrrgkAjiwOc3cpQ9kqcXPcTAw
+CQUxDxcNMTUwOTIxMjExMDMyWjAjBgkqhkiG9w0BCQQxFgQUPKp7N5qLnLdFOkA9sSRpPX5CePsw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQAGFClYqUI94SLtTk50ArpqaELfz0txBGc98YO/cjhxzZVlCbcBxf6z1qxX
-8NmKewH5R/GpIcbMgH1EbP4IGWZx4yG9BeJIxKH+pEGnsM4C4YUTwU32J5lw4JXROwz+HZTaRiZO
-uW8ae0VNye/nSRw8RJiwUtBdTRXQtVtas18W1jUse4q8srkwPRTAuTMA3+Tj/8gYyJVaENp9i4UL
-zfx2DmnOPnZ40Y3Rw7Dx2gA61QlHV4EG6/00w1T4sdbkhcqUT4s4gcsaUb42bE1hm2duRwbY2vFI
-aKM4LaXadTKxLs4phlzIBoYd2/mpxvSqNX+Ucvqn0hrE4KPCm4b9DtA2AAAAAAAA
+hkiG9w0BAQEFAASCAQAE2HazXafCPIVU37+8S59VpyuCvIg1UqI6Q1F0lapVF1LwOzLHp2UHv28Q
+mg6St7eGKXW0jlsA1+Bz749u6uSFp211km2VaF9ZlROzrgdsjbMouGJEZjZKz7JPl0qLINFK71za
+b2O46IalXG8n2AI5owMgQeCUmi1PehUKlcHGVbRUnX40E7UhmPl0A8w6zVjNAbxuK6aD2Vx2CZwU
+pyZ+8jtgBqVZHyuI9gYJK7mw2fw2pZfRT84N7eXr6zhVOE2Jd6lMHpTa342YP4sqQJZfTJtx6voZ
+oUPeFo2fXzKtvgNWxlpBQgrVYh4exbeE+C6+rxIksvgj/9Sgqqo7fIy0AAAAAAAA
 
 
---=-z8IrQ1mdXVNpchvVGmxZ--
+--=-J7Xqmct/LcTbLm04MFVX--
