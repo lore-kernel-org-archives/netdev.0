@@ -1,164 +1,69 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [patch net-next RFC 0/6] switchdev: introduce tranction enfra
- and for pre-commit split
-Date: Mon, 21 Sep 2015 13:13:58 -0400
-Message-ID: <20150921171357.GA11812@ketchup.mtl.sfl>
-References: <1442665751-10949-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bArD_uYEnsQtvYg94qsydtEJAjYwC9Q3ZfaZH8Wqs0SEQ@mail.gmail.com>
- <20150921080949.GC2141@nanopsycho.orion>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: netdev: question on ndo_set_rx_mode() API
+Date: Mon, 21 Sep 2015 13:15:26 -0400
+Message-ID: <56003B2E.9010904@ti.com>
+References: <55FC44CF.8050001@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: open list: TI NETCP ETHERNET DRIVER <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, ;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:46145
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932611AbbIUROC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 13:14:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20150921080949.GC2141@nanopsycho.orion>
+Received: from comal.ext.ti.com ([198.47.26.152]:49584 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752148AbbIURPM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2015 13:15:12 -0400
+In-Reply-To: <55FC44CF.8050001@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri, Scott,
+On 09/18/2015 01:07 PM, Murali Karicheri wrote:
+> Hello Netdev experts,
+>
+> I am seeing an issue with netcp driver that has a mutex lock/unlock()
+> call. When kernel hack debug options are enabled, I see a warning that
+> this function is taking a mutex that can sleep and is not allowed. I am
+> working to fix this. Looking at other drivers, I see many drivers such
+> as e1000_main.c are not holding any driver specific lock as part of the
+> API implementation. So my first attempt is to remove the mutex. But
+> wondering what kind of synchronization is required in this API to run it
+> properly on an SMP kernel. Based on my search following files are
+> calling dev_change_flags() which in turn calls ndo_set_rx_mode()
+>
+> Set-1
+> ======
+> net/ipv4/devinet.c
+> net/ipv4/ipconfig.c
+> net/core/dev_ioctl.c
+>
+> Set-2
+> =====
+> net/8021q/vlan.c
+> net/core/rtnetlink.c
+>
+> Set-1 seems to call this with rtnl_lock (mutex) held. So there is
+> already protection between processes that calls this function and driver
+> doesn't need to provide any explicit synchronization. Is this correct?
+>
+> For Set-2, I can't figure out in what context this is calling this API
+> Can someone help me understand this?
+>
+> However I see below.
+>
+> Documentation/networking/netdevices.txt explains,
+>
+> ndo_set_rx_mode:
+> Synchronization: netif_addr_lock spinlock.
+> Context: BHs disabled
+>
+> So is there any synchronization required from the driver perspective? If
+> yes, what kind of synchronization is needed? Thanks in advance for your
+> response.
+>
+Any help??
 
-On Sep. Monday 21 (39) 10:09 AM, Jiri Pirko wrote:
-> Mon, Sep 21, 2015 at 09:23:24AM CEST, sfeldma@gmail.com wrote:
-> >On Sat, Sep 19, 2015 at 5:29 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> >> Jiri Pirko (6):
-> >>   switchdev: rename "trans" to "trans_ph".
-> >>   switchdev: introduce transaction infrastructure for attr_set and
-> >>     obj_add
-> >>   rocker: switch to local transaction phase enum
-> >>   switchdev: move transaction phase enum under transaction structure
-> >>   rocker: use switchdev transaction queue for allocated memory
-> >>   switchdev: split commit and prepare phase into two callbacks
-> >
-> >Patches compile, but first test bombs.  Cut-and-paste of dump at end
-> >of this email.
-> 
-> Told you :)
-> 
-> 
-> >
-> >I'm not sure I'm liking this patchset because it looks like a way for
-> >switchdev drivers to easily opt-out of the prepare-commit transaction
-> >model by simply not implementing the *_pre op.  I would rather drivers
-> >explicitly handle the PREPARE phase in code, even if that means
-> >skipping it gracefully (in code) with a comment (in code) explaining
-> >why it does not matter for this device/operation.  That's what DSA had
-> >done, mostly because it was a retro-fit.
-> 
-> Each driver should handle this inside it. If it does not need prepare
-> state, it simply does not implement it. That is the same for all cb,
-> ndos, netdev notifiers, etc. It is much cleaner and nicer to have these as
-> separate callbacks. Implementing multiple callback in one is just ugly,
-> sorry.
+Thanks.
 
-This is true, (in DSA) we don't have to implement the prepare phase if
-we fully support the feature in hardware.
-
-To give a real example, Marvell switch drivers currently implement all
-add/del/dump calls for VLAN FDB (where VID 0 means the port itself). No
-prepare phase needed.
-
-Now, I have local patches to enable strict 802.1Q mode in these switches
-(all the logic is based on the hardware VLAN table). But it does not use
-per-port FDB, so fdb_add with VID 0 doesn't make sense anymore. That's
-why we need to push the feature checking down to the drivers in DSA.
-
-I have another pending patch to add .port_fdb_pre_add, where mv88e6xxx
-code will return -EOPNOTSUPP if the given VID is 0.
-
-Another example: mv88e6xxx support tagged VLANs, so no hardware check
-needed. But the Broadcom Starfighter 2 only supports port-based VLANs
-(which is today wrongly implemented through "bridge_join/leave"). By
-implementing .port_vlan_pre_add (another pending patch for DSA), the
-driver will be able to return -EOPNOTSUPP if !BRIDGE_VLAN_INFO_PVID.
-
-Also, having logic in switchdev drivers to check SWITCHDEV_TRANS_NONE
-and SWITCHDEV_TRANS_ABORT is not really nice. Having switchdev handle
-the abort phase (calling each destructor) and getting rid of the
-SWITCHDEV_TRANS_* flags sounds better to me.
-
-> >Also, the patchset removes the ABORT callback in case of a rollback
-> >due to a failed PREPARE.  We can't make the assumption that it's just
-> >a memory list to destroy on ABORT.  The driver, on PREPARE, may have
-> >reserved device space or staged an operation on the device which we'll
-> >need to undo on ABORT.
-> 
-> Yep, just register an item with custom destructor, there you can do
-> whatever. Also, I believe much nicer comparing to current code.
-> 
-> 
-> >
-> >So we need ABORT back, and we need PREPARE to not be optional, so
-> >what's left list enqueue/dequeue helpers, which I'm not seeing much
-> >value in up-leveling as the driver can do list_add/del itself.
-> 
-> Why would every driver do it itself, over and over when there can be a
-> clean infrastructure to do that. Including abort phase. Without the driver
-> needed to be involved.
-
-Maybe the term ".destructor" has a too strong meaning to deallocation,
-but you can indeed do whatever you need in this function.
-
-> >Am I missing something?  I didn't see a motivation statement for the
-> >RFC so I'm not sure where you wanted to take this.
-> 
-> I want to make current code much nicer, easier to read and implement in
-> other drivers. Look at rocker.c and how often there is == PREPARE there.
-> It's nearly impossible to followthe code, sorry.
-> 
-> My next patchset is to un-mess rocker.c (that freaking ofdpa stuff is
-> everywhere)
-
-I'm basically for this patchset, but I do have some concerns about the
-general switchdev transaction design.
-
-I certainly don't have the perspective that you guys have, so please
-tell me if I'm totally wrong. From my point of view (with DSA drivers),
-the emphase should be done on asking the hardware if it can handle or
-not a given transaction (not simply an hardware feature!).
-
-The driver can handle any allocation and preparation itself, and also
-errors can actually occur *during* a commit phase.
-
-Being able to return -EOPNOTSUPP from any add/del/dump function would be
-just perfect.
-
-I ideally imagine the following implementation in switchdev drivers:
-
-    int foo_port_obj_add(struct net_device *dev, int id, void *obj)
-    {
-        struct foo *foo = netdev_priv(dev);
-	struct switchdev_obj_port_fdb *fdb;
-	struct switchdev_obj_port_vlan *vlan;
-        int err;
-
-        switch(id) {
-	case SWITCHDEV_OBJ_PORT_FDB:
-	    fdb = obj;
-	    err = foo_port_fdb_add(foo, fdb);
-	    break;
-        case SWITCHDEV_OBJ_PORT_VLAN:
-	    vlan = obj;
-	    err = foo_port_vlan_add(foo, vlan);
-	    break;
-	default:
-	    err = -EOPNOTSUPP;
-	    break;
-	}
-
-	return err;
-    }
-
-Where foo_port_{fdb,vlan}_add can still return -EOPNOTSUPP depending on
-their current state.
-
-Thanks,
--v
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
