@@ -1,173 +1,202 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 1/2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-Date: Mon, 21 Sep 2015 11:22:32 -0500
-Message-ID: <1442852552.2798.4.camel@redhat.com>
-References: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
+ NETIF_F_V[46]_CSUM devices
+Date: Mon, 21 Sep 2015 17:29:36 +0100
+Message-ID: <1442852976.7367.47.camel@infradead.org>
+References: <1358165431.27054.62.camel@shinybook.infradead.org>
+	 <20130116.155406.351676228334066120.davem@davemloft.net>
+	 <1358375658.2397.69.camel@shinybook.infradead.org>
+	 <20130116.180044.630688719598008373.davem@davemloft.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-zIOFFW0iEi+73Fo4rvnS"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:48003 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756649AbbIUQ3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 12:29:39 -0400
+In-Reply-To: <20130116.180044.630688719598008373.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-zIOFFW0iEi+73Fo4rvnS
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Kernel development list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ondrej Zary <linux-ZCIryABCsrmttCpgsWEBFmD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1442843065-30234-1-git-send-email-linux-ZCIryABCsrmttCpgsWEBFmD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2015-09-21 at 15:44 +0200, Ondrej Zary wrote:
-> IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
-> wpa_supplicant uses it for both no encryption and WEP open system.
-> Cache the last mode set (only of these two) and use it here.
-> 
-> This allows wpa_supplicant to work with unencrypted APs.
+On Wed, 2013-01-16 at 18:00 -0500, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Wed, 16 Jan 2013 22:34:18 +0000
+>=20
+> > On Wed, 2013-01-16 at 15:54 -0500, David Miller wrote:
+> >>=20
+> >> My opinion on this is that the injectors of packets are responsible
+> >> for ensuring checksum types are set on SKBs in an appropriate way.
+> >>=20
+> >> So we ensure this in the local protocol stacks that generate packets,
+> >> and if foreign alien entities can inject SKBs with these checksum
+> >> settings (like the tun device can) the burdon of verification falls
+> >> upon whatever layer allows that to happen.
+> >>=20
+> >> So really, the fix is in the tun device and the virtio layer.
+> >=20
+> > The virtio layer (and the tun device) expose the equivalent of the
+> > NETIF_F_HW_CSUM capability to the guest. In the case where we have a
+> > real device on the host which *also* has NETIF_F_HW_CSUM capability, ar=
+e
+> > you saying that the tun driver should do the checksum for non-UDP/TCP
+> > packets in software *anyway*, just because the packet might end up goin=
+g
+> > out a device *without* that capability, and the check in
+> > harmonize_features() isn't sophisticated enough to cope properly?
+>=20
+> I'm saying that tun can't inject unchecked crap into our stack.
 
-Looks OK to me.
+Did we ever resolve this? AFAICT from inspecting the code the
+virtio_net device still advertises hardware csum capabilities to the
+guest. And accepts packets which need checksumming, calling
+skb_partial_csum_set() as appropriate. Likewise tun, xen, macvtap and
+af_packet.
 
-Dan
+And that works fine =E2=80=94 it's a nice performance win because it means =
+that
+VM guests (and other clients) can make full use of the HW csum
+capabilities of the real network hardware. And when the outbound
+netdevice *doesn't* have HW csum support, we generally do the right
+thing and complete the csum in software in the host kernel before
+transmitting it.
 
-> Signed-off-by: Ondrej Zary <linux-ZCIryABCsrmttCpgsWEBFmD2FQJk+8+b@public.gmane.org>
-> ---
->  drivers/net/wireless/airo.c |   59 +++++++++++++++++++++++++------------------
->  1 file changed, 35 insertions(+), 24 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-> index d0c97c2..67001a8 100644
-> --- a/drivers/net/wireless/airo.c
-> +++ b/drivers/net/wireless/airo.c
-> @@ -1237,6 +1237,7 @@ struct airo_info {
->  
->  	int			wep_capable;
->  	int			max_wep_idx;
-> +	int			last_auth;
->  
->  	/* WPA-related stuff */
->  	unsigned int bssListFirst;
-> @@ -3786,6 +3787,16 @@ badrx:
->  	}
->  }
->  
-> +static inline void set_auth_type(struct airo_info *local, int auth_type)
-> +{
-> +	local->config.authType = auth_type;
-> +	/* Cache the last auth type used (of AUTH_OPEN and AUTH_ENCRYPT).
-> +	 * Used by airo_set_auth()
-> +	 */
-> +	if (auth_type == AUTH_OPEN || auth_type == AUTH_ENCRYPT)
-> +		local->last_auth = auth_type;
-> +}
-> +
->  static u16 setup_card(struct airo_info *ai, u8 *mac, int lock)
->  {
->  	Cmd cmd;
-> @@ -3862,7 +3873,7 @@ static u16 setup_card(struct airo_info *ai, u8 *mac, int lock)
->  						"level scale");
->  		}
->  		ai->config.opmode = adhoc ? MODE_STA_IBSS : MODE_STA_ESS;
-> -		ai->config.authType = AUTH_OPEN;
-> +		set_auth_type(ai, AUTH_OPEN);
->  		ai->config.modulation = MOD_CCK;
->  
->  		if (le16_to_cpu(cap_rid.len) >= sizeof(cap_rid) &&
-> @@ -4880,13 +4891,13 @@ static void proc_config_on_close(struct inode *inode, struct file *file)
->  			line += 5;
->  			switch( line[0] ) {
->  			case 's':
-> -				ai->config.authType = AUTH_SHAREDKEY;
-> +				set_auth_type(ai, AUTH_SHAREDKEY);
->  				break;
->  			case 'e':
-> -				ai->config.authType = AUTH_ENCRYPT;
-> +				set_auth_type(ai, AUTH_ENCRYPT);
->  				break;
->  			default:
-> -				ai->config.authType = AUTH_OPEN;
-> +				set_auth_type(ai, AUTH_OPEN);
->  				break;
->  			}
->  			set_bit (FLAG_COMMIT, &ai->flags);
-> @@ -6368,9 +6379,8 @@ static int airo_set_encode(struct net_device *dev,
->  		 * should be enabled (user may turn it off later)
->  		 * This is also how "iwconfig ethX key on" works */
->  		if((index == current_index) && (key.len > 0) &&
-> -		   (local->config.authType == AUTH_OPEN)) {
-> -			local->config.authType = AUTH_ENCRYPT;
-> -		}
-> +		   (local->config.authType == AUTH_OPEN))
-> +			set_auth_type(local, AUTH_ENCRYPT);
->  	} else {
->  		/* Do we want to just set the transmit key index ? */
->  		int index = (dwrq->flags & IW_ENCODE_INDEX) - 1;
-> @@ -6389,12 +6399,12 @@ static int airo_set_encode(struct net_device *dev,
->  		}
->  	}
->  	/* Read the flags */
-> -	if(dwrq->flags & IW_ENCODE_DISABLED)
-> -		local->config.authType = AUTH_OPEN;	// disable encryption
-> +	if (dwrq->flags & IW_ENCODE_DISABLED)
-> +		set_auth_type(local, AUTH_OPEN);	/* disable encryption */
->  	if(dwrq->flags & IW_ENCODE_RESTRICTED)
-> -		local->config.authType = AUTH_SHAREDKEY;	// Only Both
-> -	if(dwrq->flags & IW_ENCODE_OPEN)
-> -		local->config.authType = AUTH_ENCRYPT;	// Only Wep
-> +		set_auth_type(local, AUTH_SHAREDKEY);	/* Only Both */
-> +	if (dwrq->flags & IW_ENCODE_OPEN)
-> +		set_auth_type(local, AUTH_ENCRYPT);	/* Only Wep */
->  	/* Commit the changes to flags if needed */
->  	if (local->config.authType != currentAuthType)
->  		set_bit (FLAG_COMMIT, &local->flags);
-> @@ -6549,12 +6559,12 @@ static int airo_set_encodeext(struct net_device *dev,
->  	}
->  
->  	/* Read the flags */
-> -	if(encoding->flags & IW_ENCODE_DISABLED)
-> -		local->config.authType = AUTH_OPEN;	// disable encryption
-> +	if (encoding->flags & IW_ENCODE_DISABLED)
-> +		set_auth_type(local, AUTH_OPEN);	/* disable encryption */
->  	if(encoding->flags & IW_ENCODE_RESTRICTED)
-> -		local->config.authType = AUTH_SHAREDKEY;	// Only Both
-> -	if(encoding->flags & IW_ENCODE_OPEN)
-> -		local->config.authType = AUTH_ENCRYPT;	// Only Wep
-> +		set_auth_type(local, AUTH_SHAREDKEY);	/* Only Both */
-> +	if (encoding->flags & IW_ENCODE_OPEN)
-> +		set_auth_type(local, AUTH_ENCRYPT);
->  	/* Commit the changes to flags if needed */
->  	if (local->config.authType != currentAuthType)
->  		set_bit (FLAG_COMMIT, &local->flags);
-> @@ -6659,9 +6669,9 @@ static int airo_set_auth(struct net_device *dev,
->  		if (param->value) {
->  			/* Only change auth type if unencrypted */
->  			if (currentAuthType == AUTH_OPEN)
-> -				local->config.authType = AUTH_ENCRYPT;
-> +				set_auth_type(local, AUTH_ENCRYPT);
->  		} else {
-> -			local->config.authType = AUTH_OPEN;
-> +			set_auth_type(local, AUTH_OPEN);
->  		}
->  
->  		/* Commit the changes to flags if needed */
-> @@ -6670,13 +6680,14 @@ static int airo_set_auth(struct net_device *dev,
->  		break;
->  
->  	case IW_AUTH_80211_AUTH_ALG: {
-> -			/* FIXME: What about AUTH_OPEN?  This API seems to
-> -			 * disallow setting our auth to AUTH_OPEN.
-> -			 */
->  			if (param->value & IW_AUTH_ALG_SHARED_KEY) {
-> -				local->config.authType = AUTH_SHAREDKEY;
-> +				set_auth_type(local, AUTH_SHAREDKEY);
->  			} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
-> -				local->config.authType = AUTH_ENCRYPT;
-> +				/* We don't know here if WEP open system or
-> +				 * unencrypted mode was requested - so use the
-> +				 * last mode (of these two) used last time
-> +				 */
-> +				set_auth_type(local, local->last_auth);
->  			} else
->  				return -EINVAL;
->  
+Perhaps I'm missing something, but I'm not sure why you refer to that
+as 'injecting unchecked crap'. Surely it's using CHECKSUM_PARTIAL
+precisely as it was designed, and allowing the checksum to be completed
+either by hardware or software as appropriate?
+
+The *only* problem is the false positive in harmonize_features(), which
+was addressed by my patch which started this thread (in 2013). The
+problem is that an IP packet that *isn't* TCP or UDP, being sent out a
+device that has only NETIF_F_IP_CSUM capability, ends up being handed
+to the device unchecksummed because harmonize_features() fails to clear
+the HW csum flag as it (arguably) should.
+
+Original thread at
+http://comments.gmane.org/gmane.linux.network/254981
+
+I'm only looking at it again because I'm pondering enabling HW csum in
+8139cp (now that I've fixed TSO), and it reminded me of this...
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
+
+--=-zIOFFW0iEi+73Fo4rvnS
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwOTIxMTYyOTM2WjAjBgkqhkiG9w0BCQQxFgQU0iJum5wWfoHqtVM45d6AEBIzSSQw
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQADlPs3t473J/EmWY0sHGolo5VQ2hTBuGveJvaQABAEtpVWn5YemEX+GM8e
+Tkg2njlnmqPOVgjzJKANdORrLHJA8MznZKL9zclAlndZgty8ftweeSN1fk8NvT7P9348SfGa50kk
+uEPxsgZgXDytJdLzOuxZ1FFOS7ymrPKarNNWmNswf27jKda7HEqz/H6w1xvOWOodjB5lpDMNrvdU
+CZ01G2GSVFApSN/wCE6PtlFh/J5STHE4fqG6JZp+0EOvpvO2nuUgmLtW6emJegtquS4i3wdnsv4s
+hCcbSG/kyMcYJBwpp0yhOB1kxxTSt/F2Sw1OSVZYu7TZWQ3COh3O1gPoAAAAAAAA
+
+
+--=-zIOFFW0iEi+73Fo4rvnS--
