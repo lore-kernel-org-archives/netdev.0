@@ -1,112 +1,94 @@
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Subject: [PATCH] ip: find correct route for socket which is not bound (v2)
-Date: Mon, 21 Sep 2015 16:00:09 +0800
-Message-ID: <1442822409-9799-1-git-send-email-wen.gang.wang@oracle.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-09-17
+Date: Mon, 21 Sep 2015 09:20:21 +0200
+Message-ID: <55FFAFB5.7040707@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wen.gang.wang@oracle.com
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="Jpn42Lw0vuvLXqvr7BtuvsuCvKV9hmJCQ"
+Cc: David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40016 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755990AbbIUH6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 03:58:55 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t8L7wqqm016810
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:58:53 GMT
-Received: from userv0121.oracle.com (userv0121.oracle.com [156.151.31.72])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t8L7wq01026160
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:58:52 GMT
-Received: from abhmp0001.oracle.com (abhmp0001.oracle.com [141.146.116.7])
-	by userv0121.oracle.com (8.13.8/8.13.8) with ESMTP id t8L7wpGp016934
-	for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:58:52 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is the v2, comparing the v1, the changes is:
- * for loopback outbound device, it continue skipping cached route;
-   for others, it goes through the cached route.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Jpn42Lw0vuvLXqvr7BtuvsuCvKV9hmJCQ
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-=46or multi-cast, we should find valid route(thus get the meaniful pmtu=
-) for
-the package on the socket which is not bound to a device(sk_bound_dev_i=
-f
-being 0) too.
+Hello David,
 
-=46rom man page of socket(7)
+this is a pull request of 8 patches for net-next/master.
 
-       SO_BINDTODEVICE
-		Bind this socket to a particular device like =E2=80=9Ceth0=E2=80=9D, =
-as
-		specified in the passed interface name.  If the name is an
-		empty string or the option length is zero, the socket
-		device binding is removed. The  passed  option is  a
-		variable-length null-terminated interface name string with
-		the maximum size of IFNAMSIZ.  If a socket is bound to an
-		interface, only packets received from that particular
-		interface are processed by the socket. Note that this works
-		only for some socket types, particularly AF_INET sockets.
-		It is not supported for packet sockets (use normal bind(2)
-		there).
+All 8 patches are by me and cleanup the flexcan driver.
 
-The man page doesn't say when socket not bound packages won't be routed=
-=2E
+Marc
 
-A problem is hit that all multi-cast packages dropped by kernel(from se=
-nder
-host). The lower layer is IPoIB with MTU being 7000. And I was sending =
-4096
-length multi-cast  package. In side IPoIB the first send is dropped bec=
-ause
-is exeeding the internal package size limitation mcast_mtu which is 204=
-4.
-So IPoIB calls ip_rt_update_pmtu (indirectly) trying to set path mtu. A
-correct route is configured for the multi-cast, so the setting of pmtu
-cucceeded and the next multi-cast package(to the same target) is expect=
-ed
-to succeed(it would be well fragmented accroding to the pmtu I just set=
-).
-But actually the second and later multi-cast packages got dropped too. =
-And
-the reason is that the neighor looking up(fib_lookup) is skipped becaus=
-e of
-the socket is not bound to device(sk_bound_dev_if being 0). After appli=
-ed
-the patch I proposed here, it works fine.
-
-Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
 ---
- net/ipv4/route.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 5f4a556..c0534c2 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2097,7 +2097,10 @@ struct rtable *__ip_route_output_key(struct net =
-*net, struct flowi4 *fl4)
- 			 */
-=20
- 			fl4->flowi4_oif =3D dev_out->ifindex;
--			goto make_route;
-+			if (dev_out->flags & IFF_LOOPBACK)
-+				goto make_route;
-+			else
-+				goto lookup;
- 		}
-=20
- 		if (!(fl4->flowi4_flags & FLOWI_FLAG_ANYSRC)) {
-@@ -2153,6 +2156,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 		goto make_route;
- 	}
-=20
-+lookup:
- 	if (fib_lookup(net, fl4, &res, 0)) {
- 		res.fi =3D NULL;
- 		res.table =3D NULL;
+The following changes since commit a1ef48e1e8843e2f6be631b8cf1c21b24579b9=
+d6:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/=
+jkirsher/next-queue (2015-09-20 22:26:58 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.4-20150921
+
+for you to fetch changes up to 6fa7da249269a6146ce456c43098901c81c8afdf:
+
+  can: flexcan: enable interrupts atomically at the end of flexcan_chip_s=
+tart() (2015-09-21 08:38:23 +0200)
+
+----------------------------------------------------------------
+linux-can-next-for-4.4-20150921
+
+----------------------------------------------------------------
+Marc Kleine-Budde (8):
+      can: flexcan: cleanup coding style and fix typos
+      can: headers: make header files self contained
+      can: flexcan: remove unused header files
+      can: flexcan: flexcan_chip_start(): cleanup writing of reg_mcr
+      can: flexcan: rename feature into quirks
+      can: flexcan: use pointer to struct regs instead of void pointer fo=
+r mmio address space
+      can: flexcan: give member of flexcan_priv holding mailboxes a sensi=
+ble name
+      can: flexcan: enable interrupts atomically at the end of flexcan_ch=
+ip_start()
+
+ drivers/net/can/flexcan.c | 197 ++++++++++++++++++++++------------------=
+------
+ include/linux/can/dev.h   |   3 +-
+ include/linux/can/led.h   |   1 +
+ 3 files changed, 95 insertions(+), 106 deletions(-)
+
 --=20
-2.1.0
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--Jpn42Lw0vuvLXqvr7BtuvsuCvKV9hmJCQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJV/6+4AAoJEP5prqPJtc/HK1cIAI9qPodkNyah73H2FxtABoJE
+hAtUvocRLX+CWVWYaUJ8ZQrEQ9ewVVtCiieXa4rGchTfF/2KLGSW7ObjrURVLObU
+lRv9V7u0zY9OLPK0zpB2FXPOX6VOIYc5IPWiea0k9nDJKvoJowGh5FRQiZfSOhPs
+aVxWuY7PwovLDWQWKvZrzxSVaSAmniTper/RD03+2BjsZlXM0yNSx7WisIcjCgFT
+enMhcR6ToPUlyRXqx8OflSsjG+87Vx4nWUN9Ksno7FDpw/G762X7qepmAcV53mXN
+pyHLrfLGh/BoB8GiA82vm/UhfP1w+zhaEW4DSOK3tg+zmWg8mKUO5FyH8Hhnvc8=
+=W9Nb
+-----END PGP SIGNATURE-----
+
+--Jpn42Lw0vuvLXqvr7BtuvsuCvKV9hmJCQ--
