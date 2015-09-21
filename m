@@ -1,68 +1,59 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
- show table id
-Date: Mon, 21 Sep 2015 14:19:29 -0700
-Message-ID: <20150921141929.681ebf69@urahara>
-References: <1442859588-14831-1-git-send-email-dsa@cumulusnetworks.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
+Date: Mon, 21 Sep 2015 17:26:24 -0400
+Message-ID: <20150921212624.GD3861@oracle.com>
+References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+ <20150921122422.GA31092@oracle.com>
+ <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36498 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752845AbbIUVTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:19:17 -0400
-Received: by padbj2 with SMTP id bj2so1966726pad.3
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 14:19:16 -0700 (PDT)
-In-Reply-To: <1442859588-14831-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:33065 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756836AbbIUV0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 17:26:30 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Sep 2015 11:19:48 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On (09/21/15 10:33), Tom Herbert wrote:
+> >
+> > Some things that were not clear to me from the patch-set:
+> >
+> > The doc statses that we re-assemble packets the "stated length" -
+> > but how will the receiver know the "stated length"?
+> 
+> BPF program returns the length of the next message. In my testing so
+> far I've been using HTTP/2 which defines a frame format with first 3
+> bytes being header length field . The BPF program (using LLVM/Clang--
+> thanks Alexei!) is just:
 
-> Currently 'ip route get' does not show the table the lookup result comes
-> from and prior to kernel commit c36ba6603a11 the response from the kernel
-> was hardcoded to the main table. From the discussion this appears to be
-> a leftover from the route cache where the cached entry lost the table id
-> and so the result was hardcoded to main table.
-> 
-> c36ba6603a11 added the RTM_F_LOOKUP_TABLE flag to maintain that behavior
-> but to allow new tools to ask for the actual table id for the lookup.
-> This patch adds that flag to ip route get request and if the result is
-> not the main table shows the table id.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  ip/iproute.c              | 6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 8f49e6289003..bae43d5d8fb6 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -421,9 +421,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  	if (tb[RTA_OIF] && filter.oifmask != -1)
->  		fprintf(fp, "dev %s ", ll_index_to_name(*(int*)RTA_DATA(tb[RTA_OIF])));
->  
-> +	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
-> +		fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
->  	if (!(r->rtm_flags&RTM_F_CLONED)) {
-> -		if ((table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
-> -			fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
->  		if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) && filter.protocolmask != -1)
->  			fprintf(fp, " proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
->  		if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) && filter.scopemask != -1)
-> @@ -1638,6 +1638,8 @@ static int iproute_get(int argc, char **argv)
->  	if (req.r.rtm_family == AF_UNSPEC)
->  		req.r.rtm_family = AF_INET;
->  
-> +	req.r.rtm_flags |= RTM_F_LOOKUP_TABLE;
-> +
->  	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
->  		exit(2);
->  
+Maybe I dont see something about the mux/demux here (I have to 
+take a closer look at reserve_psock/unreserve_psock), but 
+will every tcp segment have a 3 byte length in the payload?
 
-How will this work (or not) on older kernels?
+Not every TCP segment in the RDS-TCP case will have a RDS header,
+thus the comments before rds_send_xmit(), thus applying the bpf filter
+to a TCP segment holding some "from-the-middle" piece of the RDS dgram
+may not be possible 
+
+> > the notes say one can "accept()" over a kcm socket- but "accept()"
+> > is itself a connection-oriented concept- one does not accept() on
+    :
+> The accept method is overloaded on KCM sockets to do the socket
+> cloning operation. This is unrelated to TCP semantics, connection
+> management is performed on TCP sockets (i.e. before being attached to
+> a KCM multiplexor).
+
+If possible,it might be better to use some other
+glibc-func/name/syscall/sockopt/whatever
+for this, rather than overloading accept().. feels like that would
+keep the semantics cleaner, and probably less likely to trip 
+up on accept code in the kernel..
+
+--Sowmini
