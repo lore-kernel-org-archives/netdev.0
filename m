@@ -1,185 +1,143 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netlink: Replace rhash_portid with bound
-Date: Mon, 21 Sep 2015 21:34:16 +0800
-Message-ID: <20150921133415.GA1740@gondor.apana.org.au>
-References: <20150918111650.GA7508@gondor.apana.org.au>
- <20150920.225521.1063980101511317898.davem@davemloft.net>
- <20150921060636.GA30807@gondor.apana.org.au>
- <20150920.231104.525285577747035896.davem@davemloft.net>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH 00/38] Fixes related to incorrect usage of
+	unsigned types
+Date: Mon, 21 Sep 2015 15:33:32 +0200
+Message-ID: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tj@kernel.org, cwang@twopensource.com, tom@herbertland.com,
-	kafai@fb.com, kernel-team@fb.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@linux-foundation.org,
-	jiri@resnulli.us, nicolas.dichtel@6wind.com, tgraf@suug.ch,
-	sfeldma@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:48281 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753015AbbIUNen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 09:34:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20150920.231104.525285577747035896.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-sh@vger.kernel.org,
+ Will Deacon <will.deacon@arm.com>, dri-devel@lists.freedesktop.org,
+ linux-clk@vger.kernel.org, Marek Szyprowski <m.szyprowski@samsung.com>,
+ Jianwei Wang <jianwei.wang.chn@gmail.com>, Pravin Shelar <pshelar@nicira.com>,
+ linux-cachefs@redhat.com, Alan Stern <stern@rowland.harvard.edu>,
+ Jiri Slaby <jslaby@suse.com>, Arend van Spriel <arend@broadcom.com>,
+ Oleg Drokin <oleg.drokin@intel.com>, Matt Mackall <mpm@selenic.com>,
+ Thomas Gleixner <tglx@linutronix.de>, linux-omap@vger.kernel.org,
+ Karsten Keil <isdn@linux-pingi.de>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org,
+ linux-wireless@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
+ linux-crypto@vger.kernel.org, Alex Deucher <alexander.deucher@amd.com>,
+ Andrew Morton <akpm@linux-foundation.org>, Ivan Mikhaylov <ivan@ru.ibm.com>,
+ Mark Rutland
+To: linux-kernel@vger.kernel.org
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 20, 2015 at 11:11:04PM -0700, David Miller wrote:
->
-> Yeah at this point incremental patches work the best.
-
-OK here is the patch:
-
----8<---
-The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
-Fix autobind race condition that leads to zero port ID") created
-some new races that can occur due to inconcsistencies between the
-two port IDs.
-
-Tejun is right that a barrier is unavoidable.  Therefore I am
-reverting to the original patch that used a boolean to indicate
-that a user netlink socket has been bound.
-
-Barriers have been added where necessary to ensure that a valid
-portid is used.
-
-Fixes: 1f770c0a09da ("netlink: Fix autobind race condition that leads to zero port ID")
-Reported-by: Tejun Heo <tj@kernel.org>
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 303efb7..f5362aae 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -24,6 +24,7 @@
- 
- #include <linux/module.h>
- 
-+#include <asm/barrier.h>
- #include <linux/capability.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
-@@ -1015,7 +1016,7 @@ static inline int netlink_compare(struct rhashtable_compare_arg *arg,
- 	const struct netlink_compare_arg *x = arg->key;
- 	const struct netlink_sock *nlk = ptr;
- 
--	return nlk->rhash_portid != x->portid ||
-+	return nlk->portid != x->portid ||
- 	       !net_eq(sock_net(&nlk->sk), read_pnet(&x->pnet));
- }
- 
-@@ -1041,7 +1042,7 @@ static int __netlink_insert(struct netlink_table *table, struct sock *sk)
- {
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->rhash_portid);
-+	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->portid);
- 	return rhashtable_lookup_insert_key(&table->hash, &arg,
- 					    &nlk_sk(sk)->node,
- 					    netlink_rhashtable_params);
-@@ -1095,7 +1096,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 	lock_sock(sk);
- 
- 	err = -EBUSY;
--	if (nlk_sk(sk)->portid)
-+	if (nlk_sk(sk)->bound)
- 		goto err;
- 
- 	err = -ENOMEM;
-@@ -1103,7 +1104,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
- 		goto err;
- 
--	nlk_sk(sk)->rhash_portid = portid;
-+	nlk_sk(sk)->portid = portid;
- 	sock_hold(sk);
- 
- 	err = __netlink_insert(table, sk);
-@@ -1119,7 +1120,11 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 		goto err;
- 	}
- 
--	nlk_sk(sk)->portid = portid;
-+	/* rhashtable_insert carries an implicit write memory barrier
-+	 * so we don't need an smp_wmb here in order to ensure that
-+	 * portid is set before bound.
-+	 */
-+	nlk_sk(sk)->bound = portid;
- 
- err:
- 	release_sock(sk);
-@@ -1521,9 +1526,11 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 			return err;
- 	}
- 
--	if (nlk->portid)
-+	/* Ensure nlk->portid is up-to-date. */
-+	if (smp_load_acquire(&nlk->bound)) {
- 		if (nladdr->nl_pid != nlk->portid)
- 			return -EINVAL;
-+	}
- 
- 	if (nlk->netlink_bind && groups) {
- 		int group;
-@@ -1539,7 +1546,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 		}
- 	}
- 
--	if (!nlk->portid) {
-+	if (!nlk->bound) {
- 		err = nladdr->nl_pid ?
- 			netlink_insert(sk, nladdr->nl_pid) :
- 			netlink_autobind(sock);
-@@ -1587,7 +1594,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
- 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
- 		return -EPERM;
- 
--	if (!nlk->portid)
-+	if (!nlk->bound)
- 		err = netlink_autobind(sock);
- 
- 	if (err == 0) {
-@@ -2428,7 +2435,8 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 		dst_group = nlk->dst_group;
- 	}
- 
--	if (!nlk->portid) {
-+	/* Ensure nlk->portid is up-to-date. */
-+	if (!smp_load_acquire(&nlk->bound)) {
- 		err = netlink_autobind(sock);
- 		if (err)
- 			goto out;
-@@ -3257,7 +3265,7 @@ static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
- 	const struct netlink_sock *nlk = data;
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->rhash_portid);
-+	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
- 	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
- }
- 
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index c96dfa3..e6aae40 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -25,7 +25,6 @@ struct netlink_ring {
- struct netlink_sock {
- 	/* struct sock has to be the first member of netlink_sock */
- 	struct sock		sk;
--	u32			rhash_portid;
- 	u32			portid;
- 	u32			dst_portid;
- 	u32			dst_group;
-@@ -36,6 +35,7 @@ struct netlink_sock {
- 	unsigned long		state;
- 	size_t			max_recvmsg_len;
- 	wait_queue_head_t	wait;
-+	bool			bound;
- 	bool			cb_running;
- 	struct netlink_callback	cb;
- 	struct mutex		*cb_mutex;
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+SGksCgpUaGlzIGlzIHNldCBvZiBpbmRlcGVuZGVudCBwYXRjaGVzLiBUaGUgb25seSBjb25uZWN0
+aW9uIGJldHdlZW4KdGhlbSBpcyB0aGF0IHRoZXkgdHJ5IHRvIGFkZHJlc3MgcHJvYmxlbXMgc3Bv
+dHRlZCBieSBwcm9wb3NlZApjb2NjaW5lbGxlIHNlbWFudGljIHBhdGNoIHVuc2lnbmVkX2xlc3Nl
+cl90aGFuX3plcm8uY29jY2lbMV0uCgpTZW1hbnRpYyBwYXRjaCBmaW5kcyBjb21wYXJpc29ucyBv
+ZiB0eXBlczoKICAgIHVuc2lnbmVkIDwgMAogICAgdW5zaWduZWQgPj0gMApUaGUgZm9ybWVyIGlz
+IGFsd2F5cyBmYWxzZSwgdGhlIGxhdHRlciBpcyBhbHdheXMgdHJ1ZS4KU3VjaCBjb21wYXJpc29u
+cyBhcmUgdXNlbGVzcywgc28gdGhlb3JldGljYWxseSB0aGV5IGNvdWxkIGJlCnNhZmVseSByZW1v
+dmVkLCBidXQgdGhlaXIgcHJlc2VuY2UgcXVpdGUgb2Z0ZW4gaW5kaWNhdGVzIGJ1Z3MuCgpUaGlz
+IHBhdGNoc2V0IGNvbnRhaW5zIG1haW5seSByZWFsIGJ1ZyBmaXhlcyhwYXRjaGVzIDAxLTI1KSwK
+dXN1YWxseSB0eXBlIGZpeGVzLgoKUGF0Y2hlcyAyNi0zNyByZW1vdmVzIHVubmVjZXNzYXJ5IGNo
+ZWNrcy4gU2VtYW50aWMgcGF0Y2ggZm91bmQKbXVjaCBtb3JlIHN1Y2ggcGxhY2VzIChtb3JlIHRo
+YW4gODApLCBidXQgc2luY2UgZXZlcnkgY2FzZSBuZWVkcwpzb21lIGFuYWx5c2lzIEkgaGF2ZSBk
+ZWNpZGVkIHRvIGxlYXZlIHRoZW0gZm9yIGFudG9oZXIgcGF0Y2hzZXQuCgpUaGUgbGFzdCBwYXRj
+aCBzaG91bGQgYmUgcHJvYmFibHkgcmVwbGFjZWQgd2l0aCBzb21ldGhpbmcgYmV0dGVyLApJIGd1
+ZXNzIGl0IHNob3VsZCBiZSB0cmVhdGVkIHJhdGhlciBhcyBidWcgcmVwb3J0LgoKVGhlIHBhdGNo
+ZXMgYXJlIGJhc2VkIG9uIGxpbnV4LW5leHQgKDIwMTUwOTE4KS4KClBhdGNoZXMgd2VyZSBvbmx5
+IGNvbXBpbGUgdGVzdGVkLCBzbyBwbGVhc2UgbG9vayBhdCB0aGVtIGNhcmVmdWxseS4KCkkgaGF2
+ZSBzZW50IGFsbCBwYXRjaGVzIHRvIGxpbnV4LWtlcm5lbCBtYWlsaW5nIGxpc3QuIEluZGl2aWR1
+YWwKcGF0Y2hlcyArIGNvdmVyIGxldHRlciB3ZW50IGFsc28gdG8gYXByb3ByaWF0ZSBhZGRyZXNz
+ZXMsCmFjY29yZGluZyB0byBnZXRfbWFpbnRhaW5lcnMucGwgc2NyaXB0LgoKT25lIG1vcmUgdGhp
+bmcuIFRvIGZ1bGxmaWxsIGRpZmZlcmVudCBtYWludGFuZXIvc3Vic3lzdGVtIHJlcXVpcmVtZW50
+cwpJIGhhdmUgZGVjaWRlZCB0byBwcmVmaXggcGF0Y2ggc3ViamVjdHMgd2l0aCBwcmVmaXhlcyBw
+cmVzZW50IGluCmxhc3QgMTAgY29tbWl0cyBmb3IgYWZmZWN0ZWQgZmlsZXMuIEkgYW0gbm90IHN1
+cmUgaWYgdGhpcyBpcyB0aGUKYmVzdCBzb2x1dGlvbiwgaWYgdGhlcmUgYXJlIGFueSBiZXR0ZXIg
+c29sdXRpb25zIHBsZWFzZSBsZXQgbWUga25vdyA6KQoKWzFdOiBodHRwOi8vcGVybWFsaW5rLmdt
+YW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwvMjAzODU3NgoKUmVnYXJkcwpBbmRyemVqCgoKQW5k
+cnplaiBIYWpkYSAoMzgpOgogIGFybS1jY2k6IGZpeCBoYW5kbGluZyBjcHVtYXNrX2FueV9idXQg
+cmV0dXJuIHZhbHVlCiAgYnVzOiBhcm0tY2NuOiBmaXggaGFuZGxpbmcgY3B1bWFza19hbnlfYnV0
+IHJldHVybiB2YWx1ZQogIGRybS9pOTE1OiBmaXggaGFuZGxpbmcgZ2VuOF9lbWl0X2ZsdXNoX2Nv
+aGVyZW50bDNfd2EgcmVzdWx0CiAgSUIvZWhjYTogZml4IGhhbmRsaW5nIGlkcl9hbGxvYyByZXN1
+bHQKICBzdGFnaW5nOiBsdXN0cmU6IGZpeCBoYW5kbGluZyBsdXN0cmVfcG9zaXhfYWNsX3hhdHRy
+X2ZpbHRlciByZXN1bHQKICB0dHk6IHNlcmlhbDogbHBjMzJ4eF9oczogZml4IGhhbmRsaW5nIHBs
+YXRmb3JtX2dldF9pcnEgcmVzdWx0CiAgdXNiOiBob3N0OiBlaGNpLW1zbTogZml4IGhhbmRsaW5n
+IHBsYXRmb3JtX2dldF9pcnEgcmVzdWx0CiAgb3BlbnZzd2l0Y2g6IGZpeCBoYW5kbGluZyByZXN1
+bHQgb2YgaXB2Nl9za2lwX2V4dGhkcgogIHNlbGZ0ZXN0cy90aW1lcnM6IGZpeCB3cml0ZSByZXR1
+cm4gdmFsdWUgaGFuZGxuZwogIGh3cm5nOiBmaXggaGFuZGxpbmcgcGxhdGZvcm1fZ2V0X2lycQog
+IEhTSTogb21hcF9zc2k6IGZpeCBoYW5kbGluZyBpZGFfc2ltcGxlX2dldCByZXN1bHQKICBIU0k6
+IG9tYXBfc3NpX3BvcnQ6IGZpeCBoYW5kbGluZyBvZl9nZXRfbmFtZWRfZ3BpbyByZXN1bHQKICBB
+Uk06IHNobW9iaWxlOiBhcG11OiBjb3JyZWN0IHR5cGUgb2YgQ1BVIGlkCiAgY2xrOiB2dDg1MDA6
+IGZpeCBzaWduIG9mIHBvc3NpYmxlIFBMTCB2YWx1ZXMKICBkcm0vbGF5ZXJzY2FwZTogZml4IGhh
+bmRsaW5nIGZzbF9kY3VfZHJtX3BsYW5lX2luZGV4IHJlc3VsdAogIGdwdTogaXB1LXYzOiBmaXgg
+ZGl2X3JhdGlvIHR5cGUKICBpc2RuOiBoaXNheDogZml4IGZyYW1lIGNhbGN1bGF0aW9uCiAgbmV0
+L2libS9lbWFjOiBmaXggdHlwZSBvZiBwaHlfbW9kZQogIG5ldDogc3RtbWFjOiBmaXggdHlwZSBv
+ZiBlbnRyeSB2YXJpYWJsZQogIG5ldDogYnJjbTgwMjExOiBmaXggcmFuZ2UgY2hlY2sKICBtd2lm
+aWV4OiBmaXggY29tcGFyaXNvbiBleHByZXNzaW9uCiAgb3Jpbm9jbzogZml4IGNoZWNraW5nIGZv
+ciBkZWZhdWx0IHZhbHVlCiAgcm5kaXNfd2xhbjogZml4IGNoZWNraW5nIGZvciBkZWZhdWx0IHZh
+bHVlCiAgcnRjOiBvcGFsOiBmaXggdHlwZSBvZiB0b2tlbgogIHN0YWdpbmc6IG1lZGlhOiBkYXZp
+bmNpX3ZwZmU6IGZpeCBpcGlwZV9tb2RlIHR5cGUKICBzdGFnaW5nOiBsdXN0cmU6IHJlbW92ZSBp
+bnZhbGlkIGNoZWNrCiAgdXNibmV0OiByZW1vdmUgaW52YWxpZCBjaGVjawogIHZpZGVvL29tYXA6
+IHJlbW92ZSBpbnZhbGlkIGNoZWNrCiAgSW5wdXQ6IHRvdWNoc2NyZWVuOiBhdG1lbDogcmVtb3Zl
+IGludmFsaWQgY2hlY2sKICBsZWRzOiBmbGFzaDogcmVtb3ZlIGludmFsaWQgY2hlY2sKICBsZWRz
+OiB0Y2E2NTA3OiByZW1vdmUgaW52YWxpZCBjaGVjawogIGZzL2NhY2hlZmlsZXM6IHJlbW92ZSBp
+bnZhbGlkIGNoZWNrcwogIG1tL21lbWJsb2NrLmM6IHJlbW92ZSBpbnZhbGlkIGNoZWNrCiAgcGVy
+ZjogcmVtb3ZlIGludmFsaWQgY2hlY2sKICBwdHJhY2U6IHJlbW92ZSBpbnZhbGlkIGNoZWNrCiAg
+TUlQUzogcmVtb3ZlIGludmFsaWQgY2hlY2sKICB6bGliX2RlZmxhdGUvZGVmdHJlZTogY2hhbmdl
+IGFsd2F5cyB0cnVlIGNvbmRpdGlvbiB0byAxCiAgZHJtL3JhZGVvbjogc2ltcGxpZnkgYm9vdCBs
+ZXZlbCBjYWxjdWxhdGlvbgoKIGFyY2gvYXJtL21hY2gtc2htb2JpbGUvcGxhdHNtcC1hcG11LmMg
+ICAgICAgICAgICAgICB8ICAyICstCiBhcmNoL21pcHMvbW0vc2MtbWlwcy5jICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgfCAgNCArKy0tCiBhcmNoL3NoL2tlcm5lbC9wdHJhY2VfMzIuYyAg
+ICAgICAgICAgICAgICAgICAgICAgICAgfCAgMyArLS0KIGFyY2gvc2gva2VybmVsL3B0cmFjZV82
+NC5jICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA0ICsrLS0KIGRyaXZlcnMvYnVzL2FybS1j
+Y2kuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL2J1cy9h
+cm0tY2NuLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQogZHJpdmVycy9j
+aGFyL2h3X3JhbmRvbS94Z2VuZS1ybmcuYyAgICAgICAgICAgICAgICAgIHwgIDcgKysrKy0tLQog
+ZHJpdmVycy9jbGsvY2xrLXZ0ODUwMC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDYg
+KysrLS0tCiBkcml2ZXJzL2dwdS9kcm0vYW1kL2FtZGdwdS9rdl9kcG0uYyAgICAgICAgICAgICAg
+ICAgfCAxMSArLS0tLS0tLS0tLQogZHJpdmVycy9ncHUvZHJtL2ZzbC1kY3UvZnNsX2RjdV9kcm1f
+cGxhbmUuYyAgICAgICAgIHwgIDMgKystCiBkcml2ZXJzL2dwdS9kcm0vaTkxNS9pbnRlbF9scmMu
+YyAgICAgICAgICAgICAgICAgICAgfCAgNyArKysrLS0tCiBkcml2ZXJzL2dwdS9kcm0vcmFkZW9u
+L2t2X2RwbS5jICAgICAgICAgICAgICAgICAgICAgfCAxMSArLS0tLS0tLS0tLQogZHJpdmVycy9n
+cHUvaXB1LXYzL2lwdS1jc2kuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGRyaXZl
+cnMvaHNpL2NvbnRyb2xsZXJzL29tYXBfc3NpLmMgICAgICAgICAgICAgICAgICB8ICA3ICsrKy0t
+LS0KIGRyaXZlcnMvaHNpL2NvbnRyb2xsZXJzL29tYXBfc3NpX3BvcnQuYyAgICAgICAgICAgICB8
+ICA4ICsrKystLS0tCiBkcml2ZXJzL2lucHV0L3RvdWNoc2NyZWVuL2F0bWVsX214dF90cy5jICAg
+ICAgICAgICAgfCAgMiArLQogZHJpdmVycy9pc2RuL2hpc2F4L2hmYzRzOHNfbDEuYyAgICAgICAg
+ICAgICAgICAgICAgIHwgMTAgKysrKystLS0tLQogZHJpdmVycy9sZWRzL2xlZC1jbGFzcy1mbGFz
+aC5jICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGRyaXZlcnMvbGVkcy9sZWRzLXRjYTY1
+MDcuYyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9pYm0vZW1hYy9jb3JlLmggICAgICAgICAgICAgICAgfCAgMiArLQogZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYyAgIHwgIDIgKy0KIGRyaXZlcnMvbmV0
+L3VzYi9sYW43OHh4LmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA1IC0tLS0tCiBkcml2
+ZXJzL25ldC91c2Ivc21zYzc1eHguYyAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgNSAtLS0t
+LQogZHJpdmVycy9uZXQvdXNiL3Ntc2M5NXh4LmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+IDUgLS0tLS0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9tYWluLmMg
+ICAgICB8ICAyICstCiBkcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4LzExbl9yeHJlb3JkZXIu
+YyAgICAgICAgfCAgNCArKy0tCiBkcml2ZXJzL25ldC93aXJlbGVzcy9vcmlub2NvL2NmZy5jICAg
+ICAgICAgICAgICAgICAgfCAgNiArKystLS0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3JuZGlzX3ds
+YW4uYyAgICAgICAgICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL3J0Yy9ydGMtb3BhbC5jICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgNCArKy0tCiBkcml2ZXJzL3N0YWdpbmcvbHVz
+dHJlL2x1c3RyZS9sbGl0ZS94YXR0ci5jICAgICAgICAgfCAgNyArKysrLS0tCiBkcml2ZXJzL3N0
+YWdpbmcvbHVzdHJlL2x1c3RyZS9vc2MvbHByb2Nfb3NjLmMgICAgICAgfCAgMyAtLS0KIGRyaXZl
+cnMvc3RhZ2luZy9tZWRpYS9kYXZpbmNpX3ZwZmUvZG0zNjVfaXBpcGVfaHcuYyB8ICAyICstCiBk
+cml2ZXJzL3N0YWdpbmcvcmRtYS9laGNhL2VoY2FfY3EuYyAgICAgICAgICAgICAgICAgfCAxMyAr
+KysrKysrLS0tLS0tCiBkcml2ZXJzL3R0eS9zZXJpYWwvbHBjMzJ4eF9ocy5jICAgICAgICAgICAg
+ICAgICAgICAgfCAgNyArKysrLS0tCiBkcml2ZXJzL3VzYi9ob3N0L2VoY2ktbXNtLmMgICAgICAg
+ICAgICAgICAgICAgICAgICAgfCAgNiArKystLS0KIGRyaXZlcnMvdmlkZW8vZmJkZXYvb21hcC9v
+bWFwZmJfbWFpbi5jICAgICAgICAgICAgICB8ICA1IC0tLS0tCiBmcy9jYWNoZWZpbGVzL2JpbmQu
+YyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgOSArKystLS0tLS0KIGZzL2NhY2hl
+ZmlsZXMvZGFlbW9uLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrKy0tLQog
+bGliL3psaWJfZGVmbGF0ZS9kZWZ0cmVlLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIg
+Ky0KIG1tL21lbWJsb2NrLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAyICstCiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAgMiArLQogdG9vbHMvdGVzdGluZy9zZWxmdGVzdHMvdGltZXJzL2Nsb2Nrc291cmNlLXN3
+aXRjaC5jIHwgIDIgKy0KIDQyIGZpbGVzIGNoYW5nZWQsIDc5IGluc2VydGlvbnMoKyksIDExOSBk
+ZWxldGlvbnMoLSkKCi0tIAoxLjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJl
+ZWRlc2t0b3Aub3JnCmh0dHA6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9pbnRlbC1nZngK
