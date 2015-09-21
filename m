@@ -1,32 +1,39 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Subject: Re: [PATCH] usbnet: New driver for QinHeng CH9200 devices
-Date: Mon, 21 Sep 2015 12:08:32 +0200
-Message-ID: <CACXmVibdHCCbyBJfX2q8=jt562R6whq-Btij27p2khoS1RUyQw@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] [net] Fix error handling in ezusb_probe()
+Date: Mon, 21 Sep 2015 13:24:02 +0300
+Message-ID: <87eghsqddp.fsf@kamboji.qca.qualcomm.com>
+References: <4fb5a5fe.340c.14fe3857f23.Coremail.zy900702@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matthew Garrett <mjg59@coreos.com>, netdev@vger.kernel.org,
-	Matthew Garrett <mjg59@srcf.ucam.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:35654 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753732AbbIUKIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 06:08:32 -0400
-Received: by oiww128 with SMTP id w128so55266217oiw.2
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 03:08:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: RUC_Soft_Sec <zy900702@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4fb5a5fe.340c.14fe3857f23.Coremail.zy900702@163.com> (RUC Soft
+	Sec's message of "Sat, 19 Sep 2015 10:53:41 +0800 (CST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 21, 2015 at 8:36 AM, Oliver Neukum <oneukum@suse.com> wrote:
+RUC_Soft_Sec <zy900702@163.com> writes:
 
-> surprisingly nice for a vendor driver. It even covers endianness
-> correctly. I'd say that the remaining issues will be easy to fix
-> and that would be easier on a merged driver.
+> Current code assigns 0 to variable 'retval', which makes ezusb_probe()
+> to return success even if alloc_orinocodev() fails.
+>
+> Fix it by checking the return value from alloc_orinocodev() and
+> assigns '-ENOMEM' to variable 'retval' in the case of error.
+>
+>
+> Signed-off-by: RUC_Soft_Sec <zy900702@163.com>
 
-Agreed. It might be related to the fact that it seems to be based on
-sr9700.c (which in term is largely derrived from dm9601.c) ;)
+Please use your real name both in From header and in Signed-off-by line.
+Also use "orinoco_usb:" as the prefix in the commit title.
 
-But that's fine.
+> ---
+>  orinoco_usb.c |    1 +
+>  1 file changed, 1 insertion(+)
+
+This is wrong, the patch should contain the full source path.
+
 
 -- 
-Bye, Peter Korsgaard
+Kalle Valo
