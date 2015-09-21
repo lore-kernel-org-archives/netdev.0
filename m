@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and
- show table id
-Date: Mon, 21 Sep 2015 15:36:37 -0700 (PDT)
-Message-ID: <20150921.153637.12993039889083787.davem@davemloft.net>
-References: <56007E94.8000506@cumulusnetworks.com>
-	<20150921.150346.926573540048522271.davem@davemloft.net>
-	<56008351.7010005@cumulusnetworks.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
+Date: Mon, 21 Sep 2015 18:53:33 -0400
+Message-ID: <20150921225333.GE3861@oracle.com>
+References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+ <20150921122422.GA31092@oracle.com>
+ <CALx6S34gmbEybQKmsL2=0wGh+LjktBLSimpOCrxWUyTYFFUhfA@mail.gmail.com>
+ <20150921212624.GD3861@oracle.com>
+ <CALx6S349QY_U8KVtnwDc_yFMXdZ9h1WvnpjWU9FYPTNuQ0yt7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55934 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933047AbbIUWgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:36:40 -0400
-In-Reply-To: <56008351.7010005@cumulusnetworks.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:47369 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932422AbbIUWxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 18:53:42 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S349QY_U8KVtnwDc_yFMXdZ9h1WvnpjWU9FYPTNuQ0yt7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 21 Sep 2015 16:23:13 -0600
+On (09/21/15 15:36), Tom Herbert wrote:
+> segments. What we need to do, which you're probably doing for RDS, is
+> do message delineation on the stream as a sequence of:
+> 
+> 1) Read protocol header to determine message length (BPF used here)
 
-> With the new flag a AND kernel that supports it ip will only show the
-> table id IF it is not main:
-> 
-> root@vm-wheezy2:~# ./ip route get 10.0.0.20
-> 10.0.0.20 dev eth0  src 10.0.0.2
->     cache
-> 
-> root@vm-wheezy2:~# ./ip route get 10.2.1.254
-> 10.2.1.254 dev eth1  table 10  src 10.2.1.2
->     cache
-> 
-> That's my point. I have not changed existing users.
+right, that's what rds does- first reads the sizeof(rds_header),
+and from that, figures out payload len, to stitch each rds dgram 
+together from intermediate tcp segments..
 
-Ok, thanks for the clarification.  I misread the conditional
-statements around the area your patch touches, sorry.
+> 2) Read data up to the length of the message
+> 3) Deliver message
+> 4) Goto #1 (i.e. process next message in the stream).
+
+Thanks for the rest of the responses.
+
+--Sowmini
