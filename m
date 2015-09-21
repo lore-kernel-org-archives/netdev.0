@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: fix TUNSETSNDBUF values > 64k
-Date: Sun, 20 Sep 2015 22:45:12 -0700 (PDT)
-Message-ID: <20150920.224512.1934479578463693954.davem@davemloft.net>
-References: <1442572808-6438-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH v4] netlink: Fix autobind race condition that leads to
+ zero port ID
+Date: Sun, 20 Sep 2015 22:55:21 -0700 (PDT)
+Message-ID: <20150920.225521.1063980101511317898.davem@davemloft.net>
+References: <20150917113034.GA14471@htj.duckdns.org>
+	<20150918063609.GA31747@gondor.apana.org.au>
+	<20150918111650.GA7508@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mjrosato@linux.vnet.ibm.com,
-	borntraeger@de.ibm.com, viro@zeniv.linux.org.uk,
-	jasowang@redhat.com, david@gibson.dropbear.id.au,
-	gkurz@linux.vnet.ibm.com, vyasevich@gmail.com, justin@myriabit.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: mst@redhat.com
+Cc: tj@kernel.org, cwang@twopensource.com, tom@herbertland.com,
+	kafai@fb.com, kernel-team@fb.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, torvalds@linux-foundation.org,
+	jiri@resnulli.us, nicolas.dichtel@6wind.com, tgraf@suug.ch,
+	sfeldma@gmail.com
+To: herbert@gondor.apana.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442572808-6438-1-git-send-email-mst@redhat.com>
+In-Reply-To: <20150918111650.GA7508@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Fri, 18 Sep 2015 13:41:09 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 18 Sep 2015 19:16:50 +0800
 
-> Upon TUNSETSNDBUF,  macvtap reads the requested sndbuf size into
-> a local variable u.
-> commit 39ec7de7092b ("macvtap: fix uninitialized access on
-> TUNSETIFF") changed its type to u16 (which is the right thing to
-> do for all other macvtap ioctls), breaking all values > 64k.
+> The commit c0bb07df7d981e4091432754e30c9c720e2c0c78 ("netlink:
+> Reset portid after netlink_insert failure") introduced a race
+> condition where if two threads try to autobind the same socket
+> one of them may end up with a zero port ID.  This led to kernel
+> deadlocks that were observed by multiple people.
 > 
-> The value of TUNSETSNDBUF is actually a signed 32 bit integer, so
-> the right thing to do is to read it into an int.
+> This patch reverts that commit and instead fixes it by introducing
+> a separte rhash_portid variable so that the real portid is only set
+> after the socket has been successfully hashed.
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Fixes: 39ec7de7092b ("macvtap: fix uninitialized access on TUNSETIFF")
-> Reported-by: Mark A. Peloquin
-> Bisected-by: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Fixes: c0bb07df7d98 ("netlink: Reset portid after netlink_insert failure")
+> Reported-by: Tejun Heo <tj@kernel.org>
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks Herbert.
