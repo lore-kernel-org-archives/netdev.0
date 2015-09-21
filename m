@@ -1,52 +1,54 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH v3 2/2] airo: Implement netif_carrier_on/off
-Date: Mon, 21 Sep 2015 15:44:25 +0200
-Message-ID: <1442843065-30234-2-git-send-email-linux@rainbow-software.org>
-References: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: linux-wireless@vger.kernel.org
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH 17/38] isdn: hisax: fix frame calculation
+Date: Mon, 21 Sep 2015 15:33:49 +0200
+Message-ID: <1442842450-29769-18-git-send-email-a.hajda@samsung.com>
+References: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
+In-reply-to: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add calls to netif_carrier_on and netif_carrier_off
+Difference of unsigned values is also unsigned so it does not make
+sense to check its sign.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+The problem has been detected using proposed semantic patch
+scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci [1].
+
+[1]: http://permalink.gmane.org/gmane.linux.kernel/2038576
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 ---
- drivers/net/wireless/airo.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/isdn/hisax/hfc4s8s_l1.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index 67001a8..8ae838d 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -3267,6 +3267,7 @@ static void airo_handle_link(struct airo_info *ai)
- 			wake_up_interruptible(&ai->thr_wait);
- 		} else
- 			airo_send_event(ai->dev);
-+		netif_carrier_on(ai->dev);
- 	} else if (!scan_forceloss) {
- 		if (auto_wep && !ai->expires) {
- 			ai->expires = RUN_AT(3*HZ);
-@@ -3277,6 +3278,9 @@ static void airo_handle_link(struct airo_info *ai)
- 		eth_zero_addr(wrqu.ap_addr.sa_data);
- 		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
- 		wireless_send_event(ai->dev, SIOCGIWAP, &wrqu, NULL);
-+		netif_carrier_off(ai->dev);
-+	} else {
-+		netif_carrier_off(ai->dev);
- 	}
- }
+diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
+index 0e5d673..9600cd7 100644
+--- a/drivers/isdn/hisax/hfc4s8s_l1.c
++++ b/drivers/isdn/hisax/hfc4s8s_l1.c
+@@ -646,14 +646,14 @@ rx_d_frame(struct hfc4s8s_l1 *l1p, int ech)
  
-@@ -3613,6 +3617,7 @@ static void disable_MAC( struct airo_info *ai, int lock ) {
- 		return;
+ 		f1 = Read_hfc8_stable(l1p->hw, A_F1);
+ 		f2 = Read_hfc8(l1p->hw, A_F2);
+-		df = f1 - f2;
+-		if ((f1 - f2) < 0)
+-			df = f1 - f2 + MAX_F_CNT + 1;
  
- 	if (test_bit(FLAG_ENABLED, &ai->flags)) {
-+		netif_carrier_off(ai->dev);
- 		memset(&cmd, 0, sizeof(cmd));
- 		cmd.cmd = MAC_DISABLE; // disable in case already enabled
- 		issuecommand(ai, &cmd, &rsp);
++		if (f1 < f2)
++			df = MAX_F_CNT + 1 + f1 - f2;
++		else
++			df = f1 - f2;
+ 
+-		if (!df) {
++		if (!df)
+ 			return;	/* no complete frame in fifo */
+-		}
+ 
+ 		z1 = Read_hfc16_stable(l1p->hw, A_Z1);
+ 		z2 = Read_hfc16(l1p->hw, A_Z2);
 -- 
-Ondrej Zary
+1.9.1
