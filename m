@@ -1,44 +1,62 @@
-From: Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 08/38] openvswitch: fix handling result of
-	ipv6_skip_exthdr
-Date: Mon, 21 Sep 2015 15:33:40 +0200
-Message-ID: <1442842450-29769-9-git-send-email-a.hajda@samsung.com>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH 22/38] orinoco: fix checking for default value
+Date: Mon, 21 Sep 2015 15:33:54 +0200
+Message-ID: <1442842450-29769-23-git-send-email-a.hajda@samsung.com>
 References: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Bartlomiej Zolnierkiewicz <b.zolnierkie-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-reply-to: <1442842450-29769-1-git-send-email-a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIGZ1bmN0aW9uIGNhbiByZXR1cm4gbmVnYXRpdmUgdmFsdWUuCgpUaGUgcHJvYmxlbSBoYXMg
-YmVlbiBkZXRlY3RlZCB1c2luZyBwcm9wb3NlZCBzZW1hbnRpYyBwYXRjaApzY3JpcHRzL2NvY2Np
-bmVsbGUvdGVzdHMvdW5zaWduZWRfbGVzc2VyX3RoYW5femVyby5jb2NjaSBbMV0uCgpbMV06IGh0
-dHA6Ly9wZXJtYWxpbmsuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lmtlcm5lbC8yMDM4NTc2CgpTaWdu
-ZWQtb2ZmLWJ5OiBBbmRyemVqIEhhamRhIDxhLmhhamRhQHNhbXN1bmcuY29tPgotLS0KIG5ldC9v
-cGVudnN3aXRjaC9jb25udHJhY2suYyB8IDIgKy0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlv
-bigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9jb25udHJh
-Y2suYyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwppbmRleCAwMDJhNzU1Li5mZGUzMzkx
-IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKKysrIGIvbmV0L29wZW52
-c3dpdGNoL2Nvbm50cmFjay5jCkBAIC0yNTMsNyArMjUzLDcgQEAgc3RhdGljIGludCBvdnNfY3Rf
-aGVscGVyKHN0cnVjdCBza19idWZmICpza2IsIHUxNiBwcm90bykKIAljb25zdCBzdHJ1Y3QgbmZf
-Y29ubnRyYWNrX2hlbHBlciAqaGVscGVyOwogCWNvbnN0IHN0cnVjdCBuZl9jb25uX2hlbHAgKmhl
-bHA7CiAJZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm87Ci0JdW5zaWduZWQgaW50IHByb3Rv
-ZmY7CisJaW50IHByb3RvZmY7CiAJc3RydWN0IG5mX2Nvbm4gKmN0OwogCiAJY3QgPSBuZl9jdF9n
-ZXQoc2tiLCAmY3RpbmZvKTsKLS0gCjEuOS4xCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcK
-aHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Thresholds uses -1 to indicate that default value should be used.
+Since thresholds are unsigned sign checking makes no sense.
+
+The problem has been detected using proposed semantic patch
+scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci [1].
+
+[1]: http://permalink.gmane.org/gmane.linux.kernel/2038576
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+---
+ drivers/net/wireless/orinoco/cfg.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/orinoco/cfg.c b/drivers/net/wireless/orinoco/cfg.c
+index a9e94b6..0f6ea31 100644
+--- a/drivers/net/wireless/orinoco/cfg.c
++++ b/drivers/net/wireless/orinoco/cfg.c
+@@ -220,7 +220,7 @@ static int orinoco_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+ 	if (changed & WIPHY_PARAM_FRAG_THRESHOLD) {
+ 		/* Set fragmentation */
+ 		if (priv->has_mwo) {
+-			if (wiphy->frag_threshold < 0)
++			if (wiphy->frag_threshold == -1)
+ 				frag_value = 0;
+ 			else {
+ 				printk(KERN_WARNING "%s: Fixed fragmentation "
+@@ -230,7 +230,7 @@ static int orinoco_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+ 				frag_value = 1;
+ 			}
+ 		} else {
+-			if (wiphy->frag_threshold < 0)
++			if (wiphy->frag_threshold == -1)
+ 				frag_value = 2346;
+ 			else if ((wiphy->frag_threshold < 257) ||
+ 				 (wiphy->frag_threshold > 2347))
+@@ -252,7 +252,7 @@ static int orinoco_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+ 		 * the upper limit.
+ 		 */
+ 
+-		if (wiphy->rts_threshold < 0)
++		if (wiphy->rts_threshold == -1)
+ 			rts_value = 2347;
+ 		else if (wiphy->rts_threshold > 2347)
+ 			err = -EINVAL;
+-- 
+1.9.1
