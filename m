@@ -1,87 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
-Date: Mon, 21 Sep 2015 07:51:48 -0700
-Message-ID: <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
-	 <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: xfrm4_garbage_collect reaching limit
+Date: Mon, 21 Sep 2015 10:52:46 -0400
+Message-ID: <CAOZ2QJPxzBV8Hax-jdOcoyJ7eJedUfTN_rEx=vpZfC3yCh6FAQ@mail.gmail.com>
+References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+ <20150911094808.GI25499@secunet.com> <CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
+ <20150916084541.GB7701@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kcc@google.com,
-	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
-	paulmck@linux.vnet.ibm.com
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dan Streetman <ddstreet@ieee.org>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35695 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752862AbbIUOx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:53:26 -0400
+Received: by ioiz6 with SMTP id z6so121813265ioi.2
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:53:26 -0700 (PDT)
+In-Reply-To: <20150916084541.GB7701@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-09-21 at 06:31 -0700, Eric Dumazet wrote:
-> On Mon, 2015-09-21 at 10:08 +0200, Dmitry Vyukov wrote:
-> > rhashtable_rehash_one() uses plain writes to update entry->next,
-> > while it is being concurrently accessed by readers.
-> > Unfortunately, the compiler is within its rights to (for example) use
-> > byte-at-a-time writes to update the pointer, which would fatally confuse
-> > concurrent readers.
-> > 
-> This is bogus.
-> 
-> 1) Linux is certainly not working if some arch or compiler is not doing
-> single word writes. WRITE_ONCE() would not help at all to enforce this.
-> 
-> 2) If  new node is not yet visible, we don't care if we write
-> entry->next using any kind of operation.
-> 
-> So the WRITE_ONCE() is not needed at all.
-> 
-> 
-> 
-> > +	WRITE_ONCE(entry->next, head);
-> 
-> 
-> The rcu_assign_pointer() immediately following is enough in this case.
-> 
-> We have hundred of similar cases in the kernel.
-> 
-> 
+On Wed, Sep 16, 2015 at 4:45 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Mon, Sep 14, 2015 at 11:14:59PM -0400, Dan Streetman wrote:
+>> On Fri, Sep 11, 2015 at 5:48 AM, Steffen Klassert
+>> <steffen.klassert@secunet.com> wrote:
+>> >
+>> >> Possibly the
+>> >> default value of xfrm4_gc_thresh could be set proportional to
+>> >> num_online_cpus(), but that doesn't help when cpus are onlined after
+>> >> boot.
+>> >
+>> > This could be an option, we could change the xfrm4_gc_thresh value with
+>> > a cpu notifier callback if more cpus come up after boot.
+>>
+>> the issue there is, if the value is changed by the user, does a cpu
+>> hotplug reset it back to default...
+>
+> What about the patch below? With this we are independent of the number
+> of cpus. It should cover most, if not all usecases.
+>
+> While we are at it, we could think about increasing the flowcache
+> percpu limit. This value was choosen back in 2003, so maybe we could
+> have more than 4k cache entries per cpu these days.
 
-The changelog and comment are totally confusing.
+Sounds reasonable, though I don't have any data on a good value, so
+I'll leave that up to you :-)
 
-Please remove the bogus parts in them, and/or rephrase.
-
-The important part here is that we rehash an item, so we need to make
-sure to maintain consistent ->next field, and need to prevent compiler
-from using ->next as a temporary variable.
-
-ptr->next = 1UL | ((base + offset) << 1);
-
-Is dangerous because compiler could issue :
-
-ptr->next = (base + offset);
-
-ptr->next <<= 1;
-
-ptr->next += 1UL;
-
-Frankly, all this looks like an oversight in this code.
-
-Not sure why the NULLS value is even recomputed.
-
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index cc0c69710dcf..0a29f07ba45a 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -187,10 +187,7 @@ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned int old_hash)
- 	head = rht_dereference_bucket(new_tbl->buckets[new_hash],
- 				      new_tbl, new_hash);
- 
--	if (rht_is_a_nulls(head))
--		INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
--	else
--		RCU_INIT_POINTER(entry->next, head);
-+	RCU_INIT_POINTER(entry->next, head);
- 
- 	rcu_assign_pointer(new_tbl->buckets[new_hash], entry);
- 	spin_unlock(new_bucket_lock);
+>
+>
+> Subject: [PATCH RFC] xfrm: Let the flowcache handle its size by default.
+>
+> The xfrm flowcache size is limited by the flowcache limit
+> (4096 * number of online cpus) and the xfrm garbage collector
+> threshold (2 * 32768), whatever is reached first. This means
+> that we can hit the garbage collector limit only on systems
+> with more than 16 cpus. On such systems we simply refuse
+> new allocations if we reach the limit, so new flows are dropped.
+> On syslems with 16 or less cpus, we hit the flowcache limit.
+> In this case, we shrink the flow cache instead of refusing new
+> flows.
+>
+> We increase the xfrm garbage collector threshold to INT_MAX
+> to get the same behaviour, independent of the number of cpus.
+>
+> The xfrm garbage collector threshold can still be set below
+> the flowcache limit to reduce the memory usage of the flowcache.
+>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt | 6 ++++--
+>  net/ipv4/xfrm4_policy.c                | 2 +-
+>  net/ipv6/xfrm6_policy.c                | 2 +-
+>  3 files changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index ebe94f2..260f30b 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1199,7 +1199,8 @@ tag - INTEGER
+>  xfrm4_gc_thresh - INTEGER
+>         The threshold at which we will start garbage collecting for IPv4
+>         destination cache entries.  At twice this value the system will
+> -       refuse new allocations.
+> +       refuse new allocations. The value must be set below the flowcache
+> +       limit (4096 * number of online cpus) to take effect.
+>
+>  igmp_link_local_mcast_reports - BOOLEAN
+>         Enable IGMP reports for link local multicast groups in the
+> @@ -1645,7 +1646,8 @@ ratelimit - INTEGER
+>  xfrm6_gc_thresh - INTEGER
+>         The threshold at which we will start garbage collecting for IPv6
+>         destination cache entries.  At twice this value the system will
+> -       refuse new allocations.
+> +       refuse new allocations. The value must be set below the flowcache
+> +       limit (4096 * number of online cpus) to take effect.
+>
+>
+>  IPv6 Update by:
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index 1e06c4f..3dffc73 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -248,7 +248,7 @@ static struct dst_ops xfrm4_dst_ops = {
+>         .destroy =              xfrm4_dst_destroy,
+>         .ifdown =               xfrm4_dst_ifdown,
+>         .local_out =            __ip_local_out,
+> -       .gc_thresh =            32768,
+> +       .gc_thresh =            INT_MAX,
+>  };
+>
+>  static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index f10b940..e9af39a 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -289,7 +289,7 @@ static struct dst_ops xfrm6_dst_ops = {
+>         .destroy =              xfrm6_dst_destroy,
+>         .ifdown =               xfrm6_dst_ifdown,
+>         .local_out =            __ip6_local_out,
+> -       .gc_thresh =            32768,
+> +       .gc_thresh =            INT_MAX,
+>  };
+>
+>  static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
+> --
+> 1.9.1
+>
