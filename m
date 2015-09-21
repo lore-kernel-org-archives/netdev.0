@@ -1,347 +1,270 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [RFC net-next 3/4] net: VRF device: Initial IPv6 support
-Date: Mon, 21 Sep 2015 16:32:57 -0700
-Message-ID: <1442878378-13322-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [RFC net-next 4/4] net: ipv6: Initial support for VRFs
+Date: Mon, 21 Sep 2015 16:32:58 -0700
+Message-ID: <1442878378-13322-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1442878378-13322-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33997 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932536AbbIUXdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 19:33:18 -0400
-Received: by padhy16 with SMTP id hy16so129617217pad.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 16:33:17 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34818 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932553AbbIUXdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 19:33:19 -0400
+Received: by pacfv12 with SMTP id fv12so132313257pac.2
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 16:33:19 -0700 (PDT)
 In-Reply-To: <1442878378-13322-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Start point for IPv6 support by the VRF device.
+Add basic support for VRFs to IPv6 stack. This is a good start point.
+ping to and from a VRF works. Basic tcp and udp clients and server all
+work fine with VRFs.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/vrf.c | 226 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 225 insertions(+), 1 deletion(-)
+ net/ipv6/addrconf.c   |  4 +++-
+ net/ipv6/datagram.c   |  4 ++++
+ net/ipv6/icmp.c       |  6 +++++-
+ net/ipv6/ip6_fib.c    |  1 +
+ net/ipv6/ip6_output.c |  6 ++++--
+ net/ipv6/ndisc.c      |  9 +++++++--
+ net/ipv6/route.c      | 17 +++++++++++++++--
+ 7 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 9e3afe011396..ea08a280ae2e 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -30,6 +30,7 @@
- #include <net/arp.h>
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 75d3dde32c69..f4677a9c01ac 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -81,6 +81,7 @@
  #include <net/ip.h>
- #include <net/ip_fib.h>
-+#include <net/ip6_fib.h>
- #include <net/ip6_route.h>
- #include <net/rtnetlink.h>
- #include <net/route.h>
-@@ -54,6 +55,7 @@ struct slave_queue {
- struct net_vrf {
- 	struct slave_queue      queue;
- 	struct rtable           *rth;
-+	struct rt6_info		*rt6;
- 	u32                     tb_id;
- };
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/l3mdev.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/netconf.h>
+@@ -2179,8 +2180,9 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+ 	struct fib6_node *fn;
+ 	struct rt6_info *rt = NULL;
+ 	struct fib6_table *table;
++	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_PREFIX;
  
-@@ -101,12 +103,49 @@ static struct dst_ops vrf_dst_ops = {
- 	.default_advmss	= vrf_default_advmss,
- };
+-	table = fib6_get_table(dev_net(dev), RT6_TABLE_PREFIX);
++	table = fib6_get_table(dev_net(dev), tb_id);
+ 	if (!table)
+ 		return NULL;
  
-+/* neighbor handling is done with actual device; do not want
-+ * to flip skb->dev for those ndisc packets. This really fails
-+ * for multiple next protocols (e.g., NEXTHDR_HOP). But it is
-+ * a start.
-+ */
-+static bool check_ipv6_frame(const struct sk_buff *skb)
-+{
-+	const struct ipv6hdr *ipv6h = (struct ipv6hdr *)skb->data;
-+	size_t hlen = sizeof(*ipv6h);
-+	bool rc = true;
-+
-+	if (skb->len < hlen)
-+		return false;
-+
-+	if (ipv6h->nexthdr == NEXTHDR_ICMP) {
-+		const struct icmp6hdr *icmph;
-+
-+		if (skb->len < hlen + sizeof(*icmph))
-+			goto out;
-+
-+		icmph = (struct icmp6hdr *)(skb->data + sizeof(*ipv6h));
-+		switch (icmph->icmp6_type) {
-+		case NDISC_ROUTER_SOLICITATION:
-+		case NDISC_ROUTER_ADVERTISEMENT:
-+		case NDISC_NEIGHBOUR_SOLICITATION:
-+		case NDISC_NEIGHBOUR_ADVERTISEMENT:
-+		case NDISC_REDIRECT:
-+			rc = false;
-+			break;
-+		}
-+	}
-+
-+out:
-+	return rc;
-+}
-+
- static bool is_ip_rx_frame(struct sk_buff *skb)
- {
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
--	case htons(ETH_P_IPV6):
- 		return true;
-+	case htons(ETH_P_IPV6):
-+		return check_ipv6_frame(skb);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 9aadd57808a5..11980ee57507 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -142,6 +142,10 @@ static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int a
+ 			err = -EINVAL;
+ 			goto out;
+ 		}
++	} else if (sk->sk_bound_dev_if &&
++		   netif_index_is_l3_master(sock_net(sk),
++					    sk->sk_bound_dev_if)) {
++		fl6.flowi6_flags |= FLOWI_FLAG_L3MDEV_SRC;
  	}
- 	return false;
+ 
+ 	sk->sk_v6_daddr = *daddr;
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 6c2b2132c8d3..efb1c00f2270 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -68,6 +68,7 @@
+ #include <net/xfrm.h>
+ #include <net/inet_common.h>
+ #include <net/dsfield.h>
++#include <net/l3mdev.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -496,6 +497,9 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	else if (!fl6.flowi6_oif)
+ 		fl6.flowi6_oif = np->ucast_oif;
+ 
++	if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = l3mdev_master_ifindex(skb->dev);
++
+ 	dst = icmpv6_route_lookup(net, skb, sk, &fl6);
+ 	if (IS_ERR(dst))
+ 		goto out;
+@@ -575,7 +579,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	fl6.daddr = ipv6_hdr(skb)->saddr;
+ 	if (saddr)
+ 		fl6.saddr = *saddr;
+-	fl6.flowi6_oif = skb->dev->ifindex;
++	fl6.flowi6_oif = l3mdev_fib_oif(skb->dev);
+ 	fl6.fl6_icmp_type = ICMPV6_ECHO_REPLY;
+ 	fl6.flowi6_mark = mark;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 418d9823692b..318cf5a34ca5 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -259,6 +259,7 @@ struct fib6_table *fib6_get_table(struct net *net, u32 id)
+ 
+ 	return NULL;
  }
-@@ -169,6 +208,37 @@ static struct rtnl_link_stats64 *vrf_get_stats64(struct net_device *dev,
- static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
- 					   struct net_device *dev)
++EXPORT_SYMBOL_GPL(fib6_get_table);
+ 
+ static void __net_init fib6_tables_init(struct net *net)
  {
-+	const struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct net *net = dev_net(skb->dev);
-+	struct flowi6 fl6 = {
-+		/* needed to match OIF rule */
-+		.flowi6_oif = dev->ifindex,
-+		.flowi6_iif = LOOPBACK_IFINDEX,
-+		.daddr = iph->daddr,
-+		.saddr = iph->saddr,
-+		.flowlabel = ip6_flowinfo(iph),
-+		.flowi6_mark = skb->mark,
-+		.flowi6_proto = iph->nexthdr,
-+		.flowi6_flags = FLOWI_FLAG_L3MDEV_SRC,
-+	};
-+	int ret = NET_XMIT_DROP;
-+	struct dst_entry *dst;
-+
-+	dst = ip6_route_output(net, NULL, &fl6);
-+	if (dst == (struct dst_entry *)net->ipv6.ip6_null_entry)
-+		goto err;
-+
-+	skb_dst_drop(skb);
-+	skb_dst_set(skb, dst);
-+
-+	ret = ip6_local_out(skb);
-+	if (unlikely(net_xmit_eval(ret)))
-+		dev->stats.tx_errors++;
-+	else
-+		ret = NET_XMIT_SUCCESS;
-+
-+	return ret;
-+err:
- 	vrf_tx_error(dev, skb);
- 	return NET_XMIT_DROP;
- }
-@@ -265,6 +335,122 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return ret;
- }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 291a07be5dfb..bbd752cef5c2 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -55,6 +55,7 @@
+ #include <net/xfrm.h>
+ #include <net/checksum.h>
+ #include <linux/mroute6.h>
++#include <net/l3mdev.h>
  
-+static struct dst_entry *vrf_ip6_check(struct dst_entry *dst, u32 cookie)
-+{
-+	return dst;
-+}
-+
-+static int vrf_ip6_local_out(struct sk_buff *skb)
-+{
-+	return ip6_local_out(skb);
-+}
-+
-+static struct dst_ops vrf_dst_ops6 = {
-+	.family		= AF_INET6,
-+	.local_out	= vrf_ip6_local_out,
-+	.check		= vrf_ip6_check,
-+	.mtu		= vrf_v4_mtu,
-+	.destroy	= vrf_dst_destroy,
-+	.default_advmss	= vrf_default_advmss,
-+};
-+
-+static int vrf_input6(struct sk_buff *skb)
-+{
-+	pr_err("vrf_input6: WTF!?!?\n");
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
-+/* modelled after ip6_finish_output2 */
-+static int vrf_finish_output6(struct net *net, struct sock *sk,
-+			      struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct net_device *dev = dst->dev;
-+	struct neighbour *neigh;
-+	struct in6_addr *nexthop;
-+	int ret;
-+
-+	skb->protocol = htons(ETH_P_IPV6);
-+	skb->dev = dev;
-+
-+	rcu_read_lock_bh();
-+	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
-+	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
-+	if (unlikely(!neigh))
-+		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
-+	if (!IS_ERR(neigh)) {
-+		ret = dst_neigh_output(dst, neigh, skb);
-+		rcu_read_unlock_bh();
-+		return ret;
-+	}
-+	rcu_read_unlock_bh();
-+
-+	IP6_INC_STATS(dev_net(dst->dev),
-+		      ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+/* modelled after ip6_output */
-+static int vrf_output6(struct sock *sk, struct sk_buff *skb)
-+{
-+	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING,
-+			    dev_net(skb_dst(skb)->dev), sk, skb,
-+			    NULL, skb_dst(skb)->dev,
-+			    vrf_finish_output6,
-+			    !(IP6CB(skb)->flags & IP6SKB_REROUTED));
-+}
-+
-+static void vrf_rt6_destroy(struct net_vrf *vrf)
-+{
-+	struct dst_entry *dst = (struct dst_entry *)vrf->rt6;
-+
-+	dst_destroy(dst);
-+	vrf->rt6 = NULL;
-+}
-+
-+static struct rt6_info *vrf_rt6_create(struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct rt6_info *rt6;
-+	struct dst_entry *dst;
-+	int cpu;
-+
-+	rt6 = dst_alloc(&vrf_dst_ops6, dev, 0,
-+			DST_OBSOLETE_NONE,
-+			(DST_HOST | DST_NOPOLICY | DST_NOXFRM));
-+	if (!rt6)
-+		goto out;
-+
-+	rt6->rt6i_pcpu = alloc_percpu_gfp(struct rt6_info *, GFP_ATOMIC);
-+	if (!rt6->rt6i_pcpu) {
-+		dst_destroy((struct dst_entry *)rt6);
-+		rt6 = NULL;
-+		goto out;
-+	}
-+	for_each_possible_cpu(cpu) {
-+		struct rt6_info **p = per_cpu_ptr(rt6->rt6i_pcpu, cpu);
-+		*p =  NULL;
-+	}
-+
-+	dst = &rt6->dst;
-+	memset(dst + 1, 0, sizeof(*rt6) - sizeof(*dst));
-+
-+	INIT_LIST_HEAD(&rt6->rt6i_siblings);
-+	INIT_LIST_HEAD(&rt6->rt6i_uncached);
-+
-+	rt6->dst.input	= vrf_input6;
-+	rt6->dst.output	= vrf_output6;
-+
-+	rt6->rt6i_table = fib6_get_table(dev_net(dev), vrf->tb_id);
-+
-+	atomic_set(&rt6->dst.__refcnt, 2);
-+
-+out:
-+	return rt6;
-+}
-+
- /* modelled after ip_finish_output2 */
- static int vrf_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
  {
-@@ -487,6 +673,7 @@ static void vrf_dev_uninit(struct net_device *dev)
- 	struct slave *slave, *next;
+@@ -874,7 +875,8 @@ static struct dst_entry *ip6_sk_dst_check(struct sock *sk,
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	    ip6_rt_check(&rt->rt6i_src, &fl6->saddr, np->saddr_cache) ||
+ #endif
+-	    (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex)) {
++	   (!(fl6->flowi6_flags & FLOWI_FLAG_L3MDEV_SRC) &&
++	      (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex))) {
+ 		dst_release(dst);
+ 		dst = NULL;
+ 	}
+@@ -1026,7 +1028,7 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
+ 	if (!fl6->flowi6_oif)
+-		fl6->flowi6_oif = dst->dev->ifindex;
++		fl6->flowi6_oif = l3mdev_fib_oif(dst->dev);
  
- 	vrf_rtable_destroy(vrf);
-+	vrf_rt6_destroy(vrf);
- 
- 	list_for_each_entry_safe(slave, next, head, list)
- 		vrf_del_slave(dev, slave->dev);
-@@ -510,10 +697,17 @@ static int vrf_dev_init(struct net_device *dev)
- 	if (!vrf->rth)
- 		goto out_stats;
- 
-+	vrf->rt6 = vrf_rt6_create(dev);
-+	if (!vrf->rt6)
-+		goto out_rth;
-+
-+	/* can not use IFF_LOOPBACK; it has special meaning in the stack */
- 	dev->flags = IFF_MASTER | IFF_NOARP;
- 
- 	return 0;
- 
-+out_rth:
-+	vrf_rtable_destroy(vrf);
- out_stats:
- 	free_percpu(dev->dstats);
- 	dev->dstats = NULL;
-@@ -552,9 +746,25 @@ static struct rtable *vrf_get_rtable(const struct net_device *dev,
- 	return rth;
+ 	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
  }
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index dde5a1e5875a..278627b01283 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -67,6 +67,7 @@
+ #include <net/flow.h>
+ #include <net/ip6_checksum.h>
+ #include <net/inet_common.h>
++#include <net/l3mdev.h>
+ #include <linux/proc_fs.h>
  
-+static struct dst_entry *vrf_rt6_dst(const struct net_device *dev,
-+				     const struct flowi6 *fl6)
-+{
-+	struct rt6_info *rt = NULL;
-+
-+	if (!(fl6->flowi6_flags & FLOWI_FLAG_L3MDEV_SRC)) {
-+		struct net_vrf *vrf = netdev_priv(dev);
-+
-+		rt = vrf->rt6;
-+		atomic_inc(&rt->dst.__refcnt);
-+	}
-+
-+	return (struct dst_entry *)rt;
-+}
-+
- static const struct l3mdev_ops vrf_l3mdev_ops = {
- 	.l3mdev_fib_table	= vrf_fib_table,
- 	.l3mdev_get_rtable	= vrf_get_rtable,
-+	.l3mdev_rt6_dst		= vrf_rt6_dst,
+ #include <linux/netfilter.h>
+@@ -147,6 +148,7 @@ struct neigh_table nd_tbl = {
+ 	.gc_thresh2 =	 512,
+ 	.gc_thresh3 =	1024,
  };
++EXPORT_SYMBOL_GPL(nd_tbl);
  
- static void vrf_get_drvinfo(struct net_device *dev,
-@@ -696,6 +906,17 @@ static int __init vrf_init_module(void)
- 	if (!vrf_dst_ops.kmem_cachep)
- 		return -ENOMEM;
+ static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
+ {
+@@ -441,8 +443,9 @@ static void ndisc_send_skb(struct sk_buff *skb,
  
-+	vrf_dst_ops6.kmem_cachep = kmem_cache_create("vrf_ip6_dst_cache",
-+						     sizeof(struct rt6_info),
-+						     0,
-+						     SLAB_HWCACHE_ALIGN,
-+						     NULL);
+ 	if (!dst) {
+ 		struct flowi6 fl6;
++		int oif = l3mdev_fib_oif(skb->dev);
+ 
+-		icmpv6_flow_init(sk, &fl6, type, saddr, daddr, skb->dev->ifindex);
++		icmpv6_flow_init(sk, &fl6, type, saddr, daddr, oif);
+ 		dst = icmp6_dst_alloc(skb->dev, &fl6);
+ 		if (IS_ERR(dst)) {
+ 			kfree_skb(skb);
+@@ -1487,6 +1490,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 	int rd_len;
+ 	u8 ha_buf[MAX_ADDR_LEN], *ha = NULL;
+ 	bool ret;
++	int oif;
+ 
+ 	if (ipv6_get_lladdr(dev, &saddr_buf, IFA_F_TENTATIVE)) {
+ 		ND_PRINTK(2, warn, "Redirect: no link-local address on %s\n",
+@@ -1501,8 +1505,9 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 		return;
+ 	}
+ 
++	oif = l3mdev_fib_oif(dev);
+ 	icmpv6_flow_init(sk, &fl6, NDISC_REDIRECT,
+-			 &saddr_buf, &ipv6_hdr(skb)->saddr, dev->ifindex);
++			 &saddr_buf, &ipv6_hdr(skb)->saddr, oif);
+ 
+ 	dst = ip6_route_output(net, NULL, &fl6);
+ 	if (dst->error) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 53617d715188..2996dd957536 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -61,6 +61,7 @@
+ #include <net/nexthop.h>
+ #include <net/lwtunnel.h>
+ #include <net/ip_tunnels.h>
++#include <net/l3mdev.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -1068,6 +1069,8 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+ 	saved_fn = fn;
+ 
++	if (fl6->flowi6_flags & FLOWI_FLAG_L3MDEV_SRC)
++		oif = 0;
+ redo_rt6_select:
+ 	rt = rt6_select(fn, oif, strict);
+ 	if (rt->rt6i_nsiblings)
+@@ -1165,7 +1168,7 @@ void ip6_route_input(struct sk_buff *skb)
+ 	int flags = RT6_LOOKUP_F_HAS_SADDR;
+ 	struct ip_tunnel_info *tun_info;
+ 	struct flowi6 fl6 = {
+-		.flowi6_iif = skb->dev->ifindex,
++		.flowi6_iif = l3mdev_fib_oif(skb->dev),
+ 		.daddr = iph->daddr,
+ 		.saddr = iph->saddr,
+ 		.flowlabel = ip6_flowinfo(iph),
+@@ -1189,8 +1192,13 @@ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table
+ struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
+ 				    struct flowi6 *fl6)
+ {
++	struct dst_entry *dst;
+ 	int flags = 0;
+ 
++	dst = l3mdev_rt6_dst_by_oif(net, fl6);
++	if (dst)
++		return dst;
 +
-+	if (!vrf_dst_ops6.kmem_cachep) {
-+		rc = -ENOMEM;
-+		goto error2;
-+	}
+ 	fl6->flowi6_iif = LOOPBACK_IFINDEX;
+ 
+ 	if ((sk && sk->sk_bound_dev_if) || rt6_need_strict(&fl6->daddr))
+@@ -1772,6 +1780,8 @@ int ip6_route_info_create(struct fib6_config *cfg, struct rt6_info **rt_ret)
+ 		idev = in6_dev_get(dev);
+ 		if (!idev)
+ 			goto out;
 +
- 	register_netdevice_notifier(&vrf_notifier_block);
++		cfg->fc_table = l3mdev_fib_table(dev) ? : cfg->fc_table;
+ 	}
  
- 	rc = rtnl_link_register(&vrf_link_ops);
-@@ -706,6 +927,8 @@ static int __init vrf_init_module(void)
+ 	if (cfg->fc_metric == 0)
+@@ -2492,6 +2502,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 				    const struct in6_addr *addr,
+ 				    bool anycast)
+ {
++	u32 tb_id;
+ 	struct net *net = dev_net(idev->dev);
+ 	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
+ 					    DST_NOCOUNT);
+@@ -2514,7 +2525,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	rt->rt6i_gateway  = *addr;
+ 	rt->rt6i_dst.addr = *addr;
+ 	rt->rt6i_dst.plen = 128;
+-	rt->rt6i_table = fib6_get_table(net, RT6_TABLE_LOCAL);
++
++	tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
++	rt->rt6i_table = fib6_get_table(net, tb_id);
  
- error:
- 	unregister_netdevice_notifier(&vrf_notifier_block);
-+	kmem_cache_destroy(vrf_dst_ops6.kmem_cachep);
-+error2:
- 	kmem_cache_destroy(vrf_dst_ops.kmem_cachep);
- 	return rc;
- }
-@@ -715,6 +938,7 @@ static void __exit vrf_cleanup_module(void)
- 	rtnl_link_unregister(&vrf_link_ops);
- 	unregister_netdevice_notifier(&vrf_notifier_block);
- 	kmem_cache_destroy(vrf_dst_ops.kmem_cachep);
-+	kmem_cache_destroy(vrf_dst_ops6.kmem_cachep);
- }
+ 	atomic_set(&rt->dst.__refcnt, 1);
  
- module_init(vrf_init_module);
 -- 
 1.9.1
