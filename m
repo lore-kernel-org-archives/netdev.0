@@ -1,101 +1,138 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v3] geneve: ensure ECN info is handled properly in all tx/rx paths
-Date: Mon, 21 Sep 2015 10:29:09 -0400
-Message-ID: <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
-References: <20150920.222459.2251924175671848436.davem@davemloft.net>
-Cc: davem@davemloft.net, Jesse Gross <jesse@nicira.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: xfrm4_garbage_collect reaching limit
+Date: Mon, 21 Sep 2015 10:51:11 -0400
+Message-ID: <CAOZ2QJMFNRza8cLnB4Wu0TZCi4pQE0UL7Ch=+D7igMvjNjpONQ@mail.gmail.com>
+References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+ <20150911094808.GI25499@secunet.com> <CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
+ <20150916084541.GB7701@secunet.com> <CALZtONDZXmTPJgRH6OzF+cX9Ac5Tt+Q6wkX2sUbXzN8zdj1DyQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	netdev@vger.kernel.org
+To: Dan Streetman <ddstreet@ieee.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44716 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbbIUOaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:30:13 -0400
-In-Reply-To: <20150920.222459.2251924175671848436.davem@davemloft.net>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35511 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756147AbbIUOvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:51:52 -0400
+Received: by ioiz6 with SMTP id z6so121756406ioi.2
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 07:51:51 -0700 (PDT)
+In-Reply-To: <CALZtONDZXmTPJgRH6OzF+cX9Ac5Tt+Q6wkX2sUbXzN8zdj1DyQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Partially due to a pre-exising "thinko", the new metadata-based tx/rx
-paths were handling ECN propagation differently than the traditional
-tx/rx paths.  This patch removes the "thinko" (involving multiple
-ip_hdr assignments) on the rx path and corrects the ECN handling on
-both the rx and tx paths.
+On Fri, Sep 18, 2015 at 1:00 AM, Dan Streetman <ddstreet@ieee.org> wrote:
+> On Wed, Sep 16, 2015 at 4:45 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+>> On Mon, Sep 14, 2015 at 11:14:59PM -0400, Dan Streetman wrote:
+>>> On Fri, Sep 11, 2015 at 5:48 AM, Steffen Klassert
+>>> <steffen.klassert@secunet.com> wrote:
+>>> >
+>>> >> Possibly the
+>>> >> default value of xfrm4_gc_thresh could be set proportional to
+>>> >> num_online_cpus(), but that doesn't help when cpus are onlined after
+>>> >> boot.
+>>> >
+>>> > This could be an option, we could change the xfrm4_gc_thresh value with
+>>> > a cpu notifier callback if more cpus come up after boot.
+>>>
+>>> the issue there is, if the value is changed by the user, does a cpu
+>>> hotplug reset it back to default...
+>>
+>> What about the patch below? With this we are independent of the number
+>> of cpus. It should cover most, if not all usecases.
+>
+> yep that works, thanks!  I'll give it a test also, but I don't see how
+> it would fail.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-v3 -- replace "geneve: remove use of internal IP header when calling
-	IP_ECN_decapsulate", include geneve_xmit bits
-v2 -- ensure the collect_md path still calls IP_ECN_decapsulate
+Yep, on a test setup that previously failed within several hours, it
+ran over the weekend successfully.  Thanks!
 
- drivers/net/geneve.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Tested-by: Dan Streetman <dan.streetman@canonical.com>
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index da3259ce7c8d..922101253993 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -126,6 +126,8 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 	__be32 addr;
- 	int err;
- 
-+	iph = ip_hdr(skb); /* outer IP header... */
-+
- 	if (gs->collect_md) {
- 		static u8 zero_vni[3];
- 
-@@ -133,7 +135,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 		addr = 0;
- 	} else {
- 		vni = gnvh->vni;
--		iph = ip_hdr(skb); /* Still outer IP header... */
- 		addr = iph->saddr;
- 	}
- 
-@@ -178,7 +179,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 
- 	skb_reset_network_header(skb);
- 
--	iph = ip_hdr(skb); /* Now inner IP header... */
- 	err = IP_ECN_decapsulate(iph, skb);
- 
- 	if (unlikely(err)) {
-@@ -626,6 +626,7 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct geneve_sock *gs = geneve->sock;
- 	struct ip_tunnel_info *info = NULL;
- 	struct rtable *rt = NULL;
-+	const struct iphdr *iip; /* interior IP header */
- 	struct flowi4 fl4;
- 	__u8 tos, ttl;
- 	__be16 sport;
-@@ -653,6 +654,8 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
- 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
- 	skb_reset_mac_header(skb);
- 
-+	iip = ip_hdr(skb);
-+
- 	if (info) {
- 		const struct ip_tunnel_key *key = &info->key;
- 		u8 *opts = NULL;
-@@ -668,19 +671,16 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (unlikely(err))
- 			goto err;
- 
--		tos = key->tos;
-+		tos = ip_tunnel_ecn_encap(key->tos, iip, skb);
- 		ttl = key->ttl;
- 		df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
- 	} else {
--		const struct iphdr *iip; /* interior IP header */
--
- 		udp_csum = false;
- 		err = geneve_build_skb(rt, skb, 0, geneve->vni,
- 				       0, NULL, udp_csum);
- 		if (unlikely(err))
- 			goto err;
- 
--		iip = ip_hdr(skb);
- 		tos = ip_tunnel_ecn_encap(fl4.flowi4_tos, iip, skb);
- 		ttl = geneve->ttl;
- 		if (!ttl && IN_MULTICAST(ntohl(fl4.daddr)))
--- 
-2.4.3
+>
+>>
+>> While we are at it, we could think about increasing the flowcache
+>> percpu limit. This value was choosen back in 2003, so maybe we could
+>> have more than 4k cache entries per cpu these days.
+>>
+>>
+>> Subject: [PATCH RFC] xfrm: Let the flowcache handle its size by default.
+>>
+>> The xfrm flowcache size is limited by the flowcache limit
+>> (4096 * number of online cpus) and the xfrm garbage collector
+>> threshold (2 * 32768), whatever is reached first. This means
+>> that we can hit the garbage collector limit only on systems
+>> with more than 16 cpus. On such systems we simply refuse
+>> new allocations if we reach the limit, so new flows are dropped.
+>> On syslems with 16 or less cpus, we hit the flowcache limit.
+>> In this case, we shrink the flow cache instead of refusing new
+>> flows.
+>>
+>> We increase the xfrm garbage collector threshold to INT_MAX
+>> to get the same behaviour, independent of the number of cpus.
+>>
+>> The xfrm garbage collector threshold can still be set below
+>> the flowcache limit to reduce the memory usage of the flowcache.
+>>
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> ---
+>>  Documentation/networking/ip-sysctl.txt | 6 ++++--
+>>  net/ipv4/xfrm4_policy.c                | 2 +-
+>>  net/ipv6/xfrm6_policy.c                | 2 +-
+>>  3 files changed, 6 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+>> index ebe94f2..260f30b 100644
+>> --- a/Documentation/networking/ip-sysctl.txt
+>> +++ b/Documentation/networking/ip-sysctl.txt
+>> @@ -1199,7 +1199,8 @@ tag - INTEGER
+>>  xfrm4_gc_thresh - INTEGER
+>>         The threshold at which we will start garbage collecting for IPv4
+>>         destination cache entries.  At twice this value the system will
+>> -       refuse new allocations.
+>> +       refuse new allocations. The value must be set below the flowcache
+>> +       limit (4096 * number of online cpus) to take effect.
+>>
+>>  igmp_link_local_mcast_reports - BOOLEAN
+>>         Enable IGMP reports for link local multicast groups in the
+>> @@ -1645,7 +1646,8 @@ ratelimit - INTEGER
+>>  xfrm6_gc_thresh - INTEGER
+>>         The threshold at which we will start garbage collecting for IPv6
+>>         destination cache entries.  At twice this value the system will
+>> -       refuse new allocations.
+>> +       refuse new allocations. The value must be set below the flowcache
+>> +       limit (4096 * number of online cpus) to take effect.
+>>
+>>
+>>  IPv6 Update by:
+>> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+>> index 1e06c4f..3dffc73 100644
+>> --- a/net/ipv4/xfrm4_policy.c
+>> +++ b/net/ipv4/xfrm4_policy.c
+>> @@ -248,7 +248,7 @@ static struct dst_ops xfrm4_dst_ops = {
+>>         .destroy =              xfrm4_dst_destroy,
+>>         .ifdown =               xfrm4_dst_ifdown,
+>>         .local_out =            __ip_local_out,
+>> -       .gc_thresh =            32768,
+>> +       .gc_thresh =            INT_MAX,
+>>  };
+>>
+>>  static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
+>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+>> index f10b940..e9af39a 100644
+>> --- a/net/ipv6/xfrm6_policy.c
+>> +++ b/net/ipv6/xfrm6_policy.c
+>> @@ -289,7 +289,7 @@ static struct dst_ops xfrm6_dst_ops = {
+>>         .destroy =              xfrm6_dst_destroy,
+>>         .ifdown =               xfrm6_dst_ifdown,
+>>         .local_out =            __ip6_local_out,
+>> -       .gc_thresh =            32768,
+>> +       .gc_thresh =            INT_MAX,
+>>  };
+>>
+>>  static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
+>> --
+>> 1.9.1
+>>
