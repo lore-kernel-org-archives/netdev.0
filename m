@@ -1,77 +1,152 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 6/7] 8139cp: Dump contents of descriptor ring on TX timeout
-Date: Mon, 21 Sep 2015 15:03:19 +0100
-Message-ID: <1442844199.7367.16.camel@infradead.org>
+Subject: [PATCH 7/7] 8139cp: Avoid gratuitous writes to TxPoll register when
+ already running
+Date: Mon, 21 Sep 2015 15:05:40 +0100
+Message-ID: <1442844340.7367.19.camel@infradead.org>
 References: <1442843991.7367.4.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-81X+4P3CH+tjJV/pAgUR"
+	boundary="=-m4qo/7prbzZiFgQ+zMZW"
 Cc: romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44930 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:48818 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932103AbbIUODX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:03:23 -0400
+	with ESMTP id S932077AbbIUOFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 10:05:44 -0400
 In-Reply-To: <1442843991.7367.4.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-81X+4P3CH+tjJV/pAgUR
+--=-m4qo/7prbzZiFgQ+zMZW
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-We are seeing unexplained TX timeouts under heavy load. Let's try to get
-a better idea of what's going on.
+This is a minor optimisation, but as a side-effect it means we can know
+precisely which descriptors were already in the ring when we last
+prodded it to run.
+
+This will give us a better chance to catch the case where we get a
+TxEmpty interrupt when it hasn't actually finished the descriptors we
+*know* it should have seen, before it ends up being a full-blown TX
+timeout and reset.
+
+Since QEMU's emulation doesn't give TxEmpty interrupts, *always* bash on
+TxPoll until we see the first TxEmpty interrupt and cp->txempty_seen
+gets set.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+I'm actually having second thoughts about this one since realising that
+QEMU doesn't implement it correctly. The workaround isn't *that* horrid
+but it's not clear it's enough of a performance win =E2=80=94 or whether it=
+'s
+entirely necessary for catching my TX stall.
+
+ drivers/net/ethernet/realtek/8139cp.c | 37 +++++++++++++++++++++++++++++--=
+----
+ 1 file changed, 31 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 036ad85..6feff9f 100644
+index 6feff9f..67a4fcf 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -157,6 +157,7 @@ enum {
- 	NWayAdvert	=3D 0x66, /* MII ADVERTISE */
- 	NWayLPAR	=3D 0x68, /* MII LPA */
- 	NWayExpansion	=3D 0x6A, /* MII Expansion */
-+	TxDmaOkLowDesc  =3D 0x82, /* Low 16 bit address of a Tx descriptor. */
- 	Config5		=3D 0xD8,	/* Config5 */
- 	TxPoll		=3D 0xD9,	/* Tell chip to check Tx descriptors for work */
- 	RxMaxSize	=3D 0xDA, /* Max size of an Rx packet (8169 only) */
-@@ -1263,7 +1264,7 @@ static void cp_tx_timeout(struct net_device *dev)
- {
- 	struct cp_private *cp =3D netdev_priv(dev);
- 	unsigned long flags;
--	int rc;
-+	int rc, i;
+@@ -340,6 +340,9 @@ struct cp_private {
 =20
- 	netdev_warn(dev, "Transmit timeout, status %2x %4x %4x %4x\n",
- 		    cpr8(Cmd), cpr16(CpCmd),
-@@ -1271,6 +1272,17 @@ static void cp_tx_timeout(struct net_device *dev)
+ 	unsigned		tx_head		____cacheline_aligned;
+ 	unsigned		tx_tail;
++	unsigned		tx_running;
++	unsigned		txempty_seen;
++
+ 	struct cp_desc		*tx_ring;
+ 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
+ 	u32			tx_opts[CP_TX_RING_SIZE];
+@@ -611,6 +614,22 @@ static irqreturn_t cp_interrupt (int irq, void *dev_in=
+stance)
+ 	if (status & (TxOK | TxErr | TxEmpty | SWInt))
+ 		handled |=3D cp_tx(cp);
 =20
- 	spin_lock_irqsave(&cp->lock, flags);
-=20
-+	netif_dbg(cp, tx_err, cp->dev, "TX ring head %d tail %d desc %x\n",
-+		  cp->tx_head, cp->tx_tail, cpr16(TxDmaOkLowDesc));
-+	for (i =3D 0; i < CP_TX_RING_SIZE; i++) {
-+		netif_dbg(cp, tx_err, cp->dev,
-+			  "TX slot %d @%p: %08x (%08x) %08x %llx %p\n",
-+			  i, &cp->tx_ring[i], le32_to_cpu(cp->tx_ring[i].opts1),
-+			  cp->tx_opts[i], le32_to_cpu(cp->tx_ring[i].opts2),
-+			  le64_to_cpu(cp->tx_ring[i].addr),
-+			  cp->tx_skb[i]);
++	if ((status & TxEmpty) && cp->tx_running) {
++		handled =3D 1;
++		/* Qemu's emulation doesn't give TxEmpty interrupts */
++		cp->txempty_seen =3D 1;
++		if (cp->tx_head =3D=3D cp->tx_tail) {
++			/* Out of descriptors and we have nothing more for it.
++			   Let it stop. */
++			cp->tx_running =3D 0;
++		} else {
++			/* The hardware raced with us adding a new descriptor,
++			   and we didn't get the TxEmpty IRQ in time so we
++			   didn't prod it. Prod it now to restart. */
++			cpw8(TxPoll, NormalTxPoll);
++		}
 +	}
 +
- 	cp_stop_hw(cp);
- 	cp_clean_rings(cp);
- 	rc =3D cp_init_rings(cp);
+ 	if (status & LinkChg) {
+ 		handled =3D 1;
+ 		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
+@@ -796,8 +815,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+=20
+ 		cp->tx_skb[entry] =3D skb;
+ 		cp->tx_opts[entry] =3D flags;
+-		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
+-			  entry, skb->len);
++		netif_dbg(cp, tx_queued, cp->dev,
++			  "tx queued, slot %d, skblen %d r %d\n",
++			  entry, skb->len, cp->tx_running);
+ 	} else {
+ 		struct cp_desc *txd;
+ 		u32 first_len, first_eor, ctrl;
+@@ -886,8 +906,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		wmb();
+=20
+ 		cp->tx_opts[first_entry] =3D ctrl;
+-		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
+-			  first_entry, entry, skb->len);
++		netif_dbg(cp, tx_queued, cp->dev,
++			  "tx queued, slots %d-%d, skblen %d r %d\n",
++			  first_entry, entry, skb->len, cp->tx_running);
+ 	}
+ 	cp->tx_head =3D NEXT_TX(entry);
+=20
+@@ -895,11 +916,13 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
+,
+ 	if (TX_BUFFS_AVAIL(cp) <=3D (MAX_SKB_FRAGS + 1))
+ 		netif_stop_queue(dev);
+=20
++	if (!cp->tx_running || !cp->txempty_seen) {
++		cpw8(TxPoll, NormalTxPoll);
++		cp->tx_running =3D 1;
++	}
+ out_unlock:
+ 	spin_unlock_irqrestore(&cp->lock, intr_flags);
+=20
+-	cpw8(TxPoll, NormalTxPoll);
+-
+ 	return NETDEV_TX_OK;
+ out_dma_error:
+ 	dev_kfree_skb_any(skb);
+@@ -989,6 +1012,7 @@ static void cp_stop_hw (struct cp_private *cp)
+=20
+ 	cp->rx_tail =3D 0;
+ 	cp->tx_head =3D cp->tx_tail =3D 0;
++	cp->tx_running =3D 0;
+=20
+ 	netdev_reset_queue(cp->dev);
+ }
+@@ -1041,6 +1065,7 @@ static inline void cp_start_hw (struct cp_private *cp=
+)
+ 	 * This variant appears to work fine.
+ 	 */
+ 	cpw8(Cmd, RxOn | TxOn);
++	cp->tx_running =3D 0;
+=20
+ 	netdev_reset_queue(cp->dev);
+ }
 --=20
 2.4.3
 
@@ -79,7 +154,7 @@ index 036ad85..6feff9f 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-81X+4P3CH+tjJV/pAgUR
+--=-m4qo/7prbzZiFgQ+zMZW
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -172,18 +247,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIxMTQwMzE5WjAjBgkqhkiG9w0BCQQxFgQUiuLmTFbEKqEqzUwoqUDgItBDFLsw
+CQUxDxcNMTUwOTIxMTQwNTQwWjAjBgkqhkiG9w0BCQQxFgQUV+PWvxqajiOVj8BZObrYaLphXDEw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQAfy/1HESpfPcYoLNX3i1CO0mhiVOoHdYOH8jKn355bAZiLsfvkyPRzYtq4
-msorF1T2pq7D7BK5/fOqixPjgVNPaATVwlhiBs8pyzqsXDizyNr3b1WCngD0vIKcNa4OIGlzDg2r
-WRZ1WaRpkK9bN6Fwmebz6Ws116JH4LIP5JJHQNTo2s8shNGSQhW8oe1YlF41j28cPRONHVnQvVeS
-S178Mg+CnWo2jhFsUKARU4dGctVd1onaAYQ/7PviAeLq8Kx1FOu3DSJez1pHiMLvbm2H+wTp8qOJ
-dx5Sb1wz1pDcB6No8CZtjjD+N301XFmweuB9v6r5D1sYl9Ixh7KxTf/6AAAAAAAA
+hkiG9w0BAQEFAASCAQCaoVjosSikmocKnAijt/9KoNC+IMv5wNjK+PwNayx6ZnpP0ogl+vuVdwUr
+0LKYOLNAYlKtr85n7MZIBrYEvRep3O73EXJioI5iyE8EbMFNN98/knvZG6tKjHB5i3u2C1iI2Ypb
+Te7D7YDsqvYNa69y74U+l9w6GeY+1SfTFgupJDIM1TDQB9T/2v5jTTx3/AVm7gZ0m8Svc9U/dCgL
+MjP79S6JYnRXgbgWTOCdQNSwfWdlHd7374exQaUfkXDPJ2boKNcXJcv0eZOfRdaqIRz8J2b8cGGT
+FTixyr8CXPgvKIhwDmYa26Z2SZ0Knx414JP/UeGrd+o6Cvix/DYIWxYhAAAAAAAA
 
 
---=-81X+4P3CH+tjJV/pAgUR--
+--=-m4qo/7prbzZiFgQ+zMZW--
