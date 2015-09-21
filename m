@@ -1,132 +1,185 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
-Date: Mon, 21 Sep 2015 06:31:55 -0700
-Message-ID: <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: netlink: Replace rhash_portid with bound
+Date: Mon, 21 Sep 2015 21:34:16 +0800
+Message-ID: <20150921133415.GA1740@gondor.apana.org.au>
+References: <20150918111650.GA7508@gondor.apana.org.au>
+ <20150920.225521.1063980101511317898.davem@davemloft.net>
+ <20150921060636.GA30807@gondor.apana.org.au>
+ <20150920.231104.525285577747035896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kcc@google.com,
-	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
-	paulmck@linux.vnet.ibm.com
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442822930-35319-1-git-send-email-dvyukov@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tj@kernel.org, cwang@twopensource.com, tom@herbertland.com,
+	kafai@fb.com, kernel-team@fb.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, torvalds@linux-foundation.org,
+	jiri@resnulli.us, nicolas.dichtel@6wind.com, tgraf@suug.ch,
+	sfeldma@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:48281 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753015AbbIUNen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 09:34:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20150920.231104.525285577747035896.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-09-21 at 10:08 +0200, Dmitry Vyukov wrote:
-> rhashtable_rehash_one() uses plain writes to update entry->next,
-> while it is being concurrently accessed by readers.
-> Unfortunately, the compiler is within its rights to (for example) use
-> byte-at-a-time writes to update the pointer, which would fatally confuse
-> concurrent readers.
-> 
-> Use WRITE_ONCE to update entry->next in rhashtable_rehash_one().
-> 
-> The data race was found with KernelThreadSanitizer (KTSAN).
-> 
-> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
-> ---
-> KTSAN report for the record:
-> 
-> ThreadSanitizer: data-race in netlink_lookup
-> 
-> Atomic read at 0xffff880480443bd0 of size 8 by thread 2747 on CPU 11:
->  [<     inline     >] rhashtable_lookup_fast include/linux/rhashtable.h:543
->  [<     inline     >] __netlink_lookup net/netlink/af_netlink.c:1026
->  [<ffffffff81bd9a84>] netlink_lookup+0x134/0x1c0 net/netlink/af_netlink.c:1046
->  [<     inline     >] netlink_getsockbyportid net/netlink/af_netlink.c:1616
->  [<ffffffff81bdc701>] netlink_unicast+0x111/0x300 net/netlink/af_netlink.c:1812
->  [<ffffffff81bdcdb9>] netlink_sendmsg+0x4c9/0x5f0 net/netlink/af_netlink.c:2443
->  [<     inline     >] sock_sendmsg_nosec net/socket.c:610
->  [<ffffffff81b5d6f3>] sock_sendmsg+0x83/0x90 net/socket.c:620
->  [<ffffffff81b5e59f>] ___sys_sendmsg+0x3cf/0x3e0 net/socket.c:1952
->  [<ffffffff81b5f6ac>] __sys_sendmsg+0x4c/0xb0 net/socket.c:1986
->  [<     inline     >] SYSC_sendmsg net/socket.c:1997
->  [<ffffffff81b5f740>] SyS_sendmsg+0x30/0x50 net/socket.c:1993
->  [<ffffffff81ee3e11>] entry_SYSCALL_64_fastpath+0x31/0x95
-> arch/x86/entry/entry_64.S:188
-> 
-> Previous write at 0xffff880480443bd0 of size 8 by thread 213 on CPU 4:
->  [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:193
->  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
->  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
->  [<ffffffff8156f7e0>] rht_deferred_worker+0x3b0/0x6d0 lib/rhashtable.c:373
->  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
->  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
->  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
->  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
-> 
-> Mutexes locked by thread 213:
-> Mutex 217217 is locked here:
->  [<ffffffff81ee0407>] mutex_lock+0x57/0x70 kernel/locking/mutex.c:108
->  [<ffffffff8156f475>] rht_deferred_worker+0x45/0x6d0 lib/rhashtable.c:363
->  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
->  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
->  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
->  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
-> 
-> Mutex 431216 is locked here:
->  [<     inline     >] __raw_spin_lock_bh include/linux/spinlock_api_smp.h:149
->  [<ffffffff81ee3195>] _raw_spin_lock_bh+0x65/0x80 kernel/locking/spinlock.c:175
->  [<     inline     >] spin_lock_bh include/linux/spinlock.h:317
->  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:212
->  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
->  [<ffffffff8156f616>] rht_deferred_worker+0x1e6/0x6d0 lib/rhashtable.c:373
->  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
->  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
->  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
->  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
-> 
-> Mutex 432766 is locked here:
->  [<     inline     >] __raw_spin_lock include/linux/spinlock_api_smp.h:158
->  [<ffffffff81ee37d0>] _raw_spin_lock+0x50/0x70 kernel/locking/spinlock.c:151
->  [<     inline     >] rhashtable_rehash_one lib/rhashtable.c:186
->  [<     inline     >] rhashtable_rehash_chain lib/rhashtable.c:213
->  [<     inline     >] rhashtable_rehash_table lib/rhashtable.c:257
->  [<ffffffff8156f79b>] rht_deferred_worker+0x36b/0x6d0 lib/rhashtable.c:373
->  [<ffffffff810b1d6e>] process_one_work+0x47e/0x930 kernel/workqueue.c:2036
->  [<ffffffff810b22d0>] worker_thread+0xb0/0x900 kernel/workqueue.c:2170
->  [<ffffffff810bba40>] kthread+0x150/0x170 kernel/kthread.c:209
->  [<ffffffff81ee420f>] ret_from_fork+0x3f/0x70 arch/x86/entry/entry_64.S:529
-> ---
->  lib/rhashtable.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index cc0c697..978624d 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -188,9 +188,12 @@ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned int old_hash)
->  				      new_tbl, new_hash);
->  
->  	if (rht_is_a_nulls(head))
-> -		INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
-> -	else
-> -		RCU_INIT_POINTER(entry->next, head);
-> +		head = (struct rhash_head *)rht_marker(ht, new_hash);
-> +	/* We don't insert any new nodes that were not previously accessible
-> +	 * to readers, so we don't need to use rcu_assign_pointer().
-> +	 * But entry is being concurrently accessed by readers, so we need to
-> +	 * use at least WRITE_ONCE. */
+On Sun, Sep 20, 2015 at 11:11:04PM -0700, David Miller wrote:
+>
+> Yeah at this point incremental patches work the best.
 
-This is bogus.
+OK here is the patch:
 
-1) Linux is certainly not working if some arch or compiler is not doing
-single word writes. WRITE_ONCE() would not help at all to enforce this.
+---8<---
+The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+Fix autobind race condition that leads to zero port ID") created
+some new races that can occur due to inconcsistencies between the
+two port IDs.
 
-2) If  new node is not yet visible, we don't care if we write
-entry->next using any kind of operation.
+Tejun is right that a barrier is unavoidable.  Therefore I am
+reverting to the original patch that used a boolean to indicate
+that a user netlink socket has been bound.
 
-So the WRITE_ONCE() is not needed at all.
+Barriers have been added where necessary to ensure that a valid
+portid is used.
 
+Fixes: 1f770c0a09da ("netlink: Fix autobind race condition that leads to zero port ID")
+Reported-by: Tejun Heo <tj@kernel.org>
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-> +	WRITE_ONCE(entry->next, head);
-
-
-The rcu_assign_pointer() immediately following is enough in this case.
-
-We have hundred of similar cases in the kernel.
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 303efb7..f5362aae 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -24,6 +24,7 @@
+ 
+ #include <linux/module.h>
+ 
++#include <asm/barrier.h>
+ #include <linux/capability.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+@@ -1015,7 +1016,7 @@ static inline int netlink_compare(struct rhashtable_compare_arg *arg,
+ 	const struct netlink_compare_arg *x = arg->key;
+ 	const struct netlink_sock *nlk = ptr;
+ 
+-	return nlk->rhash_portid != x->portid ||
++	return nlk->portid != x->portid ||
+ 	       !net_eq(sock_net(&nlk->sk), read_pnet(&x->pnet));
+ }
+ 
+@@ -1041,7 +1042,7 @@ static int __netlink_insert(struct netlink_table *table, struct sock *sk)
+ {
+ 	struct netlink_compare_arg arg;
+ 
+-	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->rhash_portid);
++	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->portid);
+ 	return rhashtable_lookup_insert_key(&table->hash, &arg,
+ 					    &nlk_sk(sk)->node,
+ 					    netlink_rhashtable_params);
+@@ -1095,7 +1096,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 	lock_sock(sk);
+ 
+ 	err = -EBUSY;
+-	if (nlk_sk(sk)->portid)
++	if (nlk_sk(sk)->bound)
+ 		goto err;
+ 
+ 	err = -ENOMEM;
+@@ -1103,7 +1104,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
+ 		goto err;
+ 
+-	nlk_sk(sk)->rhash_portid = portid;
++	nlk_sk(sk)->portid = portid;
+ 	sock_hold(sk);
+ 
+ 	err = __netlink_insert(table, sk);
+@@ -1119,7 +1120,11 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 		goto err;
+ 	}
+ 
+-	nlk_sk(sk)->portid = portid;
++	/* rhashtable_insert carries an implicit write memory barrier
++	 * so we don't need an smp_wmb here in order to ensure that
++	 * portid is set before bound.
++	 */
++	nlk_sk(sk)->bound = portid;
+ 
+ err:
+ 	release_sock(sk);
+@@ -1521,9 +1526,11 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			return err;
+ 	}
+ 
+-	if (nlk->portid)
++	/* Ensure nlk->portid is up-to-date. */
++	if (smp_load_acquire(&nlk->bound)) {
+ 		if (nladdr->nl_pid != nlk->portid)
+ 			return -EINVAL;
++	}
+ 
+ 	if (nlk->netlink_bind && groups) {
+ 		int group;
+@@ -1539,7 +1546,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 		}
+ 	}
+ 
+-	if (!nlk->portid) {
++	if (!nlk->bound) {
+ 		err = nladdr->nl_pid ?
+ 			netlink_insert(sk, nladdr->nl_pid) :
+ 			netlink_autobind(sock);
+@@ -1587,7 +1594,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+-	if (!nlk->portid)
++	if (!nlk->bound)
+ 		err = netlink_autobind(sock);
+ 
+ 	if (err == 0) {
+@@ -2428,7 +2435,8 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 		dst_group = nlk->dst_group;
+ 	}
+ 
+-	if (!nlk->portid) {
++	/* Ensure nlk->portid is up-to-date. */
++	if (!smp_load_acquire(&nlk->bound)) {
+ 		err = netlink_autobind(sock);
+ 		if (err)
+ 			goto out;
+@@ -3257,7 +3265,7 @@ static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
+ 	const struct netlink_sock *nlk = data;
+ 	struct netlink_compare_arg arg;
+ 
+-	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->rhash_portid);
++	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
+ 	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
+ }
+ 
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index c96dfa3..e6aae40 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -25,7 +25,6 @@ struct netlink_ring {
+ struct netlink_sock {
+ 	/* struct sock has to be the first member of netlink_sock */
+ 	struct sock		sk;
+-	u32			rhash_portid;
+ 	u32			portid;
+ 	u32			dst_portid;
+ 	u32			dst_group;
+@@ -36,6 +35,7 @@ struct netlink_sock {
+ 	unsigned long		state;
+ 	size_t			max_recvmsg_len;
+ 	wait_queue_head_t	wait;
++	bool			bound;
+ 	bool			cb_running;
+ 	struct netlink_callback	cb;
+ 	struct mutex		*cb_mutex;
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
