@@ -1,117 +1,59 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 81/84] ipvs: Pass ipvs not net to ip_vs_protocol_net_(init|cleanup)
-Date: Mon, 21 Sep 2015 13:02:58 -0500
-Message-ID: <1442858581-15869-81-git-send-email-ebiederm@xmission.com>
-References: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
-Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next] ip route: Add RTM_F_LOOKUP_TABLE flag and show table id
+Date: Mon, 21 Sep 2015 11:19:48 -0700
+Message-ID: <1442859588-14831-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:33547 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756737AbbIUSOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 14:14:08 -0400
-In-Reply-To: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32938 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932312AbbIUSTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 14:19:55 -0400
+Received: by pacex6 with SMTP id ex6so123260207pac.0
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 11:19:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/ip_vs.h              | 4 ++--
- net/netfilter/ipvs/ip_vs_core.c  | 6 +++---
- net/netfilter/ipvs/ip_vs_proto.c | 8 +++-----
- 3 files changed, 8 insertions(+), 10 deletions(-)
+Currently 'ip route get' does not show the table the lookup result comes
+from and prior to kernel commit c36ba6603a11 the response from the kernel
+was hardcoded to the main table. From the discussion this appears to be
+a leftover from the route cache where the cached entry lost the table id
+and so the result was hardcoded to main table.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index f0a39ce3bf0e..00318d63a565 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1340,13 +1340,13 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
- /* IPVS netns init & cleanup functions */
- int ip_vs_estimator_net_init(struct netns_ipvs *ipvs);
- int ip_vs_control_net_init(struct netns_ipvs *ipvs);
--int ip_vs_protocol_net_init(struct net *net);
-+int ip_vs_protocol_net_init(struct netns_ipvs *ipvs);
- int ip_vs_app_net_init(struct netns_ipvs *ipvs);
- int ip_vs_conn_net_init(struct netns_ipvs *ipvs);
- int ip_vs_sync_net_init(struct netns_ipvs *ipvs);
- void ip_vs_conn_net_cleanup(struct netns_ipvs *ipvs);
- void ip_vs_app_net_cleanup(struct netns_ipvs *ipvs);
--void ip_vs_protocol_net_cleanup(struct net *net);
-+void ip_vs_protocol_net_cleanup(struct netns_ipvs *ipvs);
- void ip_vs_control_net_cleanup(struct netns_ipvs *ipvs);
- void ip_vs_estimator_net_cleanup(struct netns_ipvs *ipvs);
- void ip_vs_sync_net_cleanup(struct netns_ipvs *ipvs);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 22eae0231cbb..ab85ae0f531f 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -2052,7 +2052,7 @@ static int __net_init __ip_vs_init(struct net *net)
- 	if (ip_vs_control_net_init(ipvs) < 0)
- 		goto control_fail;
+c36ba6603a11 added the RTM_F_LOOKUP_TABLE flag to maintain that behavior
+but to allow new tools to ask for the actual table id for the lookup.
+This patch adds that flag to ip route get request and if the result is
+not the main table shows the table id.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ ip/iproute.c              | 6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 8f49e6289003..bae43d5d8fb6 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -421,9 +421,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (tb[RTA_OIF] && filter.oifmask != -1)
+ 		fprintf(fp, "dev %s ", ll_index_to_name(*(int*)RTA_DATA(tb[RTA_OIF])));
  
--	if (ip_vs_protocol_net_init(net) < 0)
-+	if (ip_vs_protocol_net_init(ipvs) < 0)
- 		goto protocol_fail;
++	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
++		fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
+ 	if (!(r->rtm_flags&RTM_F_CLONED)) {
+-		if ((table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
+-			fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
+ 		if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) && filter.protocolmask != -1)
+ 			fprintf(fp, " proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
+ 		if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) && filter.scopemask != -1)
+@@ -1638,6 +1638,8 @@ static int iproute_get(int argc, char **argv)
+ 	if (req.r.rtm_family == AF_UNSPEC)
+ 		req.r.rtm_family = AF_INET;
  
- 	if (ip_vs_app_net_init(ipvs) < 0)
-@@ -2076,7 +2076,7 @@ sync_fail:
- conn_fail:
- 	ip_vs_app_net_cleanup(ipvs);
- app_fail:
--	ip_vs_protocol_net_cleanup(net);
-+	ip_vs_protocol_net_cleanup(ipvs);
- protocol_fail:
- 	ip_vs_control_net_cleanup(ipvs);
- control_fail:
-@@ -2093,7 +2093,7 @@ static void __net_exit __ip_vs_cleanup(struct net *net)
- 	ip_vs_service_net_cleanup(ipvs);	/* ip_vs_flush() with locks */
- 	ip_vs_conn_net_cleanup(ipvs);
- 	ip_vs_app_net_cleanup(ipvs);
--	ip_vs_protocol_net_cleanup(net);
-+	ip_vs_protocol_net_cleanup(ipvs);
- 	ip_vs_control_net_cleanup(ipvs);
- 	ip_vs_estimator_net_cleanup(ipvs);
- 	IP_VS_DBG(2, "ipvs netns %d released\n", ipvs->gen);
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index f05ee668a1d1..8ae480715cea 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -307,7 +307,7 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
- /*
-  * per network name-space init
-  */
--int __net_init ip_vs_protocol_net_init(struct net *net)
-+int __net_init ip_vs_protocol_net_init(struct netns_ipvs *ipvs)
- {
- 	int i, ret;
- 	static struct ip_vs_protocol *protos[] = {
-@@ -327,7 +327,6 @@ int __net_init ip_vs_protocol_net_init(struct net *net)
- 	&ip_vs_protocol_esp,
- #endif
- 	};
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	for (i = 0; i < ARRAY_SIZE(protos); i++) {
- 		ret = register_ip_vs_proto_netns(ipvs, protos[i]);
-@@ -337,13 +336,12 @@ int __net_init ip_vs_protocol_net_init(struct net *net)
- 	return 0;
- 
- cleanup:
--	ip_vs_protocol_net_cleanup(net);
-+	ip_vs_protocol_net_cleanup(ipvs);
- 	return ret;
- }
- 
--void __net_exit ip_vs_protocol_net_cleanup(struct net *net)
-+void __net_exit ip_vs_protocol_net_cleanup(struct netns_ipvs *ipvs)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_proto_data *pd;
- 	int i;
++	req.r.rtm_flags |= RTM_F_LOOKUP_TABLE;
++
+ 	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
+ 		exit(2);
  
 -- 
-2.2.1
+1.9.1
