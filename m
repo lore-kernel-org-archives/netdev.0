@@ -1,7 +1,7 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Tue, 22 Sep 2015 22:36:59 +0200
-Message-ID: <87wpvii42c.fsf@nemi.mork.no>
+Date: Tue, 22 Sep 2015 14:04:33 -0700
+Message-ID: <CA+55aFyrctX5UH7Y+0731Tmb-HzjxxFt-c2cv-4iG9aCZPmsaw@mail.gmail.com>
 References: <20150920.225521.1063980101511317898.davem@davemloft.net>
 	<20150921060636.GA30807@gondor.apana.org.au>
 	<20150920.231104.525285577747035896.davem@davemloft.net>
@@ -14,8 +14,9 @@ References: <20150920.225521.1063980101511317898.davem@davemloft.net>
 	<CA+55aFy3k_NouhizkAkiZkuTYTqEKQZCnz8yOzrSH8o4+vjKUw@mail.gmail.com>
 	<20150922195059.GF17659@mtj.duckdns.org>
 	<CA+55aFzvp5gGS9jVA2O=vVM3Fd=VpCEfaqw8UKoU_Wk-ZkOgOg@mail.gmail.com>
+	<87wpvii42c.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Tejun Heo <tj@kernel.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
@@ -25,33 +26,34 @@ Cc: Tejun Heo <tj@kernel.org>,
 	kernel-team@fb.com,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
-	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzvp5gGS9jVA2O=vVM3Fd=VpCEfaqw8UKoU_Wk-ZkOgOg@mail.gmail.com>
-	(Linus Torvalds's message of "Tue, 22 Sep 2015 13:03:18 -0700")
+In-Reply-To: <87wpvii42c.fsf@nemi.mork.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
-
-> The PPRO_FENCE_BUG thing is rather questionable. I'm not sure it's
-> even documented, but I can't find the official PPro errata now. I
-> think I discussed it with Andy Glew back when Intel was starting to
-> document the memory ordering rules.
+On Tue, Sep 22, 2015 at 1:36 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
 >
-> I'd be willing to get rid of it. It was apparently just an early
-> stepping or two.
+> http://download.intel.com/design/archives/processors/pro/docs/2426893=
+5.pdf
 >
-> Anybody with better google-fu than me who can find the official Intel
-> PPro errata?
+> Says "NoFix" for erratas 66 and 92.
 
-http://download.intel.com/design/archives/processors/pro/docs/24268935.=
-pdf
+Yeah, 66 and 92 do look like they could cause the apparent ordering of
+accesses to be violated. That said, both of them <i>seem</i> to be
+"processor had exclusive access to line A, and gave it away but ended
+up still reading now-stale data".
 
-Says "NoFix" for erratas 66 and 92.
+And that's not what we use "smp_wmb()" or "smp_rmb()" to protect
+against. If we did a write and then wanted to do an ordered read, we'd
+use smp_mb(), which always does that barrier.
 
+So I don't know whether either of those really merit our PPRO
+workaround. Cache coherency is hard.
 
-Bj=C3=B8rn
+There's also errata 41, which looks like it would be a bad situation.
+
+                 Linus
