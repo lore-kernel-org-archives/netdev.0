@@ -1,100 +1,135 @@
-From: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: [PATCH 4/9] phy: add proper phy struct device refcounting
-Date: Tue, 22 Sep 2015 17:18:18 +0100
-Message-ID: <E1ZeQGo-0006Xf-7Y@rmk-PC.arm.linux.org.uk>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH 5/9] of_mdio: fix MDIO phy device refcounting
+Date: Tue, 22 Sep 2015 17:18:23 +0100
+Message-ID: <E1ZeQGt-0006Xl-Cf@rmk-PC.arm.linux.org.uk>
 References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"Soren Brinkmann" <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150922161710.GA21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
+Cc: devicetree@vger.kernel.org, Frank Rowand <frowand.list@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, Li Yang <leoli@freescale.com>,
+	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
+	Robert Richter <rric@kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"Soren Brinkmann" <soren.brinkmann@xilinx.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Content-Disposition: inline
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Take a refcount on the phy struct device when the phy device is attached
-to a network device, and drop it after it's detached.  This ensures that
-a refcount is held on the phy device while the device is being used by
-a network device, thereby preventing the phy_device from being
-unexpectedly kfree()'d by phy_device_release().
+bus_find_device() is defined as:
 
-Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+ * This is similar to the bus_for_each_dev() function above, but it
+ * returns a reference to a device that is 'found' for later use, as
+ * determined by the @match callback.
+
+and it does indeed return a reference-counted pointer to the device:
+
+        while ((dev = next_device(&i)))
+                if (match(dev, data) && get_device(dev))
+                                        ^^^^^^^^^^^^^^^
+                        break;
+        klist_iter_exit(&i);
+        return dev;
+
+What that means is that when we're done with the struct device, we must
+drop that reference.  Neither of_phy_connect() nor of_phy_attach() did
+this when phy_connect_direct() or phy_attach_direct() failed.
+
+With our previous patch, phy_connect_direct() and phy_attach_direct()
+take a new refcount on the phy device when successful, so we can drop
+our local reference immediatley after these functions, whether or not
+they succeeded.
+
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/phy_device.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/of/of_mdio.c | 27 +++++++++++++++++++++++----
+ 1 file changed, 23 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 03adf328f49b..97a4f52addac 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -578,6 +578,7 @@ EXPORT_SYMBOL(phy_init_hw);
-  *     generic driver is used.  The phy_device is given a ptr to
-  *     the attaching device, and given a callback for link status
-  *     change.  The phy_device is returned to the attaching driver.
-+ *     This function takes a reference on the phy device.
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 1350fa25cdb0..a87a868fed64 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -197,7 +197,8 @@ static int of_phy_match(struct device *dev, void *phy_np)
+  * of_phy_find_device - Give a PHY node, find the phy_device
+  * @phy_np: Pointer to the phy's device tree node
+  *
+- * Returns a pointer to the phy_device.
++ * If successful, returns a pointer to the phy_device with the embedded
++ * struct device refcount incremented by one, or NULL on failure.
   */
- int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		      u32 flags, phy_interface_t interface)
-@@ -591,6 +592,8 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		return -EIO;
- 	}
- 
-+	get_device(d);
-+
- 	/* Assume that if there is no driver, that it doesn't
- 	 * exist, and we should use the genphy driver.
- 	 */
-@@ -636,6 +639,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 	return err;
- 
- error:
-+	put_device(d);
- 	module_put(bus->owner);
- 	return err;
- }
-@@ -679,6 +683,9 @@ EXPORT_SYMBOL(phy_attach);
- /**
-  * phy_detach - detach a PHY device from its network device
-  * @phydev: target phy_device struct
-+ *
-+ * This detaches the phy device from its network device and the phy
-+ * driver, and drops the reference count taken in phy_attach_direct().
-  */
- void phy_detach(struct phy_device *phydev)
+ struct phy_device *of_phy_find_device(struct device_node *phy_np)
  {
-@@ -701,8 +708,13 @@ void phy_detach(struct phy_device *phydev)
- 		}
- 	}
+@@ -217,7 +218,9 @@ EXPORT_SYMBOL(of_phy_find_device);
+  * @hndlr: Link state callback for the network device
+  * @iface: PHY data interface type
+  *
+- * Returns a pointer to the phy_device if successful.  NULL otherwise
++ * If successful, returns a pointer to the phy_device with the embedded
++ * struct device refcount incremented by one, or NULL on failure. The
++ * refcount must be dropped by calling phy_disconnect() or phy_detach().
+  */
+ struct phy_device *of_phy_connect(struct net_device *dev,
+ 				  struct device_node *phy_np,
+@@ -225,13 +228,19 @@ struct phy_device *of_phy_connect(struct net_device *dev,
+ 				  phy_interface_t iface)
+ {
+ 	struct phy_device *phy = of_phy_find_device(phy_np);
++	int ret;
  
-+	/*
-+	 * The phydev might go away on the put_device() below, so avoid
-+	 * a use-after-free bug by reading the underlying bus first.
-+	 */
- 	bus = phydev->bus;
+ 	if (!phy)
+ 		return NULL;
  
-+	put_device(&phydev->dev);
- 	module_put(bus->owner);
+ 	phy->dev_flags = flags;
+ 
+-	return phy_connect_direct(dev, phy, hndlr, iface) ? NULL : phy;
++	ret = phy_connect_direct(dev, phy, hndlr, iface);
++
++	/* refcount is held by phy_connect_direct() on success */
++	put_device(&phy->dev);
++
++	return ret ? NULL : phy;
  }
- EXPORT_SYMBOL(phy_detach);
+ EXPORT_SYMBOL(of_phy_connect);
+ 
+@@ -241,17 +250,27 @@ EXPORT_SYMBOL(of_phy_connect);
+  * @phy_np: Node pointer for the PHY
+  * @flags: flags to pass to the PHY
+  * @iface: PHY data interface type
++ *
++ * If successful, returns a pointer to the phy_device with the embedded
++ * struct device refcount incremented by one, or NULL on failure. The
++ * refcount must be dropped by calling phy_disconnect() or phy_detach().
+  */
+ struct phy_device *of_phy_attach(struct net_device *dev,
+ 				 struct device_node *phy_np, u32 flags,
+ 				 phy_interface_t iface)
+ {
+ 	struct phy_device *phy = of_phy_find_device(phy_np);
++	int ret;
+ 
+ 	if (!phy)
+ 		return NULL;
+ 
+-	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy;
++	ret = phy_attach_direct(dev, phy, flags, iface);
++
++	/* refcount is held by phy_attach_direct() on success */
++	put_device(&phy->dev);
++
++	return ret ? NULL : phy;
+ }
+ EXPORT_SYMBOL(of_phy_attach);
+ 
 -- 
 2.1.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
