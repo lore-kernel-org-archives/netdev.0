@@ -1,97 +1,129 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next 02/10] switchdev: introduce transaction item
- queue for attr_set and obj_add
-Date: Tue, 22 Sep 2015 09:10:24 -0700
-Message-ID: <CAE4R7bCycFZ0XrhGy0DR9jxb+s=SgrM2GAvLcNfSZdQUFDAJgA@mail.gmail.com>
-References: <1442930031-4732-1-git-send-email-jiri@resnulli.us> <1442930031-4732-3-git-send-email-jiri@resnulli.us>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
+Date: Tue, 22 Sep 2015 12:10:56 -0400
+Message-ID: <20150922161056.GB9761@mtj.duckdns.org>
+References: <20150918111650.GA7508@gondor.apana.org.au>
+ <20150920.225521.1063980101511317898.davem@davemloft.net>
+ <20150921060636.GA30807@gondor.apana.org.au>
+ <20150920.231104.525285577747035896.davem@davemloft.net>
+ <20150921133415.GA1740@gondor.apana.org.au>
+ <20150921182022.GB13263@mtj.duckdns.org>
+ <20150922033856.GA7851@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"Rosen, Rami" <rami.rosen@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:35505 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758788AbbIVQKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:10:44 -0400
-Received: by oiww128 with SMTP id w128so8190308oiw.2
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 09:10:43 -0700 (PDT)
-In-Reply-To: <1442930031-4732-3-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
+	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jiri@resnulli.us,
+	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150922033856.GA7851@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 22, 2015 at 6:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Now, the memory allocation in prepare/commit state is done separatelly
-> in each driver (rocker). Introduce the similar mechanism in generic
-> switchdev code, in form of queue. That can be used not only for memory
-> allocations, but also for different items. Commit/abort item destruction
-> is handled as well.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Hello, Herbert.
 
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index df5a544..55a8411 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -1,6 +1,6 @@
->  /*
->   * net/switchdev/switchdev.c - Switch device API
-> - * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-> + * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
->   * Copyright (c) 2014-2015 Scott Feldman <sfeldma@gmail.com>
->   *
->   * This program is free software; you can redistribute it and/or modify
-> @@ -16,9 +16,56 @@
->  #include <linux/notifier.h>
->  #include <linux/netdevice.h>
->  #include <linux/if_bridge.h>
-> +#include <linux/list.h>
->  #include <net/ip_fib.h>
->  #include <net/switchdev.h>
->
-> +void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
-> +                                 void *data, void (*destructor)(void const *),
-> +                                 struct switchdev_trans_item *tritem)
-> +{
-> +       tritem->data = data;
-> +       tritem->destructor = destructor;
-> +       list_add_tail(&tritem->list, &trans->item_list);
-> +}
-> +EXPORT_SYMBOL_GPL(switchdev_trans_item_enqueue);
-> +
-> +static struct switchdev_trans_item *
-> +__switchdev_trans_item_dequeue(struct switchdev_trans *trans)
-> +{
-> +       struct switchdev_trans_item *tritem;
-> +
-> +       if (list_empty(&trans->item_list))
-> +               return NULL;
-> +       tritem = list_first_entry(&trans->item_list,
-> +                                 struct switchdev_trans_item, list);
-> +       list_del(&tritem->list);
-> +       return tritem;
-> +}
-> +
-> +void *switchdev_trans_item_dequeue(struct switchdev_trans *trans)
-> +{
-> +       struct switchdev_trans_item *tritem;
-> +
-> +       tritem = __switchdev_trans_item_dequeue(trans);
-> +       BUG_ON(!tritem);
-> +       return tritem->data;
-> +}
-> +EXPORT_SYMBOL_GPL(switchdev_trans_item_dequeue);
+On Tue, Sep 22, 2015 at 11:38:56AM +0800, Herbert Xu wrote:
+> On Mon, Sep 21, 2015 at 02:20:22PM -0400, Tejun Heo wrote:
+> > store_release and load_acquire are different from the usual memory
+> > barriers and can't be paired this way.  You have to pair store_release
+> > and load_acquire.  Besides, it isn't a particularly good idea to
+> 
+> OK I've decided to drop the acquire/release helpers as they don't
+> help us at all and simply pessimises the code by using full memory
+> barriers (on some architectures) where only a write or read barrier
+> is needed.
 
-Please add header comment block for these EXPORT_SYMBOL_GPL funcs.
+That's a pentium pro era errata.  Virtually no working machine is
+affected by that anymore and nobody builds kernel with that option.
+In most cases, store_release and load_acquire are cheaper as they're
+more specific.  On x86, store_release and load_acquire boil down to
+compiler reordering barriers.  You're running in the opposite
+direction.
+
+> > There's no reason to be overly smart here.  This isn't a crazy hot
+> > path, write barriers tend to be very cheap, store_release more so.
+> > Please just do smp_store_release() and note what it's paired with.
+> 
+> It's not about being overly smart.  It's about actually understanding
+> what's going on with the code.  I've seen too many instances of
+> people simply sprinkling synchronisation primitives around without
+> any knowledge of what is happening underneath, which is just a recipe
+> for creating hard-to-debug races.
+
+I mean, read this thread.  It's one subtle breakage after another, one
+confusion after another.  The problematic usages of memory barriers
+are usually of two types.
+
+1. Misunderstand what barriers do and fail to, most frequently, pair
+   the barriers correctly.  This leads to things like lone smp_wmb()s
+   which don't do anything but provide false sense of security.
+
+2. The usage itself is correct but not properly documented and it's
+   not clear what's being synchronized.  Because there's nothing
+   inherently pairing the matching barrier pairs, w/o proper
+   documentation, it can be very challenging to track down what is
+   being synchronized making it difficult to tell this case from 1.
+   Note that this is another reason smp_store_release() and
+   smp_load_acquire() are just better.  Their specificity not only
+   makes them lighter but also makes it a lot easier to track down
+   what's going on.
+
+So, when using barriers, we want to first pick the most specific
+barrier pairs that suit the use case and clearly identify the matching
+pairs and describe any subtlties if there's any.  Here, it's a
+straight-forward writer to reader interlocking.
+
+Once we meet the above criteria, we do want to be as simple as the use
+case allows it to be.  e.g. if there are multiples readers,
+encapsulate them and document them centrally.  If there are different
+classes of readers and it's worthwhile to apply different
+synchronization schemes to them, use separate helpers or clearly mark
+and document exceptions with rationale.
+
+> > I don't think you can skip load_acquire here just because this is the
+> > second deref of the variable.  That doesn't change anything.  Race
+> > condition could still happen between the first and second tests and
+> > skipping the second would lead to the same kind of bug.
+> 
+> The reason this one is OK is because we do not use nlk->portid or
+> try to get nlk from the hash table before we return to user-space.
+
+What happens if somebody later adds code below that which happens to
+use portid?  You're creating a booby trap and the patch isn't even
+properly documenting what's going on.
+
+> ---8<---
+> The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+> Fix autobind race condition that leads to zero port ID") created
+> some new races that can occur due to inconcsistencies between the
+> two port IDs.
+> 
+> Tejun is right that a barrier is unavoidable.  Therefore I am
+> reverting to the original patch that used a boolean to indicate
+> that a user netlink socket has been bound.
+> 
+> Barriers have been added where necessary to ensure that a valid
+> portid and the hashed socket is visible.
+> 
+> I have also changed netlink_insert to only return EBUSY if the
+> socket is bound to a portid different to the requested one.  This
+> combined with only reading nlk->bound once in netlink_bind fixes
+> a race where two threads that bind the socket at the same time
+> with different port IDs may both succeed.
+> 
+> Fixes: 1f770c0a09da ("netlink: Fix autobind race condition that leads to zero port ID")
+> Reported-by: Tejun Heo <tj@kernel.org>
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+This is a pretty misguided use of barriers.
+
+Nacked-by: Tejun Heo <tj@kernel.org>
+
+Thanks.
+
+-- 
+tejun
