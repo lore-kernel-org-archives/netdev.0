@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: add ethtool support to read and change
- RSS key
-Date: Tue, 22 Sep 2015 14:59:35 -0700 (PDT)
-Message-ID: <20150922.145935.2262486270670808983.davem@davemloft.net>
-References: <1442614912.14037.23.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 4/7] 8139cp: Fix TSO/scatter-gather descriptor setup
+Date: Tue, 22 Sep 2015 23:59:03 +0200
+Message-ID: <20150922215903.GA8594@electric-eye.fr.zoreil.com>
+References: <1442843991.7367.4.camel@infradead.org>
+ <1442844165.7367.14.camel@infradead.org>
+ <20150921210139.GB4559@electric-eye.fr.zoreil.com>
+ <1442872067.7367.86.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36398 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934882AbbIVV7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 17:59:39 -0400
-In-Reply-To: <1442614912.14037.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44628 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759198AbbIVWCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:02:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1442872067.7367.86.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 18 Sep 2015 15:21:52 -0700
+David Woodhouse <dwmw2@infradead.org> :
+[...]
+> What do you think of finally enabling hw csum and TSO by default, btw?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While trying to understand why bnx2x RSS hash was not matching
-> Toeplitz specifications, I implemented driver code to support
-> ethtool -x|-X to try various RSS key combinations easily.
-> 
-> Then, after some debugging, I understood bnx2x was reading the rss_key
-> in reverse order.
-> 
-> If we want consistent Toeplitz hashes with different NIC, we need
-> to byte swap user key.
-> 
-> Tested:
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Your router can actively use it and you'll have to keep the pieces
+together if it breaks, right ? So I'd go for it.
 
-Applied, thanks Eric.
+-- 
+Ueimor
