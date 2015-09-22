@@ -1,68 +1,63 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/9] net: Refactor ip_route_input_slow
-Date: Tue, 22 Sep 2015 15:55:14 -0700
-Message-ID: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/9] net: Remove martian_source_keep_err goto label
+Date: Tue, 22 Sep 2015 15:55:15 -0700
+Message-ID: <1442962523-3974-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36705 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757828AbbIVWz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:29 -0400
-Received: by pacbt3 with SMTP id bt3so3396589pac.3
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:29 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34280 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933261AbbIVWza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:30 -0400
+Received: by padhy16 with SMTP id hy16so21768792pad.1
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:30 -0700 (PDT)
+In-Reply-To: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_route_input_slow is a maze of gotos (9 of them!) making it error
-prone and difficult to read. This patchset refactors it, removing all
-but 2 of the labels. The brd_input label for broadcast path requires
-too many inputs to make a reasonble helper out of it so I left it as is.
+err is initialized to -EINVAL when it is declared. It is not reset until
+fib_lookup which is well after the 3 users of the martian_source jump. So
+resetting err to -EINVAL at martian_source label is not needed.
 
-None of these patches change functionality, only move code around
-to make ip_route_input_slow more readable.
+Removing that line obviates the need for the martian_source_keep_err label
+so delete it.
 
-Size comparison using gcc version 4.7.2 (Debian 4.7.2-5)
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/route.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-With CONFIG_IP_ROUTE_VERBOSE:
-    Before patches:
-    $ size kbuild2/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      20615	   2321	     32	  22968	   59b8	kbuild2/net/ipv4/route.o
-
-    After patches:
-    $ size kbuild/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      20774	   2321	     32	  23127	   5a57	kbuild/net/ipv4/route.o
-
-An increase of 159 bytes with CONFIG_IP_ROUTE_VERBOSE.
-
-Without CONFIG_IP_ROUTE_VERBOSE:
-    Before patches:
-    $ size kbuild2/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      19778	   2321	     32	  22131	   5673	kbuild2/net/ipv4/route.o
-
-    After patches:
-    $ size kbuild/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      19858	   2321	     32	  22211	   56c3	kbuild/net/ipv4/route.o
-
-An increase of 80 bytes without CONFIG_IP_ROUTE_VERBOSE.
-
-David Ahern (9):
-  net: Remove martian_source_keep_err goto label
-  net: Remove e_inval label from ip_route_input_slow
-  net: Remove e_nobufs label from ip_route_input_slow
-  net: Move rth handling from ip_route_input_slow to helper
-  net: Move martian_destination to helper
-  net: Remove martian_source goto
-  net: Remove martian_destination label
-  net: Remove local_input label
-  net: Remove no_route label
-
- net/ipv4/route.c | 239 ++++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 139 insertions(+), 100 deletions(-)
-
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 80f7c5b7b832..ef36dfed24da 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1760,7 +1760,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		err = fib_validate_source(skb, saddr, daddr, tos,
+ 					  0, dev, in_dev, &itag);
+ 		if (err < 0)
+-			goto martian_source_keep_err;
++			goto martian_source;
+ 		goto local_input;
+ 	}
+ 
+@@ -1782,7 +1782,7 @@ out:	return err;
+ 		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+ 					  in_dev, &itag);
+ 		if (err < 0)
+-			goto martian_source_keep_err;
++			goto martian_source;
+ 	}
+ 	flags |= RTCF_BROADCAST;
+ 	res.type = RTN_BROADCAST;
+@@ -1858,8 +1858,6 @@ out:	return err;
+ 	goto out;
+ 
+ martian_source:
+-	err = -EINVAL;
+-martian_source_keep_err:
+ 	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
+ 	goto out;
+ }
 -- 
 1.9.1
