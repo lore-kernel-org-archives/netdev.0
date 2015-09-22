@@ -1,50 +1,111 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 22/30] netfilter: nf_tables: Pass struct net in nft_pktinfo
-Date: Tue, 22 Sep 2015 11:14:12 +0200
-Message-ID: <1442913260-3925-23-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 29/30] netfilter: Pass net into nf_xfrm_me_harder
+Date: Tue, 22 Sep 2015 11:14:19 +0200
+Message-ID: <1442913260-3925-30-git-send-email-pablo@netfilter.org>
 References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35248 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757773AbbIVJIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 05:08:07 -0400
 In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-nft_pktinfo is passed on the stack so this does not bloat any in core
-data structures.
-
-By centrally computing this information this makes maintence of the code
-simpler, and understading of the code easier.
+Instead of calling dev_net on a likley looking network device
+pass state->net into nf_xfrm_me_harder.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/net/netfilter/nf_nat_core.h      |    2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c |    4 ++--
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c |    4 ++--
+ net/netfilter/nf_nat_core.c              |    4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index c051652..42e239e 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -14,6 +14,7 @@
+diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
+index fbfd1ba..186c541 100644
+--- a/include/net/netfilter/nf_nat_core.h
++++ b/include/net/netfilter/nf_nat_core.h
+@@ -10,7 +10,7 @@
+ unsigned int nf_nat_packet(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 			   unsigned int hooknum, struct sk_buff *skb);
  
- struct nft_pktinfo {
- 	struct sk_buff			*skb;
-+	struct net			*net;
- 	const struct net_device		*in;
- 	const struct net_device		*out;
- 	u8				pf;
-@@ -30,7 +31,7 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
- 				   const struct nf_hook_state *state)
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family);
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family);
+ 
+ static inline int nf_nat_initialized(struct nf_conn *ct,
+ 				     enum nf_nat_manip_type manip)
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index 8593a9d..bc3b9dc 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -396,7 +396,7 @@ nf_nat_ipv4_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -440,7 +440,7 @@ nf_nat_ipv4_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMP &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 357f57b..18e835f 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -403,7 +403,7 @@ nf_nat_ipv6_out(void *priv, struct sk_buff *skb,
+ 		    (ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 		     ct->tuplehash[dir].tuple.src.u.all !=
+ 		     ct->tuplehash[!dir].tuple.dst.u.all)) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+@@ -446,7 +446,7 @@ nf_nat_ipv6_local_fn(void *priv, struct sk_buff *skb,
+ 			 ct->tuplehash[dir].tuple.dst.protonum != IPPROTO_ICMPV6 &&
+ 			 ct->tuplehash[dir].tuple.dst.u.all !=
+ 			 ct->tuplehash[!dir].tuple.src.u.all) {
+-			err = nf_xfrm_me_harder(skb, AF_INET6);
++			err = nf_xfrm_me_harder(state->net, skb, AF_INET6);
+ 			if (err < 0)
+ 				ret = NF_DROP_ERR(err);
+ 		}
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 5113dfd..06a9f45 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -83,7 +83,7 @@ out:
+ 	rcu_read_unlock();
+ }
+ 
+-int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
++int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family)
  {
- 	pkt->skb = skb;
--	pkt->xt.net = state->net;
-+	pkt->net = pkt->xt.net = state->net;
- 	pkt->in = pkt->xt.in = state->in;
- 	pkt->out = pkt->xt.out = state->out;
- 	pkt->hook = pkt->xt.hooknum = state->hook;
+ 	struct flowi fl;
+ 	unsigned int hh_len;
+@@ -99,7 +99,7 @@ int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
+ 		dst = ((struct xfrm_dst *)dst)->route;
+ 	dst_hold(dst);
+ 
+-	dst = xfrm_lookup(dev_net(dst->dev), dst, &fl, skb->sk, 0);
++	dst = xfrm_lookup(net, dst, &fl, skb->sk, 0);
+ 	if (IS_ERR(dst))
+ 		return PTR_ERR(dst);
+ 
 -- 
 1.7.10.4
-
