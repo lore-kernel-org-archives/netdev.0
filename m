@@ -1,265 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Tue, 22 Sep 2015 11:38:56 +0800
-Message-ID: <20150922033856.GA7851@gondor.apana.org.au>
-References: <20150918111650.GA7508@gondor.apana.org.au>
- <20150920.225521.1063980101511317898.davem@davemloft.net>
- <20150921060636.GA30807@gondor.apana.org.au>
- <20150920.231104.525285577747035896.davem@davemloft.net>
- <20150921133415.GA1740@gondor.apana.org.au>
- <20150921182022.GB13263@mtj.duckdns.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the bluetooth tree
+Date: Mon, 21 Sep 2015 20:42:06 -0700 (PDT)
+Message-ID: <20150921.204206.2294919183241399663.davem@davemloft.net>
+References: <20150914101428.13d5ec2d@canb.auug.org.au>
+	<20150914102234.38df8b11@canb.auug.org.au>
+	<20150922112015.140547fb@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:41747 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757570AbbIVDjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 23:39:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20150921182022.GB13263@mtj.duckdns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gustavo@padovan.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alex.aring@gmail.com, joe@perches.com, akpm@linux-foundation.org,
+	marcel@holtmann.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150922112015.140547fb@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 21, 2015 at 02:20:22PM -0400, Tejun Heo wrote:
->
-> store_release and load_acquire are different from the usual memory
-> barriers and can't be paired this way.  You have to pair store_release
-> and load_acquire.  Besides, it isn't a particularly good idea to
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 22 Sep 2015 11:20:15 +1000
 
-OK I've decided to drop the acquire/release helpers as they don't
-help us at all and simply pessimises the code by using full memory
-barriers (on some architectures) where only a write or read barrier
-is needed.
-
-> depend on memory barriers embedded in other data structures like the
-> above.  Here, especially, rhashtable_insert() would have write barrier
-> *before* the entry is hashed not necessarily *after*, which means that
-> in the above case, a socket which appears to have set bound to a
-> reader might not visible when the reader tries to look up the socket
-> on the hashtable.
-
-But you are right we do need an explicit write barrier here to
-ensure that the hashing is visible.
-
-> There's no reason to be overly smart here.  This isn't a crazy hot
-> path, write barriers tend to be very cheap, store_release more so.
-> Please just do smp_store_release() and note what it's paired with.
-
-It's not about being overly smart.  It's about actually understanding
-what's going on with the code.  I've seen too many instances of
-people simply sprinkling synchronisation primitives around without
-any knowledge of what is happening underneath, which is just a recipe
-for creating hard-to-debug races.
-
-> > @@ -1539,7 +1546,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
-> >  		}
-> >  	}
-> >  
-> > -	if (!nlk->portid) {
-> > +	if (!nlk->bound) {
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Subject: drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL
 > 
-> I don't think you can skip load_acquire here just because this is the
-> second deref of the variable.  That doesn't change anything.  Race
-> condition could still happen between the first and second tests and
-> skipping the second would lead to the same kind of bug.
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Cc: Alexander Aring <alex.aring@gmail.com>
+> Cc: Stefan Schmidt <stefan@osg.samsung.com>
+> Cc: Marcel Holtmann <marcel@holtmann.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 
-The reason this one is OK is because we do not use nlk->portid or
-try to get nlk from the hash table before we return to user-space.
-
-However, there is a real bug here that none of these acquire/release
-helpers discovered.  The two bound tests here used to be a single
-one.  Now that they are separate it is entirely possible for another
-thread to come in the middle and bind the socket.  So we need to
-repeat the portid check in order to maintain consistency.
-
-> > @@ -1587,7 +1594,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
-> >  	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
-> >  		return -EPERM;
-> >  
-> > -	if (!nlk->portid)
-> > +	if (!nlk->bound)
-> 
-> Don't we need load_acquire here too?  Is this path holding a lock
-> which makes that unnecessary?
-
-Ditto.
-
----8<---
-The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
-Fix autobind race condition that leads to zero port ID") created
-some new races that can occur due to inconcsistencies between the
-two port IDs.
-
-Tejun is right that a barrier is unavoidable.  Therefore I am
-reverting to the original patch that used a boolean to indicate
-that a user netlink socket has been bound.
-
-Barriers have been added where necessary to ensure that a valid
-portid and the hashed socket is visible.
-
-I have also changed netlink_insert to only return EBUSY if the
-socket is bound to a portid different to the requested one.  This
-combined with only reading nlk->bound once in netlink_bind fixes
-a race where two threads that bind the socket at the same time
-with different port IDs may both succeed.
-
-Fixes: 1f770c0a09da ("netlink: Fix autobind race condition that leads to zero port ID")
-Reported-by: Tejun Heo <tj@kernel.org>
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 303efb7..2c15fae 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1015,7 +1015,7 @@ static inline int netlink_compare(struct rhashtable_compare_arg *arg,
- 	const struct netlink_compare_arg *x = arg->key;
- 	const struct netlink_sock *nlk = ptr;
- 
--	return nlk->rhash_portid != x->portid ||
-+	return nlk->portid != x->portid ||
- 	       !net_eq(sock_net(&nlk->sk), read_pnet(&x->pnet));
- }
- 
-@@ -1041,7 +1041,7 @@ static int __netlink_insert(struct netlink_table *table, struct sock *sk)
- {
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->rhash_portid);
-+	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->portid);
- 	return rhashtable_lookup_insert_key(&table->hash, &arg,
- 					    &nlk_sk(sk)->node,
- 					    netlink_rhashtable_params);
-@@ -1094,8 +1094,8 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 
- 	lock_sock(sk);
- 
--	err = -EBUSY;
--	if (nlk_sk(sk)->portid)
-+	err = nlk_sk(sk)->portid == portid ? 0 : -EBUSY;
-+	if (nlk_sk(sk)->bound)
- 		goto err;
- 
- 	err = -ENOMEM;
-@@ -1103,7 +1103,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
- 		goto err;
- 
--	nlk_sk(sk)->rhash_portid = portid;
-+	nlk_sk(sk)->portid = portid;
- 	sock_hold(sk);
- 
- 	err = __netlink_insert(table, sk);
-@@ -1119,7 +1119,9 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 		goto err;
- 	}
- 
--	nlk_sk(sk)->portid = portid;
-+	/* We need to ensure that the socket is hashed and visible. */
-+	smp_wmb();
-+	nlk_sk(sk)->bound = portid;
- 
- err:
- 	release_sock(sk);
-@@ -1505,6 +1507,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
- 	int err;
- 	long unsigned int groups = nladdr->nl_groups;
-+	bool bound;
- 
- 	if (addr_len < sizeof(struct sockaddr_nl))
- 		return -EINVAL;
-@@ -1521,9 +1524,14 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 			return err;
- 	}
- 
--	if (nlk->portid)
-+	bound = nlk->bound;
-+	if (bound) {
-+		/* Ensure nlk->portid is up-to-date. */
-+		smp_rmb();
-+
- 		if (nladdr->nl_pid != nlk->portid)
- 			return -EINVAL;
-+	}
- 
- 	if (nlk->netlink_bind && groups) {
- 		int group;
-@@ -1539,7 +1547,10 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 		}
- 	}
- 
--	if (!nlk->portid) {
-+	/* No need for barriers here as we return to user-space without
-+	 * using any of the bound attributes.
-+	 */
-+	if (!bound) {
- 		err = nladdr->nl_pid ?
- 			netlink_insert(sk, nladdr->nl_pid) :
- 			netlink_autobind(sock);
-@@ -1587,7 +1598,10 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
- 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
- 		return -EPERM;
- 
--	if (!nlk->portid)
-+	/* No need for barriers here as we return to user-space without
-+	 * using any of the bound attributes.
-+	 */
-+	if (!nlk->bound)
- 		err = netlink_autobind(sock);
- 
- 	if (err == 0) {
-@@ -2428,10 +2442,13 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 		dst_group = nlk->dst_group;
- 	}
- 
--	if (!nlk->portid) {
-+	if (!nlk->bound) {
- 		err = netlink_autobind(sock);
- 		if (err)
- 			goto out;
-+	} else {
-+		/* Ensure nlk is hashed and visible. */
-+		smp_rmb();
- 	}
- 
- 	/* It's a really convoluted way for userland to ask for mmaped
-@@ -3257,7 +3274,7 @@ static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
- 	const struct netlink_sock *nlk = data;
- 	struct netlink_compare_arg arg;
- 
--	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->rhash_portid);
-+	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
- 	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
- }
- 
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index c96dfa3..e6aae40 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -25,7 +25,6 @@ struct netlink_ring {
- struct netlink_sock {
- 	/* struct sock has to be the first member of netlink_sock */
- 	struct sock		sk;
--	u32			rhash_portid;
- 	u32			portid;
- 	u32			dst_portid;
- 	u32			dst_group;
-@@ -36,6 +35,7 @@ struct netlink_sock {
- 	unsigned long		state;
- 	size_t			max_recvmsg_len;
- 	wait_queue_head_t	wait;
-+	bool			bound;
- 	bool			cb_running;
- 	struct netlink_callback	cb;
- 	struct mutex		*cb_mutex;
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks.
