@@ -1,67 +1,101 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH RFC 2/3] kcm: Kernel Connection Multiplexor module
-Date: Tue, 22 Sep 2015 09:26:20 -0700
-Message-ID: <20150922162618.GA15483@Alexeis-MBP-2.westell.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
- <1442788161-2626305-3-git-send-email-tom@herbertland.com>
+From: Jiri Pirko <jiri@mellanox.com>
+Subject: Re: [patch net-next 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Tue, 22 Sep 2015 18:25:57 +0200
+Message-ID: <20150922162557.GC2255@nanopsycho.orion>
+References: <1442930031-4732-1-git-send-email-jiri@resnulli.us>
+ <1442930031-4732-3-git-send-email-jiri@resnulli.us>
+ <CAE4R7bCycFZ0XrhGy0DR9jxb+s=SgrM2GAvLcNfSZdQUFDAJgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"Rosen, Rami" <rami.rosen@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34805 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752383AbbIVQ0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:26:24 -0400
-Received: by padhy16 with SMTP id hy16so13554181pad.1
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 09:26:24 -0700 (PDT)
+Received: from mail-db3on0066.outbound.protection.outlook.com ([157.55.234.66]:9336
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758813AbbIVQkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 12:40:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1442788161-2626305-3-git-send-email-tom@herbertland.com>
+In-Reply-To: <CAE4R7bCycFZ0XrhGy0DR9jxb+s=SgrM2GAvLcNfSZdQUFDAJgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 20, 2015 at 03:29:20PM -0700, Tom Herbert wrote:
-> +Attaching of transport sockets to a multiplexor is performed by calling on
-> +ioctl on a KCM socket for the multiplexor. e.g.:
-> +
-> +  /* From linux/kcm.h */
-> +  struct kcm_attach {
-> +        int fd;
-> +        int bpf_type;
-> +        union {
-> +                int bpf_fd;
-> +                struct sock_fprog fprog;
-> +        };
-> +  };
-> +
-> +  struct kcm_attach info;
-> +
-> +  memset(&info, 0, sizeof(info));
-> +
-> +  info.fd = tcpfd;
-> +  info.bpf_type = KCM_BPF_TYPE_PROG;
-> +  info.bpf_fprog = bpf_prog;
-> +
-> +  ioctl(kcmfd, SIOCKCMATTACH, &info);
-> +
-> +The kcm_attach structure contains:
-> +  fd: file descriptor for TCP socket being attached
-> +  bpf_type: type of BPF program to be loaded this is either:
-> +    KCM_BPF_TYPE_PROG: program load directly for user space
-> +    KCM_BPF_TYPE_FD: Complied rogram to be load for the specified file
-> +                     descriptor (see BPF LLVM and Clang)
-> +  bpf_fprog: contains pointer to user space protocol to load
-> +  bpf_fd: file descriptor for compiled program download
+Tue, Sep 22, 2015 at 06:10:24PM CEST, sfeldma@gmail.com wrote:
+>On Tue, Sep 22, 2015 at 6:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Now, the memory allocation in prepare/commit state is done separatelly
+>> in each driver (rocker). Introduce the similar mechanism in generic
+>> switchdev code, in form of queue. That can be used not only for memory
+>> allocations, but also for different items. Commit/abort item destruction
+>> is handled as well.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>
+>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> index df5a544..55a8411 100644
+>> --- a/net/switchdev/switchdev.c
+>> +++ b/net/switchdev/switchdev.c
+>> @@ -1,6 +1,6 @@
+>>  /*
+>>   * net/switchdev/switchdev.c - Switch device API
+>> - * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
+>> + * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
+>>   * Copyright (c) 2014-2015 Scott Feldman <sfeldma@gmail.com>
+>>   *
+>>   * This program is free software; you can redistribute it and/or modify
+>> @@ -16,9 +16,56 @@
+>>  #include <linux/notifier.h>
+>>  #include <linux/netdevice.h>
+>>  #include <linux/if_bridge.h>
+>> +#include <linux/list.h>
+>>  #include <net/ip_fib.h>
+>>  #include <net/switchdev.h>
+>>
+>> +void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
+>> +                                 void *data, void (*destructor)(void const *),
+>> +                                 struct switchdev_trans_item *tritem)
+>> +{
+>> +       tritem->data = data;
+>> +       tritem->destructor = destructor;
+>> +       list_add_tail(&tritem->list, &trans->item_list);
+>> +}
+>> +EXPORT_SYMBOL_GPL(switchdev_trans_item_enqueue);
+>> +
+>> +static struct switchdev_trans_item *
+>> +__switchdev_trans_item_dequeue(struct switchdev_trans *trans)
+>> +{
+>> +       struct switchdev_trans_item *tritem;
+>> +
+>> +       if (list_empty(&trans->item_list))
+>> +               return NULL;
+>> +       tritem = list_first_entry(&trans->item_list,
+>> +                                 struct switchdev_trans_item, list);
+>> +       list_del(&tritem->list);
+>> +       return tritem;
+>> +}
+>> +
+>> +void *switchdev_trans_item_dequeue(struct switchdev_trans *trans)
+>> +{
+>> +       struct switchdev_trans_item *tritem;
+>> +
+>> +       tritem = __switchdev_trans_item_dequeue(trans);
+>> +       BUG_ON(!tritem);
+>> +       return tritem->data;
+>> +}
+>> +EXPORT_SYMBOL_GPL(switchdev_trans_item_dequeue);
+>
+>Please add header comment block for these EXPORT_SYMBOL_GPL funcs.
 
-Interesting approach!
-I would only suggest to drop support for classic BPF.
-It's usable to return frame length of http2, but it won't be
-able to parse protocols where fields are little endian.
-Also it doesn't scale, since new cBPF program would be created
-for every KCM socket, whereas with eBPF we can use single program
-for all KCM sockets via single FD.
-
-btw, did you consider to use BPF not only for frame length, but
-also to select KCM socket ? For example for http2 it can pick
-a socket based on stream id, providing affinity and
-further improving performance ?
+Right, will do.
