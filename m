@@ -1,198 +1,133 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next] Driver: Vmxnet3: Extend register dump support
-Date: Mon, 21 Sep 2015 20:01:29 -0700
-Message-ID: <1442890889-6093-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Bhavesh Davda <bhavesh@vmware.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net v2] openvswitch: Zero flows on allocation.
+Date: Mon, 21 Sep 2015 20:21:20 -0700
+Message-ID: <1442892080-68516-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34149 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756789AbbIVDV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 23:21:26 -0400
+Received: by padhy16 with SMTP id hy16so134500991pad.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 20:21:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-Acked-by: Srividya Murali <smurali@vmware.com>
+When support for megaflows was introduced, OVS needed to start
+installing flows with a mask applied to them. Since masking is an
+expensive operation, OVS also had an optimization that would only
+take the parts of the flow keys that were covered by a non-zero
+mask. The values stored in the remaining pieces should not matter
+because they are masked out.
+
+While this works fine for the purposes of matching (which must always
+look at the mask), serialization to netlink can be problematic. Since
+the flow and the mask are serialized separately, the uninitialized
+portions of the flow can be encoded with whatever values happen to be
+present.
+
+In terms of functionality, this has little effect since these fields
+will be masked out by definition. However, it leaks kernel memory to
+userspace, which is a potential security vulnerability. It is also
+possible that other code paths could look at the masked key and get
+uninitialized data, although this does not currently appear to be an
+issue in practice.
+
+This removes the mask optimization for flows that are being installed.
+This was always intended to be the case as the mask optimizations were
+really targetting per-packet flow operations.
+
+Fixes: 03f0d916 ("openvswitch: Mega flow implementation")
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- drivers/net/vmxnet3/vmxnet3_ethtool.c | 118 ++++++++++++++++++++++++++--------
- drivers/net/vmxnet3/vmxnet3_int.h     |   4 +-
- 2 files changed, 92 insertions(+), 30 deletions(-)
+v2: This uses a different strategy from v1 since I realized that there
+are other code paths that could theoretically hit the same problem.
+Depending on the situation, this might also be faster too since it zeros
+less memory.
+---
+ net/openvswitch/datapath.c   |  4 ++--
+ net/openvswitch/flow_table.c | 23 ++++++++++++-----------
+ net/openvswitch/flow_table.h |  2 +-
+ 3 files changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index c1d0e7a..a681569 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -183,16 +183,22 @@ vmxnet3_get_sset_count(struct net_device *netdev, int sset)
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 6fbd2de..b816ff8 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -952,7 +952,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	if (error)
+ 		goto err_kfree_flow;
+ 
+-	ovs_flow_mask_key(&new_flow->key, &key, &mask);
++	ovs_flow_mask_key(&new_flow->key, &key, true, &mask);
+ 
+ 	/* Extract flow identifier. */
+ 	error = ovs_nla_get_identifier(&new_flow->id, a[OVS_FLOW_ATTR_UFID],
+@@ -1080,7 +1080,7 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
+ 	struct sw_flow_key masked_key;
+ 	int error;
+ 
+-	ovs_flow_mask_key(&masked_key, key, mask);
++	ovs_flow_mask_key(&masked_key, key, true, mask);
+ 	error = ovs_nla_copy_actions(net, a, &masked_key, &acts, log);
+ 	if (error) {
+ 		OVS_NLERR(log,
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index d22d8e9..f2ea83b 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -57,20 +57,21 @@ static u16 range_n_bytes(const struct sw_flow_key_range *range)
  }
  
- 
--/* Should be multiple of 4 */
--#define NUM_TX_REGS	8
--#define NUM_RX_REGS	12
--
-+/* This is a version 2 of the vmxnet3 ethtool_regs which goes hand in hand with
-+ * the version 2 of the vmxnet3 support for ethtool(8) --register-dump.
-+ * Therefore, if any registers are added, removed or modified, then a version
-+ * bump and a corresponding change in the vmxnet3 support for ethtool(8)
-+ * --register-dump would be required.
-+ */
- static int
- vmxnet3_get_regs_len(struct net_device *netdev)
+ void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
+-		       const struct sw_flow_mask *mask)
++		       bool full, const struct sw_flow_mask *mask)
  {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	return (adapter->num_tx_queues * NUM_TX_REGS * sizeof(u32) +
--		adapter->num_rx_queues * NUM_RX_REGS * sizeof(u32));
-+
-+	return ((9 /* BAR1 registers */ +
-+		(1 + adapter->intr.num_intrs) +
-+		(1 + adapter->num_tx_queues * 17 /* Tx queue registers */) +
-+		(1 + adapter->num_rx_queues * 23 /* Rx queue registers */)) *
-+		sizeof(u32));
+-	const long *m = (const long *)((const u8 *)&mask->key +
+-				mask->range.start);
+-	const long *s = (const long *)((const u8 *)src +
+-				mask->range.start);
+-	long *d = (long *)((u8 *)dst + mask->range.start);
++	int start = full ? 0 : mask->range.start;
++	int len = full ? sizeof *dst : range_n_bytes(&mask->range);
++	const long *m = (const long *)((const u8 *)&mask->key + start);
++	const long *s = (const long *)((const u8 *)src + start);
++	long *d = (long *)((u8 *)dst + start);
+ 	int i;
+ 
+-	/* The memory outside of the 'mask->range' are not set since
+-	 * further operations on 'dst' only uses contents within
+-	 * 'mask->range'.
++	/* If 'full' is true then all of 'dst' is fully initialized. Otherwise,
++	 * if 'full' is false the memory outside of the 'mask->range' is left
++	 * uninitialized. This can be used as an optimization when further
++	 * operations on 'dst' only use contents within 'mask->range'.
+ 	 */
+-	for (i = 0; i < range_n_bytes(&mask->range); i += sizeof(long))
++	for (i = 0; i < len; i += sizeof(long))
+ 		*d++ = *s++ & *m++;
  }
  
+@@ -475,7 +476,7 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
+ 	u32 hash;
+ 	struct sw_flow_key masked_key;
  
-@@ -342,6 +348,12 @@ vmxnet3_get_ethtool_stats(struct net_device *netdev,
- }
+-	ovs_flow_mask_key(&masked_key, unmasked, mask);
++	ovs_flow_mask_key(&masked_key, unmasked, false, mask);
+ 	hash = flow_hash(&masked_key, &mask->range);
+ 	head = find_bucket(ti, hash);
+ 	hlist_for_each_entry_rcu(flow, head, flow_table.node[ti->node_ver]) {
+diff --git a/net/openvswitch/flow_table.h b/net/openvswitch/flow_table.h
+index 616eda1..2dd9900 100644
+--- a/net/openvswitch/flow_table.h
++++ b/net/openvswitch/flow_table.h
+@@ -86,5 +86,5 @@ struct sw_flow *ovs_flow_tbl_lookup_ufid(struct flow_table *,
+ bool ovs_flow_cmp(const struct sw_flow *, const struct sw_flow_match *);
  
- 
-+/* This is a version 2 of the vmxnet3 ethtool_regs which goes hand in hand with
-+ * the version 2 of the vmxnet3 support for ethtool(8) --register-dump.
-+ * Therefore, if any registers are added, removed or modified, then a version
-+ * bump and a corresponding change in the vmxnet3 support for ethtool(8)
-+ * --register-dump would be required.
-+ */
- static void
- vmxnet3_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *p)
- {
-@@ -351,40 +363,90 @@ vmxnet3_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *p)
- 
- 	memset(p, 0, vmxnet3_get_regs_len(netdev));
- 
--	regs->version = 1;
-+	regs->version = 2;
- 
- 	/* Update vmxnet3_get_regs_len if we want to dump more registers */
- 
--	/* make each ring use multiple of 16 bytes */
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		buf[j++] = adapter->tx_queue[i].tx_ring.next2fill;
--		buf[j++] = adapter->tx_queue[i].tx_ring.next2comp;
--		buf[j++] = adapter->tx_queue[i].tx_ring.gen;
--		buf[j++] = 0;
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_UVRS);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_DSAL);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_DSAH);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_MACL);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_MACH);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_ICR);
-+	buf[j++] = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_ECR);
-+
-+	buf[j++] = adapter->intr.num_intrs;
-+	for (i = 0; i < adapter->intr.num_intrs; i++) {
-+		buf[j++] = VMXNET3_READ_BAR0_REG(adapter, VMXNET3_REG_IMR
-+						 + i * VMXNET3_REG_ALIGN);
-+	}
- 
--		buf[j++] = adapter->tx_queue[i].comp_ring.next2proc;
--		buf[j++] = adapter->tx_queue[i].comp_ring.gen;
--		buf[j++] = adapter->tx_queue[i].stopped;
--		buf[j++] = 0;
-+	buf[j++] = adapter->num_tx_queues;
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		struct vmxnet3_tx_queue *tq = &adapter->tx_queue[i];
-+
-+		buf[j++] = VMXNET3_READ_BAR0_REG(adapter, VMXNET3_REG_TXPROD +
-+						 i * VMXNET3_REG_ALIGN);
-+
-+		buf[j++] = VMXNET3_GET_ADDR_LO(tq->tx_ring.basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(tq->tx_ring.basePA);
-+		buf[j++] = tq->tx_ring.size;
-+		buf[j++] = tq->tx_ring.next2fill;
-+		buf[j++] = tq->tx_ring.next2comp;
-+		buf[j++] = tq->tx_ring.gen;
-+
-+		buf[j++] = VMXNET3_GET_ADDR_LO(tq->data_ring.basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(tq->data_ring.basePA);
-+		buf[j++] = tq->data_ring.size;
-+		/* transmit data ring buffer size */
-+		buf[j++] = VMXNET3_HDR_COPY_SIZE;
-+
-+		buf[j++] = VMXNET3_GET_ADDR_LO(tq->comp_ring.basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(tq->comp_ring.basePA);
-+		buf[j++] = tq->comp_ring.size;
-+		buf[j++] = tq->comp_ring.next2proc;
-+		buf[j++] = tq->comp_ring.gen;
-+
-+		buf[j++] = tq->stopped;
- 	}
- 
-+	buf[j++] = adapter->num_rx_queues;
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		buf[j++] = adapter->rx_queue[i].rx_ring[0].next2fill;
--		buf[j++] = adapter->rx_queue[i].rx_ring[0].next2comp;
--		buf[j++] = adapter->rx_queue[i].rx_ring[0].gen;
-+		struct vmxnet3_rx_queue *rq = &adapter->rx_queue[i];
-+
-+		buf[j++] =  VMXNET3_READ_BAR0_REG(adapter, VMXNET3_REG_RXPROD +
-+						  i * VMXNET3_REG_ALIGN);
-+		buf[j++] =  VMXNET3_READ_BAR0_REG(adapter, VMXNET3_REG_RXPROD2 +
-+						  i * VMXNET3_REG_ALIGN);
-+
-+		buf[j++] = VMXNET3_GET_ADDR_LO(rq->rx_ring[0].basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(rq->rx_ring[0].basePA);
-+		buf[j++] = rq->rx_ring[0].size;
-+		buf[j++] = rq->rx_ring[0].next2fill;
-+		buf[j++] = rq->rx_ring[0].next2comp;
-+		buf[j++] = rq->rx_ring[0].gen;
-+
-+		buf[j++] = VMXNET3_GET_ADDR_LO(rq->rx_ring[1].basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(rq->rx_ring[1].basePA);
-+		buf[j++] = rq->rx_ring[1].size;
-+		buf[j++] = rq->rx_ring[1].next2fill;
-+		buf[j++] = rq->rx_ring[1].next2comp;
-+		buf[j++] = rq->rx_ring[1].gen;
-+
-+		/* receive data ring */
- 		buf[j++] = 0;
--
--		buf[j++] = adapter->rx_queue[i].rx_ring[1].next2fill;
--		buf[j++] = adapter->rx_queue[i].rx_ring[1].next2comp;
--		buf[j++] = adapter->rx_queue[i].rx_ring[1].gen;
- 		buf[j++] = 0;
--
--		buf[j++] = adapter->rx_queue[i].comp_ring.next2proc;
--		buf[j++] = adapter->rx_queue[i].comp_ring.gen;
- 		buf[j++] = 0;
- 		buf[j++] = 0;
--	}
- 
-+		buf[j++] = VMXNET3_GET_ADDR_LO(rq->comp_ring.basePA);
-+		buf[j++] = VMXNET3_GET_ADDR_HI(rq->comp_ring.basePA);
-+		buf[j++] = rq->comp_ring.size;
-+		buf[j++] = rq->comp_ring.next2proc;
-+		buf[j++] = rq->comp_ring.gen;
-+	}
- }
- 
- 
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 2652245..3f859a5 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.4.2.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.4.3.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01040200
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01040300
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+ void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
+-		       const struct sw_flow_mask *mask);
++		       bool full, const struct sw_flow_mask *mask);
+ #endif /* flow_table.h */
 -- 
-1.8.5.6
+2.1.4
