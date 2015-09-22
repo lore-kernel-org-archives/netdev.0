@@ -1,238 +1,387 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/30] Netfilter/IPVS updates for net-next
-Date: Tue, 22 Sep 2015 11:13:50 +0200
-Message-ID: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/30] ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off
+Date: Tue, 22 Sep 2015 11:13:51 +0200
+Message-ID: <1442913260-3925-2-git-send-email-pablo@netfilter.org>
+References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34848 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757551AbbIVJHl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 05:07:41 -0400
+In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Alex Gartrell <agartrell@fb.com>
 
-The following patchset contains Netfilter/IPVS updates for your net-next tree
-in this 4.4 development cycle, they are:
+This removes some duplicated code and makes the ICMPv6 path look more like
+the ICMP path.
 
-1) Schedule ICMP traffic to IPVS instances, this introduces a new schedule_icmp
-   proc knob to enable/disable it. By default is off to retain the old
-   behaviour. Patchset from Alex Gartrell.
+Signed-off-by: Alex Gartrell <agartrell@fb.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ include/net/ip_vs.h             |   49 ++++++++++++++++-----------
+ net/netfilter/ipvs/ip_vs_core.c |   70 +++++++++++++++------------------------
+ net/netfilter/ipvs/ip_vs_xmit.c |   15 +++++----
+ 3 files changed, 63 insertions(+), 71 deletions(-)
 
-I'm also including what Alex originally said for the record:
-
-"The configuration of ipvs at Facebook is relatively straightforward.  All
-ipvs instances bgp advertise a set of VIPs and the network prefers the
-nearest one or uses ECMP in the event of a tie.  For the uninitiated, ECMP
-deterministically and statelessly load balances by hashing the packet
-(usually a 5-tuple of protocol, saddr, daddr, sport, and dport) and using
-that number as an index (basic hash table type logic).
-
-The problem is that ICMP packets (which contain really important
-information like whether or not an MTU has been exceeded) will get a
-different hash value and may end up at a different ipvs instance.  With no
-information about where to route these packets, they are dropped, creating
-ICMP black holes and breaking Path MTU discovery.  Suddenly, my mom's
-pictures can't load and I'm fielding midday calls that I want nothing to do
-with.
-
-To address this, this patch set introduces the ability to schedule icmp
-packets which is gated by a sysctl net.ipv4.vs.schedule_icmp.  If set to 0,
-the old behavior is maintained -- otherwise ICMP packets are scheduled."
-
-2) Add another proc entry to ignore tunneled packets to avoid routing loops
-   from IPVS, also from Alex.
-
-3) Fifteen patches from Eric Biederman to:
-
-* Stop passing nf_hook_ops as parameter to the hook and use the state hook
-  object instead all around the netfilter code, so only the private data
-  pointer is passed to the registered hook function.
-
-* Now that we've got state->net, propagate the netns pointer to netfilter hook
-  clients to avoid its computation over and over again. A good example of how
-  this has been simplified is the former TEE target (now nf_dup infrastructure)
-  since it has killed the ugly pick_net() function.
-
-There's another round of netns updates from Eric Biederman making the line. To
-avoid the patchbomb again to almost all the networking mailing list (that is 84
-patches) I'd suggest we send you a pull request with no patches or let me know
-if you prefer a better way.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 47bbbb30b4331ec58a74a66a044341f0114b02b3:
-
-  sch_dsmark: improve memory locality (2015-09-17 22:37:19 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to 0a031ac5c00d091ce1f7007f22d5881620bf0a7e:
-
-  netfilter: Use nf_ct_net instead of dev_net(out) in nf_nat_masquerade_ipv6 (2015-09-18 22:00:28 +0200)
-
-----------------------------------------------------------------
-Alex Gartrell (15):
-      ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off
-      ipvs: Add hdr_flags to iphdr
-      ipvs: Handle inverse and icmp headers in ip_vs_leave
-      ipvs: pull out ip_vs_try_to_schedule function
-      ipvs: drop inverse argument to conn_{in,out}_get
-      ipvs: Make ip_vs_schedule aware of inverse iph'es
-      ipvs: add schedule_icmp sysctl
-      ipvs: Use outer header in ip_vs_bypass_xmit_v6
-      ipvs: sh: support scheduling icmp/inverse packets consistently
-      ipvs: attempt to schedule icmp packets
-      ipvs: ensure that ICMP cannot be sent in reply to ICMP
-      ipvs: support scheduling inverse and icmp TCP packets
-      ipvs: support scheduling inverse and icmp UDP packets
-      ipvs: support scheduling inverse and icmp SCTP packets
-      ipvs: add sysctl to ignore tunneled packets
-
-Eric W. Biederman (15):
-      netfilter: ebtables: Simplify the arguments to ebt_do_table
-      inet netfilter: Remove hook from ip6t_do_table, arp_do_table, ipt_do_table
-      inet netfilter: Prefer state->hook to ops->hooknum
-      netfilter: nf_tables: kill nft_pktinfo.ops
-      netfilter: x_tables: Pass struct net in xt_action_param
-      netfilter: x_tables: Use par->net instead of computing from the passed net devices
-      netfilter: nf_tables: Pass struct net in nft_pktinfo
-      netfilter: nf_tables: Use pkt->net instead of computing net from the passed net_devices
-      netfilter: Pass net to nf_dup_ipv4 and nf_dup_ipv6
-      act_connmark: Remember the struct net instead of guessing it.
-      netfilter: nf_conntrack: Add a struct net parameter to l4_pkt_to_tuple
-      ipvs: Read hooknum from state rather than ops->hooknum
-      netfilter: Pass priv instead of nf_hook_ops to netfilter hooks
-      netfilter: Pass net into nf_xfrm_me_harder
-      netfilter: Use nf_ct_net instead of dev_net(out) in nf_nat_masquerade_ipv6
-
-Pablo Neira Ayuso (1):
-      Merge tag 'ipvs-for-v4.4' of https://git.kernel.org/.../horms/ipvs-next
-
- Documentation/networking/ipvs-sysctl.txt       |   10 +
- include/linux/netfilter.h                      |    2 +-
- include/linux/netfilter/x_tables.h             |    3 +-
- include/linux/netfilter_arp/arp_tables.h       |    1 -
- include/linux/netfilter_bridge/ebtables.h      |    6 +-
- include/linux/netfilter_ipv4/ip_tables.h       |    1 -
- include/linux/netfilter_ipv6/ip6_tables.h      |    1 -
- include/net/ip_vs.h                            |  120 +++++++--
- include/net/netfilter/br_netfilter.h           |    2 +-
- include/net/netfilter/ipv4/nf_dup_ipv4.h       |    2 +-
- include/net/netfilter/ipv6/nf_dup_ipv6.h       |    2 +-
- include/net/netfilter/nf_conntrack.h           |    3 +-
- include/net/netfilter/nf_conntrack_core.h      |    1 +
- include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
- include/net/netfilter/nf_nat_core.h            |    2 +-
- include/net/netfilter/nf_nat_l3proto.h         |   32 +--
- include/net/netfilter/nf_tables.h              |   14 +-
- include/net/netfilter/nf_tables_ipv4.h         |    3 +-
- include/net/netfilter/nf_tables_ipv6.h         |    3 +-
- include/net/tc_act/tc_connmark.h               |    1 +
- net/bridge/br_netfilter_hooks.c                |   14 +-
- net/bridge/br_netfilter_ipv6.c                 |    2 +-
- net/bridge/netfilter/ebt_log.c                 |    2 +-
- net/bridge/netfilter/ebt_nflog.c               |    2 +-
- net/bridge/netfilter/ebtable_broute.c          |    8 +-
- net/bridge/netfilter/ebtable_filter.c          |   10 +-
- net/bridge/netfilter/ebtable_nat.c             |   10 +-
- net/bridge/netfilter/ebtables.c                |   14 +-
- net/bridge/netfilter/nf_tables_bridge.c        |   20 +-
- net/bridge/netfilter/nft_reject_bridge.c       |   19 +-
- net/decnet/netfilter/dn_rtmsg.c                |    2 +-
- net/ipv4/netfilter/arp_tables.c                |    3 +-
- net/ipv4/netfilter/arptable_filter.c           |    5 +-
- net/ipv4/netfilter/ip_tables.c                 |    3 +-
- net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 +-
- net/ipv4/netfilter/ipt_SYNPROXY.c              |    4 +-
- net/ipv4/netfilter/ipt_rpfilter.c              |    5 +-
- net/ipv4/netfilter/iptable_filter.c            |    7 +-
- net/ipv4/netfilter/iptable_mangle.c            |   14 +-
- net/ipv4/netfilter/iptable_nat.c               |   21 +-
- net/ipv4/netfilter/iptable_raw.c               |    7 +-
- net/ipv4/netfilter/iptable_security.c          |    7 +-
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   12 +-
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    4 +-
- net/ipv4/netfilter/nf_defrag_ipv4.c            |    4 +-
- net/ipv4/netfilter/nf_dup_ipv4.c               |   23 +-
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       |   42 +--
- net/ipv4/netfilter/nf_tables_arp.c             |    6 +-
- net/ipv4/netfilter/nf_tables_ipv4.c            |   10 +-
- net/ipv4/netfilter/nft_chain_nat_ipv4.c        |   22 +-
- net/ipv4/netfilter/nft_chain_route_ipv4.c      |    6 +-
- net/ipv4/netfilter/nft_dup_ipv4.c              |    2 +-
- net/ipv4/netfilter/nft_masq_ipv4.c             |    2 +-
- net/ipv4/netfilter/nft_redir_ipv4.c            |    2 +-
- net/ipv4/netfilter/nft_reject_ipv4.c           |    5 +-
- net/ipv6/netfilter/ip6_tables.c                |    3 +-
- net/ipv6/netfilter/ip6t_REJECT.c               |    2 +-
- net/ipv6/netfilter/ip6t_SYNPROXY.c             |    4 +-
- net/ipv6/netfilter/ip6t_rpfilter.c             |    6 +-
- net/ipv6/netfilter/ip6table_filter.c           |    5 +-
- net/ipv6/netfilter/ip6table_mangle.c           |   14 +-
- net/ipv6/netfilter/ip6table_nat.c              |   21 +-
- net/ipv6/netfilter/ip6table_raw.c              |    5 +-
- net/ipv6/netfilter/ip6table_security.c         |    5 +-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   12 +-
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    3 +-
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |    6 +-
- net/ipv6/netfilter/nf_dup_ipv6.c               |   23 +-
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       |   42 +--
- net/ipv6/netfilter/nf_nat_masquerade_ipv6.c    |    2 +-
- net/ipv6/netfilter/nf_tables_ipv6.c            |   10 +-
- net/ipv6/netfilter/nft_chain_nat_ipv6.c        |   22 +-
- net/ipv6/netfilter/nft_chain_route_ipv6.c      |    6 +-
- net/ipv6/netfilter/nft_dup_ipv6.c              |    2 +-
- net/ipv6/netfilter/nft_redir_ipv6.c            |    3 +-
- net/ipv6/netfilter/nft_reject_ipv6.c           |    7 +-
- net/netfilter/core.c                           |    2 +-
- net/netfilter/ipset/ip_set_core.c              |    9 +-
- net/netfilter/ipvs/ip_vs_conn.c                |   12 +-
- net/netfilter/ipvs/ip_vs_core.c                |  339 ++++++++++++++----------
- net/netfilter/ipvs/ip_vs_ctl.c                 |   15 +-
- net/netfilter/ipvs/ip_vs_pe_sip.c              |    2 +-
- net/netfilter/ipvs/ip_vs_proto_ah_esp.c        |   17 +-
- net/netfilter/ipvs/ip_vs_proto_sctp.c          |   34 ++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c           |   38 ++-
- net/netfilter/ipvs/ip_vs_proto_udp.c           |   25 +-
- net/netfilter/ipvs/ip_vs_sh.c                  |   45 ++--
- net/netfilter/ipvs/ip_vs_xmit.c                |   24 +-
- net/netfilter/nf_conntrack_core.c              |   10 +-
- net/netfilter/nf_conntrack_proto_dccp.c        |    2 +-
- net/netfilter/nf_conntrack_proto_generic.c     |    2 +-
- net/netfilter/nf_conntrack_proto_gre.c         |    3 +-
- net/netfilter/nf_conntrack_proto_sctp.c        |    2 +-
- net/netfilter/nf_conntrack_proto_tcp.c         |    2 +-
- net/netfilter/nf_conntrack_proto_udp.c         |    1 +
- net/netfilter/nf_conntrack_proto_udplite.c     |    1 +
- net/netfilter/nf_nat_core.c                    |    4 +-
- net/netfilter/nf_tables_core.c                 |   10 +-
- net/netfilter/nf_tables_netdev.c               |   20 +-
- net/netfilter/nft_log.c                        |    3 +-
- net/netfilter/nft_meta.c                       |    4 +-
- net/netfilter/nft_queue.c                      |    2 +-
- net/netfilter/nft_reject_inet.c                |   19 +-
- net/netfilter/xt_LOG.c                         |    2 +-
- net/netfilter/xt_NFLOG.c                       |    2 +-
- net/netfilter/xt_TCPMSS.c                      |    2 +-
- net/netfilter/xt_TEE.c                         |    4 +-
- net/netfilter/xt_TPROXY.c                      |   24 +-
- net/netfilter/xt_addrtype.c                    |    4 +-
- net/netfilter/xt_connlimit.c                   |    4 +-
- net/netfilter/xt_ipvs.c                        |    4 +-
- net/netfilter/xt_osf.c                         |    2 +-
- net/netfilter/xt_recent.c                      |    2 +-
- net/netfilter/xt_socket.c                      |   14 +-
- net/openvswitch/conntrack.c                    |    2 +-
- net/sched/act_connmark.c                       |    5 +-
- net/sched/act_ipt.c                            |    1 +
- net/sched/em_ipset.c                           |    1 +
- security/selinux/hooks.c                       |   10 +-
- security/smack/smack_netfilter.c               |    4 +-
- 120 files changed, 816 insertions(+), 653 deletions(-)
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 9b9ca87..0c8309f 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -104,6 +104,7 @@ static inline struct net *seq_file_single_net(struct seq_file *seq)
+ extern int ip_vs_conn_tab_size;
+ 
+ struct ip_vs_iphdr {
++	__u32 off;	/* Where IP or IPv4 header starts */
+ 	__u32 len;	/* IPv4 simply where L4 starts
+ 			 * IPv6 where L4 Transport Header starts */
+ 	__u16 fragoffs; /* IPv6 fragment offset, 0 if first frag (or not frag)*/
+@@ -120,48 +121,56 @@ static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
+ 	return skb_header_pointer(skb, offset, len, buffer);
+ }
+ 
+-static inline void
+-ip_vs_fill_ip4hdr(const void *nh, struct ip_vs_iphdr *iphdr)
+-{
+-	const struct iphdr *iph = nh;
+-
+-	iphdr->len	= iph->ihl * 4;
+-	iphdr->fragoffs	= 0;
+-	iphdr->protocol	= iph->protocol;
+-	iphdr->saddr.ip	= iph->saddr;
+-	iphdr->daddr.ip	= iph->daddr;
+-}
+-
+ /* This function handles filling *ip_vs_iphdr, both for IPv4 and IPv6.
+  * IPv6 requires some extra work, as finding proper header position,
+  * depend on the IPv6 extension headers.
+  */
+-static inline void
+-ip_vs_fill_iph_skb(int af, const struct sk_buff *skb, struct ip_vs_iphdr *iphdr)
++static inline int
++ip_vs_fill_iph_skb_off(int af, const struct sk_buff *skb, int offset,
++		       struct ip_vs_iphdr *iphdr)
+ {
++	iphdr->off = offset;
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (af == AF_INET6) {
+-		const struct ipv6hdr *iph =
+-			(struct ipv6hdr *)skb_network_header(skb);
++		struct ipv6hdr _iph;
++		const struct ipv6hdr *iph = skb_header_pointer(
++			skb, offset, sizeof(_iph), &_iph);
++		if (!iph)
++			return 0;
++
+ 		iphdr->saddr.in6 = iph->saddr;
+ 		iphdr->daddr.in6 = iph->daddr;
+ 		/* ipv6_find_hdr() updates len, flags */
+-		iphdr->len	 = 0;
++		iphdr->len	 = offset;
+ 		iphdr->flags	 = 0;
+ 		iphdr->protocol  = ipv6_find_hdr(skb, &iphdr->len, -1,
+ 						 &iphdr->fragoffs,
+ 						 &iphdr->flags);
++		if (iphdr->protocol < 0)
++			return 0;
+ 	} else
+ #endif
+ 	{
+-		const struct iphdr *iph =
+-			(struct iphdr *)skb_network_header(skb);
+-		iphdr->len	= iph->ihl * 4;
++		struct iphdr _iph;
++		const struct iphdr *iph = skb_header_pointer(
++			skb, offset, sizeof(_iph), &_iph);
++		if (!iph)
++			return 0;
++
++		iphdr->len	= offset + iph->ihl * 4;
+ 		iphdr->fragoffs	= 0;
+ 		iphdr->protocol	= iph->protocol;
+ 		iphdr->saddr.ip	= iph->saddr;
+ 		iphdr->daddr.ip	= iph->daddr;
+ 	}
++
++	return 1;
++}
++
++static inline int
++ip_vs_fill_iph_skb(int af, const struct sk_buff *skb, struct ip_vs_iphdr *iphdr)
++{
++	return ip_vs_fill_iph_skb_off(af, skb, skb_network_offset(skb), iphdr);
+ }
+ 
+ static inline void ip_vs_addr_copy(int af, union nf_inet_addr *dst,
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 38fbc19..b831fe8 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -436,7 +436,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	 * with persistence the connection is created on SYN+ACK.
+ 	 */
+ 	if (pptr[0] == FTPDATA) {
+-		IP_VS_DBG_PKT(12, svc->af, pp, skb, 0,
++		IP_VS_DBG_PKT(12, svc->af, pp, skb, iph->off,
+ 			      "Not scheduling FTPDATA");
+ 		return NULL;
+ 	}
+@@ -446,7 +446,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	 */
+ 	if ((!skb->dev || skb->dev->flags & IFF_LOOPBACK) &&
+ 	    (cp = pp->conn_in_get(svc->af, skb, iph, 1))) {
+-		IP_VS_DBG_PKT(12, svc->af, pp, skb, 0,
++		IP_VS_DBG_PKT(12, svc->af, pp, skb, iph->off,
+ 			      "Not scheduling reply for existing connection");
+ 		__ip_vs_conn_put(cp);
+ 		return NULL;
+@@ -934,8 +934,8 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related,
+ 	IP_VS_DBG_PKT(11, AF_INET, pp, skb, offset,
+ 		      "Checking outgoing ICMP for");
+ 
+-	ip_vs_fill_ip4hdr(cih, &ciph);
+-	ciph.len += offset;
++	ip_vs_fill_iph_skb_off(AF_INET, skb, offset, &ciph);
++
+ 	/* The embedded headers contain source and dest in reverse order */
+ 	cp = pp->conn_out_get(AF_INET, skb, &ciph, 1);
+ 	if (!cp)
+@@ -951,12 +951,11 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
+ 			     unsigned int hooknum, struct ip_vs_iphdr *ipvsh)
+ {
+ 	struct icmp6hdr	_icmph, *ic;
+-	struct ipv6hdr _ip6h, *ip6h; /* The ip header contained within ICMP */
+ 	struct ip_vs_iphdr ciph = {.flags = 0, .fragoffs = 0};/*Contained IP */
+ 	struct ip_vs_conn *cp;
+ 	struct ip_vs_protocol *pp;
+ 	union nf_inet_addr snet;
+-	unsigned int writable;
++	unsigned int offset;
+ 
+ 	*related = 1;
+ 	ic = frag_safe_skb_hp(skb, ipvsh->len, sizeof(_icmph), &_icmph, ipvsh);
+@@ -984,17 +983,9 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
+ 		  ic->icmp6_type, ntohs(icmpv6_id(ic)),
+ 		  &ipvsh->saddr, &ipvsh->daddr);
+ 
+-	/* Now find the contained IP header */
+-	ciph.len = ipvsh->len + sizeof(_icmph);
+-	ip6h = skb_header_pointer(skb, ciph.len, sizeof(_ip6h), &_ip6h);
+-	if (ip6h == NULL)
++	if (!ip_vs_fill_iph_skb_off(AF_INET6, skb, ipvsh->len + sizeof(_icmph),
++				    &ciph))
+ 		return NF_ACCEPT; /* The packet looks wrong, ignore */
+-	ciph.saddr.in6 = ip6h->saddr; /* conn_out_get() handles reverse order */
+-	ciph.daddr.in6 = ip6h->daddr;
+-	/* skip possible IPv6 exthdrs of contained IPv6 packet */
+-	ciph.protocol = ipv6_find_hdr(skb, &ciph.len, -1, &ciph.fragoffs, NULL);
+-	if (ciph.protocol < 0)
+-		return NF_ACCEPT; /* Contained IPv6 hdr looks wrong, ignore */
+ 
+ 	pp = ip_vs_proto_get(ciph.protocol);
+ 	if (!pp)
+@@ -1006,9 +997,9 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
+ 		return NF_ACCEPT;
+ 
+ 	snet.in6 = ciph.saddr.in6;
+-	writable = ciph.len;
++	offset = ciph.len;
+ 	return handle_response_icmp(AF_INET6, skb, &snet, ciph.protocol, cp,
+-				    pp, writable, sizeof(struct ipv6hdr),
++				    pp, offset, sizeof(struct ipv6hdr),
+ 				    hooknum);
+ }
+ #endif
+@@ -1093,7 +1084,7 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
+ {
+ 	struct ip_vs_protocol *pp = pd->pp;
+ 
+-	IP_VS_DBG_PKT(11, af, pp, skb, 0, "Outgoing packet");
++	IP_VS_DBG_PKT(11, af, pp, skb, iph->off, "Outgoing packet");
+ 
+ 	if (!skb_make_writable(skb, iph->len))
+ 		goto drop;
+@@ -1130,7 +1121,7 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
+ 	if (ip_vs_route_me_harder(af, skb, hooknum))
+ 		goto drop;
+ 
+-	IP_VS_DBG_PKT(10, af, pp, skb, 0, "After SNAT");
++	IP_VS_DBG_PKT(10, af, pp, skb, iph->off, "After SNAT");
+ 
+ 	ip_vs_out_stats(cp, skb);
+ 	ip_vs_set_state(cp, IP_VS_DIR_OUTPUT, skb, pd);
+@@ -1221,7 +1212,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 					       ip_vs_defrag_user(hooknum)))
+ 				return NF_STOLEN;
+ 
+-			ip_vs_fill_ip4hdr(skb_network_header(skb), &iph);
++			ip_vs_fill_iph_skb(AF_INET, skb, &iph);
+ 		}
+ 
+ 	/*
+@@ -1272,7 +1263,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 			}
+ 		}
+ 	}
+-	IP_VS_DBG_PKT(12, af, pp, skb, 0,
++	IP_VS_DBG_PKT(12, af, pp, skb, iph.off,
+ 		      "ip_vs_out: packet continues traversal as normal");
+ 	return NF_ACCEPT;
+ }
+@@ -1416,9 +1407,9 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 		      "Checking incoming ICMP for");
+ 
+ 	offset2 = offset;
+-	ip_vs_fill_ip4hdr(cih, &ciph);
+-	ciph.len += offset;
++	ip_vs_fill_iph_skb_off(AF_INET, skb, offset, &ciph);
+ 	offset = ciph.len;
++
+ 	/* The embedded headers contain source and dest in reverse order.
+ 	 * For IPIP this is error for request, not for reply.
+ 	 */
+@@ -1511,13 +1502,12 @@ static int ip_vs_in_icmp_v6(struct sk_buff *skb, int *related,
+ 			    unsigned int hooknum, struct ip_vs_iphdr *iph)
+ {
+ 	struct net *net = NULL;
+-	struct ipv6hdr _ip6h, *ip6h;
+ 	struct icmp6hdr	_icmph, *ic;
+ 	struct ip_vs_iphdr ciph = {.flags = 0, .fragoffs = 0};/*Contained IP */
+ 	struct ip_vs_conn *cp;
+ 	struct ip_vs_protocol *pp;
+ 	struct ip_vs_proto_data *pd;
+-	unsigned int offs_ciph, writable, verdict;
++	unsigned int offset, verdict;
+ 
+ 	*related = 1;
+ 
+@@ -1546,18 +1536,9 @@ static int ip_vs_in_icmp_v6(struct sk_buff *skb, int *related,
+ 		  ic->icmp6_type, ntohs(icmpv6_id(ic)),
+ 		  &iph->saddr, &iph->daddr);
+ 
+-	/* Now find the contained IP header */
+-	ciph.len = iph->len + sizeof(_icmph);
+-	offs_ciph = ciph.len; /* Save ip header offset */
+-	ip6h = skb_header_pointer(skb, ciph.len, sizeof(_ip6h), &_ip6h);
+-	if (ip6h == NULL)
+-		return NF_ACCEPT; /* The packet looks wrong, ignore */
+-	ciph.saddr.in6 = ip6h->saddr; /* conn_in_get() handles reverse order */
+-	ciph.daddr.in6 = ip6h->daddr;
+-	/* skip possible IPv6 exthdrs of contained IPv6 packet */
+-	ciph.protocol = ipv6_find_hdr(skb, &ciph.len, -1, &ciph.fragoffs, NULL);
+-	if (ciph.protocol < 0)
+-		return NF_ACCEPT; /* Contained IPv6 hdr looks wrong, ignore */
++	offset = iph->len + sizeof(_icmph);
++	if (!ip_vs_fill_iph_skb_off(AF_INET6, skb, offset, &ciph))
++		return NF_ACCEPT;
+ 
+ 	net = skb_net(skb);
+ 	pd = ip_vs_proto_data_get(net, ciph.protocol);
+@@ -1569,7 +1550,7 @@ static int ip_vs_in_icmp_v6(struct sk_buff *skb, int *related,
+ 	if (ciph.fragoffs)
+ 		return NF_ACCEPT;
+ 
+-	IP_VS_DBG_PKT(11, AF_INET6, pp, skb, offs_ciph,
++	IP_VS_DBG_PKT(11, AF_INET6, pp, skb, offset,
+ 		      "Checking incoming ICMPv6 for");
+ 
+ 	/* The embedded headers contain source and dest in reverse order
+@@ -1591,12 +1572,12 @@ static int ip_vs_in_icmp_v6(struct sk_buff *skb, int *related,
+ 	ip_vs_in_stats(cp, skb);
+ 
+ 	/* Need to mangle contained IPv6 header in ICMPv6 packet */
+-	writable = ciph.len;
++	offset = ciph.len;
+ 	if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
+ 	    IPPROTO_SCTP == ciph.protocol)
+-		writable += 2 * sizeof(__u16); /* Also mangle ports */
++		offset += 2 * sizeof(__u16); /* Also mangle ports */
+ 
+-	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, writable, hooknum, &ciph);
++	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset, hooknum, &ciph);
+ 
+ 	__ip_vs_conn_put(cp);
+ 
+@@ -1720,12 +1701,13 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 			 * is missing module nf_defrag_ipv6
+ 			 */
+ 			IP_VS_DBG_RL("Unhandled frag, load nf_defrag_ipv6\n");
+-			IP_VS_DBG_PKT(7, af, pp, skb, 0, "unhandled fragment");
++			IP_VS_DBG_PKT(7, af, pp, skb, iph.off,
++				      "unhandled fragment");
+ 		}
+ 		return NF_ACCEPT;
+ 	}
+ 
+-	IP_VS_DBG_PKT(11, af, pp, skb, 0, "Incoming packet");
++	IP_VS_DBG_PKT(11, af, pp, skb, iph.off, "Incoming packet");
+ 	/* Check the server status */
+ 	if (cp->dest && !(cp->dest->flags & IP_VS_DEST_F_AVAILABLE)) {
+ 		/* the destination server is not available */
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 258a0b0..9a26f2e 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -723,7 +723,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+ 		if (ct && !nf_ct_is_untracked(ct)) {
+-			IP_VS_DBG_RL_PKT(10, AF_INET, pp, skb, 0,
++			IP_VS_DBG_RL_PKT(10, AF_INET, pp, skb, ipvsh->off,
+ 					 "ip_vs_nat_xmit(): "
+ 					 "stopping DNAT to local address");
+ 			goto tx_error;
+@@ -733,8 +733,9 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* From world but DNAT to loopback address? */
+ 	if (local && ipv4_is_loopback(cp->daddr.ip) && was_input) {
+-		IP_VS_DBG_RL_PKT(1, AF_INET, pp, skb, 0, "ip_vs_nat_xmit(): "
+-				 "stopping DNAT to loopback address");
++		IP_VS_DBG_RL_PKT(1, AF_INET, pp, skb, ipvsh->off,
++				 "ip_vs_nat_xmit(): stopping DNAT to loopback "
++				 "address");
+ 		goto tx_error;
+ 	}
+ 
+@@ -751,7 +752,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	ip_hdr(skb)->daddr = cp->daddr.ip;
+ 	ip_send_check(ip_hdr(skb));
+ 
+-	IP_VS_DBG_PKT(10, AF_INET, pp, skb, 0, "After DNAT");
++	IP_VS_DBG_PKT(10, AF_INET, pp, skb, ipvsh->off, "After DNAT");
+ 
+ 	/* FIXME: when application helper enlarges the packet and the length
+ 	   is larger than the MTU of outgoing device, there will be still
+@@ -812,7 +813,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+ 		if (ct && !nf_ct_is_untracked(ct)) {
+-			IP_VS_DBG_RL_PKT(10, AF_INET6, pp, skb, 0,
++			IP_VS_DBG_RL_PKT(10, AF_INET6, pp, skb, ipvsh->off,
+ 					 "ip_vs_nat_xmit_v6(): "
+ 					 "stopping DNAT to local address");
+ 			goto tx_error;
+@@ -823,7 +824,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* From world but DNAT to loopback address? */
+ 	if (local && skb->dev && !(skb->dev->flags & IFF_LOOPBACK) &&
+ 	    ipv6_addr_type(&cp->daddr.in6) & IPV6_ADDR_LOOPBACK) {
+-		IP_VS_DBG_RL_PKT(1, AF_INET6, pp, skb, 0,
++		IP_VS_DBG_RL_PKT(1, AF_INET6, pp, skb, ipvsh->off,
+ 				 "ip_vs_nat_xmit_v6(): "
+ 				 "stopping DNAT to loopback address");
+ 		goto tx_error;
+@@ -841,7 +842,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		goto tx_error;
+ 	ipv6_hdr(skb)->daddr = cp->daddr.in6;
+ 
+-	IP_VS_DBG_PKT(10, AF_INET6, pp, skb, 0, "After DNAT");
++	IP_VS_DBG_PKT(10, AF_INET6, pp, skb, ipvsh->off, "After DNAT");
+ 
+ 	/* FIXME: when application helper enlarges the packet and the length
+ 	   is larger than the MTU of outgoing device, there will be still
+-- 
+1.7.10.4
