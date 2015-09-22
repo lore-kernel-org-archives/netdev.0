@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 8/9] phy: add phy_device_remove()
-Date: Tue, 22 Sep 2015 17:18:38 +0100
-Message-ID: <E1ZeQH8-0006Y4-QC@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 9/9] net: fix net_device refcounting
+Date: Tue, 22 Sep 2015 17:18:43 +0100
+Message-ID: <E1ZeQHD-0006YA-W4@rmk-PC.arm.linux.org.uk>
 References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -21,124 +21,81 @@ Cc: devicetree@vger.kernel.org, Frank Rowand <frowand.list@gmail.com>,
 	linux-kernel@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:39662 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933914AbbIVQT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:19:27 -0400
 In-Reply-To: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a phy_device_remove() function to complement phy_device_register(),
-which undoes the effects of phy_device_register() by removing the phy
-device from visibility, but not freeing it.
+of_find_net_device_by_node() uses class_find_device() internally to
+lookup the corresponding network device.  class_find_device() returns
+a reference to the embedded struct device, with its refcount
+incremented.
 
-This allows these details to be moved out of the mdio bus code into
-the phy code where this action belongs.
+Add a comment to the definition in net/core/net-sysfs.c indicating the
+need to drop this refcount, and fix the DSA code to drop this refcount
+when the OF-generated platform data is cleaned up and freed.  Also
+arrange for the ref to be dropped when handling errors.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/gianfar.c |  5 +++--
- drivers/net/phy/mdio_bus.c               | 15 ++++++++++-----
- drivers/net/phy/phy_device.c             | 18 ++++++++++++++++++
- include/linux/phy.h                      |  1 +
- 4 files changed, 32 insertions(+), 7 deletions(-)
+ net/core/net-sysfs.c | 9 +++++++++
+ net/dsa/dsa.c        | 5 ++++-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 65a16086faec..903211df3288 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1702,7 +1702,6 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	tbiphy = of_phy_find_device(priv->tbi_node);
- 	if (!tbiphy) {
- 		dev_err(&dev->dev, "error: Could not get TBI device\n");
--		put_device(&tbiphy->dev);
- 		return;
- 	}
- 
-@@ -1711,8 +1710,10 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	 * everything for us?  Resetting it takes the link down and requires
- 	 * several seconds for it to come back.
- 	 */
--	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS)
-+	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS) {
-+		put_device(&tbiphy->dev);
- 		return;
-+	}
- 
- 	/* Single clk mode, mii mode off(for serdes communication) */
- 	phy_write(tbiphy, MII_TBICON, TBICON_CLK_SELECT);
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 992406624b7c..c340e412b38f 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -291,8 +291,11 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 
- error:
- 	while (--i >= 0) {
--		if (bus->phy_map[i])
--			device_unregister(&bus->phy_map[i]->dev);
-+		struct phy_device *phydev = bus->phy_map[i];
-+		if (phydev) {
-+			phy_device_remove(phydev);
-+			phy_device_free(phydev);
-+		}
- 	}
- 	device_del(&bus->dev);
- 	return err;
-@@ -307,9 +310,11 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	bus->state = MDIOBUS_UNREGISTERED;
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		if (bus->phy_map[i])
--			device_unregister(&bus->phy_map[i]->dev);
--		bus->phy_map[i] = NULL;
-+		struct phy_device *phydev = bus->phy_map[i];
-+		if (phydev) {
-+			phy_device_remove(phydev);
-+			phy_device_free(phydev);
-+		}
- 	}
- 	device_del(&bus->dev);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index b279077c3089..805a95a48107 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1481,6 +1481,15 @@ static int of_dev_node_match(struct device *dev, const void *data)
+ 	return ret == 0 ? dev->of_node == data : ret;
  }
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 97a4f52addac..f761288abe66 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -384,6 +384,24 @@ int phy_device_register(struct phy_device *phydev)
- EXPORT_SYMBOL(phy_device_register);
  
- /**
-+ * phy_device_remove - Remove a previously registered phy device from the MDIO bus
-+ * @phydev: phy_device structure to remove
++/*
++ * of_find_net_device_by_node - lookup the net device for the device node
++ * @np: OF device node
 + *
-+ * This doesn't free the phy_device itself, it merely reverses the effects
-+ * of phy_device_register(). Use phy_device_free() to free the device
-+ * after calling this function.
++ * Looks up the net_device structure corresponding with the device node.
++ * If successful, returns a pointer to the net_device with the embedded
++ * struct device refcount incremented by one, or NULL on failure. The
++ * refcount must be dropped when done with the net_device.
 + */
-+void phy_device_remove(struct phy_device *phydev)
-+{
-+	struct mii_bus *bus = phydev->bus;
-+	int addr = phydev->addr;
-+
-+	device_del(&phydev->dev);
-+	bus->phy_map[addr] = NULL;
-+}
-+EXPORT_SYMBOL(phy_device_remove);
-+
-+/**
-  * phy_find_first - finds the first PHY device on the bus
-  * @bus: the target MII bus
-  */
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 11bce44f6d65..4a4e3a092337 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -745,6 +745,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 				     struct phy_c45_device_ids *c45_ids);
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
- int phy_device_register(struct phy_device *phy);
-+void phy_device_remove(struct phy_device *phydev);
- int phy_init_hw(struct phy_device *phydev);
- int phy_suspend(struct phy_device *phydev);
- int phy_resume(struct phy_device *phydev);
+ struct net_device *of_find_net_device_by_node(struct device_node *np)
+ {
+ 	struct device *dev;
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index bf4ba15fb780..c59fa5d9c22c 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -679,7 +679,7 @@ static int dsa_of_probe(struct device *dev)
+ 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+ 	if (!pd) {
+ 		ret = -ENOMEM;
+-		goto out_put_mdio;
++		goto out_put_ethernet;
+ 	}
+ 
+ 	dev->platform_data = pd;
+@@ -773,6 +773,8 @@ static int dsa_of_probe(struct device *dev)
+ out_free:
+ 	kfree(pd);
+ 	dev->platform_data = NULL;
++out_put_ethernet:
++	put_device(&ethernet_dev->dev);
+ out_put_mdio:
+ 	put_device(&mdio_bus->dev);
+ 	return ret;
+@@ -786,6 +788,7 @@ static void dsa_of_remove(struct device *dev)
+ 		return;
+ 
+ 	dsa_of_free_platform_data(pd);
++	put_device(&pd->of_netdev->dev);
+ 	kfree(pd);
+ }
+ #else
 -- 
 2.1.0
