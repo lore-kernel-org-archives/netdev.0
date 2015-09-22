@@ -1,156 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/30] ipvs: Make ip_vs_schedule aware of inverse iph'es
-Date: Tue, 22 Sep 2015 11:13:56 +0200
-Message-ID: <1442913260-3925-7-git-send-email-pablo@netfilter.org>
-References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34912 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757575AbbIVJHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2015 05:07:46 -0400
-In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: Re: [PATCH 00/38] Fixes related to incorrect usage of
+	unsigned types
+Date: Tue, 22 Sep 2015 11:13:29 +0200
+Message-ID: <56011BB9.5030004@samsung.com>
+References: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
+ <17571.1442842945@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ linux-sh@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+ dri-devel@lists.freedesktop.org, linux-mm@kvack.org, linux-clk@vger.kernel.org,
+ linux-leds@vger.kernel.org, Marek Szyprowski <m.szyprowski@samsung.com>,
+ devel@driverdev.osuosl.org, linux-rdma@vger.kernel.org,
+ linux-cachefs@redhat.com, linux-serial@vger.kernel.org,
+ linux-input@vger.kernel.org, linux-media@vger.kernel.org, dev@openvswitch.org,
+ rtc-linux@googlegroups.com,
+ Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+ intel-gfx@lists.freedesktop.org, linux-omap@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, Andrzej Hajda <a.hajda@samsung.com>,
+ linux-api@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+ lustre-devel@lists.lustre.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-reply-to: <17571.1442842945@warthog.procyon.org.uk>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-From: Alex Gartrell <agartrell@fb.com>
-
-This is necessary to schedule icmp later.
-
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c |   50 ++++++++++++++++++++++++++++-----------
- 1 file changed, 36 insertions(+), 14 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index ebfb371..6465e7b 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -245,20 +245,30 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 	const union nf_inet_addr fwmark = { .ip = htonl(svc->fwmark) };
- 	union nf_inet_addr snet;	/* source network of the client,
- 					   after masking */
-+	const union nf_inet_addr *src_addr, *dst_addr;
-+
-+	if (likely(!ip_vs_iph_inverse(iph))) {
-+		src_addr = &iph->saddr;
-+		dst_addr = &iph->daddr;
-+	} else {
-+		src_addr = &iph->daddr;
-+		dst_addr = &iph->saddr;
-+	}
-+
- 
- 	/* Mask saddr with the netmask to adjust template granularity */
- #ifdef CONFIG_IP_VS_IPV6
- 	if (svc->af == AF_INET6)
--		ipv6_addr_prefix(&snet.in6, &iph->saddr.in6,
-+		ipv6_addr_prefix(&snet.in6, &src_addr->in6,
- 				 (__force __u32) svc->netmask);
- 	else
- #endif
--		snet.ip = iph->saddr.ip & svc->netmask;
-+		snet.ip = src_addr->ip & svc->netmask;
- 
- 	IP_VS_DBG_BUF(6, "p-schedule: src %s:%u dest %s:%u "
- 		      "mnet %s\n",
--		      IP_VS_DBG_ADDR(svc->af, &iph->saddr), ntohs(src_port),
--		      IP_VS_DBG_ADDR(svc->af, &iph->daddr), ntohs(dst_port),
-+		      IP_VS_DBG_ADDR(svc->af, src_addr), ntohs(src_port),
-+		      IP_VS_DBG_ADDR(svc->af, dst_addr), ntohs(dst_port),
- 		      IP_VS_DBG_ADDR(svc->af, &snet));
- 
- 	/*
-@@ -276,7 +286,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 	 */
- 	{
- 		int protocol = iph->protocol;
--		const union nf_inet_addr *vaddr = &iph->daddr;
-+		const union nf_inet_addr *vaddr = dst_addr;
- 		__be16 vport = 0;
- 
- 		if (dst_port == svc->port) {
-@@ -366,8 +376,8 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 	/*
- 	 *    Create a new connection according to the template
- 	 */
--	ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol, &iph->saddr,
--			      src_port, &iph->daddr, dst_port, &param);
-+	ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol, src_addr,
-+			      src_port, dst_addr, dst_port, &param);
- 
- 	cp = ip_vs_conn_new(&param, dest->af, &dest->addr, dport, flags, dest,
- 			    skb->mark);
-@@ -418,7 +428,8 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	struct ip_vs_conn *cp = NULL;
- 	struct ip_vs_scheduler *sched;
- 	struct ip_vs_dest *dest;
--	__be16 _ports[2], *pptr;
-+	__be16 _ports[2], *pptr, cport, vport;
-+	const void *caddr, *vaddr;
- 	unsigned int flags;
- 
- 	*ignored = 1;
-@@ -429,13 +440,25 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	if (pptr == NULL)
- 		return NULL;
- 
-+	if (likely(!ip_vs_iph_inverse(iph))) {
-+		cport = pptr[0];
-+		caddr = &iph->saddr;
-+		vport = pptr[1];
-+		vaddr = &iph->daddr;
-+	} else {
-+		cport = pptr[1];
-+		caddr = &iph->daddr;
-+		vport = pptr[0];
-+		vaddr = &iph->saddr;
-+	}
-+
- 	/*
- 	 * FTPDATA needs this check when using local real server.
- 	 * Never schedule Active FTPDATA connections from real server.
- 	 * For LVS-NAT they must be already created. For other methods
- 	 * with persistence the connection is created on SYN+ACK.
- 	 */
--	if (pptr[0] == FTPDATA) {
-+	if (cport == FTPDATA) {
- 		IP_VS_DBG_PKT(12, svc->af, pp, skb, iph->off,
- 			      "Not scheduling FTPDATA");
- 		return NULL;
-@@ -462,7 +485,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	 *    Persistent service
- 	 */
- 	if (svc->flags & IP_VS_SVC_F_PERSISTENT)
--		return ip_vs_sched_persist(svc, skb, pptr[0], pptr[1], ignored,
-+		return ip_vs_sched_persist(svc, skb, cport, vport, ignored,
- 					   iph);
- 
- 	*ignored = 0;
-@@ -470,7 +493,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	/*
- 	 *    Non-persistent service
- 	 */
--	if (!svc->fwmark && pptr[1] != svc->port) {
-+	if (!svc->fwmark && vport != svc->port) {
- 		if (!svc->port)
- 			pr_err("Schedule: port zero only supported "
- 			       "in persistent services, "
-@@ -502,10 +525,9 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 		struct ip_vs_conn_param p;
- 
- 		ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol,
--				      &iph->saddr, pptr[0], &iph->daddr,
--				      pptr[1], &p);
-+				      caddr, cport, vaddr, vport, &p);
- 		cp = ip_vs_conn_new(&p, dest->af, &dest->addr,
--				    dest->port ? dest->port : pptr[1],
-+				    dest->port ? dest->port : vport,
- 				    flags, dest, skb->mark);
- 		if (!cp) {
- 			*ignored = -1;
--- 
-1.7.10.4
+T24gMDkvMjEvMjAxNSAwMzo0MiBQTSwgRGF2aWQgSG93ZWxscyB3cm90ZToKPiBBbmRyemVqIEhh
+amRhIDxhLmhhamRhLVN6ZTNPM1VVMjJKQkRnaks3eTdUVVFAcHVibGljLmdtYW5lLm9yZz4gd3Jv
+dGU6Cj4gCj4+IFNlbWFudGljIHBhdGNoIGZpbmRzIGNvbXBhcmlzb25zIG9mIHR5cGVzOgo+PiAg
+ICAgdW5zaWduZWQgPCAwCj4+ICAgICB1bnNpZ25lZCA+PSAwCj4+IFRoZSBmb3JtZXIgaXMgYWx3
+YXlzIGZhbHNlLCB0aGUgbGF0dGVyIGlzIGFsd2F5cyB0cnVlLgo+PiBTdWNoIGNvbXBhcmlzb25z
+IGFyZSB1c2VsZXNzLCBzbyB0aGVvcmV0aWNhbGx5IHRoZXkgY291bGQgYmUKPj4gc2FmZWx5IHJl
+bW92ZWQsIGJ1dCB0aGVpciBwcmVzZW5jZSBxdWl0ZSBvZnRlbiBpbmRpY2F0ZXMgYnVncy4KPiAK
+PiBPciBzb21lb25lIGhhcyBsZWZ0IHRoZW0gaW4gYmVjYXVzZSB0aGV5IGRvbid0IG1hdHRlciBh
+bmQgdGhlcmUncyB0aGUKPiBwb3NzaWJpbGl0eSB0aGF0IHRoZSB0eXBlIGJlaW5nIHRlc3RlZCBt
+aWdodCBiZSBvciBiZWNvbWUgc2lnbmVkIHVuZGVyIHNvbWUKPiBjaXJjdW1zdGFuY2VzLiAgSWYg
+dGhlIGNvbXBhcmlzb24gaXMgdXNlbGVzcywgSSdkIGV4cGVjdCB0aGUgY29tcGlsZXIgdG8ganVz
+dAo+IGRpc2NhcmQgaXQgLSBmb3Igc3VjaCBjYXNlcyB5b3VyIHBhdGNoIGlzIHBvaW50bGVzcy4K
+PiAKPiBJZiBJIGhhdmUsIGZvciBleGFtcGxlOgo+IAo+IAl1bnNpZ25lZCB4Owo+IAo+IAlpZiAo
+eCA9PSAwIHx8IHggPiAyNykKPiAJCWdpdmVfYV9yYW5nZV9lcnJvcigpOwo+IAo+IEkgd2lsbCB3
+cml0ZSB0aGlzIGFzOgo+IAo+IAl1bnNpZ25lZCB4Owo+IAo+IAlpZiAoeCA8PSAwIHx8IHggPiAy
+NykKPiAJCWdpdmVfYV9yYW5nZV9lcnJvcigpOwo+IAo+IGJlY2F1c2UgaXQgdGhhdCBnaXZlcyBh
+IHdheSB0byBoYW5kbGUgeCBiZWluZyBjaGFuZ2VkIHRvIHNpZ25lZCBhdCBzb21lIHBvaW50Cj4g
+aW4gdGhlIGZ1dHVyZSBmb3Igbm8gY29zdC4gIEluIHdoaWNoIGNhc2UsIHlvdXIgY2hhbmdpbmcg
+dGhlIDw9IHRvIGFuID09Cj4gImJlY2F1c2UgdGhlIDwgcGFydCBvZiB0aGUgY2FzZSBpcyB1c2Vs
+ZXNzIiBpcyBhcmd1YWJseSB3cm9uZy4KClRoaXMgaXMgd2h5IEkgaGF2ZSBub3QgY2hlY2tlZCBm
+b3Igc3VjaCBjYXNlcyAtIEkgaGF2ZSBza2lwcGVkIGNoZWNrcyBvZiB0eXBlCgl1bnNpZ25lZCA8
+PSAwCmV4YWN0bHkgZm9yIHRoZSByZWFzb25zIGFib3ZlLgoKSG93ZXZlciBJIGhhdmUgbGVmdCB0
+d28gb3RoZXIgY2hlY2tzIGFzIHRoZXkgc2VlbXMgdG8gbWUgbW9yZSBzdXNwaWNpb3VzIC0gdGhl
+eQphcmUgYWx3YXlzIHRydWUgb3IgZmFsc2UuIEJ1dCBhcyBEbWl0cnkgYW5kIEFuZHJldyBwb2lu
+dGVkIG91dCBMaW51cyBoYXZlIHF1aXRlCnN0cm9uZyBvcGluaW9uIGFnYWluc3QgcmVtb3Zpbmcg
+cmFuZ2UgY2hlY2tzIGluIHN1Y2ggY2FzZXMgYXMgaGUgZmluZHMgaXQKY2xlYXJlci4gSSB0aGlu
+ayBpdCBhcHBsaWVzIHRvIHBhdGNoZXMgMjktMzYuIEkgYW0gbm90IHN1cmUgYWJvdXQgcGF0Y2hl
+cyAyNi0yOCwzNy4KClJlZ2FyZHMKQW5kcnplagoKPiAKPiBEYXZpZAo+IC0tCj4gVG8gdW5zdWJz
+Y3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LXdp
+cmVsZXNzIiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW8tdTc5dXdYTDI5
+VFk3Nloyck01bUhYQUBwdWJsaWMuZ21hbmUub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAg
+aHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCj4gCgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBs
+aXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cDovL2xpc3RzLmZyZWVkZXNr
+dG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVsLWdmeAo=
