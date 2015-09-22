@@ -1,139 +1,64 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the bluetooth tree
-Date: Tue, 22 Sep 2015 11:20:15 +1000
-Message-ID: <20150922112015.140547fb@canb.auug.org.au>
-References: <20150914101428.13d5ec2d@canb.auug.org.au>
-	<20150914102234.38df8b11@canb.auug.org.au>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: actually force the speed on the CPU port
+Date: Tue, 22 Sep 2015 03:18:54 +0200
+Message-ID: <20150922011854.GB20288@lunn.ch>
+References: <E1Ze7vP-00073u-57@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Aring <alex.aring@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Andrew Morton <akpm@linux-foundation.org>, marcel@holtmann.org
-To: Gustavo Padovan <gustavo@padovan.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150914102234.38df8b11@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:40909 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757437AbbIVB1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2015 21:27:03 -0400
+Content-Disposition: inline
+In-Reply-To: <E1Ze7vP-00073u-57@rmk-PC.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gustavo,
-
-On Mon, 14 Sep 2015 10:22:34 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> On Mon, 14 Sep 2015 10:14:28 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> >
-> > I applied the patches that Andrew has had in his post merge series
-> > (but I think you were sent a rolled up version):
+On Mon, Sep 21, 2015 at 09:42:59PM +0100, Russell King wrote:
+> Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
+> code into mv88e6xxx.") merged in the 4.2 merge window broke the link
+> speed forcing for the CPU port of Marvell DSA switches.  The original
+> code was:
 > 
-> Actually it was sent by Alexander to Marcel:
+>         /* MAC Forcing register: don't force link, speed, duplex
+>          * or flow control state to any particular values on physical
+>          * ports, but force the CPU port and all DSA ports to 1000 Mb/s
+>          * full duplex.
+>          */
+>         if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
+>                 REG_WRITE(addr, 0x01, 0x003e);
+>         else
+>                 REG_WRITE(addr, 0x01, 0x0003);
 > 
-> From: Alexander Aring <alex.aring@gmail.com>
-> To: marcel@holtmann.org
-> Cc: Andrew Morton <akpm@linux-foundation.org>,
-> 	Stephen Rothwell <sfr@canb.auug.org.au>,
-> 	Alexander Aring <alex.aring@gmail.com>,
-> 	Stefan Schmidt <stefan@osg.samsung.com>
-> Subject: [PATCH bluetooth-next] drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL
-> Date: Fri, 11 Sep 2015 11:23:30 +0200
-> Message-Id: <1441963410-24844-1-git-send-email-alex.aring@gmail.com>
-> X-Mailer: git-send-email 2.5.1
+> but the new code does a read-modify-write:
 > 
-> From: Andrew Morton <akpm@linux-foundation.org>
+>                 reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
+>                 if (dsa_is_cpu_port(ds, port) ||
+>                     ds->dsa_port_mask & (1 << port)) {
+>                         reg |= PORT_PCS_CTRL_FORCE_LINK |
+>                                 PORT_PCS_CTRL_LINK_UP |
+>                                 PORT_PCS_CTRL_DUPLEX_FULL |
+>                                 PORT_PCS_CTRL_FORCE_DUPLEX;
+>                         if (mv88e6xxx_6065_family(ds))
+>                                 reg |= PORT_PCS_CTRL_100;
+>                         else
+>                                 reg |= PORT_PCS_CTRL_1000;
 > 
-> I will shortly be sending
-> http://ozlabs.org/~akpm/mmots/broken-out/fs-seq_file-convert-int-seq_vprint-seq_printf-etc-returns-to-void.patch
-> to Linus.  This will cause the linux-next version of
-> drivers/net/ieee802154/at86rf230.c to break at compilation time.
+> The link speed in the PCS control register is a two bit field.  Forcing
+> the link speed in this way doesn't ensure that the bit field is set to
+> the correct value - on the hardware I have here, the speed bitfield
+> remains set to 0x03, resulting in the speed not being forced to gigabit.
 > 
-> Below is the fix.  I suggest you apply this immediately.
+> We must clear both bits before forcing the link speed.
 > 
-> Otherwise I'll try to remember to send this in after Alexander's
-> 890acf8330cac is merged.  But there will be a window during which the
-> build fails, and we'll get emails...
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Subject: drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL
+> Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-OK, this is now a problem for the net-next tree since the bluetooth
-tree was merged there :-(
+Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-Can someone please apply this patch?
+Thanks for fixing this Russell
 
-Hi Dave,
-
-An x64_64 allmodconfig build after merging the next-next tree breaks in
-linux-next due to the patch below not being applied to the bluetooth
-tree.  I have been applying the equivalent to the bluetooth tree merge
-in linux-next for a while now.
-
-[Patch repeated for Dave - this is from and email from Andrew via
-Alexander to Marcel which I forwarded to Gustavo]
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Alexander Aring <alex.aring@gmail.com>
-Cc: Stefan Schmidt <stefan@osg.samsung.com>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
----
- drivers/net/ieee802154/at86rf230.c | 35 ++++++++++-------------------------
- 1 file changed, 10 insertions(+), 25 deletions(-)
-
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index b8b0628..9756e64 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1645,32 +1645,17 @@ static struct dentry *at86rf230_debugfs_root;
- static int at86rf230_stats_show(struct seq_file *file, void *offset)
- {
- 	struct at86rf230_local *lp = file->private;
--	int ret;
--
--	ret = seq_printf(file, "SUCCESS:\t\t%8llu\n", lp->trac.success);
--	if (ret < 0)
--		return ret;
--
--	ret = seq_printf(file, "SUCCESS_DATA_PENDING:\t%8llu\n",
--			 lp->trac.success_data_pending);
--	if (ret < 0)
--		return ret;
--
--	ret = seq_printf(file, "SUCCESS_WAIT_FOR_ACK:\t%8llu\n",
--			 lp->trac.success_wait_for_ack);
--	if (ret < 0)
--		return ret;
--
--	ret = seq_printf(file, "CHANNEL_ACCESS_FAILURE:\t%8llu\n",
--			 lp->trac.channel_access_failure);
--	if (ret < 0)
--		return ret;
- 
--	ret = seq_printf(file, "NO_ACK:\t\t\t%8llu\n", lp->trac.no_ack);
--	if (ret < 0)
--		return ret;
--
--	return seq_printf(file, "INVALID:\t\t%8llu\n", lp->trac.invalid);
-+	seq_printf(file, "SUCCESS:\t\t%8llu\n", lp->trac.success);
-+	seq_printf(file, "SUCCESS_DATA_PENDING:\t%8llu\n",
-+		   lp->trac.success_data_pending);
-+	seq_printf(file, "SUCCESS_WAIT_FOR_ACK:\t%8llu\n",
-+		   lp->trac.success_wait_for_ack);
-+	seq_printf(file, "CHANNEL_ACCESS_FAILURE:\t%8llu\n",
-+		   lp->trac.channel_access_failure);
-+	seq_printf(file, "NO_ACK:\t\t\t%8llu\n", lp->trac.no_ack);
-+	seq_printf(file, "INVALID:\t\t%8llu\n", lp->trac.invalid);
-+	return 0;
- }
- 
- static int at86rf230_stats_open(struct inode *inode, struct file *file)
--- 
-2.5.1
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+       Andrew
