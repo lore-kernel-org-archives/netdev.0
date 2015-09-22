@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: add ethtool support to read and change
- RSS key
-Date: Tue, 22 Sep 2015 16:06:44 -0700 (PDT)
-Message-ID: <20150922.160644.138485112664023430.davem@davemloft.net>
-References: <1442614912.14037.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150922.145935.2262486270670808983.davem@davemloft.net>
+Subject: Re: [PATCH 18/38] net/ibm/emac: fix type of phy_mode
+Date: Tue, 22 Sep 2015 16:14:55 -0700 (PDT)
+Message-ID: <20150922.161455.856766780037928790.davem@davemloft.net>
+References: <1442842450-29769-1-git-send-email-a.hajda@samsung.com>
+	<1442842450-29769-19-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com,
+	m.szyprowski@samsung.com, ivan@ru.ibm.com, netdev@vger.kernel.org
+To: a.hajda@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36897 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36949 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751834AbbIVXGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:06:47 -0400
-In-Reply-To: <20150922.145935.2262486270670808983.davem@davemloft.net>
+	with ESMTP id S1752437AbbIVXO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:14:56 -0400
+In-Reply-To: <1442842450-29769-19-git-send-email-a.hajda@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyMiBT
-ZXAgMjAxNSAxNDo1OTozNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJp
-Yy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogRnJpLCAxOCBTZXAgMjAxNSAxNToyMTo1MiAt
-MDcwMA0KPiANCj4+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4+
-IA0KPj4gV2hpbGUgdHJ5aW5nIHRvIHVuZGVyc3RhbmQgd2h5IGJueDJ4IFJTUyBoYXNoIHdhcyBu
-b3QgbWF0Y2hpbmcNCj4+IFRvZXBsaXR6IHNwZWNpZmljYXRpb25zLCBJIGltcGxlbWVudGVkIGRy
-aXZlciBjb2RlIHRvIHN1cHBvcnQNCj4+IGV0aHRvb2wgLXh8LVggdG8gdHJ5IHZhcmlvdXMgUlNT
-IGtleSBjb21iaW5hdGlvbnMgZWFzaWx5Lg0KPj4gDQo+PiBUaGVuLCBhZnRlciBzb21lIGRlYnVn
-Z2luZywgSSB1bmRlcnN0b29kIGJueDJ4IHdhcyByZWFkaW5nIHRoZSByc3Nfa2V5DQo+PiBpbiBy
-ZXZlcnNlIG9yZGVyLg0KPj4gDQo+PiBJZiB3ZSB3YW50IGNvbnNpc3RlbnQgVG9lcGxpdHogaGFz
-aGVzIHdpdGggZGlmZmVyZW50IE5JQywgd2UgbmVlZA0KPj4gdG8gYnl0ZSBzd2FwIHVzZXIga2V5
-Lg0KPj4gDQo+PiBUZXN0ZWQ6DQo+ICAuLi4NCj4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpl
-dCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IEFwcGxpZWQsIHRoYW5rcyBFcmljLg0KDQpS
-ZXZlcnRpbmcsIHRoaXMgZG9lc24ndCBjb21waWxlOg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9i
-cm9hZGNvbS9ibngyeC9ibngyeF92ZnBmLmM6IEluIGZ1bmN0aW9uIKFibngyeF92ZnBmX2NvbmZp
-Z19yc3OiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfdmZwZi5j
-OjgxNDoyOTogZXJyb3I6IKFzdHJ1Y3QgYm54MnhfY29uZmlnX3Jzc19wYXJhbXOiIGhhcyBubyBt
-ZW1iZXIgbmFtZWQgoXJzc19rZXmiDQogIG1lbWNweShyZXEtPnJzc19rZXksIHBhcmFtcy0+cnNz
-X2tleSwgc2l6ZW9mKHBhcmFtcy0+cnNzX2tleSkpOw0KICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICBeDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF92ZnBmLmM6
-ODE0OjUzOiBlcnJvcjogoXN0cnVjdCBibngyeF9jb25maWdfcnNzX3BhcmFtc6IgaGFzIG5vIG1l
-bWJlciBuYW1lZCChcnNzX2tleaINCiAgbWVtY3B5KHJlcS0+cnNzX2tleSwgcGFyYW1zLT5yc3Nf
-a2V5LCBzaXplb2YocGFyYW1zLT5yc3Nfa2V5KSk7DQogICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2Fk
-Y29tL2JueDJ4L2JueDJ4X3ZmcGYuYzogSW4gZnVuY3Rpb24goWJueDJ4X3ZmX21ieF91cGRhdGVf
-cnNzojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3ZmcGYuYzox
-OTg4OjEyOiBlcnJvcjogoXN0cnVjdCBibngyeF9jb25maWdfcnNzX3BhcmFtc6IgaGFzIG5vIG1l
-bWJlciBuYW1lZCChcnNzX2tleaINCiAgbWVtY3B5KHJzcy5yc3Nfa2V5LCByc3NfdGx2LT5yc3Nf
-a2V5LCBzaXplb2YocnNzX3Rsdi0+cnNzX2tleSkpOw0KICAgICAgICAgICAgXg0K
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Mon, 21 Sep 2015 15:33:50 +0200
+
+> phy_mode can be negative.
+> 
+> The problem has been detected using proposed semantic patch
+> scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci [1].
+> 
+> [1]: http://permalink.gmane.org/gmane.linux.kernel/2038576
+> 
+> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+
+Applied.
