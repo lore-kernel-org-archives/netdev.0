@@ -1,48 +1,45 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: dsa: Fix Marvell Egress Trailer check
-Date: Tue, 22 Sep 2015 08:12:06 -0700
-Message-ID: <56016FC6.9030503@roeck-us.net>
-References: <56011F2E.5080208@baylibre.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
+Date: Tue, 22 Sep 2015 23:18:55 +0800
+Message-ID: <20150922151855.GA13218@gondor.apana.org.au>
+References: <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, dvyukov@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kcc@google.com,
+	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56011F2E.5080208@baylibre.com>
+Content-Disposition: inline
+In-Reply-To: <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/22/2015 02:28 AM, Neil Armstrong wrote:
-> The Marvell Egress rx trailer check must be fixed to
-> correctly detect bad bits in the third byte of the
-> Eggress trailer as described in the Table 28 of the
-> 88E6060 datasheet.
-> The current code incorrectly omits to check the third
-> byte and checks the fourth byte twice.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> What I said is :
+> 
+> In @head you already have the correct nulls value, from hash table.
+> 
+> You do not need to recompute this value, and/or test if hash table chain
+> is empty.
+> 
+> If hash bucket is empty, it contains the appropriate NULLS value.
+> 
+> If you are paranoiac add this debugging check :
+> 
+> if (rht_is_a_nulls(head))
+>    BUG_ON(head != (struct rhash_head *)rht_marker(ht, new_hash));
+> 
+> 
+> Therefore, simply fix the bug and unnecessary code with :
 
-Nice catch.
+Ack.  I remember seeing this when I was working on it but never
+got around to removing this bogosity.
 
-Acked-by: Guenter Roeck <linux@roeck-us.net>
-
-> ---
->   net/dsa/tag_trailer.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-> index e268f9d..d0526a9 100644
-> --- a/net/dsa/tag_trailer.c
-> +++ b/net/dsa/tag_trailer.c
-> @@ -84,7 +84,7 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
->
->   	trailer = skb_tail_pointer(skb) - 4;
->   	if (trailer[0] != 0x80 || (trailer[1] & 0xf8) != 0x00 ||
-> -	    (trailer[3] & 0xef) != 0x00 || trailer[3] != 0x00)
-> +	    (trailer[2] & 0xef) != 0x00 || trailer[3] != 0x00)
->   		goto out_drop;
->
->   	source_port = trailer[1] & 7;
->
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
