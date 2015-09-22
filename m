@@ -1,37 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] geneve: ensure ECN info is handled properly in all
- tx/rx paths
-Date: Tue, 22 Sep 2015 16:50:25 -0700 (PDT)
-Message-ID: <20150922.165025.2165471262567454938.davem@davemloft.net>
-References: <20150920.222459.2251924175671848436.davem@davemloft.net>
-	<1442845749-23978-1-git-send-email-linville@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
-To: linville@tuxdriver.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/17] fm10k: remove comment about rtnl_lock around mbx operations
+Date: Tue, 22 Sep 2015 16:54:20 -0700
+Message-ID: <1442966076-14359-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1442966076-14359-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37219 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759951AbbIVXu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:50:26 -0400
-In-Reply-To: <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
+Received: from mga14.intel.com ([192.55.52.115]:8434 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934146AbbIVXyi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 19:54:38 -0400
+In-Reply-To: <1442966076-14359-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 21 Sep 2015 10:29:09 -0400
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-> Partially due to a pre-exising "thinko", the new metadata-based tx/rx
-> paths were handling ECN propagation differently than the traditional
-> tx/rx paths.  This patch removes the "thinko" (involving multiple
-> ip_hdr assignments) on the rx path and corrects the ECN handling on
-> both the rx and tx paths.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> v3 -- replace "geneve: remove use of internal IP header when calling
-> 	IP_ECN_decapsulate", include geneve_xmit bits
-> v2 -- ensure the collect_md path still calls IP_ECN_decapsulate
+This comment is no longer true due to a couple of mailbox locking
+refactors, and we now don't actually do any rtnl protected operations
+directly in the mailbox path. Remove this comment as it is factually
+incorrect and confusing.
 
-Applied, thanks John.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 3d71c52..dfefd06 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -274,8 +274,6 @@ static void fm10k_watchdog_update_host_state(struct fm10k_intfc *interface)
+  * @interface: board private structure
+  *
+  * This function will process both the upstream and downstream mailboxes.
+- * It is necessary for us to hold the rtnl_lock while doing this as the
+- * mailbox accesses are protected by this lock.
+  **/
+ static void fm10k_mbx_subtask(struct fm10k_intfc *interface)
+ {
+@@ -498,7 +496,7 @@ static void fm10k_service_task(struct work_struct *work)
+ 
+ 	interface = container_of(work, struct fm10k_intfc, service_task);
+ 
+-	/* tasks always capable of running, but must be rtnl protected */
++	/* tasks run even when interface is down */
+ 	fm10k_mbx_subtask(interface);
+ 	fm10k_detach_subtask(interface);
+ 	fm10k_reset_subtask(interface);
+-- 
+2.4.3
