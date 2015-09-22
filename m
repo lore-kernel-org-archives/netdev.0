@@ -1,29 +1,42 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Subject: Re: [PATCH] ch9200: Convert to use module_usb_driver
-Date: Tue, 22 Sep 2015 08:31:59 +0100
-Message-ID: <20150922073159.GA28236@srcf.ucam.org>
-References: <1442906989-10664-1-git-send-email-tklauser@distanz.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
+Date: Tue, 22 Sep 2015 10:19:58 +0200
+Message-ID: <20150922081958.GC13047@pox.localdomain>
+References: <1442822930-35319-1-git-send-email-dvyukov@google.com>
+ <1442842315.29850.44.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1442847108.29850.56.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150921222538.GA31246@pox.localdomain>
+ <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([93.93.128.6]:47684 "EHLO
-	cavan.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139AbbIVILl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 04:11:41 -0400
+Cc: Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kcc@google.com,
+	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1442906989-10664-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 22, 2015 at 09:29:49AM +0200, Tobias Klauser wrote:
-> Converts the ch9200 driver to use the module_usb_driver() macro which
-> makes the code smaller and a bit simpler.
+On 09/21/15 at 04:03pm, Eric Dumazet wrote:
+> What I said is :
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-Acked-by: Matthew Garrett <mjg59@srcf.ucam.org>
+> In @head you already have the correct nulls value, from hash table.
+> 
+> You do not need to recompute this value, and/or test if hash table chain
+> is empty.
+> 
+> If hash bucket is empty, it contains the appropriate NULLS value.
+> 
+> If you are paranoiac add this debugging check :
+> 
+> if (rht_is_a_nulls(head))
+>     BUG_ON(head != (struct rhash_head *)rht_marker(ht, new_hash));
+> 
+> 
+> Therefore, simply fix the bug and unnecessary code with :
 
--- 
-Matthew Garrett | mjg59@srcf.ucam.org
+You are absolutely right Eric. Do you want to revise your patch Dmitry?
+Eric's proposed fix absolutely the best way to fix this.
