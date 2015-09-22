@@ -1,75 +1,44 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: 4.1.0, kernel panic, =?UTF-8?Q?pppoe=5Frelease?=
-Date: Tue, 22 Sep 2015 04:47:48 +0300
-Message-ID: <9392178bf13d2814e19b1756cd204d73@visp.net.lb>
-References: <677da51dbac367fcb7a456de2789334b@visp.net.lb>
- <c6e2cb4002bf11ad7a25be8eeded2dc1@visp.net.lb>
- <1437147400.5437.4.camel@redhat.com>
- <de4b28603ef7bcaea7aeca73dab80079@visp.net.lb>
- <20150910155657.GC3661@alphalink.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: Handle negative checksum offset in
+ skb-checksum-help
+Date: Mon, 21 Sep 2015 19:14:16 -0700
+Message-ID: <1442888056.29850.70.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442818397-2210-1-git-send-email-pshelar@nicira.com>
+	 <20150921.171412.613695619204829336.davem@davemloft.net>
+	 <CALnjE+owCFib4oXD5zbJNRR9ZosT508tS=0_YL3UD1xg51hD3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, Netdev <netdev@vger.kernel.org>,
-	ebiederm@xmission.com, davem@davemloft.net, simon@farnz.org.uk,
-	develop@kristov.de
-To: Guillaume Nault <g.nault@alphalink.fr>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:33904 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932198AbbIVBx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 21:53:28 -0400
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id D3C6248020B
-	for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 04:47:48 +0300 (EEST)
-In-Reply-To: <20150910155657.GC3661@alphalink.fr>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34524 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757618AbbIVCOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 22:14:18 -0400
+Received: by padhy16 with SMTP id hy16so133010809pad.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 19:14:18 -0700 (PDT)
+In-Reply-To: <CALnjE+owCFib4oXD5zbJNRR9ZosT508tS=0_YL3UD1xg51hD3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-Sorry for late reply, was not able to push new kernel on pppoes without 
-permissions (it's production servers), just got OK.
+On Mon, 2015-09-21 at 18:04 -0700, Pravin Shelar wrote:
+> On Mon, Sep 21, 2015 at 5:14 PM, David Miller <davem@davemloft.net> wrote:
+> > From: Pravin B Shelar <pshelar@nicira.com>
+> > Date: Sun, 20 Sep 2015 23:53:17 -0700
+> >
+> >> VXLAN device can receive skb with checksum partial. But the checksum
+> >> offset could be in outer header which is pulled on receive.
+> >
+> > Such a scenerio is a bug.
+> >
+> > Anything that pulls off a header should use a utility function such
+> > as skb_pull_rcsum() or skb_postpull_rcsum() to make sure this gets
+> > fixed up properly.
+> 
+> skb_postpull_rcsum() does not change checksum-offset. vxlan receive
+> already calls this function.
 
-I am testing patch on another pppoe server with 9k users, for ~3 days, 
-seems fine. I will test today
-also on server that was experiencing crashes within 1 day.
+Then the bug is here.
 
-On 2015-09-10 18:56, Guillaume Nault wrote:
-> On Fri, Jul 17, 2015 at 09:16:14PM +0300, Denys Fedoryshchenko wrote:
->> Probably my knowledge of kernel is not sufficient, but i will try few
->> approaches.
->> One of them to add to pppoe_unbind_sock_work:
->> 
->>         pppox_unbind_sock(sk);
->>         +/* Signal the death of the socket. */
->>         +sk->sk_state = PPPOX_DEAD;
->> 
-> I don't believe this will fix anything. pppox_unbind_sock() already
-> sets sk->sk_state when necessary.
-> 
->> I will wait first, to make sure this patch was causing kernel panic 
->> (it
->> needs 24h testing cycle), then i will try this fix.
->> 
-> I suspect the problem goes with actions performed on the underlying
-> interface (MAC address, MTU or link state update). This triggers
-> pppoe_flush_dev(), which cleans up the device without announcing it
-> in sk->sk_state.
-> 
-> Can you pleas try the following patch?
-> 
-> ---
-> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-> index 3837ae3..2ed7506 100644
-> --- a/drivers/net/ppp/pppoe.c
-> +++ b/drivers/net/ppp/pppoe.c
-> @@ -313,7 +313,6 @@ static void pppoe_flush_dev(struct net_device *dev)
->  			if (po->pppoe_dev == dev &&
->  			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND | PPPOX_ZOMBIE)) 
-> {
->  				pppox_unbind_sock(sk);
-> -				sk->sk_state = PPPOX_ZOMBIE;
->  				sk->sk_state_change(sk);
->  				po->pppoe_dev = NULL;
->  				dev_put(dev);
+Otherwise we might have to 'fix' other places.
