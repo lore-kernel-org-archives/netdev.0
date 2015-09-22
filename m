@@ -1,32 +1,36 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v3] geneve: ensure ECN info is handled properly in all
- tx/rx paths
-Date: Mon, 21 Sep 2015 18:11:06 -0700
-Message-ID: <CAEP_g=8Sf351oYJ240PBfpm+TCirCr=9tbDtMOAi3d7GD99ZVQ@mail.gmail.com>
-References: <20150920.222459.2251924175671848436.davem@davemloft.net> <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
+Subject: Re: [PATCH net] openvswitch: Zero flows on allocation.
+Date: Mon, 21 Sep 2015 18:11:34 -0700
+Message-ID: <CAEP_g=9j-JwN6Ufc23jczaP4kGYoLi-5fL_pmqi1BAeV=N_heg@mail.gmail.com>
+References: <1442628374-57025-1-git-send-email-jesse@nicira.com> <20150920.232400.1768865193135146379.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:33907 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753650AbbIVBL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 21:11:27 -0400
-Received: by lahg1 with SMTP id g1so79529400lah.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 18:11:26 -0700 (PDT)
-In-Reply-To: <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:36862 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754284AbbIVBLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 21:11:55 -0400
+Received: by lanb10 with SMTP id b10so78506176lan.3
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 18:11:54 -0700 (PDT)
+In-Reply-To: <20150920.232400.1768865193135146379.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2015 at 7:29 AM, John W. Linville
-<linville@tuxdriver.com> wrote:
-> Partially due to a pre-exising "thinko", the new metadata-based tx/rx
-> paths were handling ECN propagation differently than the traditional
-> tx/rx paths.  This patch removes the "thinko" (involving multiple
-> ip_hdr assignments) on the rx path and corrects the ECN handling on
-> both the rx and tx paths.
+On Sun, Sep 20, 2015 at 11:24 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Fri, 18 Sep 2015 19:06:14 -0700
 >
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>> @@ -80,7 +80,7 @@ struct sw_flow *ovs_flow_alloc(void)
+>>       struct flow_stats *stats;
+>>       int node;
+>>
+>> -     flow = kmem_cache_alloc(flow_cache, GFP_KERNEL);
+>> +     flow = kmem_cache_alloc(flow_cache, GFP_KERNEL | __GFP_ZERO);
+>>       if (!flow)
+>
+> Like Eric, I prefer that you use kmem_cache_zalloc() to fix
+> this.
 
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+Sure, I'll make both changes and send out a new patch in a bit.
