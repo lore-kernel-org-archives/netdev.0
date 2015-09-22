@@ -1,36 +1,32 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] net: Handle negative checksum offset in skb-checksum-help
-Date: Mon, 21 Sep 2015 18:04:14 -0700
-Message-ID: <CALnjE+owCFib4oXD5zbJNRR9ZosT508tS=0_YL3UD1xg51hD3g@mail.gmail.com>
-References: <1442818397-2210-1-git-send-email-pshelar@nicira.com>
-	<20150921.171412.613695619204829336.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v3] geneve: ensure ECN info is handled properly in all
+ tx/rx paths
+Date: Mon, 21 Sep 2015 18:11:06 -0700
+Message-ID: <CAEP_g=8Sf351oYJ240PBfpm+TCirCr=9tbDtMOAi3d7GD99ZVQ@mail.gmail.com>
+References: <20150920.222459.2251924175671848436.davem@davemloft.net> <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:35185 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756529AbbIVBEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 21:04:15 -0400
-Received: by igbkq10 with SMTP id kq10so72118801igb.0
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 18:04:15 -0700 (PDT)
-In-Reply-To: <20150921.171412.613695619204829336.davem@davemloft.net>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:33907 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753650AbbIVBL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 21:11:27 -0400
+Received: by lahg1 with SMTP id g1so79529400lah.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 18:11:26 -0700 (PDT)
+In-Reply-To: <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2015 at 5:14 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Sun, 20 Sep 2015 23:53:17 -0700
+On Mon, Sep 21, 2015 at 7:29 AM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> Partially due to a pre-exising "thinko", the new metadata-based tx/rx
+> paths were handling ECN propagation differently than the traditional
+> tx/rx paths.  This patch removes the "thinko" (involving multiple
+> ip_hdr assignments) on the rx path and corrects the ECN handling on
+> both the rx and tx paths.
 >
->> VXLAN device can receive skb with checksum partial. But the checksum
->> offset could be in outer header which is pulled on receive.
->
-> Such a scenerio is a bug.
->
-> Anything that pulls off a header should use a utility function such
-> as skb_pull_rcsum() or skb_postpull_rcsum() to make sure this gets
-> fixed up properly.
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-skb_postpull_rcsum() does not change checksum-offset. vxlan receive
-already calls this function.
+Reviewed-by: Jesse Gross <jesse@nicira.com>
