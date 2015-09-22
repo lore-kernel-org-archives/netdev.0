@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] 8139cp: Do not re-enable RX interrupts in
- cp_tx_timeout()
-Date: Tue, 22 Sep 2015 16:46:05 -0700 (PDT)
-Message-ID: <20150922.164605.1844169715316631068.davem@davemloft.net>
-References: <1442843991.7367.4.camel@infradead.org>
-	<1442844127.7367.11.camel@infradead.org>
+Subject: Re: [PATCH v3] geneve: ensure ECN info is handled properly in all
+ tx/rx paths
+Date: Tue, 22 Sep 2015 16:50:25 -0700 (PDT)
+Message-ID: <20150922.165025.2165471262567454938.davem@davemloft.net>
+References: <20150920.222459.2251924175671848436.davem@davemloft.net>
+	<1442845749-23978-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: dwmw2@infradead.org
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37194 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37219 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758811AbbIVXqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:46:06 -0400
-In-Reply-To: <1442844127.7367.11.camel@infradead.org>
+	with ESMTP id S1759951AbbIVXu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:50:26 -0400
+In-Reply-To: <1442845749-23978-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Mon, 21 Sep 2015 15:02:07 +0100
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 21 Sep 2015 10:29:09 -0400
 
-> From: David Woodhouse <David.Woodhouse@intel.com>
+> Partially due to a pre-exising "thinko", the new metadata-based tx/rx
+> paths were handling ECN propagation differently than the traditional
+> tx/rx paths.  This patch removes the "thinko" (involving multiple
+> ip_hdr assignments) on the rx path and corrects the ECN handling on
+> both the rx and tx paths.
 > 
-> If an RX interrupt was already received but NAPI has not yet run when
-> the RX timeout happens, we end up in cp_tx_timeout() with RX interrupts
-> already disabled. Blindly re-enabling them will cause an IRQ storm.
-> 
-> This is somewhat less painful than it was a few minutes ago before I
-> fixed the return value from cp_interrupt(), but still suboptimal.
-> 
-> Unconditionally leave RX interrupts disabled after the reset, and
-> schedule NAPI to check the receive ring and re-enable them.
-> 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> ---
+> v3 -- replace "geneve: remove use of internal IP header when calling
+> 	IP_ECN_decapsulate", include geneve_xmit bits
+> v2 -- ensure the collect_md path still calls IP_ECN_decapsulate
 
-As I said, if this makes your IRQ storms go away then therefore it
-obviates the need for patch #1.
+Applied, thanks John.
