@@ -1,303 +1,208 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 26/30] netfilter: nf_conntrack: Add a struct net parameter to l4_pkt_to_tuple
-Date: Tue, 22 Sep 2015 11:14:16 +0200
-Message-ID: <1442913260-3925-27-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/30] netfilter: Pass net to nf_dup_ipv4 and nf_dup_ipv6
+Date: Tue, 22 Sep 2015 11:14:14 +0200
+Message-ID: <1442913260-3925-25-git-send-email-pablo@netfilter.org>
 References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35141 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932487AbbIVJH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 05:07:59 -0400
 In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-As gre does not have the srckey in the packet gre_pkt_to_tuple
-needs to perform a lookup in it's per network namespace tables.
-
-Pass in the proper network namespace to all pkt_to_tuple
-implementations to ensure gre (and any similar protocols) can get this
-right.
+This allows them to stop guessing the network namespace with pick_net.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h           |    3 ++-
- include/net/netfilter/nf_conntrack_core.h      |    1 +
- include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    4 ++--
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    3 ++-
- net/netfilter/nf_conntrack_core.c              |   10 ++++++----
- net/netfilter/nf_conntrack_proto_dccp.c        |    2 +-
- net/netfilter/nf_conntrack_proto_generic.c     |    2 +-
- net/netfilter/nf_conntrack_proto_gre.c         |    3 +--
- net/netfilter/nf_conntrack_proto_sctp.c        |    2 +-
- net/netfilter/nf_conntrack_proto_tcp.c         |    2 +-
- net/netfilter/nf_conntrack_proto_udp.c         |    1 +
- net/netfilter/nf_conntrack_proto_udplite.c     |    1 +
- net/netfilter/xt_connlimit.c                   |    2 +-
- net/openvswitch/conntrack.c                    |    2 +-
- net/sched/act_connmark.c                       |    2 +-
- 16 files changed, 24 insertions(+), 18 deletions(-)
+ include/net/netfilter/ipv4/nf_dup_ipv4.h |    2 +-
+ include/net/netfilter/ipv6/nf_dup_ipv6.h |    2 +-
+ net/ipv4/netfilter/nf_dup_ipv4.c         |   23 ++++-------------------
+ net/ipv4/netfilter/nft_dup_ipv4.c        |    2 +-
+ net/ipv6/netfilter/nf_dup_ipv6.c         |   23 ++++-------------------
+ net/ipv6/netfilter/nft_dup_ipv6.c        |    2 +-
+ net/netfilter/xt_TEE.c                   |    4 ++--
+ 7 files changed, 14 insertions(+), 44 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index e8ad468..d642f68 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -191,7 +191,8 @@ int nf_conntrack_hash_check_insert(struct nf_conn *ct);
- bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
+diff --git a/include/net/netfilter/ipv4/nf_dup_ipv4.h b/include/net/netfilter/ipv4/nf_dup_ipv4.h
+index 42008f1..0a14733 100644
+--- a/include/net/netfilter/ipv4/nf_dup_ipv4.h
++++ b/include/net/netfilter/ipv4/nf_dup_ipv4.h
+@@ -1,7 +1,7 @@
+ #ifndef _NF_DUP_IPV4_H_
+ #define _NF_DUP_IPV4_H_
  
- bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
--		       u_int16_t l3num, struct nf_conntrack_tuple *tuple);
-+		       u_int16_t l3num, struct net *net,
-+		       struct nf_conntrack_tuple *tuple);
- bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
- 			  const struct nf_conntrack_tuple *orig);
+-void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in_addr *gw, int oif);
  
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index c03f9c4..788ef58 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -41,6 +41,7 @@ void nf_conntrack_cleanup_end(void);
+ #endif /* _NF_DUP_IPV4_H_ */
+diff --git a/include/net/netfilter/ipv6/nf_dup_ipv6.h b/include/net/netfilter/ipv6/nf_dup_ipv6.h
+index ed6bd66..fa6237b 100644
+--- a/include/net/netfilter/ipv6/nf_dup_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_dup_ipv6.h
+@@ -1,7 +1,7 @@
+ #ifndef _NF_DUP_IPV6_H_
+ #define _NF_DUP_IPV6_H_
  
- bool nf_ct_get_tuple(const struct sk_buff *skb, unsigned int nhoff,
- 		     unsigned int dataoff, u_int16_t l3num, u_int8_t protonum,
-+		     struct net *net,
- 		     struct nf_conntrack_tuple *tuple,
- 		     const struct nf_conntrack_l3proto *l3proto,
- 		     const struct nf_conntrack_l4proto *l4proto);
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index 1f70613..956d8a6 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -26,7 +26,7 @@ struct nf_conntrack_l4proto {
- 	/* Try to fill in the third arg: dataoff is offset past network protocol
-            hdr.  Return true if possible. */
- 	bool (*pkt_to_tuple)(const struct sk_buff *skb, unsigned int dataoff,
--			     struct nf_conntrack_tuple *tuple);
-+			     struct net *net, struct nf_conntrack_tuple *tuple);
+-void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in6_addr *gw, int oif);
  
- 	/* Invert the per-proto part of the tuple: ie. turn xmit into reply.
- 	 * Some packets can't be inverted: return 0 in that case.
-diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index cdde3ec..c567e1b 100644
---- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -30,7 +30,7 @@ static inline struct nf_icmp_net *icmp_pernet(struct net *net)
+ #endif /* _NF_DUP_IPV6_H_ */
+diff --git a/net/ipv4/netfilter/nf_dup_ipv4.c b/net/ipv4/netfilter/nf_dup_ipv4.c
+index 2d79e6e..ce2a59e 100644
+--- a/net/ipv4/netfilter/nf_dup_ipv4.c
++++ b/net/ipv4/netfilter/nf_dup_ipv4.c
+@@ -23,25 +23,10 @@
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
+ 
+-static struct net *pick_net(struct sk_buff *skb)
+-{
+-#ifdef CONFIG_NET_NS
+-	const struct dst_entry *dst;
+-
+-	if (skb->dev != NULL)
+-		return dev_net(skb->dev);
+-	dst = skb_dst(skb);
+-	if (dst != NULL && dst->dev != NULL)
+-		return dev_net(dst->dev);
+-#endif
+-	return &init_net;
+-}
+-
+-static bool nf_dup_ipv4_route(struct sk_buff *skb, const struct in_addr *gw,
+-			      int oif)
++static bool nf_dup_ipv4_route(struct net *net, struct sk_buff *skb,
++			      const struct in_addr *gw, int oif)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+-	struct net *net = pick_net(skb);
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
+ 
+@@ -65,7 +50,7 @@ static bool nf_dup_ipv4_route(struct sk_buff *skb, const struct in_addr *gw,
+ 	return true;
  }
  
- static bool icmp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
--			      struct nf_conntrack_tuple *tuple)
-+			      struct net *net, struct nf_conntrack_tuple *tuple)
+-void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in_addr *gw, int oif)
  {
- 	const struct icmphdr *hp;
- 	struct icmphdr _hdr;
-@@ -144,7 +144,7 @@ icmp_error_message(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
- 	if (!nf_ct_get_tuplepr(skb,
- 			       skb_network_offset(skb) + ip_hdrlen(skb)
- 						       + sizeof(struct icmphdr),
--			       PF_INET, &origtuple)) {
-+			       PF_INET, net, &origtuple)) {
- 		pr_debug("icmp_error_message: failed to get tuple\n");
- 		return -NF_ACCEPT;
+ 	struct iphdr *iph;
+@@ -105,7 +90,7 @@ void nf_dup_ipv4(struct sk_buff *skb, unsigned int hooknum,
+ 		--iph->ttl;
+ 	ip_send_check(iph);
+ 
+-	if (nf_dup_ipv4_route(skb, gw, oif)) {
++	if (nf_dup_ipv4_route(net, skb, gw, oif)) {
+ 		__this_cpu_write(nf_skb_duplicated, true);
+ 		ip_local_out(skb);
+ 		__this_cpu_write(nf_skb_duplicated, false);
+diff --git a/net/ipv4/netfilter/nft_dup_ipv4.c b/net/ipv4/netfilter/nft_dup_ipv4.c
+index 30bcf82..bf855e6 100644
+--- a/net/ipv4/netfilter/nft_dup_ipv4.c
++++ b/net/ipv4/netfilter/nft_dup_ipv4.c
+@@ -30,7 +30,7 @@ static void nft_dup_ipv4_eval(const struct nft_expr *expr,
+ 	};
+ 	int oif = regs->data[priv->sreg_dev];
+ 
+-	nf_dup_ipv4(pkt->skb, pkt->hook, &gw, oif);
++	nf_dup_ipv4(pkt->net, pkt->skb, pkt->hook, &gw, oif);
+ }
+ 
+ static int nft_dup_ipv4_init(const struct nft_ctx *ctx,
+diff --git a/net/ipv6/netfilter/nf_dup_ipv6.c b/net/ipv6/netfilter/nf_dup_ipv6.c
+index c8ab626..ee0d9a5 100644
+--- a/net/ipv6/netfilter/nf_dup_ipv6.c
++++ b/net/ipv6/netfilter/nf_dup_ipv6.c
+@@ -19,25 +19,10 @@
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
+ 
+-static struct net *pick_net(struct sk_buff *skb)
+-{
+-#ifdef CONFIG_NET_NS
+-	const struct dst_entry *dst;
+-
+-	if (skb->dev != NULL)
+-		return dev_net(skb->dev);
+-	dst = skb_dst(skb);
+-	if (dst != NULL && dst->dev != NULL)
+-		return dev_net(dst->dev);
+-#endif
+-	return &init_net;
+-}
+-
+-static bool nf_dup_ipv6_route(struct sk_buff *skb, const struct in6_addr *gw,
+-			      int oif)
++static bool nf_dup_ipv6_route(struct net *net, struct sk_buff *skb,
++			      const struct in6_addr *gw, int oif)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+-	struct net *net = pick_net(skb);
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6;
+ 
+@@ -61,7 +46,7 @@ static bool nf_dup_ipv6_route(struct sk_buff *skb, const struct in6_addr *gw,
+ 	return true;
+ }
+ 
+-void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
++void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 		 const struct in6_addr *gw, int oif)
+ {
+ 	if (this_cpu_read(nf_skb_duplicated))
+@@ -81,7 +66,7 @@ void nf_dup_ipv6(struct sk_buff *skb, unsigned int hooknum,
+ 		struct ipv6hdr *iph = ipv6_hdr(skb);
+ 		--iph->hop_limit;
  	}
-diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 0e6fae1..d3b7974 100644
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -36,6 +36,7 @@ static inline struct nf_icmp_net *icmpv6_pernet(struct net *net)
+-	if (nf_dup_ipv6_route(skb, gw, oif)) {
++	if (nf_dup_ipv6_route(net, skb, gw, oif)) {
+ 		__this_cpu_write(nf_skb_duplicated, true);
+ 		ip6_local_out(skb);
+ 		__this_cpu_write(nf_skb_duplicated, false);
+diff --git a/net/ipv6/netfilter/nft_dup_ipv6.c b/net/ipv6/netfilter/nft_dup_ipv6.c
+index c81204f..8bfd470 100644
+--- a/net/ipv6/netfilter/nft_dup_ipv6.c
++++ b/net/ipv6/netfilter/nft_dup_ipv6.c
+@@ -28,7 +28,7 @@ static void nft_dup_ipv6_eval(const struct nft_expr *expr,
+ 	struct in6_addr *gw = (struct in6_addr *)&regs->data[priv->sreg_addr];
+ 	int oif = regs->data[priv->sreg_dev];
  
- static bool icmpv6_pkt_to_tuple(const struct sk_buff *skb,
- 				unsigned int dataoff,
-+				struct net *net,
- 				struct nf_conntrack_tuple *tuple)
- {
- 	const struct icmp6hdr *hp;
-@@ -159,7 +160,7 @@ icmpv6_error_message(struct net *net, struct nf_conn *tmpl,
- 			       skb_network_offset(skb)
- 				+ sizeof(struct ipv6hdr)
- 				+ sizeof(struct icmp6hdr),
--			       PF_INET6, &origtuple)) {
-+			       PF_INET6, net, &origtuple)) {
- 		pr_debug("icmpv6_error: Can't get tuple\n");
- 		return -NF_ACCEPT;
- 	}
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index c09d6c7..09d1d19 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -168,6 +168,7 @@ nf_ct_get_tuple(const struct sk_buff *skb,
- 		unsigned int dataoff,
- 		u_int16_t l3num,
- 		u_int8_t protonum,
-+		struct net *net,
- 		struct nf_conntrack_tuple *tuple,
- 		const struct nf_conntrack_l3proto *l3proto,
- 		const struct nf_conntrack_l4proto *l4proto)
-@@ -181,12 +182,13 @@ nf_ct_get_tuple(const struct sk_buff *skb,
- 	tuple->dst.protonum = protonum;
- 	tuple->dst.dir = IP_CT_DIR_ORIGINAL;
- 
--	return l4proto->pkt_to_tuple(skb, dataoff, tuple);
-+	return l4proto->pkt_to_tuple(skb, dataoff, net, tuple);
- }
- EXPORT_SYMBOL_GPL(nf_ct_get_tuple);
- 
- bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
--		       u_int16_t l3num, struct nf_conntrack_tuple *tuple)
-+		       u_int16_t l3num,
-+		       struct net *net, struct nf_conntrack_tuple *tuple)
- {
- 	struct nf_conntrack_l3proto *l3proto;
- 	struct nf_conntrack_l4proto *l4proto;
-@@ -205,7 +207,7 @@ bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
- 
- 	l4proto = __nf_ct_l4proto_find(l3num, protonum);
- 
--	ret = nf_ct_get_tuple(skb, nhoff, protoff, l3num, protonum, tuple,
-+	ret = nf_ct_get_tuple(skb, nhoff, protoff, l3num, protonum, net, tuple,
- 			      l3proto, l4proto);
- 
- 	rcu_read_unlock();
-@@ -1029,7 +1031,7 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 	u32 hash;
- 
- 	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
--			     dataoff, l3num, protonum, &tuple, l3proto,
-+			     dataoff, l3num, protonum, net, &tuple, l3proto,
- 			     l4proto)) {
- 		pr_debug("resolve_normal_ct: Can't get tuple\n");
- 		return NULL;
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 6dd995c..fce1b1c 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -398,7 +398,7 @@ static inline struct dccp_net *dccp_pernet(struct net *net)
+-	nf_dup_ipv6(pkt->skb, pkt->hook, gw, oif);
++	nf_dup_ipv6(pkt->net, pkt->skb, pkt->hook, gw, oif);
  }
  
- static bool dccp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
--			      struct nf_conntrack_tuple *tuple)
-+			      struct net *net, struct nf_conntrack_tuple *tuple)
+ static int nft_dup_ipv6_init(const struct nft_ctx *ctx,
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index fd980aa..899b061 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -32,7 +32,7 @@ tee_tg4(struct sk_buff *skb, const struct xt_action_param *par)
  {
- 	struct dccp_hdr _hdr, *dh;
+ 	const struct xt_tee_tginfo *info = par->targinfo;
  
-diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index 2281be4..86dc752 100644
---- a/net/netfilter/nf_conntrack_proto_generic.c
-+++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -45,7 +45,7 @@ static inline struct nf_generic_net *generic_pernet(struct net *net)
+-	nf_dup_ipv4(skb, par->hooknum, &info->gw.in, info->priv->oif);
++	nf_dup_ipv4(par->net, skb, par->hooknum, &info->gw.in, info->priv->oif);
  
- static bool generic_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
--				 struct nf_conntrack_tuple *tuple)
-+				 struct net *net, struct nf_conntrack_tuple *tuple)
- {
- 	tuple->src.u.all = 0;
- 	tuple->dst.u.all = 0;
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 7648674..a96451a 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -190,9 +190,8 @@ static bool gre_invert_tuple(struct nf_conntrack_tuple *tuple,
- 
- /* gre hdr info to tuple */
- static bool gre_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
--			     struct nf_conntrack_tuple *tuple)
-+			     struct net *net, struct nf_conntrack_tuple *tuple)
- {
--	struct net *net = dev_net(skb->dev ? skb->dev : skb_dst(skb)->dev);
- 	const struct gre_hdr_pptp *pgrehdr;
- 	struct gre_hdr_pptp _pgrehdr;
- 	__be16 srckey;
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index 6719773..9578a7c 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -156,7 +156,7 @@ static inline struct sctp_net *sctp_pernet(struct net *net)
+ 	return XT_CONTINUE;
  }
- 
- static bool sctp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
--			      struct nf_conntrack_tuple *tuple)
-+			      struct net *net, struct nf_conntrack_tuple *tuple)
+@@ -43,7 +43,7 @@ tee_tg6(struct sk_buff *skb, const struct xt_action_param *par)
  {
- 	const struct sctphdr *hp;
- 	struct sctphdr _hdr;
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 70383de..278f3b9 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -277,7 +277,7 @@ static inline struct nf_tcp_net *tcp_pernet(struct net *net)
+ 	const struct xt_tee_tginfo *info = par->targinfo;
+ 
+-	nf_dup_ipv6(skb, par->hooknum, &info->gw.in6, info->priv->oif);
++	nf_dup_ipv6(par->net, skb, par->hooknum, &info->gw.in6, info->priv->oif);
+ 
+ 	return XT_CONTINUE;
  }
- 
- static bool tcp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
--			     struct nf_conntrack_tuple *tuple)
-+			     struct net *net, struct nf_conntrack_tuple *tuple)
- {
- 	const struct tcphdr *hp;
- 	struct tcphdr _hdr;
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 6957281..478f92f 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -38,6 +38,7 @@ static inline struct nf_udp_net *udp_pernet(struct net *net)
- 
- static bool udp_pkt_to_tuple(const struct sk_buff *skb,
- 			     unsigned int dataoff,
-+			     struct net *net,
- 			     struct nf_conntrack_tuple *tuple)
- {
- 	const struct udphdr *hp;
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index c5903d1..1ac8ee1 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -48,6 +48,7 @@ static inline struct udplite_net *udplite_pernet(struct net *net)
- 
- static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
-+				 struct net *net,
- 				 struct nf_conntrack_tuple *tuple)
- {
- 	const struct udphdr *hp;
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 213db25..99bbc82 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -332,7 +332,7 @@ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 		tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
- 		zone = nf_ct_zone(ct);
- 	} else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
--				    par->family, &tuple)) {
-+				      par->family, net, &tuple)) {
- 		goto hotdrop;
- 	}
- 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index e8e524a..aaf5cbd 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -345,7 +345,7 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
- {
- 	struct nf_conntrack_tuple tuple;
- 
--	if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb), proto, &tuple))
-+	if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb), proto, net, &tuple))
- 		return NULL;
- 	return __nf_ct_expect_find(net, zone, &tuple);
- }
-diff --git a/net/sched/act_connmark.c b/net/sched/act_connmark.c
-index 413ac39..bb41699 100644
---- a/net/sched/act_connmark.c
-+++ b/net/sched/act_connmark.c
-@@ -68,7 +68,7 @@ static int tcf_connmark(struct sk_buff *skb, const struct tc_action *a,
- 	}
- 
- 	if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
--			       proto, &tuple))
-+			       proto, ca->net, &tuple))
- 		goto out;
- 
- 	zone.id = ca->zone;
 -- 
 1.7.10.4
-
