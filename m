@@ -1,210 +1,116 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 1/2] ipv4: send arp replies to the correct tunnel
-Date: Tue, 22 Sep 2015 18:12:11 +0200
-Message-ID: <cd7f171ada2f0933687fd2a987885aa9af7a7f9c.1442936392.git.jbenc@redhat.com>
-References: <cover.1442936392.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34020 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758136AbbIVQMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2015 12:12:34 -0400
-In-Reply-To: <cover.1442936392.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: [PATCH v2 0/9] Phy, mdiobus, and netdev struct device fixes
+Date: Tue, 22 Sep 2015 17:17:10 +0100
+Message-ID: <20150922161710.GA21084@n2100.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Soren Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When using ip lwtunnels, the additional data for xmit (basically, the actual
-tunnel to use) are carried in ip_tunnel_info either in dst->lwtstate or in
-metadata dst. When replying to ARP requests, we need to send the reply to
-the same tunnel the request came from. This means we need to construct
-proper metadata dst for ARP replies.
+This is the second version of the series, with the comments David had
+on the first patch fixed up.  Original series description with updated
+diffstat below.
 
-We could perform another route lookup to get a dst entry with the correct
-lwtstate. However, this won't always ensure that the outgoing tunnel is the
-same as the incoming one, and it won't work anyway for IPv4 duplicate
-address detection.
+While looking at the DSA code, I noticed we have a
+of_find_net_device_by_node(), and it looks like users of that are
+similarly buggy - it looks like net/dsa/dsa.c is the only user.  Fix
+that too.
 
-The only thing to do is to "reverse" the ip_tunnel_info.
+Hi,
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- include/net/ip_tunnels.h  |  2 ++
- net/ipv4/arp.c            | 39 +++++++++++++++++++++++++--------------
- net/ipv4/ip_tunnel_core.c | 28 ++++++++++++++++++++++++++++
- 3 files changed, 55 insertions(+), 14 deletions(-)
+While looking at the phy code, I identified a number of weaknesses
+where refcounting on device structures was being leaked, where
+modules could be removed while in-use, and where the fixed-phy could
+end up having unintended consequences caused by incorrect calls to
+fixed_phy_update_state().
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 9a6a3ba888e8..f6dafec9102c 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -276,6 +276,8 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
- int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, u8 proto,
- 		  u8 tos, u8 ttl, __be16 df, bool xnet);
-+struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
-+					     gfp_t flags);
- 
- struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, bool gre_csum,
- 					 int gso_type_mask);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 30409b75e925..f03db8b7abee 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -113,6 +113,8 @@
- #include <net/arp.h>
- #include <net/ax25.h>
- #include <net/netrom.h>
-+#include <net/dst_metadata.h>
-+#include <net/ip_tunnels.h>
- 
- #include <linux/uaccess.h>
- 
-@@ -296,7 +298,8 @@ static void arp_send_dst(int type, int ptype, __be32 dest_ip,
- 			 struct net_device *dev, __be32 src_ip,
- 			 const unsigned char *dest_hw,
- 			 const unsigned char *src_hw,
--			 const unsigned char *target_hw, struct sk_buff *oskb)
-+			 const unsigned char *target_hw,
-+			 struct dst_entry *dst)
- {
- 	struct sk_buff *skb;
- 
-@@ -309,9 +312,7 @@ static void arp_send_dst(int type, int ptype, __be32 dest_ip,
- 	if (!skb)
- 		return;
- 
--	if (oskb)
--		skb_dst_copy(skb, oskb);
--
-+	skb_dst_set(skb, dst);
- 	arp_xmit(skb);
- }
- 
-@@ -333,6 +334,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	__be32 target = *(__be32 *)neigh->primary_key;
- 	int probes = atomic_read(&neigh->probes);
- 	struct in_device *in_dev;
-+	struct dst_entry *dst = NULL;
- 
- 	rcu_read_lock();
- 	in_dev = __in_dev_get_rcu(dev);
-@@ -381,9 +383,10 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		}
- 	}
- 
-+	if (skb && !(dev->priv_flags & IFF_XMIT_DST_RELEASE))
-+		dst = dst_clone(skb_dst(skb));
- 	arp_send_dst(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
--		     dst_hw, dev->dev_addr, NULL,
--		     dev->priv_flags & IFF_XMIT_DST_RELEASE ? NULL : skb);
-+		     dst_hw, dev->dev_addr, NULL, dst);
- }
- 
- static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
-@@ -649,6 +652,7 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 	int addr_type;
- 	struct neighbour *n;
- 	struct net *net = dev_net(dev);
-+	struct dst_entry *reply_dst = NULL;
- 	bool is_garp = false;
- 
- 	/* arp_rcv below verifies the ARP header and verifies the device
-@@ -749,13 +753,18 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
-  *  cache.
-  */
- 
-+	if (arp->ar_op == htons(ARPOP_REQUEST) && skb_metadata_dst(skb))
-+		reply_dst = (struct dst_entry *)
-+			    iptunnel_metadata_reply(skb_metadata_dst(skb),
-+						    GFP_ATOMIC);
-+
- 	/* Special case: IPv4 duplicate address detection packet (RFC2131) */
- 	if (sip == 0) {
- 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
- 		    inet_addr_type_dev_table(net, dev, tip) == RTN_LOCAL &&
- 		    !arp_ignore(in_dev, sip, tip))
--			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
--				 dev->dev_addr, sha);
-+			arp_send_dst(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip,
-+				     sha, dev->dev_addr, sha, reply_dst);
- 		goto out;
- 	}
- 
-@@ -774,9 +783,10 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 			if (!dont_send) {
- 				n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
- 				if (n) {
--					arp_send(ARPOP_REPLY, ETH_P_ARP, sip,
--						 dev, tip, sha, dev->dev_addr,
--						 sha);
-+					arp_send_dst(ARPOP_REPLY, ETH_P_ARP,
-+						     sip, dev, tip, sha,
-+						     dev->dev_addr, sha,
-+						     reply_dst);
- 					neigh_release(n);
- 				}
- 			}
-@@ -794,9 +804,10 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 				if (NEIGH_CB(skb)->flags & LOCALLY_ENQUEUED ||
- 				    skb->pkt_type == PACKET_HOST ||
- 				    NEIGH_VAR(in_dev->arp_parms, PROXY_DELAY) == 0) {
--					arp_send(ARPOP_REPLY, ETH_P_ARP, sip,
--						 dev, tip, sha, dev->dev_addr,
--						 sha);
-+					arp_send_dst(ARPOP_REPLY, ETH_P_ARP,
-+						     sip, dev, tip, sha,
-+						     dev->dev_addr, sha,
-+						     reply_dst);
- 				} else {
- 					pneigh_enqueue(&arp_tbl,
- 						       in_dev->arp_parms, skb);
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 9b97204b8c81..ce3a1e728606 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -46,6 +46,7 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-+#include <net/dst_metadata.h>
- 
- int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
-@@ -119,6 +120,33 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
- }
- EXPORT_SYMBOL_GPL(iptunnel_pull_header);
- 
-+struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
-+					     gfp_t flags)
-+{
-+	struct metadata_dst *res;
-+	struct ip_tunnel_info *dst, *src;
-+
-+	if (!md || md->u.tun_info.mode & IP_TUNNEL_INFO_TX)
-+		return NULL;
-+
-+	res = metadata_dst_alloc(0, flags);
-+	if (!res)
-+		return NULL;
-+
-+	dst = &res->u.tun_info;
-+	src = &md->u.tun_info;
-+	dst->key.tun_id = src->key.tun_id;
-+	if (src->mode & IP_TUNNEL_INFO_IPV6)
-+		memcpy(&dst->key.u.ipv6.dst, &src->key.u.ipv6.src,
-+		       sizeof(struct in6_addr));
-+	else
-+		dst->key.u.ipv4.dst = src->key.u.ipv4.src;
-+	dst->mode = src->mode | IP_TUNNEL_INFO_TX;
-+
-+	return res;
-+}
-+EXPORT_SYMBOL_GPL(iptunnel_metadata_reply);
-+
- struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
- 					 bool csum_help,
- 					 int gso_type_mask)
+This patch series resolves those issues, some of which were discovered
+with testing on an Armada 388 board.  Not all patches are fully tested,
+particularly the one which touches several network drivers.
+
+When resolving the struct device refcounting problems, several different
+solutions were considered before settling on the implementation here -
+one of the considerations was to avoid touching many network drivers.
+The solution here is:
+
+	phy_attach*() - takes a refcount
+	phy_detach*() - drops the phy_attach refcount
+
+Provided drivers always attach and detach their phys, which they should
+already be doing, this should change nothing, even if they leak a refcount.
+
+	of_phy_find_device() and of_* functions which use that take
+	a refcount.  Arrange for this refcount to be dropped once
+	the phy is attached.
+
+This is the reason why the previous change is important - we can't drop
+this refcount taken by of_phy_find_device() until something else holds
+a reference on the device.  This resolves the leaked refcount caused by
+using of_phy_connect() or of_phy_attach().
+
+Even without the above changes, these drivers are leaking by calling
+of_phy_find_device().  These drivers are addressed by adding the
+appropriate release of that refcount.
+
+The mdiobus code also suffered from the same kind of leak, but thankfully
+this only happened in one place - the mdio-mux code.
+
+I also found that the try_module_get() in the phy layer code was utterly
+useless: phydev->dev.driver was guaranteed to always be NULL, so
+try_module_get() was always being called with a NULL argument.  I proved
+this with my SFP code, which declares its own MDIO bus - the module use
+count was never incremented irrespective of how I set the MDIO bus up.
+This allowed the MDIO bus code to be removed from the kernel while there
+were still PHYs attached to it.
+
+One other bug was discovered: while using in-band-status with mvneta, it
+was found that if a real phy is attached with in-band-status enabled,
+and another ethernet interface is using the fixed-phy infrastructure, the
+interface using the fixed-phy infrastructure is configured according to
+the other interface using the in-band-status - which is caused by the
+fixed-phy code not verifying that the phy_device passed in is actually
+a fixed-phy device, rather than a real MDIO phy.
+
+Lastly, having mdio_bus reversing phy_device_register() internals seems
+like a layering violation - it's trivial to move that code to the phy
+device layer.
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 23 ++++++---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 19 +++++++
+ drivers/net/ethernet/freescale/gianfar.c          |  6 ++-
+ drivers/net/ethernet/freescale/ucc_geth.c         |  8 ++-
+ drivers/net/ethernet/marvell/mvneta.c             |  2 +
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c     |  2 +
+ drivers/net/phy/fixed_phy.c                       |  2 +-
+ drivers/net/phy/mdio-mux.c                        | 19 ++++---
+ drivers/net/phy/mdio_bus.c                        | 24 ++++++---
+ drivers/net/phy/phy_device.c                      | 62 ++++++++++++++++++-----
+ drivers/of/of_mdio.c                              | 27 ++++++++--
+ include/linux/phy.h                               |  6 ++-
+ net/core/net-sysfs.c                              |  9 ++++
+ net/dsa/dsa.c                                     | 41 ++++++++++++---
+ 14 files changed, 199 insertions(+), 51 deletions(-)
+
 -- 
-1.8.3.1
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
