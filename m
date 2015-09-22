@@ -1,127 +1,85 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: [RHEL6.6 PATCH] netpoll: Close race condition between poll_one_napi and napi_disable
-Date: Tue, 22 Sep 2015 14:00:23 -0400
-Message-ID: <1442944823-23402-1-git-send-email-nhorman@redhat.com>
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: Fix CWV being too strict on thin streams
+Date: Tue, 22 Sep 2015 14:02:25 -0400
+Message-ID: <CADVnQy=PPe+-HP2Sm7qK6BUxbp-iKjERq7eXvR29+3R1yas7LA@mail.gmail.com>
+References: <1442619503-2282-1-git-send-email-bro.devel+kernel@gmail.com>
+	<CADVnQy=BXvWMXUGeeABjsHDpfa4FF+RUfCvJXpupcyYKG+=+ig@mail.gmail.com>
+	<8021096.gY5K1ti0Dn@garfield>
+	<1442933196.29850.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1442938150.29850.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1442941902.29850.99.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?Q?Bendik_R=C3=B8nning_Opstad?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43728 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932429AbbIVSA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2015 14:00:26 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (Postfix) with ESMTPS id 60539C0B91A3
-	for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 18:00:26 +0000 (UTC)
-Received: from hmsreliant.think-freely.org.com (vpn-60-78.rdu2.redhat.com [10.10.60.78])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t8MI0PqP018094
-	for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 14:00:26 -0400
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:36397 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933721AbbIVSCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 14:02:36 -0400
+Received: by oibi136 with SMTP id i136so10207532oib.3
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 11:02:25 -0700 (PDT)
+In-Reply-To: <1442941902.29850.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drivers might call napi_disable while not holding the napi instance poll_lock.
-In those instances, its possible for a race condition to exist between
-poll_one_napi and napi_disable.  That is to say, poll_one_napi only tests the
-NAPI_STATE_SCHED bit to see if there is work to do during a poll, and as such
-the following may happen:
+> I'll describe two example scenarios in detail. In both scenarios we are in
+> congestion avoidance after experiencing loss. Nagle is disabled.
 
-CPU0				CPU1
-ndo_tx_timeout			napi_poll_dev
- napi_disable			 poll_one_napi
-  test_and_set_bit (ret 0)
-				  test_bit (ret 1)
-   reset adapter		   napi_poll_routine
+Thanks for the detailed follow-up! And thanks, Eric, for the packetdrill
+script!
 
-If the adapter gets a tx timeout without a napi instance scheduled, its possible
-for the adapter to think it has exclusive access to the hardware  (as the napi
-instance is now scheduled via the napi_disable call), while the netpoll code
-thinks there is simply work to do.  The result is parallel hardware access
-leading to corrupt data structures in the driver, and a crash.
+This looks like an issue of how to deal with the case when we run out of
+packets to send and cwnd at exactly the same moment, and whether we consider
+that case cwnd-limited.
 
-Additionaly, there is another, more critical race between netpoll and
-napi_disable.  The disabled napi state is actually identical to the scheduled
-state for a given napi instance.  The implication being that, if a napi instance
-is disabled, a netconsole instance would see the napi state of the device as
-having been scheduled, and poll it, likely while the driver was dong something
-requiring exclusive access.  In the case above, its fairly clear that not having
-the rings in a state ready to be polled will cause any number of crashes.
+Previously we did not consider ourselves cwnd-limited in that case, but I think
+your "scenario 1", and Eric's packetdrill case, show convincingly that we ought
+to consider ourselves cwnd-limited in that case.
 
-The fix should be pretty easy.  netpoll uses its own bit to indicate that that
-the napi instance is in a state of being serviced by netpoll (NAPI_STATE_NPSVC).
-We can just gate disabling on that bit as well as the sched bit.  That should
-prevent netpoll from conducting a napi poll if we convert its set bit to a
-test_and_set_bit operation to provide mutual exclusion
+I would suggest we try fixing this by making sure that in scenario 1, at the
+moment when we fill the cwnd (packets_in_flight == cwnd == 2) we mark ourselves
+as cwnd-limited.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: jmaxwell@redhat.com
-Tested-by: jmaxwell@redhat.com
----
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            |  2 ++
- net/core/netpoll.c        | 12 ++++++++++--
- 3 files changed, 14 insertions(+), 2 deletions(-)
+More generally, my sense is that we should tweak the is_cwnd_limited code to
+shift from saying "set is_cwnd_limited to true iff the cwnd is known to be
+limiting transmits" to saying "set is_cwnd_limited to true iff the packets in
+flight fill the cwnd".
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b791405..48becac 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -507,6 +507,8 @@ static inline void napi_enable(struct napi_struct *n)
- 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
- 	smp_mb__before_atomic();
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
-+	clear_bit(NAPI_STATE_NPSVC, &n->state);
-+
- }
- 
- #ifdef CONFIG_SMP
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ee0d628..b6b01bf 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4723,6 +4723,8 @@ void napi_disable(struct napi_struct *n)
- 
- 	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
- 		msleep(1);
-+	while (test_and_set_bit(NAPI_STATE_NPSVC, &n->state))
-+		msleep(1);
- 
- 	hrtimer_cancel(&n->timer);
- 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 6aa3db8..91cf217 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -142,7 +142,7 @@ static void queue_process(struct work_struct *work)
-  */
- static int poll_one_napi(struct napi_struct *napi, int budget)
- {
--	int work;
-+	int work = 0;
- 
- 	/* net_rx_action's ->poll() invocations and our's are
- 	 * synchronized by this test which is only made while
-@@ -151,7 +151,14 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
- 	if (!test_bit(NAPI_STATE_SCHED, &napi->state))
- 		return budget;
- 
--	set_bit(NAPI_STATE_NPSVC, &napi->state);
-+	/*
-+ 	 * If we set this bit but see that it has already been set, 
-+ 	 * that indicates that napi has been disabled and we need
-+ 	 * to abort this operation
-+ 	 */
-+
-+	if(test_and_set_bit(NAPI_STATE_NPSVC, &napi->state))
-+		goto out;
- 
- 	work = napi->poll(napi, budget);
- 	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
-@@ -159,6 +166,7 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
- 
- 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
- 
-+out:
- 	return budget - work;
- }
- 
--- 
-2.1.0
+This is partly justified by the kind of case presented here. Plus, in RFC 2861,
+section 3.1, which this code is helping to implement, it says:
+
+   After TCP sends a packet, it also checks to see if that packet filled
+   the congestion window.  If so, the sender is network-limited, and
+   sets the variable T_prev to the current TCP clock time,
+
+So at the point in Scenario 1 when we send the second packet, and
+  packets_in_flight == cwnd == 2
+then IMHO we should set
+  tp->is_cwnd_limited = true
+and thus
+  tp->snd_cwnd_stamp = tcp_time_stamp;
+
+So maybe we want to slightly tweak the way tcp_write_xmit() and
+tcp_tso_should_defer() treat this boundary condition? Gotta run to a
+meeting....
+
+neal
+
+ps: If the tp->is_cwnd_limited and tcp_cwnd_validate() code were only used to
+decide whether to increase cwnd, then I think your fix would probably be
+sufficient. But it is also used for the code to implement RFC 2861 ("TCP
+Congestion Window Validation"). So I don't think just changing
+tp->is_cwnd_limited is sufficient.
