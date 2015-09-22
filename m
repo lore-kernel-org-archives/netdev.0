@@ -1,127 +1,57 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 32/33] arcnet: arc-rawmode: reorder module functions
-Date: Tue, 22 Sep 2015 11:02:13 +0200
-Message-ID: <1442912534-10821-33-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 33/33] arcnet: capmode: remove extra function
+Date: Tue, 22 Sep 2015 11:02:14 +0200
+Message-ID: <1442912534-10821-34-git-send-email-m.grzeschik@pengutronix.de>
 References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33719 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60680 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702AbbIVJCm (ORCPT
+	with ESMTP id S932761AbbIVJCm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 05:02:42 -0400
 In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the module_init and module_exit patches to
-the end of the file. It also replaces the printk with pr_info.
+This patch cleans the capmode protocol module. It removes the obsolete
+function arcnet_cap_init and replaces printk with pr_info.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arc-rawmode.c | 84 ++++++++++++++++++----------------------
- 1 file changed, 38 insertions(+), 46 deletions(-)
+ drivers/net/arcnet/capmode.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/arcnet/arc-rawmode.c b/drivers/net/arcnet/arc-rawmode.c
-index 35a747a..0046ddb 100644
---- a/drivers/net/arcnet/arc-rawmode.c
-+++ b/drivers/net/arcnet/arc-rawmode.c
-@@ -33,54 +33,8 @@
- #include <net/arp.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
--
- #include "arcdevice.h"
+diff --git a/drivers/net/arcnet/capmode.c b/drivers/net/arcnet/capmode.c
+index 8297e00..37d842b 100644
+--- a/drivers/net/arcnet/capmode.c
++++ b/drivers/net/arcnet/capmode.c
+@@ -238,10 +238,12 @@ static struct ArcProto capmode_proto = {
+ 	.ack_tx		= ack_tx
+ };
  
--static void rx(struct net_device *dev, int bufnum,
--	       struct archdr *pkthdr, int length);
--static int build_header(struct sk_buff *skb, struct net_device *dev,
--			unsigned short type, uint8_t daddr);
--static int prepare_tx(struct net_device *dev, struct archdr *pkt, int length,
--		      int bufnum);
--
--static struct ArcProto rawmode_proto = {
--	.suffix		= 'r',
--	.mtu		= XMTU,
--	.rx		= rx,
--	.build_header	= build_header,
--	.prepare_tx	= prepare_tx,
--	.continue_tx    = NULL,
--	.ack_tx         = NULL
--};
--
--static int __init arcnet_raw_init(void)
--{
--	int count;
--
--	pr_info("%s\n", "raw mode (`r') encapsulation support loaded");
--
--	for (count = 0; count < 256; count++)
--		if (arc_proto_map[count] == arc_proto_default)
--			arc_proto_map[count] = &rawmode_proto;
--
--	/* for raw mode, we only set the bcast proto if there's no better one */
--	if (arc_bcast_proto == arc_proto_default)
--		arc_bcast_proto = &rawmode_proto;
--
--	arc_proto_default = &rawmode_proto;
--	return 0;
--}
--
--static void __exit arcnet_raw_exit(void)
--{
--	arcnet_unregister_proto(&rawmode_proto);
--}
--
--module_init(arcnet_raw_init);
--module_exit(arcnet_raw_exit);
--
--MODULE_LICENSE("GPL");
--
- /* packet receiver */
- static void rx(struct net_device *dev, int bufnum,
- 	       struct archdr *pkthdr, int length)
-@@ -195,3 +149,41 @@ static int prepare_tx(struct net_device *dev, struct archdr *pkt, int length,
+-static void arcnet_cap_init(void)
++static int __init capmode_module_init(void)
+ {
+ 	int count;
  
- 	return 1;		/* done */
++	pr_info("%s\n", "cap mode (`c') encapsulation support loaded");
++
+ 	for (count = 1; count <= 8; count++)
+ 		if (arc_proto_map[count] == arc_proto_default)
+ 			arc_proto_map[count] = &capmode_proto;
+@@ -252,12 +254,7 @@ static void arcnet_cap_init(void)
+ 
+ 	arc_proto_default = &capmode_proto;
+ 	arc_raw_proto = &capmode_proto;
+-}
+ 
+-static int __init capmode_module_init(void)
+-{
+-	pr_info("%s\n", "cap mode (`c') encapsulation support loaded");
+-	arcnet_cap_init();
+ 	return 0;
  }
-+
-+static struct ArcProto rawmode_proto = {
-+	.suffix		= 'r',
-+	.mtu		= XMTU,
-+	.rx		= rx,
-+	.build_header	= build_header,
-+	.prepare_tx	= prepare_tx,
-+	.continue_tx    = NULL,
-+	.ack_tx         = NULL
-+};
-+
-+static int __init arcnet_raw_init(void)
-+{
-+	int count;
-+
-+	pr_info("%s\n", "raw mode (`r') encapsulation support loaded");
-+
-+	for (count = 0; count < 256; count++)
-+		if (arc_proto_map[count] == arc_proto_default)
-+			arc_proto_map[count] = &rawmode_proto;
-+
-+	/* for raw mode, we only set the bcast proto if there's no better one */
-+	if (arc_bcast_proto == arc_proto_default)
-+		arc_bcast_proto = &rawmode_proto;
-+
-+	arc_proto_default = &rawmode_proto;
-+	return 0;
-+}
-+
-+static void __exit arcnet_raw_exit(void)
-+{
-+	arcnet_unregister_proto(&rawmode_proto);
-+}
-+
-+module_init(arcnet_raw_init);
-+module_exit(arcnet_raw_exit);
-+
-+MODULE_LICENSE("GPL");
+ 
 -- 
 2.5.1
