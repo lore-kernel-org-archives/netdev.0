@@ -1,54 +1,65 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH RFC 2/3] kcm: Kernel Connection Multiplexor module
-Date: Tue, 22 Sep 2015 11:41:48 -0700
-Message-ID: <20150922184147.GA15552@Alexeis-MBP-2.westell.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
- <1442788161-2626305-3-git-send-email-tom@herbertland.com>
- <20150922162618.GA15483@Alexeis-MBP-2.westell.com>
- <CALx6S36H1YL1w4mS4Ee6TSV3nce0J4GT_e7+2h1b=o2nT+0ZUw@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
+Date: Tue, 22 Sep 2015 11:42:33 -0700
+Message-ID: <CA+55aFyvPLD5tNsuxFAA4GgOZpamULJe7R90dXf5qSC6aBYzTw@mail.gmail.com>
+References: <20150918111650.GA7508@gondor.apana.org.au>
+	<20150920.225521.1063980101511317898.davem@davemloft.net>
+	<20150921060636.GA30807@gondor.apana.org.au>
+	<20150920.231104.525285577747035896.davem@davemloft.net>
+	<20150921133415.GA1740@gondor.apana.org.au>
+	<20150921182022.GB13263@mtj.duckdns.org>
+	<20150922033856.GA7851@gondor.apana.org.au>
+	<20150922161056.GB9761@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alex Gartrell <agartrell@fb.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34723 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934159AbbIVSlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 14:41:52 -0400
-Received: by padhy16 with SMTP id hy16so16529162pad.1
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 11:41:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S36H1YL1w4mS4Ee6TSV3nce0J4GT_e7+2h1b=o2nT+0ZUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>, tom@herbertland.com,
+	kafai@fb.com, kernel-team@fb.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150922161056.GB9761@mtj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 22, 2015 at 10:26:10AM -0700, Tom Herbert wrote:
-> > I would only suggest to drop support for classic BPF.
-> > It's usable to return frame length of http2, but it won't be
-> > able to parse protocols where fields are little endian.
-> > Also it doesn't scale, since new cBPF program would be created
-> > for every KCM socket, whereas with eBPF we can use single program
-> > for all KCM sockets via single FD.
-> >
-> Hi Alexei,
-> 
-> That makes sense, but I think there may be some use cases where we'd
-> like lightweight methods to program filters. Writing C code for BPF is
-> extremely cool, but integrating LLVM/Clang into our development
-> environment may be a pain. We also might want to create a different
-> program for every socket anyway (like from some template with
-> parameterization). An eBPF assembler and jit support could be useful
-> (looks like there might be some work started on both of these
-> already).
+On Tue, Sep 22, 2015 at 9:10 AM, Tejun Heo <tj@kernel.org> wrote:
+>
+> That's a pentium pro era errata.  Virtually no working machine is
+> affected by that anymore and nobody builds kernel with that option.
+> In most cases, store_release and load_acquire are cheaper as they're
+> more specific.  On x86, store_release and load_acquire boil down to
+> compiler reordering barriers.  You're running in the opposite
+> direction.
 
-coding eBPF with macros as sock_example.c, test_verifier.c,
-test_bpf.c do should be enough to start. User space assembler
-to convert text to eBPF binary obviously would be even better.
-But lack of tiny and standalone assembler today shouldn't be
-the reason to include classic as permenent kernel ABI.
-Not sure what you mean by 'jit support'. There is in-kernel jit
-and there is jit mode of llvm where bpf can be taken from
-memory without going to elf file.
+Well, to be fair, there are lots of machines where acquire/release is
+actually quite expensive.
+
+In general, the cheapest barrier there is (apart from the "no barrier
+at all" or just "compiler barrier") is "smp_wmb()".  If an
+architecture gets that one wrong, the architects were f*cking morons.
+It should be a fundamentally cheap operation, since writes are
+buffered and it should simply be a buffer barrier.
+
+The acquire/release things are generally fairly cheap on modern
+architectures. Not free (except on x86), but fairly low-cost. HOWEVER,
+they are not at all free on some older architectures, including 32-bit
+ARM.
+
+smp_rmb() should generally be about the same cost as an acquire. It
+can go either way.
+
+So *if* the algorithm is amenable to smp_wmb()/smp_rmb() kind of
+barriers, that's actually quite possibly better than acquire/release.
+
+smp_mb() is expensive pretty much everywhere.
+
+Looking forward, I suspect long-term acquire/release is what hardware
+is going to be "reasonably good at", but as things are right now, you
+can't necessarily rely on them being fast.
+
+                   Linus
