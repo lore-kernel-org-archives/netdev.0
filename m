@@ -1,89 +1,284 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/30] ipvs: add schedule_icmp sysctl
-Date: Tue, 22 Sep 2015 11:13:57 +0200
-Message-ID: <1442913260-3925-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/30] ipvs: drop inverse argument to conn_{in,out}_get
+Date: Tue, 22 Sep 2015 11:13:55 +0200
+Message-ID: <1442913260-3925-6-git-send-email-pablo@netfilter.org>
 References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34977 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757643AbbIVJHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 05:07:48 -0400
 In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Alex Gartrell <agartrell@fb.com>
 
-This sysctl will be used to enable the scheduling of icmp packets.
+No longer necessary since the information is included in the ip_vs_iphdr
+itself.
 
 Signed-off-by: Alex Gartrell <agartrell@fb.com>
 Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h            |   11 +++++++++++
- net/netfilter/ipvs/ip_vs_ctl.c |    8 +++++++-
- 2 files changed, 18 insertions(+), 1 deletion(-)
+ include/net/ip_vs.h                     |   12 ++++--------
+ net/netfilter/ipvs/ip_vs_conn.c         |   12 ++++++------
+ net/netfilter/ipvs/ip_vs_core.c         |   31 ++++++++++++++++++-------------
+ net/netfilter/ipvs/ip_vs_proto_ah_esp.c |   17 ++++++++---------
+ net/netfilter/xt_ipvs.c                 |    2 +-
+ 5 files changed, 37 insertions(+), 37 deletions(-)
 
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index ba90729..47677f0 100644
+index ac336a7..ba90729 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
-@@ -997,6 +997,7 @@ struct netns_ipvs {
- 	int			sysctl_pmtu_disc;
- 	int			sysctl_backup_only;
- 	int			sysctl_conn_reuse_mode;
-+	int			sysctl_schedule_icmp;
+@@ -495,14 +495,12 @@ struct ip_vs_protocol {
+ 	struct ip_vs_conn *
+ 	(*conn_in_get)(int af,
+ 		       const struct sk_buff *skb,
+-		       const struct ip_vs_iphdr *iph,
+-		       int inverse);
++		       const struct ip_vs_iphdr *iph);
  
- 	/* ip_vs_lblc */
- 	int			sysctl_lblc_expiration;
-@@ -1115,6 +1116,11 @@ static inline int sysctl_conn_reuse_mode(struct netns_ipvs *ipvs)
- 	return ipvs->sysctl_conn_reuse_mode;
- }
+ 	struct ip_vs_conn *
+ 	(*conn_out_get)(int af,
+ 			const struct sk_buff *skb,
+-			const struct ip_vs_iphdr *iph,
+-			int inverse);
++			const struct ip_vs_iphdr *iph);
  
-+static inline int sysctl_schedule_icmp(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_schedule_icmp;
-+}
+ 	int (*snat_handler)(struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 			    struct ip_vs_conn *cp, struct ip_vs_iphdr *iph);
+@@ -1232,14 +1230,12 @@ struct ip_vs_conn *ip_vs_conn_in_get(const struct ip_vs_conn_param *p);
+ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p);
+ 
+ struct ip_vs_conn * ip_vs_conn_in_get_proto(int af, const struct sk_buff *skb,
+-					    const struct ip_vs_iphdr *iph,
+-					    int inverse);
++					    const struct ip_vs_iphdr *iph);
+ 
+ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p);
+ 
+ struct ip_vs_conn * ip_vs_conn_out_get_proto(int af, const struct sk_buff *skb,
+-					     const struct ip_vs_iphdr *iph,
+-					     int inverse);
++					     const struct ip_vs_iphdr *iph);
+ 
+ /* Get reference to gain full access to conn.
+  * By default, RCU read-side critical sections have access only to
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index b0f7b62..f71b314 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -316,7 +316,7 @@ struct ip_vs_conn *ip_vs_conn_in_get(const struct ip_vs_conn_param *p)
+ static int
+ ip_vs_conn_fill_param_proto(int af, const struct sk_buff *skb,
+ 			    const struct ip_vs_iphdr *iph,
+-			    int inverse, struct ip_vs_conn_param *p)
++			    struct ip_vs_conn_param *p)
+ {
+ 	__be16 _ports[2], *pptr;
+ 	struct net *net = skb_net(skb);
+@@ -325,7 +325,7 @@ ip_vs_conn_fill_param_proto(int af, const struct sk_buff *skb,
+ 	if (pptr == NULL)
+ 		return 1;
+ 
+-	if (likely(!inverse))
++	if (likely(!ip_vs_iph_inverse(iph)))
+ 		ip_vs_conn_fill_param(net, af, iph->protocol, &iph->saddr,
+ 				      pptr[0], &iph->daddr, pptr[1], p);
+ 	else
+@@ -336,11 +336,11 @@ ip_vs_conn_fill_param_proto(int af, const struct sk_buff *skb,
+ 
+ struct ip_vs_conn *
+ ip_vs_conn_in_get_proto(int af, const struct sk_buff *skb,
+-			const struct ip_vs_iphdr *iph, int inverse)
++			const struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_conn_param p;
+ 
+-	if (ip_vs_conn_fill_param_proto(af, skb, iph, inverse, &p))
++	if (ip_vs_conn_fill_param_proto(af, skb, iph, &p))
+ 		return NULL;
+ 
+ 	return ip_vs_conn_in_get(&p);
+@@ -440,11 +440,11 @@ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
+ 
+ struct ip_vs_conn *
+ ip_vs_conn_out_get_proto(int af, const struct sk_buff *skb,
+-			 const struct ip_vs_iphdr *iph, int inverse)
++			 const struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_conn_param p;
+ 
+-	if (ip_vs_conn_fill_param_proto(af, skb, iph, inverse, &p))
++	if (ip_vs_conn_fill_param_proto(af, skb, iph, &p))
+ 		return NULL;
+ 
+ 	return ip_vs_conn_out_get(&p);
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 2c44e34..ebfb371 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -444,12 +444,18 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	/*
+ 	 *    Do not schedule replies from local real server.
+ 	 */
+-	if ((!skb->dev || skb->dev->flags & IFF_LOOPBACK) &&
+-	    (cp = pp->conn_in_get(svc->af, skb, iph, 1))) {
+-		IP_VS_DBG_PKT(12, svc->af, pp, skb, iph->off,
+-			      "Not scheduling reply for existing connection");
+-		__ip_vs_conn_put(cp);
+-		return NULL;
++	if ((!skb->dev || skb->dev->flags & IFF_LOOPBACK)) {
++		iph->hdr_flags ^= IP_VS_HDR_INVERSE;
++		cp = pp->conn_in_get(svc->af, skb, iph);
++		iph->hdr_flags ^= IP_VS_HDR_INVERSE;
 +
- #else
++		if (cp) {
++			IP_VS_DBG_PKT(12, svc->af, pp, skb, iph->off,
++				      "Not scheduling reply for existing"
++				      " connection");
++			__ip_vs_conn_put(cp);
++			return NULL;
++		}
+ 	}
  
- static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
-@@ -1187,6 +1193,11 @@ static inline int sysctl_conn_reuse_mode(struct netns_ipvs *ipvs)
- 	return 1;
- }
+ 	/*
+@@ -946,7 +952,7 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related,
+ 	ip_vs_fill_iph_skb_icmp(AF_INET, skb, offset, true, &ciph);
  
-+static inline int sysctl_schedule_icmp(struct netns_ipvs *ipvs)
-+{
-+	return 0;
-+}
-+
- #endif
+ 	/* The embedded headers contain source and dest in reverse order */
+-	cp = pp->conn_out_get(AF_INET, skb, &ciph, 1);
++	cp = pp->conn_out_get(AF_INET, skb, &ciph);
+ 	if (!cp)
+ 		return NF_ACCEPT;
  
- /* IPVS core functions
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 1a23e91..31d80e2 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1844,6 +1844,12 @@ static struct ctl_table vs_vars[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "schedule_icmp",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- #ifdef CONFIG_IP_VS_DEBUG
- 	{
- 		.procname	= "debug_level",
-@@ -3895,7 +3901,7 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- 	tbl[idx++].data = &ipvs->sysctl_backup_only;
- 	ipvs->sysctl_conn_reuse_mode = 1;
- 	tbl[idx++].data = &ipvs->sysctl_conn_reuse_mode;
--
-+	tbl[idx++].data = &ipvs->sysctl_schedule_icmp;
+@@ -1001,7 +1007,7 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
+ 		return NF_ACCEPT;
  
- 	ipvs->sysctl_hdr = register_net_sysctl(net, "net/ipv4/vs", tbl);
- 	if (ipvs->sysctl_hdr == NULL) {
+ 	/* The embedded headers contain source and dest in reverse order */
+-	cp = pp->conn_out_get(AF_INET6, skb, &ciph, 1);
++	cp = pp->conn_out_get(AF_INET6, skb, &ciph);
+ 	if (!cp)
+ 		return NF_ACCEPT;
+ 
+@@ -1227,7 +1233,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	/*
+ 	 * Check if the packet belongs to an existing entry
+ 	 */
+-	cp = pp->conn_out_get(af, skb, &iph, 0);
++	cp = pp->conn_out_get(af, skb, &iph);
+ 
+ 	if (likely(cp))
+ 		return handle_response(af, skb, pd, cp, &iph, hooknum);
+@@ -1458,7 +1464,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 	/* The embedded headers contain source and dest in reverse order.
+ 	 * For IPIP this is error for request, not for reply.
+ 	 */
+-	cp = pp->conn_in_get(AF_INET, skb, &ciph, ipip ? 0 : 1);
++	cp = pp->conn_in_get(AF_INET, skb, &ciph);
+ 	if (!cp)
+ 		return NF_ACCEPT;
+ 
+@@ -1601,8 +1607,7 @@ static int ip_vs_in_icmp_v6(struct sk_buff *skb, int *related,
+ 	/* The embedded headers contain source and dest in reverse order
+ 	 * if not from localhost
+ 	 */
+-	cp = pp->conn_in_get(AF_INET6, skb, &ciph,
+-			     (hooknum == NF_INET_LOCAL_OUT) ? 0 : 1);
++	cp = pp->conn_in_get(AF_INET6, skb, &ciph);
+ 
+ 	if (!cp)
+ 		return NF_ACCEPT;
+@@ -1712,7 +1717,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	/*
+ 	 * Check if the packet belongs to an existing connection entry
+ 	 */
+-	cp = pp->conn_in_get(af, skb, &iph, 0);
++	cp = pp->conn_in_get(af, skb, &iph);
+ 
+ 	conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
+ 	if (conn_reuse_mode && !iph.fragoffs &&
+diff --git a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+index 5de3dd3..be1791d 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+@@ -42,10 +42,10 @@ struct isakmp_hdr {
+ 
+ static void
+ ah_esp_conn_fill_param_proto(struct net *net, int af,
+-			     const struct ip_vs_iphdr *iph, int inverse,
++			     const struct ip_vs_iphdr *iph,
+ 			     struct ip_vs_conn_param *p)
+ {
+-	if (likely(!inverse))
++	if (likely(!ip_vs_iph_inverse(iph)))
+ 		ip_vs_conn_fill_param(net, af, IPPROTO_UDP,
+ 				      &iph->saddr, htons(PORT_ISAKMP),
+ 				      &iph->daddr, htons(PORT_ISAKMP), p);
+@@ -57,14 +57,13 @@ ah_esp_conn_fill_param_proto(struct net *net, int af,
+ 
+ static struct ip_vs_conn *
+ ah_esp_conn_in_get(int af, const struct sk_buff *skb,
+-		   const struct ip_vs_iphdr *iph,
+-		   int inverse)
++		   const struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_conn *cp;
+ 	struct ip_vs_conn_param p;
+ 	struct net *net = skb_net(skb);
+ 
+-	ah_esp_conn_fill_param_proto(net, af, iph, inverse, &p);
++	ah_esp_conn_fill_param_proto(net, af, iph, &p);
+ 	cp = ip_vs_conn_in_get(&p);
+ 	if (!cp) {
+ 		/*
+@@ -73,7 +72,7 @@ ah_esp_conn_in_get(int af, const struct sk_buff *skb,
+ 		 */
+ 		IP_VS_DBG_BUF(12, "Unknown ISAKMP entry for outin packet "
+ 			      "%s%s %s->%s\n",
+-			      inverse ? "ICMP+" : "",
++			      ip_vs_iph_icmp(iph) ? "ICMP+" : "",
+ 			      ip_vs_proto_get(iph->protocol)->name,
+ 			      IP_VS_DBG_ADDR(af, &iph->saddr),
+ 			      IP_VS_DBG_ADDR(af, &iph->daddr));
+@@ -85,18 +84,18 @@ ah_esp_conn_in_get(int af, const struct sk_buff *skb,
+ 
+ static struct ip_vs_conn *
+ ah_esp_conn_out_get(int af, const struct sk_buff *skb,
+-		    const struct ip_vs_iphdr *iph, int inverse)
++		    const struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_conn *cp;
+ 	struct ip_vs_conn_param p;
+ 	struct net *net = skb_net(skb);
+ 
+-	ah_esp_conn_fill_param_proto(net, af, iph, inverse, &p);
++	ah_esp_conn_fill_param_proto(net, af, iph, &p);
+ 	cp = ip_vs_conn_out_get(&p);
+ 	if (!cp) {
+ 		IP_VS_DBG_BUF(12, "Unknown ISAKMP entry for inout packet "
+ 			      "%s%s %s->%s\n",
+-			      inverse ? "ICMP+" : "",
++			      ip_vs_iph_icmp(iph) ? "ICMP+" : "",
+ 			      ip_vs_proto_get(iph->protocol)->name,
+ 			      IP_VS_DBG_ADDR(af, &iph->saddr),
+ 			      IP_VS_DBG_ADDR(af, &iph->daddr));
+diff --git a/net/netfilter/xt_ipvs.c b/net/netfilter/xt_ipvs.c
+index 3704625..452ba2a 100644
+--- a/net/netfilter/xt_ipvs.c
++++ b/net/netfilter/xt_ipvs.c
+@@ -85,7 +85,7 @@ ipvs_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	/*
+ 	 * Check if the packet belongs to an existing entry
+ 	 */
+-	cp = pp->conn_out_get(family, skb, &iph, 1 /* inverse */);
++	cp = pp->conn_out_get(family, skb, &iph);
+ 	if (unlikely(cp == NULL)) {
+ 		match = false;
+ 		goto out;
 -- 
 1.7.10.4
-
