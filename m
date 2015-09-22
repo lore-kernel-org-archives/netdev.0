@@ -1,14 +1,14 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 25/33] arcnet: arc-rimi: Use arcnet_<I/O> routines
-Date: Tue, 22 Sep 2015 11:02:06 +0200
-Message-ID: <1442912534-10821-26-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 23/33] arcnet: com90xx: Use arcnet_<I/O> routines
+Date: Tue, 22 Sep 2015 11:02:04 +0200
+Message-ID: <1442912534-10821-24-git-send-email-m.grzeschik@pengutronix.de>
 References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42296 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37814 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932703AbbIVJCm (ORCPT
+	with ESMTP id S932687AbbIVJCm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 05:02:42 -0400
 In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
@@ -16,7 +16,7 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Joe Perches <joe@perches.com>
 
-Simplify and make consistent the current uses of readb/writeb
+Simplify and make consistent the current uses of inb/outb
 by using the newly introduced arcnet_<I/O> equivalents.
 
 o Add new #defines for register offsets
@@ -26,34 +26,33 @@ o Remove obfuscating macros by expanding them in-place where appropriate
 Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arc-rimi.c | 55 ++++++++++++++++++++-----------------------
- 1 file changed, 25 insertions(+), 30 deletions(-)
+ drivers/net/arcnet/com90xx.c | 67 ++++++++++++++++++++++----------------------
+ 1 file changed, 33 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/arcnet/arc-rimi.c b/drivers/net/arcnet/arc-rimi.c
-index 37406ff..4c35a7e 100644
---- a/drivers/net/arcnet/arc-rimi.c
-+++ b/drivers/net/arcnet/arc-rimi.c
-@@ -60,23 +60,16 @@ static void arcrimi_copy_from_card(struct net_device *dev, int bufnum,
- #define MIRROR_SIZE	(BUFFER_SIZE * 4)
+diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
+index b672795..f1cfeb0 100644
+--- a/drivers/net/arcnet/com90xx.c
++++ b/drivers/net/arcnet/com90xx.c
+@@ -79,22 +79,14 @@ static int numcards;
+ #define MIRROR_SIZE (BUFFER_SIZE * 4)
  
  /* COM 9026 controller chip --> ARCnet register addresses */
 -#define _INTMASK	(ioaddr + 0)	/* writable */
 -#define _STATUS		(ioaddr + 0)	/* readable */
 -#define _COMMAND	(ioaddr + 1)	/* writable, returns random vals on read (?) */
+-#define _CONFIG		(ioaddr + 2)	/* Configuration register */
 -#define _RESET		(ioaddr + 8)	/* software reset (on read) */
 -#define _MEMDATA	(ioaddr + 12)	/* Data port for IO-mapped memory */
 -#define _ADDR_HI	(ioaddr + 15)	/* Control registers for said */
 -#define _ADDR_LO	(ioaddr + 14)
--#define _CONFIG		(ioaddr + 2)	/* Configuration register */
 -
 -#undef ASTATUS
 -#undef ACOMMAND
 -#undef AINTMASK
 -
--#define ASTATUS()	readb(_STATUS)
--#define ACOMMAND(cmd)	writeb((cmd), _COMMAND)
--#define AINTMASK(msk)	writeb((msk), _INTMASK)
--#define SETCONF()	writeb(lp->config, _CONFIG)
+-#define ASTATUS()	inb(_STATUS)
+-#define ACOMMAND(cmd)	outb((cmd), _COMMAND)
+-#define AINTMASK(msk)	outb((msk), _INTMASK)
 +#define COM9026_REG_W_INTMASK	0	/* writable */
 +#define COM9026_REG_R_STATUS	0	/* readable */
 +#define COM9026_REG_W_COMMAND	1	/* writable, returns random vals on read (?) */
@@ -62,100 +61,140 @@ index 37406ff..4c35a7e 100644
 +#define COM9026_REG_RW_MEMDATA	12	/* Data port for IO-mapped memory */
 +#define COM9026_REG_W_ADDR_LO	14	/* Control registers for said */
 +#define COM9026_REG_W_ADDR_HI	15
-+
-+#define COM9026_REG_R_STATION	1	/* Station ID */
  
- /* We cannot probe for a RIM I card; one reason is I don't know how to reset
-  * them.  In fact, we can't even get their node ID automatically.  So, we
-@@ -124,7 +117,7 @@ static int check_mirror(unsigned long addr, size_t size)
+ static int com90xx_skip_probe __initdata = 0;
  
- 	p = ioremap(addr, size);
- 	if (p) {
--		if (readb(p) == TESTvalue)
-+		if (arcnet_readb(p, COM9026_REG_R_STATUS) == TESTvalue)
- 			res = 1;
- 		else
- 			res = 0;
-@@ -162,8 +155,9 @@ static int __init arcrimi_found(struct net_device *dev)
- 	}
+@@ -175,7 +167,7 @@ static void __init com90xx_probe(void)
+ 			*port-- = ports[--numports];
+ 			continue;
+ 		}
+-		if (ASTATUS() == 0xFF) {
++		if (arcnet_inb(ioaddr, COM9026_REG_R_STATUS) == 0xFF) {
+ 			arc_cont(D_INIT_REASONS, "(empty)\n");
+ 			arc_cont(D_INIT_REASONS, "S1: ");
+ 			if (BUGLVL(D_INIT_REASONS))
+@@ -184,7 +176,8 @@ static void __init com90xx_probe(void)
+ 			*port-- = ports[--numports];
+ 			continue;
+ 		}
+-		inb(_RESET);	/* begin resetting card */
++		/* begin resetting card */
++		arcnet_inb(ioaddr, COM9026_REG_R_RESET);
  
- 	shmem = dev->mem_start;
--	writeb(TESTvalue, p);
--	writeb(dev->dev_addr[0], p + 1);	/* actually the node ID */
-+	arcnet_writeb(TESTvalue, p, COM9026_REG_W_INTMASK);
-+	arcnet_writeb(TESTvalue, p, COM9026_REG_W_COMMAND);
-+					/* actually the station/node ID */
+ 		arc_cont(D_INIT_REASONS, "\n");
+ 		arc_cont(D_INIT_REASONS, "S1: ");
+@@ -324,7 +317,7 @@ static void __init com90xx_probe(void)
+ 		arc_cont(D_INIT, "%Xh ", *port);
  
- 	/* find the real shared memory start/end points, including mirrors */
+ 		ioaddr = *port;
+-		status = ASTATUS();
++		status = arcnet_inb(ioaddr, COM9026_REG_R_STATUS);
  
-@@ -172,7 +166,7 @@ static int __init arcrimi_found(struct net_device *dev)
- 	 * 2k (or there are no mirrors at all) but on some, it's 4k.
- 	 */
- 	mirror_size = MIRROR_SIZE;
--	if (readb(p) == TESTvalue &&
-+	if (arcnet_readb(p, COM9026_REG_R_STATUS) == TESTvalue &&
- 	    check_mirror(shmem - MIRROR_SIZE, MIRROR_SIZE) == 0 &&
- 	    check_mirror(shmem - 2 * MIRROR_SIZE, MIRROR_SIZE) == 1)
- 		mirror_size = 2 * MIRROR_SIZE;
-@@ -224,7 +218,7 @@ static int __init arcrimi_found(struct net_device *dev)
- 	}
+ 		if ((status & 0x9D)
+ 		    != (NORXflag | RECONflag | TXFREEflag | RESETflag)) {
+@@ -336,8 +329,9 @@ static void __init com90xx_probe(void)
+ 			*port-- = ports[--numports];
+ 			continue;
+ 		}
+-		ACOMMAND(CFLAGScmd | RESETclear | CONFIGclear);
+-		status = ASTATUS();
++		arcnet_outb(CFLAGScmd | RESETclear | CONFIGclear,
++			    ioaddr, COM9026_REG_W_COMMAND);
++		status = arcnet_inb(ioaddr, COM9026_REG_R_STATUS);
+ 		if (status & RESETflag) {
+ 			arc_cont(D_INIT_REASONS, " (eternal reset, status=%Xh)\n",
+ 				 status);
+@@ -357,9 +351,9 @@ static void __init com90xx_probe(void)
+ 			 * we tell it to start receiving.
+ 			 */
+ 			airqmask = probe_irq_on();
+-			AINTMASK(NORXflag);
++			arcnet_outb(NORXflag, ioaddr, COM9026_REG_W_INTMASK);
+ 			udelay(1);
+-			AINTMASK(0);
++			arcnet_outb(0, ioaddr, COM9026_REG_W_INTMASK);
+ 			airq = probe_irq_off(airqmask);
  
- 	/* get and check the station ID from offset 1 in shmem */
--	dev->dev_addr[0] = readb(lp->mem_start + 1);
-+	dev->dev_addr[0] = arcnet_readb(lp->mem_start, COM9026_REG_R_STATION);
+ 			if (airq <= 0) {
+@@ -386,14 +380,14 @@ static void __init com90xx_probe(void)
+ 		 */
+ #ifdef FAST_PROBE
+ 		if (numports > 1 || numshmems > 1) {
+-			inb(_RESET);
++			arcnet_inb(ioaddr, COM9026_REG_R_RESET);
+ 			mdelay(RESETtime);
+ 		} else {
+ 			/* just one shmem and port, assume they match */
+ 			writeb(TESTvalue, iomem[0]);
+ 		}
+ #else
+-		inb(_RESET);
++		arcnet_inb(ioaddr, COM9026_REG_R_RESET);
+ 		mdelay(RESETtime);
+ #endif
  
- 	arc_printk(D_NORMAL, dev, "ARCnet RIM I: station %02Xh found at IRQ %d, ShMem %lXh (%ld*%d bytes)\n",
- 		   dev->dev_addr[0],
-@@ -260,17 +254,18 @@ static int arcrimi_reset(struct net_device *dev, int really_reset)
- 	void __iomem *ioaddr = lp->mem_start + 0x800;
+@@ -574,21 +568,21 @@ static void com90xx_command(struct net_device *dev, int cmd)
+ {
+ 	short ioaddr = dev->base_addr;
  
- 	arc_printk(D_INIT, dev, "Resetting %s (status=%02Xh)\n",
--		   dev->name, ASTATUS());
-+		   dev->name, arcnet_readb(ioaddr, COM9026_REG_R_STATUS));
+-	ACOMMAND(cmd);
++	arcnet_outb(cmd, ioaddr, COM9026_REG_W_COMMAND);
+ }
+ 
+ static int com90xx_status(struct net_device *dev)
+ {
+ 	short ioaddr = dev->base_addr;
+ 
+-	return ASTATUS();
++	return arcnet_inb(ioaddr, COM9026_REG_R_STATUS);
+ }
+ 
+ static void com90xx_setmask(struct net_device *dev, int mask)
+ {
+ 	short ioaddr = dev->base_addr;
+ 
+-	AINTMASK(mask);
++	arcnet_outb(mask, ioaddr, COM9026_REG_W_INTMASK);
+ }
+ 
+ /* Do a hardware reset on the card, and set up necessary registers.
+@@ -603,18 +597,23 @@ static int com90xx_reset(struct net_device *dev, int really_reset)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 	short ioaddr = dev->base_addr;
+ 
+-	arc_printk(D_INIT, dev, "Resetting (status=%02Xh)\n", ASTATUS());
++	arc_printk(D_INIT, dev, "Resetting (status=%02Xh)\n",
++		   arcnet_inb(ioaddr, COM9026_REG_R_STATUS));
  
  	if (really_reset) {
--		writeb(TESTvalue, ioaddr - 0x800);	/* fake reset */
-+		arcnet_writeb(TESTvalue, ioaddr, -0x800);	/* fake reset */
- 		return 0;
+ 		/* reset the card */
+-		inb(_RESET);
++		arcnet_inb(ioaddr, COM9026_REG_R_RESET);
+ 		mdelay(RESETtime);
  	}
 -	ACOMMAND(CFLAGScmd | RESETclear);	/* clear flags & end reset */
 -	ACOMMAND(CFLAGScmd | CONFIGclear);
 +	/* clear flags & end reset */
-+	arcnet_writeb(CFLAGScmd | RESETclear, ioaddr, COM9026_REG_W_COMMAND);
-+	arcnet_writeb(CFLAGScmd | CONFIGclear, ioaddr, COM9026_REG_W_COMMAND);
++	arcnet_outb(CFLAGScmd | RESETclear, ioaddr, COM9026_REG_W_COMMAND);
++	arcnet_outb(CFLAGScmd | CONFIGclear, ioaddr, COM9026_REG_W_COMMAND);
  
++#if 0
+ 	/* don't do this until we verify that it doesn't hurt older cards! */
+-	/* outb(inb(_CONFIG) | ENABLE16flag, _CONFIG); */
++	arcnet_outb(arcnet_inb(ioaddr, COM9026_REG_RW_CONFIG) | ENABLE16flag,
++		    ioaddr, COM9026_REG_RW_CONFIG);
++#endif
+ 
+ 	/* verify that the ARCnet signature byte is present */
+ 	if (readb(lp->mem_start) != TESTvalue) {
+@@ -623,7 +622,7 @@ static int com90xx_reset(struct net_device *dev, int really_reset)
+ 		return 1;
+ 	}
  	/* enable extended (512-byte) packets */
 -	ACOMMAND(CONFIGcmd | EXTconf);
-+	arcnet_writeb(CONFIGcmd | EXTconf, ioaddr, COM9026_REG_W_COMMAND);
++	arcnet_outb(CONFIGcmd | EXTconf, ioaddr, COM9026_REG_W_COMMAND);
  
- 	/* done!  return success. */
- 	return 0;
-@@ -281,7 +276,7 @@ static void arcrimi_setmask(struct net_device *dev, int mask)
- 	struct arcnet_local *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->mem_start + 0x800;
- 
--	AINTMASK(mask);
-+	arcnet_writeb(mask, ioaddr, COM9026_REG_W_INTMASK);
- }
- 
- static int arcrimi_status(struct net_device *dev)
-@@ -289,7 +284,7 @@ static int arcrimi_status(struct net_device *dev)
- 	struct arcnet_local *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->mem_start + 0x800;
- 
--	return ASTATUS();
-+	return arcnet_readb(ioaddr, COM9026_REG_R_STATUS);
- }
- 
- static void arcrimi_command(struct net_device *dev, int cmd)
-@@ -297,7 +292,7 @@ static void arcrimi_command(struct net_device *dev, int cmd)
- 	struct arcnet_local *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->mem_start + 0x800;
- 
--	ACOMMAND(cmd);
-+	arcnet_writeb(cmd, ioaddr, COM9026_REG_W_COMMAND);
- }
- 
- static void arcrimi_copy_to_card(struct net_device *dev, int bufnum, int offset,
+ 	/* clean out all the memory to make debugging make more sense :) */
+ 	if (BUGLVL(D_DURING))
 -- 
 2.5.1
