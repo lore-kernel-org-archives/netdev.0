@@ -1,80 +1,97 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 7/9] net: Remove martian_destination label
-Date: Tue, 22 Sep 2015 15:55:21 -0700
-Message-ID: <1442962523-3974-8-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 9/9] net: Remove no_route label
+Date: Tue, 22 Sep 2015 15:55:23 -0700
+Message-ID: <1442962523-3974-10-git-send-email-dsa@cumulusnetworks.com>
 References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35521 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933261AbbIVWzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:38 -0400
-Received: by pacfv12 with SMTP id fv12so21981672pac.2
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:37 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35555 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933261AbbIVWzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:40 -0400
+Received: by pacfv12 with SMTP id fv12so21982572pac.2
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:40 -0700 (PDT)
 In-Reply-To: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move call to ip_handle_martian_dest to various jump sites. The
-function only increments a counter and possibly does additional
-logging if CONFIG_IP_ROUTE_VERBOSE is enabled.
+Move no_route code into helper. Add call to helper at jump sites and
+remove goto label.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 24 +++++++++++++-----------
- 1 file changed, 13 insertions(+), 11 deletions(-)
+ net/ipv4/route.c | 40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index b5c3844b85d3..efc8e58c1964 100644
+index 454c38bd23a8..e486a3fb3081 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1791,15 +1791,19 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
- 		goto brd_input;
+@@ -1738,6 +1738,23 @@ static int ip_route_local_input(struct sk_buff *skb,
+ 	return err;
+ }
  
--	if (ipv4_is_zeronet(daddr))
--		goto martian_destination;
-+	if (ipv4_is_zeronet(daddr)) {
-+		ip_handle_martian_dest(dev, in_dev, daddr, saddr);
++static int ip_input_no_route(struct sk_buff *skb,
++			     struct fib_result *res,
++			     struct net_device *loopback_dev,
++			     unsigned int flags,
++			     u32 itag, int err,
++			     bool nopolicy)
++{
++	RT_CACHE_STAT_INC(in_no_route);
++
++	res->type = RTN_UNREACHABLE;
++	res->fi = NULL;
++	res->table = NULL;
++
++	return ip_route_local_input(skb, res, loopback_dev,
++				    flags, itag, err, nopolicy);
++}
++
+ /*
+  *	NOTE. We drop all the packets that has local source
+  *	addresses, because every properly looped back packet
+@@ -1825,7 +1842,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (err != 0) {
+ 		if (!IN_DEV_FORWARD(in_dev))
+ 			err = -EHOSTUNREACH;
+-		goto no_route;
++
++		err = ip_input_no_route(skb, &res, net->loopback_dev,
++					flags, itag, err,
++					IN_DEV_CONF_GET(in_dev, NOPOLICY));
 +		goto out;
-+	}
- 
- 	/* Following code try to avoid calling IN_DEV_NET_ROUTE_LOCALNET(),
- 	 * and call it once if daddr or/and saddr are loopback addresses
- 	 */
- 	if (ipv4_is_loopback(daddr)) {
--		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net))
--			goto martian_destination;
-+		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net)) {
-+			ip_handle_martian_dest(dev, in_dev, daddr, saddr);
-+			goto out;
-+		}
- 	} else if (ipv4_is_loopback(saddr)) {
- 		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net)) {
- 			ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
-@@ -1841,8 +1845,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		err = -EHOSTUNREACH;
- 		goto no_route;
  	}
--	if (res.type != RTN_UNICAST)
--		goto martian_destination;
-+	if (res.type != RTN_UNICAST) {
-+		err = -EINVAL;
-+		ip_handle_martian_dest(dev, in_dev, daddr, saddr);
-+		goto out;
-+	}
  
- 	err = ip_mkroute_input(skb, &res, &fl4, in_dev, daddr, saddr, tos);
- out:	return err;
-@@ -1876,11 +1883,6 @@ out:	return err;
- 	res.fi = NULL;
- 	res.table = NULL;
- 	goto local_input;
+ 	if (res.type == RTN_BROADCAST)
+@@ -1846,8 +1867,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	}
+ 
+ 	if (!IN_DEV_FORWARD(in_dev)) {
+-		err = -EHOSTUNREACH;
+-		goto no_route;
++		err = ip_input_no_route(skb, &res, net->loopback_dev,
++					flags, itag, -EHOSTUNREACH,
++					IN_DEV_CONF_GET(in_dev, NOPOLICY));
++		goto out;
+ 	}
+ 	if (res.type != RTN_UNICAST) {
+ 		err = -EINVAL;
+@@ -1879,17 +1902,6 @@ out:	return err;
+ 				   flags, itag, err,
+ 				   IN_DEV_CONF_GET(in_dev, NOPOLICY));
+ 	goto out;
 -
--martian_destination:
--	err = -EINVAL;
--	ip_handle_martian_dest(dev, in_dev, daddr, saddr);
+-no_route:
+-	RT_CACHE_STAT_INC(in_no_route);
+-	res.type = RTN_UNREACHABLE;
+-	res.fi = NULL;
+-	res.table = NULL;
+-
+-	err = ip_route_local_input(skb, &res, net->loopback_dev,
+-				   flags, itag, err,
+-				   IN_DEV_CONF_GET(in_dev, NOPOLICY));
 -	goto out;
  }
  
