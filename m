@@ -1,14 +1,14 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 13/33] arcnet: Remove unnecessary OOM messages
-Date: Tue, 22 Sep 2015 11:01:54 +0200
-Message-ID: <1442912534-10821-14-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 12/33] arcnet: Move EXPORT_SYMBOL after declarations
+Date: Tue, 22 Sep 2015 11:01:53 +0200
+Message-ID: <1442912534-10821-13-git-send-email-m.grzeschik@pengutronix.de>
 References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:34736 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46933 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932525AbbIVJCl (ORCPT
+	with ESMTP id S932516AbbIVJCl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 05:02:41 -0400
 In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
@@ -16,93 +16,121 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Joe Perches <joe@perches.com>
 
-Alloc failures have generic stack dumps so these are redundant.
+Use the normal kernel style for EXPORT_SYMBOL.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arc-rawmode.c  | 1 -
- drivers/net/arcnet/capmode.c      | 5 +----
- drivers/net/arcnet/com20020-pci.c | 4 +---
- drivers/net/arcnet/rfc1051.c      | 1 -
- drivers/net/arcnet/rfc1201.c      | 1 -
- 5 files changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/arcnet/arcnet.c | 33 ++++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/arcnet/arc-rawmode.c b/drivers/net/arcnet/arc-rawmode.c
-index e4a2702..7fc5b042 100644
---- a/drivers/net/arcnet/arc-rawmode.c
-+++ b/drivers/net/arcnet/arc-rawmode.c
-@@ -98,7 +98,6 @@ static void rx(struct net_device *dev, int bufnum,
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index 2be8ab6..a9535ec 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -68,8 +68,17 @@ static void arcnet_rx(struct net_device *dev, int bufnum);
+  * arc_proto_default instead.  It also must not be NULL; if you would like
+  * to set it to NULL, set it to &arc_proto_null instead.
+  */
+-struct ArcProto *arc_proto_map[256], *arc_proto_default,
+-	*arc_bcast_proto, *arc_raw_proto;
++struct ArcProto *arc_proto_map[256];
++EXPORT_SYMBOL(arc_proto_map);
++
++struct ArcProto *arc_proto_default;
++EXPORT_SYMBOL(arc_proto_default);
++
++struct ArcProto *arc_bcast_proto;
++EXPORT_SYMBOL(arc_bcast_proto);
++
++struct ArcProto *arc_raw_proto;
++EXPORT_SYMBOL(arc_raw_proto);
  
- 	skb = alloc_skb(length + ARC_HDR_SIZE, GFP_ATOMIC);
- 	if (skb == NULL) {
--		arc_printk(D_NORMAL, dev, "Memory squeeze, dropping packet\n");
- 		dev->stats.rx_dropped++;
- 		return;
+ static struct ArcProto arc_proto_null = {
+ 	.suffix		= '?',
+@@ -84,19 +93,7 @@ static struct ArcProto arc_proto_null = {
+ 
+ /* Exported function prototypes */
+ int arcnet_debug = ARCNET_DEBUG;
+-
+-EXPORT_SYMBOL(arc_proto_map);
+-EXPORT_SYMBOL(arc_proto_default);
+-EXPORT_SYMBOL(arc_bcast_proto);
+-EXPORT_SYMBOL(arc_raw_proto);
+-EXPORT_SYMBOL(arcnet_unregister_proto);
+ EXPORT_SYMBOL(arcnet_debug);
+-EXPORT_SYMBOL(alloc_arcdev);
+-EXPORT_SYMBOL(arcnet_interrupt);
+-EXPORT_SYMBOL(arcnet_open);
+-EXPORT_SYMBOL(arcnet_close);
+-EXPORT_SYMBOL(arcnet_send_packet);
+-EXPORT_SYMBOL(arcnet_timeout);
+ 
+ /* Internal function prototypes */
+ static int arcnet_header(struct sk_buff *skb, struct net_device *dev,
+@@ -151,7 +148,6 @@ void arcnet_dump_skb(struct net_device *dev,
+ 	print_hex_dump(KERN_DEBUG, hdr, DUMP_PREFIX_OFFSET,
+ 		       16, 1, skb->data, skb->len, true);
+ }
+-
+ EXPORT_SYMBOL(arcnet_dump_skb);
+ #endif
+ 
+@@ -211,6 +207,7 @@ void arcnet_unregister_proto(struct ArcProto *proto)
+ 			arc_proto_map[count] = arc_proto_default;
  	}
-diff --git a/drivers/net/arcnet/capmode.c b/drivers/net/arcnet/capmode.c
-index 92b553e..de80d9e 100644
---- a/drivers/net/arcnet/capmode.c
-+++ b/drivers/net/arcnet/capmode.c
-@@ -57,7 +57,6 @@ static void rx(struct net_device *dev, int bufnum,
+ }
++EXPORT_SYMBOL(arcnet_unregister_proto);
  
- 	skb = alloc_skb(length + ARC_HDR_SIZE + sizeof(int), GFP_ATOMIC);
- 	if (skb == NULL) {
--		arc_printk(D_NORMAL, dev, "Memory squeeze, dropping packet\n");
- 		dev->stats.rx_dropped++;
- 		return;
- 	}
-@@ -197,10 +196,8 @@ static int ack_tx(struct net_device *dev, int acked)
+ /* Add a buffer to the queue.  Only the interrupt handler is allowed to do
+  * this, unless interrupts are disabled.
+@@ -330,6 +327,7 @@ struct net_device *alloc_arcdev(const char *name)
  
- 	/* Now alloc a skb to send back up through the layers: */
- 	ackskb = alloc_skb(length + ARC_HDR_SIZE, GFP_ATOMIC);
--	if (ackskb == NULL) {
--		arc_printk(D_NORMAL, dev, "Memory squeeze, can't acknowledge\n");
-+	if (ackskb == NULL)
- 		goto free_outskb;
--	}
+ 	return dev;
+ }
++EXPORT_SYMBOL(alloc_arcdev);
  
- 	skb_put(ackskb, length + ARC_HDR_SIZE);
- 	ackskb->dev = dev;
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index 7247add..fc6809b 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -142,10 +142,8 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
+ /* Open/initialize the board.  This is called sometime after booting when
+  * the 'ifconfig' program is run.
+@@ -431,6 +429,7 @@ int arcnet_open(struct net_device *dev)
+ 	module_put(lp->hw.owner);
+ 	return error;
+ }
++EXPORT_SYMBOL(arcnet_open);
  
- 		card = devm_kzalloc(&pdev->dev, sizeof(struct com20020_dev),
- 				    GFP_KERNEL);
--		if (!card) {
--			pr_err("%s out of memory!\n", __func__);
-+		if (!card)
- 			return -ENOMEM;
--		}
+ /* The inverse routine to arcnet_open - shuts down the card. */
+ int arcnet_close(struct net_device *dev)
+@@ -450,6 +449,7 @@ int arcnet_close(struct net_device *dev)
+ 	module_put(lp->hw.owner);
+ 	return 0;
+ }
++EXPORT_SYMBOL(arcnet_close);
  
- 		card->index = i;
- 		card->pci_priv = priv;
-diff --git a/drivers/net/arcnet/rfc1051.c b/drivers/net/arcnet/rfc1051.c
-index d5a0f90..7e7eda5 100644
---- a/drivers/net/arcnet/rfc1051.c
-+++ b/drivers/net/arcnet/rfc1051.c
-@@ -134,7 +134,6 @@ static void rx(struct net_device *dev, int bufnum,
+ static int arcnet_header(struct sk_buff *skb, struct net_device *dev,
+ 			 unsigned short type, const void *daddr,
+@@ -592,6 +592,7 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
  
- 	skb = alloc_skb(length + ARC_HDR_SIZE, GFP_ATOMIC);
- 	if (skb == NULL) {
--		arc_printk(D_NORMAL, dev, "Memory squeeze, dropping packet\n");
- 		dev->stats.rx_dropped++;
- 		return;
- 	}
-diff --git a/drivers/net/arcnet/rfc1201.c b/drivers/net/arcnet/rfc1201.c
-index 3dae141..9040a8b 100644
---- a/drivers/net/arcnet/rfc1201.c
-+++ b/drivers/net/arcnet/rfc1201.c
-@@ -179,7 +179,6 @@ static void rx(struct net_device *dev, int bufnum,
+ 	return retval;		/* no need to try again */
+ }
++EXPORT_SYMBOL(arcnet_send_packet);
  
- 		skb = alloc_skb(length + ARC_HDR_SIZE, GFP_ATOMIC);
- 		if (skb == NULL) {
--			arc_printk(D_NORMAL, dev, "Memory squeeze, dropping packet\n");
- 			dev->stats.rx_dropped++;
- 			return;
- 		}
+ /* Actually start transmitting a packet that was loaded into a buffer
+  * by prepare_tx.  This should _only_ be called by the interrupt handler.
+@@ -659,6 +660,7 @@ void arcnet_timeout(struct net_device *dev)
+ 	if (lp->cur_tx == -1)
+ 		netif_wake_queue(dev);
+ }
++EXPORT_SYMBOL(arcnet_timeout);
+ 
+ /* The typical workload of the driver: Handle the network interface
+  * interrupts. Establish which device needs attention, and call the correct
+@@ -902,6 +904,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 	spin_unlock(&lp->lock);
+ 	return retval;
+ }
++EXPORT_SYMBOL(arcnet_interrupt);
+ 
+ /* This is a generic packet receiver that calls arcnet??_rx depending on the
+  * protocol ID found.
 -- 
 2.5.1
