@@ -1,44 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] lib: fix data race in rhashtable_rehash_one
-Date: Tue, 22 Sep 2015 23:18:55 +0800
-Message-ID: <20150922151855.GA13218@gondor.apana.org.au>
-References: <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2] lib: fix data race in rhashtable_rehash_one
+Date: Tue, 22 Sep 2015 23:19:57 +0800
+Message-ID: <20150922151957.GA13278@gondor.apana.org.au>
+References: <1442911912-66882-1-git-send-email-dvyukov@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, dvyukov@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kcc@google.com,
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch, kcc@google.com,
 	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
-	paulmck@linux.vnet.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	paulmck@linux.vnet.ibm.com, dvyukov@google.com
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1442876618.29850.64.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1442911912-66882-1-git-send-email-dvyukov@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> What I said is :
+Dmitry Vyukov <dvyukov@google.com> wrote:
+> rhashtable_rehash_one() uses complex logic to update entry->next field,
+> after INIT_RHT_NULLS_HEAD and NULLS_MARKER expansion:
 > 
-> In @head you already have the correct nulls value, from hash table.
+> entry->next = 1 | ((base + off) << 1)
 > 
-> You do not need to recompute this value, and/or test if hash table chain
-> is empty.
+> This can be compiled along the lines of:
 > 
-> If hash bucket is empty, it contains the appropriate NULLS value.
+> entry->next = base + off
+> entry->next <<= 1
+> entry->next |= 1
 > 
-> If you are paranoiac add this debugging check :
+> Which will break concurrent readers.
 > 
-> if (rht_is_a_nulls(head))
->    BUG_ON(head != (struct rhash_head *)rht_marker(ht, new_hash));
+> NULLS value recomputation is not needed here, so just remove
+> the complex logic.
 > 
+> The data race was found with KernelThreadSanitizer (KTSAN).
 > 
-> Therefore, simply fix the bug and unnecessary code with :
+> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
 
-Ack.  I remember seeing this when I was working on it but never
-got around to removing this bogosity.
-
-Thanks,
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
