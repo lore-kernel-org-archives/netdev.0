@@ -1,68 +1,76 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC 0/3] kcm: Kernel Connection Multiplexor (KCM)
-Date: Tue, 22 Sep 2015 09:46:38 -0700
-Message-ID: <CALx6S34g3geNOjvxGbD_BtaquG-NmDkfkEyOwQygR3mEkSxa9Q@mail.gmail.com>
-References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
-	<56011C08.4070109@rockbox.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 00/10] switchdev: transaction item queue and
+ cleanup
+Date: Tue, 22 Sep 2015 18:53:48 +0200
+Message-ID: <20150922165348.GD2253@nanopsycho.orion>
+References: <1442930031-4732-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAVGGKQsGu5MyWMvZQCcH_FkxGT96ivHj9RArsua4N32Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Thomas Martitz <kugel@rockbox.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"Rosen, Rami" <rami.rosen@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36715 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbbIVQqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:46:39 -0400
-Received: by igcrk20 with SMTP id rk20so84560121igc.1
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 09:46:39 -0700 (PDT)
-In-Reply-To: <56011C08.4070109@rockbox.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37605 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758072AbbIVQxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:53:51 -0400
+Received: by wicfx3 with SMTP id fx3so33402935wic.0
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 09:53:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bAVGGKQsGu5MyWMvZQCcH_FkxGT96ivHj9RArsua4N32Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 22, 2015 at 2:14 AM, Thomas Martitz <kugel@rockbox.org> wrote:
-> Am 21.09.2015 um 00:29 schrieb Tom Herbert:
+Tue, Sep 22, 2015 at 06:22:23PM CEST, sfeldma@gmail.com wrote:
+>On Tue, Sep 22, 2015 at 6:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
 >>
->> Kernel Connection Multiplexor (KCM) is a facility that provides a
->> message based interface over TCP for generic application protocols.
->> The motivation for this is based on the observation that although
->> TCP is byte stream transport protocol with no concept of message
->> boundaries, a common use case is to implement a framed application
->> layer protocol running over TCP. To date, most TCP stacks offer
->> byte stream API for applications, which places the burden of message
->> delineation, message I/O operation atomicity, and load balancing
->> in the application. With KCM an application can efficiently send
->> and receive application protocol messages over TCP using a
->> datagram interface.
+>> Jiri Pirko (10):
+>>   switchdev: rename "trans" to "trans_ph".
+>>   switchdev: introduce transaction item queue for attr_set and obj_add
+>>   switchdev: move transaction phase enum under transaction structure
+>>   switchdev: add switchdev_trans_ph_prepare/commit helpers
+>>   rocker: push struct switchdev_trans down through rocker code
+>>   rocker: use switchdev transaction queue for allocated memory
+>>   switchdev: remove "NONE" transaction phase
+>>   switchdev: remove "ABORT" transaction phase
+>>   dsa: use prepare/commit switchdev transaction helpers
+>>   switchdev: reduce transaction phase enum down to a boolean
 >>
+>>  drivers/net/ethernet/rocker/rocker.c | 311 +++++++++++++++--------------------
+>>  include/net/switchdev.h              |  40 +++--
+>>  net/dsa/slave.c                      |  31 ++--
+>>  net/switchdev/switchdev.c            |  99 ++++++++---
+>>  4 files changed, 252 insertions(+), 229 deletions(-)
 >
+>I like this version much better!  Thank you for making the
+>adjustments.  My main concern about easily opting-out of prepare phase
+>is gone.  And I appreciate that you moved trans * as arg to attr_set
+>and obj_add.
 >
-> Hello Tom,
->
-> on a general note I'm wondering what this offers over the existing SCTP
-> support. SCTP offers reliable message exchange and multihoming already.
->
-Hi Thomas,
+>Would you add a write-up in switchdev.txt about prepare-commit model
+>and how to use the transaction object?  Add it to this patchset, if
+>you can.
 
-The idea of KCM is to provide a an improved interface that is usable
-with currently deployed protocols without invoking any change on the
-wire whatsoever. Deploying SCTP to replace TCP use cases would entail
-a major operations change for us, AFAIK hardware support is scant, and
-we probably still can't reliably use it on the Internet (you can
-Google why is SCTP not widely deployed). I would point out that two of
-the four limitations of TCP listed in RFC4960 should be addressed by
-KCM :-)
+Okay.
 
-> On a specific note, I'm wondering if the dup(2) familiy of system calls
-> isn't a lot more suitable/natural instead of overloading accept.
 >
-dup is to duplicate a file descriptor not a socket. Sockets operations
-on duplicated file descriptors operate on the same socket, need to
-contend for the socket lock, etc. This is a similar rationale as to
-why we need SO_REUSEPORT instead of just dup'ing listener fds.
+>What testing have you done?  I'll do testing today on my bench and
+>report back, but I kind of want to know what to expect.
 
-Thanks,
-Tom
+I did basic smoke tests with bridged rocker ports.
 
-> Best regards.
+>
+>Give a day or two for testing and review.
+
+Thanks!
