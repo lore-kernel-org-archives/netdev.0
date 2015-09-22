@@ -1,57 +1,112 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/9] net: Remove e_nobufs label from ip_route_input_slow
-Date: Tue, 22 Sep 2015 15:55:17 -0700
-Message-ID: <1442962523-3974-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 6/9] net: Remove martian_source goto
+Date: Tue, 22 Sep 2015 15:55:20 -0700
+Message-ID: <1442962523-3974-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35456 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933261AbbIVWzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:33 -0400
-Received: by pacfv12 with SMTP id fv12so21980035pac.2
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:33 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35503 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935077AbbIVWzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:36 -0400
+Received: by pacfv12 with SMTP id fv12so21981210pac.2
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:36 -0700 (PDT)
 In-Reply-To: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e_nobufs has 1 user. Move setting err to -ENOBUFS for the 1 user and
-use the goto out label instead of e_nobufs. Stepping stone patch; next
-one moves rth code into a helper function.
+Move call to ip_handle_martian_source to various jump sites. The
+function only increments a counter and possibly does additional
+logging if CONFIG_IP_ROUTE_VERBOSE is enabled.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ net/ipv4/route.c | 38 ++++++++++++++++++++------------------
+ 1 file changed, 20 insertions(+), 18 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3c5000db5972..e3b18cc1952f 100644
+index 3ee37835e1f5..b5c3844b85d3 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1805,8 +1805,10 @@ out:	return err;
+@@ -1777,20 +1777,20 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		fl4.flowi4_tun_key.tun_id = 0;
+ 	skb_dst_drop(skb);
  
- 	rth = rt_dst_alloc(net->loopback_dev, flags | RTCF_LOCAL, res.type,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
--	if (!rth)
--		goto e_nobufs;
-+	if (!rth) {
-+		err = -ENOBUFS;
+-	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
+-		goto martian_source;
++	/* Accept zero addresses only to limited broadcast;
++	 * I even do not know to fix it or not. Waiting for complains :-)
++	 */
++	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
++	    ipv4_is_zeronet(saddr)) {
++		ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
 +		goto out;
 +	}
  
- 	rth->dst.output= ip_rt_bug;
- #ifdef CONFIG_IP_ROUTE_CLASSID
-@@ -1852,10 +1854,6 @@ out:	return err;
- #endif
- 	goto out;
+ 	res.fi = NULL;
+ 	res.table = NULL;
+ 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
+ 		goto brd_input;
  
--e_nobufs:
--	err = -ENOBUFS;
--	goto out;
+-	/* Accept zero addresses only to limited broadcast;
+-	 * I even do not know to fix it or not. Waiting for complains :-)
+-	 */
+-	if (ipv4_is_zeronet(saddr))
+-		goto martian_source;
 -
- martian_source:
- 	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
+ 	if (ipv4_is_zeronet(daddr))
+ 		goto martian_destination;
+ 
+@@ -1801,8 +1801,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net))
+ 			goto martian_destination;
+ 	} else if (ipv4_is_loopback(saddr)) {
+-		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net))
+-			goto martian_source;
++		if (!IN_DEV_NET_ROUTE_LOCALNET(in_dev, net)) {
++			ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
++			goto out;
++		}
+ 	}
+ 
+ 	/*
+@@ -1828,8 +1830,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (res.type == RTN_LOCAL) {
+ 		err = fib_validate_source(skb, saddr, daddr, tos,
+ 					  0, dev, in_dev, &itag);
+-		if (err < 0)
+-			goto martian_source;
++		if (err < 0) {
++			ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
++			goto out;
++		}
+ 		goto local_input;
+ 	}
+ 
+@@ -1851,8 +1855,10 @@ out:	return err;
+ 	if (!ipv4_is_zeronet(saddr)) {
+ 		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+ 					  in_dev, &itag);
+-		if (err < 0)
+-			goto martian_source;
++		if (err < 0) {
++			ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
++			goto out;
++		}
+ 	}
+ 	flags |= RTCF_BROADCAST;
+ 	res.type = RTN_BROADCAST;
+@@ -1875,10 +1881,6 @@ out:	return err;
+ 	err = -EINVAL;
+ 	ip_handle_martian_dest(dev, in_dev, daddr, saddr);
  	goto out;
+-
+-martian_source:
+-	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
+-	goto out;
+ }
+ 
+ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 -- 
 1.9.1
