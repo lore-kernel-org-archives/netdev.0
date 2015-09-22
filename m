@@ -1,111 +1,89 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 10/10] switchdev: reduce transaction phase enum down to a boolean
-Date: Tue, 22 Sep 2015 17:47:51 +0200
-Message-ID: <1442936871-6147-1-git-send-email-jiri@resnulli.us>
-References: <1442930031-4732-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, rami.rosen@intel.com,
-	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
-	gospo@cumulusnetworks.com, Jiri Pirko <jiri@mellanox.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: Fix CWV being too strict on thin streams
+Date: Tue, 22 Sep 2015 09:09:10 -0700
+Message-ID: <1442938150.29850.97.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442619503-2282-1-git-send-email-bro.devel+kernel@gmail.com>
+	 <CADVnQy=BXvWMXUGeeABjsHDpfa4FF+RUfCvJXpupcyYKG+=+ig@mail.gmail.com>
+	 <8021096.gY5K1ti0Dn@garfield>
+	 <1442933196.29850.94.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	Yuchung Cheng <ycheng@google.com>
+To: Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad <bro.devel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33506 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758446AbbIVPry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 11:47:54 -0400
-Received: by wiclk2 with SMTP id lk2so199840523wic.0
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 08:47:53 -0700 (PDT)
-In-Reply-To: <1442930031-4732-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35616 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758598AbbIVQJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 12:09:12 -0400
+Received: by pacfv12 with SMTP id fv12so13245847pac.2
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 09:09:12 -0700 (PDT)
+In-Reply-To: <1442933196.29850.94.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Tue, 2015-09-22 at 07:46 -0700, Eric Dumazet wrote:
 
-Now, since we have only 2 values for transaction phase, just use bool.
+> 
+> Ahem.
+> 
+> packetdrill can make this in one script, as you can exactly control the
+> packets that the 'remote' peer would answer.
+> 
+> No need for complex setup. You should try it, and as a bonus we could
+> easily reproduce the problem and check the fix.
+> 
+> Let see if we can cook a packetdrill scenario.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/switchdev.h   | 11 +++--------
- net/switchdev/switchdev.c |  8 ++++----
- 2 files changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 9cf372f..1820787 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -17,11 +17,6 @@
- 
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
- 
--enum switchdev_trans_ph {
--	SWITCHDEV_TRANS_PREPARE,
--	SWITCHDEV_TRANS_COMMIT,
--};
--
- struct switchdev_trans_item {
- 	struct list_head list;
- 	void *data;
-@@ -30,17 +25,17 @@ struct switchdev_trans_item {
- 
- struct switchdev_trans {
- 	struct list_head item_list;
--	enum switchdev_trans_ph ph;
-+	bool ph_prepare;
- };
- 
- static inline bool switchdev_trans_ph_prepare(struct switchdev_trans *trans)
- {
--	return trans && trans->ph == SWITCHDEV_TRANS_PREPARE;
-+	return trans && trans->ph_prepare;
- }
- 
- static inline bool switchdev_trans_ph_commit(struct switchdev_trans *trans)
- {
--	return trans && trans->ph == SWITCHDEV_TRANS_COMMIT;
-+	return trans && !trans->ph_prepare;
- }
- 
- enum switchdev_attr_id {
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 4eab17d..89c2bc9 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -214,7 +214,7 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- 	 * but should not commit the attr.
- 	 */
- 
--	trans.ph = SWITCHDEV_TRANS_PREPARE;
-+	trans.ph_prepare = true;
- 	err = __switchdev_port_attr_set(dev, attr, &trans);
- 	if (err) {
- 		/* Prepare phase failed: abort the transaction.  Any
-@@ -233,7 +233,7 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- 	 * because the driver said everythings was OK in phase I.
- 	 */
- 
--	trans.ph = SWITCHDEV_TRANS_COMMIT;
-+	trans.ph_prepare = false;
- 	err = __switchdev_port_attr_set(dev, attr, &trans);
- 	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
- 	     dev->name, attr->id);
-@@ -297,7 +297,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
- 	 * but should not commit the obj.
- 	 */
- 
--	trans.ph = SWITCHDEV_TRANS_PREPARE;
-+	trans.ph_prepare = true;
- 	err = __switchdev_port_obj_add(dev, obj, &trans);
- 	if (err) {
- 		/* Prepare phase failed: abort the transaction.  Any
-@@ -316,7 +316,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
- 	 * because the driver said everythings was OK in phase I.
- 	 */
- 
--	trans.ph = SWITCHDEV_TRANS_COMMIT;
-+	trans.ph_prepare = false;
- 	err = __switchdev_port_obj_add(dev, obj, &trans);
- 	WARN(err, "%s: Commit of object (id=%d) failed.\n", dev->name, obj->id);
- 	switchdev_trans_items_destroy(&trans);
--- 
-1.9.3
+Following packetdrill skeleton will provide you a connexion with cwnd=1
+sshtresh=2  (without patching kernel)
+
+// Establish a connection and send 1 MSS.
+0     socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 setsockopt(3, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
+
+   +0 < S 0:0(0) win 65535 <mss 1000,sackOK,nop,nop>
+   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK>
++.200 < . 1:1(0) ack 1 win 65535
+   +0 accept(3, ..., ...) = 4
+
+   +0 write(4, ..., 100) = 100
+   +0 > P. 1:101(100) ack 1
++.000 %{ print  tcpi_rto }%
+
+// TLP
++.500~+.505 > P. 1:101(100) ack 1
+// RTO
++.600~+.605 > P. 1:101(100) ack 1
+
++.200 < . 1:1(0) ack 101 win 65535
+// cwnd should be 2, ssthresh should be 7
+2.000 write(4, ..., 100) = 100
+   +0  > P. 101:201(100) ack 1
+
+// TLP
++.500~+.505 > P. 101:201(100) ack 1
+// RTO
++1.200~+1.210 > P. 101:201(100) ack 1
+
+   +0 %{ print "tcpi_snd_cwnd=%d" % tcpi_snd_cwnd }%
+   +0 %{ print "tcpi_snd_ssthresh=%d" % tcpi_snd_ssthresh }%
+
+
+Then we can add a bunch of  +.01 write(4, ..., 100) = 100
