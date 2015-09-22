@@ -1,49 +1,29 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] ch9200: Convert to use module_usb_driver
-Date: Tue, 22 Sep 2015 09:29:49 +0200
-Message-ID: <1442906989-10664-1-git-send-email-tklauser@distanz.ch>
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>, netdev@vger.kernel.org,
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Subject: Re: [PATCH] ch9200: Convert to use module_usb_driver
+Date: Tue, 22 Sep 2015 08:31:59 +0100
+Message-ID: <20150922073159.GA28236@srcf.ucam.org>
+References: <1442906989-10664-1-git-send-email-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-usb@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:34437 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932484AbbIVH36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2015 03:29:58 -0400
+Received: from cavan.codon.org.uk ([93.93.128.6]:47684 "EHLO
+	cavan.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932139AbbIVILl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 04:11:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1442906989-10664-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Converts the ch9200 driver to use the module_usb_driver() macro which
-makes the code smaller and a bit simpler.
+On Tue, Sep 22, 2015 at 09:29:49AM +0200, Tobias Klauser wrote:
+> Converts the ch9200 driver to use the module_usb_driver() macro which
+> makes the code smaller and a bit simpler.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Acked-by: Matthew Garrett <mjg59@srcf.ucam.org>
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/usb/ch9200.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
-
-diff --git a/drivers/net/usb/ch9200.c b/drivers/net/usb/ch9200.c
-index cabb670..5e151e6 100644
---- a/drivers/net/usb/ch9200.c
-+++ b/drivers/net/usb/ch9200.c
-@@ -426,18 +426,7 @@ static struct usb_driver ch9200_driver = {
- 	.resume = usbnet_resume,
- };
- 
--static int __init ch9200_init(void)
--{
--	return usb_register(&ch9200_driver);
--}
--
--static void __exit ch9200_exit(void)
--{
--	usb_deregister(&ch9200_driver);
--}
--
--module_init(ch9200_init);
--module_exit(ch9200_exit);
-+module_usb_driver(ch9200_driver);
- 
- MODULE_DESCRIPTION("QinHeng CH9200 USB Network device");
- MODULE_LICENSE("GPL");
 -- 
-2.5.0
+Matthew Garrett | mjg59@srcf.ucam.org
