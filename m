@@ -1,44 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] lib: fix data race in rhashtable_rehash_one
-Date: Tue, 22 Sep 2015 23:19:57 +0800
-Message-ID: <20150922151957.GA13278@gondor.apana.org.au>
-References: <1442911912-66882-1-git-send-email-dvyukov@google.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] geneve: use network byte order for destination port
+ config parameter
+Date: Tue, 22 Sep 2015 11:25:05 -0400
+Message-ID: <20150922152504.GA18514@tuxdriver.com>
+References: <1442518065-23294-1-git-send-email-linville@tuxdriver.com>
+ <1442606350-11170-1-git-send-email-linville@tuxdriver.com>
+ <20150921.162404.1245771010622997220.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch, kcc@google.com,
-	andreyknvl@google.com, glider@google.com, ktsan@googlegroups.com,
-	paulmck@linux.vnet.ibm.com, dvyukov@google.com
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, eric.dumazet@gmail.com,
+	jesse@nicira.com, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35001 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523AbbIVPaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 11:30:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1442911912-66882-1-git-send-email-dvyukov@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150921.162404.1245771010622997220.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dmitry Vyukov <dvyukov@google.com> wrote:
-> rhashtable_rehash_one() uses complex logic to update entry->next field,
-> after INIT_RHT_NULLS_HEAD and NULLS_MARKER expansion:
+On Mon, Sep 21, 2015 at 04:24:04PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Fri, 18 Sep 2015 15:59:10 -0400
 > 
-> entry->next = 1 | ((base + off) << 1)
+> > This is primarily for consistancy with vxlan and other tunnels which
+> > use network byte order for similar parameters.
+> > 
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 > 
-> This can be compiled along the lines of:
-> 
-> entry->next = base + off
-> entry->next <<= 1
-> entry->next |= 1
-> 
-> Which will break concurrent readers.
-> 
-> NULLS value recomputation is not needed here, so just remove
-> the complex logic.
-> 
-> The data race was found with KernelThreadSanitizer (KTSAN).
-> 
-> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
+> This doesn't apply to any of my trees.  Can you respin it against
+> 'net'?  Thanks.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Sure -- sorry about that!
+
+John
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
