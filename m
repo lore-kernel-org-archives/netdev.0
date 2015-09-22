@@ -1,75 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bnx2x: add ethtool support to read and change
- RSS key
-Date: Tue, 22 Sep 2015 16:34:45 -0700
-Message-ID: <1442964885.29850.100.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442614912.14037.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150922.145935.2262486270670808983.davem@davemloft.net>
-	 <20150922.160644.138485112664023430.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/7] 8139cp: Improve accuracy of cp_interrupt() return,
+ to survive IRQ storms
+Date: Tue, 22 Sep 2015 16:45:22 -0700 (PDT)
+Message-ID: <20150922.164522.1769837358584981735.davem@davemloft.net>
+References: <1442843991.7367.4.camel@infradead.org>
+	<1442844109.7367.5.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35704 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759758AbbIVXer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:34:47 -0400
-Received: by pacfv12 with SMTP id fv12so22785181pac.2
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 16:34:47 -0700 (PDT)
-In-Reply-To: <20150922.160644.138485112664023430.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37179 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758811AbbIVXpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:45:25 -0400
+In-Reply-To: <1442844109.7367.5.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-22 at 16:06 -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 22 Sep 2015 14:59:35 -0700 (PDT)
->=20
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Fri, 18 Sep 2015 15:21:52 -0700
-> >=20
-> >> From: Eric Dumazet <edumazet@google.com>
-> >>=20
-> >> While trying to understand why bnx2x RSS hash was not matching
-> >> Toeplitz specifications, I implemented driver code to support
-> >> ethtool -x|-X to try various RSS key combinations easily.
-> >>=20
-> >> Then, after some debugging, I understood bnx2x was reading the rss=
-_key
-> >> in reverse order.
-> >>=20
-> >> If we want consistent Toeplitz hashes with different NIC, we need
-> >> to byte swap user key.
-> >>=20
-> >> Tested:
-> >  ...
-> >> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> >=20
-> > Applied, thanks Eric.
->=20
-> Reverting, this doesn't compile:
->=20
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c: In function =E2=80=98=
-bnx2x_vfpf_config_rss=E2=80=99:
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c:814:29: error: =E2=80=
-=98struct bnx2x_config_rss_params=E2=80=99 has no member named =E2=80=98=
-rss_key=E2=80=99
->   memcpy(req->rss_key, params->rss_key, sizeof(params->rss_key));
->                              ^
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c:814:53: error: =E2=80=
-=98struct bnx2x_config_rss_params=E2=80=99 has no member named =E2=80=98=
-rss_key=E2=80=99
->   memcpy(req->rss_key, params->rss_key, sizeof(params->rss_key));
->                                                      ^
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c: In function =E2=80=98=
-bnx2x_vf_mbx_update_rss=E2=80=99:
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c:1988:12: error: =E2=80=
-=98struct bnx2x_config_rss_params=E2=80=99 has no member named =E2=80=98=
-rss_key=E2=80=99
->   memcpy(rss.rss_key, rss_tlv->rss_key, sizeof(rss_tlv->rss_key));
-> =20
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Mon, 21 Sep 2015 15:01:49 +0100
 
-Ah sorry for this.
+> From: David Woodhouse <David.Woodhouse@intel.com>
+> 
+> The TX timeout handling has been observed to trigger RX IRQ storms. And
+> since cp_interrupt() just keeps saying that it handled the interrupt,
+> the machine then dies. Fix the return value from cp_interrupt(), and
+> the offending IRQ gets disabled and the machine survives.
+> 
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-I'll submit the byte-swapping fix only separately.
+Like Francois, I don't like this.
+
+First of all, there are only 3 bits not handled explicitly by
+cp_interrupt().  And for those if they are set and no other condition
+was rasied, you should report the event and the status bits set, and
+then forcibly clear the interrupt.
+
+And if we are getting Rx* interrupts with napi_schedule_prep()
+returning false, that's a serious problem.  It can mean that the TX
+timeout handler's resetting of the chip is either miscoded or is
+racing with either NAPI polling or this interrupt handler.
+
+And if that's the case your patch is making the chip's IRQ line get
+disabled when this race triggers.
+
+This change is even worse, in my opinion, if patch #2 indeed makes
+the problem go away.
