@@ -1,43 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] lib: fix data race in rhashtable_rehash_one
-Date: Tue, 22 Sep 2015 02:05:10 -0700
-Message-ID: <1442912710.29850.75.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442911912-66882-1-git-send-email-dvyukov@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tgraf@suug.ch, kcc@google.com, andreyknvl@google.com,
-	glider@google.com, ktsan@googlegroups.com,
-	paulmck@linux.vnet.ibm.com
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442911912-66882-1-git-send-email-dvyukov@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH 19/33] arcnet: Make a char * array const char * const
+Date: Tue, 22 Sep 2015 11:02:00 +0200
+Message-ID: <1442912534-10821-20-git-send-email-m.grzeschik@pengutronix.de>
+References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59368 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932645AbbIVJCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 05:02:42 -0400
+In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-22 at 10:51 +0200, Dmitry Vyukov wrote:
-> rhashtable_rehash_one() uses complex logic to update entry->next field,
-> after INIT_RHT_NULLS_HEAD and NULLS_MARKER expansion:
-> 
-> entry->next = 1 | ((base + off) << 1)
-> 
-> This can be compiled along the lines of:
-> 
-> entry->next = base + off
-> entry->next <<= 1
-> entry->next |= 1
-> 
-> Which will break concurrent readers.
-> 
-> NULLS value recomputation is not needed here, so just remove
-> the complex logic.
-> 
-> The data race was found with KernelThreadSanitizer (KTSAN).
-> 
-> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
-> ---
+From: Joe Perches <joe@perches.com>
 
-Thanks Dmitry
+Might as well be specific about the use of this array.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Add a commment questioning the indexing too.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
+index f46e220..ddd64bb 100644
+--- a/drivers/net/arcnet/com20020.c
++++ b/drivers/net/arcnet/com20020.c
+@@ -42,10 +42,10 @@
+ #include "arcdevice.h"
+ #include "com20020.h"
+ 
+-static char *clockrates[] = {
+-	"XXXXXXX", "XXXXXXXX", "XXXXXX",
+-	"2.5 Mb/s", "1.25Mb/s", "625 Kb/s", "312.5 Kb/s",
+-	"156.25 Kb/s", "Reserved", "Reserved", "Reserved"
++static const char * const clockrates[] = {
++	"XXXXXXX", "XXXXXXXX", "XXXXXX", "2.5 Mb/s",
++	"1.25Mb/s", "625 Kb/s", "312.5 Kb/s", "156.25 Kb/s",
++	"Reserved", "Reserved", "Reserved"
+ };
+ 
+ static void com20020_command(struct net_device *dev, int command);
+@@ -234,7 +234,12 @@ int com20020_found(struct net_device *dev, int shared)
+ 
+ 	arc_printk(D_NORMAL, dev, "Using CKP %d - data rate %s\n",
+ 		   lp->setup >> 1,
+-		   clockrates[3 - ((lp->setup2 & 0xF0) >> 4) + ((lp->setup & 0x0F) >> 1)]);
++		   clockrates[3 -
++			      ((lp->setup2 & 0xF0) >> 4) +
++			      ((lp->setup & 0x0F) >> 1)]);
++			/* The clockrates array index looks very fragile.
++			 * It seems like it could have negative indexing.
++			 */
+ 
+ 	if (register_netdev(dev)) {
+ 		free_irq(dev->irq, dev);
+-- 
+2.5.1
