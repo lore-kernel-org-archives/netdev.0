@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 6/9] net: fix phy refcounting in a bunch of drivers
-Date: Tue, 22 Sep 2015 17:18:28 +0100
-Message-ID: <E1ZeQGy-0006Xr-IF@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 8/9] phy: add phy_device_remove()
+Date: Tue, 22 Sep 2015 17:18:38 +0100
+Message-ID: <E1ZeQH8-0006Y4-QC@rmk-PC.arm.linux.org.uk>
 References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -27,177 +27,118 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-of_phy_find_device() increments the phy struct device refcount,
-which we need to properly balance.  Add code to network drivers
-using this function to ensure that the struct device refcount is
-correctly balanced.
+Add a phy_device_remove() function to complement phy_device_register(),
+which undoes the effects of phy_device_register() by removing the phy
+device from visibility, but not freeing it.
+
+This allows these details to be moved out of the mdio bus code into
+the phy code where this action belongs.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 23 +++++++++++++++--------
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 19 +++++++++++++++++++
- drivers/net/ethernet/freescale/gianfar.c          |  3 +++
- drivers/net/ethernet/freescale/ucc_geth.c         |  8 +++++++-
- drivers/net/ethernet/marvell/mvneta.c             |  2 ++
- drivers/net/ethernet/xilinx/xilinx_emaclite.c     |  2 ++
- 6 files changed, 48 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c |  5 +++--
+ drivers/net/phy/mdio_bus.c               | 15 ++++++++++-----
+ drivers/net/phy/phy_device.c             | 18 ++++++++++++++++++
+ include/linux/phy.h                      |  1 +
+ 4 files changed, 32 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index cfa37041ab71..d2103a3199eb 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -689,16 +689,23 @@ static int xgene_enet_phy_connect(struct net_device *ndev)
- 			netdev_dbg(ndev, "No phy-handle found in DT\n");
- 			return -ENODEV;
- 		}
--		pdata->phy_dev = of_phy_find_device(phy_np);
--	}
- 
--	phy_dev = pdata->phy_dev;
-+		pdata->phy_dev = of_phy_connect(ndev, phy_np,
-+						&xgene_enet_adjust_link,
-+						pdata->phy_mode);
-+		if (!pdata->phy_dev) {
-+			netdev_err(ndev, "Could not connect to PHY\n");
-+			return -ENODEV;
-+		}
-+	} else {
-+		phy_dev = pdata->phy_dev;
- 
--	if (!phy_dev ||
--	    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
--			       pdata->phy_mode)) {
--		netdev_err(ndev, "Could not connect to PHY\n");
--		return  -ENODEV;
-+		if (!phy_dev ||
-+		    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
-+				       pdata->phy_mode)) {
-+			netdev_err(ndev, "Could not connect to PHY\n");
-+			return  -ENODEV;
-+		}
- 	}
- 
- 	pdata->phy_speed = SPEED_UNKNOWN;
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 574c49278900..529d212bd071 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1000,6 +1000,20 @@ static int bgx_init_phy(struct bgx *bgx)
- 	return bgx_init_of_phy(bgx);
- }
- 
-+/*
-+ * This drops the refcount obtained from of_phy_find_device() above.
-+ * We do not need to keep the refcount after phy_connect_direct() has
-+ * taken its own reference.
-+ */
-+static void bgx_drop_phy_ref(struct bgx *bgx)
-+{
-+	unsigned int lmac;
-+
-+	for (lmac = 0; lmac < bgx->lmac_count; lmac++)
-+		if (bgx->lmac[lmac].phydev)
-+			put_device(&bgx->lmac[lmac].phydev->dev);
-+}
-+
- static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
- 	int err;
-@@ -1056,9 +1070,14 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		}
- 	}
- 
-+	if (np)
-+		bgx_drop_phy_ref(bgx);
-+
- 	return 0;
- 
- err_enable:
-+	if (np)
-+		bgx_drop_phy_ref(bgx);
- 	bgx_vnic[bgx->bgx_id] = NULL;
- err_release_regions:
- 	pci_release_regions(pdev);
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4b69d061d90f..65a16086faec 100644
+index 65a16086faec..903211df3288 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1702,6 +1702,7 @@ static void gfar_configure_serdes(struct net_device *dev)
+@@ -1702,7 +1702,6 @@ static void gfar_configure_serdes(struct net_device *dev)
  	tbiphy = of_phy_find_device(priv->tbi_node);
  	if (!tbiphy) {
  		dev_err(&dev->dev, "error: Could not get TBI device\n");
-+		put_device(&tbiphy->dev);
+-		put_device(&tbiphy->dev);
  		return;
  	}
  
-@@ -1723,6 +1724,8 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	phy_write(tbiphy, MII_BMCR,
- 		  BMCR_ANENABLE | BMCR_ANRESTART | BMCR_FULLDPLX |
- 		  BMCR_SPEED1000);
-+
-+	put_device(&tbiphy->dev);
- }
- 
- static int __gfar_is_rx_idle(struct gfar_private *priv)
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 4dd40e057f40..650f7888e32b 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -1384,6 +1384,8 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 		value = phy_read(tbiphy, ENET_TBI_MII_CR);
- 		value &= ~0x1000;	/* Turn off autonegotiation */
- 		phy_write(tbiphy, ENET_TBI_MII_CR, value);
-+
-+		put_device(&tbiphy->dev);
- 	}
- 
- 	init_check_frame_length_mode(ug_info->lengthCheckRx, &ug_regs->maccfg2);
-@@ -1702,8 +1704,10 @@ static void uec_configure_serdes(struct net_device *dev)
+@@ -1711,8 +1710,10 @@ static void gfar_configure_serdes(struct net_device *dev)
  	 * everything for us?  Resetting it takes the link down and requires
  	 * several seconds for it to come back.
  	 */
--	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS)
-+	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS) {
+-	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS)
++	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS) {
 +		put_device(&tbiphy->dev);
  		return;
 +	}
  
  	/* Single clk mode, mii mode off(for serdes communication) */
- 	phy_write(tbiphy, ENET_TBI_MII_ANA, TBIANA_SETTINGS);
-@@ -1711,6 +1715,8 @@ static void uec_configure_serdes(struct net_device *dev)
- 	phy_write(tbiphy, ENET_TBI_MII_TBICON, TBICON_CLK_SELECT);
+ 	phy_write(tbiphy, MII_TBICON, TBICON_CLK_SELECT);
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 992406624b7c..c340e412b38f 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -291,8 +291,11 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
  
- 	phy_write(tbiphy, ENET_TBI_MII_CR, TBICR_SETTINGS);
-+
-+	put_device(&tbiphy->dev);
+ error:
+ 	while (--i >= 0) {
+-		if (bus->phy_map[i])
+-			device_unregister(&bus->phy_map[i]->dev);
++		struct phy_device *phydev = bus->phy_map[i];
++		if (phydev) {
++			phy_device_remove(phydev);
++			phy_device_free(phydev);
++		}
+ 	}
+ 	device_del(&bus->dev);
+ 	return err;
+@@ -307,9 +310,11 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	bus->state = MDIOBUS_UNREGISTERED;
+ 
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		if (bus->phy_map[i])
+-			device_unregister(&bus->phy_map[i]->dev);
+-		bus->phy_map[i] = NULL;
++		struct phy_device *phydev = bus->phy_map[i];
++		if (phydev) {
++			phy_device_remove(phydev);
++			phy_device_free(phydev);
++		}
+ 	}
+ 	device_del(&bus->dev);
  }
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 97a4f52addac..f761288abe66 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -384,6 +384,24 @@ int phy_device_register(struct phy_device *phydev)
+ EXPORT_SYMBOL(phy_device_register);
  
- /* Configure the PHY for dev.
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index fe2299ac4f5c..0dce037a2682 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3173,6 +3173,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 		struct phy_device *phy = of_phy_find_device(dn);
- 
- 		mvneta_fixed_link_update(pp, phy);
+ /**
++ * phy_device_remove - Remove a previously registered phy device from the MDIO bus
++ * @phydev: phy_device structure to remove
++ *
++ * This doesn't free the phy_device itself, it merely reverses the effects
++ * of phy_device_register(). Use phy_device_free() to free the device
++ * after calling this function.
++ */
++void phy_device_remove(struct phy_device *phydev)
++{
++	struct mii_bus *bus = phydev->bus;
++	int addr = phydev->addr;
 +
-+		put_device(&phy->dev);
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 6008eee01a33..cf468c87ce57 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -828,6 +828,8 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 		if (!phydev)
- 			dev_info(dev,
- 				 "MDIO of the phy is not registered yet\n");
-+		else
-+			put_device(&phydev->dev);
- 		return 0;
- 	}
- 
++	device_del(&phydev->dev);
++	bus->phy_map[addr] = NULL;
++}
++EXPORT_SYMBOL(phy_device_remove);
++
++/**
+  * phy_find_first - finds the first PHY device on the bus
+  * @bus: the target MII bus
+  */
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 11bce44f6d65..4a4e3a092337 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -745,6 +745,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 				     struct phy_c45_device_ids *c45_ids);
+ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
+ int phy_device_register(struct phy_device *phy);
++void phy_device_remove(struct phy_device *phydev);
+ int phy_init_hw(struct phy_device *phydev);
+ int phy_suspend(struct phy_device *phydev);
+ int phy_resume(struct phy_device *phydev);
 -- 
 2.1.0
