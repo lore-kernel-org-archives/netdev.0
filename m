@@ -1,72 +1,50 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 5/9] net: Move martian_destination to helper
-Date: Tue, 22 Sep 2015 15:55:19 -0700
-Message-ID: <1442962523-3974-6-git-send-email-dsa@cumulusnetworks.com>
-References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: add ethtool support to read and change
+ RSS key
+Date: Tue, 22 Sep 2015 16:06:44 -0700 (PDT)
+Message-ID: <20150922.160644.138485112664023430.davem@davemloft.net>
+References: <1442614912.14037.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150922.145935.2262486270670808983.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36784 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934972AbbIVWzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 18:55:35 -0400
-Received: by pacbt3 with SMTP id bt3so3398631pac.3
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 15:55:35 -0700 (PDT)
-In-Reply-To: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36897 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751834AbbIVXGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 19:06:47 -0400
+In-Reply-To: <20150922.145935.2262486270670808983.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move stat and logging for martian_destination error into helper function
-similar to ip_handle_martian_source. Code move only; no functional change.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/route.c | 24 +++++++++++++++---------
- 1 file changed, 15 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 79c4cecdb7a1..3ee37835e1f5 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1531,6 +1531,20 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	return err;
- }
- 
-+/*
-+ *	Do not cache martian addresses: they should be logged (RFC1812)
-+ */
-+static void ip_handle_martian_dest(struct net_device *dev,
-+				   struct in_device *in_dev,
-+				   __be32 daddr, __be32 saddr)
-+{
-+	RT_CACHE_STAT_INC(in_martian_dst);
-+#ifdef CONFIG_IP_ROUTE_VERBOSE
-+	if (IN_DEV_LOG_MARTIANS(in_dev))
-+		net_warn_ratelimited("martian destination %pI4 from %pI4, dev %s\n",
-+				     &daddr, &saddr, dev->name);
-+#endif
-+}
- 
- static void ip_handle_martian_source(struct net_device *dev,
- 				     struct in_device *in_dev,
-@@ -1857,17 +1871,9 @@ out:	return err;
- 	res.table = NULL;
- 	goto local_input;
- 
--	/*
--	 *	Do not cache martian addresses: they should be logged (RFC1812)
--	 */
- martian_destination:
- 	err = -EINVAL;
--	RT_CACHE_STAT_INC(in_martian_dst);
--#ifdef CONFIG_IP_ROUTE_VERBOSE
--	if (IN_DEV_LOG_MARTIANS(in_dev))
--		net_warn_ratelimited("martian destination %pI4 from %pI4, dev %s\n",
--				     &daddr, &saddr, dev->name);
--#endif
-+	ip_handle_martian_dest(dev, in_dev, daddr, saddr);
- 	goto out;
- 
- martian_source:
--- 
-1.9.1
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyMiBT
+ZXAgMjAxNSAxNDo1OTozNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJp
+Yy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogRnJpLCAxOCBTZXAgMjAxNSAxNToyMTo1MiAt
+MDcwMA0KPiANCj4+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4+
+IA0KPj4gV2hpbGUgdHJ5aW5nIHRvIHVuZGVyc3RhbmQgd2h5IGJueDJ4IFJTUyBoYXNoIHdhcyBu
+b3QgbWF0Y2hpbmcNCj4+IFRvZXBsaXR6IHNwZWNpZmljYXRpb25zLCBJIGltcGxlbWVudGVkIGRy
+aXZlciBjb2RlIHRvIHN1cHBvcnQNCj4+IGV0aHRvb2wgLXh8LVggdG8gdHJ5IHZhcmlvdXMgUlNT
+IGtleSBjb21iaW5hdGlvbnMgZWFzaWx5Lg0KPj4gDQo+PiBUaGVuLCBhZnRlciBzb21lIGRlYnVn
+Z2luZywgSSB1bmRlcnN0b29kIGJueDJ4IHdhcyByZWFkaW5nIHRoZSByc3Nfa2V5DQo+PiBpbiBy
+ZXZlcnNlIG9yZGVyLg0KPj4gDQo+PiBJZiB3ZSB3YW50IGNvbnNpc3RlbnQgVG9lcGxpdHogaGFz
+aGVzIHdpdGggZGlmZmVyZW50IE5JQywgd2UgbmVlZA0KPj4gdG8gYnl0ZSBzd2FwIHVzZXIga2V5
+Lg0KPj4gDQo+PiBUZXN0ZWQ6DQo+ICAuLi4NCj4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpl
+dCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IEFwcGxpZWQsIHRoYW5rcyBFcmljLg0KDQpS
+ZXZlcnRpbmcsIHRoaXMgZG9lc24ndCBjb21waWxlOg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9i
+cm9hZGNvbS9ibngyeC9ibngyeF92ZnBmLmM6IEluIGZ1bmN0aW9uIKFibngyeF92ZnBmX2NvbmZp
+Z19yc3OiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfdmZwZi5j
+OjgxNDoyOTogZXJyb3I6IKFzdHJ1Y3QgYm54MnhfY29uZmlnX3Jzc19wYXJhbXOiIGhhcyBubyBt
+ZW1iZXIgbmFtZWQgoXJzc19rZXmiDQogIG1lbWNweShyZXEtPnJzc19rZXksIHBhcmFtcy0+cnNz
+X2tleSwgc2l6ZW9mKHBhcmFtcy0+cnNzX2tleSkpOw0KICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICBeDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF92ZnBmLmM6
+ODE0OjUzOiBlcnJvcjogoXN0cnVjdCBibngyeF9jb25maWdfcnNzX3BhcmFtc6IgaGFzIG5vIG1l
+bWJlciBuYW1lZCChcnNzX2tleaINCiAgbWVtY3B5KHJlcS0+cnNzX2tleSwgcGFyYW1zLT5yc3Nf
+a2V5LCBzaXplb2YocGFyYW1zLT5yc3Nfa2V5KSk7DQogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2Fk
+Y29tL2JueDJ4L2JueDJ4X3ZmcGYuYzogSW4gZnVuY3Rpb24goWJueDJ4X3ZmX21ieF91cGRhdGVf
+cnNzojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3ZmcGYuYzox
+OTg4OjEyOiBlcnJvcjogoXN0cnVjdCBibngyeF9jb25maWdfcnNzX3BhcmFtc6IgaGFzIG5vIG1l
+bWJlciBuYW1lZCChcnNzX2tleaINCiAgbWVtY3B5KHJzcy5yc3Nfa2V5LCByc3NfdGx2LT5yc3Nf
+a2V5LCBzaXplb2YocnNzX3Rsdi0+cnNzX2tleSkpOw0KICAgICAgICAgICAgXg0K
