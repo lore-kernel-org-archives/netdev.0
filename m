@@ -1,47 +1,48 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Tue, 22 Sep 2015 12:28:45 -0700
-Message-ID: <CA+55aFy3k_NouhizkAkiZkuTYTqEKQZCnz8yOzrSH8o4+vjKUw@mail.gmail.com>
-References: <20150918111650.GA7508@gondor.apana.org.au>
-	<20150920.225521.1063980101511317898.davem@davemloft.net>
-	<20150921060636.GA30807@gondor.apana.org.au>
-	<20150920.231104.525285577747035896.davem@davemloft.net>
-	<20150921133415.GA1740@gondor.apana.org.au>
-	<20150921182022.GB13263@mtj.duckdns.org>
-	<20150922033856.GA7851@gondor.apana.org.au>
-	<20150922161056.GB9761@mtj.duckdns.org>
-	<CA+55aFyvPLD5tNsuxFAA4GgOZpamULJe7R90dXf5qSC6aBYzTw@mail.gmail.com>
-	<20150922185357.GD17659@mtj.duckdns.org>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for time management
+Date: Tue, 22 Sep 2015 21:27:51 +0200
+Message-ID: <87r3lqp83s.fsf@belgarion.home>
+References: <87eghyso6u.fsf@belgarion.home>
+	<20150917.145106.1238429841434804906.davem@davemloft.net>
+	<87si6br8ev.fsf@belgarion.home>
+	<20150921.161235.605756522215336833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>, tom@herbertland.com,
-	kafai@fb.com, kernel-team@fb.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain
+Cc: samuel@sortiz.org, petr.cvek@tul.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, arnd@arndb.de
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150922185357.GD17659@mtj.duckdns.org>
+In-Reply-To: <20150921.161235.605756522215336833.davem@davemloft.net> (David
+	Miller's message of "Mon, 21 Sep 2015 16:12:35 -0700 (PDT)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 22, 2015 at 11:53 AM, Tejun Heo <tj@kernel.org> wrote:
+David Miller <davem@davemloft.net> writes:
+
+> From: Robert Jarzmik <robert.jarzmik@free.fr>
+> Date: Fri, 18 Sep 2015 18:36:56 +0200
 >
-> I see.  The write path here is cold so the competition is between rmb
-> and acquire.  Unless some significant archs completely screwed it up,
-> acquire still seems like the better option.  It's essentially free on
-> x86 after all.
+>> Which brings me to wonder which is the more correct :
+>>  (a) replace to reproduce the same calculation
+>>      Previously mtt was compared to a difference of 76ns steps (as 307ns / 4 =
+>>      76ns):
+>>      while ((sched_clock() - si->last_clk) * 76 < mtt)
+>> 
+>>  (b) change the calculation assuming mtt is in microseconds :
+>>      while ((sched_clock() - si->last_clk) * 1000 < mtt)
+>> 
+>> I have no IRDA protocol knowledge so unless someone points me to the correct
+>> calculation I'll try my luck with (b).
+>
+> "a" would be "safer" and less likely to break anything, although as
+> you say "b" might be more correct.
+Indeed.
 
-Both acquire and smp_rmb() are equally free on x86.
+Well, let me try (b) then. I'll add in the commit message the timings change,
+and if anybody complains a regression pops out, I'll provide a patch to fallback
+to (a).
 
-It appears that we don't do the X86_PPRO_FENCE bug handling for
-acquire, but I guess we should.
+Cheers.
 
-Or possibly we should start deprecating the insane X86_PPRO_FENCE
-entirely. It's very costly, for dubious advantages.
-
-                  Linus
+-- 
+Robert
