@@ -1,74 +1,31 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH] net/ethoc: support big-endian register layout
-Date: Tue, 22 Sep 2015 14:27:16 +0300
-Message-ID: <1442921236-1055-1-git-send-email-jcmvbkbc@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Thomas" <topmag1@163.com>
+Subject: About your precise magnetization magnets requirement
+Date: Tue, 22 Sep 2015 20:27:39 +0800
+Message-ID: <201509222027396375791@a.wifi0514.com>
+Reply-To: topmag1@163.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [221.202.47.232] ([221.202.47.232]:1209 "HELO a.wifi0514.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1752517AbbIVMaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 08:30:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
----
- drivers/net/ethernet/ethoc.c | 14 ++++++++++++--
- include/net/ethoc.h          |  1 +
- 2 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 442410c..17ff9a4 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -201,6 +201,7 @@ struct ethoc {
- 	void __iomem *membase;
- 	int dma_alloc;
- 	resource_size_t io_region_size;
-+	bool big_endian;
- 
- 	unsigned int num_bd;
- 	unsigned int num_tx;
-@@ -236,12 +237,18 @@ struct ethoc_bd {
- 
- static inline u32 ethoc_read(struct ethoc *dev, loff_t offset)
- {
--	return ioread32(dev->iobase + offset);
-+	if (dev->big_endian)
-+		return ioread32be(dev->iobase + offset);
-+	else
-+		return ioread32(dev->iobase + offset);
- }
- 
- static inline void ethoc_write(struct ethoc *dev, loff_t offset, u32 data)
- {
--	iowrite32(data, dev->iobase + offset);
-+	if (dev->big_endian)
-+		iowrite32be(data, dev->iobase + offset);
-+	else
-+		iowrite32(data, dev->iobase + offset);
- }
- 
- static inline void ethoc_read_bd(struct ethoc *dev, int index,
-@@ -1106,6 +1113,9 @@ static int ethoc_probe(struct platform_device *pdev)
- 		priv->dma_alloc = buffer_size;
- 	}
- 
-+	priv->big_endian = pdata ? pdata->big_endian :
-+		of_device_is_big_endian(pdev->dev.of_node);
-+
- 	/* calculate the number of TX/RX buffers, maximum 128 supported */
- 	num_bd = min_t(unsigned int,
- 		128, (netdev->mem_end - netdev->mem_start + 1) / ETHOC_BUFSIZ);
-diff --git a/include/net/ethoc.h b/include/net/ethoc.h
-index 2a2d6bb..bb7f467 100644
---- a/include/net/ethoc.h
-+++ b/include/net/ethoc.h
-@@ -17,6 +17,7 @@ struct ethoc_platform_data {
- 	u8 hwaddr[IFHWADDRLEN];
- 	s8 phy_id;
- 	u32 eth_clkfreq;
-+	bool big_endian;
- };
- 
- #endif /* !LINUX_NET_ETHOC_H */
--- 
-1.8.1.4
+RGVhciBTaXIvTWFkYW0sDQoNClRoaXMgaXMgVGhvbWFzIGZyb20gdG9wbWFnLFNoZW56aGVuLENo
+aW5hLg0KDQpGcm9tIHlvdXIgd2Vic2l0ZSwgd2Uga25vdyB0aGF0IG91ciBtYWduZXQgcHJvZHVj
+dHMgbWF5IGJlIHVzZWQgZm9yIHlvdXIgcHJvZHVjdHMuDQoNCk91ciBicmFuY2ggY29tcGFueSBh
+bHNvIG1hbnVmYWN0dXJlIGFuZCBzdXBwbHkgcmF3IG1hdGVyaWFscyBvZiBoaWdoIGNhbHNzIHBy
+YXNlb2R5bWl1bS1uZW9keW1pdW0taXJvbiBhbGxveSwgZHlzcHJvc2l1bSwgY2hyb21pdW0gbWV0
+YWwgZXRjLiBXZSBhcmUgc3BlY2lhbGl6ZWQgaW4gc2ludGVyZWQgJiBib25kZWQgTmRGZUIgbWFn
+bmV0cywgU21DbyBtYWduZXRzLCBBbG5pY28gbWFnbmV0cywgZmVycml0ZSBtYWduZXRzIGFuZCB2
+YXJpb3VzIGtpbmRzIG9mIG1hZ25ldGljIGFzc2VtYmxpZXMuDQoNCkxvb2tpbmcgZm93YXJkIHRv
+IGhlYXJpbmcgZnJvbSB5b3UuDQoNClRob21hcyAtLS0gU2FsZXMgRW5naW5lZXIgIA0KTW9iaWxl
+OiAwMDg2LTE1ODg5NzA2ODM3DQpBZGRyZXNzOiBOZXcgU2FueW8gTW90b3IgSW5kdXN0cmlhbCBQ
+YXJrLCAgSGFveWkgVmlsbGlhZ2UsIFNoYWppbmcgVG93biwgQmFvYW4gRGlzdHJpY3QsIFNoZW56
+aGVuLCBDaGluYSA1MTgxMDQNClRlbDooODYpNzU1LTI5MDE5ODcxDQpGYXg6KDg2KSA3NTUtMjk3
+MzU5ODcNCkVtYWlsOiBpbmZvQHRvcG1hZ3RlY2guY29tJnRvcG1hZzFAMTYzLmNvbQ==
