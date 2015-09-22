@@ -1,66 +1,265 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: Handle negative checksum offset in
- skb-checksum-help
-Date: Mon, 21 Sep 2015 20:21:53 -0700
-Message-ID: <1442892113.29850.74.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442818397-2210-1-git-send-email-pshelar@nicira.com>
-	 <20150921.171412.613695619204829336.davem@davemloft.net>
-	 <CALnjE+owCFib4oXD5zbJNRR9ZosT508tS=0_YL3UD1xg51hD3g@mail.gmail.com>
-	 <1442888056.29850.70.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALnjE+r+He=cyPnJO9qqqKyu0K9awrEgNeBefumqp1wDN=JbWw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH v2] netlink: Replace rhash_portid with bound
+Date: Tue, 22 Sep 2015 11:38:56 +0800
+Message-ID: <20150922033856.GA7851@gondor.apana.org.au>
+References: <20150918111650.GA7508@gondor.apana.org.au>
+ <20150920.225521.1063980101511317898.davem@davemloft.net>
+ <20150921060636.GA30807@gondor.apana.org.au>
+ <20150920.231104.525285577747035896.davem@davemloft.net>
+ <20150921133415.GA1740@gondor.apana.org.au>
+ <20150921182022.GB13263@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
+	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jiri@resnulli.us,
+	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34563 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752596AbbIVDV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 23:21:56 -0400
-Received: by padhy16 with SMTP id hy16so134511938pad.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 20:21:55 -0700 (PDT)
-In-Reply-To: <CALnjE+r+He=cyPnJO9qqqKyu0K9awrEgNeBefumqp1wDN=JbWw@mail.gmail.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:41747 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757570AbbIVDjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 23:39:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20150921182022.GB13263@mtj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-09-21 at 19:49 -0700, Pravin Shelar wrote:
-> On Mon, Sep 21, 2015 at 7:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2015-09-21 at 18:04 -0700, Pravin Shelar wrote:
-> >> On Mon, Sep 21, 2015 at 5:14 PM, David Miller <davem@davemloft.net> wrote:
-> >> > From: Pravin B Shelar <pshelar@nicira.com>
-> >> > Date: Sun, 20 Sep 2015 23:53:17 -0700
-> >> >
-> >> >> VXLAN device can receive skb with checksum partial. But the checksum
-> >> >> offset could be in outer header which is pulled on receive.
-> >> >
-> >> > Such a scenerio is a bug.
-> >> >
-> >> > Anything that pulls off a header should use a utility function such
-> >> > as skb_pull_rcsum() or skb_postpull_rcsum() to make sure this gets
-> >> > fixed up properly.
-> >>
-> >> skb_postpull_rcsum() does not change checksum-offset. vxlan receive
-> >> already calls this function.
-> >
-> > Then the bug is here.
-> >
-> > Otherwise we might have to 'fix' other places.
-> >
-> I posted a patch to fix skb_postpull_rcsum() to handle this case. But
-> that was not accepted.
-> https://patchwork.ozlabs.org/patch/512625/
+On Mon, Sep 21, 2015 at 02:20:22PM -0400, Tejun Heo wrote:
+>
+> store_release and load_acquire are different from the usual memory
+> barriers and can't be paired this way.  You have to pair store_release
+> and load_acquire.  Besides, it isn't a particularly good idea to
+
+OK I've decided to drop the acquire/release helpers as they don't
+help us at all and simply pessimises the code by using full memory
+barriers (on some architectures) where only a write or read barrier
+is needed.
+
+> depend on memory barriers embedded in other data structures like the
+> above.  Here, especially, rhashtable_insert() would have write barrier
+> *before* the entry is hashed not necessarily *after*, which means that
+> in the above case, a socket which appears to have set bound to a
+> reader might not visible when the reader tries to look up the socket
+> on the hashtable.
+
+But you are right we do need an explicit write barrier here to
+ensure that the hashing is visible.
+
+> There's no reason to be overly smart here.  This isn't a crazy hot
+> path, write barriers tend to be very cheap, store_release more so.
+> Please just do smp_store_release() and note what it's paired with.
+
+It's not about being overly smart.  It's about actually understanding
+what's going on with the code.  I've seen too many instances of
+people simply sprinkling synchronisation primitives around without
+any knowledge of what is happening underneath, which is just a recipe
+for creating hard-to-debug races.
+
+> > @@ -1539,7 +1546,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+> >  		}
+> >  	}
+> >  
+> > -	if (!nlk->portid) {
+> > +	if (!nlk->bound) {
 > 
-> And specific solution for skb_checksum_help() was suggested.
+> I don't think you can skip load_acquire here just because this is the
+> second deref of the variable.  That doesn't change anything.  Race
+> condition could still happen between the first and second tests and
+> skipping the second would lead to the same kind of bug.
+
+The reason this one is OK is because we do not use nlk->portid or
+try to get nlk from the hash table before we return to user-space.
+
+However, there is a real bug here that none of these acquire/release
+helpers discovered.  The two bound tests here used to be a single
+one.  Now that they are separate it is entirely possible for another
+thread to come in the middle and bind the socket.  So we need to
+repeat the portid check in order to maintain consistency.
+
+> > @@ -1587,7 +1594,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+> >  	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+> >  		return -EPERM;
+> >  
+> > -	if (!nlk->portid)
+> > +	if (!nlk->bound)
 > 
-> http://marc.info/?l=linux-netdev&m=144108078931774&w=2
+> Don't we need load_acquire here too?  Is this path holding a lock
+> which makes that unnecessary?
 
-If we pull a header where the csum is, then for sure CHECKSUM_PARTIAL
-becomes buggy and void.
+Ditto.
 
-Tom was not advocating doing an operation (skb_postpull_rcsum()) leaving
-skb in a wrong state.
+---8<---
+The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+Fix autobind race condition that leads to zero port ID") created
+some new races that can occur due to inconcsistencies between the
+two port IDs.
 
-We should fix callers that are pulling header in such a way.
+Tejun is right that a barrier is unavoidable.  Therefore I am
+reverting to the original patch that used a boolean to indicate
+that a user netlink socket has been bound.
+
+Barriers have been added where necessary to ensure that a valid
+portid and the hashed socket is visible.
+
+I have also changed netlink_insert to only return EBUSY if the
+socket is bound to a portid different to the requested one.  This
+combined with only reading nlk->bound once in netlink_bind fixes
+a race where two threads that bind the socket at the same time
+with different port IDs may both succeed.
+
+Fixes: 1f770c0a09da ("netlink: Fix autobind race condition that leads to zero port ID")
+Reported-by: Tejun Heo <tj@kernel.org>
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 303efb7..2c15fae 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1015,7 +1015,7 @@ static inline int netlink_compare(struct rhashtable_compare_arg *arg,
+ 	const struct netlink_compare_arg *x = arg->key;
+ 	const struct netlink_sock *nlk = ptr;
+ 
+-	return nlk->rhash_portid != x->portid ||
++	return nlk->portid != x->portid ||
+ 	       !net_eq(sock_net(&nlk->sk), read_pnet(&x->pnet));
+ }
+ 
+@@ -1041,7 +1041,7 @@ static int __netlink_insert(struct netlink_table *table, struct sock *sk)
+ {
+ 	struct netlink_compare_arg arg;
+ 
+-	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->rhash_portid);
++	netlink_compare_arg_init(&arg, sock_net(sk), nlk_sk(sk)->portid);
+ 	return rhashtable_lookup_insert_key(&table->hash, &arg,
+ 					    &nlk_sk(sk)->node,
+ 					    netlink_rhashtable_params);
+@@ -1094,8 +1094,8 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 
+ 	lock_sock(sk);
+ 
+-	err = -EBUSY;
+-	if (nlk_sk(sk)->portid)
++	err = nlk_sk(sk)->portid == portid ? 0 : -EBUSY;
++	if (nlk_sk(sk)->bound)
+ 		goto err;
+ 
+ 	err = -ENOMEM;
+@@ -1103,7 +1103,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 	    unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
+ 		goto err;
+ 
+-	nlk_sk(sk)->rhash_portid = portid;
++	nlk_sk(sk)->portid = portid;
+ 	sock_hold(sk);
+ 
+ 	err = __netlink_insert(table, sk);
+@@ -1119,7 +1119,9 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 		goto err;
+ 	}
+ 
+-	nlk_sk(sk)->portid = portid;
++	/* We need to ensure that the socket is hashed and visible. */
++	smp_wmb();
++	nlk_sk(sk)->bound = portid;
+ 
+ err:
+ 	release_sock(sk);
+@@ -1505,6 +1507,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
+ 	int err;
+ 	long unsigned int groups = nladdr->nl_groups;
++	bool bound;
+ 
+ 	if (addr_len < sizeof(struct sockaddr_nl))
+ 		return -EINVAL;
+@@ -1521,9 +1524,14 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			return err;
+ 	}
+ 
+-	if (nlk->portid)
++	bound = nlk->bound;
++	if (bound) {
++		/* Ensure nlk->portid is up-to-date. */
++		smp_rmb();
++
+ 		if (nladdr->nl_pid != nlk->portid)
+ 			return -EINVAL;
++	}
+ 
+ 	if (nlk->netlink_bind && groups) {
+ 		int group;
+@@ -1539,7 +1547,10 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 		}
+ 	}
+ 
+-	if (!nlk->portid) {
++	/* No need for barriers here as we return to user-space without
++	 * using any of the bound attributes.
++	 */
++	if (!bound) {
+ 		err = nladdr->nl_pid ?
+ 			netlink_insert(sk, nladdr->nl_pid) :
+ 			netlink_autobind(sock);
+@@ -1587,7 +1598,10 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+-	if (!nlk->portid)
++	/* No need for barriers here as we return to user-space without
++	 * using any of the bound attributes.
++	 */
++	if (!nlk->bound)
+ 		err = netlink_autobind(sock);
+ 
+ 	if (err == 0) {
+@@ -2428,10 +2442,13 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 		dst_group = nlk->dst_group;
+ 	}
+ 
+-	if (!nlk->portid) {
++	if (!nlk->bound) {
+ 		err = netlink_autobind(sock);
+ 		if (err)
+ 			goto out;
++	} else {
++		/* Ensure nlk is hashed and visible. */
++		smp_rmb();
+ 	}
+ 
+ 	/* It's a really convoluted way for userland to ask for mmaped
+@@ -3257,7 +3274,7 @@ static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
+ 	const struct netlink_sock *nlk = data;
+ 	struct netlink_compare_arg arg;
+ 
+-	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->rhash_portid);
++	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
+ 	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
+ }
+ 
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index c96dfa3..e6aae40 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -25,7 +25,6 @@ struct netlink_ring {
+ struct netlink_sock {
+ 	/* struct sock has to be the first member of netlink_sock */
+ 	struct sock		sk;
+-	u32			rhash_portid;
+ 	u32			portid;
+ 	u32			dst_portid;
+ 	u32			dst_group;
+@@ -36,6 +35,7 @@ struct netlink_sock {
+ 	unsigned long		state;
+ 	size_t			max_recvmsg_len;
+ 	wait_queue_head_t	wait;
++	bool			bound;
+ 	bool			cb_running;
+ 	struct netlink_callback	cb;
+ 	struct mutex		*cb_mutex;
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
