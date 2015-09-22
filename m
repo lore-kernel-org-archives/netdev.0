@@ -1,133 +1,460 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 15/30] ipvs: add sysctl to ignore tunneled packets
-Date: Tue, 22 Sep 2015 11:14:05 +0200
-Message-ID: <1442913260-3925-16-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 21/30] netfilter: x_tables: Use par->net instead of computing from the passed net devices
+Date: Tue, 22 Sep 2015 11:14:11 +0200
+Message-ID: <1442913260-3925-22-git-send-email-pablo@netfilter.org>
 References: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35111 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757753AbbIVJH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2015 05:07:58 -0400
 In-Reply-To: <1442913260-3925-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex Gartrell <agartrell@fb.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-This is a way to avoid nasty routing loops when multiple ipvs instances can
-forward to eachother.
-
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- Documentation/networking/ipvs-sysctl.txt |   10 ++++++++++
- include/net/ip_vs.h                      |   11 +++++++++++
- net/netfilter/ipvs/ip_vs_core.c          |   10 +++++++++-
- net/netfilter/ipvs/ip_vs_ctl.c           |    7 +++++++
- 4 files changed, 37 insertions(+), 1 deletion(-)
+ net/bridge/netfilter/ebt_log.c     |    2 +-
+ net/bridge/netfilter/ebt_nflog.c   |    2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c  |    2 +-
+ net/ipv4/netfilter/ipt_rpfilter.c  |    5 ++---
+ net/ipv6/netfilter/ip6t_REJECT.c   |    2 +-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c |    2 +-
+ net/ipv6/netfilter/ip6t_rpfilter.c |    6 +++---
+ net/netfilter/ipset/ip_set_core.c  |    9 +++------
+ net/netfilter/xt_LOG.c             |    2 +-
+ net/netfilter/xt_NFLOG.c           |    2 +-
+ net/netfilter/xt_TCPMSS.c          |    2 +-
+ net/netfilter/xt_TPROXY.c          |   24 ++++++++++++------------
+ net/netfilter/xt_addrtype.c        |    4 ++--
+ net/netfilter/xt_connlimit.c       |    2 +-
+ net/netfilter/xt_osf.c             |    2 +-
+ net/netfilter/xt_recent.c          |    2 +-
+ net/netfilter/xt_socket.c          |   14 ++++++++------
+ 17 files changed, 41 insertions(+), 43 deletions(-)
 
-diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
-index 3ba7095..e6b1c02 100644
---- a/Documentation/networking/ipvs-sysctl.txt
-+++ b/Documentation/networking/ipvs-sysctl.txt
-@@ -157,6 +157,16 @@ expire_quiescent_template - BOOLEAN
- 	persistence template if it is to be used to schedule a new
- 	connection and the destination server is quiescent.
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index 17f2e4b..0ad639a 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -180,7 +180,7 @@ ebt_log_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct ebt_log_info *info = par->targinfo;
+ 	struct nf_loginfo li;
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
  
-+ignore_tunneled - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
-+
-+	If set, ipvs will set the ipvs_property on all packets which are of
-+	unrecognized protocols.  This prevents us from routing tunneled
-+	protocols like ipip, which is useful to prevent rescheduling
-+	packets that have been tunneled to the ipvs host (i.e. to prevent
-+	ipvs routing loops when ipvs is also acting as a real server).
-+
- nat_icmp_send - BOOLEAN
-         0 - disabled (default)
-         not 0 - enabled
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 47677f0..1096a71 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -998,6 +998,7 @@ struct netns_ipvs {
- 	int			sysctl_backup_only;
- 	int			sysctl_conn_reuse_mode;
- 	int			sysctl_schedule_icmp;
-+	int			sysctl_ignore_tunneled;
+ 	li.type = NF_LOG_TYPE_LOG;
+ 	li.u.log.level = info->loglevel;
+diff --git a/net/bridge/netfilter/ebt_nflog.c b/net/bridge/netfilter/ebt_nflog.c
+index 59ac795..5481615 100644
+--- a/net/bridge/netfilter/ebt_nflog.c
++++ b/net/bridge/netfilter/ebt_nflog.c
+@@ -24,7 +24,7 @@ ebt_nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct ebt_nflog_info *info = par->targinfo;
+ 	struct nf_loginfo li;
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
  
- 	/* ip_vs_lblc */
- 	int			sysctl_lblc_expiration;
-@@ -1121,6 +1122,11 @@ static inline int sysctl_schedule_icmp(struct netns_ipvs *ipvs)
- 	return ipvs->sysctl_schedule_icmp;
+ 	li.type = NF_LOG_TYPE_ULOG;
+ 	li.u.ulog.copy_len = info->len;
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index f471a06..dfab3149 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -258,7 +258,7 @@ static unsigned int
+ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_synproxy_info *info = par->targinfo;
+-	struct synproxy_net *snet = synproxy_pernet(dev_net(par->in));
++	struct synproxy_net *snet = synproxy_pernet(par->net);
+ 	struct synproxy_options opts = {};
+ 	struct tcphdr *th, _th;
+ 
+diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
+index 8618fd1..74dd667 100644
+--- a/net/ipv4/netfilter/ipt_rpfilter.c
++++ b/net/ipv4/netfilter/ipt_rpfilter.c
+@@ -32,12 +32,11 @@ static __be32 rpfilter_get_saddr(__be32 addr)
+ 	return addr;
  }
  
-+static inline int sysctl_ignore_tunneled(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_ignore_tunneled;
-+}
-+
- #else
+-static bool rpfilter_lookup_reverse(struct flowi4 *fl4,
++static bool rpfilter_lookup_reverse(struct net *net, struct flowi4 *fl4,
+ 				const struct net_device *dev, u8 flags)
+ {
+ 	struct fib_result res;
+ 	bool dev_match;
+-	struct net *net = dev_net(dev);
+ 	int ret __maybe_unused;
  
- static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
-@@ -1198,6 +1204,11 @@ static inline int sysctl_schedule_icmp(struct netns_ipvs *ipvs)
- 	return 0;
+ 	if (fib_lookup(net, fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE))
+@@ -98,7 +97,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	flow.flowi4_tos = RT_TOS(iph->tos);
+ 	flow.flowi4_scope = RT_SCOPE_UNIVERSE;
+ 
+-	return rpfilter_lookup_reverse(&flow, par->in, info->flags) ^ invert;
++	return rpfilter_lookup_reverse(par->net, &flow, par->in, info->flags) ^ invert;
  }
  
-+static inline int sysctl_ignore_tunneled(struct netns_ipvs *ipvs)
-+{
-+	return 0;
-+}
-+
+ static int rpfilter_check(const struct xt_mtchk_param *par)
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 0ed841a..db29bbf 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -39,7 +39,7 @@ static unsigned int
+ reject_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct ip6t_reject_info *reject = par->targinfo;
+-	struct net *net = dev_net((par->in != NULL) ? par->in : par->out);
++	struct net *net = par->net;
+ 
+ 	switch (reject->with) {
+ 	case IP6T_ICMP6_NO_ROUTE:
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index 4c9f3e7..4145180 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -275,7 +275,7 @@ static unsigned int
+ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_synproxy_info *info = par->targinfo;
+-	struct synproxy_net *snet = synproxy_pernet(dev_net(par->in));
++	struct synproxy_net *snet = synproxy_pernet(par->net);
+ 	struct synproxy_options opts = {};
+ 	struct tcphdr *th, _th;
+ 
+diff --git a/net/ipv6/netfilter/ip6t_rpfilter.c b/net/ipv6/netfilter/ip6t_rpfilter.c
+index 790e0c6..1ee1b25 100644
+--- a/net/ipv6/netfilter/ip6t_rpfilter.c
++++ b/net/ipv6/netfilter/ip6t_rpfilter.c
+@@ -26,7 +26,7 @@ static bool rpfilter_addr_unicast(const struct in6_addr *addr)
+ 	return addr_type & IPV6_ADDR_UNICAST;
+ }
+ 
+-static bool rpfilter_lookup_reverse6(const struct sk_buff *skb,
++static bool rpfilter_lookup_reverse6(struct net *net, const struct sk_buff *skb,
+ 				     const struct net_device *dev, u8 flags)
+ {
+ 	struct rt6_info *rt;
+@@ -53,7 +53,7 @@ static bool rpfilter_lookup_reverse6(const struct sk_buff *skb,
+ 		lookup_flags |= RT6_LOOKUP_F_IFACE;
+ 	}
+ 
+-	rt = (void *) ip6_route_lookup(dev_net(dev), &fl6, lookup_flags);
++	rt = (void *) ip6_route_lookup(net, &fl6, lookup_flags);
+ 	if (rt->dst.error)
+ 		goto out;
+ 
+@@ -93,7 +93,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	if (unlikely(saddrtype == IPV6_ADDR_ANY))
+ 		return true ^ invert; /* not routable: forward path will drop it */
+ 
+-	return rpfilter_lookup_reverse6(skb, par->in, info->flags) ^ invert;
++	return rpfilter_lookup_reverse6(par->net, skb, par->in, info->flags) ^ invert;
+ }
+ 
+ static int rpfilter_check(const struct xt_mtchk_param *par)
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 338b404..69ab9c26 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -519,8 +519,7 @@ int
+ ip_set_test(ip_set_id_t index, const struct sk_buff *skb,
+ 	    const struct xt_action_param *par, struct ip_set_adt_opt *opt)
+ {
+-	struct ip_set *set = ip_set_rcu_get(
+-			dev_net(par->in ? par->in : par->out), index);
++	struct ip_set *set = ip_set_rcu_get(par->net, index);
+ 	int ret = 0;
+ 
+ 	BUG_ON(!set);
+@@ -558,8 +557,7 @@ int
+ ip_set_add(ip_set_id_t index, const struct sk_buff *skb,
+ 	   const struct xt_action_param *par, struct ip_set_adt_opt *opt)
+ {
+-	struct ip_set *set = ip_set_rcu_get(
+-			dev_net(par->in ? par->in : par->out), index);
++	struct ip_set *set = ip_set_rcu_get(par->net, index);
+ 	int ret;
+ 
+ 	BUG_ON(!set);
+@@ -581,8 +579,7 @@ int
+ ip_set_del(ip_set_id_t index, const struct sk_buff *skb,
+ 	   const struct xt_action_param *par, struct ip_set_adt_opt *opt)
+ {
+-	struct ip_set *set = ip_set_rcu_get(
+-			dev_net(par->in ? par->in : par->out), index);
++	struct ip_set *set = ip_set_rcu_get(par->net, index);
+ 	int ret = 0;
+ 
+ 	BUG_ON(!set);
+diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+index c13b794..1763ab8 100644
+--- a/net/netfilter/xt_LOG.c
++++ b/net/netfilter/xt_LOG.c
+@@ -33,7 +33,7 @@ log_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_log_info *loginfo = par->targinfo;
+ 	struct nf_loginfo li;
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 
+ 	li.type = NF_LOG_TYPE_LOG;
+ 	li.u.log.level = loginfo->level;
+diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
+index fb7497c..a1fa2c8 100644
+--- a/net/netfilter/xt_NFLOG.c
++++ b/net/netfilter/xt_NFLOG.c
+@@ -26,7 +26,7 @@ nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_nflog_info *info = par->targinfo;
+ 	struct nf_loginfo li;
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 
+ 	li.type		     = NF_LOG_TYPE_ULOG;
+ 	li.u.ulog.copy_len   = info->len;
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 8c02501..b7c43de 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -108,7 +108,7 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 		return -1;
+ 
+ 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+-		struct net *net = dev_net(par->in ? par->in : par->out);
++		struct net *net = par->net;
+ 		unsigned int in_mtu = tcpmss_reverse_mtu(net, skb, family);
+ 
+ 		if (dst_mtu(skb_dst(skb)) <= minlen) {
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index d0c96c5..3ab591e 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -250,8 +250,8 @@ nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
+  * no such listener is found, or NULL if the TCP header is incomplete.
+  */
+ static struct sock *
+-tproxy_handle_time_wait4(struct sk_buff *skb, __be32 laddr, __be16 lport,
+-			struct sock *sk)
++tproxy_handle_time_wait4(struct net *net, struct sk_buff *skb,
++			 __be32 laddr, __be16 lport, struct sock *sk)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct tcphdr _hdr, *hp;
+@@ -267,7 +267,7 @@ tproxy_handle_time_wait4(struct sk_buff *skb, __be32 laddr, __be16 lport,
+ 		 * to a listener socket if there's one */
+ 		struct sock *sk2;
+ 
+-		sk2 = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
++		sk2 = nf_tproxy_get_sock_v4(net, iph->protocol,
+ 					    iph->saddr, laddr ? laddr : iph->daddr,
+ 					    hp->source, lport ? lport : hp->dest,
+ 					    skb->dev, NFT_LOOKUP_LISTENER);
+@@ -290,7 +290,7 @@ nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
+ }
+ 
+ static unsigned int
+-tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
++tproxy_tg4(struct net *net, struct sk_buff *skb, __be32 laddr, __be16 lport,
+ 	   u_int32_t mark_mask, u_int32_t mark_value)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+@@ -305,7 +305,7 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
+ 	 * addresses, this happens if the redirect already happened
+ 	 * and the current packet belongs to an already established
+ 	 * connection */
+-	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
++	sk = nf_tproxy_get_sock_v4(net, iph->protocol,
+ 				   iph->saddr, iph->daddr,
+ 				   hp->source, hp->dest,
+ 				   skb->dev, NFT_LOOKUP_ESTABLISHED);
+@@ -317,11 +317,11 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
+ 	/* UDP has no TCP_TIME_WAIT state, so we never enter here */
+ 	if (sk && sk->sk_state == TCP_TIME_WAIT)
+ 		/* reopening a TIME_WAIT connection needs special handling */
+-		sk = tproxy_handle_time_wait4(skb, laddr, lport, sk);
++		sk = tproxy_handle_time_wait4(net, skb, laddr, lport, sk);
+ 	else if (!sk)
+ 		/* no, there's no established connection, check if
+ 		 * there's a listener on the redirected addr/port */
+-		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
++		sk = nf_tproxy_get_sock_v4(net, iph->protocol,
+ 					   iph->saddr, laddr,
+ 					   hp->source, lport,
+ 					   skb->dev, NFT_LOOKUP_LISTENER);
+@@ -351,7 +351,7 @@ tproxy_tg4_v0(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tproxy_target_info *tgi = par->targinfo;
+ 
+-	return tproxy_tg4(skb, tgi->laddr, tgi->lport, tgi->mark_mask, tgi->mark_value);
++	return tproxy_tg4(par->net, skb, tgi->laddr, tgi->lport, tgi->mark_mask, tgi->mark_value);
+ }
+ 
+ static unsigned int
+@@ -359,7 +359,7 @@ tproxy_tg4_v1(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_tproxy_target_info_v1 *tgi = par->targinfo;
+ 
+-	return tproxy_tg4(skb, tgi->laddr.ip, tgi->lport, tgi->mark_mask, tgi->mark_value);
++	return tproxy_tg4(par->net, skb, tgi->laddr.ip, tgi->lport, tgi->mark_mask, tgi->mark_value);
+ }
+ 
+ #ifdef XT_TPROXY_HAVE_IPV6
+@@ -429,7 +429,7 @@ tproxy_handle_time_wait6(struct sk_buff *skb, int tproto, int thoff,
+ 		 * to a listener socket if there's one */
+ 		struct sock *sk2;
+ 
+-		sk2 = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
++		sk2 = nf_tproxy_get_sock_v6(par->net, tproto,
+ 					    &iph->saddr,
+ 					    tproxy_laddr6(skb, &tgi->laddr.in6, &iph->daddr),
+ 					    hp->source,
+@@ -472,7 +472,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
+ 	 * addresses, this happens if the redirect already happened
+ 	 * and the current packet belongs to an already established
+ 	 * connection */
+-	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
++	sk = nf_tproxy_get_sock_v6(par->net, tproto,
+ 				   &iph->saddr, &iph->daddr,
+ 				   hp->source, hp->dest,
+ 				   par->in, NFT_LOOKUP_ESTABLISHED);
+@@ -487,7 +487,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
+ 	else if (!sk)
+ 		/* no there's no established connection, check if
+ 		 * there's a listener on the redirected addr/port */
+-		sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
++		sk = nf_tproxy_get_sock_v6(par->net, tproto,
+ 					   &iph->saddr, laddr,
+ 					   hp->source, lport,
+ 					   par->in, NFT_LOOKUP_LISTENER);
+diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
+index 5b4743c..11d6091 100644
+--- a/net/netfilter/xt_addrtype.c
++++ b/net/netfilter/xt_addrtype.c
+@@ -125,7 +125,7 @@ static inline bool match_type(struct net *net, const struct net_device *dev,
+ static bool
+ addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 	const struct xt_addrtype_info *info = par->matchinfo;
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	bool ret = true;
+@@ -143,7 +143,7 @@ addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ static bool
+ addrtype_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 	const struct xt_addrtype_info_v1 *info = par->matchinfo;
+ 	const struct iphdr *iph;
+ 	const struct net_device *dev = NULL;
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index 075d89d..213db25 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -317,7 +317,7 @@ static int count_them(struct net *net,
+ static bool
+ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 	const struct xt_connlimit_info *info = par->matchinfo;
+ 	union nf_inet_addr addr;
+ 	struct nf_conntrack_tuple tuple;
+diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
+index 0778855..df8801e 100644
+--- a/net/netfilter/xt_osf.c
++++ b/net/netfilter/xt_osf.c
+@@ -200,7 +200,7 @@ xt_osf_match_packet(const struct sk_buff *skb, struct xt_action_param *p)
+ 	unsigned char opts[MAX_IPOPTLEN];
+ 	const struct xt_osf_finger *kf;
+ 	const struct xt_osf_user_finger *f;
+-	struct net *net = dev_net(p->in ? p->in : p->out);
++	struct net *net = p->net;
+ 
+ 	if (!info)
+ 		return false;
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index 45e1b30..d725a27 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -237,7 +237,7 @@ static void recent_table_flush(struct recent_table *t)
+ static bool
+ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	struct net *net = dev_net(par->in ? par->in : par->out);
++	struct net *net = par->net;
+ 	struct recent_net *recent_net = recent_pernet(net);
+ 	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
+ 	struct recent_table *t;
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 43e26c8..2ec08f0 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -143,7 +143,8 @@ static bool xt_socket_sk_is_transparent(struct sock *sk)
+ 	}
+ }
+ 
+-static struct sock *xt_socket_lookup_slow_v4(const struct sk_buff *skb,
++static struct sock *xt_socket_lookup_slow_v4(struct net *net,
++					     const struct sk_buff *skb,
+ 					     const struct net_device *indev)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+@@ -197,7 +198,7 @@ static struct sock *xt_socket_lookup_slow_v4(const struct sk_buff *skb,
+ 	}
  #endif
  
- /* IPVS core functions
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 99be680..453972c 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1760,8 +1760,16 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+-	return xt_socket_get_sock_v4(dev_net(skb->dev), protocol, saddr, daddr,
++	return xt_socket_get_sock_v4(net, protocol, saddr, daddr,
+ 				     sport, dport, indev);
+ }
  
- 	/* Protocol supported? */
- 	pd = ip_vs_proto_data_get(net, iph.protocol);
--	if (unlikely(!pd))
-+	if (unlikely(!pd)) {
-+		/* The only way we'll see this packet again is if it's
-+		 * encapsulated, so mark it with ipvs_property=1 so we
-+		 * skip it if we're ignoring tunneled packets
-+		 */
-+		if (sysctl_ignore_tunneled(ipvs))
-+			skb->ipvs_property = 1;
-+
- 		return NF_ACCEPT;
-+	}
- 	pp = pd->pp;
- 	/*
- 	 * Check if the packet belongs to an existing connection entry
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 31d80e2..7338827 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1850,6 +1850,12 @@ static struct ctl_table vs_vars[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "ignore_tunneled",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- #ifdef CONFIG_IP_VS_DEBUG
- 	{
- 		.procname	= "debug_level",
-@@ -3902,6 +3908,7 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- 	ipvs->sysctl_conn_reuse_mode = 1;
- 	tbl[idx++].data = &ipvs->sysctl_conn_reuse_mode;
- 	tbl[idx++].data = &ipvs->sysctl_schedule_icmp;
-+	tbl[idx++].data = &ipvs->sysctl_ignore_tunneled;
+@@ -209,7 +210,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 	struct sock *sk = skb->sk;
  
- 	ipvs->sysctl_hdr = register_net_sysctl(net, "net/ipv4/vs", tbl);
- 	if (ipvs->sysctl_hdr == NULL) {
+ 	if (!sk)
+-		sk = xt_socket_lookup_slow_v4(skb, par->in);
++		sk = xt_socket_lookup_slow_v4(par->net, skb, par->in);
+ 	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
+@@ -335,7 +336,8 @@ xt_socket_get_sock_v6(struct net *net, const u8 protocol,
+ 	return NULL;
+ }
+ 
+-static struct sock *xt_socket_lookup_slow_v6(const struct sk_buff *skb,
++static struct sock *xt_socket_lookup_slow_v6(struct net *net,
++					     const struct sk_buff *skb,
+ 					     const struct net_device *indev)
+ {
+ 	__be16 uninitialized_var(dport), uninitialized_var(sport);
+@@ -371,7 +373,7 @@ static struct sock *xt_socket_lookup_slow_v6(const struct sk_buff *skb,
+ 		return NULL;
+ 	}
+ 
+-	return xt_socket_get_sock_v6(dev_net(skb->dev), tproto, saddr, daddr,
++	return xt_socket_get_sock_v6(net, tproto, saddr, daddr,
+ 				     sport, dport, indev);
+ }
+ 
+@@ -383,7 +385,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 	struct sock *sk = skb->sk;
+ 
+ 	if (!sk)
+-		sk = xt_socket_lookup_slow_v6(skb, par->in);
++		sk = xt_socket_lookup_slow_v6(par->net, skb, par->in);
+ 	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
 -- 
 1.7.10.4
-
