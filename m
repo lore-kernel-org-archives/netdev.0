@@ -1,14 +1,14 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 28/33] arcnet: Add com9026.h to standardize COM9026_REG_<foo>
-Date: Tue, 22 Sep 2015 11:02:09 +0200
-Message-ID: <1442912534-10821-29-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 25/33] arcnet: arc-rimi: Use arcnet_<I/O> routines
+Date: Tue, 22 Sep 2015 11:02:06 +0200
+Message-ID: <1442912534-10821-26-git-send-email-m.grzeschik@pengutronix.de>
 References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60184 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42296 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932667AbbIVJCm (ORCPT
+	with ESMTP id S932703AbbIVJCm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 05:02:42 -0400
 In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
@@ -16,73 +16,44 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Joe Perches <joe@perches.com>
 
-Deduplicate the COM9026 registers.
+Simplify and make consistent the current uses of readb/writeb
+by using the newly introduced arcnet_<I/O> equivalents.
+
+o Add new #defines for register offsets
+o Remove old #defines that included the ioaddr
+o Remove obfuscating macros by expanding them in-place where appropriate
 
 Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arc-rimi.c | 13 +------------
- drivers/net/arcnet/arcnet.c   |  1 +
- drivers/net/arcnet/com9026.h  | 17 +++++++++++++++++
- drivers/net/arcnet/com90io.c  | 11 +----------
- drivers/net/arcnet/com90xx.c  | 13 +------------
- 5 files changed, 21 insertions(+), 34 deletions(-)
- create mode 100644 drivers/net/arcnet/com9026.h
+ drivers/net/arcnet/arc-rimi.c | 55 ++++++++++++++++++++-----------------------
+ 1 file changed, 25 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/arcnet/arc-rimi.c b/drivers/net/arcnet/arc-rimi.c
-index 4c35a7e..a07e249 100644
+index 37406ff..4c35a7e 100644
 --- a/drivers/net/arcnet/arc-rimi.c
 +++ b/drivers/net/arcnet/arc-rimi.c
-@@ -39,6 +39,7 @@
- #include <linux/io.h>
- 
- #include "arcdevice.h"
-+#include "com9026.h"
- 
- /* Internal function declarations */
- 
-@@ -59,18 +60,6 @@ static void arcrimi_copy_from_card(struct net_device *dev, int bufnum,
- #define BUFFER_SIZE	(512)
+@@ -60,23 +60,16 @@ static void arcrimi_copy_from_card(struct net_device *dev, int bufnum,
  #define MIRROR_SIZE	(BUFFER_SIZE * 4)
  
--/* COM 9026 controller chip --> ARCnet register addresses */
--#define COM9026_REG_W_INTMASK	0	/* writable */
--#define COM9026_REG_R_STATUS	0	/* readable */
--#define COM9026_REG_W_COMMAND	1	/* writable, returns random vals on read (?) */
--#define COM9026_REG_RW_CONFIG	2	/* Configuration register */
--#define COM9026_REG_R_RESET	8	/* software reset (on read) */
--#define COM9026_REG_RW_MEMDATA	12	/* Data port for IO-mapped memory */
--#define COM9026_REG_W_ADDR_LO	14	/* Control registers for said */
--#define COM9026_REG_W_ADDR_HI	15
+ /* COM 9026 controller chip --> ARCnet register addresses */
+-#define _INTMASK	(ioaddr + 0)	/* writable */
+-#define _STATUS		(ioaddr + 0)	/* readable */
+-#define _COMMAND	(ioaddr + 1)	/* writable, returns random vals on read (?) */
+-#define _RESET		(ioaddr + 8)	/* software reset (on read) */
+-#define _MEMDATA	(ioaddr + 12)	/* Data port for IO-mapped memory */
+-#define _ADDR_HI	(ioaddr + 15)	/* Control registers for said */
+-#define _ADDR_LO	(ioaddr + 14)
+-#define _CONFIG		(ioaddr + 2)	/* Configuration register */
 -
--#define COM9026_REG_R_STATION	1	/* Station ID */
+-#undef ASTATUS
+-#undef ACOMMAND
+-#undef AINTMASK
 -
- /* We cannot probe for a RIM I card; one reason is I don't know how to reset
-  * them.  In fact, we can't even get their node ID automatically.  So, we
-  * need to be passed a specific shmem address, IRQ, and node ID.
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index bcfdd91..2158e98 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -53,6 +53,7 @@
- #include <linux/jiffies.h>
- 
- #include "arcdevice.h"
-+#include "com9026.h"
- 
- /* "do nothing" functions for protocol drivers */
- static void null_rx(struct net_device *dev, int bufnum,
-diff --git a/drivers/net/arcnet/com9026.h b/drivers/net/arcnet/com9026.h
-new file mode 100644
-index 0000000..efcaf67
---- /dev/null
-+++ b/drivers/net/arcnet/com9026.h
-@@ -0,0 +1,17 @@
-+#ifndef __COM9026_H
-+#define __COM9026_H
-+
-+/* COM 9026 controller chip --> ARCnet register addresses */
-+
+-#define ASTATUS()	readb(_STATUS)
+-#define ACOMMAND(cmd)	writeb((cmd), _COMMAND)
+-#define AINTMASK(msk)	writeb((msk), _INTMASK)
+-#define SETCONF()	writeb(lp->config, _CONFIG)
 +#define COM9026_REG_W_INTMASK	0	/* writable */
 +#define COM9026_REG_R_STATUS	0	/* readable */
 +#define COM9026_REG_W_COMMAND	1	/* writable, returns random vals on read (?) */
@@ -93,67 +64,98 @@ index 0000000..efcaf67
 +#define COM9026_REG_W_ADDR_HI	15
 +
 +#define COM9026_REG_R_STATION	1	/* Station ID */
-+
-+#endif
-diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
-index 7e084f1..b57863d 100644
---- a/drivers/net/arcnet/com90io.c
-+++ b/drivers/net/arcnet/com90io.c
-@@ -40,6 +40,7 @@
- #include <linux/io.h>
  
- #include "arcdevice.h"
-+#include "com9026.h"
+ /* We cannot probe for a RIM I card; one reason is I don't know how to reset
+  * them.  In fact, we can't even get their node ID automatically.  So, we
+@@ -124,7 +117,7 @@ static int check_mirror(unsigned long addr, size_t size)
  
- /* Internal function declarations */
+ 	p = ioremap(addr, size);
+ 	if (p) {
+-		if (readb(p) == TESTvalue)
++		if (arcnet_readb(p, COM9026_REG_R_STATUS) == TESTvalue)
+ 			res = 1;
+ 		else
+ 			res = 0;
+@@ -162,8 +155,9 @@ static int __init arcrimi_found(struct net_device *dev)
+ 	}
  
-@@ -58,16 +59,6 @@ static void com90io_copy_from_card(struct net_device *dev, int bufnum,
- /* The number of low I/O ports used by the card. */
- #define ARCNET_TOTAL_SIZE 16
+ 	shmem = dev->mem_start;
+-	writeb(TESTvalue, p);
+-	writeb(dev->dev_addr[0], p + 1);	/* actually the node ID */
++	arcnet_writeb(TESTvalue, p, COM9026_REG_W_INTMASK);
++	arcnet_writeb(TESTvalue, p, COM9026_REG_W_COMMAND);
++					/* actually the station/node ID */
  
--/* COM 9026 controller chip --> ARCnet register addresses */
--#define COM9026_REG_W_INTMASK	0	/* writable */
--#define COM9026_REG_R_STATUS	0	/* readable */
--#define COM9026_REG_W_COMMAND	1	/* writable, returns random vals on read (?) */
--#define COM9026_REG_RW_CONFIG	2	/* Configuration register */
--#define COM9026_REG_R_RESET	8	/* software reset (on read) */
--#define COM9026_REG_RW_MEMDATA	12	/* Data port for IO-mapped memory */
--#define COM9026_REG_W_ADDR_LO	14	/* Control registers for said */
--#define COM9026_REG_W_ADDR_HI	15
--
- /****************************************************************************
-  *                                                                          *
-  * IO-mapped operation routines                                             *
-diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
-index a97d086..0d9b45f 100644
---- a/drivers/net/arcnet/com90xx.c
-+++ b/drivers/net/arcnet/com90xx.c
-@@ -38,6 +38,7 @@
- #include <linux/io.h>
+ 	/* find the real shared memory start/end points, including mirrors */
  
- #include "arcdevice.h"
-+#include "com9026.h"
+@@ -172,7 +166,7 @@ static int __init arcrimi_found(struct net_device *dev)
+ 	 * 2k (or there are no mirrors at all) but on some, it's 4k.
+ 	 */
+ 	mirror_size = MIRROR_SIZE;
+-	if (readb(p) == TESTvalue &&
++	if (arcnet_readb(p, COM9026_REG_R_STATUS) == TESTvalue &&
+ 	    check_mirror(shmem - MIRROR_SIZE, MIRROR_SIZE) == 0 &&
+ 	    check_mirror(shmem - 2 * MIRROR_SIZE, MIRROR_SIZE) == 1)
+ 		mirror_size = 2 * MIRROR_SIZE;
+@@ -224,7 +218,7 @@ static int __init arcrimi_found(struct net_device *dev)
+ 	}
  
- /* Define this to speed up the autoprobe by assuming if only one io port and
-  * shmem are left in the list at Stage 5, they must correspond to each
-@@ -78,18 +79,6 @@ static int numcards;
- #define BUFFER_SIZE (512)
- #define MIRROR_SIZE (BUFFER_SIZE * 4)
+ 	/* get and check the station ID from offset 1 in shmem */
+-	dev->dev_addr[0] = readb(lp->mem_start + 1);
++	dev->dev_addr[0] = arcnet_readb(lp->mem_start, COM9026_REG_R_STATION);
  
--/* COM 9026 controller chip --> ARCnet register addresses */
--#define COM9026_REG_W_INTMASK	0	/* writable */
--#define COM9026_REG_R_STATUS	0	/* readable */
--#define COM9026_REG_W_COMMAND	1	/* writable, returns random vals on read (?) */
--#define COM9026_REG_RW_CONFIG	2	/* Configuration register */
--#define COM9026_REG_R_RESET	8	/* software reset (on read) */
--#define COM9026_REG_RW_MEMDATA	12	/* Data port for IO-mapped memory */
--#define COM9026_REG_W_ADDR_LO	14	/* Control registers for said */
--#define COM9026_REG_W_ADDR_HI	15
--
--#define COM9026_REG_R_STATION	1	/* Station ID */
--
- static int com90xx_skip_probe __initdata = 0;
+ 	arc_printk(D_NORMAL, dev, "ARCnet RIM I: station %02Xh found at IRQ %d, ShMem %lXh (%ld*%d bytes)\n",
+ 		   dev->dev_addr[0],
+@@ -260,17 +254,18 @@ static int arcrimi_reset(struct net_device *dev, int really_reset)
+ 	void __iomem *ioaddr = lp->mem_start + 0x800;
  
- /* Module parameters */
+ 	arc_printk(D_INIT, dev, "Resetting %s (status=%02Xh)\n",
+-		   dev->name, ASTATUS());
++		   dev->name, arcnet_readb(ioaddr, COM9026_REG_R_STATUS));
+ 
+ 	if (really_reset) {
+-		writeb(TESTvalue, ioaddr - 0x800);	/* fake reset */
++		arcnet_writeb(TESTvalue, ioaddr, -0x800);	/* fake reset */
+ 		return 0;
+ 	}
+-	ACOMMAND(CFLAGScmd | RESETclear);	/* clear flags & end reset */
+-	ACOMMAND(CFLAGScmd | CONFIGclear);
++	/* clear flags & end reset */
++	arcnet_writeb(CFLAGScmd | RESETclear, ioaddr, COM9026_REG_W_COMMAND);
++	arcnet_writeb(CFLAGScmd | CONFIGclear, ioaddr, COM9026_REG_W_COMMAND);
+ 
+ 	/* enable extended (512-byte) packets */
+-	ACOMMAND(CONFIGcmd | EXTconf);
++	arcnet_writeb(CONFIGcmd | EXTconf, ioaddr, COM9026_REG_W_COMMAND);
+ 
+ 	/* done!  return success. */
+ 	return 0;
+@@ -281,7 +276,7 @@ static void arcrimi_setmask(struct net_device *dev, int mask)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->mem_start + 0x800;
+ 
+-	AINTMASK(mask);
++	arcnet_writeb(mask, ioaddr, COM9026_REG_W_INTMASK);
+ }
+ 
+ static int arcrimi_status(struct net_device *dev)
+@@ -289,7 +284,7 @@ static int arcrimi_status(struct net_device *dev)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->mem_start + 0x800;
+ 
+-	return ASTATUS();
++	return arcnet_readb(ioaddr, COM9026_REG_R_STATUS);
+ }
+ 
+ static void arcrimi_command(struct net_device *dev, int cmd)
+@@ -297,7 +292,7 @@ static void arcrimi_command(struct net_device *dev, int cmd)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->mem_start + 0x800;
+ 
+-	ACOMMAND(cmd);
++	arcnet_writeb(cmd, ioaddr, COM9026_REG_W_COMMAND);
+ }
+ 
+ static void arcrimi_copy_to_card(struct net_device *dev, int bufnum, int offset,
 -- 
 2.5.1
