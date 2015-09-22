@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/4] Add support for reading macid when DT
- macid not found
-Date: Mon, 21 Sep 2015 17:22:00 -0700 (PDT)
-Message-ID: <20150921.172200.1139561155195657435.davem@davemloft.net>
-References: <1442831213-3913-1-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	tony@atomide.com, devicetree@vger.kernel.org, nsekhar@ti.com
-To: mugunthanvnm@ti.com
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH v3 0/2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
+Date: Mon, 21 Sep 2015 20:27:00 -0400
+Message-ID: <1442881622-11316-1-git-send-email-aconole@bytheb.org>
+Cc: Aaron Conole <aconole@bytheb.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56815 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756728AbbIVAWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 20:22:01 -0400
-In-Reply-To: <1442831213-3913-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:34529 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756124AbbIVA1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2015 20:27:09 -0400
+Received: by qgez77 with SMTP id z77so105039715qge.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2015 17:27:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Mon, 21 Sep 2015 15:56:49 +0530
+This patch set implements a bugfix for kernel.org bugzilla #12323, allowing
+MSG_PEEK to return all queued data on the unix domain socket, not just the
+data contained in a single SKB. 
 
-> Did a boot test on dra7-evm [1] and am437x-gp-evm [2].
-> Pushed a branch [3] for others to test the patch.
-> 
-> [1]: http://pastebin.ubuntu.com/12513420/
-> [2]: http://pastebin.ubuntu.com/12513428/
-> [3]: git://git.ti.com/~mugunthanvnm/ti-linux-kernel/linux.git cpsw-macid-read-support
+This is the v3 version of this patch, which includes a suggested modification
+by Eric Dumazet to convert the unix_sk() conversion macro to a static inline
+function. These patches are independent and can be applied separately.
 
-Series applied, thanks.
+This set was tested over a 24-hour period, utilizing a loop continually 
+executing the bugzilla issue attached python code. It was instrumented with
+a pr_err_once() ([   13.798683] unix: went there at least one time).
+
+Aaron Conole (2):
+  [net] af_unix: Convert the unix_sk macro to an inline function for    
+    type safety
+  [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK
+    flag
+
+ include/net/af_unix.h |  6 +++++-
+ net/unix/af_unix.c    | 19 +++++++++++++++++--
+ 2 files changed, 22 insertions(+), 3 deletions(-)
+
+-- 
+1.9.1
