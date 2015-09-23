@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/17][pull request] Intel Wired LAN Driver Updates
- 2015-09-22
-Date: Wed, 23 Sep 2015 14:52:24 -0700 (PDT)
-Message-ID: <20150923.145224.2024898381158068998.davem@davemloft.net>
-References: <1442966076-14359-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v4 net-next 1/2] ipv4: L3 hash-based multipath
+Date: Wed, 23 Sep 2015 14:55:21 -0700 (PDT)
+Message-ID: <20150923.145521.609102724670024669.davem@davemloft.net>
+References: <1443037777-25390-1-git-send-email-pch@ordbogen.com>
+	<1443037777-25390-2-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: pch@ordbogen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45853 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45870 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754385AbbIWVwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 17:52:25 -0400
-In-Reply-To: <1442966076-14359-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753500AbbIWVzW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 17:55:22 -0400
+In-Reply-To: <1443037777-25390-2-git-send-email-pch@ordbogen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 22 Sep 2015 16:54:19 -0700
+=46rom: Peter N=F8rlund <pch@ordbogen.com>
+Date: Wed, 23 Sep 2015 21:49:36 +0200
 
-> This series contains updates to e1000, e1000e, igbvf, ixgbe, ixgbevf and
-> fm10k.
+> +static inline int fib_multipath_hash(__be32 saddr, __be32 daddr)
+> +{
+> +	return jhash_2words(saddr, daddr, fib_multipath_secret) >> 1;
+> +}
 
-Pulled, thanks Jeff.
+Like Tom I'm curious why you do this shift here?
