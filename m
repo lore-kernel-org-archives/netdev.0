@@ -1,77 +1,48 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] ip: Add type and master filters to brief output
-Date: Wed, 23 Sep 2015 16:44:56 -0600
-Message-ID: <1443048296-66539-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: gospo@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, shemming@brocade.com
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] ipv6 Use get_hash_from_flowi6 for rt6 hash
+Date: Wed, 23 Sep 2015 15:45:18 -0700
+Message-ID: <CALx6S36iNX_krkKu+khbhw9UiBT+Jt1EFd7QnWq+HjMunKk2Hw@mail.gmail.com>
+References: <1443042815-3458631-1-git-send-email-tom@herbertland.com>
+	<20150923.142138.873048869450376623.davem@davemloft.net>
+	<20150923.145730.671266108610739603.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	Peter Christensen <pch@ordbogen.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34518 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633AbbIWWpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:45:04 -0400
-Received: by padhy16 with SMTP id hy16so52779990pad.1
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 15:45:03 -0700 (PDT)
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33309 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754840AbbIWWpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:45:18 -0400
+Received: by iofh134 with SMTP id h134so58653170iof.0
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 15:45:18 -0700 (PDT)
+In-Reply-To: <20150923.145730.671266108610739603.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The brief format does not honer the master and type filters:
+On Wed, Sep 23, 2015 at 2:57 PM, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 23 Sep 2015 14:21:38 -0700 (PDT)
+>
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Wed, 23 Sep 2015 14:13:35 -0700
+>>
+>>> In rt6_info_hash_nhsfn replace the custom hashing over flowi6 that is
+>>> using xor with a call to common function get_hash_from_flowi6.
+>>>
+>>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>>
+>> Applied, thanks.
+>
+> Tom, I just so happened to look over the call paths that lead to this
+> function and the flowi6 ports aren't filled in much of the time.
+>
+> I know your patch doesn't change things one way or the other in this
+> area, but I thought I'd bring it up nonetheless.
 
-$ ip link show master vrf-mgmt
-7: dummy0: <BROADCAST,NOARP,SLAVE> mtu 1500 qdisc noop master vrf-mgmt state DOWN mode DEFAULT group default qlen 1000
-    link/ether 66:39:cc:2b:e9:bd brd ff:ff:ff:ff:ff:ff
-
-$ ip -br link show master vrf-mgmt
-lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-eth0             UP             08:00:27:de:14:c8 <BROADCAST,MULTICAST,UP,LOWER_UP>
-eth1             UP             08:00:27:87:02:f1 <BROADCAST,MULTICAST,UP,LOWER_UP>
-eth2             UP             08:00:27:61:1e:fd <BROADCAST,MULTICAST,UP,LOWER_UP>
-vrf-blue         UNKNOWN        a6:3f:09:34:7e:74 <NOARP,MASTER,UP,LOWER_UP>
-vrf-red          DOWN           fe:a2:2d:e1:bc:ac <NOARP,MASTER>
-dummy0           DOWN           66:39:cc:2b:e9:bd <BROADCAST,NOARP,SLAVE>
-dummy1           DOWN           4a:4f:13:91:64:b1 <BROADCAST,NOARP,SLAVE>
-dummy2           DOWN           b2:4f:b6:cd:bd:a6 <BROADCAST,NOARP>
-dummy3           DOWN           1e:06:3d:40:b8:c2 <BROADCAST,NOARP,SLAVE>
-vrf-mgmt         DOWN           ce:b2:74:41:21:df <NOARP,MASTER>
-
-With this patch the expected output is shown:
-
-$ ip -br link show master vrf-mgmt
-dummy0           DOWN           66:39:cc:2b:e9:bd <BROADCAST,NOARP,SLAVE>
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- ip/ipaddress.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 2aa5fbfb7ace..e53984720d3c 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -637,6 +637,25 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 			return -1;
- 	}
- 
-+	if (tb[IFLA_MASTER]) {
-+		int master = *(int*)RTA_DATA(tb[IFLA_MASTER]);
-+		if (filter.master > 0 && master != filter.master)
-+			return -1;
-+	}
-+	else if (filter.master > 0)
-+		return -1;
-+
-+	if (filter.kind) {
-+		if (tb[IFLA_LINKINFO]) {
-+			char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
-+
-+			if (strcmp(kind, filter.kind))
-+				return -1;
-+		} else {
-+			return -1;
-+		}
-+	}
-+
- 	if (n->nlmsg_type == RTM_DELLINK)
- 		fprintf(fp, "Deleted ");
- 
--- 
-2.3.8 (Apple Git-58)
+Yeah, I noticed  there's still a little work to do here. On input put
+we should be passing in skb to use skb->hash instead of calculating
+it. On ouput we should be getting hash from sk->txhash for connected
+sockets.
