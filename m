@@ -1,11 +1,12 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
 Subject: Re: [PATCH v4 net-next 1/2] ipv4: L3 hash-based multipath
-Date: Wed, 23 Sep 2015 16:37:12 -0700
-Message-ID: <CALx6S37xaAiRVBP1YOKfNfw3gAvh5HFVoutZm8AZ4mOLc5idzQ@mail.gmail.com>
+Date: Thu, 24 Sep 2015 01:38:17 +0200
+Message-ID: <20150924013817.0de2f600@pch.odense.ordbogen.com>
 References: <1443037777-25390-1-git-send-email-pch@ordbogen.com>
 	<1443037777-25390-2-git-send-email-pch@ordbogen.com>
 	<CALx6S37RRMvXCK4CnQgt2QicKHGUnoV3w0sycERx44RYMsYeNQ@mail.gmail.com>
-	<20150924010944.2a1b066a@pch.odense.ordbogen.com>
+	<20150923234307.78ad96ff@pch.odense.ordbogen.com>
+	<CALx6S37rH3PcQPZEj5bKY0RO06=2YUGFzeBQE63EArpDnY75ZA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -15,106 +16,427 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
-To: =?UTF-8?Q?Peter_N=C3=B8rlund?= <pch@ordbogen.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35623 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755914AbbIWXhN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:37:13 -0400
-Received: by igbkq10 with SMTP id kq10so110217210igb.0
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 16:37:12 -0700 (PDT)
-In-Reply-To: <20150924010944.2a1b066a@pch.odense.ordbogen.com>
+Received: from mail.ordbogen.com ([91.240.88.21]:53908 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755914AbbIWXiU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:38:20 -0400
+In-Reply-To: <CALx6S37rH3PcQPZEj5bKY0RO06=2YUGFzeBQE63EArpDnY75ZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2015 at 4:09 PM, Peter N=C3=B8rlund <pch@ordbogen.com> =
-wrote:
-> On Wed, 23 Sep 2015 14:00:43 -0700
-> Tom Herbert <tom@herbertland.com> wrote:
+On Wed, 23 Sep 2015 16:12:42 -0700
+Tom Herbert <tom@herbertland.com> wrote:
+
+> On Wed, Sep 23, 2015 at 2:43 PM, Peter N=C3=B8rlund <pch@ordbogen.com=
 >
->> On Wed, Sep 23, 2015 at 12:49 PM, Peter N=C3=B8rlund <pch@ordbogen.c=
-om>
->> wrote:
->> > Replaces the per-packet multipath with a hash-based multipath usin=
+> wrote:
+> > On Wed, 23 Sep 2015 14:00:43 -0700
+> > Tom Herbert <tom@herbertland.com> wrote:
+> >
+> >> On Wed, Sep 23, 2015 at 12:49 PM, Peter N=C3=B8rlund <pch@ordbogen=
+=2Ecom>
+> >> wrote:
+> >> > Replaces the per-packet multipath with a hash-based multipath
+> >> > using source and destination address.
+> >> >
+> >> It's good that round robin is going away, but this still looks ver=
+y
+> >> different with how multipath routing is done done in IPv6
+> >> (rt6_multipath_select and rt6_info_hash_nhsfn). For instance IPv4
+> >> hashes addresses, but IPv6 includes ports. How can we rectify this=
+?
+> >>
+> >> > Signed-off-by: Peter N=C3=B8rlund <pch@ordbogen.com>
+> >> > ---
+> >> >  include/net/ip_fib.h     |   14 ++++-
+> >> >  net/ipv4/fib_semantics.c |  140
+> >> > +++++++++++++++++++++++++---------------------
+> >> > net/ipv4/route.c         |   16 ++++-- 3 files changed, 98
+> >> > insertions(+), 72 deletions(-)
+> >> >
+> >> > diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> >> > index a37d043..c454203 100644
+> >> > --- a/include/net/ip_fib.h
+> >> > +++ b/include/net/ip_fib.h
+> >> > @@ -79,7 +79,7 @@ struct fib_nh {
+> >> >         unsigned char           nh_scope;
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> >         int                     nh_weight;
+> >> > -       int                     nh_power;
+> >> > +       atomic_t                nh_upper_bound;
+> >> >  #endif
+> >> >  #ifdef CONFIG_IP_ROUTE_CLASSID
+> >> >         __u32                   nh_tclassid;
+> >> > @@ -118,7 +118,7 @@ struct fib_info {
+> >> >  #define fib_advmss fib_metrics[RTAX_ADVMSS-1]
+> >> >         int                     fib_nhs;
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -       int                     fib_power;
+> >> > +       int                     fib_weight;
+> >> >  #endif
+> >> >         struct rcu_head         rcu;
+> >> >         struct fib_nh           fib_nh[0];
+> >> > @@ -312,7 +312,15 @@ int ip_fib_check_default(__be32 gw, struct
+> >> > net_device *dev); int fib_sync_down_dev(struct net_device *dev,
+> >> > unsigned long event); int fib_sync_down_addr(struct net *net,
+> >> > __be32 local); int fib_sync_up(struct net_device *dev, unsigned
+> >> > int nh_flags); -void fib_select_multipath(struct fib_result
+> >> > *res); +
+> >> > +extern u32 fib_multipath_secret __read_mostly;
+> >> > +
+> >> > +static inline int fib_multipath_hash(__be32 saddr, __be32 daddr=
+)
+> >> > +{
+> >> > +       return jhash_2words(saddr, daddr, fib_multipath_secret)
+> >> > >> 1;
+> >>
+> >> Why the >> 1?
+> >
+> > Each nexthop is assigned a range within the hash key space with the
+> > upper bound specified in nh_upper_bound, but I needed a way to show
+> > that a nexthop was dead within that same atomic variable. I chose -=
+1
+> > reducing the actual hash to 31 bits.  I shift the hash because I
+> > expect it to be slightly faster than AND'ing with 0x7FFFFFFF on
+> > most platforms.
+> >
+> >>
+> >> > +}
+> >> > +
+> >> > +void fib_select_multipath(struct fib_result *res, int hash);
+> >> >
+> >> >  /* Exported by fib_trie.c */
+> >> >  void fib_trie_init(void);
+> >> > diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> >> > index 064bd3c..0c49d2f 100644
+> >> > --- a/net/ipv4/fib_semantics.c
+> >> > +++ b/net/ipv4/fib_semantics.c
+> >> > @@ -57,8 +57,7 @@ static unsigned int fib_info_cnt;
+> >> >  static struct hlist_head fib_info_devhash[DEVINDEX_HASHSIZE];
+> >> >
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -
+> >> > -static DEFINE_SPINLOCK(fib_multipath_lock);
+> >> > +u32 fib_multipath_secret __read_mostly;
+> >> >
+> >> >  #define for_nexthops(fi)
+> >> > {                                             \ int nhsel; const
+> >> > struct fib_nh *nh;                             \ @@ -532,7
+> >> > +531,67 @@ errout: return ret;
+> >> >  }
+> >> >
+> >> > -#endif
+> >> > +static void fib_rebalance(struct fib_info *fi)
+> >> > +{
+> >> > +       int total;
+> >> > +       int w;
+> >> > +       struct in_device *in_dev;
+> >> > +
+> >> > +       if (fi->fib_nhs < 2)
+> >> > +               return;
+> >> > +
+> >> > +       total =3D 0;
+> >> > +       for_nexthops(fi) {
+> >> > +               if (nh->nh_flags & RTNH_F_DEAD)
+> >> > +                       continue;
+> >> > +
+> >> > +               in_dev =3D __in_dev_get_rcu(nh->nh_dev);
+> >> > +
+> >> > +               if (in_dev &&
+> >> > +                   IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &=
+&
+> >> > +                   nh->nh_flags & RTNH_F_LINKDOWN)
+> >> > +                       continue;
+> >> > +
+> >> > +               total +=3D nh->nh_weight;
+> >> > +       } endfor_nexthops(fi);
+> >> > +
+> >> > +       w =3D 0;
+> >> > +       change_nexthops(fi) {
+> >> > +               int upper_bound;
+> >> > +
+> >> > +               in_dev =3D __in_dev_get_rcu(nexthop_nh->nh_dev);
+> >> > +
+> >> > +               if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
+> >> > +                       upper_bound =3D -1;
+> >> > +               } else if (in_dev &&
+> >> > +
+> >> > IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> >> > +                          nexthop_nh->nh_flags &
+> >> > RTNH_F_LINKDOWN) {
+> >> > +                       upper_bound =3D -1;
+> >> > +               } else {
+> >> > +                       w +=3D nexthop_nh->nh_weight;
+> >> > +                       upper_bound =3D
+> >> > DIV_ROUND_CLOSEST(2147483648LL * w,
+> >> > +                                                       total) -
+> >> > 1;
+> >> > +               }
+> >> > +
+> >>
+> >> Is this complexity (aside from recomputing the key) needed because
+> >> you want consistent hashing for the anycast case?
+> >
+> > It is an attempt to reduce the disruption when a path is added or
+> > removed in a way recommended by RFC 2992. It is not specific to
+> > anycast at all, although disruptions are more severe for anycast
+> > than for ordinary TCP which might just slow down due to out of
+> > order packets.
+> >
+> RFC2992 looks more like a mathematical proof than a practical
+> algorithm :-) Anyway, the requirement to avoid OOO with TCP is so
+> often over blown. TCP does not keel over dead with OOO packets, it
+> just may experience a blip of being suboptimal. As long as we're not
+> thrashing paths things should be fine quickly, and if we are thrashin=
 g
->> > source and destination address.
->> >
->> It's good that round robin is going away, but this still looks very
->> different with how multipath routing is done done in IPv6
->> (rt6_multipath_select and rt6_info_hash_nhsfn). For instance IPv4
->> hashes addresses, but IPv6 includes ports. How can we rectify this?
->>
->
-> I may be wrong, since I haven't delved that much into the IPv6 code, =
-but
-> rt6_multipath_select is nice and clean because it doesn't have to bur=
-den
-> with different weights of the paths.
->
-> As for not including the ports, it is for the sole purpose of not
-> disruption the flow when fragmented packets are received. This is mor=
-e
-> likely with IPv4 than with IPv6, since PMTUD is optional with IPv4. I=
-n
-> an ideal world, the IPv6 code shouldn't look at anything but addresse=
-s
-> and flow label either, based on the principle that the router shouldn=
-'t
-> care about L4 and above (but then it shouldn't look at ICMP either, h=
-eh)
-> - but I know this isn't an ideal world and I have no operational
-> experience with IPv6, so I can't tell whether clients populate the fl=
-ow
-> label properly.
->
-> I=CD=84 would argue that L3-based hashing is more than sufficient for
-> most websites and ISPs, where the number of addresses is high. At lea=
-st
-> on the network I have access to, L4 gave very little extra (3%). But =
-I
-> knew linux users would be demanding L4 hashing despite my beliefs, an=
-d
-> there would probably even be people missing the per-packet multipath.
-> This is why I started out reintroducing the RTA_MP_ALGO attribute in
-> my original patch.
->
-L4 versus L3 hashing is not my primary concern. It is the glaring
-inconsistency between IPv4 and IPv6. If we have fundamentally
-different behaviors between these versions of IP this can create (and
-has created) headaches for users running IPv4 and IPv6 networks (which
-is now basically the Internet). All of your points for why L3 is
-better that L4 hashing for IPv4 should apply to IPv6 given current
-state of flow label support. So not try for a unified solution? Either
-both should just use L3 hashing, or both should allow configurable use
-of L3 or L4 hashing.
+> links rather each change affects 1/2 or 1/4 of connections probably
+> doesn't matter. IMO no one should complain about just doing simple
+> modulo on the hash.
+>=20
+> However, if you're saying that adding a removing a path can cause
+> complete loss of connectivity for 1/2 of connections using anycast
+> that is a little more worrisome (this is essentially the same problem
+> we have with SO_REUSEPORT and TCP). In that case seems like you'd wan=
+t
+> the 1/N solution.
+>=20
+> Tom
+>=20
 
-Thanks,
-Tom
+I guess it depends on how you use anycast. If you use TCP and each path
+would hit different servers which doesn't share state at all, things
+would break. If you're having a pair of load-balancers behind the
+router which synchronizes with each other (like IPVS), then only the
+very new connections would fail (the connections which haven't been
+synchronized yet).
 
-> To be honest, L4 might almost work in my network which hosts a
-> few relatively large Danish websites. Fragmentation is only a problem=
- on
-> clients not doing PMTU (~10%) having large HTTP cookies (very few). B=
-ut
-> to these people, they'll have a 50% chance of not being able to acces=
-s
-> our sites at all, because packets are distributed to load balancers
-> which have not been updated with the connection state yet.
->
-> My goal is to create the right solution, and to me the right solution
-> is a solution which doesn't break anything whatsoever. It doesn't cau=
-se
-> out-of-order packets or lost packets just to utilize some links
-> better. ECMP, Link Aggregation, anycast and load balancers are all
-> hacks, if you ask me - and these hacks must be careful to not destroy
-> the illusion that an IP address maps to a single host and the path to
-> that host is through one cable.
->
-> If you all disagree, I'll change it - no problem. Just about anything
-> is better than the per-packet solution. But I'll have to consider
-> whether we will be running a modified version of the multipath code i=
-n
-> my network.
->
-> Best regards,
->  Peter N=C3=B8rlund
+If you only have two paths, then you can't get any better than 1/2 no
+matter what algorithm you choose (all flows on the bad path will have
+to move, which may cause issues depending on the setup).
+
+It is actually still better than IPVS in an active/backup scenario,
+since a crashing load balancer might cause issues for ALL flows.
+
+I guess we are getting closer and closer to L4 with modulo after all -
+at least it is simpler.
+
+Best regards,
+ Peter N=C3=B8rlund
+
+> > Traditionally people used modulo to calculate the path from the
+> > hash, but with the modulo approach 1/2 of all flows would change
+> > paths when a path is added or removed. With the hash threshold
+> > approach, somewhere between 1/4 and 1/2 of all flows are affected.
+> > So an improvement for routes with more than two paths.
+> >
+> > Ideally you would have a hash-to-port mapping table or similar,
+> > ensuring that only 1/N of all flows were affected (with N being the
+> > number of paths).
+> >
+> >>
+> >> > +               atomic_set(&nexthop_nh->nh_upper_bound,
+> >> > upper_bound);
+> >> > +       } endfor_nexthops(fi);
+> >> > +
+> >> > +       net_get_random_once(&fib_multipath_secret,
+> >> > +                           sizeof(fib_multipath_secret));
+> >> > +}
+> >> > +
+> >> > +static inline void fib_add_weight(struct fib_info *fi,
+> >> > +                                 const struct fib_nh *nh)
+> >> > +{
+> >> > +       fi->fib_weight +=3D nh->nh_weight;
+> >> > +}
+> >> > +
+> >> > +#else /* CONFIG_IP_ROUTE_MULTIPATH */
+> >> > +
+> >> > +#define fib_rebalance(fi) do { } while (0)
+> >> > +#define fib_add_weight(fi, nh) do { } while (0)
+> >> > +
+> >> > +#endif /* CONFIG_IP_ROUTE_MULTIPATH */
+> >> >
+> >> >  static int fib_encap_match(struct net *net, u16 encap_type,
+> >> >                            struct nlattr *encap,
+> >> > @@ -1094,8 +1153,11 @@ struct fib_info *fib_create_info(struct
+> >> > fib_config *cfg)
+> >> >
+> >> >         change_nexthops(fi) {
+> >> >                 fib_info_update_nh_saddr(net, nexthop_nh);
+> >> > +               fib_add_weight(fi, nexthop_nh);
+> >> >         } endfor_nexthops(fi)
+> >> >
+> >> > +       fib_rebalance(fi);
+> >> > +
+> >> >  link_it:
+> >> >         ofi =3D fib_find_info(fi);
+> >> >         if (ofi) {
+> >> > @@ -1317,12 +1379,6 @@ int fib_sync_down_dev(struct net_device
+> >> > *dev, unsigned long event) nexthop_nh->nh_flags |=3D
+> >> > RTNH_F_LINKDOWN; break;
+> >> >                                 }
+> >> > -#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -
+> >> > spin_lock_bh(&fib_multipath_lock);
+> >> > -                               fi->fib_power -=3D
+> >> > nexthop_nh->nh_power;
+> >> > -                               nexthop_nh->nh_power =3D 0;
+> >> > -
+> >> > spin_unlock_bh(&fib_multipath_lock); -#endif
+> >> >                                 dead++;
+> >> >                         }
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > @@ -1345,6 +1401,8 @@ int fib_sync_down_dev(struct net_device
+> >> > *dev, unsigned long event) }
+> >> >                         ret++;
+> >> >                 }
+> >> > +
+> >> > +               fib_rebalance(fi);
+> >> >         }
+> >> >
+> >> >         return ret;
+> >> > @@ -1467,20 +1525,15 @@ int fib_sync_up(struct net_device *dev,
+> >> > unsigned int nh_flags) !__in_dev_get_rtnl(dev))
+> >> >                                 continue;
+> >> >                         alive++;
+> >> > -#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -                       spin_lock_bh(&fib_multipath_lock);
+> >> > -                       nexthop_nh->nh_power =3D 0;
+> >> > -                       nexthop_nh->nh_flags &=3D ~nh_flags;
+> >> > -                       spin_unlock_bh(&fib_multipath_lock);
+> >> > -#else
+> >> >                         nexthop_nh->nh_flags &=3D ~nh_flags;
+> >> > -#endif
+> >> >                 } endfor_nexthops(fi)
+> >> >
+> >> >                 if (alive > 0) {
+> >> >                         fi->fib_flags &=3D ~nh_flags;
+> >> >                         ret++;
+> >> >                 }
+> >> > +
+> >> > +               fib_rebalance(fi);
+> >> >         }
+> >> >
+> >> >         return ret;
+> >> > @@ -1488,62 +1541,19 @@ int fib_sync_up(struct net_device *dev,
+> >> > unsigned int nh_flags)
+> >> >
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> >
+> >> > -/*
+> >> > - * The algorithm is suboptimal, but it provides really
+> >> > - * fair weighted route distribution.
+> >> > - */
+> >> > -void fib_select_multipath(struct fib_result *res)
+> >> > +void fib_select_multipath(struct fib_result *res, int hash)
+> >> >  {
+> >> >         struct fib_info *fi =3D res->fi;
+> >> > -       struct in_device *in_dev;
+> >> > -       int w;
+> >> > -
+> >> > -       spin_lock_bh(&fib_multipath_lock);
+> >> > -       if (fi->fib_power <=3D 0) {
+> >> > -               int power =3D 0;
+> >> > -               change_nexthops(fi) {
+> >> > -                       in_dev =3D
+> >> > __in_dev_get_rcu(nexthop_nh->nh_dev);
+> >> > -                       if (nexthop_nh->nh_flags & RTNH_F_DEAD)
+> >> > -                               continue;
+> >> > -                       if (in_dev &&
+> >> > -
+> >> > IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+> >> > -                           nexthop_nh->nh_flags &
+> >> > RTNH_F_LINKDOWN)
+> >> > -                               continue;
+> >> > -                       power +=3D nexthop_nh->nh_weight;
+> >> > -                       nexthop_nh->nh_power =3D
+> >> > nexthop_nh->nh_weight;
+> >> > -               } endfor_nexthops(fi);
+> >> > -               fi->fib_power =3D power;
+> >> > -               if (power <=3D 0) {
+> >> > -                       spin_unlock_bh(&fib_multipath_lock);
+> >> > -                       /* Race condition: route has just become
+> >> > dead. */
+> >> > -                       res->nh_sel =3D 0;
+> >> > -                       return;
+> >> > -               }
+> >> > -       }
+> >> > -
+> >> >
+> >> > -       /* w should be random number [0..fi->fib_power-1],
+> >> > -        * it is pretty bad approximation.
+> >> > -        */
+> >> > -
+> >> > -       w =3D jiffies % fi->fib_power;
+> >> > +       for_nexthops(fi) {
+> >> > +               if (hash > atomic_read(&nh->nh_upper_bound))
+> >> > +                       continue;
+> >> >
+> >> > -       change_nexthops(fi) {
+> >> > -               if (!(nexthop_nh->nh_flags & RTNH_F_DEAD) &&
+> >> > -                   nexthop_nh->nh_power) {
+> >> > -                       w -=3D nexthop_nh->nh_power;
+> >> > -                       if (w <=3D 0) {
+> >> > -                               nexthop_nh->nh_power--;
+> >> > -                               fi->fib_power--;
+> >> > -                               res->nh_sel =3D nhsel;
+> >> > -
+> >> > spin_unlock_bh(&fib_multipath_lock);
+> >> > -                               return;
+> >> > -                       }
+> >> > -               }
+> >> > +               res->nh_sel =3D nhsel;
+> >> > +               return;
+> >> >         } endfor_nexthops(fi);
+> >> >
+> >> >         /* Race condition: route has just become dead. */
+> >> >         res->nh_sel =3D 0;
+> >> > -       spin_unlock_bh(&fib_multipath_lock);
+> >> >  }
+> >> >  #endif
+> >> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> >> > index 80f7c5b..3dc83b6 100644
+> >> > --- a/net/ipv4/route.c
+> >> > +++ b/net/ipv4/route.c
+> >> > @@ -1659,8 +1659,12 @@ static int ip_mkroute_input(struct sk_buf=
+f
+> >> > *skb, __be32 daddr, __be32 saddr, u32 tos)
+> >> >  {
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -       if (res->fi && res->fi->fib_nhs > 1)
+> >> > -               fib_select_multipath(res);
+> >> > +       if (res->fi && res->fi->fib_nhs > 1) {
+> >> > +               int h;
+> >> > +
+> >> > +               h =3D fib_multipath_hash(saddr, daddr);
+> >> > +               fib_select_multipath(res, h);
+> >> > +       }
+> >> >  #endif
+> >> >
+> >> >         /* create a routing cache entry */
+> >> > @@ -2190,8 +2194,12 @@ struct rtable
+> >> > *__ip_route_output_key(struct net *net, struct flowi4 *fl4) }
+> >> >
+> >> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> >> > -       if (res.fi->fib_nhs > 1 && fl4->flowi4_oif =3D=3D 0)
+> >> > -               fib_select_multipath(&res);
+> >> > +       if (res.fi->fib_nhs > 1 && fl4->flowi4_oif =3D=3D 0) {
+> >> > +               int h;
+> >> > +
+> >> > +               h =3D fib_multipath_hash(fl4->saddr, fl4->daddr)=
+;
+> >> > +               fib_select_multipath(&res, h);
+> >> > +       }
+> >> >         else
+> >> >  #endif
+> >> >         if (!res.prefixlen &&
+> >> > --
+> >> > 1.7.10.4
+> >> >
+> >> > --
+> >> > To unsubscribe from this list: send the line "unsubscribe
+> >> > netdev" in the body of a message to majordomo@vger.kernel.org
+> >> > More majordomo info at
+> >> > http://vger.kernel.org/majordomo-info.html
+> >
