@@ -1,40 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: Remove unneeded return from void function
-Date: Wed, 23 Sep 2015 17:15:46 +0300
-Message-ID: <5602B412.50506@cogentembedded.com>
-References: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
+Date: Wed, 23 Sep 2015 16:29:27 +0200
+Message-ID: <20150923162927.6d437a1f@griffin>
+References: <cover.1442936392.git.jbenc@redhat.com>
+	<87zj0d92ba.fsf@x220.int.ebiederm.org>
+	<20150923080957.GB29680@pox.localdomain>
+	<87lhbx72j2.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Guillaume Gomez <guillaume1.gomez@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57850 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754633AbbIWO3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2015 10:29:32 -0400
+In-Reply-To: <87lhbx72j2.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/23/2015 1:31 PM, Guillaume Gomez wrote:
+On Wed, 23 Sep 2015 07:17:53 -0500, Eric W. Biederman wrote:
+> Assuming the transport is UDP then it would be a UDP socket.  That
+> socket will have all of the information needed to construct the outer
+> header as the receive path of that socket removes the outer header.
+> 
+> I admit you can't use the cached dst.  It is the wrong on that socket.
+> 
+> My point is that if we have the UDP socket and we have the sk we have
+> all of the information we need to compute the reverse dst.
 
-> Signed-off-by: Guillaume Gomez <guillaume1.gomez@gmail.com>
-> ---
->   include/linux/netdevice.h | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 88a0069..4a444a1 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -457,7 +457,7 @@ void napi_complete_done(struct napi_struct *n, int
-> work_done);
+That (single) UDP socket may represent many tunnels with different
+parameters. Knowing the socket is still not enough to construct the
+data. The only place where the needed data is stored is routing table
+which won't help us much for ARP, and the metadata dst attached to the
+incoming skb.
 
-    The patch is line-wrapped.
+ Jiri
 
->    */
->   static inline void napi_complete(struct napi_struct *n)
->   {
-> -    return napi_complete_done(n, 0);
-> +    napi_complete_done(n, 0);
-
-    And tabs were converted to spaces.
-
-MBR, Sergei
+-- 
+Jiri Benc
