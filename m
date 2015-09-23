@@ -1,45 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/9] net: Refactor ip_route_input_slow
-Date: Wed, 23 Sep 2015 08:03:00 -0600
-Message-ID: <5602B114.3000009@cumulusnetworks.com>
-References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
- <56023DDF.8000707@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: Remove unneeded return from void function
+Date: Wed, 23 Sep 2015 17:15:46 +0300
+Message-ID: <5602B412.50506@cogentembedded.com>
+References: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33331 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754590AbbIWODE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 10:03:04 -0400
-Received: by pacex6 with SMTP id ex6so41613248pac.0
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 07:03:04 -0700 (PDT)
-In-Reply-To: <56023DDF.8000707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Guillaume Gomez <guillaume1.gomez@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/22/15 11:51 PM, Alexander Duyck wrote:
+On 9/23/2015 1:31 PM, Guillaume Gomez wrote:
+
+> Signed-off-by: Guillaume Gomez <guillaume1.gomez@gmail.com>
+> ---
+>   include/linux/netdevice.h | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> One option you might consider when untangling this is to just return the
-> values instead of leaving any labels.  I just did a quick test on my
-> system with gcc version 5.1.1 and going through and just replacing all
-> of the labels with returns actually resulted in smaller code since the
-> compiler was smart enough to just combine the returns anyway.
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 88a0069..4a444a1 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -457,7 +457,7 @@ void napi_complete_done(struct napi_struct *n, int
+> work_done);
 
-You have to unwrap it the way I did because there are a number of places 
-with multiple jumps and a couple of places with fallthrough -- one label 
-falling into the next.
+    The patch is line-wrapped.
 
->
-> You may also want to increase the scope of this patch set to include
-> __mkroute_input as it ends up being compiled into this function as
-> well.  From what I have seen there is a bit of redundancy with some of
-> the code from local_input.
+>    */
+>   static inline void napi_complete(struct napi_struct *n)
+>   {
+> -    return napi_complete_done(n, 0);
+> +    napi_complete_done(n, 0);
 
-Topic of another series. As is ip_route_input_mc. (and many other 
-functions in this file)
+    And tabs were converted to spaces.
 
-Thanks for the review; new version coming soon.
-
-David
+MBR, Sergei
