@@ -1,51 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip: allow using a device "help" (or a prefix thereof)
-Date: Wed, 23 Sep 2015 16:07:02 -0700
-Message-ID: <20150923160702.08b62a84@urahara>
-References: <55FBCA11.7070604@kristov.de>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH] phy: marvell: add link partner advertised modes
+Date: Thu, 24 Sep 2015 00:07:17 +0100
+Message-ID: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wilhelm Wijkander <lists@0x5e.se>,
-	Vadim Kochan <vadim4j@gmail.com>,
-	Leonhard Preis <leonhard@pre.is>
-To: Christoph Schulz <develop@kristov.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35252 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755037AbbIWXGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:06:51 -0400
-Received: by pacfv12 with SMTP id fv12so53973229pac.2
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 16:06:51 -0700 (PDT)
-In-Reply-To: <55FBCA11.7070604@kristov.de>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:42870 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755310AbbIWXHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:07:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Sep 2015 10:23:45 +0200
-Christoph Schulz <develop@kristov.de> wrote:
+Read the standard link partner advertisment registers and store it in
+phydev->lp_advertising, so ethtool can report this information to
+userspace via ethtool.  Zero it as per genphy if autonegotiation is
+disabled.  Tested with a Marvell 88E1512 PHY.
 
-> Device names that match "help" or a prefix thereof should be allowed anywhere
-> a device name can be used. Note that a suitable keyword ("dev" or "name", the
-> latter for "ip tunnel") has to be used in these cases to resolve ambiguities.
-> 
-> Signed-off-by: Christoph Schulz <develop@kristov.de>
-> Reported-by: Leonhard Preis <leonhard@pre.is>
-> Reported-by: Wilhelm Wijkander <lists@0x5e.se>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ drivers/net/phy/marvell.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-This patch no longer applies cleanly after this patch that was just merged.
-
-
-
-commit 940a96e6ca9a14cd52c97a719a1700b417adb2fb
-Author: Phil Sutter <phil@nwl.cc>
-Date:   Mon Sep 21 21:33:01 2015 +0200
-
-    ip-link: do not support 'ip link add dev help'
-    
-    Commit 0532555 ('Support "ip link add help" for rtnl_link API') added a
-    check for specified help parameter. Though due to the place where it has
-    been added to, it is not possible anymore to force a given parameter to
-    be interpreted as interface name by prefixing it with 'dev '. Fix this
-    by forcing whatever follows 'dev' to be presumed as interface name.
-    
-    Signed-off-by: Phil Sutter <phil@nwl.cc>
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index e6897b6a8a53..5de8d5827536 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -785,6 +785,7 @@ static int marvell_read_status(struct phy_device *phydev)
+ 	int adv;
+ 	int err;
+ 	int lpa;
++	int lpagb;
+ 	int status = 0;
+ 
+ 	/* Update the link, but return if there
+@@ -802,10 +803,17 @@ static int marvell_read_status(struct phy_device *phydev)
+ 		if (lpa < 0)
+ 			return lpa;
+ 
++		lpagb = phy_read(phydev, MII_STAT1000);
++		if (lpagb < 0)
++			return lpagb;
++
+ 		adv = phy_read(phydev, MII_ADVERTISE);
+ 		if (adv < 0)
+ 			return adv;
+ 
++		phydev->lp_advertising = mii_stat1000_to_ethtool_lpa_t(lpagb) |
++					 mii_lpa_to_ethtool_lpa_t(lpa);
++
+ 		lpa &= adv;
+ 
+ 		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
+@@ -853,6 +861,7 @@ static int marvell_read_status(struct phy_device *phydev)
+ 			phydev->speed = SPEED_10;
+ 
+ 		phydev->pause = phydev->asym_pause = 0;
++		phydev->lp_advertising = 0;
+ 	}
+ 
+ 	return 0;
+-- 
+2.1.0
