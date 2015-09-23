@@ -1,77 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: factorize sk_txhash init
-Date: Tue, 22 Sep 2015 20:44:17 -0700
-Message-ID: <1442979857.29850.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442878107.29850.69.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net] fib_rules: fix fib rule dumps across multiple skbs
+Date: Tue, 22 Sep 2015 21:40:22 -0700
+Message-ID: <1442983222-42750-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, wkok@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36788 "EHLO
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36338 "EHLO
 	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934919AbbIWDoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 23:44:19 -0400
-Received: by pacbt3 with SMTP id bt3so9467131pac.3
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 20:44:18 -0700 (PDT)
-In-Reply-To: <1442878107.29850.69.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750780AbbIWEk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:40:27 -0400
+Received: by pacbt3 with SMTP id bt3so10748433pac.3
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 21:40:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Wilson Kok <wkok@cumulusnetworks.com>
 
-Neal suggested to move sk_txhash init into tcp_create_openreq_child(),
-called both from IPv4 and IPv6.
+dump_rules returns skb length and not error.
+But when family == AF_UNSPEC, the caller of dump_rules
+assumes that it returns an error. Hence, when family == AF_UNSPEC,
+we continue trying to dump on -EMSGSIZE errors resulting in
+incorrect dump idx carried between skbs belonging to the same dump.
+This results in fib rule dump always only dumping rules that fit
+into the first skb.
 
-This opportunity was missed in commit 58d607d3e52f ("tcp: provide
-skb->hash to synack packets")
+This patch fixes dump_rules to return error so that we exit correctly
+and idx is correctly maintained between skbs that are part of the
+same dump.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
-v2: respin
+ net/core/fib_rules.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
- net/ipv4/tcp_ipv4.c      |    1 -
- net/ipv4/tcp_minisocks.c |    1 +
- net/ipv6/tcp_ipv6.c      |    2 --
- 3 files changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d671d742a239..7e2646542312 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1276,7 +1276,6 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newinet->mc_index     = inet_iif(skb);
- 	newinet->mc_ttl	      = ip_hdr(skb)->ttl;
- 	newinet->rcv_tos      = ip_hdr(skb)->tos;
--	newsk->sk_txhash      = tcp_rsk(req)->txhash;
- 	inet_csk(newsk)->icsk_ext_hdr_len = 0;
- 	if (inet_opt)
- 		inet_csk(newsk)->icsk_ext_hdr_len = inet_opt->opt.optlen;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 10933d01b982..85830bb92d04 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -471,6 +471,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		tcp_enable_early_retrans(newtp);
- 		newtp->tlp_high_seq = 0;
- 		newtp->lsndtime = treq->snt_synack.stamp_jiffies;
-+		newsk->sk_txhash = treq->txhash;
- 		newtp->last_oow_ack_time = 0;
- 		newtp->total_retrans = req->num_retrans;
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index bf77e36..365de66 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -631,15 +631,17 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
+ {
+ 	int idx = 0;
+ 	struct fib_rule *rule;
++	int err = 0;
  
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f9c0e2640671..a004e0b0b3e9 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1090,8 +1090,6 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newsk->sk_v6_rcv_saddr = ireq->ir_v6_loc_addr;
- 	newsk->sk_bound_dev_if = ireq->ir_iif;
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(rule, &ops->rules_list, list) {
+ 		if (idx < cb->args[1])
+ 			goto skip;
  
--	newsk->sk_txhash = tcp_rsk(req)->txhash;
--
- 	/* Now IPv6 options...
+-		if (fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
+-				     cb->nlh->nlmsg_seq, RTM_NEWRULE,
+-				     NLM_F_MULTI, ops) < 0)
++		err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
++				       cb->nlh->nlmsg_seq, RTM_NEWRULE,
++				       NLM_F_MULTI, ops);
++		if (err)
+ 			break;
+ skip:
+ 		idx++;
+@@ -648,7 +650,7 @@ skip:
+ 	cb->args[1] = idx;
+ 	rules_ops_put(ops);
  
- 	   First: no IPv4 options.
+-	return skb->len;
++	return err;
+ }
+ 
+ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -664,7 +666,9 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (ops == NULL)
+ 			return -EAFNOSUPPORT;
+ 
+-		return dump_rules(skb, cb, ops);
++		dump_rules(skb, cb, ops);
++
++		return skb->len;
+ 	}
+ 
+ 	rcu_read_lock();
+-- 
+1.9.1
