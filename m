@@ -1,44 +1,36 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH next 00/84] ipvs: Stop guessing the network namespace
- (take 2)
-Date: Wed, 23 Sep 2015 11:16:21 +0200
-Message-ID: <20150923091621.GA3927@salvia>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <87pp1fpy1b.fsf@x220.int.ebiederm.org>
- <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
- <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
- <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
- <alpine.LFD.2.11.1509221019170.3008@ja.home.ssi.bg>
- <20150922085041.GD3422@salvia>
- <20150923001727.GD4685@verge.net.au>
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [GIT PULL] ARCNET: refactoring and cleanup
+Date: Wed, 23 Sep 2015 11:20:02 +0200
+Message-ID: <20150923092002.GA31220@pengutronix.de>
+References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
+ <20150922.172503.739066756938175560.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42174 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078AbbIWJUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 05:20:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20150923001727.GD4685@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150922.172503.739066756938175560.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2015 at 09:17:27AM +0900, Simon Horman wrote:
-> On Tue, Sep 22, 2015 at 10:50:41AM +0200, Pablo Neira Ayuso wrote:
-> > On Tue, Sep 22, 2015 at 10:22:13AM +0300, Julian Anastasov wrote:
-> > [...]
-> > > 
-> > > 	v2 looks good to me,
-> > > 
-> > > Acked-by: Julian Anastasov <ja@ssi.bg>
-> > 
-> > Thanks a lot for reviewing Julian.
-> > 
-> > Simon, please let me know how you want to handle this. Thanks.
+On Tue, Sep 22, 2015 at 05:25:03PM -0700, David Miller wrote:
+> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> Date: Tue, 22 Sep 2015 11:01:41 +0200
 > 
-> I will see about taking it through my tree (as usual).
+> >   git://git.pengutronix.de/git/mgr/linux.git tags/arcnet-cleanup-v4.3-rc2
+> 
+> Please build this tree against net-next, thanks.
 
-Thanks Simon!
+Done that now. Shall I resend the pull?
+
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
