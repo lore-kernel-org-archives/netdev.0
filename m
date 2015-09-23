@@ -1,25 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix AF_PACKET ABI breakage in 4.2
-Date: Wed, 23 Sep 2015 11:09:26 -0700 (PDT)
-Message-ID: <20150923.110926.1369752430685358746.davem@davemloft.net>
-References: <1443019470.74600.6.camel@infradead.org>
+Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
+ ip_route_input_slow
+Date: Wed, 23 Sep 2015 11:14:36 -0700 (PDT)
+Message-ID: <20150923.111436.160207282585511690.davem@davemloft.net>
+References: <5602C901.2050404@gmail.com>
+	<5602CD17.3030008@cumulusnetworks.com>
+	<5602D3CA.7010502@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gkurz@linux.vnet.ibm.com,
-	rusty@rustcorp.com.au, mst@redhat.com, linux-api@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: dwmw2@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443019470.74600.6.camel@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44262 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813AbbIWSOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:14:38 -0400
+In-Reply-To: <5602D3CA.7010502@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 23 Sep 2015 15:44:30 +0100
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Wed, 23 Sep 2015 09:31:06 -0700
 
-> +#define VIO_LE virtio_legacy_is_little_endian()
+> It is the general direction of this I don't like since it is just
+> making the code uglier before you attempt to fix it.
 
-When you define a shorthand macro, the defines to a function call,
-make the macro have parenthesis too.
+I agree, I don't like these refactorings at all.
+
+Some of these code paths have been this way for a decade or longer,
+and are etched into the back of our skulls.
+
+Unless there is _true_ benefit, just leave the code alone, really.
+
+I also really don't like "un-goto" conversions at all, they generally
+make the code harder to read.  And as Eric Dumazet said, unless you
+carefully pair such changes with appropriate likely()/unlikely()
+taggin you pessimize the code.
