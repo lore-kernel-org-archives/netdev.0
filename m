@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH 3/7] net: netcp: move netcp_register_interface() to after attach module
-Date: Wed, 23 Sep 2015 13:37:07 -0400
-Message-ID: <1443029831-22035-4-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH 2/7] net: netcp: remove dead code from the driver
+Date: Wed, 23 Sep 2015 13:37:06 -0400
+Message-ID: <1443029831-22035-3-git-send-email-m-karicheri2@ti.com>
 References: <1443029831-22035-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,54 +14,42 @@ In-Reply-To: <1443029831-22035-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The netcp interface is not fully initialized before attach the module
-to the interface. For example, the tx pipe/rx pipe is initialized
-in ethss module as part of attach(). So until this is complete, the
-interface can't be registered.  So move registration of interface to
-net device outside the current loop that attaches the modules to the
-interface.
+netcp_core is the first driver that will get initialized and the modules
+(ethss, pa etc) will then get initialized. So the code at the end of
+netcp_probe() that iterate over the modules is a dead code as the module
+list will be always be empty. So remove this code.
 
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 ---
- drivers/net/ethernet/ti/netcp_core.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/ti/netcp_core.c | 9 ---------
+ 1 file changed, 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index c0bc4b9..cf693de 100644
+index 1a5aca5..c0bc4b9 100644
 --- a/drivers/net/ethernet/ti/netcp_core.c
 +++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -291,13 +291,6 @@ static int netcp_module_probe(struct netcp_device *netcp_device,
- 			    interface_list) {
- 		struct netcp_intf_modpriv *intf_modpriv;
+@@ -2040,7 +2040,6 @@ static int netcp_probe(struct platform_device *pdev)
+ 	struct device_node *child, *interfaces;
+ 	struct netcp_device *netcp_device;
+ 	struct device *dev = &pdev->dev;
+-	struct netcp_module *module;
+ 	int ret;
  
--		/* If interface not registered then register now */
--		if (!netcp_intf->netdev_registered)
--			ret = netcp_register_interface(netcp_intf);
--
--		if (ret)
--			return -ENODEV;
--
- 		intf_modpriv = devm_kzalloc(dev, sizeof(*intf_modpriv),
- 					    GFP_KERNEL);
- 		if (!intf_modpriv)
-@@ -323,6 +316,18 @@ static int netcp_module_probe(struct netcp_device *netcp_device,
- 			continue;
- 		}
- 	}
-+
-+	/* Now register the interface with netdev */
-+	list_for_each_entry(netcp_intf,
-+			    &netcp_device->interface_head,
-+			    interface_list) {
-+		/* If interface not registered then register now */
-+		if (!netcp_intf->netdev_registered) {
-+			ret = netcp_register_interface(netcp_intf);
-+			if (ret)
-+				return -ENODEV;
-+		}
-+	}
+ 	if (!node) {
+@@ -2087,14 +2086,6 @@ static int netcp_probe(struct platform_device *pdev)
+ 	/* Add the device instance to the list */
+ 	list_add_tail(&netcp_device->device_list, &netcp_devices);
+ 
+-	/* Probe & attach any modules already registered */
+-	mutex_lock(&netcp_modules_lock);
+-	for_each_netcp_module(module) {
+-		ret = netcp_module_probe(netcp_device, module);
+-		if (ret < 0)
+-			dev_err(dev, "module(%s) probe failed\n", module->name);
+-	}
+-	mutex_unlock(&netcp_modules_lock);
  	return 0;
- }
  
+ probe_quit_interface:
 -- 
 1.9.1
