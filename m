@@ -1,55 +1,53 @@
-From: Jeremy Linton <Jeremy.Linton@arm.com>
-Subject: RE: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Wed, 23 Sep 2015 10:22:49 -0700
-Message-ID: <F58048940DF89C44BFA5A966565B5D23EBA361B927@SPOCK.usa.Arm.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
- <55F059F9.3080200@arm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 7/9] net: Remove martian_destination label
+Date: Wed, 23 Sep 2015 10:27:48 -0700
+Message-ID: <1443029268.29850.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1443021322-48621-8-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252
-Content-Transfer-Encoding: 8BIT
-Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>
-To: Marc Zyngier <Marc.Zyngier@arm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:53537 "EHLO
-	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755750AbbIWRXI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2015 13:23:08 -0400
-In-Reply-To: <55F059F9.3080200@arm.com>
-Content-Language: en-US
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34011 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755783AbbIWR1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 13:27:50 -0400
+Received: by padhy16 with SMTP id hy16so46154207pad.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 10:27:50 -0700 (PDT)
+In-Reply-To: <1443021322-48621-8-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marc,
+On Wed, 2015-09-23 at 08:15 -0700, David Ahern wrote:
+> Move call to ip_handle_martian_dest to various jump sites. The
+> function only increments a counter and possibly does additional
+> logging if CONFIG_IP_ROUTE_VERBOSE is enabled.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  net/ipv4/route.c | 24 +++++++++++++-----------
+>  1 file changed, 13 insertions(+), 11 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 0fdcb0539795..c23bb0965966 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1790,15 +1790,19 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>  	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
+>  		goto brd_input;
+>  
+> -	if (ipv4_is_zeronet(daddr))
+> -		goto martian_destination;
+> +	if (ipv4_is_zeronet(daddr)) {
+> +		ip_handle_martian_dest(dev, in_dev, daddr, saddr);
+> +		goto out;
+> +	}
+>  
 
-|FWIW, mainline booting with this patch on Juno r1 with ACPI enabled dies a
-|horrible death:
+As requested, here is an example of code for which compiler might
+compile in a non efficient way, ie inserting code at the wrong place,
+increasing icache pressure.
 
-Sorry about the delay, I didn't see this message.
-
-<trimmed>
-
-|How did you get this to work? Firmware release?
-
-Yes, it's a firmware problem with the ACPI tables. It is likely you need _DSD changes for the SMSC. If your trying to run juno with ACPI there are a few other ACPI table changes you will need beyond what was in the last linaro release. I wanted to just provide a direct link to the correct firmware in this response, but it seems the required version is sort of up in the air at the moment. Be assured I will really push on this next week, and will provide a follow up here.
-
-Originally, the lack of DSD wasn't a problem, but as this patch evolved  the fact that it consolidates a number of configuration code paths balancing that got tricky, and ACPI machines with "bad" tables were the victims (rather than breaking something I can't control).
-
-In the meantime, if this is blocking anyone I can provide instructions on how to update the required ACPI tables.
-
-Thanks,
-
-
-
--- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
-
-ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
-ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
+Removing a goto is removing an implicit unlikely.
