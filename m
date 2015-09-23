@@ -1,345 +1,76 @@
-From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net: mdio-octeon: Add PCI driver binding.
-Date: Tue, 22 Sep 2015 17:41:36 -0700
-Message-ID: <1442968896-30776-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 1/9] net: Remove martian_source_keep_err goto
+ label
+Date: Tue, 22 Sep 2015 18:04:07 -0700
+Message-ID: <5601FA87.2080701@gmail.com>
+References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+ <1442962523-3974-2-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35164 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759787AbbIWBEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 21:04:09 -0400
+Received: by pacfv12 with SMTP id fv12so24640659pac.2
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 18:04:08 -0700 (PDT)
+In-Reply-To: <1442962523-3974-2-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+On 09/22/2015 03:55 PM, David Ahern wrote:
+> err is initialized to -EINVAL when it is declared. It is not reset until
+> fib_lookup which is well after the 3 users of the martian_source jump. So
+> resetting err to -EINVAL at martian_source label is not needed.
+>
+> Removing that line obviates the need for the martian_source_keep_err label
+> so delete it.
+>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-When the Cavium mdio-octeon devices appear in the Thunder family of
-arm64 based SoCs, they show up as PCI devices.  Add PCI driver
-wrapping so the driver is bound in the standard PCI device scan.
+The comments above and the code below don't sync up.  The function 
+fib_validate_source can return either -EINVAL, -EXDEV, 0, or 1.  The 
+fact is this may be acceptable as long as all callers of 
+ip_route_input_slow will handle a non-zero value as an error and it 
+doesn't care about what the actual return value is.  If that is what you 
+are going for here at least the comment should be updated, and we should 
+be explicit somewhere about documenting the return values.
 
-When in this form, a single PCI device may have more than a single
-bus, we call this a "nexus" of buses.  The standard firmware
-device_for_each_child_node() iterator is used to find the individual
-buses underneath the "nexus".
-
-Update the device tree binding documentation for the new PCI driver
-binding.
-
-Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- .../devicetree/bindings/net/cavium-mdio.txt        |  61 +++++++-
- drivers/net/phy/mdio-octeon.c                      | 159 +++++++++++++++++++--
- 2 files changed, 209 insertions(+), 11 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/cavium-mdio.txt b/Documentation/devicetree/bindings/net/cavium-mdio.txt
-index 04cb749..020df08 100644
---- a/Documentation/devicetree/bindings/net/cavium-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/cavium-mdio.txt
-@@ -1,9 +1,12 @@
- * System Management Interface (SMI) / MDIO
- 
- Properties:
--- compatible: "cavium,octeon-3860-mdio"
-+- compatible: One of:
- 
--  Compatibility with all cn3XXX, cn5XXX and cn6XXX SOCs.
-+   "cavium,octeon-3860-mdio": Compatibility with all cn3XXX, cn5XXX
-+                       and cn6XXX SOCs.
-+
-+   "cavium,thunder-8890-mdio": Compatibility with all cn8XXX SOCs.
- 
- - reg: The base address of the MDIO bus controller register bank.
- 
-@@ -25,3 +28,57 @@ Example:
- 			reg = <0>;
- 		};
- 	};
-+
-+
-+* System Management Interface (SMI) / MDIO Nexus
-+
-+  Several mdio buses may be gathered as children of a single PCI
-+  device, this PCI device is the nexus of the buses.
-+
-+Properties:
-+
-+- compatible: "cavium,thunder-8890-mdio-nexus";
-+
-+- reg: The PCI device and function numbers of the nexus device.
-+
-+- #address-cells: Must be <2>.
-+
-+- #size-cells: Must be <2>.
-+
-+- ranges: As needed for mapping of the MDIO bus device registers.
-+
-+- assigned-addresses: As needed for mapping of the MDIO bus device registers.
-+
-+Example:
-+
-+        mdio-nexus@1,3 {
-+                compatible = "cavium,thunder-8890-mdio-nexus";
-+                #address-cells = <2>;
-+                #size-cells = <2>;
-+                reg = <0x0b00 0 0 0 0>; /* DEVFN = 0x0b (1:3) */
-+                assigned-addresses = <0x03000000 0x87e0 0x05000000 0x0 0x800000>;
-+                ranges = <0x87e0 0x05000000 0x03000000 0x87e0 0x05000000 0x0 0x800000>;
-+
-+                mdio0@87e0,05003800 {
-+                        compatible = "cavium,thunder-8890-mdio";
-+                        #address-cells = <1>;
-+                        #size-cells = <0>;
-+                        reg = <0x87e0 0x05003800 0x0 0x30>;
-+
-+                        ethernet-phy@0 {
-+                                ...
-+                                reg = <0>;
-+                        };
-+                };
-+                mdio0@87e0,05003880 {
-+                        compatible = "cavium,thunder-8890-mdio";
-+                        #address-cells = <1>;
-+                        #size-cells = <0>;
-+                        reg = <0x87e0 0x05003880 0x0 0x30>;
-+
-+                        ethernet-phy@0 {
-+                                ...
-+                                reg = <0>;
-+                        };
-+                };
-+        };
-diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-index fcf4e4d..21eca35 100644
---- a/drivers/net/phy/mdio-octeon.c
-+++ b/drivers/net/phy/mdio-octeon.c
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2009-2012 Cavium, Inc.
-+ * Copyright (C) 2009-2015 Cavium, Inc.
-  */
- 
- #include <linux/platform_device.h>
-@@ -14,6 +14,7 @@
- #include <linux/gfp.h>
- #include <linux/phy.h>
- #include <linux/io.h>
-+#include <linux/pci.h>
- 
- #ifdef CONFIG_CAVIUM_OCTEON_SOC
- #include <asm/octeon/octeon.h>
-@@ -110,8 +111,6 @@ enum octeon_mdiobus_mode {
- struct octeon_mdiobus {
- 	struct mii_bus *mii_bus;
- 	u64 register_base;
--	resource_size_t mdio_phys;
--	resource_size_t regsize;
- 	enum octeon_mdiobus_mode mode;
- 	int phy_irq[PHY_MAX_ADDR];
- };
-@@ -269,6 +268,8 @@ static int octeon_mdiobus_probe(struct platform_device *pdev)
- {
- 	struct octeon_mdiobus *bus;
- 	struct resource *res_mem;
-+	resource_size_t mdio_phys;
-+	resource_size_t regsize;
- 	union cvmx_smix_en smi_en;
- 	int err = -ENOENT;
- 
-@@ -282,17 +283,17 @@ static int octeon_mdiobus_probe(struct platform_device *pdev)
- 		return -ENXIO;
- 	}
- 
--	bus->mdio_phys = res_mem->start;
--	bus->regsize = resource_size(res_mem);
-+	mdio_phys = res_mem->start;
-+	regsize = resource_size(res_mem);
- 
--	if (!devm_request_mem_region(&pdev->dev, bus->mdio_phys, bus->regsize,
-+	if (!devm_request_mem_region(&pdev->dev, mdio_phys, regsize,
- 				     res_mem->name)) {
- 		dev_err(&pdev->dev, "request_mem_region failed\n");
- 		return -ENXIO;
- 	}
- 
- 	bus->register_base =
--		(u64)devm_ioremap(&pdev->dev, bus->mdio_phys, bus->regsize);
-+		(u64)devm_ioremap(&pdev->dev, mdio_phys, regsize);
- 	if (!bus->register_base) {
- 		dev_err(&pdev->dev, "dev_ioremap failed\n");
- 		return -ENOMEM;
-@@ -308,7 +309,7 @@ static int octeon_mdiobus_probe(struct platform_device *pdev)
- 
- 	bus->mii_bus->priv = bus;
- 	bus->mii_bus->irq = bus->phy_irq;
--	bus->mii_bus->name = "mdio-octeon";
-+	bus->mii_bus->name = KBUILD_MODNAME;
- 	snprintf(bus->mii_bus->id, MII_BUS_ID_SIZE, "%llx", bus->register_base);
- 	bus->mii_bus->parent = &pdev->dev;
- 
-@@ -356,7 +357,7 @@ MODULE_DEVICE_TABLE(of, octeon_mdiobus_match);
- 
- static struct platform_driver octeon_mdiobus_driver = {
- 	.driver = {
--		.name		= "mdio-octeon",
-+		.name		= KBUILD_MODNAME,
- 		.of_match_table = octeon_mdiobus_match,
- 	},
- 	.probe		= octeon_mdiobus_probe,
-@@ -371,6 +372,146 @@ EXPORT_SYMBOL(octeon_mdiobus_force_mod_depencency);
- 
- module_platform_driver(octeon_mdiobus_driver);
- 
-+#ifdef CONFIG_PCI
-+
-+struct thunder_mdiobus_nexus {
-+	void __iomem *bar0;
-+	struct octeon_mdiobus *buses[4];
-+};
-+
-+static int thunder_mdiobus_pci_probe(struct pci_dev *pdev,
-+				     const struct pci_device_id *ent)
-+{
-+	struct device_node *node;
-+	struct fwnode_handle *fwn;
-+	struct thunder_mdiobus_nexus *nexus;
-+	int err;
-+	int i;
-+
-+	nexus = devm_kzalloc(&pdev->dev, sizeof(*nexus), GFP_KERNEL);
-+	if (!nexus)
-+		return -ENOMEM;
-+
-+	pci_set_drvdata(pdev, nexus);
-+
-+	err = pcim_enable_device(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to enable PCI device\n");
-+		pci_set_drvdata(pdev, NULL);
-+		return err;
-+	}
-+
-+	err = pci_request_regions(pdev, KBUILD_MODNAME);
-+	if (err) {
-+		dev_err(&pdev->dev, "pci_request_regions failed\n");
-+		goto err_disable_device;
-+	}
-+
-+	nexus->bar0 = pcim_iomap(pdev, 0, pci_resource_len(pdev, 0));
-+	if (!nexus->bar0) {
-+		err = -ENOMEM;
-+		goto err_release_regions;
-+	}
-+
-+	i = 0;
-+	device_for_each_child_node(&pdev->dev, fwn) {
-+		struct resource r;
-+		struct octeon_mdiobus *bus;
-+		union cvmx_smix_en smi_en;
-+
-+		/* If it is not an OF node we cannot handle it yet, so
-+		 * exit the loop.
-+		 */
-+		node = to_of_node(fwn);
-+		if (!node)
-+			break;
-+
-+		err = of_address_to_resource(node, 0, &r);
-+		if (err) {
-+			dev_err(&pdev->dev,
-+				"Couldn't translate address for \"%s\"\n",
-+				node->name);
-+			break;
-+		}
-+		bus = devm_kzalloc(&pdev->dev, sizeof(struct octeon_mdiobus),
-+				   GFP_KERNEL);
-+
-+		if (!bus)
-+			break;
-+
-+		nexus->buses[i] = bus;
-+		i++;
-+
-+		bus->register_base = (u64)nexus->bar0 +
-+			r.start - pci_resource_start(pdev, 0);
-+
-+		bus->mii_bus = mdiobus_alloc();
-+		if (!bus->mii_bus)
-+			break;
-+
-+		smi_en.u64 = 0;
-+		smi_en.s.en = 1;
-+		oct_mdio_writeq(smi_en.u64, bus->register_base + SMI_EN);
-+		bus->mii_bus->priv = bus;
-+		bus->mii_bus->irq = bus->phy_irq;
-+		bus->mii_bus->name = KBUILD_MODNAME;
-+		snprintf(bus->mii_bus->id, MII_BUS_ID_SIZE, "%llx", r.start);
-+		bus->mii_bus->parent = &pdev->dev;
-+		bus->mii_bus->read = octeon_mdiobus_read;
-+		bus->mii_bus->write = octeon_mdiobus_write;
-+
-+		err = of_mdiobus_register(bus->mii_bus, node);
-+		if (err)
-+			dev_err(&pdev->dev, "of_mdiobus_register failed\n");
-+
-+		dev_info(&pdev->dev, "Added bus at %llx\n", r.start);
-+		if (i >= ARRAY_SIZE(nexus->buses))
-+			break;
-+	}
-+	return 0;
-+
-+err_release_regions:
-+	pci_release_regions(pdev);
-+
-+err_disable_device:
-+	pci_set_drvdata(pdev, NULL);
-+	return err;
-+}
-+
-+static void thunder_mdiobus_pci_remove(struct pci_dev *pdev)
-+{
-+	int i;
-+	union cvmx_smix_en smi_en;
-+	struct thunder_mdiobus_nexus *nexus = pci_get_drvdata(pdev);
-+
-+	for (i = 0; i < ARRAY_SIZE(nexus->buses); i++) {
-+		struct octeon_mdiobus *bus = nexus->buses[i];
-+
-+		if (!bus)
-+			continue;
-+
-+		mdiobus_unregister(bus->mii_bus);
-+		mdiobus_free(bus->mii_bus);
-+		smi_en.u64 = 0;
-+		oct_mdio_writeq(smi_en.u64, bus->register_base + SMI_EN);
-+	}
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static const struct pci_device_id thunder_mdiobus_id_table[] = {
-+	{ PCI_DEVICE(PCI_VENDOR_ID_CAVIUM, 0xa02b) },
-+	{ 0, } /* End of table. */
-+};
-+MODULE_DEVICE_TABLE(pci, thunder_mdiobus_id_table);
-+
-+static struct pci_driver thunder_mdiobus_driver = {
-+	.name = KBUILD_MODNAME,
-+	.id_table = thunder_mdiobus_id_table,
-+	.probe = thunder_mdiobus_pci_probe,
-+	.remove = thunder_mdiobus_pci_remove,
-+};
-+module_pci_driver(thunder_mdiobus_driver);
-+#endif /* CONFIG_PCI */
- MODULE_DESCRIPTION(DRV_DESCRIPTION);
- MODULE_VERSION(DRV_VERSION);
- MODULE_AUTHOR("David Daney");
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>   net/ipv4/route.c | 6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 80f7c5b7b832..ef36dfed24da 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1760,7 +1760,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>   		err = fib_validate_source(skb, saddr, daddr, tos,
+>   					  0, dev, in_dev, &itag);
+>   		if (err < 0)
+> -			goto martian_source_keep_err;
+> +			goto martian_source;
+>   		goto local_input;
+>   	}
+>
+> @@ -1782,7 +1782,7 @@ out:	return err;
+>   		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+>   					  in_dev, &itag);
+>   		if (err < 0)
+> -			goto martian_source_keep_err;
+> +			goto martian_source;
+>   	}
+>   	flags |= RTCF_BROADCAST;
+>   	res.type = RTN_BROADCAST;
+> @@ -1858,8 +1858,6 @@ out:	return err;
+>   	goto out;
+>
+>   martian_source:
+> -	err = -EINVAL;
+> -martian_source_keep_err:
+>   	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
+>   	goto out;
+>   }
+>
