@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
- ip_route_input_slow
-Date: Wed, 23 Sep 2015 11:14:36 -0700 (PDT)
-Message-ID: <20150923.111436.160207282585511690.davem@davemloft.net>
-References: <5602C901.2050404@gmail.com>
-	<5602CD17.3030008@cumulusnetworks.com>
-	<5602D3CA.7010502@gmail.com>
+Subject: Re: [PATCH v4] add stealth mode
+Date: Wed, 23 Sep 2015 11:15:34 -0700 (PDT)
+Message-ID: <20150923.111534.560140422263992933.davem@davemloft.net>
+References: <1442401882.4116.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1443025932-30386-1-git-send-email-matteo@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44262 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751813AbbIWSOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:14:38 -0400
-In-Reply-To: <5602D3CA.7010502@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: matteo@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443025932-30386-1-git-send-email-matteo@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Wed, 23 Sep 2015 09:31:06 -0700
+From: Matteo Croce <matteo@openwrt.org>
+Date: Wed, 23 Sep 2015 18:32:12 +0200
 
-> It is the general direction of this I don't like since it is just
-> making the code uglier before you attempt to fix it.
+> Add option to disable any reply not related to a listening socket,
+> like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+> Also disables ICMP replies to echo request and timestamp.
+> The stealth mode can be enabled selectively for a single interface.
+> 
+> Signed-off-by: Matteo Croce <matteo@openwrt.org>
 
-I agree, I don't like these refactorings at all.
+I don't want to see any more submissions of this feature patch, sorry.
 
-Some of these code paths have been this way for a decade or longer,
-and are etched into the back of our skulls.
+I am convinced, based upon other's arguments, that netfilter can
+provide this facility wholly.
 
-Unless there is _true_ benefit, just leave the code alone, really.
+So until you can convince us otherwise, your patch is inappropriate.
 
-I also really don't like "un-goto" conversions at all, they generally
-make the code harder to read.  And as Eric Dumazet said, unless you
-carefully pair such changes with appropriate likely()/unlikely()
-taggin you pessimize the code.
+Thanks.
