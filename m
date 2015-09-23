@@ -1,31 +1,45 @@
-From: Steve@vger.kernel.org, Mark@vger.kernel.org
-Subject: I am inspired to send you this email
-Date: Tue, 22 Sep 2015 21:09:31 -0400
-Message-ID: <TY1PR04MB0768CB46C0B290E4DA6CD0FAB8440__10888.0889755257$1442970668$gmane$org@TY1PR04MB0768.apcprd04.prod.outlook.com>
-Reply-To: <stevemark695@yahoo.co.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 1/9] net: Remove martian_source_keep_err goto
+ label
+Date: Tue, 22 Sep 2015 18:39:16 -0700
+Message-ID: <560202C4.3090108@gmail.com>
+References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+ <1442962523-3974-2-git-send-email-dsa@cumulusnetworks.com>
+ <5601FA87.2080701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pu1apc01hn0223.outbound.protection.outlook.com ([104.47.126.223]:54604
-	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759871AbbIWBKP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 21:10:15 -0400
-Content-Description: Mail message body
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35290 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752805AbbIWBjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 21:39:18 -0400
+Received: by pacfv12 with SMTP id fv12so25398142pac.2
+        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 18:39:18 -0700 (PDT)
+In-Reply-To: <5601FA87.2080701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+On 09/22/2015 06:04 PM, Alexander Duyck wrote:
+> On 09/22/2015 03:55 PM, David Ahern wrote:
+>> err is initialized to -EINVAL when it is declared. It is not reset until
+>> fib_lookup which is well after the 3 users of the martian_source jump. So
+>> resetting err to -EINVAL at martian_source label is not needed.
+>>
+>> Removing that line obviates the need for the martian_source_keep_err
+>> label
+>> so delete it.
+>>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>
+> The comments above and the code below don't sync up.  The function
+> fib_validate_source can return either -EINVAL, -EXDEV, 0, or 1.  The
+> fact is this may be acceptable as long as all callers of
+> ip_route_input_slow will handle a non-zero value as an error and it
+> doesn't care about what the actual return value is.  If that is what you
+> are going for here at least the comment should be updated, and we should
+> be explicit somewhere about documenting the return values.
 
-I am inspired to send you this email by the huge opportunity that it will be of mutual benefit to us.My late client a national of Israel a Man who used to work with Shell before his untimely death few years ago and inquiries to several embassies to locate any of my clients extended relatives proved abortive.I decide to trace his relatives over the Internet . Still no success.
-
-Hence,this contact to you.I contacted you only to assist in repatriating the sum involved otherwise the estate he left behind will be declared unserviceable by the bank which just issued me a notice to provide the next of kin or have the account frozen.I now use this medium to seek your consent so that the proceeds can be paid to you since I have all the necessary legal documents to back up our claim.
-
-I guarantee you that this will be executed under a legitimate arrangement that will protect you and I from any breach of the law.All I require is your honest cooperation to enable us redeem the funds.
-
-Kindly reply back if this proposal satisfies your interest.
-
-Steven Mark.
-Email:stevemark695@yahoo.co.uk
+Actually this patch is correct.  I got my wires a bit crossed and 
+misread martian_source vs martian_source_keep_err.
