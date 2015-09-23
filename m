@@ -1,95 +1,83 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net: sun4i-emac: Properly free resources on
- probe failure and remove
-Date: Wed, 23 Sep 2015 11:39:16 +0200
-Message-ID: <1443001156-20333-1-git-send-email-hdegoede@redhat.com>
-Reply-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH RFC 2/3] kcm: Kernel Connection Multiplexor module
+Date: Wed, 23 Sep 2015 11:36:56 +0200
+Message-ID: <20150923093656.GE29680@pox.localdomain>
+References: <1442788161-2626305-1-git-send-email-tom@herbertland.com>
+ <1442788161-2626305-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-        Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBDRZXY4CYYORBSHGRGYAKGQE6XSF7UQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:37100 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753075AbbIWJmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 05:42:52 -0400
+Received: by wicfx3 with SMTP id fx3so60551091wic.0
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 02:42:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1442788161-2626305-3-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix sun4i-emac not releasing the following resources:
--iomapped memory not released on probe-failure nor on remove
--clock not getting disabled on probe-failure nor on remove
--sram not being released on remove
+On 09/20/15 at 03:29pm, Tom Herbert wrote:
+> This module implement the Kernel Connection Multiplexor.
+> 
+> Kernel Connection Multiplexor (KCM) is a facility that provides a
+> message based interface over TCP for generic application protocols.
+> With KCM an application can efficiently send and receive application
+> protocol messages over TCP using datagram sockets.
+> 
+> For more information see the included Documentation/networking/kcm.txt
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-And while at it also add error checking to the clk_prepare_enable call
-done on probe.
+This looks great!
 
-Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/allwinner/sun4i-emac.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+> +Cloning KCM sockets
+> +-------------------
+> +
+> +After the first KCM socket is created using the socket call as described
+> +above, additional sockets for the multiplexor can be created by cloning
+> +a KCM socket. This is accomplished by calling accept on the KCM socket:
+> +
+> +   newkcmfd = accept(kcmfd, NULL, 0)
 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 48ce83e..8d50314 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -847,21 +847,25 @@ static int emac_probe(struct platform_device *pdev)
- 	if (ndev->irq == -ENXIO) {
- 		netdev_err(ndev, "No irq resource\n");
- 		ret = ndev->irq;
--		goto out;
-+		goto out_iounmap;
- 	}
- 
- 	db->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(db->clk)) {
- 		ret = PTR_ERR(db->clk);
--		goto out;
-+		goto out_iounmap;
- 	}
- 
--	clk_prepare_enable(db->clk);
-+	ret = clk_prepare_enable(db->clk);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Error couldn't enable clock (%d)\n", ret);
-+		goto out_iounmap;
-+	}
- 
- 	ret = sunxi_sram_claim(&pdev->dev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "Error couldn't map SRAM to device\n");
--		goto out;
-+		goto out_clk_disable_unprepare;
- 	}
- 
- 	db->phy_node = of_parse_phandle(np, "phy", 0);
-@@ -910,6 +914,10 @@ static int emac_probe(struct platform_device *pdev)
- 
- out_release_sram:
- 	sunxi_sram_release(&pdev->dev);
-+out_clk_disable_unprepare:
-+	clk_disable_unprepare(db->clk);
-+out_iounmap:
-+	iounmap(db->membase);
- out:
- 	dev_err(db->dev, "not found (%d).\n", ret);
- 
-@@ -921,8 +929,12 @@ out:
- static int emac_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct emac_board_info *db = netdev_priv(ndev);
- 
- 	unregister_netdev(ndev);
-+	sunxi_sram_release(&pdev->dev);
-+	clk_disable_unprepare(db->clk);
-+	iounmap(db->membase);
- 	free_netdev(ndev);
- 
- 	dev_dbg(&pdev->dev, "released and freed device\n");
--- 
-2.5.0
+This looks a bit ugly.
+
+> +  ioctl(kcmfd, SIOCKCMATTACH, &info);
+
+Use setsockopt() instead?
+
+> +/* Process a new message. If there is no KCM socket waiting for a message
+> + * hold it in the psock. Returns true if message is held this way, false
+> + * otherwise.
+> + */
+> +static bool new_rx_msg(struct kcm_psock *psock, struct sk_buff *head)
+> +{
+> +	struct kcm_mux *mux = psock->mux;
+> +	struct kcm_sock *kcm = NULL;
+> +	struct sock *sk;
+> +
+> +	spin_lock_bh(&mux->lock);
+> +
+> +	if (WARN_ON(psock->ready_rx_msg)) {
+> +		spin_unlock_bh(&mux->lock);
+> +		kfree_skb(head);
+> +		return false;
+> +	}
+> +
+> +	if (list_empty(&mux->kcm_rx_waiters)) {
+> +		psock->ready_rx_msg = head;
+> +
+> +		list_add_tail(&psock->psock_ready_list,
+> +			      &mux->psocks_ready);
+> +
+> +		spin_unlock_bh(&mux->lock);
+> +		return true;
+> +	}
+> +
+> +	kcm = list_first_entry(&mux->kcm_rx_waiters,
+> +			       struct kcm_sock, wait_rx_list);
+
+Per CPU list of waiting sockets?
