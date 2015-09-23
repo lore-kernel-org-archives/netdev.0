@@ -1,189 +1,77 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] 8139cp: Set GSO max size and enforce it
-Date: Wed, 23 Sep 2015 23:02:19 +0100
-Message-ID: <1443045739.74600.35.camel@infradead.org>
-References: <1442996049.36485.32.camel@infradead.org>
-	 <20150923.105812.149257816141624869.davem@davemloft.net>
-	 <1443037530.74600.29.camel@infradead.org>
-	 <20150923.144808.886375927698238398.davem@davemloft.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND
+ flag
+Date: Thu, 24 Sep 2015 00:03:55 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1509232339090.4001@nanos>
+References: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com> <1442850433-5903-14-git-send-email-sudeep.holla@arm.com> <BY2PR0301MB072700F43F00CFC273FED1B59C460@BY2PR0301MB0727.namprd03.prod.outlook.com> <alpine.DEB.2.11.1509211848510.5606@nanos>
+ <CADRPPNS_8PBHmm7jpindmg9pA5yEerM96JdpBtBz5BqOBFdUkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-+ZhjfAvMr/PYI90qg7Jv"
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Manoil Claudiu <claudiu.manoil@freescale.com>,
+	Sudeep Holla <sudeep.holla@arm.com>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kevin Hao <haokexin@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:35046 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754112AbbIWWCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:02:24 -0400
-In-Reply-To: <20150923.144808.886375927698238398.davem@davemloft.net>
+Received: from www.linutronix.de ([62.245.132.108]:47249 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798AbbIWWEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:04:38 -0400
+In-Reply-To: <CADRPPNS_8PBHmm7jpindmg9pA5yEerM96JdpBtBz5BqOBFdUkw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 23 Sep 2015, Li Yang wrote:
+> On Mon, Sep 21, 2015 at 11:51 AM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> > On Mon, 21 Sep 2015, Manoil Claudiu wrote:
+> >> >The device is set as wakeup capable using proper wakeup API but the
+> >> >driver misuses IRQF_NO_SUSPEND to set the interrupt as wakeup source
+> >> >which is incorrect.
+> >> >
+> >> >This patch removes the use of IRQF_NO_SUSPEND flags replacing it with
+> >> >enable_irq_wake instead.
+> >> >
+> >>
+> >> What would be the purpose of IRQF_NO_SUSPEND flag then?  The flag is a
+> >> friendlier API compared to calling enable_irq_wake().  For older kernels,
+> >
+> > It's not an API, it's just a bandaid for lazy programmers.
+> >
+> >> on PPC architectures, the flag did the job.  When did this change? Since
+> >> when using IRQF_NO_SUSPEND is a "misuse"?
+> >
+> > It always was. Simply because IRQF_NO_SUSPEND has absolutely nothing
+> > to do with wakeup interrupt sources. It's a flag which excludes the
+> > interrupt from the suspend mechanism, but it does not flag it a wakeup
+> > source.
+> 
+> It was not very clear on the intended use of IRQF_NO_SUSPEND at the
+> beginning as it was not documented anywhere.  It's good that we have
+> the Documentation/power/suspend-and-interrupts.txt to clarify that
+> now.
 
---=-+ZhjfAvMr/PYI90qg7Jv
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This is complete and utter bullshit to put it blunt.
 
-The maximum MSS value we can set is 0xFFF. When fixing the TSO code I
-noticed we just mask the gso_size value to the hardware's maximum and
-don't care about the consequences. That seems... unsagacious.
+The documentation of IRQF_NO_SUSPEND as non suitable for marking a
+particular device interrupt as wakeup source was added on Feb 20 2015
+with commit 737eb0301f2. Further clarification was added with commit
+7438b633a6b on Mar 4 2015.
 
-Instead of masking, WARN and drop the packet if it's too large. And use
- netif_set_gso_max_size() so it shouldn't happen in the first place.
+The IRQF_NO_SUSPEND crap was introduced to gianfar with commit
+614b42426cc3 on Jul 31 2015.
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
----
- drivers/net/ethernet/realtek/8139cp.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+Did you really expect that nobody will notice that the documentation
+which you praise now, has been available FIVE month before you decided
+to ignore it?
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
-ealtek/8139cp.c
-index e5173f3..fa8f850 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -754,10 +754,16 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
-,
- 	eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
- 	mss =3D skb_shinfo(skb)->gso_size;
-=20
-+	if (mss > MSSMask) {
-+		WARN_ONCE(1, "Net bug: GSO size %d too large for 8139CP\n",
-+			  mss);
-+		goto out_dma_error;
-+	}
-+
- 	opts2 =3D cpu_to_le32(cp_tx_vlan_tag(skb));
- 	opts1 =3D DescOwn;
- 	if (mss)
--		opts1 |=3D LargeSend | ((mss & MSSMask) << MSSShift);
-+		opts1 |=3D LargeSend | (mss << MSSShift);
- 	else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
- 		const struct iphdr *ip =3D ip_hdr(skb);
- 		if (ip->protocol =3D=3D IPPROTO_TCP)
-@@ -1994,6 +2000,8 @@ static int cp_init_one (struct pci_dev *pdev, const s=
-truct pci_device_id *ent)
- 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HIGHDMA;
-=20
-+	netif_set_gso_max_size(dev, MSSMask);
-+
- 	rc =3D register_netdev(dev);
- 	if (rc)
- 		goto err_out_iomap;
---=20
-2.4.3
+You can play your $corp fingerpointing games inside of your $corp
+without someone noticing, but in that community this is an absolute
+nono.
 
---=20
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+No thanks,
 
-
---=-+ZhjfAvMr/PYI90qg7Jv
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
-ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
-YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
-ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
-MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
-ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
-jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
-doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
-FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
-fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
-ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
-BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
-ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
-MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
-bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
-dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
-aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
-aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
-IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
-Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
-AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
-KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
-LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
-BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
-7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
-neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
-jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
-vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
-KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
-VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
-bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
-Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
-9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
-AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
-WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
-hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
-OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
-Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
-A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
-8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
-MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
-MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
-KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
-aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
-dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
-eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
-YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
-c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
-YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
-GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
-/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
-UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
-r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
-oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
-z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
-VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
-Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
-b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
-BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
-IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
-Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
-vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
-d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
-5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
-q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
-Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
-AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
-MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
-c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
-WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
-hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
-tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
-BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
-hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
-oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
-M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
-UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
-Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
-8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
-gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
-XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
-5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
-Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
-YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
-ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
-AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMjIwMjE5WjAjBgkqhkiG9w0BCQQxFgQUwh/MJYwTqHhczGl7fcSiokxvMPEw
-gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
-CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
-LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
-U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQAfc+bkDT5rDVDbcUVF8YCwxorRTQqTN6VWM6+xZxa9YvtVN3V+VbsKU9I/
-tQgWuc/eyKDq2W1gFrSre5Mx6yLwX41TgECsNw80TmFGREwi5PS00N6OVVHpHmuuGMIHTWS/mmm0
-zexVSm8/05PQDIRigdzfRjRIfB/L3RkajDlbTiuyEXXqyfkW2lGeOf/R1FIPB+QnwXyo24uau5Yu
-rEIxKTRAyIWYt3krJSLz2n3ALCgZM9pJ1tYyUrhc/hvZ6O64x0r37eeMsEKtRLe66QKDG15Tl3xn
-9yC7lZmDvj0wgFVB8UBj1KrTGQlnLJuwC/I41KBXgNiRUsOoE5/vVAE7AAAAAAAA
-
-
---=-+ZhjfAvMr/PYI90qg7Jv--
+   tglx
