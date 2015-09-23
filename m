@@ -1,38 +1,47 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
- ip_route_input_slow
-Date: Wed, 23 Sep 2015 15:26:09 -0700
-Message-ID: <56032701.7040604@gmail.com>
-References: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
- <1443021322-48621-3-git-send-email-dsa@cumulusnetworks.com>
- <5602C901.2050404@gmail.com> <5602CD17.3030008@cumulusnetworks.com>
- <5602D3CA.7010502@gmail.com> <5602DDC1.2080403@cumulusnetworks.com>
- <5602E39D.6060509@gmail.com> <5602E957.2060409@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] BNX2: fix a Null Pointer for stats_blk
+Date: Wed, 23 Sep 2015 15:31:17 -0700 (PDT)
+Message-ID: <20150923.153117.2291008783799112683.davem@davemloft.net>
+References: <56014CC0.3050201@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34357 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754112AbbIWW0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:26:12 -0400
-Received: by padhy16 with SMTP id hy16so52392916pad.1
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 15:26:11 -0700 (PDT)
-In-Reply-To: <5602E957.2060409@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sony.chacko@qlogic.com, Dept-HSGLinuxNICDev@qlogic.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rui.xiang@huawei.com
+To: wangweidong1@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56014CC0.3050201@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/23/2015 11:03 AM, David Ahern wrote:
-> If you have a better suggestion for how to improve this code then 
-> please submit it. I don't have a religion here. I don't like making 
-> mistakes and the silly mistake that led to bde6f9ded1 motivated this 
-> patch series.
+From: Weidong Wang <wangweidong1@huawei.com>
+Date: Tue, 22 Sep 2015 20:42:40 +0800
 
-I'll take a stab at it.  If you don't mind I might pull in a couple of 
-your patches and make a few tweaks here and there and I will resubmit 
-them with a few others.
+> @@ -880,6 +882,7 @@ bnx2_alloc_mem(struct bnx2 *bp)
+>  		}
+>  	}
+> 
+> +	spin_lock(&bp->stats64_lock);
+>  	bp->stats_blk = status_blk + status_blk_size;
+> 
+>  	bp->stats_blk_mapping = bp->status_blk_mapping + status_blk_size;
+> @@ -894,20 +897,23 @@ bnx2_alloc_mem(struct bnx2 *bp)
+>  						&bp->ctx_blk_mapping[i],
+>  						GFP_KERNEL);
+>  			if (bp->ctx_blk[i] == NULL)
+> -				goto alloc_mem_err;
+> +				goto free_stats64_lock;
+>  		}
+>  	}
+> 
+>  	err = bnx2_alloc_rx_mem(bp);
+>  	if (err)
+> -		goto alloc_mem_err;
+> +		goto free_stats64_lock;
 
-Thanks.
+You're holding a spinlock while doing GFP_KERNEL allocations.
 
-- Alex
+Second of all, taking a spinlock in get_stats64() defeats the whole
+intention of making statistics acquisition as fast and as SMP scalable
+as possible.
