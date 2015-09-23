@@ -1,48 +1,85 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 1/7] 8139cp: Improve accuracy of cp_interrupt() return,
- to survive IRQ storms
-Date: Wed, 23 Sep 2015 23:00:02 +0100
-Message-ID: <1443045602.74600.33.camel@infradead.org>
+Subject: [PATCH] 8139cp: Set GSO max size and enforce it
+Date: Wed, 23 Sep 2015 23:02:19 +0100
+Message-ID: <1443045739.74600.35.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 	 <20150923.105812.149257816141624869.davem@davemloft.net>
 	 <1443037530.74600.29.camel@infradead.org>
 	 <20150923.144808.886375927698238398.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-ieQFo4fv46cZryfBHZNq"
+	boundary="=-+ZhjfAvMr/PYI90qg7Jv"
 Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:33216 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:35046 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633AbbIWWAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:00:06 -0400
+	with ESMTP id S1754112AbbIWWCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:02:24 -0400
 In-Reply-To: <20150923.144808.886375927698238398.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-ieQFo4fv46cZryfBHZNq
+--=-+ZhjfAvMr/PYI90qg7Jv
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2015-09-23 at 14:48 -0700, David Miller wrote:
-> I've applied patches #1-#6 and left #7 sitting around in patchwork
-> for when I next merge net into net-next, thanks.
+The maximum MSS value we can set is 0xFFF. When fixing the TSO code I
+noticed we just mask the gso_size value to the hardware's maximum and
+don't care about the consequences. That seems... unsagacious.
 
-Great, thanks. I've got one more for the net tree; just masking the
-gso_size to the maximum (0xfff) that the hardware can handle, and never
-telling the net stack that that's our maximum, doesn't seem like such a
-good idea...
+Instead of masking, WARN and drop the packet if it's too large. And use
+ netif_set_gso_max_size() so it shouldn't happen in the first place.
 
-I think I really am going to stop looking now :)
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
+ealtek/8139cp.c
+index e5173f3..fa8f850 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -754,10 +754,16 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
+,
+ 	eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
+ 	mss =3D skb_shinfo(skb)->gso_size;
+=20
++	if (mss > MSSMask) {
++		WARN_ONCE(1, "Net bug: GSO size %d too large for 8139CP\n",
++			  mss);
++		goto out_dma_error;
++	}
++
+ 	opts2 =3D cpu_to_le32(cp_tx_vlan_tag(skb));
+ 	opts1 =3D DescOwn;
+ 	if (mss)
+-		opts1 |=3D LargeSend | ((mss & MSSMask) << MSSShift);
++		opts1 |=3D LargeSend | (mss << MSSShift);
+ 	else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 		const struct iphdr *ip =3D ip_hdr(skb);
+ 		if (ip->protocol =3D=3D IPPROTO_TCP)
+@@ -1994,6 +2000,8 @@ static int cp_init_one (struct pci_dev *pdev, const s=
+truct pci_device_id *ent)
+ 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_HIGHDMA;
+=20
++	netif_set_gso_max_size(dev, MSSMask);
++
+ 	rc =3D register_netdev(dev);
+ 	if (rc)
+ 		goto err_out_iomap;
+--=20
+2.4.3
 
 --=20
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
 
---=-ieQFo4fv46cZryfBHZNq
+--=-+ZhjfAvMr/PYI90qg7Jv
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -135,18 +172,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMjIwMDAyWjAjBgkqhkiG9w0BCQQxFgQUmY6TEu1DYOBw5zVvetAcl/ZifH4w
+CQUxDxcNMTUwOTIzMjIwMjE5WjAjBgkqhkiG9w0BCQQxFgQUwh/MJYwTqHhczGl7fcSiokxvMPEw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQCM4TLn7uq2DIKvSy4+oqw/ShcVudV+7s6wd1PgxA8gjtgTbfmVahOWmGOi
-SxvLWQUsq2zGTfcBw9Chu1Cg84w3wIULcvMpteoRmuo1YZQXSF2YFHWC4l4vaMjVJ60uADMdiVSp
-uQgCBwz1a34Nveu0n67hG51vCZ6GTVBwrMMsUcAtChJ3dXQiuKc9zwOL3NeTbKAV22CPDJkpNsXJ
-j/HBwkt7cKbF41/655CYm7AI/q0ap2rHGG6NYZRRTAs5n6cAFrVA4PY81ZWl7z0WLL7qsvYxfoEN
-iofzCtumYMO2y2VOvph90/v8qEutfGZgzL4qmm8hjQ7cDF23FoLpEKFpAAAAAAAA
+hkiG9w0BAQEFAASCAQAfc+bkDT5rDVDbcUVF8YCwxorRTQqTN6VWM6+xZxa9YvtVN3V+VbsKU9I/
+tQgWuc/eyKDq2W1gFrSre5Mx6yLwX41TgECsNw80TmFGREwi5PS00N6OVVHpHmuuGMIHTWS/mmm0
+zexVSm8/05PQDIRigdzfRjRIfB/L3RkajDlbTiuyEXXqyfkW2lGeOf/R1FIPB+QnwXyo24uau5Yu
+rEIxKTRAyIWYt3krJSLz2n3ALCgZM9pJ1tYyUrhc/hvZ6O64x0r37eeMsEKtRLe66QKDG15Tl3xn
+9yC7lZmDvj0wgFVB8UBj1KrTGQlnLJuwC/I41KBXgNiRUsOoE5/vVAE7AAAAAAAA
 
 
---=-ieQFo4fv46cZryfBHZNq--
+--=-+ZhjfAvMr/PYI90qg7Jv--
