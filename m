@@ -1,54 +1,35 @@
-From: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Wed, 23 Sep 2015 22:51:54 +0200
-Message-ID: <560310EA.2070805@intel.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
- <1443033714.74600.18.camel@infradead.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/3] cls_bpf: also dump TCA_BPF_FLAGS
+Date: Wed, 23 Sep 2015 13:52:25 -0700
+Message-ID: <56031109.9090206@plumgrid.com>
+References: <cover.1443037353.git.daniel@iogearbox.net>
+ <9e9ae1f3f6412f02ced924132ba5137425f3a699.1443037353.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-	grant.likely@linaro.org, Suravee.Suthikulpanit@amd.com,
-	Catalin.Marinas@arm.com
-To: David Woodhouse <dwmw2@infradead.org>,
-	Jeremy Linton <jeremy.linton@arm.com>,
-	linux-arm-kernel@lists.infradead.org
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:35072 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751195AbbIWUv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2015 16:51:59 -0400
-In-Reply-To: <1443033714.74600.18.camel@infradead.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33195 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753905AbbIWUw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 16:52:27 -0400
+Received: by pacex6 with SMTP id ex6so50381696pac.0
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 13:52:27 -0700 (PDT)
+In-Reply-To: <9e9ae1f3f6412f02ced924132ba5137425f3a699.1443037353.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/23/2015 8:41 PM, David Woodhouse wrote:
-> On Wed, 2015-08-12 at 17:06 -0500, Jeremy Linton wrote:
->>   
->> +static const struct acpi_device_id smsc911x_acpi_match[] = {
->> +       { "ARMH9118", 0 },
->> +       { }
->> +};
->> +MODULE_DEVICE_TABLE(acpi, smsc911x_acpi_match);
->> +
->>   static struct platform_driver smsc911x_driver = {
->>          .probe = smsc911x_drv_probe,
->>          .remove = smsc911x_drv_remove,
->> @@ -2661,6 +2656,7 @@ static struct platform_driver smsc911x_driver =
->> {
->>                  .name   = SMSC_CHIPNAME,
->>                  .pm     = SMSC911X_PM_OPS,
->>                  .of_match_table = of_match_ptr(smsc911x_dt_ids),
->> +               .acpi_match_table = ACPI_PTR(smsc911x_acpi_match),
->>          },
->>   };
-> Hm, surely you shouldn't need this part? If the ACPI device has a HID
-> of PRP0001, and an appropriate "compatible" property, then it ought to
-> be loaded anyway. If that doesn't work, we should fix that.
+On 9/23/15 12:56 PM, Daniel Borkmann wrote:
+> In commit 43388da42a49 ("cls_bpf: introduce integrated actions") we
+> have added TCA_BPF_FLAGS. We can also retrieve this information from
+> the prog, dump it back to user space as well. It's useful in tc when
+> displaying/dumping filter info.
+>
+> Also, remove tp from cls_bpf_prog_from_efd(), came in as a conflict
+> from a rebase and it's unused here (later work may add it along with
+> a real user).
+>
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
 
-But if the device ID is assigned already, why would it hurt to actually 
-use it?
-
-Thanks,
-Rafael
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
