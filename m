@@ -1,71 +1,51 @@
-From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
-Subject: [PATCH] ip6_gre: Reduce log level in ip6gre_err() to debug
-Date: Wed, 23 Sep 2015 16:58:31 +1200
-Message-ID: <1442984311-13668-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org
-To: netdev@vger.kernel.org, matt.bennett@alliedtelesis.co.nz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:40764 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbIWE6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:58:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH v2] net/wireless: enable wiphy device to suspend/resume
+ asynchronously
+Date: Wed, 23 Sep 2015 13:07:43 +0800
+Message-ID: <5602339F.1010301@linux.intel.com>
+References: <55FCCB0E.3000807@linux.intel.com> <1442930747.2018.12.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1442930747.2018.12.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently error log messages in ip6gre_err are printed at 'warn'
-level. This is different to most other tunnel types which don't
-print any messages. These log messages don't provide any information
-that couldn't be deduced with networking tools. Also it can be annoying
-to have one end of the tunnel go down and have the logs fill with
-pointless messages such as "Path to destination invalid or inactive!".
 
-This patch reduces the log level of these messages to 'dbg' level to
-bring the visible behaviour into line with other tunnel types.
+Hi johannes,
 
-Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
----
- net/ipv6/ip6_gre.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Could you please tell me which kernel version will merge this patch?
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 4038c69..0369012 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -404,13 +404,13 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		struct ipv6_tlv_tnl_enc_lim *tel;
- 		__u32 mtu;
- 	case ICMPV6_DEST_UNREACH:
--		net_warn_ratelimited("%s: Path to destination invalid or inactive!\n",
--				     t->parms.name);
-+		net_dbg_ratelimited("%s: Path to destination invalid or inactive!\n",
-+				    t->parms.name);
- 		break;
- 	case ICMPV6_TIME_EXCEED:
- 		if (code == ICMPV6_EXC_HOPLIMIT) {
--			net_warn_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
--					     t->parms.name);
-+			net_dbg_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
-+					    t->parms.name);
- 		}
- 		break;
- 	case ICMPV6_PARAMPROB:
-@@ -421,12 +421,12 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		if (teli && teli == be32_to_cpu(info) - 2) {
- 			tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->data[teli];
- 			if (tel->encap_limit == 0) {
--				net_warn_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
--						     t->parms.name);
-+				net_dbg_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
-+						    t->parms.name);
- 			}
- 		} else {
--			net_warn_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
--					     t->parms.name);
-+			net_dbg_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
-+					    t->parms.name);
- 		}
- 		break;
- 	case ICMPV6_PKT_TOOBIG:
--- 
-2.5.2
+
+Thanks,
+Zhonghui
+
+ 
+On 2015/9/22 22:05, Johannes Berg wrote:
+> On Sat, 2015-09-19 at 10:40 +0800, Fu, Zhonghui wrote:
+>> Now, PM core supports asynchronous suspend/resume mode for devices
+>> during system suspend/resume, and the power state transition of one
+>> device may be completed in separate kernel thread. PM core ensures
+>> all power state transition timing dependency between devices. This
+>> patch enables wiphy device to suspend/resume asynchronously. This can
+>> take advantage of multicore and improve system suspend/resume speed.
+>>
+> Applied.
+>
+> johannes
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
