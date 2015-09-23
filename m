@@ -1,83 +1,62 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net] fib_rules: fix fib rule dumps across multiple skbs
-Date: Tue, 22 Sep 2015 21:40:22 -0700
-Message-ID: <1442983222-42750-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, wkok@cumulusnetworks.com
-To: davem@davemloft.net
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
+Date: Tue, 22 Sep 2015 23:39:37 -0500
+Message-ID: <87zj0d92ba.fsf@x220.int.ebiederm.org>
+References: <cover.1442936392.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36338 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbbIWEk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:40:27 -0400
-Received: by pacbt3 with SMTP id bt3so10748433pac.3
-        for <netdev@vger.kernel.org>; Tue, 22 Sep 2015 21:40:27 -0700 (PDT)
+Received: from out03.mta.xmission.com ([166.70.13.233]:42076 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752942AbbIWErS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:47:18 -0400
+In-Reply-To: <cover.1442936392.git.jbenc@redhat.com> (Jiri Benc's message of
+	"Tue, 22 Sep 2015 18:12:10 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+Jiri Benc <jbenc@redhat.com> writes:
 
-dump_rules returns skb length and not error.
-But when family == AF_UNSPEC, the caller of dump_rules
-assumes that it returns an error. Hence, when family == AF_UNSPEC,
-we continue trying to dump on -EMSGSIZE errors resulting in
-incorrect dump idx carried between skbs belonging to the same dump.
-This results in fib rule dump always only dumping rules that fit
-into the first skb.
+> One of the selling points of lwtunnel was the ability to specify the tunnel
+> destination using routes. However, this doesn't really work currently, as
+> ARP and ndisc replies are not handled correctly. ARP and ndisc replies won't
+> have tunnel metadata attached, thus they will be sent out with the default
+> parameters or not sent at all, either way never reaching the requester.
+>
+> Most of the egress tunnel parameters can be inferred from the ingress
+> metada. The only and important exception is UDP ports. This patchset infers
+> the egress data from the ingress data and disallow settings of UDP ports in
+> tunnel routes. If there's a need for different UDP ports, a new interface
+> needs to be created for each port combination. Note that it's still possible
+> to specify the UDP ports to use, it just needs to be done while creating the
+> vxlan/geneve interface.
+>
+> This covers only ARPs. IPv6 ndisc has the same problem but is harder to
+> solve, as there's already dst attached to outgoing skbs. Ideas to solve this
+> are welcome.
 
-This patch fixes dump_rules to return error so that we exit correctly
-and idx is correctly maintained between skbs that are part of the
-same dump.
+What distinguishes a skb received from a tunnel as opposed to a skb
+received on from a network device is that a skb recevied on a tunnel
+has a socket.
 
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/core/fib_rules.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+I could be easily missing something but couldn't you look at skb->sk
+on the input path and if a socket is present use the socket to compute
+the outgoing route?
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index bf77e36..365de66 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -631,15 +631,17 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
- {
- 	int idx = 0;
- 	struct fib_rule *rule;
-+	int err = 0;
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(rule, &ops->rules_list, list) {
- 		if (idx < cb->args[1])
- 			goto skip;
- 
--		if (fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
--				     cb->nlh->nlmsg_seq, RTM_NEWRULE,
--				     NLM_F_MULTI, ops) < 0)
-+		err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
-+				       cb->nlh->nlmsg_seq, RTM_NEWRULE,
-+				       NLM_F_MULTI, ops);
-+		if (err)
- 			break;
- skip:
- 		idx++;
-@@ -648,7 +650,7 @@ skip:
- 	cb->args[1] = idx;
- 	rules_ops_put(ops);
- 
--	return skb->len;
-+	return err;
- }
- 
- static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
-@@ -664,7 +666,9 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (ops == NULL)
- 			return -EAFNOSUPPORT;
- 
--		return dump_rules(skb, cb, ops);
-+		dump_rules(skb, cb, ops);
-+
-+		return skb->len;
- 	}
- 
- 	rcu_read_lock();
--- 
-1.9.1
+I expect it would just need to be something like:
+dst = sk_dst_check(sk, 0);
+
+Eric
+
+> Jiri Benc (2):
+>   ipv4: send arp replies to the correct tunnel
+>   lwtunnel: remove source and destination UDP port config option
+>
+>  include/net/ip_tunnels.h      |  2 ++
+>  include/uapi/linux/lwtunnel.h |  4 ----
+>  net/ipv4/arp.c                | 39 ++++++++++++++++++++------------
+>  net/ipv4/ip_tunnel_core.c     | 52 +++++++++++++++++++++++--------------------
+>  4 files changed, 55 insertions(+), 42 deletions(-)
