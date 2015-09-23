@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] add stealth mode
-Date: Wed, 23 Sep 2015 11:16:51 -0700 (PDT)
-Message-ID: <20150923.111651.772678418859618283.davem@davemloft.net>
-References: <20150916110629.GP24810@breakpoint.cc>
-	<CAFnufp2cyZhfy7GRbP1r7xStm4mMdcHKeXmtLDXU1=UfVxtZjQ@mail.gmail.com>
-	<1443029392.29850.119.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
+ ip_route_input_slow
+Date: Wed, 23 Sep 2015 11:19:59 -0700 (PDT)
+Message-ID: <20150923.111959.295309376360736446.davem@davemloft.net>
+References: <5602DDC1.2080403@cumulusnetworks.com>
+	<5602E39D.6060509@gmail.com>
+	<5602E957.2060409@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: matteo@openwrt.org, fw@strlen.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44302 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44334 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704AbbIWSQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:16:52 -0400
-In-Reply-To: <1443029392.29850.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752711AbbIWSUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:20:01 -0400
+In-Reply-To: <5602E957.2060409@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 23 Sep 2015 10:29:52 -0700
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 23 Sep 2015 12:03:03 -0600
 
-> Yes, but this adds code in many places, even for people not caring of
-> such protection.
-> 
-> The point is : people wanting firewall like protections should instead
-> use netfilter framework.
+> They add a lot of value. They make each change very easy to follow. No
+> one is going to pickup a single patch in this series and backport to
+> some kernel. Each is dependent on the one before it. Given that I
+> would rather waste a few steps and ensure I arrive at the destination
+> without error.
 
-+1
+The problem is that people will, in the future, have the backport bug
+fixes _THROUGH_ all of these code rearrangements.
+
+And the person who is going to have to do that, is _ME_.
+
+And if that kind of pain is going to be bestowed upon me, it has to
+be for something of great value.
+
+I do not see great value in your rearrangements here, not at all.
