@@ -1,135 +1,87 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: [PATCH v3] netpoll: Close race condition between poll_one_napi and napi_disable
-Date: Wed, 23 Sep 2015 14:57:58 -0400
-Message-ID: <1443034678-1475-1-git-send-email-nhorman@redhat.com>
-References: <20150922190154.GC31679@hmsreliant.think-freely.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58641 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753782AbbIWS6H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2015 14:58:07 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id ABBD240C4D
-	for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 18:58:07 +0000 (UTC)
-Received: from hmsreliant.think-freely.org.com (vpn-56-88.rdu2.redhat.com [10.10.56.88])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t8NIw7Px030986
-	for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 14:58:07 -0400
-In-Reply-To: <20150922190154.GC31679@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
+ with ethtool
+Date: Wed, 23 Sep 2015 20:03:03 +0100
+Message-ID: <1443034983.12750.10.camel@decadent.org.uk>
+References: <20150923144222.66de305c@fr-ThinkPad-W520>
+	 <20150923.110549.113067983983388057.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-D1xC4VhxHVjOduV1aERt"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>, ivan@ru.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150923.110549.113067983983388057.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Drivers might call napi_disable while not holding the napi instance poll_lock.
-In those instances, its possible for a race condition to exist between
-poll_one_napi and napi_disable.  That is to say, poll_one_napi only tests the
-NAPI_STATE_SCHED bit to see if there is work to do during a poll, and as such
-the following may happen:
 
-CPU0				CPU1
-ndo_tx_timeout			napi_poll_dev
- napi_disable			 poll_one_napi
-  test_and_set_bit (ret 0)
-				  test_bit (ret 1)
-   reset adapter		   napi_poll_routine
+--=-D1xC4VhxHVjOduV1aERt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-If the adapter gets a tx timeout without a napi instance scheduled, its possible
-for the adapter to think it has exclusive access to the hardware  (as the napi
-instance is now scheduled via the napi_disable call), while the netpoll code
-thinks there is simply work to do.  The result is parallel hardware access
-leading to corrupt data structures in the driver, and a crash.
+On Wed, 2015-09-23 at 11:05 -0700, David Miller wrote:
+> From: Ivan Mikhaylov <ivan@ru.ibm.com>
+> Date: Wed, 23 Sep 2015 14:42:22 +0400
+>=20
+> > Register dump out work preventing with=20
+> > old ethtool + new driver and new ethtool + old driver.
+>=20
+> First of all you didn't provide a proper Signoff.
+>=20
+> Second of all, there was so much discussion about whether this does
+> or does not break things for various combinations of old/new ethtool
+> and kernel.
+>=20
+> Therefore I want a real detailed commit message that explains why this
+> is all OK.  After so much confusion and discussion, providing a patch
+> with absolutely no commit message is completely inappropriate.
 
-Additionaly, there is another, more critical race between netpoll and
-napi_disable.  The disabled napi state is actually identical to the scheduled
-state for a given napi instance.  The implication being that, if a napi instance
-is disabled, a netconsole instance would see the napi state of the device as
-having been scheduled, and poll it, likely while the driver was dong something
-requiring exclusive access.  In the case above, its fairly clear that not having
-the rings in a state ready to be polled will cause any number of crashes.
+I would suggest something like this:
 
-The fix should be pretty easy.  netpoll uses its own bit to indicate that that
-the napi instance is in a state of being serviced by netpoll (NAPI_STATE_NPSVC).
-We can just gate disabling on that bit as well as the sched bit.  That should
-prevent netpoll from conducting a napi poll if we convert its set bit to a
-test_and_set_bit operation to provide mutual exclusion
+"""
+The size of the MAC register dump used to be the size specified by the
+reg property in the device tree.  Userland has no good way of finding
+out that size, and it was not specified consistently for each MAC type,
+so ethtool would end up printing junk at the end of the register dump
+if the device tree didn't match the size it assumed.
 
-Change notes:
-V2)
-	Remove a trailing whtiespace
-	Resubmit with proper subject prefix
+Using the new version numbers indicates unambiguously that the size of
+the MAC register dump is dependent only on the MAC type.
 
-V3)
-	Clean up spacing nits
+Fixes: 5369c71f7ca2 ("net/ibm/emac: fix size of emac dump memory areas")
+"""
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: jmaxwell@redhat.com
-Tested-by: jmaxwell@redhat.com
----
- include/linux/netdevice.h |  1 +
- net/core/dev.c            |  2 ++
- net/core/netpoll.c        | 11 +++++++++--
- 3 files changed, 12 insertions(+), 2 deletions(-)
+Also:
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b791405..d2ffeaf 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -507,6 +507,7 @@ static inline void napi_enable(struct napi_struct *n)
- 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
- 	smp_mb__before_atomic();
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
-+	clear_bit(NAPI_STATE_NPSVC, &n->state);
- }
- 
- #ifdef CONFIG_SMP
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ee0d628..b6b01bf 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4723,6 +4723,8 @@ void napi_disable(struct napi_struct *n)
- 
- 	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
- 		msleep(1);
-+	while (test_and_set_bit(NAPI_STATE_NPSVC, &n->state))
-+		msleep(1);
- 
- 	hrtimer_cancel(&n->timer);
- 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 6aa3db8..1734f50 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -142,7 +142,7 @@ static void queue_process(struct work_struct *work)
-  */
- static int poll_one_napi(struct napi_struct *napi, int budget)
- {
--	int work;
-+	int work = 0;
- 
- 	/* net_rx_action's ->poll() invocations and our's are
- 	 * synchronized by this test which is only made while
-@@ -151,7 +151,13 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
- 	if (!test_bit(NAPI_STATE_SCHED, &napi->state))
- 		return budget;
- 
--	set_bit(NAPI_STATE_NPSVC, &napi->state);
-+	/* If we set this bit but see that it has already been set,
-+	 * that indicates that napi has been disabled and we need
-+	 * to abort this operation
-+ 	 */
-+
-+	if (test_and_set_bit(NAPI_STATE_NPSVC, &napi->state))
-+		goto out;
- 
- 	work = napi->poll(napi, budget);
- 	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
-@@ -159,6 +165,7 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
- 
- 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
- 
-+out:
- 	return budget - work;
- }
- 
--- 
-2.1.0
+Acked-by: Ben Hutchings <ben@decadent.org.uk>
+
+Ben.
+
+--=20
+Ben Hutchings
+Teamwork is essential - it allows you to blame someone else.
+--=-D1xC4VhxHVjOduV1aERt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVgL3Z+e/yOyVhhEJAQrTkBAAgRIl48KJkMeVIEhtellWQjQ55KMwZR7Z
+UaiUfiKdfCYWHu/7GZjmIjqVuP+MoP0f2CL+ixSf2Eg3R9Sm7Vb5+Rp6fbZlVUsb
+/cVyEof71UQaybpKS9aksNzd6Dzr0/ugG6Zh49QAc+B1+pHM6DQXcORBtTN+ECZ2
+hGEYPlFlgzTufMqmydHS8ZoA657CH9v0vGGeH7TvAvevYzU7EBcSUdEpADMyVWIt
+y+jRFh7cOH3qGdWfHXdHdfugW+g0UJmCXq5spB7myBdDzqgJBG/GiJjlbQ022dc7
+eMckMzk3jzCqJidGmaOwHwgOkhQOTmxgI1LeGWqfj0hmLiDj42KJPEiQml1txgUu
+YP+KoyJXy1z1qHES97RqKFfkcGCGdMq/uDr9jWyHPZOMsEj0w2AkFaWCc+F2GALe
+syHuUNZRokyXBYMO75/9ZBNxp72OvLcTJ4KmbU18MWEDr0S63zkj6ESujubbu317
+YmRad7csW9OeCZ4KLNEH00c9zOOc/uuis4HYj01XXJ7aXhVLh2TUtH25wPS1JYlc
+QP/qouxT6u7QdhnYqO8CevWRqMAfSBvtx4rWxsaQzSyOkY6fSkJMhAczwB8Gty8r
+gfNuWIL3DEERvLUmpP4jz54Cv3sv7LpOswJ46eQGJFOWflsHCAliDcCF6tFiP8jM
+IkXHHUu2F9Y=
+=CX07
+-----END PGP SIGNATURE-----
+
+--=-D1xC4VhxHVjOduV1aERt--
