@@ -1,60 +1,63 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 0/7] bridge: don't age out externally added FDB entries
-Date: Wed, 23 Sep 2015 08:39:13 -0700
-Message-ID: <1443022760-21301-1-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v3 3/7] bridge: define some min/max/default ageing time constants
+Date: Wed, 23 Sep 2015 08:39:16 -0700
+Message-ID: <1443022760-21301-4-git-send-email-sfeldma@gmail.com>
+References: <1443022760-21301-1-git-send-email-sfeldma@gmail.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
 	pjonnala@broadcom.com, stephen@networkplumber.org,
 	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
 	vivien.didelot@savoirfairelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36134 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbbIWPgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:36:07 -0400
-Received: by pacgz1 with SMTP id gz1so9432640pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:36:07 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34859 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754033AbbIWPgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:36:12 -0400
+Received: by pacfv12 with SMTP id fv12so44232742pac.2
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:36:11 -0700 (PDT)
+In-Reply-To: <1443022760-21301-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-v3: Per davem review: add del_timer_sync on rocker port remove.
-
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
 v2: Per Jiri review comment: add BR_DEFAULT_AGEING_TIME to defines
 
-Siva originally proposed skipping externally added FDB entries in the bridge's
-FDB garbage collection func, and moving the ageing of externally added entries
-to the port driver/device.  This broke rocker, since rocker didn't have a
-hardware (or software) mechanism for ageing out its learned FDB entries.
+ include/linux/if_bridge.h |    6 ++++++
+ net/bridge/br_device.c    |    2 +-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
-This patchset reintroduces Siva's bridge driver patch to skip externally added
-entries and adds support in rocker so rocker can age out its own entries.
-Rocker does this using a software timer similar to the bridge's FDB garbage
-collection timer.  Other switchdev devices/drivers can use this software timer
-method or program the device to nofity aged-out entries to the driver.
-
-Updated switchdev.txt documentation to reflect current state-of-the-art.  This
-removes one more XXX todo comment in switchdev.txt.
-
-
-Scott Feldman (6):
-  rocker: track when FDB entry is touched.
-  rocker: store rocker_port in fdb key rather than pport
-  bridge: define some min/max/default ageing time constants
-  rocker: adding port ageing_time for ageing out FDB entries
-  rocker: add FDB cleanup timer
-  switchdev: update documentation on FDB ageing_time
-
-Siva Mannem (1):
-  bridge: don't age externally added FDB entries
-
- Documentation/networking/switchdev.txt |   24 +++++------
- drivers/net/ethernet/rocker/rocker.c   |   70 +++++++++++++++++++++++++++-----
- include/linux/if_bridge.h              |    6 +++
- net/bridge/br_device.c                 |    2 +-
- net/bridge/br_fdb.c                    |    2 +
- 5 files changed, 81 insertions(+), 23 deletions(-)
-
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index dad8b00..a338a68 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -46,6 +46,12 @@ struct br_ip_list {
+ #define BR_LEARNING_SYNC	BIT(9)
+ #define BR_PROXYARP_WIFI	BIT(10)
+ 
++/* values as per ieee8021QBridgeFdbAgingTime */
++#define BR_MIN_AGEING_TIME	(10 * HZ)
++#define BR_MAX_AGEING_TIME	(1000000 * HZ)
++
++#define BR_DEFAULT_AGEING_TIME	(300 * HZ)
++
+ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+ 
+ typedef int br_should_route_hook_t(struct sk_buff *skb);
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 6ed2feb..2f81624 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -391,7 +391,7 @@ void br_dev_setup(struct net_device *dev)
+ 	br->bridge_max_age = br->max_age = 20 * HZ;
+ 	br->bridge_hello_time = br->hello_time = 2 * HZ;
+ 	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
+-	br->ageing_time = 300 * HZ;
++	br->ageing_time = BR_DEFAULT_AGEING_TIME;
+ 
+ 	br_netfilter_rtable_init(br);
+ 	br_stp_timer_init(br);
 -- 
 1.7.10.4
