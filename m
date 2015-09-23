@@ -1,53 +1,55 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
- ip_route_input_slow
-Date: Wed, 23 Sep 2015 11:13:37 -0600
-Message-ID: <5602DDC1.2080403@cumulusnetworks.com>
-References: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
- <1443021322-48621-3-git-send-email-dsa@cumulusnetworks.com>
- <5602C901.2050404@gmail.com> <5602CD17.3030008@cumulusnetworks.com>
- <5602D3CA.7010502@gmail.com>
+From: Jeremy Linton <Jeremy.Linton@arm.com>
+Subject: RE: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Wed, 23 Sep 2015 10:22:49 -0700
+Message-ID: <F58048940DF89C44BFA5A966565B5D23EBA361B927@SPOCK.usa.Arm.com>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+ <55F059F9.3080200@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: 8BIT
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>
+To: Marc Zyngier <Marc.Zyngier@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36671 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755648AbbIWRNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 13:13:42 -0400
-Received: by pacgz1 with SMTP id gz1so11587748pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 10:13:41 -0700 (PDT)
-In-Reply-To: <5602D3CA.7010502@gmail.com>
+Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:53537 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755750AbbIWRXI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2015 13:23:08 -0400
+In-Reply-To: <55F059F9.3080200@arm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/23/15 10:31 AM, Alexander Duyck wrote:
->
-> Just as you said, that code would be an intermediate step.  Going though
-> and adding more points where you are updating err and just exchanging
-> one jump label for another doesn't help anything.  You are better off
-> pulling apart the spaghetti right from the start and then rearranging
-> the code.  If nothing else it helps to make things more readable.
->
-> In a couple of patches from here you are going to have to pull out the
-> local_input helper.  Rather than adding a new jump label inside of it
-> for out you could save yourself a few steps and just return the error
-> values.  If you do this correctly what you should end up with is a
-> series of functions that all converge on one end point anyway.
->
-> Also as far as the multiple returns issue it isn't much of a problem
-> since ip_output_input_slow ends up being compiled into
-> ip_route_input_noref anyway.  As such the return statements end up just
-> being jumps to the bits for the rcu_read_unlock and returning the error
-> value.
+Marc,
 
-I chose this series of steps because it is easy to follow each change to 
-ensure I do not introduce bugs with the patches. Small, focused changes 
-to evolve the code.
+|FWIW, mainline booting with this patch on Juno r1 with ACPI enabled dies a
+|horrible death:
 
-The first 3 patches appear to have *zero* impact on what the compiler 
-generates.
+Sorry about the delay, I didn't see this message.
 
-Do you object to the end result of this patch series? ie. do you have 
-concerns about what the end code looks like?
+<trimmed>
+
+|How did you get this to work? Firmware release?
+
+Yes, it's a firmware problem with the ACPI tables. It is likely you need _DSD changes for the SMSC. If your trying to run juno with ACPI there are a few other ACPI table changes you will need beyond what was in the last linaro release. I wanted to just provide a direct link to the correct firmware in this response, but it seems the required version is sort of up in the air at the moment. Be assured I will really push on this next week, and will provide a follow up here.
+
+Originally, the lack of DSD wasn't a problem, but as this patch evolved  the fact that it consolidates a number of configuration code paths balancing that got tricky, and ACPI machines with "bad" tables were the victims (rather than breaking something I can't control).
+
+In the meantime, if this is blocking anyone I can provide instructions on how to update the required ACPI tables.
+
+Thanks,
+
+
+
+-- IMPORTANT NOTICE: The contents of this email and any attachments are confidential and may also be privileged. If you are not the intended recipient, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium.  Thank you.
+
+ARM Limited, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2557590
+ARM Holdings plc, Registered office 110 Fulbourn Road, Cambridge CB1 9NJ, Registered in England & Wales, Company No:  2548782
