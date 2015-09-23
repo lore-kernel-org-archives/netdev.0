@@ -1,87 +1,56 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
- with ethtool
-Date: Wed, 23 Sep 2015 20:03:03 +0100
-Message-ID: <1443034983.12750.10.camel@decadent.org.uk>
-References: <20150923144222.66de305c@fr-ThinkPad-W520>
-	 <20150923.110549.113067983983388057.davem@davemloft.net>
+From: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
+Subject: Re: [PATCH v3 net-next 1/2] ipv4: L3 hash-based multipath
+Date: Wed, 23 Sep 2015 21:22:20 +0200
+Message-ID: <20150923212220.6025d4e2@pch.odense.ordbogen.com>
+References: <1442348993-3023-1-git-send-email-pch@ordbogen.com>
+	<1442348993-3023-2-git-send-email-pch@ordbogen.com>
+	<560035BD.6090908@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-D1xC4VhxHVjOduV1aERt"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	benh@kernel.crashing.org
-To: David Miller <davem@davemloft.net>, ivan@ru.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150923.110549.113067983983388057.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ordbogen.com ([91.240.88.21]:43520 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753694AbbIWTWW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 15:22:22 -0400
+In-Reply-To: <560035BD.6090908@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 21 Sep 2015 10:52:13 -0600
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
---=-D1xC4VhxHVjOduV1aERt
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-09-23 at 11:05 -0700, David Miller wrote:
-> From: Ivan Mikhaylov <ivan@ru.ibm.com>
-> Date: Wed, 23 Sep 2015 14:42:22 +0400
+> On 9/15/15 2:29 PM, Peter N=C3=B8rlund wrote:
+> > @@ -1094,8 +1142,15 @@ struct fib_info *fib_create_info(struct
+> > fib_config *cfg)
+> >
+> >   	change_nexthops(fi) {
+> >   		fib_info_update_nh_saddr(net, nexthop_nh);
+> > +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> > +		fi->fib_weight +=3D nexthop_nh->nh_weight;
+> > +#endif
+> >   	} endfor_nexthops(fi)
+> >
+> > +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> > +	fib_rebalance(fi);
+> > +#endif
 >=20
-> > Register dump out work preventing with=20
-> > old ethtool + new driver and new ethtool + old driver.
+> The ifdefs everywhere make this harder to read. Just have a second=20
+> definition above for fib_rebalance(fi) when CONFIG_IP_ROUTE_MULTIPATH
+> is not defined.
 >=20
-> First of all you didn't provide a proper Signoff.
+> Similarly an inlined macro of fi->fib_weight that compiles out if=20
+> CONFIG_IP_ROUTE_MULTIPATH is not defined.
 >=20
-> Second of all, there was so much discussion about whether this does
-> or does not break things for various combinations of old/new ethtool
-> and kernel.
->=20
-> Therefore I want a real detailed commit message that explains why this
-> is all OK.  After so much confusion and discussion, providing a patch
-> with absolutely no commit message is completely inappropriate.
+> David
 
-I would suggest something like this:
+Okay, will do.
 
-"""
-The size of the MAC register dump used to be the size specified by the
-reg property in the device tree.  Userland has no good way of finding
-out that size, and it was not specified consistently for each MAC type,
-so ethtool would end up printing junk at the end of the register dump
-if the device tree didn't match the size it assumed.
-
-Using the new version numbers indicates unambiguously that the size of
-the MAC register dump is dependent only on the MAC type.
-
-Fixes: 5369c71f7ca2 ("net/ibm/emac: fix size of emac dump memory areas")
-"""
-
-Also:
-
-Acked-by: Ben Hutchings <ben@decadent.org.uk>
-
-Ben.
-
---=20
-Ben Hutchings
-Teamwork is essential - it allows you to blame someone else.
---=-D1xC4VhxHVjOduV1aERt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVgL3Z+e/yOyVhhEJAQrTkBAAgRIl48KJkMeVIEhtellWQjQ55KMwZR7Z
-UaiUfiKdfCYWHu/7GZjmIjqVuP+MoP0f2CL+ixSf2Eg3R9Sm7Vb5+Rp6fbZlVUsb
-/cVyEof71UQaybpKS9aksNzd6Dzr0/ugG6Zh49QAc+B1+pHM6DQXcORBtTN+ECZ2
-hGEYPlFlgzTufMqmydHS8ZoA657CH9v0vGGeH7TvAvevYzU7EBcSUdEpADMyVWIt
-y+jRFh7cOH3qGdWfHXdHdfugW+g0UJmCXq5spB7myBdDzqgJBG/GiJjlbQ022dc7
-eMckMzk3jzCqJidGmaOwHwgOkhQOTmxgI1LeGWqfj0hmLiDj42KJPEiQml1txgUu
-YP+KoyJXy1z1qHES97RqKFfkcGCGdMq/uDr9jWyHPZOMsEj0w2AkFaWCc+F2GALe
-syHuUNZRokyXBYMO75/9ZBNxp72OvLcTJ4KmbU18MWEDr0S63zkj6ESujubbu317
-YmRad7csW9OeCZ4KLNEH00c9zOOc/uuis4HYj01XXJ7aXhVLh2TUtH25wPS1JYlc
-QP/qouxT6u7QdhnYqO8CevWRqMAfSBvtx4rWxsaQzSyOkY6fSkJMhAczwB8Gty8r
-gfNuWIL3DEERvLUmpP4jz54Cv3sv7LpOswJ46eQGJFOWflsHCAliDcCF6tFiP8jM
-IkXHHUu2F9Y=
-=CX07
------END PGP SIGNATURE-----
-
---=-D1xC4VhxHVjOduV1aERt--
+Regards,
+ Peter N=C3=B8rlund
