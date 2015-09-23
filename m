@@ -1,58 +1,31 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH] net: davinci_emac: Add support for fixed-link PHY
-Date: Tue, 22 Sep 2015 18:10:20 -0700
-Message-ID: <20150923011019.GE23801@atomide.com>
-References: <560117E0.20307@baylibre.com>
+From: Steve@vger.kernel.org, Mark@vger.kernel.org
+Subject: I am inspired to send you this email
+Date: Tue, 22 Sep 2015 21:09:31 -0400
+Message-ID: <TY1PR04MB0768CB46C0B290E4DA6CD0FAB8440__10888.0889755257$1442970668$gmane$org@TY1PR04MB0768.apcprd04.prod.outlook.com>
+Reply-To: <stevemark695@yahoo.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>,
-	"Mark A. Greer" <mgreer@animalcreek.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:53464 "EHLO muru.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759871AbbIWBKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2015 21:10:25 -0400
-Content-Disposition: inline
-In-Reply-To: <560117E0.20307@baylibre.com>
+Received: from mail-pu1apc01hn0223.outbound.protection.outlook.com ([104.47.126.223]:54604
+	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759871AbbIWBKP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 21:10:15 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Neil Armstrong <narmstrong@baylibre.com> [150922 02:01]:
-> In case the DaVinci Emac is directly connected to a
-> non-mdio PHY/device, it should be possible to provide
-> a fixed link configuration in the DT.
-> 
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Hello
 
-Ethernet works for me with this patch:
+I am inspired to send you this email by the huge opportunity that it will be of mutual benefit to us.My late client a national of Israel a Man who used to work with Shell before his untimely death few years ago and inquiries to several embassies to locate any of my clients extended relatives proved abortive.I decide to trace his relatives over the Internet . Still no success.
 
-Tested-by: Tony Lindgren <tony@atomide.com>
+Hence,this contact to you.I contacted you only to assist in repatriating the sum involved otherwise the estate he left behind will be declared unserviceable by the bank which just issued me a notice to provide the next of kin or have the account frozen.I now use this medium to seek your consent so that the proceeds can be paid to you since I have all the necessary legal documents to back up our claim.
 
-> ---
->  drivers/net/ethernet/ti/davinci_emac.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> index aeebc0a..6521dfb 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -1861,8 +1861,12 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
->  	pdata->no_bd_ram = of_property_read_bool(np, "ti,davinci-no-bd-ram");
-> 
->  	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
-> -	if (!priv->phy_node)
-> -		pdata->phy_id = NULL;
-> +	if (!priv->phy_node) {
-> +		if (!of_phy_is_fixed_link(np))
-> +			pdata->phy_id = NULL;
-> +		else if (of_phy_register_fixed_link(np) >= 0)
-> +			priv->phy_node = of_node_get(np);
-> +	}
-> 
->  	auxdata = pdev->dev.platform_data;
->  	if (auxdata) {
-> -- 
-> 1.9.1
+I guarantee you that this will be executed under a legitimate arrangement that will protect you and I from any breach of the law.All I require is your honest cooperation to enable us redeem the funds.
+
+Kindly reply back if this proposal satisfies your interest.
+
+Steven Mark.
+Email:stevemark695@yahoo.co.uk
