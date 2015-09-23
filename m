@@ -1,109 +1,95 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 02/10] switchdev: introduce transaction item
- queue for attr_set and obj_add
-Date: Wed, 23 Sep 2015 17:56:12 +0200
-Message-ID: <20150923155612.GC11681@nanopsycho.orion>
-References: <1442995078-10491-1-git-send-email-jiri@resnulli.us>
- <1442995078-10491-3-git-send-email-jiri@resnulli.us>
- <CAE4R7bBuN1Qtj+DSW1cCfYCNzDTix0t0J-zRz+yjtc7jj=NLRA@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/9] net: Remove e_inval label from
+ ip_route_input_slow
+Date: Wed, 23 Sep 2015 10:02:31 -0600
+Message-ID: <5602CD17.3030008@cumulusnetworks.com>
+References: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
+ <1443021322-48621-3-git-send-email-dsa@cumulusnetworks.com>
+ <5602C901.2050404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"Rosen, Rami" <rami.rosen@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:34315 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755724AbbIWP4P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:56:15 -0400
-Received: by wicfx3 with SMTP id fx3so245423621wic.1
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:56:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBuN1Qtj+DSW1cCfYCNzDTix0t0J-zRz+yjtc7jj=NLRA@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34758 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755726AbbIWQCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 12:02:35 -0400
+Received: by padhy16 with SMTP id hy16so44288245pad.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 09:02:34 -0700 (PDT)
+In-Reply-To: <5602C901.2050404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Sep 23, 2015 at 05:46:44PM CEST, sfeldma@gmail.com wrote:
->On Wed, Sep 23, 2015 at 12:57 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
+On 9/23/15 9:45 AM, Alexander Duyck wrote:
+> On 09/23/2015 08:15 AM, David Ahern wrote:
+>> e_inval has 1 explicit user and 1 fallthrough user --
+>> martian_destination.
+>> Move setting err to EINVAL before the 2 users and use the goto out label
+>> instead of e_inval.
 >>
->> Now, the memory allocation in prepare/commit state is done separatelly
->> in each driver (rocker). Introduce the similar mechanism in generic
->> switchdev code, in form of queue. That can be used not only for memory
->> allocations, but also for different items. Commit/abort item destruction
->> is handled as well.
->>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 >> ---
->> v1-v2:
->> - added comment blocks to exported functions as suggested by Scott
->> - made switchdev_trans_init and switchdev_trans_items_destroy static
->> - added documentation for this to switchdev.txt as suggested by Scott
+>>   net/ipv4/route.c | 7 +++----
+>>   1 file changed, 3 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index ef36dfed24da..3c5000db5972 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -1775,8 +1775,9 @@ static int ip_route_input_slow(struct sk_buff
+>> *skb, __be32 daddr, __be32 saddr,
+>>   out:    return err;
+>>   brd_input:
+>> +    err = -EINVAL;
+>>       if (skb->protocol != htons(ETH_P_IP))
+>> -        goto e_inval;
+>> +        goto out;
+>>       if (!ipv4_is_zeronet(saddr)) {
+>>           err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+>> @@ -1842,15 +1843,13 @@ out:    return err;
+>>        *    Do not cache martian addresses: they should be logged
+>> (RFC1812)
+>>        */
+>>   martian_destination:
+>> +    err = -EINVAL;
+>>       RT_CACHE_STAT_INC(in_martian_dst);
+>>   #ifdef CONFIG_IP_ROUTE_VERBOSE
+>>       if (IN_DEV_LOG_MARTIANS(in_dev))
+>>           net_warn_ratelimited("martian destination %pI4 from %pI4,
+>> dev %s\n",
+>>                        &daddr, &saddr, dev->name);
+>>   #endif
+>> -
+>> -e_inval:
+>> -    err = -EINVAL;
+>>       goto out;
+>>   e_nobufs:
 >
->[cut]
->
->> @@ -232,10 +304,13 @@ static int __switchdev_port_obj_add(struct net_device *dev,
->>   */
->>  int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
->>  {
->> +       struct switchdev_trans trans;
->>         int err;
->>
->>         ASSERT_RTNL();
->>
->> +       switchdev_trans_init(&trans);
->> +
->>         /* Phase I: prepare for obj add. Driver/device should fail
->>          * here if there are going to be issues in the commit phase,
->>          * such as lack of resources or support.  The driver/device
->> @@ -244,7 +319,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
->>          */
->>
->>         obj->trans_ph = SWITCHDEV_TRANS_PREPARE;
->> -       err = __switchdev_port_obj_add(dev, obj);
->> +       err = __switchdev_port_obj_add(dev, obj, &trans);
->>         if (err) {
->>                 /* Prepare phase failed: abort the transaction.  Any
->>                  * resources reserved in the prepare phase are
->> @@ -253,7 +328,8 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
->>
->>                 if (err != -EOPNOTSUPP) {
->>                         obj->trans_ph = SWITCHDEV_TRANS_ABORT;
->> -                       __switchdev_port_obj_add(dev, obj);
->> +                       __switchdev_port_obj_add(dev, obj, &trans);
->> +                       switchdev_trans_items_destroy(&trans);
->>                 }
->>
->>                 return err;
->> @@ -265,8 +341,9 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
->>          */
->>
->>         obj->trans_ph = SWITCHDEV_TRANS_COMMIT;
->> -       err = __switchdev_port_obj_add(dev, obj);
->> +       err = __switchdev_port_obj_add(dev, obj, &trans);
->>         WARN(err, "%s: Commit of object (id=%d) failed.\n", dev->name, obj->id);
->> +       switchdev_trans_items_destroy(&trans);
->
->Before this patchset, rocker would BUG_ON that the list was empty
->after commit.  This was really helpful in finding bugs in the driver
->as it meant the commit and prepare phases didn't follow the same code
->path.  (Everything the driver queued in prepare was dequeued in
->commit, so the list should be empty after commit).
->
->Should this last switchdev_trans_items_destroy(&trans) be replaced with:
->
->    BUG_ON(!list_empty(&trans.item_list));
+> This is adding unnecessary bloat to the code.  I really think if you
+> want to simplify this just replace "goto e_inval;" with "return -EINVAL;".
 
-Sounds reasonable. Will change this.
+Not sure why you think this is bloating the code. Before this patch:
 
-Thanks!
+$ size kbuild/net/ipv4/route.o
+text data bss dec hex filename
+19778 2321 32 22131 5673 kbuild/net/ipv4/route.o
+
+With this patch:
+$ size kbuild/net/ipv4/route.o
+    text	   data	    bss	    dec	    hex	filename
+   19778	   2321	     32	  22131	   5673	kbuild/net/ipv4/route.o
+
+So no difference at all.
+
+Please consider this is an intermediate step; the code goes away in 
+later ones.
+
+>
+> Also why is it you end up leaving the out label through all of these
+> patches?  It seems like that would be one of the first places to start
+> in terms of removing the labels.
+
+jump to return is normal usage. Why would I start there and end up with 
+N exit points? There are a lot of functions in the route code where 
+doing that will burn you.
