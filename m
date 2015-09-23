@@ -1,52 +1,44 @@
-From: Liviu Dudau <Liviu.Dudau@arm.com>
-Subject: [PATCH v3] sky2: use random address if EEPROM is bad
-Date: Wed, 23 Sep 2015 09:52:44 +0100
-Message-ID: <1442998364-2399-1-git-send-email-Liviu.Dudau@arm.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Ryan Harkin <ryan.harkin@linaro.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH next 00/84] ipvs: Stop guessing the network namespace
+ (take 2)
+Date: Wed, 23 Sep 2015 11:16:21 +0200
+Message-ID: <20150923091621.GA3927@salvia>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+ <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+ <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
+ <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
+ <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
+ <alpine.LFD.2.11.1509221019170.3008@ja.home.ssi.bg>
+ <20150922085041.GD3422@salvia>
+ <20150923001727.GD4685@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	lvs-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150923001727.GD4685@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On some embedded systems the EEPROM does not contain a valid MAC address.
-In that case it is better to fallback to a generated mac address and
-let init scripts fix the value later.
+On Wed, Sep 23, 2015 at 09:17:27AM +0900, Simon Horman wrote:
+> On Tue, Sep 22, 2015 at 10:50:41AM +0200, Pablo Neira Ayuso wrote:
+> > On Tue, Sep 22, 2015 at 10:22:13AM +0300, Julian Anastasov wrote:
+> > [...]
+> > > 
+> > > 	v2 looks good to me,
+> > > 
+> > > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > 
+> > Thanks a lot for reviewing Julian.
+> > 
+> > Simon, please let me know how you want to handle this. Thanks.
+> 
+> I will see about taking it through my tree (as usual).
 
-Reported-by: Liviu Dudau <Liviu.Dudau@arm.com>
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-[Changed handcoded setup to use eth_hw_addr_random() and to save new address into HW]
-Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
----
- drivers/net/ethernet/marvell/sky2.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index d9f4498..5606a04 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -4819,6 +4819,18 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
- 		memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
- 			      ETH_ALEN);
- 
-+	/* if the address is invalid, use a random value */
-+	if (!is_valid_ether_addr(dev->dev_addr)) {
-+		struct sockaddr sa = { AF_UNSPEC };
-+
-+		netdev_warn(dev,
-+			    "Invalid MAC address, defaulting to random\n");
-+		eth_hw_addr_random(dev);
-+		memcpy(sa.sa_data, dev->dev_addr, ETH_ALEN);
-+		if (sky2_set_mac_address(dev, &sa))
-+			netdev_warn(dev, "Failed to set MAC address.\n");
-+	}
-+
- 	return dev;
- }
- 
--- 
-2.5.1
+Thanks Simon!
