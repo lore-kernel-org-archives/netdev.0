@@ -1,37 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] geneve: use network byte order for destination port
- config parameter
-Date: Wed, 23 Sep 2015 15:41:36 -0700 (PDT)
-Message-ID: <20150923.154136.1784019012935564685.davem@davemloft.net>
-References: <20150922152504.GA18514@tuxdriver.com>
-	<1442941772-11148-1-git-send-email-linville@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, jesse@nicira.com,
-	eric.dumazet@gmail.com, stephen@networkplumber.org
-To: linville@tuxdriver.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] ip: Add type and master filters to brief output
+Date: Wed, 23 Sep 2015 16:44:56 -0600
+Message-ID: <1443048296-66539-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: gospo@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46224 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755137AbbIWWlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:41:37 -0400
-In-Reply-To: <1442941772-11148-1-git-send-email-linville@tuxdriver.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34518 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752633AbbIWWpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:45:04 -0400
+Received: by padhy16 with SMTP id hy16so52779990pad.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 15:45:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 22 Sep 2015 13:09:32 -0400
+The brief format does not honer the master and type filters:
 
-> This is primarily for consistancy with vxlan and other tunnels which
-> use network byte order for similar parameters.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> It is OK to change this, since this parameter was introduced to
-> net-next in the pre-4.3 cycle.  Using network byte order for this
-> parameter is consistent with what the other tunnels are doing.
-> 
-> v2 -- rebase on current net tree...
+$ ip link show master vrf-mgmt
+7: dummy0: <BROADCAST,NOARP,SLAVE> mtu 1500 qdisc noop master vrf-mgmt state DOWN mode DEFAULT group default qlen 1000
+    link/ether 66:39:cc:2b:e9:bd brd ff:ff:ff:ff:ff:ff
 
-Applied, thanks John.
+$ ip -br link show master vrf-mgmt
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
+eth0             UP             08:00:27:de:14:c8 <BROADCAST,MULTICAST,UP,LOWER_UP>
+eth1             UP             08:00:27:87:02:f1 <BROADCAST,MULTICAST,UP,LOWER_UP>
+eth2             UP             08:00:27:61:1e:fd <BROADCAST,MULTICAST,UP,LOWER_UP>
+vrf-blue         UNKNOWN        a6:3f:09:34:7e:74 <NOARP,MASTER,UP,LOWER_UP>
+vrf-red          DOWN           fe:a2:2d:e1:bc:ac <NOARP,MASTER>
+dummy0           DOWN           66:39:cc:2b:e9:bd <BROADCAST,NOARP,SLAVE>
+dummy1           DOWN           4a:4f:13:91:64:b1 <BROADCAST,NOARP,SLAVE>
+dummy2           DOWN           b2:4f:b6:cd:bd:a6 <BROADCAST,NOARP>
+dummy3           DOWN           1e:06:3d:40:b8:c2 <BROADCAST,NOARP,SLAVE>
+vrf-mgmt         DOWN           ce:b2:74:41:21:df <NOARP,MASTER>
+
+With this patch the expected output is shown:
+
+$ ip -br link show master vrf-mgmt
+dummy0           DOWN           66:39:cc:2b:e9:bd <BROADCAST,NOARP,SLAVE>
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ ip/ipaddress.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 2aa5fbfb7ace..e53984720d3c 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -637,6 +637,25 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
+ 			return -1;
+ 	}
+ 
++	if (tb[IFLA_MASTER]) {
++		int master = *(int*)RTA_DATA(tb[IFLA_MASTER]);
++		if (filter.master > 0 && master != filter.master)
++			return -1;
++	}
++	else if (filter.master > 0)
++		return -1;
++
++	if (filter.kind) {
++		if (tb[IFLA_LINKINFO]) {
++			char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
++
++			if (strcmp(kind, filter.kind))
++				return -1;
++		} else {
++			return -1;
++		}
++	}
++
+ 	if (n->nlmsg_type == RTM_DELLINK)
+ 		fprintf(fp, "Deleted ");
+ 
+-- 
+2.3.8 (Apple Git-58)
