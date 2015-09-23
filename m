@@ -1,320 +1,646 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH for-next 1/2] cxgb4: T6 adapter lld support for iw_cxgb4 driver
-Date: Wed, 23 Sep 2015 17:19:26 +0530
-Message-ID: <1443008967-8942-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH for-next 2/2] iw_cxgb4: Adds support for T6 adapter
+Date: Wed, 23 Sep 2015 17:19:27 +0530
+Message-ID: <1443008967-8942-3-git-send-email-hariprasad@chelsio.com>
 References: <1443008967-8942-1-git-send-email-hariprasad@chelsio.com>
 Cc: dledford@redhat.com, davem@davemloft.net,
 	swise@opengridcomputing.com, leedom@chelsio.com,
 	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:8533 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:6171 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754304AbbIWLtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 07:49:12 -0400
+	by vger.kernel.org with ESMTP id S1754304AbbIWLtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 07:49:16 -0400
 In-Reply-To: <1443008967-8942-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        | 41 +----------
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   | 22 ++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h    |  2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_chip_type.h | 85 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h       | 48 +++++++++++++
- 5 files changed, 158 insertions(+), 40 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/t4_chip_type.h
+ drivers/infiniband/hw/cxgb4/cm.c       | 317 ++++++++++++++++++++-------------
+ drivers/infiniband/hw/cxgb4/device.c   |  10 +-
+ drivers/infiniband/hw/cxgb4/provider.c |   2 +-
+ drivers/infiniband/hw/cxgb4/qp.c       |  16 +-
+ drivers/infiniband/hw/cxgb4/t4.h       |   5 +-
+ 5 files changed, 204 insertions(+), 146 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index fa0c7b5..11045ec 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -48,6 +48,7 @@
- #include <linux/vmalloc.h>
- #include <linux/etherdevice.h>
- #include <asm/io.h>
-+#include "t4_chip_type.h"
- #include "cxgb4_uld.h"
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 6c02211..c9cffce 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -632,22 +632,18 @@ static void best_mtu(const unsigned short *mtus, unsigned short mtu,
  
- #define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
-@@ -290,31 +291,6 @@ struct pci_params {
- 	unsigned char width;
- };
+ static int send_connect(struct c4iw_ep *ep)
+ {
+-	struct cpl_act_open_req *req;
+-	struct cpl_t5_act_open_req *t5_req;
+-	struct cpl_act_open_req6 *req6;
+-	struct cpl_t5_act_open_req6 *t5_req6;
++	struct cpl_act_open_req *req = NULL;
++	struct cpl_t5_act_open_req *t5req = NULL;
++	struct cpl_t6_act_open_req *t6req = NULL;
++	struct cpl_act_open_req6 *req6 = NULL;
++	struct cpl_t5_act_open_req6 *t5req6 = NULL;
++	struct cpl_t6_act_open_req6 *t6req6 = NULL;
+ 	struct sk_buff *skb;
+ 	u64 opt0;
+ 	u32 opt2;
+ 	unsigned int mtu_idx;
+ 	int wscale;
+-	int wrlen;
+-	int sizev4 = is_t4(ep->com.dev->rdev.lldi.adapter_type) ?
+-				sizeof(struct cpl_act_open_req) :
+-				sizeof(struct cpl_t5_act_open_req);
+-	int sizev6 = is_t4(ep->com.dev->rdev.lldi.adapter_type) ?
+-				sizeof(struct cpl_act_open_req6) :
+-				sizeof(struct cpl_t5_act_open_req6);
++	int win, sizev4, sizev6, wrlen;
+ 	struct sockaddr_in *la = (struct sockaddr_in *)
+ 				 &ep->com.mapped_local_addr;
+ 	struct sockaddr_in *ra = (struct sockaddr_in *)
+@@ -656,8 +652,28 @@ static int send_connect(struct c4iw_ep *ep)
+ 				   &ep->com.mapped_local_addr;
+ 	struct sockaddr_in6 *ra6 = (struct sockaddr_in6 *)
+ 				   &ep->com.mapped_remote_addr;
+-	int win;
+ 	int ret;
++	enum chip_type adapter_type = ep->com.dev->rdev.lldi.adapter_type;
++	u32 isn = (prandom_u32() & ~7UL) - 1;
++
++	switch (CHELSIO_CHIP_VERSION(adapter_type)) {
++	case CHELSIO_T4:
++		sizev4 = sizeof(struct cpl_act_open_req);
++		sizev6 = sizeof(struct cpl_act_open_req6);
++		break;
++	case CHELSIO_T5:
++		sizev4 = sizeof(struct cpl_t5_act_open_req);
++		sizev6 = sizeof(struct cpl_t5_act_open_req6);
++		break;
++	case CHELSIO_T6:
++		sizev4 = sizeof(struct cpl_t6_act_open_req);
++		sizev6 = sizeof(struct cpl_t6_act_open_req6);
++		break;
++	default:
++		pr_err("T%d Chip is not supported\n",
++		       CHELSIO_CHIP_VERSION(adapter_type));
++		return -EINVAL;
++	}
  
--#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
--#define CHELSIO_CHIP_FPGA          0x100
--#define CHELSIO_CHIP_VERSION(code) (((code) >> 4) & 0xf)
--#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
+ 	wrlen = (ep->com.remote_addr.ss_family == AF_INET) ?
+ 			roundup(sizev4, 16) :
+@@ -706,7 +722,10 @@ static int send_connect(struct c4iw_ep *ep)
+ 		opt2 |= SACK_EN_F;
+ 	if (wscale && enable_tcp_window_scaling)
+ 		opt2 |= WND_SCALE_EN_F;
+-	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
++	if (CHELSIO_CHIP_VERSION(adapter_type) > CHELSIO_T4) {
++		if (peer2peer)
++			isn += 4;
++
+ 		opt2 |= T5_OPT_2_VALID_F;
+ 		opt2 |= CONG_CNTRL_V(CONG_ALG_TAHOE);
+ 		opt2 |= T5_ISS_F;
+@@ -718,102 +737,109 @@ static int send_connect(struct c4iw_ep *ep)
+ 
+ 	t4_set_arp_err_handler(skb, ep, act_open_req_arp_failure);
+ 
+-	if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
+-		if (ep->com.remote_addr.ss_family == AF_INET) {
+-			req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
++	if (ep->com.remote_addr.ss_family == AF_INET) {
++		switch (CHELSIO_CHIP_VERSION(adapter_type)) {
++		case CHELSIO_T4:
++			req = (struct cpl_act_open_req *)skb_put(skb, wrlen);
+ 			INIT_TP_WR(req, 0);
+-			OPCODE_TID(req) = cpu_to_be32(
+-					MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
+-					((ep->rss_qid << 14) | ep->atid)));
+-			req->local_port = la->sin_port;
+-			req->peer_port = ra->sin_port;
+-			req->local_ip = la->sin_addr.s_addr;
+-			req->peer_ip = ra->sin_addr.s_addr;
+-			req->opt0 = cpu_to_be64(opt0);
++			break;
++		case CHELSIO_T5:
++			t5req = (struct cpl_t5_act_open_req *)skb_put(skb,
++					wrlen);
++			INIT_TP_WR(t5req, 0);
++			req = (struct cpl_act_open_req *)t5req;
++			break;
++		case CHELSIO_T6:
++			t6req = (struct cpl_t6_act_open_req *)skb_put(skb,
++					wrlen);
++			INIT_TP_WR(t6req, 0);
++			req = (struct cpl_act_open_req *)t6req;
++			t5req = (struct cpl_t5_act_open_req *)t6req;
++			break;
++		default:
++			pr_err("T%d Chip is not supported\n",
++			       CHELSIO_CHIP_VERSION(adapter_type));
++			ret = -EINVAL;
++			goto clip_release;
++		}
++
++		OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
++					((ep->rss_qid<<14) | ep->atid)));
++		req->local_port = la->sin_port;
++		req->peer_port = ra->sin_port;
++		req->local_ip = la->sin_addr.s_addr;
++		req->peer_ip = ra->sin_addr.s_addr;
++		req->opt0 = cpu_to_be64(opt0);
++
++		if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
+ 			req->params = cpu_to_be32(cxgb4_select_ntuple(
+ 						ep->com.dev->rdev.lldi.ports[0],
+ 						ep->l2t));
+ 			req->opt2 = cpu_to_be32(opt2);
+ 		} else {
++			t5req->params = cpu_to_be64(FILTER_TUPLE_V(
++						cxgb4_select_ntuple(
++						ep->com.dev->rdev.lldi.ports[0],
++						ep->l2t)));
++			t5req->rsvd = cpu_to_be32(isn);
++			PDBG("%s snd_isn %u\n", __func__, t5req->rsvd);
++			t5req->opt2 = cpu_to_be32(opt2);
++		}
++	} else {
++		switch (CHELSIO_CHIP_VERSION(adapter_type)) {
++		case CHELSIO_T4:
+ 			req6 = (struct cpl_act_open_req6 *)skb_put(skb, wrlen);
 -
--#define CHELSIO_T4		0x4
--#define CHELSIO_T5		0x5
--#define CHELSIO_T6		0x6
+ 			INIT_TP_WR(req6, 0);
+-			OPCODE_TID(req6) = cpu_to_be32(
+-					   MK_OPCODE_TID(CPL_ACT_OPEN_REQ6,
+-					   ((ep->rss_qid<<14)|ep->atid)));
+-			req6->local_port = la6->sin6_port;
+-			req6->peer_port = ra6->sin6_port;
+-			req6->local_ip_hi = *((__be64 *)
+-						(la6->sin6_addr.s6_addr));
+-			req6->local_ip_lo = *((__be64 *)
+-						(la6->sin6_addr.s6_addr + 8));
+-			req6->peer_ip_hi = *((__be64 *)
+-						(ra6->sin6_addr.s6_addr));
+-			req6->peer_ip_lo = *((__be64 *)
+-						(ra6->sin6_addr.s6_addr + 8));
+-			req6->opt0 = cpu_to_be64(opt0);
++			break;
++		case CHELSIO_T5:
++			t5req6 = (struct cpl_t5_act_open_req6 *)skb_put(skb,
++					wrlen);
++			INIT_TP_WR(t5req6, 0);
++			req6 = (struct cpl_act_open_req6 *)t5req6;
++			break;
++		case CHELSIO_T6:
++			t6req6 = (struct cpl_t6_act_open_req6 *)skb_put(skb,
++					wrlen);
++			INIT_TP_WR(t6req6, 0);
++			req6 = (struct cpl_act_open_req6 *)t6req6;
++			t5req6 = (struct cpl_t5_act_open_req6 *)t6req6;
++			break;
++		default:
++			pr_err("T%d Chip is not supported\n",
++			       CHELSIO_CHIP_VERSION(adapter_type));
++			ret = -EINVAL;
++			goto clip_release;
++		}
++
++		OPCODE_TID(req6) = cpu_to_be32(MK_OPCODE_TID(CPL_ACT_OPEN_REQ6,
++					((ep->rss_qid<<14)|ep->atid)));
++		req6->local_port = la6->sin6_port;
++		req6->peer_port = ra6->sin6_port;
++		req6->local_ip_hi = *((__be64 *)(la6->sin6_addr.s6_addr));
++		req6->local_ip_lo = *((__be64 *)(la6->sin6_addr.s6_addr + 8));
++		req6->peer_ip_hi = *((__be64 *)(ra6->sin6_addr.s6_addr));
++		req6->peer_ip_lo = *((__be64 *)(ra6->sin6_addr.s6_addr + 8));
++		req6->opt0 = cpu_to_be64(opt0);
++
++		if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
+ 			req6->params = cpu_to_be32(cxgb4_select_ntuple(
+ 						ep->com.dev->rdev.lldi.ports[0],
+ 						ep->l2t));
+ 			req6->opt2 = cpu_to_be32(opt2);
+-		}
+-	} else {
+-		u32 isn = (prandom_u32() & ~7UL) - 1;
 -
--enum chip_type {
--	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
--	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
--	T4_FIRST_REV	= T4_A1,
--	T4_LAST_REV	= T4_A2,
+-		if (peer2peer)
+-			isn += 4;
 -
--	T5_A0 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
--	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 1),
--	T5_FIRST_REV	= T5_A0,
--	T5_LAST_REV	= T5_A1,
--
--	T6_A0 = CHELSIO_CHIP_CODE(CHELSIO_T6, 0),
--	T6_FIRST_REV    = T6_A0,
--	T6_LAST_REV     = T6_A0,
--};
--
- struct devlog_params {
- 	u32 memtype;                    /* which memory (EDC0, EDC1, MC) */
- 	u32 start;                      /* start of log in firmware memory */
-@@ -905,21 +881,6 @@ static inline int is_offload(const struct adapter *adap)
- 	return adap->params.offload;
+-		if (ep->com.remote_addr.ss_family == AF_INET) {
+-			t5_req = (struct cpl_t5_act_open_req *)
+-				 skb_put(skb, wrlen);
+-			INIT_TP_WR(t5_req, 0);
+-			OPCODE_TID(t5_req) = cpu_to_be32(
+-					MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
+-					((ep->rss_qid << 14) | ep->atid)));
+-			t5_req->local_port = la->sin_port;
+-			t5_req->peer_port = ra->sin_port;
+-			t5_req->local_ip = la->sin_addr.s_addr;
+-			t5_req->peer_ip = ra->sin_addr.s_addr;
+-			t5_req->opt0 = cpu_to_be64(opt0);
+-			t5_req->params = cpu_to_be64(FILTER_TUPLE_V(
+-						     cxgb4_select_ntuple(
+-					     ep->com.dev->rdev.lldi.ports[0],
+-					     ep->l2t)));
+-			t5_req->rsvd = cpu_to_be32(isn);
+-			PDBG("%s snd_isn %u\n", __func__,
+-			     be32_to_cpu(t5_req->rsvd));
+-			t5_req->opt2 = cpu_to_be32(opt2);
+ 		} else {
+-			t5_req6 = (struct cpl_t5_act_open_req6 *)
+-				  skb_put(skb, wrlen);
+-			INIT_TP_WR(t5_req6, 0);
+-			OPCODE_TID(t5_req6) = cpu_to_be32(
+-					      MK_OPCODE_TID(CPL_ACT_OPEN_REQ6,
+-					      ((ep->rss_qid<<14)|ep->atid)));
+-			t5_req6->local_port = la6->sin6_port;
+-			t5_req6->peer_port = ra6->sin6_port;
+-			t5_req6->local_ip_hi = *((__be64 *)
+-						(la6->sin6_addr.s6_addr));
+-			t5_req6->local_ip_lo = *((__be64 *)
+-						(la6->sin6_addr.s6_addr + 8));
+-			t5_req6->peer_ip_hi = *((__be64 *)
+-						(ra6->sin6_addr.s6_addr));
+-			t5_req6->peer_ip_lo = *((__be64 *)
+-						(ra6->sin6_addr.s6_addr + 8));
+-			t5_req6->opt0 = cpu_to_be64(opt0);
+-			t5_req6->params = cpu_to_be64(FILTER_TUPLE_V(
+-							cxgb4_select_ntuple(
++			t5req6->params = cpu_to_be64(FILTER_TUPLE_V(
++						cxgb4_select_ntuple(
+ 						ep->com.dev->rdev.lldi.ports[0],
+ 						ep->l2t)));
+-			t5_req6->rsvd = cpu_to_be32(isn);
+-			PDBG("%s snd_isn %u\n", __func__,
+-			     be32_to_cpu(t5_req6->rsvd));
+-			t5_req6->opt2 = cpu_to_be32(opt2);
++			t5req6->rsvd = cpu_to_be32(isn);
++			PDBG("%s snd_isn %u\n", __func__, t5req6->rsvd);
++			t5req6->opt2 = cpu_to_be32(opt2);
+ 		}
+ 	}
+ 
+ 	set_bit(ACT_OPEN_REQ, &ep->com.history);
+ 	ret = c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
++clip_release:
+ 	if (ret && ep->com.remote_addr.ss_family == AF_INET6)
+ 		cxgb4_clip_release(ep->com.dev->rdev.lldi.ports[0],
+ 				   (const u32 *)&la6->sin6_addr.s6_addr, 1);
+@@ -1902,7 +1928,7 @@ static void set_tcp_window(struct c4iw_ep *ep, struct port_info *pi)
+ 
+ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+ 		     struct dst_entry *dst, struct c4iw_dev *cdev,
+-		     bool clear_mpa_v1)
++		     bool clear_mpa_v1, enum chip_type adapter_type)
+ {
+ 	struct neighbour *n;
+ 	int err, step;
+@@ -1937,7 +1963,8 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+ 			goto out;
+ 		ep->mtu = pdev->mtu;
+ 		ep->tx_chan = cxgb4_port_chan(pdev);
+-		ep->smac_idx = (cxgb4_port_viid(pdev) & 0x7F) << 1;
++		ep->smac_idx = cxgb4_tp_smt_idx(adapter_type,
++						cxgb4_port_viid(pdev));
+ 		step = cdev->rdev.lldi.ntxq /
+ 			cdev->rdev.lldi.nchan;
+ 		ep->txq_idx = cxgb4_port_idx(pdev) * step;
+@@ -1956,7 +1983,8 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+ 			goto out;
+ 		ep->mtu = dst_mtu(dst);
+ 		ep->tx_chan = cxgb4_port_chan(pdev);
+-		ep->smac_idx = (cxgb4_port_viid(pdev) & 0x7F) << 1;
++		ep->smac_idx = cxgb4_tp_smt_idx(adapter_type,
++						cxgb4_port_viid(pdev));
+ 		step = cdev->rdev.lldi.ntxq /
+ 			cdev->rdev.lldi.nchan;
+ 		ep->txq_idx = cxgb4_port_idx(pdev) * step;
+@@ -2029,7 +2057,8 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
+ 		err = -EHOSTUNREACH;
+ 		goto fail3;
+ 	}
+-	err = import_ep(ep, iptype, ra, ep->dst, ep->com.dev, false);
++	err = import_ep(ep, iptype, ra, ep->dst, ep->com.dev, false,
++			ep->com.dev->rdev.lldi.adapter_type);
+ 	if (err) {
+ 		pr_err("%s - cannot alloc l2e.\n", __func__);
+ 		goto fail4;
+@@ -2217,13 +2246,14 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 	int wscale;
+ 	struct cpl_t5_pass_accept_rpl *rpl5 = NULL;
+ 	int win;
++	enum chip_type adapter_type = ep->com.dev->rdev.lldi.adapter_type;
+ 
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+ 	BUG_ON(skb_cloned(skb));
+ 
+ 	skb_get(skb);
+ 	rpl = cplhdr(skb);
+-	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
++	if (!is_t4(adapter_type)) {
+ 		skb_trim(skb, roundup(sizeof(*rpl5), 16));
+ 		rpl5 = (void *)rpl;
+ 		INIT_TP_WR(rpl5, ep->hwtid);
+@@ -2270,12 +2300,16 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 		const struct tcphdr *tcph;
+ 		u32 hlen = ntohl(req->hdr_len);
+ 
+-		tcph = (const void *)(req + 1) + ETH_HDR_LEN_G(hlen) +
+-			IP_HDR_LEN_G(hlen);
++		if (CHELSIO_CHIP_VERSION(adapter_type) <= CHELSIO_T5)
++			tcph = (const void *)(req + 1) + ETH_HDR_LEN_G(hlen) +
++				IP_HDR_LEN_G(hlen);
++		else
++			tcph = (const void *)(req + 1) +
++				T6_ETH_HDR_LEN_G(hlen) + T6_IP_HDR_LEN_G(hlen);
+ 		if (tcph->ece && tcph->cwr)
+ 			opt2 |= CCTRL_ECN_V(1);
+ 	}
+-	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
++	if (CHELSIO_CHIP_VERSION(adapter_type) > CHELSIO_T4) {
+ 		u32 isn = (prandom_u32() & ~7UL) - 1;
+ 		opt2 |= T5_OPT_2_VALID_F;
+ 		opt2 |= CONG_CNTRL_V(CONG_ALG_TAHOE);
+@@ -2306,12 +2340,16 @@ static void reject_cr(struct c4iw_dev *dev, u32 hwtid, struct sk_buff *skb)
+ 	return;
  }
  
--static inline int is_t6(enum chip_type chip)
--{
--	return CHELSIO_CHIP_VERSION(chip) == CHELSIO_T6;
--}
--
--static inline int is_t5(enum chip_type chip)
--{
--	return CHELSIO_CHIP_VERSION(chip) == CHELSIO_T5;
--}
--
--static inline int is_t4(enum chip_type chip)
--{
--	return CHELSIO_CHIP_VERSION(chip) == CHELSIO_T4;
--}
--
- static inline u32 t4_read_reg(struct adapter *adap, u32 reg_addr)
+-static void get_4tuple(struct cpl_pass_accept_req *req, int *iptype,
+-		       __u8 *local_ip, __u8 *peer_ip,
++static void get_4tuple(struct cpl_pass_accept_req *req, enum chip_type type,
++		       int *iptype, __u8 *local_ip, __u8 *peer_ip,
+ 		       __be16 *local_port, __be16 *peer_port)
  {
- 	return readl(adap->regs + reg_addr);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index f5dcde2..aeeb21f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1936,6 +1936,28 @@ unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
- EXPORT_SYMBOL(cxgb4_best_aligned_mtu);
+-	int eth_len = ETH_HDR_LEN_G(be32_to_cpu(req->hdr_len));
+-	int ip_len = IP_HDR_LEN_G(be32_to_cpu(req->hdr_len));
++	int eth_len = (CHELSIO_CHIP_VERSION(type) <= CHELSIO_T5) ?
++		      ETH_HDR_LEN_G(be32_to_cpu(req->hdr_len)) :
++		      T6_ETH_HDR_LEN_G(be32_to_cpu(req->hdr_len));
++	int ip_len = (CHELSIO_CHIP_VERSION(type) <= CHELSIO_T5) ?
++		     IP_HDR_LEN_G(be32_to_cpu(req->hdr_len)) :
++		     T6_IP_HDR_LEN_G(be32_to_cpu(req->hdr_len));
+ 	struct iphdr *ip = (struct iphdr *)((u8 *)(req + 1) + eth_len);
+ 	struct ipv6hdr *ip6 = (struct ipv6hdr *)((u8 *)(req + 1) + eth_len);
+ 	struct tcphdr *tcp = (struct tcphdr *)
+@@ -2366,7 +2404,8 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
  
- /**
-+ *	cxgb4_tp_smt_idx - Get the Source Mac Table index for this VI
-+ *	@chip: chip type
-+ *	@viid: VI id of the given port
-+ *
-+ *	Return the SMT index for this VI.
-+ */
-+unsigned int cxgb4_tp_smt_idx(enum chip_type chip, unsigned int viid)
-+{
-+	/* In T4/T5, SMT contains 256 SMAC entries organized in
-+	 * 128 rows of 2 entries each.
-+	 * In T6, SMT contains 256 SMAC entries in 256 rows.
-+	 * TODO: The below code needs to be updated when we add support
-+	 * for 256 VFs.
-+	 */
-+	if (CHELSIO_CHIP_VERSION(chip) <= CHELSIO_T5)
-+		return ((viid & 0x7f) << 1);
-+	else
-+		return (viid & 0x7f);
-+}
-+EXPORT_SYMBOL(cxgb4_tp_smt_idx);
-+
-+/**
-  *	cxgb4_port_chan - get the HW channel of a port
-  *	@dev: the net device for the port
-  *
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index c3a8be5..cf711d5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -40,6 +40,7 @@
- #include <linux/skbuff.h>
- #include <linux/inetdevice.h>
- #include <linux/atomic.h>
-+#include "cxgb4.h"
+-	get_4tuple(req, &iptype, local_ip, peer_ip, &local_port, &peer_port);
++	get_4tuple(req, parent_ep->com.dev->rdev.lldi.adapter_type, &iptype,
++		   local_ip, peer_ip, &local_port, &peer_port);
  
- /* CPL message priority levels */
- enum {
-@@ -290,6 +291,7 @@ int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb);
- unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo);
- unsigned int cxgb4_port_chan(const struct net_device *dev);
- unsigned int cxgb4_port_viid(const struct net_device *dev);
-+unsigned int cxgb4_tp_smt_idx(enum chip_type chip, unsigned int viid);
- unsigned int cxgb4_port_idx(const struct net_device *dev);
- unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
- 			    unsigned int *idx);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_chip_type.h b/drivers/net/ethernet/chelsio/cxgb4/t4_chip_type.h
-new file mode 100644
-index 0000000..54b7181
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_chip_type.h
-@@ -0,0 +1,85 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2015 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef __T4_CHIP_TYPE_H__
-+#define __T4_CHIP_TYPE_H__
-+
-+#define CHELSIO_T4		0x4
-+#define CHELSIO_T5		0x5
-+#define CHELSIO_T6		0x6
-+
-+/* We code the Chelsio T4 Family "Chip Code" as a tuple:
-+ *
-+ *     (Chip Version, Chip Revision)
-+ *
-+ * where:
-+ *
-+ *     Chip Version: is T4, T5, etc.
-+ *     Chip Revision: is the FAB "spin" of the Chip Version.
-+ */
-+#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
-+#define CHELSIO_CHIP_VERSION(code) (((code) >> 4) & 0xf)
-+#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
-+
-+enum chip_type {
-+	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
-+	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
-+	T4_FIRST_REV	= T4_A1,
-+	T4_LAST_REV	= T4_A2,
-+
-+	T5_A0 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
-+	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 1),
-+	T5_FIRST_REV	= T5_A0,
-+	T5_LAST_REV	= T5_A1,
-+
-+	T6_A0 = CHELSIO_CHIP_CODE(CHELSIO_T6, 0),
-+	T6_FIRST_REV	= T6_A0,
-+	T6_LAST_REV	= T6_A0,
-+};
-+
-+static inline int is_t4(enum chip_type chip)
-+{
-+	return (CHELSIO_CHIP_VERSION(chip) == CHELSIO_T4);
-+}
-+
-+static inline int is_t5(enum chip_type chip)
-+{
-+	return (CHELSIO_CHIP_VERSION(chip) == CHELSIO_T5);
-+}
-+
-+static inline int is_t6(enum chip_type chip)
-+{
-+	return (CHELSIO_CHIP_VERSION(chip) == CHELSIO_T6);
-+}
-+
-+#endif /* __T4_CHIP_TYPE_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index b99144a..a072d34 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -417,6 +417,21 @@ struct cpl_t5_act_open_req {
- 	__be64 params;
- };
+ 	/* Find output route */
+ 	if (iptype == 4)  {
+@@ -2401,7 +2440,8 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
  
-+struct cpl_t6_act_open_req {
-+	WR_HDR;
-+	union opcode_tid ot;
-+	__be16 local_port;
-+	__be16 peer_port;
-+	__be32 local_ip;
-+	__be32 peer_ip;
-+	__be64 opt0;
-+	__be32 rsvd;
-+	__be32 opt2;
-+	__be64 params;
-+	__be32 rsvd2;
-+	__be32 opt3;
-+};
-+
- struct cpl_act_open_req6 {
- 	WR_HDR;
- 	union opcode_tid ot;
-@@ -446,6 +461,23 @@ struct cpl_t5_act_open_req6 {
- 	__be64 params;
- };
+-	err = import_ep(child_ep, iptype, peer_ip, dst, dev, false);
++	err = import_ep(child_ep, iptype, peer_ip, dst, dev, false,
++			parent_ep->com.dev->rdev.lldi.adapter_type);
+ 	if (err) {
+ 		printk(KERN_ERR MOD "%s - failed to allocate l2t entry!\n",
+ 		       __func__);
+@@ -3193,7 +3233,8 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 		goto fail2;
+ 	}
  
-+struct cpl_t6_act_open_req6 {
-+	WR_HDR;
-+	union opcode_tid ot;
-+	__be16 local_port;
-+	__be16 peer_port;
-+	__be64 local_ip_hi;
-+	__be64 local_ip_lo;
-+	__be64 peer_ip_hi;
-+	__be64 peer_ip_lo;
-+	__be64 opt0;
-+	__be32 rsvd;
-+	__be32 opt2;
-+	__be64 params;
-+	__be32 rsvd2;
-+	__be32 opt3;
-+};
-+
- struct cpl_act_open_rpl {
- 	union opcode_tid ot;
- 	__be32 atid_status;
-@@ -504,6 +536,19 @@ struct cpl_pass_establish {
- #define TCPOPT_MSS_M	0xF
- #define TCPOPT_MSS_G(x)	(((x) >> TCPOPT_MSS_S) & TCPOPT_MSS_M)
+-	err = import_ep(ep, iptype, ra, ep->dst, ep->com.dev, true);
++	err = import_ep(ep, iptype, ra, ep->dst, ep->com.dev, true,
++			ep->com.dev->rdev.lldi.adapter_type);
+ 	if (err) {
+ 		printk(KERN_ERR MOD "%s - cannot alloc l2e.\n", __func__);
+ 		goto fail3;
+@@ -3601,20 +3642,23 @@ static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
  
-+#define T6_TCP_HDR_LEN_S   8
-+#define T6_TCP_HDR_LEN_V(x) ((x) << T6_TCP_HDR_LEN_S)
-+#define T6_TCP_HDR_LEN_G(x) (((x) >> T6_TCP_HDR_LEN_S) & TCP_HDR_LEN_M)
-+
-+#define T6_IP_HDR_LEN_S    14
-+#define T6_IP_HDR_LEN_V(x) ((x) << T6_IP_HDR_LEN_S)
-+#define T6_IP_HDR_LEN_G(x) (((x) >> T6_IP_HDR_LEN_S) & IP_HDR_LEN_M)
-+
-+#define T6_ETH_HDR_LEN_S    24
-+#define T6_ETH_HDR_LEN_M    0xFF
-+#define T6_ETH_HDR_LEN_V(x) ((x) << T6_ETH_HDR_LEN_S)
-+#define T6_ETH_HDR_LEN_G(x) (((x) >> T6_ETH_HDR_LEN_S) & T6_ETH_HDR_LEN_M)
-+
- struct cpl_act_establish {
- 	union opcode_tid ot;
- 	__be32 rsvd;
-@@ -833,6 +878,9 @@ struct cpl_rx_pkt {
- 	__be16 err_vec;
- };
+ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
+ {
+-	u32 l2info;
+-	u16 vlantag, len, hdr_len, eth_hdr_len;
++	__be32 l2info;
++	__be16 hdr_len, vlantag, len;
++	u16 eth_hdr_len;
++	int tcp_hdr_len, ip_hdr_len;
+ 	u8 intf;
+ 	struct cpl_rx_pkt *cpl = cplhdr(skb);
+ 	struct cpl_pass_accept_req *req;
+ 	struct tcp_options_received tmp_opt;
+ 	struct c4iw_dev *dev;
++	enum chip_type type;
  
-+#define RX_T6_ETHHDR_LEN_M    0xFF
-+#define RX_T6_ETHHDR_LEN_G(x) (((x) >> RX_ETHHDR_LEN_S) & RX_T6_ETHHDR_LEN_M)
+ 	dev = *((struct c4iw_dev **) (skb->cb + sizeof(void *)));
+ 	/* Store values from cpl_rx_pkt in temporary location. */
+-	vlantag = (__force u16) cpl->vlan;
+-	len = (__force u16) cpl->len;
+-	l2info  = (__force u32) cpl->l2info;
+-	hdr_len = (__force u16) cpl->hdr_len;
++	vlantag = cpl->vlan;
++	len = cpl->len;
++	l2info  = cpl->l2info;
++	hdr_len = cpl->hdr_len;
+ 	intf = cpl->iff;
+ 
+ 	__skb_pull(skb, sizeof(*req) + sizeof(struct rss_header));
+@@ -3631,20 +3675,28 @@ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
+ 	memset(req, 0, sizeof(*req));
+ 	req->l2info = cpu_to_be16(SYN_INTF_V(intf) |
+ 			 SYN_MAC_IDX_V(RX_MACIDX_G(
+-			 (__force int) htonl(l2info))) |
++			 be32_to_cpu(l2info))) |
+ 			 SYN_XACT_MATCH_F);
+-	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
+-			    RX_ETHHDR_LEN_G((__force int)htonl(l2info)) :
+-			    RX_T5_ETHHDR_LEN_G((__force int)htonl(l2info));
+-	req->hdr_len = cpu_to_be32(SYN_RX_CHAN_V(RX_CHAN_G(
+-					(__force int) htonl(l2info))) |
+-				   TCP_HDR_LEN_V(RX_TCPHDR_LEN_G(
+-					(__force int) htons(hdr_len))) |
+-				   IP_HDR_LEN_V(RX_IPHDR_LEN_G(
+-					(__force int) htons(hdr_len))) |
+-				   ETH_HDR_LEN_V(RX_ETHHDR_LEN_G(eth_hdr_len)));
+-	req->vlan = (__force __be16) vlantag;
+-	req->len = (__force __be16) len;
++	type = dev->rdev.lldi.adapter_type;
++	tcp_hdr_len = RX_TCPHDR_LEN_G(be16_to_cpu(hdr_len));
++	ip_hdr_len = RX_IPHDR_LEN_G(be16_to_cpu(hdr_len));
++	req->hdr_len =
++		cpu_to_be32(SYN_RX_CHAN_V(RX_CHAN_G(be32_to_cpu(l2info))));
++	if (CHELSIO_CHIP_VERSION(type) <= CHELSIO_T5) {
++		eth_hdr_len = is_t4(type) ?
++				RX_ETHHDR_LEN_G(be32_to_cpu(l2info)) :
++				RX_T5_ETHHDR_LEN_G(be32_to_cpu(l2info));
++		req->hdr_len |= cpu_to_be32(TCP_HDR_LEN_V(tcp_hdr_len) |
++					    IP_HDR_LEN_V(ip_hdr_len) |
++					    ETH_HDR_LEN_V(eth_hdr_len));
++	} else { /* T6 and later */
++		eth_hdr_len = RX_T6_ETHHDR_LEN_G(be32_to_cpu(l2info));
++		req->hdr_len |= cpu_to_be32(T6_TCP_HDR_LEN_V(tcp_hdr_len) |
++					    T6_IP_HDR_LEN_V(ip_hdr_len) |
++					    T6_ETH_HDR_LEN_V(eth_hdr_len));
++	}
++	req->vlan = vlantag;
++	req->len = len;
+ 	req->tos_stid = cpu_to_be32(PASS_OPEN_TID_V(stid) |
+ 				    PASS_OPEN_TOS_V(tos));
+ 	req->tcpopt.mss = htons(tmp_opt.mss_clamp);
+@@ -3763,9 +3815,22 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
+ 
+-	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
+-			    RX_ETHHDR_LEN_G(htonl(cpl->l2info)) :
+-			    RX_T5_ETHHDR_LEN_G(htonl(cpl->l2info));
++	switch (CHELSIO_CHIP_VERSION(dev->rdev.lldi.adapter_type)) {
++	case CHELSIO_T4:
++		eth_hdr_len = RX_ETHHDR_LEN_G(be32_to_cpu(cpl->l2info));
++		break;
++	case CHELSIO_T5:
++		eth_hdr_len = RX_T5_ETHHDR_LEN_G(be32_to_cpu(cpl->l2info));
++		break;
++	case CHELSIO_T6:
++		eth_hdr_len = RX_T6_ETHHDR_LEN_G(be32_to_cpu(cpl->l2info));
++		break;
++	default:
++		pr_err("T%d Chip is not supported\n",
++		       CHELSIO_CHIP_VERSION(dev->rdev.lldi.adapter_type));
++		goto reject;
++	}
 +
- #define RXF_PSH_S    20
- #define RXF_PSH_V(x) ((x) << RXF_PSH_S)
- #define RXF_PSH_F    RXF_PSH_V(1U)
+ 	if (eth_hdr_len == ETH_HLEN) {
+ 		eh = (struct ethhdr *)(req + 1);
+ 		iph = (struct iphdr *)(eh + 1);
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 1a29739..58fce174 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -962,12 +962,12 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 		devp->rdev.lldi.sge_egrstatuspagesize;
+ 
+ 	/*
+-	 * For T5 devices, we map all of BAR2 with WC.
++	 * For T5/T6 devices, we map all of BAR2 with WC.
+ 	 * For T4 devices with onchip qp mem, we map only that part
+ 	 * of BAR2 with WC.
+ 	 */
+ 	devp->rdev.bar2_pa = pci_resource_start(devp->rdev.lldi.pdev, 2);
+-	if (is_t5(devp->rdev.lldi.adapter_type)) {
++	if (!is_t4(devp->rdev.lldi.adapter_type)) {
+ 		devp->rdev.bar2_kva = ioremap_wc(devp->rdev.bar2_pa,
+ 			pci_resource_len(devp->rdev.lldi.pdev, 2));
+ 		if (!devp->rdev.bar2_kva) {
+@@ -1267,11 +1267,9 @@ static int enable_qp_db(int id, void *p, void *data)
+ static void resume_rc_qp(struct c4iw_qp *qp)
+ {
+ 	spin_lock(&qp->lock);
+-	t4_ring_sq_db(&qp->wq, qp->wq.sq.wq_pidx_inc,
+-		      is_t5(qp->rhp->rdev.lldi.adapter_type), NULL);
++	t4_ring_sq_db(&qp->wq, qp->wq.sq.wq_pidx_inc, NULL);
+ 	qp->wq.sq.wq_pidx_inc = 0;
+-	t4_ring_rq_db(&qp->wq, qp->wq.rq.wq_pidx_inc,
+-		      is_t5(qp->rhp->rdev.lldi.adapter_type), NULL);
++	t4_ring_rq_db(&qp->wq, qp->wq.rq.wq_pidx_inc, NULL);
+ 	qp->wq.rq.wq_pidx_inc = 0;
+ 	spin_unlock(&qp->lock);
+ }
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index 7746113..df3b3f1 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -209,7 +209,7 @@ static int c4iw_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
+ 		if (addr >= rdev->oc_mw_pa)
+ 			vma->vm_page_prot = t4_pgprot_wc(vma->vm_page_prot);
+ 		else {
+-			if (is_t5(rdev->lldi.adapter_type))
++			if (!is_t4(rdev->lldi.adapter_type))
+ 				vma->vm_page_prot =
+ 					t4_pgprot_wc(vma->vm_page_prot);
+ 			else
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 6517e12..acfc2f2 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -712,8 +712,7 @@ static int ring_kernel_sq_db(struct c4iw_qp *qhp, u16 inc)
+ 	spin_lock_irqsave(&qhp->rhp->lock, flags);
+ 	spin_lock(&qhp->lock);
+ 	if (qhp->rhp->db_state == NORMAL)
+-		t4_ring_sq_db(&qhp->wq, inc,
+-			      is_t5(qhp->rhp->rdev.lldi.adapter_type), NULL);
++		t4_ring_sq_db(&qhp->wq, inc, NULL);
+ 	else {
+ 		add_to_fc_list(&qhp->rhp->db_fc_list, &qhp->db_fc_entry);
+ 		qhp->wq.sq.wq_pidx_inc += inc;
+@@ -730,8 +729,7 @@ static int ring_kernel_rq_db(struct c4iw_qp *qhp, u16 inc)
+ 	spin_lock_irqsave(&qhp->rhp->lock, flags);
+ 	spin_lock(&qhp->lock);
+ 	if (qhp->rhp->db_state == NORMAL)
+-		t4_ring_rq_db(&qhp->wq, inc,
+-			      is_t5(qhp->rhp->rdev.lldi.adapter_type), NULL);
++		t4_ring_rq_db(&qhp->wq, inc, NULL);
+ 	else {
+ 		add_to_fc_list(&qhp->rhp->db_fc_list, &qhp->db_fc_entry);
+ 		qhp->wq.rq.wq_pidx_inc += inc;
+@@ -817,7 +815,7 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 			fw_opcode = FW_RI_FR_NSMR_WR;
+ 			swsqe->opcode = FW_RI_FAST_REGISTER;
+ 			err = build_fastreg(&qhp->wq.sq, wqe, wr, &len16,
+-					    is_t5(
++					    !is_t4(
+ 					    qhp->rhp->rdev.lldi.adapter_type) ?
+ 					    1 : 0);
+ 			break;
+@@ -860,8 +858,7 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
+ 	}
+ 	if (!qhp->rhp->rdev.status_page->db_off) {
+-		t4_ring_sq_db(&qhp->wq, idx,
+-			      is_t5(qhp->rhp->rdev.lldi.adapter_type), wqe);
++		t4_ring_sq_db(&qhp->wq, idx, wqe);
+ 		spin_unlock_irqrestore(&qhp->lock, flag);
+ 	} else {
+ 		spin_unlock_irqrestore(&qhp->lock, flag);
+@@ -934,8 +931,7 @@ int c4iw_post_receive(struct ib_qp *ibqp, struct ib_recv_wr *wr,
+ 		num_wrs--;
+ 	}
+ 	if (!qhp->rhp->rdev.status_page->db_off) {
+-		t4_ring_rq_db(&qhp->wq, idx,
+-			      is_t5(qhp->rhp->rdev.lldi.adapter_type), wqe);
++		t4_ring_rq_db(&qhp->wq, idx, wqe);
+ 		spin_unlock_irqrestore(&qhp->lock, flag);
+ 	} else {
+ 		spin_unlock_irqrestore(&qhp->lock, flag);
+@@ -1875,7 +1871,7 @@ int c4iw_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+ 	attrs.rq_db_inc = attr->rq_psn;
+ 	mask |= (attr_mask & IB_QP_SQ_PSN) ? C4IW_QP_ATTR_SQ_DB : 0;
+ 	mask |= (attr_mask & IB_QP_RQ_PSN) ? C4IW_QP_ATTR_RQ_DB : 0;
+-	if (is_t5(to_c4iw_qp(ibqp)->rhp->rdev.lldi.adapter_type) &&
++	if (!is_t4(to_c4iw_qp(ibqp)->rhp->rdev.lldi.adapter_type) &&
+ 	    (mask & (C4IW_QP_ATTR_SQ_DB|C4IW_QP_ATTR_RQ_DB)))
+ 		return -EINVAL;
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index 274a7ab..1092a2d 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -455,8 +455,7 @@ static inline void pio_copy(u64 __iomem *dst, u64 *src)
+ 	}
+ }
+ 
+-static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5,
+-				 union t4_wr *wqe)
++static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, union t4_wr *wqe)
+ {
+ 
+ 	/* Flush host queue memory writes. */
+@@ -482,7 +481,7 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5,
+ 	writel(QID_V(wq->sq.qid) | PIDX_V(inc), wq->db);
+ }
+ 
+-static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t5,
++static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc,
+ 				 union t4_recv_wr *wqe)
+ {
+ 
 -- 
 2.3.4
