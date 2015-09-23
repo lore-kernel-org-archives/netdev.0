@@ -1,81 +1,58 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH v2] net/ethoc: support big-endian register layout
-Date: Wed, 23 Sep 2015 09:35:44 +0300
-Message-ID: <1442990144-13499-1-git-send-email-jcmvbkbc@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>
-To: netdev@vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH v2] net: ll_temac: Use of_property_read_u32 instead of open-coding it
+Date: Wed, 23 Sep 2015 09:20:02 +0200
+Message-ID: <1442992802-6112-1-git-send-email-tklauser@distanz.ch>
+References: <1442922117-18420-1-git-send-email-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442922117-18420-1-git-send-email-tklauser@distanz.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This allows using OpenCores ethernet controller attached to its host in
-native-endian mode with bi-endian CPUs. Example of such system is Xtensa
-XTFPGA platform.
+Use of_property_read_u32 to read the "clock-frequency" property instead
+of using of_get_property with return value checks.
 
-Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Reviewed-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
 ---
-Changes v1->v2:
-- expand changelog with motivation for the change.
+v2: Resending with Cc to netdev
 
- drivers/net/ethernet/ethoc.c | 14 ++++++++++++--
- include/net/ethoc.h          |  1 +
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/xilinx/ll_temac_mdio.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 442410c..17ff9a4 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -201,6 +201,7 @@ struct ethoc {
- 	void __iomem *membase;
- 	int dma_alloc;
- 	resource_size_t io_region_size;
-+	bool big_endian;
- 
- 	unsigned int num_bd;
- 	unsigned int num_tx;
-@@ -236,12 +237,18 @@ struct ethoc_bd {
- 
- static inline u32 ethoc_read(struct ethoc *dev, loff_t offset)
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_mdio.c b/drivers/net/=
+ethernet/xilinx/ll_temac_mdio.c
+index 8cf9d4f..415de1e 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_mdio.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
+@@ -59,16 +59,15 @@ static int temac_mdio_write(struct mii_bus *bus, in=
+t phy_id, int reg, u16 val)
+ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
  {
--	return ioread32(dev->iobase + offset);
-+	if (dev->big_endian)
-+		return ioread32be(dev->iobase + offset);
-+	else
-+		return ioread32(dev->iobase + offset);
- }
- 
- static inline void ethoc_write(struct ethoc *dev, loff_t offset, u32 data)
- {
--	iowrite32(data, dev->iobase + offset);
-+	if (dev->big_endian)
-+		iowrite32be(data, dev->iobase + offset);
-+	else
-+		iowrite32(data, dev->iobase + offset);
- }
- 
- static inline void ethoc_read_bd(struct ethoc *dev, int index,
-@@ -1106,6 +1113,9 @@ static int ethoc_probe(struct platform_device *pdev)
- 		priv->dma_alloc = buffer_size;
- 	}
- 
-+	priv->big_endian = pdata ? pdata->big_endian :
-+		of_device_is_big_endian(pdev->dev.of_node);
-+
- 	/* calculate the number of TX/RX buffers, maximum 128 supported */
- 	num_bd = min_t(unsigned int,
- 		128, (netdev->mem_end - netdev->mem_start + 1) / ETHOC_BUFSIZ);
-diff --git a/include/net/ethoc.h b/include/net/ethoc.h
-index 2a2d6bb..bb7f467 100644
---- a/include/net/ethoc.h
-+++ b/include/net/ethoc.h
-@@ -17,6 +17,7 @@ struct ethoc_platform_data {
- 	u8 hwaddr[IFHWADDRLEN];
- 	s8 phy_id;
- 	u32 eth_clkfreq;
-+	bool big_endian;
- };
- 
- #endif /* !LINUX_NET_ETHOC_H */
--- 
-1.8.1.4
+ 	struct mii_bus *bus;
+-	const u32 *bus_hz;
++	u32 bus_hz;
+ 	int clk_div;
+-	int rc, size;
++	int rc;
+ 	struct resource res;
+=20
+ 	/* Calculate a reasonable divisor for the clock rate */
+ 	clk_div =3D 0x3f; /* worst-case default setting */
+-	bus_hz =3D of_get_property(np, "clock-frequency", &size);
+-	if (bus_hz && size >=3D sizeof(*bus_hz)) {
+-		clk_div =3D (*bus_hz) / (2500 * 1000 * 2) - 1;
++	if (of_property_read_u32(np, "clock-frequency", &bus_hz) =3D=3D 0) {
++		clk_div =3D bus_hz / (2500 * 1000 * 2) - 1;
+ 		if (clk_div < 1)
+ 			clk_div =3D 1;
+ 		if (clk_div > 0x3f)
+--=20
+2.5.0
