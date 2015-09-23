@@ -1,40 +1,67 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH next 02/84] ipvs: Don't use current in proc_do_defense_mode
-Date: Tue, 22 Sep 2015 20:53:30 -0500
-Message-ID: <87oagtc351.fsf@x220.int.ebiederm.org>
-References: <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
-	<1442858581-15869-2-git-send-email-ebiederm@xmission.com>
-	<20150923010648.GC17817@verge.net.au>
+Subject: Re: [PATCH net-next 3/9] net: Remove e_nobufs label from ip_route_input_slow
+Date: Tue, 22 Sep 2015 21:15:22 -0500
+Message-ID: <877fnhc24l.fsf@x220.int.ebiederm.org>
+References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+	<1442962523-3974-4-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20150923010648.GC17817@verge.net.au> (Simon Horman's message of
-	"Wed, 23 Sep 2015 10:06:48 +0900")
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:55916 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759819AbbIWCWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 22:22:40 -0400
+In-Reply-To: <1442962523-3974-4-git-send-email-dsa@cumulusnetworks.com> (David
+	Ahern's message of "Tue, 22 Sep 2015 15:55:17 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman <horms@verge.net.au> writes:
+David Ahern <dsa@cumulusnetworks.com> writes:
 
-> On Mon, Sep 21, 2015 at 01:01:39PM -0500, Eric W. Biederman wrote:
->> Instead store ipvs in extra2 so that proc_do_defense_mode can easily
->> find the ipvs that it's value is associated with.
->> 
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->
-> I am wondering if this fix should be included in v4.3 and stable.
-> Can the problem occur in practice?
+> e_nobufs has 1 user. Move setting err to -ENOBUFS for the 1 user and
+> use the goto out label instead of e_nobufs. Stepping stone patch; next
+> one moves rth code into a helper function.
 
-I believe a lookup in one network namespace followed by write in another
-network namespace would do it.  So I think it would take so pretty
-deliberate and more or less peculiar actions to make it happen.
+Ick you are pessimizing the code.
 
-I don't know how important the update_defense_level call is or how bad
-it is if it does not run in a network namespace .
+You will almost certainly have better code generation if you hoist
+the assignment of "err = -ENOBUFS" above the rt_dst_alloc then you
+don't need to do anything in your error path except "goto out;"
 
 Eric
+
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  net/ipv4/route.c | 10 ++++------
+>  1 file changed, 4 insertions(+), 6 deletions(-)
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 3c5000db5972..e3b18cc1952f 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1805,8 +1805,10 @@ out:	return err;
+>  
+>  	rth = rt_dst_alloc(net->loopback_dev, flags | RTCF_LOCAL, res.type,
+>  			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
+> -	if (!rth)
+> -		goto e_nobufs;
+> +	if (!rth) {
+> +		err = -ENOBUFS;
+> +		goto out;
+> +	}
+>  
+>  	rth->dst.output= ip_rt_bug;
+>  #ifdef CONFIG_IP_ROUTE_CLASSID
+> @@ -1852,10 +1854,6 @@ out:	return err;
+>  #endif
+>  	goto out;
+>  
+> -e_nobufs:
+> -	err = -ENOBUFS;
+> -	goto out;
+> -
+>  martian_source:
+>  	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
+>  	goto out;
