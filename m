@@ -1,54 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
-Date: Wed, 23 Sep 2015 16:26:50 -0700
-Message-ID: <20150923162650.148fe95b@urahara>
-References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
-	<1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/7] 8139cp: Improve accuracy of cp_interrupt() return,
+ to survive IRQ storms
+Date: Thu, 24 Sep 2015 01:29:31 +0200
+Message-ID: <20150923232931.GA8365@electric-eye.fr.zoreil.com>
+References: <1442996049.36485.32.camel@infradead.org>
+ <20150923.105812.149257816141624869.davem@davemloft.net>
+ <1443037530.74600.29.camel@infradead.org>
+ <20150923.144808.886375927698238398.davem@davemloft.net>
+ <1443045602.74600.33.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
-	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36838 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755946AbbIWX0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:26:39 -0400
-Received: by pacgz1 with SMTP id gz1so3881322pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 16:26:38 -0700 (PDT)
-In-Reply-To: <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48255 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755901AbbIWXce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:32:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1443045602.74600.33.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Having JSON output is going to be a real plus for programatic parsing.
-My understanding of best practice with JSON is that it is best to output values
-in best machine readable form, the format is not really meant for humans to
-directly read.
+David Woodhouse <dwmw2@infradead.org> :
+[...]
+> Great, thanks. I've got one more for the net tree; just masking the
+> gso_size to the maximum (0xfff) that the hardware can handle, and never
+> telling the net stack that that's our maximum, doesn't seem like such a
+> good idea...
 
-Therefore I don't like the code that reformats numbers as hex.
-If the values are better displayed in hex, then it is up to the program
-parsing and presenting that to the user to do that. The JSON should
-just put out numeric values as numeric.
+0xfff, really ?
 
-> +/* hex conversion helper */
-> +static void jsonw_hex_as_str_outp(json_writer_t *self, uint64_t num)
-> +{
-> +	char tmp[17];
-> +
-> +	sprintf(tmp, "%"PRIx64, num);
-> +	jsonw_string(self, tmp);
-> +}
-> +
-> +static void jsonw_hex_field_outp(json_writer_t *self, const char *prop, uint64_t num)
-> +{
-> +	jsonw_name(self, prop);
-> +	jsonw_hex_as_str_outp(self, num);
-> +}
-> +
-
-Other than that, my only other discomfort is that this patch set
-makes the code grow so much larger and it becomes more complex for future
-developers.
-
-Maybe it is time to rewrite it in a better language ;-)
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index d79e33b..8c6811d 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -174,7 +180,7 @@ enum {
+ 	LastFrag	= (1 << 28), /* Final segment of a packet */
+ 	LargeSend	= (1 << 27), /* TCP Large Send Offload (TSO) */
+ 	MSSShift	= 16,	     /* MSS value position */
+-	MSSMask		= 0xfff,     /* MSS value: 11 bits */
++	MSSMask		= 0x7ff,     /* MSS value: 11 bits */
+ 	TxError		= (1 << 23), /* Tx error summary */
+ 	RxError		= (1 << 20), /* Rx error summary */
+ 	IPCS		= (1 << 18), /* Calculate IP checksum */
+-- 
+Ueimor
