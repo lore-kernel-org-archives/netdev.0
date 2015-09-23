@@ -1,62 +1,71 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
-Date: Tue, 22 Sep 2015 23:39:37 -0500
-Message-ID: <87zj0d92ba.fsf@x220.int.ebiederm.org>
-References: <cover.1442936392.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Jiri Benc <jbenc@redhat.com>
+From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+Subject: [PATCH] ip6_gre: Reduce log level in ip6gre_err() to debug
+Date: Wed, 23 Sep 2015 16:58:31 +1200
+Message-ID: <1442984311-13668-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org
+To: netdev@vger.kernel.org, matt.bennett@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:42076 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942AbbIWErS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:47:18 -0400
-In-Reply-To: <cover.1442936392.git.jbenc@redhat.com> (Jiri Benc's message of
-	"Tue, 22 Sep 2015 18:12:10 +0200")
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:40764 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbbIWE6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 00:58:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Benc <jbenc@redhat.com> writes:
+Currently error log messages in ip6gre_err are printed at 'warn'
+level. This is different to most other tunnel types which don't
+print any messages. These log messages don't provide any information
+that couldn't be deduced with networking tools. Also it can be annoying
+to have one end of the tunnel go down and have the logs fill with
+pointless messages such as "Path to destination invalid or inactive!".
 
-> One of the selling points of lwtunnel was the ability to specify the tunnel
-> destination using routes. However, this doesn't really work currently, as
-> ARP and ndisc replies are not handled correctly. ARP and ndisc replies won't
-> have tunnel metadata attached, thus they will be sent out with the default
-> parameters or not sent at all, either way never reaching the requester.
->
-> Most of the egress tunnel parameters can be inferred from the ingress
-> metada. The only and important exception is UDP ports. This patchset infers
-> the egress data from the ingress data and disallow settings of UDP ports in
-> tunnel routes. If there's a need for different UDP ports, a new interface
-> needs to be created for each port combination. Note that it's still possible
-> to specify the UDP ports to use, it just needs to be done while creating the
-> vxlan/geneve interface.
->
-> This covers only ARPs. IPv6 ndisc has the same problem but is harder to
-> solve, as there's already dst attached to outgoing skbs. Ideas to solve this
-> are welcome.
+This patch reduces the log level of these messages to 'dbg' level to
+bring the visible behaviour into line with other tunnel types.
 
-What distinguishes a skb received from a tunnel as opposed to a skb
-received on from a network device is that a skb recevied on a tunnel
-has a socket.
+Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+---
+ net/ipv6/ip6_gre.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-I could be easily missing something but couldn't you look at skb->sk
-on the input path and if a socket is present use the socket to compute
-the outgoing route?
-
-I expect it would just need to be something like:
-dst = sk_dst_check(sk, 0);
-
-Eric
-
-> Jiri Benc (2):
->   ipv4: send arp replies to the correct tunnel
->   lwtunnel: remove source and destination UDP port config option
->
->  include/net/ip_tunnels.h      |  2 ++
->  include/uapi/linux/lwtunnel.h |  4 ----
->  net/ipv4/arp.c                | 39 ++++++++++++++++++++------------
->  net/ipv4/ip_tunnel_core.c     | 52 +++++++++++++++++++++++--------------------
->  4 files changed, 55 insertions(+), 42 deletions(-)
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 4038c69..0369012 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -404,13 +404,13 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		struct ipv6_tlv_tnl_enc_lim *tel;
+ 		__u32 mtu;
+ 	case ICMPV6_DEST_UNREACH:
+-		net_warn_ratelimited("%s: Path to destination invalid or inactive!\n",
+-				     t->parms.name);
++		net_dbg_ratelimited("%s: Path to destination invalid or inactive!\n",
++				    t->parms.name);
+ 		break;
+ 	case ICMPV6_TIME_EXCEED:
+ 		if (code == ICMPV6_EXC_HOPLIMIT) {
+-			net_warn_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
+-					     t->parms.name);
++			net_dbg_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
++					    t->parms.name);
+ 		}
+ 		break;
+ 	case ICMPV6_PARAMPROB:
+@@ -421,12 +421,12 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		if (teli && teli == be32_to_cpu(info) - 2) {
+ 			tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->data[teli];
+ 			if (tel->encap_limit == 0) {
+-				net_warn_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
+-						     t->parms.name);
++				net_dbg_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
++						    t->parms.name);
+ 			}
+ 		} else {
+-			net_warn_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
+-					     t->parms.name);
++			net_dbg_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
++					    t->parms.name);
+ 		}
+ 		break;
+ 	case ICMPV6_PKT_TOOBIG:
+-- 
+2.5.2
