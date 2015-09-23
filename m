@@ -1,90 +1,149 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 3/7] 8139cp: Fix TSO/scatter-gather descriptor setup
-Date: Wed, 23 Sep 2015 09:44:38 +0100
-Message-ID: <1442997878.36485.47.camel@infradead.org>
+Subject: [PATCH 4/7] 8139cp: Reduce duplicate csum/tso code in
+ cp_start_xmit()
+Date: Wed, 23 Sep 2015 09:44:57 +0100
+Message-ID: <1442997897.36485.48.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-fsMQbYTIwqttfZhacJVC"
+	boundary="=-I7P2stIYuSCycGnDB5MS"
 Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:60618 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:60764 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753672AbbIWIol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:44:41 -0400
+	with ESMTP id S1752904AbbIWIpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:00 -0400
 In-Reply-To: <1442996049.36485.32.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-fsMQbYTIwqttfZhacJVC
+--=-I7P2stIYuSCycGnDB5MS
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-When sending a TSO frame in multiple buffers, we were neglecting to set
-the first descriptor up in TSO mode.
+We calculate the value of the opts1 descriptor field in three different
+places. With two different behaviours when given an invalid packet to
+be checksummed =E2=80=94 none of them correct. Sort that out.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 61 ++++++++++++-------------------=
+----
+ 1 file changed, 20 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index cbca0de..75a8cee 100644
+index 75a8cee..b3bd8b1 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -790,7 +790,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 			  entry, skb->len);
- 	} else {
- 		struct cp_desc *txd;
--		u32 first_len, first_eor;
-+		u32 first_len, first_eor, ctrl;
+@@ -733,7 +733,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ {
+ 	struct cp_private *cp =3D netdev_priv(dev);
+ 	unsigned entry;
+-	u32 eor, flags;
++	u32 eor, opts1;
+ 	unsigned long intr_flags;
+ 	__le32 opts2;
+ 	int mss =3D 0;
+@@ -753,6 +753,21 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 	mss =3D skb_shinfo(skb)->gso_size;
+=20
+ 	opts2 =3D cpu_to_le32(cp_tx_vlan_tag(skb));
++	opts1 =3D DescOwn;
++	if (mss)
++		opts1 |=3D LargeSend | ((mss & MSSMask) << MSSShift);
++	else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
++		const struct iphdr *ip =3D ip_hdr(skb);
++		if (ip->protocol =3D=3D IPPROTO_TCP)
++			opts1 |=3D IPCS | TCPCS;
++		else if (ip->protocol =3D=3D IPPROTO_UDP)
++			opts1 |=3D IPCS | UDPCS;
++		else {
++			WARN_ONCE(1,
++				  "Net bug: asked to checksum invalid Legacy IP packet\n");
++			goto out_dma_error;
++		}
++	}
+=20
+ 	if (skb_shinfo(skb)->nr_frags =3D=3D 0) {
+ 		struct cp_desc *txd =3D &cp->tx_ring[entry];
+@@ -768,21 +783,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		txd->addr =3D cpu_to_le64(mapping);
+ 		wmb();
+=20
+-		flags =3D eor | len | DescOwn | FirstFrag | LastFrag;
+-
+-		if (mss)
+-			flags |=3D LargeSend | ((mss & MSSMask) << MSSShift);
+-		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+-			const struct iphdr *ip =3D ip_hdr(skb);
+-			if (ip->protocol =3D=3D IPPROTO_TCP)
+-				flags |=3D IPCS | TCPCS;
+-			else if (ip->protocol =3D=3D IPPROTO_UDP)
+-				flags |=3D IPCS | UDPCS;
+-			else
+-				WARN_ON(1);	/* we need a WARN() */
+-		}
++		opts1 |=3D eor | len | FirstFrag | LastFrag;
+=20
+-		txd->opts1 =3D cpu_to_le32(flags);
++		txd->opts1 =3D cpu_to_le32(opts1);
+ 		wmb();
+=20
+ 		cp->tx_skb[entry] =3D skb;
+@@ -793,7 +796,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		u32 first_len, first_eor, ctrl;
  		dma_addr_t first_mapping;
  		int frag, first_entry =3D entry;
- 		const struct iphdr *ip =3D ip_hdr(skb);
-@@ -810,7 +810,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		for (frag =3D 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
- 			const skb_frag_t *this_frag =3D &skb_shinfo(skb)->frags[frag];
- 			u32 len;
--			u32 ctrl;
- 			dma_addr_t mapping;
+-		const struct iphdr *ip =3D ip_hdr(skb);
 =20
- 			entry =3D NEXT_TX(entry);
-@@ -858,20 +857,19 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
-,
+ 		/* We must give this initial chunk to the device last.
+ 		 * Otherwise we could race with the device.
+@@ -825,19 +827,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+=20
+ 			eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
+=20
+-			ctrl =3D eor | len | DescOwn;
+-
+-			if (mss)
+-				ctrl |=3D LargeSend |
+-					((mss & MSSMask) << MSSShift);
+-			else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+-				if (ip->protocol =3D=3D IPPROTO_TCP)
+-					ctrl |=3D IPCS | TCPCS;
+-				else if (ip->protocol =3D=3D IPPROTO_UDP)
+-					ctrl |=3D IPCS | UDPCS;
+-				else
+-					BUG();
+-			}
++			ctrl =3D opts1 | eor | len;
+=20
+ 			if (frag =3D=3D skb_shinfo(skb)->nr_frags - 1)
+ 				ctrl |=3D LastFrag;
+@@ -857,18 +847,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
  		txd->addr =3D cpu_to_le64(first_mapping);
  		wmb();
 =20
--		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
-+		ctrl =3D first_eor | first_len | FirstFrag | DescOwn;
-+		if (mss)
-+			ctrl |=3D LargeSend | ((mss & MSSMask) << MSSShift);
-+		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
- 			if (ip->protocol =3D=3D IPPROTO_TCP)
--				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--							 FirstFrag | DescOwn |
--							 IPCS | TCPCS);
-+				ctrl |=3D IPCS | TCPCS;
- 			else if (ip->protocol =3D=3D IPPROTO_UDP)
--				txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--							 FirstFrag | DescOwn |
--							 IPCS | UDPCS);
-+				ctrl |=3D IPCS | UDPCS;
- 			else
- 				BUG();
--		} else
--			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
--						 FirstFrag | DescOwn);
-+		}
-+
-+		txd->opts1 =3D cpu_to_le32(ctrl);
+-		ctrl =3D first_eor | first_len | FirstFrag | DescOwn;
+-		if (mss)
+-			ctrl |=3D LargeSend | ((mss & MSSMask) << MSSShift);
+-		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+-			if (ip->protocol =3D=3D IPPROTO_TCP)
+-				ctrl |=3D IPCS | TCPCS;
+-			else if (ip->protocol =3D=3D IPPROTO_UDP)
+-				ctrl |=3D IPCS | UDPCS;
+-			else
+-				BUG();
+-		}
+-
++		ctrl =3D opts1 | first_eor | first_len | FirstFrag;
+ 		txd->opts1 =3D cpu_to_le32(ctrl);
  		wmb();
 =20
- 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
 --=20
 2.4.3
 
@@ -92,7 +151,7 @@ index cbca0de..75a8cee 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-fsMQbYTIwqttfZhacJVC
+--=-I7P2stIYuSCycGnDB5MS
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -185,18 +244,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMDg0NDM4WjAjBgkqhkiG9w0BCQQxFgQU/jyUvjU1riPANhBJ3c+QpEztvrIw
+CQUxDxcNMTUwOTIzMDg0NDU3WjAjBgkqhkiG9w0BCQQxFgQUgFBi4gZHRpXo510aGNxnB294O8kw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQBYAX8PvUbTZBO+6zPAsa4SaHewcCQUqTdbhhYwmjSD2gi5+UU7WRVEwkZg
-zDBCBANgS/tpwNldPDc38CnhBn6RKaboE8qBiyhpnXlnovGs5bMKIcPClHtQRgmCZ44yr24tP7x5
-FeIGlfOZd2F+Zko1mhs0XCMr0dYgxruzEsG+xEQVyiuCOxqSutHRMfdZGJvBk/WQaGZAFC4BAEDP
-/RxcOFqpCCDoL6WMzIjZ5CkNOpEiWjfvLm3zNa/iue/N1kYtrObCiqZZ8FLa5lDOW4GnbwMtJ+x/
-pG1kuH07OFRv1BDt7LuP9nlE+ukTkYWH9I6A6L1JekvU/QxnXyNT4WL1AAAAAAAA
+hkiG9w0BAQEFAASCAQCKbzmnrcwJS7Td01sfZwSim26o4jBIDfOmxxNU5IBrxU6qS0M0Iyf7+FCr
+35GwmUlny0zoF3j9b04cd7+sHrL699KCej7KHYcUhZ1AyIUtRpnqBV9nGB5wCQdd3AAMq2Afe0Ws
+PeVbCsaT67IpE8MuFrBsdzY6aXHeHi6htCNGmwNJyO/Lix0jlRA2yGNwCNnWsmdg4w9nDqxaav06
+/++VgvrjO3dSroy4HvTDr0SPaqO2mlIjm2Pws9qtdzxxVVKw/Gy9kcMhxf2zoty99JzF0OGhi3aC
+WjBAO34Kvnhljdyw9H/RAwxWBp/WjPycl1MMlJReNYq4vW9Dbg6N7XcYAAAAAAAA
 
 
---=-fsMQbYTIwqttfZhacJVC--
+--=-I7P2stIYuSCycGnDB5MS--
