@@ -1,42 +1,26 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 89161] Regression in bonding driver with devices that have
- no MAC address
-Date: Wed, 23 Sep 2015 11:00:44 -0700
-Message-ID: <20150923110044.07bda5bb@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Remove unneeded return from void function
+Date: Wed, 23 Sep 2015 11:01:22 -0700 (PDT)
+Message-ID: <20150923.110122.919918355464402118.davem@davemloft.net>
+References: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36465 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbbIWSAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:00:33 -0400
-Received: by pacgz1 with SMTP id gz1so12583480pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 11:00:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: guillaume1.gomez@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAOQCfQr9V-mb5uJdxk_=Npuy+Fx1ekAFoC2t-bWZJCqfLqmdQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Guillaume Gomez <guillaume1.gomez@gmail.com>
+Date: Wed, 23 Sep 2015 12:31:27 +0200
 
+> Signed-off-by: Guillaume Gomez <guillaume1.gomez@gmail.com>
 
-Begin forwarded message:
+Your patch is corrupted by your email client, in particular it turns
+TAB characters into sequences of SPACEs.
 
-Date: Wed, 23 Sep 2015 04:07:34 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 89161] Regression in bonding driver with devices that have no MAC address
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=89161
-
---- Comment #2 from Toby Corkindale <tjc@wintrmute.net> ---
-Hi, just checking in to see if anyone's looked at this.. have seen there's been
-a bunch of commits to the bonding driver since July 15 but the bit of relevant
-code still looks the same.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Please fix this up, test email the patch to yourself, and only
+resubmit the patch to the mailing list once you can successfully apply
+the patch you receive in that test email.
