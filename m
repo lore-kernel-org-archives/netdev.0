@@ -1,49 +1,51 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: [PATCH] net/ibm/emac: bump version numbers for correct work with
- ethtool
-Date: Wed, 23 Sep 2015 14:42:22 +0400
-Message-ID: <20150923144222.66de305c@fr-ThinkPad-W520>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Ben Hutchings <ben@decadent.org.uk>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH iproute2] route: filter routes by family if it's specified
+Date: Wed, 23 Sep 2015 14:43:46 +0300
+Message-ID: <1443008626-1105-1-git-send-email-avagin@openvz.org>
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Andrew Vagin <avagin@openvz.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:49804 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753381AbbIWLlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 07:41:46 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ivan@ru.ibm.com>;
-	Wed, 23 Sep 2015 12:41:45 +0100
+Received: from mail-la0-f53.google.com ([209.85.215.53]:34227 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753469AbbIWLnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 07:43:51 -0400
+Received: by lahg1 with SMTP id g1so46942862lah.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 04:43:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Register dump out work preventing with 
-old ethtool + new driver and new ethtool + old driver.
+From: Andrew Vagin <avagin@openvz.org>
 
+Currently when we specify AF_INET6 when it is disabled, we will get
+all routes.
+
+For example, we can boot kernel with ipv6.disable=1 and try to get ipv6
+routes:
+$ ip -6 route show
+default via 192.168.122.1 dev eth0  proto static  metric 100
+192.168.122.0/24 dev eth0  proto kernel  scope link  src 192.168.122.141  metric 100
+
+Here are ipv4 routes and this is unexpected behaviour.
+
+Signed-off-by: Andrew Vagin <avagin@openvz.org>
 ---
- drivers/net/ethernet/ibm/emac/core.h |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ ip/iproute.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-index 28df374..ac02c67 100644
---- a/drivers/net/ethernet/ibm/emac/core.h
-+++ b/drivers/net/ethernet/ibm/emac/core.h
-@@ -460,8 +460,8 @@ struct emac_ethtool_regs_subhdr {
- 	u32 index;
- };
+diff --git a/ip/iproute.c b/ip/iproute.c
+index abe4180..da25548 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -145,6 +145,9 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
  
--#define EMAC_ETHTOOL_REGS_VER		0
--#define EMAC4_ETHTOOL_REGS_VER		1
--#define EMAC4SYNC_ETHTOOL_REGS_VER	2
-+#define EMAC_ETHTOOL_REGS_VER		3
-+#define EMAC4_ETHTOOL_REGS_VER		4
-+#define EMAC4SYNC_ETHTOOL_REGS_VER	5
+ 	table = rtm_get_table(r, tb);
  
- #endif /* __IBM_NEWEMAC_CORE_H */
++	if (preferred_family != AF_UNSPEC && r->rtm_family != preferred_family)
++		return 0;
++
+ 	if (r->rtm_family == AF_INET6 && table != RT_TABLE_MAIN)
+ 		ip6_multiple_tables = 1;
+ 
 -- 
-1.7.9.5
+2.4.3
