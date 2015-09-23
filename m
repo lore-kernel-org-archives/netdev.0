@@ -1,44 +1,62 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH next 00/84] ipvs: Stop guessing the network namespace
- (take 2)
-Date: Wed, 23 Sep 2015 09:17:27 +0900
-Message-ID: <20150923001727.GD4685@verge.net.au>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <87pp1fpy1b.fsf@x220.int.ebiederm.org>
- <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
- <87h9mplifu.fsf_-_@x220.int.ebiederm.org>
- <8737y7irc8.fsf_-_@x220.int.ebiederm.org>
- <alpine.LFD.2.11.1509221019170.3008@ja.home.ssi.bg>
- <20150922085041.GD3422@salvia>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: dsa: actually force the speed on the CPU port
+Date: Tue, 22 Sep 2015 17:19:40 -0700 (PDT)
+Message-ID: <20150922.171940.1194963289901876683.davem@davemloft.net>
+References: <E1Ze7vP-00073u-57@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, netdev@vger.kernel.org
+To: rmk+kernel@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:42414 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935138AbbIWARk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 20:17:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20150922085041.GD3422@salvia>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37438 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935105AbbIWATl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 20:19:41 -0400
+In-Reply-To: <E1Ze7vP-00073u-57@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 22, 2015 at 10:50:41AM +0200, Pablo Neira Ayuso wrote:
-> On Tue, Sep 22, 2015 at 10:22:13AM +0300, Julian Anastasov wrote:
-> [...]
-> > 
-> > 	v2 looks good to me,
-> > 
-> > Acked-by: Julian Anastasov <ja@ssi.bg>
-> 
-> Thanks a lot for reviewing Julian.
-> 
-> Simon, please let me know how you want to handle this. Thanks.
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Mon, 21 Sep 2015 21:42:59 +0100
 
-I will see about taking it through my tree (as usual).
+> Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
+> code into mv88e6xxx.") merged in the 4.2 merge window broke the link
+> speed forcing for the CPU port of Marvell DSA switches.  The original
+> code was:
+> 
+>         /* MAC Forcing register: don't force link, speed, duplex
+>          * or flow control state to any particular values on physical
+>          * ports, but force the CPU port and all DSA ports to 1000 Mb/s
+>          * full duplex.
+>          */
+>         if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
+>                 REG_WRITE(addr, 0x01, 0x003e);
+>         else
+>                 REG_WRITE(addr, 0x01, 0x0003);
+> 
+> but the new code does a read-modify-write:
+> 
+>                 reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
+>                 if (dsa_is_cpu_port(ds, port) ||
+>                     ds->dsa_port_mask & (1 << port)) {
+>                         reg |= PORT_PCS_CTRL_FORCE_LINK |
+>                                 PORT_PCS_CTRL_LINK_UP |
+>                                 PORT_PCS_CTRL_DUPLEX_FULL |
+>                                 PORT_PCS_CTRL_FORCE_DUPLEX;
+>                         if (mv88e6xxx_6065_family(ds))
+>                                 reg |= PORT_PCS_CTRL_100;
+>                         else
+>                                 reg |= PORT_PCS_CTRL_1000;
+> 
+> The link speed in the PCS control register is a two bit field.  Forcing
+> the link speed in this way doesn't ensure that the bit field is set to
+> the correct value - on the hardware I have here, the speed bitfield
+> remains set to 0x03, resulting in the speed not being forced to gigabit.
+> 
+> We must clear both bits before forcing the link speed.
+> 
+> Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+
+Applied, thanks Russell.
