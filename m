@@ -1,42 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Wed, 23 Sep 2015 16:24:17 -0700 (PDT)
-Message-ID: <20150923.162417.814596822188458346.davem@davemloft.net>
-References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Wed, 23 Sep 2015 16:26:50 -0700
+Message-ID: <20150923162650.148fe95b@urahara>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+	<1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	isubramanian-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
-	michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-To: linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150922161710.GA21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
+	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
+To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36838 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755946AbbIWX0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:26:39 -0400
+Received: by pacgz1 with SMTP id gz1so3881322pac.3
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 16:26:38 -0700 (PDT)
+In-Reply-To: <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUnVzc2VsbCBLaW5nIC0gQVJNIExpbnV4IDxsaW51eEBhcm0ubGludXgub3JnLnVrPg0K
-RGF0ZTogVHVlLCAyMiBTZXAgMjAxNSAxNzoxNzoxMCArMDEwMA0KDQo+IFRoaXMgaXMgdGhlIHNl
-Y29uZCB2ZXJzaW9uIG9mIHRoZSBzZXJpZXMsIHdpdGggdGhlIGNvbW1lbnRzIERhdmlkIGhhZA0K
-PiBvbiB0aGUgZmlyc3QgcGF0Y2ggZml4ZWQgdXAuICBPcmlnaW5hbCBzZXJpZXMgZGVzY3JpcHRp
-b24gd2l0aCB1cGRhdGVkDQo+IGRpZmZzdGF0IGJlbG93Lg0KDQpUaGlzIG5lZWRzIHNvbWUgYnVp
-bGQgZml4ZXM6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X2h3
-LmM6IEluIGZ1bmN0aW9uIKF4Z2VuZV9lbmV0X3BoeV9jb25uZWN0ojoNCmRyaXZlcnMvbmV0L2V0
-aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X2h3LmM6Njk0OjIwOiBlcnJvcjogdG9vIGZldyBh
-cmd1bWVudHMgdG8gZnVuY3Rpb24goW9mX3BoeV9jb25uZWN0og0KICAgcGRhdGEtPnBoeV9kZXYg
-PSBvZl9waHlfY29ubmVjdChuZGV2LCBwaHlfbnAsDQogICAgICAgICAgICAgICAgICAgIF4NCklu
-IGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9hcG0veGdlbmUveGdlbmVf
-ZW5ldF9tYWluLmg6MzE6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9hcG0veGdlbmUveGdlbmVfZW5ldF9ody5jOjIyOg0KaW5jbHVkZS9saW51eC9vZl9tZGlv
-Lmg6MTg6Mjc6IG5vdGU6IGRlY2xhcmVkIGhlcmUNCiBleHRlcm4gc3RydWN0IHBoeV9kZXZpY2Ug
-Km9mX3BoeV9jb25uZWN0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQogICAgICAgICAgICAgICAg
-ICAgICAgICAgICBeDQo=
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Having JSON output is going to be a real plus for programatic parsing.
+My understanding of best practice with JSON is that it is best to output values
+in best machine readable form, the format is not really meant for humans to
+directly read.
+
+Therefore I don't like the code that reformats numbers as hex.
+If the values are better displayed in hex, then it is up to the program
+parsing and presenting that to the user to do that. The JSON should
+just put out numeric values as numeric.
+
+> +/* hex conversion helper */
+> +static void jsonw_hex_as_str_outp(json_writer_t *self, uint64_t num)
+> +{
+> +	char tmp[17];
+> +
+> +	sprintf(tmp, "%"PRIx64, num);
+> +	jsonw_string(self, tmp);
+> +}
+> +
+> +static void jsonw_hex_field_outp(json_writer_t *self, const char *prop, uint64_t num)
+> +{
+> +	jsonw_name(self, prop);
+> +	jsonw_hex_as_str_outp(self, num);
+> +}
+> +
+
+Other than that, my only other discomfort is that this patch set
+makes the code grow so much larger and it becomes more complex for future
+developers.
+
+Maybe it is time to rewrite it in a better language ;-)
