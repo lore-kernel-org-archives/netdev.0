@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v4] add stealth mode
-Date: Wed, 23 Sep 2015 11:15:34 -0700 (PDT)
-Message-ID: <20150923.111534.560140422263992933.davem@davemloft.net>
-References: <1442401882.4116.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1443025932-30386-1-git-send-email-matteo@openwrt.org>
+Date: Wed, 23 Sep 2015 11:15:50 -0700 (PDT)
+Message-ID: <20150923.111550.2244251359054285055.davem@davemloft.net>
+References: <1442397259-28894-1-git-send-email-matteo@openwrt.org>
+	<20150916110629.GP24810@breakpoint.cc>
+	<CAFnufp2cyZhfy7GRbP1r7xStm4mMdcHKeXmtLDXU1=UfVxtZjQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: fw@strlen.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: matteo@openwrt.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443025932-30386-1-git-send-email-matteo@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44292 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016AbbIWSPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 14:15:51 -0400
+In-Reply-To: <CAFnufp2cyZhfy7GRbP1r7xStm4mMdcHKeXmtLDXU1=UfVxtZjQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Matteo Croce <matteo@openwrt.org>
-Date: Wed, 23 Sep 2015 18:32:12 +0200
+Date: Wed, 23 Sep 2015 18:36:12 +0200
 
-> Add option to disable any reply not related to a listening socket,
-> like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
-> Also disables ICMP replies to echo request and timestamp.
-> The stealth mode can be enabled selectively for a single interface.
-> 
-> Signed-off-by: Matteo Croce <matteo@openwrt.org>
+> The point is to do the filtering without *tables at all,
+> like /proc/sys/net/ipv4/icmp_echo_ignore_all does for pings
 
-I don't want to see any more submissions of this feature patch, sorry.
-
-I am convinced, based upon other's arguments, that netfilter can
-provide this facility wholly.
-
-So until you can convince us otherwise, your patch is inappropriate.
-
-Thanks.
+That's not a good argument, sorry.
