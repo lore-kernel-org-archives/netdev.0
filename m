@@ -1,59 +1,72 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: Race with ip=dhcp bootparameter in ip_rcv_finish on am335x
-Date: Wed, 23 Sep 2015 12:36:13 +0200
-Message-ID: <5602809D.2020500@cumulusnetworks.com>
-References: <20150923102953.GA8918@omega>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [Linux 4.2-rc8+...v4.3-rc2] REGRESSION: ppp: circular locking
+ dependency detected: [pppd] ppp_dev_uninit() | rtnl_lock()
+Date: Wed, 23 Sep 2015 12:38:03 +0200
+Message-ID: <20150923103803.GC2869@alphalink.fr>
+References: <CA+icZUXjsqw-C7mNHRYzha+1efjm3pT-eoU0wb5KhOtEkroF8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Alexander Aring <alex.aring@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sedat Dilek <sedat.dilek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:32894 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753687AbbIWKgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 06:36:16 -0400
-Received: by wiclk2 with SMTP id lk2so232552269wic.0
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 03:36:15 -0700 (PDT)
-In-Reply-To: <20150923102953.GA8918@omega>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:54097 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752512AbbIWKiG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2015 06:38:06 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+icZUXjsqw-C7mNHRYzha+1efjm3pT-eoU0wb5KhOtEkroF8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2015 12:29 PM, Alexander Aring wrote:
-> Hi,
-> 
-> I am using am335x (beaglebone white) with "ip=dhcp" inside my
-> bootparameters. It seems there exists some race, rarely it boots fine
-> and often it crashed with following messages:
-> 
-> First (Without successful dhcp ip assign and is very rarely):
-> 
-> [    6.249083] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> [    6.398943] .
-> [    7.400822] Unable to handle kernel paging request at virtual address 7402a8c8
-> [    7.408419] pgd = c0004000
-> [    7.411351] [7402a8c8] *pgd=00000000
-> [    7.415121] Internal error: Oops: 5 [#1] SMP ARM
-> [    7.419968] Modules linked in:
-> [    7.423197] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       4.2.0-11195-ge81be90 #124
-> [    7.432118] Hardware name: Generic AM33XX (Flattened Device Tree)
-> [    7.438509] task: c0a996c8 ti: c0a92000 task.ti: c0a92000
-> [    7.444189] PC is at ip_route_input_noref+0x620/0xeb4
-> [    7.449491] LR is at trace_hardirqs_on_caller+0xb0/0x1e8
-<<<snip>>>
-> [    7.759169] [<c054b49c>] (ip_route_input_noref) from [<c0550668>] (ip_rcv_finish+0xd4/0x67c)
-<<<snip>>>
-> 
-> --------
-> 
-> I tried to bisect this issue without success, sometimes it's booting fine
-> and sometimes I got the above messages. Could anybody help me here to
-> fixing this issue?
-> 
-> - Alex
+On Wed, Sep 23, 2015 at 08:06:16AM +0200, Sedat Dilek wrote:
+> Without reverting the below culprit ppp patch...
+>=20
+> commit/?id=3D8cb775bc0a34dc596837e7da03fd22c747be618b
+> ("ppp: fix device unregistration upon netns deletion")
+>=20
+> ...I have an unstable Internet connection via Network-Manager/ModemMa=
+nager.
+>=20
+> First I saw this with Linux v4.2.
+>=20
 
-Hi Alex,
-This should be fixed by commit bde6f9ded1bd 
-("net: Initialize table in fib result") in net-next.
+Thanks for reporting the issue. Can you test this patch=A0?
 
-Cheers,
- Nik
+---
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generi=
+c.c
+index 0481daf..ed00446 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -2755,6 +2755,7 @@ static struct ppp *ppp_create_interface(struct ne=
+t *net, int unit,
+ 	 */
+ 	dev_net_set(dev, net);
+=20
++	rtnl_lock();
+ 	mutex_lock(&pn->all_ppp_mutex);
+=20
+ 	if (unit < 0) {
+@@ -2785,7 +2786,7 @@ static struct ppp *ppp_create_interface(struct ne=
+t *net, int unit,
+ 	ppp->file.index =3D unit;
+ 	sprintf(dev->name, "ppp%d", unit);
+=20
+-	ret =3D register_netdev(dev);
++	ret =3D register_netdevice(dev);
+ 	if (ret !=3D 0) {
+ 		unit_put(&pn->units_idr, unit);
+ 		netdev_err(ppp->dev, "PPP: couldn't register device %s (%d)\n",
+@@ -2797,6 +2798,7 @@ static struct ppp *ppp_create_interface(struct ne=
+t *net, int unit,
+=20
+ 	atomic_inc(&ppp_unit_count);
+ 	mutex_unlock(&pn->all_ppp_mutex);
++	rtnl_unlock();
+=20
+ 	*retp =3D 0;
+ 	return ppp;
