@@ -1,94 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
-Date: Wed, 23 Sep 2015 16:09:14 -0500
-Message-ID: <878u7w6dxh.fsf@x220.int.ebiederm.org>
-References: <cover.1442936392.git.jbenc@redhat.com>
-	<87zj0d92ba.fsf@x220.int.ebiederm.org>
-	<20150923080957.GB29680@pox.localdomain>
-	<87lhbx72j2.fsf@x220.int.ebiederm.org>
-	<20150923162927.6d437a1f@griffin>
-	<8761313ud5.fsf@x220.int.ebiederm.org>
-	<20150923225456.74c5cd1d@griffin>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH 13/17] net: gianfar: remove misuse of IRQF_NO_SUSPEND flag
+Date: Wed, 23 Sep 2015 16:20:16 -0500
+Message-ID: <CADRPPNS_8PBHmm7jpindmg9pA5yEerM96JdpBtBz5BqOBFdUkw@mail.gmail.com>
+References: <1442850433-5903-1-git-send-email-sudeep.holla@arm.com>
+	<1442850433-5903-14-git-send-email-sudeep.holla@arm.com>
+	<BY2PR0301MB072700F43F00CFC273FED1B59C460@BY2PR0301MB0727.namprd03.prod.outlook.com>
+	<alpine.DEB.2.11.1509211848510.5606@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40145 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386AbbIWVQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 17:16:49 -0400
-In-Reply-To: <20150923225456.74c5cd1d@griffin> (Jiri Benc's message of "Wed,
-	23 Sep 2015 22:54:55 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Manoil Claudiu <claudiu.manoil@freescale.com>,
+	Sudeep Holla <sudeep.holla@arm.com>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kevin Hao <haokexin@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1509211848510.5606@nanos>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Benc <jbenc@redhat.com> writes:
-
-> On Wed, 23 Sep 2015 12:42:30 -0500, Eric W. Biederman wrote:
-[snip]
->> So perhaps instead of:
->> +	if (arp->ar_op == htons(ARPOP_REQUEST) && skb_metadata_dst(skb))
->> +		reply_dst = (struct dst_entry *)
->> +			    iptunnel_metadata_reply(skb_metadata_dst(skb),
->> +						    GFP_ATOMIC);
->> +
->> The code would be:
->> 	if (arp->ar_op == htons(AROP_REQUEST) && dev->ndo_reply_dst)
->> 		reply_dst = dev->ndo_reply_dst(skb, GFP_ATOMIC);
+On Mon, Sep 21, 2015 at 11:51 AM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> On Mon, 21 Sep 2015, Manoil Claudiu wrote:
+>> >The device is set as wakeup capable using proper wakeup API but the
+>> >driver misuses IRQF_NO_SUSPEND to set the interrupt as wakeup source
+>> >which is incorrect.
+>> >
+>> >This patch removes the use of IRQF_NO_SUSPEND flags replacing it with
+>> >enable_irq_wake instead.
+>> >
+>>
+>> What would be the purpose of IRQF_NO_SUSPEND flag then?  The flag is a
+>> friendlier API compared to calling enable_irq_wake().  For older kernels,
 >
-> This is something I intended to do originally. I also considered adding
-> the callback into metadata_dst itself. However, it doesn't make much
-> sense for the time being.
-
-If you convert this into the equivalent for neighbour discovery where
-the ingress metadata dst has already been lost it makes a lot of sense.
-
-Which is the question you were asking that I have been replying to as
-I think this all through.
-
-[snip]
-
-> If there's another user of metadata_dst in the future, this needs to be
-> changed anyway. We can add such ndo callback (or some other kind of
-> callback) then, if it turns out to be needed. For now, we don't need it
-> and the changes to make metadata_dst usable for other things than IP
-> tunnels are not suitable for net.git.
-
-I think you were misunderstanding what I was suggesting.
-
-I was suggesting an ndo callback that does not need an metadata dst on
-the skb but has enough information between the network device and the
-skb itself to properly construct a dst that can be used for arp and
-ndisc type replies where you want to exactly reverse the path.
-
-*Blink* You were targeting net.git with a feature enhancement????
-I will just ignore that.
-
->> For any network that does interesting things with network level
->> identifiers below IP this seems like a general problem.  Further it
->> seems more desirable to only perform an allocation when necessary,
->> rather than for every packet, and two for the packets that actually
->> need replies.
+> It's not an API, it's just a bandaid for lazy programmers.
 >
-> The metadata_dst are only allocated when requested. Look at e.g.
-> vxlan_collect_metadata function. If they're requested, it means they are
-> needed. And they certainly need to be allocated for ARP replies to such
-> packets. I don't see what could be further optimized here. Seems to me
-> that you assume that the sole purpose of why metadata_dst exist is ARP
-> which is not the case.
+>> on PPC architectures, the flag did the job.  When did this change? Since
+>> when using IRQF_NO_SUSPEND is a "misuse"?
+>
+> It always was. Simply because IRQF_NO_SUSPEND has absolutely nothing
+> to do with wakeup interrupt sources. It's a flag which excludes the
+> interrupt from the suspend mechanism, but it does not flag it a wakeup
+> source.
 
-What I was observing is that in general the only tunneled packets that
-need an ingress metadata dst for a tunneled medium ethernet like medium
-are arp and ndisc packets.  In other cases if you aren't doing something
-exceptional like openvswitch the normal routing should be sufficient.
+It was not very clear on the intended use of IRQF_NO_SUSPEND at the
+beginning as it was not documented anywhere.  It's good that we have
+the Documentation/power/suspend-and-interrupts.txt to clarify that
+now.
 
-Which means a ndo_reply_dst method could remove the need in many cases
-for an ingress metadata dst to need to be allocated.
-
-Regardless a netdevice operation that digs into the packet and figures
-out what is necessary for a reply seems like the clean way to make this
-work for both arp and neighbour discovery.
-
-Eric
+Regards,
+Leo
