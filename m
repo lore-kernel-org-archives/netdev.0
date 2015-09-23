@@ -1,128 +1,109 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Wed, 23 Sep 2015 11:54:40 -0400
-Message-ID: <20150923155440.GB26647@mtj.duckdns.org>
-References: <20150918111650.GA7508@gondor.apana.org.au>
- <20150920.225521.1063980101511317898.davem@davemloft.net>
- <20150921060636.GA30807@gondor.apana.org.au>
- <20150920.231104.525285577747035896.davem@davemloft.net>
- <20150921133415.GA1740@gondor.apana.org.au>
- <20150921182022.GB13263@mtj.duckdns.org>
- <20150922033856.GA7851@gondor.apana.org.au>
- <20150922161056.GB9761@mtj.duckdns.org>
- <20150923061342.GA19106@gondor.apana.org.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Wed, 23 Sep 2015 17:56:12 +0200
+Message-ID: <20150923155612.GC11681@nanopsycho.orion>
+References: <1442995078-10491-1-git-send-email-jiri@resnulli.us>
+ <1442995078-10491-3-git-send-email-jiri@resnulli.us>
+ <CAE4R7bBuN1Qtj+DSW1cCfYCNzDTix0t0J-zRz+yjtc7jj=NLRA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"Rosen, Rami" <rami.rosen@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:34315 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755724AbbIWP4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:56:15 -0400
+Received: by wicfx3 with SMTP id fx3so245423621wic.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:56:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20150923061342.GA19106@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAE4R7bBuN1Qtj+DSW1cCfYCNzDTix0t0J-zRz+yjtc7jj=NLRA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Herbert.
+Wed, Sep 23, 2015 at 05:46:44PM CEST, sfeldma@gmail.com wrote:
+>On Wed, Sep 23, 2015 at 12:57 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Now, the memory allocation in prepare/commit state is done separatelly
+>> in each driver (rocker). Introduce the similar mechanism in generic
+>> switchdev code, in form of queue. That can be used not only for memory
+>> allocations, but also for different items. Commit/abort item destruction
+>> is handled as well.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>> v1-v2:
+>> - added comment blocks to exported functions as suggested by Scott
+>> - made switchdev_trans_init and switchdev_trans_items_destroy static
+>> - added documentation for this to switchdev.txt as suggested by Scott
+>
+>[cut]
+>
+>> @@ -232,10 +304,13 @@ static int __switchdev_port_obj_add(struct net_device *dev,
+>>   */
+>>  int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+>>  {
+>> +       struct switchdev_trans trans;
+>>         int err;
+>>
+>>         ASSERT_RTNL();
+>>
+>> +       switchdev_trans_init(&trans);
+>> +
+>>         /* Phase I: prepare for obj add. Driver/device should fail
+>>          * here if there are going to be issues in the commit phase,
+>>          * such as lack of resources or support.  The driver/device
+>> @@ -244,7 +319,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+>>          */
+>>
+>>         obj->trans_ph = SWITCHDEV_TRANS_PREPARE;
+>> -       err = __switchdev_port_obj_add(dev, obj);
+>> +       err = __switchdev_port_obj_add(dev, obj, &trans);
+>>         if (err) {
+>>                 /* Prepare phase failed: abort the transaction.  Any
+>>                  * resources reserved in the prepare phase are
+>> @@ -253,7 +328,8 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+>>
+>>                 if (err != -EOPNOTSUPP) {
+>>                         obj->trans_ph = SWITCHDEV_TRANS_ABORT;
+>> -                       __switchdev_port_obj_add(dev, obj);
+>> +                       __switchdev_port_obj_add(dev, obj, &trans);
+>> +                       switchdev_trans_items_destroy(&trans);
+>>                 }
+>>
+>>                 return err;
+>> @@ -265,8 +341,9 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+>>          */
+>>
+>>         obj->trans_ph = SWITCHDEV_TRANS_COMMIT;
+>> -       err = __switchdev_port_obj_add(dev, obj);
+>> +       err = __switchdev_port_obj_add(dev, obj, &trans);
+>>         WARN(err, "%s: Commit of object (id=%d) failed.\n", dev->name, obj->id);
+>> +       switchdev_trans_items_destroy(&trans);
+>
+>Before this patchset, rocker would BUG_ON that the list was empty
+>after commit.  This was really helpful in finding bugs in the driver
+>as it meant the commit and prepare phases didn't follow the same code
+>path.  (Everything the driver queued in prepare was dequeued in
+>commit, so the list should be empty after commit).
+>
+>Should this last switchdev_trans_items_destroy(&trans) be replaced with:
+>
+>    BUG_ON(!list_empty(&trans.item_list));
 
-On Wed, Sep 23, 2015 at 02:13:42PM +0800, Herbert Xu wrote:
-> It doesn't matter on x86 but the semantics of smp_load_acquire
-> and smp_store_release explicitly includes a full barrier which
-> is something that we don't need.
+Sounds reasonable. Will change this.
 
-Yeah, I was confused there.  I was thinking smp_rmb() was still doing
-rmb() on x86.  smp_rmb/wmb() is the better pick here.
-
-> > I mean, read this thread.  It's one subtle breakage after another, one
-> > confusion after another.  The problematic usages of memory barriers
-> > are usually of two types.
-> 
-> smp_load_acquire/store_release isn't some kind of magic dust
-> that you can just spread around to fix races.  Whoever is writing
-> the code had better understood what the code is doing or they will
-> end up creating more bugs.
-
-Hmm... lemme try again.  When using barriers or RCU, it's desirable to
-establish certain invariants because it usually is extremely easy to
-miss corner cases.  It is helpful to have an abstraction, even if just
-conceptual, where people can go "this thing is barrier / RCU protected
-to guarantee XYZ".  Going more towards RCU example, this is why we
-annotate variables as RCU protected to detect incorrect usages.  There
-sure are exceptions but most are of the sort "this is write path and
-protected by something else which is annotated differently".  Doing
-things this way makes it a lot easier to get right.
-
-Now, going back to barrier example.  If we take a similar approach,
-there can be two cases.
-
-1. Read of the boolean is barrier protected.  It's known that the
-   condition that the boolean indicates is visible as true once the
-   test succeeds.
-
-2. Directly test the boolean inside write locking.  As the whole thing
-   is protected by the same lock, we know that the indicated condition
-   always matches what's visible.
-
-In a lot of cases, separating out 2 doesn't matter all that much and
-we sometimes skip it.  If we do that, either the protection should be
-fairly obvious or, if there are multiple of those and the code path
-isn't quite trivial, a different helper with extra lockdep annotation
-can be used.
-
-No matter what we do, please realize that we keep the invariant that
-once the test evaulates to true the visible state matches what's
-expected from such result.
-
-What you're proposing introduces a third case in the above scenario
-where how the test is performed becomes dependent on not only the
-context of the test (which often can be annotated) but also the
-following code does with the result of the test.  There are
-exceptional cases where this makes sense but it's inherently hairy and
-we only do things like that only if it's absoultely necessary and with
-a lot of caution.  That isn't the case here.
-
-You said that barriers aren't magic bullets.  Exactly, they aren't
-anything special and whatever we do with them should be a reasonable
-trade-off.  We've had incorrect and/or incomprehensible barrier usages
-but that's not because people weren't going to 11 with scrutinizing
-each deref and mixing barriered and non-barriered accesses.  If
-anything, doing things like that without good enough rationale and
-documentation (both are lacking here) is likely to lead to code base
-which is difficult to comprehend and easy to get wrong.
-
-> Having said that, I very much appreciate the work you have done
-> in reviewing my patches and pointing out holes in them.  Please
-> continue to do so and I will look at any real issues that you
-> discover.
-
-It isn't an accident that so many attempts in this thread were
-errorneous.  You are taking the wrong approach and it's gonna cause
-the same kind of failures in the future and there is no actual benefit
-we're getting out of it.
-
-> The same thing can still happen even if you use smp_load_acquire.
-> Someone may add a read prior to it or add a second smp_load_acquire
-> and then screw up the logic as we have seen in netlink_bind.
-
-So, you're worrying about the following?
-
-	portid = nlk->portid;
-	if (nlk_bound(nlk)) {
-		// use portid
-	}
-
-How is that even comparable?
-
-> As I said whoever is touching these lockless code paths need to
-> understand what is going on.  There is no easy way out.
-
-There is a pretty wide gap between "no easy way out" and "lemme make
-this as painful as possible so that people including myself get it
-wrong most of the time for no good reason".
-
-Thanks.
-
--- 
-tejun
+Thanks!
