@@ -1,254 +1,281 @@
-From: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
-Subject: Re: [PATCH v4 net-next 2/2] ipv4: ICMP packet inspection for
- multipath
-Date: Thu, 24 Sep 2015 00:07:33 +0200
-Message-ID: <20150924000733.6f169b50@pch.odense.ordbogen.com>
-References: <1443037777-25390-1-git-send-email-pch@ordbogen.com>
-	<1443037777-25390-3-git-send-email-pch@ordbogen.com>
-	<CALx6S36zdhbP=tfqhjOhO9juH_uYX+ZbgAaAZHD8HgYRN75cXg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Tom Herbert <tom@herbertland.com>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH] ethtool: Add vmxnet3 register dump support
+Date: Wed, 23 Sep 2015 15:19:12 -0700
+Message-ID: <1443046752-28892-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Bhavesh Davda <bhavesh@vmware.com>
+To: bwh@kernel.org, netdev@vger.kernel.org, pv-drivers@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ordbogen.com ([91.240.88.21]:53204 "EHLO mail.ordbogen.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753248AbbIWWHf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:07:35 -0400
-In-Reply-To: <CALx6S36zdhbP=tfqhjOhO9juH_uYX+ZbgAaAZHD8HgYRN75cXg@mail.gmail.com>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:47777 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754112AbbIWWTP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 18:19:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Sep 2015 14:01:23 -0700
-Tom Herbert <tom@herbertland.com> wrote:
+This adds support for dumping vmxnet3 registers in a readable format.
 
-> On Wed, Sep 23, 2015 at 12:49 PM, Peter N=C3=B8rlund <pch@ordbogen.co=
-m>
-> wrote:
-> > ICMP packets are inspected to let them route together with the flow
-> > they belong to, minimizing the chance that a problematic path will
-> > affect flows on other paths, and so that anycast environments can
-> > work with ECMP.
-> >
-> > Signed-off-by: Peter N=C3=B8rlund <pch@ordbogen.com>
-> > ---
-> >  include/net/route.h |   11 +++++++++-
-> >  net/ipv4/icmp.c     |   19 ++++++++++++++++-
-> >  net/ipv4/route.c    |   57
-> > +++++++++++++++++++++++++++++++++++++++++++++------ 3 files
-> > changed, 79 insertions(+), 8 deletions(-)
-> >
-> > diff --git a/include/net/route.h b/include/net/route.h
-> > index 10a7d21..0f7abdc 100644
-> > --- a/include/net/route.h
-> > +++ b/include/net/route.h
-> > @@ -28,6 +28,7 @@
-> >  #include <net/inetpeer.h>
-> >  #include <net/flow.h>
-> >  #include <net/inet_sock.h>
-> > +#include <net/ip_fib.h>
-> >  #include <linux/in_route.h>
-> >  #include <linux/rtnetlink.h>
-> >  #include <linux/rcupdate.h>
-> > @@ -112,7 +113,15 @@ struct in_device;
-> >  int ip_rt_init(void);
-> >  void rt_cache_flush(struct net *net);
-> >  void rt_flush_dev(struct net_device *dev);
-> > -struct rtable *__ip_route_output_key(struct net *, struct flowi4
-> > *flp); +struct rtable *__ip_route_output_key_hash(struct net *,
-> > struct flowi4 *flp,
-> > +                                         int mp_hash);
-> > +
-> > +static inline struct rtable *__ip_route_output_key(struct net *net=
-,
-> > +                                                  struct flowi4
-> > *flp) +{
-> > +       return __ip_route_output_key_hash(net, flp, -1);
-> > +}
-> > +
-> >  struct rtable *ip_route_output_flow(struct net *, struct flowi4
-> > *flp, struct sock *sk);
-> >  struct dst_entry *ipv4_blackhole_route(struct net *net,
-> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> > index 79fe05b..f81daca 100644
-> > --- a/net/ipv4/icmp.c
-> > +++ b/net/ipv4/icmp.c
-> > @@ -440,6 +440,22 @@ out_unlock:
-> >         icmp_xmit_unlock(sk);
-> >  }
-> >
-> > +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> > +
-> > +/* Source and destination is swapped. See ip_multipath_icmp_hash *=
-/
-> > +static int icmp_multipath_hash_skb(const struct sk_buff *skb)
-> > +{
-> > +       const struct iphdr *iph =3D ip_hdr(skb);
-> > +
-> > +       return fib_multipath_hash(iph->daddr, iph->saddr);
-> > +}
-> > +
-> > +#else
-> > +
-> > +#define icmp_multipath_hash_skb(skb) (-1)
-> > +
-> > +#endif
-> > +
-> >  static struct rtable *icmp_route_lookup(struct net *net,
-> >                                         struct flowi4 *fl4,
-> >                                         struct sk_buff *skb_in,
-> > @@ -464,7 +480,8 @@ static struct rtable *icmp_route_lookup(struct
-> > net *net, fl4->flowi4_oif =3D vrf_master_ifindex(skb_in->dev) ? :
-> > skb_in->dev->ifindex;
-> >
-> >         security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
-> > -       rt =3D __ip_route_output_key(net, fl4);
-> > +       rt =3D __ip_route_output_key_hash(net, fl4,
-> > +
-> > icmp_multipath_hash_skb(skb_in)); if (IS_ERR(rt))
-> >                 return rt;
-> >
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 3dc83b6..29048e1 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -1652,6 +1652,48 @@ out:
-> >         return err;
-> >  }
-> >
-> > +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> > +
-> > +/* To make ICMP packets follow the right flow, the multipath hash
-> > is
-> > + * calculated from the inner IP addresses in reverse order.
-> > + */
-> > +static int ip_multipath_icmp_hash(struct sk_buff *skb)
-> > +{
->=20
-> This seems like overkill to me. Even if you do this on the host no
-> device in the network is going to crack open ICMP like this for doing
-> its ECMP. I suppose the argument is that this is another hack needed
-> to make anycast "work"...
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+Acked-by: Srividya Murali <smurali@vmware.com>
+---
+ Makefile.am |   2 +-
+ ethtool.c   |   2 +
+ internal.h  |   3 +
+ vmxnet3.c   | 198 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 204 insertions(+), 1 deletion(-)
+ create mode 100644 vmxnet3.c
 
-True, this is only _really_ needed for anycast setups, although with
-IPv4 it is solvable by disabling PMTU on the anycast machines, or using
-Packetization Layer Path MTU Discovery. IPv6 is actually more impacted
-by it (There is an IETF draft in the making,
-draft-ietf-v6ops-pmtud-ecmp-problem-04).
-
-I fully understand if the final verdict on the ICMP-handling is a
-loud NO!, but my rationale for trying anyway is as follows:
-
-1. The before-mentioned IETF draft actually recommends the behavior if
-possible.
-
-2. Non-anycast setups may also benefit from it by truly isolating
-which flows are affected by which paths. If one path was experiencing
-packet loss or delays or whatever, it could affect the ICMP errors
-packets of the flows on the other paths.
-
-3. I did consider making it a sysctl thing, but having it always on
-doesn't break anything for anybody, yet it solves something for a few.
-
-4. The alternative solutions I've seen today involves running a user
-space daemon which receives the ICMP packets through NFLOG and then
-broadcasts the packets to all paths. Compared to that, this if far more
-efficient.
-
->=20
-> > +       const struct iphdr *outer_iph =3D ip_hdr(skb);
-> > +       struct icmphdr _icmph;
-> > +       const struct icmphdr *icmph;
-> > +       struct iphdr _inner_iph;
-> > +       const struct iphdr *inner_iph;
-> > +
-> > +       if (unlikely((outer_iph->frag_off & htons(IP_OFFSET)) !=3D =
-0))
-> > +               goto standard_hash;
-> > +
-> > +       icmph =3D skb_header_pointer(skb, outer_iph->ihl * 4,
-> > sizeof(_icmph),
-> > +                                  &_icmph);
-> > +       if (!icmph)
-> > +               goto standard_hash;
-> > +
-> > +       if (icmph->type !=3D ICMP_DEST_UNREACH &&
-> > +           icmph->type !=3D ICMP_REDIRECT &&
-> > +           icmph->type !=3D ICMP_TIME_EXCEEDED &&
-> > +           icmph->type !=3D ICMP_PARAMETERPROB) {
-> > +               goto standard_hash;
-> > +       }
-> > +
-> > +       inner_iph =3D skb_header_pointer(skb,
-> > +                                      outer_iph->ihl * 4 +
-> > sizeof(_icmph),
-> > +                                      sizeof(_inner_iph),
-> > &_inner_iph);
-> > +       if (!inner_iph)
-> > +               goto standard_hash;
-> > +
-> > +       return fib_multipath_hash(inner_iph->daddr,
-> > inner_iph->saddr); +
-> > +standard_hash:
-> > +       return fib_multipath_hash(outer_iph->saddr,
-> > outer_iph->daddr); +}
-> > +
-> > +#endif /* CONFIG_IP_ROUTE_MULTIPATH */
-> > +
-> >  static int ip_mkroute_input(struct sk_buff *skb,
-> >                             struct fib_result *res,
-> >                             const struct flowi4 *fl4,
-> > @@ -1662,7 +1704,10 @@ static int ip_mkroute_input(struct sk_buff
-> > *skb, if (res->fi && res->fi->fib_nhs > 1) {
-> >                 int h;
-> >
-> > -               h =3D fib_multipath_hash(saddr, daddr);
-> > +               if (unlikely(ip_hdr(skb)->protocol =3D=3D IPPROTO_I=
-CMP))
-> > +                       h =3D ip_multipath_icmp_hash(skb);
-> > +               else
-> > +                       h =3D fib_multipath_hash(saddr, daddr);
-> >                 fib_select_multipath(res, h);
-> >         }
-> >  #endif
-> > @@ -2032,7 +2077,8 @@ add:
-> >   * Major route resolver routine.
-> >   */
-> >
-> > -struct rtable *__ip_route_output_key(struct net *net, struct
-> > flowi4 *fl4) +struct rtable *__ip_route_output_key_hash(struct net
-> > *net, struct flowi4 *fl4,
-> > +                                         int mp_hash)
-> >  {
-> >         struct net_device *dev_out =3D NULL;
-> >         __u8 tos =3D RT_FL_TOS(fl4);
-> > @@ -2195,10 +2241,9 @@ struct rtable *__ip_route_output_key(struct
-> > net *net, struct flowi4 *fl4)
-> >
-> >  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> >         if (res.fi->fib_nhs > 1 && fl4->flowi4_oif =3D=3D 0) {
-> > -               int h;
-> > -
-> > -               h =3D fib_multipath_hash(fl4->saddr, fl4->daddr);
-> > -               fib_select_multipath(&res, h);
-> > +               if (mp_hash < 0)
-> > +                       mp_hash =3D fib_multipath_hash(fl4->saddr,
-> > fl4->daddr);
-> > +               fib_select_multipath(&res, mp_hash);
-> >         }
-> >         else
-> >  #endif
-> > --
-> > 1.7.10.4
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Makefile.am b/Makefile.am
+index 4698d16..6814bc9 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -13,7 +13,7 @@ ethtool_SOURCES += \
+ 		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
+ 		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
+ 		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c	\
+-		  sfpid.c sfpdiag.c ixgbevf.c tse.c
++		  sfpid.c sfpdiag.c ixgbevf.c tse.c vmxnet3.c
+ endif
+ 
+ TESTS = test-cmdline test-features
+diff --git a/ethtool.c b/ethtool.c
+index 01b13a6..92c40b8 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -20,6 +20,7 @@
+  *	Copyright 2009, 2010 Solarflare Communications
+  * MDI-X set support by Jesse Brandeburg <jesse.brandeburg@intel.com>
+  *	Copyright 2012 Intel Corporation
++ * vmxnet3 support by Shrikrishna Khare <skhare@vmware.com>
+  *
+  * TODO:
+  *   * show settings for all devices
+@@ -974,6 +975,7 @@ static const struct {
+ 	{ "st_gmac", st_gmac_dump_regs },
+ 	{ "et131x", et131x_dump_regs },
+ 	{ "altera_tse", altera_tse_dump_regs },
++	{ "vmxnet3", vmxnet3_dump_regs },
+ #endif
+ };
+ 
+diff --git a/internal.h b/internal.h
+index 262a39f..444810d 100644
+--- a/internal.h
++++ b/internal.h
+@@ -248,6 +248,9 @@ int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ int altera_tse_dump_regs(struct ethtool_drvinfo *info,
+ 			 struct ethtool_regs *regs);
+ 
++/* VMware vmxnet3 ethernet controller */
++int vmxnet3_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
++
+ /* Rx flow classification */
+ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 			   struct ethtool_rx_flow_spec *fsp);
+diff --git a/vmxnet3.c b/vmxnet3.c
+new file mode 100644
+index 0000000..621d02f
+--- /dev/null
++++ b/vmxnet3.c
+@@ -0,0 +1,198 @@
++/* Copyright (c) 2015 VMware Inc.*/
++#include <stdio.h>
++#include "internal.h"
++
++int
++vmxnet3_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	u32 *regs_buff = (u32 *)regs->data;
++	u32 version = regs->version;
++	int i = 0, j = 0, cnt;
++
++	if (version != 2)
++		return -1;
++
++	fprintf(stdout, "Control Registers\n");
++	fprintf(stdout, "=================\n");
++
++	fprintf(stdout,
++		"    VRRS (Vmxnet3 Revision Report and Selection)    0x%x\n",
++		regs_buff[j++]);
++	fprintf(stdout,
++		"    UVRS (UPT Version Report and Selection)         0x%x\n",
++		regs_buff[j++]);
++	fprintf(stdout,
++		"    DSA  (Driver Shared Address)                    0x%08x%08x\n",
++		regs_buff[j+1], regs_buff[j]);
++	j += 2;
++	fprintf(stdout,
++		"    CMD  (Command Register)                         0x%x\n",
++		regs_buff[j++]);
++	fprintf(stdout,
++		"    MAC  (Media Access Control address)             %02x:%02x:%02x:%02x:%02x:%02x\n",
++		regs_buff[j] & 0xff,
++		(regs_buff[j] >> 8)  & 0xff,
++		(regs_buff[j] >> 16) & 0xff,
++		(regs_buff[j] >> 24) & 0xff,
++		regs_buff[j + 1] & 0xff,
++		(regs_buff[j + 1] >> 8)  & 0xff);
++	j += 2;
++	fprintf(stdout,
++		"    ICR  (Interrupt Cause Register)                 0x%x\n",
++		regs_buff[j++]);
++	fprintf(stdout,
++		"    ECR  (Event Cause Register)                     0x%x\n",
++		regs_buff[j++]);
++
++	fprintf(stdout, "Datapath Registers\n");
++	fprintf(stdout, "==================\n");
++
++	/* Interrupt Mask Registers */
++	cnt = regs_buff[j++];
++	for (i = 0; i < cnt; i++) {
++		fprintf(stdout,
++			"    IMR (Interrupt Mask Register) %d                 0x%x\n",
++			i, regs_buff[j++]);
++	}
++
++	/* Transmit Queue Registers */
++	cnt = regs_buff[j++];
++	for (i = 0; i < cnt; i++) {
++		fprintf(stdout, "    Transmit Queue %d\n", i);
++		fprintf(stdout, "    ----------------\n");
++		fprintf(stdout,
++			"        TXPROD (Transmit Ring Producer Register)    0x%x\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"        Transmit Ring\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            Size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2fill                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2comp                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            gen                                     %u\n",
++			regs_buff[j++]);
++
++		fprintf(stdout,
++			"        Transmit Data Ring\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            Size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            Buffer Size                             %u\n",
++			regs_buff[j++]);
++
++		fprintf(stdout,
++			"        Transmit Completion Ring\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2proc                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            gen                                     %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"        stopped                                     %u\n",
++			regs_buff[j++]);
++	}
++
++	/* Receive Queue Registers */
++	cnt = regs_buff[j++];
++	for (i = 0; i < cnt; i++) {
++		fprintf(stdout, "    Receive Queue %d\n", i);
++		fprintf(stdout, "    ----------------\n");
++		fprintf(stdout,
++			"        RXPROD1 (Receive Ring Producer Register) 1  0x%x\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"        RXPROD2 (Receive Ring Producer Register) 2  0x%x\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"        Receive Ring 0\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            Size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2fill                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2comp                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            gen                                     %u\n",
++			regs_buff[j++]);
++
++		fprintf(stdout,
++			"        Receive Ring 1\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            Size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2fill                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2comp                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            gen                                     %u\n",
++			regs_buff[j++]);
++
++		fprintf(stdout,
++			"        Receive Data Ring\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            Size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            Buffer Size                             %u\n",
++			regs_buff[j++]);
++
++		fprintf(stdout,
++			"        Receive Completion Ring\n");
++		fprintf(stdout,
++			"            Base Address                            0x%08x%08x\n",
++			regs_buff[j+1], regs_buff[j]);
++		j += 2;
++		fprintf(stdout,
++			"            size                                    %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            next2proc                               %u\n",
++			regs_buff[j++]);
++		fprintf(stdout,
++			"            gen                                     %u\n",
++			regs_buff[j++]);
++	}
++
++	return 0;
++}
+-- 
+1.8.5.6
