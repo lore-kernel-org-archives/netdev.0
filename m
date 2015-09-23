@@ -1,69 +1,69 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] phy: marvell: add link partner advertised modes
-Date: Thu, 24 Sep 2015 00:07:17 +0100
-Message-ID: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
+Date: Thu, 24 Sep 2015 01:08:08 +0200
+Message-ID: <20150923230808.GA12825@pox.localdomain>
+References: <cover.1442936392.git.jbenc@redhat.com>
+ <87zj0d92ba.fsf@x220.int.ebiederm.org>
+ <20150923080957.GB29680@pox.localdomain>
+ <87lhbx72j2.fsf@x220.int.ebiederm.org>
+ <20150923162927.6d437a1f@griffin>
+ <8761313ud5.fsf@x220.int.ebiederm.org>
+ <20150923225456.74c5cd1d@griffin>
+ <878u7w6dxh.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:42870 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755310AbbIWXHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:07:23 -0400
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36663 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755779AbbIWXIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 19:08:11 -0400
+Received: by wicgb1 with SMTP id gb1so226736548wic.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 16:08:09 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <878u7w6dxh.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Read the standard link partner advertisment registers and store it in
-phydev->lp_advertising, so ethtool can report this information to
-userspace via ethtool.  Zero it as per genphy if autonegotiation is
-disabled.  Tested with a Marvell 88E1512 PHY.
+On 09/23/15 at 04:09pm, Eric W. Biederman wrote:
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/phy/marvell.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+[...]
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index e6897b6a8a53..5de8d5827536 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -785,6 +785,7 @@ static int marvell_read_status(struct phy_device *phydev)
- 	int adv;
- 	int err;
- 	int lpa;
-+	int lpagb;
- 	int status = 0;
- 
- 	/* Update the link, but return if there
-@@ -802,10 +803,17 @@ static int marvell_read_status(struct phy_device *phydev)
- 		if (lpa < 0)
- 			return lpa;
- 
-+		lpagb = phy_read(phydev, MII_STAT1000);
-+		if (lpagb < 0)
-+			return lpagb;
-+
- 		adv = phy_read(phydev, MII_ADVERTISE);
- 		if (adv < 0)
- 			return adv;
- 
-+		phydev->lp_advertising = mii_stat1000_to_ethtool_lpa_t(lpagb) |
-+					 mii_lpa_to_ethtool_lpa_t(lpa);
-+
- 		lpa &= adv;
- 
- 		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
-@@ -853,6 +861,7 @@ static int marvell_read_status(struct phy_device *phydev)
- 			phydev->speed = SPEED_10;
- 
- 		phydev->pause = phydev->asym_pause = 0;
-+		phydev->lp_advertising = 0;
- 	}
- 
- 	return 0;
--- 
-2.1.0
+> *Blink* You were targeting net.git with a feature enhancement????
+> I will just ignore that.
+
+The point of this series is to not expose the src and dst port Netlink
+bits to user space in a released kernel because the ABI is not set in
+stone yet. Hence targeting net.
+
+If patch 1 is regarded unacceptable we should at least pull in patch 2
+to not expose these bits until this has been worked out to leave the
+option proposed here on the table.
+
+> What I was observing is that in general the only tunneled packets that
+> need an ingress metadata dst for a tunneled medium ethernet like medium
+> are arp and ndisc packets.  In other cases if you aren't doing something
+> exceptional like openvswitch the normal routing should be sufficient.
+> 
+> Which means a ndo_reply_dst method could remove the need in many cases
+> for an ingress metadata dst to need to be allocated.
+
+The tunnel RX metadata collected is used to associate packets matching
+a particular tunnel id with the appropriate virtual networks by forwarding
+them to a separate netns, separate VRF device or a separate bridge.
+
+More sophisticated hypervisors may run multiple tunnel endpoints on
+the same host using different host addresses and differentiate packets
+based on the underlay destination IP as well.
+
+> Regardless a netdevice operation that digs into the packet and figures
+> out what is necessary for a reply seems like the clean way to make this
+> work for both arp and neighbour discovery.
+
+I'm not disagreeing entirely although I disagree that you can do the
+NDO without looking at the original metadata dst. Even a full fib
+lookup based on the requested IP in the ARP header is somewhat error
+prone. I fully agree though that once we support additional types
+besides IP tunneling then such an NDO might in fact make sense.
