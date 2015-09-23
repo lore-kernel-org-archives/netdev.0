@@ -1,149 +1,107 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 4/7] 8139cp: Reduce duplicate csum/tso code in
- cp_start_xmit()
-Date: Wed, 23 Sep 2015 09:44:57 +0100
-Message-ID: <1442997897.36485.48.camel@infradead.org>
+Subject: [PATCH 5/7] 8139cp: Fix DMA unmapping of transmitted buffers
+Date: Wed, 23 Sep 2015 09:45:16 +0100
+Message-ID: <1442997916.36485.49.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-I7P2stIYuSCycGnDB5MS"
+	boundary="=-KcVRc0p8N6TLMoUbgmo5"
 Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:60764 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:60871 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904AbbIWIpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:00 -0400
+	with ESMTP id S1753151AbbIWIpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:19 -0400
 In-Reply-To: <1442996049.36485.32.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-I7P2stIYuSCycGnDB5MS
+--=-KcVRc0p8N6TLMoUbgmo5
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-We calculate the value of the opts1 descriptor field in three different
-places. With two different behaviours when given an invalid packet to
-be checksummed =E2=80=94 none of them correct. Sort that out.
+The low 16 bits of the 'opts1' field in the TX descriptor are supposed
+to still contain the buffer length when the descriptor is handed back to
+us. In practice, at least on my hardware, they don't. So stash the
+original value of the opts1 field and get the length to unmap from
+there.
+
+There are other ways we could have worked out the length, but I actually
+want a stash of the opts1 field anyway so that I can dump it alongside
+the contents of the descriptor ring when we suffer a TX timeout.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 61 ++++++++++++-------------------=
-----
- 1 file changed, 20 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 75a8cee..b3bd8b1 100644
+index b3bd8b1..ec6bd86 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -733,7 +733,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- {
- 	struct cp_private *cp =3D netdev_priv(dev);
- 	unsigned entry;
--	u32 eor, flags;
-+	u32 eor, opts1;
- 	unsigned long intr_flags;
- 	__le32 opts2;
- 	int mss =3D 0;
-@@ -753,6 +753,21 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 	mss =3D skb_shinfo(skb)->gso_size;
+@@ -341,6 +341,7 @@ struct cp_private {
+ 	unsigned		tx_tail;
+ 	struct cp_desc		*tx_ring;
+ 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
++	u32			tx_opts[CP_TX_RING_SIZE];
 =20
- 	opts2 =3D cpu_to_le32(cp_tx_vlan_tag(skb));
-+	opts1 =3D DescOwn;
-+	if (mss)
-+		opts1 |=3D LargeSend | ((mss & MSSMask) << MSSShift);
-+	else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
-+		const struct iphdr *ip =3D ip_hdr(skb);
-+		if (ip->protocol =3D=3D IPPROTO_TCP)
-+			opts1 |=3D IPCS | TCPCS;
-+		else if (ip->protocol =3D=3D IPPROTO_UDP)
-+			opts1 |=3D IPCS | UDPCS;
-+		else {
-+			WARN_ONCE(1,
-+				  "Net bug: asked to checksum invalid Legacy IP packet\n");
-+			goto out_dma_error;
-+		}
-+	}
+ 	unsigned		rx_buf_sz;
+ 	unsigned		wol_enabled : 1; /* Is Wake-on-LAN enabled? */
+@@ -665,7 +666,7 @@ static void cp_tx (struct cp_private *cp)
+ 		BUG_ON(!skb);
 =20
- 	if (skb_shinfo(skb)->nr_frags =3D=3D 0) {
- 		struct cp_desc *txd =3D &cp->tx_ring[entry];
-@@ -768,21 +783,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		txd->addr =3D cpu_to_le64(mapping);
- 		wmb();
+ 		dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
+-				 le32_to_cpu(txd->opts1) & 0xffff,
++				 cp->tx_opts[tx_tail] & 0xffff,
+ 				 PCI_DMA_TODEVICE);
 =20
--		flags =3D eor | len | DescOwn | FirstFrag | LastFrag;
--
--		if (mss)
--			flags |=3D LargeSend | ((mss & MSSMask) << MSSShift);
--		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
--			const struct iphdr *ip =3D ip_hdr(skb);
--			if (ip->protocol =3D=3D IPPROTO_TCP)
--				flags |=3D IPCS | TCPCS;
--			else if (ip->protocol =3D=3D IPPROTO_UDP)
--				flags |=3D IPCS | UDPCS;
--			else
--				WARN_ON(1);	/* we need a WARN() */
--		}
-+		opts1 |=3D eor | len | FirstFrag | LastFrag;
-=20
--		txd->opts1 =3D cpu_to_le32(flags);
-+		txd->opts1 =3D cpu_to_le32(opts1);
+ 		if (status & LastFrag) {
+@@ -789,6 +790,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
  		wmb();
 =20
  		cp->tx_skb[entry] =3D skb;
-@@ -793,7 +796,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		u32 first_len, first_eor, ctrl;
- 		dma_addr_t first_mapping;
- 		int frag, first_entry =3D entry;
--		const struct iphdr *ip =3D ip_hdr(skb);
++		cp->tx_opts[entry] =3D opts1;
+ 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
+ 			  entry, skb->len);
+ 	} else {
+@@ -839,6 +841,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
 =20
- 		/* We must give this initial chunk to the device last.
- 		 * Otherwise we could race with the device.
-@@ -825,19 +827,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			txd->opts1 =3D cpu_to_le32(ctrl);
+ 			wmb();
++
++			cp->tx_opts[entry] =3D ctrl;
+ 			cp->tx_skb[entry] =3D skb;
+ 		}
 =20
- 			eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
-=20
--			ctrl =3D eor | len | DescOwn;
--
--			if (mss)
--				ctrl |=3D LargeSend |
--					((mss & MSSMask) << MSSShift);
--			else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
--				if (ip->protocol =3D=3D IPPROTO_TCP)
--					ctrl |=3D IPCS | TCPCS;
--				else if (ip->protocol =3D=3D IPPROTO_UDP)
--					ctrl |=3D IPCS | UDPCS;
--				else
--					BUG();
--			}
-+			ctrl =3D opts1 | eor | len;
-=20
- 			if (frag =3D=3D skb_shinfo(skb)->nr_frags - 1)
- 				ctrl |=3D LastFrag;
-@@ -857,18 +847,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		txd->addr =3D cpu_to_le64(first_mapping);
- 		wmb();
-=20
--		ctrl =3D first_eor | first_len | FirstFrag | DescOwn;
--		if (mss)
--			ctrl |=3D LargeSend | ((mss & MSSMask) << MSSShift);
--		else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
--			if (ip->protocol =3D=3D IPPROTO_TCP)
--				ctrl |=3D IPCS | TCPCS;
--			else if (ip->protocol =3D=3D IPPROTO_UDP)
--				ctrl |=3D IPCS | UDPCS;
--			else
--				BUG();
--		}
--
-+		ctrl =3D opts1 | first_eor | first_len | FirstFrag;
+@@ -851,6 +855,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
  		txd->opts1 =3D cpu_to_le32(ctrl);
  		wmb();
 =20
++		cp->tx_opts[first_entry] =3D ctrl;
+ 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
+ 			  first_entry, entry, skb->len);
+ 	}
+@@ -1093,6 +1098,7 @@ static int cp_init_rings (struct cp_private *cp)
+ {
+ 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
+ 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 =3D cpu_to_le32(RingEnd);
++	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
+=20
+ 	cp_init_rings_index(cp);
+=20
+@@ -1150,6 +1156,7 @@ static void cp_clean_rings (struct cp_private *cp)
+=20
+ 	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
+ 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
++	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
+=20
+ 	memset(cp->rx_skb, 0, sizeof(struct sk_buff *) * CP_RX_RING_SIZE);
+ 	memset(cp->tx_skb, 0, sizeof(struct sk_buff *) * CP_TX_RING_SIZE);
 --=20
 2.4.3
 
@@ -151,7 +109,7 @@ index 75a8cee..b3bd8b1 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-I7P2stIYuSCycGnDB5MS
+--=-KcVRc0p8N6TLMoUbgmo5
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -244,18 +202,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMDg0NDU3WjAjBgkqhkiG9w0BCQQxFgQUgFBi4gZHRpXo510aGNxnB294O8kw
+CQUxDxcNMTUwOTIzMDg0NTE2WjAjBgkqhkiG9w0BCQQxFgQUTibZ8Lf5+UZnsud+mvbXb1hNqJ4w
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQCKbzmnrcwJS7Td01sfZwSim26o4jBIDfOmxxNU5IBrxU6qS0M0Iyf7+FCr
-35GwmUlny0zoF3j9b04cd7+sHrL699KCej7KHYcUhZ1AyIUtRpnqBV9nGB5wCQdd3AAMq2Afe0Ws
-PeVbCsaT67IpE8MuFrBsdzY6aXHeHi6htCNGmwNJyO/Lix0jlRA2yGNwCNnWsmdg4w9nDqxaav06
-/++VgvrjO3dSroy4HvTDr0SPaqO2mlIjm2Pws9qtdzxxVVKw/Gy9kcMhxf2zoty99JzF0OGhi3aC
-WjBAO34Kvnhljdyw9H/RAwxWBp/WjPycl1MMlJReNYq4vW9Dbg6N7XcYAAAAAAAA
+hkiG9w0BAQEFAASCAQB0OjReLQYX4jatxbhel7ULv5DxP78p5BDkx6LUggyGLDjFkXgkhBLkYFVJ
+VuwnNNcyBzQPEtAJC42OKPYhoUjo8R9mGxbLJEYN9xBFuWNsGbur5l25duEWpQGVr/byAxhqdxFn
+EpnZ1Jt+BIm0gSEFrW10iavBxzCW892SUAcZJWdy1iSlR44Q9fwevxabF1RaT870wnLDTyyvgqck
+ixG4swZwzb3YN6gVooLGqHMLxRI6z57tJSnUU6qrtiSJFOCPdYYsPqqTKd4WXP+4aacOsVldCO0Q
+fFr0ut6wG8RIVSEIcj3J9xMS7zglBT4eIKWd41Aer90ZvBRYXFIlfdTlAAAAAAAA
 
 
---=-I7P2stIYuSCycGnDB5MS--
+--=-KcVRc0p8N6TLMoUbgmo5--
