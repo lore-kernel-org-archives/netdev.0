@@ -1,107 +1,60 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 5/7] 8139cp: Fix DMA unmapping of transmitted buffers
-Date: Wed, 23 Sep 2015 09:45:16 +0100
-Message-ID: <1442997916.36485.49.camel@infradead.org>
+Subject: [PATCH 7/7] 8139cp: Enable offload features by default
+Date: Wed, 23 Sep 2015 09:46:09 +0100
+Message-ID: <1442997969.36485.51.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-KcVRc0p8N6TLMoUbgmo5"
+	boundary="=-Ii6fx3MXVuKd8cA4hiNs"
 Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:60871 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:32969 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753151AbbIWIpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:19 -0400
+	with ESMTP id S1752858AbbIWIqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:46:11 -0400
 In-Reply-To: <1442996049.36485.32.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-KcVRc0p8N6TLMoUbgmo5
+--=-Ii6fx3MXVuKd8cA4hiNs
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-The low 16 bits of the 'opts1' field in the TX descriptor are supposed
-to still contain the buffer length when the descriptor is handed back to
-us. In practice, at least on my hardware, they don't. So stash the
-original value of the opts1 field and get the length to unmap from
-there.
+I fixed TSO. Hardware checksum and scatter/gather also appear to be
+working correctly both on real hardware and in QEMU's emulation.
 
-There are other ways we could have worked out the length, but I actually
-want a stash of the opts1 field anyway so that I can dump it alongside
-the contents of the descriptor ring when we suffer a TX timeout.
+Let's enable them by default and see if anyone screams...
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/8139cp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index b3bd8b1..ec6bd86 100644
+index 686334f..e5173f3 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -341,6 +341,7 @@ struct cp_private {
- 	unsigned		tx_tail;
- 	struct cp_desc		*tx_ring;
- 	struct sk_buff		*tx_skb[CP_TX_RING_SIZE];
-+	u32			tx_opts[CP_TX_RING_SIZE];
+@@ -1983,12 +1983,12 @@ static int cp_init_one (struct pci_dev *pdev, const=
+ struct pci_device_id *ent)
+ 	dev->ethtool_ops =3D &cp_ethtool_ops;
+ 	dev->watchdog_timeo =3D TX_TIMEOUT;
 =20
- 	unsigned		rx_buf_sz;
- 	unsigned		wol_enabled : 1; /* Is Wake-on-LAN enabled? */
-@@ -665,7 +666,7 @@ static void cp_tx (struct cp_private *cp)
- 		BUG_ON(!skb);
+-	dev->features |=3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
++	dev->features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
++		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
 =20
- 		dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
--				 le32_to_cpu(txd->opts1) & 0xffff,
-+				 cp->tx_opts[tx_tail] & 0xffff,
- 				 PCI_DMA_TODEVICE);
+ 	if (pci_using_dac)
+ 		dev->features |=3D NETIF_F_HIGHDMA;
 =20
- 		if (status & LastFrag) {
-@@ -789,6 +790,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		wmb();
-=20
- 		cp->tx_skb[entry] =3D skb;
-+		cp->tx_opts[entry] =3D opts1;
- 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
- 			  entry, skb->len);
- 	} else {
-@@ -839,6 +841,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
-=20
- 			txd->opts1 =3D cpu_to_le32(ctrl);
- 			wmb();
-+
-+			cp->tx_opts[entry] =3D ctrl;
- 			cp->tx_skb[entry] =3D skb;
- 		}
-=20
-@@ -851,6 +855,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		txd->opts1 =3D cpu_to_le32(ctrl);
- 		wmb();
-=20
-+		cp->tx_opts[first_entry] =3D ctrl;
- 		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
- 			  first_entry, entry, skb->len);
- 	}
-@@ -1093,6 +1098,7 @@ static int cp_init_rings (struct cp_private *cp)
- {
- 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
- 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 =3D cpu_to_le32(RingEnd);
-+	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
-=20
- 	cp_init_rings_index(cp);
-=20
-@@ -1150,6 +1156,7 @@ static void cp_clean_rings (struct cp_private *cp)
-=20
- 	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
- 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
-+	memset(cp->tx_opts, 0, sizeof(cp->tx_opts));
-=20
- 	memset(cp->rx_skb, 0, sizeof(struct sk_buff *) * CP_RX_RING_SIZE);
- 	memset(cp->tx_skb, 0, sizeof(struct sk_buff *) * CP_TX_RING_SIZE);
+-	/* disabled by default until verified */
+ 	dev->hw_features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
 --=20
 2.4.3
 
@@ -109,7 +62,7 @@ index b3bd8b1..ec6bd86 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-KcVRc0p8N6TLMoUbgmo5
+--=-Ii6fx3MXVuKd8cA4hiNs
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -202,18 +155,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMDg0NTE2WjAjBgkqhkiG9w0BCQQxFgQUTibZ8Lf5+UZnsud+mvbXb1hNqJ4w
+CQUxDxcNMTUwOTIzMDg0NjA5WjAjBgkqhkiG9w0BCQQxFgQUHu4+kZ8g80dbzwSFaTrMJ51x4Pgw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQB0OjReLQYX4jatxbhel7ULv5DxP78p5BDkx6LUggyGLDjFkXgkhBLkYFVJ
-VuwnNNcyBzQPEtAJC42OKPYhoUjo8R9mGxbLJEYN9xBFuWNsGbur5l25duEWpQGVr/byAxhqdxFn
-EpnZ1Jt+BIm0gSEFrW10iavBxzCW892SUAcZJWdy1iSlR44Q9fwevxabF1RaT870wnLDTyyvgqck
-ixG4swZwzb3YN6gVooLGqHMLxRI6z57tJSnUU6qrtiSJFOCPdYYsPqqTKd4WXP+4aacOsVldCO0Q
-fFr0ut6wG8RIVSEIcj3J9xMS7zglBT4eIKWd41Aer90ZvBRYXFIlfdTlAAAAAAAA
+hkiG9w0BAQEFAASCAQAg5QrtEXjPXNAX3hmJfCEBGOXLByKiYoR0wtg6UVyN7A5yLGzeBZCP/Y7t
+lepB8ISQypJhsq2e9hg6XSzX0F2UzQUFx2H0G98RXSY/ikSdPdsD5ChHq5ZJ7iX7VI1Lwtf4OviA
+MY8hg3kB/wNDZ0tnuZGqLoJGaT2cZ3Se57zvEAZL/tAKIe92tJhp4oaph803W1uhNzyNMH4IiOL7
+zH3iU8BJqCQ6m05ILbzBV0Fa78gc7whQR8W73QB23LrGLFpdzCKyPczLolbAJoV23TrW3/prpvc5
+7Mg3bIS5EftJGFF+y7F5xsQqb/pJEeEvkqd77/DpqnZ942muBNDewjrUAAAAAAAA
 
 
---=-KcVRc0p8N6TLMoUbgmo5--
+--=-Ii6fx3MXVuKd8cA4hiNs--
