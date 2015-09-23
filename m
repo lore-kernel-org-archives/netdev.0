@@ -1,60 +1,77 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 7/7] 8139cp: Enable offload features by default
-Date: Wed, 23 Sep 2015 09:46:09 +0100
-Message-ID: <1442997969.36485.51.camel@infradead.org>
+Subject: [PATCH 6/7] 8139cp: Dump contents of descriptor ring on TX timeout
+Date: Wed, 23 Sep 2015 09:45:31 +0100
+Message-ID: <1442997931.36485.50.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-Ii6fx3MXVuKd8cA4hiNs"
+	boundary="=-8+Ppnbfhl8d2g6n9RNtm"
 Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:32969 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:60966 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752858AbbIWIqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:46:11 -0400
+	with ESMTP id S1752874AbbIWIpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:35 -0400
 In-Reply-To: <1442996049.36485.32.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Ii6fx3MXVuKd8cA4hiNs
+--=-8+Ppnbfhl8d2g6n9RNtm
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-I fixed TSO. Hardware checksum and scatter/gather also appear to be
-working correctly both on real hardware and in QEMU's emulation.
-
-Let's enable them by default and see if anyone screams...
+We are seeing unexplained TX timeouts under heavy load. Let's try to get
+a better idea of what's going on.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index 686334f..e5173f3 100644
+index ec6bd86..686334f 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1983,12 +1983,12 @@ static int cp_init_one (struct pci_dev *pdev, const=
- struct pci_device_id *ent)
- 	dev->ethtool_ops =3D &cp_ethtool_ops;
- 	dev->watchdog_timeo =3D TX_TIMEOUT;
+@@ -157,6 +157,7 @@ enum {
+ 	NWayAdvert	=3D 0x66, /* MII ADVERTISE */
+ 	NWayLPAR	=3D 0x68, /* MII LPA */
+ 	NWayExpansion	=3D 0x6A, /* MII Expansion */
++	TxDmaOkLowDesc  =3D 0x82, /* Low 16 bit address of a Tx descriptor. */
+ 	Config5		=3D 0xD8,	/* Config5 */
+ 	TxPoll		=3D 0xD9,	/* Tell chip to check Tx descriptors for work */
+ 	RxMaxSize	=3D 0xDA, /* Max size of an Rx packet (8169 only) */
+@@ -1234,7 +1235,7 @@ static void cp_tx_timeout(struct net_device *dev)
+ {
+ 	struct cp_private *cp =3D netdev_priv(dev);
+ 	unsigned long flags;
+-	int rc;
++	int rc, i;
 =20
--	dev->features |=3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
-+	dev->features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
-+		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 	netdev_warn(dev, "Transmit timeout, status %2x %4x %4x %4x\n",
+ 		    cpr8(Cmd), cpr16(CpCmd),
+@@ -1242,6 +1243,17 @@ static void cp_tx_timeout(struct net_device *dev)
 =20
- 	if (pci_using_dac)
- 		dev->features |=3D NETIF_F_HIGHDMA;
+ 	spin_lock_irqsave(&cp->lock, flags);
 =20
--	/* disabled by default until verified */
- 	dev->hw_features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
- 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
++	netif_dbg(cp, tx_err, cp->dev, "TX ring head %d tail %d desc %x\n",
++		  cp->tx_head, cp->tx_tail, cpr16(TxDmaOkLowDesc));
++	for (i =3D 0; i < CP_TX_RING_SIZE; i++) {
++		netif_dbg(cp, tx_err, cp->dev,
++			  "TX slot %d @%p: %08x (%08x) %08x %llx %p\n",
++			  i, &cp->tx_ring[i], le32_to_cpu(cp->tx_ring[i].opts1),
++			  cp->tx_opts[i], le32_to_cpu(cp->tx_ring[i].opts2),
++			  le64_to_cpu(cp->tx_ring[i].addr),
++			  cp->tx_skb[i]);
++	}
++
+ 	cp_stop_hw(cp);
+ 	cp_clean_rings(cp);
+ 	rc =3D cp_init_rings(cp);
 --=20
 2.4.3
 
@@ -62,7 +79,7 @@ index 686334f..e5173f3 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-Ii6fx3MXVuKd8cA4hiNs
+--=-8+Ppnbfhl8d2g6n9RNtm
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -155,18 +172,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMDg0NjA5WjAjBgkqhkiG9w0BCQQxFgQUHu4+kZ8g80dbzwSFaTrMJ51x4Pgw
+CQUxDxcNMTUwOTIzMDg0NTMxWjAjBgkqhkiG9w0BCQQxFgQUiab38NKCUFe9sdQyvALOuJmKfr0w
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQAg5QrtEXjPXNAX3hmJfCEBGOXLByKiYoR0wtg6UVyN7A5yLGzeBZCP/Y7t
-lepB8ISQypJhsq2e9hg6XSzX0F2UzQUFx2H0G98RXSY/ikSdPdsD5ChHq5ZJ7iX7VI1Lwtf4OviA
-MY8hg3kB/wNDZ0tnuZGqLoJGaT2cZ3Se57zvEAZL/tAKIe92tJhp4oaph803W1uhNzyNMH4IiOL7
-zH3iU8BJqCQ6m05ILbzBV0Fa78gc7whQR8W73QB23LrGLFpdzCKyPczLolbAJoV23TrW3/prpvc5
-7Mg3bIS5EftJGFF+y7F5xsQqb/pJEeEvkqd77/DpqnZ942muBNDewjrUAAAAAAAA
+hkiG9w0BAQEFAASCAQB+yWcUwVLN/4zGC8oVQHo7dQgvK3zogHclcXjglEtRakEBB5DGi61YRWBK
+Y9WzITFKZEv3uKfAW8hNYR8kZrr+E15tA4+QEbI3GbHnb+zZAkAY00bCQJgoULo4XcL5eMfISDS4
+pGwh6Sadq46SL8aaNAmUfUQZ0A7veA8zrDZMPS7Taou77fzQWExk5ENHmTVVDN7rLUff+yPwu3lS
+so9UlVnXW3yjgi0YUI7KCydwv3ahOXush96250K876KF3WoTlk/nzBCu4p8BZ240F3KmWS5esqj5
+CMBrr1PhAg4H0TxtS7w6hfIl3IIHzwq+TtacZdXUzTJu8x9HY/kXA9DgAAAAAAAA
 
 
---=-Ii6fx3MXVuKd8cA4hiNs--
+--=-8+Ppnbfhl8d2g6n9RNtm--
