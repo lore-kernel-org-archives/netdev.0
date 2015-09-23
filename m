@@ -1,77 +1,98 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 6/7] 8139cp: Dump contents of descriptor ring on TX timeout
-Date: Wed, 23 Sep 2015 09:45:31 +0100
-Message-ID: <1442997931.36485.50.camel@infradead.org>
+Subject: [PATCH 2/7] 8139cp: Fix tx_queued debug message to print correct
+ slot numbers
+Date: Wed, 23 Sep 2015 09:44:06 +0100
+Message-ID: <1442997846.36485.46.camel@infradead.org>
 References: <1442996049.36485.32.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-8+Ppnbfhl8d2g6n9RNtm"
+	boundary="=-UqM9gurCiaCprn/6h7j/"
 Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:60966 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:60507 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874AbbIWIpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:45:35 -0400
+	with ESMTP id S1753153AbbIWIoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 04:44:12 -0400
 In-Reply-To: <1442996049.36485.32.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-8+Ppnbfhl8d2g6n9RNtm
+--=-UqM9gurCiaCprn/6h7j/
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 From: David Woodhouse <David.Woodhouse@intel.com>
 
-We are seeing unexplained TX timeouts under heavy load. Let's try to get
-a better idea of what's going on.
+After a certain amount of staring at the debug output of this driver, I
+realised it was lying to me.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/8139cp.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
 ealtek/8139cp.c
-index ec6bd86..686334f 100644
+index 947932d..cbca0de 100644
 --- a/drivers/net/ethernet/realtek/8139cp.c
 +++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -157,6 +157,7 @@ enum {
- 	NWayAdvert	=3D 0x66, /* MII ADVERTISE */
- 	NWayLPAR	=3D 0x68, /* MII LPA */
- 	NWayExpansion	=3D 0x6A, /* MII Expansion */
-+	TxDmaOkLowDesc  =3D 0x82, /* Low 16 bit address of a Tx descriptor. */
- 	Config5		=3D 0xD8,	/* Config5 */
- 	TxPoll		=3D 0xD9,	/* Tell chip to check Tx descriptors for work */
- 	RxMaxSize	=3D 0xDA, /* Max size of an Rx packet (8169 only) */
-@@ -1234,7 +1235,7 @@ static void cp_tx_timeout(struct net_device *dev)
- {
- 	struct cp_private *cp =3D netdev_priv(dev);
- 	unsigned long flags;
--	int rc;
-+	int rc, i;
+@@ -786,7 +786,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		wmb();
 =20
- 	netdev_warn(dev, "Transmit timeout, status %2x %4x %4x %4x\n",
- 		    cpr8(Cmd), cpr16(CpCmd),
-@@ -1242,6 +1243,17 @@ static void cp_tx_timeout(struct net_device *dev)
+ 		cp->tx_skb[entry] =3D skb;
+-		entry =3D NEXT_TX(entry);
++		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
++			  entry, skb->len);
+ 	} else {
+ 		struct cp_desc *txd;
+ 		u32 first_len, first_eor;
+@@ -805,7 +806,6 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			goto out_dma_error;
 =20
- 	spin_lock_irqsave(&cp->lock, flags);
+ 		cp->tx_skb[entry] =3D skb;
+-		entry =3D NEXT_TX(entry);
 =20
-+	netif_dbg(cp, tx_err, cp->dev, "TX ring head %d tail %d desc %x\n",
-+		  cp->tx_head, cp->tx_tail, cpr16(TxDmaOkLowDesc));
-+	for (i =3D 0; i < CP_TX_RING_SIZE; i++) {
-+		netif_dbg(cp, tx_err, cp->dev,
-+			  "TX slot %d @%p: %08x (%08x) %08x %llx %p\n",
-+			  i, &cp->tx_ring[i], le32_to_cpu(cp->tx_ring[i].opts1),
-+			  cp->tx_opts[i], le32_to_cpu(cp->tx_ring[i].opts2),
-+			  le64_to_cpu(cp->tx_ring[i].addr),
-+			  cp->tx_skb[i]);
-+	}
+ 		for (frag =3D 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
+ 			const skb_frag_t *this_frag =3D &skb_shinfo(skb)->frags[frag];
+@@ -813,6 +813,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			u32 ctrl;
+ 			dma_addr_t mapping;
+=20
++			entry =3D NEXT_TX(entry);
 +
- 	cp_stop_hw(cp);
- 	cp_clean_rings(cp);
- 	rc =3D cp_init_rings(cp);
+ 			len =3D skb_frag_size(this_frag);
+ 			mapping =3D dma_map_single(&cp->pdev->dev,
+ 						 skb_frag_address(this_frag),
+@@ -848,9 +850,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+=20
+ 			txd->opts1 =3D cpu_to_le32(ctrl);
+ 			wmb();
+-
+ 			cp->tx_skb[entry] =3D skb;
+-			entry =3D NEXT_TX(entry);
+ 		}
+=20
+ 		txd =3D &cp->tx_ring[first_entry];
+@@ -873,12 +873,13 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
+,
+ 			txd->opts1 =3D cpu_to_le32(first_eor | first_len |
+ 						 FirstFrag | DescOwn);
+ 		wmb();
++
++		netif_dbg(cp, tx_queued, cp->dev, "tx queued, slots %d-%d, skblen %d\n",
++			  first_entry, entry, skb->len);
+ 	}
+-	cp->tx_head =3D entry;
++	cp->tx_head =3D NEXT_TX(entry);
+=20
+ 	netdev_sent_queue(dev, skb->len);
+-	netif_dbg(cp, tx_queued, cp->dev, "tx queued, slot %d, skblen %d\n",
+-		  entry, skb->len);
+ 	if (TX_BUFFS_AVAIL(cp) <=3D (MAX_SKB_FRAGS + 1))
+ 		netif_stop_queue(dev);
+=20
 --=20
 2.4.3
 
@@ -79,7 +100,7 @@ index ec6bd86..686334f 100644
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
---=-8+Ppnbfhl8d2g6n9RNtm
+--=-UqM9gurCiaCprn/6h7j/
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -172,18 +193,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTIzMDg0NTMxWjAjBgkqhkiG9w0BCQQxFgQUiab38NKCUFe9sdQyvALOuJmKfr0w
+CQUxDxcNMTUwOTIzMDg0NDA2WjAjBgkqhkiG9w0BCQQxFgQU5plLxFxe6gu431k5vZuhomtbKhww
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQB+yWcUwVLN/4zGC8oVQHo7dQgvK3zogHclcXjglEtRakEBB5DGi61YRWBK
-Y9WzITFKZEv3uKfAW8hNYR8kZrr+E15tA4+QEbI3GbHnb+zZAkAY00bCQJgoULo4XcL5eMfISDS4
-pGwh6Sadq46SL8aaNAmUfUQZ0A7veA8zrDZMPS7Taou77fzQWExk5ENHmTVVDN7rLUff+yPwu3lS
-so9UlVnXW3yjgi0YUI7KCydwv3ahOXush96250K876KF3WoTlk/nzBCu4p8BZ240F3KmWS5esqj5
-CMBrr1PhAg4H0TxtS7w6hfIl3IIHzwq+TtacZdXUzTJu8x9HY/kXA9DgAAAAAAAA
+hkiG9w0BAQEFAASCAQC4YaaS7o+6Yjpau1sTRhPvNKHfQAAChLkEcfrExCwbhUja1iIKtC9JOmLV
+23XsDUyLoHND7bNJZ668IUHOgwgCnRPaFh/u4/LR4PEqqpcJ1Lt7GncbjtCA0M+IlpgrSL+8vc8V
+I7zSIlKTFaoq8Oqlh5luOCTyuvSdobQewwTI4Z4X4G0ZEC44TMgMTJ/zoxhprO2HCv4FX11IovU0
+GVfu2ryAsXh0cp7c1r04XjS8oHP1p4xXBTcb+xBt+kwrh/UN8tSYzWTkql61b5TF5w0+l2Wuq1mG
++NhwVh5Wpi1IEdpm4aksaZ4GwpJTf0C544P/8y6XMI1cJ1QSE+nMtiP3AAAAAAAA
 
 
---=-8+Ppnbfhl8d2g6n9RNtm--
+--=-UqM9gurCiaCprn/6h7j/--
