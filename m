@@ -1,71 +1,61 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/9 v2] net: Refactor ip_route_input_slow
-Date: Wed, 23 Sep 2015 08:15:13 -0700
-Message-ID: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 2/9] net: Remove e_inval label from ip_route_input_slow
+Date: Wed, 23 Sep 2015 08:15:15 -0700
+Message-ID: <1443021322-48621-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36579 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755598AbbIWPPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:15:45 -0400
-Received: by pacgz1 with SMTP id gz1so8978746pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:15:34 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35746 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755616AbbIWPPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:15:48 -0400
+Received: by pacfv12 with SMTP id fv12so43765659pac.2
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:15:37 -0700 (PDT)
+In-Reply-To: <1443021322-48621-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_route_input_slow is a maze of gotos (9 of them!) making it error
-prone and difficult to read. This patchset refactors it, removing all
-but 2 of the labels. The brd_input label for broadcast path requires
-too many inputs to make a reasonble helper out of it so I left it as is.
+e_inval has 1 explicit user and 1 fallthrough user -- martian_destination.
+Move setting err to EINVAL before the 2 users and use the goto out label
+instead of e_inval.
 
-None of these patches change functionality, only move code around
-to make ip_route_input_slow more readable.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/route.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-Size comparison using gcc version 4.7.2 (Debian 4.7.2-5)
-
-With CONFIG_IP_ROUTE_VERBOSE:
-    Before patches:
-    $ size kbuild2/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      20615	   2321	     32	  22968	   59b8	kbuild2/net/ipv4/route.o
-
-    After patches:
-    $ size kbuild/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      20711	   2321	     32	  23064	   5a18	kbuild/net/ipv4/route.o
-
-An increase of 96 bytes with CONFIG_IP_ROUTE_VERBOSE.
-
-Without CONFIG_IP_ROUTE_VERBOSE:
-    Before patches:
-    $ size kbuild2/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      19778	   2321	     32	  22131	   5673	kbuild2/net/ipv4/route.o
-
-    After patches:
-    $ size kbuild/net/ipv4/route.o
-       text	   data	    bss	    dec	    hex	filename
-      19847	   2321	     32	  22200	   56b8	kbuild/net/ipv4/route.o
-
-An increase of 69 bytes without CONFIG_IP_ROUTE_VERBOSE.
-
-v2
-- Addressed comments from Eric B and Alex Duyck
-
-David Ahern (9):
-  net: Remove martian_source_keep_err goto label
-  net: Remove e_inval label from ip_route_input_slow
-  net: Remove e_nobufs label from ip_route_input_slow
-  net: Move rth handling from ip_route_input_slow to helper
-  net: Move martian_destination to helper
-  net: Remove martian_source goto
-  net: Remove martian_destination label
-  net: Remove local_input label
-  net: Remove no_route label
-
- net/ipv4/route.c | 233 +++++++++++++++++++++++++++++++------------------------
- 1 file changed, 133 insertions(+), 100 deletions(-)
-
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ef36dfed24da..3c5000db5972 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1775,8 +1775,9 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ out:	return err;
+ 
+ brd_input:
++	err = -EINVAL;
+ 	if (skb->protocol != htons(ETH_P_IP))
+-		goto e_inval;
++		goto out;
+ 
+ 	if (!ipv4_is_zeronet(saddr)) {
+ 		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+@@ -1842,15 +1843,13 @@ out:	return err;
+ 	 *	Do not cache martian addresses: they should be logged (RFC1812)
+ 	 */
+ martian_destination:
++	err = -EINVAL;
+ 	RT_CACHE_STAT_INC(in_martian_dst);
+ #ifdef CONFIG_IP_ROUTE_VERBOSE
+ 	if (IN_DEV_LOG_MARTIANS(in_dev))
+ 		net_warn_ratelimited("martian destination %pI4 from %pI4, dev %s\n",
+ 				     &daddr, &saddr, dev->name);
+ #endif
+-
+-e_inval:
+-	err = -EINVAL;
+ 	goto out;
+ 
+ e_nobufs:
 -- 
 1.9.1
