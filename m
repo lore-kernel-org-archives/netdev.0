@@ -1,118 +1,237 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 5/7] rocker: add FDB cleanup timer
-Date: Wed, 23 Sep 2015 08:39:18 -0700
-Message-ID: <1443022760-21301-6-git-send-email-sfeldma@gmail.com>
-References: <1443022760-21301-1-git-send-email-sfeldma@gmail.com>
-Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
-	pjonnala@broadcom.com, stephen@networkplumber.org,
-	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
+ NETIF_F_V[46]_CSUM devices
+Date: Wed, 23 Sep 2015 16:42:00 +0100
+Message-ID: <1443022920.74600.13.camel@infradead.org>
+References: <1358165431.27054.62.camel@shinybook.infradead.org>
+	 <20130116.155406.351676228334066120.davem@davemloft.net>
+	 <1358375658.2397.69.camel@shinybook.infradead.org>
+	 <20130116.180044.630688719598008373.davem@davemloft.net>
+	 <1442852976.7367.47.camel@infradead.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-M5zzoHuLdyeKpboFrl3B"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34906 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754033AbbIWPgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:36:15 -0400
-Received: by pacfv12 with SMTP id fv12so44233920pac.2
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 08:36:14 -0700 (PDT)
-In-Reply-To: <1443022760-21301-1-git-send-email-sfeldma@gmail.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:42138 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755681AbbIWPmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 11:42:02 -0400
+In-Reply-To: <1442852976.7367.47.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
 
-Add a timer to each rocker switch to do FDB entry cleanup by ageing out
-expired entries.  The timer scheduling algo is copied from the bridge
-driver, for the most part, to keep the firing of the timer to a minimum.
+--=-M5zzoHuLdyeKpboFrl3B
+Content-Type: multipart/mixed; boundary="=-5DuDCB53oo2EOg1DgVWY"
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
----
-v3: Per davem review: add del_timer_sync on rocker port remove.
 
- drivers/net/ethernet/rocker/rocker.c |   42 ++++++++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
+--=-5DuDCB53oo2EOg1DgVWY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index be8bb04..32c5429 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -248,6 +248,7 @@ struct rocker {
- 	u64 flow_tbl_next_cookie;
- 	DECLARE_HASHTABLE(group_tbl, 16);
- 	spinlock_t group_tbl_lock;		/* for group tbl accesses */
-+	struct timer_list fdb_cleanup_timer;
- 	DECLARE_HASHTABLE(fdb_tbl, 16);
- 	spinlock_t fdb_tbl_lock;		/* for fdb tbl accesses */
- 	unsigned long internal_vlan_bitmap[ROCKER_INTERNAL_VLAN_BITMAP_LEN];
-@@ -3706,6 +3707,41 @@ err_out:
- 	return err;
- }
- 
-+static void rocker_fdb_cleanup(unsigned long data)
-+{
-+	struct rocker *rocker = (struct rocker *)data;
-+	struct rocker_port *rocker_port;
-+	struct rocker_fdb_tbl_entry *entry;
-+	struct hlist_node *tmp;
-+	unsigned long next_timer = jiffies + BR_MIN_AGEING_TIME;
-+	unsigned long expires;
-+	unsigned long lock_flags;
-+	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE |
-+		    ROCKER_OP_FLAG_LEARNED;
-+	int bkt;
-+
-+	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
-+
-+	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, entry, entry) {
-+		if (!entry->learned)
-+			continue;
-+		rocker_port = entry->key.rocker_port;
-+		expires = entry->touched + rocker_port->ageing_time;
-+		if (time_before_eq(expires, jiffies)) {
-+			rocker_port_fdb_learn(rocker_port, SWITCHDEV_TRANS_NONE,
-+					      flags, entry->key.addr,
-+					      entry->key.vlan_id);
-+			hash_del(&entry->entry);
-+		} else if (time_before(expires, next_timer)) {
-+			next_timer = expires;
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
-+
-+	mod_timer(&rocker->fdb_cleanup_timer, round_jiffies_up(next_timer));
-+}
-+
- static int rocker_port_router_mac(struct rocker_port *rocker_port,
- 				  enum switchdev_trans trans, int flags,
- 				  __be16 vlan_id)
-@@ -5191,6 +5227,10 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		goto err_init_tbls;
- 	}
- 
-+	setup_timer(&rocker->fdb_cleanup_timer, rocker_fdb_cleanup,
-+		    (unsigned long) rocker);
-+	mod_timer(&rocker->fdb_cleanup_timer, jiffies);
-+
- 	err = rocker_probe_ports(rocker);
- 	if (err) {
- 		dev_err(&pdev->dev, "failed to probe ports\n");
-@@ -5203,6 +5243,7 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	return 0;
- 
- err_probe_ports:
-+	del_timer_sync(&rocker->fdb_cleanup_timer);
- 	rocker_free_tbls(rocker);
- err_init_tbls:
- 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
-@@ -5230,6 +5271,7 @@ static void rocker_remove(struct pci_dev *pdev)
- {
- 	struct rocker *rocker = pci_get_drvdata(pdev);
- 
-+	del_timer_sync(&rocker->fdb_cleanup_timer);
- 	rocker_free_tbls(rocker);
- 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
- 	rocker_remove_ports(rocker);
--- 
-1.7.10.4
+On Mon, 2015-09-21 at 17:29 +0100, David Woodhouse wrote:
+>=20
+> Did we ever resolve this? AFAICT from inspecting the code the
+> virtio_net device still advertises hardware csum capabilities to the
+> guest. And accepts packets which need checksumming, calling
+> skb_partial_csum_set() as appropriate. Likewise tun, xen, macvtap and
+> af_packet.
+
+Here's a test case which provokes the network stack into handing a
+CHECKSUM_PARTIAL skb to a device which it knows can't handle it. (It
+obviously needs the AF_PACKET endianness ABI fix I sent earlier.)
+
+You might well be right to refer to this as 'injecting unchecked crap',
+but we are *gaining* injection points with the ability to do this, and
+for not entirely insane reasons =E2=80=94 people want to be able to make fu=
+ll
+use of hardware offload capabilities.
+
+And we *have* a safety check, to avoid handing CHECKSUM_PARTIAL buffers
+to devices which can't handle them. We already do check the
+capabilities of the device we end up routing it to, and complete the
+checksum in software if the device can't cope.
+
+All we're talking about here is a corner case when that existing check
+doesn't actually give the right results, because it assumes a device
+with NETIF_F_IP_CSUM can checksum *all* Legacy IP packets, not just TCP
+and UDP.
+
+--=20
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
+
+--=-5DuDCB53oo2EOg1DgVWY
+Content-Disposition: inline; filename="raw.c"
+Content-Type: text/x-csrc; name="raw.c"; charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+CgojaW5jbHVkZSA8c3RkbGliLmg+CiNpbmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPHN0ZGlv
+Lmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNpbmNsdWRlIDxuZXRwYWNrZXQvcGFja2V0Lmg+
+CiNpbmNsdWRlIDxuZXQvZXRoZXJuZXQuaD4KI2luY2x1ZGUgPG5ldC9pZi5oPgojaW5jbHVkZSA8
+c3lzL2lvY3RsLmg+CiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4K
+Ly8jaW5jbHVkZSA8bGludXgvaWZfcGFja2V0Lmg+CiNkZWZpbmUgUEFDS0VUX1ZORVRfSERSIDE1
+CgpzdHJ1Y3QgdmlydGlvX25ldF9oZHIKewogICAgdWludDhfdCBmbGFnczsKICAgIHVpbnQ4X3Qg
+Z3NvX3R5cGU7CiAgICB1aW50MTZfdCBoZHJfbGVuOwogICAgdWludDE2X3QgZ3NvX3NpemU7CiAg
+ICB1aW50MTZfdCBjc3VtX3N0YXJ0OwogICAgdWludDE2X3QgY3N1bV9vZmZzZXQ7Cn07CiNkZWZp
+bmUgVklSVElPX05FVF9IRFJfRl9ORUVEU19DU1VNICAgICAxCgp1bnNpZ25lZCBjaGFyIGV0aF9o
+ZHJbXSA9IHsKCTB4NTIsIDB4NTQsIDB4MDAsIDB4M2EsIDB4YmUsIDB4MjgsIDB4NTIsIDB4NTQs
+IDB4MDAsIDB4NzQsIDB4MmYsIDB4ZmQsIDB4MDgsIDB4MDAKfTsKdW5zaWduZWQgY2hhciBpY21w
+X3BrdFtdID0gewogICAgICAgIDB4NDUsIDB4MDAsIDB4MDAsIDB4NTQsIDB4MTEsIDB4ZWMsIDB4
+NDAsIDB4MDAsIDB4NDAsIDB4MDEsIDB4YjMsIDB4NTgsIDB4YzAsIDB4YTgsIDB4N2EsIDB4MTIs
+CiAgICAgICAgMHhjMCwgMHhhOCwgMHg3YSwgMHgwMSwgMHgwOCwgMHgwMCwgMHgwMCwgMHgwMCwg
+MHgwNywgMHhkMiwgMHgwMCwgMHgwMSwgMHg2MywgMHg3ZiwgMHgwMiwgMHg1NiwKICAgICAgICAw
+eDAwLCAweDAwLCAweDAwLCAweDAwLCAweDdjLCAweDFiLCAweDBiLCAweDAwLCAweDAwLCAweDAw
+LCAweDAwLCAweDAwLCAweDEwLCAweDExLCAweDEyLCAweDEzLAogICAgICAgIDB4MTQsIDB4MTUs
+IDB4MTYsIDB4MTcsIDB4MTgsIDB4MTksIDB4MWEsIDB4MWIsIDB4MWMsIDB4MWQsIDB4MWUsIDB4
+MWYsIDB4MjAsIDB4MjEsIDB4MjIsIDB4MjMsCiAgICAgICAgMHgyNCwgMHgyNSwgMHgyNiwgMHgy
+NywgMHgyOCwgMHgyOSwgMHgyYSwgMHgyYiwgMHgyYywgMHgyZCwgMHgyZSwgMHgyZiwgMHgzMCwg
+MHgzMSwgMHgzMiwgMHgzMywKICAgICAgICAweDM0LCAweDM1LCAweDM2LCAweDM3Cn07Cgp1bnNp
+Z25lZCBjaGFyIHVkcF9wa3RbXSA9IHsKCTB4NDUsIDB4MDAsIDB4MDAsIDB4MjIsIDB4YzQsIDB4
+MjUsIDB4NDAsIDB4MDAsIDB4NDAsIDB4MTEsIDB4MDEsIDB4NDEsIDB4YzAsIDB4YTgsIDB4N2Es
+IDB4MTIsCiAgICAgICAgMHhjMCwgMHhhOCwgMHg3YSwgMHgwMSwgMHhhZSwgMHhjNywgMHgxZiwg
+MHg5MCwgMHgwMCwgMHgwZSwgMHg3NSwgMHg4NCwgMHg2OCwgMHg2NSwgMHg2YywgMHg2YywKICAg
+ICAgICAweDZmLCAweDBhCn07CgppbnQgbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3YpCnsKCXN0
+cnVjdCBpZnJlcSByZXE7CglzdHJ1Y3Qgc29ja2FkZHJfbGwgbGxhZGRyOwoJaW50IGZkLCByZXQs
+IHZhbDsKCXN0cnVjdCB7CgkJc3RydWN0IHZpcnRpb19uZXRfaGRyIHZuZXQ7CgkJdW5zaWduZWQg
+Y2hhciBldGhbMTRdOwoJCXVuc2lnbmVkIGNoYXIgcGt0WzIwNDhdOwoJfSBidWY7CgoJaWYgKGFy
+Z2MgIT0gMikgewoJCWZwcmludGYoc3RkZXJyLCAiVXNhZ2U6ICVzIDxpZm5hbWU+XG4iLCBhcmd2
+WzBdKTsKCQlleGl0KDEpOwoJfQoJZmQgPSBzb2NrZXQoUEZfUEFDS0VULCBTT0NLX1JBVywgaHRv
+bnMoRVRIX1BfSVApKTsKCWlmIChmZCA8IDApIHsKCQlwZXJyb3IoInNvY2tldCIpOwoJCWV4aXQo
+MSk7Cgl9CgoJbWVtc2V0KCZyZXEsIDAsIHNpemVvZihyZXEpKTsKCXN0cm5jcHkocmVxLmlmcl9u
+YW1lLCBhcmd2WzFdLCBJRk5BTVNJWi0xKTsKCXJldCA9IGlvY3RsKGZkLCBTSU9DR0lGSU5ERVgs
+ICZyZXEpOwoJaWYgKHJldCA8IDApIHsKCQlwZXJyb3IoIlNJT0dJRklOREVYIik7CgkJZXhpdCgx
+KTsKCX0KCgltZW1zZXQoJmxsYWRkciwgMCwgc2l6ZW9mKGxsYWRkcikpOwoJbGxhZGRyLnNsbF9m
+YW1pbHkgICA9IEFGX1BBQ0tFVDsKCWxsYWRkci5zbGxfcHJvdG9jb2wgPSBodG9ucyhFVEhfUF9J
+UCk7CglsbGFkZHIuc2xsX2lmaW5kZXggID0gcmVxLmlmcl9pZmluZGV4OwoJcmV0ID0gYmluZChm
+ZCwgKGNvbnN0IHN0cnVjdCBzb2NrYWRkciAqKSZsbGFkZHIsIHNpemVvZihsbGFkZHIpKTsKCWlm
+IChyZXQgPCAwKSB7CgkJcGVycm9yKCJiaW5kIik7CgkJZXhpdCgxKTsKCX0KCiAgICAgICAgdmFs
+ID0gMTsKICAgICAgICByZXQgPSBzZXRzb2Nrb3B0KGZkLCBTT0xfUEFDS0VULCBQQUNLRVRfVk5F
+VF9IRFIsIChjb25zdCBjaGFyICopJnZhbCwKCQkJIHNpemVvZih2YWwpKTsKICAgICAgICBpZiAo
+cmV0IDwgMCkgewoJCXBlcnJvcigic2V0c29ja29wdChTT0xfUEFDS0VULCBQQUNLRVRfVk5FVF9I
+RFIpIik7CgkJZXhpdCgxKTsKCX0KCgltZW1zZXQoJmJ1Zi52bmV0LCAwLCBzaXplb2YoYnVmLnZu
+ZXQpKTsKCW1lbWNweSgmYnVmLmV0aCwgZXRoX2hkciwgc2l6ZW9mKGV0aF9oZHIpKTsKCgltZW1j
+cHkoJmJ1Zi5wa3QsIHVkcF9wa3QsIHNpemVvZih1ZHBfcGt0KSk7CglidWYudm5ldC5mbGFncyA9
+IFZJUlRJT19ORVRfSERSX0ZfTkVFRFNfQ1NVTTsKCWJ1Zi52bmV0LmNzdW1fc3RhcnQgPSAweDIy
+OwoJYnVmLnZuZXQuY3N1bV9vZmZzZXQgPSAweDY7CglpZiAod3JpdGUoZmQsICh2b2lkICopJmJ1
+Ziwgc2l6ZW9mKGJ1Zi52bmV0KSArIDE0ICsgc2l6ZW9mKHVkcF9wa3QpKSA8IDApIHsKCSAgICAg
+ICAgcGVycm9yKCJXcml0ZSBVRFAgcGFja2V0Iik7CgkJZXhpdCgxKTsKCX0KCgltZW1jcHkoJmJ1
+Zi5wa3QsIGljbXBfcGt0LCBzaXplb2YoaWNtcF9wa3QpKTsKCWJ1Zi52bmV0LmNzdW1fb2Zmc2V0
+ID0gMHgyOwoJaWYgKHdyaXRlKGZkLCAodm9pZCAqKSZidWYsIHNpemVvZihidWYudm5ldCkgKyAx
+NCArIHNpemVvZihpY21wX3BrdCkpIDwgMCkgewoJCXBlcnJvcigiV3JpdGUgSUNNUCBwYWNrZXQi
+KTsKCQlleGl0KDEpOwoJfQoJcmV0dXJuIDA7Cn0K
+
+
+--=-5DuDCB53oo2EOg1DgVWY--
+
+--=-M5zzoHuLdyeKpboFrl3B
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwOTIzMTU0MjAwWjAjBgkqhkiG9w0BCQQxFgQU8EJ/WUrbO8qHuQQ6mGsPCQiYooww
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQArRWt2ro/fVRCqYMYdmwxhxqBYHLZj7ZiC1jkOZxeMnByaAHoaUjXIsVP3
+Wbug8kMJf0pDm3LJTbi8c/rZomG+DUn3B8PsUOipsLOUrKzvfJG27QF6OY6AoEinW8tP4YFJNJnn
+yNV+S83tSCh9MNIU/1LLt/NLKDUy1hlCLxGHQLNjM92KPcHhp4+nrMVM8IOLtYUvL8n0pEyk0BO6
+pArEacxZigxaNxrgwyc00zpMR1vNiKpSXv9kKUc/5U2892mFYOwXXQFcRqyuA8kwKDuZFsTUDPZG
+Xuo0MRR9DFo+NHcSa8EGcQEbSxMZvTahPhal5x/hfjDderwRQ1ck0zQJAAAAAAAA
+
+
+--=-M5zzoHuLdyeKpboFrl3B--
