@@ -1,74 +1,90 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next] ipv6 Use get_hash_from_flowi6 for rt6 hash
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v2 net] tcp: add proper TS val into RST packets
 Date: Wed, 23 Sep 2015 14:13:35 -0700
-Message-ID: <1443042815-3458631-1-git-send-email-tom@herbertland.com>
+Message-ID: <CAK6E8=eGveAnOJKcvX6i+DNS0HYiOBW0nKeOxNFGg_+R1h2rFg@mail.gmail.com>
+References: <1443039593.29850.133.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CADVnQynZ97Ben7TOSiNOxsfamQEkuw4VH4xxzj4=hpN_rgySJw@mail.gmail.com>
+ <CAK6E8=eJfmZV_O14JqucQD4LD+OCybhB1D+PV2giz-Jmpph3qA@mail.gmail.com>
+ <1443041578.29850.137.camel@edumazet-glaptop2.roam.corp.google.com> <1443042021.29850.141.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, <pch@ordbogen.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42759 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753386AbbIWVNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 17:13:40 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t8NLAKFi024609
-	for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 14:13:39 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1x43cbg5c6-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 14:13:39 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- f503d858623711e5b1c90002c95209d8-71dfa240 for <netdev@vger.kernel.org>;	Wed,
- 23 Sep 2015 14:13:38 -0700
+Received: from mail-vk0-f54.google.com ([209.85.213.54]:36819 "EHLO
+	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755397AbbIWVOP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 17:14:15 -0400
+Received: by vkfp126 with SMTP id p126so36189108vkf.3
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 14:14:14 -0700 (PDT)
+In-Reply-To: <1443042021.29850.141.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rt6_info_hash_nhsfn replace the custom hashing over flowi6 that is
-using xor with a call to common function get_hash_from_flowi6.
+On Wed, Sep 23, 2015 at 2:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> RST packets sent on behalf of TCP connections with TS option (RFC 7323
+> TCP timestamps) have incorrect TS val (set to 0), but correct TS ecr.
+>
+> A > B: Flags [S], seq 0, win 65535, options [mss 1000,nop,nop,TS val 100
+> ecr 0], length 0
+> B > A: Flags [S.], seq 2444755794, ack 1, win 28960, options [mss
+> 1460,nop,nop,TS val 7264344 ecr 100], length 0
+> A > B: Flags [.], ack 1, win 65535, options [nop,nop,TS val 110 ecr
+> 7264344], length 0
+>
+> B > A: Flags [R.], seq 1, ack 1, win 28960, options [nop,nop,TS val 0
+> ecr 110], length 0
+>
+> We need to call skb_mstamp_get() to get proper TS val,
+> derived from skb->skb_mstamp
+>
+> Note that RFC 1323 was advocating to not send TS option in RST segment,
+> but RFC 7323 recommends the opposite :
+>
+>   Once TSopt has been successfully negotiated, that is both <SYN> and
+>   <SYN,ACK> contain TSopt, the TSopt MUST be sent in every non-<RST>
+>   segment for the duration of the connection, and SHOULD be sent in an
+>   <RST> segment (see Section 5.2 for details)
+>
+> Note this RFC recommends to send TS val = 0, but we believe it is
+> premature : We do not know if all TCP stacks are properly
+> handling the receive side :
+>
+>    When an <RST> segment is
+>    received, it MUST NOT be subjected to the PAWS check by verifying an
+>    acceptable value in SEG.TSval, and information from the Timestamps
+>    option MUST NOT be used to update connection state information.
+>    SEG.TSecr MAY be used to provide stricter <RST> acceptance checks.
+>
+>
+> In 5 years, if/when all TCP stack are RFC 7323 ready, we might consider
+> to decide to send TS val = 0, if it buys something.
+>
+> Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv6/route.c | 26 +-------------------------
- 1 file changed, 1 insertion(+), 25 deletions(-)
+Nice fix (and comment)!
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 53617d7..111dead 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -421,31 +421,7 @@ static bool rt6_check_expired(const struct rt6_info *rt)
- static int rt6_info_hash_nhsfn(unsigned int candidate_count,
- 			       const struct flowi6 *fl6)
- {
--	unsigned int val = fl6->flowi6_proto;
--
--	val ^= ipv6_addr_hash(&fl6->daddr);
--	val ^= ipv6_addr_hash(&fl6->saddr);
--
--	/* Work only if this not encapsulated */
--	switch (fl6->flowi6_proto) {
--	case IPPROTO_UDP:
--	case IPPROTO_TCP:
--	case IPPROTO_SCTP:
--		val ^= (__force u16)fl6->fl6_sport;
--		val ^= (__force u16)fl6->fl6_dport;
--		break;
--
--	case IPPROTO_ICMPV6:
--		val ^= (__force u16)fl6->fl6_icmp_type;
--		val ^= (__force u16)fl6->fl6_icmp_code;
--		break;
--	}
--	/* RFC6438 recommands to use flowlabel */
--	val ^= (__force u32)fl6->flowlabel;
--
--	/* Perhaps, we need to tune, this function? */
--	val = val ^ (val >> 7) ^ (val >> 12);
--	return val % candidate_count;
-+	return get_hash_from_flowi6(fl6) % candidate_count;
- }
- 
- static struct rt6_info *rt6_multipath_select(struct rt6_info *match,
--- 
-2.4.6
+> ---
+>  net/ipv4/tcp_output.c |    1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index f9a8a12b62ee..1100ffe4a722 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2897,6 +2897,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+>         skb_reserve(skb, MAX_TCP_HEADER);
+>         tcp_init_nondata_skb(skb, tcp_acceptable_seq(sk),
+>                              TCPHDR_ACK | TCPHDR_RST);
+> +       skb_mstamp_get(&skb->skb_mstamp);
+>         /* Send it off. */
+>         if (tcp_transmit_skb(sk, skb, 0, priority))
+>                 NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+>
+>
