@@ -1,25 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] ARCNET: refactoring and cleanup
-Date: Tue, 22 Sep 2015 17:25:03 -0700 (PDT)
-Message-ID: <20150922.172503.739066756938175560.davem@davemloft.net>
-References: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
+Subject: Re: [PATCH net-next] tcp: factorize sk_txhash init
+Date: Tue, 22 Sep 2015 17:31:01 -0700 (PDT)
+Message-ID: <20150922.173101.2074818900453085610.davem@davemloft.net>
+References: <1442878107.29850.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, kernel@pengutronix.de
-To: m.grzeschik@pengutronix.de
+Cc: netdev@vger.kernel.org, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37471 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37537 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759787AbbIWAZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 20:25:04 -0400
-In-Reply-To: <1442912534-10821-1-git-send-email-m.grzeschik@pengutronix.de>
+	with ESMTP id S1759465AbbIWAbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2015 20:31:02 -0400
+In-Reply-To: <1442878107.29850.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Date: Tue, 22 Sep 2015 11:01:41 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 21 Sep 2015 16:28:27 -0700
 
->   git://git.pengutronix.de/git/mgr/linux.git tags/arcnet-cleanup-v4.3-rc2
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Neal suggested to move sk_txhash init into tcp_create_openreq_child(),
+> called both from IPv4 and IPv6.
+> 
+> This opportunity was missed in commit 58d607d3e52f ("tcp: provide
+> skb->hash to synack packets")
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Please build this tree against net-next, thanks.
+This doesn't apply to net-next, please respin.
+
+Thanks.
