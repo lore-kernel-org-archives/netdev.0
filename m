@@ -1,102 +1,50 @@
-From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
-Subject: [PATCH v2 net-next] tcp: Fix CWV being too strict on thin streams
-Date: Wed, 23 Sep 2015 18:49:53 +0200
-Message-ID: <1443026993-12358-1-git-send-email-bro.devel+kernel@gmail.com>
+From: TuxOholic <tuxoholic@hotmail.de>
+Subject: Re: Network Receive Problems on NetGearRn104 Armarda370
+Date: Wed, 23 Sep 2015 19:01:39 +0200
+Message-ID: <BLU436-SMTP1300DC4BE257863BB775B24D8440@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=
-	<bro.devel+kernel@gmail.com>, Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	Mads Johannessen <madsjoh@ifi.uio.no>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:35406 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbbIWQuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 12:50:13 -0400
-Received: by lagj9 with SMTP id j9so58217213lag.2
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 09:50:11 -0700 (PDT)
+Received: from blu004-omc1s10.hotmail.com ([65.55.116.21]:56978 "EHLO
+	BLU004-OMC1S10.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753254AbbIWRJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 13:09:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Application limited streams such as thin streams, that transmit small
-amounts of payload in relatively few packets per RTT, can be prevented
-from growing the CWND when in congestion avoidance. This leads to
-increased sojourn times for data segments in streams that often transmi=
-t
-time-dependent data.
+Hi list,
+Hello Thomas,
 
-Currently, a connection is considered CWND limited only after having
-successfully transmitted at least one packet with new data, while at th=
-e
-same time failing to transmit some unsent data from the output queue
-because the CWND is full. Applications that produce small amounts of
-data may be left in a state where it is never considered to be CWND
-limited, because all unsent data is successfully transmitted each time
-an incoming ACK opens up for more data to be transmitted in the send
-window.
+Follow up to [1] from March 2015:
 
-=46ix by always testing whether the CWND is fully used after successful
-packet transmissions, such that a connection is considered CWND limited
-whenever the CWND has been filled. This is the correct behavior as
-specified in RFC2861 (section 3.1).
+Using a Readynas 102 with mainline kernel 4.2 I still see a bunch of
+error messages in dmesg during network transfer:
 
-Cc: Andreas Petlund <apetlund@simula.no>
-Cc: Carsten Griwodz <griff@simula.no>
-Cc: Jonas Markussen <jonassm@ifi.uio.no>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Cc: Mads Johannessen <madsjoh@ifi.uio.no>
-Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
----
-Changes in v2:
- - Instead of updating tp->is_cwnd_limited after failing to send
-   any packets, test whether CWND is full after successfull packet
-   transmissions.
- - Updating commit message according to changes.
+mvneta d0074000.ethernet eth0: bad rx status 0f830000 (overrun error),
+size=1008
+mvneta d0074000.ethernet eth0: bad rx status 0f830000 (overrun error),
+size=440
 
- net/ipv4/tcp_output.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The amount of errors have decreased a lot from hundreds in natisbad
+kernel 4.0.5 (flooding syslog) down to just a few in my own build of
+mainline 4.2. kernel config I used was config-4.0.5.rn102 from [2] ,
+mvneta is built into kernel (not module). eth0 link is up continuous at
+1000 MB/s , I never see dropped links while these errors occur.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4cd0b50..57a586f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1827,7 +1827,7 @@ static bool tcp_tso_should_defer(struct sock *sk,=
- struct sk_buff *skb,
-=20
- 	/* Ok, it looks like it is advisable to defer. */
-=20
--	if (cong_win < send_win && cong_win < skb->len)
-+	if (cong_win < send_win && cong_win <=3D skb->len)
- 		*is_cwnd_limited =3D true;
-=20
- 	return true;
-@@ -2060,7 +2060,6 @@ static bool tcp_write_xmit(struct sock *sk, unsig=
-ned int mss_now, int nonagle,
-=20
- 		cwnd_quota =3D tcp_cwnd_test(tp, skb);
- 		if (!cwnd_quota) {
--			is_cwnd_limited =3D true;
- 			if (push_one =3D=3D 2)
- 				/* Force out a loss probe pkt. */
- 				cwnd_quota =3D 1;
-@@ -2142,6 +2141,7 @@ repair:
- 		/* Send one loss probe per tail loss episode. */
- 		if (push_one !=3D 2)
- 			tcp_schedule_loss_probe(sk);
-+		is_cwnd_limited |=3D (tcp_packets_in_flight(tp) >=3D tp->snd_cwnd);
- 		tcp_cwnd_validate(sk, is_cwnd_limited);
- 		return false;
- 	}
---=20
-1.9.1
+My home LAN consists of gigabit cables (cat 5) and gigabit switches. I
+never encounter internal transmission errors other than those with the
+RN102 marvell driver.
+
+As Michael Langer has mentioned in [1], 3.17 of natisbad was not
+affected, I confirmed that with the same kernel image from [2].
+
+System OS in use is Debian/Jessie, original Marvell u-boot from nand
+(September 2013)
+
+Any patches/ideas I could try to get rid of transmission errors completely?
+
+[1] https://www.marc.info/?l=linux-netdev&m=142573659929563
+[2] http://natisbad.org/nas-kernels/
