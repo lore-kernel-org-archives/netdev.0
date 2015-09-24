@@ -1,85 +1,67 @@
-From: Ariel Elior <Ariel.Elior@qlogic.com>
-Subject: RE: [RFC v2 net-next 00/10] Add new drivers: qed & qede
-Date: Thu, 24 Sep 2015 14:46:24 +0000
-Message-ID: <81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
-References: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH] tcp: Use absolute system clock for TCP timestamps
+Date: Thu, 24 Sep 2015 07:49:08 -0700
+Message-ID: <CANn89iJ+SrGJHJGYVpi7SnTkefCB6iq9KzvcU_iYTcz+WvYZPw@mail.gmail.com>
+References: <CABPcSq+jxgKkuafpt5ubDLj9CBfHE1WFwmY-cGzRxuRsfM0KGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:10827 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751246AbbIXOq1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 10:46:27 -0400
-In-Reply-To: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: sasha.levin@oracle.com,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Tom Herbert <therbert@google.com>,
+	makita.toshiaki@lab.ntt.co.jp, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Marek Majkowski <marek@cloudflare.com>
+To: Jovi Zhangwei <jovi@cloudflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABPcSq+jxgKkuafpt5ubDLj9CBfHE1WFwmY-cGzRxuRsfM0KGw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Yuval Mintz [mailto:Yuval.Mintz@qlogic.com]
-> Sent: Thursday, September 17, 2015 5:24 PM
-> To: netdev <netdev@vger.kernel.org>
-> Cc: Ariel Elior <Ariel.Elior@qlogic.com>; Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Subject: [RFC v2 net-next 00/10] Add new drivers: qed & qede
-> 
-> From: Ariel Elior <Ariel.Elior@qlogic.com>
-> 
-> This series implements the driver set for Qlogic's new 579xx series.
-> These are 10/20/25/40/50/100 Gig capable converged nics, supporting
-> ethernet (obviously), iscsi, fcoe, roce and iwarp protocols.
-> 
-> The overall driver design includes a common module ('qed') and protocol
-> specific dependent modules for ethernet ('qede'), fcoe ('qedf'),
-> iscsi ('qedi') and roce ('qedr').
-> The common module contains all of the common logic, e.g. initialization,
-> cleanup, infrastructure for interrupt handling, link management, slowpath
-> etc. as well as protocol agnostic features, and supplying an abstraction
-> layer for other modules.
-> The protocol specific modules can be compiled and operated independently
-> of each other, with the exception of the rdma modules which are dependent
-> on the ethernet module, in accordance with the kernel rdma stack design.
-> 
-> This series only adds the core and ethernet modules, with basic L2
-> capabilities. Future series will add the rest of the modules and enhance
-> the L2 functionality.
-> 
-> Ths patch series is constructed of the following patches:
-> qed:  Add module with basic common support
-> qed:  Add basic L2 interface
-> qede: Add basic Network driver
-> qed:  Add slowpath L2 support
-> qede: Add basic network device support
-> qede: Add classification configuration
-> qed:  Add link support
-> qede: Add support for link
-> qed:  Add statistics support
-> qede: Add basic ethtool support
-> 
-> We don't expect the series to be accepted as is. We are looking for
-> upstream community feedback and guidance. Although the series is quite
-> large, it is what we viewed as the minimal set of patches to constitute
-> a basic L2 driver.
-> 
-> This project is a team effort, thanks go to Yuval Mintz, Dmitry Kravkov,
-> Michal Kalderon, Tomer Tayar, Manish Chopra, Sudarsana Kalluru,
-> Rajesh Borundia, Sony Chacko, Artum Zolotushko, Harish Patil, Rasesh Mody,
-> Sergey Ukhterov and Elad Manela, as well as former team members,
-> Eilon Greenstein and Shmulik Ravid.
-> 
-> Changes from previos version:
-> -----------------------------
-> 
-> From Version 1:
->   - Removed private license file; Instead revised comments at source headers.
-> 
-> Thanks,
-> Ariel Elior
+On Thu, Sep 24, 2015 at 7:14 AM, Jovi Zhangwei <jovi@cloudflare.com> wrote:
+> From f455dc3958593250909627474100f6cc5c158a5c Mon Sep 17 00:00:00 2001
+> From: Marek Majkowski <marek@cloudflare.com>
+> Date: Fri, 11 Sep 2015 06:05:07 -0700
+> Subject: [PATCH] tcp: Use absolute system clock for TCP timestamps
+>
+> Using TCP timestamps is beneficial due for to its purpose in PAWS and when
+> its role when SYN cookies are enabled. In practice though TCP timestamps are
+> often disabled due to being a perceived security issue - they leak Linux
+> system uptime.
+>
+> This patch introduces a kernel option that makes TCP timestamp always return
+> an absolute value derived from a system clock as opposed to jiffies from
+> boot.
+>
+> This patch is based on the approach taken by grsecurity:
+>     https://grsecurity.net/~spender/random_timestamp.diff
+>
 
-Hi,
-Just a friendly reminder that this request for comment is still out there, and well, no comments have been forthcoming.
-Thanks,
-Ariel
+Please do not send html messages, they wont reach lists.
+
+May I ask how this patch was really tested ?
+
+It cannot possibly work on current kernels, as TCP Timestamps are
+generated from clock samples taken from skb_mstamp_get(),
+and you did not change it.
+
+static inline void skb_mstamp_get(struct skb_mstamp *cl)
+{
+        u64 val = local_clock();
+
+        do_div(val, NSEC_PER_USEC);
+        cl->stamp_us = (u32)val;
+        cl->stamp_jiffies = (u32)jiffies;
+}
+
+TCP stack uses tcp_time_stamp internally, we do not want to add
+overhead adding an offset on all places.
+
+tp->lsndtime is an example, but we have others.
+
+Therefore, I suggest you add a new function and use it only where needed.
+
+static inline u32 secure_tcp_time_stamp(void)
+{
+   returns (u32)(tcp_time_stamp + rtc_timestamp_base);
+}
