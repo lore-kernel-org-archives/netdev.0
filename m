@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [v3 7/8] dpaa_eth: add sysfs exports
-Date: Thu, 24 Sep 2015 18:00:18 +0300
-Message-ID: <1443106819-5549-8-git-send-email-madalin.bucur@freescale.com>
+Subject: [v3 8/8] dpaa_eth: add trace points
+Date: Thu, 24 Sep 2015 18:00:19 +0300
+Message-ID: <1443106819-5549-9-git-send-email-madalin.bucur@freescale.com>
 References: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
@@ -11,82 +11,100 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
 	<igal.liberman@freescale.com>, <roy.pledge@freescale.com>,
 	<ppc@mindchasers.com>, <joe@perches.com>, <pebolle@tiscali.nl>,
 	<joakim.tjernlund@transmode.se>, <f.fainelli@gmail.com>,
-	<stsp@list.ru>, Madalin Bucur <madalin.bucur@freescale.com>
+	<stsp@list.ru>, Madalin Bucur <madalin.bucur@freescale.com>,
+	Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export Frame Queue and Buffer Pool IDs through sysfs.
+Add trace points on the hot processing path.
 
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Signed-off-by: Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   2 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   3 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  |   2 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 167 +++++++++++++++++++++
- 5 files changed, 175 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   1 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  12 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   | 141 +++++++++++++++++++++
+ 4 files changed, 158 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
-index 9b75d52..141ade4 100644
+index 141ade4..15ed1c4 100644
 --- a/drivers/net/ethernet/freescale/dpaa/Makefile
 +++ b/drivers/net/ethernet/freescale/dpaa/Makefile
-@@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
- 
+@@ -9,3 +9,4 @@ ccflags-y += -I$(FMAN)
  obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
  
--fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o
-+fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
+ fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
++CFLAGS_dpaa_eth.o := -I$(src)
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index d0d3d80..6d241a3 100644
+index 6d241a3..2b99428 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -759,6 +759,8 @@ dpaa_eth_priv_probe(struct platform_device *pdev)
- 	if (err < 0)
- 		goto netdev_init_failed;
+@@ -57,6 +57,12 @@
+ #include "dpaa_eth.h"
+ #include "dpaa_eth_common.h"
  
-+	dpaa_eth_sysfs_init(&net_dev->dev);
++/* CREATE_TRACE_POINTS only needs to be defined once. Other dpa files
++ * using trace events only need to #include <trace/events/sched.h>
++ */
++#define CREATE_TRACE_POINTS
++#include "dpaa_eth_trace.h"
 +
- 	pr_info("Probed interface %s\n", net_dev->name);
+ #define DPA_NAPI_WEIGHT		64
  
- 	return 0;
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 629ccb8..a16119e 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -370,6 +370,9 @@ static inline u16 dpa_get_headroom(struct dpa_buffer_layout_s *bl)
- 	return bl->data_align ? ALIGN(headroom, bl->data_align) : headroom;
- }
+ /* Valid checksum indication */
+@@ -229,6 +235,9 @@ priv_rx_default_dqrr(struct qman_portal *portal,
+ 	priv = netdev_priv(net_dev);
+ 	dpa_bp = priv->dpa_bp;
  
-+void dpaa_eth_sysfs_remove(struct device *dev);
-+void dpaa_eth_sysfs_init(struct device *dev);
++	/* Trace the Rx fd */
++	trace_dpa_rx_fd(net_dev, fq, &dq->fd);
 +
- void dpa_private_napi_del(struct net_device *net_dev);
- 
- static inline void clear_fd(struct qm_fd *fd)
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index 4947cb9..2cf4565 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -299,6 +299,8 @@ int dpa_remove(struct platform_device *pdev)
- 
+ 	/* IRQ handler, non-migratable; safe to use raw_cpu_ptr here */
+ 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
+ 	count_ptr = raw_cpu_ptr(dpa_bp->percpu_count);
+@@ -285,6 +294,9 @@ priv_tx_conf_default_dqrr(struct qman_portal *portal,
+ 	net_dev = ((struct dpa_fq *)fq)->net_dev;
  	priv = netdev_priv(net_dev);
  
-+	dpaa_eth_sysfs_remove(dev);
++	/* Trace the fd */
++	trace_dpa_tx_conf_fd(net_dev, fq, &dq->fd);
 +
- 	dev_set_drvdata(dev, NULL);
- 	unregister_netdev(net_dev);
+ 	/* Non-migratable context, safe to use raw_cpu_ptr */
+ 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
  
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+index a16119e..44368c8 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+@@ -36,6 +36,7 @@
+ 
+ #include "fman.h"
+ #include "mac.h"
++#include "dpaa_eth_trace.h"
+ 
+ extern int dpa_rx_extra_headroom;
+ extern int dpa_max_frm;
+@@ -406,6 +407,9 @@ static inline int dpa_xmit(struct dpa_priv_s *priv,
+ 	if (fd->bpid == 0xff)
+ 		fd->cmd |= qman_fq_fqid(priv->conf_fqs[queue]);
+ 
++	/* Trace this Tx fd */
++	trace_dpa_tx_fd(priv->net_dev, egress_fq, fd);
++
+ 	for (i = 0; i < 100000; i++) {
+ 		err = qman_enqueue(egress_fq, fd, 0);
+ 		if (err != -EBUSY)
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
 new file mode 100644
-index 0000000..a6c71b1
+index 0000000..3b67477
 --- /dev/null
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-@@ -0,0 +1,167 @@
-+/* Copyright 2008-2015 Freescale Semiconductor Inc.
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+@@ -0,0 +1,141 @@
++/* Copyright 2013-2015 Freescale Semiconductor Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -117,141 +135,115 @@ index 0000000..a6c71b1
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/kthread.h>
-+#include <linux/io.h>
-+#include <linux/of_net.h>
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM	dpaa_eth
++
++#if !defined(_DPAA_ETH_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _DPAA_ETH_TRACE_H
++
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
 +#include "dpaa_eth.h"
-+#include "mac.h"
++#include <linux/tracepoint.h>
 +
-+static ssize_t dpaa_eth_show_addr(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
-+{
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	struct mac_device *mac_dev = priv->mac_dev;
++#define fd_format_name(format)	{ qm_fd_##format, #format }
++#define fd_format_list	\
++	fd_format_name(contig),	\
++	fd_format_name(sg)
 +
-+	if (mac_dev)
-+		return sprintf(buf, "%llx",
-+				(unsigned long long)mac_dev->res->start);
-+	else
-+		return sprintf(buf, "none");
-+}
++/* This is used to declare a class of events.
++ * individual events of this type will be defined below.
++ */
 +
-+static ssize_t dpaa_eth_show_fqids(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	ssize_t bytes = 0;
-+	int i = 0;
-+	char *str;
-+	struct dpa_fq *fq;
-+	struct dpa_fq *tmp;
-+	struct dpa_fq *prev = NULL;
-+	u32 first_fqid = 0;
-+	u32 last_fqid = 0;
-+	char *prevstr = NULL;
++/* Store details about a frame descriptor and the FQ on which it was
++ * transmitted/received.
++ */
++DECLARE_EVENT_CLASS(dpaa_eth_fd,
++	/* Trace function prototype */
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
 +
-+	list_for_each_entry_safe(fq, tmp, &priv->dpa_fq_list, list) {
-+		switch (fq->fq_type) {
-+		case FQ_TYPE_RX_DEFAULT:
-+			str = "Rx default";
-+			break;
-+		case FQ_TYPE_RX_ERROR:
-+			str = "Rx error";
-+			break;
-+		case FQ_TYPE_TX_CONFIRM:
-+			str = "Tx default confirmation";
-+			break;
-+		case FQ_TYPE_TX_CONF_MQ:
-+			str = "Tx confirmation (mq)";
-+			break;
-+		case FQ_TYPE_TX_ERROR:
-+			str = "Tx error";
-+			break;
-+		case FQ_TYPE_TX:
-+			str = "Tx";
-+			break;
-+		default:
-+			str = "Unknown";
-+		}
++	/* Repeat argument list here */
++	TP_ARGS(netdev, fq, fd),
 +
-+		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
-+			     str != prevstr)) {
-+			if (last_fqid == first_fqid)
-+				bytes += sprintf(buf + bytes,
-+					"%s: %d\n", prevstr, prev->fqid);
-+			else
-+				bytes += sprintf(buf + bytes,
-+					"%s: %d - %d\n", prevstr,
-+					first_fqid, last_fqid);
-+		}
++	/* A structure containing the relevant information we want to record.
++	 * Declare name and type for each normal element, name, type and size
++	 * for arrays. Use __string for variable length strings.
++	 */
++	TP_STRUCT__entry(
++		__field(u32,	fqid)
++		__field(u64,	fd_addr)
++		__field(u8,	fd_format)
++		__field(u16,	fd_offset)
++		__field(u32,	fd_length)
++		__field(u32,	fd_status)
++		__string(name,	netdev->name)
++	),
 +
-+		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
-+		    str == prevstr) {
-+			last_fqid = fq->fqid;
-+		} else {
-+			first_fqid = fq->fqid;
-+			last_fqid = fq->fqid;
-+		}
++	/* The function that assigns values to the above declared fields */
++	TP_fast_assign(
++		__entry->fqid = fq->fqid;
++		__entry->fd_addr = qm_fd_addr_get64(fd);
++		__entry->fd_format = fd->format;
++		__entry->fd_offset = dpa_fd_offset(fd);
++		__entry->fd_length = dpa_fd_length(fd);
++		__entry->fd_status = fd->status;
++		__assign_str(name, netdev->name);
++	),
 +
-+		prev = fq;
-+		prevstr = str;
-+		i++;
-+	}
++	/* This is what gets printed when the trace event is triggered */
++	TP_printk("[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u, status=0x%08x",
++		  __get_str(name), __entry->fqid, __entry->fd_addr,
++		  __print_symbolic(__entry->fd_format, fd_format_list),
++		  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
++);
 +
-+	if (prev) {
-+		if (last_fqid == first_fqid)
-+			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
-+					prev->fqid);
-+		else
-+			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
-+					first_fqid, last_fqid);
-+	}
++/* Now declare events of the above type. Format is:
++ * DEFINE_EVENT(class, name, proto, args), with proto and args same as for class
++ */
 +
-+	return bytes;
-+}
++/* Tx (egress) fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_tx_fd,
 +
-+static ssize_t dpaa_eth_show_bpids(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	ssize_t bytes = 0;
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	struct dpa_bp *dpa_bp = priv->dpa_bp;
-+	int i = 0;
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
 +
-+	for (i = 0; i < priv->bp_count; i++)
-+		bytes += snprintf(buf + bytes, PAGE_SIZE - bytes, "%u\n",
-+				dpa_bp[i].bpid);
++	TP_ARGS(netdev, fq, fd)
++);
 +
-+	return bytes;
-+}
++/* Rx fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_rx_fd,
 +
-+static struct device_attribute dpaa_eth_attrs[] = {
-+	__ATTR(device_addr, S_IRUGO, dpaa_eth_show_addr, NULL),
-+	__ATTR(fqids, S_IRUGO, dpaa_eth_show_fqids, NULL),
-+	__ATTR(bpids, S_IRUGO, dpaa_eth_show_bpids, NULL),
-+};
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
 +
-+void dpaa_eth_sysfs_init(struct device *dev)
-+{
-+	int i;
++	TP_ARGS(netdev, fq, fd)
++);
 +
-+	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
-+		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
-+			dev_err(dev, "Error creating sysfs file\n");
-+			while (i > 0)
-+				device_remove_file(dev, &dpaa_eth_attrs[--i]);
-+			return;
-+		}
-+}
++/* Tx confirmation fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_tx_conf_fd,
 +
-+void dpaa_eth_sysfs_remove(struct device *dev)
-+{
-+	int i;
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
 +
-+	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
-+		device_remove_file(dev, &dpaa_eth_attrs[i]);
-+}
++	TP_ARGS(netdev, fq, fd)
++);
++
++/* If only one event of a certain type needs to be declared, use TRACE_EVENT().
++ * The syntax is the same as for DECLARE_EVENT_CLASS().
++ */
++
++#endif /* _DPAA_ETH_TRACE_H */
++
++/* This must be outside ifdef _DPAA_ETH_TRACE_H */
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE	dpaa_eth_trace
++#include <trace/define_trace.h>
 -- 
 1.7.11.7
