@@ -1,53 +1,28 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Fri, 25 Sep 2015 00:26:54 +0200
-Message-ID: <20150924222654.GG20825@lunn.ch>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
- <20150924215731.GE20825@lunn.ch>
- <20150924.151554.619662567057050978.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2015-09-23
+Date: Thu, 24 Sep 2015 15:36:52 -0700 (PDT)
+Message-ID: <20150924.153652.1494521315116779817.davem@davemloft.net>
+References: <1442997854.1889.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	isubramanian-qTEPVZfXA3Y@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
-	kchudgar-qTEPVZfXA3Y@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150924.151554.619662567057050978.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1442997854.1889.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 24, 2015 at 03:15:54PM -0700, David Miller wrote:
-> From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-> Date: Thu, 24 Sep 2015 23:57:31 +0200
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 23 Sep 2015 10:44:14 +0200
+
+> It's been pretty quiet for this cycle since the sizeof() mess, but I
+> have two more fixes now I'd like to get in.
 > 
-> > I built the FEC driver as a module, and it won't unload:
-> > 
-> >  kernel:unregister_netdevice: waiting for eth1 to become free. Usage count = 1
-> > unregister_netdevice: waiting for eth1 to become free. Usage count = 1
-> > 
-> > i assume because DSA holds a reference. I've not tried a fully module
-> > build, DSA has issues with that.
-> > 
-> > Tested-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-> 
-> So, is this a regression?
+> Let me know if there's any problem.
 
-Sorry, worded that badly. Since DSA is still active, it should not be
-possible to unload the FEC driver. DSA should have a reference to it,
-and mdio-mux also should have a reference to the mdio bus of the FEC
-driver.
-
-As Russell requested, i will re-test without his patches, just to make
-sure.
-
-	Andrew
+Pulled, thanks a lot.
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
