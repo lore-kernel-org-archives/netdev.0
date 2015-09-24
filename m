@@ -1,619 +1,72 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 3/4] ila: Create net/ipv6/ila directory
-Date: Thu, 24 Sep 2015 09:30:23 -0700
-Message-ID: <1443112224-574543-4-git-send-email-tom@herbertland.com>
-References: <1443112224-574543-1-git-send-email-tom@herbertland.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Thu, 24 Sep 2015 19:43:46 +0200
+Message-ID: <56043652.4050603@gmx.net>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+ <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+ <20150923162650.148fe95b@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
+	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49207 "EHLO
-	m0001303.ppops.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750921AbbIXQcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 12:32:25 -0400
-Received: from pps.filterd (m0001303 [127.0.0.1])
-	by m0001303.ppops.net (8.14.5/8.14.5) with SMTP id t8OGVtTb024805
-	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:32:24 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 1x4m5ur50v-5
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:32:24 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 9a84199062d911e58ca90002c99293a0-1fdf6240 for <netdev@vger.kernel.org>;	Thu,
- 24 Sep 2015 09:30:44 -0700
-In-Reply-To: <1443112224-574543-1-git-send-email-tom@herbertland.com>
+Received: from mout.gmx.net ([212.227.15.19]:63353 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754904AbbIXRoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 13:44:20 -0400
+In-Reply-To: <20150923162650.148fe95b@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create ila directory in preparation for supporting other hooks in the
-kernel than LWT for doing ILA. This includes:
-  - Moving ila.c to ila/ila_lwt.c
-  - Splitting out some common functions into ila_common.c
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA384
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv6/Makefile         |   2 +-
- net/ipv6/ila.c            | 229 ----------------------------------------------
- net/ipv6/ila/Makefile     |   7 ++
- net/ipv6/ila/ila.h        |  46 ++++++++++
- net/ipv6/ila/ila_common.c |  94 +++++++++++++++++++
- net/ipv6/ila/ila_lwt.c    | 149 ++++++++++++++++++++++++++++++
- 6 files changed, 297 insertions(+), 230 deletions(-)
- delete mode 100644 net/ipv6/ila.c
- create mode 100644 net/ipv6/ila/Makefile
- create mode 100644 net/ipv6/ila/ila.h
- create mode 100644 net/ipv6/ila/ila_common.c
- create mode 100644 net/ipv6/ila/ila_lwt.c
+On 09/24/2015 01:26 AM, Stephen Hemminger wrote:
+> Having JSON output is going to be a real plus for programatic
+> parsing. My understanding of best practice with JSON is that it is
+> best to output values in best machine readable form, the format is
+> not really meant for humans to directly read.
+> 
+> Therefore I don't like the code that reformats numbers as hex. If
+> the values are better displayed in hex, then it is up to the
+> program parsing and presenting that to the user to do that. The
+> JSON should just put out numeric values as numeric.
+> 
+>> +/* hex conversion helper */ +static void
+>> jsonw_hex_as_str_outp(json_writer_t *self, uint64_t num) +{ +
+>> char tmp[17]; + +	sprintf(tmp, "%"PRIx64, num); +
+>> jsonw_string(self, tmp); +} + +static void
+>> jsonw_hex_field_outp(json_writer_t *self, const char *prop,
+>> uint64_t num) +{ +	jsonw_name(self, prop); +
+>> jsonw_hex_as_str_outp(self, num); +} +
 
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2c900c7..2fbd90b 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -34,7 +34,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
- obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
- obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
- obj-$(CONFIG_IPV6_MIP6) += mip6.o
--obj-$(CONFIG_IPV6_ILA) += ila.o
-+obj-$(CONFIG_IPV6_ILA) += ila/
- obj-$(CONFIG_NETFILTER)	+= netfilter/
- 
- obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
-diff --git a/net/ipv6/ila.c b/net/ipv6/ila.c
-deleted file mode 100644
-index 678d2df..0000000
---- a/net/ipv6/ila.c
-+++ /dev/null
-@@ -1,229 +0,0 @@
--#include <linux/errno.h>
--#include <linux/ip.h>
--#include <linux/kernel.h>
--#include <linux/module.h>
--#include <linux/skbuff.h>
--#include <linux/socket.h>
--#include <linux/types.h>
--#include <net/checksum.h>
--#include <net/ip.h>
--#include <net/ip6_fib.h>
--#include <net/lwtunnel.h>
--#include <net/protocol.h>
--#include <uapi/linux/ila.h>
--
--struct ila_params {
--	__be64 locator;
--	__be64 locator_match;
--	__wsum csum_diff;
--};
--
--static inline struct ila_params *ila_params_lwtunnel(
--	struct lwtunnel_state *lwstate)
--{
--	return (struct ila_params *)lwstate->data;
--}
--
--static inline __wsum compute_csum_diff8(const __be32 *from, const __be32 *to)
--{
--	__be32 diff[] = {
--		~from[0], ~from[1], to[0], to[1],
--	};
--
--	return csum_partial(diff, sizeof(diff), 0);
--}
--
--static inline __wsum get_csum_diff(struct ipv6hdr *ip6h, struct ila_params *p)
--{
--	if (*(__be64 *)&ip6h->daddr == p->locator_match)
--		return p->csum_diff;
--	else
--		return compute_csum_diff8((__be32 *)&ip6h->daddr,
--					  (__be32 *)&p->locator);
--}
--
--static void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p)
--{
--	__wsum diff;
--	struct ipv6hdr *ip6h = ipv6_hdr(skb);
--	size_t nhoff = sizeof(struct ipv6hdr);
--
--	/* First update checksum */
--	switch (ip6h->nexthdr) {
--	case NEXTHDR_TCP:
--		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct tcphdr)))) {
--			struct tcphdr *th = (struct tcphdr *)
--					(skb_network_header(skb) + nhoff);
--
--			diff = get_csum_diff(ip6h, p);
--			inet_proto_csum_replace_by_diff(&th->check, skb,
--							diff, true);
--		}
--		break;
--	case NEXTHDR_UDP:
--		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct udphdr)))) {
--			struct udphdr *uh = (struct udphdr *)
--					(skb_network_header(skb) + nhoff);
--
--			if (uh->check || skb->ip_summed == CHECKSUM_PARTIAL) {
--				diff = get_csum_diff(ip6h, p);
--				inet_proto_csum_replace_by_diff(&uh->check, skb,
--								diff, true);
--				if (!uh->check)
--					uh->check = CSUM_MANGLED_0;
--			}
--		}
--		break;
--	case NEXTHDR_ICMP:
--		if (likely(pskb_may_pull(skb,
--					 nhoff + sizeof(struct icmp6hdr)))) {
--			struct icmp6hdr *ih = (struct icmp6hdr *)
--					(skb_network_header(skb) + nhoff);
--
--			diff = get_csum_diff(ip6h, p);
--			inet_proto_csum_replace_by_diff(&ih->icmp6_cksum, skb,
--							diff, true);
--		}
--		break;
--	}
--
--	/* Now change destination address */
--	*(__be64 *)&ip6h->daddr = p->locator;
--}
--
--static int ila_output(struct sock *sk, struct sk_buff *skb)
--{
--	struct dst_entry *dst = skb_dst(skb);
--
--	if (skb->protocol != htons(ETH_P_IPV6))
--		goto drop;
--
--	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
--
--	return dst->lwtstate->orig_output(sk, skb);
--
--drop:
--	kfree_skb(skb);
--	return -EINVAL;
--}
--
--static int ila_input(struct sk_buff *skb)
--{
--	struct dst_entry *dst = skb_dst(skb);
--
--	if (skb->protocol != htons(ETH_P_IPV6))
--		goto drop;
--
--	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
--
--	return dst->lwtstate->orig_input(skb);
--
--drop:
--	kfree_skb(skb);
--	return -EINVAL;
--}
--
--static struct nla_policy ila_nl_policy[ILA_ATTR_MAX + 1] = {
--	[ILA_ATTR_LOCATOR] = { .type = NLA_U64, },
--};
--
--static int ila_build_state(struct net_device *dev, struct nlattr *nla,
--			   unsigned int family, const void *cfg,
--			   struct lwtunnel_state **ts)
--{
--	struct ila_params *p;
--	struct nlattr *tb[ILA_ATTR_MAX + 1];
--	size_t encap_len = sizeof(*p);
--	struct lwtunnel_state *newts;
--	const struct fib6_config *cfg6 = cfg;
--	int ret;
--
--	if (family != AF_INET6)
--		return -EINVAL;
--
--	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
--			       ila_nl_policy);
--	if (ret < 0)
--		return ret;
--
--	if (!tb[ILA_ATTR_LOCATOR])
--		return -EINVAL;
--
--	newts = lwtunnel_state_alloc(encap_len);
--	if (!newts)
--		return -ENOMEM;
--
--	newts->len = encap_len;
--	p = ila_params_lwtunnel(newts);
--
--	p->locator = (__force __be64)nla_get_u64(tb[ILA_ATTR_LOCATOR]);
--
--	if (cfg6->fc_dst_len > sizeof(__be64)) {
--		/* Precompute checksum difference for translation since we
--		 * know both the old locator and the new one.
--		 */
--		p->locator_match = *(__be64 *)&cfg6->fc_dst;
--		p->csum_diff = compute_csum_diff8(
--			(__be32 *)&p->locator_match, (__be32 *)&p->locator);
--	}
--
--	newts->type = LWTUNNEL_ENCAP_ILA;
--	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
--			LWTUNNEL_STATE_INPUT_REDIRECT;
--
--	*ts = newts;
--
--	return 0;
--}
--
--static int ila_fill_encap_info(struct sk_buff *skb,
--			       struct lwtunnel_state *lwtstate)
--{
--	struct ila_params *p = ila_params_lwtunnel(lwtstate);
--
--	if (nla_put_u64(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator))
--		goto nla_put_failure;
--
--	return 0;
--
--nla_put_failure:
--	return -EMSGSIZE;
--}
--
--static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
--{
--	/* No encapsulation overhead */
--	return 0;
--}
--
--static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
--{
--	struct ila_params *a_p = ila_params_lwtunnel(a);
--	struct ila_params *b_p = ila_params_lwtunnel(b);
--
--	return (a_p->locator != b_p->locator);
--}
--
--static const struct lwtunnel_encap_ops ila_encap_ops = {
--	.build_state = ila_build_state,
--	.output = ila_output,
--	.input = ila_input,
--	.fill_encap = ila_fill_encap_info,
--	.get_encap_size = ila_encap_nlsize,
--	.cmp_encap = ila_encap_cmp,
--};
--
--static int __init ila_init(void)
--{
--	return lwtunnel_encap_add_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
--}
--
--static void __exit ila_fini(void)
--{
--	lwtunnel_encap_del_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
--}
--
--module_init(ila_init);
--module_exit(ila_fini);
--MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
--MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/ila/Makefile b/net/ipv6/ila/Makefile
-new file mode 100644
-index 0000000..31d136b
---- /dev/null
-+++ b/net/ipv6/ila/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for ILA module
-+#
-+
-+obj-$(CONFIG_IPV6_ILA) += ila.o
-+
-+ila-objs := ila_common.o ila_lwt.o
-diff --git a/net/ipv6/ila/ila.h b/net/ipv6/ila/ila.h
-new file mode 100644
-index 0000000..b94081f
---- /dev/null
-+++ b/net/ipv6/ila/ila.h
-@@ -0,0 +1,46 @@
-+/*
-+ * Copyright (c) 2015 Tom Herbert <tom@herbertland.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of
-+ * the License, or (at your option) any later version.
-+ *
-+ */
-+
-+#ifndef __ILA_H
-+#define __ILA_H
-+
-+#include <linux/errno.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/types.h>
-+#include <net/checksum.h>
-+#include <net/ip.h>
-+#include <net/protocol.h>
-+#include <uapi/linux/ila.h>
-+
-+struct ila_params {
-+	__be64 locator;
-+	__be64 locator_match;
-+	__wsum csum_diff;
-+};
-+
-+static inline __wsum compute_csum_diff8(const __be32 *from, const __be32 *to)
-+{
-+	__be32 diff[] = {
-+		~from[0], ~from[1], to[0], to[1],
-+	};
-+
-+	return csum_partial(diff, sizeof(diff), 0);
-+}
-+
-+void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p);
-+
-+int ila_lwt_init(void);
-+void ila_lwt_fini(void);
-+
-+#endif /* __ILA_H */
-diff --git a/net/ipv6/ila/ila_common.c b/net/ipv6/ila/ila_common.c
-new file mode 100644
-index 0000000..7cfd54d
---- /dev/null
-+++ b/net/ipv6/ila/ila_common.c
-@@ -0,0 +1,94 @@
-+#include <linux/errno.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/socket.h>
-+#include <linux/types.h>
-+#include <net/checksum.h>
-+#include <net/ip.h>
-+#include <net/ip6_fib.h>
-+#include <net/protocol.h>
-+#include <uapi/linux/ila.h>
-+#include "ila.h"
-+
-+static __wsum get_csum_diff(struct ipv6hdr *ip6h, struct ila_params *p)
-+{
-+	if (*(__be64 *)&ip6h->daddr == p->locator_match)
-+		return p->csum_diff;
-+	else
-+		return compute_csum_diff8((__be32 *)&ip6h->daddr,
-+					  (__be32 *)&p->locator);
-+}
-+
-+void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p)
-+{
-+	__wsum diff;
-+	struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	size_t nhoff = sizeof(struct ipv6hdr);
-+
-+	/* First update checksum */
-+	switch (ip6h->nexthdr) {
-+	case NEXTHDR_TCP:
-+		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct tcphdr)))) {
-+			struct tcphdr *th = (struct tcphdr *)
-+					(skb_network_header(skb) + nhoff);
-+
-+			diff = get_csum_diff(ip6h, p);
-+			inet_proto_csum_replace_by_diff(&th->check, skb,
-+							diff, true);
-+		}
-+		break;
-+	case NEXTHDR_UDP:
-+		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct udphdr)))) {
-+			struct udphdr *uh = (struct udphdr *)
-+					(skb_network_header(skb) + nhoff);
-+
-+			if (uh->check || skb->ip_summed == CHECKSUM_PARTIAL) {
-+				diff = get_csum_diff(ip6h, p);
-+				inet_proto_csum_replace_by_diff(&uh->check, skb,
-+								diff, true);
-+				if (!uh->check)
-+					uh->check = CSUM_MANGLED_0;
-+			}
-+		}
-+		break;
-+	case NEXTHDR_ICMP:
-+		if (likely(pskb_may_pull(skb,
-+					 nhoff + sizeof(struct icmp6hdr)))) {
-+			struct icmp6hdr *ih = (struct icmp6hdr *)
-+					(skb_network_header(skb) + nhoff);
-+
-+			diff = get_csum_diff(ip6h, p);
-+			inet_proto_csum_replace_by_diff(&ih->icmp6_cksum, skb,
-+							diff, true);
-+		}
-+		break;
-+	}
-+
-+	/* Now change destination address */
-+	*(__be64 *)&ip6h->daddr = p->locator;
-+}
-+
-+static int __init ila_init(void)
-+{
-+	int ret;
-+
-+	ret = ila_lwt_init();
-+
-+	if (ret)
-+		goto fail_lwt;
-+
-+fail_lwt:
-+	return ret;
-+}
-+
-+static void __exit ila_fini(void)
-+{
-+	ila_lwt_fini();
-+}
-+
-+module_init(ila_init);
-+module_exit(ila_fini);
-+MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
-+MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
-new file mode 100644
-index 0000000..e423f06
---- /dev/null
-+++ b/net/ipv6/ila/ila_lwt.c
-@@ -0,0 +1,149 @@
-+#include <linux/errno.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/socket.h>
-+#include <linux/types.h>
-+#include <net/ip.h>
-+#include <net/ip6_fib.h>
-+#include <net/lwtunnel.h>
-+#include <uapi/linux/ila.h>
-+#include "ila.h"
-+
-+static inline struct ila_params *ila_params_lwtunnel(
-+	struct lwtunnel_state *lwstate)
-+{
-+	return (struct ila_params *)lwstate->data;
-+}
-+
-+static int ila_output(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	if (skb->protocol != htons(ETH_P_IPV6))
-+		goto drop;
-+
-+	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
-+
-+	return dst->lwtstate->orig_output(sk, skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+static int ila_input(struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	if (skb->protocol != htons(ETH_P_IPV6))
-+		goto drop;
-+
-+	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
-+
-+	return dst->lwtstate->orig_input(skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+static struct nla_policy ila_nl_policy[ILA_ATTR_MAX + 1] = {
-+	[ILA_ATTR_LOCATOR] = { .type = NLA_U64, },
-+};
-+
-+static int ila_build_state(struct net_device *dev, struct nlattr *nla,
-+			   unsigned int family, const void *cfg,
-+			   struct lwtunnel_state **ts)
-+{
-+	struct ila_params *p;
-+	struct nlattr *tb[ILA_ATTR_MAX + 1];
-+	size_t encap_len = sizeof(*p);
-+	struct lwtunnel_state *newts;
-+	const struct fib6_config *cfg6 = cfg;
-+	int ret;
-+
-+	if (family != AF_INET6)
-+		return -EINVAL;
-+
-+	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
-+			       ila_nl_policy);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (!tb[ILA_ATTR_LOCATOR])
-+		return -EINVAL;
-+
-+	newts = lwtunnel_state_alloc(encap_len);
-+	if (!newts)
-+		return -ENOMEM;
-+
-+	newts->len = encap_len;
-+	p = ila_params_lwtunnel(newts);
-+
-+	p->locator = (__force __be64)nla_get_u64(tb[ILA_ATTR_LOCATOR]);
-+
-+	if (cfg6->fc_dst_len > sizeof(__be64)) {
-+		/* Precompute checksum difference for translation since we
-+		 * know both the old locator and the new one.
-+		 */
-+		p->locator_match = *(__be64 *)&cfg6->fc_dst;
-+		p->csum_diff = compute_csum_diff8(
-+			(__be32 *)&p->locator_match, (__be32 *)&p->locator);
-+	}
-+
-+	newts->type = LWTUNNEL_ENCAP_ILA;
-+	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
-+			LWTUNNEL_STATE_INPUT_REDIRECT;
-+
-+	*ts = newts;
-+
-+	return 0;
-+}
-+
-+static int ila_fill_encap_info(struct sk_buff *skb,
-+			       struct lwtunnel_state *lwtstate)
-+{
-+	struct ila_params *p = ila_params_lwtunnel(lwtstate);
-+
-+	if (nla_put_u64(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator))
-+		goto nla_put_failure;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
-+{
-+	/* No encapsulation overhead */
-+	return 0;
-+}
-+
-+static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
-+{
-+	struct ila_params *a_p = ila_params_lwtunnel(a);
-+	struct ila_params *b_p = ila_params_lwtunnel(b);
-+
-+	return (a_p->locator != b_p->locator);
-+}
-+
-+static const struct lwtunnel_encap_ops ila_encap_ops = {
-+	.build_state = ila_build_state,
-+	.output = ila_output,
-+	.input = ila_input,
-+	.fill_encap = ila_fill_encap_info,
-+	.get_encap_size = ila_encap_nlsize,
-+	.cmp_encap = ila_encap_cmp,
-+};
-+
-+int ila_lwt_init(void)
-+{
-+	return lwtunnel_encap_add_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
-+}
-+
-+void ila_lwt_fini(void)
-+{
-+	lwtunnel_encap_del_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
-+}
--- 
-2.4.6
+I acknowledge that.
+
+> Other than that, my only other discomfort is that this patch set 
+> makes the code grow so much larger and it becomes more complex for
+> future developers.
+
+Really? Somehow I disagree: I mean most of the code has been copied
+over to semantically related modules. So not too much new code has
+been added. Modularization in essence should help to get up with
+complexity as I see things.
+
+> Maybe it is time to rewrite it in a better language ;-)
+
+I did not get that. Do you mean iproute2?
+
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBCQAGBQJWBDZSAAoJEOAWT1uK3zQ7lz4H/33aiWxf+Xzk9jjuEToyMMUL
+qjhzMKkADOvSABHa0bsYUxuQrT1ZHYiv7yYWbn5N/3yUwnoFpivfQEO+YStfVtQy
+kCW0CNkyhIC8Hd379vVtZf2eLgGhlHDNudfJvZ/F29Rdsb1NjRoWb3qjXmUX0Ns3
+T9Ee7UHbN1oQuL4C1+XtFTl0mG7/UtIC5vk6/LTRY7G0oqmcfIzG26STiP5Q4++m
+72JQP9jv9pAZzVoYMcnuj4vkVJ3rKfUoQS6Ejz4Y1tXlBeU3iXvL0Pb6h5EDWf7L
+iNbk60NT9Y/KSWwIaf8iTFeH5K+NcgT+JQOe0iFH930Nme7lCXf38vuzBIsSfX0=
+=fcNC
+-----END PGP SIGNATURE-----
