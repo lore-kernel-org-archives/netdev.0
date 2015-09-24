@@ -1,391 +1,200 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 2/2] vxlan: support both IPv4 and IPv6 sockets in a single vxlan device
-Date: Thu, 24 Sep 2015 13:50:02 +0200
-Message-ID: <341e55348c73866833ce2b8b4bc367452ea57203.1443094736.git.jbenc@redhat.com>
-References: <cover.1443094736.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>
-To: netdev@vger.kernel.org
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Thu, 24 Sep 2015 12:52:38 +0100
+Message-ID: <1443095558.74600.84.camel@infradead.org>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+	 <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+	 <1443033714.74600.18.camel@infradead.org> <560310EA.2070805@intel.com>
+	 <1443042212.74600.30.camel@infradead.org> <56033C10.2040708@linaro.org>
+	 <1443082579.74600.48.camel@infradead.org>
+	 <20150924103152.GG13823@e104818-lin.cambridge.arm.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-8S+Cmb59kzTQm2/Ygae6"
+Cc: Hanjun Guo <hanjun.guo@linaro.org>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	linux-arm-kernel@lists.infradead.org,
+	steve.glendinning@shawell.net, netdev@vger.kernel.org,
+	grant.likely@linaro.org, Suravee.Suthikulpanit@amd.com
+To: Catalin Marinas <catalin.marinas@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45125 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754454AbbIXLuR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 07:50:17 -0400
-In-Reply-To: <cover.1443094736.git.jbenc@redhat.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:57427 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754293AbbIXLwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 07:52:44 -0400
+In-Reply-To: <20150924103152.GG13823@e104818-lin.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For metadata based vxlan interface, open both IPv4 and IPv6 socket. This is
-much more user friendly: it's not necessary to create two vxlan interfaces
-and pay attention to using the right one in routing rules.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/vxlan.c           | 128 +++++++++++++++++++++++++++++-------------
- include/net/vxlan.h           |  14 ++++-
- net/openvswitch/vport-vxlan.c |   3 +-
- 3 files changed, 103 insertions(+), 42 deletions(-)
+--=-8S+Cmb59kzTQm2/Ygae6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index a86613011977..ce704df7681b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -993,19 +993,30 @@ static bool vxlan_snoop(struct net_device *dev,
- static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
- {
- 	struct vxlan_dev *vxlan;
-+	unsigned short family = dev->default_dst.remote_ip.sa.sa_family;
- 
- 	/* The vxlan_sock is only used by dev, leaving group has
- 	 * no effect on other vxlan devices.
- 	 */
--	if (atomic_read(&dev->vn_sock->refcnt) == 1)
-+	if (family == AF_INET && dev->vn4_sock &&
-+	    atomic_read(&dev->vn4_sock->refcnt) == 1)
- 		return false;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (family == AF_INET6 && dev->vn6_sock &&
-+	    atomic_read(&dev->vn6_sock->refcnt) == 1)
-+		return false;
-+#endif
- 
- 	list_for_each_entry(vxlan, &vn->vxlan_list, next) {
- 		if (!netif_running(vxlan->dev) || vxlan == dev)
- 			continue;
- 
--		if (vxlan->vn_sock != dev->vn_sock)
-+		if (family == AF_INET && vxlan->vn4_sock != dev->vn4_sock)
- 			continue;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (family == AF_INET6 && vxlan->vn6_sock != dev->vn6_sock)
-+			continue;
-+#endif
- 
- 		if (!vxlan_addr_equal(&vxlan->default_dst.remote_ip,
- 				      &dev->default_dst.remote_ip))
-@@ -1021,16 +1032,16 @@ static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
- 	return false;
- }
- 
--static void vxlan_sock_release(struct vxlan_dev *vxlan)
-+static void __vxlan_sock_release(struct vxlan_sock *vs)
- {
--	struct vxlan_sock *vs = vxlan->vn_sock;
--	struct sock *sk = vs->sock->sk;
--	struct net *net = sock_net(sk);
--	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-+	struct vxlan_net *vn;
- 
-+	if (!vs)
-+		return;
- 	if (!atomic_dec_and_test(&vs->refcnt))
- 		return;
- 
-+	vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
- 	spin_lock(&vn->sock_lock);
- 	hlist_del_rcu(&vs->hlist);
- 	vxlan_notify_del_rx_port(vs);
-@@ -1039,32 +1050,43 @@ static void vxlan_sock_release(struct vxlan_dev *vxlan)
- 	queue_work(vxlan_wq, &vs->del_work);
- }
- 
-+static void vxlan_sock_release(struct vxlan_dev *vxlan)
-+{
-+	__vxlan_sock_release(vxlan->vn4_sock);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	__vxlan_sock_release(vxlan->vn6_sock);
-+#endif
-+}
-+
- /* Update multicast group membership when first VNI on
-  * multicast address is brought up
-  */
- static int vxlan_igmp_join(struct vxlan_dev *vxlan)
- {
--	struct vxlan_sock *vs = vxlan->vn_sock;
--	struct sock *sk = vs->sock->sk;
-+	struct sock *sk;
- 	union vxlan_addr *ip = &vxlan->default_dst.remote_ip;
- 	int ifindex = vxlan->default_dst.remote_ifindex;
- 	int ret = -EINVAL;
- 
--	lock_sock(sk);
- 	if (ip->sa.sa_family == AF_INET) {
- 		struct ip_mreqn mreq = {
- 			.imr_multiaddr.s_addr	= ip->sin.sin_addr.s_addr,
- 			.imr_ifindex		= ifindex,
- 		};
- 
-+		sk = vxlan->vn4_sock->sock->sk;
-+		lock_sock(sk);
- 		ret = ip_mc_join_group(sk, &mreq);
-+		release_sock(sk);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
-+		sk = vxlan->vn6_sock->sock->sk;
-+		lock_sock(sk);
- 		ret = ipv6_stub->ipv6_sock_mc_join(sk, ifindex,
- 						   &ip->sin6.sin6_addr);
-+		release_sock(sk);
- #endif
- 	}
--	release_sock(sk);
- 
- 	return ret;
- }
-@@ -1072,27 +1094,30 @@ static int vxlan_igmp_join(struct vxlan_dev *vxlan)
- /* Inverse of vxlan_igmp_join when last VNI is brought down */
- static int vxlan_igmp_leave(struct vxlan_dev *vxlan)
- {
--	struct vxlan_sock *vs = vxlan->vn_sock;
--	struct sock *sk = vs->sock->sk;
-+	struct sock *sk;
- 	union vxlan_addr *ip = &vxlan->default_dst.remote_ip;
- 	int ifindex = vxlan->default_dst.remote_ifindex;
- 	int ret = -EINVAL;
- 
--	lock_sock(sk);
- 	if (ip->sa.sa_family == AF_INET) {
- 		struct ip_mreqn mreq = {
- 			.imr_multiaddr.s_addr	= ip->sin.sin_addr.s_addr,
- 			.imr_ifindex		= ifindex,
- 		};
- 
-+		sk = vxlan->vn4_sock->sock->sk;
-+		lock_sock(sk);
- 		ret = ip_mc_leave_group(sk, &mreq);
-+		release_sock(sk);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
-+		sk = vxlan->vn6_sock->sock->sk;
-+		lock_sock(sk);
- 		ret = ipv6_stub->ipv6_sock_mc_drop(sk, ifindex,
- 						   &ip->sin6.sin6_addr);
-+		release_sock(sk);
- #endif
- 	}
--	release_sock(sk);
- 
- 	return ret;
- }
-@@ -1873,8 +1898,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- {
- 	struct ip_tunnel_info *info;
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct sock *sk = vxlan->vn_sock->sock->sk;
--	unsigned short family = vxlan_get_sk_family(vxlan->vn_sock);
-+	struct sock *sk;
- 	struct rtable *rt = NULL;
- 	const struct iphdr *old_iph;
- 	struct flowi4 fl4;
-@@ -1901,13 +1925,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				  dev->name);
- 			goto drop;
- 		}
--		if (family != ip_tunnel_info_af(info))
--			goto drop;
--
- 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
- 		vni = be64_to_cpu(info->key.tun_id);
--		remote_ip.sa.sa_family = family;
--		if (family == AF_INET)
-+		remote_ip.sa.sa_family = ip_tunnel_info_af(info);
-+		if (remote_ip.sa.sa_family == AF_INET)
- 			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
- 		else
- 			remote_ip.sin6.sin6_addr = info->key.u.ipv6.dst;
-@@ -1952,6 +1973,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	}
- 
- 	if (dst->sa.sa_family == AF_INET) {
-+		if (!vxlan->vn4_sock)
-+			goto drop;
-+		sk = vxlan->vn4_sock->sock->sk;
-+
- 		if (info && (info->key.tun_flags & TUNNEL_DONT_FRAGMENT))
- 			df = htons(IP_DF);
- 
-@@ -2013,6 +2038,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		struct flowi6 fl6;
- 		u32 rt6i_flags;
- 
-+		if (!vxlan->vn6_sock)
-+			goto drop;
-+		sk = vxlan->vn6_sock->sock->sk;
-+
- 		memset(&fl6, 0, sizeof(fl6));
- 		fl6.flowi6_oif = rdst ? rdst->remote_ifindex : 0;
- 		fl6.daddr = dst->sin6.sin6_addr;
-@@ -2204,7 +2233,6 @@ static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan)
- 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
- 	__u32 vni = vxlan->default_dst.remote_vni;
- 
--	vxlan->vn_sock = vs;
- 	spin_lock(&vn->sock_lock);
- 	hlist_add_head_rcu(&vxlan->hlist, vni_head(vs, vni));
- 	spin_unlock(&vn->sock_lock);
-@@ -2535,14 +2563,13 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
- }
- 
- /* Create new listen socket if needed */
--static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
--					      u32 flags)
-+static struct vxlan_sock *vxlan_socket_create(struct net *net, bool ipv6,
-+					      __be16 port, u32 flags)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
- 	struct socket *sock;
- 	unsigned int h;
--	bool ipv6 = !!(flags & VXLAN_F_IPV6);
- 	struct udp_tunnel_sock_cfg tunnel_cfg;
- 
- 	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
-@@ -2587,11 +2614,10 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	return vs;
- }
- 
--static int vxlan_sock_add(struct vxlan_dev *vxlan)
-+static int __vxlan_sock_add(struct vxlan_dev *vxlan, bool ipv6)
- {
- 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
- 	struct vxlan_sock *vs = NULL;
--	bool ipv6 = vxlan->flags & VXLAN_F_IPV6;
- 
- 	if (!vxlan->cfg.no_share) {
- 		spin_lock(&vn->sock_lock);
-@@ -2604,20 +2630,46 @@ static int vxlan_sock_add(struct vxlan_dev *vxlan)
- 		spin_unlock(&vn->sock_lock);
- 	}
- 	if (!vs)
--		vs = vxlan_socket_create(vxlan->net, vxlan->cfg.dst_port,
--					 vxlan->flags);
-+		vs = vxlan_socket_create(vxlan->net, ipv6,
-+					 vxlan->cfg.dst_port, vxlan->flags);
- 	if (IS_ERR(vs))
- 		return PTR_ERR(vs);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (ipv6)
-+		vxlan->vn6_sock = vs;
-+	else
-+#endif
-+		vxlan->vn4_sock = vs;
- 	vxlan_vs_add_dev(vs, vxlan);
- 	return 0;
- }
- 
-+static int vxlan_sock_add(struct vxlan_dev *vxlan)
-+{
-+	bool ipv6 = vxlan->flags & VXLAN_F_IPV6;
-+	bool metadata = vxlan->flags & VXLAN_F_COLLECT_METADATA;
-+	int ret = 0;
-+
-+	vxlan->vn4_sock = NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	vxlan->vn6_sock = NULL;
-+	if (ipv6 || metadata)
-+		ret = __vxlan_sock_add(vxlan, true);
-+#endif
-+	if (!ret && (!ipv6 || metadata))
-+		ret = __vxlan_sock_add(vxlan, false);
-+	if (ret < 0)
-+		vxlan_sock_release(vxlan);
-+	return ret;
-+}
-+
- static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 			       struct vxlan_config *conf)
- {
- 	struct vxlan_net *vn = net_generic(src_net, vxlan_net_id);
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_rdst *dst = &vxlan->default_dst;
-+	unsigned short needed_headroom = ETH_HLEN;
- 	int err;
- 	bool use_ipv6 = false;
- 	__be16 default_port = vxlan->cfg.dst_port;
-@@ -2637,6 +2689,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 		if (!IS_ENABLED(CONFIG_IPV6))
- 			return -EPFNOSUPPORT;
- 		use_ipv6 = true;
-+		vxlan->flags |= VXLAN_F_IPV6;
- 	}
- 
- 	if (conf->remote_ifindex) {
-@@ -2657,22 +2710,21 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 				pr_info("IPv6 is disabled via sysctl\n");
- 				return -EPERM;
- 			}
--			vxlan->flags |= VXLAN_F_IPV6;
- 		}
- #endif
- 
- 		if (!conf->mtu)
- 			dev->mtu = lowerdev->mtu - (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
- 
--		dev->needed_headroom = lowerdev->hard_header_len +
--				       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
--	} else if (use_ipv6) {
--		vxlan->flags |= VXLAN_F_IPV6;
--		dev->needed_headroom = ETH_HLEN + VXLAN6_HEADROOM;
--	} else {
--		dev->needed_headroom = ETH_HLEN + VXLAN_HEADROOM;
-+		needed_headroom = lowerdev->hard_header_len;
- 	}
- 
-+	if (use_ipv6 || conf->flags & VXLAN_F_COLLECT_METADATA)
-+		needed_headroom += VXLAN6_HEADROOM;
-+	else
-+		needed_headroom += VXLAN_HEADROOM;
-+	dev->needed_headroom = needed_headroom;
-+
- 	memcpy(&vxlan->cfg, conf, sizeof(*conf));
- 	if (!vxlan->cfg.dst_port)
- 		vxlan->cfg.dst_port = default_port;
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 480a319b4c92..c1c899c3a51b 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -152,7 +152,10 @@ struct vxlan_config {
- struct vxlan_dev {
- 	struct hlist_node hlist;	/* vni hash table */
- 	struct list_head  next;		/* vxlan's per namespace list */
--	struct vxlan_sock *vn_sock;	/* listening socket */
-+	struct vxlan_sock *vn4_sock;	/* listening socket for IPv4 */
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct vxlan_sock *vn6_sock;	/* listening socket for IPv6 */
-+#endif
- 	struct net_device *dev;
- 	struct net	  *net;		/* netns for packet i/o */
- 	struct vxlan_rdst default_dst;	/* default destination */
-@@ -195,9 +198,14 @@ struct vxlan_dev {
- struct net_device *vxlan_dev_create(struct net *net, const char *name,
- 				    u8 name_assign_type, struct vxlan_config *conf);
- 
--static inline __be16 vxlan_dev_dst_port(struct vxlan_dev *vxlan)
-+static inline __be16 vxlan_dev_dst_port(struct vxlan_dev *vxlan,
-+					unsigned short family)
- {
--	return inet_sk(vxlan->vn_sock->sock->sk)->inet_sport;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (family == AF_INET6)
-+		return inet_sk(vxlan->vn6_sock->sock->sk)->inet_sport;
-+#endif
-+	return inet_sk(vxlan->vn4_sock->sock->sk)->inet_sport;
- }
- 
- static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index c11413d5075f..fb3cdb85905d 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -151,7 +151,8 @@ static int vxlan_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
- {
- 	struct vxlan_dev *vxlan = netdev_priv(vport->dev);
- 	struct net *net = ovs_dp_get_net(vport->dp);
--	__be16 dst_port = vxlan_dev_dst_port(vxlan);
-+	unsigned short family = ip_tunnel_info_af(upcall->egress_tun_info);
-+	__be16 dst_port = vxlan_dev_dst_port(vxlan, family);
- 	__be16 src_port;
- 	int port_min;
- 	int port_max;
--- 
-1.8.3.1
+Hi Catalin,
+
+I understand your concerns, but I'm still not convinced of your
+conclusion.
+
+On Thu, 2015-09-24 at 11:31 +0100, Catalin Marinas wrote:
+> PRP0001 opens the door to any DT-like properties in ACPI and, knowing
+> how the ARM ecosystem works, I'm pretty sure we'll soon lose control (if
+> we haven't already; not all the developments are done in the open).
+
+No. That door is wide open already =E2=80=94 people can already do whatever
+they like in _DSD properties. If they're going to screw up DT
+properties, they'll screw up ACPI-only _DSD properties just the same.
+
+You speak of maintaining "tight control of the _DSD properties that
+are going to be used in ACPI tables"... but if you're going to
+confiscate their crackpipe and stand over them while they work, you can
+do that just as well whether they're using "PRP0001" or "FOO1234" as
+their HID value.
+
+In that sense, the HID is entirely orthogonal.
+
+And think about it... we *really* don't want a given peripheral device
+to have *different* bindings depending on whether it's discovered with
+a specific ACPI HID, vs. when it's discovered via DT or the PRP0001
+HID. That way lies complete insanity.
+
+In some ways, your proposal would be actively *counterproductive*. You
+say you want to train people *not* to keep patching the kernel. But
+where they *could* have just used PRP0001 and used a pre-existing
+kernel, you then tell them "oh, but now you need to patch the kernel
+because we want you to make up a new HID and not be compatible with
+what already exists."
+
+If you go down this road, I predict we'll start seeing *separate*
+drivers for identical components, because the bindings for DT vs. ACPI
+properties are different. We really don't want that.
+
+> The pro ARM ACPI camp has been very vocal against DT in the server
+> space. I'd like to seem them as vocal about PRP0001, unless they find it
+> acceptable (and should apologise for bashing DT ;)).
+
+Fundamentally, that DT vs. ACPI distinction has gone away with the
+introduction of _DSD. We *need* the flexibility that we gain from being
+able to provide device properties rather than inventing a new HID for
+every permutation, and with that flexibility comes a certain amount of
+responsibility to do things sensibly.
+
+People have not always designed their bindings sensibly. But that isn't
+going to be magically solved in the ACPI world, unless you *do*
+actually stand over them with their crackpipe in your hand, as I joked
+above. And eschewing PRP0001 really doesn't help you with that. It just
+makes things harder.
+
+--=20
+dwmw2
+
+
+--=-8S+Cmb59kzTQm2/Ygae6
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwOTI0MTE1MjM4WjAjBgkqhkiG9w0BCQQxFgQURPRu7QW3bjZOkhwHsYYgrZqQASEw
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQAHJOcLEZa20abJZNkb/NQAY/rnaU9G0PNjXiiFBBMPXldNGLCxZYBt0/LF
+uYQGFbcyi8cb+cQhwOupsWQr/Zi0KWSnwSRVQZWBmgu60P/GhYGpQBM+frRZw8fk6vGE7RMGLz57
+awp/jVBYT5oUIiDpTnx1cWoMRB8UjQXDpXWEZIrstVM1+u3Tbt+PeMkCuYQ6PH6CDfZkiGOk/9Xz
+9oIPCLJrfka6UPYVPkWtjm7Gy7Kv7KMBMVGMplZrmGytd4j96wzjJ7h1EScknZ2MdIccydlAt4fL
+jsMCwrHY/jCCLLprQYj5D7na/sDyvf5LOdYwOWBgcpKcLeRRrfIuGJzZAAAAAAAA
+
+
+--=-8S+Cmb59kzTQm2/Ygae6--
