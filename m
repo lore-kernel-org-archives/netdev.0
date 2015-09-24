@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] fib_rules: fix fib rule dumps across multiple skbs
-Date: Thu, 24 Sep 2015 15:22:30 -0700 (PDT)
-Message-ID: <20150924.152230.1137654723404286423.davem@davemloft.net>
-References: <1442983222-42750-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH] ip6_gre: Reduce log level in ip6gre_err() to debug
+Date: Thu, 24 Sep 2015 15:29:14 -0700 (PDT)
+Message-ID: <20150924.152914.68429572387880625.davem@davemloft.net>
+References: <1442984311-13668-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, wkok@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org
+To: matt.bennett@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54621 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54689 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753468AbbIXWWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:22:31 -0400
-In-Reply-To: <1442983222-42750-1-git-send-email-roopa@cumulusnetworks.com>
+	with ESMTP id S1753152AbbIXW3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:29:16 -0400
+In-Reply-To: <1442984311-13668-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Tue, 22 Sep 2015 21:40:22 -0700
+From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+Date: Wed, 23 Sep 2015 16:58:31 +1200
 
-> From: Wilson Kok <wkok@cumulusnetworks.com>
+> Currently error log messages in ip6gre_err are printed at 'warn'
+> level. This is different to most other tunnel types which don't
+> print any messages. These log messages don't provide any information
+> that couldn't be deduced with networking tools. Also it can be annoying
+> to have one end of the tunnel go down and have the logs fill with
+> pointless messages such as "Path to destination invalid or inactive!".
 > 
-> dump_rules returns skb length and not error.
-> But when family == AF_UNSPEC, the caller of dump_rules
-> assumes that it returns an error. Hence, when family == AF_UNSPEC,
-> we continue trying to dump on -EMSGSIZE errors resulting in
-> incorrect dump idx carried between skbs belonging to the same dump.
-> This results in fib rule dump always only dumping rules that fit
-> into the first skb.
+> This patch reduces the log level of these messages to 'dbg' level to
+> bring the visible behaviour into line with other tunnel types.
 > 
-> This patch fixes dump_rules to return error so that we exit correctly
-> and idx is correctly maintained between skbs that are part of the
-> same dump.
-> 
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
 
-Applied and queued up for -stable, thanks.
+Applied.
+
+net/ipv6/ip6_tunnel.c, which is probably where this code was mostly
+copy and pasted from, has the same issue.  Could you please take
+care of that too?
+
+Thanks.
