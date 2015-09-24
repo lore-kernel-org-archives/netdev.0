@@ -1,74 +1,42 @@
-From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
-Subject: [PATCH] ip6_tunnel: Reduce log level in ip6_tnl_err() to debug
-Date: Fri, 25 Sep 2015 11:01:47 +1200
-Message-ID: <1443135707-14620-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org,
-	Matt Bennett <matt.bennett@alliedtelesis.co.nz>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:39799 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932107AbbIXXCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 19:02:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: mdio-octeon: Add PCI driver binding.
+Date: Thu, 24 Sep 2015 16:07:57 -0700 (PDT)
+Message-ID: <20150924.160757.907239258265499481.davem@davemloft.net>
+References: <56047D15.9080105@caviumnetworks.com>
+	<20150924.155004.109163182451628208.davem@davemloft.net>
+	<56047F26.9070305@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ddaney.cavm@gmail.com, linux-kernel@vger.kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, david.daney@cavium.com
+To: ddaney@caviumnetworks.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56047F26.9070305@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently error log messages in ip6_tnl_err are printed at 'warn'
-level. This is different to other tunnel types which don't print
-any messages. These log messages don't provide any information that
-couldn't be deduced with networking tools. Also it can be annoying
-to have one end of the tunnel go down and have the logs fill with
-pointless messages such as "Path to destination invalid or inactive!".
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Thu, 24 Sep 2015 15:54:30 -0700
 
-This patch reduces the log level of these messages to 'dbg' level to
-bring the visible behaviour into line with other tunnel types.
+> On 09/24/2015 03:50 PM, David Miller wrote:
+>> From: David Daney <ddaney@caviumnetworks.com>
+>> Date: Thu, 24 Sep 2015 15:45:41 -0700
+>>
+>>> 2) The OF device tree nodes for PCI devices do not result in the
+>>> creation of a platform device.
+>>
+>> But they are created for the children right?  And that's the one
+>> you need them for probing.
+>>
+>> I'm still not convinced, sorry.
+>>
+> 
+> Let's let this topic rest for a few days.  My original patch was
+> defective, so it cannot be merged.  I will sleep on this, try a few
+> things and perhaps revisit it if I still think it is advisable.
 
-Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
----
- net/ipv6/ip6_tunnel.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index b0ab420..d04bed0 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -510,14 +510,14 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
- 		struct ipv6_tlv_tnl_enc_lim *tel;
- 		__u32 mtu;
- 	case ICMPV6_DEST_UNREACH:
--		net_warn_ratelimited("%s: Path to destination invalid or inactive!\n",
--				     t->parms.name);
-+		net_dbg_ratelimited("%s: Path to destination invalid or inactive!\n",
-+				    t->parms.name);
- 		rel_msg = 1;
- 		break;
- 	case ICMPV6_TIME_EXCEED:
- 		if ((*code) == ICMPV6_EXC_HOPLIMIT) {
--			net_warn_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
--					     t->parms.name);
-+			net_dbg_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
-+					    t->parms.name);
- 			rel_msg = 1;
- 		}
- 		break;
-@@ -529,13 +529,13 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
- 		if (teli && teli == *info - 2) {
- 			tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->data[teli];
- 			if (tel->encap_limit == 0) {
--				net_warn_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
--						     t->parms.name);
-+				net_dbg_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
-+						    t->parms.name);
- 				rel_msg = 1;
- 			}
- 		} else {
--			net_warn_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
--					     t->parms.name);
-+			net_dbg_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
-+					    t->parms.name);
- 		}
- 		break;
- 	case ICMPV6_PKT_TOOBIG:
--- 
-2.5.2
+Ok.
