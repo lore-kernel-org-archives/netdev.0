@@ -1,114 +1,146 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 0/4] ila: Use NF_INET_PRE_ROUTING nfhook
-Date: Thu, 24 Sep 2015 09:30:20 -0700
-Message-ID: <1443112224-574543-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 2/4] netlink: add a start callback for starting a netlink dump
+Date: Thu, 24 Sep 2015 09:30:22 -0700
+Message-ID: <1443112224-574543-3-git-send-email-tom@herbertland.com>
+References: <1443112224-574543-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:62555 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:15216 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752285AbbIXQae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 12:30:34 -0400
+	by vger.kernel.org with ESMTP id S1754686AbbIXQam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 12:30:42 -0400
 Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t8OGTtEJ003667
-	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:30:33 -0700
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t8OGTsbt003531
+	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:30:41 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1x4ktsr9m5-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1x4ktsr9ne-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:30:33 -0700
+	for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:30:41 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 9376c37862d911e58ca90002c99293a0-1fdf6240 for <netdev@vger.kernel.org>;	Thu,
- 24 Sep 2015 09:30:32 -0700
+ 983d136262d911e58ca90002c99293a0-1fdf6240 for <netdev@vger.kernel.org>;	Thu,
+ 24 Sep 2015 09:30:40 -0700
+In-Reply-To: <1443112224-574543-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the current implementation of ILA, LWT is used to perform
-translation on both the input and output paths. This is functional,
-however there is a big performance hit in the receive path. Early
-demux occurs before the routing lookup (a hit actually obviates the
-route lookup). Therefore the stack currently performs early
-demux before translation so that a local connection with ILA
-addresses is never matched. Note that this issue is not just
-with ILA, but pretty much any translated or encapsulated packet
-handled by LWT would miss the opportunity for early demux. Solving
-the general problem seems non trivial since we would need to move
-the route lookup before early demx thereby mitigating the value.
+The start callback allows the caller to set up a context for the
+dump callbacks. Presumably, the context can then be destroyed in
+the done callback.
 
-This patch set addresses the issue for ILA by adding a fast locator
-lookup that occurs before early demux. This is done by using a hook
-at NF_INET_PRE_ROUTING. For the backend we implement an rhashtable
-that contains identifier to locator to mappings. The table also
-allows more specific matches that include original locator and
-interface.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/linux/netlink.h  |  2 ++
+ include/net/genetlink.h  |  2 ++
+ net/netlink/af_netlink.c |  4 ++++
+ net/netlink/genetlink.c  | 16 ++++++++++++++++
+ 4 files changed, 24 insertions(+)
 
-Note that we are not adding functionality to support nfhook for
-output (e.g. NF_INET_POST_ROUTING). This is because netfilter
-is done post routing which is prolematic since we need are changing
-the destination address in ILA. There is an in/out parameter in
-table entries to allow for the future possibility of performing
-lookups on the output path.
-
-This patch set:
- - Add an rhashtable function to atomically replace and element.
-   This is useful to implement sub-trees from a table entry
-   without needing to use a special anchor structure as the
-   table entry.
- - Add a start callback for starting a netlink dump.
- - Creates an ila directory under net/ipv6 and moves ila.c to it.
-   ila.c is split into ila_common.c and ila_lwt.c.
- - Implement a table to do identifier->locator mapping. This is
-   an rhashtable
- - Configuration for the table with netlink
- - Set nfhook for IPv6 NF_INET_PRE_ROUTING.do ILA lookup and
-   translation.
-
-Testing:
-   Running 200 netperf TCP_RR streams
-
-No ILA, baseline
-   85.36% CPU utilization
-   1917187 tps
-   90/157/327 50/90/99% latencies
-
-ILA before fix (LWT on both input and output)
-   82.86% CPU utilization
-   1668895 tps (-14% from baseline)
-   106/180/336 50/90/99% latencies
-
-ILA after fix (NF hook for input)
-   82.69% CPU utilization
-   1865113 tps (-2.7% from baseline)
-   93/162/331 50/90/99% latencies
-
-Tom Herbert (4):
-  rhashtable: add function to replace an element
-  netlink: add a start callback for starting a netlink dump
-  ila: Create net/ipv6/ila directory
-  ila: Add support for netfilter NF_INET_PRE_ROUTING hook
-
- include/linux/netlink.h    |   2 +
- include/linux/rhashtable.h |  80 ++++++
- include/net/genetlink.h    |   2 +
- include/uapi/linux/ila.h   |  22 ++
- net/ipv6/Makefile          |   2 +-
- net/ipv6/ila.c             | 229 ----------------
- net/ipv6/ila/Makefile      |   7 +
- net/ipv6/ila/ila.h         |  48 ++++
- net/ipv6/ila/ila_common.c  | 102 +++++++
- net/ipv6/ila/ila_lwt.c     | 149 ++++++++++
- net/ipv6/ila/ila_xlat.c    | 665 +++++++++++++++++++++++++++++++++++++++++++++
- net/netlink/af_netlink.c   |   4 +
- net/netlink/genetlink.c    |  16 ++
- 13 files changed, 1098 insertions(+), 230 deletions(-)
- delete mode 100644 net/ipv6/ila.c
- create mode 100644 net/ipv6/ila/Makefile
- create mode 100644 net/ipv6/ila/ila.h
- create mode 100644 net/ipv6/ila/ila_common.c
- create mode 100644 net/ipv6/ila/ila_lwt.c
- create mode 100644 net/ipv6/ila/ila_xlat.c
-
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 639e9b8..0b41959 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -131,6 +131,7 @@ netlink_skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ struct netlink_callback {
+ 	struct sk_buff		*skb;
+ 	const struct nlmsghdr	*nlh;
++	int			(*start)(struct netlink_callback *);
+ 	int			(*dump)(struct sk_buff * skb,
+ 					struct netlink_callback *cb);
+ 	int			(*done)(struct netlink_callback *cb);
+@@ -153,6 +154,7 @@ struct nlmsghdr *
+ __nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq, int type, int len, int flags);
+ 
+ struct netlink_dump_control {
++	int (*start)(struct netlink_callback *);
+ 	int (*dump)(struct sk_buff *skb, struct netlink_callback *);
+ 	int (*done)(struct netlink_callback *);
+ 	void *data;
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index a9af1cc..d76f2da 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -114,6 +114,7 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
+  * @flags: flags
+  * @policy: attribute validation policy
+  * @doit: standard command callback
++ * @start: start callback for dumps
+  * @dumpit: callback for dumpers
+  * @done: completion callback for dumps
+  * @ops_list: operations list
+@@ -122,6 +123,7 @@ struct genl_ops {
+ 	const struct nla_policy	*policy;
+ 	int		       (*doit)(struct sk_buff *skb,
+ 				       struct genl_info *info);
++	int		       (*start)(struct netlink_callback *cb);
+ 	int		       (*dumpit)(struct sk_buff *skb,
+ 					 struct netlink_callback *cb);
+ 	int		       (*done)(struct netlink_callback *cb);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 7f86d3b..25c6633 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2870,6 +2870,7 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 
+ 	cb = &nlk->cb;
+ 	memset(cb, 0, sizeof(*cb));
++	cb->start = control->start;
+ 	cb->dump = control->dump;
+ 	cb->done = control->done;
+ 	cb->nlh = nlh;
+@@ -2882,6 +2883,9 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 
+ 	mutex_unlock(nlk->cb_mutex);
+ 
++	if (cb->start)
++		cb->start(cb);
++
+ 	ret = netlink_dump(sk);
+ 	sock_put(sk);
+ 
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2ed5f96..3d111b0 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -513,6 +513,20 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
+ }
+ EXPORT_SYMBOL(genlmsg_put);
+ 
++static int genl_lock_start(struct netlink_callback *cb)
++{
++	/* our ops are always const - netlink API doesn't propagate that */
++	const struct genl_ops *ops = cb->data;
++	int rc = 0;
++
++	if (ops->start) {
++		genl_lock();
++		rc = ops->start(cb);
++		genl_unlock();
++	}
++	return rc;
++}
++
+ static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	/* our ops are always const - netlink API doesn't propagate that */
+@@ -577,6 +591,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 				.module = family->module,
+ 				/* we have const, but the netlink API doesn't */
+ 				.data = (void *)ops,
++				.start = genl_lock_start,
+ 				.dump = genl_lock_dumpit,
+ 				.done = genl_lock_done,
+ 			};
+@@ -588,6 +603,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 		} else {
+ 			struct netlink_dump_control c = {
+ 				.module = family->module,
++				.start = ops->start,
+ 				.dump = ops->dumpit,
+ 				.done = ops->done,
+ 			};
 -- 
 2.4.6
