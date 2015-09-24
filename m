@@ -1,67 +1,40 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Thu, 24 Sep 2015 23:15:41 +0100
-Message-ID: <20150924221541.GF21513@n2100.arm.linux.org.uk>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
- <20150924215731.GE20825@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Thu, 24 Sep 2015 15:16:30 -0700
+Message-ID: <20150924151630.28129cdb@urahara>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+	<1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+	<20150923162650.148fe95b@urahara>
+	<bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>,
-	Frank Rowand <frowand.list@gmail.com>,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Li Yang <leoli@freescale.com>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150924215731.GE20825@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34015 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753152AbbIXWQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:16:21 -0400
+Received: by padhy16 with SMTP id hy16so84836769pad.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 15:16:20 -0700 (PDT)
+In-Reply-To: <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 24, 2015 at 11:57:31PM +0200, Andrew Lunn wrote:
-> Hi Russell
+On Thu, 24 Sep 2015 17:43:46 +0000
+Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
+
+> > Maybe it is time to rewrite it in a better language ;-)  
 > 
-> I tested both of these with my board. It is a Freescale Vybrid, using
-> the FEC ethernet driver, and i have three switches attached, using
-> mdio-mux to give three mdio busses.
-> 
-> No obvious regressions, my board boots, the switches are all present
-> and correct. I built the FEC driver as a module, and it won't unload:
-> 
->  kernel:unregister_netdevice: waiting for eth1 to become free. Usage count = 1
-> unregister_netdevice: waiting for eth1 to become free. Usage count = 1
-> 
-> i assume because DSA holds a reference. I've not tried a fully module
-> build, DSA has issues with that.
-> 
-> Tested-by: Andrew Lunn <andrew@lunn.ch>
+> I did not get that. Do you mean iproute2?
 
-Thanks for testing.  Please could you confirm whether the same behaviour
-is observed without the patches, just to make absolutely sure that isn't
-a regression.
-
-However, I think you are correct - I'm unable to locate where in the
-DSA code:
-- dst->master_dev's dev_hold() is undone (hence a reference left)
-- dst is freed - dsa_probe() allocates it using kzalloc(), but
-  dsa_remove() and it's children don't free this structure.
-
-There's no notifier which detects whether the underlying device has
-gone away - it registers a netdev notifier (dsa_slave_netdevice_event)
-but this only deals with slave devices, not the master device.
-
-Thanks.
-
--- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+I meant that the amount of formatting and string processing in ss is
+getting to be a significant fraction of the code. Languages other C
+provide more OO and better string handling that might help.
+But mostly it was a joke.
