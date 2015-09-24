@@ -1,75 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next 20/84] ipvs: Pass ipvs not net to ip_vs_flush
-Date: Thu, 24 Sep 2015 09:52:05 +0900
-Message-ID: <1443055989-1306-21-git-send-email-horms@verge.net.au>
-References: <1443055989-1306-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1443055989-1306-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: Set a "dsa" device_type
+Date: Wed, 23 Sep 2015 18:19:58 -0700
+Message-ID: <1443057598-25729-1-git-send-email-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	vivien.didelot@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34176 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932226AbbIXBUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 21:20:18 -0400
+Received: by padhy16 with SMTP id hy16so56252088pad.1
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 18:20:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
+Provide a device_type information for slave network devices created by
+DSA, this is useful for user-space application to easily locate/search
+for devices of a specific kind.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/dsa/slave.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index ff7f9d19f2c3..d9ff59a4bc6e 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1449,9 +1449,8 @@ static int ip_vs_del_service(struct ip_vs_service *svc)
- /*
-  *	Flush all the virtual services
-  */
--static int ip_vs_flush(struct net *net, bool cleanup)
-+static int ip_vs_flush(struct netns_ipvs *ipvs, bool cleanup)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 	int idx;
- 	struct ip_vs_service *svc;
- 	struct hlist_node *n;
-@@ -1487,10 +1486,11 @@ static int ip_vs_flush(struct net *net, bool cleanup)
-  */
- void ip_vs_service_net_cleanup(struct net *net)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(net);
- 	EnterFunction(2);
- 	/* Check for "full" addressed entries */
- 	mutex_lock(&__ip_vs_mutex);
--	ip_vs_flush(net, true);
-+	ip_vs_flush(ipvs, true);
- 	mutex_unlock(&__ip_vs_mutex);
- 	LeaveFunction(2);
- }
-@@ -2366,7 +2366,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 	mutex_lock(&__ip_vs_mutex);
- 	if (cmd == IP_VS_SO_SET_FLUSH) {
- 		/* Flush the virtual service */
--		ret = ip_vs_flush(net, false);
-+		ret = ip_vs_flush(ipvs, false);
- 		goto out_unlock;
- 	} else if (cmd == IP_VS_SO_SET_TIMEOUT) {
- 		/* Set timeout values for (tcp tcpfin udp) */
-@@ -3524,7 +3524,7 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
- 	mutex_lock(&__ip_vs_mutex);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index cce97385f743..40f9e369dc8e 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -962,6 +962,10 @@ static const struct switchdev_ops dsa_slave_switchdev_ops = {
+ 	.switchdev_port_obj_dump	= dsa_slave_port_obj_dump,
+ };
  
- 	if (cmd == IPVS_CMD_FLUSH) {
--		ret = ip_vs_flush(net, false);
-+		ret = ip_vs_flush(ipvs, false);
- 		goto out;
- 	} else if (cmd == IPVS_CMD_SET_CONFIG) {
- 		ret = ip_vs_genl_set_config(net, info->attrs);
++static struct device_type dsa_type = {
++	.name	= "dsa",
++};
++
+ static void dsa_slave_adjust_link(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -1150,6 +1154,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	slave_dev->priv_flags |= IFF_NO_QUEUE;
+ 	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+ 	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
++	SET_NETDEV_DEVTYPE(slave_dev, &dsa_type);
+ 
+ 	netdev_for_each_tx_queue(slave_dev, dsa_slave_set_lockdep_class_one,
+ 				 NULL);
 -- 
-2.1.4
-
+2.1.0
