@@ -1,61 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net PATCH 1/3] i40e: Fix handling of napi budget
-Date: Wed, 23 Sep 2015 21:54:53 -0700
-Message-ID: <1443070493.2987.0.camel@intel.com>
-References: <20150922213002.2774.37924.stgit@ahduyck-vm-fedora22>
-	 <20150922213529.2774.42390.stgit@ahduyck-vm-fedora22>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] rtnl_fdb_dump: catch errors from ndo_fdb_dump
+ and ndo_dflt_fdb_dump
+Date: Wed, 23 Sep 2015 21:59:17 -0700
+Message-ID: <CAE4R7bA9BqTF9UW95pfDujXo+jTfyDYcXfFCWthOJh_M0LQk4A@mail.gmail.com>
+References: <1443025261-14951-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-bgX6vEw7XvhK1P8DubqR"
-To: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Dept-GELinuxNICDev@qlogic.com,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:22141 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750995AbbIXEzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 00:55:20 -0400
-In-Reply-To: <20150922213529.2774.42390.stgit@ahduyck-vm-fedora22>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:32792 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867AbbIXE7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 00:59:37 -0400
+Received: by obbbh8 with SMTP id bh8so50010602obb.0
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 21:59:36 -0700 (PDT)
+In-Reply-To: <1443025261-14951-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 23, 2015 at 9:21 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> From: Wilson Kok <wkok@cumulusnetworks.com>
+>
+> current ndo_fdb_dump and ndo_dflt_fdb_dump always return the current
+> fdb index. They dont return errors. Which results in fdb dumps
+> continuing on errors.
+>
+> In one such case where bridges and vxlan devices were involved,
+> bridge driver returned -EMSGSIZE on a bridge, but since it continued
+> on error, the next vxlan device fdb dump (which was smaller in size)
+> succeeded, leaving fdb idx at an inconsistent value. This
+> resulted in the bridge fdb entry getting skipped and vxlan
+> fdb entry getting dumped twice.
+>
+> This patch changes ndo_fdb_dump() to return the status and pass the
+> idx by reference for update. The dump aborts if non-zero status is
+> returned.
+>
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
---=-bgX6vEw7XvhK1P8DubqR
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2015-09-22 at 14:35 -0700, Alexander Duyck wrote:
-> The polling routine for i40e was rounding up the budget for Rx
-> cleanup to
-> 1.  This is incorrect as netpoll will call is expecting no Rx to be
-> processed as the budget passed was 0.
->=20
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c |    5 +++++
->  1 file changed, 5 insertions(+)
-
-This does not apply cleanly to my next-queue tree, dev-queue branch.
---=-bgX6vEw7XvhK1P8DubqR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWA4IdAAoJEOVv75VaS+3OrI8P/03/Di8FUbLMyzjrjksXtedZ
-U/L5fvTT7DjweTnX2xfgBPVyHhUby4K3Ek3M/LAgn/sXjlrNWVo9oNdS8rhmIA80
-Rb9M6opf1Zyqe+BsI8w9DDVFdA931R+Qzk28+AgubXOMbRGtDUuWGrllIJXdzkVL
-0/pPnfaDFWfAhK1LryGdpMPPtpADjD/+XgURC/EueA/N3krmv0V4gtgqhxykoYWh
-gYa2OE/QNBUrj4MZZVIGJhOOEEFwtznJ+N1f7+T63Bw9NduiWleUUVkZe63ajjPL
-sAAZuNcCKVK3yrxcdhUQfgFIhGIiBqknMj2tkGVGc7R7rjFTlHLZgI8rCgxRWmjl
-p8lJG6amh83EIWIeZ++jye+iE0Wg/QZNp1G2AGp0Q5YXGlDknnQDZ3rMhXsEkVJN
-JY3ZuQdBjnCDanAv/YE5KbilM5SE8lZH0WQkMpFiYSBzzCCkn9ZuK8ziL2nlKSBd
-Uq4wam50dXoCYhvzxR77XOHf3HK8HR9iJ/9WzwpxtSNruUIFfKPKbABt8JzFS7XL
-7GFRJnlpBf0fZrk6nZCeKUMMqcYyDzwd2X+LQLd127ByAE9doJBxEMk7+e3CGZpp
-jXHZBU9MCQdfrNuxO80thO3Aq3gfSFJCmfSROxGX7kpUJ5oBYPR8DC2+FnMpeP/5
-4GX/DRErijNmKIOH7LZP
-=rkmD
------END PGP SIGNATURE-----
-
---=-bgX6vEw7XvhK1P8DubqR--
+Reviewed-by: Scott Feldman <sfeldma@gmail.com>
