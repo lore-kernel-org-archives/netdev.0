@@ -1,105 +1,44 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Fix panic in icmp_route_lookup
-Date: Thu, 24 Sep 2015 15:31:29 -0600
-Message-ID: <1443130289-67664-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: temnota.am@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] lwtunnel: make it really work, for IPv4
+Date: Thu, 24 Sep 2015 14:32:01 -0700 (PDT)
+Message-ID: <20150924.143201.454135729401541076.davem@davemloft.net>
+References: <cover.1442936392.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, roopa@cumulusnetworks.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35696 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbbIXVbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 17:31:34 -0400
-Received: by pacfv12 with SMTP id fv12so85207421pac.2
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 14:31:33 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54309 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754230AbbIXVcC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 17:32:02 -0400
+In-Reply-To: <cover.1442936392.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrey reported a panic:
+From: Jiri Benc <jbenc@redhat.com>
+Date: Tue, 22 Sep 2015 18:12:10 +0200
 
-[ 7249.865507] BUG: unable to handle kernel pointer dereference at 000000b4
-[ 7249.865559] IP: [<c16afeca>] icmp_route_lookup+0xaa/0x320
-[ 7249.865598] *pdpt = 0000000030f7f001 *pde = 0000000000000000
-[ 7249.865637] Oops: 0000 [#1]
-...
-[ 7249.866811] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
-4.3.0-999-generic #201509220155
-[ 7249.866876] Hardware name: MSI MS-7250/MS-7250, BIOS 080014  08/02/2006
-[ 7249.866916] task: c1a5ab00 ti: c1a52000 task.ti: c1a52000
-[ 7249.866949] EIP: 0060:[<c16afeca>] EFLAGS: 00210246 CPU: 0
-[ 7249.866981] EIP is at icmp_route_lookup+0xaa/0x320
-[ 7249.867012] EAX: 00000000 EBX: f483ba48 ECX: 00000000 EDX: f2e18a00
-[ 7249.867045] ESI: 000000c0 EDI: f483ba70 EBP: f483b9ec ESP: f483b974
-[ 7249.867077]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-[ 7249.867108] CR0: 8005003b CR2: 000000b4 CR3: 36ee07c0 CR4: 000006f0
-[ 7249.867141] Stack:
-[ 7249.867165]  320310ee 00000000 00000042 320310ee 00000000 c1aeca00
-f3920240 f0c69180
-[ 7249.867268]  f483ba04 f855058b a89b66cd f483ba44 f8962f4b 00000000
-e659266c f483ba54
-[ 7249.867361]  8004753c f483ba5c f8962f4b f2031140 000003c1 ffbd8fa0
-c16b0e00 00000064
-[ 7249.867448] Call Trace:
-[ 7249.867494]  [<f855058b>] ? e1000_xmit_frame+0x87b/0xdc0 [e1000e]
-[ 7249.867534]  [<f8962f4b>] ? tcp_in_window+0xeb/0xb10 [nf_conntrack]
-[ 7249.867576]  [<f8962f4b>] ? tcp_in_window+0xeb/0xb10 [nf_conntrack]
-[ 7249.867615]  [<c16b0e00>] ? icmp_send+0xa0/0x380
-[ 7249.867648]  [<c16b102f>] icmp_send+0x2cf/0x380
-[ 7249.867681]  [<f89c8126>] nf_send_unreach+0xa6/0xc0 [nf_reject_ipv4]
-[ 7249.867714]  [<f89cd0da>] reject_tg+0x7a/0x9f [ipt_REJECT]
-[ 7249.867746]  [<f88c29a7>] ipt_do_table+0x317/0x70c [ip_tables]
-[ 7249.867780]  [<f895e0a6>] ? __nf_conntrack_find_get+0x166/0x3b0
-[nf_conntrack]
-[ 7249.867838]  [<f895eea8>] ? nf_conntrack_in+0x398/0x600 [nf_conntrack]
-[ 7249.867889]  [<f84c0035>] iptable_filter_hook+0x35/0x80 [iptable_filter]
-[ 7249.867933]  [<c16776a1>] nf_iterate+0x71/0x80
-[ 7249.867970]  [<c1677715>] nf_hook_slow+0x65/0xc0
-[ 7249.868002]  [<c1681811>] __ip_local_out_sk+0xc1/0xd0
-[ 7249.868034]  [<c1680f30>] ? ip_forward_options+0x1a0/0x1a0
-[ 7249.868066]  [<c1681836>] ip_local_out_sk+0x16/0x30
-[ 7249.868097]  [<c1684054>] ip_send_skb+0x14/0x80
-[ 7249.868129]  [<c16840f4>] ip_push_pending_frames+0x34/0x40
-[ 7249.868163]  [<c16844a2>] ip_send_unicast_reply+0x282/0x310
-[ 7249.868196]  [<c16a0863>] tcp_v4_send_reset+0x1b3/0x380
-[ 7249.868227]  [<c16a1b63>] tcp_v4_rcv+0x323/0x990
-[ 7249.868257]  [<c16776a1>] ? nf_iterate+0x71/0x80
-[ 7249.868289]  [<c167dc2b>] ip_local_deliver_finish+0x8b/0x230
-[ 7249.868322]  [<c167df4c>] ip_local_deliver+0x4c/0xa0
-[ 7249.868353]  [<c167dba0>] ? ip_rcv_finish+0x390/0x390
-[ 7249.868384]  [<c167d88c>] ip_rcv_finish+0x7c/0x390
-[ 7249.868415]  [<c167e280>] ip_rcv+0x2e0/0x420
-...
+> One of the selling points of lwtunnel was the ability to specify the tunnel
+> destination using routes. However, this doesn't really work currently, as
+> ARP and ndisc replies are not handled correctly. ARP and ndisc replies won't
+> have tunnel metadata attached, thus they will be sent out with the default
+> parameters or not sent at all, either way never reaching the requester.
+> 
+> Most of the egress tunnel parameters can be inferred from the ingress
+> metada. The only and important exception is UDP ports. This patchset infers
+> the egress data from the ingress data and disallow settings of UDP ports in
+> tunnel routes. If there's a need for different UDP ports, a new interface
+> needs to be created for each port combination. Note that it's still possible
+> to specify the UDP ports to use, it just needs to be done while creating the
+> vxlan/geneve interface.
+> 
+> This covers only ARPs. IPv6 ndisc has the same problem but is harder to
+> solve, as there's already dst attached to outgoing skbs. Ideas to solve this
+> are welcome.
 
-Prior to the VRF change the oif was not set in the flow struct, so the
-VRF support should really have only added the vrf_master_ifindex lookup.
+I'm applying this series as-is, as it's a reasonable step forward in
+dealing with this issue.
 
-Fixes: 613d09b30f8b ("net: Use VRF device index for lookups on TX")
-Cc: Andrey Melnikov <temnota.am@gmail.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/icmp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 79fe05befcae..e5eb8ac4089d 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -427,7 +427,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	fl4.flowi4_mark = mark;
- 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
- 	fl4.flowi4_proto = IPPROTO_ICMP;
--	fl4.flowi4_oif = vrf_master_ifindex(skb->dev) ? : skb->dev->ifindex;
-+	fl4.flowi4_oif = vrf_master_ifindex(skb->dev);
- 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
- 	rt = ip_route_output_key(net, &fl4);
- 	if (IS_ERR(rt))
-@@ -461,7 +461,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
- 	fl4->flowi4_proto = IPPROTO_ICMP;
- 	fl4->fl4_icmp_type = type;
- 	fl4->fl4_icmp_code = code;
--	fl4->flowi4_oif = vrf_master_ifindex(skb_in->dev) ? : skb_in->dev->ifindex;
-+	fl4->flowi4_oif = vrf_master_ifindex(skb_in->dev);
- 
- 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
- 	rt = __ip_route_output_key(net, fl4);
--- 
-2.3.8 (Apple Git-58)
+Thanks Jiri.
