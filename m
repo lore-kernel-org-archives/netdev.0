@@ -1,28 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-09-23
-Date: Thu, 24 Sep 2015 15:36:52 -0700 (PDT)
-Message-ID: <20150924.153652.1494521315116779817.davem@davemloft.net>
-References: <1442997854.1889.1.camel@sipsolutions.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: Set a "dsa" device_type
+Date: Thu, 24 Sep 2015 18:37:49 -0400
+Message-ID: <20150924223748.GA6064@ketchup.mtl.sfl>
+References: <1443057598-25729-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1442997854.1889.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux@roeck-us.net, andrew@lunn.ch
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:49226
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753152AbbIXWhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:37:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1443057598-25729-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 23 Sep 2015 10:44:14 +0200
+Hi Florian,
 
-> It's been pretty quiet for this cycle since the sizeof() mess, but I
-> have two more fixes now I'd like to get in.
+On Sep. Wednesday 23 (39) 06:19 PM, Florian Fainelli wrote:
+> Provide a device_type information for slave network devices created by
+> DSA, this is useful for user-space application to easily locate/search
+> for devices of a specific kind.
 > 
-> Let me know if there's any problem.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Pulled, thanks a lot.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Noob question, how is that used from user-space?
+
+Also, don't you think that this "dsa" device type might be conflicting
+with eventually exposed DSA ports? Or will they all get the same type?
+
+Thanks,
+-v
