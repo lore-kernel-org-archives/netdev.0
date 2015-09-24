@@ -1,217 +1,83 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH WTF] 8139cp: Fix GSO MSS handling
-Date: Thu, 24 Sep 2015 09:58:32 +0100
-Message-ID: <1443085112.74600.53.camel@infradead.org>
-References: <1442996049.36485.32.camel@infradead.org>
-	 <20150923.105812.149257816141624869.davem@davemloft.net>
-	 <1443037530.74600.29.camel@infradead.org>
-	 <20150923.144808.886375927698238398.davem@davemloft.net>
-	 <1443045602.74600.33.camel@infradead.org>
-	 <20150923232931.GA8365@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-RplrPxw6CvBfYremi4Ee"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:56909 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbbIXI6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 04:58:37 -0400
-In-Reply-To: <20150923232931.GA8365@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next] net: remove unused argument of __netdev_find_adj()
+Date: Thu, 24 Sep 2015 10:59:05 +0200 (CEST)
+Message-ID: <20150924085905.5ADC2A572E@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The __netdev_find_adj() helper does not use its first argument, only the
+device to find and list to walk through.
 
---=-RplrPxw6CvBfYremi4Ee
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-When fixing the TSO support I noticed we just mask skb->gso_size with
-the MSSMask value and don't care about the consequences.
-
-That seems... unsagacious.
-
-Instead of masking, WARN and drop the packet if the maximum is exceeded.
-And call netif_set_gso_max_size() so it shouldn't happen in the first
-place.
-
-Finally, Francois Romieu noticed that we didn't even have the right
-value for MSSMask anyway; it should be 0x7ff (11 bits) not 0xfff.
-
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
+ net/core/dev.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-Nice and simple and obvious, right?
-
-So why does it stop TSO from happening at all?
-
-When I call netif_set_gso_max_size() with a value of 0xaad (2733) or
-higher, I see TSO being used (with an MSS of 1214; this is just between
-a VM and its host; Legacy IP with an MTU of 1500).
-
-If I set a maximum of 0xaac or lower, TSO never gets used. Am I doing
-something wrong? Or is there a problem somewhere else?
-
- drivers/net/ethernet/realtek/8139cp.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
-ealtek/8139cp.c
-index 686334f..ae24d42 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -175,7 +175,7 @@ enum {
- 	LastFrag	=3D (1 << 28), /* Final segment of a packet */
- 	LargeSend	=3D (1 << 27), /* TCP Large Send Offload (TSO) */
- 	MSSShift	=3D 16,	     /* MSS value position */
--	MSSMask		=3D 0xfff,     /* MSS value: 11 bits */
-+	MSSMask		=3D 0x7ff,     /* MSS value: 11 bits */
- 	TxError		=3D (1 << 23), /* Tx error summary */
- 	RxError		=3D (1 << 20), /* Rx error summary */
- 	IPCS		=3D (1 << 18), /* Calculate IP checksum */
-@@ -754,10 +754,16 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb=
-,
- 	eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
- 	mss =3D skb_shinfo(skb)->gso_size;
-=20
-+	if (mss > MSSMask) {
-+		WARN_ONCE(1, "Net bug: GSO size %d too large for 8139CP\n",
-+			  mss);
-+		goto out_dma_error;
-+	}
-+
- 	opts2 =3D cpu_to_le32(cp_tx_vlan_tag(skb));
- 	opts1 =3D DescOwn;
- 	if (mss)
--		opts1 |=3D LargeSend | ((mss & MSSMask) << MSSShift);
-+		opts1 |=3D LargeSend | (mss << MSSShift);
- 	else if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
- 		const struct iphdr *ip =3D ip_hdr(skb);
- 		if (ip->protocol =3D=3D IPPROTO_TCP)
-@@ -1994,6 +2000,8 @@ static int cp_init_one (struct pci_dev *pdev, const s=
-truct pci_device_id *ent)
- 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HIGHDMA;
-=20
-+	netif_set_gso_max_size(dev, MSSMask);
-+
- 	rc =3D register_netdev(dev);
- 	if (rc)
- 		goto err_out_iomap;
---=20
-2.4.3
-
---=20
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
-
---=-RplrPxw6CvBfYremi4Ee
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
-ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
-YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
-ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
-MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
-ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
-jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
-doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
-FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
-fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
-ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
-BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
-ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
-MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
-bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
-dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
-aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
-aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
-IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
-Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
-AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
-KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
-LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
-BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
-7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
-neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
-jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
-vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
-KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
-VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
-bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
-Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
-9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
-AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
-WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
-hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
-OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
-Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
-A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
-8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
-MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
-MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
-KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
-aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
-dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
-eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
-YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
-c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
-YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
-GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
-/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
-UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
-r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
-oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
-z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
-VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
-Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
-b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
-BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
-IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
-Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
-vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
-d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
-5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
-q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
-Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
-AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
-MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
-c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
-WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
-hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
-tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
-BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
-hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
-oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
-M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
-UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
-Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
-8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
-gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
-XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
-5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
-Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
-YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
-ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
-AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTI0MDg1ODMyWjAjBgkqhkiG9w0BCQQxFgQUn20SQPIjefTnRmA4rbyPGQm34Y0w
-gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
-CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
-LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
-U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQBalazzXCB26HOuCxLGyLyNITkpGD9K6tKJKYF8ZlDtQBu3mQuHHy16etaZ
-Hllq/8kNBa17979jOgPHojQ5HTRoJ8AP1EVlosrB/pwUpxpYm+Fpt3t+Mnoe2zxC44XHIWup7Ygf
-cpvFThA6iRptItQE0ysBA+SOrmaVxR2cqm2L3ZaaLnC47DA2Xuvh8A2oSCpCPqiU2G0tvORq0Rh9
-5DcRBthI9TMFC++o2FZXiigKcYavWmHS+My7DEeTRGctatKs6AI3ae3TtsB6j7zYCY3fLMLwAph/
-aI9MJPjn9Dg1G4LABzDHvwGS3MwinF9x35oYQTWxMVJtetsFrfvN7B0uAAAAAAAA
-
-
---=-RplrPxw6CvBfYremi4Ee--
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ee0d6286f934..464c22b6261a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4865,8 +4865,7 @@ struct netdev_adjacent {
+ 	struct rcu_head rcu;
+ };
+ 
+-static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
+-						 struct net_device *adj_dev,
++static struct netdev_adjacent *__netdev_find_adj(struct net_device *adj_dev,
+ 						 struct list_head *adj_list)
+ {
+ 	struct netdev_adjacent *adj;
+@@ -4892,7 +4891,7 @@ bool netdev_has_upper_dev(struct net_device *dev,
+ {
+ 	ASSERT_RTNL();
+ 
+-	return __netdev_find_adj(dev, upper_dev, &dev->all_adj_list.upper);
++	return __netdev_find_adj(upper_dev, &dev->all_adj_list.upper);
+ }
+ EXPORT_SYMBOL(netdev_has_upper_dev);
+ 
+@@ -5154,7 +5153,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	struct netdev_adjacent *adj;
+ 	int ret;
+ 
+-	adj = __netdev_find_adj(dev, adj_dev, dev_list);
++	adj = __netdev_find_adj(adj_dev, dev_list);
+ 
+ 	if (adj) {
+ 		adj->ref_nr++;
+@@ -5210,7 +5209,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ {
+ 	struct netdev_adjacent *adj;
+ 
+-	adj = __netdev_find_adj(dev, adj_dev, dev_list);
++	adj = __netdev_find_adj(adj_dev, dev_list);
+ 
+ 	if (!adj) {
+ 		pr_err("tried to remove device %s from %s\n",
+@@ -5331,10 +5330,10 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 		return -EBUSY;
+ 
+ 	/* To prevent loops, check if dev is not upper device to upper_dev. */
+-	if (__netdev_find_adj(upper_dev, dev, &upper_dev->all_adj_list.upper))
++	if (__netdev_find_adj(dev, &upper_dev->all_adj_list.upper))
+ 		return -EBUSY;
+ 
+-	if (__netdev_find_adj(dev, upper_dev, &dev->adj_list.upper))
++	if (__netdev_find_adj(upper_dev, &dev->adj_list.upper))
+ 		return -EEXIST;
+ 
+ 	if (master && netdev_master_upper_dev_get(dev))
+@@ -5612,7 +5611,7 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+ 
+ 	if (!lower_dev)
+ 		return NULL;
+-	lower = __netdev_find_adj(dev, lower_dev, &dev->adj_list.lower);
++	lower = __netdev_find_adj(lower_dev, &dev->adj_list.lower);
+ 	if (!lower)
+ 		return NULL;
+ 
+-- 
+2.5.3
