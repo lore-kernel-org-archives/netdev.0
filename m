@@ -1,109 +1,134 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 1/9] phy: fix of_mdio_find_bus() device refcount leak
-Date: Thu, 24 Sep 2015 20:18:22 +0100
-Message-ID: <E1ZfC2A-00035e-9B@rmk-PC.arm.linux.org.uk>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
+From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
+Date: Thu, 24 Sep 2015 20:17:54 +0100
+Message-ID: <20150924191754.GC21513@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Jason Cooper <jason@lakedaemon.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:44790 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753018AbbIXTS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 15:18:29 -0400
-In-Reply-To: <20150924191754.GC21513@n2100.arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Soren Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-of_mdio_find_bus() leaks a struct device refcount, caused by using
-class_find_device() and not realising that the device reference has
-its refcount incremented:
+Hi,
 
- * Note, you will need to drop the reference with put_device() after use.
-...
-        while ((dev = class_dev_iter_next(&iter))) {
-                if (match(dev, data)) {
-                        get_device(dev);
-                        break;
-                }
+The third version of this series fixes the build error which David
+identified, and drops the broken changes for the Cavium Thunger BGX
+ethernet driver as this driver requires some complex changes to
+resolve the leakage - and this is best done by people who can test
+the driver.
 
-Update the comment, and arrange for the phy code to drop this refcount
-when disposing of a reference to it.
+Compared to v2, the only patch which has changed is patch 6
+  "net: fix phy refcounting in a bunch of drivers"
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/phy/mdio-mux.c | 19 +++++++++++++------
- drivers/net/phy/mdio_bus.c |  4 +++-
- 2 files changed, 16 insertions(+), 7 deletions(-)
+I _think_ I've been able to build-test all the drivers touched by
+that patch to some degree now, though several of them needed the
+Kconfig hacked to allow it (not all had || COMPILE_TEST clause on
+their dependencies.)
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 4d4d25efc1e1..280c7c311f72 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -113,18 +113,18 @@ int mdio_mux_init(struct device *dev,
- 	if (!parent_bus_node)
- 		return -ENODEV;
- 
--	parent_bus = of_mdio_find_bus(parent_bus_node);
--	if (parent_bus == NULL) {
--		ret_val = -EPROBE_DEFER;
--		goto err_parent_bus;
--	}
--
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
- 	if (pb == NULL) {
- 		ret_val = -ENOMEM;
- 		goto err_parent_bus;
- 	}
- 
-+	parent_bus = of_mdio_find_bus(parent_bus_node);
-+	if (parent_bus == NULL) {
-+		ret_val = -EPROBE_DEFER;
-+		goto err_parent_bus;
-+	}
-+
- 	pb->switch_data = data;
- 	pb->switch_fn = switch_fn;
- 	pb->current_child = -1;
-@@ -173,6 +173,10 @@ int mdio_mux_init(struct device *dev,
- 		dev_info(dev, "Version " DRV_VERSION "\n");
- 		return 0;
- 	}
-+
-+	/* balance the reference of_mdio_find_bus() took */
-+	put_device(&pb->mii_bus->dev);
-+
- err_parent_bus:
- 	of_node_put(parent_bus_node);
- 	return ret_val;
-@@ -189,6 +193,9 @@ void mdio_mux_uninit(void *mux_handle)
- 		mdiobus_free(cb->mii_bus);
- 		cb = cb->next;
- 	}
-+
-+	/* balance the reference of_mdio_find_bus() in mdio_mux_init() took */
-+	put_device(&pb->mii_bus->dev);
- }
- EXPORT_SYMBOL_GPL(mdio_mux_uninit);
- 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 02a4615b65f8..67553e13bd36 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -167,7 +167,9 @@ static int of_mdio_bus_match(struct device *dev, const void *mdio_bus_np)
-  * of_mdio_find_bus - Given an mii_bus node, find the mii_bus.
-  * @mdio_bus_np: Pointer to the mii_bus.
-  *
-- * Returns a pointer to the mii_bus, or NULL if none found.
-+ * Returns a reference to the mii_bus, or NULL if none found.  The
-+ * embedded struct device will have its reference count incremented,
-+ * and this must be put once the bus is finished with.
-  *
-  * Because the association of a device_node and mii_bus is made via
-  * of_mdiobus_register(), the mii_bus cannot be found before it is
+Previous cover letters below:
+
+This is the second version of the series, with the comments David had
+on the first patch fixed up.  Original series description with updated
+diffstat below.
+
+While looking at the DSA code, I noticed we have a
+of_find_net_device_by_node(), and it looks like users of that are
+similarly buggy - it looks like net/dsa/dsa.c is the only user.  Fix
+that too.
+
+Hi,
+
+While looking at the phy code, I identified a number of weaknesses
+where refcounting on device structures was being leaked, where
+modules could be removed while in-use, and where the fixed-phy could
+end up having unintended consequences caused by incorrect calls to
+fixed_phy_update_state().
+
+This patch series resolves those issues, some of which were discovered
+with testing on an Armada 388 board.  Not all patches are fully tested,
+particularly the one which touches several network drivers.
+
+When resolving the struct device refcounting problems, several different
+solutions were considered before settling on the implementation here -
+one of the considerations was to avoid touching many network drivers.
+The solution here is:
+
+	phy_attach*() - takes a refcount
+	phy_detach*() - drops the phy_attach refcount
+
+Provided drivers always attach and detach their phys, which they should
+already be doing, this should change nothing, even if they leak a refcount.
+
+	of_phy_find_device() and of_* functions which use that take
+	a refcount.  Arrange for this refcount to be dropped once
+	the phy is attached.
+
+This is the reason why the previous change is important - we can't drop
+this refcount taken by of_phy_find_device() until something else holds
+a reference on the device.  This resolves the leaked refcount caused by
+using of_phy_connect() or of_phy_attach().
+
+Even without the above changes, these drivers are leaking by calling
+of_phy_find_device().  These drivers are addressed by adding the
+appropriate release of that refcount.
+
+The mdiobus code also suffered from the same kind of leak, but thankfully
+this only happened in one place - the mdio-mux code.
+
+I also found that the try_module_get() in the phy layer code was utterly
+useless: phydev->dev.driver was guaranteed to always be NULL, so
+try_module_get() was always being called with a NULL argument.  I proved
+this with my SFP code, which declares its own MDIO bus - the module use
+count was never incremented irrespective of how I set the MDIO bus up.
+This allowed the MDIO bus code to be removed from the kernel while there
+were still PHYs attached to it.
+
+One other bug was discovered: while using in-band-status with mvneta, it
+was found that if a real phy is attached with in-band-status enabled,
+and another ethernet interface is using the fixed-phy infrastructure, the
+interface using the fixed-phy infrastructure is configured according to
+the other interface using the in-band-status - which is caused by the
+fixed-phy code not verifying that the phy_device passed in is actually
+a fixed-phy device, rather than a real MDIO phy.
+
+Lastly, having mdio_bus reversing phy_device_register() internals seems
+like a layering violation - it's trivial to move that code to the phy
+device layer.
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 24 ++++++----
+ drivers/net/ethernet/freescale/gianfar.c       |  6 ++-
+ drivers/net/ethernet/freescale/ucc_geth.c      |  8 +++-
+ drivers/net/ethernet/marvell/mvneta.c          |  2 +
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c  |  2 +
+ drivers/net/phy/fixed_phy.c                    |  2 +-
+ drivers/net/phy/mdio-mux.c                     | 19 +++++---
+ drivers/net/phy/mdio_bus.c                     | 24 ++++++----
+ drivers/net/phy/phy_device.c                   | 62 ++++++++++++++++++++------
+ drivers/of/of_mdio.c                           | 27 +++++++++--
+ include/linux/phy.h                            |  6 ++-
+ net/core/net-sysfs.c                           |  9 ++++
+ net/dsa/dsa.c                                  | 41 ++++++++++++++---
+ 13 files changed, 181 insertions(+), 51 deletions(-)
+
 -- 
-2.1.0
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
