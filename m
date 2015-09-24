@@ -1,60 +1,43 @@
-From: Dan Webster <dsw@hexology.net>
-Subject: [PATCH iproute2] ss: fix file-based filtering segfault
-Date: Thu, 24 Sep 2015 09:36:53 +0200
-Message-ID: <1443080213-2553-1-git-send-email-dsw@hexology.net>
-Cc: Dan Webster <dsw@hexology.net>,
-	Stephen Hemminger <shemming@brocade.com>,
-	Vadim Kochan <vadim4j@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 00/10] switchdev: transaction item queue and cleanup
+Date: Thu, 24 Sep 2015 10:02:39 +0200
+Message-ID: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, rami.rosen@intel.com,
+	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
+	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hexology.net ([92.243.28.49]:36039 "EHLO hexology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754415AbbIXHrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 03:47:21 -0400
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38782 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbbIXICw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 04:02:52 -0400
+Received: by wiclk2 with SMTP id lk2so101452819wic.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 01:02:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 1527a17 introduced a change where the second of two ssfilter_parse()
-calls in ss.c was moved outside of a conditional block (ss.c: ~3575). This
-commit enabled the parsing of services, such as 'sport = :ssh', but
-inadvertently broke the '-F' file-based filtering:
+From: Jiri Pirko <jiri@mellanox.com>
 
---
-$ cat filt.txt
-src 127.0.0.1
+Jiri Pirko (10):
+  switchdev: rename "trans" to "trans_ph".
+  switchdev: introduce transaction item queue for attr_set and obj_add
+  switchdev: move transaction phase enum under transaction structure
+  switchdev: add switchdev_trans_ph_prepare/commit helpers
+  rocker: push struct switchdev_trans down through rocker code
+  rocker: use switchdev transaction queue for allocated memory
+  switchdev: remove "NONE" transaction phase
+  switchdev: remove "ABORT" transaction phase
+  dsa: use prepare/commit switchdev transaction helpers
+  switchdev: reduce transaction phase enum down to a boolean
 
-$ ss -F filt.txt
-Segmentation fault (core dumped)
+ Documentation/networking/switchdev.txt |  19 ++
+ drivers/net/ethernet/rocker/rocker.c   | 308 ++++++++++++++-------------------
+ include/net/switchdev.h                |  40 +++--
+ net/dsa/slave.c                        |  31 ++--
+ net/switchdev/switchdev.c              | 125 ++++++++++---
+ 5 files changed, 296 insertions(+), 227 deletions(-)
 
-Program received signal SIGSEGV, Segmentation fault.
-yylex () at ssfilter.y:183
-183         while (*tokptr == 0) {
---
-
-The first (redundant) ssfilter_parse() was mangling yylex() for the latter
-call.
-
-Signed-off-by: Dan Webster <dsw@hexology.net>
----
- misc/ss.c | 6 ------
- 1 file changed, 6 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 9efc3c8..7c3dfa3 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -3782,12 +3782,6 @@ int main(int argc, char *argv[])
- 			exit(0);
- 	}
- 
--	/* Now parse filter... */
--	if (argc == 0 && filter_fp) {
--		if (ssfilter_parse(&current_filter.f, 0, NULL, filter_fp))
--			usage();
--	}
--
- 	while (argc > 0) {
- 		if (strcmp(*argv, "state") == 0) {
- 			NEXT_ARG();
 -- 
-2.1.4
+1.9.3
