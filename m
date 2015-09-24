@@ -1,83 +1,215 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/18] ixgbe: Allow reduced delays during SFP detection
-Date: Wed, 23 Sep 2015 23:59:25 -0700
-Message-ID: <1443077981-55791-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/18] ixgbe: Fix 1G and 10G link stability for X550EM_x SFP+
+Date: Wed, 23 Sep 2015 23:59:27 -0700
+Message-ID: <1443077981-55791-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36281 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48624 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932442AbbIXG7s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 02:59:48 -0400
+	id S932626AbbIXG7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 02:59:49 -0400
 In-Reply-To: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Reduce the number of retries during PHY detection. This reduces
-pauses when no SFP is present. Once an SFP is detected, the normal
-retry count will be used.
+Configures the CS4227 correctly for both 1G and 10G operation,
+by moving the code to ixgbe_setup_mac_link_sfp_x550em(). It
+needs to be in this function because we need both the module
+type and the speed, and this is the only function in the init
+flow that knows the speed. In contrast,
+ixgbe_setup_sfp_modules_X550em() does not know the speed, so we
+can't do anything useful here. This is a fundamental difference
+from the previous flow, and is due to the way the CS4227 is
+implemented.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c | 18 ++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h |  2 ++
- 2 files changed, 20 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h  |   7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 127 +++++++++++++++++---------
+ 2 files changed, 90 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 88ade17..7a7ee9d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1731,6 +1731,21 @@ s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index 824a263..85e142c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -81,7 +81,12 @@
+ #define IXGBE_I2C_EEPROM_STATUS_FAIL		0x2
+ #define IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS	0x3
+ #define IXGBE_CS4227				0xBE    /* CS4227 address */
+-#define IXGBE_CS4227_SPARE24_LSB		0x12B0  /* Reg to program EDC */
++#define IXGBE_CS4227_LINE_SPARE22_MSB		0x12AD	/* Reg to set speed */
++#define IXGBE_CS4227_LINE_SPARE24_LSB		0x12B0	/* Reg to set EDC */
++#define IXGBE_CS4227_HOST_SPARE22_MSB		0x1AAD	/* Reg to set speed */
++#define IXGBE_CS4227_HOST_SPARE24_LSB		0x1AB0	/* Reg to program EDC */
++#define IXGBE_CS4227_SPEED_1G			0x8000
++#define IXGBE_CS4227_SPEED_10G			0
+ #define IXGBE_CS4227_EDC_MODE_CX1		0x0002
+ #define IXGBE_CS4227_EDC_MODE_SR		0x0004
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index c6ae72b..970dc6a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -910,6 +910,40 @@ static s32 ixgbe_setup_ixfi_x550em(struct ixgbe_hw *hw, ixgbe_link_speed *speed)
  }
  
  /**
-+ * ixgbe_is_sfp_probe - Returns true if SFP is being detected
-+ * @hw: pointer to hardware structure
-+ * @offset: eeprom offset to be read
-+ * @addr: I2C address to be read
++ *  ixgbe_supported_sfp_modules_X550em - Check if SFP module type is supported
++ *  @hw: pointer to hardware structure
++ *  @linear: true if SFP module is linear
 + */
-+static bool ixgbe_is_sfp_probe(struct ixgbe_hw *hw, u8 offset, u8 addr)
++static s32 ixgbe_supported_sfp_modules_X550em(struct ixgbe_hw *hw, bool *linear)
 +{
-+	if (addr == IXGBE_I2C_EEPROM_DEV_ADDR &&
-+	    offset == IXGBE_SFF_IDENTIFIER &&
-+	    hw->phy.sfp_type == ixgbe_sfp_type_not_present)
-+		return true;
-+	return false;
++	switch (hw->phy.sfp_type) {
++	case ixgbe_sfp_type_not_present:
++		return IXGBE_ERR_SFP_NOT_PRESENT;
++	case ixgbe_sfp_type_da_cu_core0:
++	case ixgbe_sfp_type_da_cu_core1:
++		*linear = true;
++		break;
++	case ixgbe_sfp_type_srlr_core0:
++	case ixgbe_sfp_type_srlr_core1:
++	case ixgbe_sfp_type_da_act_lmt_core0:
++	case ixgbe_sfp_type_da_act_lmt_core1:
++	case ixgbe_sfp_type_1g_sx_core0:
++	case ixgbe_sfp_type_1g_sx_core1:
++	case ixgbe_sfp_type_1g_lx_core0:
++	case ixgbe_sfp_type_1g_lx_core1:
++		*linear = false;
++		break;
++	case ixgbe_sfp_type_unknown:
++	case ixgbe_sfp_type_1g_cu_core0:
++	case ixgbe_sfp_type_1g_cu_core1:
++	default:
++		return IXGBE_ERR_SFP_NOT_SUPPORTED;
++	}
++
++	return 0;
 +}
 +
 +/**
-  *  ixgbe_read_i2c_byte_generic_int - Reads 8 bit word over I2C
+  *  ixgbe_setup_mac_link_sfp_x550em - Configure the KR PHY for SFP.
   *  @hw: pointer to hardware structure
-  *  @byte_offset: byte offset to read
-@@ -1749,6 +1764,9 @@ static s32 ixgbe_read_i2c_byte_generic_int(struct ixgbe_hw *hw, u8 byte_offset,
- 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
- 	bool nack = true;
- 
-+	if (ixgbe_is_sfp_probe(hw, byte_offset, dev_addr))
-+		max_retry = IXGBE_SFP_DETECT_RETRIES;
+  *
+@@ -920,7 +954,49 @@ ixgbe_setup_mac_link_sfp_x550em(struct ixgbe_hw *hw,
+ 				ixgbe_link_speed speed,
+ 				__always_unused bool autoneg_wait_to_complete)
+ {
+-	return ixgbe_setup_ixfi_x550em(hw, &speed);
++	s32 status;
++	u16 slice, value;
++	bool setup_linear = false;
 +
- 	*data = 0;
- 
- 	do {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 4c06484..0769b40 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -109,6 +109,8 @@
- #define IXGBE_I2C_T_SU_STO  4
- #define IXGBE_I2C_T_BUF     5
- 
-+#define IXGBE_SFP_DETECT_RETRIES	2
++	/* Check if SFP module is supported and linear */
++	status = ixgbe_supported_sfp_modules_X550em(hw, &setup_linear);
 +
- #define IXGBE_TN_LASI_STATUS_REG        0x9005
- #define IXGBE_TN_LASI_STATUS_TEMP_ALARM 0x0008
++	/* If no SFP module present, then return success. Return success since
++	 * there is no reason to configure CS4227 and SFP not present error is
++	 * not accepted in the setup MAC link flow.
++	 */
++	if (status == IXGBE_ERR_SFP_NOT_PRESENT)
++		return 0;
++
++	if (status)
++		return status;
++
++	/* Configure CS4227 LINE side to 10G SR. */
++	slice = IXGBE_CS4227_LINE_SPARE22_MSB + (hw->bus.lan_id << 12);
++	value = IXGBE_CS4227_SPEED_10G;
++	status = ixgbe_write_i2c_combined_generic(hw, IXGBE_CS4227, slice,
++						  value);
++
++	/* Configure CS4227 for HOST connection rate then type. */
++	slice = IXGBE_CS4227_HOST_SPARE22_MSB + (hw->bus.lan_id << 12);
++	value = speed & IXGBE_LINK_SPEED_10GB_FULL ?
++		IXGBE_CS4227_SPEED_10G : IXGBE_CS4227_SPEED_1G;
++	status = ixgbe_write_i2c_combined_generic(hw, IXGBE_CS4227, slice,
++						  value);
++
++	slice = IXGBE_CS4227_HOST_SPARE24_LSB + (hw->bus.lan_id << 12);
++	if (setup_linear)
++		value = (IXGBE_CS4227_EDC_MODE_CX1 << 1) | 1;
++	else
++		value = (IXGBE_CS4227_EDC_MODE_SR << 1) | 1;
++	status = ixgbe_write_i2c_combined_generic(hw, IXGBE_CS4227, slice,
++						  value);
++
++	/* If internal link mode is XFI, then setup XFI internal link. */
++	if (!(hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE))
++		status = ixgbe_setup_ixfi_x550em(hw, &speed);
++
++	return status;
+ }
  
+ /**
+@@ -1036,53 +1112,18 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+  */
+ static s32 ixgbe_setup_sfp_modules_X550em(struct ixgbe_hw *hw)
+ {
+-	bool setup_linear;
+-	u16 reg_slice, edc_mode;
+-	s32 ret_val;
++	s32 status;
++	bool linear;
+ 
+-	switch (hw->phy.sfp_type) {
+-	case ixgbe_sfp_type_unknown:
+-		return 0;
+-	case ixgbe_sfp_type_not_present:
+-		return IXGBE_ERR_SFP_NOT_PRESENT;
+-	case ixgbe_sfp_type_da_cu_core0:
+-	case ixgbe_sfp_type_da_cu_core1:
+-		setup_linear = true;
+-		break;
+-	case ixgbe_sfp_type_srlr_core0:
+-	case ixgbe_sfp_type_srlr_core1:
+-	case ixgbe_sfp_type_da_act_lmt_core0:
+-	case ixgbe_sfp_type_da_act_lmt_core1:
+-	case ixgbe_sfp_type_1g_sx_core0:
+-	case ixgbe_sfp_type_1g_sx_core1:
+-		setup_linear = false;
+-		break;
+-	default:
+-		return IXGBE_ERR_SFP_NOT_SUPPORTED;
+-	}
++	/* Check if SFP module is supported */
++	status = ixgbe_supported_sfp_modules_X550em(hw, &linear);
++	if (status)
++		return status;
+ 
+ 	ixgbe_init_mac_link_ops_X550em(hw);
+ 	hw->phy.ops.reset = NULL;
+ 
+-	/* The CS4227 slice address is the base address + the port-pair reg
+-	 * offset. I.e. Slice 0 = 0x12B0 and slice 1 = 0x22B0.
+-	 */
+-	reg_slice = IXGBE_CS4227_SPARE24_LSB + (hw->bus.lan_id << 12);
+-
+-	if (setup_linear)
+-		edc_mode = (IXGBE_CS4227_EDC_MODE_CX1 << 1) | 0x1;
+-	else
+-		edc_mode = (IXGBE_CS4227_EDC_MODE_SR << 1) | 0x1;
+-
+-	/* Configure CS4227 for connection type. */
+-	ret_val = hw->phy.ops.write_i2c_combined(hw, IXGBE_CS4227, reg_slice,
+-						 edc_mode);
+-
+-	if (ret_val)
+-		ret_val = hw->phy.ops.write_i2c_combined(hw, 0x80, reg_slice,
+-							 edc_mode);
+-
+-	return ret_val;
++	return 0;
+ }
+ 
+ /** ixgbe_get_link_capabilities_x550em - Determines link capabilities
 -- 
 2.4.3
