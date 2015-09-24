@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 1/3] l2tp: auto load type modules
-Date: Wed, 23 Sep 2015 21:33:34 -0700
-Message-ID: <20150924043500.997309588@networkplumber.org>
+Subject: [PATCH net-next 3/3] l2tp: remove references to modprobe in documentation
+Date: Wed, 23 Sep 2015 21:33:36 -0700
+Message-ID: <20150924043503.713401180@networkplumber.org>
 References: <20150924043333.231895827@networkplumber.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
@@ -9,63 +9,39 @@ Cc: netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: jchapman@katalix.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34880 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbbIXEet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 00:34:49 -0400
-Received: by pacfv12 with SMTP id fv12so61841593pac.2
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 21:34:48 -0700 (PDT)
-Content-Disposition: inline; filename=l2tp-eth-alias.patch
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:32883 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044AbbIXEev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 00:34:51 -0400
+Received: by pacex6 with SMTP id ex6so60871611pac.0
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 21:34:51 -0700 (PDT)
+Content-Disposition: inline; filename=l2tp-doc-modprobe.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It should not be necessary to do explicit module loading when
-configuring L2TP. Modules should be loaded as needed instead
-(as is done already with netlink and other tunnel types).
-
-This patch adds a new module alias type and code to load
-the sub module on demand.
+No longer need explicit modprobe's and update to use ip instead
+of deprecated ifconfig command.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 
---- a/net/l2tp/l2tp_core.h	2015-09-23 21:23:43.324539500 -0700
-+++ b/net/l2tp/l2tp_core.h	2015-09-23 21:27:36.049615188 -0700
-@@ -321,4 +321,7 @@ do {									\
- #define l2tp_dbg(ptr, type, fmt, ...)					\
- 	l2tp_printk(ptr, type, pr_debug, fmt, ##__VA_ARGS__)
+--- a/Documentation/networking/l2tp.txt	2015-05-21 15:13:01.421115881 -0700
++++ b/Documentation/networking/l2tp.txt	2015-09-07 12:18:07.672921513 -0700
+@@ -213,15 +213,12 @@ To create an L2TPv3 ethernet pseudowire
+ and peer 192.168.1.2, using IP addresses 10.5.1.1 and 10.5.1.2 for the
+ tunnel endpoints:-
  
-+#define MODULE_ALIAS_L2TP_PWTYPE(type) \
-+	MODULE_ALIAS("net-l2tp-type-" __stringify(type))
-+
- #endif /* _L2TP_CORE_H_ */
---- a/net/l2tp/l2tp_eth.c	2015-09-23 21:23:43.324539500 -0700
-+++ b/net/l2tp/l2tp_eth.c	2015-09-23 21:23:43.320539481 -0700
-@@ -358,3 +358,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
- MODULE_DESCRIPTION("L2TP ethernet pseudowire driver");
- MODULE_VERSION("1.0");
-+MODULE_ALIAS_L2TP_PWTYPE(5);
---- a/net/l2tp/l2tp_netlink.c	2015-09-23 21:23:43.324539500 -0700
-+++ b/net/l2tp/l2tp_netlink.c	2015-09-23 21:27:47.033665958 -0700
-@@ -576,6 +576,13 @@ static int l2tp_nl_cmd_session_create(st
- 	if (info->attrs[L2TP_ATTR_MRU])
- 		cfg.mru = nla_get_u16(info->attrs[L2TP_ATTR_MRU]);
+-# modprobe l2tp_eth
+-# modprobe l2tp_netlink
+-
+ # ip l2tp add tunnel tunnel_id 1 peer_tunnel_id 1 udp_sport 5000 \
+   udp_dport 5000 encap udp local 192.168.1.1 remote 192.168.1.2
+ # ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
+-# ifconfig -a
++# ip -s -d show dev l2tpeth0
+ # ip addr add 10.5.1.2/32 peer 10.5.1.1/32 dev l2tpeth0
+-# ifconfig l2tpeth0 up
++# ip li set dev l2tpeth0 up
  
-+#ifdef CONFIG_MODULES
-+	if (l2tp_nl_cmd_ops[cfg.pw_type] == NULL) {
-+		genl_unlock();
-+		request_module("net-l2tp-type-%u", cfg.pw_type);
-+		genl_lock();
-+	}
-+#endif
- 	if ((l2tp_nl_cmd_ops[cfg.pw_type] == NULL) ||
- 	    (l2tp_nl_cmd_ops[cfg.pw_type]->session_create == NULL)) {
- 		ret = -EPROTONOSUPPORT;
---- a/net/l2tp/l2tp_ppp.c	2015-09-23 21:23:43.324539500 -0700
-+++ b/net/l2tp/l2tp_ppp.c	2015-09-23 21:23:43.320539481 -0700
-@@ -1863,3 +1863,4 @@ MODULE_DESCRIPTION("PPP over L2TP over U
- MODULE_LICENSE("GPL");
- MODULE_VERSION(PPPOL2TP_DRV_VERSION);
- MODULE_ALIAS("pppox-proto-" __stringify(PX_PROTO_OL2TP));
-+MODULE_ALIAS_L2TP_PWTYPE(11);
+ Choose IP addresses to be the address of a local IP interface and that
+ of the remote system. The IP addresses of the l2tpeth0 interface can be
