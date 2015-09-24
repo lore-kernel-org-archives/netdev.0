@@ -1,80 +1,118 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: RFC: ss: improve horizontal output scaling
-Date: Thu, 24 Sep 2015 13:16:50 +0200
-Message-ID: <20150924111650.GY24212@orbit.nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] tc: fq: allow setting and retrieving orphan_mask
+Date: Thu, 24 Sep 2015 04:43:26 -0700
+Message-ID: <1443095006.29850.149.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:52816 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752318AbbIXLQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 07:16:51 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35495 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380AbbIXLn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 07:43:28 -0400
+Received: by pacfv12 with SMTP id fv12so72327158pac.2
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 04:43:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <edumazet@google.com>
 
-Currently, ss scales it's output to the available horizontal screen
-space available, so that the regular columns (Netid, State, Recv-Q,
-Send-Q, Local Address:Port and Peer Address:Port) use the maximum space
-available and extended information (e.g. users) get wrapped into a new
-line.
+linux-3.19 fq packet scheduler got a new attribute, controlling
+number of 'flows' holding packets not attached to a socket
+(forwarding usage)
 
-While this approach is sufficient for smaller terminals to improve
-readability, it's kind of awkward in full-screen terminals which provide
-enough space to display everything on the same line.
+kernel commit is 06eb395fa9856b5a87cf7d80baee2a0ed3cdb9d7
+("pkt_sched: fq: better control of DDOS traffic")
 
-On the other hand, the current approach makes sense in that the output
-width is hard to predict: Unix domain sockets have a filesystem path as
-local address, which might be really long (e.g. 68 characters for a
-libvirt socket on my box). The '-p' flag prints process names, so
-extended information might become very long as well. The actual width of
-each line's fields is not known before it has been printed. Since input
-potentially comes from netlink, there is no random access which could be
-used to scroll quickly through the input and find each column's longest
-field.
+This patch adds corresponding code to tc command.
 
-There are a number of possible ways to improve this:
+tc qd replace dev eth0 root fq orphan_mask 511
 
-1. Introduce scalemax parameter:
-   This parameter specifies the maximum terminal width to scale to.
-   Implementation is trivial, and works well for me as my terminals are
-   either 95, 126 or 193 characters wide. Setting scalemax to 128 leaves
-   line wrapping in place in all but full-screen mode. Though other's
-   mileage may vary, and fiddling with this number is inconvenient as
-   well.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ tc/q_fq.c |   21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-2. Implement wide output mode:
-   Wide output mode would be what's currently being done. Not enabling
-   it (via '-W' e.g.) would hard-limit columns to a given width,
-   breaking down output if it exceeds that. E.g. instead of
-   '/path/to/some_very_deep/file_name' print '/path/to...ile_name'. This
-   makes column widths predictable and thereby allows to reliably decide
-   whether output fits on the terminal or not.
-
-Another, indirectly related issue I discovered while playing with the
-above, is the fixed spacing between columns. Given an output like this:
-
-| A   B   C
-| ---------
-| 1   2   3
-| 4asdf   5   6
-| 7   8   9
-
-Could be improved to this:
-
-| A   B   C
-| ---------
-| 1   2   3
-| 4asdf 5 6
-| 7   8   9
-
-I would like to hear your opinions on whether there is demand for
-improvements in this area in general, if any of the above approaches are
-worth following (and potentially acceptable) or if there are better
-ones.
-
-Thanks, Phil
+diff --git a/tc/q_fq.c b/tc/q_fq.c
+index 7ad3801474ce..97b46a524fa6 100644
+--- a/tc/q_fq.c
++++ b/tc/q_fq.c
+@@ -1,7 +1,7 @@
+ /*
+  * Fair Queue
+  *
+- *  Copyright (C) 2013 Eric Dumazet <edumazet@google.com>
++ *  Copyright (C) 2013-2015 Eric Dumazet <edumazet@google.com>
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions
+@@ -55,6 +55,7 @@ static void explain(void)
+ 	fprintf(stderr, "              [ quantum BYTES ] [ initial_quantum BYTES ]\n");
+ 	fprintf(stderr, "              [ maxrate RATE  ] [ buckets NUMBER ]\n");
+ 	fprintf(stderr, "              [ [no]pacing ] [ refill_delay TIME ]\n");
++	fprintf(stderr, "              [ orphan_mask MASK]\n");
+ }
+ 
+ static unsigned int ilog2(unsigned int val)
+@@ -80,6 +81,7 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 	unsigned int maxrate;
+ 	unsigned int defrate;
+ 	unsigned int refill_delay;
++	unsigned int orphan_mask;
+ 	bool set_plimit = false;
+ 	bool set_flow_plimit = false;
+ 	bool set_quantum = false;
+@@ -87,6 +89,7 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 	bool set_maxrate = false;
+ 	bool set_defrate = false;
+ 	bool set_refill_delay = false;
++	bool set_orphan_mask = false;
+ 	int pacing = -1;
+ 	struct rtattr *tail;
+ 
+@@ -139,6 +142,13 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 				return -1;
+ 			}
+ 			set_initial_quantum = true;
++		} else if (strcmp(*argv, "orphan_mask") == 0) {
++			NEXT_ARG();
++			if (get_unsigned(&orphan_mask, *argv, 0)) {
++				fprintf(stderr, "Illegal \"initial_quantum\"\n");
++				return -1;
++			}
++			set_orphan_mask = true;
+ 		} else if (strcmp(*argv, "refill_delay") == 0) {
+ 			NEXT_ARG();
+ 			if (get_time(&refill_delay, *argv)) {
+@@ -192,6 +202,9 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 	if (set_refill_delay)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_REFILL_DELAY,
+ 		          &refill_delay, sizeof(refill_delay));
++	if (set_orphan_mask)
++		addattr_l(n, 1024, TCA_FQ_ORPHAN_MASK,
++		          &orphan_mask, sizeof(refill_delay));
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+ 	return 0;
+ }
+@@ -204,6 +217,7 @@ static int fq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	int pacing;
+ 	unsigned int rate, quantum;
+ 	unsigned int refill_delay;
++	unsigned int orphan_mask;
+ 	SPRINT_BUF(b1);
+ 
+ 	if (opt == NULL)
+@@ -226,6 +240,11 @@ static int fq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 		buckets_log = rta_getattr_u32(tb[TCA_FQ_BUCKETS_LOG]);
+ 		fprintf(f, "buckets %u ", 1U << buckets_log);
+ 	}
++	if (tb[TCA_FQ_ORPHAN_MASK] &&
++	    RTA_PAYLOAD(tb[TCA_FQ_ORPHAN_MASK]) >= sizeof(__u32)) {
++		orphan_mask = rta_getattr_u32(tb[TCA_FQ_ORPHAN_MASK]);
++		fprintf(f, "orphan_mask %u ", orphan_mask);
++	}
+ 	if (tb[TCA_FQ_RATE_ENABLE] &&
+ 	    RTA_PAYLOAD(tb[TCA_FQ_RATE_ENABLE]) >= sizeof(int)) {
+ 		pacing = rta_getattr_u32(tb[TCA_FQ_RATE_ENABLE]);
