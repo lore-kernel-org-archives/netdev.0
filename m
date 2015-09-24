@@ -1,89 +1,121 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 9/9] net: fix net_device refcounting
-Date: Thu, 24 Sep 2015 20:19:03 +0100
-Message-ID: <E1ZfC2p-00037y-Da@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 6/9] net: fix phy refcounting in a bunch of drivers
+Date: Thu, 24 Sep 2015 20:18:48 +0100
+Message-ID: <E1ZfC2a-00036A-0o@rmk-PC.arm.linux.org.uk>
 References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Michal Simek <michal.simek@xilinx.com>, linux-arm-kernel@lists.infradead.org, Iyappan Subramanian <isubramanian@apm.com>, Keyur Chudgar <kchudgar@apm.com>, Sören Brinkmann <soren.brinkmann@xilinx.com>
 To: Jason Cooper <jason@lakedaemon.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:44832 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752391AbbIXTTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 15:19:15 -0400
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <20150924191754.GC21513@n2100.arm.linux.org.uk>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-of_find_net_device_by_node() uses class_find_device() internally to
-lookup the corresponding network device.  class_find_device() returns
-a reference to the embedded struct device, with its refcount
-incremented.
-
-Add a comment to the definition in net/core/net-sysfs.c indicating the
-need to drop this refcount, and fix the DSA code to drop this refcount
-when the OF-generated platform data is cleaned up and freed.  Also
-arrange for the ref to be dropped when handling errors.
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- net/core/net-sysfs.c | 9 +++++++++
- net/dsa/dsa.c        | 5 ++++-
- 2 files changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index b279077c3089..805a95a48107 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1481,6 +1481,15 @@ static int of_dev_node_match(struct device *dev, const void *data)
- 	return ret == 0 ? dev->of_node == data : ret;
- }
- 
-+/*
-+ * of_find_net_device_by_node - lookup the net device for the device node
-+ * @np: OF device node
-+ *
-+ * Looks up the net_device structure corresponding with the device node.
-+ * If successful, returns a pointer to the net_device with the embedded
-+ * struct device refcount incremented by one, or NULL on failure. The
-+ * refcount must be dropped when done with the net_device.
-+ */
- struct net_device *of_find_net_device_by_node(struct device_node *np)
- {
- 	struct device *dev;
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index bf4ba15fb780..c59fa5d9c22c 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -679,7 +679,7 @@ static int dsa_of_probe(struct device *dev)
- 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
- 	if (!pd) {
- 		ret = -ENOMEM;
--		goto out_put_mdio;
-+		goto out_put_ethernet;
- 	}
- 
- 	dev->platform_data = pd;
-@@ -773,6 +773,8 @@ static int dsa_of_probe(struct device *dev)
- out_free:
- 	kfree(pd);
- 	dev->platform_data = NULL;
-+out_put_ethernet:
-+	put_device(&ethernet_dev->dev);
- out_put_mdio:
- 	put_device(&mdio_bus->dev);
- 	return ret;
-@@ -786,6 +788,7 @@ static void dsa_of_remove(struct device *dev)
- 		return;
- 
- 	dsa_of_free_platform_data(pd);
-+	put_device(&pd->of_netdev->dev);
- 	kfree(pd);
- }
- #else
--- 
-2.1.0
+b2ZfcGh5X2ZpbmRfZGV2aWNlKCkgaW5jcmVtZW50cyB0aGUgcGh5IHN0cnVjdCBkZXZpY2UgcmVm
+Y291bnQsIHdoaWNoCndlIG5lZWQgdG8gcHJvcGVybHkgYmFsYW5jZS4gIEFkZCBjb2RlIHRvIG5l
+dHdvcmsgZHJpdmVycyB1c2luZyB0aGlzCmZ1bmN0aW9uIHRvIGVuc3VyZSB0aGF0IHRoZSBzdHJ1
+Y3QgZGV2aWNlIHJlZmNvdW50IGlzIGNvcnJlY3RseQpiYWxhbmNlZC4KCkZvciB4Z2VuZSwgbG9v
+a2luZyBiYWNrIGluIHRoZSBoaXN0b3J5LCB3ZSBzaG91bGQgYmUgYWJsZSB0byB1c2UKb2ZfcGh5
+X2Nvbm5lY3QoKSB3aXRoIGEgemVybyBmbGFncyBhcmd1bWVudCBmb3IgdGhlIERUIGNhc2UgYXMg
+dGhpcyBpcwpob3cgdGhlIGRyaXZlciB1c2VkIHRvIG9wZXJhdGUgcHJpb3IgdG8gZGU3YjViM2Q3
+OTBhICgibmV0OiBldGg6IHhnZW5lOgpjaGFuZ2UgQVBNIFgtR2VuZSBTb0MgcGxhdGZvcm0gZXRo
+ZXJuZXQgdG8gc3VwcG9ydCBBQ1BJIikuCgpUaGlzIGxlYXZlcyB0aGUgQ2F2aXVtIFRodW5kZXIg
+QkdYIHVuZml4ZWQ7IGZpeGluZyB0aGlzIGRyaXZlciBpcyBhCmNvbXBsaWNhdGVkIHRhc2ssIG9u
+ZSB3aGljaCB0aGUgbWFpbnRhaW5lcnMgbmVlZCB0byBiZSBpbnZvbHZlZCB3aXRoLgoKU2lnbmVk
+LW9mZi1ieTogUnVzc2VsbCBLaW5nIDxybWsra2VybmVsQGFybS5saW51eC5vcmcudWs+Ci0tLQog
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfaHcuYyB8IDI0ICsrKysr
+KysrKysrKysrKystLS0tLS0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2dpYW5m
+YXIuYyAgICAgICB8ICAzICsrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19n
+ZXRoLmMgICAgICB8ICA4ICsrKysrKystCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212
+bmV0YS5jICAgICAgICAgIHwgIDIgKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxp
+bnhfZW1hY2xpdGUuYyAgfCAgMiArKwogNSBmaWxlcyBjaGFuZ2VkLCAzMCBpbnNlcnRpb25zKCsp
+LCA5IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94
+Z2VuZS94Z2VuZV9lbmV0X2h3LmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9hcG0veGdlbmUveGdl
+bmVfZW5ldF9ody5jCmluZGV4IGNmYTM3MDQxYWI3MS4uYzRiYjgwMjdiM2ZiIDEwMDY0NAotLS0g
+YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9hcG0veGdlbmUveGdlbmVfZW5ldF9ody5jCisrKyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X2h3LmMKQEAgLTY4OSwxNiAr
+Njg5LDI0IEBAIHN0YXRpYyBpbnQgeGdlbmVfZW5ldF9waHlfY29ubmVjdChzdHJ1Y3QgbmV0X2Rl
+dmljZSAqbmRldikKIAkJCW5ldGRldl9kYmcobmRldiwgIk5vIHBoeS1oYW5kbGUgZm91bmQgaW4g
+RFRcbiIpOwogCQkJcmV0dXJuIC1FTk9ERVY7CiAJCX0KLQkJcGRhdGEtPnBoeV9kZXYgPSBvZl9w
+aHlfZmluZF9kZXZpY2UocGh5X25wKTsKLQl9CiAKLQlwaHlfZGV2ID0gcGRhdGEtPnBoeV9kZXY7
+CisJCXBoeV9kZXYgPSBvZl9waHlfY29ubmVjdChuZGV2LCBwaHlfbnAsICZ4Z2VuZV9lbmV0X2Fk
+anVzdF9saW5rLAorCQkJCQkgMCwgcGRhdGEtPnBoeV9tb2RlKTsKKwkJaWYgKCFwaHlfZGV2KSB7
+CisJCQluZXRkZXZfZXJyKG5kZXYsICJDb3VsZCBub3QgY29ubmVjdCB0byBQSFlcbiIpOworCQkJ
+cmV0dXJuIC1FTk9ERVY7CisJCX0KKworCQlwZGF0YS0+cGh5X2RldiA9IHBoeV9kZXY7CisJfSBl
+bHNlIHsKKwkJcGh5X2RldiA9IHBkYXRhLT5waHlfZGV2OwogCi0JaWYgKCFwaHlfZGV2IHx8Ci0J
+ICAgIHBoeV9jb25uZWN0X2RpcmVjdChuZGV2LCBwaHlfZGV2LCAmeGdlbmVfZW5ldF9hZGp1c3Rf
+bGluaywKLQkJCSAgICAgICBwZGF0YS0+cGh5X21vZGUpKSB7Ci0JCW5ldGRldl9lcnIobmRldiwg
+IkNvdWxkIG5vdCBjb25uZWN0IHRvIFBIWVxuIik7Ci0JCXJldHVybiAgLUVOT0RFVjsKKwkJaWYg
+KCFwaHlfZGV2IHx8CisJCSAgICBwaHlfY29ubmVjdF9kaXJlY3QobmRldiwgcGh5X2RldiwgJnhn
+ZW5lX2VuZXRfYWRqdXN0X2xpbmssCisJCQkJICAgICAgIHBkYXRhLT5waHlfbW9kZSkpIHsKKwkJ
+CW5ldGRldl9lcnIobmRldiwgIkNvdWxkIG5vdCBjb25uZWN0IHRvIFBIWVxuIik7CisJCQlyZXR1
+cm4gIC1FTk9ERVY7CisJCX0KIAl9CiAKIAlwZGF0YS0+cGh5X3NwZWVkID0gU1BFRURfVU5LTk9X
+TjsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5jCmluZGV4IDRiNjlkMDYx
+ZDkwZi4uNjVhMTYwODZmYWVjIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZ2lhbmZhci5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9naWFu
+ZmFyLmMKQEAgLTE3MDIsNiArMTcwMiw3IEBAIHN0YXRpYyB2b2lkIGdmYXJfY29uZmlndXJlX3Nl
+cmRlcyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCXRiaXBoeSA9IG9mX3BoeV9maW5kX2Rldmlj
+ZShwcml2LT50Ymlfbm9kZSk7CiAJaWYgKCF0YmlwaHkpIHsKIAkJZGV2X2VycigmZGV2LT5kZXYs
+ICJlcnJvcjogQ291bGQgbm90IGdldCBUQkkgZGV2aWNlXG4iKTsKKwkJcHV0X2RldmljZSgmdGJp
+cGh5LT5kZXYpOwogCQlyZXR1cm47CiAJfQogCkBAIC0xNzIzLDYgKzE3MjQsOCBAQCBzdGF0aWMg
+dm9pZCBnZmFyX2NvbmZpZ3VyZV9zZXJkZXMoc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlwaHlf
+d3JpdGUodGJpcGh5LCBNSUlfQk1DUiwKIAkJICBCTUNSX0FORU5BQkxFIHwgQk1DUl9BTlJFU1RB
+UlQgfCBCTUNSX0ZVTExEUExYIHwKIAkJICBCTUNSX1NQRUVEMTAwMCk7CisKKwlwdXRfZGV2aWNl
+KCZ0YmlwaHktPmRldik7CiB9CiAKIHN0YXRpYyBpbnQgX19nZmFyX2lzX3J4X2lkbGUoc3RydWN0
+IGdmYXJfcHJpdmF0ZSAqcHJpdikKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS91Y2NfZ2V0aC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19n
+ZXRoLmMKaW5kZXggNGRkNDBlMDU3ZjQwLi42NTBmNzg4OGUzMmIgMTAwNjQ0Ci0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jCisrKyBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jCkBAIC0xMzg0LDYgKzEzODQsOCBAQCBzdGF0aWMg
+aW50IGFkanVzdF9lbmV0X2ludGVyZmFjZShzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgp
+CiAJCXZhbHVlID0gcGh5X3JlYWQodGJpcGh5LCBFTkVUX1RCSV9NSUlfQ1IpOwogCQl2YWx1ZSAm
+PSB+MHgxMDAwOwkvKiBUdXJuIG9mZiBhdXRvbmVnb3RpYXRpb24gKi8KIAkJcGh5X3dyaXRlKHRi
+aXBoeSwgRU5FVF9UQklfTUlJX0NSLCB2YWx1ZSk7CisKKwkJcHV0X2RldmljZSgmdGJpcGh5LT5k
+ZXYpOwogCX0KIAogCWluaXRfY2hlY2tfZnJhbWVfbGVuZ3RoX21vZGUodWdfaW5mby0+bGVuZ3Ro
+Q2hlY2tSeCwgJnVnX3JlZ3MtPm1hY2NmZzIpOwpAQCAtMTcwMiw4ICsxNzA0LDEwIEBAIHN0YXRp
+YyB2b2lkIHVlY19jb25maWd1cmVfc2VyZGVzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJICog
+ZXZlcnl0aGluZyBmb3IgdXM/ICBSZXNldHRpbmcgaXQgdGFrZXMgdGhlIGxpbmsgZG93biBhbmQg
+cmVxdWlyZXMKIAkgKiBzZXZlcmFsIHNlY29uZHMgZm9yIGl0IHRvIGNvbWUgYmFjay4KIAkgKi8K
+LQlpZiAocGh5X3JlYWQodGJpcGh5LCBFTkVUX1RCSV9NSUlfU1IpICYgVEJJU1JfTFNUQVRVUykK
+KwlpZiAocGh5X3JlYWQodGJpcGh5LCBFTkVUX1RCSV9NSUlfU1IpICYgVEJJU1JfTFNUQVRVUykg
+eworCQlwdXRfZGV2aWNlKCZ0YmlwaHktPmRldik7CiAJCXJldHVybjsKKwl9CiAKIAkvKiBTaW5n
+bGUgY2xrIG1vZGUsIG1paSBtb2RlIG9mZihmb3Igc2VyZGVzIGNvbW11bmljYXRpb24pICovCiAJ
+cGh5X3dyaXRlKHRiaXBoeSwgRU5FVF9UQklfTUlJX0FOQSwgVEJJQU5BX1NFVFRJTkdTKTsKQEAg
+LTE3MTEsNiArMTcxNSw4IEBAIHN0YXRpYyB2b2lkIHVlY19jb25maWd1cmVfc2VyZGVzKHN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYpCiAJcGh5X3dyaXRlKHRiaXBoeSwgRU5FVF9UQklfTUlJX1RCSUNP
+TiwgVEJJQ09OX0NMS19TRUxFQ1QpOwogCiAJcGh5X3dyaXRlKHRiaXBoeSwgRU5FVF9UQklfTUlJ
+X0NSLCBUQklDUl9TRVRUSU5HUyk7CisKKwlwdXRfZGV2aWNlKCZ0YmlwaHktPmRldik7CiB9CiAK
+IC8qIENvbmZpZ3VyZSB0aGUgUEhZIGZvciBkZXYuCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9t
+dm5ldGEuYwppbmRleCBmZTIyOTlhYzRmNWMuLjBkY2UwMzdhMjY4MiAxMDA2NDQKLS0tIGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm5ldGEuYworKysgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9tYXJ2ZWxsL212bmV0YS5jCkBAIC0zMTczLDYgKzMxNzMsOCBAQCBzdGF0aWMgaW50IG12
+bmV0YV9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQogCQlzdHJ1Y3QgcGh5X2Rl
+dmljZSAqcGh5ID0gb2ZfcGh5X2ZpbmRfZGV2aWNlKGRuKTsKIAogCQltdm5ldGFfZml4ZWRfbGlu
+a191cGRhdGUocHAsIHBoeSk7CisKKwkJcHV0X2RldmljZSgmcGh5LT5kZXYpOwogCX0KIAogCXJl
+dHVybiAwOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9l
+bWFjbGl0ZS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9lbWFjbGl0ZS5j
+CmluZGV4IDYwMDhlZWUwMWEzMy4uY2Y0NjhjODdjZTU3IDEwMDY0NAotLS0gYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC94aWxpbngveGlsaW54X2VtYWNsaXRlLmMKKysrIGIvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQveGlsaW54L3hpbGlueF9lbWFjbGl0ZS5jCkBAIC04MjgsNiArODI4LDggQEAgc3RhdGlj
+IGludCB4ZW1hY2xpdGVfbWRpb19zZXR1cChzdHJ1Y3QgbmV0X2xvY2FsICpscCwgc3RydWN0IGRl
+dmljZSAqZGV2KQogCQlpZiAoIXBoeWRldikKIAkJCWRldl9pbmZvKGRldiwKIAkJCQkgIk1ESU8g
+b2YgdGhlIHBoeSBpcyBub3QgcmVnaXN0ZXJlZCB5ZXRcbiIpOworCQllbHNlCisJCQlwdXRfZGV2
+aWNlKCZwaHlkZXYtPmRldik7CiAJCXJldHVybiAwOwogCX0KIAotLSAKMi4xLjAKCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
+aW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxh
+YnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
