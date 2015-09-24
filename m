@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [v3 6/8] dpaa_eth: add ethtool statistics
-Date: Thu, 24 Sep 2015 18:00:17 +0300
-Message-ID: <1443106819-5549-7-git-send-email-madalin.bucur@freescale.com>
+Subject: [v3 7/8] dpaa_eth: add sysfs exports
+Date: Thu, 24 Sep 2015 18:00:18 +0300
+Message-ID: <1443106819-5549-8-git-send-email-madalin.bucur@freescale.com>
 References: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
@@ -11,427 +11,247 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
 	<igal.liberman@freescale.com>, <roy.pledge@freescale.com>,
 	<ppc@mindchasers.com>, <joe@perches.com>, <pebolle@tiscali.nl>,
 	<joakim.tjernlund@transmode.se>, <f.fainelli@gmail.com>,
-	<stsp@list.ru>, Madalin Bucur <madalin.bucur@freescale.com>,
-	Ioana Ciornei <ioana.ciornei@freescale.com>
+	<stsp@list.ru>, Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a series of counters to be exported through ethtool:
-- add detailed counters for reception errors;
-- add detailed counters for QMan enqueue reject events;
-- count the number of fragmented skbs received from the stack;
-- count all frames received on the Tx confirmation path;
-- add congestion group statistics;
-- count the number of interrupts for each CPU.
+Export Frame Queue and Buffer Pool IDs through sysfs.
 
-Signed-off-by: Ioana Ciornei <ioana.ciornei@freescale.com>
 Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  12 ++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  34 ++++
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  |  40 ++++-
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |   2 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |   1 +
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 183 +++++++++++++++++++++
- 6 files changed, 270 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   2 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   3 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  |   2 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 167 +++++++++++++++++++++
+ 5 files changed, 175 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
 
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index 9b75d52..141ade4 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
+ 
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
+ 
+-fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o
++fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index a04c0aa..d0d3d80 100644
+index d0d3d80..6d241a3 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -104,6 +104,15 @@ static void _dpa_rx_error(struct net_device *net_dev,
+@@ -759,6 +759,8 @@ dpaa_eth_priv_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto netdev_init_failed;
  
- 	percpu_priv->stats.rx_errors++;
- 
-+	if (fd->status & FM_FD_ERR_DMA)
-+		percpu_priv->rx_errors.dme++;
-+	if (fd->status & FM_FD_ERR_PHYSICAL)
-+		percpu_priv->rx_errors.fpe++;
-+	if (fd->status & FM_FD_ERR_SIZE)
-+		percpu_priv->rx_errors.fse++;
-+	if (fd->status & FM_FD_ERR_PRS_HDR_ERR)
-+		percpu_priv->rx_errors.phe++;
++	dpaa_eth_sysfs_init(&net_dev->dev);
 +
- 	dpa_fd_release(net_dev, fd);
- }
+ 	pr_info("Probed interface %s\n", net_dev->name);
  
-@@ -167,6 +176,8 @@ static void _dpa_tx_conf(struct net_device *net_dev,
- 		percpu_priv->stats.tx_errors++;
- 	}
- 
-+	percpu_priv->tx_confirm++;
-+
- 	skb = _dpa_cleanup_tx_fd(priv, fd);
- 
- 	dev_kfree_skb(skb);
-@@ -302,6 +313,7 @@ static void priv_ern(struct qman_portal *portal,
- 
- 	percpu_priv->stats.tx_dropped++;
- 	percpu_priv->stats.tx_fifo_errors++;
-+	count_ern(percpu_priv, msg);
- 
- 	/* If we intended this buffer to go into the pool
- 	 * when the FM was done, we need to put it in
+ 	return 0;
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 349e052..629ccb8 100644
+index 629ccb8..a16119e 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -192,6 +192,25 @@ struct dpa_bp {
- 	void (*free_buf_cb)(void *addr);
- };
+@@ -370,6 +370,9 @@ static inline u16 dpa_get_headroom(struct dpa_buffer_layout_s *bl)
+ 	return bl->data_align ? ALIGN(headroom, bl->data_align) : headroom;
+ }
  
-+struct dpa_rx_errors {
-+	u64 dme;		/* DMA Error */
-+	u64 fpe;		/* Frame Physical Error */
-+	u64 fse;		/* Frame Size Error */
-+	u64 phe;		/* Header Error */
-+};
++void dpaa_eth_sysfs_remove(struct device *dev);
++void dpaa_eth_sysfs_init(struct device *dev);
 +
-+/* Counters for QMan ERN frames - one counter per rejection code */
-+struct dpa_ern_cnt {
-+	u64 cg_tdrop;		/* Congestion group taildrop */
-+	u64 wred;		/* WRED congestion */
-+	u64 err_cond;		/* Error condition */
-+	u64 early_window;	/* Order restoration, frame too early */
-+	u64 late_window;	/* Order restoration, frame too late */
-+	u64 fq_tdrop;		/* FQ taildrop */
-+	u64 fq_retired;		/* FQ is retired */
-+	u64 orp_zero;		/* ORP disabled */
-+};
-+
- struct dpa_napi_portal {
- 	struct napi_struct napi;
- 	struct qman_portal *p;
-@@ -200,7 +219,13 @@ struct dpa_napi_portal {
- struct dpa_percpu_priv_s {
- 	struct net_device *net_dev;
- 	struct dpa_napi_portal *np;
-+	u64 in_interrupt;
-+	u64 tx_confirm;
-+	/* fragmented (non-linear) skbuffs received from the stack */
-+	u64 tx_frag_skbuffs;
- 	struct rtnl_link_stats64 stats;
-+	struct dpa_rx_errors rx_errors;
-+	struct dpa_ern_cnt ern_cnt;
- };
+ void dpa_private_napi_del(struct net_device *net_dev);
  
- struct dpa_priv_s {
-@@ -227,6 +252,14 @@ struct dpa_priv_s {
- 		 * (and the same) congestion group.
- 		 */
- 		struct qman_cgr cgr;
-+		/* If congested, when it began. Used for performance stats. */
-+		u32 congestion_start_jiffies;
-+		/* Number of jiffies the Tx port was congested. */
-+		u32 congested_jiffies;
-+		/* Counter for the number of times the CGR
-+		 * entered congestion state
-+		 */
-+		u32 cgr_congested_count;
- 	} cgr_data;
- 	/* Use a per-port CGR for ingress traffic. */
- 	bool use_ingress_cgr;
-@@ -288,6 +321,7 @@ static inline int dpaa_eth_napi_schedule(struct dpa_percpu_priv_s *percpu_priv,
- 
- 			np->p = portal;
- 			napi_schedule(&np->napi);
-+			percpu_priv->in_interrupt++;
- 			return 1;
- 		}
- 	}
+ static inline void clear_fd(struct qm_fd *fd)
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index 2b95696..4947cb9 100644
+index 4947cb9..2cf4565 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -751,10 +751,15 @@ static void dpaa_eth_cgscn(struct qman_portal *qm, struct qman_cgr *cgr,
- 	struct dpa_priv_s *priv = (struct dpa_priv_s *)container_of(cgr,
- 		struct dpa_priv_s, cgr_data.cgr);
+@@ -299,6 +299,8 @@ int dpa_remove(struct platform_device *pdev)
  
--	if (congested)
-+	if (congested) {
-+		priv->cgr_data.congestion_start_jiffies = jiffies;
- 		netif_tx_stop_all_queues(priv->net_dev);
--	else
-+		priv->cgr_data.cgr_congested_count++;
-+	} else {
-+		priv->cgr_data.congested_jiffies +=
-+			(jiffies - priv->cgr_data.congestion_start_jiffies);
- 		netif_tx_wake_all_queues(priv->net_dev);
-+	}
- }
+ 	priv = netdev_priv(net_dev);
  
- int dpaa_eth_cgr_init(struct dpa_priv_s *priv)
-@@ -1252,6 +1257,37 @@ void dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd)
- 		cpu_relax();
- }
++	dpaa_eth_sysfs_remove(dev);
++
+ 	dev_set_drvdata(dev, NULL);
+ 	unregister_netdev(net_dev);
  
-+void count_ern(struct dpa_percpu_priv_s *percpu_priv,
-+	       const struct qm_mr_entry *msg)
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+new file mode 100644
+index 0000000..a6c71b1
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+@@ -0,0 +1,167 @@
++/* Copyright 2008-2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/kthread.h>
++#include <linux/io.h>
++#include <linux/of_net.h>
++#include "dpaa_eth.h"
++#include "mac.h"
++
++static ssize_t dpaa_eth_show_addr(struct device *dev,
++				  struct device_attribute *attr, char *buf)
 +{
-+	switch (msg->ern.rc & QM_MR_RC_MASK) {
-+	case QM_MR_RC_CGR_TAILDROP:
-+		percpu_priv->ern_cnt.cg_tdrop++;
-+		break;
-+	case QM_MR_RC_WRED:
-+		percpu_priv->ern_cnt.wred++;
-+		break;
-+	case QM_MR_RC_ERROR:
-+		percpu_priv->ern_cnt.err_cond++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_EARLY:
-+		percpu_priv->ern_cnt.early_window++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_LATE:
-+		percpu_priv->ern_cnt.late_window++;
-+		break;
-+	case QM_MR_RC_FQ_TAILDROP:
-+		percpu_priv->ern_cnt.fq_tdrop++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_RETIRED:
-+		percpu_priv->ern_cnt.fq_retired++;
-+		break;
-+	case QM_MR_RC_ORP_ZERO:
-+		percpu_priv->ern_cnt.orp_zero++;
-+		break;
-+	}
++	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
++	struct mac_device *mac_dev = priv->mac_dev;
++
++	if (mac_dev)
++		return sprintf(buf, "%llx",
++				(unsigned long long)mac_dev->res->start);
++	else
++		return sprintf(buf, "none");
 +}
 +
- /* Turn on HW checksum computation for this outgoing frame.
-  * If the current protocol is not something we support in this regard
-  * (or if the stack has already computed the SW checksum), we do nothing.
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-index 160a018..262b9b4 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-@@ -100,6 +100,8 @@ void dpaa_eth_init_ports(struct mac_device *mac_dev,
- 			 struct device *dev);
- void dpa_release_sgt(struct qm_sg_entry *sgt);
- void dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd);
-+void count_ern(struct dpa_percpu_priv_s *percpu_priv,
-+	       const struct qm_mr_entry *msg);
- int dpa_enable_tx_csum(struct dpa_priv_s *priv,
- 		       struct sk_buff *skb,
- 		       struct qm_fd *fd,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-index fd32691..a311244 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-@@ -673,6 +673,7 @@ int dpa_tx(struct sk_buff *skb, struct net_device *net_dev)
- 	    likely(skb_shinfo(skb)->nr_frags < DPA_SGT_MAX_ENTRIES)) {
- 		/* Just create a S/G fd based on the skb */
- 		err = skb_to_sg_fd(priv, skb, &fd);
-+		percpu_priv->tx_frag_skbuffs++;
- 	} else {
- 		/* If the egress skb contains more fragments than we support
- 		 * we have no choice but to linearize it ourselves.
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index fa8ba69..e218354 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -37,6 +37,43 @@
- #include "mac.h"
- #include "dpaa_eth_common.h"
- 
-+static const char dpa_stats_percpu[][ETH_GSTRING_LEN] = {
-+	"interrupts",
-+	"rx packets",
-+	"tx packets",
-+	"tx confirm",
-+	"tx S/G",
-+	"tx error",
-+	"rx error",
-+	"bp count"
-+};
-+
-+static char dpa_stats_global[][ETH_GSTRING_LEN] = {
-+	/* dpa rx errors */
-+	"rx dma error",
-+	"rx frame physical error",
-+	"rx frame size error",
-+	"rx header error",
-+
-+	/* demultiplexing errors */
-+	"qman cg_tdrop",
-+	"qman wred",
-+	"qman error cond",
-+	"qman early window",
-+	"qman late window",
-+	"qman fq tdrop",
-+	"qman fq retired",
-+	"qman orp disabled",
-+
-+	/* congestion related stats */
-+	"congestion time (ms)",
-+	"entered congestion",
-+	"congested (0/1)"
-+};
-+
-+#define DPA_STATS_PERCPU_LEN ARRAY_SIZE(dpa_stats_percpu)
-+#define DPA_STATS_GLOBAL_LEN ARRAY_SIZE(dpa_stats_global)
-+
- static int dpa_get_settings(struct net_device *net_dev,
- 			    struct ethtool_cmd *et_cmd)
- {
-@@ -217,6 +254,149 @@ static int dpa_set_pauseparam(struct net_device *net_dev,
- 	return err;
- }
- 
-+static int dpa_get_sset_count(struct net_device *net_dev, int type)
++static ssize_t dpaa_eth_show_fqids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
 +{
-+	unsigned int total_stats, num_stats;
++	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
++	ssize_t bytes = 0;
++	int i = 0;
++	char *str;
++	struct dpa_fq *fq;
++	struct dpa_fq *tmp;
++	struct dpa_fq *prev = NULL;
++	u32 first_fqid = 0;
++	u32 last_fqid = 0;
++	char *prevstr = NULL;
 +
-+	num_stats   = num_online_cpus() + 1;
-+	total_stats = num_stats * DPA_STATS_PERCPU_LEN + DPA_STATS_GLOBAL_LEN;
-+
-+	switch (type) {
-+	case ETH_SS_STATS:
-+		return total_stats;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void copy_stats(struct dpa_percpu_priv_s *percpu_priv, int num_cpus,
-+			int crr_cpu, u64 bp_count, u64 *data)
-+{
-+	int num_values = num_cpus + 1;
-+	int crr = 0;
-+
-+	/* update current CPU's stats and also add them to the total values */
-+	data[crr * num_values + crr_cpu] = percpu_priv->in_interrupt;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->in_interrupt;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->stats.rx_packets;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->stats.rx_packets;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->stats.tx_packets;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->stats.tx_packets;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->tx_confirm;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->tx_confirm;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->tx_frag_skbuffs;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->tx_frag_skbuffs;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->stats.tx_errors;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->stats.tx_errors;
-+
-+	data[crr * num_values + crr_cpu] = percpu_priv->stats.rx_errors;
-+	data[crr++ * num_values + num_cpus] += percpu_priv->stats.rx_errors;
-+
-+	data[crr * num_values + crr_cpu] = bp_count;
-+	data[crr++ * num_values + num_cpus] += bp_count;
-+}
-+
-+static void dpa_get_ethtool_stats(struct net_device *net_dev,
-+		struct ethtool_stats *stats, u64 *data)
-+{
-+	u64 bp_count, cg_time, cg_num, cg_status;
-+	struct dpa_percpu_priv_s *percpu_priv;
-+	struct qm_mcr_querycgr query_cgr;
-+	struct dpa_rx_errors rx_errors;
-+	struct dpa_ern_cnt ern_cnt;
-+	struct dpa_priv_s *priv;
-+	unsigned int num_cpus, offset;
-+	struct dpa_bp *dpa_bp;
-+	int total_stats, i;
-+
-+	total_stats = dpa_get_sset_count(net_dev, ETH_SS_STATS);
-+	priv     = netdev_priv(net_dev);
-+	dpa_bp   = priv->dpa_bp;
-+	num_cpus = num_online_cpus();
-+	bp_count = 0;
-+
-+	memset(&rx_errors, 0, sizeof(struct dpa_rx_errors));
-+	memset(&ern_cnt, 0, sizeof(struct dpa_ern_cnt));
-+	memset(data, 0, total_stats * sizeof(u64));
-+
-+	for_each_online_cpu(i) {
-+		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
-+
-+		if (dpa_bp->percpu_count)
-+			bp_count = *(per_cpu_ptr(dpa_bp->percpu_count, i));
-+
-+		rx_errors.dme += percpu_priv->rx_errors.dme;
-+		rx_errors.fpe += percpu_priv->rx_errors.fpe;
-+		rx_errors.fse += percpu_priv->rx_errors.fse;
-+		rx_errors.phe += percpu_priv->rx_errors.phe;
-+
-+		ern_cnt.cg_tdrop     += percpu_priv->ern_cnt.cg_tdrop;
-+		ern_cnt.wred         += percpu_priv->ern_cnt.wred;
-+		ern_cnt.err_cond     += percpu_priv->ern_cnt.err_cond;
-+		ern_cnt.early_window += percpu_priv->ern_cnt.early_window;
-+		ern_cnt.late_window  += percpu_priv->ern_cnt.late_window;
-+		ern_cnt.fq_tdrop     += percpu_priv->ern_cnt.fq_tdrop;
-+		ern_cnt.fq_retired   += percpu_priv->ern_cnt.fq_retired;
-+		ern_cnt.orp_zero     += percpu_priv->ern_cnt.orp_zero;
-+
-+		copy_stats(percpu_priv, num_cpus, i, bp_count, data);
-+	}
-+
-+	offset = (num_cpus + 1) * DPA_STATS_PERCPU_LEN;
-+	memcpy(data + offset, &rx_errors, sizeof(struct dpa_rx_errors));
-+
-+	offset += sizeof(struct dpa_rx_errors) / sizeof(u64);
-+	memcpy(data + offset, &ern_cnt, sizeof(struct dpa_ern_cnt));
-+
-+	/* gather congestion related counters */
-+	cg_num    = 0;
-+	cg_status = 0;
-+	cg_time   = jiffies_to_msecs(priv->cgr_data.congested_jiffies);
-+	if (qman_query_cgr(&priv->cgr_data.cgr, &query_cgr) == 0) {
-+		cg_num    = priv->cgr_data.cgr_congested_count;
-+		cg_status = query_cgr.cgr.cs;
-+
-+		/* reset congestion stats (like QMan API does */
-+		priv->cgr_data.congested_jiffies   = 0;
-+		priv->cgr_data.cgr_congested_count = 0;
-+	}
-+
-+	offset += sizeof(struct dpa_ern_cnt) / sizeof(u64);
-+	data[offset++] = cg_time;
-+	data[offset++] = cg_num;
-+	data[offset++] = cg_status;
-+}
-+
-+static void dpa_get_strings(struct net_device *net_dev, u32 stringset, u8 *data)
-+{
-+	unsigned int i, j, num_cpus, size;
-+	char string_cpu[ETH_GSTRING_LEN];
-+	u8 *strings;
-+
-+	strings   = data;
-+	num_cpus  = num_online_cpus();
-+	size      = DPA_STATS_GLOBAL_LEN * ETH_GSTRING_LEN;
-+
-+	for (i = 0; i < DPA_STATS_PERCPU_LEN; i++) {
-+		for (j = 0; j < num_cpus; j++) {
-+			snprintf(string_cpu, ETH_GSTRING_LEN, "%s [CPU %d]",
-+				dpa_stats_percpu[i], j);
-+			memcpy(strings, string_cpu, ETH_GSTRING_LEN);
-+			strings += ETH_GSTRING_LEN;
++	list_for_each_entry_safe(fq, tmp, &priv->dpa_fq_list, list) {
++		switch (fq->fq_type) {
++		case FQ_TYPE_RX_DEFAULT:
++			str = "Rx default";
++			break;
++		case FQ_TYPE_RX_ERROR:
++			str = "Rx error";
++			break;
++		case FQ_TYPE_TX_CONFIRM:
++			str = "Tx default confirmation";
++			break;
++		case FQ_TYPE_TX_CONF_MQ:
++			str = "Tx confirmation (mq)";
++			break;
++		case FQ_TYPE_TX_ERROR:
++			str = "Tx error";
++			break;
++		case FQ_TYPE_TX:
++			str = "Tx";
++			break;
++		default:
++			str = "Unknown";
 +		}
-+		snprintf(string_cpu, ETH_GSTRING_LEN, "%s [TOTAL]",
-+			dpa_stats_percpu[i]);
-+		memcpy(strings, string_cpu, ETH_GSTRING_LEN);
-+		strings += ETH_GSTRING_LEN;
++
++		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
++			     str != prevstr)) {
++			if (last_fqid == first_fqid)
++				bytes += sprintf(buf + bytes,
++					"%s: %d\n", prevstr, prev->fqid);
++			else
++				bytes += sprintf(buf + bytes,
++					"%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++		}
++
++		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
++		    str == prevstr) {
++			last_fqid = fq->fqid;
++		} else {
++			first_fqid = fq->fqid;
++			last_fqid = fq->fqid;
++		}
++
++		prev = fq;
++		prevstr = str;
++		i++;
 +	}
-+	memcpy(strings, dpa_stats_global, size);
++
++	if (prev) {
++		if (last_fqid == first_fqid)
++			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
++					prev->fqid);
++		else
++			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++	}
++
++	return bytes;
 +}
 +
- const struct ethtool_ops dpa_ethtool_ops = {
- 	.get_settings = dpa_get_settings,
- 	.set_settings = dpa_set_settings,
-@@ -227,4 +407,7 @@ const struct ethtool_ops dpa_ethtool_ops = {
- 	.get_pauseparam = dpa_get_pauseparam,
- 	.set_pauseparam = dpa_set_pauseparam,
- 	.get_link = ethtool_op_get_link,
-+	.get_sset_count = dpa_get_sset_count,
-+	.get_ethtool_stats = dpa_get_ethtool_stats,
-+	.get_strings = dpa_get_strings,
- };
++static ssize_t dpaa_eth_show_bpids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	ssize_t bytes = 0;
++	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
++	struct dpa_bp *dpa_bp = priv->dpa_bp;
++	int i = 0;
++
++	for (i = 0; i < priv->bp_count; i++)
++		bytes += snprintf(buf + bytes, PAGE_SIZE - bytes, "%u\n",
++				dpa_bp[i].bpid);
++
++	return bytes;
++}
++
++static struct device_attribute dpaa_eth_attrs[] = {
++	__ATTR(device_addr, S_IRUGO, dpaa_eth_show_addr, NULL),
++	__ATTR(fqids, S_IRUGO, dpaa_eth_show_fqids, NULL),
++	__ATTR(bpids, S_IRUGO, dpaa_eth_show_bpids, NULL),
++};
++
++void dpaa_eth_sysfs_init(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
++			dev_err(dev, "Error creating sysfs file\n");
++			while (i > 0)
++				device_remove_file(dev, &dpaa_eth_attrs[--i]);
++			return;
++		}
++}
++
++void dpaa_eth_sysfs_remove(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		device_remove_file(dev, &dpaa_eth_attrs[i]);
++}
 -- 
 1.7.11.7
