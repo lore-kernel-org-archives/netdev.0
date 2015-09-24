@@ -1,135 +1,201 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RESEND v3 5/9] of_mdio: fix MDIO phy device refcounting
-Date: Thu, 24 Sep 2015 20:36:13 +0100
-Message-ID: <E1ZfCJR-0004Rk-8M@rmk-PC.arm.linux.org.uk>
+From: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: [PATCH RESEND v3 3/9] phy: fix mdiobus module safety
+Date: Thu, 24 Sep 2015 20:36:02 +0100
+Message-ID: <E1ZfCJG-0004QU-UW@rmk-PC.arm.linux.org.uk>
 References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: devicetree@vger.kernel.org, Frank Rowand <frowand.list@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, Li Yang <leoli@freescale.com>,
-	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	Robert Richter <rric@kernel.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"Soren Brinkmann" <soren.brinkmann@xilinx.com>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150922161710.GA21084@n2100.arm.linux.org.uk>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"Soren Brinkmann" <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150922161710.GA21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-bus_find_device() is defined as:
+Re-implement the mdiobus module refcounting to ensure that we actually
+ensure that the mdiobus module code does not go away while we might call
+into it.
 
- * This is similar to the bus_for_each_dev() function above, but it
- * returns a reference to a device that is 'found' for later use, as
- * determined by the @match callback.
+The old scheme using bus->dev.driver was buggy, because bus->dev is a
+class device which never has a struct device_driver associated with it,
+and hence the associated code trying to obtain a refcount did nothing
+useful.
 
-and it does indeed return a reference-counted pointer to the device:
+Instead, take the approach that other subsystems do: pass the module
+when calling mdiobus_register(), and record that in the mii_bus struct.
+When we need to increment the module use count in the phy code, use
+this stored pointer.  When the phy is deteched, drop the module
+refcount, remembering that the phy device might go away at that point.
 
-        while ((dev = next_device(&i)))
-                if (match(dev, data) && get_device(dev))
-                                        ^^^^^^^^^^^^^^^
-                        break;
-        klist_iter_exit(&i);
-        return dev;
+This doesn't stop the mii_bus going away while there are in-use phys -
+it merely stops the underlying code vanishing.
 
-What that means is that when we're done with the struct device, we must
-drop that reference.  Neither of_phy_connect() nor of_phy_attach() did
-this when phy_connect_direct() or phy_attach_direct() failed.
-
-With our previous patch, phy_connect_direct() and phy_attach_direct()
-take a new refcount on the phy device when successful, so we can drop
-our local reference immediatley after these functions, whether or not
-they succeeded.
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
 ---
- drivers/of/of_mdio.c | 27 +++++++++++++++++++++++----
- 1 file changed, 23 insertions(+), 4 deletions(-)
+ drivers/net/phy/mdio_bus.c   |  5 +++--
+ drivers/net/phy/phy_device.c | 32 ++++++++++++++++++--------------
+ include/linux/phy.h          |  5 ++++-
+ 3 files changed, 25 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 1350fa25cdb0..a87a868fed64 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -197,7 +197,8 @@ static int of_phy_match(struct device *dev, void *phy_np)
-  * of_phy_find_device - Give a PHY node, find the phy_device
-  * @phy_np: Pointer to the phy's device tree node
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 67553e13bd36..992406624b7c 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -244,7 +244,7 @@ static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
   *
-- * Returns a pointer to the phy_device.
-+ * If successful, returns a pointer to the phy_device with the embedded
-+ * struct device refcount incremented by one, or NULL on failure.
+  * Returns 0 on success or < 0 on error.
   */
- struct phy_device *of_phy_find_device(struct device_node *phy_np)
+-int mdiobus_register(struct mii_bus *bus)
++int __mdiobus_register(struct mii_bus *bus, struct module *owner)
  {
-@@ -217,7 +218,9 @@ EXPORT_SYMBOL(of_phy_find_device);
-  * @hndlr: Link state callback for the network device
-  * @iface: PHY data interface type
-  *
-- * Returns a pointer to the phy_device if successful.  NULL otherwise
-+ * If successful, returns a pointer to the phy_device with the embedded
-+ * struct device refcount incremented by one, or NULL on failure. The
-+ * refcount must be dropped by calling phy_disconnect() or phy_detach().
-  */
- struct phy_device *of_phy_connect(struct net_device *dev,
- 				  struct device_node *phy_np,
-@@ -225,13 +228,19 @@ struct phy_device *of_phy_connect(struct net_device *dev,
- 				  phy_interface_t iface)
- {
- 	struct phy_device *phy = of_phy_find_device(phy_np);
-+	int ret;
+ 	int i, err;
  
- 	if (!phy)
- 		return NULL;
+@@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 	BUG_ON(bus->state != MDIOBUS_ALLOCATED &&
+ 	       bus->state != MDIOBUS_UNREGISTERED);
  
- 	phy->dev_flags = flags;
- 
--	return phy_connect_direct(dev, phy, hndlr, iface) ? NULL : phy;
-+	ret = phy_connect_direct(dev, phy, hndlr, iface);
-+
-+	/* refcount is held by phy_connect_direct() on success */
-+	put_device(&phy->dev);
-+
-+	return ret ? NULL : phy;
++	bus->owner = owner;
+ 	bus->dev.parent = bus->parent;
+ 	bus->dev.class = &mdio_bus_class;
+ 	bus->dev.groups = NULL;
+@@ -296,7 +297,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 	device_del(&bus->dev);
+ 	return err;
  }
- EXPORT_SYMBOL(of_phy_connect);
+-EXPORT_SYMBOL(mdiobus_register);
++EXPORT_SYMBOL(__mdiobus_register);
  
-@@ -241,17 +250,27 @@ EXPORT_SYMBOL(of_phy_connect);
-  * @phy_np: Node pointer for the PHY
-  * @flags: flags to pass to the PHY
-  * @iface: PHY data interface type
-+ *
-+ * If successful, returns a pointer to the phy_device with the embedded
-+ * struct device refcount incremented by one, or NULL on failure. The
-+ * refcount must be dropped by calling phy_disconnect() or phy_detach().
-  */
- struct phy_device *of_phy_attach(struct net_device *dev,
- 				 struct device_node *phy_np, u32 flags,
- 				 phy_interface_t iface)
+ void mdiobus_unregister(struct mii_bus *bus)
  {
- 	struct phy_device *phy = of_phy_find_device(phy_np);
-+	int ret;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index c0f211127274..03adf328f49b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -582,10 +582,15 @@ EXPORT_SYMBOL(phy_init_hw);
+ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		      u32 flags, phy_interface_t interface)
+ {
++	struct mii_bus *bus = phydev->bus;
+ 	struct device *d = &phydev->dev;
+-	struct module *bus_module;
+ 	int err;
  
- 	if (!phy)
- 		return NULL;
++	if (!try_module_get(bus->owner)) {
++		dev_err(&dev->dev, "failed to get the bus module\n");
++		return -EIO;
++	}
++
+ 	/* Assume that if there is no driver, that it doesn't
+ 	 * exist, and we should use the genphy driver.
+ 	 */
+@@ -600,20 +605,13 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 			err = device_bind_driver(d);
  
--	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy;
-+	ret = phy_attach_direct(dev, phy, flags, iface);
+ 		if (err)
+-			return err;
++			goto error;
+ 	}
+ 
+ 	if (phydev->attached_dev) {
+ 		dev_err(&dev->dev, "PHY already attached\n");
+-		return -EBUSY;
+-	}
+-
+-	/* Increment the bus module reference count */
+-	bus_module = phydev->bus->dev.driver ?
+-		     phydev->bus->dev.driver->owner : NULL;
+-	if (!try_module_get(bus_module)) {
+-		dev_err(&dev->dev, "failed to get the bus module\n");
+-		return -EIO;
++		err = -EBUSY;
++		goto error;
+ 	}
+ 
+ 	phydev->attached_dev = dev;
+@@ -636,6 +634,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		phy_resume(phydev);
+ 
+ 	return err;
 +
-+	/* refcount is held by phy_attach_direct() on success */
-+	put_device(&phy->dev);
-+
-+	return ret ? NULL : phy;
++error:
++	module_put(bus->owner);
++	return err;
  }
- EXPORT_SYMBOL(of_phy_attach);
+ EXPORT_SYMBOL(phy_attach_direct);
  
+@@ -680,11 +682,9 @@ EXPORT_SYMBOL(phy_attach);
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
++	struct mii_bus *bus;
+ 	int i;
+ 
+-	if (phydev->bus->dev.driver)
+-		module_put(phydev->bus->dev.driver->owner);
+-
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+ 	phy_suspend(phydev);
+@@ -700,6 +700,10 @@ void phy_detach(struct phy_device *phydev)
+ 			break;
+ 		}
+ 	}
++
++	bus = phydev->bus;
++
++	module_put(bus->owner);
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 962387a192f1..11bce44f6d65 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -19,6 +19,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
++#include <linux/module.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/mod_devicetable.h>
+@@ -153,6 +154,7 @@ struct sk_buff;
+  * PHYs should register using this structure
+  */
+ struct mii_bus {
++	struct module *owner;
+ 	const char *name;
+ 	char id[MII_BUS_ID_SIZE];
+ 	void *priv;
+@@ -198,7 +200,8 @@ static inline struct mii_bus *mdiobus_alloc(void)
+ 	return mdiobus_alloc_size(0);
+ }
+ 
+-int mdiobus_register(struct mii_bus *bus);
++int __mdiobus_register(struct mii_bus *bus, struct module *owner);
++#define mdiobus_register(bus) __mdiobus_register(bus, THIS_MODULE)
+ void mdiobus_unregister(struct mii_bus *bus);
+ void mdiobus_free(struct mii_bus *bus);
+ struct mii_bus *devm_mdiobus_alloc_size(struct device *dev, int sizeof_priv);
 -- 
 2.1.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
