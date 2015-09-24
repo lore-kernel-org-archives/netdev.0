@@ -1,286 +1,151 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/18] ixgbe: Add I2C bus mux support
-Date: Wed, 23 Sep 2015 23:59:31 -0700
-Message-ID: <1443077981-55791-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/18] ixgbe: Correct several flaws with with DCA setup
+Date: Wed, 23 Sep 2015 23:59:37 -0700
+Message-ID: <1443077981-55791-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Alex Duyck <aduyck@mirantis.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:31471 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932287AbbIXG7z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 02:59:55 -0400
+	id S932711AbbIXG75 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 02:59:57 -0400
 In-Reply-To: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Take control of an I2C mux that selects which SFP is attached to
-the I2C bus. The control of the mux is captured in the taking and
-releasing of the related semaphore. Because only port 1 can control
-the mux, port 1 always leaves the mux set to select port 0.
+This change does two things. First, it makes it so that we always
+set the relaxed ordering bits related to the DCA registers even if
+DCA is not enabled. Second, it moves the configuration out of the
+ixgbe_down function and into the ixgbe_configure function before
+enabling the Rx and Tx rings. This ensures that DCA is configured
+correctly before starting to process packets.
 
+Thanks to Alex Duyck for this fix.
+
+CC: Alex Duyck <aduyck@mirantis.com>
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 97 +++++++++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 63 ++++++++++++++++-
- 3 files changed, 122 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 40 +++++++++++++++++----------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index deef530..998cfb9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1949,6 +1949,7 @@ enum {
- #define IXGBE_GSSR_SW_MNG_SM		0x0400
- #define IXGBE_GSSR_SHARED_I2C_SM	0x1806 /* Wait for both phys & I2Cs */
- #define IXGBE_GSSR_I2C_MASK		0x1800
-+#define IXGBE_GSSR_NVM_PHY_MASK		0xF
- 
- /* FW Status register bitmask */
- #define IXGBE_FWSTS_FWRI    0x00000200 /* Firmware Reset Indication */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 4e75843..ccf853f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -567,19 +567,25 @@ static s32 ixgbe_poll_flash_update_done_X540(struct ixgbe_hw *hw)
-  **/
- s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 28b8594..97cded3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1245,9 +1245,12 @@ static void ixgbe_update_tx_dca(struct ixgbe_adapter *adapter,
+ 				int cpu)
  {
--	u32 swfw_sync;
--	u32 swmask = mask;
--	u32 fwmask = mask << 5;
--	u32 hwmask = 0;
-+	u32 swmask = mask & IXGBE_GSSR_NVM_PHY_MASK;
-+	u32 swi2c_mask = mask & IXGBE_GSSR_I2C_MASK;
-+	u32 fwmask = swmask << 5;
- 	u32 timeout = 200;
-+	u32 hwmask = 0;
-+	u32 swfw_sync;
- 	u32 i;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 txctrl = dca3_get_tag(tx_ring->dev, cpu);
++	u32 txctrl = 0;
+ 	u16 reg_offset;
  
--	if (swmask == IXGBE_GSSR_EEP_SM)
-+	if (swmask & IXGBE_GSSR_EEP_SM)
- 		hwmask = IXGBE_GSSR_FLASH_SM;
- 
-+	/* SW only mask does not have FW bit pair */
-+	if (mask & IXGBE_GSSR_SW_MNG_SM)
-+		swmask |= IXGBE_GSSR_SW_MNG_SM;
++	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
++		txctrl = dca3_get_tag(tx_ring->dev, cpu);
 +
-+	swmask |= swi2c_mask;
-+	fwmask |= swi2c_mask << 2;
- 	for (i = 0; i < timeout; i++) {
--		/*
--		 * SW NVM semaphore bit is used for access to all
-+		/* SW NVM semaphore bit is used for access to all
- 		 * SW_FW_SYNC bits (not just NVM)
- 		 */
- 		if (ixgbe_get_swfw_sync_semaphore(hw))
-@@ -590,39 +596,56 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
- 			swfw_sync |= swmask;
- 			IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
- 			ixgbe_release_swfw_sync_semaphore(hw);
--			break;
--		} else {
--			/*
--			 * Firmware currently using resource (fwmask),
--			 * hardware currently using resource (hwmask),
--			 * or other software thread currently using
--			 * resource (swmask)
--			 */
--			ixgbe_release_swfw_sync_semaphore(hw);
--			usleep_range(5000, 10000);
-+			usleep_range(5000, 6000);
-+			return 0;
- 		}
-+		/* Firmware currently using resource (fwmask), hardware
-+		 * currently using resource (hwmask), or other software
-+		 * thread currently using resource (swmask)
-+		 */
-+		ixgbe_release_swfw_sync_semaphore(hw);
-+		usleep_range(5000, 10000);
- 	}
- 
--	/*
--	 * If the resource is not released by the FW/HW the SW can assume that
--	 * the FW/HW malfunctions. In that case the SW should sets the
--	 * SW bit(s) of the requested resource(s) while ignoring the
--	 * corresponding FW/HW bits in the SW_FW_SYNC register.
--	 */
--	if (i >= timeout) {
--		swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
--		if (swfw_sync & (fwmask | hwmask)) {
--			if (ixgbe_get_swfw_sync_semaphore(hw))
--				return IXGBE_ERR_SWFW_SYNC;
-+	/* Failed to get SW only semaphore */
-+	if (swmask == IXGBE_GSSR_SW_MNG_SM) {
-+		hw_dbg(hw, "Failed to get SW only semaphore\n");
-+		return IXGBE_ERR_SWFW_SYNC;
-+	}
- 
--			swfw_sync |= swmask;
--			IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
--			ixgbe_release_swfw_sync_semaphore(hw);
--		}
-+	/* If the resource is not released by the FW/HW the SW can assume that
-+	 * the FW/HW malfunctions. In that case the SW should set the SW bit(s)
-+	 * of the requested resource(s) while ignoring the corresponding FW/HW
-+	 * bits in the SW_FW_SYNC register.
-+	 */
-+	if (ixgbe_get_swfw_sync_semaphore(hw))
-+		return IXGBE_ERR_SWFW_SYNC;
-+	swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
-+	if (swfw_sync & (fwmask | hwmask)) {
-+		swfw_sync |= swmask;
-+		IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
-+		ixgbe_release_swfw_sync_semaphore(hw);
-+		usleep_range(5000, 6000);
-+		return 0;
-+	}
-+	/* If the resource is not released by other SW the SW can assume that
-+	 * the other SW malfunctions. In that case the SW should clear all SW
-+	 * flags that it does not own and then repeat the whole process once
-+	 * again.
-+	 */
-+	if (swfw_sync & swmask) {
-+		u32 rmask = IXGBE_GSSR_EEP_SM | IXGBE_GSSR_PHY0_SM |
-+			    IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_MAC_CSR_SM;
-+
-+		if (swi2c_mask)
-+			rmask |= IXGBE_GSSR_I2C_MASK;
-+		ixgbe_release_swfw_sync_X540(hw, rmask);
-+		ixgbe_release_swfw_sync_semaphore(hw);
-+		return IXGBE_ERR_SWFW_SYNC;
- 	}
-+	ixgbe_release_swfw_sync_semaphore(hw);
- 
--	usleep_range(5000, 10000);
--	return 0;
-+	return IXGBE_ERR_SWFW_SYNC;
- }
- 
- /**
-@@ -635,9 +658,11 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
-  **/
- void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+ 		reg_offset = IXGBE_DCA_TXCTRL(tx_ring->reg_idx);
+@@ -1279,9 +1282,11 @@ static void ixgbe_update_rx_dca(struct ixgbe_adapter *adapter,
+ 				int cpu)
  {
-+	u32 swmask = mask & (IXGBE_GSSR_NVM_PHY_MASK | IXGBE_GSSR_SW_MNG_SM);
- 	u32 swfw_sync;
--	u32 swmask = mask;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 rxctrl = dca3_get_tag(rx_ring->dev, cpu);
++	u32 rxctrl = 0;
+ 	u8 reg_idx = rx_ring->reg_idx;
  
-+	if (mask & IXGBE_GSSR_I2C_MASK)
-+		swmask |= mask & IXGBE_GSSR_I2C_MASK;
- 	ixgbe_get_swfw_sync_semaphore(hw);
++	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
++		rxctrl = dca3_get_tag(rx_ring->dev, cpu);
  
- 	swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
-@@ -645,7 +670,7 @@ void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
- 	IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82599EB:
+@@ -1298,6 +1303,7 @@ static void ixgbe_update_rx_dca(struct ixgbe_adapter *adapter,
+ 	 * which will cause the DCA tag to be cleared.
+ 	 */
+ 	rxctrl |= IXGBE_DCA_RXCTRL_DESC_RRO_EN |
++		  IXGBE_DCA_RXCTRL_DATA_DCA_EN |
+ 		  IXGBE_DCA_RXCTRL_DESC_DCA_EN;
  
- 	ixgbe_release_swfw_sync_semaphore(hw);
--	usleep_range(5000, 10000);
-+	usleep_range(5000, 6000);
- }
+ 	IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(reg_idx), rxctrl);
+@@ -1327,11 +1333,13 @@ static void ixgbe_setup_dca(struct ixgbe_adapter *adapter)
+ {
+ 	int i;
  
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 5048b90..ed7b289 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2263,6 +2263,62 @@ static void ixgbe_set_source_address_pruning_X550(struct ixgbe_hw *hw,
- 	IXGBE_WRITE_REG(hw, IXGBE_PFFLPH, (u32)(pfflp >> 32));
- }
- 
-+/**
-+ * ixgbe_set_mux - Set mux for port 1 access with CS4227
-+ * @hw: pointer to hardware structure
-+ * @state: set mux if 1, clear if 0
-+ */
-+static void ixgbe_set_mux(struct ixgbe_hw *hw, u8 state)
-+{
-+	u32 esdp;
-+
-+	if (!hw->bus.lan_id)
-+		return;
-+	esdp = IXGBE_READ_REG(hw, IXGBE_ESDP);
-+	if (state)
-+		esdp |= IXGBE_ESDP_SDP1;
-+	else
-+		esdp &= ~IXGBE_ESDP_SDP1;
-+	IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp);
-+	IXGBE_WRITE_FLUSH(hw);
-+}
-+
-+/**
-+ * ixgbe_acquire_swfw_sync_X550em - Acquire SWFW semaphore
-+ * @hw: pointer to hardware structure
-+ * @mask: Mask to specify which semaphore to acquire
-+ *
-+ * Acquires the SWFW semaphore and sets the I2C MUX
-+ */
-+static s32 ixgbe_acquire_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
-+{
-+	s32 status;
-+
-+	status = ixgbe_acquire_swfw_sync_X540(hw, mask);
-+	if (status)
-+		return status;
-+
-+	if (mask & IXGBE_GSSR_I2C_MASK)
-+		ixgbe_set_mux(hw, 1);
-+
-+	return 0;
-+}
-+
-+/**
-+ * ixgbe_release_swfw_sync_X550em - Release SWFW semaphore
-+ * @hw: pointer to hardware structure
-+ * @mask: Mask to specify which semaphore to release
-+ *
-+ * Releases the SWFW semaphore and sets the I2C MUX
-+ */
-+static void ixgbe_release_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
-+{
-+	if (mask & IXGBE_GSSR_I2C_MASK)
-+		ixgbe_set_mux(hw, 0);
-+
-+	ixgbe_release_swfw_sync_X540(hw, mask);
-+}
-+
- #define X550_COMMON_MAC \
- 	.init_hw			= &ixgbe_init_hw_generic, \
- 	.start_hw			= &ixgbe_start_hw_X540, \
-@@ -2300,8 +2356,6 @@ static void ixgbe_set_source_address_pruning_X550(struct ixgbe_hw *hw,
- 				&ixgbe_set_source_address_pruning_X550, \
- 	.set_ethertype_anti_spoofing	= \
- 				&ixgbe_set_ethertype_anti_spoofing_X550, \
--	.acquire_swfw_sync		= &ixgbe_acquire_swfw_sync_X540, \
--	.release_swfw_sync		= &ixgbe_release_swfw_sync_X540, \
- 	.disable_rx_buff		= &ixgbe_disable_rx_buff_generic, \
- 	.enable_rx_buff			= &ixgbe_enable_rx_buff_generic, \
- 	.get_thermal_sensor_data	= NULL, \
-@@ -2321,6 +2375,8 @@ static struct ixgbe_mac_operations mac_ops_X550 = {
- 	.get_link_capabilities	= &ixgbe_get_copper_link_capabilities_generic,
- 	.get_bus_info		= &ixgbe_get_bus_info_generic,
- 	.setup_sfp		= NULL,
-+	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X540,
-+	.release_swfw_sync	= &ixgbe_release_swfw_sync_X540,
- };
- 
- static struct ixgbe_mac_operations mac_ops_X550EM_x = {
-@@ -2333,7 +2389,8 @@ static struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	.get_link_capabilities	= &ixgbe_get_link_capabilities_X550em,
- 	.get_bus_info		= &ixgbe_get_bus_info_X550em,
- 	.setup_sfp		= ixgbe_setup_sfp_modules_X550em,
+-	if (!(adapter->flags & IXGBE_FLAG_DCA_ENABLED))
+-		return;
 -
-+	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X550em,
-+	.release_swfw_sync	= &ixgbe_release_swfw_sync_X550em,
- };
+ 	/* always use CB2 mode, difference is masked in the CB driver */
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL, 2);
++	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL,
++				IXGBE_DCA_CTRL_DCA_MODE_CB2);
++	else
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL,
++				IXGBE_DCA_CTRL_DCA_DISABLE);
  
- #define X550_COMMON_EEP \
+ 	for (i = 0; i < adapter->num_q_vectors; i++) {
+ 		adapter->q_vector[i]->cpu = -1;
+@@ -1354,7 +1362,8 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+ 			break;
+ 		if (dca_add_requester(dev) == 0) {
+ 			adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
+-			ixgbe_setup_dca(adapter);
++			IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL,
++					IXGBE_DCA_CTRL_DCA_MODE_CB2);
+ 			break;
+ 		}
+ 		/* Fall Through since DCA is disabled. */
+@@ -1362,7 +1371,8 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+ 		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
+ 			dca_remove_requester(dev);
+ 			adapter->flags &= ~IXGBE_FLAG_DCA_ENABLED;
+-			IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL, 1);
++			IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL,
++					IXGBE_DCA_CTRL_DCA_DISABLE);
+ 		}
+ 		break;
+ 	}
+@@ -4783,6 +4793,12 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 		break;
+ 	}
+ 
++#ifdef CONFIG_IXGBE_DCA
++	/* configure DCA */
++	if (adapter->flags & IXGBE_FLAG_DCA_CAPABLE)
++		ixgbe_setup_dca(adapter);
++#endif /* CONFIG_IXGBE_DCA */
++
+ #ifdef IXGBE_FCOE
+ 	/* configure FCoE L2 filters, redirection table, and Rx control */
+ 	ixgbe_configure_fcoe(adapter);
+@@ -5243,11 +5259,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 
+ 	ixgbe_clean_all_tx_rings(adapter);
+ 	ixgbe_clean_all_rx_rings(adapter);
+-
+-#ifdef CONFIG_IXGBE_DCA
+-	/* since we reset the hardware DCA settings were cleared */
+-	ixgbe_setup_dca(adapter);
+-#endif
+ }
+ 
+ /**
+@@ -9036,7 +9047,8 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
+ 		adapter->flags &= ~IXGBE_FLAG_DCA_ENABLED;
+ 		dca_remove_requester(&pdev->dev);
+-		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL, 1);
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL,
++				IXGBE_DCA_CTRL_DCA_DISABLE);
+ 	}
+ 
+ #endif
 -- 
 2.4.3
