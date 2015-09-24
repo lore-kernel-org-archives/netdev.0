@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/18] ixgbe: Limit SFP polling rate
-Date: Wed, 23 Sep 2015 23:59:30 -0700
-Message-ID: <1443077981-55791-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/18] ixgbe: Add I2C bus mux support
+Date: Wed, 23 Sep 2015 23:59:31 -0700
+Message-ID: <1443077981-55791-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48624 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:31471 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932626AbbIXG7z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932287AbbIXG7z (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 24 Sep 2015 02:59:55 -0400
 In-Reply-To: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,78 +18,269 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Reduce the frequency of polling for SFP modules. Because the
-service task sometimes runs at high rates, we can poll for
-SFPs too often. When an SFP is not present, the I2C timeouts
-that result are very costly. So, prevent SFP polling from
-being done more than once every two seconds. To reduce latency,
-the poll time is cleared in a couple of cases to permit the
-next service task execution to poll the SFP module.
+Take control of an I2C mux that selects which SFP is attached to
+the I2C bus. The control of the mux is captured in the taking and
+releasing of the related semaphore. Because only port 1 can control
+the mux, port 1 always leaves the mux set to select port 0.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++++
- 2 files changed, 10 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 97 +++++++++++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 63 ++++++++++++++++-
+ 3 files changed, 122 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index a699c99..dda0f67 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -594,6 +594,7 @@ struct ixgbe_mac_addr {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index deef530..998cfb9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1949,6 +1949,7 @@ enum {
+ #define IXGBE_GSSR_SW_MNG_SM		0x0400
+ #define IXGBE_GSSR_SHARED_I2C_SM	0x1806 /* Wait for both phys & I2Cs */
+ #define IXGBE_GSSR_I2C_MASK		0x1800
++#define IXGBE_GSSR_NVM_PHY_MASK		0xF
  
- /* default to trying for four seconds */
- #define IXGBE_TRY_LINK_TIMEOUT (4 * HZ)
-+#define IXGBE_SFP_POLL_JIFFIES (2 * HZ)	/* SFP poll every 2 seconds */
+ /* FW Status register bitmask */
+ #define IXGBE_FWSTS_FWRI    0x00000200 /* Firmware Reset Indication */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 4e75843..ccf853f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -567,19 +567,25 @@ static s32 ixgbe_poll_flash_update_done_X540(struct ixgbe_hw *hw)
+  **/
+ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ {
+-	u32 swfw_sync;
+-	u32 swmask = mask;
+-	u32 fwmask = mask << 5;
+-	u32 hwmask = 0;
++	u32 swmask = mask & IXGBE_GSSR_NVM_PHY_MASK;
++	u32 swi2c_mask = mask & IXGBE_GSSR_I2C_MASK;
++	u32 fwmask = swmask << 5;
+ 	u32 timeout = 200;
++	u32 hwmask = 0;
++	u32 swfw_sync;
+ 	u32 i;
  
- /* board specific private data structure */
- struct ixgbe_adapter {
-@@ -707,6 +708,7 @@ struct ixgbe_adapter {
+-	if (swmask == IXGBE_GSSR_EEP_SM)
++	if (swmask & IXGBE_GSSR_EEP_SM)
+ 		hwmask = IXGBE_GSSR_FLASH_SM;
  
- 	u32 link_speed;
- 	bool link_up;
-+	unsigned long sfp_poll_time;
- 	unsigned long link_check_timeout;
- 
- 	struct timer_list service_timer;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 369204c..9986be5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2509,6 +2509,7 @@ static void ixgbe_check_sfp_event(struct ixgbe_adapter *adapter, u32 eicr)
- 		IXGBE_WRITE_REG(hw, IXGBE_EICR, eicr_mask);
- 		if (!test_bit(__IXGBE_DOWN, &adapter->state)) {
- 			adapter->flags2 |= IXGBE_FLAG2_SFP_NEEDS_RESET;
-+			adapter->sfp_poll_time = 0;
- 			ixgbe_service_event_schedule(adapter);
++	/* SW only mask does not have FW bit pair */
++	if (mask & IXGBE_GSSR_SW_MNG_SM)
++		swmask |= IXGBE_GSSR_SW_MNG_SM;
++
++	swmask |= swi2c_mask;
++	fwmask |= swi2c_mask << 2;
+ 	for (i = 0; i < timeout; i++) {
+-		/*
+-		 * SW NVM semaphore bit is used for access to all
++		/* SW NVM semaphore bit is used for access to all
+ 		 * SW_FW_SYNC bits (not just NVM)
+ 		 */
+ 		if (ixgbe_get_swfw_sync_semaphore(hw))
+@@ -590,39 +596,56 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ 			swfw_sync |= swmask;
+ 			IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
+ 			ixgbe_release_swfw_sync_semaphore(hw);
+-			break;
+-		} else {
+-			/*
+-			 * Firmware currently using resource (fwmask),
+-			 * hardware currently using resource (hwmask),
+-			 * or other software thread currently using
+-			 * resource (swmask)
+-			 */
+-			ixgbe_release_swfw_sync_semaphore(hw);
+-			usleep_range(5000, 10000);
++			usleep_range(5000, 6000);
++			return 0;
  		}
++		/* Firmware currently using resource (fwmask), hardware
++		 * currently using resource (hwmask), or other software
++		 * thread currently using resource (swmask)
++		 */
++		ixgbe_release_swfw_sync_semaphore(hw);
++		usleep_range(5000, 10000);
  	}
-@@ -4804,6 +4805,7 @@ static void ixgbe_sfp_link_config(struct ixgbe_adapter *adapter)
- 		adapter->flags2 |= IXGBE_FLAG2_SEARCH_FOR_SFP;
  
- 	adapter->flags2 |= IXGBE_FLAG2_SFP_NEEDS_RESET;
-+	adapter->sfp_poll_time = 0;
+-	/*
+-	 * If the resource is not released by the FW/HW the SW can assume that
+-	 * the FW/HW malfunctions. In that case the SW should sets the
+-	 * SW bit(s) of the requested resource(s) while ignoring the
+-	 * corresponding FW/HW bits in the SW_FW_SYNC register.
+-	 */
+-	if (i >= timeout) {
+-		swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
+-		if (swfw_sync & (fwmask | hwmask)) {
+-			if (ixgbe_get_swfw_sync_semaphore(hw))
+-				return IXGBE_ERR_SWFW_SYNC;
++	/* Failed to get SW only semaphore */
++	if (swmask == IXGBE_GSSR_SW_MNG_SM) {
++		hw_dbg(hw, "Failed to get SW only semaphore\n");
++		return IXGBE_ERR_SWFW_SYNC;
++	}
+ 
+-			swfw_sync |= swmask;
+-			IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
+-			ixgbe_release_swfw_sync_semaphore(hw);
+-		}
++	/* If the resource is not released by the FW/HW the SW can assume that
++	 * the FW/HW malfunctions. In that case the SW should set the SW bit(s)
++	 * of the requested resource(s) while ignoring the corresponding FW/HW
++	 * bits in the SW_FW_SYNC register.
++	 */
++	if (ixgbe_get_swfw_sync_semaphore(hw))
++		return IXGBE_ERR_SWFW_SYNC;
++	swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
++	if (swfw_sync & (fwmask | hwmask)) {
++		swfw_sync |= swmask;
++		IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
++		ixgbe_release_swfw_sync_semaphore(hw);
++		usleep_range(5000, 6000);
++		return 0;
++	}
++	/* If the resource is not released by other SW the SW can assume that
++	 * the other SW malfunctions. In that case the SW should clear all SW
++	 * flags that it does not own and then repeat the whole process once
++	 * again.
++	 */
++	if (swfw_sync & swmask) {
++		u32 rmask = IXGBE_GSSR_EEP_SM | IXGBE_GSSR_PHY0_SM |
++			    IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_MAC_CSR_SM;
++
++		if (swi2c_mask)
++			rmask |= IXGBE_GSSR_I2C_MASK;
++		ixgbe_release_swfw_sync_X540(hw, rmask);
++		ixgbe_release_swfw_sync_semaphore(hw);
++		return IXGBE_ERR_SWFW_SYNC;
+ 	}
++	ixgbe_release_swfw_sync_semaphore(hw);
+ 
+-	usleep_range(5000, 10000);
+-	return 0;
++	return IXGBE_ERR_SWFW_SYNC;
  }
  
  /**
-@@ -6709,10 +6711,16 @@ static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
- 	    !(adapter->flags2 & IXGBE_FLAG2_SFP_NEEDS_RESET))
- 		return;
+@@ -635,9 +658,11 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+  **/
+ void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ {
++	u32 swmask = mask & (IXGBE_GSSR_NVM_PHY_MASK | IXGBE_GSSR_SW_MNG_SM);
+ 	u32 swfw_sync;
+-	u32 swmask = mask;
  
-+	if (adapter->sfp_poll_time &&
-+	    time_after(adapter->sfp_poll_time, jiffies))
-+		return; /* If not yet time to poll for SFP */
-+
- 	/* someone else is in init, wait until next service event */
- 	if (test_and_set_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
- 		return;
++	if (mask & IXGBE_GSSR_I2C_MASK)
++		swmask |= mask & IXGBE_GSSR_I2C_MASK;
+ 	ixgbe_get_swfw_sync_semaphore(hw);
  
-+	adapter->sfp_poll_time = jiffies + IXGBE_SFP_POLL_JIFFIES - 1;
+ 	swfw_sync = IXGBE_READ_REG(hw, IXGBE_SWFW_SYNC(hw));
+@@ -645,7 +670,7 @@ void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ 	IXGBE_WRITE_REG(hw, IXGBE_SWFW_SYNC(hw), swfw_sync);
+ 
+ 	ixgbe_release_swfw_sync_semaphore(hw);
+-	usleep_range(5000, 10000);
++	usleep_range(5000, 6000);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 5048b90..ed7b289 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2263,6 +2263,62 @@ static void ixgbe_set_source_address_pruning_X550(struct ixgbe_hw *hw,
+ 	IXGBE_WRITE_REG(hw, IXGBE_PFFLPH, (u32)(pfflp >> 32));
+ }
+ 
++/**
++ * ixgbe_set_mux - Set mux for port 1 access with CS4227
++ * @hw: pointer to hardware structure
++ * @state: set mux if 1, clear if 0
++ */
++static void ixgbe_set_mux(struct ixgbe_hw *hw, u8 state)
++{
++	u32 esdp;
 +
- 	err = hw->phy.ops.identify_sfp(hw);
- 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED)
- 		goto sfp_out;
++	if (!hw->bus.lan_id)
++		return;
++	esdp = IXGBE_READ_REG(hw, IXGBE_ESDP);
++	if (state)
++		esdp |= IXGBE_ESDP_SDP1;
++	else
++		esdp &= ~IXGBE_ESDP_SDP1;
++	IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp);
++	IXGBE_WRITE_FLUSH(hw);
++}
++
++/**
++ * ixgbe_acquire_swfw_sync_X550em - Acquire SWFW semaphore
++ * @hw: pointer to hardware structure
++ * @mask: Mask to specify which semaphore to acquire
++ *
++ * Acquires the SWFW semaphore and sets the I2C MUX
++ */
++static s32 ixgbe_acquire_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
++{
++	s32 status;
++
++	status = ixgbe_acquire_swfw_sync_X540(hw, mask);
++	if (status)
++		return status;
++
++	if (mask & IXGBE_GSSR_I2C_MASK)
++		ixgbe_set_mux(hw, 1);
++
++	return 0;
++}
++
++/**
++ * ixgbe_release_swfw_sync_X550em - Release SWFW semaphore
++ * @hw: pointer to hardware structure
++ * @mask: Mask to specify which semaphore to release
++ *
++ * Releases the SWFW semaphore and sets the I2C MUX
++ */
++static void ixgbe_release_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
++{
++	if (mask & IXGBE_GSSR_I2C_MASK)
++		ixgbe_set_mux(hw, 0);
++
++	ixgbe_release_swfw_sync_X540(hw, mask);
++}
++
+ #define X550_COMMON_MAC \
+ 	.init_hw			= &ixgbe_init_hw_generic, \
+ 	.start_hw			= &ixgbe_start_hw_X540, \
+@@ -2300,8 +2356,6 @@ static void ixgbe_set_source_address_pruning_X550(struct ixgbe_hw *hw,
+ 				&ixgbe_set_source_address_pruning_X550, \
+ 	.set_ethertype_anti_spoofing	= \
+ 				&ixgbe_set_ethertype_anti_spoofing_X550, \
+-	.acquire_swfw_sync		= &ixgbe_acquire_swfw_sync_X540, \
+-	.release_swfw_sync		= &ixgbe_release_swfw_sync_X540, \
+ 	.disable_rx_buff		= &ixgbe_disable_rx_buff_generic, \
+ 	.enable_rx_buff			= &ixgbe_enable_rx_buff_generic, \
+ 	.get_thermal_sensor_data	= NULL, \
+@@ -2321,6 +2375,8 @@ static struct ixgbe_mac_operations mac_ops_X550 = {
+ 	.get_link_capabilities	= &ixgbe_get_copper_link_capabilities_generic,
+ 	.get_bus_info		= &ixgbe_get_bus_info_generic,
+ 	.setup_sfp		= NULL,
++	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X540,
++	.release_swfw_sync	= &ixgbe_release_swfw_sync_X540,
+ };
+ 
+ static struct ixgbe_mac_operations mac_ops_X550EM_x = {
+@@ -2333,7 +2389,8 @@ static struct ixgbe_mac_operations mac_ops_X550EM_x = {
+ 	.get_link_capabilities	= &ixgbe_get_link_capabilities_X550em,
+ 	.get_bus_info		= &ixgbe_get_bus_info_X550em,
+ 	.setup_sfp		= ixgbe_setup_sfp_modules_X550em,
+-
++	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X550em,
++	.release_swfw_sync	= &ixgbe_release_swfw_sync_X550em,
+ };
+ 
+ #define X550_COMMON_EEP \
 -- 
 2.4.3
