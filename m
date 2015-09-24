@@ -1,87 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/18][pull request] Intel Wired LAN Driver Updates 2015-09-23
-Date: Wed, 23 Sep 2015 23:59:23 -0700
-Message-ID: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 02/18] ixgbe: Allow reduced delays during SFP detection
+Date: Wed, 23 Sep 2015 23:59:25 -0700
+Message-ID: <1443077981-55791-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31471 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:36281 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751177AbbIXG7r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 02:59:47 -0400
+	id S932442AbbIXG7s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 02:59:48 -0400
+In-Reply-To: <1443077981-55791-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Mark provides all the changes in this series, first clears the destination
-location for I2C data initially so that the received data will not be
-corrupted by previous attempts.  Then reduced the pauses/delays in the
-PHY detection when no SFP is present by reducing the number of retires,
-once an SFP is detected, the "normal" number of retries in PHY detection
-will be used.  Added support for X55EM_x SFP+ dual-speed, and fixed 1G and
-10G link stability for X550EM_x by configuring the CS4227 correctly by
-moving code to ixgbe_setup_mac_link_sfp_x550em().  Added functionality to
-reset CS4227, since on some platforms the CS4227 does not initialize
-properly.  Next reduces the SFP polling rate, due to when an SFP is not
-present, the I2C timeouts that result are very costly.  So prevent the
-SFP polling from being done more than once every two seconds.  Added
-support for I2C bus MUX.  Fixed the setting of RDRXCTL register which
-should fall through X540 and 82599, not 82598.  In addition, added small
-packet padding support in X550 by setting RDRXCTL.PSP when the driver is
-in SRIOV mode.  Fixed a known hardware issue where the PCI transactions
-pending bit sticks high when there are pending transactions, so
-workaround the issue by wait and then continue with our reset flow.
-Added a new device ID for X550EM device with SFPs.  Provided a fix with
-the DCA setup, which was suggested by Alex Duyck <aduyck@mirantis.com>,
-by making it so that we always set the relaxed ordering bits related to
-the DCA registers even if DCA is not enbaled.  Then moves the
-configuration out of the ixgbe_down() and into ixgbe_configure() before
-enabling the transmit and receive rings.  This ensures that DCA is
-configured correctly before starting the processing of packets.
-Fixed VM-to-VM loopback mode which requires that FCRTH be set, but
-the datasheets did not specify what the value should be.  It has now
-been determined that the correct value should be RXPBSIZE - (24*1024).
+Reduce the number of retries during PHY detection. This reduces
+pauses when no SFP is present. Once an SFP is detected, the normal
+retry count will be used.
 
-The following are changes since commit 06e60e5912c0373b15143cc52e4a11fafeaafff3:
-  net/ethoc: support big-endian register layout
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c | 18 ++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h |  2 ++
+ 2 files changed, 20 insertions(+)
 
-Mark Rustad (18):
-  ixgbe: Clear I2C destination location
-  ixgbe: Allow reduced delays during SFP detection
-  ixgbe: Add X550EM_x dual-speed SFP+ support
-  ixgbe: Fix 1G and 10G link stability for X550EM_x SFP+
-  ixgbe: Add logic to reset CS4227 when needed
-  ixgbe: Allow SFP+ on more than 82598 and 82599
-  ixgbe: Limit SFP polling rate
-  ixgbe: Add I2C bus mux support
-  ixgbe: Correct error path in semaphore handling
-  ixgbe: Correct setting of RDRXCTL register for X550* devices
-  ixgbe: Add small packet padding support for X550
-  ixgbe: Update ixgbe_disable_pcie_master flow for X550*
-  ixgbe: Add new X550EM SFP+ device ID
-  ixgbe: Correct several flaws with with DCA setup
-  ixgbe: Only clear adapter_stopped if ixgbe_setup_fc succeeded
-  ixgbe: Fix FCRTH value in VM-to-VM loopback mode
-  ixgbe: X540 thermal warning interrupt not a GPI
-  ixgbe: Advance version to 4.2.1
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     | 192 ++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    | 226 +++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   5 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  61 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |  21 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |  27 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      | 102 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c      | 485 +++++++++++++++++++--
- 11 files changed, 855 insertions(+), 278 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 88ade17..7a7ee9d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -1731,6 +1731,21 @@ s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+ }
+ 
+ /**
++ * ixgbe_is_sfp_probe - Returns true if SFP is being detected
++ * @hw: pointer to hardware structure
++ * @offset: eeprom offset to be read
++ * @addr: I2C address to be read
++ */
++static bool ixgbe_is_sfp_probe(struct ixgbe_hw *hw, u8 offset, u8 addr)
++{
++	if (addr == IXGBE_I2C_EEPROM_DEV_ADDR &&
++	    offset == IXGBE_SFF_IDENTIFIER &&
++	    hw->phy.sfp_type == ixgbe_sfp_type_not_present)
++		return true;
++	return false;
++}
++
++/**
+  *  ixgbe_read_i2c_byte_generic_int - Reads 8 bit word over I2C
+  *  @hw: pointer to hardware structure
+  *  @byte_offset: byte offset to read
+@@ -1749,6 +1764,9 @@ static s32 ixgbe_read_i2c_byte_generic_int(struct ixgbe_hw *hw, u8 byte_offset,
+ 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+ 	bool nack = true;
+ 
++	if (ixgbe_is_sfp_probe(hw, byte_offset, dev_addr))
++		max_retry = IXGBE_SFP_DETECT_RETRIES;
++
+ 	*data = 0;
+ 
+ 	do {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index 4c06484..0769b40 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -109,6 +109,8 @@
+ #define IXGBE_I2C_T_SU_STO  4
+ #define IXGBE_I2C_T_BUF     5
+ 
++#define IXGBE_SFP_DETECT_RETRIES	2
++
+ #define IXGBE_TN_LASI_STATUS_REG        0x9005
+ #define IXGBE_TN_LASI_STATUS_TEMP_ALARM 0x0008
+ 
 -- 
 2.4.3
