@@ -1,36 +1,328 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: Fwd: Delivery Status Notification (Failure)
-Date: Thu, 24 Sep 2015 08:50:10 -0400
-Message-ID: <20150924125009.GA890@gospo.rdu.cumulusnetworks.com>
-References: <047d7b5dbb76a0065405207cfe24@google.com>
- <CAOLDph0pO0q3A4-mRjn3wkGvHP5c9anBWbaDBDOLhVRz+JVDMQ@mail.gmail.com>
+From: <igal.liberman@freescale.com>
+Subject: [v5, 4/6] fsl/fman: Add FMan SP support
+Date: Thu, 24 Sep 2015 12:10:36 +0300
+Message-ID: <1443085838-7539-5-git-send-email-igal.liberman@freescale.com>
+References: <1443085838-7539-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Naveen <dear.chap@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:34901 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752622AbbIXMuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 08:50:17 -0400
-Received: by qgt47 with SMTP id 47so42832165qgt.2
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 05:50:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAOLDph0pO0q3A4-mRjn3wkGvHP5c9anBWbaDBDOLhVRz+JVDMQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, Igal Liberman <igal.liberman@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443085838-7539-1-git-send-email-igal.liberman@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 24, 2015 at 08:03:39AM -0400, Naveen wrote:
-> Hi
->      Right now the only way to detect if an interface has a peer(veth)
-> is touse ethtool -S. Instead I was thinking of adding it to device
-> attributes as a peer_ifndex entry. In drivers/net/veth.c I could add
-> an entry to
-> dev->groups for a veth specific group. Would that be acceptable ?
-> 
+From: Igal Liberman <igal.liberman@freescale.com>
 
-I've had similar discussions with others who agree with you that the
-current method is not ideal -- especially when there are a large number
-of namespaces in in use on a system.  One such proposal was to have the
-output in ip link show (possibly only with the '-d' option), but no test
-patches have been written yet....
+The Storage Profiles contain parameters that are used
+by the FMan for frame reception and transmission.
+
+Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
+---
+ drivers/net/ethernet/freescale/fman/Makefile  |    2 +-
+ drivers/net/ethernet/freescale/fman/fman_sp.c |  167 +++++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_sp.h |  103 +++++++++++++++
+ 3 files changed, 271 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
+
+diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
+index 43360d70..5141532 100644
+--- a/drivers/net/ethernet/freescale/fman/Makefile
++++ b/drivers/net/ethernet/freescale/fman/Makefile
+@@ -2,5 +2,5 @@ subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
+ 
+ obj-y		+= fsl_fman.o fsl_fman_mac.o
+ 
+-fsl_fman-objs	:= fman_muram.o fman.o
++fsl_fman-objs	:= fman_muram.o fman.o fman_sp.o
+ fsl_fman_mac-objs := fman_dtsec.o fman_memac.o fman_tgec.o
+diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.c b/drivers/net/ethernet/freescale/fman/fman_sp.c
+new file mode 100644
+index 0000000..f36c622
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/fman_sp.c
+@@ -0,0 +1,167 @@
++/*
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *       notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *       notice, this list of conditions and the following disclaimer in the
++ *       documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *       names of its contributors may be used to endorse or promote products
++ *       derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "fman_sp.h"
++#include "fman.h"
++
++void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
++						     *fm_ext_pools,
++						     u8 *ordered_array,
++						     u16 *sizes_array)
++{
++	u16 buf_size = 0;
++	int i = 0, j = 0, k = 0;
++
++	/* First we copy the external buffers pools information
++	 * to an ordered local array
++	 */
++	for (i = 0; i < fm_ext_pools->num_of_pools_used; i++) {
++		/* get pool size */
++		buf_size = fm_ext_pools->ext_buf_pool[i].size;
++
++		/* keep sizes in an array according to poolId
++		 * for direct access
++		 */
++		sizes_array[fm_ext_pools->ext_buf_pool[i].id] = buf_size;
++
++		/* save poolId in an ordered array according to size */
++		for (j = 0; j <= i; j++) {
++			/* this is the next free place in the array */
++			if (j == i)
++				ordered_array[i] =
++				    fm_ext_pools->ext_buf_pool[i].id;
++			else {
++				/* find the right place for this poolId */
++				if (buf_size < sizes_array[ordered_array[j]]) {
++					/* move the pool_ids one place ahead
++					 * to make room for this poolId
++					 */
++					for (k = i; k > j; k--)
++						ordered_array[k] =
++						    ordered_array[k - 1];
++
++					/* now k==j, this is the place for
++					 * the new size
++					 */
++					ordered_array[k] =
++					    fm_ext_pools->ext_buf_pool[i].id;
++					break;
++				}
++			}
++		}
++	}
++}
++
++int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy *
++				int_context_data_copy,
++				struct fman_buffer_prefix_content *
++				buffer_prefix_content,
++				struct fman_sp_buf_margins *buf_margins,
++				struct fman_sp_buffer_offsets *buffer_offsets,
++				u8 *internal_buf_offset)
++{
++	u32 tmp;
++
++	/* Align start of internal context data to 16 byte */
++	int_context_data_copy->ext_buf_offset = (u16)
++		((buffer_prefix_content->priv_data_size & (OFFSET_UNITS - 1)) ?
++		((buffer_prefix_content->priv_data_size + OFFSET_UNITS) &
++			~(u16)(OFFSET_UNITS - 1)) :
++		buffer_prefix_content->priv_data_size);
++
++	/* Translate margin and int_context params to FM parameters */
++	/* Initialize with illegal value. Later we'll set legal values. */
++	buffer_offsets->prs_result_offset = (u32)ILLEGAL_BASE;
++	buffer_offsets->time_stamp_offset = (u32)ILLEGAL_BASE;
++	buffer_offsets->hash_result_offset = (u32)ILLEGAL_BASE;
++
++	/* Internally the driver supports 4 options
++	 * 1. prsResult/timestamp/hashResult selection (in fact 8 options,
++	 * but for simplicity we'll
++	 * relate to it as 1).
++	 * 2. All IC context (from AD) not including debug.
++	 */
++
++	/* This case covers the options under 1 */
++	/* Copy size must be in 16-byte granularity. */
++	int_context_data_copy->size =
++	    (u16)((buffer_prefix_content->pass_prs_result ? 32 : 0) +
++		  ((buffer_prefix_content->pass_time_stamp ||
++		  buffer_prefix_content->pass_hash_result) ? 16 : 0));
++
++	/* Align start of internal context data to 16 byte */
++	int_context_data_copy->int_context_offset =
++	    (u8)(buffer_prefix_content->pass_prs_result ? 32 :
++		 ((buffer_prefix_content->pass_time_stamp ||
++		 buffer_prefix_content->pass_hash_result) ? 64 : 0));
++
++	if (buffer_prefix_content->pass_prs_result)
++		buffer_offsets->prs_result_offset =
++		    int_context_data_copy->ext_buf_offset;
++	if (buffer_prefix_content->pass_time_stamp)
++		buffer_offsets->time_stamp_offset =
++		    buffer_prefix_content->pass_prs_result ?
++		    (int_context_data_copy->ext_buf_offset +
++			sizeof(struct fman_prs_result)) :
++		    int_context_data_copy->ext_buf_offset;
++	if (buffer_prefix_content->pass_hash_result)
++		/* If PR is not requested, whether TS is
++		 * requested or not, IC will be copied from TS
++			 */
++		buffer_offsets->hash_result_offset =
++		buffer_prefix_content->pass_prs_result ?
++			(int_context_data_copy->ext_buf_offset +
++				sizeof(struct fman_prs_result) + 8) :
++			int_context_data_copy->ext_buf_offset + 8;
++
++	if (int_context_data_copy->size)
++		buf_margins->start_margins =
++		    (u16)(int_context_data_copy->ext_buf_offset +
++			  int_context_data_copy->size);
++	else
++		/* No Internal Context passing, STartMargin is
++		 * immediately after private_info
++		 */
++		buf_margins->start_margins =
++		    buffer_prefix_content->priv_data_size;
++
++	/* align data start */
++	tmp = (u32)(buf_margins->start_margins %
++		    buffer_prefix_content->data_align);
++	if (tmp)
++		buf_margins->start_margins +=
++		    (buffer_prefix_content->data_align - tmp);
++	buffer_offsets->data_offset = buf_margins->start_margins;
++
++	return 0;
++}
++
+diff --git a/drivers/net/ethernet/freescale/fman/fman_sp.h b/drivers/net/ethernet/freescale/fman/fman_sp.h
+new file mode 100644
+index 0000000..820b7f6
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/fman/fman_sp.h
+@@ -0,0 +1,103 @@
++/*
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef __FM_SP_H
++#define __FM_SP_H
++
++#include "fman.h"
++#include <linux/types.h>
++
++#define ILLEGAL_BASE    (~0)
++
++/* defaults */
++#define DFLT_FM_SP_BUFFER_PREFIX_CONTEXT_DATA_ALIGN	64
++
++/* Registers bit fields */
++#define FMAN_SP_EXT_BUF_POOL_EN_COUNTER		0x40000000
++#define FMAN_SP_EXT_BUF_POOL_VALID			0x80000000
++#define FMAN_SP_EXT_BUF_POOL_BACKUP			0x20000000
++#define FMAN_SP_DMA_ATTR_WRITE_OPTIMIZE		0x00100000
++#define FMAN_SP_SG_DISABLE				0x80000000
++
++/* shifts */
++#define FMAN_SP_EXT_BUF_MARG_START_SHIFT		16
++#define FMAN_SP_DMA_ATTR_SWP_SHIFT			30
++#define FMAN_SP_IC_TO_EXT_SHIFT			16
++#define FMAN_SP_IC_FROM_INT_SHIFT			8
++
++/* structure for defining internal context copying */
++struct fman_sp_int_context_data_copy {
++	/* < Offset in External buffer to which internal
++	 *  context is copied to (Rx) or taken from (Tx, Op).
++	 */
++	u16 ext_buf_offset;
++	/* Offset within internal context to copy from
++	 * (Rx) or to copy to (Tx, Op).
++	 */
++	u8 int_context_offset;
++	/* Internal offset size to be copied */
++	u16 size;
++};
++
++/*  struct for defining external buffer margins */
++struct fman_sp_buf_margins {
++	/* Number of bytes to be left at the beginning
++	 * of the external buffer (must be divisible by 16)
++	 */
++	u16 start_margins;
++	/* number of bytes to be left at the end
++	 * of the external buffer(must be divisible by 16)
++	 */
++	u16 end_margins;
++};
++
++struct fman_sp_buffer_offsets {
++	u32 data_offset;
++	u32 prs_result_offset;
++	u32 time_stamp_offset;
++	u32 hash_result_offset;
++};
++
++int fman_sp_build_buffer_struct(struct fman_sp_int_context_data_copy
++				*int_context_data_copy,
++				struct fman_buffer_prefix_content
++				*buffer_prefix_content,
++				struct fman_sp_buf_margins *buf_margins,
++				struct fman_sp_buffer_offsets
++				*buffer_offsets,
++				u8 *internal_buf_offset);
++
++void fman_sp_set_buf_pools_in_asc_order_of_buf_sizes(struct fman_ext_pools
++						     *fm_ext_pools,
++						     u8 *ordered_array,
++						     u16 *sizes_array);
++
++#endif	/* __FM_SP_H */
+-- 
+1.7.9.5
