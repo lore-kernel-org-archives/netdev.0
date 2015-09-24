@@ -1,49 +1,85 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: Re: [PATCH net] lwtunnel: remove source and destination UDP port
- config option
-Date: Thu, 24 Sep 2015 09:33:30 -0300
-Message-ID: <20150924123329.GD10727@indiana.gru.redhat.com>
-References: <340cecb5131ca28951399bf245ec37d2ca577109.1443084164.git.jbenc@redhat.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: RFC: ss: improve horizontal output scaling
+Date: Thu, 24 Sep 2015 14:36:15 +0200
+Message-ID: <20150924123615.GB26600@orbit.nwl.cc>
+References: <20150924111650.GY24212@orbit.nwl.cc>
+ <1443097547.29850.159.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Jiri Benc <jbenc@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34242 "EHLO mx1.redhat.com"
+Received: from orbit.nwl.cc ([176.31.251.142]:42924 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754243AbbIXMdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 08:33:35 -0400
+	id S1754340AbbIXMgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 08:36:17 -0400
 Content-Disposition: inline
-In-Reply-To: <340cecb5131ca28951399bf245ec37d2ca577109.1443084164.git.jbenc@redhat.com>
+In-Reply-To: <1443097547.29850.159.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 24, 2015 at 10:43:07AM +0200, Jiri Benc wrote:
-> The UDP tunnel config is asymmetric wrt. to the ports used. The source and
-> destination ports from one direction of the tunnel are not related to the
-> ports of the other direction. We need to be able to respond to ARP requests
-> using the correct ports without involving routing.
+On Thu, Sep 24, 2015 at 05:25:47AM -0700, Eric Dumazet wrote:
+> On Thu, 2015-09-24 at 13:16 +0200, Phil Sutter wrote:
+> > Hi,
+> > 
+> > Currently, ss scales it's output to the available horizontal screen
+> > space available, so that the regular columns (Netid, State, Recv-Q,
+> > Send-Q, Local Address:Port and Peer Address:Port) use the maximum space
+> > available and extended information (e.g. users) get wrapped into a new
+> > line.
+> > 
+> > While this approach is sufficient for smaller terminals to improve
+> > readability, it's kind of awkward in full-screen terminals which provide
+> > enough space to display everything on the same line.
+> > 
+> > On the other hand, the current approach makes sense in that the output
+> > width is hard to predict: Unix domain sockets have a filesystem path as
+> > local address, which might be really long (e.g. 68 characters for a
+> > libvirt socket on my box). The '-p' flag prints process names, so
+> > extended information might become very long as well. The actual width of
+> > each line's fields is not known before it has been printed. Since input
+> > potentially comes from netlink, there is no random access which could be
+> > used to scroll quickly through the input and find each column's longest
+> > field.
+> > 
+> > There are a number of possible ways to improve this:
+> > 
+> > 1. Introduce scalemax parameter:
+> >    This parameter specifies the maximum terminal width to scale to.
+> >    Implementation is trivial, and works well for me as my terminals are
+> >    either 95, 126 or 193 characters wide. Setting scalemax to 128 leaves
+> >    line wrapping in place in all but full-screen mode. Though other's
+> >    mileage may vary, and fiddling with this number is inconvenient as
+> >    well.
 > 
-> As the consequence, UDP ports need to be fixed property of the tunnel
-> interface and cannot be set per route. Remove the ability to set ports per
-> route. This is still okay to do, as no kernel has been released with these
-> attributes yet.
+> The big ss mistake was to not insert a new line before 'extended' info
+> (this gives uid: ino: and sk: fields)
 > 
-> Note that the ability to specify source and destination ports is preserved
-> for other users of the lwtunnel API which don't use routes for tunnel key
-> specification (like openvswitch).
+> "ss -te | more" only gives one line per socket today
 > 
-> If in the future we rework ARP handling to allow port specification, the
-> attributes can be added back.
+> But "ss -ti" gives 2 lines per socket
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> Acked-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> Resending what was formerly patch 2/2 of the "lwtunnel: make it really work,
-> for IPv4" series, without change. This patch can be applied standalone and
-> is rather important before the uAPI is set in stone.
-> ---
+> Not sure we can change this. Maybe make it conditional to
+>  if (isatty(STDOUT_FILENO)) 
+> 
+> (If stdout is a terminal, then cap the screen_width to 100 but insert a
+> new line before extended)
+> 
+> I very often use "ss -tei|more" to get rid of these extra long lines, so
+> I would vote to cap screen_width to 100 anyway.
 
-Acked-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+This is because TIOCGWINSZ returns 80 if the output is a pipe. This
+means that with '| more', output is simply scaled to 80 columns instead
+of what your actual terminal width is.
+
+Inserting a newline instead of leaving the wrapping to the terminal
+would mean to enforce two lined output in any case. Then your '| more'
+trick (which is nice, btw) would not work anymore.
+
+In general I think the wrapping is a good thing to do, as this way you
+can maximise a terminal afterwards and get cleaner output. Of course,
+repeating the command in the maximised terminal will make it messy
+again. :)
+
+Thanks, Phil
