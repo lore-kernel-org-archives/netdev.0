@@ -1,102 +1,53 @@
-From: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: [PATCH RESEND v3 9/9] net: fix net_device refcounting
-Date: Thu, 24 Sep 2015 20:36:33 +0100
-Message-ID: <E1ZfCJl-0004S9-Qq@rmk-PC.arm.linux.org.uk>
-References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
+Date: Thu, 24 Sep 2015 16:05:10 -0400
+Message-ID: <20150924200510.GE25415@mtj.duckdns.org>
+References: <20150921133415.GA1740@gondor.apana.org.au>
+ <20150921182022.GB13263@mtj.duckdns.org>
+ <20150922033856.GA7851@gondor.apana.org.au>
+ <20150924.121142.870602292135442487.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"Soren Brinkmann" <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150922161710.GA21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, cwang@twopensource.com,
+	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jiri@resnulli.us,
+	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:36251 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbbIXUFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 16:05:15 -0400
 Content-Disposition: inline
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150924.121142.870602292135442487.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-of_find_net_device_by_node() uses class_find_device() internally to
-lookup the corresponding network device.  class_find_device() returns
-a reference to the embedded struct device, with its refcount
-incremented.
+Hello, David.
 
-Add a comment to the definition in net/core/net-sysfs.c indicating the
-need to drop this refcount, and fix the DSA code to drop this refcount
-when the OF-generated platform data is cleaned up and freed.  Also
-arrange for the ref to be dropped when handling errors.
+On Thu, Sep 24, 2015 at 12:11:42PM -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Tue, 22 Sep 2015 11:38:56 +0800
+> 
+> > The commit 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+> > Fix autobind race condition that leads to zero port ID") created
+> > some new races that can occur due to inconcsistencies between the
+> > two port IDs.
+...
+> I've decided to apply this and queue it up for -stable.
 
-Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
----
- net/core/net-sysfs.c | 9 +++++++++
- net/dsa/dsa.c        | 5 ++++-
- 2 files changed, 13 insertions(+), 1 deletion(-)
+This is mostly correct; however, if there are or can be in-kernel
+users which create the client side of netlink socket, it isn't.  Let's
+say such in-kernel user does kernel_connect() and then query the
+assigned port number by kernel_getsockname().  That can just return
+zero.  Maybe such scenario is not possible for some combination of
+reasons but why leak this level of synchronization detail to the users
+in the first place?  This should be terminated from the site where
+such synchronization scheme is implemented.  This expands the scope of
+correctness verification to all possible users of these functions.
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index b279077c3089..805a95a48107 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1481,6 +1481,15 @@ static int of_dev_node_match(struct device *dev, const void *data)
- 	return ret == 0 ? dev->of_node == data : ret;
- }
- 
-+/*
-+ * of_find_net_device_by_node - lookup the net device for the device node
-+ * @np: OF device node
-+ *
-+ * Looks up the net_device structure corresponding with the device node.
-+ * If successful, returns a pointer to the net_device with the embedded
-+ * struct device refcount incremented by one, or NULL on failure. The
-+ * refcount must be dropped when done with the net_device.
-+ */
- struct net_device *of_find_net_device_by_node(struct device_node *np)
- {
- 	struct device *dev;
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index bf4ba15fb780..c59fa5d9c22c 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -679,7 +679,7 @@ static int dsa_of_probe(struct device *dev)
- 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
- 	if (!pd) {
- 		ret = -ENOMEM;
--		goto out_put_mdio;
-+		goto out_put_ethernet;
- 	}
- 
- 	dev->platform_data = pd;
-@@ -773,6 +773,8 @@ static int dsa_of_probe(struct device *dev)
- out_free:
- 	kfree(pd);
- 	dev->platform_data = NULL;
-+out_put_ethernet:
-+	put_device(&ethernet_dev->dev);
- out_put_mdio:
- 	put_device(&mdio_bus->dev);
- 	return ret;
-@@ -786,6 +788,7 @@ static void dsa_of_remove(struct device *dev)
- 		return;
- 
- 	dsa_of_free_platform_data(pd);
-+	put_device(&pd->of_netdev->dev);
- 	kfree(pd);
- }
- #else
+Thanks.
+
 -- 
-2.1.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+tejun
