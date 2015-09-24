@@ -1,68 +1,46 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v2 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Thu, 24 Sep 2015 17:00:58 +0100
-Message-ID: <20150924160058.GA21513@n2100.arm.linux.org.uk>
-References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
- <20150923.162417.814596822188458346.davem@davemloft.net>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2 0/3] i40e/i40evf: Fixes for netpoll
+Date: Thu, 24 Sep 2015 09:04:20 -0700
+Message-ID: <20150924160027.22015.15754.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
-	frowand.list@gmail.com, grant.likely@linaro.org,
-	isubramanian@apm.com, kchudgar@apm.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, leoli@freescale.com,
-	michal.simek@xilinx.com, netdev@vger.kernel.org, rric@kernel.org,
-	robh+dt@kernel.org, soren.brinkmann@xilinx.com,
-	sgoutham@cavium.com, thomas.petazzoni@free-electrons.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150923.162417.814596822188458346.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34236 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755775AbbIXQEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 12:04:22 -0400
+Received: by padhy16 with SMTP id hy16so76934520pad.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 09:04:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2015 at 04:24:17PM -0700, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Tue, 22 Sep 2015 17:17:10 +0100
->=20
-> > This is the second version of the series, with the comments David h=
-ad
-> > on the first patch fixed up.  Original series description with upda=
-ted
-> > diffstat below.
->=20
-> This needs some build fixes:
->=20
-> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function =E2=80=98=
-xgene_enet_phy_connect=E2=80=99:
-> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:694:20: error: too few=
- arguments to function =E2=80=98of_phy_connect=E2=80=99
->    pdata->phy_dev =3D of_phy_connect(ndev, phy_np,
->                     ^
-> In file included from drivers/net/ethernet/apm/xgene/xgene_enet_main.=
-h:31:0,
->                  from drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:=
-22:
-> include/linux/of_mdio.h:18:27: note: declared here
->  extern struct phy_device *of_phy_connect(struct net_device *dev,
->                            ^
+The following patch series is meant to address the fact that i40e and
+i40evf had several issues in regards to netpoll.  First was the fact that
+they were forcing their budgets to increase to 1.  Second was the fact they
+were incorrectly thinking they were in NAPI context when they weren't.
+Finally, I also noticed that i40evf didn't even support netpoll so I went
+through and added support for it.
 
-Sorry about that, I'll send a new series later this evening.
+These patches are compile tested only since I don't actually have access to
+the i40e hardware.
 
-Unfortunately, that's also not the only one - Cavium Thunder BGX also
-fails.  Looking again at that driver, the driver structure doesn't lend
-itself well to having the refcount balancing added to it due to the
-multiple different paths which it obtains a phy_device.  I think this i=
-s
-best left to the maintainers of this driver to fix, so I'm intending to
-drop the change to that driver.
+---
 
-That's not a problem: the driver is already buggy in this regard today,
-and that's won't be any different as a result of omitting it.  It's jus=
-t
-a shame to leave one instance unfixed.
+Alexander Duyck (3):
+      i40e/i40evf: Fix handling of napi budget
+      i40e/i40evf: Drop useless "IN_NETPOLL" flag
+      i40evf: Add support for netpoll
 
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+
+ drivers/net/ethernet/intel/i40e/i40e.h          |    1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |    2 --
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c     |   12 +++++------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   |   12 +++++------
+ drivers/net/ethernet/intel/i40evf/i40evf.h      |    2 --
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |   26 +++++++++++++++++++++++
+ 6 files changed, 38 insertions(+), 17 deletions(-)
+
+--
