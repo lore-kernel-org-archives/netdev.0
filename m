@@ -1,115 +1,43 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] ppp: fix lockdep splat in ppp_dev_uninit()
-Date: Thu, 24 Sep 2015 12:54:01 +0200
-Message-ID: <7cd953e3577a36cbd942c3635ac55e4f2975bcaa.1443091841.git.g.nault@alphalink.fr>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 3/9] net: Remove e_nobufs label from
+ ip_route_input_slow
+Date: Thu, 24 Sep 2015 10:53:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBA1549@AcuExch.aculab.com>
+References: <1442962523-3974-1-git-send-email-dsa@cumulusnetworks.com>
+	<1442962523-3974-4-git-send-email-dsa@cumulusnetworks.com>
+ <877fnhc24l.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>,
-	Sedat Dilek <sedat.dilek@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "'Eric W. Biederman'" <ebiederm@xmission.com>,
+	David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:39958 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752318AbbIXKyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 06:54:12 -0400
-Content-Disposition: inline
+Received: from smtp-out4.electric.net ([192.162.216.193]:54598 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753294AbbIXKy1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 06:54:27 -0400
+In-Reply-To: <877fnhc24l.fsf@x220.int.ebiederm.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ppp_dev_uninit() locks all_ppp_mutex while under rtnl mutex protection.
-ppp_create_interface() must then lock these mutexes in that same order
-to avoid possible deadlock.
+From: Eric W. Biederman
+> Sent: 23 September 2015 03:15
+> David Ahern <dsa@cumulusnetworks.com> writes:
+> 
+> > e_nobufs has 1 user. Move setting err to -ENOBUFS for the 1 user and
+> > use the goto out label instead of e_nobufs. Stepping stone patch; next
+> > one moves rth code into a helper function.
+> 
+> Ick you are pessimizing the code.
+> 
+> You will almost certainly have better code generation if you hoist
+> the assignment of "err = -ENOBUFS" above the rt_dst_alloc then you
+> don't need to do anything in your error path except "goto out;"
 
-[  120.880011] ======================================================
-[  120.880011] [ INFO: possible circular locking dependency detected ]
-[  120.880011] 4.2.0 #1 Not tainted
-[  120.880011] -------------------------------------------------------
-[  120.880011] ppp-apitest/15827 is trying to acquire lock:
-[  120.880011]  (&pn->all_ppp_mutex){+.+.+.}, at: [<ffffffffa0145f56>] ppp_dev_uninit+0x64/0xb0 [ppp_generic]
-[  120.880011]
-[  120.880011] but task is already holding lock:
-[  120.880011]  (rtnl_mutex){+.+.+.}, at: [<ffffffff812e4255>] rtnl_lock+0x12/0x14
-[  120.880011]
-[  120.880011] which lock already depends on the new lock.
-[  120.880011]
-[  120.880011]
-[  120.880011] the existing dependency chain (in reverse order) is:
-[  120.880011]
-[  120.880011] -> #1 (rtnl_mutex){+.+.+.}:
-[  120.880011]        [<ffffffff81073a6f>] lock_acquire+0xcf/0x10e
-[  120.880011]        [<ffffffff813ab18a>] mutex_lock_nested+0x56/0x341
-[  120.880011]        [<ffffffff812e4255>] rtnl_lock+0x12/0x14
-[  120.880011]        [<ffffffff812d9d94>] register_netdev+0x11/0x27
-[  120.880011]        [<ffffffffa0147b17>] ppp_ioctl+0x289/0xc98 [ppp_generic]
-[  120.880011]        [<ffffffff8113b367>] do_vfs_ioctl+0x4ea/0x532
-[  120.880011]        [<ffffffff8113b3fd>] SyS_ioctl+0x4e/0x7d
-[  120.880011]        [<ffffffff813ad7d7>] entry_SYSCALL_64_fastpath+0x12/0x6f
-[  120.880011]
-[  120.880011] -> #0 (&pn->all_ppp_mutex){+.+.+.}:
-[  120.880011]        [<ffffffff8107334e>] __lock_acquire+0xb07/0xe76
-[  120.880011]        [<ffffffff81073a6f>] lock_acquire+0xcf/0x10e
-[  120.880011]        [<ffffffff813ab18a>] mutex_lock_nested+0x56/0x341
-[  120.880011]        [<ffffffffa0145f56>] ppp_dev_uninit+0x64/0xb0 [ppp_generic]
-[  120.880011]        [<ffffffff812d5263>] rollback_registered_many+0x19e/0x252
-[  120.880011]        [<ffffffff812d5381>] rollback_registered+0x29/0x38
-[  120.880011]        [<ffffffff812d53fa>] unregister_netdevice_queue+0x6a/0x77
-[  120.880011]        [<ffffffffa0146a94>] ppp_release+0x42/0x79 [ppp_generic]
-[  120.880011]        [<ffffffff8112d9f6>] __fput+0xec/0x192
-[  120.880011]        [<ffffffff8112dacc>] ____fput+0x9/0xb
-[  120.880011]        [<ffffffff8105447a>] task_work_run+0x66/0x80
-[  120.880011]        [<ffffffff81001801>] prepare_exit_to_usermode+0x8c/0xa7
-[  120.880011]        [<ffffffff81001900>] syscall_return_slowpath+0xe4/0x104
-[  120.880011]        [<ffffffff813ad931>] int_ret_from_sys_call+0x25/0x9f
-[  120.880011]
-[  120.880011] other info that might help us debug this:
-[  120.880011]
-[  120.880011]  Possible unsafe locking scenario:
-[  120.880011]
-[  120.880011]        CPU0                    CPU1
-[  120.880011]        ----                    ----
-[  120.880011]   lock(rtnl_mutex);
-[  120.880011]                                lock(&pn->all_ppp_mutex);
-[  120.880011]                                lock(rtnl_mutex);
-[  120.880011]   lock(&pn->all_ppp_mutex);
-[  120.880011]
-[  120.880011]  *** DEADLOCK ***
+Unlikely to make a difference.
+The compiler is very likely to set 'err' before the conditional
+branch anyway. It will use an extra register to make it all work.
 
-Fixes: 8cb775bc0a34 ("ppp: fix device unregistration upon netns deletion")
-Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
-Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/ppp_generic.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 0481daf..ed00446 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -2755,6 +2755,7 @@ static struct ppp *ppp_create_interface(struct net *net, int unit,
- 	 */
- 	dev_net_set(dev, net);
- 
-+	rtnl_lock();
- 	mutex_lock(&pn->all_ppp_mutex);
- 
- 	if (unit < 0) {
-@@ -2785,7 +2786,7 @@ static struct ppp *ppp_create_interface(struct net *net, int unit,
- 	ppp->file.index = unit;
- 	sprintf(dev->name, "ppp%d", unit);
- 
--	ret = register_netdev(dev);
-+	ret = register_netdevice(dev);
- 	if (ret != 0) {
- 		unit_put(&pn->units_idr, unit);
- 		netdev_err(ppp->dev, "PPP: couldn't register device %s (%d)\n",
-@@ -2797,6 +2798,7 @@ static struct ppp *ppp_create_interface(struct net *net, int unit,
- 
- 	atomic_inc(&ppp_unit_count);
- 	mutex_unlock(&pn->all_ppp_mutex);
-+	rtnl_unlock();
- 
- 	*retp = 0;
- 	return ppp;
--- 
-2.5.3
+	David
