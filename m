@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mdio-octeon: Add PCI driver binding.
-Date: Thu, 24 Sep 2015 16:07:57 -0700 (PDT)
-Message-ID: <20150924.160757.907239258265499481.davem@davemloft.net>
-References: <56047D15.9080105@caviumnetworks.com>
-	<20150924.155004.109163182451628208.davem@davemloft.net>
-	<56047F26.9070305@caviumnetworks.com>
+Subject: Re: [PATCH] ip6_tunnel: Reduce log level in ip6_tnl_err() to debug
+Date: Thu, 24 Sep 2015 16:08:49 -0700 (PDT)
+Message-ID: <20150924.160849.785863219643227629.davem@davemloft.net>
+References: <1443135707-14620-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ddaney.cavm@gmail.com, linux-kernel@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, david.daney@cavium.com
-To: ddaney@caviumnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56047F26.9070305@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org
+To: matt.bennett@alliedtelesis.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54899 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932076AbbIXXIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 19:08:50 -0400
+In-Reply-To: <1443135707-14620-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney@caviumnetworks.com>
-Date: Thu, 24 Sep 2015 15:54:30 -0700
+From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+Date: Fri, 25 Sep 2015 11:01:47 +1200
 
-> On 09/24/2015 03:50 PM, David Miller wrote:
->> From: David Daney <ddaney@caviumnetworks.com>
->> Date: Thu, 24 Sep 2015 15:45:41 -0700
->>
->>> 2) The OF device tree nodes for PCI devices do not result in the
->>> creation of a platform device.
->>
->> But they are created for the children right?  And that's the one
->> you need them for probing.
->>
->> I'm still not convinced, sorry.
->>
+> Currently error log messages in ip6_tnl_err are printed at 'warn'
+> level. This is different to other tunnel types which don't print
+> any messages. These log messages don't provide any information that
+> couldn't be deduced with networking tools. Also it can be annoying
+> to have one end of the tunnel go down and have the logs fill with
+> pointless messages such as "Path to destination invalid or inactive!".
 > 
-> Let's let this topic rest for a few days.  My original patch was
-> defective, so it cannot be merged.  I will sleep on this, try a few
-> things and perhaps revisit it if I still think it is advisable.
+> This patch reduces the log level of these messages to 'dbg' level to
+> bring the visible behaviour into line with other tunnel types.
+> 
+> Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
 
-Ok.
+Applied, thanks.
