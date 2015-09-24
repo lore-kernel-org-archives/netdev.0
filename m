@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 04/10] switchdev: add switchdev_trans_ph_prepare/commit helpers
-Date: Thu, 24 Sep 2015 10:02:43 +0200
-Message-ID: <1443081769-11193-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 03/10] switchdev: move transaction phase enum under transaction structure
+Date: Thu, 24 Sep 2015 10:02:42 +0200
+Message-ID: <1443081769-11193-4-git-send-email-jiri@resnulli.us>
 References: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
@@ -10,46 +10,248 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com, Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35565 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744AbbIXIC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 04:02:58 -0400
-Received: by wicge5 with SMTP id ge5so240206692wic.0
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 01:02:56 -0700 (PDT)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:37031 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818AbbIXIC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 04:02:57 -0400
+Received: by wicfx3 with SMTP id fx3so101255194wic.0
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 01:02:55 -0700 (PDT)
 In-Reply-To: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add helpers which should be used int attr_set/obj_add switchdev ops to
-check the phase of transaction.
+Before it disappears completely, move transaction phase enum under
+transaction structure and make attr/obj structures a bit cleaner.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/rocker/rocker.c | 17 +++++++++--------
+ include/net/switchdev.h              |  3 +--
+ net/dsa/slave.c                      | 18 ++++++++++--------
+ net/switchdev/switchdev.c            | 12 ++++++------
+ 4 files changed, 26 insertions(+), 24 deletions(-)
 
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index dcc6f3f..c348f86 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4389,7 +4389,7 @@ static int rocker_port_attr_set(struct net_device *dev,
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	int err = 0;
+ 
+-	switch (attr->trans_ph) {
++	switch (trans->ph) {
+ 	case SWITCHDEV_TRANS_PREPARE:
+ 		BUG_ON(!list_empty(&rocker_port->trans_mem));
+ 		break;
+@@ -4402,12 +4402,12 @@ static int rocker_port_attr_set(struct net_device *dev,
+ 
+ 	switch (attr->id) {
+ 	case SWITCHDEV_ATTR_PORT_STP_STATE:
+-		err = rocker_port_stp_update(rocker_port, attr->trans_ph,
++		err = rocker_port_stp_update(rocker_port, trans->ph,
+ 					     ROCKER_OP_FLAG_NOWAIT,
+ 					     attr->u.stp_state);
+ 		break;
+ 	case SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS:
+-		err = rocker_port_brport_flags_set(rocker_port, attr->trans_ph,
++		err = rocker_port_brport_flags_set(rocker_port, trans->ph,
+ 						   attr->u.brport_flags);
+ 		break;
+ 	default:
+@@ -4475,7 +4475,7 @@ static int rocker_port_obj_add(struct net_device *dev,
+ 	const struct switchdev_obj_ipv4_fib *fib4;
+ 	int err = 0;
+ 
+-	switch (obj->trans_ph) {
++	switch (trans->ph) {
+ 	case SWITCHDEV_TRANS_PREPARE:
+ 		BUG_ON(!list_empty(&rocker_port->trans_mem));
+ 		break;
+@@ -4488,17 +4488,17 @@ static int rocker_port_obj_add(struct net_device *dev,
+ 
+ 	switch (obj->id) {
+ 	case SWITCHDEV_OBJ_PORT_VLAN:
+-		err = rocker_port_vlans_add(rocker_port, obj->trans_ph,
++		err = rocker_port_vlans_add(rocker_port, trans->ph,
+ 					    &obj->u.vlan);
+ 		break;
+ 	case SWITCHDEV_OBJ_IPV4_FIB:
+ 		fib4 = &obj->u.ipv4_fib;
+-		err = rocker_port_fib_ipv4(rocker_port, obj->trans_ph,
++		err = rocker_port_fib_ipv4(rocker_port, trans->ph,
+ 					   htonl(fib4->dst), fib4->dst_len,
+ 					   fib4->fi, fib4->tb_id, 0);
+ 		break;
+ 	case SWITCHDEV_OBJ_PORT_FDB:
+-		err = rocker_port_fdb_add(rocker_port, obj->trans_ph, &obj->u.fdb);
++		err = rocker_port_fdb_add(rocker_port, trans->ph, &obj->u.fdb);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -4569,7 +4569,8 @@ static int rocker_port_obj_del(struct net_device *dev,
+ 					   ROCKER_OP_FLAG_REMOVE);
+ 		break;
+ 	case SWITCHDEV_OBJ_PORT_FDB:
+-		err = rocker_port_fdb_del(rocker_port, obj->trans_ph, &obj->u.fdb);
++		err = rocker_port_fdb_del(rocker_port, SWITCHDEV_TRANS_NONE,
++					  &obj->u.fdb);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 368a642..f84ecf4 100644
+index 1e394f1..368a642 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -35,6 +35,16 @@ struct switchdev_trans {
- 	enum switchdev_trans_ph ph;
+@@ -32,6 +32,7 @@ struct switchdev_trans_item {
+ 
+ struct switchdev_trans {
+ 	struct list_head item_list;
++	enum switchdev_trans_ph ph;
  };
  
-+static inline bool switchdev_trans_ph_prepare(struct switchdev_trans *trans)
-+{
-+	return trans && trans->ph == SWITCHDEV_TRANS_PREPARE;
-+}
-+
-+static inline bool switchdev_trans_ph_commit(struct switchdev_trans *trans)
-+{
-+	return trans && trans->ph == SWITCHDEV_TRANS_COMMIT;
-+}
-+
  enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_UNDEFINED,
- 	SWITCHDEV_ATTR_PORT_PARENT_ID,
+@@ -43,7 +44,6 @@ enum switchdev_attr_id {
+ 
+ struct switchdev_attr {
+ 	enum switchdev_attr_id id;
+-	enum switchdev_trans_ph trans_ph;
+ 	u32 flags;
+ 	union {
+ 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+@@ -63,7 +63,6 @@ enum switchdev_obj_id {
+ 
+ struct switchdev_obj {
+ 	enum switchdev_obj_id id;
+-	enum switchdev_trans_ph trans_ph;
+ 	int (*cb)(struct net_device *dev, struct switchdev_obj *obj);
+ 	union {
+ 		struct switchdev_obj_vlan {		/* PORT_VLAN */
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index ac76fd1..748cc63 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -242,7 +242,8 @@ static int dsa_bridge_check_vlan_range(struct dsa_switch *ds,
+ }
+ 
+ static int dsa_slave_port_vlan_add(struct net_device *dev,
+-				   struct switchdev_obj *obj)
++				   struct switchdev_obj *obj,
++				   struct switchdev_trans *trans)
+ {
+ 	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -250,7 +251,7 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ 	u16 vid;
+ 	int err;
+ 
+-	switch (obj->trans_ph) {
++	switch (trans->ph) {
+ 	case SWITCHDEV_TRANS_PREPARE:
+ 		if (!ds->drv->port_vlan_add || !ds->drv->port_pvid_set)
+ 			return -EOPNOTSUPP;
+@@ -347,16 +348,17 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
+ }
+ 
+ static int dsa_slave_port_fdb_add(struct net_device *dev,
+-				  struct switchdev_obj *obj)
++				  struct switchdev_obj *obj,
++				  struct switchdev_trans *trans)
+ {
+ 	struct switchdev_obj_fdb *fdb = &obj->u.fdb;
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+ 	int ret = -EOPNOTSUPP;
+ 
+-	if (obj->trans_ph == SWITCHDEV_TRANS_PREPARE)
++	if (trans->ph == SWITCHDEV_TRANS_PREPARE)
+ 		ret = ds->drv->port_fdb_add ? 0 : -EOPNOTSUPP;
+-	else if (obj->trans_ph == SWITCHDEV_TRANS_COMMIT)
++	else if (trans->ph == SWITCHDEV_TRANS_COMMIT)
+ 		ret = ds->drv->port_fdb_add(ds, p->port, fdb->addr, fdb->vid);
+ 
+ 	return ret;
+@@ -463,7 +465,7 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 
+ 	switch (attr->id) {
+ 	case SWITCHDEV_ATTR_PORT_STP_STATE:
+-		if (attr->trans_ph == SWITCHDEV_TRANS_COMMIT)
++		if (trans->ph == SWITCHDEV_TRANS_COMMIT)
+ 			ret = dsa_slave_stp_update(dev, attr->u.stp_state);
+ 		break;
+ 	default:
+@@ -487,10 +489,10 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 
+ 	switch (obj->id) {
+ 	case SWITCHDEV_OBJ_PORT_FDB:
+-		err = dsa_slave_port_fdb_add(dev, obj);
++		err = dsa_slave_port_fdb_add(dev, obj, trans);
+ 		break;
+ 	case SWITCHDEV_OBJ_PORT_VLAN:
+-		err = dsa_slave_port_vlan_add(dev, obj);
++		err = dsa_slave_port_vlan_add(dev, obj, trans);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 35e2967..d1c7d51 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -240,7 +240,7 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+ 	 * but should not commit the attr.
+ 	 */
+ 
+-	attr->trans_ph = SWITCHDEV_TRANS_PREPARE;
++	trans.ph = SWITCHDEV_TRANS_PREPARE;
+ 	err = __switchdev_port_attr_set(dev, attr, &trans);
+ 	if (err) {
+ 		/* Prepare phase failed: abort the transaction.  Any
+@@ -249,7 +249,7 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+ 		 */
+ 
+ 		if (err != -EOPNOTSUPP) {
+-			attr->trans_ph = SWITCHDEV_TRANS_ABORT;
++			trans.ph = SWITCHDEV_TRANS_ABORT;
+ 			__switchdev_port_attr_set(dev, attr, &trans);
+ 			switchdev_trans_items_destroy(&trans);
+ 		}
+@@ -262,7 +262,7 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+ 	 * because the driver said everythings was OK in phase I.
+ 	 */
+ 
+-	attr->trans_ph = SWITCHDEV_TRANS_COMMIT;
++	trans.ph = SWITCHDEV_TRANS_COMMIT;
+ 	err = __switchdev_port_attr_set(dev, attr, &trans);
+ 	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
+ 	     dev->name, attr->id);
+@@ -326,7 +326,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+ 	 * but should not commit the obj.
+ 	 */
+ 
+-	obj->trans_ph = SWITCHDEV_TRANS_PREPARE;
++	trans.ph = SWITCHDEV_TRANS_PREPARE;
+ 	err = __switchdev_port_obj_add(dev, obj, &trans);
+ 	if (err) {
+ 		/* Prepare phase failed: abort the transaction.  Any
+@@ -335,7 +335,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+ 		 */
+ 
+ 		if (err != -EOPNOTSUPP) {
+-			obj->trans_ph = SWITCHDEV_TRANS_ABORT;
++			trans.ph = SWITCHDEV_TRANS_ABORT;
+ 			__switchdev_port_obj_add(dev, obj, &trans);
+ 			switchdev_trans_items_destroy(&trans);
+ 		}
+@@ -348,7 +348,7 @@ int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
+ 	 * because the driver said everythings was OK in phase I.
+ 	 */
+ 
+-	obj->trans_ph = SWITCHDEV_TRANS_COMMIT;
++	trans.ph = SWITCHDEV_TRANS_COMMIT;
+ 	err = __switchdev_port_obj_add(dev, obj, &trans);
+ 	WARN(err, "%s: Commit of object (id=%d) failed.\n", dev->name, obj->id);
+ 	switchdev_trans_items_warn_destroy(dev, &trans);
 -- 
 1.9.3
