@@ -1,83 +1,65 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next] net: remove unused argument of __netdev_find_adj()
-Date: Thu, 24 Sep 2015 10:59:05 +0200 (CEST)
-Message-ID: <20150924085905.5ADC2A572E@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Thu, 24 Sep 2015 10:20:42 +0100
+Message-ID: <20150924092042.GF13823@e104818-lin.cambridge.arm.com>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+ <55F059F9.3080200@arm.com>
+ <F58048940DF89C44BFA5A966565B5D23EBA361B927@SPOCK.usa.Arm.com>
+ <5602E7EF.5010904@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeremy Linton <Jeremy.Linton@arm.com>,
+	Marc Zyngier <Marc.Zyngier@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>
+To: Sudeep Holla <sudeep.holla@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:37632 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753147AbbIXJUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 05:20:47 -0400
+Content-Disposition: inline
+In-Reply-To: <5602E7EF.5010904@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The __netdev_find_adj() helper does not use its first argument, only the
-device to find and list to walk through.
+On Wed, Sep 23, 2015 at 06:57:03PM +0100, Sudeep Holla wrote:
+> On 23/09/15 18:22, Jeremy Linton wrote:
+> >|FWIW, mainline booting with this patch on Juno r1 with ACPI enabled
+> >dies a |horrible death:
+> >
+> >Sorry about the delay, I didn't see this message.
+> >
+> ><trimmed>
+> >
+> >|How did you get this to work? Firmware release?
+> >
+> >Yes, it's a firmware problem with the ACPI tables. It is likely you
+> >need _DSD changes for the SMSC. If your trying to run juno with ACPI
+> >there are a few other ACPI table changes you will need beyond what
+> >was in the last linaro release. I wanted to just provide a direct
+> >link to the correct firmware in this response, but it seems the
+> >required version is sort of up in the air at the moment. Be assured I
+> >will really push on this next week, and will provide a follow up
+> >here.
+> >
+> >Originally, the lack of DSD wasn't a problem, but as this patch
+> >evolved  the fact that it consolidates a number of configuration code
+> >paths balancing that got tricky, and ACPI machines with "bad" tables
+> >were the victims (rather than breaking something I can't control).
+> 
+> Even now absence of _DSD *should* continue to be just fine. We can
+> bailout without initializing the device. Pulling the entire kernel down
+> just because of an incomplete device entry make no sense IMO.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/core/dev.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+I agree. IMO, that's a regression since a working kernel on Juno (albeit
+without networking) now dies unless you also upgrade the firmware.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ee0d6286f934..464c22b6261a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4865,8 +4865,7 @@ struct netdev_adjacent {
- 	struct rcu_head rcu;
- };
- 
--static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
--						 struct net_device *adj_dev,
-+static struct netdev_adjacent *__netdev_find_adj(struct net_device *adj_dev,
- 						 struct list_head *adj_list)
- {
- 	struct netdev_adjacent *adj;
-@@ -4892,7 +4891,7 @@ bool netdev_has_upper_dev(struct net_device *dev,
- {
- 	ASSERT_RTNL();
- 
--	return __netdev_find_adj(dev, upper_dev, &dev->all_adj_list.upper);
-+	return __netdev_find_adj(upper_dev, &dev->all_adj_list.upper);
- }
- EXPORT_SYMBOL(netdev_has_upper_dev);
- 
-@@ -5154,7 +5153,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	struct netdev_adjacent *adj;
- 	int ret;
- 
--	adj = __netdev_find_adj(dev, adj_dev, dev_list);
-+	adj = __netdev_find_adj(adj_dev, dev_list);
- 
- 	if (adj) {
- 		adj->ref_nr++;
-@@ -5210,7 +5209,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- {
- 	struct netdev_adjacent *adj;
- 
--	adj = __netdev_find_adj(dev, adj_dev, dev_list);
-+	adj = __netdev_find_adj(adj_dev, dev_list);
- 
- 	if (!adj) {
- 		pr_err("tried to remove device %s from %s\n",
-@@ -5331,10 +5330,10 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		return -EBUSY;
- 
- 	/* To prevent loops, check if dev is not upper device to upper_dev. */
--	if (__netdev_find_adj(upper_dev, dev, &upper_dev->all_adj_list.upper))
-+	if (__netdev_find_adj(dev, &upper_dev->all_adj_list.upper))
- 		return -EBUSY;
- 
--	if (__netdev_find_adj(dev, upper_dev, &dev->adj_list.upper))
-+	if (__netdev_find_adj(upper_dev, &dev->adj_list.upper))
- 		return -EEXIST;
- 
- 	if (master && netdev_master_upper_dev_get(dev))
-@@ -5612,7 +5611,7 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
- 
- 	if (!lower_dev)
- 		return NULL;
--	lower = __netdev_find_adj(dev, lower_dev, &dev->adj_list.lower);
-+	lower = __netdev_find_adj(lower_dev, &dev->adj_list.lower);
- 	if (!lower)
- 		return NULL;
- 
 -- 
-2.5.3
+Catalin
