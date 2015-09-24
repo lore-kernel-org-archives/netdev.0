@@ -1,62 +1,68 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] tcp: Use absolute system clock for TCP timestamps
-Date: Thu, 24 Sep 2015 17:29:58 +0200
-Message-ID: <20150924152958.GA29479@breakpoint.cc>
-References: <CABPcSq+jxgKkuafpt5ubDLj9CBfHE1WFwmY-cGzRxuRsfM0KGw@mail.gmail.com>
- <CANn89iJ+SrGJHJGYVpi7SnTkefCB6iq9KzvcU_iYTcz+WvYZPw@mail.gmail.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH v2 0/9] Phy, mdiobus, and netdev struct device fixes
+Date: Thu, 24 Sep 2015 17:00:58 +0100
+Message-ID: <20150924160058.GA21513@n2100.arm.linux.org.uk>
+References: <20150922161710.GA21084@n2100.arm.linux.org.uk>
+ <20150923.162417.814596822188458346.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jovi Zhangwei <jovi@cloudflare.com>, sasha.levin@oracle.com,
-	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Tom Herbert <therbert@google.com>,
-	makita.toshiaki@lab.ntt.co.jp, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Marek Majkowski <marek@cloudflare.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
+	frowand.list@gmail.com, grant.likely@linaro.org,
+	isubramanian@apm.com, kchudgar@apm.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, leoli@freescale.com,
+	michal.simek@xilinx.com, netdev@vger.kernel.org, rric@kernel.org,
+	robh+dt@kernel.org, soren.brinkmann@xilinx.com,
+	sgoutham@cavium.com, thomas.petazzoni@free-electrons.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CANn89iJ+SrGJHJGYVpi7SnTkefCB6iq9KzvcU_iYTcz+WvYZPw@mail.gmail.com>
+In-Reply-To: <20150923.162417.814596822188458346.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Sep 24, 2015 at 7:14 AM, Jovi Zhangwei <jovi@cloudflare.com> wrote:
-> > From f455dc3958593250909627474100f6cc5c158a5c Mon Sep 17 00:00:00 2001
-> > From: Marek Majkowski <marek@cloudflare.com>
-> > Date: Fri, 11 Sep 2015 06:05:07 -0700
-> > Subject: [PATCH] tcp: Use absolute system clock for TCP timestamps
-> >
-> > Using TCP timestamps is beneficial due for to its purpose in PAWS and when
-> > its role when SYN cookies are enabled. In practice though TCP timestamps are
-> > often disabled due to being a perceived security issue - they leak Linux
-> > system uptime.
-> >
-> > This patch introduces a kernel option that makes TCP timestamp always return
-> > an absolute value derived from a system clock as opposed to jiffies from
-> > boot.
-> >
-> > This patch is based on the approach taken by grsecurity:
-> >     https://grsecurity.net/~spender/random_timestamp.diff
-> >
+On Wed, Sep 23, 2015 at 04:24:17PM -0700, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Tue, 22 Sep 2015 17:17:10 +0100
+>=20
+> > This is the second version of the series, with the comments David h=
+ad
+> > on the first patch fixed up.  Original series description with upda=
+ted
+> > diffstat below.
+>=20
+> This needs some build fixes:
+>=20
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function =E2=80=98=
+xgene_enet_phy_connect=E2=80=99:
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:694:20: error: too few=
+ arguments to function =E2=80=98of_phy_connect=E2=80=99
+>    pdata->phy_dev =3D of_phy_connect(ndev, phy_np,
+>                     ^
+> In file included from drivers/net/ethernet/apm/xgene/xgene_enet_main.=
+h:31:0,
+>                  from drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:=
+22:
+> include/linux/of_mdio.h:18:27: note: declared here
+>  extern struct phy_device *of_phy_connect(struct net_device *dev,
+>                            ^
 
-I did not see the proposed patch because it didn't make this list,
-but I do not like the patch linked to above.
+Sorry about that, I'll send a new series later this evening.
 
-With HZ=1000 the clock wraps every 49 days anyway.
-If thats is still deemed a problem, then the proposed solution doesn't
-help since all this does is add some 'random uptime' when the machine
-is booted so remote monitoring will easily give a good approximation of
-real uptime.
+Unfortunately, that's also not the only one - Cavium Thunder BGX also
+fails.  Looking again at that driver, the driver structure doesn't lend
+itself well to having the refcount balancing added to it due to the
+multiple different paths which it obtains a phy_device.  I think this i=
+s
+best left to the maintainers of this driver to fix, so I'm intending to
+drop the change to that driver.
 
-Really, where is the problem...?
+That's not a problem: the driver is already buggy in this regard today,
+and that's won't be any different as a result of omitting it.  It's jus=
+t
+a shame to leave one instance unfixed.
 
-> TCP stack uses tcp_time_stamp internally, we do not want to add
-> overhead adding an offset on all places.
-> 
-> tp->lsndtime is an example, but we have others.
-> 
-> Therefore, I suggest you add a new function and use it only where needed.
-
-Agreed, the mangling should only be performed when writing ts stamp
-into tcp header, and undone when reading ts echo from network.
+--=20
+=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
