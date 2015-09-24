@@ -1,31 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC v2 net-next 00/10] Add new drivers: qed & qede
-Date: Thu, 24 Sep 2015 10:58:11 -0700 (PDT)
-Message-ID: <20150924.105811.358399688942351262.davem@davemloft.net>
-References: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
-	<81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V13 0/3] openvswitch: Add support for
+	802.1ad
+Date: Thu, 24 Sep 2015 13:58:15 -0400
+Message-ID: <1443117498-19123-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
-To: Ariel.Elior@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52742 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755653AbbIXR6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 13:58:12 -0400
-In-Reply-To: <81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ariel Elior <Ariel.Elior@qlogic.com>
-Date: Thu, 24 Sep 2015 14:46:24 +0000
-
-> Just a friendly reminder that this request for comment is still out
-> there, and well, no comments have been forthcoming.
-
-For sizable networking drivers, your expectations should be set
-extremely low for anyone putting aside the time to review your work.
-
-I'm not saying this is good, I'm just saying that this is precisely
-how things actually are.
+VjEzOiBGaXggaW5jb3JyZWN0IGVuY29kaW5nIGFuZCBkZWNvZGluZyBvZiBuZXRsaW5rIHRvL2Zy
+b20ga2V5CmF0dHJpYnV0ZXMuCgpWMTI6IEZpeCBzb21lIHByb2JsZW1zIGFuZCBpc3N1ZXMgcG9p
+bnRlZCBvdXQgYnkgcmV2aWV3ZXJzLiBXaGVuIHBhcnNpbmcKbmV0bGluayBhdHRyaWJ1dGVzIEV0
+aGVyIHR5cGVzIG90aGVyIHRoZW4gMHg4OGE4IGFzIG91dGVyIHRwaWQuCgpWMTE6IEFkZCBpbm5l
+ciB0cGlkIHRvIGZsb3cga2V5LiBGaXggc2VwYXJhdGUgaW5uZXIgZW5jYXAgYXR0cmlidXRlCndo
+ZW4gcGFyc2luZyBuZXRsaW5rIGF0dHJpYnV0ZXMuIE1lcmdlIDIgcGF0Y2hlcyB0byBjb25zb2xp
+ZGF0ZQpxaW5xIGNoYW5nZXMuCgpWMTA6IEltcGxlbWVudCByZXZpZXdlciBjb21tZW50czogQ29u
+c29saWRhdGUgdmxhbiBwYXJzaW5nIGZ1bmN0aW9ucy4KU3BsaXRzIG5ldGxpbmsgcGFyc2luZyBh
+bmQgZmxvdyBjb252ZXJzaW9uIGludG8gYSBzZXBhcmF0ZSBwYXRjaC4gVXNlcwpkb3VibGUgZW5j
+YXAgYXR0cmlidXRlIGVuY2Fwc3VsYXRpb24gZm9yIDgwMi4xYWQuICBOZXRsaW5rIGF0dHJpYnV0
+ZXMKbm93IGxvb2sgbGlrZSB0aGlzOgoKICAgIGV0aF90eXBlKDB4ODhhOCksdmxhbih2aWQ9MTAw
+KSxlbmNhcChldGhfdHlwZSgweDgxMDApLCB2bGFuKHZpZD0yMDApLAogICAgICAgICAgICAgZW5j
+YXAoZXRoX3R5cGUoMHgwODAwKSwgLi4uKSkKClRoZSBkb3VibGUgZW5jYXAgYXRyaWJ1dGVzIGlu
+IHRoaXMgdmVyc2lvbiBvZiB0aGUgcGF0Y2ggaXMgaW5jb21wYXRpYmxlIHdpdGgKb2xkIHZlcnNp
+b25zIG9mIHRoZSB1c2VyIGxldmVsIDgwMi4xYWQgcGF0Y2guIEEgbmV3IHVzZXIgbGV2ZWwgcGF0
+Y2ggd2hpY2gKaXMgYWxzbyBiZWluZyBzdWJtaXR0ZWQgc2ltdWx0YW5lb3VzbHkgdG8gb3BlbnZz
+d2l0Y2ggZGV2IG1haWxpbmcgbGlzdC4KClY5OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQg
+YnkgcmV2aWV3ZXJzCgpWODogIEluY2x1ZGVzIGNoYW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2Vy
+cwoKVjc6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dlc3RlZCBieSByZXZpZXdlcnMKClY2OiAgUmVi
+YXNlZCB0byBuZXQtbmV4dAoKVjU6ICBVc2UgZW5jYXBzdWxhdGVkIGF0dHJpYnV0ZXMKCkFsdGhv
+dWdoIHRoZSBPcGVuIEZsb3cgc3BlY2lmaWNhdGlvbiBzcGVjaWZpZWQgc3VwcG9ydCBmb3IgODAy
+LjFBRCAocWlucSkKYXMgd2VsbCBhcyBwdXNoIGFuZCBwb3AgdmxhbiBoZWFkZXJzLCAgU28gZmFy
+IE9wZW4gdlN3aXRjaCBoYXMgb25seQpzdXBwb3J0ZWQgYSBzaW5nbGUgdGFnIGhlYWRlci4KClRo
+aXMgcGF0Y2ggYWNjb21wYW5pZXMgdmVyc2lvbiAxMCBvZiB0aGUgdXNlciBsZXZlbCBvcGVudnN3
+aXRjaCBwYXRjaApzdWJtaXR0ZWQgdG8gb3BlbnZzd2l0Y2ggZGV2IGxpc3QuCkZvciBkaXNjdXNz
+aW9uLCBoaXN0b3J5ICBhbmQgcHJldmlvdXMgdmVyc2lvbnMgb2YgdGhlIGtlcm5lbCBtb2R1bGUK
+cGF0Y2ggYW5kIHRoZSB1c2VyIGNvZGUgcGF0Y2ggc2VlIHRoZSBPVlMgZGV2IG1haWxpbmcgbGlz
+dCwKb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYvLi4KCgpUaG9tYXMgRiBIZXJiZXJ0ICgz
+KToKICBvcGVudnN3aXRjaDogODAyLjFhZCB1YXBpIGNoYW5nZXMuCiAgQ2hlY2sgZm9yIHZsYW4g
+ZXRoZXJuZXQgdHlwZXMgZm9yIDgwMjEucSBvciA4MDIuMWFkCiAgODAyLjFBRDogRmxvdyBoYW5k
+bGluZywgYWN0aW9ucywgdmxhbiBwYXJzaW5nIGFuZCBuZXRsaW5rIGF0dHJpYnV0ZXMKCiBpbmNs
+dWRlL2xpbnV4L2lmX3ZsYW4uaCAgICAgICAgICB8ICAxNyArKysrCiBpbmNsdWRlL3VhcGkvbGlu
+dXgvb3BlbnZzd2l0Y2guaCB8ICAxNyArKy0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAg
+ICAgICB8ICA4MyArKysrKysrKysrKysrKysrLS0tLQogbmV0L29wZW52c3dpdGNoL2Zsb3cuaCAg
+ICAgICAgICAgfCAgIDUgKysKIG5ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyAgIHwgMTY2
+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLQogNSBmaWxlcyBjaGFuZ2Vk
+LCAyNTYgaW5zZXJ0aW9ucygrKSwgMzIgZGVsZXRpb25zKC0pCgotLSAKMi40LjMKCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
+ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
+Zm8vZGV2Cg==
