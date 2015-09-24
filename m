@@ -1,9 +1,8 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Tejun Heo <tj@kernel.org>
 Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Thu, 24 Sep 2015 11:21:00 +0800
-Message-ID: <20150924032100.GA27649@gondor.apana.org.au>
-References: <20150921133415.GA1740@gondor.apana.org.au>
- <20150921182022.GB13263@mtj.duckdns.org>
+Date: Wed, 23 Sep 2015 23:29:28 -0400
+Message-ID: <20150924032928.GB26853@htj.duckdns.org>
+References: <20150921182022.GB13263@mtj.duckdns.org>
  <20150922033856.GA7851@gondor.apana.org.au>
  <20150922161056.GB9761@mtj.duckdns.org>
  <20150923061342.GA19106@gondor.apana.org.au>
@@ -12,6 +11,7 @@ References: <20150921133415.GA1740@gondor.apana.org.au>
  <20150924024608.GA25502@htj.duckdns.org>
  <20150924025435.GB27355@gondor.apana.org.au>
  <20150924030609.GA26853@htj.duckdns.org>
+ <20150924032100.GA27649@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
@@ -19,30 +19,38 @@ Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	torvalds@linux-foundation.org, jiri@resnulli.us,
 	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:36251 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932477AbbIXD3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 23:29:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20150924030609.GA26853@htj.duckdns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150924032100.GA27649@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2015 at 11:06:09PM -0400, Tejun Heo wrote:
-> 
-> I think this is where we're not agreeing.  My point is that better
-> understanding and lower likelihood of bug doesn't equate specializing
-> each usage site.  That's a lot more likely to lead to unnecessary
-> cognition overhead and naturally errors.  There's no reason to require
-> such error-prone and specific understanding of each usage site when we
-> can have agreed-upon abstractions which yield invariants which are a
-> lot easier for people to wrap their heads around.
+Hello,
 
-Well we'll have to agree to disagree on that one.  I have seen too
-many instances over the years where people post patches that use
-primitives such as RCU and think that they must be safe because
-it compiles with no warnings (and probably even runs).
+On Thu, Sep 24, 2015 at 11:21:00AM +0800, Herbert Xu wrote:
+> Well we'll have to agree to disagree on that one.  I have seen too
+> many instances over the years where people post patches that use
+> primitives such as RCU and think that they must be safe because
+> it compiles with no warnings (and probably even runs).
 
-Cheers,
+So, while that also has been a common failure mode that we've been
+seeing with barrier usages, what you're suggesting isn't the right
+balance either.  It's error-prone in a different way as amply
+exemplified in this very thread.  It ended up making what should have
+been a straight-forward writer-reader interlocking into a maze in
+which one can easily be lost.  I think you should be able to see that
+after this thread.
+
+Both misusages can be solved by understanding and sticking to
+established patterns and making exceptions only when explicitly
+justifiable and with ample explanation.
+
+Thanks.
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+tejun
