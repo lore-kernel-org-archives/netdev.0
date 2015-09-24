@@ -1,78 +1,50 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next 2/4] switchdev: skip over ports returning -EOPNOTSUPP when recursing ports
-Date: Thu, 24 Sep 2015 13:59:28 -0700
-Message-ID: <1443128370-27353-3-git-send-email-sfeldma@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 0/4] switchdev: push bridge attributes down
+Date: Thu, 24 Sep 2015 14:05:25 -0700
+Message-ID: <20150924140525.514eac85@urahara>
 References: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
-	stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	andrew@lunn.ch, f.fainelli@gmail.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
 	vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33598 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897AbbIXU4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 16:56:41 -0400
-Received: by pacex6 with SMTP id ex6so83046349pac.0
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 13:56:40 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35831 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958AbbIXVFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 17:05:16 -0400
+Received: by pacfv12 with SMTP id fv12so84648093pac.2
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 14:05:15 -0700 (PDT)
 In-Reply-To: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+On Thu, 24 Sep 2015 13:59:26 -0700
+sfeldma@gmail.com wrote:
 
-This allows us to recurse over all the ports, skipping over unsupporting
-ports.  Without the change, the recursion would stop at first unsupported
-port.
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Push bridge-level attributes down to switchdev drivers.  This patchset
+> adds the infrastructure and then pushes, as an example, ageing_time attribute
+> down from bridge to switchdev (rocker) driver.  Add some range-checking
+> for ageing_time.
+> 
+> # ip link set dev br0 type bridge ageing_time 1000
+> 
+> # ip link set dev br0 type bridge ageing_time 999
+> RTNETLINK answers: Numerical result out of range
+> 
+> Up until now, switchdev attrs where port-level attrs, so the netdev used in
+> switchdev_attr_set() would be a switch port or bond of switch ports.  With
+> bridge-level attrs, the netdev passed to switchdev_attr_set() is the bridge
+> netdev.  The same recusive algo is used to visit the leaves of the stacked
+> drivers to set the attr, it's just in this case we start one layer higher in
+> the stack.  One note is not all ports in the bridge may support setting a
+> bridge-level attribute, so rather than failing the entire set, we'll skip over
+> those ports returning -EOPNOTSUPP.
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- include/net/switchdev.h   |    1 +
- net/switchdev/switchdev.c |    9 ++++++++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 54b2faa..22a6dbe 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -15,6 +15,7 @@
- #include <linux/notifier.h>
- 
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
-+#define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
- 
- enum switchdev_trans {
- 	SWITCHDEV_TRANS_NONE,
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index fda38f8..5c30da0 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -73,7 +73,7 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 		return ops->switchdev_port_attr_set(dev, attr);
- 
- 	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
--		return err;
-+		goto done;
- 
- 	/* Switch device port(s) may be stacked under
- 	 * bond/team/vlan dev, so recurse down to set attr on
-@@ -82,10 +82,17 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
- 		err = __switchdev_port_attr_set(lower_dev, attr);
-+		if (err == -EOPNOTSUPP &&
-+		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
-+			continue;
- 		if (err)
- 			break;
- 	}
- 
-+done:
-+	if (err == -EOPNOTSUPP && attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
-+		err = 0;
-+
- 	return err;
- }
- 
--- 
-1.7.10.4
+Rather than having more in bridge, shouldn't this just be a netlink event?
