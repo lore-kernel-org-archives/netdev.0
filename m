@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Linux 4.2-rc8+...v4.3-rc2] REGRESSION: ppp: circular locking
- dependency detected: [pppd] ppp_dev_uninit() | rtnl_lock()
-Date: Thu, 24 Sep 2015 11:00:55 -0700 (PDT)
-Message-ID: <20150924.110055.1257680342513050032.davem@davemloft.net>
-References: <CA+icZUU0rUJZRb4R+F1N98hbfb0rbmbZ0=Jf60zb30SQHKi1Ug@mail.gmail.com>
-	<20150924110317.GF2869@alphalink.fr>
-	<CA+icZUUcmjxNsMDHuWY9zi9RSBum7hR=HWmWfxs=swRbqm4p7Q@mail.gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [RFC v2 net-next 00/10] Add new drivers: qed & qede
+Date: Thu, 24 Sep 2015 18:10:14 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63E32796@avmb3.qlogic.org>
+References: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
+ <20150924.105811.358399688942351262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: g.nault@alphalink.fr, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sedat.dilek@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52781 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757174AbbIXSA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 14:00:57 -0400
-In-Reply-To: <CA+icZUUcmjxNsMDHuWY9zi9RSBum7hR=HWmWfxs=swRbqm4p7Q@mail.gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:18691 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932123AbbIXSKQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Sep 2015 14:10:16 -0400
+In-Reply-To: <20150924.105811.358399688942351262.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Date: Thu, 24 Sep 2015 18:19:16 +0200
+> > Just a friendly reminder that this request for comment is still out
+> > there, and well, no comments have been forthcoming.
+> 
+> For sizable networking drivers, your expectations should be set extremely low
+> for anyone putting aside the time to review your work.
+> 
+> I'm not saying this is good, I'm just saying that this is precisely how things
+> actually are.
 
-> OK, I guess DaveM will take your patch into net.git#master first...
-> and tag it there with CC-stable?
+Well, given this premises the question is the submission criteria.
+I.e., the next step for us is to stop sending this as an RFC and send it as
+a patch instead - although we're obviously reluctant about doing this given
+the lack of commentary.
 
-I do not tag anything with stable.
+And yes, we fully understand the effort such a review would take.
 
-I queue it up into a patchwork bundle and explicitly submit those
-patches to stable@vger.kernel.org at a time of my own choosing.
-
-This is a FAQ, documented in the kernel Documentation/ subdirectory.
+What's the rule of thumb here?
