@@ -1,56 +1,74 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Fri, 25 Sep 2015 00:50:33 +0200
-Message-ID: <20150924225033.GI20825@lunn.ch>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
- <20150924215731.GE20825@lunn.ch>
- <20150924221541.GF21513@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sunil Goutham <sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	Robert Richter <rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Soren Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150924221541.GF21513-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+Subject: [PATCH] ip6_tunnel: Reduce log level in ip6_tnl_err() to debug
+Date: Fri, 25 Sep 2015 11:01:47 +1200
+Message-ID: <1443135707-14620-1-git-send-email-matt.bennett@alliedtelesis.co.nz>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org,
+	Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:39799 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932107AbbIXXCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 19:02:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Thanks for testing.  Please could you confirm whether the same behaviour
-> is observed without the patches, just to make absolutely sure that isn't
-> a regression.
+Currently error log messages in ip6_tnl_err are printed at 'warn'
+level. This is different to other tunnel types which don't print
+any messages. These log messages don't provide any information that
+couldn't be deduced with networking tools. Also it can be annoying
+to have one end of the tunnel go down and have the logs fill with
+pointless messages such as "Path to destination invalid or inactive!".
 
-So i tested this now.
+This patch reduces the log level of these messages to 'dbg' level to
+bring the visible behaviour into line with other tunnel types.
 
-I have two FEC interfaces. One i my main access interface, and the
-second is used by DSA to access switches. With your patches, the
-module Used by count is equal to the number of interfaces which are
-up.
+Signed-off-by: Matt Bennett <matt.bennett@alliedtelesis.co.nz>
+---
+ net/ipv6/ip6_tunnel.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Without your patches, the count is always 0.
-
-When i try to remove the fec module, without your patches, but DSA
-still using the interface, i get the same
-
- kernel:unregister_netdevice: waiting for eth1 to become free. Usage count = 1
-
-as with your patch. So this is not a regression.
-
-   Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index b0ab420..d04bed0 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -510,14 +510,14 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
+ 		struct ipv6_tlv_tnl_enc_lim *tel;
+ 		__u32 mtu;
+ 	case ICMPV6_DEST_UNREACH:
+-		net_warn_ratelimited("%s: Path to destination invalid or inactive!\n",
+-				     t->parms.name);
++		net_dbg_ratelimited("%s: Path to destination invalid or inactive!\n",
++				    t->parms.name);
+ 		rel_msg = 1;
+ 		break;
+ 	case ICMPV6_TIME_EXCEED:
+ 		if ((*code) == ICMPV6_EXC_HOPLIMIT) {
+-			net_warn_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
+-					     t->parms.name);
++			net_dbg_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
++					    t->parms.name);
+ 			rel_msg = 1;
+ 		}
+ 		break;
+@@ -529,13 +529,13 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
+ 		if (teli && teli == *info - 2) {
+ 			tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->data[teli];
+ 			if (tel->encap_limit == 0) {
+-				net_warn_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
+-						     t->parms.name);
++				net_dbg_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
++						    t->parms.name);
+ 				rel_msg = 1;
+ 			}
+ 		} else {
+-			net_warn_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
+-					     t->parms.name);
++			net_dbg_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
++					    t->parms.name);
+ 		}
+ 		break;
+ 	case ICMPV6_PKT_TOOBIG:
+-- 
+2.5.2
