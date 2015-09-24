@@ -1,65 +1,62 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Thu, 24 Sep 2015 10:20:42 +0100
-Message-ID: <20150924092042.GF13823@e104818-lin.cambridge.arm.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
- <55F059F9.3080200@arm.com>
- <F58048940DF89C44BFA5A966565B5D23EBA361B927@SPOCK.usa.Arm.com>
- <5602E7EF.5010904@arm.com>
+From: huangdaode <huangdaode@hisilicon.com>
+Subject: [PATCH net-next] net: Fix Hisilicon Network Subsystem Support Compilation
+Date: Thu, 24 Sep 2015 17:54:09 +0800
+Message-ID: <1443088449-147241-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeremy Linton <Jeremy.Linton@arm.com>,
-	Marc Zyngier <Marc.Zyngier@arm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>
-To: Sudeep Holla <sudeep.holla@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:37632 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147AbbIXJUr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2015 05:20:47 -0400
-Content-Disposition: inline
-In-Reply-To: <5602E7EF.5010904@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+	<paul.gortmaker@windriver.com>, <dingtianhong@huawei.com>,
+	<zhangfei.gao@linaro.org>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 23, 2015 at 06:57:03PM +0100, Sudeep Holla wrote:
-> On 23/09/15 18:22, Jeremy Linton wrote:
-> >|FWIW, mainline booting with this patch on Juno r1 with ACPI enabled
-> >dies a |horrible death:
-> >
-> >Sorry about the delay, I didn't see this message.
-> >
-> ><trimmed>
-> >
-> >|How did you get this to work? Firmware release?
-> >
-> >Yes, it's a firmware problem with the ACPI tables. It is likely you
-> >need _DSD changes for the SMSC. If your trying to run juno with ACPI
-> >there are a few other ACPI table changes you will need beyond what
-> >was in the last linaro release. I wanted to just provide a direct
-> >link to the correct firmware in this response, but it seems the
-> >required version is sort of up in the air at the moment. Be assured I
-> >will really push on this next week, and will provide a follow up
-> >here.
-> >
-> >Originally, the lack of DSD wasn't a problem, but as this patch
-> >evolved  the fact that it consolidates a number of configuration code
-> >paths balancing that got tricky, and ACPI machines with "bad" tables
-> >were the victims (rather than breaking something I can't control).
-> 
-> Even now absence of _DSD *should* continue to be just fine. We can
-> bailout without initializing the device. Pulling the entire kernel down
-> just because of an incomplete device entry make no sense IMO.
+This patch fixes the compilation error with arm allmodconfig, this error
+generated due to unavailability of readq on 32-bit platform which was
+found during net-next daily compilation
 
-I agree. IMO, that's a regression since a working kernel on Juno (albeit
-without networking) now dies unless you also upgrade the firmware.
+Signed-off-by: huangdaode <huangdaode@hisilicon.com>
+Singed-off-by: yankejian <yankejian@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/Kconfig | 3 +++
+ 1 file changed, 3 insertions(+)
 
+diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+index 165b5a8..04d5f8f 100644
+--- a/drivers/net/ethernet/hisilicon/Kconfig
++++ b/drivers/net/ethernet/hisilicon/Kconfig
+@@ -41,6 +41,7 @@ config HNS_MDIO
+ 
+ config HNS
+ 	tristate "Hisilicon Network Subsystem Support (Framework)"
++	depends on ARM64
+ 	---help---
+ 	  This selects the framework support for Hisilicon Network Subsystem. It
+ 	  is needed by any driver which provides HNS acceleration engine or make
+@@ -50,6 +51,7 @@ config HNS_DSAF
+ 	tristate "Hisilicon HNS DSAF device Support"
+ 	select HNS
+ 	select HNS_MDIO
++	depends on ARM64
+ 	---help---
+ 	  This selects the DSAF (Distributed System Area Frabric) network
+ 	  acceleration engine support. The engine is used in Hisilicon hip05,
+@@ -59,6 +61,7 @@ config HNS_ENET
+ 	tristate "Hisilicon HNS Ethernet Device Support"
+ 	select PHYLIB
+ 	select HNS
++	depends on ARM64
+ 	---help---
+ 	  This selects the general ethernet driver for HNS.  This module make
+ 	  use of any HNS AE driver, such as HNS_DSAF
 -- 
-Catalin
+1.9.1
