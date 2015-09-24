@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] BNX2: fix a Null Pointer for stats_blk
-Date: Wed, 23 Sep 2015 22:34:36 -0700 (PDT)
-Message-ID: <20150923.223436.53190852255282400.davem@davemloft.net>
-References: <56014CC0.3050201@huawei.com>
-	<20150923.153117.2291008783799112683.davem@davemloft.net>
-	<5603594D.70408@huawei.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: Race with ip=dhcp bootparameter in ip_rcv_finish on am335x
+Date: Thu, 24 Sep 2015 07:48:08 +0200
+Message-ID: <20150924054806.GA1702@omega>
+References: <20150923102953.GA8918@omega>
+ <5602809D.2020500@cumulusnetworks.com>
+ <20150923115757.GA23260@omega>
+ <20150923122714.GA31569@omega>
+ <CAHQdGtSuhAVMWqm__UYvuKCrAGW54KO10XTWoju0Singq1SbqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sony.chacko@qlogic.com, Dept-HSGLinuxNICDev@qlogic.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rui.xiang@huawei.com
-To: wangweidong1@huawei.com
+Content-Type: text/plain; charset=utf-8
+Cc: Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Linux Network Devel Mailing List <netdev@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Trond Myklebust <trond.myklebust@primarydata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48541 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751247AbbIXFek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 01:34:40 -0400
-In-Reply-To: <5603594D.70408@huawei.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:35848 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756169AbbIXFsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 01:48:16 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHQdGtSuhAVMWqm__UYvuKCrAGW54KO10XTWoju0Singq1SbqQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weidong Wang <wangweidong1@huawei.com>
-Date: Thu, 24 Sep 2015 10:00:45 +0800
+Hi,
 
-> It does affect the intention. Although, the problem exists then makes the
-> system panic within some case.
+On Wed, Sep 23, 2015 at 09:16:00AM -0400, Trond Myklebust wrote:
+...
 > 
-> Do you have any idea about it?
+> Is that happening when the transport is being torn down? If so, is it
+> fixed by http://git.linux-nfs.org/?p=trondmy/linux-nfs.git;a=commitdiff;h=79234c3db6842a3de03817211d891e0c2878f756
+> ?
 
-Allocate the statistics block at probe time so that this problem is
-impossible.
+thanks. This patch fixed my issue.
+
+- Alex
