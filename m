@@ -1,83 +1,60 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Add support for filtering neigh dump by master device
-Date: Thu, 24 Sep 2015 16:04:53 -0600
-Message-ID: <1443132293-67841-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:34578 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754397AbbIXWE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:04:57 -0400
-Received: by iofb144 with SMTP id b144so92687086iof.1
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 15:04:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
+Date: Thu, 24 Sep 2015 23:57:31 +0200
+Message-ID: <20150924215731.GE20825@lunn.ch>
+References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rric@kernel.org>,
+	Frank Rowand <frowand.list@gmail.com>,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
+	Soren Brinkmann <soren.brinkmann@xilinx.com>,
+	Iyappan Subramanian <isubramanian@apm.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Li Yang <leoli@freescale.com>,
+	Keyur Chudgar <kchudgar@apm.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150924191754.GC21513@n2100.arm.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for filtering neighbor dumps by master device by adding
-the NDA_MASTER attribute to the dump request.
+...
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-This method works for other filters as well and other dump commands
-as well. Works fine for all combinations of new and old kernel and ip:
-1. new ip command on old kernel, NDA_MASTER attribute is ignored
-2. old ip command on new kernel, NDA_MASTER attribute is not present
-3. new ip on new kernel ... goodness ensues by limiting data to
-   only what user wants
+> While looking at the DSA code, I noticed we have a
+> of_find_net_device_by_node(), and it looks like users of that are
+> similarly buggy - it looks like net/dsa/dsa.c is the only user.  Fix
+> that too.
 
- net/core/neighbour.c | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 2b515ba7e94f..f686c524ce7e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2235,14 +2235,36 @@ static void neigh_update_notify(struct neighbour *neigh)
- 	__neigh_notify(neigh, RTM_NEWNEIGH, 0);
- }
+...
  
-+static bool neigh_master_filtered(struct net_device *dev, int master_idx)
-+{
-+	struct net_device *master;
-+
-+	if (!master_idx)
-+		return false;
-+
-+	master = netdev_master_upper_dev_get(dev);
-+	if (!master || master->ifindex != master_idx)
-+		return true;
-+
-+	return false;
-+}
-+
- static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 			    struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
-+	const struct nlmsghdr *nlh = cb->nlh;
-+	struct nlattr *tb[NDA_MAX + 1];
- 	struct neighbour *n;
- 	int rc, h, s_h = cb->args[1];
- 	int idx, s_idx = idx = cb->args[2];
- 	struct neigh_hash_table *nht;
-+	int filter_master_idx = 0;
-+	int err;
-+
-+	err = nlmsg_parse(nlh, sizeof(struct ndmsg), tb, NDA_MAX, NULL);
-+	if (!err && tb[NDA_MASTER])
-+		filter_master_idx = nla_get_u32(tb[NDA_MASTER]);
- 
- 	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
-@@ -2255,6 +2277,8 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 		     n = rcu_dereference_bh(n->next)) {
- 			if (!net_eq(dev_net(n->dev), net))
- 				continue;
-+			if (neigh_master_filtered(n->dev, filter_master_idx))
-+				continue;
- 			if (idx < s_idx)
- 				goto next;
- 			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
--- 
-2.3.8 (Apple Git-58)
+> The mdiobus code also suffered from the same kind of leak, but thankfully
+> this only happened in one place - the mdio-mux code.
+
+Hi Russell
+
+I tested both of these with my board. It is a Freescale Vybrid, using
+the FEC ethernet driver, and i have three switches attached, using
+mdio-mux to give three mdio busses.
+
+No obvious regressions, my board boots, the switches are all present
+and correct. I built the FEC driver as a module, and it won't unload:
+
+ kernel:unregister_netdevice: waiting for eth1 to become free. Usage count = 1
+unregister_netdevice: waiting for eth1 to become free. Usage count = 1
+
+i assume because DSA holds a reference. I've not tried a fully module
+build, DSA has issues with that.
+
+Tested-by: Andrew Lunn <andrew@lunn.ch>
+
+Thanks
+	Andrew
