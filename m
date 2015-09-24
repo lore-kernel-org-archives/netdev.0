@@ -1,47 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] net: Fix Hisilicon Network Subsystem Support
- Compilation
-Date: Thu, 24 Sep 2015 10:52:24 -0700 (PDT)
-Message-ID: <20150924.105224.795981964968343044.davem@davemloft.net>
-References: <1443088449-147241-1-git-send-email-huangdaode@hisilicon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC v2 net-next 00/10] Add new drivers: qed & qede
+Date: Thu, 24 Sep 2015 10:58:11 -0700 (PDT)
+Message-ID: <20150924.105811.358399688942351262.davem@davemloft.net>
+References: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org,
-	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1443088449-147241-1-git-send-email-huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
+To: Ariel.Elior@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755653AbbIXR6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 13:58:12 -0400
+In-Reply-To: <81D78EA7F834FA4C83B64260D494C85908720351@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Date: Thu, 24 Sep 2015 17:54:09 +0800
+From: Ariel Elior <Ariel.Elior@qlogic.com>
+Date: Thu, 24 Sep 2015 14:46:24 +0000
 
-> This patch fixes the compilation error with arm allmodconfig, this error
-> generated due to unavailability of readq on 32-bit platform which was
-> found during net-next daily compilation
-> 
-> Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-> Singed-off-by: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Just a friendly reminder that this request for comment is still out
+> there, and well, no comments have been forthcoming.
 
-This is not necessaily the right fix, sorry.
+For sizable networking drivers, your expectations should be set
+extremely low for anyone putting aside the time to review your work.
 
-I'd rather this driver be available to compile on as many
-configurations as possible, to increase build coverage.
-
-There is a standard way to make readq available on 32-bit platforms
-and I want you to do research into how that works and how you can thus
-make your driver build even on 32-bit targets.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm not saying this is good, I'm just saying that this is precisely
+how things actually are.
