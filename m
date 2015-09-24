@@ -1,42 +1,20 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] netlink: Replace rhash_portid with bound
-Date: Thu, 24 Sep 2015 11:44:10 +0800
-Message-ID: <20150924034410.GA27892@gondor.apana.org.au>
-References: <20150924023010.GA27131@gondor.apana.org.au>
- <20150924024608.GA25502@htj.duckdns.org>
- <20150924025435.GB27355@gondor.apana.org.au>
- <20150924030609.GA26853@htj.duckdns.org>
- <20150924032100.GA27649@gondor.apana.org.au>
- <20150924032928.GB26853@htj.duckdns.org>
- <20150924033117.GA27754@gondor.apana.org.au>
- <20150924034116.GC26853@htj.duckdns.org>
- <20150924034214.GA27843@gondor.apana.org.au>
- <20150924034321.GD26853@htj.duckdns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150924034321.GD26853@htj.duckdns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 0/3] l2tp: module autoloading
+Date: Wed, 23 Sep 2015 21:33:33 -0700
+Message-ID: <20150924043333.231895827@networkplumber.org>
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36759 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbbIXEer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 00:34:47 -0400
+Received: by pacgz1 with SMTP id gz1so11170473pac.3
+        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 21:34:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2015 at 11:43:21PM -0400, Tejun Heo wrote:
-> On Thu, Sep 24, 2015 at 11:42:14AM +0800, Herbert Xu wrote:
-> > Well I disagree so let's leave it at that.
-> 
-> Leaving things disagreed is fine but there's still a patch to commit
-> here, so I get that you're still dead against just applying the
-> pattern?
-
-Honestly I don't care anymore.  Feel free to do whatever you
-want.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+With L2TP it was necessary to manually load modules
+which is a nuisance and not required with other tunneling
+protocols. This set of patches adds the aliases and module
+load hook to get rid of the necessity of modprobing.
