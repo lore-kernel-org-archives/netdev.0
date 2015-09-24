@@ -1,33 +1,157 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy: marvell: add link partner advertised modes
-Date: Wed, 23 Sep 2015 17:01:54 -0700
-Message-ID: <56033D72.70304@gmail.com>
-References: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
-	David Miller <davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 iproute] man: tc: add man page for fq pacer
+Date: Thu, 24 Sep 2015 02:10:28 +0200
+Message-ID: <1443053428-28747-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>, Phil Sutter <phil@nwl.cc>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36739 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756187AbbIXACF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 20:02:05 -0400
-Received: by pacgz1 with SMTP id gz1so4654006pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2015 17:02:04 -0700 (PDT)
-In-Reply-To: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56803 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754112AbbIXAKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2015 20:10:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/09/15 16:07, Russell King wrote:
-> Read the standard link partner advertisment registers and store it in
-> phydev->lp_advertising, so ethtool can report this information to
-> userspace via ethtool.  Zero it as per genphy if autonegotiation is
-> disabled.  Tested with a Marvell 88E1512 PHY.
-> 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Partially based on kernel Kconfig help text, code comments and
+git commit messages from Eric Dumazet.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Joint work with Phil Sutter.
+
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ No changes except resolving fuzz in Makefile.
+
+ Note, this doesn't document 'refill_delay' option.
+ Eric seemed to prefer to not mention/document it.
+
+ man/man8/Makefile |  1 +
+ man/man8/tc-fq.8  | 92 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/tc.8     |  1 +
+ 3 files changed, 94 insertions(+)
+ create mode 100644 man/man8/tc-fq.8
+
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index c97d816..9ffdaee 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -2,6 +2,7 @@ TARGETS = ip-address.8 ip-link.8 ip-route.8
+ 
+ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.8 \
+ 	tc.8 tc-bfifo.8 tc-bpf.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
++	tc-fq.8 \
+ 	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 tc-pie.8 \
+ 	tc-mqprio.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+ 	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+diff --git a/man/man8/tc-fq.8 b/man/man8/tc-fq.8
+new file mode 100644
+index 0000000..993beb6
+--- /dev/null
++++ b/man/man8/tc-fq.8
+@@ -0,0 +1,92 @@
++.TH FQ 8 "10 Sept 2015" "iproute2" "Linux"
++.SH NAME
++Fair Queuing (FQ) \- Traffic Pacing
++.SH SYNOPSIS
++.B tc qdisc ... fq
++[
++.B limit
++PACKETS ] [
++.B flow_limit
++PACKETS ] [
++.B quantum
++BYTES ] [
++.B initial_quantum
++BYTES ] [
++.B maxrate
++RATE ] [
++.B buckets
++NUMBER ]  [
++.B pacing
++|
++.B nopacing
++]
++
++.SH DESCRIPTION
++FQ (Fair Queue) is a classless packet scheduler meant to be mostly
++used for locally generated traffic.  It is designed to achieve per flow pacing.
++FQ does flow separation, and is able to respect pacing requirements set by TCP stack.
++All packets belonging to a socket are considered as a 'flow'.
++For non local packets (router workload), packet rxhash is used as fallback.
++
++An application can specify a maximum pacing rate using the
++.B SO_MAX_PACING_RATE
++setsockopt call.  This packet scheduler adds delay between packets to
++respect rate limitation set by TCP stack.
++
++Dequeueing happens in a round-robin fashion.
++A special FIFO queue is reserved for high priority packets (
++.B TC_PRIO_CONTROL
++priority), such packets are always dequeued first.
++
++FQ is non-work-conserving.
++
++TCP pacing is good for flows having idle times, as the congestion
++window permits TCP stack to queue a possibly large number of packets.
++This removes the 'slow start after idle' choice, badly hitting
++large BDP flows and applications delivering chunks of data such as video streams.
++
++.SH PARAMETERS
++.SS limit
++Hard limit on the real queue size. When this limit is reached, new packets
++are dropped. If the value is lowered, packets are dropped so that the new limit is
++met. Default is 10000 packets.
++.SS flow_limit
++Hard limit on the maximum number of packets queued per flow.
++Default value is 100.
++.SS quantum
++The credit per dequeue RR round, i.e. the amount of bytes a flow is allowed to
++dequeue at once. A larger value means a longer time period before the next flow
++will be served.
++Default is 2 * interface MTU bytes.
++.SS initial_quantum
++The initial sending rate credit, i.e. the amount of bytes a new flow is allowed
++to dequeue initially.
++This is specifically meant to allow using IW10 without added delay.
++Default is 10 * interface MTU, i.e. 15140 for 'standard' ethernet.
++.SS maxrate
++Maximum sending rate of a flow.  Default is unlimited.
++Application specific setting via
++.B SO_MAX_PACING_RATE
++is ignored only if it is larger than this value.
++.SS buckets
++The size of the hash table used for flow lookups. Each bucket is assigned a
++red-black tree for efficient collision sorting.
++Default: 1024.
++.SS [no]pacing
++Enable or disable flow pacing. Default is enabled.
++.SH EXAMPLES
++#tc qdisc add dev eth0 root fq
++.br
++#tc -s -d qdisc
++.br
++qdisc fq 8003: dev eth0 root refcnt 2 limit 10000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140
++ Sent 503727981 bytes 1146972 pkt (dropped 0, overlimits 0 requeues 54452)
++ backlog 0b 0p requeues 54452
++  1289 flows (1289 inactive, 0 throttled)
++  0 gc, 31 highprio, 27411 throttled
++.br
++.SH SEE ALSO
++.BR tc (8),
++.BR socket (7)
++.SH AUTHORS
++FQ was written by Eric Dumazet.
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 9687840..8735011 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -662,6 +662,7 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+ .BR tc-codel (8),
+ .BR tc-drr (8),
+ .BR tc-ematch (8),
++.BR tc-fq (8),
+ .BR tc-fq_codel (8),
+ .BR tc-hfsc (7),
+ .BR tc-hfsc (8),
 -- 
-Florian
+2.0.5
