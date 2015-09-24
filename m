@@ -1,79 +1,83 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH] net: mdio-octeon: Add PCI driver binding.
-Date: Thu, 24 Sep 2015 15:04:23 -0700
-Message-ID: <56047367.3060101@caviumnetworks.com>
-References: <1442968896-30776-1-git-send-email-ddaney.cavm@gmail.com> <20150924.145206.897667718297700953.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <ddaney.cavm@gmail.com>, <linux-kernel@vger.kernel.org>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<devicetree@vger.kernel.org>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <david.daney@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150924.145206.897667718297700953.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: Add support for filtering neigh dump by master device
+Date: Thu, 24 Sep 2015 16:04:53 -0600
+Message-ID: <1443132293-67841-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34578 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754397AbbIXWE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 18:04:57 -0400
+Received: by iofb144 with SMTP id b144so92687086iof.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 15:04:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/24/2015 02:52 PM, David Miller wrote:
-> From: David Daney <ddaney.cavm@gmail.com>
-> Date: Tue, 22 Sep 2015 17:41:36 -0700
->
->> From: David Daney <david.daney@cavium.com>
->>
->> When the Cavium mdio-octeon devices appear in the Thunder family of
->> arm64 based SoCs, they show up as PCI devices.  Add PCI driver
->> wrapping so the driver is bound in the standard PCI device scan.
->>
->> When in this form, a single PCI device may have more than a single
->> bus, we call this a "nexus" of buses.  The standard firmware
->> device_for_each_child_node() iterator is used to find the individual
->> buses underneath the "nexus".
->>
->> Update the device tree binding documentation for the new PCI driver
->> binding.
->>
->> Signed-off-by: David Daney <david.daney@cavium.com>
->
-> This patch breaks the build:
+Add support for filtering neighbor dumps by master device by adding
+the NDA_MASTER attribute to the dump request.
 
-=46or which architecture?
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+This method works for other filters as well and other dump commands
+as well. Works fine for all combinations of new and old kernel and ip:
+1. new ip command on old kernel, NDA_MASTER attribute is ignored
+2. old ip command on new kernel, NDA_MASTER attribute is not present
+3. new ip on new kernel ... goodness ensues by limiting data to
+   only what user wants
 
-I tested it on mips and arm64.  I will try x86, as I guess that is wher=
-e=20
-you tried your test build.
+ net/core/neighbour.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-
->
->    CC [M]  drivers/net/phy/mdio-octeon.o
-> In file included from drivers/net/phy/mdio-octeon.c:13:0:
-> include/linux/module.h:128:27: error: redefinition of =A1__inittest=A2
->    static inline initcall_t __inittest(void)  \
->                             ^
-[...]
-
->
-> And frankly I'm not sure I like this change anyways.  If the OF nodes
-> are there, simply add code to match on those OF nodes.
->
-> This is better than assuming what sits underneath a PCI node, without
-> any checks for the 'name' or 'compatible' properties at all.  That's
-> what they are there for afterall.
-
-There is, somewhat of, a method behind the madness here.
-
-In order to use MSI-X interrupts, we need a corresponding PCI device.=20
-Now, this driver doesn't currently use interrupts, but other devices in=
-=20
-the SoC do, so they must be PCI devices.
-
-The idea is to have the type of all drivers uniformly be PCI, rather=20
-than a random mix of PCI and platform, and then switch them back and=20
-forth as PCI features are/are-not used in the driver.
-
-Also we need to consider ACPI firmware in addition to OF device tree.
-
-David Daney
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 2b515ba7e94f..f686c524ce7e 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2235,14 +2235,36 @@ static void neigh_update_notify(struct neighbour *neigh)
+ 	__neigh_notify(neigh, RTM_NEWNEIGH, 0);
+ }
+ 
++static bool neigh_master_filtered(struct net_device *dev, int master_idx)
++{
++	struct net_device *master;
++
++	if (!master_idx)
++		return false;
++
++	master = netdev_master_upper_dev_get(dev);
++	if (!master || master->ifindex != master_idx)
++		return true;
++
++	return false;
++}
++
+ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+ 			    struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
++	const struct nlmsghdr *nlh = cb->nlh;
++	struct nlattr *tb[NDA_MAX + 1];
+ 	struct neighbour *n;
+ 	int rc, h, s_h = cb->args[1];
+ 	int idx, s_idx = idx = cb->args[2];
+ 	struct neigh_hash_table *nht;
++	int filter_master_idx = 0;
++	int err;
++
++	err = nlmsg_parse(nlh, sizeof(struct ndmsg), tb, NDA_MAX, NULL);
++	if (!err && tb[NDA_MASTER])
++		filter_master_idx = nla_get_u32(tb[NDA_MASTER]);
+ 
+ 	rcu_read_lock_bh();
+ 	nht = rcu_dereference_bh(tbl->nht);
+@@ -2255,6 +2277,8 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+ 		     n = rcu_dereference_bh(n->next)) {
+ 			if (!net_eq(dev_net(n->dev), net))
+ 				continue;
++			if (neigh_master_filtered(n->dev, filter_master_idx))
++				continue;
+ 			if (idx < s_idx)
+ 				goto next;
+ 			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+-- 
+2.3.8 (Apple Git-58)
