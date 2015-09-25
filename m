@@ -1,9 +1,10 @@
 From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH net-next 1/4] switchdev: add bridge attributes
-Date: Fri, 25 Sep 2015 04:32:16 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9F22C5@SJEXCHMB14.corp.ad.broadcom.com>
+Subject: RE: [PATCH net-next 2/4] switchdev: skip over ports returning
+ -EOPNOTSUPP when recursing ports
+Date: Fri, 25 Sep 2015 04:33:06 +0000
+Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9F22D9@SJEXCHMB14.corp.ad.broadcom.com>
 References: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
- <1443128370-27353-2-git-send-email-sfeldma@gmail.com>
+ <1443128370-27353-3-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -18,11 +19,11 @@ Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
 To: "sfeldma@gmail.com" <sfeldma@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:7062 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730AbbIYEcR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 00:32:17 -0400
-In-Reply-To: <1443128370-27353-2-git-send-email-sfeldma@gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:31408 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750730AbbIYEdI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 00:33:08 -0400
+In-Reply-To: <1443128370-27353-3-git-send-email-sfeldma@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,58 +37,66 @@ Acked-by: Premkumar Jonnala
 > Cc: jiri@resnulli.us; siva.mannem.lnx@gmail.com; Premkumar Jonnala;
 > stephen@networkplumber.org; roopa@cumulusnetworks.com;
 > andrew@lunn.ch; f.fainelli@gmail.com; vivien.didelot@savoirfairelinux.com
-> Subject: [PATCH net-next 1/4] switchdev: add bridge attributes
+> Subject: [PATCH net-next 2/4] switchdev: skip over ports returning -
+> EOPNOTSUPP when recursing ports
 > 
 > From: Scott Feldman <sfeldma@gmail.com>
 > 
-> Setting the stage to push bridge-level attributes down to port driver so
-> hardware can be programmed accordingly.  Bridge-level attribute example is
-> ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
+> This allows us to recurse over all the ports, skipping over unsupporting
+> ports.  Without the change, the recursion would stop at first unsupported
+> port.
 > 
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > ---
->  include/net/switchdev.h      |    5 +++++
->  include/uapi/linux/if_link.h |    2 +-
->  2 files changed, 6 insertions(+), 1 deletion(-)
+>  include/net/switchdev.h   |    1 +
+>  net/switchdev/switchdev.c |    9 ++++++++-
+>  2 files changed, 9 insertions(+), 1 deletion(-)
 > 
 > diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 319baab..54b2faa 100644
+> index 54b2faa..22a6dbe 100644
 > --- a/include/net/switchdev.h
 > +++ b/include/net/switchdev.h
-> @@ -28,6 +28,7 @@ enum switchdev_attr_id {
->  	SWITCHDEV_ATTR_PORT_PARENT_ID,
->  	SWITCHDEV_ATTR_PORT_STP_STATE,
->  	SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS,
-> +	SWITCHDEV_ATTR_BRIDGE,
->  };
+> @@ -15,6 +15,7 @@
+>  #include <linux/notifier.h>
 > 
->  struct switchdev_attr {
-> @@ -38,6 +39,10 @@ struct switchdev_attr {
->  		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID
-> */
->  		u8 stp_state;				/* PORT_STP_STATE
-> */
->  		unsigned long brport_flags;		/*
-> PORT_BRIDGE_FLAGS */
-> +		struct switchdev_attr_bridge {		/* BRIDGE */
-> +			enum ifla_br attr;
-> +			u32 val;
-> +		} bridge;
->  	} u;
->  };
+>  #define SWITCHDEV_F_NO_RECURSE		BIT(0)
+> +#define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
 > 
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index 3a5f263..8d0ef1c 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -222,7 +222,7 @@ enum in6_addr_gen_mode {
+>  enum switchdev_trans {
+>  	SWITCHDEV_TRANS_NONE,
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index fda38f8..5c30da0 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -73,7 +73,7 @@ static int __switchdev_port_attr_set(struct net_device
+> *dev,
+>  		return ops->switchdev_port_attr_set(dev, attr);
 > 
->  /* Bridge section */
+>  	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
+> -		return err;
+> +		goto done;
 > 
-> -enum {
-> +enum ifla_br {
->  	IFLA_BR_UNSPEC,
->  	IFLA_BR_FORWARD_DELAY,
->  	IFLA_BR_HELLO_TIME,
+>  	/* Switch device port(s) may be stacked under
+>  	 * bond/team/vlan dev, so recurse down to set attr on
+> @@ -82,10 +82,17 @@ static int __switchdev_port_attr_set(struct net_device
+> *dev,
+> 
+>  	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>  		err = __switchdev_port_attr_set(lower_dev, attr);
+> +		if (err == -EOPNOTSUPP &&
+> +		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
+> +			continue;
+>  		if (err)
+>  			break;
+>  	}
+> 
+> +done:
+> +	if (err == -EOPNOTSUPP && attr->flags &
+> SWITCHDEV_F_SKIP_EOPNOTSUPP)
+> +		err = 0;
+> +
+>  	return err;
+>  }
+> 
 > --
 > 1.7.10.4
