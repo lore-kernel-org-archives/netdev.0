@@ -1,60 +1,66 @@
-From: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>
-Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
-	'global_lock'
-Date: Fri, 25 Sep 2015 22:33:24 +0200
-Message-ID: <4357538.Wlf88yQie6@vostro.rjw.lan>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
-	<20150925185256.GG5951@linux> <4331507.W3ZDWldbWu@vostro.rjw.lan>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH next 0/5] netfilter: Pass net into ip_route_me_harder
+Date: Fri, 25 Sep 2015 15:01:42 -0500
+Message-ID: <87si62gteh.fsf_-_@x220.int.ebiederm.org>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<87pp1fpy1b.fsf@x220.int.ebiederm.org>
+	<87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4331507.W3ZDWldbWu-sKB8Sp2ER+y1GS7QM15AGw@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 18 Sep 2015 14:28:40 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, September 25, 2015 10:26:22 PM Rafael J. Wysocki wrote:
-> On Friday, September 25, 2015 11:52:56 AM Viresh Kumar wrote:
-> > On 25-09-15, 20:49, Johannes Berg wrote:
-> > > Ok, then, but that means Rafael is completely wrong ...
-> > > debugfs_create_bool() takes a *pointer* and it needs to be long-lived,
-> > > it can't be on the stack. You also don't get a call when it changes.
-> > 
-> > Ahh, ofcourse. My bad as well...
-> 
-> Well, sorry about the wrong suggestion.
-> 
-> > I think we can change structure definition but will wait for Rafael's
-> > comment before that.
-> 
-> OK, change the structure then.
 
-But here's a question.
+This is the next installment of my work to pass struct net through the
+output path so the code does not need to guess how to figure out which
+network namespace it is in, and ultimately routes can have output
+devices in another network namespace.
 
-You're going to change that into bool in the next patch, right?
+This round the focus is our getting struct net passed in, instead of
+guess in the netfilter functions that reroute packets
+(ip_route_me_harder, and ip6_route_me_harder).  There is a bit more work
+on the ipv4 side as the ipv6 code on several of these code paths already
+passes in the struct net.
 
-So what if bool is a byte and the field is not word-aligned and changing
-that byte requires a read-modify-write.  How do we ensure that things remain
-consistent in that case?
+The changes are also available against nf-next at:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
 
-Thanks,
-Rafael
+My entire pending set of changes for those who want to look ahead is at:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git for-testing
+
+Eric
+
+Eric W. Biederman (5):
+      ipv4: Push struct net down into nf_send_reset
+      netfilter: Push struct net down into nf_afinfo.reroute
+      netfilter: ipt_SYNPROXY: Pass snet into synproxy_send_tcp
+      ipv4: Pass struct net into ip_route_me_harder
+      ipv6: Pass struct net into ip6_route_me_harder
+
+ include/linux/netfilter.h                 |  2 +-
+ include/linux/netfilter_ipv4.h            |  2 +-
+ include/linux/netfilter_ipv6.h            |  2 +-
+ include/net/netfilter/ipv4/nf_reject.h    |  2 +-
+ net/ipv4/netfilter.c                      |  7 +++----
+ net/ipv4/netfilter/ipt_REJECT.c           |  2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c         | 20 ++++++++++++--------
+ net/ipv4/netfilter/iptable_mangle.c       |  2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c  |  2 +-
+ net/ipv4/netfilter/nf_reject_ipv4.c       |  4 ++--
+ net/ipv4/netfilter/nft_chain_route_ipv4.c |  2 +-
+ net/ipv4/netfilter/nft_reject_ipv4.c      |  2 +-
+ net/ipv6/netfilter.c                      |  7 +++----
+ net/ipv6/netfilter/ip6table_mangle.c      |  2 +-
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c  |  2 +-
+ net/ipv6/netfilter/nft_chain_route_ipv6.c |  2 +-
+ net/netfilter/ipvs/ip_vs_core.c           |  4 ++--
+ net/netfilter/nf_queue.c                  |  2 +-
+ net/netfilter/nft_reject_inet.c           |  2 +-
+ 19 files changed, 36 insertions(+), 34 deletions(-)
