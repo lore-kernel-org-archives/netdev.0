@@ -1,84 +1,103 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 3/3] man: ip-link: document MACVLAN/MACVTAP interface types
-Date: Fri, 25 Sep 2015 14:09:51 +0200
-Message-ID: <1443182991-4628-4-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 2/3] ip: macvlan: support MACVLAN_FLAG_NOPROMISC flag
+Date: Fri, 25 Sep 2015 14:09:50 +0200
+Message-ID: <1443182991-4628-3-git-send-email-phil@nwl.cc>
 References: <1443182991-4628-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:58187 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:59522 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755833AbbIYMJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754432AbbIYMJx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 25 Sep 2015 08:09:53 -0400
 In-Reply-To: <1443182991-4628-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This flag is allowed for devices in passthru mode to prevent forcing the
+underlying interface into promiscuous mode.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-link.8.in | 50 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
+ ip/iplink_macvlan.c | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 4928249..ac6f481 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -768,6 +768,56 @@ the following additional arguments are supported:
+diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
+index d759f0e..f195e81 100644
+--- a/ip/iplink_macvlan.c
++++ b/ip/iplink_macvlan.c
+@@ -29,7 +29,7 @@
+ static void print_explain(struct link_util *lu, FILE *f)
+ {
+ 	fprintf(f,
+-		"Usage: ... %s mode { private | vepa | bridge | passthru }\n",
++		"Usage: ... %s mode { private | vepa | bridge | passthru [nopromisc] }\n",
+ 		lu->id
+ 	);
+ }
+@@ -49,9 +49,11 @@ static int mode_arg(const char *arg)
+ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			  struct nlmsghdr *n)
+ {
++	__u32 mode = 0;
++	__u16 flags = 0;
++
+ 	while (argc > 0) {
+ 		if (matches(*argv, "mode") == 0) {
+-			__u32 mode = 0;
+ 			NEXT_ARG();
  
- .in -8
+ 			if (strcmp(*argv, "private") == 0)
+@@ -64,7 +66,8 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				mode = MACVLAN_MODE_PASSTHRU;
+ 			else
+ 				return mode_arg(*argv);
+-			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
++		} else if (matches(*argv, "nopromisc") == 0) {
++			flags |= MACVLAN_FLAG_NOPROMISC;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain(lu);
+ 			return -1;
+@@ -76,12 +79,25 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 		argc--, argv++;
+ 	}
  
-+.TP
-+MACVLAN and MACVTAP Type Support
-+For a link of type
-+.I MACVLAN
-+or
-+.I MACVTAP
-+the following additional arguments are supported:
++	if (mode)
++		addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
 +
-+.BI "ip link add link " DEVICE " name " NAME
-+.BR type " { " macvlan " | " macvtap " } "
-+.BR mode " { " private " | " vepa " | " bridge " | " passthru
-+.BR " [ " nopromisc " ] } "
-+
-+.in +8
-+.sp
-+.BR type " { " macvlan " | " macvtap " } "
-+- specifies the link type to use.
-+.BR macvlan " creates just a virtual interface, while "
-+.BR macvtap " in addition creates a character device "
-+.BR /dev/tapX " to be used just like a " tuntap " device."
-+
-+.B mode private
-+- Do not allow communication between
-+.B macvlan
-+instances on the same physical interface, even if the external switch supports
-+hairpin mode.
-+
-+.B mode vepa
-+- Virtual Ethernet Port Aggregator mode. Data from one
-+.B macvlan
-+instance to the other on the same physical interface is transmitted over the
-+physical interface. Either the attached switch needs to support hairpin mode,
-+or there must be a TCP/IP router forwarding the packets in order to allow
-+communication. This is the default mode.
-+
-+.B mode bridge
-+- In bridge mode, all endpoints are directly connected to each other,
-+communication is not redirected through the physical interface's peer.
-+
-+.BR mode " " passthru " [ " nopromisc " ] "
-+- This mode gives more power to a single endpoint, usually in
-+.BR macvtap " mode. It is not allowed for more than one endpoint on the same "
-+physical interface. All traffic will be forwarded to this endpoint, allowing
-+virtio guests to change MAC address or set promiscuous mode in order to bridge
-+the interface or create vlan interfaces on top of it. By default, this mode
-+forces the underlying interface into promiscuous mode. Passing the
-+.BR nopromisc " flag prevents this, so the promisc flag may be controlled "
-+using standard tools.
-+.in -8
-+
- .SS ip link delete - delete virtual link
++	if (flags) {
++		if (flags & MACVLAN_FLAG_NOPROMISC &&
++		    mode != MACVLAN_MODE_PASSTHRU) {
++			pfx_err(lu, "nopromisc flag only valid in passthru mode");
++			explain(lu);
++			return -1;
++		}
++		addattr16(n, 1024, IFLA_MACVLAN_FLAGS, flags);
++	}
+ 	return 0;
+ }
  
- .TP
+ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ {
+ 	__u32 mode;
++	__u16 flags;
+ 
+ 	if (!tb)
+ 		return;
+@@ -97,6 +113,14 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
+ 		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
+ 		:				 "unknown");
++
++	if (!tb[IFLA_MACVLAN_FLAGS] ||
++	    RTA_PAYLOAD(tb[IFLA_MACVLAN_FLAGS]) < sizeof(__u16))
++		return;
++
++	flags = rta_getattr_u16(tb[IFLA_MACVLAN_FLAGS]);
++	if (flags & MACVLAN_FLAG_NOPROMISC)
++		fprintf(f, "nopromisc ");
+ }
+ 
+ static void macvlan_print_help(struct link_util *lu, int argc, char **argv,
 -- 
 2.1.2
