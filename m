@@ -1,189 +1,144 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 05/11] net: Replace vrf_dev_table and friends
-Date: Thu, 24 Sep 2015 18:21:01 -0600
-Message-ID: <1443140467-69297-6-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 11/11] net: Add netif_is_l3_slave
+Date: Thu, 24 Sep 2015 18:21:07 -0600
+Message-ID: <1443140467-69297-12-git-send-email-dsa@cumulusnetworks.com>
 References: <1443140467-69297-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36504 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577AbbIYAVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 20:21:22 -0400
-Received: by pacgz1 with SMTP id gz1so4999877pac.3
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 17:21:21 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33854 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753777AbbIYAVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 20:21:42 -0400
+Received: by padhy16 with SMTP id hy16so87546616pad.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 17:21:31 -0700 (PDT)
 In-Reply-To: <1443140467-69297-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace calls to vrf_dev_table and friends with l3mdev_fib_table
-and kin.
+Because IPv6 addrconf keys off of IFF_SLAVE can not use it for
+slave detection. Add a new private flag and add netif_is_l3_slave
+function for checking it.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/vrf.h       | 80 -------------------------------------------------
- net/ipv4/af_inet.c      |  4 +--
- net/ipv4/fib_frontend.c |  7 ++---
- 3 files changed, 5 insertions(+), 86 deletions(-)
+ drivers/net/vrf.c         |  8 +++-----
+ include/linux/netdevice.h |  7 +++++++
+ net/l3mdev/l3mdev.c       | 13 ++++---------
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-index 874a6c9e4217..b05b96646e2a 100644
---- a/include/net/vrf.h
-+++ b/include/net/vrf.h
-@@ -34,66 +34,6 @@ struct net_vrf {
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index f0a1008d482a..d3919bb261cc 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -39,8 +39,6 @@
+ #define DRV_NAME	"vrf"
+ #define DRV_VERSION	"1.0"
  
+-#define vrf_is_slave(dev)   ((dev)->flags & IFF_SLAVE)
+-
+ #define vrf_master_get_rcu(dev) \
+ 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
  
- #if IS_ENABLED(CONFIG_NET_VRF)
--/* called with rcu_read_lock */
--static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
--{
--	u32 tb_id = 0;
--
--	if (dev) {
--		struct net_vrf_dev *vrf_ptr;
--
--		vrf_ptr = rcu_dereference(dev->vrf_ptr);
--		if (vrf_ptr)
--			tb_id = vrf_ptr->tb_id;
--	}
--	return tb_id;
--}
--
--static inline u32 vrf_dev_table(const struct net_device *dev)
--{
--	u32 tb_id;
--
--	rcu_read_lock();
--	tb_id = vrf_dev_table_rcu(dev);
--	rcu_read_unlock();
--
--	return tb_id;
--}
--
--static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
--{
--	struct net_device *dev;
--	u32 tb_id = 0;
--
--	if (!ifindex)
--		return 0;
--
--	rcu_read_lock();
--
--	dev = dev_get_by_index_rcu(net, ifindex);
--	if (dev)
--		tb_id = vrf_dev_table_rcu(dev);
--
--	rcu_read_unlock();
--
--	return tb_id;
--}
--
--/* called with rtnl */
--static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
--{
--	u32 tb_id = 0;
--
--	if (dev) {
--		struct net_vrf_dev *vrf_ptr;
--
--		vrf_ptr = rtnl_dereference(dev->vrf_ptr);
--		if (vrf_ptr)
--			tb_id = vrf_ptr->tb_id;
--	}
--	return tb_id;
--}
--
- /* caller has already checked netif_is_l3_master(dev) */
- static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+@@ -432,7 +430,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 	if (ret < 0)
+ 		goto out_unregister;
+ 
+-	port_dev->flags |= IFF_SLAVE;
++	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
+ 	__vrf_insert_slave(queue, slave);
+ 	cycle_netdev(port_dev);
+ 
+@@ -447,7 +445,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 
+ static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
  {
-@@ -108,26 +48,6 @@ static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+-	if (netif_is_l3_master(port_dev) || vrf_is_slave(port_dev))
++	if (netif_is_l3_master(port_dev) || netif_is_l3_slave(port_dev))
+ 		return -EINVAL;
+ 
+ 	return do_vrf_add_slave(dev, port_dev);
+@@ -461,7 +459,7 @@ static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
+ 	struct slave *slave;
+ 
+ 	netdev_upper_dev_unlink(port_dev, dev);
+-	port_dev->flags &= ~IFF_SLAVE;
++	port_dev->priv_flags &= ~IFF_L3MDEV_SLAVE;
+ 
+ 	netdev_rx_handler_unregister(port_dev);
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e7d3cb9f39ce..0ba36d45de5a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1260,6 +1260,7 @@ struct net_device_ops {
+  * @IFF_L3MDEV_MASTER: device is an L3 master device
+  * @IFF_NO_QUEUE: device can run without qdisc attached
+  * @IFF_OPENVSWITCH: device is a Open vSwitch master
++ * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1285,6 +1286,7 @@ enum netdev_priv_flags {
+ 	IFF_L3MDEV_MASTER		= 1<<20,
+ 	IFF_NO_QUEUE			= 1<<21,
+ 	IFF_OPENVSWITCH			= 1<<22,
++	IFF_L3MDEV_SLAVE		= 1<<23,
+ };
+ 
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -3829,6 +3831,11 @@ static inline bool netif_is_l3_master(const struct net_device *dev)
+ 	return dev->priv_flags & IFF_L3MDEV_MASTER;
  }
  
- #else
--static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
--{
--	return 0;
--}
--
--static inline u32 vrf_dev_table(const struct net_device *dev)
--{
--	return 0;
--}
--
--static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
--{
--	return 0;
--}
--
--static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
--{
--	return 0;
--}
--
- static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
++static inline bool netif_is_l3_slave(const struct net_device *dev)
++{
++	return dev->priv_flags & IFF_L3MDEV_SLAVE;
++}
++
+ static inline bool netif_is_bridge_master(const struct net_device *dev)
  {
- 	return ERR_PTR(-ENETUNREACH);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8a556643b874..0df3f0527648 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -119,7 +119,7 @@
- #ifdef CONFIG_IP_MROUTE
- #include <linux/mroute.h>
- #endif
--#include <net/vrf.h>
-+#include <net/l3mdev.h>
+ 	return dev->priv_flags & IFF_EBRIDGE;
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index 52e6ece48c3d..2d440ba72439 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -16,12 +16,11 @@ int l3mdev_master_ifindex_rcu(struct net_device *dev)
+ 	if (netif_is_l3_master(dev)) {
+ 		ifindex = dev->ifindex;
  
+-	} else if (dev->flags & IFF_SLAVE) {
++	} else if (netif_is_l3_slave(dev)) {
+ 		struct net_device *master;
  
- /* The inetsw table contains everything that inet_create needs to
-@@ -450,7 +450,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
+ 		master = netdev_master_upper_dev_get_rcu(dev);
+-		if (netif_is_l3_master(master))
+-			ifindex = master->ifindex;
++		ifindex = master->ifindex;
  	}
  
--	tb_id = vrf_dev_table_ifindex(net, sk->sk_bound_dev_if) ? : tb_id;
-+	tb_id = l3mdev_fib_table_by_index(net, sk->sk_bound_dev_if) ? : tb_id;
- 	chk_addr_ret = inet_addr_type_table(net, addr->sin_addr.s_addr, tb_id);
+ 	return ifindex;
+@@ -44,7 +43,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
+ 		if (dev->l3mdev_ops->l3mdev_fib_table)
+ 			tb_id = dev->l3mdev_ops->l3mdev_fib_table(dev);
  
- 	/* Not specified by any standard per-se, however it breaks too
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index b901b344f22d..fac172370276 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -45,7 +45,6 @@
- #include <net/ip_fib.h>
- #include <net/rtnetlink.h>
- #include <net/xfrm.h>
--#include <net/vrf.h>
- #include <net/l3mdev.h>
- #include <trace/events/fib.h>
+-	} else if (dev->flags & IFF_SLAVE) {
++	} else if (netif_is_l3_slave(dev)) {
+ 		/* TO-DO: remove the need for typecast.
+ 		 * Users of netdev_master_upper_dev_get_rcu need non-const,
+ 		 * but current inet_*type functions take a const
+@@ -53,11 +52,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
+ 		const struct net_device *master;
  
-@@ -256,7 +255,7 @@ EXPORT_SYMBOL(inet_addr_type);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr)
- {
--	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+	u32 rt_table = l3mdev_fib_table(dev) ? : RT_TABLE_LOCAL;
+ 		master = netdev_master_upper_dev_get_rcu(_dev);
+-		if (!master)
+-			return 0;
+-
+-		if (netif_is_l3_master(master) &&
+-		    master->l3mdev_ops->l3mdev_fib_table)
++		if (master->l3mdev_ops->l3mdev_fib_table)
+ 			tb_id = master->l3mdev_ops->l3mdev_fib_table(master);
+ 	}
  
- 	return __inet_dev_addr_type(net, dev, addr, rt_table);
- }
-@@ -269,7 +268,7 @@ unsigned int inet_addr_type_dev_table(struct net *net,
- 				      const struct net_device *dev,
- 				      __be32 addr)
- {
--	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+	u32 rt_table = l3mdev_fib_table(dev) ? : RT_TABLE_LOCAL;
- 
- 	return __inet_dev_addr_type(net, NULL, addr, rt_table);
- }
-@@ -804,7 +803,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
- {
- 	struct net *net = dev_net(ifa->ifa_dev->dev);
--	u32 tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
-+	u32 tb_id = l3mdev_fib_table(ifa->ifa_dev->dev);
- 	struct fib_table *tb;
- 	struct fib_config cfg = {
- 		.fc_protocol = RTPROT_KERNEL,
 -- 
 2.3.8 (Apple Git-58)
