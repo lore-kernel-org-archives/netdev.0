@@ -1,79 +1,38 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
-Date: Fri, 25 Sep 2015 22:18:13 +0200
-Message-ID: <1460975.zriLPuubXp@vostro.rjw.lan>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 0/2] sctp: Fix SCTP deadlock
+Date: Fri, 25 Sep 2015 16:52:49 -0300
+Message-ID: <20150925195249.GA3087@localhost.localdomain>
+References: <1443111307-16503-1-git-send-email-kheiss@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: linaro-kernel@lists.linaro.org, QCA ath9k Development <ath9k-devel@qca.qualcomm.com>, Intel Linux Wireless <ilw@linux.intel.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org, linux-bluetooth@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org, linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org, linux-edac@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
-To: Viresh Kumar <viresh.kumar@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: Karl Heiss <kheiss@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39469 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932891AbbIYTww (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 15:52:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1443111307-16503-1-git-send-email-kheiss@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, September 25, 2015 09:41:37 AM Viresh Kumar wrote:
-> global_lock is defined as an unsigned long and accessing only its lower
-> 32 bits from sysfs is incorrect, as we need to consider other 32 bits
-> for big endian 64 bit systems. There are no such platforms yet, but the
-> code needs to be robust for such a case.
+On Thu, Sep 24, 2015 at 12:15:05PM -0400, Karl Heiss wrote:
+> These patches fix a deadlock during accept() of an SCTP connection.
 > 
-> Fix that by passing a local variable to debugfs_create_bool() and
-> assigning its value to global_lock later.
+> The first patch fixes whitespace issues.
 > 
-> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
-
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-
-Greg, please take this one if the [2/2] looks good to you.
-
-> ---
-> V3->V4:
-> - Create a local variable instead of changing type of global_lock
->   (Rafael)
-> - Drop the stable tag
-> - BCC'd a lot of people (rather than cc'ing them) to make sure
->   - the series reaches them
->   - mailing lists do not block the patchset due to long cc list
->   - and we don't spam the BCC'd people for every reply
-> ---
->  drivers/acpi/ec_sys.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
+> The second patch actually fixes the deadlock race.
 > 
-> diff --git a/drivers/acpi/ec_sys.c b/drivers/acpi/ec_sys.c
-> index b4c216bab22b..b44b91331a56 100644
-> --- a/drivers/acpi/ec_sys.c
-> +++ b/drivers/acpi/ec_sys.c
-> @@ -110,6 +110,7 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
->  	struct dentry *dev_dir;
->  	char name[64];
->  	umode_t mode = 0400;
-> +	u32 val;
->  
->  	if (ec_device_count == 0) {
->  		acpi_ec_debugfs_dir = debugfs_create_dir("ec", NULL);
-> @@ -127,10 +128,11 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
->  
->  	if (!debugfs_create_x32("gpe", 0444, dev_dir, (u32 *)&first_ec->gpe))
->  		goto error;
-> -	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir,
-> -				 (u32 *)&first_ec->global_lock))
-> +	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir, &val))
->  		goto error;
->  
-> +	first_ec->global_lock = val;
-> +
->  	if (write_support)
->  		mode = 0600;
->  	if (!debugfs_create_file("io", mode, dev_dir, ec, &acpi_ec_io_ops))
+> Karl Heiss (2):
+>   sctp: Whitespace fix
+>   sctp: Prevent soft lockup when sctp_accept() is called during a
+>     timeout event
+> 
+>  net/sctp/sm_sideeffect.c |   44 ++++++++++++++++++++++++--------------------
+>  1 files changed, 24 insertions(+), 20 deletions(-)
 > 
 
-Thanks,
-Rafael
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
