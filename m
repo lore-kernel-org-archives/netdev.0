@@ -1,23 +1,23 @@
-From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: [PATCH net-next v2] net: Fix Hisilicon Network Subsystem Support Compilation
-Date: Fri, 25 Sep 2015 16:28:43 +0800
-Message-ID: <1443169723-54668-1-git-send-email-huangdaode@hisilicon.com>
+From: huangdaode <huangdaode@hisilicon.com>
+Subject: [PATCH net-next v3] net: Fix Hisilicon Network Subsystem Support Compilation
+Date: Fri, 25 Sep 2015 16:29:50 +0800
+Message-ID: <1443169790-54861-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+	<paul.gortmaker@windriver.com>, <dingtianhong@huawei.com>,
+	<zhangfei.gao@linaro.org>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch fixes the compilation error with arm allmodconfig, this error
@@ -25,10 +25,10 @@ generated due to unavailability of readq() on 32-bit platform which was
 found during net-next daily compilation. In the same time, fix all the
 hns drivers compilation warnings.
 
-Sgned-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: zhaungyuzeng <Yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: kenneth Lee <liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sgned-off-by: huangdaode <huangdaode@hisilicon.com>
+Signed-off-by: zhaungyuzeng <Yisen.zhuang@huawei.com>
+Signed-off-by: kenneth Lee <liguozhu@hisilicon.com>
+Signed-off-by: yankejian <yankejian@huawei.com>
 ---
  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c   |  2 +-
  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h  |  4 ++--
@@ -179,8 +179,3 @@ index 0713ced..ce7f2e0 100644
  	}
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
