@@ -1,51 +1,42 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH v2 17/19] tools: bpf_jit_disasm: make get_last_jit_image return
- unsigned
-Date: Fri, 25 Sep 2015 08:45:43 +0200
-Message-ID: <1443163543-25733-1-git-send-email-a.hajda@samsung.com>
-References: <560446A2.2020907@iogearbox.net>
-Cc: Andrzej Hajda <a.hajda@samsung.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w1.samsung.com ([210.118.77.12]:10261 "EHLO
-	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754145AbbIYGqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 02:46:16 -0400
-In-reply-to: <560446A2.2020907@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] net: Fix Hisilicon Network Subsystem Support
+ Compilation
+Date: Fri, 25 Sep 2015 00:12:12 -0700 (PDT)
+Message-ID: <20150925.001212.866826387271637011.davem@davemloft.net>
+References: <1443163643-112192-1-git-send-email-huangdaode@hisilicon.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org,
+	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443163643-112192-1-git-send-email-huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The function returns always non-negative values.
+From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Date: Fri, 25 Sep 2015 14:47:23 +0800
 
-The problem has been detected using proposed semantic patch
-scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
+> @@ -966,7 +966,15 @@ static inline u32 dsaf_get_reg_field(void *base, u32 reg, u32 mask, u32 shift)
+>  #define dsaf_read_b(addr)\
+>  	readb((__iomem unsigned char *)(addr))
+>  
+> +#ifndef readq
+> +static inline u64 readq(void __iomem *reg)
+> +{
 
-[1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
-
-Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
----
-v2: fixed indentation
----
- tools/net/bpf_jit_disasm.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/tools/net/bpf_jit_disasm.c b/tools/net/bpf_jit_disasm.c
-index 2cd3d4c..5b32413 100644
---- a/tools/net/bpf_jit_disasm.c
-+++ b/tools/net/bpf_jit_disasm.c
-@@ -156,8 +156,8 @@ static void put_log_buff(char *buff)
- 	free(buff);
- }
- 
--static int get_last_jit_image(char *haystack, size_t hlen,
--			      uint8_t *image, size_t ilen)
-+static unsigned int get_last_jit_image(char *haystack, size_t hlen,
-+				       uint8_t *image, size_t ilen)
- {
- 	char *ptr, *pptr, *tmp;
- 	off_t off = 0;
--- 
-1.9.1
+Nope, try instead "#include <asm/io-64-nonatomic-lo-hi.h" or
+"#include <asm/io-64-nonatomic-hi-lo.h".
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
