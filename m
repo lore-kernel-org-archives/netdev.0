@@ -1,7 +1,8 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 0/7] net: mvneta: Switch to per-CPU irq and make rxq_def useful
-Date: Fri, 25 Sep 2015 18:09:31 +0200
-Message-ID: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 1/7] genirq: Fix the documentation of request_percpu_irq
+Date: Fri, 25 Sep 2015 18:09:32 +0200
+Message-ID: <1443197378-30717-2-git-send-email-gregory.clement@free-electrons.com>
+References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>,
@@ -18,54 +19,41 @@ To: Thomas Gleixner <tglx@linutronix.de>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-As stated in the first version: "this patchset reworks the Marvell
-neta driver in order to really support its per-CPU interrupts, instead
-of faking them as SPI, and allow the use of any RX queue instead of
-the hardcoded RX queue 0 that we have currently."
+The documentation of request_percpu_irq is confusing and suggest that the
+interrupt is not enabled at all, while it is actually enabled on the local
+CPU.
 
-Following the review which has been done, Maxime started adding the
-CPU hotplug support. I continued his work a few weeks ago and here is
-the result.
+Clarify that.
 
-Since the 1st version the main change is this CPU hotplug support, in
-order to validate it I powered up and down the CPUs while performing
-iperf. I ran the tests during hours: the kernel didn't crash and the
-network interfaces were still usable. Of course it impacted the
-performance, but continuously power down and up the CPUs is not
-something we usually do.
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ kernel/irq/manage.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-I also reorganized the series, the 3 first patches should go through
-the irq subsystem, whereas the 4 others should go to the network
-subsystem.
-
-However, there is a runtime dependency between the two parts. Patch 5
-depend on the patch 3 to be able to use the percpu irq.
-
-Thanks,
-
-Gregory
-
-PS: Thanks to Willy who gave me some pointers on how to deal with the
-NAPI.
-
-Maxime Ripard (7):
-  genirq: Fix the documentation of request_percpu_irq
-  irq: Export per-cpu irq allocation and de-allocation functions
-  irqchip: armada-370-xp: Rework per-cpu interrupts handling
-  net: mvneta: Fix CPU_MAP registers initialisation
-  net: mvneta: Handle per-cpu interrupts
-  net: mvneta: Allow different queues
-  net: mvneta: Statically assign queues to CPUs
-
- drivers/irqchip/irq-armada-370-xp.c   |  14 +-
- drivers/net/ethernet/marvell/mvneta.c | 316 +++++++++++++++++++++++-----------
- kernel/irq/manage.c                   |   9 +-
- 3 files changed, 226 insertions(+), 113 deletions(-)
-
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index ad1b064f94fe..dc8a80ecfc4a 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -1790,9 +1790,10 @@ int setup_percpu_irq(unsigned int irq, struct irqaction *act)
+  *	@devname: An ascii name for the claiming device
+  *	@dev_id: A percpu cookie passed back to the handler function
+  *
+- *	This call allocates interrupt resources, but doesn't
+- *	automatically enable the interrupt. It has to be done on each
+- *	CPU using enable_percpu_irq().
++ *	This call allocates interrupt resources and enables the
++ *	interrupt on the local CPU. If the interrupt is supposed to be
++ *	enabled on other CPUs, it has to be done on each CPU using
++ *	enable_percpu_irq().
+  *
+  *	Dev_id must be globally unique. It is a per-cpu variable, and
+  *	the handler gets called with the interrupted CPU's instance of
 -- 
 2.1.0
