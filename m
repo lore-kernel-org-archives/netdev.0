@@ -1,50 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v3 2/8] dpaa_eth: add support for DPAA Ethernet
-Date: Fri, 25 Sep 2015 12:48:48 -0700 (PDT)
-Message-ID: <20150925.124848.1041664902815491015.davem@davemloft.net>
-References: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
-	<1443106819-5549-3-git-send-email-madalin.bucur@freescale.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
+Date: Fri, 25 Sep 2015 22:18:13 +0200
+Message-ID: <1460975.zriLPuubXp@vostro.rjw.lan>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, scottwood@freescale.com,
-	igal.liberman@freescale.com, roy.pledge@freescale.com,
-	ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
-	joakim.tjernlund@transmode.se, f.fainelli@gmail.com, stsp@list.ru
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443106819-5549-3-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: linaro-kernel@lists.linaro.org, QCA ath9k Development <ath9k-devel@qca.qualcomm.com>, Intel Linux Wireless <ilw@linux.intel.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org, linux-bluetooth@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org, linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org, linux-edac@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: Viresh Kumar <viresh.kumar@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Date: Thu, 24 Sep 2015 18:00:13 +0300
+On Friday, September 25, 2015 09:41:37 AM Viresh Kumar wrote:
+> global_lock is defined as an unsigned long and accessing only its lower
+> 32 bits from sysfs is incorrect, as we need to consider other 32 bits
+> for big endian 64 bit systems. There are no such platforms yet, but the
+> code needs to be robust for such a case.
+> 
+> Fix that by passing a local variable to debugfs_create_bool() and
+> assigning its value to global_lock later.
+> 
+> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 
-> +#define DPA_NAPI_WEIGHT		64
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
-This is just the default, so simply use "NAPI_POLL_WEIGHT" rather
-than defining your own macro unnecessarily for this.
+Greg, please take this one if the [2/2] looks good to you.
 
-> +static int dpa_eth_priv_stop(struct net_device *net_dev)
-> +{
-> +	int err;
-> +	struct dpa_priv_s *priv;
+> ---
+> V3->V4:
+> - Create a local variable instead of changing type of global_lock
+>   (Rafael)
+> - Drop the stable tag
+> - BCC'd a lot of people (rather than cc'ing them) to make sure
+>   - the series reaches them
+>   - mailing lists do not block the patchset due to long cc list
+>   - and we don't spam the BCC'd people for every reply
+> ---
+>  drivers/acpi/ec_sys.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/acpi/ec_sys.c b/drivers/acpi/ec_sys.c
+> index b4c216bab22b..b44b91331a56 100644
+> --- a/drivers/acpi/ec_sys.c
+> +++ b/drivers/acpi/ec_sys.c
+> @@ -110,6 +110,7 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
+>  	struct dentry *dev_dir;
+>  	char name[64];
+>  	umode_t mode = 0400;
+> +	u32 val;
+>  
+>  	if (ec_device_count == 0) {
+>  		acpi_ec_debugfs_dir = debugfs_create_dir("ec", NULL);
+> @@ -127,10 +128,11 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
+>  
+>  	if (!debugfs_create_x32("gpe", 0444, dev_dir, (u32 *)&first_ec->gpe))
+>  		goto error;
+> -	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir,
+> -				 (u32 *)&first_ec->global_lock))
+> +	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir, &val))
+>  		goto error;
+>  
+> +	first_ec->global_lock = val;
 > +
-> +	err = dpa_stop(net_dev);
-> +	/* Allow NAPI to consume any frame still in the Rx/TxConfirm
-> +	 * ingress queues. This is to avoid a race between the current
-> +	 * context and ksoftirqd which could leave NAPI disabled while
-> +	 * in fact there's still Rx traffic to be processed.
-> +	 */
-> +	usleep_range(5000, 10000);
+>  	if (write_support)
+>  		mode = 0600;
+>  	if (!debugfs_create_file("io", mode, dev_dir, ec, &acpi_ec_io_ops))
+> 
 
-A wait never fixes a race.  Instead you must use appropriate mutual
-exclusion mechanisms to ensure that NAPI is really completed it's
-run, and we definitely have a means by which to do that properly.
+Thanks,
+Rafael
 
-> +	net_dev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> +		NETIF_F_LLTX);
-
-This second line should start exactly at the first column after the
-openning parenthesis of the first line.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
