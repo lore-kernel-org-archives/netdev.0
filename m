@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] switchdev: add bridge attributes
-Date: Thu, 24 Sep 2015 22:51:49 -0700 (PDT)
-Message-ID: <20150924.225149.115780151697427501.davem@davemloft.net>
-References: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
-	<1443128370-27353-2-git-send-email-sfeldma@gmail.com>
-	<77EF4405DD4BB54AACCE7DB593DF6A9A9F22C5@SJEXCHMB14.corp.ad.broadcom.com>
+Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
+ with ethtool
+Date: Thu, 24 Sep 2015 22:53:03 -0700 (PDT)
+Message-ID: <20150924.225303.2108696869753819019.davem@davemloft.net>
+References: <20150923144222.66de305c@fr-ThinkPad-W520>
+	<20150923.110549.113067983983388057.davem@davemloft.net>
+	<20150925080752.14a2fee6@fr-ThinkPad-W520>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
-	siva.mannem.lnx@gmail.com, stephen@networkplumber.org,
-	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: pjonnala@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	benh@kernel.crashing.org, ben@decadent.org.uk
+To: ivan@ru.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56699 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56709 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbbIYFvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 01:51:50 -0400
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9F22C5@SJEXCHMB14.corp.ad.broadcom.com>
+	with ESMTP id S1750985AbbIYFxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 01:53:03 -0400
+In-Reply-To: <20150925080752.14a2fee6@fr-ThinkPad-W520>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Date: Fri, 25 Sep 2015 04:32:16 +0000
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Date: Fri, 25 Sep 2015 08:07:52 +0400
 
-> Acked-by: Premkumar Jonnala
+> Ben proposed one, is it eligible?
+> Need I resubmit patch with sign and detailed description?
 
-This is not the correct way to ACK a patch.
-
-First of all, you should provide your full email address
-after your name in the Acked-by:, as I do, like this:
-
-"Acked-by: David S. Miller <davem@davemloft.net>"
-
-Second of all, never "top post" on mailing lists at vger.kernel.org,
-it is extremely irritating especially for those of us who participate
-regularly on these list and have done so for decades.
+If I genuinely need to answer that question, maybe you should sit back
+for a little while and think about it yourself, ok?
