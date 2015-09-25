@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 3/7] irqchip: armada-370-xp: Rework per-cpu interrupts handling
-Date: Fri, 25 Sep 2015 18:09:34 +0200
-Message-ID: <1443197378-30717-4-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 4/7] net: mvneta: Fix CPU_MAP registers initialisation
+Date: Fri, 25 Sep 2015 18:09:35 +0200
+Message-ID: <1443197378-30717-5-git-send-email-gregory.clement@free-electrons.com>
 References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -12,72 +12,50 @@ Cc: Andrew Lunn <andrew@lunn.ch>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
 	Maxime Ripard <maxime.ripard@free-electrons.com>,
 	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org
+	Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org,
+	<stable@vger.kernel.org>
 To: Thomas Gleixner <tglx@linutronix.de>,
 	Jason Cooper <jason@lakedaemon.net>,
 	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-The MPIC driver currently has a list of interrupts to handle as per-cpu.
+The CPU_MAP register is duplicated for each CPUs at different addresses,
+each instance being at a different address.
 
-Since the timer, fabric and neta interrupts were the only per-cpu
-interrupts in the system, we can now remove the switch and just check for
-the hardware irq number to determine whether a given interrupt is per-cpu
-or not.
+However, the code so far was using CONFIG_NR_CPUS to initialise the CPU_MAP
+registers for each registers, while the SoCs embed at most 4 CPUs.
 
+This is especially an issue with multi_v7_defconfig, where CONFIG_NR_CPUS
+is currently set to 16, resulting in writes to registers that are not
+CPU_MAP.
+
+Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP network unit")
 Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
-Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Cc: <stable@vger.kernel.org> # v3.8+
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/irqchip/irq-armada-370-xp.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/irqchip/irq-armada-370-xp.c b/drivers/irqchip/irq-armada-370-xp.c
-index 39b72da0c143..117848b46eaa 100644
---- a/drivers/irqchip/irq-armada-370-xp.c
-+++ b/drivers/irqchip/irq-armada-370-xp.c
-@@ -56,9 +56,6 @@
- 
- #define ARMADA_370_XP_MAX_PER_CPU_IRQS		(28)
- 
--#define ARMADA_370_XP_TIMER0_PER_CPU_IRQ	(5)
--#define ARMADA_370_XP_FABRIC_IRQ		(3)
--
- #define IPI_DOORBELL_START                      (0)
- #define IPI_DOORBELL_END                        (8)
- #define IPI_DOORBELL_MASK                       0xFF
-@@ -81,13 +78,10 @@ static phys_addr_t msi_doorbell_addr;
- 
- static inline bool is_percpu_irq(irq_hw_number_t irq)
- {
--	switch (irq) {
--	case ARMADA_370_XP_TIMER0_PER_CPU_IRQ:
--	case ARMADA_370_XP_FABRIC_IRQ:
-+	if (irq <= ARMADA_370_XP_MAX_PER_CPU_IRQS)
- 		return true;
--	default:
--		return false;
--	}
-+
-+	return false;
- }
- 
- /*
-@@ -551,7 +545,7 @@ static void armada_370_xp_mpic_resume(void)
- 		if (virq == 0)
- 			continue;
- 
--		if (irq != ARMADA_370_XP_TIMER0_PER_CPU_IRQ)
-+		if (!is_percpu_irq(irq))
- 			writel(irq, per_cpu_int_base +
- 			       ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
- 		else
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index fe2299ac4f5c..ea587d964c46 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -949,7 +949,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	/* Set CPU queue access map - all CPUs have access to all RX
+ 	 * queues and to all TX queues
+ 	 */
+-	for (cpu = 0; cpu < CONFIG_NR_CPUS; cpu++)
++	for_each_present_cpu(cpu)
+ 		mvreg_write(pp, MVNETA_CPU_MAP(cpu),
+ 			    (MVNETA_CPU_RXQ_ACCESS_ALL_MASK |
+ 			     MVNETA_CPU_TXQ_ACCESS_ALL_MASK));
 -- 
 2.1.0
