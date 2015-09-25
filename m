@@ -1,46 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Glibc recvmsg from kernel netlink socket hangs forever
-Date: Fri, 25 Sep 2015 23:55:11 +0800
-Message-ID: <20150925155511.GA9575@gondor.apana.org.au>
-References: <C3C03EFC-53E1-45DE-87AF-59C7367BD21E@gmail.com>
- <20150925043653.GA29111@roeck-us.net>
- <20150925045853.GA5286@gondor.apana.org.au>
- <5604DCD2.4090600@roeck-us.net>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCH for-next 0/2]  RDMA/cxgb4: Add iWARP support for T6 adapter
+Date: Fri, 25 Sep 2015 11:10:05 -0500
+Message-ID: <006901d0f7ac$a41e5030$ec5af090$@opengridcomputing.com>
+References: <1443008967-8942-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Schlansker <stevenschlansker@gmail.com>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5604DCD2.4090600@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: "'Hariprasad Shenai'" <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443008967-8942-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 24, 2015 at 10:34:10PM -0700, Guenter Roeck wrote:
->
-> Any idea what may be needed for 4.1 ?
-> I am currently trying https://patchwork.ozlabs.org/patch/473041/,
+Acked-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 
-This patch should not make any difference on 4.1 and later because
-4.1 is where I rewrote rhashtable resizing and it should work (or
-if it is broken then the latest kernel should be broken too).
 
-> but I have no idea if that will help with the problem we are seeing there.
 
-Having looked at your message agin I don't think the issue I
-alluded to is relevant since the symptom there ought to be a
-straight kernel lock-up as opposed to just a user-space one because
-you will end up with the kernel sending a message to itself.
-
-And the fact that 4.2 works is more indicative as the bug is
-present in both 4.1 and 4.2.
-
-I'll try to reproduce this in 4.1 as time permits but no promises.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
