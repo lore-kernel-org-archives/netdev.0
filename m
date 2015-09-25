@@ -1,49 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction
- item queue for attr_set and obj_add
-Date: Thu, 24 Sep 2015 22:55:08 -0700 (PDT)
-Message-ID: <20150924.225508.2124748200966556070.davem@davemloft.net>
-References: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
-	<20150925043640.GB18915@ketchup.lan>
-	<CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
+Subject: Re: [RFC v2 net-next 05/10] qede: Add basic network device support
+Date: Thu, 24 Sep 2015 22:56:37 -0700 (PDT)
+Message-ID: <20150924.225637.783498142122739755.davem@davemloft.net>
+References: <1442499839-22762-6-git-send-email-Yuval.Mintz@qlogic.com>
+	<20150924142536.052d6175@urahara>
+	<B5657A6538887040AD3A81F1008BEC63E32A5E@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
-	netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	f.fainelli@gmail.com, linux@roeck-us.net, rami.rosen@intel.com,
-	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
-	gospo@cumulusnetworks.com, jiri@mellanox.com
-To: sfeldma@gmail.com
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	Ariel.Elior@qlogic.com, Sudarsana.Kalluru@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56724 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56733 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbbIYFzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 01:55:09 -0400
-In-Reply-To: <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
+	with ESMTP id S1754965AbbIYF4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 01:56:38 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E32A5E@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Thu, 24 Sep 2015 22:29:43 -0700
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Fri, 25 Sep 2015 05:43:06 +0000
 
-> I'd rather keep 2-phase not optional, or at least make it some what of
-> a pain for drivers to opt-out of 2-phase.  Forcing the driver to see
-> both phases means the driver needs to put some code to skip phase 1
-> (and hopefully has some persistent comment explaining why its being
-> skipped).  Something like:
+>> > +struct qede_rx_queue {
+>> > +	__le16			*hw_cons_ptr;
+>> 
+>> The __ variants of constants should be reserved for use in user visible API's
 > 
-> /* I'm skipping phase 1 prepare for this operation.  I have infinite hardware
->  * resources and I'm not setting any persistent state in the driver or device
->  * and I don't need any dynamic resources from the kernel, so its impossible
->  * for me to fail phase 2 commit.  Nothing to prepare, sorry.
->  */
+> Really? If so, this needs to be fixed not only here but in lots of places
+> in the series [e.g., entire HW HSI uses __le variants instead of le].
+> But why is it so? I.e., I understand that __le16 is defined in the uapi directory and
+> thus accessible to users, but why the distinction?
 
-I agree with Scott here.
+Because it shows whether the type is something exposed to userspace or not.
 
-If you can opt out of something, you can not think about it and thus
-more likely get it wrong.
-
-I can just see a driver not implementing prepare at all and then doing
-stupid things in commit when they hit some resource limit or whatever,
-rather than taking care of such issues in prepare.
+If there are places where this is done incorrectly in the tree, it is not
+a legitimate reason for you to do so as well.
