@@ -1,134 +1,150 @@
-From: Bastian Stender <bst@pengutronix.de>
-Subject: [PATCH] net ipv4 ipconfig: use preferred log methods
-Date: Fri, 25 Sep 2015 11:58:30 +0200
-Message-ID: <1443175110-23498-1-git-send-email-bst@pengutronix.de>
-Cc: netdev@vger.kernel.org, trivial@kernel.org, kernel@pengutronix.de,
-	Bastian Stender <bst@pengutronix.de>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 -next] f_bpf: allow for optional classid and add flags
+Date: Fri, 25 Sep 2015 12:32:41 +0200
+Message-ID: <efad6a0f1fc08df554d5b0d0b36fb3dde4afe131.1443176477.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:52551 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbbIYJ6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 05:58:48 -0400
+Received: from www62.your-server.de ([213.133.104.62]:50334 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbbIYKcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 06:32:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace printk calls with preferred log method calls to keep kernel
-messages clean.
+When having optional classid, most minimal command can be sth
+like:
 
-Signed-off-by: Bastian Stender <bst@pengutronix.de>
+  tc filter add dev foo parent X: bpf obj prog.o
+
+Therefore, adapt the code so that a next argument will not be
+enforced as the case currently.
+
+Also, minor cleanup on the classid, where we should rather
+have used addattr32(), and add flags for exec configuration,
+for example (using short notation):
+
+  tc filter add dev foo parent X: bpf da obj prog.o
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- net/ipv4/ipconfig.c | 32 +++++++++++++++++---------------
- 1 file changed, 17 insertions(+), 15 deletions(-)
+ include/utils.h |  1 +
+ tc/f_bpf.c      | 43 ++++++++++++++++++++++++++++++-------------
+ 2 files changed, 31 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index ed4ef09..60882de 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -69,7 +69,7 @@
- #undef IPCONFIG_DEBUG
+diff --git a/include/utils.h b/include/utils.h
+index f77edeb..668d159 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -47,6 +47,7 @@ void incomplete_command(void) __attribute__((noreturn));
  
- #ifdef IPCONFIG_DEBUG
--#define DBG(x) printk x
-+#define DBG(x) pr_debug(x)
- #else
- #define DBG(x) do { } while(0)
- #endif
-@@ -460,7 +460,8 @@ static int __init ic_defaults(void)
- 			       &ic_myaddr);
+ #define NEXT_ARG() do { argv++; if (--argc <= 0) incomplete_command(); } while(0)
+ #define NEXT_ARG_OK() (argc - 1 > 0)
++#define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
+ #define PREV_ARG() do { argv--; argc++; } while(0)
+ 
+ typedef struct
+diff --git a/tc/f_bpf.c b/tc/f_bpf.c
+index 490dc6b..ac77af5 100644
+--- a/tc/f_bpf.c
++++ b/tc/f_bpf.c
+@@ -41,7 +41,7 @@ static void explain(void)
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "eBPF use case:\n");
+ 	fprintf(stderr, " object-file FILE [ section CLS_NAME ] [ export UDS_FILE ]");
+-	fprintf(stderr, " [ verbose ]\n");
++	fprintf(stderr, " [ verbose ] [ direct-action ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Common remaining options:\n");
+ 	fprintf(stderr, " [ action ACTION_SPEC ]\n");
+@@ -69,6 +69,7 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
+ 	struct tcmsg *t = NLMSG_DATA(n);
+ 	const char *bpf_uds_name = NULL;
+ 	const char *bpf_sec_name = NULL;
++	unsigned int bpf_flags = 0;
+ 	char *bpf_obj = NULL;
+ 	struct rtattr *tail;
+ 	bool seen_run = false;
+@@ -124,25 +125,28 @@ opt_bpf:
+ 			if (ebpf) {
+ 				bpf_uds_name = getenv(BPF_ENV_UDS);
+ 				bpf_obj = *argv;
+-				NEXT_ARG();
+ 
+-				if (strcmp(*argv, "section") == 0 ||
+-				    strcmp(*argv, "sec") == 0) {
++				NEXT_ARG_FWD();
++
++				if (argc > 0 &&
++				    (strcmp(*argv, "section") == 0 ||
++				     strcmp(*argv, "sec") == 0)) {
+ 					NEXT_ARG();
+ 					bpf_sec_name = *argv;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+-				if (!bpf_uds_name &&
++				if (argc > 0 && !bpf_uds_name &&
+ 				    (strcmp(*argv, "export") == 0 ||
+ 				     strcmp(*argv, "exp") == 0)) {
+ 					NEXT_ARG();
+ 					bpf_uds_name = *argv;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+-				if (strcmp(*argv, "verbose") == 0 ||
+-				    strcmp(*argv, "verb") == 0) {
++				if (argc > 0 &&
++				    (strcmp(*argv, "verbose") == 0 ||
++				     strcmp(*argv, "verb") == 0)) {
+ 					bpf_verbose = true;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+ 
+ 				PREV_ARG();
+@@ -182,7 +186,10 @@ opt_bpf:
+ 				fprintf(stderr, "Illegal \"classid\"\n");
+ 				return -1;
+ 			}
+-			addattr_l(n, MAX_MSG, TCA_BPF_CLASSID, &handle, 4);
++			addattr32(n, MAX_MSG, TCA_BPF_CLASSID, handle);
++		} else if (matches(*argv, "direct-action") == 0 ||
++			   matches(*argv, "da") == 0) {
++			bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			if (parse_action(&argc, &argv, TCA_BPF_ACT, n)) {
+@@ -208,10 +215,13 @@ opt_bpf:
+ 			explain();
  			return -1;
  		}
--		printk("IP-Config: Guessing netmask %pI4\n", &ic_netmask);
-+		pr_notice("IP-Config: Guessing netmask %pI4\n",
-+			  &ic_netmask);
+-		argc--;
+-		argv++;
++
++		NEXT_ARG_FWD();
  	}
  
- 	return 0;
-@@ -672,7 +673,7 @@ ic_dhcp_init_options(u8 *options)
- 	int len;
++	if (bpf_obj && bpf_flags)
++		addattr32(n, MAX_MSG, TCA_BPF_FLAGS, bpf_flags);
++
+ 	tail->rta_len = (((void *)n) + n->nlmsg_len) - (void *)tail;
  
- #ifdef IPCONFIG_DEBUG
--	printk("DHCP: Sending message type %d\n", mt);
-+	pr_debug("DHCP: Sending message type %d\n", mt);
- #endif
+ 	if (bpf_uds_name)
+@@ -244,6 +254,13 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
+ 	else if (tb[TCA_BPF_FD])
+ 		fprintf(f, "pfd %u ", rta_getattr_u32(tb[TCA_BPF_FD]));
  
- 	memcpy(e, ic_bootp_cookie, 4);	/* RFC1048 Magic Cookie */
-@@ -833,7 +834,8 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
- 	else if (dev->type == ARPHRD_FDDI)
- 		b->htype = ARPHRD_ETHER;
- 	else {
--		printk("Unknown ARP type 0x%04x for device %s\n", dev->type, dev->name);
-+		pr_warn("Unknown ARP type 0x%04x for device %s\n", dev->type,
-+			dev->name);
- 		b->htype = dev->type; /* can cause undefined behavior */
- 	}
- 
-@@ -857,12 +859,12 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
- 	if (dev_hard_header(skb, dev, ntohs(skb->protocol),
- 			    dev->broadcast, dev->dev_addr, skb->len) < 0) {
- 		kfree_skb(skb);
--		printk("E");
-+		pr_alert("E");
- 		return;
- 	}
- 
- 	if (dev_queue_xmit(skb) < 0)
--		printk("E");
-+		pr_alert("E");
- }
- 
- 
-@@ -893,10 +895,10 @@ static void __init ic_do_bootp_ext(u8 *ext)
- #ifdef IPCONFIG_DEBUG
- 	u8 *c;
- 
--	printk("DHCP/BOOTP: Got extension %d:",*ext);
-+	pr_debug("DHCP/BOOTP: Got extension %d:", *ext);
- 	for (c=ext+2; c<ext+2+ext[1]; c++)
--		printk(" %02x", *c);
--	printk("\n");
-+		pr_debug(" %02x", *c);
-+	pr_debug("\n");
- #endif
- 
- 	switch (*ext++) {
-@@ -1067,7 +1069,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 			}
- 
- #ifdef IPCONFIG_DEBUG
--			printk("DHCP: Got message type %d\n", mt);
-+			pr_debug("DHCP: Got message type %d\n", mt);
- #endif
- 
- 			switch (mt) {
-@@ -1082,8 +1084,8 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				ic_myaddr = b->your_ip;
- 				ic_servaddr = server_id;
- #ifdef IPCONFIG_DEBUG
--				printk("DHCP: Offered address %pI4 by server %pI4\n",
--				       &ic_myaddr, &b->iph.saddr);
-+				pr_debug("DHCP: Offered address %pI4 by server %pI4\n",
-+					 &ic_myaddr, &b->iph.saddr);
- #endif
- 				/* The DHCP indicated server address takes
- 				 * precedence over the bootp header one if
-@@ -1281,10 +1283,10 @@ static int __init ic_dynamic(void)
- 		return -1;
- 	}
- 
--	printk("IP-Config: Got %s answer from %pI4, ",
-+	pr_info("IP-Config: Got %s answer from %pI4, ",
- 		((ic_got_reply & IC_RARP) ? "RARP"
--		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
--	       &ic_addrservaddr);
-+		: (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
-+		&ic_addrservaddr);
- 	pr_cont("my address is %pI4\n", &ic_myaddr);
- 
- 	return 0;
++	if (tb[TCA_BPF_FLAGS]) {
++		unsigned int flags = rta_getattr_u32(tb[TCA_BPF_FLAGS]);
++
++		if (flags & TCA_BPF_FLAG_ACT_DIRECT)
++			fprintf(f, "direct-action ");
++	}
++
+ 	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN]) {
+ 		bpf_print_ops(f, tb[TCA_BPF_OPS],
+ 			      rta_getattr_u16(tb[TCA_BPF_OPS_LEN]));
 -- 
-2.1.4
+1.9.3
