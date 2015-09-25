@@ -1,59 +1,140 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH V6 net-next 2/2] smc: introduce socket family AF_SMC
-Date: Fri, 25 Sep 2015 09:27:13 +0200
-Message-ID: <1443166033.6021.6.camel@BR9GV9YG.de.ibm.com>
-References: <1442227366-79236-1-git-send-email-ubraun@linux.vnet.ibm.com>
-	 <1442227366-79236-3-git-send-email-ubraun@linux.vnet.ibm.com>
-	 <20150921.114425.119948328742744162.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com
-To: David Miller <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 5/8] net/mlx5_core: Fix notification of page supplement error
+Date: Fri, 25 Sep 2015 10:49:13 +0300
+Message-ID: <1443167356-32095-6-git-send-email-ogerlitz@mellanox.com>
+References: <1443167356-32095-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, eli@labmailer.mlnx,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp06.uk.ibm.com ([195.75.94.102]:40383 "EHLO
-	e06smtp06.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbbIYH1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 03:27:21 -0400
-Received: from /spool/local
-	by e06smtp06.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 25 Sep 2015 08:27:19 +0100
-In-Reply-To: <20150921.114425.119948328742744162.davem@davemloft.net>
+Received: from [193.47.165.129] ([193.47.165.129]:39307 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754652AbbIYHto (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 03:49:44 -0400
+In-Reply-To: <1443167356-32095-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-09-21 at 11:44 -0700, David Miller wrote:
-...
-> This is a huge and complex submission and I'm already burnt out
-> reading the changes thus far.
-> 
-> You have a lot to fix up and you can expect many revisions to be
-> necessary before these changes are ready for integration upstream.
-> And that's if you are lucky and someone actually continues to review
-> this work.
-> 
-Hi Dave,
+From: Eli Cohen <eli@mellanox.com>
 
-I appreciate the time you have already spent analyzing my SMC code. It
-is large and complex, and I understand that you are not willing to spend
-the time to review the overall code in future iterations. Before me
-spending more time on SMC, I need a hint about *your* preferred way to
-submit that large piece of code in general, and about the overall future
-of SMC:
+Some errors did not result with notifying firmware that the page request
+could not be fulfilled. Fix this and put the notification logic into a
+separate function.
 
-- Supposed the SMC code is improved to an acceptable quality and maybe
-even gets additional reviewers, are you willing to accept the code at
-all, given it is self-contained (our own can of worms, as you said)?
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    | 63 +++++++++++++---------
+ 1 file changed, 37 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index 8a64542..76432a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -275,12 +275,36 @@ out_alloc:
  
-- I realized that I have to split up the large chunk of code into
-smaller patches. Do you prefer going with a first minimal self contained
-patch set first, providing basic communication capabilities, and then
-incrementally add features like failover, setsockopt, urgent-data etc.
-over time? Or, on submissions, do you always want to see a patch series
-of the full set of features and values according to the SMC design?
-
-Kind regards,
-Ursula
+ 	return err;
+ }
++
++static void page_notify_fail(struct mlx5_core_dev *dev, u16 func_id)
++{
++	struct mlx5_manage_pages_inbox *in;
++	struct mlx5_manage_pages_outbox out;
++	int err;
++
++	in = kzalloc(sizeof(*in), GFP_KERNEL);
++	if (!in)
++		return;
++
++	memset(&out, 0, sizeof(out));
++	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
++	in->hdr.opmod = cpu_to_be16(MLX5_PAGES_CANT_GIVE);
++	in->func_id = cpu_to_be16(func_id);
++	err = mlx5_cmd_exec(dev, in, sizeof(*in), &out, sizeof(out));
++	if (!err)
++		err = mlx5_cmd_status_to_err(&out.hdr);
++
++	if (err)
++		mlx5_core_warn(dev, "page notify failed\n");
++
++	kfree(in);
++}
++
+ static int give_pages(struct mlx5_core_dev *dev, u16 func_id, int npages,
+ 		      int notify_fail)
+ {
+ 	struct mlx5_manage_pages_inbox *in;
+ 	struct mlx5_manage_pages_outbox out;
+-	struct mlx5_manage_pages_inbox *nin;
+ 	int inlen;
+ 	u64 addr;
+ 	int err;
+@@ -289,8 +313,9 @@ static int give_pages(struct mlx5_core_dev *dev, u16 func_id, int npages,
+ 	inlen = sizeof(*in) + npages * sizeof(in->pas[0]);
+ 	in = mlx5_vzalloc(inlen);
+ 	if (!in) {
++		err = -ENOMEM;
+ 		mlx5_core_warn(dev, "vzalloc failed %d\n", inlen);
+-		return -ENOMEM;
++		goto out_free;
+ 	}
+ 	memset(&out, 0, sizeof(out));
+ 
+@@ -316,43 +341,29 @@ retry:
+ 	if (err) {
+ 		mlx5_core_warn(dev, "func_id 0x%x, npages %d, err %d\n",
+ 			       func_id, npages, err);
+-		goto out_alloc;
++		goto out_4k;
+ 	}
+ 	dev->priv.fw_pages += npages;
+ 
+-	if (out.hdr.status) {
+-		err = mlx5_cmd_status_to_err(&out.hdr);
+-		if (err) {
+-			mlx5_core_warn(dev, "func_id 0x%x, npages %d, status %d\n",
+-				       func_id, npages, out.hdr.status);
+-			goto out_alloc;
+-		}
++	err = mlx5_cmd_status_to_err(&out.hdr);
++	if (err) {
++		mlx5_core_warn(dev, "func_id 0x%x, npages %d, status %d\n",
++			       func_id, npages, out.hdr.status);
++		goto out_4k;
+ 	}
+ 
+ 	mlx5_core_dbg(dev, "err %d\n", err);
+ 
+-	goto out_free;
+-
+-out_alloc:
+-	if (notify_fail) {
+-		nin = kzalloc(sizeof(*nin), GFP_KERNEL);
+-		if (!nin) {
+-			mlx5_core_warn(dev, "allocation failed\n");
+-			goto out_4k;
+-		}
+-		memset(&out, 0, sizeof(out));
+-		nin->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
+-		nin->hdr.opmod = cpu_to_be16(MLX5_PAGES_CANT_GIVE);
+-		if (mlx5_cmd_exec(dev, nin, sizeof(*nin), &out, sizeof(out)))
+-			mlx5_core_warn(dev, "page notify failed\n");
+-		kfree(nin);
+-	}
++	kvfree(in);
++	return 0;
+ 
+ out_4k:
+ 	for (i--; i >= 0; i--)
+ 		free_4k(dev, be64_to_cpu(in->pas[i]));
+ out_free:
+ 	kvfree(in);
++	if (notify_fail)
++		page_notify_fail(dev, func_id);
+ 	return err;
+ }
+ 
+-- 
+2.3.7
