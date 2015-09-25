@@ -1,49 +1,47 @@
-From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
-	'global_lock'
-Date: Fri, 25 Sep 2015 11:52:56 -0700
-Message-ID: <20150925185256.GG5951@linux>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
-	<1443202945.2161.8.camel@sipsolutions.net>
-	<20150925184741.GF5951@linux>
-	<1443206945.2161.9.camel@sipsolutions.net>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: 4.1.0, kernel panic, pppoe_release
+Date: Fri, 25 Sep 2015 21:02:49 +0200
+Message-ID: <20150925190249.GA2962@alphalink.fr>
+References: <677da51dbac367fcb7a456de2789334b@visp.net.lb>
+ <c6e2cb4002bf11ad7a25be8eeded2dc1@visp.net.lb>
+ <1437147400.5437.4.camel@redhat.com>
+ <de4b28603ef7bcaea7aeca73dab80079@visp.net.lb>
+ <20150910155657.GC3661@alphalink.fr>
+ <9392178bf13d2814e19b1756cd204d73@visp.net.lb>
+ <20150925143831.GI2869@alphalink.fr>
+ <3e1192bd3125fd5054c1417bce869505@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>, Netdev <netdev@vger.kernel.org>,
+	ebiederm@xmission.com, davem@davemloft.net, simon@farnz.org.uk,
+	develop@kristov.de
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:38563 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932786AbbIYTC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 15:02:56 -0400
 Content-Disposition: inline
-In-Reply-To: <1443206945.2161.9.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <3e1192bd3125fd5054c1417bce869505@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25-09-15, 20:49, Johannes Berg wrote:
-> Ok, then, but that means Rafael is completely wrong ...
-> debugfs_create_bool() takes a *pointer* and it needs to be long-lived,
-> it can't be on the stack. You also don't get a call when it changes.
-
-Ahh, ofcourse. My bad as well...
-
-I think we can change structure definition but will wait for Rafael's
-comment before that.
-
--- 
-viresh
+On Fri, Sep 25, 2015 at 06:02:42PM +0300, Denys Fedoryshchenko wrote:
+> On 2015-09-25 17:38, Guillaume Nault wrote:
+> >On Tue, Sep 22, 2015 at 04:47:48AM +0300, Denys Fedoryshchenko wrote:
+> >>Hi,
+> >>Sorry for late reply, was not able to push new kernel on pppoes without
+> >>permissions (it's production servers), just got OK.
+> >>
+> >>I am testing patch on another pppoe server with 9k users, for ~3 days,
+> >>seems
+> >>fine. I will test today
+> >>also on server that was experiencing crashes within 1 day.
+> >>
+> >Thanks for the feedback. I'm about to submit a fix. Should I add a
+> >Tested-by tag for you?
+> On one of servers i got same crash as before, within hours. 9k users server
+> also crashed after while, so it seems it doesn't help.
+> I will do some more tests tomorrow.
+Ok, this must be a different bug then. Do you have a trace of a crash
+with the patched kernel?
