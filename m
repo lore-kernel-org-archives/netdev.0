@@ -1,52 +1,181 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Thu, 24 Sep 2015 23:05:22 -0700 (PDT)
-Message-ID: <20150924.230522.2080343670036893514.davem@davemloft.net>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
-	<5604A5EC.7060401@gmail.com>
+From: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Subject: [PATCH v2] net: Fix Hisilicon Network Subsystem Support Compilation
+Date: Fri, 25 Sep 2015 14:47:23 +0800
+Message-ID: <1443163643-112192-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sgoutham-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, rric-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, isubramanian-qTEPVZfXA3Y@public.gmane.org,
-	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Content-Type: text/plain
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>, <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <kenneth-lee-2012-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>,
+	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5604A5EC.7060401-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 24 Sep 2015 18:39:56 -0700
+This patch fixes the compilation error with arm allmodconfig, this error
+generated due to unavailability of readq() on 32-bit platform which was
+found during net-next daily compilation. In the same time, fix all the
+hns drivers compilation warnings.
 
-> On 24/09/15 12:17, Russell King - ARM Linux wrote:
->> Hi,
->> 
->> The third version of this series fixes the build error which David
->> identified, and drops the broken changes for the Cavium Thunger BGX
->> ethernet driver as this driver requires some complex changes to
->> resolve the leakage - and this is best done by people who can test
->> the driver.
->> 
->> Compared to v2, the only patch which has changed is patch 6
->>   "net: fix phy refcounting in a bunch of drivers"
->> 
->> I _think_ I've been able to build-test all the drivers touched by
->> that patch to some degree now, though several of them needed the
->> Kconfig hacked to allow it (not all had || COMPILE_TEST clause on
->> their dependencies.)
-> 
-> Tested-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Thanks for fixing that.
+Signed-off-by: huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Signed-off-by: zhaungyuzeng <Yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: kenneth Lee <liguozhu-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Signed-off-by: yankejian <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  4 ++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 10 ++++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 10 +++++++++-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 17 -----------------
+ 5 files changed, 20 insertions(+), 23 deletions(-)
 
-Series applied, thanks.
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index a8bd27b..95bf42a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -86,7 +86,7 @@ int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
+ 	if (!mac_cb->cpld_vaddr)
+ 		return -ENODEV;
+ 
+-	*sfp_prsnt = !dsaf_read_b((u64)mac_cb->cpld_vaddr
++	*sfp_prsnt = !dsaf_read_b((u8 *)mac_cb->cpld_vaddr
+ 					+ MAC_SFP_PORT_OFFSET);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index e0417c0..315b07e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -43,7 +43,7 @@ struct hns_mac_cb;
+ #define DSAF_DUMP_REGS_NUM 504
+ #define DSAF_STATIC_NUM 28
+ 
+-#define DSAF_STATS_READ(p, offset) (*((u64 *)((u64)(p) + (offset))))
++#define DSAF_STATS_READ(p, offset) (*((u64 *)((u8 *)(p) + (offset))))
+ 
+ enum hal_dsaf_mode {
+ 	HRD_DSAF_NO_DSAF_MODE	= 0x0,
+@@ -302,7 +302,7 @@ struct dsaf_device {
+ 
+ static inline void *hns_dsaf_dev_priv(const struct dsaf_device *dsaf_dev)
+ {
+-	return (void *)((u64)dsaf_dev + sizeof(*dsaf_dev));
++	return (void *)((u8 *)dsaf_dev + sizeof(*dsaf_dev));
+ }
+ 
+ struct dsaf_drv_tbl_tcam_key {
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+index 50f3427..1e10f65 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+@@ -191,9 +191,12 @@ static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
+ 	if (ring_type == RX_RING) {
+ 		dsaf_write_dev(q, RCB_RING_RX_RING_BASEADDR_L_REG,
+ 			       (u32)dma);
++#ifdef CONFIG_64BIT
+ 		dsaf_write_dev(q, RCB_RING_RX_RING_BASEADDR_H_REG,
+ 			       (u32)(dma >> 32));
+-
++#else
++		dsaf_write_dev(q, RCB_RING_RX_RING_BASEADDR_H_REG, 0);
++#endif
+ 		dsaf_write_dev(q, RCB_RING_RX_RING_BD_LEN_REG,
+ 			       bd_size_type);
+ 		dsaf_write_dev(q, RCB_RING_RX_RING_BD_NUM_REG,
+@@ -203,9 +206,12 @@ static void hns_rcb_ring_init(struct ring_pair_cb *ring_pair, int ring_type)
+ 	} else {
+ 		dsaf_write_dev(q, RCB_RING_TX_RING_BASEADDR_L_REG,
+ 			       (u32)dma);
++#ifdef CONFIG_64BIT
+ 		dsaf_write_dev(q, RCB_RING_TX_RING_BASEADDR_H_REG,
+ 			       (u32)(dma >> 32));
+-
++#else
++		dsaf_write_dev(q, RCB_RING_TX_RING_BASEADDR_H_REG, 0);
++#endif
+ 		dsaf_write_dev(q, RCB_RING_TX_RING_BD_LEN_REG,
+ 			       bd_size_type);
+ 		dsaf_write_dev(q, RCB_RING_TX_RING_BD_NUM_REG,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index 6fc58ba..8dcaf5f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -966,7 +966,15 @@ static inline u32 dsaf_get_reg_field(void *base, u32 reg, u32 mask, u32 shift)
+ #define dsaf_read_b(addr)\
+ 	readb((__iomem unsigned char *)(addr))
+ 
++#ifndef readq
++static inline u64 readq(void __iomem *reg)
++{
++	return (((u64)readl(reg + 0x4UL) << 32) |
++		(u64)readl(reg));
++}
++#endif
++
+ #define hns_mac_reg_read64(drv, offset) \
+-	readq((__iomem void *)(((u64)(drv)->io_base + 0xc00 + (offset))))
++	readq((__iomem void *)(((u8 *)(drv)->io_base + 0xc00 + (offset))))
+ 
+ #endif	/* _DSAF_REG_H */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 0713ced..ce7f2e0 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -31,8 +31,6 @@
+ #define NIC_TX_CLEAN_MAX_NUM 256
+ #define NIC_RX_CLEAN_MAX_NUM 64
+ 
+-#define RCB_ERR_PRINT_CYCLE 1000
+-
+ #define RCB_IRQ_NOT_INITED 0
+ #define RCB_IRQ_INITED 1
+ 
+@@ -434,21 +432,12 @@ out_bnum_err:
+ 
+ 	if (unlikely((!desc->rx.pkt_len) ||
+ 		     hnae_get_bit(bnum_flag, HNS_RXD_DROP_B))) {
+-		if (!(ring->stats.err_pkt_len % RCB_ERR_PRINT_CYCLE))
+-			netdev_dbg(ndev,
+-				   "pkt_len(%u),drop(%u),%#llx,%#llx\n",
+-				   le16_to_cpu(desc->rx.pkt_len),
+-				   hnae_get_bit(bnum_flag, HNS_RXD_DROP_B),
+-				   ((u64 *)desc)[0], ((u64 *)desc)[1]);
+ 		ring->stats.err_pkt_len++;
+ 		dev_kfree_skb_any(skb);
+ 		return -EFAULT;
+ 	}
+ 
+ 	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L2E_B))) {
+-		if (!(ring->stats.l2_err % RCB_ERR_PRINT_CYCLE))
+-			netdev_dbg(ndev, "L2 check err,%#llx,%#llx\n",
+-				   ((u64 *)desc)[0], ((u64 *)desc)[1]);
+ 		ring->stats.l2_err++;
+ 		dev_kfree_skb_any(skb);
+ 		return -EFAULT;
+@@ -459,12 +448,6 @@ out_bnum_err:
+ 
+ 	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) ||
+ 		     hnae_get_bit(bnum_flag, HNS_RXD_L4E_B))) {
+-		if (!(ring->stats.l3l4_csum_err % RCB_ERR_PRINT_CYCLE))
+-			netdev_dbg(ndev,
+-				   "check err(%#x),%#llx,%#llx\n",
+-				   hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) |
+-				   hnae_get_bit(bnum_flag, HNS_RXD_L4E_B),
+-				   ((u64 *)desc)[0], ((u64 *)desc)[1]);
+ 		ring->stats.l3l4_csum_err++;
+ 		return 0;
+ 	}
+-- 
+1.9.1
+
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
