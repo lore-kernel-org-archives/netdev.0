@@ -1,47 +1,48 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: netlink: Add barrier to netlink_connect for theoretical case
-Date: Fri, 25 Sep 2015 11:01:13 -0400
-Message-ID: <20150925150113.GD4449@mtj.duckdns.org>
-References: <20150921133415.GA1740@gondor.apana.org.au>
- <20150921182022.GB13263@mtj.duckdns.org>
- <20150922033856.GA7851@gondor.apana.org.au>
- <20150924.121142.870602292135442487.davem@davemloft.net>
- <20150924200510.GE25415@mtj.duckdns.org>
- <20150925014327.GA3725@gondor.apana.org.au>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 4.1.0, kernel panic, =?UTF-8?Q?pppoe=5Frelease?=
+Date: Fri, 25 Sep 2015 18:02:42 +0300
+Message-ID: <3e1192bd3125fd5054c1417bce869505@visp.net.lb>
+References: <677da51dbac367fcb7a456de2789334b@visp.net.lb>
+ <c6e2cb4002bf11ad7a25be8eeded2dc1@visp.net.lb>
+ <1437147400.5437.4.camel@redhat.com>
+ <de4b28603ef7bcaea7aeca73dab80079@visp.net.lb>
+ <20150910155657.GC3661@alphalink.fr>
+ <9392178bf13d2814e19b1756cd204d73@visp.net.lb>
+ <20150925143831.GI2869@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, Netdev <netdev@vger.kernel.org>,
+	ebiederm@xmission.com, davem@davemloft.net, simon@farnz.org.uk,
+	develop@kristov.de
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f175.google.com ([209.85.160.175]:34097 "EHLO
-	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755528AbbIYPBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 11:01:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20150925014327.GA3725@gondor.apana.org.au>
+Received: from hosting.visp.net.lb ([194.146.153.11]:33217 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754093AbbIYPCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 11:02:46 -0400
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id DFE08480644
+	for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 18:02:43 +0300 (EEST)
+In-Reply-To: <20150925143831.GI2869@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Herbert.
-
-On Fri, Sep 25, 2015 at 09:43:27AM +0800, Herbert Xu wrote:
-> Well had you said this in the first place I would've fixed it a
-> long time ago.  There aren't any in-kernel users right now and
-> even if there were they'd have to do a connect/bind/sendmsg on
-> the same socket in two threads at the same time.  But let's close
-> this theoretical hole:
-
-I'm not even sure we guarantee memory barrier on kernel/user
-crossings.  In practice, we probably have enough barriers (e.g. some
-syscall traps imply barrier) but I can't think of a reason why we'd
-guarantee the existence of barrier there.  As an extreme example,
-imagine UML on an architecture with relaxed memory model.
-
-Thanks.
-
--- 
-tejun
+On 2015-09-25 17:38, Guillaume Nault wrote:
+> On Tue, Sep 22, 2015 at 04:47:48AM +0300, Denys Fedoryshchenko wrote:
+>> Hi,
+>> Sorry for late reply, was not able to push new kernel on pppoes 
+>> without
+>> permissions (it's production servers), just got OK.
+>> 
+>> I am testing patch on another pppoe server with 9k users, for ~3 days, 
+>> seems
+>> fine. I will test today
+>> also on server that was experiencing crashes within 1 day.
+>> 
+> Thanks for the feedback. I'm about to submit a fix. Should I add a
+> Tested-by tag for you?
+On one of servers i got same crash as before, within hours. 9k users 
+server also crashed after while, so it seems it doesn't help.
+I will do some more tests tomorrow.
