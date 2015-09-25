@@ -1,54 +1,78 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] ipvs: drop first packet to dead server
-Date: Fri, 25 Sep 2015 11:37:38 +0200
-Message-ID: <20150925093737.GA5047@midget.suse.cz>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [PATCH RESEND] bnx2x:Add proper protection from concurrent
+ users in	the function bnx2_open
+Date: Fri, 25 Sep 2015 09:38:38 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E46FB0FF@avmb3.qlogic.org>
+References: <1443133499-9456-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:48070 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753418AbbIYJhn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Sep 2015 05:37:43 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443133499-9456-1-git-send-email-xerofoify@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit dc7b3eb9 (ipvs: Fix reuse connection if real server
-is dead), new connections to dead servers are redistributed
-immediately to new servers.  The old connection is expired using
-ip_vs_conn_expire_now() which sets the connection timer to expire
-immediately. 
+> -----Original Message-----
+> From: dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com
+> [mailto:dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com] On Behalf
+> Of Nicholas Krause
+> Sent: Friday, September 25, 2015 3:55 AM
+> To: Sony Chacko
+> Cc: Dept-GE Linux NIC Dev; linux-kernel; netdev
+> Subject: [PATCH RESEND] bnx2x:Add proper protection from concurrent users in
+> the function bnx2_open
+> 
+> This fixes bnx2_open to have proper protection from concurrent users as it is
+> never properly locked with rtnl_lock/unlock before executing its code that can
+> have issues with other threads of execution executing on these data structures
+> at the same time. Due to this fix it by making this locking internal to the function
+> bnx2_open by unlocking before and after the critical region with the function
+> pair rtnl_lock/unlock.
+> 
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c
+> b/drivers/net/ethernet/broadcom/bnx2.c
+> index 2b66ef3..0c31c49 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -6331,13 +6331,13 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+>  	return netif_set_real_num_rx_queues(bp->dev, bp->num_rx_rings);  }
+> 
+> -/* Called with rtnl_lock */
+>  static int
+>  bnx2_open(struct net_device *dev)
+>  {
+>  	struct bnx2 *bp = netdev_priv(dev);
+>  	int rc;
+> 
+> +	rtnl_lock();
+>  	rc = bnx2_request_firmware(bp);
+>  	if (rc < 0)
+>  		goto out;
+> @@ -6411,6 +6411,7 @@ open_err:
+>  	bnx2_free_mem(bp);
+>  	bnx2_del_napi(bp);
+>  	bnx2_release_firmware(bp);
+> +	rtnl_unlock();
+>  	goto out;
+>  }
+> 
+> --
 
-However, before the timer callback, ip_vs_conn_expire(), is run
-to clean the connection's conntrack entry, the new redistributed
-connection may already be established and its conntrack removed
-instead.
+It's not an appropriate change. Acquiring rtnl_lock() in device's ndo_open() handler will cause deadlock
+as OS already take this lock before calling ndo_open().
 
-Fix this by dropping the first packet of the new connection
-instead, like we do when the destination server is not available.
-The timer will have deleted the old conntrack entry long before
-the first packet of the new connection is retransmitted.
+Also, the subject line is not correct - it was supposed to be bnx2 change, not bnx2x.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index d1d6b82..3f884b8 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1657,7 +1657,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
- 	    is_new_conn(skb, &iph)) {
- 		ip_vs_conn_expire_now(cp);
- 		__ip_vs_conn_put(cp);
--		cp = NULL;
-+		return NF_DROP;
- 	}
- 
- 	if (unlikely(!cp) && !iph.fragoffs) {
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Thanks,
+Manish
