@@ -1,61 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v3 00/10] switchdev: transaction item queue
- and cleanup
-Date: Thu, 24 Sep 2015 23:00:13 -0700 (PDT)
-Message-ID: <20150924.230013.2108843761593380405.davem@davemloft.net>
-References: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
-	<CAE4R7bDJQ6qpSZoR5iDMdOHrDsHJB4+0oRHwLEpqg4Jc3x1Gcw@mail.gmail.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v7 02/10] ss: created formatters for json and hr
+Date: Fri, 25 Sep 2015 08:01:59 +0200
+Message-ID: <5604E357.9000802@gmx.net>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+ <1441913708-15532-3-git-send-email-matthias.tafelmeier@gmx.net>
+ <20150923162650.148fe95b@urahara>
+ <bc9cacb94de24857a7d9e13960bfae56@HQ1WP-EXMB11.corp.brocade.com>
+ <20150924151630.28129cdb@urahara>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, idosch@mellanox.com,
-	eladr@mellanox.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, rami.rosen@intel.com,
-	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
-	gospo@cumulusnetworks.com
-To: sfeldma@gmail.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56747 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206AbbIYGAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 02:00:15 -0400
-In-Reply-To: <CAE4R7bDJQ6qpSZoR5iDMdOHrDsHJB4+0oRHwLEpqg4Jc3x1Gcw@mail.gmail.com>
+Received: from mout.gmx.net ([212.227.17.22]:64860 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751334AbbIYGCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 02:02:12 -0400
+In-Reply-To: <20150924151630.28129cdb@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Thu, 24 Sep 2015 20:05:39 -0700
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA384
 
-> On Thu, Sep 24, 2015 at 1:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> Jiri Pirko (10):
->>   switchdev: rename "trans" to "trans_ph".
->>   switchdev: introduce transaction item queue for attr_set and obj_add
->>   switchdev: move transaction phase enum under transaction structure
->>   switchdev: add switchdev_trans_ph_prepare/commit helpers
->>   rocker: push struct switchdev_trans down through rocker code
->>   rocker: use switchdev transaction queue for allocated memory
->>   switchdev: remove "NONE" transaction phase
->>   switchdev: remove "ABORT" transaction phase
->>   dsa: use prepare/commit switchdev transaction helpers
->>   switchdev: reduce transaction phase enum down to a boolean
->>
->>  Documentation/networking/switchdev.txt |  19 ++
->>  drivers/net/ethernet/rocker/rocker.c   | 308 ++++++++++++++-------------------
->>  include/net/switchdev.h                |  40 +++--
->>  net/dsa/slave.c                        |  31 ++--
->>  net/switchdev/switchdev.c              | 125 ++++++++++---
->>  5 files changed, 296 insertions(+), 227 deletions(-)
+On 09/25/2015 12:16 AM, Stephen Hemminger wrote:
+> On Thu, 24 Sep 2015 17:43:46 +0000 Matthias Tafelmeier 
+> <matthias.tafelmeier@gmx.net> wrote:
 > 
-> Tests pass.  ACK on all.
+>>> Maybe it is time to rewrite it in a better language ;-)
+>> 
+>> I did not get that. Do you mean iproute2?
 > 
-> Acked-by: Scott Feldman <sfeldma@gmail.com>
+> I meant that the amount of formatting and string processing in ss 
+> is getting to be a significant fraction of the code. Languages 
+> other C provide more OO and better string handling that might help.
+> But mostly it was a joke.
+> 
 
-Series applied, thanks everyone.
+I suspected you meant that but I was not sure since little out of
+context. ;)
 
-But Jiri, in the future you really have to give me more "meat" in this
-00/10 posting.  You have to provide some description of what your
-changes are doing at a high level and why.
+Well, then we should wait for another voice aimed at the complexity of
+the patchset before amending and resending me the patchset.
 
-Thanks.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBCQAGBQJWBONXAAoJEOAWT1uK3zQ7M2UIANB3xiPOr4/hB3LVvgv4Vv1s
+xMSVLbhGV2FDWSI3KaLIAov9b4ZFevM1usozAhKwHypw0pjtoZzrL6x78fgEumOz
+juOnz7iQJZJ0mP3+N+CUHKT/uDX43fkDMCyrpfF7ZnsLJ77KT/WNcb1trtxkm8W7
+0+YZp++qve9GELVhy5eLJHbmt36i7DTTGnby+l9SkLuz53QL0zkidmbHyYVfLgDD
+kPT2AHOrvKhg4+vs3o1TdOPGUSXe5dnK+LVwRlu4f1FH1G029V4bS4Pa4MTlYzSM
+Zl7j8jjk9LsmWN86SYFxAngcVu6iHP6tHqAKHbIDYCzr28B2nEYVwFqIe4PJp9Q=
+=YT+J
+-----END PGP SIGNATURE-----
