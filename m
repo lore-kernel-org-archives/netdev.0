@@ -1,49 +1,35 @@
 From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: [PATCH v2] net/ibm/emac: bump version numbers for correct work with
- ethtool
-Date: Fri, 25 Sep 2015 11:52:27 +0400
-Message-ID: <20150925115227.636d658d@fr-ThinkPad-W520>
+Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
+ with ethtool
+Date: Fri, 25 Sep 2015 11:53:06 +0400
+Message-ID: <20150925115306.7fee87d4@fr-ThinkPad-W520>
+References: <20150923144222.66de305c@fr-ThinkPad-W520>
+	<20150923.110549.113067983983388057.davem@davemloft.net>
+	<20150925080752.14a2fee6@fr-ThinkPad-W520>
+	<20150924.225303.2108696869753819019.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Ben Hutchings" <ben@decadent.org.uk>
+Cc: "" <netdev@vger.kernel.org>, "" <linux-kernel@vger.kernel.org>,
+	"" <benh@kernel.crashing.org>, "" <ben@decadent.org.uk>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150924.225303.2108696869753819019.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The size of the MAC register dump used to be the size specified by the
-reg property in the device tree.  Userland has no good way of finding
-out that size, and it was not specified consistently for each MAC type,
-so ethtool would end up printing junk at the end of the register dump
-if the device tree didn't match the size it assumed.
+On Thu, 24 Sep 2015 22:53:03 -0700 (PDT)
+"David Miller" <davem@davemloft.net> wrote:
 
-Using the new version numbers indicates unambiguously that the size of
-the MAC register dump is dependent only on the MAC type.
+> From: Ivan Mikhaylov <ivan@ru.ibm.com>
+> Date: Fri, 25 Sep 2015 08:07:52 +0400
+> 
+> > Ben proposed one, is it eligible?
+> > Need I resubmit patch with sign and detailed description?
+> 
+> If I genuinely need to answer that question, maybe you should sit back
+> for a little while and think about it yourself, ok?
 
-Fixes: 5369c71f7ca2 ("net/ibm/emac: fix size of emac dump memory areas")
+Sorry, for those stupid questions.
 
-Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
----
- drivers/net/ethernet/ibm/emac/core.h |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-index 28df374..ac02c67 100644
---- a/drivers/net/ethernet/ibm/emac/core.h
-+++ b/drivers/net/ethernet/ibm/emac/core.h
-@@ -460,8 +460,8 @@ struct emac_ethtool_regs_subhdr {
- 	u32 index;
- };
- 
--#define EMAC_ETHTOOL_REGS_VER		0
--#define EMAC4_ETHTOOL_REGS_VER		1
--#define EMAC4SYNC_ETHTOOL_REGS_VER	2
-+#define EMAC_ETHTOOL_REGS_VER		3
-+#define EMAC4_ETHTOOL_REGS_VER		4
-+#define EMAC4SYNC_ETHTOOL_REGS_VER	5
- 
- #endif /* __IBM_NEWEMAC_CORE_H */
--- 
-1.7.9.5
+David, Ben, thanks for the help.
