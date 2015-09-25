@@ -1,102 +1,100 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH net-next 2/4] switchdev: skip over ports returning
- -EOPNOTSUPP when recursing ports
-Date: Fri, 25 Sep 2015 04:33:06 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9F22D9@SJEXCHMB14.corp.ad.broadcom.com>
-References: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
- <1443128370-27353-3-git-send-email-sfeldma@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Fri, 25 Sep 2015 00:36:40 -0400
+Message-ID: <20150925043640.GB18915@ketchup.lan>
+References: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
+ <1443081769-11193-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"vivien.didelot@savoirfairelinux.com"
-	<vivien.didelot@savoirfairelinux.com>
-To: "sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	linux@roeck-us.net, rami.rosen@intel.com,
+	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
+	gospo@cumulusnetworks.com, Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:31408 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730AbbIYEdI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 00:33:08 -0400
-In-Reply-To: <1443128370-27353-3-git-send-email-sfeldma@gmail.com>
-Content-Language: en-US
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:55626
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750850AbbIYEgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 00:36:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Premkumar Jonnala
+Hi Jiri,
 
-> -----Original Message-----
-> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
-> Sent: Friday, September 25, 2015 2:29 AM
-> To: netdev@vger.kernel.org
-> Cc: jiri@resnulli.us; siva.mannem.lnx@gmail.com; Premkumar Jonnala;
-> stephen@networkplumber.org; roopa@cumulusnetworks.com;
-> andrew@lunn.ch; f.fainelli@gmail.com; vivien.didelot@savoirfairelinux.com
-> Subject: [PATCH net-next 2/4] switchdev: skip over ports returning -
-> EOPNOTSUPP when recursing ports
+On Sep. Thursday 24 (39) 10:02 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> From: Scott Feldman <sfeldma@gmail.com>
+> Now, the memory allocation in prepare/commit state is done separatelly
+> in each driver (rocker). Introduce the similar mechanism in generic
+> switchdev code, in form of queue. That can be used not only for memory
+> allocations, but also for different items. Abort item destruction
+> is handled as well.
 > 
-> This allows us to recurse over all the ports, skipping over unsupporting
-> ports.  Without the change, the recursion would stop at first unsupported
-> port.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> ---
->  include/net/switchdev.h   |    1 +
->  net/switchdev/switchdev.c |    9 ++++++++-
->  2 files changed, 9 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 54b2faa..22a6dbe 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -15,6 +15,7 @@
->  #include <linux/notifier.h>
-> 
->  #define SWITCHDEV_F_NO_RECURSE		BIT(0)
-> +#define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
-> 
->  enum switchdev_trans {
->  	SWITCHDEV_TRANS_NONE,
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index fda38f8..5c30da0 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -73,7 +73,7 @@ static int __switchdev_port_attr_set(struct net_device
-> *dev,
->  		return ops->switchdev_port_attr_set(dev, attr);
-> 
->  	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
-> -		return err;
-> +		goto done;
-> 
->  	/* Switch device port(s) may be stacked under
->  	 * bond/team/vlan dev, so recurse down to set attr on
-> @@ -82,10 +82,17 @@ static int __switchdev_port_attr_set(struct net_device
-> *dev,
-> 
->  	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->  		err = __switchdev_port_attr_set(lower_dev, attr);
-> +		if (err == -EOPNOTSUPP &&
-> +		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
-> +			continue;
->  		if (err)
->  			break;
->  	}
-> 
-> +done:
-> +	if (err == -EOPNOTSUPP && attr->flags &
-> SWITCHDEV_F_SKIP_EOPNOTSUPP)
-> +		err = 0;
-> +
->  	return err;
->  }
-> 
-> --
-> 1.7.10.4
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+
+[...]
+
+>  /**
+>   * struct switchdev_ops - switchdev operations
+>   *
+> @@ -94,9 +110,11 @@ struct switchdev_ops {
+>  	int	(*switchdev_port_attr_get)(struct net_device *dev,
+>  					   struct switchdev_attr *attr);
+>  	int	(*switchdev_port_attr_set)(struct net_device *dev,
+> -					   struct switchdev_attr *attr);
+> +					   struct switchdev_attr *attr,
+> +					   struct switchdev_trans *trans);
+>  	int	(*switchdev_port_obj_add)(struct net_device *dev,
+> -					  struct switchdev_obj *obj);
+> +					  struct switchdev_obj *obj,
+> +					  struct switchdev_trans *trans);
+>  	int	(*switchdev_port_obj_del)(struct net_device *dev,
+>  					  struct switchdev_obj *obj);
+>  	int	(*switchdev_port_obj_dump)(struct net_device *dev,
+
+This version is better than the current state, but it's too bad we
+didn't get feedback yet on the real purpose of this 2-phase model...
+
+Anyway, if we do need that, my wish would be to at least make it
+optional. What do you think about having an optional prepare op?
+
+    int (*switchdev_port_obj_prepare)(struct net_device *dev,
+                                      struct switchdev_obj *obj,
+                                      struct switchdev_prepare *prep);
+
+So that the switchdev_port_obj_add function may look like this:
+
+    int switchdev_port_obj_add(struct net_device *dev,
+                               struct switchdev_obj *obj)
+    {
+        struct switchdev_prepare prep;
+        int err;
+
+        ASSERT_RTNL();
+
+        switchdev_trans_init(&prep);
+
+        err = __switchdev_port_obj_prepare(dev, obj, &prep);
+        if (!err)
+            err = __switchdev_port_obj_add(dev, obj, &prep);
+
+        switchdev_prepare_items_destroy(dev, &prep);
+
+        return err;
+    }
+
+So drivers can implement the prepare operation if they want to setup a
+transaction. You won't have to carry a boolean around, no need for extra
+switchdev_trans_ph_{prepare,commit} helpers, and drivers add operation
+become simpler.
+
+Same goes for attr_set for sure. Note that I suggest "switchdev_prepare"
+instead of "switchdev_trans" to avoid renaming commits and being more
+explicit, but it doesn't really matter.
+
+Thanks,
+-v
