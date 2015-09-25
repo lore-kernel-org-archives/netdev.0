@@ -1,69 +1,89 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH v2 18/19] mac80211: make ieee80211_new_mesh_header return
- unsigned
-Date: Fri, 25 Sep 2015 08:42:00 +0200
-Message-ID: <1443163320-25593-1-git-send-email-a.hajda@samsung.com>
-References: <1443103799.1869.6.camel@sipsolutions.net>
-Cc: Andrzej Hajda <a.hajda@samsung.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1443103799.1869.6.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Schulz <develop@kristov.de>
+Subject: [PATCH iproute2 v2] ip: allow using a device "help" (or a prefix
+ thereof)
+Date: Fri, 25 Sep 2015 08:44:07 +0200
+Message-ID: <5604ED37.4020103@kristov.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Wilhelm Wijkander <lists@0x5e.se>,
+	Vadim Kochan <vadim4j@gmail.com>,
+	Leonhard Preis <leonhard@pre.is>
+To: netdev@vger.kernel.org, lists@0x5e.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server1137-han.de-nserver.de ([77.75.249.171]:18412 "EHLO
+	server1137-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752015AbbIYGog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 02:44:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function returns always non-negative values.
+Device names that match "help" or a prefix thereof should be allowed anywhere
+a device name can be used. Note that a suitable keyword ("dev" or "name", the
+latter for "ip tunnel") has to be used in these cases to resolve ambiguities.
 
-The problem has been detected using proposed semantic patch
-scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
-
-[1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
-
-Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Christoph Schulz <develop@kristov.de>
+Reported-by: Leonhard Preis <leonhard@pre.is>
+Reported-by: Wilhelm Wijkander <lists@0x5e.se>
 ---
-v2: added missing declaration change, fixed indentation
----
- net/mac80211/mesh.c | 6 +++---
- net/mac80211/mesh.h | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ ip/ip6tunnel.c | 2 +-
+ ip/ipaddress.c | 2 +-
+ ip/iplink.c    | 3 +--
+ ip/ipmaddr.c   | 2 +-
+ 4 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index e06a5ca..90567fc 100644
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -540,9 +540,9 @@ int ieee80211_fill_mesh_addresses(struct ieee80211_hdr *hdr, __le16 *fc,
-  *
-  * Return the header length.
-  */
--int ieee80211_new_mesh_header(struct ieee80211_sub_if_data *sdata,
--			      struct ieee80211s_hdr *meshhdr,
--			      const char *addr4or5, const char *addr6)
-+unsigned int ieee80211_new_mesh_header(struct ieee80211_sub_if_data *sdata,
-+				       struct ieee80211s_hdr *meshhdr,
-+				       const char *addr4or5, const char *addr6)
- {
- 	if (WARN_ON(!addr4or5 && addr6))
- 		return 0;
-diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
-index 50c8473..029e41d 100644
---- a/net/mac80211/mesh.h
-+++ b/net/mac80211/mesh.h
-@@ -207,9 +207,9 @@ struct mesh_rmc {
- /* Various */
- int ieee80211_fill_mesh_addresses(struct ieee80211_hdr *hdr, __le16 *fc,
- 				  const u8 *da, const u8 *sa);
--int ieee80211_new_mesh_header(struct ieee80211_sub_if_data *sdata,
--			      struct ieee80211s_hdr *meshhdr,
--			      const char *addr4or5, const char *addr6);
-+unsigned int ieee80211_new_mesh_header(struct ieee80211_sub_if_data *sdata,
-+				       struct ieee80211s_hdr *meshhdr,
-+				       const char *addr4or5, const char *addr6);
- int mesh_rmc_check(struct ieee80211_sub_if_data *sdata,
- 		   const u8 *addr, struct ieee80211s_hdr *mesh_hdr);
- bool mesh_matches_local(struct ieee80211_sub_if_data *sdata,
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index 62a8240..9884efd 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -287,7 +287,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ 			if (strcmp(*argv, "name") == 0) {
+ 				NEXT_ARG();
+ 			}
+-			if (matches(*argv, "help") == 0)
++			else if (matches(*argv, "help") == 0)
+ 				usage();
+ 			if (p->name[0])
+ 				duparg2("name", *argv);
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index e539847..e864ca6 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1580,7 +1580,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+ 			}
+-			if (matches(*argv, "help") == 0)
++			else if (matches(*argv, "help") == 0)
+ 				usage();
+ 			if (filter_dev)
+ 				duparg2("dev", *argv);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 1c45205..f30de86 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -1148,8 +1148,7 @@ static int do_set(int argc, char **argv)
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0)
+ 				NEXT_ARG();
+-
+-			if (matches(*argv, "help") == 0)
++			else if (matches(*argv, "help") == 0)
+ 				usage();
+ 
+ 			if (dev)
+diff --git a/ip/ipmaddr.c b/ip/ipmaddr.c
+index a77a18f..cbd6d11 100644
+--- a/ip/ipmaddr.c
++++ b/ip/ipmaddr.c
+@@ -257,7 +257,7 @@ static int multiaddr_list(int argc, char **argv)
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+ 			}
+-			if (matches(*argv, "help") == 0)
++			else if (matches(*argv, "help") == 0)
+ 				usage();
+ 			if (filter.dev)
+ 				duparg2("dev", *argv);
 -- 
-1.9.1
+2.4.6
