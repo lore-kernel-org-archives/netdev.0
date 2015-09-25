@@ -1,65 +1,56 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 01/19] SUNRPC: fix variable type
-Date: Fri, 25 Sep 2015 16:25:15 -0400
-Message-ID: <20150925202515.GA15653@fieldses.org>
-References: <1443103227-25612-1-git-send-email-a.hajda@samsung.com>
- <1443103227-25612-2-git-send-email-a.hajda@samsung.com>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
+Date: Fri, 25 Sep 2015 13:25:49 -0700
+Message-ID: <CAKohpok2Z2m7GZt1GzZzofeHEioF=XJEq8YVgtY=VtS9tmpb_Q@mail.gmail.com>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
+	<20150925185256.GG5951@linux>
+	<4331507.W3ZDWldbWu@vostro.rjw.lan>
+	<4357538.Wlf88yQie6@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1443103227-25612-2-git-send-email-a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Linaro Kernel Mailman List <linaro-kernel@lists.linaro.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	"open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+	"open list:AMD IOMMU (AMD-VI)" <iommu@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"open list:NETWORKING DRIVERS (WIRELESS)"
+	<linux-wireless@vger.kernel.org>,
+	"open list:TARGET SUBSYSTEM" <linux-scsi@vger.kernel.org>,
+	"open list:ULTRA-WIDEBAND (UWB) SUBSYSTEM:"
+	<linux-usb@vger.kernel.org>,
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <4357538.Wlf88yQie6@vostro.rjw.lan>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACK.  Assuming Trond gets this.--b.
+On 25 September 2015 at 13:33, Rafael J. Wysocki <rjw@rjwysocki.net> wrote:
+> You're going to change that into bool in the next patch, right?
 
-On Thu, Sep 24, 2015 at 04:00:09PM +0200, Andrzej Hajda wrote:
-> Due to incorrect len type bc_send_request returned always zero.
-> 
-> The problem has been detected using proposed semantic patch
-> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
-> 
-> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
-> 
-> Signed-off-by: Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-> ---
-> Hi,
-> 
-> To avoid problems with too many mail recipients I have sent whole
-> patchset only to LKML. Anyway patches have no dependencies.
-> 
-> Regards
-> Andrzej
-> ---
->  net/sunrpc/xprtsock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index 1a85e0e..60fb002 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -2472,7 +2472,7 @@ static int bc_send_request(struct rpc_task *task)
->  {
->  	struct rpc_rqst *req = task->tk_rqstp;
->  	struct svc_xprt	*xprt;
-> -	u32                     len;
-> +	int len;
->  
->  	dprintk("sending request with xid: %08x\n", ntohl(req->rq_xid));
->  	/*
-> -- 
-> 1.9.1
+Yeah.
+
+> So what if bool is a byte and the field is not word-aligned
+
+Its between two 'unsigned long' variables today, and the struct isn't packed.
+So, it will be aligned, isn't it?
+
+> and changing
+> that byte requires a read-modify-write.  How do we ensure that things remain
+> consistent in that case?
+
+I didn't understood why a read-modify-write is special here? That's
+what will happen
+to most of the non-word-sized fields anyway?
+
+Probably I didn't understood what you meant..
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+viresh
