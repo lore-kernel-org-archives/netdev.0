@@ -1,87 +1,111 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 06/11] net: Replace calls to vrf_dev_get_rth
-Date: Thu, 24 Sep 2015 18:21:02 -0600
-Message-ID: <1443140467-69297-7-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 08/11] net: Remove vrf header file
+Date: Thu, 24 Sep 2015 18:21:04 -0600
+Message-ID: <1443140467-69297-9-git-send-email-dsa@cumulusnetworks.com>
 References: <1443140467-69297-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36527 "EHLO
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33211 "EHLO
 	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753295AbbIYAVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 20:21:23 -0400
-Received: by pacgz1 with SMTP id gz1so5000448pac.3
-        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 17:21:23 -0700 (PDT)
+	with ESMTP id S1753306AbbIYAV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 20:21:27 -0400
+Received: by pacex6 with SMTP id ex6so87397809pac.0
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 17:21:26 -0700 (PDT)
 In-Reply-To: <1443140467-69297-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace calls to vrf_dev_get_rth with l3mdev_get_rtable.
-The check on the flow flags is handled in the l3mdev operation.
+Move remaining structs to VRF driver and delete the vrf header file.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/vrf.h | 22 ----------------------
- net/ipv4/route.c  |  8 +++-----
- 2 files changed, 3 insertions(+), 27 deletions(-)
+ MAINTAINERS       |  1 -
+ drivers/net/vrf.c | 16 +++++++++++++++-
+ include/net/vrf.h | 29 -----------------------------
+ 3 files changed, 15 insertions(+), 31 deletions(-)
+ delete mode 100644 include/net/vrf.h
 
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-index b05b96646e2a..5bba1535ba73 100644
---- a/include/net/vrf.h
-+++ b/include/net/vrf.h
-@@ -32,26 +32,4 @@ struct net_vrf {
- 	u32			tb_id;
- };
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 97c005e12926..5775010e751b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -11248,7 +11248,6 @@ M:	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/net/vrf.c
+-F:	include/net/vrf.h
  
--
--#if IS_ENABLED(CONFIG_NET_VRF)
--/* caller has already checked netif_is_l3_master(dev) */
--static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
--{
--	struct rtable *rth = ERR_PTR(-ENETUNREACH);
--	struct net_vrf *vrf = netdev_priv(dev);
--
--	if (vrf) {
--		rth = vrf->rth;
--		atomic_inc(&rth->dst.__refcnt);
--	}
--	return rth;
--}
--
--#else
--static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
--{
--	return ERR_PTR(-ENETUNREACH);
--}
--#endif
--
- #endif /* __LINUX_NET_VRF_H */
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 90cf915c36d9..c858fdb8c2d5 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -112,7 +112,6 @@
- #endif
- #include <net/secure_seq.h>
- #include <net/ip_tunnels.h>
+ VT1211 HARDWARE MONITOR DRIVER
+ M:	Juerg Haefliger <juergh@gmail.com>
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index fcf5f534d11e..388517fc6e15 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -34,7 +34,6 @@
+ #include <net/rtnetlink.h>
+ #include <net/route.h>
+ #include <net/addrconf.h>
 -#include <net/vrf.h>
  #include <net/l3mdev.h>
  
- #define RT_FL_TOS(oldflp4) \
-@@ -2127,11 +2126,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      RT_SCOPE_HOST);
- 		}
--		if (netif_is_l3_master(dev_out) &&
--		    !(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
--			rth = vrf_dev_get_rth(dev_out);
-+
-+		rth = l3mdev_get_rtable(dev_out, fl4);
-+		if (rth)
- 			goto out;
--		}
- 	}
+ #define DRV_NAME	"vrf"
+@@ -45,6 +44,21 @@
+ #define vrf_master_get_rcu(dev) \
+ 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
  
- 	if (!fl4->daddr) {
++struct slave {
++	struct list_head        list;
++	struct net_device       *dev;
++};
++
++struct slave_queue {
++	struct list_head        all_slaves;
++};
++
++struct net_vrf {
++	struct slave_queue      queue;
++	struct rtable           *rth;
++	u32                     tb_id;
++};
++
+ struct pcpu_dstats {
+ 	u64			tx_pkts;
+ 	u64			tx_bytes;
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+deleted file mode 100644
+index e83fc38770dd..000000000000
+--- a/include/net/vrf.h
++++ /dev/null
+@@ -1,29 +0,0 @@
+-/*
+- * include/net/net_vrf.h - adds vrf dev structure definitions
+- * Copyright (c) 2015 Cumulus Networks
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- */
+-
+-#ifndef __LINUX_NET_VRF_H
+-#define __LINUX_NET_VRF_H
+-
+-struct slave {
+-	struct list_head	list;
+-	struct net_device	*dev;
+-};
+-
+-struct slave_queue {
+-	struct list_head	all_slaves;
+-};
+-
+-struct net_vrf {
+-	struct slave_queue	queue;
+-	struct rtable           *rth;
+-	u32			tb_id;
+-};
+-
+-#endif /* __LINUX_NET_VRF_H */
 -- 
 2.3.8 (Apple Git-58)
