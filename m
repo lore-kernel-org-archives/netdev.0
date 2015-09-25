@@ -1,99 +1,84 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 3/5] netfilter: ipt_SYNPROXY: Pass snet into synproxy_send_tcp
-Date: Fri, 25 Sep 2015 15:07:29 -0500
-Message-ID: <1443211651-22154-3-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 2/5] netfilter: Push struct net down into nf_afinfo.reroute
+Date: Fri, 25 Sep 2015 15:07:28 -0500
+Message-ID: <1443211651-22154-2-git-send-email-ebiederm@xmission.com>
 References: <87si62gteh.fsf_-_@x220.int.ebiederm.org>
 Cc: David Miller <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:38711 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932976AbbIYUPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 16:15:15 -0400
 In-Reply-To: <87si62gteh.fsf_-_@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip6t_SYNPROXY already does this and this is needed so that we have a
-struct net that can be passed down into ip_route_me_harder, so
-that ip_route_me_harder can stop guessing it's context.
-
-Along the way pass snet into synproxy_send_client_synack as this
-is the only caller of synprox_send_tcp that is not passed snet
-already.
+The network namespace is needed when routing a packet.
+Stop making nf_afinfo.reroute guess which network namespace
+is the proper namespace to route the packet in.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/netfilter/ipt_SYNPROXY.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ include/linux/netfilter.h | 2 +-
+ net/ipv4/netfilter.c      | 2 +-
+ net/ipv6/netfilter.c      | 2 +-
+ net/netfilter/nf_queue.c  | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index d7021f28c3f0..0060d9abd514 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -39,7 +39,8 @@ synproxy_build_ip(struct sk_buff *skb, __be32 saddr, __be32 daddr)
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 987c74cd523c..165ab2d14734 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -283,7 +283,7 @@ struct nf_afinfo {
+ 				 struct flowi *fl, bool strict);
+ 	void		(*saveroute)(const struct sk_buff *skb,
+ 				     struct nf_queue_entry *entry);
+-	int		(*reroute)(struct sk_buff *skb,
++	int		(*reroute)(struct net *net, struct sk_buff *skb,
+ 				   const struct nf_queue_entry *entry);
+ 	int		route_key_size;
+ };
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 61eafc9b4545..9e07e6f23398 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -104,7 +104,7 @@ static void nf_ip_saveroute(const struct sk_buff *skb,
+ 	}
  }
  
- static void
--synproxy_send_tcp(const struct sk_buff *skb, struct sk_buff *nskb,
-+synproxy_send_tcp(const struct synproxy_net *snet,
-+		  const struct sk_buff *skb, struct sk_buff *nskb,
- 		  struct nf_conntrack *nfct, enum ip_conntrack_info ctinfo,
- 		  struct iphdr *niph, struct tcphdr *nth,
- 		  unsigned int tcp_hdr_size)
-@@ -68,7 +69,8 @@ free_nskb:
- }
- 
- static void
--synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
-+synproxy_send_client_synack(const struct synproxy_net *snet,
-+			    const struct sk_buff *skb, const struct tcphdr *th,
- 			    const struct synproxy_options *opts)
+-static int nf_ip_reroute(struct sk_buff *skb,
++static int nf_ip_reroute(struct net *net, struct sk_buff *skb,
+ 			 const struct nf_queue_entry *entry)
  {
- 	struct sk_buff *nskb;
-@@ -104,7 +106,7 @@ synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
-+	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
- 			  niph, nth, tcp_hdr_size);
+ 	const struct ip_rt_info *rt_info = nf_queue_entry_reroute(entry);
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index b4de08a83e0b..26911b93dc7a 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -93,7 +93,7 @@ static void nf_ip6_saveroute(const struct sk_buff *skb,
+ 	}
  }
  
-@@ -148,7 +150,7 @@ synproxy_send_server_syn(const struct synproxy_net *snet,
+-static int nf_ip6_reroute(struct sk_buff *skb,
++static int nf_ip6_reroute(struct net *net, struct sk_buff *skb,
+ 			  const struct nf_queue_entry *entry)
+ {
+ 	struct ip6_rt_info *rt_info = nf_queue_entry_reroute(entry);
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 9f3c3c25fa73..34f628e16a4c 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -199,7 +199,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  
- 	synproxy_build_options(nth, opts);
+ 	if (verdict == NF_ACCEPT) {
+ 		afinfo = nf_get_afinfo(entry->state.pf);
+-		if (!afinfo || afinfo->reroute(skb, entry) < 0)
++		if (!afinfo || afinfo->reroute(entry->state.net, skb, entry) < 0)
+ 			verdict = NF_DROP;
+ 	}
  
--	synproxy_send_tcp(skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
-+	synproxy_send_tcp(snet, skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
- 			  niph, nth, tcp_hdr_size);
- }
- 
-@@ -188,7 +190,7 @@ synproxy_send_server_ack(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
-+	synproxy_send_tcp(snet, skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
- }
- 
- static void
-@@ -226,7 +228,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
-+	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
- 	                  niph, nth, tcp_hdr_size);
- }
- 
-@@ -287,7 +289,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_SACK_PERM |
- 					  XT_SYNPROXY_OPT_ECN);
- 
--		synproxy_send_client_synack(skb, th, &opts);
-+		synproxy_send_client_synack(snet, skb, th, &opts);
- 		return NF_DROP;
- 
- 	} else if (th->ack && !(th->fin || th->rst || th->syn)) {
 -- 
 2.2.1
-
