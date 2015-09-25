@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 06/23] usb-gadget/ether: use per-attribute
-	show and store methods
-Date: Fri, 25 Sep 2015 06:49:43 -0700
-Message-ID: <1443189000-13398-7-git-send-email-hch@lst.de>
+Subject: [PATCH 01/23] configfs: add show and store methods
+	to struct configfs_attribute
+Date: Fri, 25 Sep 2015 06:49:38 -0700
+Message-ID: <1443189000-13398-2-git-send-email-hch@lst.de>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         Pratyush Anand <pratyush.anand@gmail.com>, Felipe Balbi <balbi@ti.com>,
@@ -23,243 +23,105 @@ Sender: cluster-devel-bounces@redhat.com
 Errors-To: cluster-devel-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
+Add methods to struct configfs_attribute to directly show and store
+attributes without adding boilerplate code to every user.  In addition
+to the methods this also adds 3 helper macros to define read/write,
+read-only and write-only attributes with a single line of code.
+
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/usb/gadget/function/f_ecm.c            |  8 ++---
- drivers/usb/gadget/function/f_eem.c            |  8 ++---
- drivers/usb/gadget/function/f_ncm.c            |  8 ++---
- drivers/usb/gadget/function/f_rndis.c          |  8 ++---
- drivers/usb/gadget/function/f_subset.c         |  8 ++---
- drivers/usb/gadget/function/u_ether_configfs.h | 44 +++++++++++---------------
- 6 files changed, 38 insertions(+), 46 deletions(-)
+ fs/configfs/file.c       | 17 ++++++++++++-----
+ include/linux/configfs.h | 27 +++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_ecm.c b/drivers/usb/gadget/function/f_ecm.c
-index 7b7424f..0106de8 100644
---- a/drivers/usb/gadget/function/f_ecm.c
-+++ b/drivers/usb/gadget/function/f_ecm.c
-@@ -855,10 +855,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(ecm);
- USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(ecm);
+diff --git a/fs/configfs/file.c b/fs/configfs/file.c
+index 403269f..106ca58 100644
+--- a/fs/configfs/file.c
++++ b/fs/configfs/file.c
+@@ -74,7 +74,11 @@ static int fill_read_buffer(struct dentry * dentry, struct configfs_buffer * buf
+ 	if (!buffer->page)
+ 		return -ENOMEM;
  
- static struct configfs_attribute *ecm_attrs[] = {
--	&f_ecm_opts_dev_addr.attr,
--	&f_ecm_opts_host_addr.attr,
--	&f_ecm_opts_qmult.attr,
--	&f_ecm_opts_ifname.attr,
-+	&ecm_opts_attr_dev_addr,
-+	&ecm_opts_attr_host_addr,
-+	&ecm_opts_attr_qmult,
-+	&ecm_opts_attr_ifname,
- 	NULL,
- };
+-	count = ops->show_attribute(item,attr,buffer->page);
++	if (ops->show_attribute)
++		count = ops->show_attribute(item, attr, buffer->page);
++	else
++		count = attr->show(item, buffer->page);
++
+ 	buffer->needs_read_fill = 0;
+ 	BUG_ON(count > (ssize_t)SIMPLE_ATTR_SIZE);
+ 	if (count >= 0)
+@@ -173,7 +177,9 @@ flush_write_buffer(struct dentry * dentry, struct configfs_buffer * buffer, size
+ 	struct config_item * item = to_item(dentry->d_parent);
+ 	struct configfs_item_operations * ops = buffer->ops;
  
-diff --git a/drivers/usb/gadget/function/f_eem.c b/drivers/usb/gadget/function/f_eem.c
-index c9e90de..f965403 100644
---- a/drivers/usb/gadget/function/f_eem.c
-+++ b/drivers/usb/gadget/function/f_eem.c
-@@ -555,10 +555,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(eem);
- USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(eem);
+-	return ops->store_attribute(item,attr,buffer->page,count);
++	if (ops->store_attribute)
++		return ops->store_attribute(item, attr, buffer->page, count);
++	return attr->store(item, buffer->page, count);
+ }
  
- static struct configfs_attribute *eem_attrs[] = {
--	&f_eem_opts_dev_addr.attr,
--	&f_eem_opts_host_addr.attr,
--	&f_eem_opts_qmult.attr,
--	&f_eem_opts_ifname.attr,
-+	&eem_opts_attr_dev_addr,
-+	&eem_opts_attr_host_addr,
-+	&eem_opts_attr_qmult,
-+	&eem_opts_attr_ifname,
- 	NULL,
- };
  
-diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
-index 3f05c6bd..01a99e5 100644
---- a/drivers/usb/gadget/function/f_ncm.c
-+++ b/drivers/usb/gadget/function/f_ncm.c
-@@ -1503,10 +1503,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(ncm);
- USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(ncm);
+@@ -237,8 +243,8 @@ static int check_perm(struct inode * inode, struct file * file)
+ 	 * and we must have a store method.
+ 	 */
+ 	if (file->f_mode & FMODE_WRITE) {
+-
+-		if (!(inode->i_mode & S_IWUGO) || !ops->store_attribute)
++		if (!(inode->i_mode & S_IWUGO) ||
++		    (!ops->store_attribute && !attr->store))
+ 			goto Eaccess;
  
- static struct configfs_attribute *ncm_attrs[] = {
--	&f_ncm_opts_dev_addr.attr,
--	&f_ncm_opts_host_addr.attr,
--	&f_ncm_opts_qmult.attr,
--	&f_ncm_opts_ifname.attr,
-+	&ncm_opts_attr_dev_addr,
-+	&ncm_opts_attr_host_addr,
-+	&ncm_opts_attr_qmult,
-+	&ncm_opts_attr_ifname,
- 	NULL,
- };
- 
-diff --git a/drivers/usb/gadget/function/f_rndis.c b/drivers/usb/gadget/function/f_rndis.c
-index 32985da..a04b526 100644
---- a/drivers/usb/gadget/function/f_rndis.c
-+++ b/drivers/usb/gadget/function/f_rndis.c
-@@ -878,10 +878,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(rndis);
- USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(rndis);
- 
- static struct configfs_attribute *rndis_attrs[] = {
--	&f_rndis_opts_dev_addr.attr,
--	&f_rndis_opts_host_addr.attr,
--	&f_rndis_opts_qmult.attr,
--	&f_rndis_opts_ifname.attr,
-+	&rndis_opts_attr_dev_addr,
-+	&rndis_opts_attr_host_addr,
-+	&rndis_opts_attr_qmult,
-+	&rndis_opts_attr_ifname,
- 	NULL,
- };
- 
-diff --git a/drivers/usb/gadget/function/f_subset.c b/drivers/usb/gadget/function/f_subset.c
-index e3dfa67..055e4ea 100644
---- a/drivers/usb/gadget/function/f_subset.c
-+++ b/drivers/usb/gadget/function/f_subset.c
-@@ -413,10 +413,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(gether);
- USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(gether);
- 
- static struct configfs_attribute *gether_attrs[] = {
--	&f_gether_opts_dev_addr.attr,
--	&f_gether_opts_host_addr.attr,
--	&f_gether_opts_qmult.attr,
--	&f_gether_opts_ifname.attr,
-+	&gether_opts_attr_dev_addr,
-+	&gether_opts_attr_host_addr,
-+	&gether_opts_attr_qmult,
-+	&gether_opts_attr_ifname,
- 	NULL,
- };
- 
-diff --git a/drivers/usb/gadget/function/u_ether_configfs.h b/drivers/usb/gadget/function/u_ether_configfs.h
-index bcbd301..4f47289 100644
---- a/drivers/usb/gadget/function/u_ether_configfs.h
-+++ b/drivers/usb/gadget/function/u_ether_configfs.h
-@@ -17,9 +17,6 @@
- #define __U_ETHER_CONFIGFS_H
- 
- #define USB_ETHERNET_CONFIGFS_ITEM(_f_)					\
--	CONFIGFS_ATTR_STRUCT(f_##_f_##_opts);				\
--	CONFIGFS_ATTR_OPS(f_##_f_##_opts);				\
--									\
- 	static void _f_##_attr_release(struct config_item *item)	\
- 	{								\
- 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
-@@ -29,14 +26,13 @@
- 									\
- 	static struct configfs_item_operations _f_##_item_ops = {	\
- 		.release	= _f_##_attr_release,			\
--		.show_attribute = f_##_f_##_opts_attr_show,		\
--		.store_attribute = f_##_f_##_opts_attr_store,		\
+ 	}
+@@ -248,7 +254,8 @@ static int check_perm(struct inode * inode, struct file * file)
+ 	 * must be a show method for it.
+ 	 */
+ 	if (file->f_mode & FMODE_READ) {
+-		if (!(inode->i_mode & S_IRUGO) || !ops->show_attribute)
++		if (!(inode->i_mode & S_IRUGO) ||
++		    (!ops->show_attribute && !attr->show))
+ 			goto Eaccess;
  	}
  
- #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(_f_)			\
--	static ssize_t _f_##_opts_dev_addr_show(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_dev_addr_show(struct config_item *item, \
- 						char *page)		\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		int result;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -46,9 +42,10 @@
- 		return result;						\
- 	}								\
- 									\
--	static ssize_t _f_##_opts_dev_addr_store(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_dev_addr_store(struct config_item *item, \
- 						 const char *page, size_t len)\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		int ret;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -64,15 +61,13 @@
- 		return ret;						\
- 	}								\
- 									\
--	static struct f_##_f_##_opts_attribute f_##_f_##_opts_dev_addr = \
--		__CONFIGFS_ATTR(dev_addr, S_IRUGO | S_IWUSR,		\
--				_f_##_opts_dev_addr_show,		\
--				_f_##_opts_dev_addr_store)
-+	CONFIGFS_ATTR(_f_##_opts_, dev_addr)
+diff --git a/include/linux/configfs.h b/include/linux/configfs.h
+index 63a36e8..85e9956 100644
+--- a/include/linux/configfs.h
++++ b/include/linux/configfs.h
+@@ -125,8 +125,35 @@ struct configfs_attribute {
+ 	const char		*ca_name;
+ 	struct module 		*ca_owner;
+ 	umode_t			ca_mode;
++	ssize_t (*show)(struct config_item *, char *);
++	ssize_t (*store)(struct config_item *, const char *, size_t);
+ };
  
- #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(_f_)			\
--	static ssize_t _f_##_opts_host_addr_show(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_host_addr_show(struct config_item *item, \
- 						 char *page)		\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		int result;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -82,9 +77,10 @@
- 		return result;						\
- 	}								\
- 									\
--	static ssize_t _f_##_opts_host_addr_store(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_host_addr_store(struct config_item *item, \
- 						  const char *page, size_t len)\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		int ret;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -100,15 +96,13 @@
- 		return ret;						\
- 	}								\
- 									\
--	static struct f_##_f_##_opts_attribute f_##_f_##_opts_host_addr = \
--		__CONFIGFS_ATTR(host_addr, S_IRUGO | S_IWUSR,		\
--				_f_##_opts_host_addr_show,		\
--				_f_##_opts_host_addr_store)
-+	CONFIGFS_ATTR(_f_##_opts_, host_addr)
- 
- #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(_f_)			\
--	static ssize_t _f_##_opts_qmult_show(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_qmult_show(struct config_item *item,	\
- 					     char *page)		\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		unsigned qmult;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -117,9 +111,10 @@
- 		return sprintf(page, "%d", qmult);			\
- 	}								\
- 									\
--	static ssize_t _f_##_opts_qmult_store(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_qmult_store(struct config_item *item, \
- 					      const char *page, size_t len)\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		u8 val;							\
- 		int ret;						\
- 									\
-@@ -140,15 +135,13 @@ out:									\
- 		return ret;						\
- 	}								\
- 									\
--	static struct f_##_f_##_opts_attribute f_##_f_##_opts_qmult =	\
--		__CONFIGFS_ATTR(qmult, S_IRUGO | S_IWUSR,		\
--				_f_##_opts_qmult_show,		\
--				_f_##_opts_qmult_store)
-+	CONFIGFS_ATTR(_f_##_opts_, qmult)
- 
- #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(_f_)			\
--	static ssize_t _f_##_opts_ifname_show(struct f_##_f_##_opts *opts, \
-+	static ssize_t _f_##_opts_ifname_show(struct config_item *item, \
- 					      char *page)		\
- 	{								\
-+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
- 		int ret;						\
- 									\
- 		mutex_lock(&opts->lock);				\
-@@ -158,7 +151,6 @@ out:									\
- 		return ret;						\
- 	}								\
- 									\
--	static struct f_##_f_##_opts_attribute f_##_f_##_opts_ifname =	\
--		__CONFIGFS_ATTR_RO(ifname, _f_##_opts_ifname_show)
-+	CONFIGFS_ATTR_RO(_f_##_opts_, ifname)
- 
- #endif /* __U_ETHER_CONFIGFS_H */
++#define CONFIGFS_ATTR(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IRUGO | S_IWUSR,		\
++	.ca_owner	= THIS_MODULE,			\
++	.show		= _pfx##_name##_show,		\
++	.store		= _pfx##_name##_store,		\
++}
++
++#define CONFIGFS_ATTR_RO(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IRUGO,			\
++	.ca_owner	= THIS_MODULE,			\
++	.show		= _pfx##_name##_show,		\
++}
++
++#define CONFIGFS_ATTR_WO(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IWUSR,			\
++	.ca_owner	= THIS_MODULE,			\
++	.store		= _pfx##_name##_store,		\
++}
++
+ /*
+  * Users often need to create attribute structures for their configurable
+  * attributes, containing a configfs_attribute member and function pointers
 -- 
 1.9.1
