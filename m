@@ -1,12 +1,13 @@
 From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
 Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
-Date: Fri, 25 Sep 2015 22:22:33 +0200
-Message-ID: <16046206.NvsuxYn5NN@vostro.rjw.lan>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org> <1460975.zriLPuubXp@vostro.rjw.lan>
+Date: Fri, 25 Sep 2015 22:26:22 +0200
+Message-ID: <4331507.W3ZDWldbWu@vostro.rjw.lan>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org> <1443206945.2161.9.camel@sipsolutions.net> <20150925185256.GG5951@linux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7Bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linaro-kernel@lists.linaro.org,
 	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
 	Intel Linux Wireless <ilw@linux.intel.com>,
@@ -19,27 +20,24 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	alsa-devel@alsa-project.org
 To: Viresh Kumar <viresh.kumar@linaro.org>
 Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1460975.zriLPuubXp@vostro.rjw.lan>
+In-Reply-To: <20150925185256.GG5951@linux>
 Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, September 25, 2015 10:18:13 PM Rafael J. Wysocki wrote:
-> On Friday, September 25, 2015 09:41:37 AM Viresh Kumar wrote:
-> > global_lock is defined as an unsigned long and accessing only its lower
-> > 32 bits from sysfs is incorrect, as we need to consider other 32 bits
-> > for big endian 64 bit systems. There are no such platforms yet, but the
-> > code needs to be robust for such a case.
-> > 
-> > Fix that by passing a local variable to debugfs_create_bool() and
-> > assigning its value to global_lock later.
-> > 
-> > Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+On Friday, September 25, 2015 11:52:56 AM Viresh Kumar wrote:
+> On 25-09-15, 20:49, Johannes Berg wrote:
+> > Ok, then, but that means Rafael is completely wrong ...
+> > debugfs_create_bool() takes a *pointer* and it needs to be long-lived,
+> > it can't be on the stack. You also don't get a call when it changes.
 > 
-> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> 
-> Greg, please take this one if the [2/2] looks good to you.
+> Ahh, ofcourse. My bad as well...
 
-Ouch, turns out it was a bad idea.  Please scratch that.
+Well, sorry about the wrong suggestion.
+
+> I think we can change structure definition but will wait for Rafael's
+> comment before that.
+
+OK, change the structure then.
 
 Thanks,
 Rafael
