@@ -1,49 +1,45 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH net-next] lan78xx: Return 0 when lan78xx_suspend() has no
- error.
-Date: Fri, 25 Sep 2015 21:13:48 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40423528@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: Remove redundant oif checks in rt6_device_match
+Date: Fri, 25 Sep 2015 15:22:54 -0600
+Message-ID: <1443216174-72579-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: yoshfuji@linux-ipv6.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:36714 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933215AbbIYVNt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 17:13:49 -0400
-Content-Language: en-US
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:32996 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933361AbbIYVXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 17:23:01 -0400
+Received: by pacex6 with SMTP id ex6so115956063pac.0
+        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 14:23:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-lan78xx_suspend() may return non-zero from lan78xx_write_reg() in some scenario.
-Fix to return 0 when lan78xx_suspend() has no error.
+The oif has already been checked that it is non-zero; the 2 additional
+checks on oif within that if (oif) {...} block are redundant.
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+CC: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/usb/lan78xx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/route.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index d2a5f3f..226668e 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -3204,7 +3204,6 @@ int lan78xx_suspend(struct usb_interface *intf, pm_message_t message)
- 	int ret;
- 	int event;
- 
--	ret = 0;
- 	event = message.event;
- 
- 	if (!dev->suspend_count++) {
-@@ -3286,6 +3285,7 @@ int lan78xx_suspend(struct usb_interface *intf, pm_message_t message)
- 		}
- 	}
- 
-+	ret = 0;
- out:
- 	return ret;
- }
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 118f8fa1a809..934dd9c6aa86 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -474,10 +474,10 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 			if (dev->flags & IFF_LOOPBACK) {
+ 				if (!sprt->rt6i_idev ||
+ 				    sprt->rt6i_idev->dev->ifindex != oif) {
+-					if (flags & RT6_LOOKUP_F_IFACE && oif)
++					if (flags & RT6_LOOKUP_F_IFACE)
+ 						continue;
+-					if (local && (!oif ||
+-						      local->rt6i_idev->dev->ifindex == oif))
++					if (local &&
++					    local->rt6i_idev->dev->ifindex == oif)
+ 						continue;
+ 				}
+ 				local = sprt;
 -- 
-2.1.4
+2.3.8 (Apple Git-58)
