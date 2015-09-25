@@ -1,56 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: Glibc recvmsg from kernel netlink socket hangs forever
-Date: Thu, 24 Sep 2015 22:34:10 -0700
-Message-ID: <5604DCD2.4090600@roeck-us.net>
-References: <C3C03EFC-53E1-45DE-87AF-59C7367BD21E@gmail.com>
- <20150925043653.GA29111@roeck-us.net>
- <20150925045853.GA5286@gondor.apana.org.au>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [RFC v2 net-next 05/10] qede: Add basic network device support
+Date: Fri, 25 Sep 2015 05:43:06 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63E32A5E@avmb3.qlogic.org>
+References: <1442499839-22762-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<1442499839-22762-6-git-send-email-Yuval.Mintz@qlogic.com>
+ <20150924142536.052d6175@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steven Schlansker <stevenschlansker@gmail.com>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:56890 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbbIYFeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 01:34:24 -0400
-In-Reply-To: <20150925045853.GA5286@gondor.apana.org.au>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:25432 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754439AbbIYFnJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 01:43:09 -0400
+In-Reply-To: <20150924142536.052d6175@urahara>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert,
+> > > +#define QEDE_NAPI_WEIGHT	(NAPI_POLL_WEIGHT)
+> > Why not just use existing constant rather than walpapering?
 
-On 09/24/2015 09:58 PM, Herbert Xu wrote:
-> On Thu, Sep 24, 2015 at 09:36:53PM -0700, Guenter Roeck wrote:
->>
->> http://comments.gmane.org/gmane.linux.network/363085
->>
->> might explain your problem.
->>
->> I thought this was resolved in 4.1, but it looks like the problem still persists
->> there. At least I have reports from my workplace that 4.1.6 and 4.1.7 are still
->> affected. I don't know if there have been any relevant changes in 4.2.
->>
->> Copying Herbert and Eric for additional input.
->
-> There was a separate bug discovered by Tejun recently.  You need
-> to apply the patches
->
-> https://patchwork.ozlabs.org/patch/519245/
-> https://patchwork.ozlabs.org/patch/520824/
->
-I assume this is on top of mainline ?
+No reason; We'll remove it.
 
-> There is another follow-up but it shouldn't make any difference
-> in practice.
->
+> > > +#define U64_LO(x)			((u32)(((u64)(x)) & 0xffffffff))
+> > > +#define U64_HI(x)			((u32)(((u64)(x)) >> 32))
+> > > +#define HILO_U64(hi, lo)		((((u64)(hi)) << 32) + (lo))
+> > 
+> > Why reinvent upper32 and lower32?
 
-Any idea what may be needed for 4.1 ?
-I am currently trying https://patchwork.ozlabs.org/patch/473041/,
-but I have no idea if that will help with the problem we are seeing there.
+Ignorance? And I assume you meant {upper, lower}_32_bits.
+Is there also a standard macro doing what HILO_U64 does?
 
-Thanks,
-Guenter
+> > +struct qede_rx_queue {
+> > +	__le16			*hw_cons_ptr;
+> 
+> The __ variants of constants should be reserved for use in user visible API's
+
+Really? If so, this needs to be fixed not only here but in lots of places
+in the series [e.g., entire HW HSI uses __le variants instead of le].
+But why is it so? I.e., I understand that __le16 is defined in the uapi directory and
+thus accessible to users, but why the distinction?
+[I'm looking at bnx2x_hsi.h for reference which is full with the __le variants;
+Not saying that's a good thing, though]
+
+> > > +	int			rx_buf_size;
+> > 
+> > Shouldn't rx_buf_size be unsigned?
+
+Yes.
