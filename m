@@ -1,48 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Glibc recvmsg from kernel netlink socket hangs forever
-Date: Fri, 25 Sep 2015 12:58:53 +0800
-Message-ID: <20150925045853.GA5286@gondor.apana.org.au>
-References: <C3C03EFC-53E1-45DE-87AF-59C7367BD21E@gmail.com>
- <20150925043653.GA29111@roeck-us.net>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
+ with ethtool
+Date: Fri, 25 Sep 2015 08:07:52 +0400
+Message-ID: <20150925080752.14a2fee6@fr-ThinkPad-W520>
+References: <20150923144222.66de305c@fr-ThinkPad-W520>
+	<20150923.110549.113067983983388057.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Schlansker <stevenschlansker@gmail.com>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:54987 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbbIYE7C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 00:59:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20150925043653.GA29111@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<benh@kernel.crashing.org>, "Ben Hutchings" <ben@decadent.org.uk>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150923.110549.113067983983388057.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 24, 2015 at 09:36:53PM -0700, Guenter Roeck wrote:
->
-> http://comments.gmane.org/gmane.linux.network/363085
+On Wed, 23 Sep 2015 11:05:49 -0700 (PDT)
+"David Miller" <davem@davemloft.net> wrote:
+
+> From: Ivan Mikhaylov <ivan@ru.ibm.com>
+> Date: Wed, 23 Sep 2015 14:42:22 +0400
 > 
-> might explain your problem.
+> > Register dump out work preventing with 
+> > old ethtool + new driver and new ethtool + old driver.
 > 
-> I thought this was resolved in 4.1, but it looks like the problem still persists
-> there. At least I have reports from my workplace that 4.1.6 and 4.1.7 are still
-> affected. I don't know if there have been any relevant changes in 4.2.
+> First of all you didn't provide a proper Signoff.
 > 
-> Copying Herbert and Eric for additional input.
+> Second of all, there was so much discussion about whether this does
+> or does not break things for various combinations of old/new ethtool
+> and kernel.
+> 
+> Therefore I want a real detailed commit message that explains why this
+> is all OK.  After so much confusion and discussion, providing a patch
+> with absolutely no commit message is completely inappropriate.
 
-There was a separate bug discovered by Tejun recently.  You need
-to apply the patches
-
-https://patchwork.ozlabs.org/patch/519245/
-https://patchwork.ozlabs.org/patch/520824/
-
-There is another follow-up but it shouldn't make any difference
-in practice.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David, my apologies for signoff and description, I admit that is inappropriate.
+Ben proposed one, is it eligible?
+Need I resubmit patch with sign and detailed description?
