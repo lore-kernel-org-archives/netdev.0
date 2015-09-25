@@ -1,62 +1,71 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 10/17] tcp: remove tcp_synack_options() socket argument
-Date: Fri, 25 Sep 2015 07:39:17 -0700
-Message-ID: <1443191964-923-11-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 14/17] tcp: constify tcp_v{4|6}_send_synack() socket argument
+Date: Fri, 25 Sep 2015 07:39:21 -0700
+Message-ID: <1443191964-923-15-git-send-email-edumazet@google.com>
 References: <1443191964-923-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <edumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36455 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932113AbbIYOkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 10:40:16 -0400
-Received: by pablk4 with SMTP id lk4so10826789pab.3
-        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 07:40:16 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36743 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932113AbbIYOkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 10:40:36 -0400
+Received: by pablk4 with SMTP id lk4so10834130pab.3
+        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 07:40:36 -0700 (PDT)
 In-Reply-To: <1443191964-923-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We do not use the socket in this function.
+This documents fact that listener lock might not be held
+at the time SYNACK are sent.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_output.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ include/net/tcp.h   | 2 +-
+ net/ipv4/tcp_ipv4.c | 2 +-
+ net/ipv6/tcp_ipv6.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1767fe652cb5..ab03018fb621 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -612,12 +612,11 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index fde20acb3328..0f847eb9af65 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1717,7 +1717,7 @@ struct tcp_request_sock_ops {
+ 				       const struct request_sock *req,
+ 				       bool *strict);
+ 	__u32 (*init_seq)(const struct sk_buff *skb);
+-	int (*send_synack)(struct sock *sk, struct dst_entry *dst,
++	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
+ 			   struct flowi *fl, struct request_sock *req,
+ 			   u16 queue_mapping, struct tcp_fastopen_cookie *foc);
+ 	void (*queue_hash_add)(struct sock *sk, struct request_sock *req,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1c1009d783f5..a23ba7daecbf 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -818,7 +818,7 @@ static void tcp_v4_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+  *	This still operates on a request_sock only, not on a big
+  *	socket.
+  */
+-static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
++static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
+ 			      struct flowi *fl,
+ 			      struct request_sock *req,
+ 			      u16 queue_mapping,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 1071131a6c53..16fb299dcab8 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -434,7 +434,7 @@ out:
  }
  
- /* Set up TCP options for SYN-ACKs. */
--static unsigned int tcp_synack_options(struct sock *sk,
--				   struct request_sock *req,
--				   unsigned int mss, struct sk_buff *skb,
--				   struct tcp_out_options *opts,
--				   const struct tcp_md5sig_key *md5,
--				   struct tcp_fastopen_cookie *foc)
-+static unsigned int tcp_synack_options(struct request_sock *req,
-+				       unsigned int mss, struct sk_buff *skb,
-+				       struct tcp_out_options *opts,
-+				       const struct tcp_md5sig_key *md5,
-+				       struct tcp_fastopen_cookie *foc)
- {
- 	struct inet_request_sock *ireq = inet_rsk(req);
- 	unsigned int remaining = MAX_TCP_OPTION_SPACE;
-@@ -2990,8 +2989,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
- #endif
- 	skb_set_hash(skb, tcp_rsk(req)->txhash, PKT_HASH_TYPE_L4);
--	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
--					     foc) + sizeof(*th);
-+	tcp_header_size = tcp_synack_options(req, mss, skb, &opts, md5, foc) +
-+			  sizeof(*th);
  
- 	skb_push(skb, tcp_header_size);
- 	skb_reset_transport_header(skb);
+-static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
++static int tcp_v6_send_synack(const struct sock *sk, struct dst_entry *dst,
+ 			      struct flowi *fl,
+ 			      struct request_sock *req,
+ 			      u16 queue_mapping,
 -- 
 2.6.0.rc2.230.g3dd15c0
