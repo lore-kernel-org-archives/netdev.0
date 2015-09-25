@@ -1,150 +1,87 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next] f_bpf: allow for optional classid and add flags
-Date: Fri, 25 Sep 2015 12:32:41 +0200
-Message-ID: <efad6a0f1fc08df554d5b0d0b36fb3dde4afe131.1443176477.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [net:master 114/121] drivers/net/phy/mdio_bus.c:248: warning: No
+ description found for parameter 'owner'
+Date: Fri, 25 Sep 2015 11:56:56 +0100
+Message-ID: <20150925105656.GK21513@n2100.arm.linux.org.uk>
+References: <201509251554.GLQ5oOz9%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: kbuild test robot <fengguang.wu@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50334 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbbIYKcr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 06:32:47 -0400
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:46564 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753164AbbIYK5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 06:57:08 -0400
+Content-Disposition: inline
+In-Reply-To: <201509251554.GLQ5oOz9%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When having optional classid, most minimal command can be sth
-like:
+On Fri, Sep 25, 2015 at 03:58:00PM +0800, kbuild test robot wrote:
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+> head:   b626ef0128d254d33ee43c51d68f577bbec370ac
+> commit: 3e3aaf649416988ca8be4ad2c52dc24d8be7b46e [114/121] phy: fix mdiobus module safety
+> config: i386-allnoconfig (attached as .config)
+> reproduce:
+>   git checkout 3e3aaf649416988ca8be4ad2c52dc24d8be7b46e
+>   # save the attached .config to linux build tree
+>   make ARCH=i386 
+> 
+> All warnings (new ones prefixed by >>):
+> 
+> >> drivers/net/phy/mdio_bus.c:248: warning: No description found for parameter 'owner'
+> >> drivers/net/phy/mdio_bus.c:248: warning: No description found for parameter 'owner'
 
-  tc filter add dev foo parent X: bpf obj prog.o
+We could fix this new warning like this, but I'm not particularly happy
+because it means we're documenting internals as an API, which it isn't.
+IMHO, the original doc is correct - we're documenting mdiobus_register()
+here, which is the preferred API which should be used everywhere, rather
+than __mdiobus_register() which is the implementation detail.  I guess
+docbook can't know that though.
 
-Therefore, adapt the code so that a next argument will not be
-enforced as the case currently.
+So, is this something that should be fixed like the below?
 
-Also, minor cleanup on the classid, where we should rather
-have used addattr32(), and add flags for exec configuration,
-for example (using short notation):
+8<===
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH] net: update docbook comment for __mdiobus_register()
 
-  tc filter add dev foo parent X: bpf da obj prog.o
+Update the docbook comment for __mdiobus_register() to include the new
+module owner argument.  This resolves a warning found by the 0-day
+builder.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- include/utils.h |  1 +
- tc/f_bpf.c      | 43 ++++++++++++++++++++++++++++++-------------
- 2 files changed, 31 insertions(+), 13 deletions(-)
+ drivers/net/phy/mdio_bus.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index f77edeb..668d159 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -47,6 +47,7 @@ void incomplete_command(void) __attribute__((noreturn));
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index c340e412b38f..12f44c53cc8e 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -236,11 +236,14 @@ static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
+ #endif
  
- #define NEXT_ARG() do { argv++; if (--argc <= 0) incomplete_command(); } while(0)
- #define NEXT_ARG_OK() (argc - 1 > 0)
-+#define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
- #define PREV_ARG() do { argv--; argc++; } while(0)
- 
- typedef struct
-diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index 490dc6b..ac77af5 100644
---- a/tc/f_bpf.c
-+++ b/tc/f_bpf.c
-@@ -41,7 +41,7 @@ static void explain(void)
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "eBPF use case:\n");
- 	fprintf(stderr, " object-file FILE [ section CLS_NAME ] [ export UDS_FILE ]");
--	fprintf(stderr, " [ verbose ]\n");
-+	fprintf(stderr, " [ verbose ] [ direct-action ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Common remaining options:\n");
- 	fprintf(stderr, " [ action ACTION_SPEC ]\n");
-@@ -69,6 +69,7 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 	struct tcmsg *t = NLMSG_DATA(n);
- 	const char *bpf_uds_name = NULL;
- 	const char *bpf_sec_name = NULL;
-+	unsigned int bpf_flags = 0;
- 	char *bpf_obj = NULL;
- 	struct rtattr *tail;
- 	bool seen_run = false;
-@@ -124,25 +125,28 @@ opt_bpf:
- 			if (ebpf) {
- 				bpf_uds_name = getenv(BPF_ENV_UDS);
- 				bpf_obj = *argv;
--				NEXT_ARG();
- 
--				if (strcmp(*argv, "section") == 0 ||
--				    strcmp(*argv, "sec") == 0) {
-+				NEXT_ARG_FWD();
-+
-+				if (argc > 0 &&
-+				    (strcmp(*argv, "section") == 0 ||
-+				     strcmp(*argv, "sec") == 0)) {
- 					NEXT_ARG();
- 					bpf_sec_name = *argv;
--					NEXT_ARG();
-+					NEXT_ARG_FWD();
- 				}
--				if (!bpf_uds_name &&
-+				if (argc > 0 && !bpf_uds_name &&
- 				    (strcmp(*argv, "export") == 0 ||
- 				     strcmp(*argv, "exp") == 0)) {
- 					NEXT_ARG();
- 					bpf_uds_name = *argv;
--					NEXT_ARG();
-+					NEXT_ARG_FWD();
- 				}
--				if (strcmp(*argv, "verbose") == 0 ||
--				    strcmp(*argv, "verb") == 0) {
-+				if (argc > 0 &&
-+				    (strcmp(*argv, "verbose") == 0 ||
-+				     strcmp(*argv, "verb") == 0)) {
- 					bpf_verbose = true;
--					NEXT_ARG();
-+					NEXT_ARG_FWD();
- 				}
- 
- 				PREV_ARG();
-@@ -182,7 +186,10 @@ opt_bpf:
- 				fprintf(stderr, "Illegal \"classid\"\n");
- 				return -1;
- 			}
--			addattr_l(n, MAX_MSG, TCA_BPF_CLASSID, &handle, 4);
-+			addattr32(n, MAX_MSG, TCA_BPF_CLASSID, handle);
-+		} else if (matches(*argv, "direct-action") == 0 ||
-+			   matches(*argv, "da") == 0) {
-+			bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
- 		} else if (matches(*argv, "action") == 0) {
- 			NEXT_ARG();
- 			if (parse_action(&argc, &argv, TCA_BPF_ACT, n)) {
-@@ -208,10 +215,13 @@ opt_bpf:
- 			explain();
- 			return -1;
- 		}
--		argc--;
--		argv++;
-+
-+		NEXT_ARG_FWD();
- 	}
- 
-+	if (bpf_obj && bpf_flags)
-+		addattr32(n, MAX_MSG, TCA_BPF_FLAGS, bpf_flags);
-+
- 	tail->rta_len = (((void *)n) + n->nlmsg_len) - (void *)tail;
- 
- 	if (bpf_uds_name)
-@@ -244,6 +254,13 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
- 	else if (tb[TCA_BPF_FD])
- 		fprintf(f, "pfd %u ", rta_getattr_u32(tb[TCA_BPF_FD]));
- 
-+	if (tb[TCA_BPF_FLAGS]) {
-+		unsigned int flags = rta_getattr_u32(tb[TCA_BPF_FLAGS]);
-+
-+		if (flags & TCA_BPF_FLAG_ACT_DIRECT)
-+			fprintf(f, "direct-action ");
-+	}
-+
- 	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN]) {
- 		bpf_print_ops(f, tb[TCA_BPF_OPS],
- 			      rta_getattr_u16(tb[TCA_BPF_OPS_LEN]));
+ /**
+- * mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
++ * __mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
+  * @bus: target mii_bus
++ * @owner: module containing bus accessor functions
+  *
+  * Description: Called by a bus driver to bring up all the PHYs
+- *   on a given bus, and attach them to the bus.
++ *   on a given bus, and attach them to the bus. Drivers should use
++ *   mdiobus_register() rather than __mdiobus_register() unless they
++ *   need to pass a specific owner module.
+  *
+  * Returns 0 on success or < 0 on error.
+  */
 -- 
-1.9.3
+2.1.0
+
+
+
+-- 
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
