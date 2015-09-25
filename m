@@ -1,501 +1,133 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH 20/23] netconsole: use per-attribute show and store methods
-Date: Fri, 25 Sep 2015 06:49:57 -0700
-Message-ID: <1443189000-13398-21-git-send-email-hch@lst.de>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 08/23] usb-gadget/f_midi: use per-attribute
+	show and store methods
+Date: Fri, 25 Sep 2015 06:49:45 -0700
+Message-ID: <1443189000-13398-9-git-send-email-hch@lst.de>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
-Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1443189000-13398-1-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        Pratyush Anand <pratyush.anand@gmail.com>, Felipe Balbi <balbi@ti.com>,
+        cluster-devel@redhat.com, target-devel@vger.kernel.org,
+        Tejun Heo <tj@kernel.org>, ocfs2-devel@oss.oracle.com
+To: Joel Becker <jlbec@evilplan.org>,
+        Andrew Morton <akpm@linux-foundation.org>
+Return-path: <cluster-devel-bounces@redhat.com>
+In-Reply-To: <1443189000-13398-1-git-send-email-hch@lst.de>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
+	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/cluster-devel>
+List-Post: <mailto:cluster-devel@redhat.com>
+List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
+	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
+Sender: cluster-devel-bounces@redhat.com
+Errors-To: cluster-devel-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-Note that the old code actually used the store_attributes method to do
-locking, this is moved into the individual methods.
-
-Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/netconsole.c | 269 +++++++++++++++++++++++------------------------
- 1 file changed, 131 insertions(+), 138 deletions(-)
+ drivers/usb/gadget/function/f_midi.c | 37 ++++++++++++++++--------------------
+ 1 file changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 97f3acd..8783169 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -244,15 +244,6 @@ static void free_param_target(struct netconsole_target *nt)
-  *				<target>/...
-  */
+diff --git a/drivers/usb/gadget/function/f_midi.c b/drivers/usb/gadget/function/f_midi.c
+index a287a48..0e2b8ed 100644
+--- a/drivers/usb/gadget/function/f_midi.c
++++ b/drivers/usb/gadget/function/f_midi.c
+@@ -906,9 +906,6 @@ static inline struct f_midi_opts *to_f_midi_opts(struct config_item *item)
+ 			    func_inst.group);
+ }
  
--struct netconsole_target_attr {
--	struct configfs_attribute	attr;
--	ssize_t				(*show)(struct netconsole_target *nt,
--						char *buf);
--	ssize_t				(*store)(struct netconsole_target *nt,
--						 const char *buf,
--						 size_t count);
--};
+-CONFIGFS_ATTR_STRUCT(f_midi_opts);
+-CONFIGFS_ATTR_OPS(f_midi_opts);
 -
- static struct netconsole_target *to_target(struct config_item *item)
+ static void midi_attr_release(struct config_item *item)
  {
- 	return item ?
-@@ -264,58 +255,62 @@ static struct netconsole_target *to_target(struct config_item *item)
-  * Attribute operations for netconsole_target.
-  */
+ 	struct f_midi_opts *opts = to_f_midi_opts(item);
+@@ -918,13 +915,12 @@ static void midi_attr_release(struct config_item *item)
  
--static ssize_t show_enabled(struct netconsole_target *nt, char *buf)
-+static ssize_t enabled_show(struct config_item *item, char *buf)
+ static struct configfs_item_operations midi_item_ops = {
+ 	.release	= midi_attr_release,
+-	.show_attribute	= f_midi_opts_attr_show,
+-	.store_attribute = f_midi_opts_attr_store,
+ };
+ 
+ #define F_MIDI_OPT(name, test_limit, limit)				\
+-static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
++static ssize_t f_midi_opts_##name##_show(struct config_item *item, char *page) \
+ {									\
++	struct f_midi_opts *opts = to_f_midi_opts(item);		\
+ 	int result;							\
+ 									\
+ 	mutex_lock(&opts->lock);					\
+@@ -934,9 +930,10 @@ static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
+ 	return result;							\
+ }									\
+ 									\
+-static ssize_t f_midi_opts_##name##_store(struct f_midi_opts *opts,	\
++static ssize_t f_midi_opts_##name##_store(struct config_item *item,	\
+ 					 const char *page, size_t len)	\
+ {									\
++	struct f_midi_opts *opts = to_f_midi_opts(item);		\
+ 	int ret;							\
+ 	u32 num;							\
+ 									\
+@@ -962,9 +959,7 @@ end:									\
+ 	return ret;							\
+ }									\
+ 									\
+-static struct f_midi_opts_attribute f_midi_opts_##name =		\
+-	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR, f_midi_opts_##name##_show, \
+-			f_midi_opts_##name##_store)
++CONFIGFS_ATTR(f_midi_opts_, name);
+ 
+ F_MIDI_OPT(index, true, SNDRV_CARDS);
+ F_MIDI_OPT(buflen, false, 0);
+@@ -972,8 +967,9 @@ F_MIDI_OPT(qlen, false, 0);
+ F_MIDI_OPT(in_ports, true, MAX_PORTS);
+ F_MIDI_OPT(out_ports, true, MAX_PORTS);
+ 
+-static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
++static ssize_t f_midi_opts_id_show(struct config_item *item, char *page)
  {
--	return snprintf(buf, PAGE_SIZE, "%d\n", nt->enabled);
-+	return snprintf(buf, PAGE_SIZE, "%d\n", to_target(item)->enabled);
++	struct f_midi_opts *opts = to_f_midi_opts(item);
+ 	int result;
+ 
+ 	mutex_lock(&opts->lock);
+@@ -989,9 +985,10 @@ static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
+ 	return result;
  }
  
--static ssize_t show_extended(struct netconsole_target *nt, char *buf)
-+static ssize_t extended_show(struct config_item *item, char *buf)
+-static ssize_t f_midi_opts_id_store(struct f_midi_opts *opts,
++static ssize_t f_midi_opts_id_store(struct config_item *item,
+ 				    const char *page, size_t len)
  {
--	return snprintf(buf, PAGE_SIZE, "%d\n", nt->extended);
-+	return snprintf(buf, PAGE_SIZE, "%d\n", to_target(item)->extended);
++	struct f_midi_opts *opts = to_f_midi_opts(item);
+ 	int ret;
+ 	char *c;
+ 
+@@ -1016,17 +1013,15 @@ end:
+ 	return ret;
  }
  
--static ssize_t show_dev_name(struct netconsole_target *nt, char *buf)
-+static ssize_t dev_name_show(struct config_item *item, char *buf)
- {
--	return snprintf(buf, PAGE_SIZE, "%s\n", nt->np.dev_name);
-+	return snprintf(buf, PAGE_SIZE, "%s\n", to_target(item)->np.dev_name);
- }
+-static struct f_midi_opts_attribute f_midi_opts_id =
+-	__CONFIGFS_ATTR(id, S_IRUGO | S_IWUSR, f_midi_opts_id_show,
+-			f_midi_opts_id_store);
++CONFIGFS_ATTR(f_midi_opts_, id);
  
--static ssize_t show_local_port(struct netconsole_target *nt, char *buf)
-+static ssize_t local_port_show(struct config_item *item, char *buf)
- {
--	return snprintf(buf, PAGE_SIZE, "%d\n", nt->np.local_port);
-+	return snprintf(buf, PAGE_SIZE, "%d\n", to_target(item)->np.local_port);
- }
- 
--static ssize_t show_remote_port(struct netconsole_target *nt, char *buf)
-+static ssize_t remote_port_show(struct config_item *item, char *buf)
- {
--	return snprintf(buf, PAGE_SIZE, "%d\n", nt->np.remote_port);
-+	return snprintf(buf, PAGE_SIZE, "%d\n", to_target(item)->np.remote_port);
- }
- 
--static ssize_t show_local_ip(struct netconsole_target *nt, char *buf)
-+static ssize_t local_ip_show(struct config_item *item, char *buf)
- {
-+	struct netconsole_target *nt = to_target(item);
-+
- 	if (nt->np.ipv6)
- 		return snprintf(buf, PAGE_SIZE, "%pI6c\n", &nt->np.local_ip.in6);
- 	else
- 		return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.local_ip);
- }
- 
--static ssize_t show_remote_ip(struct netconsole_target *nt, char *buf)
-+static ssize_t remote_ip_show(struct config_item *item, char *buf)
- {
-+	struct netconsole_target *nt = to_target(item);
-+
- 	if (nt->np.ipv6)
- 		return snprintf(buf, PAGE_SIZE, "%pI6c\n", &nt->np.remote_ip.in6);
- 	else
- 		return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.remote_ip);
- }
- 
--static ssize_t show_local_mac(struct netconsole_target *nt, char *buf)
-+static ssize_t local_mac_show(struct config_item *item, char *buf)
- {
--	struct net_device *dev = nt->np.dev;
-+	struct net_device *dev = to_target(item)->np.dev;
- 	static const u8 bcast[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- 
- 	return snprintf(buf, PAGE_SIZE, "%pM\n", dev ? dev->dev_addr : bcast);
- }
- 
--static ssize_t show_remote_mac(struct netconsole_target *nt, char *buf)
-+static ssize_t remote_mac_show(struct config_item *item, char *buf)
- {
--	return snprintf(buf, PAGE_SIZE, "%pM\n", nt->np.remote_mac);
-+	return snprintf(buf, PAGE_SIZE, "%pM\n", to_target(item)->np.remote_mac);
- }
- 
- /*
-@@ -325,23 +320,26 @@ static ssize_t show_remote_mac(struct netconsole_target *nt, char *buf)
-  * would enable him to dynamically add new netpoll targets for new
-  * network interfaces as and when they come up).
-  */
--static ssize_t store_enabled(struct netconsole_target *nt,
--			     const char *buf,
--			     size_t count)
-+static ssize_t enabled_store(struct config_item *item,
-+		const char *buf, size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
- 	unsigned long flags;
- 	int enabled;
- 	int err;
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	err = kstrtoint(buf, 10, &enabled);
- 	if (err < 0)
--		return err;
-+		goto out_unlock;
-+
-+	err = -EINVAL;
- 	if (enabled < 0 || enabled > 1)
--		return -EINVAL;
-+		goto out_unlock;
- 	if ((bool)enabled == nt->enabled) {
- 		pr_info("network logging has already %s\n",
- 			nt->enabled ? "started" : "stopped");
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	if (enabled) {	/* true */
-@@ -358,7 +356,7 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 
- 		err = netpoll_setup(&nt->np);
- 		if (err)
--			return err;
-+			goto out_unlock;
- 
- 		pr_info("netconsole: network logging started\n");
- 	} else {	/* false */
-@@ -374,42 +372,56 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 
- 	nt->enabled = enabled;
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return err;
- }
- 
--static ssize_t store_extended(struct netconsole_target *nt,
--			      const char *buf,
--			      size_t count)
-+static ssize_t extended_store(struct config_item *item, const char *buf,
-+		size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
- 	int extended;
- 	int err;
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	err = kstrtoint(buf, 10, &extended);
- 	if (err < 0)
--		return err;
--	if (extended < 0 || extended > 1)
--		return -EINVAL;
-+		goto out_unlock;
-+	if (extended < 0 || extended > 1) {
-+		err = -EINVAL;
-+		goto out_unlock;
-+	}
- 
- 	nt->extended = extended;
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return err;
- }
- 
--static ssize_t store_dev_name(struct netconsole_target *nt,
--			      const char *buf,
--			      size_t count)
-+static ssize_t dev_name_store(struct config_item *item, const char *buf,
-+		size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
- 	size_t len;
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
-+		mutex_unlock(&dynamic_netconsole_mutex);
- 		return -EINVAL;
- 	}
- 
-@@ -420,53 +432,66 @@ static ssize_t store_dev_name(struct netconsole_target *nt,
- 	if (nt->np.dev_name[len - 1] == '\n')
- 		nt->np.dev_name[len - 1] = '\0';
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
- }
- 
--static ssize_t store_local_port(struct netconsole_target *nt,
--				const char *buf,
--				size_t count)
-+static ssize_t local_port_store(struct config_item *item, const char *buf,
-+		size_t count)
- {
--	int rv;
-+	struct netconsole_target *nt = to_target(item);
-+	int rv = -EINVAL;
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	rv = kstrtou16(buf, 10, &nt->np.local_port);
- 	if (rv < 0)
--		return rv;
-+		goto out_unlock;
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return rv;
- }
- 
--static ssize_t store_remote_port(struct netconsole_target *nt,
--				 const char *buf,
--				 size_t count)
-+static ssize_t remote_port_store(struct config_item *item,
-+		const char *buf, size_t count)
- {
--	int rv;
-+	struct netconsole_target *nt = to_target(item);
-+	int rv = -EINVAL;
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	rv = kstrtou16(buf, 10, &nt->np.remote_port);
- 	if (rv < 0)
--		return rv;
-+		goto out_unlock;
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return rv;
- }
- 
--static ssize_t store_local_ip(struct netconsole_target *nt,
--			      const char *buf,
--			      size_t count)
-+static ssize_t local_ip_store(struct config_item *item, const char *buf,
-+		size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
-+
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	if (strnchr(buf, count, ':')) {
-@@ -474,29 +499,35 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
- 		if (in6_pton(buf, count, nt->np.local_ip.in6.s6_addr, -1, &end) > 0) {
- 			if (*end && *end != '\n') {
- 				pr_err("invalid IPv6 address at: <%c>\n", *end);
--				return -EINVAL;
-+				goto out_unlock;
- 			}
- 			nt->np.ipv6 = true;
- 		} else
--			return -EINVAL;
-+			goto out_unlock;
- 	} else {
- 		if (!nt->np.ipv6) {
- 			nt->np.local_ip.ip = in_aton(buf);
- 		} else
--			return -EINVAL;
-+			goto out_unlock;
- 	}
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return -EINVAL;
- }
- 
--static ssize_t store_remote_ip(struct netconsole_target *nt,
--			       const char *buf,
--			       size_t count)
-+static ssize_t remote_ip_store(struct config_item *item, const char *buf,
-+	       size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
-+
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	if (strnchr(buf, count, ':')) {
-@@ -508,70 +539,67 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
- 			}
- 			nt->np.ipv6 = true;
- 		} else
--			return -EINVAL;
-+			goto out_unlock;
- 	} else {
- 		if (!nt->np.ipv6) {
- 			nt->np.remote_ip.ip = in_aton(buf);
- 		} else
--			return -EINVAL;
-+			goto out_unlock;
- 	}
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return -EINVAL;
- }
- 
--static ssize_t store_remote_mac(struct netconsole_target *nt,
--				const char *buf,
--				size_t count)
-+static ssize_t remote_mac_store(struct config_item *item, const char *buf,
-+		size_t count)
- {
-+	struct netconsole_target *nt = to_target(item);
- 	u8 remote_mac[ETH_ALEN];
- 
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (nt->enabled) {
- 		pr_err("target (%s) is enabled, disable to update parameters\n",
- 		       config_item_name(&nt->item));
--		return -EINVAL;
-+		goto out_unlock;
- 	}
- 
- 	if (!mac_pton(buf, remote_mac))
--		return -EINVAL;
-+		goto out_unlock;
- 	if (buf[3 * ETH_ALEN - 1] && buf[3 * ETH_ALEN - 1] != '\n')
--		return -EINVAL;
-+		goto out_unlock;
- 	memcpy(nt->np.remote_mac, remote_mac, ETH_ALEN);
- 
-+	mutex_unlock(&dynamic_netconsole_mutex);
- 	return strnlen(buf, count);
-+out_unlock:
-+	mutex_unlock(&dynamic_netconsole_mutex);
-+	return -EINVAL;
- }
- 
--/*
-- * Attribute definitions for netconsole_target.
-- */
--
--#define NETCONSOLE_TARGET_ATTR_RO(_name)				\
--static struct netconsole_target_attr netconsole_target_##_name =	\
--	__CONFIGFS_ATTR(_name, S_IRUGO, show_##_name, NULL)
--
--#define NETCONSOLE_TARGET_ATTR_RW(_name)				\
--static struct netconsole_target_attr netconsole_target_##_name =	\
--	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, show_##_name, store_##_name)
--
--NETCONSOLE_TARGET_ATTR_RW(enabled);
--NETCONSOLE_TARGET_ATTR_RW(extended);
--NETCONSOLE_TARGET_ATTR_RW(dev_name);
--NETCONSOLE_TARGET_ATTR_RW(local_port);
--NETCONSOLE_TARGET_ATTR_RW(remote_port);
--NETCONSOLE_TARGET_ATTR_RW(local_ip);
--NETCONSOLE_TARGET_ATTR_RW(remote_ip);
--NETCONSOLE_TARGET_ATTR_RO(local_mac);
--NETCONSOLE_TARGET_ATTR_RW(remote_mac);
-+CONFIGFS_ATTR(, enabled);
-+CONFIGFS_ATTR(, extended);
-+CONFIGFS_ATTR(, dev_name);
-+CONFIGFS_ATTR(, local_port);
-+CONFIGFS_ATTR(, remote_port);
-+CONFIGFS_ATTR(, local_ip);
-+CONFIGFS_ATTR(, remote_ip);
-+CONFIGFS_ATTR_RO(, local_mac);
-+CONFIGFS_ATTR(, remote_mac);
- 
- static struct configfs_attribute *netconsole_target_attrs[] = {
--	&netconsole_target_enabled.attr,
--	&netconsole_target_extended.attr,
--	&netconsole_target_dev_name.attr,
--	&netconsole_target_local_port.attr,
--	&netconsole_target_remote_port.attr,
--	&netconsole_target_local_ip.attr,
--	&netconsole_target_remote_ip.attr,
--	&netconsole_target_local_mac.attr,
--	&netconsole_target_remote_mac.attr,
-+	&attr_enabled,
-+	&attr_extended,
-+	&attr_dev_name,
-+	&attr_local_port,
-+	&attr_remote_port,
-+	&attr_local_ip,
-+	&attr_remote_ip,
-+	&attr_local_mac,
-+	&attr_remote_mac,
+ static struct configfs_attribute *midi_attrs[] = {
+-	&f_midi_opts_index.attr,
+-	&f_midi_opts_buflen.attr,
+-	&f_midi_opts_qlen.attr,
+-	&f_midi_opts_in_ports.attr,
+-	&f_midi_opts_out_ports.attr,
+-	&f_midi_opts_id.attr,
++	&f_midi_opts_attr_index,
++	&f_midi_opts_attr_buflen,
++	&f_midi_opts_attr_qlen,
++	&f_midi_opts_attr_in_ports,
++	&f_midi_opts_attr_out_ports,
++	&f_midi_opts_attr_id,
  	NULL,
  };
  
-@@ -584,43 +612,8 @@ static void netconsole_target_release(struct config_item *item)
- 	kfree(to_target(item));
- }
- 
--static ssize_t netconsole_target_attr_show(struct config_item *item,
--					   struct configfs_attribute *attr,
--					   char *buf)
--{
--	ssize_t ret = -EINVAL;
--	struct netconsole_target *nt = to_target(item);
--	struct netconsole_target_attr *na =
--		container_of(attr, struct netconsole_target_attr, attr);
--
--	if (na->show)
--		ret = na->show(nt, buf);
--
--	return ret;
--}
--
--static ssize_t netconsole_target_attr_store(struct config_item *item,
--					    struct configfs_attribute *attr,
--					    const char *buf,
--					    size_t count)
--{
--	ssize_t ret = -EINVAL;
--	struct netconsole_target *nt = to_target(item);
--	struct netconsole_target_attr *na =
--		container_of(attr, struct netconsole_target_attr, attr);
--
--	mutex_lock(&dynamic_netconsole_mutex);
--	if (na->store)
--		ret = na->store(nt, buf, count);
--	mutex_unlock(&dynamic_netconsole_mutex);
--
--	return ret;
--}
+-- 
+1.9.1
