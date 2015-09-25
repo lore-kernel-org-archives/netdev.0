@@ -1,106 +1,189 @@
-From: Steven Schlansker <stevenschlansker@gmail.com>
-Subject: Re: Glibc recvmsg from kernel netlink socket hangs forever
-Date: Fri, 25 Sep 2015 14:54:51 -0700
-Message-ID: <8E01F660-938C-4A4F-9932-6DFDA83518E0@gmail.com>
-References: <C3C03EFC-53E1-45DE-87AF-59C7367BD21E@gmail.com> <20150925043653.GA29111@roeck-us.net> <20150925045853.GA5286@gondor.apana.org.au> <5604DCD2.4090600@roeck-us.net> <38FEC418-9C09-47BC-A9FC-5F1EA28941FC@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34213 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbbIYVyt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 17:54:49 -0400
-In-Reply-To: <38FEC418-9C09-47BC-A9FC-5F1EA28941FC@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH nf-next] bridge: Pass net into br_validate_ipv4 and br_validate_ipv6
+Date: Fri, 25 Sep 2015 16:52:51 -0500
+Message-ID: <87si62f9os.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Sep 25, 2015, at 2:37 PM, Steven Schlansker <stevenschlansker@gmail.com> wrote:
+The network namespace is easiliy available in state->net so use it.
 
-> 
-> On Sep 24, 2015, at 10:34 PM, Guenter Roeck <linux@roeck-us.net> wrote:
-> 
->> Herbert,
->> 
->> On 09/24/2015 09:58 PM, Herbert Xu wrote:
->>> On Thu, Sep 24, 2015 at 09:36:53PM -0700, Guenter Roeck wrote:
->>>> 
->>>> http://comments.gmane.org/gmane.linux.network/363085
->>>> 
->>>> might explain your problem.
->>>> 
->>>> I thought this was resolved in 4.1, but it looks like the problem still persists
->>>> there. At least I have reports from my workplace that 4.1.6 and 4.1.7 are still
->>>> affected. I don't know if there have been any relevant changes in 4.2.
->>>> 
->>>> Copying Herbert and Eric for additional input.
->>> 
->>> There was a separate bug discovered by Tejun recently.  You need
->>> to apply the patches
->>> 
->>> https://patchwork.ozlabs.org/patch/519245/
->>> https://patchwork.ozlabs.org/patch/520824/
->>> 
->> I assume this is on top of mainline ?
->> 
->>> There is another follow-up but it shouldn't make any difference
->>> in practice.
->>> 
->> 
->> Any idea what may be needed for 4.1 ?
->> I am currently trying https://patchwork.ozlabs.org/patch/473041/,
->> but I have no idea if that will help with the problem we are seeing there.
-> 
-> Thank you for the patches to try, I'll build a kernel with them early next week
-> and report back.  It sounds like it may not match my problem exactly so we'll
-> see.
-Huh, when it rains, it pours... now I have a legit panic too!
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
 
-[ 1675.228701] BUG: unable to handle kernel paging request at fffffffffffffe70
-[ 1675.232058] IP: [<ffffffff8175dcea>] netlink_compare+0xa/0x30
-[ 1675.232058] PGD 2015067 PUD 2017067 PMD 0 
-[ 1675.232058] Oops: 0000 [#1] SMP 
-[ 1675.232058] Modules linked in: i2c_piix4(E) btrfs(E) crct10dif_pclmul(E) crc32_pclmul(E) ghash_clmulni_intel(E) aesni_intel(E) aes_x86_64(E) lrw(E) gf128mul(E) glue_helper(E) ablk_helper(E) cryptd(E) floppy(E)
-[ 1675.232058] CPU: 2 PID: 11152 Comm: pf_dump Tainted: G            E   4.0.4 #1
-[ 1675.232058] Hardware name: Xen HVM domU, BIOS 4.2.amazon 05/06/2015
-[ 1675.232058] task: ffff880150fa6480 ti: ffff880150fb4000 task.ti: ffff880150fb4000
-[ 1675.232058] RIP: 0010:[<ffffffff8175dcea>]  [<ffffffff8175dcea>] netlink_compare+0xa/0x30
-[ 1675.232058] RSP: 0018:ffff880150fb7d10  EFLAGS: 00010246
-[ 1675.232058] RAX: 0000000000000000 RBX: 00000000023e503b RCX: 000000000561f992
-[ 1675.232058] RDX: 00000000fffc27e4 RSI: ffff880150fb7db8 RDI: fffffffffffffbb8
-[ 1675.232058] RBP: ffff880150fb7d58 R08: ffff8805a82f5ab8 R09: 000000000000000c
-[ 1675.232058] R10: 0000000000000000 R11: 0000000000000202 R12: 0000000000000000
-[ 1675.232058] R13: ffffffff8175dce0 R14: ffff88008b37e800 R15: ffff88076db40000
-[ 1675.232058] FS:  00007feec2440700(0000) GS:ffff88078fc40000(0000) knlGS:0000000000000000
-[ 1675.232058] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 1675.232058] CR2: fffffffffffffe70 CR3: 000000053bd17000 CR4: 00000000001407e0
-[ 1675.232058] Stack:
-[ 1675.232058]  ffffffff81434dae ffff88076d864400 ffff880150fb7db8 ffff8801559ee8b8
-[ 1675.232058]  ffff88076db40000 ffff8805a82f5c48 ffff88008b37e800 ffff88076d864400
-[ 1675.232058]  0000000000000000 ffff880150fb7da8 ffffffff81435476 ffff880150fb7db8
-[ 1675.232058] Call Trace:
-[ 1675.232058]  [<ffffffff81434dae>] ? rhashtable_lookup_compare+0x5e/0xb0
-[ 1675.232058]  [<ffffffff81435476>] rhashtable_lookup_compare_insert+0x66/0xc0
-[ 1675.232058]  [<ffffffff8175eb63>] netlink_insert+0x83/0xe0
-[ 1675.232058]  [<ffffffff8175f11d>] netlink_autobind.isra.34+0xad/0xd0
-[ 1675.232058]  [<ffffffff817614b1>] netlink_bind+0x1b1/0x240
-[ 1675.232058]  [<ffffffff8170b8b8>] SYSC_bind+0xb8/0xf0
-[ 1675.232058]  [<ffffffff81110784>] ? __audit_syscall_entry+0xb4/0x110
-[ 1675.232058]  [<ffffffff81022e2c>] ? do_audit_syscall_entry+0x6c/0x70
-[ 1675.232058]  [<ffffffff81024553>] ? syscall_trace_enter_phase1+0x123/0x180
-[ 1675.232058]  [<ffffffff810248b6>] ? syscall_trace_leave+0xc6/0x120
-[ 1675.232058]  [<ffffffff811f5a35>] ? fd_install+0x25/0x30
-[ 1675.232058]  [<ffffffff8170c5de>] SyS_bind+0xe/0x10
-[ 1675.232058]  [<ffffffff81960dcd>] system_call_fastpath+0x16/0x1b
-[ 1675.232058] Code: 00 8b 77 08 39 77 14 8d 4e 01 41 0f 44 c9 41 39 c8 89 4f 08 74 09 48 8b 08 83 3c 11 04 74 e2 5d c3 0f 1f 44 00 00 31 c0 8b 56 08 <39> 97 b8 02 00 00 55 48 89 e5 74 0a 5d c3 0f 1f 84 00 00 00 00 
-[ 1675.232058] RIP  [<ffffffff8175dcea>] netlink_compare+0xa/0x30
-[ 1675.232058]  RSP <ffff880150fb7d10>
-[ 1675.232058] CR2: fffffffffffffe70
-[ 1675.232058] ---[ end trace 963ff50a058120d0 ]---
-[ 1675.232058] Kernel panic - not syncing: Fatal exception in interrupt
-[ 1675.232058] Kernel Offset: 0x0 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffff9fffffff)
+This patch plus the 5 ip_route_me_harder patches I sent out today are
+the last of my pure netfilter patches in my queue for pushing down
+struct net where it is needed.  Everything else seems to involve
+elements of the routinting stack (such as fragmentation and
+defragmentation) and anything netfilter related about them is secondary.
+
+So after these patches are merged into nf-next I expect the wise thing
+to do is wait for nf-next to merge into net-next and send the rest of
+the patches through net-next.
+
+ include/net/netfilter/br_netfilter.h |  4 ++--
+ net/bridge/br_netfilter_hooks.c      | 19 +++++++++----------
+ net/bridge/br_netfilter_ipv6.c       | 11 +++++------
+ 3 files changed, 16 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index c93c75fa41ad..e8d1448425a7 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -45,12 +45,12 @@ struct net_device *setup_pre_routing(struct sk_buff *skb);
+ void br_netfilter_enable(void);
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-int br_validate_ipv6(struct sk_buff *skb);
++int br_validate_ipv6(struct net *net, struct sk_buff *skb);
+ unsigned int br_nf_pre_routing_ipv6(void *priv,
+ 				    struct sk_buff *skb,
+ 				    const struct nf_hook_state *state);
+ #else
+-static inline int br_validate_ipv6(struct sk_buff *skb)
++static inline int br_validate_ipv6(struct net *net, struct sk_buff *skb)
+ {
+ 	return -1;
+ }
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index e21e44c13e07..13f03671c88d 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -189,10 +189,9 @@ static inline void nf_bridge_pull_encap_header_rcsum(struct sk_buff *skb)
+  * expected format
+  */
+ 
+-static int br_validate_ipv4(struct sk_buff *skb)
++static int br_validate_ipv4(struct net *net, struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph;
+-	struct net_device *dev = skb->dev;
+ 	u32 len;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+@@ -213,13 +212,13 @@ static int br_validate_ipv4(struct sk_buff *skb)
+ 
+ 	len = ntohs(iph->tot_len);
+ 	if (skb->len < len) {
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
++		IP_INC_STATS_BH(net, IPSTATS_MIB_INTRUNCATEDPKTS);
+ 		goto drop;
+ 	} else if (len < (iph->ihl*4))
+ 		goto inhdr_error;
+ 
+ 	if (pskb_trim_rcsum(skb, len)) {
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
++		IP_INC_STATS_BH(net, IPSTATS_MIB_INDISCARDS);
+ 		goto drop;
+ 	}
+ 
+@@ -232,7 +231,7 @@ static int br_validate_ipv4(struct sk_buff *skb)
+ 	return 0;
+ 
+ inhdr_error:
+-	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
++	IP_INC_STATS_BH(net, IPSTATS_MIB_INHDRERRORS);
+ drop:
+ 	return -1;
+ }
+@@ -497,7 +496,7 @@ static unsigned int br_nf_pre_routing(void *priv,
+ 
+ 	nf_bridge_pull_encap_header_rcsum(skb);
+ 
+-	if (br_validate_ipv4(skb))
++	if (br_validate_ipv4(state->net, skb))
+ 		return NF_DROP;
+ 
+ 	nf_bridge_put(skb->nf_bridge);
+@@ -609,13 +608,13 @@ static unsigned int br_nf_forward_ip(void *priv,
+ 	}
+ 
+ 	if (pf == NFPROTO_IPV4) {
+-		if (br_validate_ipv4(skb))
++		if (br_validate_ipv4(state->net, skb))
+ 			return NF_DROP;
+ 		IPCB(skb)->frag_max_size = nf_bridge->frag_max_size;
+ 	}
+ 
+ 	if (pf == NFPROTO_IPV6) {
+-		if (br_validate_ipv6(skb))
++		if (br_validate_ipv6(state->net, skb))
+ 			return NF_DROP;
+ 		IP6CB(skb)->frag_max_size = nf_bridge->frag_max_size;
+ 	}
+@@ -747,7 +746,7 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+ 		struct brnf_frag_data *data;
+ 
+-		if (br_validate_ipv4(skb))
++		if (br_validate_ipv4(net, skb))
+ 			goto drop;
+ 
+ 		IPCB(skb)->frag_max_size = nf_bridge->frag_max_size;
+@@ -772,7 +771,7 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+ 		struct brnf_frag_data *data;
+ 
+-		if (br_validate_ipv6(skb))
++		if (br_validate_ipv6(net, skb))
+ 			goto drop;
+ 
+ 		IP6CB(skb)->frag_max_size = nf_bridge->frag_max_size;
+diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
+index c51cc3fd50d9..d61f56efc8dc 100644
+--- a/net/bridge/br_netfilter_ipv6.c
++++ b/net/bridge/br_netfilter_ipv6.c
+@@ -100,10 +100,9 @@ bad:
+ 	return -1;
+ }
+ 
+-int br_validate_ipv6(struct sk_buff *skb)
++int br_validate_ipv6(struct net *net, struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *hdr;
+-	struct net_device *dev = skb->dev;
+ 	struct inet6_dev *idev = __in6_dev_get(skb->dev);
+ 	u32 pkt_len;
+ 	u8 ip6h_len = sizeof(struct ipv6hdr);
+@@ -123,12 +122,12 @@ int br_validate_ipv6(struct sk_buff *skb)
+ 
+ 	if (pkt_len || hdr->nexthdr != NEXTHDR_HOP) {
+ 		if (pkt_len + ip6h_len > skb->len) {
+-			IP6_INC_STATS_BH(dev_net(dev), idev,
++			IP6_INC_STATS_BH(net, idev,
+ 					 IPSTATS_MIB_INTRUNCATEDPKTS);
+ 			goto drop;
+ 		}
+ 		if (pskb_trim_rcsum(skb, pkt_len + ip6h_len)) {
+-			IP6_INC_STATS_BH(dev_net(dev), idev,
++			IP6_INC_STATS_BH(net, idev,
+ 					 IPSTATS_MIB_INDISCARDS);
+ 			goto drop;
+ 		}
+@@ -143,7 +142,7 @@ int br_validate_ipv6(struct sk_buff *skb)
+ 	return 0;
+ 
+ inhdr_error:
+-	IP6_INC_STATS_BH(dev_net(dev), idev, IPSTATS_MIB_INHDRERRORS);
++	IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_INHDRERRORS);
+ drop:
+ 	return -1;
+ }
+@@ -224,7 +223,7 @@ unsigned int br_nf_pre_routing_ipv6(void *priv,
+ {
+ 	struct nf_bridge_info *nf_bridge;
+ 
+-	if (br_validate_ipv6(skb))
++	if (br_validate_ipv6(state->net, skb))
+ 		return NF_DROP;
+ 
+ 	nf_bridge_put(skb->nf_bridge);
+-- 
+2.2.1
+
