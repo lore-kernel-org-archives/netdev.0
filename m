@@ -1,55 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI
- not selected
-Date: Fri, 25 Sep 2015 12:37:25 -0700 (PDT)
-Message-ID: <20150925.123725.9649310331204777.davem@davemloft.net>
-References: <1443089813-10967-1-git-send-email-sudipm.mukherjee@gmail.com>
-	<56058C88.3070907@cogentembedded.com>
+Subject: Re: [PATCH net] ppp: fix lockdep splat in ppp_dev_uninit()
+Date: Fri, 25 Sep 2015 12:38:49 -0700 (PDT)
+Message-ID: <20150925.123849.2051432696335836688.davem@davemloft.net>
+References: <7cd953e3577a36cbd942c3635ac55e4f2975bcaa.1443091841.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sudipm.mukherjee@gmail.com, egtvedt@samfundet.no,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56058C88.3070907@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paulus@samba.org, sedat.dilek@gmail.com
+To: g.nault@alphalink.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33166 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932891AbbIYTiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 15:38:50 -0400
+In-Reply-To: <7cd953e3577a36cbd942c3635ac55e4f2975bcaa.1443091841.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 25 Sep 2015 21:03:52 +0300
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Thu, 24 Sep 2015 12:54:01 +0200
 
-> Hello.
-> 
-> On 9/24/2015 1:16 PM, Sudip Mukherjee wrote:
-> 
->> The builds of allmodconfig of avr32 is failing with:
->>
->> drivers/net/ethernet/via/via-rhine.c:1098:2: error: implicit
->> declaration
->> of function 'pci_iomap' [-Werror=implicit-function-declaration]
->> drivers/net/ethernet/via/via-rhine.c:1119:2: error: implicit
->> declaration
->> of function 'pci_iounmap' [-Werror=implicit-function-declaration]
->>
->> The generic empty pci_iomap and pci_iounmap is used only if CONFIG_PCI
->> is not defined and CONFIG_GENERIC_PCI_IOMAP is defined.
->>
->> Add GENERIC_PCI_IOMAP in the dependency list for VIA_RHINE as we are
->> getting build failure when CONFIG_PCI and CONFIG_GENERIC_PCI_IOMAP
->> both
->> are not defined.
->>
->> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ppp_dev_uninit() locks all_ppp_mutex while under rtnl mutex protection.
+> ppp_create_interface() must then lock these mutexes in that same order
+> to avoid possible deadlock.
  ...
->> @@ -17,7 +17,7 @@ if NET_VENDOR_VIA
->>
->>   config VIA_RHINE
->>   	tristate "VIA Rhine support"
->> -	depends on (PCI || OF_IRQ)
->> +	depends on (PCI || (OF_IRQ && GENERIC_PCI_IOMAP))
-> 
->   Could you remove outer braces, while at it?
+> Fixes: 8cb775bc0a34 ("ppp: fix device unregistration upon netns deletion")
+> Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
+> Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-I took care of this while applying this patch, thanks everyone.
+Applied and queued up for -stable, thanks.
