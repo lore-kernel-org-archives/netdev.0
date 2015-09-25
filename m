@@ -1,87 +1,71 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [net:master 114/121] drivers/net/phy/mdio_bus.c:248: warning: No
- description found for parameter 'owner'
-Date: Fri, 25 Sep 2015 11:56:56 +0100
-Message-ID: <20150925105656.GK21513@n2100.arm.linux.org.uk>
-References: <201509251554.GLQ5oOz9%fengguang.wu@intel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFT] geneve: implement support for IPv6-based tunnels
+Date: Fri, 25 Sep 2015 14:08:44 +0200
+Message-ID: <20150925140844.3e8faae2@griffin>
+References: <1443119682-14236-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:46564 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164AbbIYK5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 06:57:08 -0400
-Content-Disposition: inline
-In-Reply-To: <201509251554.GLQ5oOz9%fengguang.wu@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754412AbbIYMIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 08:08:48 -0400
+In-Reply-To: <1443119682-14236-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 25, 2015 at 03:58:00PM +0800, kbuild test robot wrote:
-> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-> head:   b626ef0128d254d33ee43c51d68f577bbec370ac
-> commit: 3e3aaf649416988ca8be4ad2c52dc24d8be7b46e [114/121] phy: fix mdiobus module safety
-> config: i386-allnoconfig (attached as .config)
-> reproduce:
->   git checkout 3e3aaf649416988ca8be4ad2c52dc24d8be7b46e
->   # save the attached .config to linux build tree
->   make ARCH=i386 
-> 
-> All warnings (new ones prefixed by >>):
-> 
-> >> drivers/net/phy/mdio_bus.c:248: warning: No description found for parameter 'owner'
-> >> drivers/net/phy/mdio_bus.c:248: warning: No description found for parameter 'owner'
+On Thu, 24 Sep 2015 14:34:42 -0400, John W. Linville wrote:
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct geneve_dev *geneve = netdev_priv(dev);
+> +	struct geneve_sock *gs = geneve->sock;
+> +	struct ip_tunnel_info *info = NULL;
+> +	struct dst_entry *dst = NULL;
+> +	struct flowi6 fl6;
+> +	__u8 ttl;
+> +	__be16 sport;
+> +	bool udp_csum;
+> +	int err;
+> +	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
+> +
+> +	if (geneve->collect_md) {
+> +		info = skb_tunnel_info(skb);
+> +		if (unlikely(info && info->mode != IP_TUNNEL_INFO_TX)) {
+> +			netdev_dbg(dev, "no tunnel metadata\n");
+> +			goto tx_error;
+> +		}
+> +	}
 
-We could fix this new warning like this, but I'm not particularly happy
-because it means we're documenting internals as an API, which it isn't.
-IMHO, the original doc is correct - we're documenting mdiobus_register()
-here, which is the preferred API which should be used everywhere, rather
-than __mdiobus_register() which is the implementation detail.  I guess
-docbook can't know that though.
+You may get IPv4 tunnel info here. Either a check whether it's really
+IPv6 is needed or, better, decide whether to use IPv4 or IPv6 for xmit
+based on the tunnel info. See below.
 
-So, is this something that should be fixed like the below?
+> +static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	struct geneve_dev *geneve = netdev_priv(dev);
+> +
+> +	if (geneve->remote.sa.sa_family == AF_INET6)
+> +		return geneve6_xmit_skb(skb, dev);
+> +#endif
+> +	return geneve_xmit_skb(skb, dev);
+> +}
 
-8<===
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] net: update docbook comment for __mdiobus_register()
+For metadata based tunnels, there should be no requirement for the
+remote to be specified. As the consequence, you cannot decide based on
+the remote type.
 
-Update the docbook comment for __mdiobus_register() to include the new
-module owner argument.  This resolves a warning found by the 0-day
-builder.
+To be really useful, geneve should open both IPv4 and IPv6 socket when
+it's metadata based. Take a look at my recent patchset that does this
+for vxlan: http://thread.gmane.org/gmane.linux.network/379282
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/phy/mdio_bus.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index c340e412b38f..12f44c53cc8e 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -236,11 +236,14 @@ static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
- #endif
- 
- /**
-- * mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
-+ * __mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
-  * @bus: target mii_bus
-+ * @owner: module containing bus accessor functions
-  *
-  * Description: Called by a bus driver to bring up all the PHYs
-- *   on a given bus, and attach them to the bus.
-+ *   on a given bus, and attach them to the bus. Drivers should use
-+ *   mdiobus_register() rather than __mdiobus_register() unless they
-+ *   need to pass a specific owner module.
-  *
-  * Returns 0 on success or < 0 on error.
-  */
--- 
-2.1.0
-
-
+ Jiri
 
 -- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Jiri Benc
