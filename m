@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 23/23] configfs: remove old API
-Date: Fri, 25 Sep 2015 06:50:00 -0700
-Message-ID: <1443189000-13398-24-git-send-email-hch@lst.de>
+Subject: [PATCH 18/23] spear13xx_pcie_gadget: use per-attribute show and store methods
+Date: Fri, 25 Sep 2015 06:49:55 -0700
+Message-ID: <1443189000-13398-19-git-send-email-hch@lst.de>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
 Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
 	Pratyush Anand <pratyush.anand@gmail.com>,
@@ -11,1662 +11,415 @@ Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
 To: Joel Becker <jlbec@evilplan.org>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:38407 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:38291 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932441AbbIYNxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 09:53:45 -0400
+	with ESMTP id S932419AbbIYNxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 09:53:41 -0400
 In-Reply-To: <1443189000-13398-1-git-send-email-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the old show_attribute and store_attribute methods and update
-the documentation.  Also replace the two C samples with a single new
-one in the proper samples directory where people expect to find it.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- Documentation/filesystems/Makefile                 |   2 -
- Documentation/filesystems/configfs/Makefile        |   3 -
- Documentation/filesystems/configfs/configfs.txt    |  43 +-
- .../configfs/configfs_example_explicit.c           | 483 ---------------------
- .../filesystems/configfs/configfs_example_macros.c | 446 -------------------
- fs/configfs/file.c                                 |  15 +-
- include/linux/configfs.h                           |  82 ----
- samples/Makefile                                   |   3 +-
- samples/configfs/Makefile                          |   2 +
- samples/configfs/configfs_sample.c                 | 404 +++++++++++++++++
- 10 files changed, 427 insertions(+), 1056 deletions(-)
- delete mode 100644 Documentation/filesystems/configfs/Makefile
- delete mode 100644 Documentation/filesystems/configfs/configfs_example_explicit.c
- delete mode 100644 Documentation/filesystems/configfs/configfs_example_macros.c
- create mode 100644 samples/configfs/Makefile
- create mode 100644 samples/configfs/configfs_sample.c
+ drivers/misc/spear13xx_pcie_gadget.c | 216 ++++++++++++-----------------------
+ 1 file changed, 71 insertions(+), 145 deletions(-)
 
-diff --git a/Documentation/filesystems/Makefile b/Documentation/filesystems/Makefile
-index 13483d1..883010c 100644
---- a/Documentation/filesystems/Makefile
-+++ b/Documentation/filesystems/Makefile
-@@ -1,5 +1,3 @@
--subdir-y := configfs
--
- # List of programs to build
- hostprogs-y := dnotify_test
- 
-diff --git a/Documentation/filesystems/configfs/Makefile b/Documentation/filesystems/configfs/Makefile
-deleted file mode 100644
-index be7ec5e..0000000
---- a/Documentation/filesystems/configfs/Makefile
-+++ /dev/null
-@@ -1,3 +0,0 @@
--ifneq ($(CONFIG_CONFIGFS_FS),)
--obj-m += configfs_example_explicit.o configfs_example_macros.o
--endif
-diff --git a/Documentation/filesystems/configfs/configfs.txt b/Documentation/filesystems/configfs/configfs.txt
-index b40fec9..f51d04f 100644
---- a/Documentation/filesystems/configfs/configfs.txt
-+++ b/Documentation/filesystems/configfs/configfs.txt
-@@ -160,12 +160,6 @@ among other things.  For that, it needs a type.
- 
- 	struct configfs_item_operations {
- 		void (*release)(struct config_item *);
--		ssize_t (*show_attribute)(struct config_item *,
--					  struct configfs_attribute *,
--					  char *);
--		ssize_t (*store_attribute)(struct config_item *,
--					   struct configfs_attribute *,
--					   const char *, size_t);
- 		int (*allow_link)(struct config_item *src,
- 				  struct config_item *target);
- 		int (*drop_link)(struct config_item *src,
-@@ -183,9 +177,7 @@ The most basic function of a config_item_type is to define what
- operations can be performed on a config_item.  All items that have been
- allocated dynamically will need to provide the ct_item_ops->release()
- method.  This method is called when the config_item's reference count
--reaches zero.  Items that wish to display an attribute need to provide
--the ct_item_ops->show_attribute() method.  Similarly, storing a new
--attribute value uses the store_attribute() method.
-+reaches zero.
- 
- [struct configfs_attribute]
- 
-@@ -193,6 +185,8 @@ attribute value uses the store_attribute() method.
- 		char                    *ca_name;
- 		struct module           *ca_owner;
- 		umode_t                  ca_mode;
-+		ssize_t (*show)(struct config_item *, char *);
-+		ssize_t (*store)(struct config_item *, const char *, size_t);
- 	};
- 
- When a config_item wants an attribute to appear as a file in the item's
-@@ -202,10 +196,15 @@ config_item_type->ct_attrs.  When the item appears in configfs, the
- attribute file will appear with the configfs_attribute->ca_name
- filename.  configfs_attribute->ca_mode specifies the file permissions.
- 
--If an attribute is readable and the config_item provides a
--ct_item_ops->show_attribute() method, that method will be called
--whenever userspace asks for a read(2) on the attribute.  The converse
--will happen for write(2).
-+Items that wish to display an attribute need to provide
-+the ct_item_ops->show_attribute() method.  Similarly, storing a new
-+attribute value uses the store_attribute() method.
-+
-+
-+If an attribute is readable and provides a ->show method, that method will
-+be called whenever userspace asks for a read(2) on the attribute.  If an
-+attribute is writable and provides a ->store  method, that method will be
-+be called whenever userspace asks for a write(2) on the attribute.
- 
- [struct config_group]
- 
-@@ -311,20 +310,10 @@ the subsystem must be ready for it.
- [An Example]
- 
- The best example of these basic concepts is the simple_children
--subsystem/group and the simple_child item in configfs_example_explicit.c
--and configfs_example_macros.c.  It shows a trivial object displaying and
--storing an attribute, and a simple group creating and destroying these
--children.
--
--The only difference between configfs_example_explicit.c and
--configfs_example_macros.c is how the attributes of the childless item
--are defined.  The childless item has extended attributes, each with
--their own show()/store() operation.  This follows a convention commonly
--used in sysfs.  configfs_example_explicit.c creates these attributes
--by explicitly defining the structures involved.  Conversely
--configfs_example_macros.c uses some convenience macros from configfs.h
--to define the attributes.  These macros are similar to their sysfs
--counterparts.
-+subsystem/group and the simple_child item in
-+samples/configfs/configfs_sample.c. It shows a trivial object displaying
-+and storing an attribute, and a simple group creating and destroying
-+these children.
- 
- [Hierarchy Navigation and the Subsystem Mutex]
- 
-diff --git a/Documentation/filesystems/configfs/configfs_example_explicit.c b/Documentation/filesystems/configfs/configfs_example_explicit.c
-deleted file mode 100644
-index 1420233..0000000
---- a/Documentation/filesystems/configfs/configfs_example_explicit.c
-+++ /dev/null
-@@ -1,483 +0,0 @@
--/*
-- * vim: noexpandtab ts=8 sts=0 sw=8:
-- *
-- * configfs_example_explicit.c - This file is a demonstration module
-- *      containing a number of configfs subsystems.  It explicitly defines
-- *      each structure without using the helper macros defined in
-- *      configfs.h.
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public
-- * License as published by the Free Software Foundation; either
-- * version 2 of the License, or (at your option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-- * General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public
-- * License along with this program; if not, write to the
-- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-- * Boston, MA 021110-1307, USA.
-- *
-- * Based on sysfs:
-- * 	sysfs is Copyright (C) 2001, 2002, 2003 Patrick Mochel
-- *
-- * configfs Copyright (C) 2005 Oracle.  All rights reserved.
-- */
--
--#include <linux/init.h>
--#include <linux/module.h>
--#include <linux/slab.h>
--
--#include <linux/configfs.h>
--
--
--
--/*
-- * 01-childless
-- *
-- * This first example is a childless subsystem.  It cannot create
-- * any config_items.  It just has attributes.
-- *
-- * Note that we are enclosing the configfs_subsystem inside a container.
-- * This is not necessary if a subsystem has no attributes directly
-- * on the subsystem.  See the next example, 02-simple-children, for
-- * such a subsystem.
-- */
--
--struct childless {
--	struct configfs_subsystem subsys;
--	int showme;
--	int storeme;
--};
--
--struct childless_attribute {
--	struct configfs_attribute attr;
--	ssize_t (*show)(struct childless *, char *);
--	ssize_t (*store)(struct childless *, const char *, size_t);
--};
--
--static inline struct childless *to_childless(struct config_item *item)
--{
--	return item ? container_of(to_configfs_subsystem(to_config_group(item)), struct childless, subsys) : NULL;
--}
--
--static ssize_t childless_showme_read(struct childless *childless,
--				     char *page)
--{
--	ssize_t pos;
--
--	pos = sprintf(page, "%d\n", childless->showme);
--	childless->showme++;
--
--	return pos;
--}
--
--static ssize_t childless_storeme_read(struct childless *childless,
--				      char *page)
--{
--	return sprintf(page, "%d\n", childless->storeme);
--}
--
--static ssize_t childless_storeme_write(struct childless *childless,
--				       const char *page,
--				       size_t count)
--{
--	unsigned long tmp;
--	char *p = (char *) page;
--
--	tmp = simple_strtoul(p, &p, 10);
--	if ((*p != '\0') && (*p != '\n'))
--		return -EINVAL;
--
--	if (tmp > INT_MAX)
--		return -ERANGE;
--
--	childless->storeme = tmp;
--
--	return count;
--}
--
--static ssize_t childless_description_read(struct childless *childless,
--					  char *page)
--{
--	return sprintf(page,
--"[01-childless]\n"
--"\n"
--"The childless subsystem is the simplest possible subsystem in\n"
--"configfs.  It does not support the creation of child config_items.\n"
--"It only has a few attributes.  In fact, it isn't much different\n"
--"than a directory in /proc.\n");
--}
--
--static struct childless_attribute childless_attr_showme = {
--	.attr	= { .ca_owner = THIS_MODULE, .ca_name = "showme", .ca_mode = S_IRUGO },
--	.show	= childless_showme_read,
--};
--static struct childless_attribute childless_attr_storeme = {
--	.attr	= { .ca_owner = THIS_MODULE, .ca_name = "storeme", .ca_mode = S_IRUGO | S_IWUSR },
--	.show	= childless_storeme_read,
--	.store	= childless_storeme_write,
--};
--static struct childless_attribute childless_attr_description = {
--	.attr = { .ca_owner = THIS_MODULE, .ca_name = "description", .ca_mode = S_IRUGO },
--	.show = childless_description_read,
--};
--
--static struct configfs_attribute *childless_attrs[] = {
--	&childless_attr_showme.attr,
--	&childless_attr_storeme.attr,
--	&childless_attr_description.attr,
--	NULL,
--};
--
--static ssize_t childless_attr_show(struct config_item *item,
--				   struct configfs_attribute *attr,
--				   char *page)
--{
--	struct childless *childless = to_childless(item);
--	struct childless_attribute *childless_attr =
--		container_of(attr, struct childless_attribute, attr);
--	ssize_t ret = 0;
--
--	if (childless_attr->show)
--		ret = childless_attr->show(childless, page);
--	return ret;
--}
--
--static ssize_t childless_attr_store(struct config_item *item,
--				    struct configfs_attribute *attr,
--				    const char *page, size_t count)
--{
--	struct childless *childless = to_childless(item);
--	struct childless_attribute *childless_attr =
--		container_of(attr, struct childless_attribute, attr);
--	ssize_t ret = -EINVAL;
--
--	if (childless_attr->store)
--		ret = childless_attr->store(childless, page, count);
--	return ret;
--}
--
--static struct configfs_item_operations childless_item_ops = {
--	.show_attribute		= childless_attr_show,
--	.store_attribute	= childless_attr_store,
--};
--
--static struct config_item_type childless_type = {
--	.ct_item_ops	= &childless_item_ops,
--	.ct_attrs	= childless_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct childless childless_subsys = {
--	.subsys = {
--		.su_group = {
--			.cg_item = {
--				.ci_namebuf = "01-childless",
--				.ci_type = &childless_type,
--			},
--		},
--	},
--};
--
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * 02-simple-children
-- *
-- * This example merely has a simple one-attribute child.  Note that
-- * there is no extra attribute structure, as the child's attribute is
-- * known from the get-go.  Also, there is no container for the
-- * subsystem, as it has no attributes of its own.
-- */
--
--struct simple_child {
--	struct config_item item;
--	int storeme;
--};
--
--static inline struct simple_child *to_simple_child(struct config_item *item)
--{
--	return item ? container_of(item, struct simple_child, item) : NULL;
--}
--
--static struct configfs_attribute simple_child_attr_storeme = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "storeme",
--	.ca_mode = S_IRUGO | S_IWUSR,
--};
--
--static struct configfs_attribute *simple_child_attrs[] = {
--	&simple_child_attr_storeme,
--	NULL,
--};
--
--static ssize_t simple_child_attr_show(struct config_item *item,
--				      struct configfs_attribute *attr,
--				      char *page)
--{
--	ssize_t count;
--	struct simple_child *simple_child = to_simple_child(item);
--
--	count = sprintf(page, "%d\n", simple_child->storeme);
--
--	return count;
--}
--
--static ssize_t simple_child_attr_store(struct config_item *item,
--				       struct configfs_attribute *attr,
--				       const char *page, size_t count)
--{
--	struct simple_child *simple_child = to_simple_child(item);
--	unsigned long tmp;
--	char *p = (char *) page;
--
--	tmp = simple_strtoul(p, &p, 10);
--	if (!p || (*p && (*p != '\n')))
--		return -EINVAL;
--
--	if (tmp > INT_MAX)
--		return -ERANGE;
--
--	simple_child->storeme = tmp;
--
--	return count;
--}
--
--static void simple_child_release(struct config_item *item)
--{
--	kfree(to_simple_child(item));
--}
--
--static struct configfs_item_operations simple_child_item_ops = {
--	.release		= simple_child_release,
--	.show_attribute		= simple_child_attr_show,
--	.store_attribute	= simple_child_attr_store,
--};
--
--static struct config_item_type simple_child_type = {
--	.ct_item_ops	= &simple_child_item_ops,
--	.ct_attrs	= simple_child_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--
--struct simple_children {
--	struct config_group group;
--};
--
--static inline struct simple_children *to_simple_children(struct config_item *item)
--{
--	return item ? container_of(to_config_group(item), struct simple_children, group) : NULL;
--}
--
--static struct config_item *simple_children_make_item(struct config_group *group, const char *name)
--{
--	struct simple_child *simple_child;
--
--	simple_child = kzalloc(sizeof(struct simple_child), GFP_KERNEL);
--	if (!simple_child)
--		return ERR_PTR(-ENOMEM);
--
--	config_item_init_type_name(&simple_child->item, name,
--				   &simple_child_type);
--
--	simple_child->storeme = 0;
--
--	return &simple_child->item;
--}
--
--static struct configfs_attribute simple_children_attr_description = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "description",
--	.ca_mode = S_IRUGO,
--};
--
--static struct configfs_attribute *simple_children_attrs[] = {
--	&simple_children_attr_description,
--	NULL,
--};
--
--static ssize_t simple_children_attr_show(struct config_item *item,
--					 struct configfs_attribute *attr,
--					 char *page)
--{
--	return sprintf(page,
--"[02-simple-children]\n"
--"\n"
--"This subsystem allows the creation of child config_items.  These\n"
--"items have only one attribute that is readable and writeable.\n");
--}
--
--static void simple_children_release(struct config_item *item)
--{
--	kfree(to_simple_children(item));
--}
--
--static struct configfs_item_operations simple_children_item_ops = {
--	.release	= simple_children_release,
--	.show_attribute	= simple_children_attr_show,
--};
--
--/*
-- * Note that, since no extra work is required on ->drop_item(),
-- * no ->drop_item() is provided.
-- */
--static struct configfs_group_operations simple_children_group_ops = {
--	.make_item	= simple_children_make_item,
--};
--
--static struct config_item_type simple_children_type = {
--	.ct_item_ops	= &simple_children_item_ops,
--	.ct_group_ops	= &simple_children_group_ops,
--	.ct_attrs	= simple_children_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct configfs_subsystem simple_children_subsys = {
--	.su_group = {
--		.cg_item = {
--			.ci_namebuf = "02-simple-children",
--			.ci_type = &simple_children_type,
--		},
--	},
--};
--
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * 03-group-children
-- *
-- * This example reuses the simple_children group from above.  However,
-- * the simple_children group is not the subsystem itself, it is a
-- * child of the subsystem.  Creation of a group in the subsystem creates
-- * a new simple_children group.  That group can then have simple_child
-- * children of its own.
-- */
--
--static struct config_group *group_children_make_group(struct config_group *group, const char *name)
--{
--	struct simple_children *simple_children;
--
--	simple_children = kzalloc(sizeof(struct simple_children),
--				  GFP_KERNEL);
--	if (!simple_children)
--		return ERR_PTR(-ENOMEM);
--
--	config_group_init_type_name(&simple_children->group, name,
--				    &simple_children_type);
--
--	return &simple_children->group;
--}
--
--static struct configfs_attribute group_children_attr_description = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "description",
--	.ca_mode = S_IRUGO,
--};
--
--static struct configfs_attribute *group_children_attrs[] = {
--	&group_children_attr_description,
--	NULL,
--};
--
--static ssize_t group_children_attr_show(struct config_item *item,
--					struct configfs_attribute *attr,
--					char *page)
--{
--	return sprintf(page,
--"[03-group-children]\n"
--"\n"
--"This subsystem allows the creation of child config_groups.  These\n"
--"groups are like the subsystem simple-children.\n");
--}
--
--static struct configfs_item_operations group_children_item_ops = {
--	.show_attribute	= group_children_attr_show,
--};
--
--/*
-- * Note that, since no extra work is required on ->drop_item(),
-- * no ->drop_item() is provided.
-- */
--static struct configfs_group_operations group_children_group_ops = {
--	.make_group	= group_children_make_group,
--};
--
--static struct config_item_type group_children_type = {
--	.ct_item_ops	= &group_children_item_ops,
--	.ct_group_ops	= &group_children_group_ops,
--	.ct_attrs	= group_children_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct configfs_subsystem group_children_subsys = {
--	.su_group = {
--		.cg_item = {
--			.ci_namebuf = "03-group-children",
--			.ci_type = &group_children_type,
--		},
--	},
--};
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * We're now done with our subsystem definitions.
-- * For convenience in this module, here's a list of them all.  It
-- * allows the init function to easily register them.  Most modules
-- * will only have one subsystem, and will only call register_subsystem
-- * on it directly.
-- */
--static struct configfs_subsystem *example_subsys[] = {
--	&childless_subsys.subsys,
--	&simple_children_subsys,
--	&group_children_subsys,
--	NULL,
--};
--
--static int __init configfs_example_init(void)
--{
--	int ret;
--	int i;
--	struct configfs_subsystem *subsys;
--
--	for (i = 0; example_subsys[i]; i++) {
--		subsys = example_subsys[i];
--
--		config_group_init(&subsys->su_group);
--		mutex_init(&subsys->su_mutex);
--		ret = configfs_register_subsystem(subsys);
--		if (ret) {
--			printk(KERN_ERR "Error %d while registering subsystem %s\n",
--			       ret,
--			       subsys->su_group.cg_item.ci_namebuf);
--			goto out_unregister;
--		}
--	}
--
--	return 0;
--
--out_unregister:
--	for (i--; i >= 0; i--)
--		configfs_unregister_subsystem(example_subsys[i]);
--
--	return ret;
--}
--
--static void __exit configfs_example_exit(void)
--{
--	int i;
--
--	for (i = 0; example_subsys[i]; i++)
--		configfs_unregister_subsystem(example_subsys[i]);
--}
--
--module_init(configfs_example_init);
--module_exit(configfs_example_exit);
--MODULE_LICENSE("GPL");
-diff --git a/Documentation/filesystems/configfs/configfs_example_macros.c b/Documentation/filesystems/configfs/configfs_example_macros.c
-deleted file mode 100644
-index 327dfbc..0000000
---- a/Documentation/filesystems/configfs/configfs_example_macros.c
-+++ /dev/null
-@@ -1,446 +0,0 @@
--/*
-- * vim: noexpandtab ts=8 sts=0 sw=8:
-- *
-- * configfs_example_macros.c - This file is a demonstration module
-- *      containing a number of configfs subsystems.  It uses the helper
-- *      macros defined by configfs.h
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public
-- * License as published by the Free Software Foundation; either
-- * version 2 of the License, or (at your option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-- * General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public
-- * License along with this program; if not, write to the
-- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-- * Boston, MA 021110-1307, USA.
-- *
-- * Based on sysfs:
-- * 	sysfs is Copyright (C) 2001, 2002, 2003 Patrick Mochel
-- *
-- * configfs Copyright (C) 2005 Oracle.  All rights reserved.
-- */
--
--#include <linux/init.h>
--#include <linux/module.h>
--#include <linux/slab.h>
--
--#include <linux/configfs.h>
--
--
--
--/*
-- * 01-childless
-- *
-- * This first example is a childless subsystem.  It cannot create
-- * any config_items.  It just has attributes.
-- *
-- * Note that we are enclosing the configfs_subsystem inside a container.
-- * This is not necessary if a subsystem has no attributes directly
-- * on the subsystem.  See the next example, 02-simple-children, for
-- * such a subsystem.
-- */
--
--struct childless {
--	struct configfs_subsystem subsys;
--	int showme;
--	int storeme;
--};
--
--static inline struct childless *to_childless(struct config_item *item)
--{
--	return item ? container_of(to_configfs_subsystem(to_config_group(item)), struct childless, subsys) : NULL;
--}
--
--CONFIGFS_ATTR_STRUCT(childless);
--#define CHILDLESS_ATTR(_name, _mode, _show, _store)	\
--struct childless_attribute childless_attr_##_name = __CONFIGFS_ATTR(_name, _mode, _show, _store)
--#define CHILDLESS_ATTR_RO(_name, _show)	\
--struct childless_attribute childless_attr_##_name = __CONFIGFS_ATTR_RO(_name, _show);
--
--static ssize_t childless_showme_read(struct childless *childless,
--				     char *page)
--{
--	ssize_t pos;
--
--	pos = sprintf(page, "%d\n", childless->showme);
--	childless->showme++;
--
--	return pos;
--}
--
--static ssize_t childless_storeme_read(struct childless *childless,
--				      char *page)
--{
--	return sprintf(page, "%d\n", childless->storeme);
--}
--
--static ssize_t childless_storeme_write(struct childless *childless,
--				       const char *page,
--				       size_t count)
--{
--	unsigned long tmp;
--	char *p = (char *) page;
--
--	tmp = simple_strtoul(p, &p, 10);
--	if (!p || (*p && (*p != '\n')))
--		return -EINVAL;
--
--	if (tmp > INT_MAX)
--		return -ERANGE;
--
--	childless->storeme = tmp;
--
--	return count;
--}
--
--static ssize_t childless_description_read(struct childless *childless,
--					  char *page)
--{
--	return sprintf(page,
--"[01-childless]\n"
--"\n"
--"The childless subsystem is the simplest possible subsystem in\n"
--"configfs.  It does not support the creation of child config_items.\n"
--"It only has a few attributes.  In fact, it isn't much different\n"
--"than a directory in /proc.\n");
--}
--
--CHILDLESS_ATTR_RO(showme, childless_showme_read);
--CHILDLESS_ATTR(storeme, S_IRUGO | S_IWUSR, childless_storeme_read,
--	       childless_storeme_write);
--CHILDLESS_ATTR_RO(description, childless_description_read);
--
--static struct configfs_attribute *childless_attrs[] = {
--	&childless_attr_showme.attr,
--	&childless_attr_storeme.attr,
--	&childless_attr_description.attr,
--	NULL,
--};
--
--CONFIGFS_ATTR_OPS(childless);
--static struct configfs_item_operations childless_item_ops = {
--	.show_attribute		= childless_attr_show,
--	.store_attribute	= childless_attr_store,
--};
--
--static struct config_item_type childless_type = {
--	.ct_item_ops	= &childless_item_ops,
--	.ct_attrs	= childless_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct childless childless_subsys = {
--	.subsys = {
--		.su_group = {
--			.cg_item = {
--				.ci_namebuf = "01-childless",
--				.ci_type = &childless_type,
--			},
--		},
--	},
--};
--
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * 02-simple-children
-- *
-- * This example merely has a simple one-attribute child.  Note that
-- * there is no extra attribute structure, as the child's attribute is
-- * known from the get-go.  Also, there is no container for the
-- * subsystem, as it has no attributes of its own.
-- */
--
--struct simple_child {
--	struct config_item item;
--	int storeme;
--};
--
--static inline struct simple_child *to_simple_child(struct config_item *item)
--{
--	return item ? container_of(item, struct simple_child, item) : NULL;
--}
--
--static struct configfs_attribute simple_child_attr_storeme = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "storeme",
--	.ca_mode = S_IRUGO | S_IWUSR,
--};
--
--static struct configfs_attribute *simple_child_attrs[] = {
--	&simple_child_attr_storeme,
--	NULL,
--};
--
--static ssize_t simple_child_attr_show(struct config_item *item,
--				      struct configfs_attribute *attr,
--				      char *page)
--{
--	ssize_t count;
--	struct simple_child *simple_child = to_simple_child(item);
--
--	count = sprintf(page, "%d\n", simple_child->storeme);
--
--	return count;
--}
--
--static ssize_t simple_child_attr_store(struct config_item *item,
--				       struct configfs_attribute *attr,
--				       const char *page, size_t count)
--{
--	struct simple_child *simple_child = to_simple_child(item);
--	unsigned long tmp;
--	char *p = (char *) page;
--
--	tmp = simple_strtoul(p, &p, 10);
--	if (!p || (*p && (*p != '\n')))
--		return -EINVAL;
--
--	if (tmp > INT_MAX)
--		return -ERANGE;
--
--	simple_child->storeme = tmp;
--
--	return count;
--}
--
--static void simple_child_release(struct config_item *item)
--{
--	kfree(to_simple_child(item));
--}
--
--static struct configfs_item_operations simple_child_item_ops = {
--	.release		= simple_child_release,
--	.show_attribute		= simple_child_attr_show,
--	.store_attribute	= simple_child_attr_store,
--};
--
--static struct config_item_type simple_child_type = {
--	.ct_item_ops	= &simple_child_item_ops,
--	.ct_attrs	= simple_child_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--
--struct simple_children {
--	struct config_group group;
--};
--
--static inline struct simple_children *to_simple_children(struct config_item *item)
--{
--	return item ? container_of(to_config_group(item), struct simple_children, group) : NULL;
--}
--
--static struct config_item *simple_children_make_item(struct config_group *group, const char *name)
--{
--	struct simple_child *simple_child;
--
--	simple_child = kzalloc(sizeof(struct simple_child), GFP_KERNEL);
--	if (!simple_child)
--		return ERR_PTR(-ENOMEM);
--
--	config_item_init_type_name(&simple_child->item, name,
--				   &simple_child_type);
--
--	simple_child->storeme = 0;
--
--	return &simple_child->item;
--}
--
--static struct configfs_attribute simple_children_attr_description = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "description",
--	.ca_mode = S_IRUGO,
--};
--
--static struct configfs_attribute *simple_children_attrs[] = {
--	&simple_children_attr_description,
--	NULL,
--};
--
--static ssize_t simple_children_attr_show(struct config_item *item,
--					 struct configfs_attribute *attr,
--					 char *page)
--{
--	return sprintf(page,
--"[02-simple-children]\n"
--"\n"
--"This subsystem allows the creation of child config_items.  These\n"
--"items have only one attribute that is readable and writeable.\n");
--}
--
--static void simple_children_release(struct config_item *item)
--{
--	kfree(to_simple_children(item));
--}
--
--static struct configfs_item_operations simple_children_item_ops = {
--	.release	= simple_children_release,
--	.show_attribute	= simple_children_attr_show,
--};
--
--/*
-- * Note that, since no extra work is required on ->drop_item(),
-- * no ->drop_item() is provided.
-- */
--static struct configfs_group_operations simple_children_group_ops = {
--	.make_item	= simple_children_make_item,
--};
--
--static struct config_item_type simple_children_type = {
--	.ct_item_ops	= &simple_children_item_ops,
--	.ct_group_ops	= &simple_children_group_ops,
--	.ct_attrs	= simple_children_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct configfs_subsystem simple_children_subsys = {
--	.su_group = {
--		.cg_item = {
--			.ci_namebuf = "02-simple-children",
--			.ci_type = &simple_children_type,
--		},
--	},
--};
--
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * 03-group-children
-- *
-- * This example reuses the simple_children group from above.  However,
-- * the simple_children group is not the subsystem itself, it is a
-- * child of the subsystem.  Creation of a group in the subsystem creates
-- * a new simple_children group.  That group can then have simple_child
-- * children of its own.
-- */
--
--static struct config_group *group_children_make_group(struct config_group *group, const char *name)
--{
--	struct simple_children *simple_children;
--
--	simple_children = kzalloc(sizeof(struct simple_children),
--				  GFP_KERNEL);
--	if (!simple_children)
--		return ERR_PTR(-ENOMEM);
--
--	config_group_init_type_name(&simple_children->group, name,
--				    &simple_children_type);
--
--	return &simple_children->group;
--}
--
--static struct configfs_attribute group_children_attr_description = {
--	.ca_owner = THIS_MODULE,
--	.ca_name = "description",
--	.ca_mode = S_IRUGO,
--};
--
--static struct configfs_attribute *group_children_attrs[] = {
--	&group_children_attr_description,
--	NULL,
--};
--
--static ssize_t group_children_attr_show(struct config_item *item,
--					struct configfs_attribute *attr,
--					char *page)
--{
--	return sprintf(page,
--"[03-group-children]\n"
--"\n"
--"This subsystem allows the creation of child config_groups.  These\n"
--"groups are like the subsystem simple-children.\n");
--}
--
--static struct configfs_item_operations group_children_item_ops = {
--	.show_attribute	= group_children_attr_show,
--};
--
--/*
-- * Note that, since no extra work is required on ->drop_item(),
-- * no ->drop_item() is provided.
-- */
--static struct configfs_group_operations group_children_group_ops = {
--	.make_group	= group_children_make_group,
--};
--
--static struct config_item_type group_children_type = {
--	.ct_item_ops	= &group_children_item_ops,
--	.ct_group_ops	= &group_children_group_ops,
--	.ct_attrs	= group_children_attrs,
--	.ct_owner	= THIS_MODULE,
--};
--
--static struct configfs_subsystem group_children_subsys = {
--	.su_group = {
--		.cg_item = {
--			.ci_namebuf = "03-group-children",
--			.ci_type = &group_children_type,
--		},
--	},
--};
--
--/* ----------------------------------------------------------------- */
--
--/*
-- * We're now done with our subsystem definitions.
-- * For convenience in this module, here's a list of them all.  It
-- * allows the init function to easily register them.  Most modules
-- * will only have one subsystem, and will only call register_subsystem
-- * on it directly.
-- */
--static struct configfs_subsystem *example_subsys[] = {
--	&childless_subsys.subsys,
--	&simple_children_subsys,
--	&group_children_subsys,
--	NULL,
--};
--
--static int __init configfs_example_init(void)
--{
--	int ret;
--	int i;
--	struct configfs_subsystem *subsys;
--
--	for (i = 0; example_subsys[i]; i++) {
--		subsys = example_subsys[i];
--
--		config_group_init(&subsys->su_group);
--		mutex_init(&subsys->su_mutex);
--		ret = configfs_register_subsystem(subsys);
--		if (ret) {
--			printk(KERN_ERR "Error %d while registering subsystem %s\n",
--			       ret,
--			       subsys->su_group.cg_item.ci_namebuf);
--			goto out_unregister;
--		}
--	}
--
--	return 0;
--
--out_unregister:
--	for (i--; i >= 0; i--)
--		configfs_unregister_subsystem(example_subsys[i]);
--
--	return ret;
--}
--
--static void __exit configfs_example_exit(void)
--{
--	int i;
--
--	for (i = 0; example_subsys[i]; i++)
--		configfs_unregister_subsystem(example_subsys[i]);
--}
--
--module_init(configfs_example_init);
--module_exit(configfs_example_exit);
--MODULE_LICENSE("GPL");
-diff --git a/fs/configfs/file.c b/fs/configfs/file.c
-index 106ca58..d39099e 100644
---- a/fs/configfs/file.c
-+++ b/fs/configfs/file.c
-@@ -65,7 +65,6 @@ static int fill_read_buffer(struct dentry * dentry, struct configfs_buffer * buf
- {
- 	struct configfs_attribute * attr = to_attr(dentry);
- 	struct config_item * item = to_item(dentry->d_parent);
--	struct configfs_item_operations * ops = buffer->ops;
- 	int ret = 0;
- 	ssize_t count;
- 
-@@ -74,10 +73,7 @@ static int fill_read_buffer(struct dentry * dentry, struct configfs_buffer * buf
- 	if (!buffer->page)
- 		return -ENOMEM;
- 
--	if (ops->show_attribute)
--		count = ops->show_attribute(item, attr, buffer->page);
--	else
--		count = attr->show(item, buffer->page);
-+	count = attr->show(item, buffer->page);
- 
- 	buffer->needs_read_fill = 0;
- 	BUG_ON(count > (ssize_t)SIMPLE_ATTR_SIZE);
-@@ -175,10 +171,7 @@ flush_write_buffer(struct dentry * dentry, struct configfs_buffer * buffer, size
- {
- 	struct configfs_attribute * attr = to_attr(dentry);
- 	struct config_item * item = to_item(dentry->d_parent);
--	struct configfs_item_operations * ops = buffer->ops;
- 
--	if (ops->store_attribute)
--		return ops->store_attribute(item, attr, buffer->page, count);
- 	return attr->store(item, buffer->page, count);
- }
- 
-@@ -243,8 +236,7 @@ static int check_perm(struct inode * inode, struct file * file)
- 	 * and we must have a store method.
- 	 */
- 	if (file->f_mode & FMODE_WRITE) {
--		if (!(inode->i_mode & S_IWUGO) ||
--		    (!ops->store_attribute && !attr->store))
-+		if (!(inode->i_mode & S_IWUGO) || !attr->store)
- 			goto Eaccess;
- 
- 	}
-@@ -254,8 +246,7 @@ static int check_perm(struct inode * inode, struct file * file)
- 	 * must be a show method for it.
- 	 */
- 	if (file->f_mode & FMODE_READ) {
--		if (!(inode->i_mode & S_IRUGO) ||
--		    (!ops->show_attribute && !attr->show))
-+		if (!(inode->i_mode & S_IRUGO) || !attr->show)
- 			goto Eaccess;
- 	}
- 
-diff --git a/include/linux/configfs.h b/include/linux/configfs.h
-index 85e9956..a8a335b 100644
---- a/include/linux/configfs.h
-+++ b/include/linux/configfs.h
-@@ -155,86 +155,6 @@ static struct configfs_attribute _pfx##attr_##_name = {	\
- }
- 
+diff --git a/drivers/misc/spear13xx_pcie_gadget.c b/drivers/misc/spear13xx_pcie_gadget.c
+index b8374cd..ee120dc 100644
+--- a/drivers/misc/spear13xx_pcie_gadget.c
++++ b/drivers/misc/spear13xx_pcie_gadget.c
+@@ -220,11 +220,17 @@ static irqreturn_t spear_pcie_gadget_irq(int irq, void *dev_id)
  /*
-- * Users often need to create attribute structures for their configurable
-- * attributes, containing a configfs_attribute member and function pointers
-- * for the show() and store() operations on that attribute. If they don't
-- * need anything else on the extended attribute structure, they can use
-- * this macro to define it  The argument _item is the name of the
-- * config_item structure.
-- */
--#define CONFIGFS_ATTR_STRUCT(_item)					\
--struct _item##_attribute {						\
--	struct configfs_attribute attr;					\
--	ssize_t (*show)(struct _item *, char *);			\
--	ssize_t (*store)(struct _item *, const char *, size_t);		\
--}
--
--/*
-- * With the extended attribute structure, users can use this macro
-- * (similar to sysfs' __ATTR) to make defining attributes easier.
-- * An example:
-- * #define MYITEM_ATTR(_name, _mode, _show, _store)	\
-- * struct myitem_attribute childless_attr_##_name =	\
-- *         __CONFIGFS_ATTR(_name, _mode, _show, _store)
-- */
--#define __CONFIGFS_ATTR(_name, _mode, _show, _store)			\
--{									\
--	.attr	= {							\
--			.ca_name = __stringify(_name),			\
--			.ca_mode = _mode,				\
--			.ca_owner = THIS_MODULE,			\
--	},								\
--	.show	= _show,						\
--	.store	= _store,						\
--}
--/* Here is a readonly version, only requiring a show() operation */
--#define __CONFIGFS_ATTR_RO(_name, _show)				\
--{									\
--	.attr	= {							\
--			.ca_name = __stringify(_name),			\
--			.ca_mode = 0444,				\
--			.ca_owner = THIS_MODULE,			\
--	},								\
--	.show	= _show,						\
--}
--
--/*
-- * With these extended attributes, the simple show_attribute() and
-- * store_attribute() operations need to call the show() and store() of the
-- * attributes.  This is a common pattern, so we provide a macro to define
-- * them.  The argument _item is the name of the config_item structure.
-- * This macro expects the attributes to be named "struct <name>_attribute"
-- * and the function to_<name>() to exist;
-- */
--#define CONFIGFS_ATTR_OPS(_item)					\
--static ssize_t _item##_attr_show(struct config_item *item,		\
--				 struct configfs_attribute *attr,	\
--				 char *page)				\
--{									\
--	struct _item *_item = to_##_item(item);				\
--	struct _item##_attribute *_item##_attr =			\
--		container_of(attr, struct _item##_attribute, attr);	\
--	ssize_t ret = 0;						\
--									\
--	if (_item##_attr->show)						\
--		ret = _item##_attr->show(_item, page);			\
--	return ret;							\
--}									\
--static ssize_t _item##_attr_store(struct config_item *item,		\
--				  struct configfs_attribute *attr,	\
--				  const char *page, size_t count)	\
--{									\
--	struct _item *_item = to_##_item(item);				\
--	struct _item##_attribute *_item##_attr =			\
--		container_of(attr, struct _item##_attribute, attr);	\
--	ssize_t ret = -EINVAL;						\
--									\
--	if (_item##_attr->store)					\
--		ret = _item##_attr->store(_item, page, count);		\
--	return ret;							\
--}
--
--/*
-  * If allow_link() exists, the item can symlink(2) out to other
-  * items.  If the item is a group, it may support mkdir(2).
-  * Groups supply one of make_group() and make_item().  If the
-@@ -250,8 +170,6 @@ static ssize_t _item##_attr_store(struct config_item *item,		\
+  * configfs interfaces show/store functions
   */
- struct configfs_item_operations {
- 	void (*release)(struct config_item *);
--	ssize_t	(*show_attribute)(struct config_item *, struct configfs_attribute *,char *);
--	ssize_t	(*store_attribute)(struct config_item *,struct configfs_attribute *,const char *, size_t);
- 	int (*allow_link)(struct config_item *src, struct config_item *target);
- 	int (*drop_link)(struct config_item *src, struct config_item *target);
- };
-diff --git a/samples/Makefile b/samples/Makefile
-index f00257b..48001d7 100644
---- a/samples/Makefile
-+++ b/samples/Makefile
-@@ -1,4 +1,5 @@
- # Makefile for Linux samples code
+-static ssize_t pcie_gadget_show_link(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++
++static struct pcie_gadget_target *to_target(struct config_item *item)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	return item ?
++		container_of(to_configfs_subsystem(to_config_group(item)),
++				struct pcie_gadget_target, subsys) : NULL;
++}
++
++static ssize_t pcie_gadget_link_show(struct config_item *item, char *buf)
++{
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
  
- obj-$(CONFIG_SAMPLES)	+= kobject/ kprobes/ trace_events/ livepatch/ \
--			   hw_breakpoint/ kfifo/ kdb/ hidraw/ rpmsg/ seccomp/
-+			   hw_breakpoint/ kfifo/ kdb/ hidraw/ rpmsg/ seccomp/ \
-+			   configfs/
-diff --git a/samples/configfs/Makefile b/samples/configfs/Makefile
-new file mode 100644
-index 0000000..4d3c8b6
---- /dev/null
-+++ b/samples/configfs/Makefile
-@@ -0,0 +1,2 @@
-+
-+obj-m += configfs_sample.o
-diff --git a/samples/configfs/configfs_sample.c b/samples/configfs/configfs_sample.c
-new file mode 100644
-index 0000000..1ea3311
---- /dev/null
-+++ b/samples/configfs/configfs_sample.c
-@@ -0,0 +1,404 @@
-+/*
-+ * vim: noexpandtab ts=8 sts=0 sw=8:
-+ *
-+ * configfs_example_macros.c - This file is a demonstration module
-+ *      containing a number of configfs subsystems.  It uses the helper
-+ *      macros defined by configfs.h
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public
-+ * License as published by the Free Software Foundation; either
-+ * version 2 of the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public
-+ * License along with this program; if not, write to the
-+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-+ * Boston, MA 021110-1307, USA.
-+ *
-+ * Based on sysfs:
-+ * 	sysfs is Copyright (C) 2001, 2002, 2003 Patrick Mochel
-+ *
-+ * configfs Copyright (C) 2005 Oracle.  All rights reserved.
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+
-+#include <linux/configfs.h>
-+
-+
-+
-+/*
-+ * 01-childless
-+ *
-+ * This first example is a childless subsystem.  It cannot create
-+ * any config_items.  It just has attributes.
-+ *
-+ * Note that we are enclosing the configfs_subsystem inside a container.
-+ * This is not necessary if a subsystem has no attributes directly
-+ * on the subsystem.  See the next example, 02-simple-children, for
-+ * such a subsystem.
-+ */
-+
-+struct childless {
-+	struct configfs_subsystem subsys;
-+	int showme;
-+	int storeme;
-+};
-+
-+static inline struct childless *to_childless(struct config_item *item)
-+{
-+	return item ? container_of(to_configfs_subsystem(to_config_group(item)),
-+			struct childless, subsys) : NULL;
-+}
-+
-+static ssize_t childless_showme_show(struct config_item *item, char *page)
-+{
-+	struct childless *childless = to_childless(item);
-+	ssize_t pos;
-+
-+	pos = sprintf(page, "%d\n", childless->showme);
-+	childless->showme++;
-+
-+	return pos;
-+}
-+
-+static ssize_t childless_storeme_show(struct config_item *item, char *page)
-+{
-+	return sprintf(page, "%d\n", to_childless(item)->storeme);
-+}
-+
-+static ssize_t childless_storeme_store(struct config_item *item,
-+		const char *page, size_t count)
-+{
-+	struct childless *childless = to_childless(item);
-+	unsigned long tmp;
-+	char *p = (char *) page;
-+
-+	tmp = simple_strtoul(p, &p, 10);
-+	if (!p || (*p && (*p != '\n')))
-+		return -EINVAL;
-+
-+	if (tmp > INT_MAX)
-+		return -ERANGE;
-+
-+	childless->storeme = tmp;
-+
-+	return count;
-+}
-+
-+static ssize_t childless_description_show(struct config_item *item, char *page)
-+{
-+	return sprintf(page,
-+"[01-childless]\n"
-+"\n"
-+"The childless subsystem is the simplest possible subsystem in\n"
-+"configfs.  It does not support the creation of child config_items.\n"
-+"It only has a few attributes.  In fact, it isn't much different\n"
-+"than a directory in /proc.\n");
-+}
-+
-+CONFIGFS_ATTR_RO(childless_, showme);
-+CONFIGFS_ATTR(childless_, storeme);
-+CONFIGFS_ATTR_RO(childless_, description);
-+
-+static struct configfs_attribute *childless_attrs[] = {
-+	&childless_attr_showme,
-+	&childless_attr_storeme,
-+	&childless_attr_description,
-+	NULL,
-+};
-+
-+static struct config_item_type childless_type = {
-+	.ct_attrs	= childless_attrs,
-+	.ct_owner	= THIS_MODULE,
-+};
-+
-+static struct childless childless_subsys = {
-+	.subsys = {
-+		.su_group = {
-+			.cg_item = {
-+				.ci_namebuf = "01-childless",
-+				.ci_type = &childless_type,
-+			},
-+		},
-+	},
-+};
-+
-+
-+/* ----------------------------------------------------------------- */
-+
-+/*
-+ * 02-simple-children
-+ *
-+ * This example merely has a simple one-attribute child.  Note that
-+ * there is no extra attribute structure, as the child's attribute is
-+ * known from the get-go.  Also, there is no container for the
-+ * subsystem, as it has no attributes of its own.
-+ */
-+
-+struct simple_child {
-+	struct config_item item;
-+	int storeme;
-+};
-+
-+static inline struct simple_child *to_simple_child(struct config_item *item)
-+{
-+	return item ? container_of(item, struct simple_child, item) : NULL;
-+}
-+
-+static ssize_t simple_child_storeme_show(struct config_item *item, char *page)
-+{
-+	return sprintf(page, "%d\n", to_simple_child(item)->storeme);
-+}
-+
-+static ssize_t simple_child_storeme_store(struct config_item *item,
-+		const char *page, size_t count)
-+{
-+	struct simple_child *simple_child = to_simple_child(item);
-+	unsigned long tmp;
-+	char *p = (char *) page;
-+
-+	tmp = simple_strtoul(p, &p, 10);
-+	if (!p || (*p && (*p != '\n')))
-+		return -EINVAL;
-+
-+	if (tmp > INT_MAX)
-+		return -ERANGE;
-+
-+	simple_child->storeme = tmp;
-+
-+	return count;
-+}
-+
-+CONFIGFS_ATTR(simple_child_, storeme);
-+
-+static struct configfs_attribute *simple_child_attrs[] = {
-+	&simple_child_attr_storeme,
-+	NULL,
-+};
-+
-+static void simple_child_release(struct config_item *item)
-+{
-+	kfree(to_simple_child(item));
-+}
-+
-+static struct configfs_item_operations simple_child_item_ops = {
-+	.release		= simple_child_release,
-+};
-+
-+static struct config_item_type simple_child_type = {
-+	.ct_item_ops	= &simple_child_item_ops,
-+	.ct_attrs	= simple_child_attrs,
-+	.ct_owner	= THIS_MODULE,
-+};
-+
-+
-+struct simple_children {
-+	struct config_group group;
-+};
-+
-+static inline struct simple_children *to_simple_children(struct config_item *item)
-+{
-+	return item ? container_of(to_config_group(item),
-+			struct simple_children, group) : NULL;
-+}
-+
-+static struct config_item *simple_children_make_item(struct config_group *group,
-+		const char *name)
-+{
-+	struct simple_child *simple_child;
-+
-+	simple_child = kzalloc(sizeof(struct simple_child), GFP_KERNEL);
-+	if (!simple_child)
-+		return ERR_PTR(-ENOMEM);
-+
-+	config_item_init_type_name(&simple_child->item, name,
-+				   &simple_child_type);
-+
-+	simple_child->storeme = 0;
-+
-+	return &simple_child->item;
-+}
-+
-+static ssize_t simple_children_description_show(struct config_item *item,
-+		char *page)
-+{
-+	return sprintf(page,
-+"[02-simple-children]\n"
-+"\n"
-+"This subsystem allows the creation of child config_items.  These\n"
-+"items have only one attribute that is readable and writeable.\n");
-+}
-+
-+CONFIGFS_ATTR_RO(simple_children_, description);
-+
-+static struct configfs_attribute *simple_children_attrs[] = {
-+	&simple_children_attr_description,
-+	NULL,
-+};
-+
-+static void simple_children_release(struct config_item *item)
-+{
-+	kfree(to_simple_children(item));
-+}
-+
-+static struct configfs_item_operations simple_children_item_ops = {
-+	.release	= simple_children_release,
-+};
-+
-+/*
-+ * Note that, since no extra work is required on ->drop_item(),
-+ * no ->drop_item() is provided.
-+ */
-+static struct configfs_group_operations simple_children_group_ops = {
-+	.make_item	= simple_children_make_item,
-+};
-+
-+static struct config_item_type simple_children_type = {
-+	.ct_item_ops	= &simple_children_item_ops,
-+	.ct_group_ops	= &simple_children_group_ops,
-+	.ct_attrs	= simple_children_attrs,
-+	.ct_owner	= THIS_MODULE,
-+};
-+
-+static struct configfs_subsystem simple_children_subsys = {
-+	.su_group = {
-+		.cg_item = {
-+			.ci_namebuf = "02-simple-children",
-+			.ci_type = &simple_children_type,
-+		},
-+	},
-+};
-+
-+
-+/* ----------------------------------------------------------------- */
-+
-+/*
-+ * 03-group-children
-+ *
-+ * This example reuses the simple_children group from above.  However,
-+ * the simple_children group is not the subsystem itself, it is a
-+ * child of the subsystem.  Creation of a group in the subsystem creates
-+ * a new simple_children group.  That group can then have simple_child
-+ * children of its own.
-+ */
-+
-+static struct config_group *group_children_make_group(
-+		struct config_group *group, const char *name)
-+{
-+	struct simple_children *simple_children;
-+
-+	simple_children = kzalloc(sizeof(struct simple_children),
-+				  GFP_KERNEL);
-+	if (!simple_children)
-+		return ERR_PTR(-ENOMEM);
-+
-+	config_group_init_type_name(&simple_children->group, name,
-+				    &simple_children_type);
-+
-+	return &simple_children->group;
-+}
-+
-+static ssize_t group_children_description_show(struct config_item *item,
-+		char *page)
-+{
-+	return sprintf(page,
-+"[03-group-children]\n"
-+"\n"
-+"This subsystem allows the creation of child config_groups.  These\n"
-+"groups are like the subsystem simple-children.\n");
-+}
-+
-+CONFIGFS_ATTR_RO(group_children_, description);
-+
-+static struct configfs_attribute *group_children_attrs[] = {
-+	&group_children_attr_description,
-+	NULL,
-+};
-+
-+/*
-+ * Note that, since no extra work is required on ->drop_item(),
-+ * no ->drop_item() is provided.
-+ */
-+static struct configfs_group_operations group_children_group_ops = {
-+	.make_group	= group_children_make_group,
-+};
-+
-+static struct config_item_type group_children_type = {
-+	.ct_group_ops	= &group_children_group_ops,
-+	.ct_attrs	= group_children_attrs,
-+	.ct_owner	= THIS_MODULE,
-+};
-+
-+static struct configfs_subsystem group_children_subsys = {
-+	.su_group = {
-+		.cg_item = {
-+			.ci_namebuf = "03-group-children",
-+			.ci_type = &group_children_type,
-+		},
-+	},
-+};
-+
-+/* ----------------------------------------------------------------- */
-+
-+/*
-+ * We're now done with our subsystem definitions.
-+ * For convenience in this module, here's a list of them all.  It
-+ * allows the init function to easily register them.  Most modules
-+ * will only have one subsystem, and will only call register_subsystem
-+ * on it directly.
-+ */
-+static struct configfs_subsystem *example_subsys[] = {
-+	&childless_subsys.subsys,
-+	&simple_children_subsys,
-+	&group_children_subsys,
-+	NULL,
-+};
-+
-+static int __init configfs_example_init(void)
-+{
-+	int ret;
-+	int i;
-+	struct configfs_subsystem *subsys;
-+
-+	for (i = 0; example_subsys[i]; i++) {
-+		subsys = example_subsys[i];
-+
-+		config_group_init(&subsys->su_group);
-+		mutex_init(&subsys->su_mutex);
-+		ret = configfs_register_subsystem(subsys);
-+		if (ret) {
-+			printk(KERN_ERR "Error %d while registering subsystem %s\n",
-+			       ret,
-+			       subsys->su_group.cg_item.ci_namebuf);
-+			goto out_unregister;
-+		}
-+	}
-+
-+	return 0;
-+
-+out_unregister:
-+	for (i--; i >= 0; i--)
-+		configfs_unregister_subsystem(example_subsys[i]);
-+
-+	return ret;
-+}
-+
-+static void __exit configfs_example_exit(void)
-+{
-+	int i;
-+
-+	for (i = 0; example_subsys[i]; i++)
-+		configfs_unregister_subsystem(example_subsys[i]);
-+}
-+
-+module_init(configfs_example_init);
-+module_exit(configfs_example_exit);
-+MODULE_LICENSE("GPL");
+ 	if (readl(&app_reg->app_status_1) & ((u32)1 << XMLH_LINK_UP_ID))
+ 		return sprintf(buf, "UP");
+@@ -232,11 +238,10 @@ static ssize_t pcie_gadget_show_link(
+ 		return sprintf(buf, "DOWN");
+ }
+ 
+-static ssize_t pcie_gadget_store_link(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_link_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 
+ 	if (sysfs_streq(buf, "UP"))
+ 		writel(readl(&app_reg->app_ctrl_0) | (1 << APP_LTSSM_ENABLE_ID),
+@@ -250,17 +255,15 @@ static ssize_t pcie_gadget_store_link(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_int_type(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_int_type_show(struct config_item *item, char *buf)
+ {
+-	return sprintf(buf, "%s", config->int_type);
++	return sprintf(buf, "%s", to_target(item)->int_type);
+ }
+ 
+-static ssize_t pcie_gadget_store_int_type(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_int_type_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	u32 cap, vec, flags;
+ 	ulong vector;
+ 
+@@ -288,11 +291,10 @@ static ssize_t pcie_gadget_store_int_type(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_no_of_msi(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_no_of_msi_show(struct config_item *item, char *buf)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct spear_pcie_gadget_config *config = to_target(item)
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 	u32 cap, vec, flags;
+ 	ulong vector;
+ 
+@@ -313,13 +315,12 @@ static ssize_t pcie_gadget_show_no_of_msi(
+ 	return sprintf(buf, "%lu", vector);
+ }
+ 
+-static ssize_t pcie_gadget_store_no_of_msi(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_no_of_msi_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	int ret;
+ 
+-	ret = kstrtoul(buf, 0, &config->requested_msi);
++	ret = kstrtoul(buf, 0, &to_target(item)->requested_msi);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -329,11 +330,10 @@ static ssize_t pcie_gadget_store_no_of_msi(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_store_inta(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_inta_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 	ulong en;
+ 	int ret;
+ 
+@@ -351,10 +351,10 @@ static ssize_t pcie_gadget_store_inta(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_store_send_msi(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_send_msi_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
+ 	ulong vector;
+ 	u32 ven_msi;
+@@ -388,19 +388,16 @@ static ssize_t pcie_gadget_store_send_msi(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_vendor_id(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_vendor_id_show(struct config_item *item, char *buf)
+ {
+ 	u32 id;
+ 
+-	spear_dbi_read_reg(config, PCI_VENDOR_ID, 2, &id);
++	spear_dbi_read_reg(to_target(item), PCI_VENDOR_ID, 2, &id);
+ 
+ 	return sprintf(buf, "%x", id);
+ }
+ 
+-static ssize_t pcie_gadget_store_vendor_id(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_vendor_id_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong id;
+@@ -410,24 +407,21 @@ static ssize_t pcie_gadget_store_vendor_id(
+ 	if (ret)
+ 		return ret;
+ 
+-	spear_dbi_write_reg(config, PCI_VENDOR_ID, 2, id);
++	spear_dbi_write_reg(to_target(item), PCI_VENDOR_ID, 2, id);
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_device_id(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_device_id_show(struct config_item *item, char *buf)
+ {
+ 	u32 id;
+ 
+-	spear_dbi_read_reg(config, PCI_DEVICE_ID, 2, &id);
++	spear_dbi_read_reg(to_target(item), PCI_DEVICE_ID, 2, &id);
+ 
+ 	return sprintf(buf, "%x", id);
+ }
+ 
+-static ssize_t pcie_gadget_store_device_id(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_device_id_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong id;
+@@ -437,22 +431,20 @@ static ssize_t pcie_gadget_store_device_id(
+ 	if (ret)
+ 		return ret;
+ 
+-	spear_dbi_write_reg(config, PCI_DEVICE_ID, 2, id);
++	spear_dbi_write_reg(to_target(item), PCI_DEVICE_ID, 2, id);
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_size(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_bar0_size_show(struct config_item *item, char *buf)
+ {
+-	return sprintf(buf, "%lx", config->bar0_size);
++	return sprintf(buf, "%lx", to_target(item)->bar0_size);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_size(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_size_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong size;
+ 	u32 pos, pos1;
+ 	u32 no_of_bit = 0;
+@@ -489,21 +481,20 @@ static ssize_t pcie_gadget_store_bar0_size(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_address(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_address_show(struct config_item *item,
+ 		char *buf)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 
+ 	u32 address = readl(&app_reg->pim0_mem_addr_start);
+ 
+ 	return sprintf(buf, "%x", address);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_address(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_address_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
+ 	ulong address;
+ 	int ret;
+@@ -524,15 +515,13 @@ static ssize_t pcie_gadget_store_bar0_address(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_rw_offset(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_rw_offset_show(struct config_item *item,
+ 		char *buf)
+ {
+-	return sprintf(buf, "%lx", config->bar0_rw_offset);
++	return sprintf(buf, "%lx", to_target(item)->bar0_rw_offset);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_rw_offset(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_rw_offset_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong offset;
+@@ -545,15 +534,14 @@ static ssize_t pcie_gadget_store_bar0_rw_offset(
+ 	if (offset % 4)
+ 		return -EINVAL;
+ 
+-	config->bar0_rw_offset = offset;
++	to_target(item)->bar0_rw_offset = offset;
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_data(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_bar0_data_show(struct config_item *item, char *buf)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong data;
+ 
+ 	if (!config->va_bar0_address)
+@@ -564,10 +552,10 @@ static ssize_t pcie_gadget_show_bar0_data(
+ 	return sprintf(buf, "%lx", data);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_data(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_data_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong data;
+ 	int ret;
+ 
+@@ -583,97 +571,35 @@ static ssize_t pcie_gadget_store_bar0_data(
+ 	return count;
+ }
+ 
+-/*
+- * Attribute definitions.
+- */
+-
+-#define PCIE_GADGET_TARGET_ATTR_RO(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO, pcie_gadget_show_##_name, NULL)
+-
+-#define PCIE_GADGET_TARGET_ATTR_WO(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IWUSR, NULL, pcie_gadget_store_##_name)
+-
+-#define PCIE_GADGET_TARGET_ATTR_RW(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, pcie_gadget_show_##_name, \
+-			pcie_gadget_store_##_name)
+-PCIE_GADGET_TARGET_ATTR_RW(link);
+-PCIE_GADGET_TARGET_ATTR_RW(int_type);
+-PCIE_GADGET_TARGET_ATTR_RW(no_of_msi);
+-PCIE_GADGET_TARGET_ATTR_WO(inta);
+-PCIE_GADGET_TARGET_ATTR_WO(send_msi);
+-PCIE_GADGET_TARGET_ATTR_RW(vendor_id);
+-PCIE_GADGET_TARGET_ATTR_RW(device_id);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_size);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_address);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_rw_offset);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_data);
++CONFIGFS_ATTR(pcie_gadget_, link);
++CONFIGFS_ATTR(pcie_gadget_, int_type);
++CONFIGFS_ATTR(pcie_gadget_, no_of_msi);
++CONFIGFS_ATTR_WO(pcie_gadget_, inta);
++CONFIGFS_ATTR_WO(pcie_gadget_, send_msi);
++CONFIGFS_ATTR(pcie_gadget_, vendor_id);
++CONFIGFS_ATTR(pcie_gadget_, device_id);
++CONFIGFS_ATTR(pcie_gadget_, bar0_size);
++CONFIGFS_ATTR(pcie_gadget_, bar0_address);
++CONFIGFS_ATTR(pcie_gadget_, bar0_rw_offset);
++CONFIGFS_ATTR(pcie_gadget_, bar0_data);
+ 
+ static struct configfs_attribute *pcie_gadget_target_attrs[] = {
+-	&pcie_gadget_target_link.attr,
+-	&pcie_gadget_target_int_type.attr,
+-	&pcie_gadget_target_no_of_msi.attr,
+-	&pcie_gadget_target_inta.attr,
+-	&pcie_gadget_target_send_msi.attr,
+-	&pcie_gadget_target_vendor_id.attr,
+-	&pcie_gadget_target_device_id.attr,
+-	&pcie_gadget_target_bar0_size.attr,
+-	&pcie_gadget_target_bar0_address.attr,
+-	&pcie_gadget_target_bar0_rw_offset.attr,
+-	&pcie_gadget_target_bar0_data.attr,
++	&pcie_gadget_attr_link,
++	&pcie_gadget_attr_int_type,
++	&pcie_gadget_attr_no_of_msi,
++	&pcie_gadget_attr_inta,
++	&pcie_gadget_attr_send_msi,
++	&pcie_gadget_attr_vendor_id,
++	&pcie_gadget_attr_device_id,
++	&pcie_gadget_attr_bar0_size,
++	&pcie_gadget_attr_bar0_address,
++	&pcie_gadget_attr_bar0_rw_offset,
++	&pcie_gadget_attr_bar0_data,
+ 	NULL,
+ };
+ 
+-static struct pcie_gadget_target *to_target(struct config_item *item)
+-{
+-	return item ?
+-		container_of(to_configfs_subsystem(to_config_group(item)),
+-				struct pcie_gadget_target, subsys) : NULL;
+-}
+-
+-/*
+- * Item operations and type for pcie_gadget_target.
+- */
+-
+-static ssize_t pcie_gadget_target_attr_show(struct config_item *item,
+-					   struct configfs_attribute *attr,
+-					   char *buf)
+-{
+-	ssize_t ret = -EINVAL;
+-	struct pcie_gadget_target *target = to_target(item);
+-	struct pcie_gadget_target_attr *t_attr =
+-		container_of(attr, struct pcie_gadget_target_attr, attr);
+-
+-	if (t_attr->show)
+-		ret = t_attr->show(&target->config, buf);
+-	return ret;
+-}
+-
+-static ssize_t pcie_gadget_target_attr_store(struct config_item *item,
+-					struct configfs_attribute *attr,
+-					const char *buf,
+-					size_t count)
+-{
+-	ssize_t ret = -EINVAL;
+-	struct pcie_gadget_target *target = to_target(item);
+-	struct pcie_gadget_target_attr *t_attr =
+-		container_of(attr, struct pcie_gadget_target_attr, attr);
+-
+-	if (t_attr->store)
+-		ret = t_attr->store(&target->config, buf, count);
+-	return ret;
+-}
+-
+-static struct configfs_item_operations pcie_gadget_target_item_ops = {
+-	.show_attribute		= pcie_gadget_target_attr_show,
+-	.store_attribute	= pcie_gadget_target_attr_store,
+-};
+-
+ static struct config_item_type pcie_gadget_target_type = {
+ 	.ct_attrs		= pcie_gadget_target_attrs,
+-	.ct_item_ops		= &pcie_gadget_target_item_ops,
+ 	.ct_owner		= THIS_MODULE,
+ };
+ 
 -- 
 1.9.1
