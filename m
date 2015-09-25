@@ -1,49 +1,54 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [PATCH v3 2/2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
-Date: Fri, 25 Sep 2015 09:25:15 -0400
-Message-ID: <f7t4mii1vic.fsf@aconole.bos.csb>
-References: <1442881622-11316-1-git-send-email-aconole@bytheb.org>
-	<1442881622-11316-3-git-send-email-aconole@bytheb.org>
-	<20150924.121459.1016780653505420756.davem@davemloft.net>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH 0/7] net: netcp: a set of bug fixes
+Date: Fri, 25 Sep 2015 09:35:15 -0400
+Message-ID: <56054D93.8030603@ti.com>
+References: <1443029831-22035-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:33827 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756626AbbIYNZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 09:25:19 -0400
-Received: by qgez77 with SMTP id z77so69127400qge.1
-        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 06:25:18 -0700 (PDT)
-In-Reply-To: <20150924.121459.1016780653505420756.davem@davemloft.net> (David
-	Miller's message of "Thu, 24 Sep 2015 12:14:59 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <nsekhar@ti.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<w-kwok2@ti.com>, <davem@davemloft.net>,
+	<gregkh@linuxfoundation.org>, <stable@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443029831-22035-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-Thanks for your time and the review.
-
-David Miller <davem@davemloft.net> writes:
-> From: Aaron Conole <aconole@bytheb.org>
-> Date: Mon, 21 Sep 2015 20:27:02 -0400
+On 09/23/2015 01:37 PM, Murali Karicheri wrote:
+> This patch series fixes a set of issues in netcp driver seen during internal
+> testing of the driver. While at it, do some clean up as well.
 >
->> +			goto unlock;
+> The fixes are tested on K2HK, K2L and K2E EVMs and the boot up logs can be
+> seen at
 >
-> Sorry, I don't want to see goto's from one loop into a completely
-> different one.
+>   http://pastebin.ubuntu.com/12533100/
+>
+> Murali Karicheri (6):
+>    net: netcp: remove dead code from the driver
+>    net: netcp: move netcp_register_interface() to after attach module
+>    net: netcp: add error check to netcp_allocate_rx_buf()
+>    net: netcp: check for interface handle in netcp_module_probe()
+>    net: netcp: allocate buffers to desc before re-enable interrupt
+>    net: netcp: fix deadlock reported by lockup detector
+>
+> WingMan Kwok (1):
+>    net: netcp: ethss: fix error in calling sgmii api with incorrect
+>      offset
+>
+>   drivers/net/ethernet/ti/netcp_core.c  | 74 +++++++++++++++++------------------
+>   drivers/net/ethernet/ti/netcp_ethss.c | 47 ++++++++++------------
+>   2 files changed, 55 insertions(+), 66 deletions(-)
+>
+Stable Maintainers, Greg,
 
-I think you misread. This goto does not do that; it goes from the else 
-side of one if block, into a different if block within the same do/while
-pair. I assumed this was okay, because in 
-commit:b48732e4a48d80ed4a14812f0bab09560846514e the same type of goto
-unlock jump is used. Since that commit was accepted 4 months ago, I
-figured the style hadn't changed. 
+Please ignore this as NetCP driver is only enabled in v4.2 and I was 
+initially thinking it was in v4.1. So you don't need this for any stable 
+release such as v4.1.x
 
-Would you rather see:
-+			unix_state_unlock(sk);
-+			break;
+Sorry for the noise.
 
-> The XXX comment is probably not appropriate either.
-
-Agreed, any v4 post will not include it.
+Thanks
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
