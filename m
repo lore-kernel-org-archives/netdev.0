@@ -1,45 +1,69 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [RFC v2 net-next 05/10] qede: Add basic network device support
-Date: Fri, 25 Sep 2015 06:02:39 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E32AD4@avmb3.qlogic.org>
-References: <1442499839-22762-6-git-send-email-Yuval.Mintz@qlogic.com>
-	<20150924142536.052d6175@urahara>
-	<B5657A6538887040AD3A81F1008BEC63E32A5E@avmb3.qlogic.org>
- <20150924.225637.783498142122739755.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 00/10] switchdev: transaction item queue and
+ cleanup
+Date: Fri, 25 Sep 2015 08:04:29 +0200
+Message-ID: <20150925060429.GA2148@nanopsycho.orion>
+References: <1443081769-11193-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bDJQ6qpSZoR5iDMdOHrDsHJB4+0oRHwLEpqg4Jc3x1Gcw@mail.gmail.com>
+ <20150924.230013.2108843761593380405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"Sudarsana Kalluru" <Sudarsana.Kalluru@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, idosch@mellanox.com,
+	eladr@mellanox.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, rami.rosen@intel.com,
+	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
+	gospo@cumulusnetworks.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:58929 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751746AbbIYGCn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Sep 2015 02:02:43 -0400
-In-Reply-To: <20150924.225637.783498142122739755.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:38589 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751564AbbIYGEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 02:04:31 -0400
+Received: by wiclk2 with SMTP id lk2so5495558wic.1
+        for <netdev@vger.kernel.org>; Thu, 24 Sep 2015 23:04:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150924.230013.2108843761593380405.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >> > +struct qede_rx_queue {
-> >> > +	__le16			*hw_cons_ptr;
-> >>
-> >> The __ variants of constants should be reserved for use in user
-> >> visible API's
-> >
-> > Really? If so, this needs to be fixed not only here but in lots of
-> > places in the series [e.g., entire HW HSI uses __le variants instead of le].
-> > But why is it so? I.e., I understand that __le16 is defined in the
-> > uapi directory and thus accessible to users, but why the distinction?
-> 
-> Because it shows whether the type is something exposed to userspace or not.
-> 
-> If there are places where this is done incorrectly in the tree, it is not a legitimate
-> reason for you to do so as well.
+Fri, Sep 25, 2015 at 08:00:13AM CEST, davem@davemloft.net wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>Date: Thu, 24 Sep 2015 20:05:39 -0700
+>
+>> On Thu, Sep 24, 2015 at 1:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> Jiri Pirko (10):
+>>>   switchdev: rename "trans" to "trans_ph".
+>>>   switchdev: introduce transaction item queue for attr_set and obj_add
+>>>   switchdev: move transaction phase enum under transaction structure
+>>>   switchdev: add switchdev_trans_ph_prepare/commit helpers
+>>>   rocker: push struct switchdev_trans down through rocker code
+>>>   rocker: use switchdev transaction queue for allocated memory
+>>>   switchdev: remove "NONE" transaction phase
+>>>   switchdev: remove "ABORT" transaction phase
+>>>   dsa: use prepare/commit switchdev transaction helpers
+>>>   switchdev: reduce transaction phase enum down to a boolean
+>>>
+>>>  Documentation/networking/switchdev.txt |  19 ++
+>>>  drivers/net/ethernet/rocker/rocker.c   | 308 ++++++++++++++-------------------
+>>>  include/net/switchdev.h                |  40 +++--
+>>>  net/dsa/slave.c                        |  31 ++--
+>>>  net/switchdev/switchdev.c              | 125 ++++++++++---
+>>>  5 files changed, 296 insertions(+), 227 deletions(-)
+>> 
+>> Tests pass.  ACK on all.
+>> 
+>> Acked-by: Scott Feldman <sfeldma@gmail.com>
+>
+>Series applied, thanks everyone.
+>
+>But Jiri, in the future you really have to give me more "meat" in this
+>00/10 posting.  You have to provide some description of what your
+>changes are doing at a high level and why.
 
-Obviously.
-We'll fix all of those for next version.
+I thought that in this case it is enough to have descriptions in
+separate patches. Anyway, will try to write some story to the cover
+letter next time.
+
+Thanks.
