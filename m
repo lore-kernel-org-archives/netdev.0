@@ -1,144 +1,136 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 0/9] Phy, mdiobus, and netdev struct device fixes
-Date: Thu, 24 Sep 2015 18:39:56 -0700
-Message-ID: <5604A5EC.7060401@gmail.com>
-References: <20150924191754.GC21513@n2100.arm.linux.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: netlink: Add barrier to netlink_connect for theoretical case
+Date: Fri, 25 Sep 2015 09:43:27 +0800
+Message-ID: <20150925014327.GA3725@gondor.apana.org.au>
+References: <20150921133415.GA1740@gondor.apana.org.au>
+ <20150921182022.GB13263@mtj.duckdns.org>
+ <20150922033856.GA7851@gondor.apana.org.au>
+ <20150924.121142.870602292135442487.davem@davemloft.net>
+ <20150924200510.GE25415@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	devicetree@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>,
-	Frank Rowand <frowand.list@gmail.com>,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Li Yang <leoli@freescale.com>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34512 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752954AbbIYBkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2015 21:40:06 -0400
-In-Reply-To: <20150924191754.GC21513@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
+	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jiri@resnulli.us,
+	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150924200510.GE25415@mtj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/09/15 12:17, Russell King - ARM Linux wrote:
-> Hi,
-> 
-> The third version of this series fixes the build error which David
-> identified, and drops the broken changes for the Cavium Thunger BGX
-> ethernet driver as this driver requires some complex changes to
-> resolve the leakage - and this is best done by people who can test
-> the driver.
-> 
-> Compared to v2, the only patch which has changed is patch 6
->   "net: fix phy refcounting in a bunch of drivers"
-> 
-> I _think_ I've been able to build-test all the drivers touched by
-> that patch to some degree now, though several of them needed the
-> Kconfig hacked to allow it (not all had || COMPILE_TEST clause on
-> their dependencies.)
+On Thu, Sep 24, 2015 at 04:05:10PM -0400, Tejun Heo wrote:
+>
+> > I've decided to apply this and queue it up for -stable.
 
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Thanks Dave!
 
-Thanks for fixing that.
+> This is mostly correct; however, if there are or can be in-kernel
+> users which create the client side of netlink socket, it isn't.  Let's
+> say such in-kernel user does kernel_connect() and then query the
+> assigned port number by kernel_getsockname().  That can just return
+> zero.  Maybe such scenario is not possible for some combination of
+> reasons but why leak this level of synchronization detail to the users
+> in the first place?  This should be terminated from the site where
+> such synchronization scheme is implemented.  This expands the scope of
+> correctness verification to all possible users of these functions.
 
-> 
-> Previous cover letters below:
-> 
-> This is the second version of the series, with the comments David had
-> on the first patch fixed up.  Original series description with updated
-> diffstat below.
-> 
-> While looking at the DSA code, I noticed we have a
-> of_find_net_device_by_node(), and it looks like users of that are
-> similarly buggy - it looks like net/dsa/dsa.c is the only user.  Fix
-> that too.
-> 
-> Hi,
-> 
-> While looking at the phy code, I identified a number of weaknesses
-> where refcounting on device structures was being leaked, where
-> modules could be removed while in-use, and where the fixed-phy could
-> end up having unintended consequences caused by incorrect calls to
-> fixed_phy_update_state().
-> 
-> This patch series resolves those issues, some of which were discovered
-> with testing on an Armada 388 board.  Not all patches are fully tested,
-> particularly the one which touches several network drivers.
-> 
-> When resolving the struct device refcounting problems, several different
-> solutions were considered before settling on the implementation here -
-> one of the considerations was to avoid touching many network drivers.
-> The solution here is:
-> 
-> 	phy_attach*() - takes a refcount
-> 	phy_detach*() - drops the phy_attach refcount
-> 
-> Provided drivers always attach and detach their phys, which they should
-> already be doing, this should change nothing, even if they leak a refcount.
-> 
-> 	of_phy_find_device() and of_* functions which use that take
-> 	a refcount.  Arrange for this refcount to be dropped once
-> 	the phy is attached.
-> 
-> This is the reason why the previous change is important - we can't drop
-> this refcount taken by of_phy_find_device() until something else holds
-> a reference on the device.  This resolves the leaked refcount caused by
-> using of_phy_connect() or of_phy_attach().
-> 
-> Even without the above changes, these drivers are leaking by calling
-> of_phy_find_device().  These drivers are addressed by adding the
-> appropriate release of that refcount.
-> 
-> The mdiobus code also suffered from the same kind of leak, but thankfully
-> this only happened in one place - the mdio-mux code.
-> 
-> I also found that the try_module_get() in the phy layer code was utterly
-> useless: phydev->dev.driver was guaranteed to always be NULL, so
-> try_module_get() was always being called with a NULL argument.  I proved
-> this with my SFP code, which declares its own MDIO bus - the module use
-> count was never incremented irrespective of how I set the MDIO bus up.
-> This allowed the MDIO bus code to be removed from the kernel while there
-> were still PHYs attached to it.
-> 
-> One other bug was discovered: while using in-band-status with mvneta, it
-> was found that if a real phy is attached with in-band-status enabled,
-> and another ethernet interface is using the fixed-phy infrastructure, the
-> interface using the fixed-phy infrastructure is configured according to
-> the other interface using the in-band-status - which is caused by the
-> fixed-phy code not verifying that the phy_device passed in is actually
-> a fixed-phy device, rather than a real MDIO phy.
-> 
-> Lastly, having mdio_bus reversing phy_device_register() internals seems
-> like a layering violation - it's trivial to move that code to the phy
-> device layer.
-> 
->  drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 24 ++++++----
->  drivers/net/ethernet/freescale/gianfar.c       |  6 ++-
->  drivers/net/ethernet/freescale/ucc_geth.c      |  8 +++-
->  drivers/net/ethernet/marvell/mvneta.c          |  2 +
->  drivers/net/ethernet/xilinx/xilinx_emaclite.c  |  2 +
->  drivers/net/phy/fixed_phy.c                    |  2 +-
->  drivers/net/phy/mdio-mux.c                     | 19 +++++---
->  drivers/net/phy/mdio_bus.c                     | 24 ++++++----
->  drivers/net/phy/phy_device.c                   | 62 ++++++++++++++++++++------
->  drivers/of/of_mdio.c                           | 27 +++++++++--
->  include/linux/phy.h                            |  6 ++-
->  net/core/net-sysfs.c                           |  9 ++++
->  net/dsa/dsa.c                                  | 41 ++++++++++++++---
->  13 files changed, 181 insertions(+), 51 deletions(-)
-> 
+Well had you said this in the first place I would've fixed it a
+long time ago.  There aren't any in-kernel users right now and
+even if there were they'd have to do a connect/bind/sendmsg on
+the same socket in two threads at the same time.  But let's close
+this theoretical hole:
 
+---8<---
+If a netlink_connect call is followed by a netlink_getname call
+the portid returned may not be up-to-date.  This patch adds a
+barrier for that case.
 
+As all nlk->bound dereferences now have barriers this patch also
+adds a netlink_bound helper to encapsulate the barrier, as was
+suggested by Tejun.
+
+Fixes: da314c9923fe ("netlink: Replace rhash_portid with bound")
+Reported-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 2c15fae..02121e1 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -125,6 +125,15 @@ static inline u32 netlink_group_mask(u32 group)
+ 	return group ? 1 << (group - 1) : 0;
+ }
+ 
++static inline bool netlink_bound(struct netlink_sock *nlk)
++{
++	/* Ensure nlk is hashed and visible. */
++	if (nlk->bound)
++		smp_rmb();
++
++	return nlk->bound;
++}
++
+ int netlink_add_tap(struct netlink_tap *nt)
+ {
+ 	if (unlikely(nt->dev->type != ARPHRD_NETLINK))
+@@ -1524,14 +1533,10 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			return err;
+ 	}
+ 
+-	bound = nlk->bound;
+-	if (bound) {
+-		/* Ensure nlk->portid is up-to-date. */
+-		smp_rmb();
+-
++	bound = netlink_bound(nlk);
++	if (bound)
+ 		if (nladdr->nl_pid != nlk->portid)
+ 			return -EINVAL;
+-	}
+ 
+ 	if (nlk->netlink_bind && groups) {
+ 		int group;
+@@ -1547,9 +1552,6 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 		}
+ 	}
+ 
+-	/* No need for barriers here as we return to user-space without
+-	 * using any of the bound attributes.
+-	 */
+ 	if (!bound) {
+ 		err = nladdr->nl_pid ?
+ 			netlink_insert(sk, nladdr->nl_pid) :
+@@ -1598,10 +1600,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+-	/* No need for barriers here as we return to user-space without
+-	 * using any of the bound attributes.
+-	 */
+-	if (!nlk->bound)
++	if (!netlink_bound(nlk))
+ 		err = netlink_autobind(sock);
+ 
+ 	if (err == 0) {
+@@ -2442,13 +2441,10 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 		dst_group = nlk->dst_group;
+ 	}
+ 
+-	if (!nlk->bound) {
++	if (!netlink_bound(nlk)) {
+ 		err = netlink_autobind(sock);
+ 		if (err)
+ 			goto out;
+-	} else {
+-		/* Ensure nlk is hashed and visible. */
+-		smp_rmb();
+ 	}
+ 
+ 	/* It's a really convoluted way for userland to ask for mmaped
 -- 
-Florian
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
