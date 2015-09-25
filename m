@@ -1,35 +1,54 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: Re: [PATCH] net/ibm/emac: bump version numbers for correct work
- with ethtool
-Date: Fri, 25 Sep 2015 11:53:06 +0400
-Message-ID: <20150925115306.7fee87d4@fr-ThinkPad-W520>
-References: <20150923144222.66de305c@fr-ThinkPad-W520>
-	<20150923.110549.113067983983388057.davem@davemloft.net>
-	<20150925080752.14a2fee6@fr-ThinkPad-W520>
-	<20150924.225303.2108696869753819019.davem@davemloft.net>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH] ipvs: drop first packet to dead server
+Date: Fri, 25 Sep 2015 11:37:38 +0200
+Message-ID: <20150925093737.GA5047@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "" <netdev@vger.kernel.org>, "" <linux-kernel@vger.kernel.org>,
-	"" <benh@kernel.crashing.org>, "" <ben@decadent.org.uk>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150924.225303.2108696869753819019.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:48070 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753418AbbIYJhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2015 05:37:43 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Sep 2015 22:53:03 -0700 (PDT)
-"David Miller" <davem@davemloft.net> wrote:
+Since commit dc7b3eb9 (ipvs: Fix reuse connection if real server
+is dead), new connections to dead servers are redistributed
+immediately to new servers.  The old connection is expired using
+ip_vs_conn_expire_now() which sets the connection timer to expire
+immediately. 
 
-> From: Ivan Mikhaylov <ivan@ru.ibm.com>
-> Date: Fri, 25 Sep 2015 08:07:52 +0400
-> 
-> > Ben proposed one, is it eligible?
-> > Need I resubmit patch with sign and detailed description?
-> 
-> If I genuinely need to answer that question, maybe you should sit back
-> for a little while and think about it yourself, ok?
+However, before the timer callback, ip_vs_conn_expire(), is run
+to clean the connection's conntrack entry, the new redistributed
+connection may already be established and its conntrack removed
+instead.
 
-Sorry, for those stupid questions.
+Fix this by dropping the first packet of the new connection
+instead, like we do when the destination server is not available.
+The timer will have deleted the old conntrack entry long before
+the first packet of the new connection is retransmitted.
 
-David, Ben, thanks for the help.
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index d1d6b82..3f884b8 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1657,7 +1657,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	    is_new_conn(skb, &iph)) {
+ 		ip_vs_conn_expire_now(cp);
+ 		__ip_vs_conn_put(cp);
+-		cp = NULL;
++		return NF_DROP;
+ 	}
+ 
+ 	if (unlikely(!cp) && !iph.fragoffs) {
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
