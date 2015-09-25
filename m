@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: marvell: add link partner advertised modes
-Date: Fri, 25 Sep 2015 12:24:03 -0700 (PDT)
-Message-ID: <20150925.122403.23348450986009139.davem@davemloft.net>
-References: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
+Subject: Re: [PATCH net-next] net: dsa: Set a "dsa" device_type
+Date: Fri, 25 Sep 2015 12:25:44 -0700 (PDT)
+Message-ID: <20150925.122544.1397732119363221370.davem@davemloft.net>
+References: <1443057598-25729-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: rmk+kernel@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
+	linux@roeck-us.net, andrew@lunn.ch
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33006 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33017 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932918AbbIYTYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 15:24:07 -0400
-In-Reply-To: <E1Zet89-0003P6-Ee@rmk-PC.arm.linux.org.uk>
+	with ESMTP id S932918AbbIYTZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 15:25:45 -0400
+In-Reply-To: <1443057598-25729-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Thu, 24 Sep 2015 00:07:17 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 23 Sep 2015 18:19:58 -0700
 
-> Read the standard link partner advertisment registers and store it in
-> phydev->lp_advertising, so ethtool can report this information to
-> userspace via ethtool.  Zero it as per genphy if autonegotiation is
-> disabled.  Tested with a Marvell 88E1512 PHY.
+> Provide a device_type information for slave network devices created by
+> DSA, this is useful for user-space application to easily locate/search
+> for devices of a specific kind.
 > 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied, thanks.
+Applied, thanks Florian.
