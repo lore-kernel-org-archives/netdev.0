@@ -1,46 +1,48 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 01/23] configfs: add show and store methods to struct
- configfs_attribute
-Date: Fri, 25 Sep 2015 10:41:06 -0700
-Message-ID: <20150925174106.GA1402@kroah.com>
-References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-2-git-send-email-hch@lst.de>
- <20150925142857.GA4449@mtj.duckdns.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
+	'global_lock'
+Date: Fri, 25 Sep 2015 19:42:25 +0200
+Message-ID: <1443202945.2161.8.camel@sipsolutions.net>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
+	(sfid-20150925_184230_610012_AD3DF607)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Felipe Balbi <balbi@ti.com>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	target-devel@vger.kernel.org, cluster-devel@redhat.com,
-	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:34227 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932673AbbIYRlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 13:41:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20150925142857.GA4449@mtj.duckdns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Greg Kroah-Hartman
+	<gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+	(sfid-20150925_184230_610012_AD3DF607)
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 25, 2015 at 10:28:57AM -0400, Tejun Heo wrote:
-> Hello, Christoph.
-> 
-> On Fri, Sep 25, 2015 at 06:49:38AM -0700, Christoph Hellwig wrote:
-> > Add methods to struct configfs_attribute to directly show and store
-> > attributes without adding boilerplate code to every user.  In addition
-> > to the methods this also adds 3 helper macros to define read/write,
-> > read-only and write-only attributes with a single line of code.
-> 
-> This looks great to me.  It doesn't look like the whole attribute
-> thing played out as hoped.  It'd be great if we can move away from it.
-> 
-> Thanks a lot for the work!
+On Fri, 2015-09-25 at 09:41 -0700, Viresh Kumar wrote:
 
-Looks good to me as well, no objection from my side for the USB or core
-configfs stuff:
+> Signed-off-by: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+> V3->V4:
+> - Create a local variable instead of changing type of global_lock
+>   (Rafael)
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Err, surely that wasn't what Rafael meant, since it's clearly
+impossible to use a pointer to the stack, assign to it once, and the
+expect anything to wkr at all ...
+
+johannes
