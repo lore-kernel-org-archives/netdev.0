@@ -1,85 +1,126 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 09/17] ip: constify ip_build_and_send_pkt() socket argument
-Date: Fri, 25 Sep 2015 07:39:16 -0700
-Message-ID: <1443191964-923-10-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 08/17] tcp: md5: constify tcp_md5_do_lookup() socket argument
+Date: Fri, 25 Sep 2015 07:39:15 -0700
+Message-ID: <1443191964-923-9-git-send-email-edumazet@google.com>
 References: <1443191964-923-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <edumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36406 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932396AbbIYOkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 10:40:13 -0400
-Received: by pablk4 with SMTP id lk4so10825606pab.3
-        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 07:40:12 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33704 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932380AbbIYOkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 10:40:10 -0400
+Received: by pacex6 with SMTP id ex6so107616667pac.0
+        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 07:40:09 -0700 (PDT)
 In-Reply-To: <1443191964-923-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is used to build and send SYNACK packets,
-possibly on behalf of unlocked listener socket.
-
-Make sure we did not miss a write by making this socket const.
-
-We no longer can use ip_select_ident() and have to either
-set iph->id to 0 or directly call __ip_select_ident()
+When TCP new listener is done, these functions will be called
+without socket lock being held. Make sure they don't change
+anything.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/ip.h     |  2 +-
- net/ipv4/ip_output.c | 14 ++++++++------
- 2 files changed, 9 insertions(+), 7 deletions(-)
+ include/net/tcp.h   | 10 +++++-----
+ net/ipv4/tcp_ipv4.c |  6 +++---
+ net/ipv6/tcp_ipv6.c |  4 ++--
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 525dc0778926..91a6b2c88341 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -100,7 +100,7 @@ int igmp_mc_init(void);
-  *	Functions provided by ip.c
-  */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index a89ec41fa3d9..70aea203545e 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1372,16 +1372,16 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
+ 		   int family, const u8 *newkey, u8 newkeylen, gfp_t gfp);
+ int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr,
+ 		   int family);
+-struct tcp_md5sig_key *tcp_v4_md5_lookup(struct sock *sk,
++struct tcp_md5sig_key *tcp_v4_md5_lookup(const struct sock *sk,
+ 					 const struct sock *addr_sk);
  
--int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
-+int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
- 			  __be32 saddr, __be32 daddr,
- 			  struct ip_options_rcu *opt);
- int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 09a6b7bb7ea3..06d2c87ed505 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -137,7 +137,7 @@ static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
-  *		Add an ip header to a skbuff and send it out.
-  *
-  */
--int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
-+int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
- 			  __be32 saddr, __be32 daddr, struct ip_options_rcu *opt)
+ #ifdef CONFIG_TCP_MD5SIG
+-struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
++struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
+ 					 const union tcp_md5_addr *addr,
+ 					 int family);
+ #define tcp_twsk_md5_key(twsk)	((twsk)->tw_md5_key)
+ #else
+-static inline struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
++static inline struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
+ 					 const union tcp_md5_addr *addr,
+ 					 int family)
  {
- 	struct inet_sock *inet = inet_sk(sk);
-@@ -151,15 +151,17 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
- 	iph->version  = 4;
- 	iph->ihl      = 5;
- 	iph->tos      = inet->tos;
--	if (ip_dont_fragment(sk, &rt->dst))
--		iph->frag_off = htons(IP_DF);
--	else
--		iph->frag_off = 0;
- 	iph->ttl      = ip_select_ttl(inet, &rt->dst);
- 	iph->daddr    = (opt && opt->opt.srr ? opt->opt.faddr : daddr);
- 	iph->saddr    = saddr;
- 	iph->protocol = sk->sk_protocol;
--	ip_select_ident(sock_net(sk), skb, sk);
-+	if (ip_dont_fragment(sk, &rt->dst)) {
-+		iph->frag_off = htons(IP_DF);
-+		iph->id = 0;
-+	} else {
-+		iph->frag_off = 0;
-+		__ip_select_ident(sock_net(sk), iph, 1);
-+	}
+@@ -1684,7 +1684,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ /* TCP af-specific functions */
+ struct tcp_sock_af_ops {
+ #ifdef CONFIG_TCP_MD5SIG
+-	struct tcp_md5sig_key	*(*md5_lookup) (struct sock *sk,
++	struct tcp_md5sig_key	*(*md5_lookup) (const struct sock *sk,
+ 						const struct sock *addr_sk);
+ 	int		(*calc_md5_hash)(char *location,
+ 					 const struct tcp_md5sig_key *md5,
+@@ -1699,7 +1699,7 @@ struct tcp_sock_af_ops {
+ struct tcp_request_sock_ops {
+ 	u16 mss_clamp;
+ #ifdef CONFIG_TCP_MD5SIG
+-	struct tcp_md5sig_key *(*req_md5_lookup)(struct sock *sk,
++	struct tcp_md5sig_key *(*req_md5_lookup)(const struct sock *sk,
+ 						 const struct sock *addr_sk);
+ 	int		(*calc_md5_hash) (char *location,
+ 					  const struct tcp_md5sig_key *md5,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 9d968ca7b669..1c1009d783f5 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -865,7 +865,7 @@ static void tcp_v4_reqsk_destructor(struct request_sock *req)
+  */
  
- 	if (opt && opt->opt.optlen) {
- 		iph->ihl += opt->opt.optlen>>2;
+ /* Find the Key structure for an address.  */
+-struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
++struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
+ 					 const union tcp_md5_addr *addr,
+ 					 int family)
+ {
+@@ -877,7 +877,7 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
+ 	/* caller either holds rcu_read_lock() or socket lock */
+ 	md5sig = rcu_dereference_check(tp->md5sig_info,
+ 				       sock_owned_by_user(sk) ||
+-				       lockdep_is_held(&sk->sk_lock.slock));
++				       lockdep_is_held((spinlock_t *)&sk->sk_lock.slock));
+ 	if (!md5sig)
+ 		return NULL;
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -894,7 +894,7 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
+ }
+ EXPORT_SYMBOL(tcp_md5_do_lookup);
+ 
+-struct tcp_md5sig_key *tcp_v4_md5_lookup(struct sock *sk,
++struct tcp_md5sig_key *tcp_v4_md5_lookup(const struct sock *sk,
+ 					 const struct sock *addr_sk)
+ {
+ 	const union tcp_md5_addr *addr;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 9016797445a2..1071131a6c53 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -476,13 +476,13 @@ static void tcp_v6_reqsk_destructor(struct request_sock *req)
+ }
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+-static struct tcp_md5sig_key *tcp_v6_md5_do_lookup(struct sock *sk,
++static struct tcp_md5sig_key *tcp_v6_md5_do_lookup(const struct sock *sk,
+ 						   const struct in6_addr *addr)
+ {
+ 	return tcp_md5_do_lookup(sk, (union tcp_md5_addr *)addr, AF_INET6);
+ }
+ 
+-static struct tcp_md5sig_key *tcp_v6_md5_lookup(struct sock *sk,
++static struct tcp_md5sig_key *tcp_v6_md5_lookup(const struct sock *sk,
+ 						const struct sock *addr_sk)
+ {
+ 	return tcp_v6_md5_do_lookup(sk, &addr_sk->sk_v6_daddr);
 -- 
 2.6.0.rc2.230.g3dd15c0
