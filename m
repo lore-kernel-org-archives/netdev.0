@@ -1,422 +1,418 @@
-From: Thomas F Herbert <thomasfherbert@gmail.com>
-Subject: Re: [PATCH 3/3] 802.1AD: Flow handling, actions, vlan parsing and
- netlink attributes
-Date: Fri, 25 Sep 2015 18:35:27 -0400
-Message-ID: <5605CC2F.1010700@gmail.com>
-References: <1443117498-19123-1-git-send-email-thomasfherbert@gmail.com>
- <1443117498-19123-4-git-send-email-thomasfherbert@gmail.com>
- <CALnjE+q6s=D2P5+=1U6RsLC8FqhANP5j8MKqzHpuYvpT-eW3_w@mail.gmail.com>
-Reply-To: thomasfherbert@gmail.com
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [V5, 2/6] fsl/fman: Add FMan support
+Date: Fri, 25 Sep 2015 18:01:53 -0500
+Message-ID: <20150925230153.GA4626@home.buserror.net>
+References: <1442836354-5445-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:35337 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932310AbbIYWfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 18:35:30 -0400
-Received: by qgt47 with SMTP id 47so81156631qgt.2
-        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 15:35:29 -0700 (PDT)
-In-Reply-To: <CALnjE+q6s=D2P5+=1U6RsLC8FqhANP5j8MKqzHpuYvpT-eW3_w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, madalin.bucur@freescale.com
+To: Igal.Liberman <igal.liberman@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1442836354-5445-1-git-send-email-igal.liberman@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Pravin,
-
-Another comment and question. Please seen inline below.
-
-Thanks,
-
---Tom
-
-On 9/24/15 7:42 PM, Pravin Shelar wrote:
-> On Thu, Sep 24, 2015 at 10:58 AM, Thomas F Herbert
-> <thomasfherbert@gmail.com> wrote:
->> Add support for 802.1ad including the ability to push and pop double
->> tagged vlans. Add support for 802.1ad to netlink parsing and flow
->> conversion. Uses double nested encap attributes to represent double
->> tagged vlan. Inner TPID encoded along with ctci in nested attributes.
->>
->> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
->> ---
->>   net/openvswitch/flow.c         |  83 +++++++++++++++++----
->>   net/openvswitch/flow.h         |   5 ++
->>   net/openvswitch/flow_netlink.c | 166 ++++++++++++++++++++++++++++++++++++++---
->>   3 files changed, 230 insertions(+), 24 deletions(-)
->>
->> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
->> index c8db44a..db58e47 100644
->> --- a/net/openvswitch/flow.c
->> +++ b/net/openvswitch/flow.c
->> @@ -305,21 +305,77 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
->>   static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
->>   {
->>          struct qtag_prefix {
->> -               __be16 eth_type; /* ETH_P_8021Q */
->> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->>                  __be16 tci;
->>          };
->> -       struct qtag_prefix *qp;
->> +       struct qtag_prefix *qp = (struct qtag_prefix *)skb->data;
->>
->> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) + sizeof(__be16)))
->> +       struct qinqtag_prefix {
->> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->> +               __be16 tci;
->> +               __be16 inner_tpid; /* ETH_P_8021Q */
->> +               __be16 ctci;
->> +       };
->> +
->> +       if (likely(skb_vlan_tag_present(skb))) {
->> +               key->eth.tci = htons(skb->vlan_tci);
->> +
->> +               /* Case where upstream
->> +                * processing has already stripped the outer vlan tag.
->> +                */
->> +               if (unlikely(skb->vlan_proto == htons(ETH_P_8021AD))) {
->> +                       if (unlikely(skb->len < sizeof(struct qtag_prefix) +
->> +                                       sizeof(__be16))) {
->> +                               key->eth.tci = 0;
->> +                               return 0;
->> +                       }
->> +
->> +                       if (unlikely(!pskb_may_pull(skb,
->> +                                                   sizeof(struct qtag_prefix) +
->> +                                                   sizeof(__be16))))
->> +                               return -ENOMEM;
->> +
-> qp pointer is no longer valid after pskb_may_pull() call.
->
->> +                       key->eth.cvlan.ctci =
->> +                               qp->tci | htons(VLAN_TAG_PRESENT);
->> +                       key->eth.cvlan.c_tpid = qp->eth_type;
->> +
->> +                       __skb_pull(skb, sizeof(struct qtag_prefix));
->> +               }
->>                  return 0;
->> +       }
->>
->> -       if (unlikely(!pskb_may_pull(skb, sizeof(struct qtag_prefix) +
->> -                                        sizeof(__be16))))
->> -               return -ENOMEM;
->>
->> -       qp = (struct qtag_prefix *) skb->data;
->> -       key->eth.tci = qp->tci | htons(VLAN_TAG_PRESENT);
->> -       __skb_pull(skb, sizeof(struct qtag_prefix));
->
-> qp access is done without skb_may_pull() call.
->> +       if (qp->eth_type == htons(ETH_P_8021AD)) {
->> +               struct qinqtag_prefix *qinqp =
->> +                                       (struct qinqtag_prefix *)skb->data;
->> +
->> +               if (unlikely(skb->len < sizeof(struct qinqtag_prefix) +
->> +                                       sizeof(__be16)))
->> +                       return 0;
->> +
->> +               if (unlikely(!pskb_may_pull(skb, sizeof(struct qinqtag_prefix) +
->> +                               sizeof(__be16))))
->> +                       return -ENOMEM;
->
-> same as above qinqp pointer is not valid after psk_may_pull().
->
->> +               key->eth.tci = qinqp->tci | htons(VLAN_TAG_PRESENT);
->> +               key->eth.cvlan.ctci = qinqp->ctci | htons(VLAN_TAG_PRESENT);
->> +               key->eth.cvlan.c_tpid = qinqp->inner_tpid;
->> +
->> +               __skb_pull(skb, sizeof(struct qinqtag_prefix));
->> +
->> +               return 0;
->> +       }
->> +       if (qp->eth_type == htons(ETH_P_8021Q)) {
->> +               if (unlikely(skb->len < sizeof(struct qtag_prefix) +
->> +                                       sizeof(__be16)))
->> +                       return -ENOMEM;
->> +
->> +               if (unlikely(!pskb_may_pull(skb, sizeof(struct qtag_prefix) +
->> +                               sizeof(__be16))))
->> +                       return 0;
-> same issue as above.
->
->> +               key->eth.tci = qp->tci | htons(VLAN_TAG_PRESENT);
->> +
->> +               __skb_pull(skb, sizeof(struct qtag_prefix));
->> +       }
->>
->>          return 0;
->>   }
-> ...
->
->> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
->> index fe527d2..2c491e8 100644
->> --- a/net/openvswitch/flow.h
->> +++ b/net/openvswitch/flow.h
->> @@ -69,6 +69,11 @@ struct sw_flow_key {
->>                  u8     src[ETH_ALEN];   /* Ethernet source address. */
->>                  u8     dst[ETH_ALEN];   /* Ethernet destination address. */
->>                  __be16 tci;             /* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
-Do you think I should I also add tpid here with tci for the outer vlan 
-as a struct? Please see comment below.
->> +               struct {
->> +                       __be16 c_tpid;  /* Vlan DL_type 802.1q or 802.1ad */
->> +                       __be16 ctci;    /* 0 if no CVLAN, VLAN_TAG_PRESENT */
-> Lets call c_tpid type and ctci tci, to keep naming consistent with outer vlan.
->> +                                       /* set otherwise. */
->> +               } cvlan;
->>                  __be16 type;            /* Ethernet frame type. */
->>          } eth;
->>          union {
->> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
->> index c92d6a2..5fe415d 100644
->> --- a/net/openvswitch/flow_netlink.c
->> +++ b/net/openvswitch/flow_netlink.c
-> ...
->
->> @@ -1064,6 +1085,80 @@ static void mask_set_nlattr(struct nlattr *attr, u8 val)
->>          nlattr_set(attr, val, ovs_key_lens);
->>   }
->>
->> +static int parse_vlan_from_nlattrs(const struct nlattr **nla,
->> +                                  struct sw_flow_match *match,
->> +                                  u64 *key_attrs, bool *ie_valid,
->> +                                  const struct nlattr **a, bool is_mask,
->> +                                  bool log)
->> +{
->> +       int err;
->> +       const struct nlattr *encap;
->> +
->> +       *ie_valid = false;
->> +       if (!is_mask) {
->> +               u64 v_attrs = 0;
->> +
->> +               err = parse_flow_nlattrs(*nla, a, &v_attrs, log);
->> +               if (err)
->> +                       return err;
->> +               /* Another encap attribute here indicates
->> +                * the presence of a double tagged vlan.
->> +                */
->> +               if ((v_attrs & (1 << OVS_KEY_ATTR_ETHERTYPE)) &&
->> +                   eth_type_vlan(nla_get_be16(a[OVS_KEY_ATTR_ETHERTYPE]))) {
->> +                       if (!((v_attrs & (1ULL << OVS_KEY_ATTR_VLAN)) &&
->> +                             (v_attrs & (1ULL << OVS_KEY_ATTR_ENCAP)))) {
->> +                               OVS_NLERR(log, "Invalid Inner VLAN frame");
->> +                               return -EINVAL;
->> +                       }
->> +                       encap = a[OVS_KEY_ATTR_ENCAP];
->> +                       v_attrs &= ~(1 << OVS_KEY_ATTR_ENCAP);
->> +
->> +                       err = cust_vlan_from_nlattrs(match, a, is_mask, log);
->> +                       if (err)
->> +                               return err;
->> +                       *ie_valid = true;
->> +                       *nla = encap;
->> +
->> +                       /* Insure that tci key attribute isn't
->> +                        * overwritten by encapsulated customer tci.
->> +                        * Ethertype is cleared because it is c_tpid.
->> +                        */
->> +                       v_attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
->> +                       v_attrs &= ~(1 << OVS_KEY_ATTR_ETHERTYPE);
->> +               }
->> +               *key_attrs |= v_attrs;
->> +
->> +       } else {
->> +               u64 mask_v_attrs = 0;
->> +
->> +               err = parse_flow_mask_nlattrs(*nla, a, &mask_v_attrs, log);
->> +               if (err)
->> +                       return err;
->> +
->> +               if (mask_v_attrs & 1 << OVS_KEY_ATTR_ENCAP) {
->> +                       if (!*ie_valid) {
->> +                               OVS_NLERR(log, "Encap mask attribute is set for non-CVLAN frame.");
->> +                               err = -EINVAL;
-> No need to set err it is not read again.
->
->> +                               return err;
->> +                       }
-> At the beginning of this same function ie_valid is set to false. So
-> this case always return error resulting failure in flow install. This
-> make me wonder if you ever tested this code with multiple encap
-> traffic.
->
->> +                       encap = a[OVS_KEY_ATTR_ENCAP];
->> +                       mask_v_attrs &= ~(1 << OVS_KEY_ATTR_ENCAP);
->> +
->> +                       err = cust_vlan_from_nlattrs(match, a, is_mask, log);
->> +                       if (err)
->> +                               return err;
->> +                       *nla = encap;
->> +
->> +                       mask_v_attrs &= ~(1ULL << OVS_KEY_ATTR_VLAN);
->> +                       mask_v_attrs &= ~(1ULL << OVS_KEY_ATTR_ETHERTYPE);
->> +               }
->> +
->> +               *key_attrs |= mask_v_attrs;
->> +       }
->> +       return 0;
->> +}
->> +
->>   /**
->>    * ovs_nla_get_match - parses Netlink attributes into a flow key and
->>    * mask. In case the 'mask' is NULL, the flow is treated as exact match
->> @@ -1091,6 +1186,7 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
->>          u64 key_attrs = 0;
->>          u64 mask_attrs = 0;
->>          bool encap_valid = false;
->> +       bool i_encap_valid = false;
->>          int err;
->>
->>          err = parse_flow_nlattrs(nla_key, a, &key_attrs, log);
->> @@ -1099,11 +1195,11 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
->>
->>          if ((key_attrs & (1 << OVS_KEY_ATTR_ETHERNET)) &&
->>              (key_attrs & (1 << OVS_KEY_ATTR_ETHERTYPE)) &&
->> -           (nla_get_be16(a[OVS_KEY_ATTR_ETHERTYPE]) == htons(ETH_P_8021Q))) {
->> +           eth_type_vlan(nla_get_be16(a[OVS_KEY_ATTR_ETHERTYPE]))) {
->>                  __be16 tci;
->>
->> -               if (!((key_attrs & (1 << OVS_KEY_ATTR_VLAN)) &&
->> -                     (key_attrs & (1 << OVS_KEY_ATTR_ENCAP)))) {
->> +               if (!((key_attrs & (1ULL << OVS_KEY_ATTR_VLAN)) &&
->> +                     (key_attrs & (1ULL << OVS_KEY_ATTR_ENCAP)))) {
->>                          OVS_NLERR(log, "Invalid Vlan frame.");
->>                          return -EINVAL;
->>                  }
->> @@ -1115,9 +1211,19 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
->>                  encap_valid = true;
->>
->>                  if (tci & htons(VLAN_TAG_PRESENT)) {
->> -                       err = parse_flow_nlattrs(encap, a, &key_attrs, log);
->> +                       err = parse_vlan_from_nlattrs(&encap, match, &key_attrs,
->> +                                                     &i_encap_valid, a, false,
->> +                                                     log);
->>                          if (err)
->>                                  return err;
->> +
->> +                       if (i_encap_valid) {
->> +                               err = parse_flow_nlattrs(encap, a,
->> +                                                        &key_attrs,
->> +                                                        log);
->> +                               if (err)
->> +                                       return err;
->> +                       }
-> Can you call this function from parse_vlan_from_nlattrs()? This will
-> eliminate following call site too.
->
->>                  } else if (!tci) {
->>                          /* Corner case for truncated 802.1Q header. */
->>                          if (nla_len(encap)) {
->> @@ -1188,10 +1294,21 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
->>                          if (eth_type == htons(0xffff)) {
->>                                  mask_attrs &= ~(1 << OVS_KEY_ATTR_ETHERTYPE);
->>                                  encap = a[OVS_KEY_ATTR_ENCAP];
->> -                               err = parse_flow_mask_nlattrs(encap, a,
->> -                                                             &mask_attrs, log);
->> +                               err = parse_vlan_from_nlattrs(&encap, match,
->> +                                                             &mask_attrs,
->> +                                                             &i_encap_valid,
->> +                                                             a, true, log);
->>                                  if (err)
->>                                          goto free_newmask;
->> +
->> +                               if (i_encap_valid) {
->> +                                       err =
->> +                                           parse_flow_mask_nlattrs(encap, a,
->> +                                                                   &mask_attrs,
->> +                                                                   log);
->> +                                       if (err)
->> +                                               goto free_newmask;
->> +                               }
->>                          } else {
->>                                  OVS_NLERR(log, "VLAN frames must have an exact match on the TPID (mask=%x).",
->>                                            ntohs(eth_type));
->> @@ -1320,6 +1437,7 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
->>   {
->>          struct ovs_key_ethernet *eth_key;
->>          struct nlattr *nla, *encap;
->> +       struct nlattr *in_encap = NULL;
->>
->>          if (nla_put_u32(skb, OVS_KEY_ATTR_RECIRC_ID, output->recirc_id))
->>                  goto nla_put_failure;
->> @@ -1368,17 +1486,42 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
->>          ether_addr_copy(eth_key->eth_src, output->eth.src);
->>          ether_addr_copy(eth_key->eth_dst, output->eth.dst);
->>
->> -       if (swkey->eth.tci || swkey->eth.type == htons(ETH_P_8021Q)) {
->> +       if (swkey->eth.tci || eth_type_vlan(swkey->eth.type)) {
->>                  __be16 eth_type;
->> -               eth_type = !is_mask ? htons(ETH_P_8021Q) : htons(0xffff);
->> +
->> +               if (swkey->eth.cvlan.ctci ||
->> +                   eth_type_vlan(swkey->eth.cvlan.c_tpid))
->> +                       eth_type = !is_mask ? htons(ETH_P_8021AD) :
->> +                                             htons(0xffff);
->> +               else
->> +                       eth_type = !is_mask ? htons(ETH_P_8021Q) :
->> +                                             htons(0xffff);
->> +
-> Here we can directly dump output->eth.type to netlink. No need to
-> check for inner encap.
-The eth.type is set to the inner encapsulated protocol not to the tpid. 
-We don't "know" what the outer tpid so I assume it is 802.1Q. To address 
-this situation, do you think I should add the outer tpid to sw_flow_key?
-Also see comment above in flow.h.
->
->>                  if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE, eth_type) ||
->>                      nla_put_be16(skb, OVS_KEY_ATTR_VLAN, output->eth.tci))
->>                          goto nla_put_failure;
->>                  encap = nla_nest_start(skb, OVS_KEY_ATTR_ENCAP);
->>                  if (!swkey->eth.tci)
->>                          goto unencap;
->> -       } else
->> +               if (swkey->eth.cvlan.ctci || eth_type_vlan(swkey->eth.type)) {
->> +                       __be16 eth_type;
->> +
->> +                       /* Customer tci is nested but uses same key attribute.
->> +                        */
->> +                       eth_type = !is_mask ? htons(ETH_P_8021Q) :
->> +                                             htons(0xffff);
->
-> We can just dump eth_type from output key into netlink attribute
-> rather than deriving it from other values.
->
->> +                       if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE,
->> +                                        eth_type) ||
->> +                           nla_put_be16(skb, OVS_KEY_ATTR_VLAN,
->> +                                        output->eth.cvlan.ctci))
->> +                               goto nla_put_failure;
->> +                       in_encap = nla_nest_start(skb, OVS_KEY_ATTR_ENCAP);
->> +                       if (!swkey->eth.cvlan.ctci)
->> +                               goto unencap;
->> +               }
->> +       } else {
->>                  encap = NULL;
->> +       }
->>
->>          if (swkey->eth.type == htons(ETH_P_802_2)) {
->>                  /*
->> @@ -1525,6 +1668,8 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
->>   unencap:
->>          if (encap)
->>                  nla_nest_end(skb, encap);
->> +       if (in_encap)
->> +               nla_nest_end(skb, in_encap);
->>
->>          return 0;
->>
->> @@ -2174,7 +2319,8 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
->>
->>                  case OVS_ACTION_ATTR_PUSH_VLAN:
->>                          vlan = nla_data(a);
->> -                       if (vlan->vlan_tpid != htons(ETH_P_8021Q))
->> +                       if ((vlan->vlan_tpid != htons(ETH_P_8021Q)) &&
->> +                           (vlan->vlan_tpid != htons(ETH_P_8021AD)))
->>                                  return -EINVAL;
->
-> This is open coded negative eth_type_vlan() function.
->
-> You also need to update packet_length() in vport-netdev.c
->
+T24gTW9uLCBTZXAgMjEsIDIwMTUgYXQgMDI6NTI6MzRQTSArMDMwMCwgSWdhbC5MaWJlcm1hbiB3
+cm90ZToKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+Zm1hbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbi5jCj4gbmV3
+IGZpbGUgbW9kZSAxMDA2NDQKPiBpbmRleCAwMDAwMDAwLi45MjQ2ODVmCj4gLS0tIC9kZXYvbnVs
+bAo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW4uYwo+IEBA
+IC0wLDAgKzEsMjczOCBAQAo+ICsvKgo+ICsgKiBDb3B5cmlnaHQgMjAwOC0yMDE1IEZyZWVzY2Fs
+ZSBTZW1pY29uZHVjdG9yIEluYy4KPiArICoKPiArICogUmVkaXN0cmlidXRpb24gYW5kIHVzZSBp
+biBzb3VyY2UgYW5kIGJpbmFyeSBmb3Jtcywgd2l0aCBvciB3aXRob3V0Cj4gKyAqIG1vZGlmaWNh
+dGlvbiwgYXJlIHBlcm1pdHRlZCBwcm92aWRlZCB0aGF0IHRoZSBmb2xsb3dpbmcgY29uZGl0aW9u
+cyBhcmUgbWV0Ogo+ICsgKiAgICAgKiBSZWRpc3RyaWJ1dGlvbnMgb2Ygc291cmNlIGNvZGUgbXVz
+dCByZXRhaW4gdGhlIGFib3ZlIGNvcHlyaWdodAo+ICsgKiAgICAgICBub3RpY2UsIHRoaXMgbGlz
+dCBvZiBjb25kaXRpb25zIGFuZCB0aGUgZm9sbG93aW5nIGRpc2NsYWltZXIuCj4gKyAqICAgICAq
+IFJlZGlzdHJpYnV0aW9ucyBpbiBiaW5hcnkgZm9ybSBtdXN0IHJlcHJvZHVjZSB0aGUgYWJvdmUg
+Y29weXJpZ2h0Cj4gKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNvbmRpdGlvbnMgYW5k
+IHRoZSBmb2xsb3dpbmcgZGlzY2xhaW1lciBpbiB0aGUKPiArICogICAgICAgZG9jdW1lbnRhdGlv
+biBhbmQvb3Igb3RoZXIgbWF0ZXJpYWxzIHByb3ZpZGVkIHdpdGggdGhlIGRpc3RyaWJ1dGlvbi4K
+PiArICogICAgICogTmVpdGhlciB0aGUgbmFtZSBvZiBGcmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBu
+b3IgdGhlCj4gKyAqICAgICAgIG5hbWVzIG9mIGl0cyBjb250cmlidXRvcnMgbWF5IGJlIHVzZWQg
+dG8gZW5kb3JzZSBvciBwcm9tb3RlIHByb2R1Y3RzCj4gKyAqICAgICAgIGRlcml2ZWQgZnJvbSB0
+aGlzIHNvZnR3YXJlIHdpdGhvdXQgc3BlY2lmaWMgcHJpb3Igd3JpdHRlbiBwZXJtaXNzaW9uLgo+
+ICsgKgo+ICsvLyAgKgo+ICsgKiBBTFRFUk5BVElWRUxZLCB0aGlzIHNvZnR3YXJlIG1heSBiZSBk
+aXN0cmlidXRlZCB1bmRlciB0aGUgdGVybXMgb2YgdGhlCj4gKyAqIEdOVSBHZW5lcmFsIFB1Ymxp
+YyBMaWNlbnNlICgiR1BMIikgYXMgcHVibGlzaGVkIGJ5IHRoZSBGcmVlIFNvZnR3YXJlCj4gKyAq
+IEZvdW5kYXRpb24sIGVpdGhlciB2ZXJzaW9uIDIgb2YgdGhhdCBMaWNlbnNlIG9yIChhdCB5b3Vy
+IG9wdGlvbikgYW55Cj4gKyAqIGxhdGVyIHZlcnNpb24uCgpXaGF0IGlzIHRoYXQgLy8gZG9pbmcg
+dGhlcmU/Cgo+ICsvKiBFeGNlcHRpb25zIGJpdCBtYXAgKi8KPiArI2RlZmluZSBFWF9ETUFfQlVT
+X0VSUk9SCQkweDgwMDAwMDAwCj4gKyNkZWZpbmUgRVhfRE1BX1JFQURfRUNDCQkJMHg0MDAwMDAw
+MAo+ICsjZGVmaW5lIEVYX0RNQV9TWVNURU1fV1JJVEVfRUNDCTB4MjAwMDAwMDAKPiArI2RlZmlu
+ZSBFWF9ETUFfRk1fV1JJVEVfRUNDCQkweDEwMDAwMDAwCj4gKyNkZWZpbmUgRVhfRlBNX1NUQUxM
+X09OX1RBU0tTCQkweDA4MDAwMDAwCj4gKyNkZWZpbmUgRVhfRlBNX1NJTkdMRV9FQ0MJCTB4MDQw
+MDAwMDAKPiArI2RlZmluZSBFWF9GUE1fRE9VQkxFX0VDQwkJMHgwMjAwMDAwMAo+ICsjZGVmaW5l
+IEVYX1FNSV9TSU5HTEVfRUNDCQkweDAxMDAwMDAwCj4gKyNkZWZpbmUgRVhfUU1JX0RFUV9GUk9N
+X1VOS05PV05fUE9SVElECTB4MDA4MDAwMDAKPiArI2RlZmluZSBFWF9RTUlfRE9VQkxFX0VDQwkJ
+MHgwMDQwMDAwMAo+ICsjZGVmaW5lIEVYX0JNSV9MSVNUX1JBTV9FQ0MJCTB4MDAyMDAwMDAKPiAr
+I2RlZmluZSBFWF9CTUlfU1RPUkFHRV9QUk9GSUxFX0VDQwkweDAwMTAwMDAwCj4gKyNkZWZpbmUg
+RVhfQk1JX1NUQVRJU1RJQ1NfUkFNX0VDQwkweDAwMDgwMDAwCj4gKyNkZWZpbmUgRVhfSVJBTV9F
+Q0MJCQkweDAwMDQwMDAwCj4gKyNkZWZpbmUgRVhfTVVSQU1fRUNDCQkJMHgwMDAyMDAwMAo+ICsj
+ZGVmaW5lIEVYX0JNSV9ESVNQQVRDSF9SQU1fRUNDCTB4MDAwMTAwMDAKPiArI2RlZmluZSBFWF9E
+TUFfU0lOR0xFX1BPUlRfRUNDCQkweDAwMDA4MDAwCj4gKwo+ICsjZGVmaW5lIERGTFRfRVhDRVBU
+SU9OUwlcCj4gKwkgKChFWF9ETUFfQlVTX0VSUk9SKSAgICAgICAgICAgIHwgXAo+ICsJICAoRVhf
+RE1BX1JFQURfRUNDKSAgICAgICAgICAgICAgfCBcCj4gKwkgIChFWF9ETUFfU1lTVEVNX1dSSVRF
+X0VDQykgICAgICB8IFwKPiArCSAgKEVYX0RNQV9GTV9XUklURV9FQ0MpICAgICAgICAgIHwgXAo+
+ICsJICAoRVhfRlBNX1NUQUxMX09OX1RBU0tTKSAgICAgICAgfCBcCj4gKwkgIChFWF9GUE1fU0lO
+R0xFX0VDQykgICAgICAgICAgICB8IFwKPiArCSAgKEVYX0ZQTV9ET1VCTEVfRUNDKSAgICAgICAg
+ICAgIHwgXAo+ICsJICAoRVhfUU1JX0RFUV9GUk9NX1VOS05PV05fUE9SVElEKSB8IFwKPiArCSAg
+KEVYX0JNSV9MSVNUX1JBTV9FQ0MpICAgICAgICAgIHwgXAo+ICsJICAoRVhfQk1JX1NUT1JBR0Vf
+UFJPRklMRV9FQ0MpICAgfCBcCj4gKwkgIChFWF9CTUlfU1RBVElTVElDU19SQU1fRUNDKSAgICB8
+IFwKPiArCSAgKEVYX01VUkFNX0VDQykgICAgICAgICAgICAgICAgIHwgXAo+ICsJICAoRVhfQk1J
+X0RJU1BBVENIX1JBTV9FQ0MpICAgICAgfCBcCj4gKwkgIChFWF9RTUlfRE9VQkxFX0VDQykgICAg
+ICAgICAgICB8IFwKPiArCSAgKEVYX1FNSV9TSU5HTEVfRUNDKSkKCllvdSBkb24ndCBuZWVkIHBh
+cmVudGhlc2VzIGFyb3VuZCBlYWNoIHN5bWJvbC4KClRoaXMgaXMgb25seSB1c2VkIGluIG9uZSBw
+bGFjZSAtLSB3aHkgcHV0IHRoZSBsaXN0IGhlcmUgcmF0aGVyIHRoYW4gaW4KdGhlIHBsYWNlIHdo
+ZXJlIGl0J3MgdXNlZD8KCj4gK3N0cnVjdCBmbWFuX3N0YXRlX3N0cnVjdCB7Cj4gKwl1OCBmbV9p
+ZDsKPiArCXUxNiBmbV9jbGtfZnJlcTsKPiArCXN0cnVjdCBmbWFuX3Jldl9pbmZvIHJldl9pbmZv
+Owo+ICsJYm9vbCBlbmFibGVkX3RpbWVfc3RhbXA7Cj4gKwl1OCBjb3VudDFfbWljcm9fYml0Owo+
+ICsJdTggdG90YWxfbnVtX29mX3Rhc2tzOwo+ICsJdTggYWNjdW11bGF0ZWRfbnVtX29mX3Rhc2tz
+Owo+ICsJdTMyIGFjY3VtdWxhdGVkX2ZpZm9fc2l6ZTsKPiArCXU4IGFjY3VtdWxhdGVkX251bV9v
+Zl9vcGVuX2RtYXM7Cj4gKwl1OCBhY2N1bXVsYXRlZF9udW1fb2ZfZGVxX3RudW1zOwo+ICsJYm9v
+bCBsb3dfZW5kX3Jlc3RyaWN0aW9uOwo+ICsJdTMyIGV4Y2VwdGlvbnM7Cj4gKwl1MzIgZXh0cmFf
+Zmlmb19wb29sX3NpemU7Cj4gKwl1OCBleHRyYV90YXNrc19wb29sX3NpemU7Cj4gKwl1OCBleHRy
+YV9vcGVuX2RtYXNfcG9vbF9zaXplOwo+ICsJdTE2IHBvcnRfbWZsW01BWF9OVU1fT0ZfTUFDU107
+Cj4gKwl1MTYgbWFjX21mbFtNQVhfTlVNX09GX01BQ1NdOwo+ICsKPiArCS8qIFNPQyBzcGVjaWZp
+YyAqLwo+ICsJdTMyIGZtX2lyYW1fc2l6ZTsKPiArCS8qIERNQSAqLwo+ICsJdTMyIGRtYV90aHJl
+c2hfbWF4X2NvbW1xOwo+ICsJdTMyIGRtYV90aHJlc2hfbWF4X2J1ZjsKPiArCXUzMiBtYXhfbnVt
+X29mX29wZW5fZG1hczsKPiArCS8qIFFNSSAqLwo+ICsJdTMyIHFtaV9tYXhfbnVtX29mX3RudW1z
+Owo+ICsJdTMyIHFtaV9kZWZfdG51bXNfdGhyZXNoOwo+ICsJLyogQk1JICovCj4gKwl1MzIgYm1p
+X21heF9udW1fb2ZfdGFza3M7Cj4gKwl1MzIgYm1pX21heF9maWZvX3NpemU7Cj4gKwkvKiBHZW5l
+cmFsICovCj4gKwl1MzIgZm1fcG9ydF9udW1fb2ZfY2c7Cj4gKwl1MzIgbnVtX29mX3J4X3BvcnRz
+Owo+ICsJdTMyIHRvdGFsX2ZpZm9fc2l6ZTsKPiArCj4gKwl1MzIgcW1hbl9jaGFubmVsX2Jhc2U7
+Cj4gKwl1MzIgbnVtX29mX3FtYW5fY2hhbm5lbHM7Cj4gKwo+ICsJc3RydWN0IHJlc291cmNlICpy
+ZXM7Cj4gK307Cj4gKwo+ICtzdHJ1Y3QgZm1hbl9jZmcgewo+ICsJdTggZGlzcF9saW1pdF90c2g7
+Cj4gKwl1OCBwcnNfZGlzcF90c2g7Cj4gKwl1OCBwbGNyX2Rpc3BfdHNoOwo+ICsJdTgga2dfZGlz
+cF90c2g7Cj4gKwl1OCBibWlfZGlzcF90c2g7Cj4gKwl1OCBxbWlfZW5xX2Rpc3BfdHNoOwo+ICsJ
+dTggcW1pX2RlcV9kaXNwX3RzaDsKPiArCXU4IGZtX2N0bDFfZGlzcF90c2g7Cj4gKwl1OCBmbV9j
+dGwyX2Rpc3BfdHNoOwo+ICsJaW50IGRtYV9jYWNoZV9vdmVycmlkZTsKPiArCWVudW0gZm1hbl9k
+bWFfYWlkX21vZGUgZG1hX2FpZF9tb2RlOwo+ICsJYm9vbCBkbWFfYWlkX292ZXJyaWRlOwo+ICsJ
+dTMyIGRtYV9heGlfZGJnX251bV9vZl9iZWF0czsKPiArCXUzMiBkbWFfY2FtX251bV9vZl9lbnRy
+aWVzOwo+ICsJdTMyIGRtYV93YXRjaGRvZzsKPiArCXU4IGRtYV9jb21tX3F0c2hfYXNydF9lbWVy
+Owo+ICsJdTMyIGRtYV93cml0ZV9idWZfdHNoX2FzcnRfZW1lcjsKPiArCXUzMiBkbWFfcmVhZF9i
+dWZfdHNoX2FzcnRfZW1lcjsKPiArCXU4IGRtYV9jb21tX3F0c2hfY2xyX2VtZXI7Cj4gKwl1MzIg
+ZG1hX3dyaXRlX2J1Zl90c2hfY2xyX2VtZXI7Cj4gKwl1MzIgZG1hX3JlYWRfYnVmX3RzaF9jbHJf
+ZW1lcjsKPiArCXUzMiBkbWFfc29zX2VtZXJnZW5jeTsKPiArCWludCBkbWFfZGJnX2NudF9tb2Rl
+Owo+ICsJYm9vbCBkbWFfc3RvcF9vbl9idXNfZXJyb3I7Cj4gKwlib29sIGRtYV9lbl9lbWVyZ2Vu
+Y3k7Cj4gKwl1MzIgZG1hX2VtZXJnZW5jeV9idXNfc2VsZWN0Owo+ICsJaW50IGRtYV9lbWVyZ2Vu
+Y3lfbGV2ZWw7Cj4gKwlib29sIGRtYV9lbl9lbWVyZ2VuY3lfc21vb3RoZXI7Cj4gKwl1MzIgZG1h
+X2VtZXJnZW5jeV9zd2l0Y2hfY291bnRlcjsKPiArCWJvb2wgaGFsdF9vbl9leHRlcm5hbF9hY3Rp
+djsKPiArCWJvb2wgaGFsdF9vbl91bnJlY292X2VjY19lcnI7Cj4gKwlpbnQgY2F0YXN0cm9waGlj
+X2VycjsKPiArCWludCBkbWFfZXJyOwo+ICsJYm9vbCBlbl9tdXJhbV90ZXN0X21vZGU7Cj4gKwli
+b29sIGVuX2lyYW1fdGVzdF9tb2RlOwo+ICsJYm9vbCBleHRlcm5hbF9lY2NfcmFtc19lbmFibGU7
+Cj4gKwl1MTYgdG51bV9hZ2luZ19wZXJpb2Q7Cj4gKwl1MzIgZXhjZXB0aW9uczsKPiArCXUxNiBj
+bGtfZnJlcTsKPiArCWJvb2wgcGVkYW50aWNfZG1hOwo+ICsJdTMyIGNhbV9iYXNlX2FkZHI7Cj4g
+Kwl1MzIgZmlmb19iYXNlX2FkZHI7Cj4gKwl1MzIgdG90YWxfZmlmb19zaXplOwo+ICsJdTMyIHRv
+dGFsX251bV9vZl90YXNrczsKPiArCWJvb2wgcW1pX2RlcV9vcHRpb25fc3VwcG9ydDsKPiArCXUz
+MiBxbWlfZGVmX3RudW1zX3RocmVzaDsKPiArfTsKClNvbWUgZG9jdW1lbnRhdGlvbiBvbiB0aGlz
+IHN0dWZmIHdvdWxkIGJlIG5pY2UuCgo+ICtzdGF0aWMgaW5saW5lIHU4IGh3X3BvcnRfaWRfdG9f
+c3dfcG9ydF9pZCh1OCBtYWpvciwgdTggaHdfcG9ydF9pZCkKPiArewo+ICsJdTggc3dfcG9ydF9p
+ZCA9IDA7Cj4gKwo+ICsJaWYgKGh3X3BvcnRfaWQgPj0gQkFTRV9UWF9QT1JUSUQpIHsKPiArCQlz
+d19wb3J0X2lkID0gaHdfcG9ydF9pZCAtIEJBU0VfVFhfUE9SVElEOwo+ICsJfSBlbHNlIGlmICho
+d19wb3J0X2lkID49IEJBU0VfUlhfUE9SVElEKSB7Cj4gKwkJc3dfcG9ydF9pZCA9IGh3X3BvcnRf
+aWQgLSBCQVNFX1JYX1BPUlRJRDsKPiArCX0gZWxzZSB7Cj4gKwkJc3dfcG9ydF9pZCA9IDA7Cj4g
+KwkJV0FSTl9PTihmYWxzZSk7CgpXQVJOX09OKGZhbHNlKSBpcyBhIG5vLW9wLgoKPiArCX0KPiAr
+Cj4gKwlyZXR1cm4gc3dfcG9ydF9pZDsKPiArfQo+ICsKPiArc3RhdGljIHZvaWQgc2V0X3BvcnRf
+b3JkZXJfcmVzdG9yYXRpb24oc3RydWN0IGZtYW5fZnBtX3JlZ3MgX19pb21lbSAqZnBtX3JnLAo+
+ICsJCQkJICAgICAgIHU4IHBvcnRfaWQpCj4gK3sKPiArCXUzMiB0bXAgPSAwOwo+ICsKPiArCXRt
+cCA9ICh1MzIpKHBvcnRfaWQgPDwgRlBNX1BPUlRfRk1fQ1RMX1BPUlRJRF9TSElGVCk7CgpVbm5l
+Y2Vzc2FyeSBjYXN0LiAgTGlrZXdpc2UgZWxzZXdoZXJlLgoKPiArCj4gKwl0bXAgfD0gKEZQTV9Q
+UlRfRk1fQ1RMMiB8IEZQTV9QUlRfRk1fQ1RMMSk7Cj4gKwo+ICsJLyogb3JkZXIgcmVzdG9yYXRp
+b24gKi8KPiArCWlmIChwb3J0X2lkICUgMikKPiArCQl0bXAgfD0gKEZQTV9QUlRfRk1fQ1RMMSA8
+PCBGUE1fUFJDX09SQV9GTV9DVExfU0VMX1NISUZUKTsKPiArCWVsc2UKPiArCQl0bXAgfD0gKEZQ
+TV9QUlRfRk1fQ1RMMiA8PCBGUE1fUFJDX09SQV9GTV9DVExfU0VMX1NISUZUKTsKClVubmVjZXNz
+YXJ5IHBhcmVucy4KCj4gK3N0YXRpYyBpbnQgY2xlYXJfaXJhbShzdHJ1Y3QgZm1hbiAqZm1hbikK
+PiArewo+ICsJc3RydWN0IGZtYW5faXJhbV9yZWdzIF9faW9tZW0gKmlyYW07Cj4gKwlpbnQgaTsK
+PiArCj4gKwlpcmFtID0gKHN0cnVjdCBmbWFuX2lyYW1fcmVncyBfX2lvbWVtICopKGZtYW4tPmJh
+c2VfYWRkciArIElNRU1fT0ZGU0VUKTsKPiArCj4gKwkvKiBFbmFibGUgdGhlIGF1dG8taW5jcmVt
+ZW50ICovCj4gKwlvdXRfYmUzMigmaXJhbS0+aWFkZCwgSVJBTV9JQUREX0FJRSk7Cj4gKwl3aGls
+ZSAoaW5fYmUzMigmaXJhbS0+aWFkZCkgIT0gSVJBTV9JQUREX0FJRSkKPiArCQk7Cj4gKwo+ICsJ
+Zm9yIChpID0gMDsgaSA8IChmbWFuLT5zdGF0ZS0+Zm1faXJhbV9zaXplIC8gNCk7IGkrKykKPiAr
+CQlvdXRfYmUzMigmaXJhbS0+aWRhdGEsIDB4ZmZmZmZmZmYpOwo+ICsKPiArCW91dF9iZTMyKCZp
+cmFtLT5pYWRkLCBmbWFuLT5zdGF0ZS0+Zm1faXJhbV9zaXplIC0gNCk7Cj4gKwkvKiBNZW1vcnkg
+YmFycmllciAqLwo+ICsJbWIoKTsKClRoaXMgY29tbWVudCBpcyB1c2VsZXNzLCBhbmQgd2FzIHBy
+b2JhYmx5IGluc2VydGVkIHRvIGZhbHNlbHkgc2lsZW5jZQpjaGVja3BhdGNoLiAgV2Uga25vdyBp
+dCdzIGEgbWVtb3J5IGJhcnJpZXIuICBFeHBsYWluIHdoeSBpdCdzIG5lZWRlZCwKZXNwZWNpYWxs
+eSBnaXZlbiB0aGF0IHRoZSBJL08gYWNjZXNzb3JzIGhhdmUgdGhlaXIgb3duIGJhcnJyaWVycy4K
+Cj4gKwl3aGlsZSAoaW5fYmUzMigmaXJhbS0+aWRhdGEpICE9IDB4ZmZmZmZmZmYpCj4gKwkJOwoK
+U3BpbiBsb29wcyB3YWl0aW5nIGZvciBoYXJkd2FyZSBzaG91bGQgaGF2ZSB0aW1lb3V0cy4KCj4g
+K3N0YXRpYyBpbnQgZ2V0X21vZHVsZV9ldmVudChlbnVtIGZtYW5fZXZlbnRfbW9kdWxlcyBtb2R1
+bGUsIHU4IG1vZF9pZCwKPiArCQkJICAgIGVudW0gZm1hbl9pbnRyX3R5cGUgaW50cl90eXBlKQo+
+ICt7Cj4gKwlpbnQgZXZlbnQ7Cj4gKwo+ICsJc3dpdGNoIChtb2R1bGUpIHsKPiArCWNhc2UgRk1B
+Tl9NT0RfTUFDOgo+ICsJCQlldmVudCA9IChpbnRyX3R5cGUgPT0gRk1BTl9JTlRSX1RZUEVfRVJS
+KSA/Cj4gKwkJCShGTUFOX0VWX0VSUl9NQUMwICsgbW9kX2lkKSA6Cj4gKwkJCShGTUFOX0VWX01B
+QzAgKyBtb2RfaWQpOwoKVXNlIGlmL2Vsc2UuLi4KCj4gKwkJYnJlYWs7Cj4gKwljYXNlIEZNQU5f
+TU9EX0ZNQU5fQ1RSTDoKPiArCQlpZiAoaW50cl90eXBlID09IEZNQU5fSU5UUl9UWVBFX0VSUikK
+PiArCQkJZXZlbnQgPSBGTUFOX0VWX0NOVDsKPiArCQllbHNlCj4gKwkJCWV2ZW50ID0gKEZNQU5f
+RVZfRk1BTl9DVFJMXzAgKyBtb2RfaWQpOwo+ICsJCWJyZWFrOwoKLi4uanVzdCBsaWtlIGhlcmUu
+Cgo+ICsJLyogUmVhZCwgbW9kaWZ5IGFuZCB3cml0ZSB0byBIVyAqLwo+ICsJdG1wID0gKHUzMiko
+KGZpZm8gLyBGTUFOX0JNSV9GSUZPX1VOSVRTIC0gMSkgfAo+ICsJCSAgICAoKGV4dHJhX2ZpZm8g
+LyBGTUFOX0JNSV9GSUZPX1VOSVRTKSA8PAo+ICsJCSAgICBCTUlfRVhUUkFfRklGT19TSVpFX1NI
+SUZUKSk7CgpVbm5lY2Vzc2FyeSBjYXN0LgoKPiArCWlmIChleHRyYV90YXNrcykKPiArCQlmbWFu
+LT5zdGF0ZS0+ZXh0cmFfdGFza3NfcG9vbF9zaXplID0KPiArCQkodTgpbWF4KGZtYW4tPnN0YXRl
+LT5leHRyYV90YXNrc19wb29sX3NpemUsIGV4dHJhX3Rhc2tzKTsKClVubmVjZXNzYXJ5IGNhc3Qu
+Cgo+ICtzdGF0aWMgaW50IGZtYW5faW5pdChzdHJ1Y3QgZm1hbiAqZm1hbikKPiArewo+ICsJc3Ry
+dWN0IGZtYW5fY2ZnICpjZmcgPSBOVUxMOwo+ICsJc3RydWN0IGZtYW5fcmcgZm1hbl9yZzsKPiAr
+CWludCBlcnIgPSAwLCBpOwo+ICsKPiArCWlmIChpc19pbml0X2RvbmUoZm1hbi0+Y2ZnKSkKPiAr
+CQlyZXR1cm4gLUVJTlZBTDsKPiArCj4gKwlmbWFuX3JnLmJtaV9yZyA9IGZtYW4tPmJtaV9yZWdz
+Owo+ICsJZm1hbl9yZy5xbWlfcmcgPSBmbWFuLT5xbWlfcmVnczsKPiArCWZtYW5fcmcuZnBtX3Jn
+ID0gZm1hbi0+ZnBtX3JlZ3M7Cj4gKwlmbWFuX3JnLmRtYV9yZyA9IGZtYW4tPmRtYV9yZWdzOwoK
+V2h5IGtlZXAgdGhpcyBpbmZvcm1hdGlvbiBpbiB0d28gZGlmZmVyZW50IHBsYWNlcyBhbmQgZm9y
+bWF0cz8KCj4gKwkvKiBSZXNldCB0aGUgRk0gaWYgcmVxdWlyZWQuICovCj4gKwlpZiAoZm1hbi0+
+cmVzZXRfb25faW5pdCkgewoKV2hlbiBpcyB0aGlzIGV2ZXIgbm90IHRydWU/Cgo+ICsJCWlmIChm
+bWFuLT5zdGF0ZS0+cmV2X2luZm8ubWFqb3IgPj0gNikgewo+ICsJCQkvKiBFcnJhdGEgQTAwNzI3
+MyAqLwo+ICsJCQlwcl9kZWJ1ZygiRk1hblYzIHJlc2V0IGlzIG5vdCBzdXBwb3J0ZWQhXG4iKTsK
+Ck5vIHBsYW4gdG8gaW1wbGVtZW50IHRoZSB3b3JrYXJvdW5kIGludm9sdmluZyBERVZESVNSMj8K
+Cj4gKwkJfSBlbHNlIHsKPiArCQkJb3V0X2JlMzIoJmZtYW4tPmZwbV9yZWdzLT5mbV9yc3RjLCBG
+UE1fUlNUQ19GTV9SRVNFVCk7Cj4gKwkJCS8qIE1lbW9yeSBiYXJyaWVyICovCj4gKwkJCW1iKCk7
+Cj4gKwkJCXVzbGVlcF9yYW5nZSgxMDAsIDMwMCk7Cj4gKwkJfQoKV2hlcmUgZG9lcyAxMDB1cyBj
+b21lIGZyb20/ICBTaG91bGRuJ3QgeW91IHdhaXQgZm9yIHRoZSBGTV9SRVNFVCBiaXQgdG8KYmUg
+Y2xlYXJlZD8KCj4gKwo+ICsJCWlmICghIShpb3JlYWQzMmJlKCZmbWFuX3JnLnFtaV9yZy0+Zm1x
+bV9ncykgJgo+ICsJCSAgICBRTUlfR1NfSEFMVF9OT1RfQlVTWSkpIHsKPiArCQkJcmVzdW1lKGZt
+YW4tPmZwbV9yZWdzKTsKPiArCQkJdXNsZWVwX3JhbmdlKDEwMCwgMzAwKTsKPiArCQl9CgpUaGVy
+ZSdzIG5vIG5lZWQgZm9yICEhIGhlcmUuCgpTYW1lIHF1ZXN0aW9uIGFzIGFib3ZlIHJlZ2FyZGlu
+ZyB0aGUgZGVsYXkuCgo+ICtzdGF0aWMgaW50IGZtYW5fc2V0X2V4Y2VwdGlvbihzdHJ1Y3QgZm1h
+biAqZm1hbiwKPiArCQkJICAgICAgZW51bSBmbWFuX2V4Y2VwdGlvbnMgZXhjZXB0aW9uLCBib29s
+IGVuYWJsZSkKPiArewo+ICsJdTMyIGJpdF9tYXNrID0gMDsKPiArCXN0cnVjdCBmbWFuX3JnIGZt
+YW5fcmc7Cj4gKwo+ICsJaWYgKCFpc19pbml0X2RvbmUoZm1hbi0+Y2ZnKSkKPiArCQlyZXR1cm4g
+LUVJTlZBTDsKPiArCj4gKwlmbWFuX3JnLmJtaV9yZyA9IGZtYW4tPmJtaV9yZWdzOwo+ICsJZm1h
+bl9yZy5xbWlfcmcgPSBmbWFuLT5xbWlfcmVnczsKPiArCWZtYW5fcmcuZnBtX3JnID0gZm1hbi0+
+ZnBtX3JlZ3M7Cj4gKwlmbWFuX3JnLmRtYV9yZyA9IGZtYW4tPmRtYV9yZWdzOwo+ICsKPiArCWJp
+dF9tYXNrID0gZ2V0X2V4Y2VwdGlvbl9mbGFnKGV4Y2VwdGlvbik7Cj4gKwlpZiAoYml0X21hc2sp
+IHsKPiArCQlpZiAoZW5hYmxlKQo+ICsJCQlmbWFuLT5zdGF0ZS0+ZXhjZXB0aW9ucyB8PSBiaXRf
+bWFzazsKPiArCQllbHNlCj4gKwkJCWZtYW4tPnN0YXRlLT5leGNlcHRpb25zICY9IH5iaXRfbWFz
+azsKPiArCX0gZWxzZSB7Cj4gKwkJcHJfZXJyKCJVbmRlZmluZWQgZXhjZXB0aW9uXG4iKTsKPiAr
+CQlyZXR1cm4gLUVJTlZBTDsKClRoaXMgaXMgbm90IGEgdXNlZnVsIGVycm9yIG1lc3NhZ2UuCgpV
+c2UgZGV2X2VyciwgX19mdW5jX18sIGFuZCBwcmludCB0aGUgdW5leHBlY3RlZCB2YWx1ZS4KCkxp
+a2V3aXNlIGVsc2V3aGVyZS4KCj4gKwl9Cj4gKwo+ICsJcmV0dXJuIHNldF9leGNrZXB0aW9uKCZm
+bWFuX3JnLCBleGNlcHRpb24sIGVuYWJsZSk7Cj4gK30KPiArCj4gK3ZvaWQgZm1hbl9yZWdpc3Rl
+cl9pbnRyKHN0cnVjdCBmbWFuICpmbWFuLCBlbnVtIGZtYW5fZXZlbnRfbW9kdWxlcyBtb2R1bGUs
+Cj4gKwkJCXU4IG1vZF9pZCwgZW51bSBmbWFuX2ludHJfdHlwZSBpbnRyX3R5cGUsCj4gKwkJCXZv
+aWQgKCppc3JfY2IpKHZvaWQgKnNyY19hcmcpLCB2b2lkICpzcmNfYXJnKQo+ICt7Cj4gKwlpbnQg
+ZXZlbnQgPSAwOwo+ICsKPiArCWV2ZW50ID0gZ2V0X21vZHVsZV9ldmVudChtb2R1bGUsIG1vZF9p
+ZCwgaW50cl90eXBlKTsKPiArCVdBUk5fT04oIShldmVudCA8IEZNQU5fRVZfQ05UKSk7CgpUaGlz
+IGlzbid0IGZsb2F0aW5nIHBvaW50LiAgWW91IGNhbiBzYWZlbHkgc2F5IFdBUk5fT04oZXZlbnQg
+Pj0KRk1BTl9FVl9DTlQpLiA6LVAKCj4gKwlzcGluX2xvY2tfaXJxc2F2ZSgmZm1hbi0+c3Bpbmxv
+Y2ssIGludF9mbGFncyk7CgoiZmxhZ3MiLCByYXRoZXIgdGhhbiAiaW50X2ZsYWdzIiBpcyBpZGlv
+bWF0aWMuCgo+ICsKPiArCWVyciA9IHNldF9udW1fb2ZfdGFza3MoZm1hbiwgcG9ydF9wYXJhbXMt
+PnBvcnRfaWQsCj4gKwkJCSAgICAgICAmcG9ydF9wYXJhbXMtPm51bV9vZl90YXNrcywKPiArCQkJ
+ICAgICAgICZwb3J0X3BhcmFtcy0+bnVtX29mX2V4dHJhX3Rhc2tzKTsKPiArCWlmIChlcnIpIHsK
+PiArCQlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZmbWFuLT5zcGlubG9jaywgaW50X2ZsYWdzKTsK
+PiArCQlyZXR1cm4gZXJyOwo+ICsJfQoKVXNlIHRoZSBzdGFuZGFyZCBnb3RvIGVycm9yIGhhbmRs
+aW5nIG1vZGVsLgoKPiArCQkvKiBpZiBkZXFfdGggaXMgdG9vIHNtYWxsLCB3ZSBlbmxhcmdlIGl0
+IHRvIHRoZSBtaW4KPiArCQkgKiB2YWx1ZSB0aGF0IGlzIHN0aWxsIDAuCj4gKwkJICogZGVwVGgg
+bWF5IG5vdCBiZSBsYXJnZXIgdGhhbiA2Mwo+ICsJCSAqIChmbWFuLT5zdGF0ZS0+cW1pX21heF9u
+dW1fb2ZfdG51bXMtMSkuCj4gKwkJICovCj4gKwkJaWYgKChkZXFfdGggPD0gZm1hbi0+c3RhdGUt
+PmFjY3VtdWxhdGVkX251bV9vZl9kZXFfdG51bXMpICYmCj4gKwkJICAgIChkZXFfdGggPCBmbWFu
+LT5zdGF0ZS0+cW1pX21heF9udW1fb2ZfdG51bXMgLSAxKSkgewo+ICsJCQkJZGVxX3RoID0KPiAr
+CQkJCWZtYW4tPnN0YXRlLT5hY2N1bXVsYXRlZF9udW1fb2ZfZGVxX3RudW1zICsgMTsKPiArCQkJ
+cmVnID0gaW9yZWFkMzJiZSgmZm1hbl9yZy5xbWlfcmctPmZtcW1fZ2MpOwoKV2hpdGVzcGFjZQoK
+PiArLyogTWF4IGZyYW1lIHNpemUsIGFjcm9zcyBhbGwgaW50ZXJmYWNlcy4KPiArICogQ29uZmln
+dXJhYmxlIGZyb20gYm9vdGFyZ3MsIHRvIGF2b2lkIGFsbG9jYXRpbmcgb3ZlcnNpemVkIChzb2Nr
+ZXQpCj4gKyAqIGJ1ZmZlcnMgd2hlbiBub3QgdXNpbmcganVtYm8gZnJhbWVzLgo+ICsgKiBNdXN0
+IGJlIGxhcmdlIGVub3VnaCB0byBhY2NvbW1vZGF0ZSB0aGUgbmV0d29yayBNVFUsIGJ1dCBzbWFs
+bCBlbm91Z2gKPiArICogdG8gYXZvaWQgd2FzdGluZyBza2IgbWVtb3J5Lgo+ICsgKgo+ICsgKiBD
+b3VsZCBiZSBvdmVycmlkZGVuIG9uY2UsIGF0IGJvb3QtdGltZSwgdmlhIHRoZQo+ICsgKiBmbV9z
+ZXRfbWF4X2ZybSgpIGNhbGxiYWNrLgo+ICsgKi8KPiAraW50IGZzbF9mbV9tYXhfZnJtID0gRlNM
+X0ZNX01BWF9GUkFNRV9TSVpFOwo+ICttb2R1bGVfcGFyYW0oZnNsX2ZtX21heF9mcm0sIGludCwg
+MCk7Cj4gK01PRFVMRV9QQVJNX0RFU0MoZnNsX2ZtX21heF9mcm0sICJNYXhpbXVtIGZyYW1lIHNp
+emUsIGFjcm9zcyBhbGwgaW50ZXJmYWNlcyIpOwo+ICsKPiArdTE2IGZtYW5fZ2V0X21heF9mcm0o
+dm9pZCkKPiArewo+ICsJc3RhdGljIGJvb2wgZm1fY2hlY2tfbWZsOwo+ICsKPiArCWlmICghZm1f
+Y2hlY2tfbWZsKSB7Cj4gKwkJaWYgKGZzbF9mbV9tYXhfZnJtID4gRlNMX0ZNX01BWF9QT1NTSUJM
+RV9GUkFNRV9TSVpFIHx8Cj4gKwkJICAgIGZzbF9mbV9tYXhfZnJtIDwgRlNMX0ZNX01JTl9QT1NT
+SUJMRV9GUkFNRV9TSVpFKSB7Cj4gKwkJCXByX3dhcm4oIkludmFsaWQgZnNsX2ZtX21heF9mcm0g
+dmFsdWUgKCVkKSBpbiBib290YXJncywgdmFsaWQgcmFuZ2UgaXMgJWQtJWQuIEZhbGxpbmcgYmFj
+ayB0byB0aGUgZGVmYXVsdCAoJWQpXG4iLAo+ICsJCQkJZnNsX2ZtX21heF9mcm0sCj4gKwkJCQlG
+U0xfRk1fTUlOX1BPU1NJQkxFX0ZSQU1FX1NJWkUsCj4gKwkJCQlGU0xfRk1fTUFYX1BPU1NJQkxF
+X0ZSQU1FX1NJWkUsCj4gKwkJCQlGU0xfRk1fTUFYX0ZSQU1FX1NJWkUpOwo+ICsJCQlmc2xfZm1f
+bWF4X2ZybSA9IEZTTF9GTV9NQVhfRlJBTUVfU0laRTsKPiArCQl9Cj4gKwkJZm1fY2hlY2tfbWZs
+ID0gdHJ1ZTsKPiArCX0KPiArCj4gKwlyZXR1cm4gZnNsX2ZtX21heF9mcm07Cj4gK30KPiArRVhQ
+T1JUX1NZTUJPTChmbWFuX2dldF9tYXhfZnJtKTsKPiArCj4gK2ludCBmbWFuX2dldF9yeF9leHRy
+YV9oZWFkcm9vbSh2b2lkKQo+ICt7Cj4gKwlzdGF0aWMgYm9vbCBmbV9jaGVja19yeF9leHRyYV9o
+ZWFkcm9vbTsKPiArCj4gKwlpZiAoIWZtX2NoZWNrX3J4X2V4dHJhX2hlYWRyb29tKSB7Cj4gKwkJ
+aWYgKGZzbF9mbV9yeF9leHRyYV9oZWFkcm9vbSA+IEZTTF9GTV9SWF9FWFRSQV9IRUFEUk9PTV9N
+QVggfHwKPiArCQkgICAgZnNsX2ZtX3J4X2V4dHJhX2hlYWRyb29tIDwgRlNMX0ZNX1JYX0VYVFJB
+X0hFQURST09NX01JTikgewo+ICsJCQlwcl93YXJuKCJJbnZhbGlkIGZzbF9mbV9yeF9leHRyYV9o
+ZWFkcm9vbSB2YWx1ZSAoJWQpIGluIGJvb3RhcmdzLCB2YWxpZCByYW5nZSBpcyAlZC0lZC4gRmFs
+bGluZyBiYWNrIHRvIHRoZSBkZWZhdWx0ICglZClcbiIsCj4gKwkJCQlmc2xfZm1fcnhfZXh0cmFf
+aGVhZHJvb20sCj4gKwkJCQlGU0xfRk1fUlhfRVhUUkFfSEVBRFJPT01fTUlOLAo+ICsJCQkJRlNM
+X0ZNX1JYX0VYVFJBX0hFQURST09NX01BWCwKPiArCQkJCUZTTF9GTV9SWF9FWFRSQV9IRUFEUk9P
+TSk7Cj4gKwkJCWZzbF9mbV9yeF9leHRyYV9oZWFkcm9vbSA9IEZTTF9GTV9SWF9FWFRSQV9IRUFE
+Uk9PTTsKPiArCQl9Cj4gKwo+ICsJCWZzbF9mbV9yeF9leHRyYV9oZWFkcm9vbSA9IHRydWU7Cj4g
+KwkJZnNsX2ZtX3J4X2V4dHJhX2hlYWRyb29tID0gQUxJR04oZnNsX2ZtX3J4X2V4dHJhX2hlYWRy
+b29tLCAxNik7Cj4gKwl9Cj4gKwo+ICsJcmV0dXJuIGZzbF9mbV9yeF9leHRyYV9oZWFkcm9vbTsK
+PiArfQo+ICtFWFBPUlRfU1lNQk9MKGZtYW5fZ2V0X3J4X2V4dHJhX2hlYWRyb29tKTsKPiArCgpX
+aGF0IGNhbGxzIHRoZXNlIGZ1bmN0aW9ucz8KCj4gK3N0cnVjdCBmbWFuICpmbWFuX2JpbmQoc3Ry
+dWN0IGRldmljZSAqZm1fZGV2KQo+ICt7Cj4gKwlyZXR1cm4gKHN0cnVjdCBmbWFuICopKGRldl9n
+ZXRfZHJ2ZGF0YShnZXRfZGV2aWNlKGZtX2RldikpKTsKPiArfQo+ICsKPiArdm9pZCBmbWFuX3Vu
+YmluZChzdHJ1Y3QgZm1hbiAqZm1hbikKPiArewo+ICsJcHV0X2RldmljZShmbWFuLT5kZXYpOwo+
+ICt9CgpXaHk/Cgo+ICsKPiArc3RydWN0IGRldmljZSAqZm1hbl9nZXRfZGV2aWNlKHN0cnVjdCBm
+bWFuICpmbWFuKQo+ICt7Cj4gKwlyZXR1cm4gZm1hbi0+ZGV2Owo+ICt9CgpJcyB0aGlzIHJlYWxs
+eSBuZWNlc3Nhcnk/Cgo+ICtzdGF0aWMgaXJxcmV0dXJuX3QgZm1hbl9pcnEoaW50IGlycSwgdm9p
+ZCAqZm1hbikKPiArewo+ICsJZm1hbl9ldmVudF9pc3IoZm1hbik7Cj4gKwo+ICsJcmV0dXJuIElS
+UV9IQU5ETEVEOwo+ICt9CgpPbmx5IHJldHVybiBJUlFfSEFORExFRCBpZiBzb21ldGhpbmcgd2Fz
+IGFjdHVhbGx5IGhhbmRsZWQuCgo+ICtzdGF0aWMgY29uc3Qgc3RydWN0IG9mX2RldmljZV9pZCBm
+bWFuX211cmFtX21hdGNoW10gPSB7Cj4gKwl7Cj4gKwkgLmNvbXBhdGlibGUgPSAiZnNsLGZtYW4t
+bXVyYW0ifSwKPiArCXt9Cms+ICt9OwoKV2hpdGVzcGFjZQoKPiArCWNsayA9IG9mX2Nsa19nZXRf
+YnlfbmFtZShmbV9ub2RlLCBOVUxMKTsKPiArCWlmIChJU19FUlIoY2xrKSkgewo+ICsJCXByX2Vy
+cigiRmFpbGVkIHRvIGdldCBGTSVkIGNsb2NrIHN0cnVjdHVyZVxuIiwKPiArCQkgICAgICAgZm1h
+bi0+ZHRzX3BhcmFtcy5pZCk7Cj4gKwkJZ290byBmbWFuX25vZGVfcHV0Owo+ICsJfQoKV2h5IGlz
+IG5hbWUgTlVMTD8gIElmIHlvdSBqdXN0IHdhbnQgdG8gZ2V0IHRoZSBmaXJzdC9vbmx5IGNsb2Nr
+IHdpdGhvdXQKbmVlZGluZyBhIG5hbWUsIHdoeSBub3QgdXNlIG9mX2Nsa19nZXQoZm1fbm9kZSwg
+MCk/CgoKPiArCj4gKwljbGtfcmF0ZSA9IGNsa19nZXRfcmF0ZShjbGspOwo+ICsJaWYgKCFjbGtf
+cmF0ZSkgewo+ICsJCXByX2VycigiRmFpbGVkIHRvIGRldGVybWluZSBGTSVkIGNsb2NrIHJhdGVc
+biIsCj4gKwkJICAgICAgIGZtYW4tPmR0c19wYXJhbXMuaWQpOwo+ICsJCWdvdG8gZm1hbl9ub2Rl
+X3B1dDsKPiArCX0KPiArCS8qIFJvdW5kaW5nIHRvIE1IeiAqLwo+ICsJZm1hbi0+ZHRzX3BhcmFt
+cy5jbGtfZnJlcSA9ICh1MTYpKChjbGtfcmF0ZSArIDUwMDAwMCkgLyAxMDAwMDAwKTsKCkRJVl9S
+T1VORF9VUCgpCgo+ICsKPiArCXUzMl9wcm9wID0gKGNvbnN0IHUzMiAqKW9mX2dldF9wcm9wZXJ0
+eShmbV9ub2RlLAo+ICsJCQkJCQkiZnNsLHFtYW4tY2hhbm5lbC1yYW5nZSIsCj4gKwkJCQkJCSZs
+ZW5wKTsKPiArCWlmICghdTMyX3Byb3ApIHsKPiArCQlwcl9lcnIoIm9mX2dldF9wcm9wZXJ0eSgl
+cywgZnNsLHFtYW4tY2hhbm5lbC1yYW5nZSkgZmFpbGVkXG4iLAo+ICsJCSAgICAgICBmbV9ub2Rl
+LT5mdWxsX25hbWUpOwo+ICsJCWdvdG8gZm1hbl9ub2RlX3B1dDsKPiArCX0KPiArCWlmIChXQVJO
+X09OKGxlbnAgIT0gc2l6ZW9mKHUzMikgKiAyKSkKPiArCQlnb3RvIGZtYW5fbm9kZV9wdXQ7Cj4g
+KwlmbWFuLT5kdHNfcGFyYW1zLnFtYW5fY2hhbm5lbF9iYXNlID0gdTMyX3Byb3BbMF07Cj4gKwlm
+bWFuLT5kdHNfcGFyYW1zLm51bV9vZl9xbWFuX2NoYW5uZWxzID0gdTMyX3Byb3BbMV07CgpmZHQz
+Ml90b19jcHUoKQoKPiArCj4gKwkvKiBHZXQgdGhlIE1VUkFNIGJhc2UgYWRkcmVzcyBhbmQgc2l6
+ZSAqLwo+ICsJbXVyYW1fbm9kZSA9IG9mX2ZpbmRfbWF0Y2hpbmdfbm9kZShmbV9ub2RlLCBmbWFu
+X211cmFtX21hdGNoKTsKPiArCWlmICghbXVyYW1fbm9kZSkgewo+ICsJCXByX2VycigiY291bGQg
+bm90IGZpbmQgTVVSQU0gbm9kZVxuIik7Cj4gKwkJZ290byBmbWFuX25vZGVfcHV0Owo+ICsJfQo+
+ICsKPiArCWVyciA9IG9mX2FkZHJlc3NfdG9fcmVzb3VyY2UobXVyYW1fbm9kZSwgMCwgcmVzKTsK
+PiArCWlmIChlcnIpIHsKPiArCQlvZl9ub2RlX3B1dChtdXJhbV9ub2RlKTsKPiArCQlwcl9lcnIo
+Im9mX2FkZHJlc3NfdG9fcmVzb3VyY2UoKSA9ICVkXG4iLCBlcnIpOwo+ICsJCWdvdG8gZm1hbl9u
+b2RlX3B1dDsKPiArCX0KPiArCj4gKwlmbWFuLT5kdHNfcGFyYW1zLm11cmFtX3BoeV9iYXNlX2Fk
+ZHIgPSByZXMtPnN0YXJ0Owo+ICsJZm1hbi0+ZHRzX3BhcmFtcy5tdXJhbV9zaXplID0gcmVzLT5l
+bmQgKyAxIC0gcmVzLT5zdGFydDsKCldoeSBub3QganVzdCBwdXQgYSBzdHJ1Y3QgcmVzb3VyY2Ug
+aW4gZm1hbi0+ZHRzX3BhcmFtcz8KCj4gKwl7Cj4gKwkJLyogSW4gQjQgcmV2IDIuMCAoYW5kIGFi
+b3ZlKSB0aGUgTVVSQU0gc2l6ZSBpcyA1MTJLQi4KPiArCQkgKiBDaGVjayB0aGUgU1ZSIGFuZCB1
+cGRhdGUgTVVSQU0gc2l6ZSBpZiByZXF1aXJlZC4KPiArCQkgKi8KPiArCQl1MzIgc3ZyOwo+ICsK
+PiArCQlzdnIgPSBtZnNwcihTUFJOX1NWUik7Cj4gKwo+ICsJCWlmICgoU1ZSX1NPQ19WRVIoc3Zy
+KSA9PSBTVlJfQjQ4NjApICYmIChTVlJfTUFKKHN2cikgPj0gMikpCj4gKwkJCWZtYW4tPmR0c19w
+YXJhbXMubXVyYW1fc2l6ZSA9IDB4ODAwMDA7Cj4gKwl9CgpXaHkgd2Fzbid0IHRoZSBNVVJBTSBz
+aXplIGRlc2NyaWJlZCBpbiB0aGUgZGV2aWNlIHRyZWUsIGFzIGl0IHdhcyB3aXRoCkNQTS9RRT8K
+Cj4gKwo+ICsJb2Zfbm9kZV9wdXQobXVyYW1fbm9kZSk7Cj4gKwlvZl9ub2RlX3B1dChmbV9ub2Rl
+KTsKPiArCj4gKwllcnIgPSBkZXZtX3JlcXVlc3RfaXJxKCZvZl9kZXYtPmRldiwgaXJxLCBmbWFu
+X2lycSwKPiArCQkJICAgICAgIElSUUZfTk9fU1VTUEVORCwgImZtYW4iLCBmbWFuKTsKPiArCWlm
+IChlcnIgPCAwKSB7Cj4gKwkJcHJfZXJyKCJFcnJvcjogYWxsb2NhdGluZyBpcnEgJWQgKGVycm9y
+ID0gJWQpXG4iLCBpcnEsIGVycik7Cj4gKwkJZ290byBmbWFuX2ZyZWU7Cj4gKwl9CgpXaHkgSVJR
+Rl9OT19TVVNQRU5EPwoKQWxzbyBwbGVhc2UgdXNlIGRldl9lcnIgd2hlcmUgcG9zc2libGUuCgo+
+ICtzdGF0aWMgY29uc3Qgc3RydWN0IG9mX2RldmljZV9pZCBmbWFuX21hdGNoW10gPSB7Cj4gKwl7
+Cj4gKwkgLmNvbXBhdGlibGUgPSAiZnNsLGZtYW4ifSwKPiArCXt9Cj4gK307CgpXaGl0ZXNwYWNl
+Cgo+ICsKPiArTU9EVUxFX0RFVklDRV9UQUJMRShvZiwgZm1fbWF0Y2gpOwo+ICsKPiArc3RhdGlj
+IHN0cnVjdCBwbGF0Zm9ybV9kcml2ZXIgZm1hbl9kcml2ZXIgPSB7Cj4gKwkuZHJpdmVyID0gewo+
+ICsJCSAgIC5uYW1lID0gImZzbC1mbWFuIiwKPiArCQkgICAub2ZfbWF0Y2hfdGFibGUgPSBmbWFu
+X21hdGNoLAo+ICsJCSAgIH0sCj4gKwkucHJvYmUgPSBmbWFuX3Byb2JlLAo+ICt9OwoKV2hpdGVz
+cGFjZQoKPiArLyogUGFyc2UgcmVzdWx0cyBtZW1vcnkgbGF5b3V0ICovCj4gK3N0cnVjdCBmbWFu
+X3Byc19yZXN1bHQgewo+ICsJdTggbHBpZDsJCS8qIExvZ2ljYWwgcG9ydCBpZCAqLwo+ICsJdTgg
+c2hpbXI7CQkvKiBTaGltIGhlYWRlciByZXN1bHQgICovCj4gKwl1MTYgbDJyOwkJLyogTGF5ZXIg
+MiByZXN1bHQgKi8KPiArCXUxNiBsM3I7CQkvKiBMYXllciAzIHJlc3VsdCAqLwo+ICsJdTggbDRy
+OwkJLyogTGF5ZXIgNCByZXN1bHQgKi8KPiArCXU4IGNwbGFuOwkJLyogQ2xhc3NpZmljYXRpb24g
+cGxhbiBpZCAqLwo+ICsJdTE2IG54dGhkcjsJCS8qIE5leHQgSGVhZGVyICAqLwo+ICsJdTE2IGNr
+c3VtOwkJLyogUnVubmluZy1zdW0gKi8KPiArCS8qIEZsYWdzJmZyYWdtZW50LW9mZnNldCBmaWVs
+ZCBvZiB0aGUgbGFzdCBJUC1oZWFkZXIgKi8KPiArCXUxNiBmbGFnc19mcmFnX29mZjsKPiArCS8q
+IFJvdXRpbmcgdHlwZSBmaWVsZCBvZiBhIElQVjYgcm91dGluZyBleHRlbnNpb24gaGVhZGVyICov
+Cj4gKwl1OCByb3V0ZV90eXBlOwo+ICsJLyogUm91dGluZyBFeHRlbnNpb24gSGVhZGVyIFByZXNl
+bnQ7IGxhc3QgYml0IGlzIElQIHZhbGlkICovCj4gKwl1OCByaHBfaXBfdmFsaWQ7Cj4gKwl1OCBz
+aGltX29mZlsyXTsJCS8qIFNoaW0gb2Zmc2V0ICovCj4gKwl1OCBpcF9waWRfb2ZmOwkJLyogSVAg
+UElEIChsYXN0IElQLXByb3RvKSBvZmZzZXQgKi8KPiArCXU4IGV0aF9vZmY7CQkvKiBFVEggb2Zm
+c2V0ICovCj4gKwl1OCBsbGNfc25hcF9vZmY7CS8qIExMQ19TTkFQIG9mZnNldCAqLwo+ICsJdTgg
+dmxhbl9vZmZbMl07CQkvKiBWTEFOIG9mZnNldCAqLwo+ICsJdTggZXR5cGVfb2ZmOwkJLyogRVRZ
+UEUgb2Zmc2V0ICovCj4gKwl1OCBwcHBvZV9vZmY7CQkvKiBQUFAgb2Zmc2V0ICovCj4gKwl1OCBt
+cGxzX29mZlsyXTsJCS8qIE1QTFMgb2Zmc2V0ICovCj4gKwl1OCBpcF9vZmZbMl07CQkvKiBJUCBv
+ZmZzZXQgKi8KPiArCXU4IGdyZV9vZmY7CQkvKiBHUkUgb2Zmc2V0ICovCj4gKwl1OCBsNF9vZmY7
+CQkvKiBMYXllciA0IG9mZnNldCAqLwo+ICsJdTggbnh0aGRyX29mZjsJCS8qKiBQYXJzZXIgZW5k
+IHBvaW50ICovCj4gK30gX19hdHRyaWJ1dGVfXygoX19wYWNrZWRfXykpOwoKV2h5IGlzIHRoaXMg
+cGFja2VkPwoKV2h5IGRvZXMgIlBhcnNlciBlbmQgcG9pbnQiIGhhdmUgYSBrZXJuZWxkb2MgY29t
+bWVudD8gCgo+ICsKPiArLyoqCj4gKyAqIGZtYW5fZ2V0X3JldmlzaW9uCj4gKyAqIEBmbWFuCQkt
+IFBvaW50ZXIgdG8gdGhlIEZNYW4gbW9kdWxlCj4gKyAqIEByZXZfaW5mbwkJLSBBIHN0cnVjdHVy
+ZSBvZiByZXZpc2lvbiBpbmZvcm1hdGlvbiBwYXJhbWV0ZXJzLgo+ICsgKgo+ICsgKiBSZXR1cm5z
+IHRoZSBGTSByZXZpc2lvbgo+ICsgKgo+ICsgKiBBbGxvd2VkIG9ubHkgZm9sbG93aW5nIGZtYW5f
+aW5pdCgpLgo+ICsgKgo+ICsgKiBSZXR1cm46IDAgb24gc3VjY2VzczsgRXJyb3IgY29kZSBvdGhl
+cndpc2UuCj4gKyAqLwo+ICt2b2lkIGZtYW5fZ2V0X3JldmlzaW9uKHN0cnVjdCBmbWFuICpmbWFu
+LCBzdHJ1Y3QgZm1hbl9yZXZfaW5mbyAqcmV2X2luZm8pOwo+ICsKPiArLyoqCj4gKyAqIGZtYW5f
+cmVnaXN0ZXJfaW50cgo+ICsgKiBAZm1hbjoJQSBQb2ludGVyIHRvIEZNYW4gZGV2aWNlCj4gKyAq
+IEBtb2Q6CUNhbGxpbmcgbW9kdWxlCj4gKyAqIEBtb2RfaWQ6CU1vZHVsZSBpZCAoaWYgbW9yZSB0
+aGFuIDEgZXhpc3RzLCAnMCcgaWYgbm90KQo+ICsgKiBAaW50cl90eXBlOglJbnRlcnJ1cHQgdHlw
+ZSAoZXJyb3Ivbm9ybWFsKSBzZWxlY3Rpb24uCj4gKyAqIEBmX2lzcjoJVGhlIGludGVycnVwdCBz
+ZXJ2aWNlIHJvdXRpbmUuCj4gKyAqIEBoX3NyY19hcmc6CUFyZ3VtZW50IHRvIGJlIHBhc3NlZCB0
+byBmX2lzci4KPiArICoKPiArICogVXNlZCB0byByZWdpc3RlciBhbiBldmVudCBoYW5kbGVyIHRv
+IGJlIHByb2Nlc3NlZCBieSBGTWFuCj4gKyAqCj4gKyAqIFJldHVybjogMCBvbiBzdWNjZXNzOyBF
+cnJvciBjb2RlIG90aGVyd2lzZS4KPiArICovCj4gK3ZvaWQgZm1hbl9yZWdpc3Rlcl9pbnRyKHN0
+cnVjdCBmbWFuICpmbWFuLCBlbnVtIGZtYW5fZXZlbnRfbW9kdWxlcyBtb2QsCj4gKwkJCXU4IG1v
+ZF9pZCwgZW51bSBmbWFuX2ludHJfdHlwZSBpbnRyX3R5cGUsCj4gKwkJCXZvaWQgKCpmX2lzciko
+dm9pZCAqaF9zcmNfYXJnKSwgdm9pZCAqaF9zcmNfYXJnKTsKPiArCj4gKy8qKgo+ICsgKiBmbWFu
+X3VucmVnaXN0ZXJfaW50cgo+ICsgKiBAZm1hbjoJQSBQb2ludGVyIHRvIEZNYW4gZGV2aWNlCj4g
+KyAqIEBtb2Q6CUNhbGxpbmcgbW9kdWxlCj4gKyAqIEBtb2RfaWQ6CU1vZHVsZSBpZCAoaWYgbW9y
+ZSB0aGFuIDEgZXhpc3RzLCAnMCcgaWYgbm90KQo+ICsgKiBAaW50cl90eXBlOglJbnRlcnJ1cHQg
+dHlwZSAoZXJyb3Ivbm9ybWFsKSBzZWxlY3Rpb24uCj4gKyAqCj4gKyAqIFVzZWQgdG8gdW5yZWdp
+c3RlciBhbiBldmVudCBoYW5kbGVyIHRvIGJlIHByb2Nlc3NlZCBieSBGTWFuCj4gKyAqCj4gKyAq
+IFJldHVybjogMCBvbiBzdWNjZXNzOyBFcnJvciBjb2RlIG90aGVyd2lzZS4KPiArICovCj4gK3Zv
+aWQgZm1hbl91bnJlZ2lzdGVyX2ludHIoc3RydWN0IGZtYW4gKmZtYW4sIGVudW0gZm1hbl9ldmVu
+dF9tb2R1bGVzIG1vZCwKPiArCQkJICB1OCBtb2RfaWQsIGVudW0gZm1hbl9pbnRyX3R5cGUgaW50
+cl90eXBlKTsKPiArCj4gKy8qKgo+ICsgKiBmbWFuX3NldF9wb3J0X3BhcmFtcwo+ICsgKiBAZm1h
+bjoJCUEgUG9pbnRlciB0byBGTWFuIGRldmljZQo+ICsgKiBAcG9ydF9wYXJhbXM6CVBvcnQgcGFy
+YW1ldGVycwo+ICsgKgo+ICsgKiBVc2VkIGJ5IEZNYW4gUG9ydCB0byBwYXNzIHBhcmFtZXRlcnMg
+dG8gdGhlIEZNYW4KPiArICoKPiArICogUmV0dXJuOiAwIG9uIHN1Y2Nlc3M7IEVycm9yIGNvZGUg
+b3RoZXJ3aXNlLgo+ICsgKi8KPiAraW50IGZtYW5fc2V0X3BvcnRfcGFyYW1zKHN0cnVjdCBmbWFu
+ICpmbWFuLAo+ICsJCQkgc3RydWN0IGZtYW5fcG9ydF9pbml0X3BhcmFtcyAqcG9ydF9wYXJhbXMp
+Owo+ICsKPiArLyoqCj4gKyAqIGZtYW5fcmVzZXRfbWFjCj4gKyAqIEBmbWFuOglBIFBvaW50ZXIg
+dG8gRk1hbiBkZXZpY2UKPiArICogQG1hY19pZDoJTUFDIGlkIHRvIGJlIHJlc2V0Cj4gKyAqCj4g
+KyAqIFJlc2V0IGEgc3BlY2lmaWMgTUFDCj4gKyAqCj4gKyAqIFJldHVybjogMCBvbiBzdWNjZXNz
+OyBFcnJvciBjb2RlIG90aGVyd2lzZS4KPiArICovCj4gK2ludCBmbWFuX3Jlc2V0X21hYyhzdHJ1
+Y3QgZm1hbiAqZm1hbiwgdTggbWFjX2lkKTsKPiArCj4gKy8qKgo+ICsgKiBmbWFuX2dldF9jbG9j
+a19mcmVxCj4gKyAqIEBmbWFuOglBIFBvaW50ZXIgdG8gRk1hbiBkZXZpY2UKPiArICoKPiArICog
+R2V0IEZNYW4gY2xvY2sgZnJlcXVlbmN5Cj4gKyAqCj4gKyAqIFJldHVybjogRk1hbiBjbG9jayBm
+cmVxdWVuY3kKPiArICovCj4gKwo+ICt1MTYgZm1hbl9nZXRfY2xvY2tfZnJlcShzdHJ1Y3QgZm1h
+biAqZm1hbik7Cj4gKwo+ICsvKioKPiArICogZm1hbl9nZXRfYm1pX21heF9maWZvX3NpemUKPiAr
+ICogQGZtYW46CUEgUG9pbnRlciB0byBGTWFuIGRldmljZQo+ICsgKgo+ICsgKiBHZXQgRk1hbiBt
+YXhpbXVtIEZJRk8gc2l6ZQo+ICsgKgo+ICsgKiBSZXR1cm46IEZNYW4gTWF4aW11bSBGSUZPIHNp
+emUKPiArICovCj4gK3UzMiBmbWFuX2dldF9ibWlfbWF4X2ZpZm9fc2l6ZShzdHJ1Y3QgZm1hbiAq
+Zm1hbik7Cj4gKwo+ICsvKioKPiArICogZm1hbl9zZXRfbWFjX21heF9mcmFtZQo+ICsgKiBAZm1h
+bjoJQSBQb2ludGVyIHRvIEZNYW4gZGV2aWNlCj4gKyAqIEBtYWNfaWQ6CU1BQyBpZAo+ICsgKiBA
+bWZsOglNYXhpbXVtIGZyYW1lIGxlbmd0aAo+ICsgKgo+ICsgKiBTZXQgbWF4aW11bSBmcmFtZSBs
+ZW5ndGggb2Ygc3BlY2lmaWMgTUFDIGluIEZNYW4gZHJpdmVyCj4gKyAqCj4gKyAqIFJldHVybjog
+MCBvbiBzdWNjZXNzOyBFcnJvciBjb2RlIG90aGVyd2lzZS4KPiArICovCj4gK2ludCBmbWFuX3Nl
+dF9tYWNfbWF4X2ZyYW1lKHN0cnVjdCBmbWFuICpmbWFuLCB1OCBtYWNfaWQsIHUxNiBtZmwpOwo+
+ICsKPiArLyoqCj4gKyAqIGZtYW5fZ2V0X3FtYW5fY2hhbm5lbF9pZAo+ICsgKiBAZm1hbjoJQSBQ
+b2ludGVyIHRvIEZNYW4gZGV2aWNlCj4gKyAqIEBwb3J0X2lkOglQb3J0IGlkCj4gKyAqCj4gKyAq
+IEdldCBRTWFuIGNoYW5uZWwgSUQgYXNzb2NpYXRlZCB0byB0aGUgUG9ydCBpZAo+ICsgKgo+ICsg
+KiBSZXR1cm46IFFNYW4gY2hhbm5lbCBJRAo+ICsgKi8KPiArdTMyIGZtYW5fZ2V0X3FtYW5fY2hh
+bm5lbF9pZChzdHJ1Y3QgZm1hbiAqZm1hbiwgdTMyIHBvcnRfaWQpOwo+ICsKPiArLyoqCj4gKyAq
+IGZtYW5fZ2V0X21lbV9yZWdpb24KPiArICogQGZtYW46CUEgUG9pbnRlciB0byBGTWFuIGRldmlj
+ZQo+ICsgKgo+ICsgKiBHZXQgRk1hbiBtZW1vcnkgcmVnaW9uCj4gKyAqCj4gKyAqIFJldHVybjog
+QSBzdHJ1Y3R1cmUgd2l0aCBGTWFuIG1lbW9yeSByZWdpb24gaW5mb3JtYXRpb24KPiArICovCj4g
+K3N0cnVjdCByZXNvdXJjZSAqZm1hbl9nZXRfbWVtX3JlZ2lvbihzdHJ1Y3QgZm1hbiAqZm1hbik7
+Cj4gKwo+ICsvKioKPiArICogZm1hbl9nZXRfbWF4X2ZybQo+ICsgKgo+ICsgKiBSZXR1cm46IE1h
+eCBmcmFtZSBsZW5ndGggY29uZmlndXJlZCBpbiB0aGUgRk0gZHJpdmVyCj4gKyAqLwo+ICt1MTYg
+Zm1hbl9nZXRfbWF4X2ZybSh2b2lkKTsKPiArCj4gKy8qKgo+ICsgKiBmbWFuX2dldF9yeF9leHRy
+YV9oZWFkcm9vbQo+ICsgKgo+ICsgKiBSZXR1cm46IEV4dHJhIGhlYWRyb29tIHNpemUgY29uZmln
+dXJlZCBpbiB0aGUgRk0gZHJpdmVyCj4gKyAqLwo+ICtpbnQgZm1hbl9nZXRfcnhfZXh0cmFfaGVh
+ZHJvb20odm9pZCk7Cj4gKwo+ICsvKioKPiArICogZm1hbl9iaW5kCj4gKyAqIEBkZXY6CUZNYW4g
+T0YgZGV2aWNlIHBvaW50ZXIKPiArICoKPiArICogQmluZCB0byBhIHNwZWNpZmljIEZNYW4gZGV2
+aWNlLgo+ICsgKgo+ICsgKiBBbGxvd2VkIG9ubHkgYWZ0ZXIgdGhlIHBvcnQgd2FzIGNyZWF0ZWQu
+Cj4gKyAqCj4gKyAqIFJldHVybjogQSBwb2ludGVyIHRvIHRoZSBGTWFuIGRldmljZQo+ICsgKi8K
+PiArc3RydWN0IGZtYW4gKmZtYW5fYmluZChzdHJ1Y3QgZGV2aWNlICpkZXYpOwo+ICsKPiArLyoq
+Cj4gKyAqIGZtYW5fdW5iaW5kCj4gKyAqIEBmbWFuOglQb2ludGVyIHRvIHRoZSBGTWFuIGRldmlj
+ZQo+ICsgKgo+ICsgKiBVbi1iaW5kIGZyb20gYSBzcGVjaWZpYyBGTWFuIGRldmljZS4KPiArICoK
+PiArICogQWxsb3dlZCBvbmx5IGFmdGVyIHRoZSBwb3J0IHdhcyBjcmVhdGVkLgo+ICsgKi8KPiAr
+dm9pZCBmbWFuX3VuYmluZChzdHJ1Y3QgZm1hbiAqZm1hbik7Cj4gKwo+ICsvKioKPiArICogZm1h
+bl9nZXRfZGV2aWNlCj4gKyAqIEBmbWFuOglBIHBvaW50ZXIgdG8gdGhlIEZNYW4gZGV2aWNlLgo+
+ICsgKgo+ICsgKiBHZXQgdGhlIEZNYW4gZGV2aWNlIHBvaW50ZXIKPiArICoKPiArICogUmV0dXJu
+OiBQb2ludGVyIHRvIEZNYW4gZGV2aWNlLgo+ICsgKi8KPiArc3RydWN0IGRldmljZSAqZm1hbl9n
+ZXRfZGV2aWNlKHN0cnVjdCBmbWFuICpmbWFuKTsKClVzdWFsbHkga2VybmVsZG9jIGNvbW1lbnRz
+IGdvIG9uIHRoZSBpbXBsZW1lbnRhdGlvbiwgbm90IHRoZSBwcm90b3R5cGUuCgotU2NvdHQKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2
+IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3Rz
+Lm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
