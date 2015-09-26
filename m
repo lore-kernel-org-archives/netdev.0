@@ -1,50 +1,66 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH v4 1/2] [net] af_unix: Convert the unix_sk macro to an inline function for type safety
-Date: Sat, 26 Sep 2015 18:50:42 -0400
-Message-ID: <1443307843-16880-2-git-send-email-aconole@bytheb.org>
-References: <20150924.121459.1016780653505420756.davem@davemloft.net>
- <1443307843-16880-1-git-send-email-aconole@bytheb.org>
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Aaron Conole <aconole@bytheb.org>
-To: netdev@vger.kernel.org
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH 19/23] target: use per-attribute show and store methods
+Date: Sat, 26 Sep 2015 16:35:16 -0700
+Message-ID: <1443310516.7042.24.camel@haakon3.risingtidesystems.com>
+References: <1443189000-13398-1-git-send-email-hch@lst.de>
+	 <1443189000-13398-20-git-send-email-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joel Becker <jlbec@evilplan.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
+	Pratyush Anand <pratyush.anand@gmail.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:35885 "EHLO
-	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018AbbIZWvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 18:51:05 -0400
-Received: by qkcf65 with SMTP id f65so55213814qkc.3
-        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 15:51:04 -0700 (PDT)
-In-Reply-To: <1443307843-16880-1-git-send-email-aconole@bytheb.org>
+Received: from mail.linux-iscsi.org ([67.23.28.174]:40630 "EHLO
+	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874AbbIZXfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 19:35:18 -0400
+In-Reply-To: <1443189000-13398-20-git-send-email-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by Eric Dumazet this change replaces the 
-#define with a static inline function to enjoy 
-complaints by the compiler when misusing the API.
+On Fri, 2015-09-25 at 06:49 -0700, Christoph Hellwig wrote:
+> This also allows to remove the target-specific old configfs macros, and
+> gets rid of the target_core_fabric_configfs.h header which only had one
+> function declaration left that could be moved to a better place.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  Documentation/target/tcm_mod_builder.py      |   17 -
+>  drivers/infiniband/ulp/srpt/ib_srpt.c        |   78 +-
+>  drivers/scsi/qla2xxx/tcm_qla2xxx.c           |  153 ++--
+>  drivers/target/iscsi/iscsi_target_configfs.c |  791 ++++++-----------
+>  drivers/target/iscsi/iscsi_target_stat.c     |  666 ++++++--------
+>  drivers/target/loopback/tcm_loop.c           |   60 +-
+>  drivers/target/sbp/sbp_target.c              |   87 +-
+>  drivers/target/target_core_configfs.c        | 1209 ++++++++++----------------
+>  drivers/target/target_core_fabric_configfs.c |  275 ++----
+>  drivers/target/target_core_internal.h        |    3 +
+>  drivers/target/target_core_stat.c            |  918 ++++++++-----------
+>  drivers/target/tcm_fc/tfc_cmd.c              |    1 -
+>  drivers/target/tcm_fc/tfc_conf.c             |   44 +-
+>  drivers/target/tcm_fc/tfc_io.c               |    1 -
+>  drivers/target/tcm_fc/tfc_sess.c             |    1 -
+>  drivers/usb/gadget/legacy/tcm_usb_gadget.c   |   44 +-
+>  drivers/vhost/scsi.c                         |   41 +-
+>  drivers/xen/xen-scsiback.c                   |   32 +-
+>  include/target/configfs_macros.h             |  147 ----
+>  include/target/target_core_base.h            |   60 ++
+>  include/target/target_core_fabric_configfs.h |  122 ---
+>  21 files changed, 1689 insertions(+), 3061 deletions(-)
+>  delete mode 100644 include/target/configfs_macros.h
+>  delete mode 100644 include/target/target_core_fabric_configfs.h
+> 
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- include/net/af_unix.h | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+I'm totally crazy for this patch.
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 4a167b3..cb1b9bb 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -63,7 +63,11 @@ struct unix_sock {
- #define UNIX_GC_MAYBE_CYCLE	1
- 	struct socket_wq	peer_wq;
- };
--#define unix_sk(__sk) ((struct unix_sock *)__sk)
-+
-+static inline struct unix_sock *unix_sk(struct sock *sk)
-+{
-+	return (struct unix_sock *)sk;
-+}
- 
- #define peer_wait peer_wq.wait
- 
--- 
-1.9.1
+Very nice work to drop this much boilerplate macro-fu in target-core +
+fabric driver code.
+
+Reviewed-by: Nicholas Bellinger <nab@linux-iscsi.org>
+Acked-by: Nicholas Bellinger <nab@linux-iscsi.org>
