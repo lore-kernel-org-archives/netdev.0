@@ -1,74 +1,75 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: netlink: Add netlink_bound helper and use it in netlink_getname
-Date: Sat, 26 Sep 2015 14:09:03 -0400
-Message-ID: <20150926180903.GD3572@htj.duckdns.org>
-References: <20150921133415.GA1740@gondor.apana.org.au>
- <20150921182022.GB13263@mtj.duckdns.org>
- <20150922033856.GA7851@gondor.apana.org.au>
- <20150924.121142.870602292135442487.davem@davemloft.net>
- <20150924200510.GE25415@mtj.duckdns.org>
- <20150925014327.GA3725@gondor.apana.org.au>
- <20150925150113.GD4449@mtj.duckdns.org>
- <20150926131621.GA16724@gondor.apana.org.au>
+From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
+	'global_lock'
+Date: Sat, 26 Sep 2015 11:40:00 -0700
+Message-ID: <CAKohpok0A3JRhVCabscfJGuhJerWmypsQnwdqJcmvBBWdpvPwQ@mail.gmail.com>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
+	<4357538.Wlf88yQie6@vostro.rjw.lan>
+	<CAKohpok2Z2m7GZt1GzZzofeHEioF=XJEq8YVgtY=VtS9tmpb_Q@mail.gmail.com>
+	<2524822.pQu4UKMrlb@vostro.rjw.lan> <20150925214438.GH5951@linux>
+	<CAJZ5v0i+xJ4U13vCVsvXc7S8wP0AokbmNXPidBkDwbjXMM8fCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:34644 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060AbbIZSJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 14:09:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20150926131621.GA16724@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "open list:NETWORKING DRIVERS \(WIRELESS\)"
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..."
+	<alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>,
+	Linaro Kernel Mailman List <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
+	"open list:TARGET SUBSYSTEM" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"open list:ULTRA-WIDEBAND \(UWB\) SUBSYSTEM:" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:AMD IOMMU \(AMD-VI\)" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netd
+To: "Rafael J. Wysocki" <rafael-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAJZ5v0i+xJ4U13vCVsvXc7S8wP0AokbmNXPidBkDwbjXMM8fCw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello, Herbert.
+On 25 September 2015 at 15:19, Rafael J. Wysocki <rafael-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> So if you allow something like debugfs to update your structure, how
+> do you make sure there is the proper locking?
 
-On Sat, Sep 26, 2015 at 09:16:21PM +0800, Herbert Xu wrote:
-> You misunderstood what I wrote.  I was not basing this on whether
-> user-space transitions contained a barrier, but on the fact that
-> the next syscall must recheck nlk->bound before using nlk->portid.
+Not really sure at all.. Isn't there some debugfs locking that will
+jump in, to avoid updation of fields to the same device?
 
-But that isn't what you wrote in the comment.
+> Is that not a problem in all of the places modified by the [2/2]?
 
-	/* No need for barriers here as we return to user-space without
-	 * using any of the bound attributes.
-	 */
+Right, but its not new AFAICT.
 
-> In fact thanks to your email I now realise that my fix to the
-> getsockname problem is wrong.  Instead of adding a barrier to
-> netlink_connect I should be adding a nlk->bound check to getname.
+We already have u32 fields in those structs and on 64 bit machines
+we have the same read-update-write problems for two consecutive
+u32's. Right?
 
-I don't know, man.  This thread almost feels surreal at this point.
+> How can the future users of the API know what to do to avoid potential
+> problems with it?
 
-> @@ -1628,7 +1632,7 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr,
->  		nladdr->nl_pid = nlk->dst_portid;
->  		nladdr->nl_groups = netlink_group_mask(nlk->dst_group);
->  	} else {
-> -		nladdr->nl_pid = nlk->portid;
-> +		nladdr->nl_pid = netlink_bound(nlk) ? nlk->portid : 0;
->  		nladdr->nl_groups = nlk->groups ? nlk->groups[0] : 0;
->  	}
->  	return 0;
+No idea really :)
 
-So, this is really weird because netlink_getname() doens't participate
-in the autobind race and thus it's perfectly fine for it to not worry
-about whether ->bound is set or the memory barrier - whoever its
-caller may be, the caller is of course responsible for ensuring that
-the port is bound and visible if it expects to read back the number -
-ie. if the caller doesn't know (in memory ordering sense) that
-bind/connect/sendmsg succeeded, it of course can't expect to reliably
-read back the port number.  getname never needed the barrier.  The
-above is shifting synchronization from the source to its users.  This
-is a bad thing to do.
+>> Anyway, that problem isn't here for sure as its between two
+>> unsigned-longs. So, should I just move it to bool and resend ?
+>
+> I guess it might be more convenient to fold this into the other patch,
+> because we seem to be splitting hairs here.
 
-Thanks.
+I can and that's what I did. But then Arnd asked me to separate it
+out. I can fold it back if that's what you want.
 
--- 
-tejun
+--
+viresh
