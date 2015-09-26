@@ -1,40 +1,75 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net v2] skbuff: Fix skb checksum flag on skb pull
-Date: Fri, 25 Sep 2015 19:48:57 -0700
-Message-ID: <CALnjE+pyz_qTYXOm1vB89g+-KvE7dHfaaw5iG5manoYzLd7FHg@mail.gmail.com>
-References: <1442951873-4803-1-git-send-email-pshelar@nicira.com>
-	<20150924.140931.1967362456389755405.davem@davemloft.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Glibc recvmsg from kernel netlink socket hangs forever
+Date: Fri, 25 Sep 2015 19:58:43 -0700
+Message-ID: <560609E3.4070307@roeck-us.net>
+References: <C3C03EFC-53E1-45DE-87AF-59C7367BD21E@gmail.com>
+ <20150925043653.GA29111@roeck-us.net>
+ <20150925045853.GA5286@gondor.apana.org.au> <5604DCD2.4090600@roeck-us.net>
+ <38FEC418-9C09-47BC-A9FC-5F1EA28941FC@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38808 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932109AbbIZCtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2015 22:49:00 -0400
-Received: by igxx6 with SMTP id x6so20978314igx.1
-        for <netdev@vger.kernel.org>; Fri, 25 Sep 2015 19:48:58 -0700 (PDT)
-In-Reply-To: <20150924.140931.1967362456389755405.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org
+To: Steven Schlansker <stevenschlansker@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <38FEC418-9C09-47BC-A9FC-5F1EA28941FC@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 24, 2015 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Tue, 22 Sep 2015 12:57:53 -0700
+On 09/25/2015 02:37 PM, Steven Schlansker wrote:
 >
->> VXLAN device can receive skb with checksum partial. But the checksum
->> offset could be in outer header which is pulled on receive. This results
->> in negative checksum offset for the skb. Such skb can cause the assert
->> failure in skb_checksum_help(). Following patch fixes the bug by setting
->> checksum-none while pulling outer header.
+> On Sep 24, 2015, at 10:34 PM, Guenter Roeck <linux@roeck-us.net> wrote:
+>
+>> Herbert,
 >>
->> Following is the kernel panic msg from old kernel hitting the bug.
->  ...
->> Reported-by: Anupam Chanda <achanda@vmware.com>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> On 09/24/2015 09:58 PM, Herbert Xu wrote:
+>>> On Thu, Sep 24, 2015 at 09:36:53PM -0700, Guenter Roeck wrote:
+>>>>
+>>>> http://comments.gmane.org/gmane.linux.network/363085
+>>>>
+>>>> might explain your problem.
+>>>>
+>>>> I thought this was resolved in 4.1, but it looks like the problem still persists
+>>>> there. At least I have reports from my workplace that 4.1.6 and 4.1.7 are still
+>>>> affected. I don't know if there have been any relevant changes in 4.2.
+>>>>
+>>>> Copying Herbert and Eric for additional input.
+>>>
+>>> There was a separate bug discovered by Tejun recently.  You need
+>>> to apply the patches
+>>>
+>>> https://patchwork.ozlabs.org/patch/519245/
+>>> https://patchwork.ozlabs.org/patch/520824/
+>>>
+>> I assume this is on top of mainline ?
+>>
+>>> There is another follow-up but it shouldn't make any difference
+>>> in practice.
+>>>
+>>
+>> Any idea what may be needed for 4.1 ?
+>> I am currently trying https://patchwork.ozlabs.org/patch/473041/,
+>> but I have no idea if that will help with the problem we are seeing there.
 >
-> Applied, thanks.
+> Thank you for the patches to try, I'll build a kernel with them early next week
+> and report back.  It sounds like it may not match my problem exactly so we'll
+> see.
+>
+> In the meantime, I also observed the following oops:
+>
+> [ 1709.620092] kernel tried to execute NX-protected page - exploit attempt? (uid: 0)
+> [ 1709.624058] BUG: unable to handle kernel paging request at ffffea001dbef3c0
+> [ 1709.624058] IP: [<ffffea001dbef3c0>] 0xffffea001dbef3c0
+> [ 1709.624058] PGD 78f7dc067 PUD 78f7db067 PMD 800000078ec001e3
+> [ 1709.624058] Oops: 0011 [#1] SMP
+> [ 1709.624058] Modules linked in: i2c_piix4(E) btrfs(E) crct10dif_pclmul(E) crc32_pclmul(E) ghash_clmulni_intel(E) aesni_intel(E) aes_x86_64(E) lrw(E) gf128mul(E) glue_helper(E) ablk_helper(E) cryptd(E) floppy(E)
+> [ 1709.624058] CPU: 4 PID: 19714 Comm: pf_dump Tainted: G            E   4.0.4 #1
 
-Thanks for applying it. Since I have seen this bug on older kernel can
-you also queue it for -stable.
+For 4.0.x, you _really_ need to update to 4.0.9 to get the following two patches.
+
+cf8befcc1a55 netlink: Disable insertions/removals during rehash
+18889a4315a5 netlink: Reset portid after netlink_insert failure
+
+Guenter
