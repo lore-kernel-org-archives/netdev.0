@@ -1,75 +1,113 @@
-From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
-	'global_lock'
-Date: Sat, 26 Sep 2015 11:40:00 -0700
-Message-ID: <CAKohpok0A3JRhVCabscfJGuhJerWmypsQnwdqJcmvBBWdpvPwQ@mail.gmail.com>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
-	<4357538.Wlf88yQie6@vostro.rjw.lan>
-	<CAKohpok2Z2m7GZt1GzZzofeHEioF=XJEq8YVgtY=VtS9tmpb_Q@mail.gmail.com>
-	<2524822.pQu4UKMrlb@vostro.rjw.lan> <20150925214438.GH5951@linux>
-	<CAJZ5v0i+xJ4U13vCVsvXc7S8wP0AokbmNXPidBkDwbjXMM8fCw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:NETWORKING DRIVERS \(WIRELESS\)"
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..."
-	<alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>,
-	Linaro Kernel Mailman List <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
-	"open list:TARGET SUBSYSTEM" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"open list:ULTRA-WIDEBAND \(UWB\) SUBSYSTEM:" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:AMD IOMMU \(AMD-VI\)" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netd
-To: "Rafael J. Wysocki" <rafael-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAJZ5v0i+xJ4U13vCVsvXc7S8wP0AokbmNXPidBkDwbjXMM8fCw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: [PATCH v3 1/3] net: irda: pxaficp_ir: use sched_clock() for time management
+Date: Sat, 26 Sep 2015 20:49:18 +0200
+Message-ID: <1443293360-16377-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Robert Jarzmik <robert.jarzmik@free.fr>
+To: Samuel Ortiz <samuel@sortiz.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp09.smtpout.orange.fr ([80.12.242.131]:40692 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753472AbbIZSyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 14:54:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25 September 2015 at 15:19, Rafael J. Wysocki <rafael-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> So if you allow something like debugfs to update your structure, how
-> do you make sure there is the proper locking?
+Instead of using directly the OS timer through direct register access,
+use the standard sched_clock(), which will end up in OSCR reading
+anyway.
 
-Not really sure at all.. Isn't there some debugfs locking that will
-jump in, to avoid updation of fields to the same device?
+This is a first step for direct access register removal and machine
+specific code removal from this driver.
 
-> Is that not a problem in all of the places modified by the [2/2]?
+This commit changes the behavior, as previously the minimum turnaround
+time was counted in 76ns steps, while with this patch it is counted in
+microsecond steps. The strictly equal formula would have been :
+	    while ((sched_clock() - si->last_clk) * 76 < mtt)
 
-Right, but its not new AFAICT.
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+---
+Since v2: fixed clock calculation as pointed out by David
+---
+ drivers/net/irda/pxaficp_ir.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-We already have u32 fields in those structs and on 64 bit machines
-we have the same read-update-write problems for two consecutive
-u32's. Right?
-
-> How can the future users of the API know what to do to avoid potential
-> problems with it?
-
-No idea really :)
-
->> Anyway, that problem isn't here for sure as its between two
->> unsigned-longs. So, should I just move it to bool and resend ?
->
-> I guess it might be more convenient to fold this into the other patch,
-> because we seem to be splitting hairs here.
-
-I can and that's what I did. But then Arnd asked me to separate it
-out. I can fold it back if that's what you want.
-
---
-viresh
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+index 100454662e4b..6a81d3d1b312 100644
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -29,7 +29,6 @@
+ 
+ #include <mach/dma.h>
+ #include <linux/platform_data/irda-pxaficp.h>
+-#include <mach/regs-ost.h>
+ #include <mach/regs-uart.h>
+ 
+ #define FICP		__REG(0x40800000)  /* Start of FICP area */
+@@ -102,7 +101,7 @@
+ struct pxa_irda {
+ 	int			speed;
+ 	int			newspeed;
+-	unsigned long		last_oscr;
++	unsigned long long	last_clk;
+ 
+ 	unsigned char		*dma_rx_buff;
+ 	unsigned char		*dma_tx_buff;
+@@ -292,7 +291,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 			}
+ 			lsr = STLSR;
+ 		}
+-		si->last_oscr = readl_relaxed(OSCR);
++		si->last_clk = sched_clock();
+ 		break;
+ 
+ 	case 0x04: /* Received Data Available */
+@@ -303,7 +302,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 		    dev->stats.rx_bytes++;
+ 	            async_unwrap_char(dev, &dev->stats, &si->rx_buff, STRBR);
+ 	  	} while (STLSR & LSR_DR);
+-		si->last_oscr = readl_relaxed(OSCR);
++		si->last_clk = sched_clock();
+ 	  	break;
+ 
+ 	case 0x02: /* Transmit FIFO Data Request */
+@@ -319,7 +318,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+                         /* We need to ensure that the transmitter has finished. */
+ 			while ((STLSR & LSR_TEMT) == 0)
+ 				cpu_relax();
+-			si->last_oscr = readl_relaxed(OSCR);
++			si->last_clk = sched_clock();
+ 
+ 			/*
+ 		 	* Ok, we've finished transmitting.  Now enable
+@@ -373,7 +372,7 @@ static void pxa_irda_fir_dma_tx_irq(int channel, void *data)
+ 
+ 	while (ICSR1 & ICSR1_TBY)
+ 		cpu_relax();
+-	si->last_oscr = readl_relaxed(OSCR);
++	si->last_clk = sched_clock();
+ 
+ 	/*
+ 	 * HACK: It looks like the TBY bit is dropped too soon.
+@@ -473,8 +472,8 @@ static irqreturn_t pxa_irda_fir_irq(int irq, void *dev_id)
+ 
+ 	/* stop RX DMA */
+ 	DCSR(si->rxdma) &= ~DCSR_RUN;
+-	si->last_oscr = readl_relaxed(OSCR);
+ 	icsr0 = ICSR0;
++	si->last_clk = sched_clock();
+ 
+ 	if (icsr0 & (ICSR0_FRE | ICSR0_RAB)) {
+ 		if (icsr0 & ICSR0_FRE) {
+@@ -549,7 +548,7 @@ static int pxa_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		skb_copy_from_linear_data(skb, si->dma_tx_buff, skb->len);
+ 
+ 		if (mtt)
+-			while ((unsigned)(readl_relaxed(OSCR) - si->last_oscr)/4 < mtt)
++			while ((sched_clock() - si->last_clk) * 1000 < mtt)
+ 				cpu_relax();
+ 
+ 		/* stop RX DMA,  disable FICP */
+-- 
+2.1.4
