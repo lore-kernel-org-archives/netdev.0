@@ -1,58 +1,81 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: netlink: Add netlink_bound helper and use it in netlink_getname
-Date: Sat, 26 Sep 2015 16:17:56 -0400
-Message-ID: <20150926201756.GH3572@htj.duckdns.org>
-References: <20150925150113.GD4449@mtj.duckdns.org>
- <20150926131621.GA16724@gondor.apana.org.au>
- <20150926180903.GD3572@htj.duckdns.org>
- <20150926194110.GA18815@gondor.apana.org.au>
- <20150926194554.GE3572@htj.duckdns.org>
- <20150926194916.GA18975@gondor.apana.org.au>
- <20150926195245.GF3572@htj.duckdns.org>
- <20150926195548.GA19064@gondor.apana.org.au>
- <20150926200518.GG3572@htj.duckdns.org>
- <20150926201041.GA19187@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
-	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, jiri@resnulli.us,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150926201041.GA19187@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH V5 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
+Date: Sat, 26 Sep 2015 15:04:06 -0700
+Message-ID: <8d3d3428c3a36f821e4c3d8563d094ca4b4763fd.1443304934.git.viresh.kumar@linaro.org>
+Cc: linaro-kernel@lists.linaro.org,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-acpi@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org,
+	iommu@lists.linux-foundation.org,
+	netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	linux-scsi@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	linux-edac@vger.kernel.org,
+	linux-mm@kvack.org,
+	alsa-devel@alsa-project.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+global_lock is defined as an unsigned long and accessing only its lower
+32 bits from sysfs is incorrect, as we need to consider other 32 bits
+for big endian 64-bit systems. There are no such platforms yet, but the
+code needs to be robust for such a case.
 
-On Sun, Sep 27, 2015 at 04:10:41AM +0800, Herbert Xu wrote:
-> Well guess what the bug that you have discovered supposedly due to
-> a missing barrier in netlink_connect has nothing to do with the
-> barrier.  Instead it is caused by a logical error elsewhere that
-> would have gone unnoticed otherwise.
+Fix that by changing type of 'global_lock' to u32.
 
-It's a combination of two problems.  The garbage port number is a
-logical error but there still is an ordering problem there between
-->bound and ->portid.  We need to test ->bind there again because of
-the garbage port problem.
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+BCC'd a lot of people (rather than cc'ing them) to make sure
+- the series reaches them
+- mailing lists do not block the patchset due to long cc list
+- and we don't spam the BCC'd people for every reply
 
-> So I retain my position that blindly adding barriers do not make
-> bugs go away.  Instead you need to have real understanding of what
+V4->V5:
+- Switch back to the original solution of making global_lock u32.
+---
+ drivers/acpi/ec_sys.c   | 2 +-
+ drivers/acpi/internal.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-That's a dishonest summary of what I've been saying.
-
-> the code is doing and every spot where a barrier may be needed must
-> be audited manually.
-
-What I've been saying is that we do need to be careful and audit each
-barrier usages but at the same time there are established patterns
-that we can use to make the process significantly easier and more
-reliable.
-
-Thanks.
-
+diff --git a/drivers/acpi/ec_sys.c b/drivers/acpi/ec_sys.c
+index b4c216bab22b..bea8e425a8de 100644
+--- a/drivers/acpi/ec_sys.c
++++ b/drivers/acpi/ec_sys.c
+@@ -128,7 +128,7 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
+ 	if (!debugfs_create_x32("gpe", 0444, dev_dir, (u32 *)&first_ec->gpe))
+ 		goto error;
+ 	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir,
+-				 (u32 *)&first_ec->global_lock))
++				 &first_ec->global_lock))
+ 		goto error;
+ 
+ 	if (write_support)
+diff --git a/drivers/acpi/internal.h b/drivers/acpi/internal.h
+index 9e426210c2a8..9db196de003c 100644
+--- a/drivers/acpi/internal.h
++++ b/drivers/acpi/internal.h
+@@ -138,7 +138,7 @@ struct acpi_ec {
+ 	unsigned long gpe;
+ 	unsigned long command_addr;
+ 	unsigned long data_addr;
+-	unsigned long global_lock;
++	u32 global_lock;
+ 	unsigned long flags;
+ 	unsigned long reference_count;
+ 	struct mutex mutex;
 -- 
-tejun
+2.4.0
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
