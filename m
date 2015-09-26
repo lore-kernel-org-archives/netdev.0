@@ -1,75 +1,53 @@
 From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH v4 2/2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
-Date: Sat, 26 Sep 2015 18:50:43 -0400
-Message-ID: <1443307843-16880-3-git-send-email-aconole@bytheb.org>
+Subject: [PATCH v4 0/2] [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
+Date: Sat, 26 Sep 2015 18:50:41 -0400
+Message-ID: <1443307843-16880-1-git-send-email-aconole@bytheb.org>
 References: <20150924.121459.1016780653505420756.davem@davemloft.net>
- <1443307843-16880-1-git-send-email-aconole@bytheb.org>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Aaron Conole <aconole@bytheb.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:34332 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753808AbbIZWvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 18:51:06 -0400
-Received: by qkfq186 with SMTP id q186so55178304qkf.1
-        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 15:51:06 -0700 (PDT)
-In-Reply-To: <1443307843-16880-1-git-send-email-aconole@bytheb.org>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:33135 "EHLO
+	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753808AbbIZWvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 18:51:03 -0400
+Received: by qkdw123 with SMTP id w123so55217082qkd.0
+        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 15:51:02 -0700 (PDT)
+In-Reply-To: <20150924.121459.1016780653505420756.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-AF_UNIX sockets now return multiple skbs from recv() when MSG_PEEK flag
-is set.
+This patch set implements a bugfix for kernel.org bugzilla #12323, allowing
+MSG_PEEK to return all queued data on the unix domain socket, not just the
+data contained in a single SKB. 
 
-This is referenced in kernel bugzilla #12323 @
-https://bugzilla.kernel.org/show_bug.cgi?id=12323
+This is the v3 version of this patch, which includes a suggested modification
+by Eric Dumazet to convert the unix_sk() conversion macro to a static inline
+function. These patches are independent and can be applied separately.
 
-As described both in the BZ and lkml thread @
-http://lkml.org/lkml/2008/1/8/444 calling recv() with MSG_PEEK on an
-AF_UNIX socket only reads a single skb, where the desired effect is
-to return as much skb data has been queued, until hitting the recv
-buffer size (whichever comes first).
+This set was tested over a 24-hour period, utilizing a loop continually 
+executing the bugzilla issue attached python code. It was instrumented with
+a pr_err_once() ([   13.798683] unix: went there at least one time).
 
-The modified MSG_PEEK path will now move to the next skb in the tree
-and jump to the again: label, rather than following the natural loop
-structure. This requires duplicating some of the loop head actions.
+v2->v3:
+ - Added Eric Dumazet's suggestion for #define to static inline
+ - Fixed an issue calling unix_state_lock() with an invalid argument
 
-This was tested using the python socketpair python code attached to
-the bugzilla issue.
+v3->v4:
+ - Eliminated an XXX comment
+ - Changed from goto unlock to explicit unix_state_unlock() and break
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- net/unix/af_unix.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+Aaron Conole (2):
+  [net] af_unix: Convert the unix_sk macro to an inline function for    
+    type safety
+  [net] af_unix: return data from multiple SKBs on recv() with MSG_PEEK
+    flag
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 03ee4d3..ef31b40 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2179,8 +2179,21 @@ unlock:
- 			if (UNIXCB(skb).fp)
- 				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
- 
--			sk_peek_offset_fwd(sk, chunk);
-+			if (skip) {
-+				sk_peek_offset_fwd(sk, chunk);
-+				skip -= chunk;
-+			}
- 
-+			if (UNIXCB(skb).fp)
-+				break;
-+
-+			last = skb;
-+			last_len = skb->len;
-+			unix_state_lock(sk);
-+			skb = skb_peek_next(skb, &sk->sk_receive_queue);
-+			if (skb)
-+				goto again;
-+			unix_state_unlock(sk);
- 			break;
- 		}
- 	} while (size);
+ include/net/af_unix.h |  6 +++++-
+ net/unix/af_unix.c    | 19 +++++++++++++++++--
+ 2 files changed, 22 insertions(+), 3 deletions(-)
+
 -- 
 1.9.1
