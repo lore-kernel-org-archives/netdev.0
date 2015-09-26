@@ -1,80 +1,46 @@
-From: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
-Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of
-	'global_lock'
-Date: Sat, 26 Sep 2015 12:52:08 -0700
-Message-ID: <1443297128.2181.11.camel@HansenPartnership.com>
-References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org>
-	<4357538.Wlf88yQie6@vostro.rjw.lan>
-	<CAKohpok2Z2m7GZt1GzZzofeHEioF=XJEq8YVgtY=VtS9tmpb_Q@mail.gmail.com>
-	<2524822.pQu4UKMrlb@vostro.rjw.lan>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: netlink: Add netlink_bound helper and use it in netlink_getname
+Date: Sat, 26 Sep 2015 15:52:45 -0400
+Message-ID: <20150926195245.GF3572@htj.duckdns.org>
+References: <20150922033856.GA7851@gondor.apana.org.au>
+ <20150924.121142.870602292135442487.davem@davemloft.net>
+ <20150924200510.GE25415@mtj.duckdns.org>
+ <20150925014327.GA3725@gondor.apana.org.au>
+ <20150925150113.GD4449@mtj.duckdns.org>
+ <20150926131621.GA16724@gondor.apana.org.au>
+ <20150926180903.GD3572@htj.duckdns.org>
+ <20150926194110.GA18815@gondor.apana.org.au>
+ <20150926194554.GE3572@htj.duckdns.org>
+ <20150926194916.GA18975@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO
-	POWER MANAGEM..." <alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>,
-	Linaro Kernel Mailman List <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
-	"open list:TARGET SUBSYSTEM" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"open list:ULTRA-WIDEBAND \(UWB\) SUBSYSTEM:" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:NETWORKING DRIVERS \(WIRELESS\)"
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:AMD IOMMU \(AMD-VI\)" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Memory Management List <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh@li
-To: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <2524822.pQu4UKMrlb-sKB8Sp2ER+y1GS7QM15AGw@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cwang@twopensource.com,
+	tom@herbertland.com, kafai@fb.com, kernel-team@fb.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jiri@resnulli.us,
+	nicolas.dichtel@6wind.com, tgraf@suug.ch, sfeldma@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150926194916.GA18975@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-09-25 at 22:58 +0200, Rafael J. Wysocki wrote:
-> On Friday, September 25, 2015 01:25:49 PM Viresh Kumar wrote:
-> > On 25 September 2015 at 13:33, Rafael J. Wysocki <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org> wrote:
-> > > You're going to change that into bool in the next patch, right?
-> > 
-> > Yeah.
-> > 
-> > > So what if bool is a byte and the field is not word-aligned
-> > 
-> > Its between two 'unsigned long' variables today, and the struct isn't packed.
-> > So, it will be aligned, isn't it?
-> > 
-> > > and changing
-> > > that byte requires a read-modify-write.  How do we ensure that things remain
-> > > consistent in that case?
-> > 
-> > I didn't understood why a read-modify-write is special here? That's
-> > what will happen
-> > to most of the non-word-sized fields anyway?
-> > 
-> > Probably I didn't understood what you meant..
-> 
-> Say you have three adjacent fields in a structure, x, y, z, each one byte long.
-> Initially, all of them are equal to 0.
-> 
-> CPU A writes 1 to x and CPU B writes 2 to y at the same time.
-> 
-> What's the result?
+Hello,
 
-I think every CPU's  cache architecure guarantees adjacent store
-integrity, even in the face of SMP, so it's x==1 and y==2.  If you're
-thinking of old alpha SMP system where the lowest store width is 32 bits
-and thus you have to do RMW to update a byte, this was usually fixed by
-padding (assuming the structure is not packed).  However, it was such a
-problem that even the later alpha chips had byte extensions.
+On Sun, Sep 27, 2015 at 03:49:16AM +0800, Herbert Xu wrote:
+> If the autobind is not complete then netlink_getname must return
+> zero rather than some garbage portid that belongs to somebody
+> else's socket.  That's what we did before any of this lockless
+> code was introduced.
+> 
+> If you don't check nlk->bound then you may return garbage.
 
-James
+Ah, yeah, you're right.  We need to check that there because it may
+contain a garbage value.  I still think it'd better to use
+netlink_bound() test in connect() too tho.
+
+Thanks.
+
+-- 
+tejun
