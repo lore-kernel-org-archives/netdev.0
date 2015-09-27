@@ -1,24 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/19] net: hisilicon: fix handling platform_get_irq
- result
-Date: Sat, 26 Sep 2015 22:47:08 -0700 (PDT)
-Message-ID: <20150926.224708.1856076171022986940.davem@davemloft.net>
+Subject: Re: [PATCH 16/19] r8169: fix handling rtl_readphy result
+Date: Sat, 26 Sep 2015 22:48:57 -0700 (PDT)
+Message-ID: <20150926.224857.674885654554048695.davem@davemloft.net>
 References: <1443103227-25612-1-git-send-email-a.hajda@samsung.com>
-	<1443103227-25612-8-git-send-email-a.hajda@samsung.com>
+	<1443103227-25612-17-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com,
-	m.szyprowski@samsung.com, dingtianhong@huawei.com,
+	m.szyprowski@samsung.com, nic_swsd@realtek.com,
 	netdev@vger.kernel.org
 To: a.hajda@samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443103227-25612-8-git-send-email-a.hajda@samsung.com>
+In-Reply-To: <1443103227-25612-17-git-send-email-a.hajda@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Andrzej Hajda <a.hajda@samsung.com>
-Date: Thu, 24 Sep 2015 16:00:15 +0200
+Date: Thu, 24 Sep 2015 16:00:24 +0200
 
 > The function can return negative value.
 > 
