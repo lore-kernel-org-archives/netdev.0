@@ -1,47 +1,38 @@
-From: Tolga Ceylan <tolga.ceylan@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
  drain mode
-Date: Sat, 26 Sep 2015 19:02:14 -0700
-Message-ID: <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
+Date: Sat, 26 Sep 2015 19:24:15 -0700
+Message-ID: <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	<877fnc7i0i.fsf@bytheb.org>
+	 <877fnc7i0i.fsf@bytheb.org>
+	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Aaron Conole <aconole@bytheb.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Tolga Ceylan <tolga.ceylan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:34177 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754721AbbI0CCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 22:02:14 -0400
-Received: by igcpb10 with SMTP id pb10so34871149igc.1
-        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 19:02:14 -0700 (PDT)
-In-Reply-To: <877fnc7i0i.fsf@bytheb.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36627 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732AbbI0CYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 22:24:17 -0400
+Received: by pablk4 with SMTP id lk4so44075862pab.3
+        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 19:24:17 -0700 (PDT)
+In-Reply-To: <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 26, 2015 at 6:44 PM, Aaron Conole <aconole@bytheb.org> wrote:
-> Greetings.
->
-> Tolga Ceylan <tolga.ceylan@gmail.com> writes:
->> +#define SO_REUSEPORT_LISTEN_OFF 51
->> +
-> For all of these, I think the space should be tab.
->
->>       unsigned char           skc_reuseport:1;
->>+      unsigned char       skc_reuseport_listen_off:1;
->>       unsigned char           skc_ipv6only:1;
-> The spacing here is wrong.
->
->> @@ -224,10 +224,13 @@ begin:
->>                               phash = inet_ehashfn(net, daddr, hnum,
->>                                                    saddr, sport);
->>                               matches = 1;
->> +                             if (sk->sk_reuseport_listen_off)
->> +                                     result = NULL;
-> I am concerned here. I think you need to reset hiscore and matches as
-> well, not just result.
+On Sat, 2015-09-26 at 19:02 -0700, Tolga Ceylan wrote:
+> By keeping hiscore/matches as is, I'm trying to keep the hashing consistent.
+> Otherwise, this would behave similar to removing a listener which
+> drops connections.
 
-By keeping hiscore/matches as is, I'm trying to keep the hashing consistent.
-Otherwise, this would behave similar to removing a listener which
-drops connections.
+Right, this problem will soon disappear when listener rewrite is
+complete.
+
+Only SYN packet will have to select a listener.
+
+Then when ACK packet comes, the SYN_RECV will be found in ehash table,
+and req->rsk_listener will be used to get the listener that was chosen
+at SYN time.
