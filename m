@@ -1,85 +1,108 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH 02/23] usb-gadget: use per-attribute show and store
- methods
-Date: Sun, 27 Sep 2015 10:50:53 -0500
-Message-ID: <20150927155053.GD16364@saruman.tx.rr.com>
-References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-3-git-send-email-hch@lst.de>
-Reply-To: <balbi@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: Fix CWV being too strict on thin
+ streams
+Date: Sun, 27 Sep 2015 09:33:00 -0700
+Message-ID: <1443371580.3273.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1443026993-12358-1-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Xm/fll+QQv+hsKip"
-Cc: Joel Becker <jlbec@evilplan.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	<target-devel@vger.kernel.org>, <cluster-devel@redhat.com>,
-	<ocfs2-devel@oss.oracle.com>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <target-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1443189000-13398-3-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org,
+	Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad
+	<bro.devel+kernel@gmail.com>
+To: Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad <bro.devel@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34753 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868AbbI0QdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 12:33:03 -0400
+Received: by padhy16 with SMTP id hy16so150904317pad.1
+        for <netdev@vger.kernel.org>; Sun, 27 Sep 2015 09:33:03 -0700 (PDT)
+In-Reply-To: <1443026993-12358-1-git-send-email-bro.devel+kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Xm/fll+QQv+hsKip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Sep 25, 2015 at 06:49:39AM -0700, Christoph Hellwig wrote:
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  drivers/usb/gadget/configfs.c       | 295 ++++++++++++++----------------=
-------
->  include/linux/usb/gadget_configfs.h |  19 +--
->  2 files changed, 118 insertions(+), 196 deletions(-)
+On Wed, 2015-09-23 at 18:49 +0200, Bendik R=C3=B8nning Opstad wrote:
+> Application limited streams such as thin streams, that transmit small
+> amounts of payload in relatively few packets per RTT, can be prevente=
+d
+> from growing the CWND when in congestion avoidance. This leads to
+> increased sojourn times for data segments in streams that often trans=
+mit
+> time-dependent data.
 >=20
-> diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
-> index 294eb74..163d305 100644
-> --- a/drivers/usb/gadget/configfs.c
-> +++ b/drivers/usb/gadget/configfs.c
-> @@ -64,6 +64,11 @@ struct gadget_info {
->  	char qw_sign[OS_STRING_QW_SIGN_LEN];
->  };
+> Currently, a connection is considered CWND limited only after having
+> successfully transmitted at least one packet with new data, while at =
+the
+> same time failing to transmit some unsent data from the output queue
+> because the CWND is full. Applications that produce small amounts of
+> data may be left in a state where it is never considered to be CWND
+> limited, because all unsent data is successfully transmitted each tim=
+e
+> an incoming ACK opens up for more data to be transmitted in the send
+> window.
+>=20
+> Fix by always testing whether the CWND is fully used after successful
+> packet transmissions, such that a connection is considered CWND limit=
+ed
+> whenever the CWND has been filled. This is the correct behavior as
+> specified in RFC2861 (section 3.1).
+>=20
+> Cc: Andreas Petlund <apetlund@simula.no>
+> Cc: Carsten Griwodz <griff@simula.no>
+> Cc: Jonas Markussen <jonassm@ifi.uio.no>
+> Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+> Cc: Mads Johannessen <madsjoh@ifi.uio.no>
+> Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com=
+>
+> ---
+> Changes in v2:
+>  - Instead of updating tp->is_cwnd_limited after failing to send
+>    any packets, test whether CWND is full after successfull packet
+>    transmissions.
+>  - Updating commit message according to changes.
+>=20
+>  net/ipv4/tcp_output.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 4cd0b50..57a586f 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1827,7 +1827,7 @@ static bool tcp_tso_should_defer(struct sock *s=
+k, struct sk_buff *skb,
 > =20
-> +static inline struct gadget_info *to_gadget_info(struct config_item *ite=
-m)
-> +{
-> +	 return container_of(to_config_group(item), struct gadget_info, group);
-> +}
+>  	/* Ok, it looks like it is advisable to defer. */
+> =20
+> -	if (cong_win < send_win && cong_win < skb->len)
+> +	if (cong_win < send_win && cong_win <=3D skb->len)
+>  		*is_cwnd_limited =3D true;
+> =20
+>  	return true;
+> @@ -2060,7 +2060,6 @@ static bool tcp_write_xmit(struct sock *sk, uns=
+igned int mss_now, int nonagle,
+> =20
+>  		cwnd_quota =3D tcp_cwnd_test(tp, skb);
+>  		if (!cwnd_quota) {
+> -			is_cwnd_limited =3D true;
+>  			if (push_one =3D=3D 2)
+>  				/* Force out a loss probe pkt. */
+>  				cwnd_quota =3D 1;
+> @@ -2142,6 +2141,7 @@ repair:
+>  		/* Send one loss probe per tail loss episode. */
+>  		if (push_one !=3D 2)
+>  			tcp_schedule_loss_probe(sk);
+> +		is_cwnd_limited |=3D (tcp_packets_in_flight(tp) >=3D tp->snd_cwnd)=
+;
+>  		tcp_cwnd_validate(sk, is_cwnd_limited);
+>  		return false;
+>  	}
 
-this (and the other helper below) could be macros just fine. Are you 100% c=
-ompiler
-will *always* inline these helpers. The likelyhood of not inlining is minim=
-al, sure,
-but what do we get for writing these as functions instead of macros ?
+David, any idea of what happened to Bendik patch ?
 
-also, lacking commit log
+https://patchwork.ozlabs.org/patch/521765
 
---=20
-balbi
+Do we need to re-submit or something ?
 
---Xm/fll+QQv+hsKip
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJWCBBcAAoJEIaOsuA1yqREMDEP/1AK1qa1l8b8beNJXAPqAhDo
-qPxKRL3VtI0pSID9TQCn/jL8CrgqQtZ5gjeVFuFrSoU3A5dWsODHWWDhXB+2F4Kd
-YW5kQns9N3FEYQr98oi9Q6qRqiMEuUaI7BXStCA5ojQALusBlkH5QoLyTazWFbNe
-nkCPnZ+j4RWfz40YtNDOW312Aa3+J9FqAfd7xwvfkJw3Y3nnrzAG1NMQUN4zcgsz
-KfpDufqGCC9lFbTH2QReY/+pdOilurJqCrGuzpXmH9HzsrnBOuOsS9WmErv2/4KI
-t9VKGeBQXBmZjHQ10UY8Uzc9zqqfXaSU5F64Cc0qwVdLAr3CvRV2tkHKIKa/CSYz
-Av68DO4WFRHC9DnNfIrA0cjfGl6pnJwHJ6z5TCVRZ7T9+nrYWwsEToB6s8TBsgJ9
-00lM9SagLYGGaCCYWTXzljsQQZacTUJ9G33yOedVwSULFfws+gMZqt5JdZedl9Eh
-uAo6a8UPk/LfdU380nKZIPbchUEyrZEn7/K22p4/qiGOq3VztrRCsuhcmDOWjONb
-mxBed4l5dQCihkeBvsPZlAKbf68a0RODng81YM8Pnxhxa2Qfbd3QzZNBheyFnvKK
-d6Qd8DZoAWpGw9367BnyUN9ZFZWoyQqOOMjvdcOhOfi6nsNN7mQAoxLBlu8eMXKm
-wbgtel7kA3fA2c47r3/0
-=18ir
------END PGP SIGNATURE-----
-
---Xm/fll+QQv+hsKip--
+Thanks !
