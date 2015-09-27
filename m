@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] vxlan: support both IPv4 and IPv6 sockets
-Date: Sat, 26 Sep 2015 22:41:10 -0700 (PDT)
-Message-ID: <20150926.224110.1190457686665465368.davem@davemloft.net>
-References: <cover.1443094736.git.jbenc@redhat.com>
+Subject: Re: [PATCH 07/19] net: hisilicon: fix handling platform_get_irq
+ result
+Date: Sat, 26 Sep 2015 22:47:08 -0700 (PDT)
+Message-ID: <20150926.224708.1856076171022986940.davem@davemloft.net>
+References: <1443103227-25612-1-git-send-email-a.hajda@samsung.com>
+	<1443103227-25612-8-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41053 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996AbbI0FlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 01:41:11 -0400
-In-Reply-To: <cover.1443094736.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com,
+	m.szyprowski@samsung.com, dingtianhong@huawei.com,
+	netdev@vger.kernel.org
+To: a.hajda@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443103227-25612-8-git-send-email-a.hajda@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu, 24 Sep 2015 13:50:00 +0200
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Thu, 24 Sep 2015 16:00:15 +0200
 
-> Note: this needs net merged into net-next in order to apply.
+> The function can return negative value.
 > 
-> It's currently not easy enough to work with metadata based vxlan tunnels. In
-> particular, it's necessary to create separate network interfaces for IPv4
-> and IPv6 tunneling. Assigning an IPv6 address to an IPv4 interface is
-> allowed yet won't do what's expected. With route based tunneling, one has to
-> pay attention to use the vxlan interface opened with the correct family.
-> Other users of this (openvswitch) would need to always create two vxlan
-> interfaces.
+> The problem has been detected using proposed semantic patch
+> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
 > 
-> Furthermore, there's no sane API for creating an IPv6 vxlan metadata based
-> interface.
+> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
 > 
-> This patchset simplifies this by opening both IPv4 and IPv6 socket if the
-> vxlan interface has the metadata flag (IFLA_VXLAN_COLLECT_METADATA) set.
-> Assignment of addresses etc. works as expected after this.
+> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 
-Series applied, thanks Jiri.
+Applied.
