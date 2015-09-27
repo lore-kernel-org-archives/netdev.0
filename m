@@ -1,37 +1,41 @@
-From: Tolga Ceylan <tolga.ceylan@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Sat, 26 Sep 2015 18:37:44 -0700
-Message-ID: <CALmu+Sz0Od4d8vQeEWV1euhz6hdpLBaGhMqO7Re-om2euaNnTQ@mail.gmail.com>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as drain mode
+Date: Sat, 26 Sep 2015 21:44:45 -0400
+Message-ID: <877fnc7i0i.fsf@bytheb.org>
 References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	<1443315842.3273.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Tolga Ceylan <tolga.ceylan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:33980 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754711AbbI0Bhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 21:37:45 -0400
-Received: by iofb144 with SMTP id b144so145072601iof.1
-        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 18:37:44 -0700 (PDT)
-In-Reply-To: <1443315842.3273.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:36766 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754720AbbI0Bos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 21:44:48 -0400
+Received: by qgx61 with SMTP id 61so97035612qgx.3
+        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 18:44:47 -0700 (PDT)
+In-Reply-To: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com> (Tolga
+	Ceylan's message of "Sat, 26 Sep 2015 17:30:48 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 26, 2015 at 6:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> What about listen(fd, 0) ?
->
-> Not sure we need to add a new socket option.
->
-> It makes sense to extend reuseport logic to ignore listeners with a 0
-> backlog (if not already done, I did not check)
->
->
+Greetings.
 
-Just checked this and no listen(fd, 0) still does schedule new
-connections despite zero
-accept backlog for a reuseport socket. I'll resubmit this patch with
-your suggestion.
+Tolga Ceylan <tolga.ceylan@gmail.com> writes:
+> +#define SO_REUSEPORT_LISTEN_OFF 51
+> +
+For all of these, I think the space should be tab.
+
+> 	unsigned char		skc_reuseport:1;
+>+	unsigned char       skc_reuseport_listen_off:1;
+> 	unsigned char		skc_ipv6only:1;
+The spacing here is wrong.
+
+> @@ -224,10 +224,13 @@ begin:
+>  				phash = inet_ehashfn(net, daddr, hnum,
+>  						     saddr, sport);
+>  				matches = 1;
+> +				if (sk->sk_reuseport_listen_off)
+> +					result = NULL;
+I am concerned here. I think you need to reset hiscore and matches as
+well, not just result.
