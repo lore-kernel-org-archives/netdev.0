@@ -1,39 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ne: Add h8300 support.
-Date: Sun, 27 Sep 2015 12:51:30 -0700 (PDT)
-Message-ID: <20150927.125130.1749145249599569463.davem@davemloft.net>
-References: <1443363556-29937-1-git-send-email-ysato@users.sourceforge.jp>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] netpoll: Drop budget parameter from NAPI polling call
+ hierarchy
+Date: Sun, 27 Sep 2015 15:58:56 -0700
+Message-ID: <560874B0.1080903@gmail.com>
+References: <20150922215049.3088.32475.stgit@ahduyck-vm-fedora22>
+ <20150926.223631.507670918270362716.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ysato@users.sourceforge.jp
+To: David Miller <davem@davemloft.net>, aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44690 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbbI0Tvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 15:51:33 -0400
-In-Reply-To: <1443363556-29937-1-git-send-email-ysato@users.sourceforge.jp>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36315 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753029AbbI0W66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 18:58:58 -0400
+Received: by pablk4 with SMTP id lk4so58535599pab.3
+        for <netdev@vger.kernel.org>; Sun, 27 Sep 2015 15:58:58 -0700 (PDT)
+In-Reply-To: <20150926.223631.507670918270362716.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yoshinori Sato <ysato@users.sourceforge.jp>
-Date: Sun, 27 Sep 2015 23:19:15 +0900
+On 09/26/2015 10:36 PM, David Miller wrote:
+> From: Alexander Duyck <aduyck@mirantis.com>
+> Date: Tue, 22 Sep 2015 14:56:08 -0700
+>
+>> Rather than carry around a value of budget that is 0 or less we can instead
+>> just loop through and pass 0 to each napi->poll call.  If any driver
+>> returns a value for work done that is non-zero then we can report that
+>> driver and continue rather than allowing a bad actor to make the budget
+>> value negative and pass that negative value to napi->poll.
+> Unfortunately we have drivers that won't do any TX work if the budget
+> is zero.
 
-> @@ -88,7 +88,7 @@ config MCF8390
->  config NE2000
->  	tristate "NE2000/NE1000 support"
->  	depends on (ISA || (Q40 && m) || M32R || MACH_TX49XX || \
-> -		    ATARI_ETHERNEC)
-> +		    ATARI_ETHERNEC || H8300)
-...
->  
-> -#if  defined(CONFIG_PLAT_MAPPI) || defined(CONFIG_PLAT_OAKS32R)
-> +#if  defined(CONFIG_PLAT_MAPPI) || defined(CONFIG_PLAT_OAKS32R) || \
-> +	defined(CONFIG_H8300_KANEBEBE) || defined(CONFIG_H8300_AE3069)
+Well that is what we are doing right now.  The fact is the call starts 
+out with a budget of 0, and it is somewhat hidden from the call since 
+the budget is assigned a value of 0 in netpoll_poll_dev. That is one of 
+the things I was wanting do address because that is clear as mud from 
+looking at poll_one_napi.  Based on the code you would assume budget 
+starts out as a non-zero value and it doesn't.
 
-It makes no sense to test different config symbols for these two
-things.
+> Using the budget for TX work is unfortunate and not the recommended
+> way for drivers to do things, but it's not explicitly disallowed
+> either.
+>
+> So I'm not applying this because it definitely has the potential
+> to break something.
+>
+> Sorry.
 
-Either both should use "H8300" or both should use
-"H8300_KANEBEBE || H8300_AE3069".
+I don't see how this introduces a regression when all I am doing is 
+avoiding tracking a value that should be 0 assuming everything is 
+working correctly.  If work returns a non-zero value with the code as it 
+currently is then the WARN_ONCE is triggered, and the value of budget is 
+becoming negative.  I would consider a negative budget value worse than 
+a 0 budget value.
+
+I'll go back through the patch and rebase it since it looks like Neil 
+had to submit a v3 of his patch and it may have impacted mine. However 
+perhaps we need to revisit this code if you think it is risky as the 
+only thing my changes did is remove the ability for the budget value to 
+go from 0 to negative and then passing that negative value into the 
+function.
+
+- Alex
