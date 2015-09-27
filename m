@@ -1,38 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Sat, 26 Sep 2015 19:24:15 -0700
-Message-ID: <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443313848-751-1-git-send-email-tolga.ceylan@gmail.com>
-	 <877fnc7i0i.fsf@bytheb.org>
-	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net/mlx4: Handle return codes in mlx4_qp_attach_common
+Date: Sun, 27 Sep 2015 07:31:39 +0300
+Message-ID: <CAJ3xEMjqa76nvMXYEGr1g3qPNkiQnP99AXNpkyAchE_+V=vx-A@mail.gmail.com>
+References: <CAM5t4r_uaRPJT0kiaqNkygu1ciCoVSVQhj5MLkn69uieXx1MHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tolga Ceylan <tolga.ceylan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Robb Manes <rmanes@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36627 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754732AbbI0CYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2015 22:24:17 -0400
-Received: by pablk4 with SMTP id lk4so44075862pab.3
-        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 19:24:17 -0700 (PDT)
-In-Reply-To: <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35268 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbbI0Ebk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 00:31:40 -0400
+Received: by igbkq10 with SMTP id kq10so33665120igb.0
+        for <netdev@vger.kernel.org>; Sat, 26 Sep 2015 21:31:39 -0700 (PDT)
+In-Reply-To: <CAM5t4r_uaRPJT0kiaqNkygu1ciCoVSVQhj5MLkn69uieXx1MHA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-09-26 at 19:02 -0700, Tolga Ceylan wrote:
-> By keeping hiscore/matches as is, I'm trying to keep the hashing consistent.
-> Otherwise, this would behave similar to removing a listener which
-> drops connections.
+On Fri, Sep 25, 2015 at 5:39 PM, Robb Manes <rmanes@redhat.com> wrote:
+> Both new_steering_entry() and existing_steering_entry() return values
+> based on their success or failure, but currently they fall through
+> silently.  This can make troubleshooting difficult, as we were unable
+> to tell which one of these two functions returned errors or
+> specifically what code was returned.  This patch remedies that
+> situation by passing the return codes to err, which is returned by
+> mlx4_qp_attach_common() itself.
+>
+> This also addresses a leak in the call to mlx4_bitmap_free() as well.
+>
+> Signed-off-by: Robb Manes <rmanes@redhat.com>
 
-Right, this problem will soon disappear when listener rewrite is
-complete.
+looks correct.
 
-Only SYN packet will have to select a listener.
-
-Then when ACK packet comes, the SYN_RECV will be found in ehash table,
-and req->rsk_listener will be used to get the listener that was chosen
-at SYN time.
+Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
