@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 RFC] 8139cp: Fix GSO MSS handling
-Date: Sat, 26 Sep 2015 22:38:55 -0700 (PDT)
-Message-ID: <20150926.223855.179450156337919037.davem@davemloft.net>
-References: <20150923232931.GA8365@electric-eye.fr.zoreil.com>
-	<1443085112.74600.53.camel@infradead.org>
-	<1443091102.74600.70.camel@infradead.org>
+Subject: Re: [PATCH net-next 0/2] vxlan: support both IPv4 and IPv6 sockets
+Date: Sat, 26 Sep 2015 22:41:10 -0700 (PDT)
+Message-ID: <20150926.224110.1190457686665465368.davem@davemloft.net>
+References: <cover.1443094736.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: dwmw2@infradead.org
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41033 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41053 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189AbbI0Fi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 01:38:57 -0400
-In-Reply-To: <1443091102.74600.70.camel@infradead.org>
+	with ESMTP id S1750996AbbI0FlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 01:41:11 -0400
+In-Reply-To: <cover.1443094736.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 24 Sep 2015 11:38:22 +0100
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 24 Sep 2015 13:50:00 +0200
 
-> When fixing the TSO support I noticed we just mask ->gso_size with the
-> MSSMask value and don't care about the consequences.
+> Note: this needs net merged into net-next in order to apply.
 > 
-> Provide a .ndo_features_check() method which drops the NETIF_F_TSO
-> feature for any skb which would exceed the maximum, and thus forces it
-> to be segmented by software.
+> It's currently not easy enough to work with metadata based vxlan tunnels. In
+> particular, it's necessary to create separate network interfaces for IPv4
+> and IPv6 tunneling. Assigning an IPv6 address to an IPv4 interface is
+> allowed yet won't do what's expected. With route based tunneling, one has to
+> pay attention to use the vxlan interface opened with the correct family.
+> Other users of this (openvswitch) would need to always create two vxlan
+> interfaces.
 > 
-> Then we can stop the masking in cp_start_xmit(), and just WARN if the
-> maximum is exceeded, which should now never happen.
+> Furthermore, there's no sane API for creating an IPv6 vxlan metadata based
+> interface.
 > 
-> Finally, Francois Romieu noticed that we didn't even have the right
-> value for MSSMask anyway; it should be 0x7ff (11 bits) not 0xfff.
-> 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> This patchset simplifies this by opening both IPv4 and IPv6 socket if the
+> vxlan interface has the metadata flag (IFLA_VXLAN_COLLECT_METADATA) set.
+> Assignment of addresses etc. works as expected after this.
 
-I'm going to apply this to net-next, thanks David.
+Series applied, thanks Jiri.
