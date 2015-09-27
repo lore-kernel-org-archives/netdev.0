@@ -1,108 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: Fix CWV being too strict on thin
- streams
-Date: Sun, 27 Sep 2015 09:33:00 -0700
-Message-ID: <1443371580.3273.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443026993-12358-1-git-send-email-bro.devel+kernel@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2] ipvs: drop first packet to dead server
+Date: Sun, 27 Sep 2015 20:25:18 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1509272004230.1618@ja.home.ssi.bg>
+References: <20150925093737.GA5047@midget.suse.cz> <20150925094820.GB5047@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org,
-	Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad
-	<bro.devel+kernel@gmail.com>
-To: Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad <bro.devel@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34753 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868AbbI0QdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2015 12:33:03 -0400
-Received: by padhy16 with SMTP id hy16so150904317pad.1
-        for <netdev@vger.kernel.org>; Sun, 27 Sep 2015 09:33:03 -0700 (PDT)
-In-Reply-To: <1443026993-12358-1-git-send-email-bro.devel+kernel@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:37277 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751038AbbI0RZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Sep 2015 13:25:41 -0400
+In-Reply-To: <20150925094820.GB5047@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-09-23 at 18:49 +0200, Bendik R=C3=B8nning Opstad wrote:
-> Application limited streams such as thin streams, that transmit small
-> amounts of payload in relatively few packets per RTT, can be prevente=
-d
-> from growing the CWND when in congestion avoidance. This leads to
-> increased sojourn times for data segments in streams that often trans=
-mit
-> time-dependent data.
->=20
-> Currently, a connection is considered CWND limited only after having
-> successfully transmitted at least one packet with new data, while at =
-the
-> same time failing to transmit some unsent data from the output queue
-> because the CWND is full. Applications that produce small amounts of
-> data may be left in a state where it is never considered to be CWND
-> limited, because all unsent data is successfully transmitted each tim=
-e
-> an incoming ACK opens up for more data to be transmitted in the send
-> window.
->=20
-> Fix by always testing whether the CWND is fully used after successful
-> packet transmissions, such that a connection is considered CWND limit=
-ed
-> whenever the CWND has been filled. This is the correct behavior as
-> specified in RFC2861 (section 3.1).
->=20
-> Cc: Andreas Petlund <apetlund@simula.no>
-> Cc: Carsten Griwodz <griff@simula.no>
-> Cc: Jonas Markussen <jonassm@ifi.uio.no>
-> Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-> Cc: Mads Johannessen <madsjoh@ifi.uio.no>
-> Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com=
->
-> ---
-> Changes in v2:
->  - Instead of updating tp->is_cwnd_limited after failing to send
->    any packets, test whether CWND is full after successfull packet
->    transmissions.
->  - Updating commit message according to changes.
->=20
->  net/ipv4/tcp_output.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 4cd0b50..57a586f 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1827,7 +1827,7 @@ static bool tcp_tso_should_defer(struct sock *s=
-k, struct sk_buff *skb,
-> =20
->  	/* Ok, it looks like it is advisable to defer. */
-> =20
-> -	if (cong_win < send_win && cong_win < skb->len)
-> +	if (cong_win < send_win && cong_win <=3D skb->len)
->  		*is_cwnd_limited =3D true;
-> =20
->  	return true;
-> @@ -2060,7 +2060,6 @@ static bool tcp_write_xmit(struct sock *sk, uns=
-igned int mss_now, int nonagle,
-> =20
->  		cwnd_quota =3D tcp_cwnd_test(tp, skb);
->  		if (!cwnd_quota) {
-> -			is_cwnd_limited =3D true;
->  			if (push_one =3D=3D 2)
->  				/* Force out a loss probe pkt. */
->  				cwnd_quota =3D 1;
-> @@ -2142,6 +2141,7 @@ repair:
->  		/* Send one loss probe per tail loss episode. */
->  		if (push_one !=3D 2)
->  			tcp_schedule_loss_probe(sk);
-> +		is_cwnd_limited |=3D (tcp_packets_in_flight(tp) >=3D tp->snd_cwnd)=
-;
->  		tcp_cwnd_validate(sk, is_cwnd_limited);
->  		return false;
->  	}
 
-David, any idea of what happened to Bendik patch ?
+	Hello,
 
-https://patchwork.ozlabs.org/patch/521765
+On Fri, 25 Sep 2015, Jiri Bohac wrote:
 
-Do we need to re-submit or something ?
+>  		if (!atomic_read(&cp->n_control))
+>  			ip_vs_conn_expire_now(cp);
+>  		__ip_vs_conn_put(cp);
+> -		cp = NULL;
+> +		return NF_DROP;
 
-Thanks !
+	So, at this point we do not know whether we have
+one or many real servers, with same or different forwarding
+method. For example, if we know that old real server is DR
+and the new real server is again DR we can reuse the conntrack.
+
+	Without such info we have to drop the connection
+_only_ when conntrack is used. But if the connection is referenced
+by others, eg. FTP:21 referenced by data connection, it is not
+going to expire soon. We have to reuse it, otherwise client
+will retransmit for long time. See below...
+
+	Also, according to RFC 5961, 4.2. Mitigation, client can
+send RST during its SYN retransmissions. So, may be we have to
+allow rescheduling by adding IP_VS_TCP_S_CLOSE check after the
+IP_VS_TCP_S_TIME_WAIT check in is_new_conn_expected(). This should
+allow restarted client to be rescheduled. But this can be in
+separate patch.
+
+	Here is a RFC patch (not for latest tree, not tested):
+
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 9b9ca87..e989841 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1591,6 +1591,23 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
+ }
+ #endif /* CONFIG_IP_VS_NFCT */
+ 
++/* Really using conntrack? */
++static inline bool ip_vs_conn_uses_conntrack(struct ip_vs_conn *cp,
++					struct sk_buff *skb)
++{
++#ifdef CONFIG_IP_VS_NFCT
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
++
++	if (!(cp->flags & IP_VS_CONN_F_NFCT))
++		return false;
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && !nf_ct_is_untracked(ct))
++		return true;
++#endif
++	return false;
++}
++
+ static inline int
+ ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
+ {
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 38fbc19..a26bd65 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1689,15 +1689,34 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	cp = pp->conn_in_get(af, skb, &iph, 0);
+ 
+ 	conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
+-	if (conn_reuse_mode && !iph.fragoffs &&
+-	    is_new_conn(skb, &iph) && cp &&
+-	    ((unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
+-	      unlikely(!atomic_read(&cp->dest->weight))) ||
+-	     unlikely(is_new_conn_expected(cp, conn_reuse_mode)))) {
+-		if (!atomic_read(&cp->n_control))
+-			ip_vs_conn_expire_now(cp);
+-		__ip_vs_conn_put(cp);
+-		cp = NULL;
++	if (conn_reuse_mode && !iph.fragoffs && is_new_conn(skb, &iph) && cp) {
++		bool uses_ct = false, resched = false;
++
++		if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
++		    unlikely(!atomic_read(&cp->dest->weight))) {
++			resched = true;
++			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
++		} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
++			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
++			if (!atomic_read(&cp->n_control)) {
++				resched = true;
++			} else {
++				/* Do not reschedule controlling connection
++				 * that uses conntrack while it is still
++				 * referenced by controlled connection(s).
++				 */
++				resched = !uses_ct;
++			}
++		}
++
++		if (resched) {
++			if (!atomic_read(&cp->n_control))
++				ip_vs_conn_expire_now(cp);
++			__ip_vs_conn_put(cp);
++			if (uses_ct)
++				return NF_DROP;
++			cp = NULL;
++		}
+ 	}
+ 
+ 	if (unlikely(!cp) && !iph.fragoffs) {
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
