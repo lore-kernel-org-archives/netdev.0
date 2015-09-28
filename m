@@ -1,111 +1,120 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 6/6] net/ethernet: make apple/macmace.c driver explicitly non-modular
-Date: Mon, 28 Sep 2015 15:51:30 -0400
-Message-ID: <1443469890-19485-7-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH 2/6] net/dcb: make dcbnl.c explicitly non-modular
+Date: Mon, 28 Sep 2015 15:51:26 -0400
+Message-ID: <1443469890-19485-3-git-send-email-paul.gortmaker@windriver.com>
 References: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	<linux-m68k@vger.kernel.org>
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Shani Michaeli <shanim@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:40476 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:40486 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbbI1TwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 15:52:04 -0400
+	with ESMTP id S1752017AbbI1TwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 15:52:16 -0400
 In-Reply-To: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Kconfig for this option is currently:
+The Kconfig currently controlling compilation of this code is:
 
-config MACMACE
-        bool "Macintosh (AV) onboard MACE ethernet"
+net/dcb/Kconfig:config DCB
+net/dcb/Kconfig:        bool "Data Center Bridging support"
 
 ...meaning that it currently is not being built as a module by anyone.
-Lets remove the modular code that is essentially orphaned, so when
-reading the driver there should be no doubt it is builtin-only.
+
+Lets remove the modular code that is essentially orphaned, so that
+when reading the driver there is no doubt it is builtin-only.
 
 Since module_init translates to device_initcall in the non-modular
-case, the init ordering remains unchanged with this commit.
+case, the init ordering remains unchanged with this commit.  We can
+change to one of the other priority initcalls (subsys?) at any later
+date, if desired.
 
 We also delete the MODULE_LICENSE tag etc. since all that information
-is already contained at the top of the file in the comments.
+is (or is now) already contained at the top of the file in the comments.
 
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: Anish Bhatt <anish@chelsio.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Shani Michaeli <shanim@mellanox.com>
 Cc: netdev@vger.kernel.org
-Cc: linux-m68k@lists.linux-m68k.org
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/ethernet/apple/macmace.c | 38 +++---------------------------------
- 1 file changed, 3 insertions(+), 35 deletions(-)
+ net/dcb/dcbnl.c | 30 +++---------------------------
+ 1 file changed, 3 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/apple/macmace.c b/drivers/net/ethernet/apple/macmace.c
-index 89914ca17a49..1f78bc1d04ce 100644
---- a/drivers/net/ethernet/apple/macmace.c
-+++ b/drivers/net/ethernet/apple/macmace.c
-@@ -21,7 +21,7 @@
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 5b21f6f88e97..4f6c1862dfd2 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -13,6 +13,7 @@
+  * You should have received a copy of the GNU General Public License along with
+  * this program; if not, see <http://www.gnu.org/licenses/>.
+  *
++ * Description: Data Center Bridging netlink interface
+  * Author: Lucy Liu <lucy.liu@intel.com>
+  */
  
- 
- #include <linux/kernel.h>
+@@ -24,7 +25,7 @@
+ #include <linux/dcbnl.h>
+ #include <net/dcbevent.h>
+ #include <linux/rtnetlink.h>
 -#include <linux/module.h>
 +#include <linux/init.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/delay.h>
-@@ -739,50 +739,18 @@ static irqreturn_t mace_dma_intr(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
+ #include <net/sock.h>
  
+ /* Data Center Bridging (DCB) is a collection of Ethernet enhancements
+@@ -48,10 +49,6 @@
+  * features for capable devices.
+  */
+ 
+-MODULE_AUTHOR("Lucy Liu, <lucy.liu@intel.com>");
+-MODULE_DESCRIPTION("Data Center Bridging netlink interface");
 -MODULE_LICENSE("GPL");
--MODULE_DESCRIPTION("Macintosh MACE ethernet driver");
--MODULE_ALIAS("platform:macmace");
 -
--static int mac_mace_device_remove(struct platform_device *pdev)
--{
--	struct net_device *dev = platform_get_drvdata(pdev);
--	struct mace_data *mp = netdev_priv(dev);
--
--	unregister_netdev(dev);
--
--	free_irq(dev->irq, dev);
--	free_irq(IRQ_MAC_MACE_DMA, dev);
--
--	dma_free_coherent(mp->device, N_RX_RING * MACE_BUFF_SIZE,
--	                  mp->rx_ring, mp->rx_ring_phys);
--	dma_free_coherent(mp->device, N_TX_RING * MACE_BUFF_SIZE,
--	                  mp->tx_ring, mp->tx_ring_phys);
--
--	free_netdev(dev);
--
--	return 0;
--}
--
- static struct platform_driver mac_mace_driver = {
- 	.probe  = mace_probe,
--	.remove = mac_mace_device_remove,
- 	.driver	= {
- 		.name	= mac_mace_string,
- 	},
- };
+ /**************** DCB attribute policies *************************************/
  
--static int __init mac_mace_init_module(void)
-+static int __init mac_mace_init(void)
- {
- 	if (!MACH_IS_MAC)
- 		return -ENODEV;
- 
- 	return platform_driver_register(&mac_mace_driver);
+ /* DCB netlink attributes policy */
+@@ -1935,19 +1932,6 @@ int dcb_ieee_delapp(struct net_device *dev, struct dcb_app *del)
  }
--
--static void __exit mac_mace_cleanup_module(void)
+ EXPORT_SYMBOL(dcb_ieee_delapp);
+ 
+-static void dcb_flushapp(void)
 -{
--	platform_driver_unregister(&mac_mace_driver);
+-	struct dcb_app_type *app;
+-	struct dcb_app_type *tmp;
+-
+-	spin_lock_bh(&dcb_lock);
+-	list_for_each_entry_safe(app, tmp, &dcb_app_list, list) {
+-		list_del(&app->list);
+-		kfree(app);
+-	}
+-	spin_unlock_bh(&dcb_lock);
 -}
 -
--module_init(mac_mace_init_module);
--module_exit(mac_mace_cleanup_module);
-+device_initcall(mac_mace_init);
+ static int __init dcbnl_init(void)
+ {
+ 	INIT_LIST_HEAD(&dcb_app_list);
+@@ -1957,12 +1941,4 @@ static int __init dcbnl_init(void)
+ 
+ 	return 0;
+ }
+-module_init(dcbnl_init);
+-
+-static void __exit dcbnl_exit(void)
+-{
+-	rtnl_unregister(PF_UNSPEC, RTM_GETDCB);
+-	rtnl_unregister(PF_UNSPEC, RTM_SETDCB);
+-	dcb_flushapp();
+-}
+-module_exit(dcbnl_exit);
++device_initcall(dcbnl_init);
 -- 
 2.6.0.rc3
