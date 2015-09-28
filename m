@@ -1,46 +1,117 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] net: sctp: Don't use 64 kilobyte lookup table for
- four elements
-Date: Mon, 28 Sep 2015 15:32:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBA431C@AcuExch.aculab.com>
-References: <1443443644-12825-1-git-send-email-dvlasenk@redhat.com>
-	 <20150928135127.GB5248@hmsreliant.think-freely.org>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CBA41B0@AcuExch.aculab.com>
- <1443450427.2531.2.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 5/7] slub: support for bulk free with SLUB freelists
+Date: Mon, 28 Sep 2015 17:51:14 +0200
+Message-ID: <20150928175114.07e85114@redhat.com>
+References: <20150928122444.15409.10498.stgit@canyon>
+	<20150928122629.15409.69466.stgit@canyon>
+	<alpine.DEB.2.20.1509281011250.30332@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Neil Horman' <nhorman@tuxdriver.com>,
-	Denys Vlasenko <dvlasenk@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443450427.2531.2.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	David Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>, brouer@redhat.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45301 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934034AbbI1PvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 11:51:19 -0400
+In-Reply-To: <alpine.DEB.2.20.1509281011250.30332@east.gentwo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDI4IFNlcHRlbWJlciAyMDE1IDE1OjI3DQo+IE9u
-IE1vbiwgMjAxNS0wOS0yOCBhdCAxNDoxMiArMDAwMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+
-IEZyb206IE5laWwgSG9ybWFuDQo+ID4gPiBTZW50OiAyOCBTZXB0ZW1iZXIgMjAxNSAxNDo1MQ0K
-PiA+ID4gT24gTW9uLCBTZXAgMjgsIDIwMTUgYXQgMDI6MzQ6MDRQTSArMDIwMCwgRGVueXMgVmxh
-c2Vua28gd3JvdGU6DQo+ID4gPiA+IFNlZW1pbmdseSBpbm5vY3VvdXMgc2N0cF90cmFuc19zdGF0
-ZV90b19wcmlvX21hcFtdIGFycmF5DQo+ID4gPiA+IGlzIHdheSBiaWdnZXIgdGhhbiBpdCBsb29r
-cywgc2luY2UNCj4gPiA+ID4gIltTQ1RQX1VOS05PV05dID0gMiIgZXhwYW5kcyBpbnRvICJbMHhm
-ZmZmXSA9IDIiICENCj4gPiA+ID4NCj4gPiA+ID4gVGhpcyBwYXRjaCByZXBsYWNlcyBpdCB3aXRo
-IHN3aXRjaCgpIHN0YXRlbWVudC4NCj4gPg0KPiA+IFdoYXQgYWJvdXQganVzdCBhZGRpbmcgMSAo
-YW5kIG1hc2tpbmcpIGJlZm9yZSBpbmRleGluZyB0aGUgYXJyYXk/DQo+ID4gVGhhdCBtaWdodCBy
-ZXF1aXJlIGEgc3RhdGljIGlubGluZSBmdW5jdGlvbiB3aXRoIGEgbG9jYWwgc3RhdGljIGFycmF5
-Lg0KPiA+DQo+ID4gT3IgZGVmaW5lIHRoZSBhcnJheSBhcyAoc2F5KSBbMTZdIGFuZCBqdXN0IG1h
-c2sgdGhlIHN0YXRlIGJlZm9yZSB1c2luZw0KPiA+IGl0IGFzIGFuIGluZGV4Pw0KPiANCj4gSnVz
-dCBsZXQgdGhlIGNvbXBpbGVyIGRvIGl0cyBqb2IsIGluc3RlYWQgb2Ygb2JmdXNjYXRpbmcgc291
-cmNlLg0KPiANCj4gQ29tcGlsZXJzIGNhbiB0cmFuc2Zvcm0gYSBzd2l0Y2ggaW50byBhbiAob3B0
-aW1hbCkgdGFibGUgaWYgaXQgaXMgcmVhbGx5DQo+IGEgZ2Fpbi4NCg0KVGhlIGNvbXBpbGVyIGNh
-biBjaG9vc2UgYmV0d2VlbiBhIGp1bXAgdGFibGUgYW5kIG5lc3RlZCBpZnMgZm9yIGEgc3dpdGNo
-DQpzdGF0ZW1lbnQuIEkndmUgbmV2ZXIgc2VlbiBpdCBjb252ZXJ0IG9uZSBpbnRvIGEgZGF0YSBh
-cnJheSBpbmRleC4NCg0KCURhdmlkDQoNCg==
+On Mon, 28 Sep 2015 10:16:49 -0500 (CDT)
+Christoph Lameter <cl@linux.com> wrote:
+
+> On Mon, 28 Sep 2015, Jesper Dangaard Brouer wrote:
+> 
+> > diff --git a/mm/slub.c b/mm/slub.c
+> > index 1cf98d89546d..13b5f53e4840 100644
+> > --- a/mm/slub.c
+> > +++ b/mm/slub.c
+> > @@ -675,11 +675,18 @@ static void init_object(struct kmem_cache *s, void *object, u8 val)
+> >  {
+> >  	u8 *p = object;
+> >
+> > +	/* Freepointer not overwritten as SLAB_POISON moved it after object */
+> >  	if (s->flags & __OBJECT_POISON) {
+> >  		memset(p, POISON_FREE, s->object_size - 1);
+> >  		p[s->object_size - 1] = POISON_END;
+> >  	}
+> >
+> > +	/*
+> > +	 * If both SLAB_RED_ZONE and SLAB_POISON are enabled, then
+> > +	 * freepointer is still safe, as then s->offset equals
+> > +	 * s->inuse and below redzone is after s->object_size and only
+> > +	 * area between s->object_size and s->inuse.
+> > +	 */
+> >  	if (s->flags & SLAB_RED_ZONE)
+> >  		memset(p + s->object_size, val, s->inuse - s->object_size);
+> >  }
+> 
+> Are these comments really adding something? This is basic metadata
+> handling for SLUB that is commented on elsehwere.
+
+Not knowing SLUB as well as you, it took me several hours to realize
+init_object() didn't overwrite the freepointer in the object.  Thus, I
+think these comments make the reader aware of not-so-obvious
+side-effects of SLAB_POISON and SLAB_RED_ZONE.
+
+
+> > @@ -2584,9 +2646,14 @@ EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
+> >   * So we still attempt to reduce cache line usage. Just take the slab
+> >   * lock and free the item. If there is no additional partial page
+> >   * handling required then we can return immediately.
+> > + *
+> > + * Bulk free of a freelist with several objects (all pointing to the
+> > + * same page) possible by specifying freelist_head ptr and object as
+> > + * tail ptr, plus objects count (cnt).
+> >   */
+> >  static void __slab_free(struct kmem_cache *s, struct page *page,
+> > -			void *x, unsigned long addr)
+> > +			void *x, unsigned long addr,
+> > +			void *freelist_head, int cnt)
+> 
+> Do you really need separate parameters for freelist_head? If you just want
+> to deal with one object pass it as freelist_head and set cnt = 1?
+
+Yes, I need it.  We need to know both the head and tail of the list to
+splice it.
+
+See:
+
+> @@ -2612,7 +2681,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+                prior = page->freelist;
+		counters = page->counters;
+>  		set_freepointer(s, object, prior);
+                                   ^^^^^^ 
+Here we update the tail ptr (object) to point to "prior" (page->freelist).
+
+>  		new.counters = counters;
+>  		was_frozen = new.frozen;
+> -		new.inuse--;
+> +		new.inuse -= cnt;
+>  		if ((!new.inuse || !prior) && !was_frozen) {
+>  
+>  			if (kmem_cache_has_cpu_partial(s) && !prior) {
+> @@ -2643,7 +2712,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+>  
+>  	} while (!cmpxchg_double_slab(s, page,
+>  		prior, counters,
+> -		object, new.counters,
+> +		new_freelist, new.counters,
+>  		"__slab_free"));
+
+Here we update page->freelist ("prior") to point to the head. Thus,
+splicing the list.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
