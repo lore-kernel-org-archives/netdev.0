@@ -1,40 +1,125 @@
-From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-Subject: Re: simplify configfs attributes
-Date: Mon, 28 Sep 2015 14:12:43 +0200
-Message-ID: <56092EBB.3040603@samsung.com>
-References: <1443189000-13398-1-git-send-email-hch@lst.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH 1/7] slub: create new ___slab_alloc function that can be
+ called with irqs disabled
+Date: Mon, 28 Sep 2015 14:26:09 +0200
+Message-ID: <20150928122609.15409.30765.stgit@canyon>
+References: <20150928122444.15409.10498.stgit@canyon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	target-devel@vger.kernel.org, cluster-devel@redhat.com,
-	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-reply-to: <1443189000-13398-1-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	David Rientjes <rientjes@google.com>,
+	Christoph Lameter <cl@linux.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>
+To: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50163 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757134AbbI1M0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 08:26:11 -0400
+In-Reply-To: <20150928122444.15409.10498.stgit@canyon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Christoph,
+From: Christoph Lameter <cl@linux.com>
 
-W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
-> This series consolidates the code to implement configfs attributes
-> by providing the ->show and ->store method in common code and using
-> container_of in the methods to access the containing structure.
->
-> This reduces source and binary size of configfs consumers a lot.
->
+NOTICE: Accepted by AKPM
+ http://ozlabs.org/~akpm/mmots/broken-out/slub-create-new-___slab_alloc-function-that-can-be-called-with-irqs-disabled.patch
 
-Thank you for this series. It is definitely the way to go.
-I reviewed it as far as the configfs consumers which I wrote
-or have experience with are concerned. There are some minor
-issues which you perhaps can call nitpicks. In the last patch
-(23/23) I think you meant something different when changing
-the documentation - please see my response to that patch.
+Bulk alloc needs a function like that because it enables interrupts before
+calling __slab_alloc which promptly disables them again using the expensive
+local_irq_save().
 
-But otherwise this series is very welcome.
+Signed-off-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ mm/slub.c |   44 +++++++++++++++++++++++++++++---------------
+ 1 file changed, 29 insertions(+), 15 deletions(-)
 
-AP
+diff --git a/mm/slub.c b/mm/slub.c
+index f614b5dc396b..02cfb3a5983e 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2298,23 +2298,15 @@ static inline void *get_freelist(struct kmem_cache *s, struct page *page)
+  * And if we were unable to get a new slab from the partial slab lists then
+  * we need to allocate a new slab. This is the slowest path since it involves
+  * a call to the page allocator and the setup of a new slab.
++ *
++ * Version of __slab_alloc to use when we know that interrupts are
++ * already disabled (which is the case for bulk allocation).
+  */
+-static void *__slab_alloc(struct kmem_cache *s, gfp_t gfpflags, int node,
++static void *___slab_alloc(struct kmem_cache *s, gfp_t gfpflags, int node,
+ 			  unsigned long addr, struct kmem_cache_cpu *c)
+ {
+ 	void *freelist;
+ 	struct page *page;
+-	unsigned long flags;
+-
+-	local_irq_save(flags);
+-#ifdef CONFIG_PREEMPT
+-	/*
+-	 * We may have been preempted and rescheduled on a different
+-	 * cpu before disabling interrupts. Need to reload cpu area
+-	 * pointer.
+-	 */
+-	c = this_cpu_ptr(s->cpu_slab);
+-#endif
+ 
+ 	page = c->page;
+ 	if (!page)
+@@ -2372,7 +2364,6 @@ load_freelist:
+ 	VM_BUG_ON(!c->page->frozen);
+ 	c->freelist = get_freepointer(s, freelist);
+ 	c->tid = next_tid(c->tid);
+-	local_irq_restore(flags);
+ 	return freelist;
+ 
+ new_slab:
+@@ -2389,7 +2380,6 @@ new_slab:
+ 
+ 	if (unlikely(!freelist)) {
+ 		slab_out_of_memory(s, gfpflags, node);
+-		local_irq_restore(flags);
+ 		return NULL;
+ 	}
+ 
+@@ -2405,11 +2395,35 @@ new_slab:
+ 	deactivate_slab(s, page, get_freepointer(s, freelist));
+ 	c->page = NULL;
+ 	c->freelist = NULL;
+-	local_irq_restore(flags);
+ 	return freelist;
+ }
+ 
+ /*
++ * Another one that disabled interrupt and compensates for possible
++ * cpu changes by refetching the per cpu area pointer.
++ */
++static void *__slab_alloc(struct kmem_cache *s, gfp_t gfpflags, int node,
++			  unsigned long addr, struct kmem_cache_cpu *c)
++{
++	void *p;
++	unsigned long flags;
++
++	local_irq_save(flags);
++#ifdef CONFIG_PREEMPT
++	/*
++	 * We may have been preempted and rescheduled on a different
++	 * cpu before disabling interrupts. Need to reload cpu area
++	 * pointer.
++	 */
++	c = this_cpu_ptr(s->cpu_slab);
++#endif
++
++	p = ___slab_alloc(s, gfpflags, node, addr, c);
++	local_irq_restore(flags);
++	return p;
++}
++
++/*
+  * Inlined fastpath so that allocation functions (kmalloc, kmem_cache_alloc)
+  * have the fastpath folded into their functions. So no function call
+  * overhead for requests that can be satisfied on the fastpath.
