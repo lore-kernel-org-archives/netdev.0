@@ -1,29 +1,30 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 3/6] net/sched: make sch_blackhole.c explicitly non-modular
-Date: Mon, 28 Sep 2015 15:51:27 -0400
-Message-ID: <1443469890-19485-4-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH 1/6] net/core: make sock_diag.c explicitly non-modular
+Date: Mon, 28 Sep 2015 15:51:25 -0400
+Message-ID: <1443469890-19485-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Craig Gallek <kraig@google.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54943 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:54973 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbbI1TyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 15:54:02 -0400
+	with ESMTP id S1752017AbbI1TyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 15:54:17 -0400
 In-Reply-To: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Kconfig currently controlling compilation of this code is:
-
-net/sched/Kconfig:menuconfig NET_SCHED
-net/sched/Kconfig:      bool "QoS and/or fair queueing"
-
-...meaning that it currently is not being built as a module by anyone.
+The Makefile currently controlling compilation of this code lists
+it under "obj-y" ...meaning that it currently is not being built as
+a module by anyone.
 
 Lets remove the modular code that is essentially orphaned, so that
 when reading the driver there is no doubt it is builtin-only.
@@ -33,49 +34,51 @@ case, the init ordering remains unchanged with this commit.  We can
 change to one of the other priority initcalls (subsys?) at any later
 date, if desired.
 
-We also delete the MODULE_LICENSE tag since all that information
-is already contained at the top of the file in the comments.
+We can't remove module.h since the file uses other module related
+stuff even though it is not modular itself.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+We move the information from the MODULE_LICENSE tag to the top of the
+file, since that information is not captured anywhere else.  The
+MODULE_ALIAS_NET_PF_PROTO becomes a no-op in the non modular case, so
+it is removed.
+
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Craig Gallek <kraig@google.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/sched/sch_blackhole.c | 15 +++------------
- 1 file changed, 3 insertions(+), 12 deletions(-)
+ net/core/sock_diag.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
 
-diff --git a/net/sched/sch_blackhole.c b/net/sched/sch_blackhole.c
-index 094a874b48bc..3fee70d9814f 100644
---- a/net/sched/sch_blackhole.c
-+++ b/net/sched/sch_blackhole.c
-@@ -11,7 +11,7 @@
-  * Note: Quantum tunneling is not supported.
-  */
- 
--#include <linux/module.h>
-+#include <linux/init.h>
- #include <linux/types.h>
- #include <linux/kernel.h>
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 817622f3dbb7..0c1d58d43f67 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -1,3 +1,5 @@
++/* License: GPL */
++
+ #include <linux/mutex.h>
+ #include <linux/socket.h>
  #include <linux/skbuff.h>
-@@ -37,17 +37,8 @@ static struct Qdisc_ops blackhole_qdisc_ops __read_mostly = {
- 	.owner		= THIS_MODULE,
- };
- 
--static int __init blackhole_module_init(void)
-+static int __init blackhole_init(void)
- {
- 	return register_qdisc(&blackhole_qdisc_ops);
+@@ -323,14 +325,4 @@ static int __init sock_diag_init(void)
+ 	BUG_ON(!broadcast_wq);
+ 	return register_pernet_subsys(&diag_net_ops);
  }
 -
--static void __exit blackhole_module_exit(void)
+-static void __exit sock_diag_exit(void)
 -{
--	unregister_qdisc(&blackhole_qdisc_ops);
+-	unregister_pernet_subsys(&diag_net_ops);
+-	destroy_workqueue(broadcast_wq);
 -}
 -
--module_init(blackhole_module_init)
--module_exit(blackhole_module_exit)
--
+-module_init(sock_diag_init);
+-module_exit(sock_diag_exit);
 -MODULE_LICENSE("GPL");
-+device_initcall(blackhole_init)
+-MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_SOCK_DIAG);
++device_initcall(sock_diag_init);
 -- 
 2.6.0.rc3
