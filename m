@@ -1,34 +1,77 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 0/8] Mellanox mlx5 driver update
-Date: Tue, 29 Sep 2015 01:20:07 +0300
-Message-ID: <CAJ3xEMjWeQhUANyiBw3MjgpvnimEOsEmY66Kudu4LfOhZfpfcw@mail.gmail.com>
-References: <1443167356-32095-1-git-send-email-ogerlitz@mellanox.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/4] ila: Use NF_INET_PRE_ROUTING nfhook
+Date: Mon, 28 Sep 2015 15:27:16 -0700
+Message-ID: <CALx6S35gFbcFjCWEQsDY_DzBOrr0i7+3fdBWiF4rLmcz9HJRBg@mail.gmail.com>
+References: <1443112224-574543-1-git-send-email-tom@herbertland.com>
+	<20150926.231554.1860934088223264189.davem@davemloft.net>
+	<20150927081055.GA17055@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Eli Cohen <eli@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36574 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638AbbI1WUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 18:20:08 -0400
-Received: by ioii196 with SMTP id i196so192446361ioi.3
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 15:20:07 -0700 (PDT)
-In-Reply-To: <1443167356-32095-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:36210 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbbI1W1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 18:27:17 -0400
+Received: by ioii196 with SMTP id i196so192599885ioi.3
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 15:27:16 -0700 (PDT)
+In-Reply-To: <20150927081055.GA17055@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 25, 2015 at 10:49 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Hi Dave,
+On Sun, Sep 27, 2015 at 1:10 AM, Florian Westphal <fw@strlen.de> wrote:
+> David Miller <davem@davemloft.net> wrote:
+>> > This patch set addresses the issue for ILA by adding a fast locator
+>> > lookup that occurs before early demux. This is done by using a hook
+>> > at NF_INET_PRE_ROUTING. For the backend we implement an rhashtable
+>> > that contains identifier to locator to mappings. The table also
+>> > allows more specific matches that include original locator and
+>> > interface.
+>>
+>> I really don't think we should use netfilter hooks to perform
+>> operations setup outside of netfilter's normal configuration
+>> mechanisms.
 >
-> Bunch of changes from the team, while warming engines for the
-> upcoming SRIOV support.
+> Thanks, thats my thinking as well.
+>
+>> If ILA were instead configured inside of netfilter's normal mechanisms
+>> then there would be full transparency about whether ILA
+>> transformations are performed before or after the user's other
+>> netfilter rules.  And the user would have full control over this.
+>> As implemented here, they don't.
+>>
+>> So sorry, I'm not too keen on this and I bet if netfilter developers
+>> reviewed this patch series they'd have similar objections.
+>
+> Seems this should/could be implemented similar to RFC6296 network
+> prefix translations (see net/ipv6/netfilter/ip6t_NPT.c).
 
-Hi Dave,
+Hi Florian,
 
-FWIW - I will be OOO for the rest of this week, so in case you'll have
-some comments/questions on the series will see them only next week.
+RFC6296 doesn't work because it allows an invalid checksum to be sent
+on wire relative to the addresses used on the wire. That means we
+would lose CHECKSUM_UNNECESSARY for ILA which is way too big of a
+performance hit. This might actually be worse for some devices that
+are doing NETIF_F_IP_CSUM if they are calculating the checksum based
+on the addresses in packet instead of the ultimate destination address
+which seems to be what RFC6296 wants (could result checksum errors).
+Unfortunately we're going to be seeing this problem more and more as
+there are more method that rewrite addresses without updating the
+transport checksum before leaving the host (e.g. segment routing).
 
-Or.
+For devices doing CHECKSUM_COMPLETE I suspect there are also some
+issues. In ip6t_npt_map_pfx it seems like if the addresses are being
+rewritten in the receive path, the skb->csum should be updated
+accordingly. GRO might consistently fail on bad checksums also...
+
+In any case, I did at one point create some netfilter targets for ILA
+to do the translation correctly updating the checksum. While this
+provided the required functionality, I couldn't get sufficient
+performance. A specialized fixed length lookup table gets most of the
+performance needed for ILA.
+
+Thanks,
+Tom
