@@ -1,117 +1,40 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 5/7] slub: support for bulk free with SLUB freelists
-Date: Mon, 28 Sep 2015 17:51:14 +0200
-Message-ID: <20150928175114.07e85114@redhat.com>
-References: <20150928122444.15409.10498.stgit@canyon>
-	<20150928122629.15409.69466.stgit@canyon>
-	<alpine.DEB.2.20.1509281011250.30332@east.gentwo.org>
+From: Dave Hansen <dave@sr71.net>
+Subject: Re: [PATCH] e1000: fix e1000e_disable_aspm_locked() warning
+Date: Mon, 28 Sep 2015 08:57:18 -0700
+Message-ID: <5609635E.6010907@sr71.net>
+References: <20150831212641.FA5D579A@viggo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	David Rientjes <rientjes@google.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>, brouer@redhat.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45301 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934034AbbI1PvT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 11:51:19 -0400
-In-Reply-To: <alpine.DEB.2.20.1509281011250.30332@east.gentwo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dave.hansen@linux.intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: raanan.avargil@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150831212641.FA5D579A@viggo.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Sep 2015 10:16:49 -0500 (CDT)
-Christoph Lameter <cl@linux.com> wrote:
-
-> On Mon, 28 Sep 2015, Jesper Dangaard Brouer wrote:
+On 08/31/2015 02:26 PM, Dave Hansen wrote:
+> From: Dave Hansen <dave.hansen@linux.intel.com>
 > 
-> > diff --git a/mm/slub.c b/mm/slub.c
-> > index 1cf98d89546d..13b5f53e4840 100644
-> > --- a/mm/slub.c
-> > +++ b/mm/slub.c
-> > @@ -675,11 +675,18 @@ static void init_object(struct kmem_cache *s, void *object, u8 val)
-> >  {
-> >  	u8 *p = object;
-> >
-> > +	/* Freepointer not overwritten as SLAB_POISON moved it after object */
-> >  	if (s->flags & __OBJECT_POISON) {
-> >  		memset(p, POISON_FREE, s->object_size - 1);
-> >  		p[s->object_size - 1] = POISON_END;
-> >  	}
-> >
-> > +	/*
-> > +	 * If both SLAB_RED_ZONE and SLAB_POISON are enabled, then
-> > +	 * freepointer is still safe, as then s->offset equals
-> > +	 * s->inuse and below redzone is after s->object_size and only
-> > +	 * area between s->object_size and s->inuse.
-> > +	 */
-> >  	if (s->flags & SLAB_RED_ZONE)
-> >  		memset(p + s->object_size, val, s->inuse - s->object_size);
-> >  }
+> I have a .config with CONFIG_PM disabled.  I get the following whenever
+> compiling the e1000 driver:
 > 
-> Are these comments really adding something? This is basic metadata
-> handling for SLUB that is commented on elsehwere.
-
-Not knowing SLUB as well as you, it took me several hours to realize
-init_object() didn't overwrite the freepointer in the object.  Thus, I
-think these comments make the reader aware of not-so-obvious
-side-effects of SLAB_POISON and SLAB_RED_ZONE.
-
-
-> > @@ -2584,9 +2646,14 @@ EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
-> >   * So we still attempt to reduce cache line usage. Just take the slab
-> >   * lock and free the item. If there is no additional partial page
-> >   * handling required then we can return immediately.
-> > + *
-> > + * Bulk free of a freelist with several objects (all pointing to the
-> > + * same page) possible by specifying freelist_head ptr and object as
-> > + * tail ptr, plus objects count (cnt).
-> >   */
-> >  static void __slab_free(struct kmem_cache *s, struct page *page,
-> > -			void *x, unsigned long addr)
-> > +			void *x, unsigned long addr,
-> > +			void *freelist_head, int cnt)
+> ...net/ethernet/intel/e1000e/netdev.c:6450:13: warning: 'e1000e_disable_aspm_locked' defined but not used [-Wunused-function]
+>  static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
 > 
-> Do you really need separate parameters for freelist_head? If you just want
-> to deal with one object pass it as freelist_head and set cnt = 1?
+> Looks like we just need to move e1000e_disable_aspm_locked() to
+> be underneath the CONFIG_PM #ifdef.
 
-Yes, I need it.  We need to know both the head and tail of the list to
-splice it.
+This patch:
 
-See:
+	[2758f9edb]: e1000e: Fix incorrect ASPM locking
 
-> @@ -2612,7 +2681,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
-                prior = page->freelist;
-		counters = page->counters;
->  		set_freepointer(s, object, prior);
-                                   ^^^^^^ 
-Here we update the tail ptr (object) to point to "prior" (page->freelist).
+established a new caller for e1000e_disable_aspm_locked() which makes my
+patch useless and wrong (it breaks the compile).
 
->  		new.counters = counters;
->  		was_frozen = new.frozen;
-> -		new.inuse--;
-> +		new.inuse -= cnt;
->  		if ((!new.inuse || !prior) && !was_frozen) {
->  
->  			if (kmem_cache_has_cpu_partial(s) && !prior) {
-> @@ -2643,7 +2712,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
->  
->  	} while (!cmpxchg_double_slab(s, page,
->  		prior, counters,
-> -		object, new.counters,
-> +		new_freelist, new.counters,
->  		"__slab_free"));
-
-Here we update page->freelist ("prior") to point to the head. Thus,
-splicing the list.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I believe we should just revert my patch.
