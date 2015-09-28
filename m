@@ -1,181 +1,129 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 4/5] ntp/pps: use y2038 safe types in pps_event_time
-Date: Mon, 28 Sep 2015 22:21:31 +0200
-Message-ID: <1443471692-2946597-5-git-send-email-arnd@arndb.de>
+Subject: [PATCH 1/5] ntp/pps: use timespec64 for hardpps()
+Date: Mon, 28 Sep 2015 22:21:28 +0200
+Message-ID: <1443471692-2946597-2-git-send-email-arnd@arndb.de>
 References: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	linux-net-drivers@solarflare.com,
-	Shradha Shah <sshah@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Rodolfo Giometti <giometti@enneenne.com>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+ linux-kernel@vger.kernel.org, linux-net-drivers@solarflare.com,
+ John Stultz <john.stultz@linaro.org>, Shradha Shah <sshah@solarflare.com>,
+ Thomas Gleixner <tglx@linutronix.de>
 To: y2038@lists.linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <y2038-bounces@lists.linaro.org>
 In-Reply-To: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-The pps_event_time uses two 'timespec' structures internally, which
-suffer from the y2038 problem. The uses of this structure are
-fairly self-contained in the pps code, so this replaces them all at
-once.
-
-Unfortunately, this includes the sfc ethernet driver aside from the
-pps subsystem, so we change that one as well. Both touch the
-same data structure, and there probably is no good way to split
-the patch into smaller units.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/sfc/ptp.c | 16 ++++++++--------
- drivers/pps/kapi.c             |  4 ++--
- drivers/pps/kc.c               |  4 +---
- include/linux/pps_kernel.h     | 21 ++++++++-------------
- 4 files changed, 19 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index ad62615a93dc..fe849dbf9f80 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -646,28 +646,28 @@ static void efx_ptp_send_times(struct efx_nic *efx,
- 			       struct pps_event_time *last_time)
- {
- 	struct pps_event_time now;
--	struct timespec limit;
-+	struct timespec64 limit;
- 	struct efx_ptp_data *ptp = efx->ptp_data;
--	struct timespec start;
-+	struct timespec64 start;
- 	int *mc_running = ptp->start.addr;
- 
- 	pps_get_ts(&now);
- 	start = now.ts_real;
- 	limit = now.ts_real;
--	timespec_add_ns(&limit, SYNCHRONISE_PERIOD_NS);
-+	timespec64_add_ns(&limit, SYNCHRONISE_PERIOD_NS);
- 
- 	/* Write host time for specified period or until MC is done */
--	while ((timespec_compare(&now.ts_real, &limit) < 0) &&
-+	while ((timespec64_compare(&now.ts_real, &limit) < 0) &&
- 	       ACCESS_ONCE(*mc_running)) {
--		struct timespec update_time;
-+		struct timespec64 update_time;
- 		unsigned int host_time;
- 
- 		/* Don't update continuously to avoid saturating the PCIe bus */
- 		update_time = now.ts_real;
--		timespec_add_ns(&update_time, SYNCHRONISATION_GRANULARITY_NS);
-+		timespec64_add_ns(&update_time, SYNCHRONISATION_GRANULARITY_NS);
- 		do {
- 			pps_get_ts(&now);
--		} while ((timespec_compare(&now.ts_real, &update_time) < 0) &&
-+		} while ((timespec64_compare(&now.ts_real, &update_time) < 0) &&
- 			 ACCESS_ONCE(*mc_running));
- 
- 		/* Synchronise NIC with single word of time only */
-@@ -723,7 +723,7 @@ efx_ptp_process_times(struct efx_nic *efx, MCDI_DECLARE_STRUCT_PTR(synch_buf),
- 	struct efx_ptp_data *ptp = efx->ptp_data;
- 	u32 last_sec;
- 	u32 start_sec;
--	struct timespec delta;
-+	struct timespec64 delta;
- 	ktime_t mc_time;
- 
- 	if (number_readings == 0)
-diff --git a/drivers/pps/kapi.c b/drivers/pps/kapi.c
-index cdad4d95b20e..805c749ac1ad 100644
---- a/drivers/pps/kapi.c
-+++ b/drivers/pps/kapi.c
-@@ -179,8 +179,8 @@ void pps_event(struct pps_device *pps, struct pps_event_time *ts, int event,
- 	/* check event type */
- 	BUG_ON((event & (PPS_CAPTUREASSERT | PPS_CAPTURECLEAR)) == 0);
- 
--	dev_dbg(pps->dev, "PPS event at %ld.%09ld\n",
--			ts->ts_real.tv_sec, ts->ts_real.tv_nsec);
-+	dev_dbg(pps->dev, "PPS event at %lld.%09ld\n",
-+			(s64)ts->ts_real.tv_sec, ts->ts_real.tv_nsec);
- 
- 	timespec_to_pps_ktime(&ts_real, ts->ts_real);
- 
-diff --git a/drivers/pps/kc.c b/drivers/pps/kc.c
-index a16cea2ba980..e219db1f1c84 100644
---- a/drivers/pps/kc.c
-+++ b/drivers/pps/kc.c
-@@ -113,12 +113,10 @@ void pps_kc_event(struct pps_device *pps, struct pps_event_time *ts,
- 		int event)
- {
- 	unsigned long flags;
--	struct timespec64 real = timespec_to_timespec64(ts->ts_real);
--	struct timespec64 raw = timespec_to_timespec64(ts->ts_raw);
- 
- 	/* Pass some events to kernel consumer if activated */
- 	spin_lock_irqsave(&pps_kc_hardpps_lock, flags);
- 	if (pps == pps_kc_hardpps_dev && event & pps_kc_hardpps_mode)
--		hardpps(&real, &raw);
-+		hardpps(&ts->ts_real, &ts->ts_raw);
- 	spin_unlock_irqrestore(&pps_kc_hardpps_lock, flags);
- }
-diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
-index b2fbd62ab18d..54bf1484d41f 100644
---- a/include/linux/pps_kernel.h
-+++ b/include/linux/pps_kernel.h
-@@ -48,9 +48,9 @@ struct pps_source_info {
- 
- struct pps_event_time {
- #ifdef CONFIG_NTP_PPS
--	struct timespec ts_raw;
-+	struct timespec64 ts_raw;
- #endif /* CONFIG_NTP_PPS */
--	struct timespec ts_real;
-+	struct timespec64 ts_real;
- };
- 
- /* The main struct */
-@@ -105,7 +105,7 @@ extern void pps_event(struct pps_device *pps,
- struct pps_device *pps_lookup_dev(void const *cookie);
- 
- static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
--		struct timespec ts)
-+		struct timespec64 ts)
- {
- 	kt->sec = ts.tv_sec;
- 	kt->nsec = ts.tv_nsec;
-@@ -115,29 +115,24 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
- 
- static inline void pps_get_ts(struct pps_event_time *ts)
- {
--	struct timespec64 raw, real;
--
--	ktime_get_raw_and_real_ts64(&raw, &real);
--
--	ts->ts_raw = timespec64_to_timespec(raw);
--	ts->ts_real = timespec64_to_timespec(real);
-+	ktime_get_raw_and_real_ts64(&ts->ts_raw, &ts->ts_real);
- }
- 
- #else /* CONFIG_NTP_PPS */
- 
- static inline void pps_get_ts(struct pps_event_time *ts)
- {
--	getnstimeofday(&ts->ts_real);
-+	ktime_get_real_ts64(&ts->ts_real);
- }
- 
- #endif /* CONFIG_NTP_PPS */
- 
- /* Subtract known time delay from PPS event time(s) */
--static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec delta)
-+static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec64 delta)
- {
--	ts->ts_real = timespec_sub(ts->ts_real, delta);
-+	ts->ts_real = timespec64_sub(ts->ts_real, delta);
- #ifdef CONFIG_NTP_PPS
--	ts->ts_raw = timespec_sub(ts->ts_raw, delta);
-+	ts->ts_raw = timespec64_sub(ts->ts_raw, delta);
- #endif
- }
- 
--- 
-2.1.0.rc2
+VGhlcmUgaXMgb25seSBvbmUgdXNlciBvZiB0aGUgaGFyZHBwcyBmdW5jdGlvbiBpbiB0aGUga2Vy
+bmVsLCBzbwppdCBtYWtlcyBzZW5zZSB0byBhdG9taWNhbGx5IGNoYW5nZSBpdCBvdmVyIHRvIHVz
+aW5nIDY0LWJpdAp0aW1lc3RhbXBzIGZvciB5MjAzOCBzYWZldHkuIEluIHRoZSBoYXJkcHBzIGlt
+cGxlbWVudGF0aW9uLAp3ZSBhbHNvIG5lZWQgdG8gY2hhbmdlIHRoZSBwcHNfbm9ybXRpbWUgc3Ry
+dWN0dXJlLCB3aGljaCBpcwpzaW1pbGFyIHRvIHN0cnVjdCB0aW1lc3BlYyBhbmQgYWxzbyByZXF1
+aXJlcyBhIDY0LWJpdApzZWNvbmRzIHBvcnRpb24uCgpUaGlzIGludHJvZHVjZXMgdHdvIHRlbXBv
+cmFyeSB2YXJpYWJsZXMgaW4gcHBzX2tjX2V2ZW50KCkgdG8KZG8gdGhlIGNvbnZlcnNpb24sIHRo
+ZXkgd2lsbCBiZSByZW1vdmVkIGFnYWluIGluIHRoZSBuZXh0IHN0ZXAsCndoaWNoIHNlZW1lZCBw
+cmVmZXJhYmxlIHRvIGhhdmluZyBhIGxhcmdlciBwYXRjaCBjaGFuZ2luZyBpdAphbGwgYXQgdGhl
+IHNhbWUgdGltZS4KClNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+
+Ci0tLQogZHJpdmVycy9wcHMva2MuYyAgICAgICAgICAgfCAgNCArKystCiBpbmNsdWRlL2xpbnV4
+L3RpbWV4LmggICAgICB8ICAyICstCiBrZXJuZWwvdGltZS9udHAuYyAgICAgICAgICB8IDEyICsr
+KysrKy0tLS0tLQoga2VybmVsL3RpbWUvbnRwX2ludGVybmFsLmggfCAgMiArLQoga2VybmVsL3Rp
+bWUvdGltZWtlZXBpbmcuYyAgfCAgMiArLQogNSBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRpb25z
+KCspLCAxMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL3Bwcy9rYy5jIGIvZHJp
+dmVycy9wcHMva2MuYwppbmRleCBlMjE5ZGIxZjFjODQuLmExNmNlYTJiYTk4MCAxMDA2NDQKLS0t
+IGEvZHJpdmVycy9wcHMva2MuYworKysgYi9kcml2ZXJzL3Bwcy9rYy5jCkBAIC0xMTMsMTAgKzEx
+MywxMiBAQCB2b2lkIHBwc19rY19ldmVudChzdHJ1Y3QgcHBzX2RldmljZSAqcHBzLCBzdHJ1Y3Qg
+cHBzX2V2ZW50X3RpbWUgKnRzLAogCQlpbnQgZXZlbnQpCiB7CiAJdW5zaWduZWQgbG9uZyBmbGFn
+czsKKwlzdHJ1Y3QgdGltZXNwZWM2NCByZWFsID0gdGltZXNwZWNfdG9fdGltZXNwZWM2NCh0cy0+
+dHNfcmVhbCk7CisJc3RydWN0IHRpbWVzcGVjNjQgcmF3ID0gdGltZXNwZWNfdG9fdGltZXNwZWM2
+NCh0cy0+dHNfcmF3KTsKIAogCS8qIFBhc3Mgc29tZSBldmVudHMgdG8ga2VybmVsIGNvbnN1bWVy
+IGlmIGFjdGl2YXRlZCAqLwogCXNwaW5fbG9ja19pcnFzYXZlKCZwcHNfa2NfaGFyZHBwc19sb2Nr
+LCBmbGFncyk7CiAJaWYgKHBwcyA9PSBwcHNfa2NfaGFyZHBwc19kZXYgJiYgZXZlbnQgJiBwcHNf
+a2NfaGFyZHBwc19tb2RlKQotCQloYXJkcHBzKCZ0cy0+dHNfcmVhbCwgJnRzLT50c19yYXcpOwor
+CQloYXJkcHBzKCZyZWFsLCAmcmF3KTsKIAlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZwcHNfa2Nf
+aGFyZHBwc19sb2NrLCBmbGFncyk7CiB9CmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3RpbWV4
+LmggYi9pbmNsdWRlL2xpbnV4L3RpbWV4LmgKaW5kZXggOWQzZjFhNWI2MTc4Li4zOWMyNWRiZWJm
+ZTggMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGltZXguaAorKysgYi9pbmNsdWRlL2xpbnV4
+L3RpbWV4LmgKQEAgLTE1Miw3ICsxNTIsNyBAQCBleHRlcm4gdW5zaWduZWQgbG9uZyB0aWNrX25z
+ZWM7CQkvKiBTSElGVEVEX0haIHBlcmlvZCAobnNlYykgKi8KICNkZWZpbmUgTlRQX0lOVEVSVkFM
+X0xFTkdUSCAoTlNFQ19QRVJfU0VDL05UUF9JTlRFUlZBTF9GUkVRKQogCiBleHRlcm4gaW50IGRv
+X2FkanRpbWV4KHN0cnVjdCB0aW1leCAqKTsKLWV4dGVybiB2b2lkIGhhcmRwcHMoY29uc3Qgc3Ry
+dWN0IHRpbWVzcGVjICosIGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAqKTsKK2V4dGVybiB2b2lkIGhh
+cmRwcHMoY29uc3Qgc3RydWN0IHRpbWVzcGVjNjQgKiwgY29uc3Qgc3RydWN0IHRpbWVzcGVjNjQg
+Kik7CiAKIGludCByZWFkX2N1cnJlbnRfdGltZXIodW5zaWduZWQgbG9uZyAqdGltZXJfdmFsKTsK
+IHZvaWQgbnRwX25vdGlmeV9jbW9zX3RpbWVyKHZvaWQpOwpkaWZmIC0tZ2l0IGEva2VybmVsL3Rp
+bWUvbnRwLmMgYi9rZXJuZWwvdGltZS9udHAuYwppbmRleCBkZjY4Y2I4NzUyNDguLmJkNGZhNjI3
+MTI2MiAxMDA2NDQKLS0tIGEva2VybmVsL3RpbWUvbnRwLmMKKysrIGIva2VybmVsL3RpbWUvbnRw
+LmMKQEAgLTk5LDcgKzk5LDcgQEAgc3RhdGljIHRpbWU2NF90CQkJbnRwX25leHRfbGVhcF9zZWMg
+PSBUSU1FNjRfTUFYOwogc3RhdGljIGludCBwcHNfdmFsaWQ7CQkvKiBzaWduYWwgd2F0Y2hkb2cg
+Y291bnRlciAqLwogc3RhdGljIGxvbmcgcHBzX3RmWzNdOwkJLyogcGhhc2UgbWVkaWFuIGZpbHRl
+ciAqLwogc3RhdGljIGxvbmcgcHBzX2ppdHRlcjsJCS8qIGN1cnJlbnQgaml0dGVyIChucykgKi8K
+LXN0YXRpYyBzdHJ1Y3QgdGltZXNwZWMgcHBzX2ZiYXNlOyAvKiBiZWdpbm5pbmcgb2YgdGhlIGxh
+c3QgZnJlcSBpbnRlcnZhbCAqLworc3RhdGljIHN0cnVjdCB0aW1lc3BlYzY0IHBwc19mYmFzZTsg
+LyogYmVnaW5uaW5nIG9mIHRoZSBsYXN0IGZyZXEgaW50ZXJ2YWwgKi8KIHN0YXRpYyBpbnQgcHBz
+X3NoaWZ0OwkJLyogY3VycmVudCBpbnRlcnZhbCBkdXJhdGlvbiAocykgKHNoaWZ0KSAqLwogc3Rh
+dGljIGludCBwcHNfaW50Y250OwkJLyogaW50ZXJ2YWwgY291bnRlciAqLwogc3RhdGljIHM2NCBw
+cHNfZnJlcTsJCS8qIGZyZXF1ZW5jeSBvZmZzZXQgKHNjYWxlZCBucy9zKSAqLwpAQCAtNzczLDEz
+ICs3NzMsMTMgQEAgaW50IF9fZG9fYWRqdGltZXgoc3RydWN0IHRpbWV4ICp0eGMsIHN0cnVjdCB0
+aW1lc3BlYzY0ICp0cywgczMyICp0aW1lX3RhaSkKICAqIHBwc19ub3JtdGltZS5uc2VjIGhhcyBh
+IHJhbmdlIG9mICggLU5TRUNfUEVSX1NFQyAvIDIsIE5TRUNfUEVSX1NFQyAvIDIgXQogICogd2hp
+bGUgdGltZXNwZWMudHZfbnNlYyBoYXMgYSByYW5nZSBvZiBbMCwgTlNFQ19QRVJfU0VDKSAqLwog
+c3RydWN0IHBwc19ub3JtdGltZSB7Ci0JX19rZXJuZWxfdGltZV90CXNlYzsJLyogc2Vjb25kcyAq
+LworCXM2NAkJc2VjOwkvKiBzZWNvbmRzICovCiAJbG9uZwkJbnNlYzsJLyogbmFub3NlY29uZHMg
+Ki8KIH07CiAKIC8qIG5vcm1hbGl6ZSB0aGUgdGltZXN0YW1wIHNvIHRoYXQgbnNlYyBpcyBpbiB0
+aGUKICAgICggLU5TRUNfUEVSX1NFQyAvIDIsIE5TRUNfUEVSX1NFQyAvIDIgXSBpbnRlcnZhbCAq
+Lwotc3RhdGljIGlubGluZSBzdHJ1Y3QgcHBzX25vcm10aW1lIHBwc19ub3JtYWxpemVfdHMoc3Ry
+dWN0IHRpbWVzcGVjIHRzKQorc3RhdGljIGlubGluZSBzdHJ1Y3QgcHBzX25vcm10aW1lIHBwc19u
+b3JtYWxpemVfdHMoc3RydWN0IHRpbWVzcGVjNjQgdHMpCiB7CiAJc3RydWN0IHBwc19ub3JtdGlt
+ZSBub3JtID0gewogCQkuc2VjID0gdHMudHZfc2VjLApAQCAtODYxLDcgKzg2MSw3IEBAIHN0YXRp
+YyBsb25nIGhhcmRwcHNfdXBkYXRlX2ZyZXEoc3RydWN0IHBwc19ub3JtdGltZSBmcmVxX25vcm0p
+CiAJCXBwc19lcnJjbnQrKzsKIAkJcHBzX2RlY19mcmVxX2ludGVydmFsKCk7CiAJCXByaW50a19k
+ZWZlcnJlZChLRVJOX0VSUgotCQkJImhhcmRwcHM6IFBQU0VSUk9SOiBpbnRlcnZhbCB0b28gbG9u
+ZyAtICVsZCBzXG4iLAorCQkJImhhcmRwcHM6IFBQU0VSUk9SOiBpbnRlcnZhbCB0b28gbG9uZyAt
+ICVsbGQgc1xuIiwKIAkJCWZyZXFfbm9ybS5zZWMpOwogCQlyZXR1cm4gMDsKIAl9CkBAIC05NDgs
+NyArOTQ4LDcgQEAgc3RhdGljIHZvaWQgaGFyZHBwc191cGRhdGVfcGhhc2UobG9uZyBlcnJvcikK
+ICAqIFRoaXMgY29kZSBpcyBiYXNlZCBvbiBEYXZpZCBNaWxscydzIHJlZmVyZW5jZSBuYW5va2Vy
+bmVsCiAgKiBpbXBsZW1lbnRhdGlvbi4gSXQgd2FzIG1vc3RseSByZXdyaXR0ZW4gYnV0IGtlZXBz
+IHRoZSBzYW1lIGlkZWEuCiAgKi8KLXZvaWQgX19oYXJkcHBzKGNvbnN0IHN0cnVjdCB0aW1lc3Bl
+YyAqcGhhc2VfdHMsIGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAqcmF3X3RzKQordm9pZCBfX2hhcmRw
+cHMoY29uc3Qgc3RydWN0IHRpbWVzcGVjNjQgKnBoYXNlX3RzLCBjb25zdCBzdHJ1Y3QgdGltZXNw
+ZWM2NCAqcmF3X3RzKQogewogCXN0cnVjdCBwcHNfbm9ybXRpbWUgcHRzX25vcm0sIGZyZXFfbm9y
+bTsKIApAQCAtOTY5LDcgKzk2OSw3IEBAIHZvaWQgX19oYXJkcHBzKGNvbnN0IHN0cnVjdCB0aW1l
+c3BlYyAqcGhhc2VfdHMsIGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAqcmF3X3RzKQogCX0KIAogCS8q
+IG9rLCBub3cgd2UgaGF2ZSBhIGJhc2UgZm9yIGZyZXF1ZW5jeSBjYWxjdWxhdGlvbiAqLwotCWZy
+ZXFfbm9ybSA9IHBwc19ub3JtYWxpemVfdHModGltZXNwZWNfc3ViKCpyYXdfdHMsIHBwc19mYmFz
+ZSkpOworCWZyZXFfbm9ybSA9IHBwc19ub3JtYWxpemVfdHModGltZXNwZWM2NF9zdWIoKnJhd190
+cywgcHBzX2ZiYXNlKSk7CiAKIAkvKiBjaGVjayB0aGF0IHRoZSBzaWduYWwgaXMgaW4gdGhlIHJh
+bmdlCiAJICogWzFzIC0gTUFYRlJFUSB1cywgMXMgKyBNQVhGUkVRIHVzXSwgb3RoZXJ3aXNlIHJl
+amVjdCBpdCAqLwpkaWZmIC0tZ2l0IGEva2VybmVsL3RpbWUvbnRwX2ludGVybmFsLmggYi9rZXJu
+ZWwvdGltZS9udHBfaW50ZXJuYWwuaAppbmRleCA2NTQzMDUwNGNhMjYuLmFmOTI0NDcwZWFjMCAx
+MDA2NDQKLS0tIGEva2VybmVsL3RpbWUvbnRwX2ludGVybmFsLmgKKysrIGIva2VybmVsL3RpbWUv
+bnRwX2ludGVybmFsLmgKQEAgLTksNSArOSw1IEBAIGV4dGVybiBrdGltZV90IG50cF9nZXRfbmV4
+dF9sZWFwKHZvaWQpOwogZXh0ZXJuIGludCBzZWNvbmRfb3ZlcmZsb3codW5zaWduZWQgbG9uZyBz
+ZWNzKTsKIGV4dGVybiBpbnQgbnRwX3ZhbGlkYXRlX3RpbWV4KHN0cnVjdCB0aW1leCAqKTsKIGV4
+dGVybiBpbnQgX19kb19hZGp0aW1leChzdHJ1Y3QgdGltZXggKiwgc3RydWN0IHRpbWVzcGVjNjQg
+KiwgczMyICopOwotZXh0ZXJuIHZvaWQgX19oYXJkcHBzKGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAq
+LCBjb25zdCBzdHJ1Y3QgdGltZXNwZWMgKik7CitleHRlcm4gdm9pZCBfX2hhcmRwcHMoY29uc3Qg
+c3RydWN0IHRpbWVzcGVjNjQgKiwgY29uc3Qgc3RydWN0IHRpbWVzcGVjNjQgKik7CiAjZW5kaWYg
+LyogX0xJTlVYX05UUF9JTlRFUk5BTF9IICovCmRpZmYgLS1naXQgYS9rZXJuZWwvdGltZS90aW1l
+a2VlcGluZy5jIGIva2VybmVsL3RpbWUvdGltZWtlZXBpbmcuYwppbmRleCA5YTdmM2I3ODgyODIu
+LjMxMTI5NzdkZmNhMCAxMDA2NDQKLS0tIGEva2VybmVsL3RpbWUvdGltZWtlZXBpbmcuYworKysg
+Yi9rZXJuZWwvdGltZS90aW1la2VlcGluZy5jCkBAIC0yMDI1LDcgKzIwMjUsNyBAQCBpbnQgZG9f
+YWRqdGltZXgoc3RydWN0IHRpbWV4ICp0eGMpCiAvKioKICAqIGhhcmRwcHMoKSAtIEFjY2Vzc29y
+IGZ1bmN0aW9uIHRvIE5UUCBfX2hhcmRwcHMgZnVuY3Rpb24KICAqLwotdm9pZCBoYXJkcHBzKGNv
+bnN0IHN0cnVjdCB0aW1lc3BlYyAqcGhhc2VfdHMsIGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAqcmF3
+X3RzKQordm9pZCBoYXJkcHBzKGNvbnN0IHN0cnVjdCB0aW1lc3BlYzY0ICpwaGFzZV90cywgY29u
+c3Qgc3RydWN0IHRpbWVzcGVjNjQgKnJhd190cykKIHsKIAl1bnNpZ25lZCBsb25nIGZsYWdzOwog
+Ci0tIAoyLjEuMC5yYzIKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8v
+bGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
