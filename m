@@ -1,10 +1,10 @@
 From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-Subject: Re: [PATCH 15/23] usb-gadget/f_phonet: use per-attribute show and
+Subject: Re: [PATCH 16/23] usb-gadget/f_serial: use per-attribute show and
  store methods
-Date: Mon, 28 Sep 2015 13:59:03 +0200
-Message-ID: <56092B87.5010002@samsung.com>
+Date: Mon, 28 Sep 2015 13:59:21 +0200
+Message-ID: <56092B99.60501@samsung.com>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-16-git-send-email-hch@lst.de>
+ <1443189000-13398-17-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -16,7 +16,7 @@ Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
 To: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <target-devel-owner@vger.kernel.org>
-In-reply-to: <1443189000-13398-16-git-send-email-hch@lst.de>
+In-reply-to: <1443189000-13398-17-git-send-email-hch@lst.de>
 Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -26,56 +26,57 @@ W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 
 > ---
->   drivers/usb/gadget/function/f_phonet.c | 25 ++++---------------------
->   1 file changed, 4 insertions(+), 21 deletions(-)
+>   drivers/usb/gadget/function/f_serial.c | 26 ++++----------------------
+>   1 file changed, 4 insertions(+), 22 deletions(-)
 >
-> diff --git a/drivers/usb/gadget/function/f_phonet.c b/drivers/usb/gadget/function/f_phonet.c
-> index c0c3ef2..c029ef6 100644
-> --- a/drivers/usb/gadget/function/f_phonet.c
-> +++ b/drivers/usb/gadget/function/f_phonet.c
-> @@ -589,21 +589,6 @@ static inline struct f_phonet_opts *to_f_phonet_opts(struct config_item *item)
->   			func_inst.group);
+> diff --git a/drivers/usb/gadget/function/f_serial.c b/drivers/usb/gadget/function/f_serial.c
+> index 1d162e2..ec837f4 100644
+> --- a/drivers/usb/gadget/function/f_serial.c
+> +++ b/drivers/usb/gadget/function/f_serial.c
+> @@ -266,22 +266,6 @@ static inline struct f_serial_opts *to_f_serial_opts(struct config_item *item)
+>   			    func_inst.group);
 >   }
 >
-> -CONFIGFS_ATTR_STRUCT(f_phonet_opts);
-> -static ssize_t f_phonet_attr_show(struct config_item *item,
-> -				struct configfs_attribute *attr,
-> -				char *page)
+> -CONFIGFS_ATTR_STRUCT(f_serial_opts);
+> -static ssize_t f_serial_attr_show(struct config_item *item,
+> -				  struct configfs_attribute *attr,
+> -				  char *page)
 > -{
-> -	struct f_phonet_opts *opts = to_f_phonet_opts(item);
-> -	struct f_phonet_opts_attribute *f_phonet_opts_attr =
-> -		container_of(attr, struct f_phonet_opts_attribute, attr);
+> -	struct f_serial_opts *opts = to_f_serial_opts(item);
+> -	struct f_serial_opts_attribute *f_serial_opts_attr =
+> -		container_of(attr, struct f_serial_opts_attribute, attr);
 > -	ssize_t ret = 0;
 > -
-> -	if (f_phonet_opts_attr->show)
-> -		ret = f_phonet_opts_attr->show(opts, page);
+> -	if (f_serial_opts_attr->show)
+> -		ret = f_serial_opts_attr->show(opts, page);
+> -
 > -	return ret;
 > -}
 > -
->   static void phonet_attr_release(struct config_item *item)
+>   static void serial_attr_release(struct config_item *item)
 >   {
->   	struct f_phonet_opts *opts = to_f_phonet_opts(item);
-> @@ -613,19 +598,17 @@ static void phonet_attr_release(struct config_item *item)
+>   	struct f_serial_opts *opts = to_f_serial_opts(item);
+> @@ -291,19 +275,17 @@ static void serial_attr_release(struct config_item *item)
 >
->   static struct configfs_item_operations phonet_item_ops = {
->   	.release		= phonet_attr_release,
-> -	.show_attribute		= f_phonet_attr_show,
+>   static struct configfs_item_operations serial_item_ops = {
+>   	.release	= serial_attr_release,
+> -	.show_attribute = f_serial_attr_show,
 >   };
 >
-> -static ssize_t f_phonet_ifname_show(struct f_phonet_opts *opts, char *page)
-> +static ssize_t f_phonet_ifname_show(struct config_item *item, char *page)
+> -static ssize_t f_serial_port_num_show(struct f_serial_opts *opts, char *page)
+> +static ssize_t f_serial_port_num_show(struct config_item *item, char *page)
 >   {
-> -	return gether_get_ifname(opts->net, page, PAGE_SIZE);
-> +	return gether_get_ifname(to_f_phonet_opts(item)->net, page, PAGE_SIZE);
+> -	return sprintf(page, "%u\n", opts->port_num);
+> +	return sprintf(page, "%u\n", to_f_serial_opts(item)->port_num);
 >   }
 >
-> -static struct f_phonet_opts_attribute f_phonet_ifname =
-> -	__CONFIGFS_ATTR_RO(ifname, f_phonet_ifname_show);
-> +CONFIGFS_ATTR_RO(f_phonet_, ifname);
+> -static struct f_serial_opts_attribute f_serial_port_num =
+> -	__CONFIGFS_ATTR_RO(port_num, f_serial_port_num_show);
+> +CONFIGFS_ATTR_RO(f_serial_, port_num);
 >
->   static struct configfs_attribute *phonet_attrs[] = {
-> -	&f_phonet_ifname.attr,
-> +	&f_phonet_attr_ifname,
+>   static struct configfs_attribute *acm_attrs[] = {
+> -	&f_serial_port_num.attr,
+> +	&f_serial_attr_port_num,
 >   	NULL,
 >   };
 >
