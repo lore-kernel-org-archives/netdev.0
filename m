@@ -1,124 +1,49 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/5] ntp/pps: replace getnstime_raw_and_real with 64-bit version
-Date: Mon, 28 Sep 2015 22:21:29 +0200
-Message-ID: <1443471692-2946597-3-git-send-email-arnd@arndb.de>
+Subject: [PATCH 3/5] ntp: use timespec64 in sync_cmos_clock
+Date: Mon, 28 Sep 2015 22:21:30 +0200
+Message-ID: <1443471692-2946597-4-git-send-email-arnd@arndb.de>
 References: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	linux-net-drivers@solarflare.com,
-	Shradha Shah <sshah@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Rodolfo Giometti <giometti@enneenne.com>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+ linux-kernel@vger.kernel.org, linux-net-drivers@solarflare.com,
+ John Stultz <john.stultz@linaro.org>, Shradha Shah <sshah@solarflare.com>,
+ Thomas Gleixner <tglx@linutronix.de>
 To: y2038@lists.linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:56608 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbbI1UXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 16:23:06 -0400
+Return-path: <y2038-bounces@lists.linaro.org>
 In-Reply-To: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-There is exactly one caller of getnstime_raw_and_real in the kernel,
-which is the pps_get_ts function. This changes the caller and
-the implementation to work on timespec64 types rather than timespec,
-to avoid the time_t overflow on 32-bit architectures.
-
-For consistency with the other new functions (ktime_get_seconds,
-ktime_get_real_*, ...), I'm renaming the function to
-ktime_get_raw_and_real_ts64.
-
-We still need to convert from the internal 64-bit type to 32 bit
-types in the caller, but this conversion is now pushed out from
-getnstime_raw_and_real to pps_get_ts. A follow-up patch changes
-the remaining pps code to completely avoid the conversion.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- include/linux/pps_kernel.h  |  7 ++++++-
- include/linux/timekeeping.h |  4 ++--
- kernel/time/timekeeping.c   | 12 ++++++------
- 3 files changed, 14 insertions(+), 9 deletions(-)
-
-diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
-index 1d2cd21242e8..b2fbd62ab18d 100644
---- a/include/linux/pps_kernel.h
-+++ b/include/linux/pps_kernel.h
-@@ -115,7 +115,12 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
- 
- static inline void pps_get_ts(struct pps_event_time *ts)
- {
--	getnstime_raw_and_real(&ts->ts_raw, &ts->ts_real);
-+	struct timespec64 raw, real;
-+
-+	ktime_get_raw_and_real_ts64(&raw, &real);
-+
-+	ts->ts_raw = timespec64_to_timespec(raw);
-+	ts->ts_real = timespec64_to_timespec(real);
- }
- 
- #else /* CONFIG_NTP_PPS */
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 474331cd1ef8..ca2eaa9077eb 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -269,8 +269,8 @@ extern void timekeeping_inject_sleeptime64(struct timespec64 *delta);
- /*
-  * PPS accessor
-  */
--extern void getnstime_raw_and_real(struct timespec *ts_raw,
--				   struct timespec *ts_real);
-+extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
-+				        struct timespec64 *ts_real);
- 
- /*
-  * Persistent clock related interfaces
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 3112977dfca0..ed5049ff94c5 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -849,7 +849,7 @@ EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
- #ifdef CONFIG_NTP_PPS
- 
- /**
-- * getnstime_raw_and_real - get day and raw monotonic time in timespec format
-+ * ktime_get_raw_and_real_ts64 - get day and raw monotonic time in timespec format
-  * @ts_raw:	pointer to the timespec to be set to raw monotonic time
-  * @ts_real:	pointer to the timespec to be set to the time of day
-  *
-@@ -857,7 +857,7 @@ EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
-  * same time atomically and stores the resulting timestamps in timespec
-  * format.
-  */
--void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
-+void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw, struct timespec64 *ts_real)
- {
- 	struct timekeeper *tk = &tk_core.timekeeper;
- 	unsigned long seq;
-@@ -868,7 +868,7 @@ void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
- 	do {
- 		seq = read_seqcount_begin(&tk_core.seq);
- 
--		*ts_raw = timespec64_to_timespec(tk->raw_time);
-+		*ts_raw = tk->raw_time;
- 		ts_real->tv_sec = tk->xtime_sec;
- 		ts_real->tv_nsec = 0;
- 
-@@ -877,10 +877,10 @@ void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
- 
- 	} while (read_seqcount_retry(&tk_core.seq, seq));
- 
--	timespec_add_ns(ts_raw, nsecs_raw);
--	timespec_add_ns(ts_real, nsecs_real);
-+	timespec64_add_ns(ts_raw, nsecs_raw);
-+	timespec64_add_ns(ts_real, nsecs_real);
- }
--EXPORT_SYMBOL(getnstime_raw_and_real);
-+EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
- 
- #endif /* CONFIG_NTP_PPS */
- 
--- 
-2.1.0.rc2
+VGhlIHN5bmNfY21vc19jbG9jayBoYXMgb25lIHVzZSBvZiBzdHJ1Y3QgdGltZXNwZWMsIHdoaWNo
+IHdlIHdhbnQgdG8KZXZlbnR1YWxseSByZXBsYWNlIHdpdGggdGltZXNwZWM2NCBvciBzaW1pbGFy
+IGluIHRoZSBrZXJuZWwuIFRoZXJlCmlzIG5vIHdheSB0aGlzIG9uZSBjYW4gb3ZlcmZsb3csIGJ1
+dCB0aGUgY29udmVyc2lvbiB0byB0aW1lc3BlYzY0CmlzIHRyaXZpYWwgYW5kIGhhcyBubyBvdGhl
+ciBkZXBlbmRlbmNpZXMuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRi
+LmRlPgotLS0KIGtlcm5lbC90aW1lL250cC5jIHwgNCArKy0tCiAxIGZpbGUgY2hhbmdlZCwgMiBp
+bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2tlcm5lbC90aW1lL250
+cC5jIGIva2VybmVsL3RpbWUvbnRwLmMKaW5kZXggYmQ0ZmE2MjcxMjYyLi4xNDljYzgwODZhZWEg
+MTAwNjQ0Ci0tLSBhL2tlcm5lbC90aW1lL250cC5jCisrKyBiL2tlcm5lbC90aW1lL250cC5jCkBA
+IC01MDksNyArNTA5LDcgQEAgc3RhdGljIERFQ0xBUkVfREVMQVlFRF9XT1JLKHN5bmNfY21vc193
+b3JrLCBzeW5jX2Ntb3NfY2xvY2spOwogc3RhdGljIHZvaWQgc3luY19jbW9zX2Nsb2NrKHN0cnVj
+dCB3b3JrX3N0cnVjdCAqd29yaykKIHsKIAlzdHJ1Y3QgdGltZXNwZWM2NCBub3c7Ci0Jc3RydWN0
+IHRpbWVzcGVjIG5leHQ7CisJc3RydWN0IHRpbWVzcGVjNjQgbmV4dDsKIAlpbnQgZmFpbCA9IDE7
+CiAKIAkvKgpAQCAtNTU5LDcgKzU1OSw3IEBAIHN0YXRpYyB2b2lkIHN5bmNfY21vc19jbG9jayhz
+dHJ1Y3Qgd29ya19zdHJ1Y3QgKndvcmspCiAJCW5leHQudHZfbnNlYyAtPSBOU0VDX1BFUl9TRUM7
+CiAJfQogCXF1ZXVlX2RlbGF5ZWRfd29yayhzeXN0ZW1fcG93ZXJfZWZmaWNpZW50X3dxLAotCQkJ
+ICAgJnN5bmNfY21vc193b3JrLCB0aW1lc3BlY190b19qaWZmaWVzKCZuZXh0KSk7CisJCQkgICAm
+c3luY19jbW9zX3dvcmssIHRpbWVzcGVjNjRfdG9famlmZmllcygmbmV4dCkpOwogfQogCiB2b2lk
+IG50cF9ub3RpZnlfY21vc190aW1lcih2b2lkKQotLSAKMi4xLjAucmMyCgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIw
+MzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0
+aW5mby95MjAzOAo=
