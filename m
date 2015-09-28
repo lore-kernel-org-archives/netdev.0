@@ -1,10 +1,10 @@
 From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-Subject: Re: [PATCH 11/23] usb-gadget/f_mass_storage: use per-attribute show
- and store methods
-Date: Mon, 28 Sep 2015 13:53:20 +0200
-Message-ID: <56092A30.8000800@samsung.com>
+Subject: Re: [PATCH 12/23] usb-gadget/f_ac1: use per-attribute show and store
+ methods
+Date: Mon, 28 Sep 2015 13:56:11 +0200
+Message-ID: <56092ADB.9010905@samsung.com>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-12-git-send-email-hch@lst.de>
+ <1443189000-13398-13-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,270 +15,134 @@ Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
 	netdev@vger.kernel.org
 To: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
 	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-reply-to: <1443189000-13398-12-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout3.w1.samsung.com ([210.118.77.13]:53495 "EHLO
+	mailout3.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753014AbbI1L4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 07:56:15 -0400
+In-reply-to: <1443189000-13398-13-git-send-email-hch@lst.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Christoph,
 
-The same remark as for f_loopback (__CONFIGFS_ATTR location vs
-CONFIGFS_ATTR location after applying)
-
-If addressed
+The commit title should be ".... usb-gadget/f_uac1 ..."
+instead of ".... f_ac1 ..."
 
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 
 W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
->   drivers/usb/gadget/function/f_mass_storage.c | 123 ++++++++++-----------------
->   1 file changed, 46 insertions(+), 77 deletions(-)
+>   drivers/usb/gadget/function/f_uac1.c | 39 +++++++++++++++---------------------
+>   1 file changed, 16 insertions(+), 23 deletions(-)
 >
-> diff --git a/drivers/usb/gadget/function/f_mass_storage.c b/drivers/usb/gadget/function/f_mass_storage.c
-> index a6eb537..db71ae9 100644
-> --- a/drivers/usb/gadget/function/f_mass_storage.c
-> +++ b/drivers/usb/gadget/function/f_mass_storage.c
-> @@ -3144,9 +3144,6 @@ static inline struct fsg_opts *to_fsg_opts(struct config_item *item)
+> diff --git a/drivers/usb/gadget/function/f_uac1.c b/drivers/usb/gadget/function/f_uac1.c
+> index 7856b33..ad01032 100644
+> --- a/drivers/usb/gadget/function/f_uac1.c
+> +++ b/drivers/usb/gadget/function/f_uac1.c
+> @@ -773,9 +773,6 @@ static inline struct f_uac1_opts *to_f_uac1_opts(struct config_item *item)
 >   			    func_inst.group);
 >   }
 >
-> -CONFIGFS_ATTR_STRUCT(fsg_lun_opts);
-> -CONFIGFS_ATTR_OPS(fsg_lun_opts);
+> -CONFIGFS_ATTR_STRUCT(f_uac1_opts);
+> -CONFIGFS_ATTR_OPS(f_uac1_opts);
 > -
->   static void fsg_lun_attr_release(struct config_item *item)
+>   static void f_uac1_attr_release(struct config_item *item)
 >   {
->   	struct fsg_lun_opts *lun_opts;
-> @@ -3157,110 +3154,89 @@ static void fsg_lun_attr_release(struct config_item *item)
+>   	struct f_uac1_opts *opts = to_f_uac1_opts(item);
+> @@ -785,14 +782,13 @@ static void f_uac1_attr_release(struct config_item *item)
 >
->   static struct configfs_item_operations fsg_lun_item_ops = {
->   	.release		= fsg_lun_attr_release,
-> -	.show_attribute		= fsg_lun_opts_attr_show,
-> -	.store_attribute	= fsg_lun_opts_attr_store,
+>   static struct configfs_item_operations f_uac1_item_ops = {
+>   	.release	= f_uac1_attr_release,
+> -	.show_attribute	= f_uac1_opts_attr_show,
+> -	.store_attribute = f_uac1_opts_attr_store,
 >   };
 >
-> -static ssize_t fsg_lun_opts_file_show(struct fsg_lun_opts *opts, char *page)
-> +static ssize_t fsg_lun_opts_file_show(struct config_item *item, char *page)
->   {
-> -	struct fsg_opts *fsg_opts;
-> -
-> -	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-> +	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-> +	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
+>   #define UAC1_INT_ATTRIBUTE(name)					\
+> -static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+> +static ssize_t f_uac1_opts_##name##_show(struct config_item *item,	\
+>   					 char *page)			\
+>   {									\
+> +	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+>   	int result;							\
+>   									\
+>   	mutex_lock(&opts->lock);					\
+> @@ -802,9 +798,10 @@ static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+>   	return result;							\
+>   }									\
+>   									\
+> -static ssize_t f_uac1_opts_##name##_store(struct f_uac1_opts *opts,	\
+> +static ssize_t f_uac1_opts_##name##_store(struct config_item *item,		\
+>   					  const char *page, size_t len)	\
+>   {									\
+> +	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+>   	int ret;							\
+>   	u32 num;							\
+>   									\
+> @@ -826,19 +823,17 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct f_uac1_opts_attribute f_uac1_opts_##name =		\
+> -	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR,			\
+> -			f_uac1_opts_##name##_show,			\
+> -			f_uac1_opts_##name##_store)
+> +CONFIGFS_ATTR(f_uac1_opts_, name)
 >
->   	return fsg_show_file(opts->lun, &fsg_opts->common->filesem, page);
->   }
+>   UAC1_INT_ATTRIBUTE(req_buf_size);
+>   UAC1_INT_ATTRIBUTE(req_count);
+>   UAC1_INT_ATTRIBUTE(audio_buf_size);
 >
-> -static ssize_t fsg_lun_opts_file_store(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_file_store(struct config_item *item,
->   				       const char *page, size_t len)
->   {
-> -	struct fsg_opts *fsg_opts;
-> -
-> -	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-> +	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-> +	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
+>   #define UAC1_STR_ATTRIBUTE(name)					\
+> -static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+> +static ssize_t f_uac1_opts_##name##_show(struct config_item *item,	\
+>   					 char *page)			\
+>   {									\
+> +	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+>   	int result;							\
+>   									\
+>   	mutex_lock(&opts->lock);					\
+> @@ -848,9 +843,10 @@ static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+>   	return result;							\
+>   }									\
+>   									\
+> -static ssize_t f_uac1_opts_##name##_store(struct f_uac1_opts *opts,	\
+> +static ssize_t f_uac1_opts_##name##_store(struct config_item *item,	\
+>   					  const char *page, size_t len)	\
+>   {									\
+> +	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+>   	int ret = -EBUSY;						\
+>   	char *tmp;							\
+>   									\
+> @@ -874,22 +870,19 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct f_uac1_opts_attribute f_uac1_opts_##name =		\
+> -	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR,			\
+> -			f_uac1_opts_##name##_show,			\
+> -			f_uac1_opts_##name##_store)
+> +CONFIGFS_ATTR(f_uac1_opts_, name)
 >
->   	return fsg_store_file(opts->lun, &fsg_opts->common->filesem, page, len);
->   }
+>   UAC1_STR_ATTRIBUTE(fn_play);
+>   UAC1_STR_ATTRIBUTE(fn_cap);
+>   UAC1_STR_ATTRIBUTE(fn_cntl);
 >
-> -static struct fsg_lun_opts_attribute fsg_lun_opts_file =
-> -	__CONFIGFS_ATTR(file, S_IRUGO | S_IWUSR, fsg_lun_opts_file_show,
-> -			fsg_lun_opts_file_store);
-> -
-> -static ssize_t fsg_lun_opts_ro_show(struct fsg_lun_opts *opts, char *page)
-> +static ssize_t fsg_lun_opts_ro_show(struct config_item *item, char *page)
->   {
-> -	return fsg_show_ro(opts->lun, page);
-> +	return fsg_show_ro(to_fsg_lun_opts(item)->lun, page);
->   }
->
-> -static ssize_t fsg_lun_opts_ro_store(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_ro_store(struct config_item *item,
->   				       const char *page, size_t len)
->   {
-> -	struct fsg_opts *fsg_opts;
-> -
-> -	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-> +	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-> +	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
->
->   	return fsg_store_ro(opts->lun, &fsg_opts->common->filesem, page, len);
->   }
->
-> -static struct fsg_lun_opts_attribute fsg_lun_opts_ro =
-> -	__CONFIGFS_ATTR(ro, S_IRUGO | S_IWUSR, fsg_lun_opts_ro_show,
-> -			fsg_lun_opts_ro_store);
-> -
-> -static ssize_t fsg_lun_opts_removable_show(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_removable_show(struct config_item *item,
->   					   char *page)
->   {
-> -	return fsg_show_removable(opts->lun, page);
-> +	return fsg_show_removable(to_fsg_lun_opts(item)->lun, page);
->   }
->
-> -static ssize_t fsg_lun_opts_removable_store(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_removable_store(struct config_item *item,
->   				       const char *page, size_t len)
->   {
-> -	return fsg_store_removable(opts->lun, page, len);
-> +	return fsg_store_removable(to_fsg_lun_opts(item)->lun, page, len);
->   }
->
-> -static struct fsg_lun_opts_attribute fsg_lun_opts_removable =
-> -	__CONFIGFS_ATTR(removable, S_IRUGO | S_IWUSR,
-> -			fsg_lun_opts_removable_show,
-> -			fsg_lun_opts_removable_store);
-> -
-> -static ssize_t fsg_lun_opts_cdrom_show(struct fsg_lun_opts *opts, char *page)
-> +static ssize_t fsg_lun_opts_cdrom_show(struct config_item *item, char *page)
->   {
-> -	return fsg_show_cdrom(opts->lun, page);
-> +	return fsg_show_cdrom(to_fsg_lun_opts(item)->lun, page);
->   }
->
-> -static ssize_t fsg_lun_opts_cdrom_store(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_cdrom_store(struct config_item *item,
->   				       const char *page, size_t len)
->   {
-> -	struct fsg_opts *fsg_opts;
-> -
-> -	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-> +	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-> +	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
->
->   	return fsg_store_cdrom(opts->lun, &fsg_opts->common->filesem, page,
->   			       len);
->   }
->
-> -static struct fsg_lun_opts_attribute fsg_lun_opts_cdrom =
-> -	__CONFIGFS_ATTR(cdrom, S_IRUGO | S_IWUSR, fsg_lun_opts_cdrom_show,
-> -			fsg_lun_opts_cdrom_store);
-> -
-> -static ssize_t fsg_lun_opts_nofua_show(struct fsg_lun_opts *opts, char *page)
-> +static ssize_t fsg_lun_opts_nofua_show(struct config_item *item, char *page)
->   {
-> -	return fsg_show_nofua(opts->lun, page);
-> +	return fsg_show_nofua(to_fsg_lun_opts(item)->lun, page);
->   }
->
-> -static ssize_t fsg_lun_opts_nofua_store(struct fsg_lun_opts *opts,
-> +static ssize_t fsg_lun_opts_nofua_store(struct config_item *item,
->   				       const char *page, size_t len)
->   {
-> -	return fsg_store_nofua(opts->lun, page, len);
-> +	return fsg_store_nofua(to_fsg_lun_opts(item)->lun, page, len);
->   }
->
-> -static struct fsg_lun_opts_attribute fsg_lun_opts_nofua =
-> -	__CONFIGFS_ATTR(nofua, S_IRUGO | S_IWUSR, fsg_lun_opts_nofua_show,
-> -			fsg_lun_opts_nofua_store);
-> +CONFIGFS_ATTR(fsg_lun_opts_, file);
-> +CONFIGFS_ATTR(fsg_lun_opts_, ro);
-> +CONFIGFS_ATTR(fsg_lun_opts_, removable);
-> +CONFIGFS_ATTR(fsg_lun_opts_, cdrom);
-> +CONFIGFS_ATTR(fsg_lun_opts_, nofua);
->
->   static struct configfs_attribute *fsg_lun_attrs[] = {
-> -	&fsg_lun_opts_file.attr,
-> -	&fsg_lun_opts_ro.attr,
-> -	&fsg_lun_opts_removable.attr,
-> -	&fsg_lun_opts_cdrom.attr,
-> -	&fsg_lun_opts_nofua.attr,
-> +	&fsg_lun_opts_attr_file,
-> +	&fsg_lun_opts_attr_ro,
-> +	&fsg_lun_opts_attr_removable,
-> +	&fsg_lun_opts_attr_cdrom,
-> +	&fsg_lun_opts_attr_nofua,
+>   static struct configfs_attribute *f_uac1_attrs[] = {
+> -	&f_uac1_opts_req_buf_size.attr,
+> -	&f_uac1_opts_req_count.attr,
+> -	&f_uac1_opts_audio_buf_size.attr,
+> -	&f_uac1_opts_fn_play.attr,
+> -	&f_uac1_opts_fn_cap.attr,
+> -	&f_uac1_opts_fn_cntl.attr,
+> +	&f_uac1_opts_attr_req_buf_size,
+> +	&f_uac1_opts_attr_req_count,
+> +	&f_uac1_opts_attr_audio_buf_size,
+> +	&f_uac1_opts_attr_fn_play,
+> +	&f_uac1_opts_attr_fn_cap,
+> +	&f_uac1_opts_attr_fn_cntl,
 >   	NULL,
 >   };
 >
-> @@ -3352,9 +3328,6 @@ static void fsg_lun_drop(struct config_group *group, struct config_item *item)
->   	config_item_put(item);
->   }
->
-> -CONFIGFS_ATTR_STRUCT(fsg_opts);
-> -CONFIGFS_ATTR_OPS(fsg_opts);
-> -
->   static void fsg_attr_release(struct config_item *item)
->   {
->   	struct fsg_opts *opts = to_fsg_opts(item);
-> @@ -3364,12 +3337,11 @@ static void fsg_attr_release(struct config_item *item)
->
->   static struct configfs_item_operations fsg_item_ops = {
->   	.release		= fsg_attr_release,
-> -	.show_attribute		= fsg_opts_attr_show,
-> -	.store_attribute	= fsg_opts_attr_store,
->   };
->
-> -static ssize_t fsg_opts_stall_show(struct fsg_opts *opts, char *page)
-> +static ssize_t fsg_opts_stall_show(struct config_item *item, char *page)
->   {
-> +	struct fsg_opts *opts = to_fsg_opts(item);
->   	int result;
->
->   	mutex_lock(&opts->lock);
-> @@ -3379,9 +3351,10 @@ static ssize_t fsg_opts_stall_show(struct fsg_opts *opts, char *page)
->   	return result;
->   }
->
-> -static ssize_t fsg_opts_stall_store(struct fsg_opts *opts, const char *page,
-> +static ssize_t fsg_opts_stall_store(struct config_item *item, const char *page,
->   				    size_t len)
->   {
-> +	struct fsg_opts *opts = to_fsg_opts(item);
->   	int ret;
->   	bool stall;
->
-> @@ -3403,13 +3376,12 @@ static ssize_t fsg_opts_stall_store(struct fsg_opts *opts, const char *page,
->   	return ret;
->   }
->
-> -static struct fsg_opts_attribute fsg_opts_stall =
-> -	__CONFIGFS_ATTR(stall, S_IRUGO | S_IWUSR, fsg_opts_stall_show,
-> -			fsg_opts_stall_store);
-> +CONFIGFS_ATTR(fsg_opts_, stall);
->
->   #ifdef CONFIG_USB_GADGET_DEBUG_FILES
-> -static ssize_t fsg_opts_num_buffers_show(struct fsg_opts *opts, char *page)
-> +static ssize_t fsg_opts_num_buffers_show(struct config_item *item, char *page)
->   {
-> +	struct fsg_opts *opts = to_fsg_opts(item);
->   	int result;
->
->   	mutex_lock(&opts->lock);
-> @@ -3419,9 +3391,10 @@ static ssize_t fsg_opts_num_buffers_show(struct fsg_opts *opts, char *page)
->   	return result;
->   }
->
-> -static ssize_t fsg_opts_num_buffers_store(struct fsg_opts *opts,
-> +static ssize_t fsg_opts_num_buffers_store(struct config_item *item,
->   					  const char *page, size_t len)
->   {
-> +	struct fsg_opts *opts = to_fsg_opts(item);
->   	int ret;
->   	u8 num;
->
-> @@ -3446,17 +3419,13 @@ end:
->   	return ret;
->   }
->
-> -static struct fsg_opts_attribute fsg_opts_num_buffers =
-> -	__CONFIGFS_ATTR(num_buffers, S_IRUGO | S_IWUSR,
-> -			fsg_opts_num_buffers_show,
-> -			fsg_opts_num_buffers_store);
-> -
-> +CONFIGFS_ATTR(fsg_opts_, num_buffers);
->   #endif
->
->   static struct configfs_attribute *fsg_attrs[] = {
-> -	&fsg_opts_stall.attr,
-> +	&fsg_opts_attr_stall,
->   #ifdef CONFIG_USB_GADGET_DEBUG_FILES
-> -	&fsg_opts_num_buffers.attr,
-> +	&fsg_opts_attr_num_buffers,
->   #endif
->   	NULL,
->   };
 >
