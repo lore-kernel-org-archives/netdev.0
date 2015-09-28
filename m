@@ -1,67 +1,101 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 RFC] 8139cp: Fix GSO MSS handling
-Date: Sun, 27 Sep 2015 22:37:49 -0700
-Message-ID: <CALx6S36pah3B7AgqAzpfExA8ehH3VMLzWF275sH0OA815e3TUQ@mail.gmail.com>
-References: <1442996049.36485.32.camel@infradead.org>
-	<20150923.105812.149257816141624869.davem@davemloft.net>
-	<1443037530.74600.29.camel@infradead.org>
-	<20150923.144808.886375927698238398.davem@davemloft.net>
-	<1443045602.74600.33.camel@infradead.org>
-	<20150923232931.GA8365@electric-eye.fr.zoreil.com>
-	<1443085112.74600.53.camel@infradead.org>
-	<1443091102.74600.70.camel@infradead.org>
-	<1443096325.29850.151.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1443097898.74600.91.camel@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Woodhouse <dwmw2@infradead.org>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 0/4] ieee802154: add llsec support over nl802154
+Date: Mon, 28 Sep 2015 09:00:22 +0200
+Message-ID: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
+Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de,
+	Alexander Aring <alex.aring@gmail.com>
+To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33495 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751130AbbI1Fhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 01:37:50 -0400
-Received: by iofh134 with SMTP id h134so163803731iof.0
-        for <netdev@vger.kernel.org>; Sun, 27 Sep 2015 22:37:50 -0700 (PDT)
-In-Reply-To: <1443097898.74600.91.camel@infradead.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:36834 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbbI1HCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:02:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 24, 2015 at 5:31 AM, David Woodhouse <dwmw2@infradead.org> wrote:
-> On Thu, 2015-09-24 at 05:05 -0700, Eric Dumazet wrote:
->>
->> Right, netif_skb_features() only has the following checks :
->>
->> if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
->>     features &= ~NETIF_F_GSO_MASK;
->>
->> But now we have .ndo_features_check() we could remove this generic
->> check from fast path.
->
-> Perhaps so, yes.
->
-> Any thoughts on the other reason I was staring at this same code path
-> this week? I am able to reliably feed inappropriate packets to a
-> NETIF_F_IP_CSUM-capable device with the test program at
-> http://bombadil.infradead.org/~dwmw2/raw.c (and equivalent code paths
-> via virtio_net, tun and others).
->
-> They're *supposed* to get checksummed by software if the device can't
-> cope, but netif_skb_features() returns the wrong answer, so we fail to
-> do that and they're fed with CHECKSUM_PARTIAL to a device which can't
-> handle them. Causing a WARN() or a BUG() or a silent corruption,
-> depending on the driver.
->
-Which drivers are doing this? It is up to the driver to determine
-whether a particular packet being sent can have checksum offloaded to
-the device. If it cannot offload the checksum it must call
-skb_checksum_help.
+Hi,
 
-Tom
+this patch series will add llsec support for nl802154.
 
-> --
-> dwmw2
->
+What is "llsec"?
+
+The llsec (I suppose it stands for linklayer security) is part of the SoftMAC
+implementation of 802.15.4 "net/mac802154/llsec.c". The 802.15.4 standard
+describes an security mechanism over ACL's. The encryption/decryption will do
+llsec. To access llsec we need an interface for nl802154. The 802.15.4 standard
+describes PHY/MAC layer and we have "possible" similar paradigms like wireless
+with SoftMAC and HardMAC drivers. (We don't support HardMAC transceivers right
+now, I never had some HardMAC transceivers, are really expensive and there are
+only few some which can also run in a "raw" mode.) Anyway the nl802154 should
+access SoftMAC/HardMAC drivers to abstract "one interface to userspace".
+
+These ACL's are known as "security tables" inside the mac information base
+(MIB) of 802.15.4 standard, security MIB.
+
+The final goal we have to provide these tables in userspace is an "iptables"
+handling "store" and "restore", over the userspace application "iwpan" which
+contains the general "framework mechanism" like wireless "iw" tool, you can
+add/del entries on these security tables, then.
+
+I don't looked right now how iptables userspace application do "exactly" the
+store and restore mechanism. The current way is a very KISS handling:
+
+ We add netlink cmd's to add/del the table entries. Over the dump callback
+ it's possible to get all information which is printed out as the command
+ line string "iwpan dev $WPAN_DEV $TABLE add ...". The restore script will
+ simple export $WPAN_DEV variable to restore these configuration for a
+ specific interface.
+
+ I will send the userspace patches as well to netdev, maybe somebody wants
+ to know what I did there for first support.
+
+This sounds weird but is to support llsec somehow a acceptable use-case. The
+final goal is to lookup how iptables works and make a nicer C implementation.
+There is currently no "official supported" userspace tool which support
+accessing the "llsec".
+
+I added several TODO's to the current implementation and added a new:
+
+CONFIG_IEEE802154_NL802154_EXPERIMENTAL
+
+This config will not build the nl802154 llsec layer and reduce the MAX_ATTR
+attribute of nl802154 interface. With this config I explicit say this interface
+over nl802154 is still in development and will be changed later.
+
+The 802.15.4 subsystem is still in EXPERIMENTAL state, there was some commit
+f4671a90c418b5aae14b61a9fc9d79c629403ca0 ("net/ieee802154: remove depends on
+CONFIG_EXPERIMENTAL") which is fine but no maintainer ever said it's not
+experimental anymore.
+
+Checkpatch will complain about some above 80-chars width, at these places I
+ignore these warning otherwise the code looks awful in my opinion.
+
+My current working repository is still bluetooth-next/master. David if
+everything is fine, then please ack patch "[PATCH bluetooth-next 1/4]
+netlink: add nla_get for le32 and le64", so Marcel can apply it. Thanks.
+
+- Alex
+
+Alexander Aring (4):
+  netlink: add nla_get for le32 and le64
+  nl802154: use nla_get_le64 for get extended addr
+  nl802154: add support for security layer
+  mac802154: add comments for llsec issues
+
+ include/net/cfg802154.h         |  131 ++++
+ include/net/ieee802154_netdev.h |   75 ---
+ include/net/netlink.h           |   18 +
+ include/net/nl802154.h          |  191 ++++++
+ net/ieee802154/Kconfig          |    5 +
+ net/ieee802154/core.c           |   12 +
+ net/ieee802154/core.h           |    1 +
+ net/ieee802154/nl802154.c       | 1320 ++++++++++++++++++++++++++++++++++++---
+ net/ieee802154/rdev-ops.h       |  109 ++++
+ net/mac802154/cfg.c             |  205 ++++++
+ net/mac802154/rx.c              |    4 +
+ net/mac802154/tx.c              |    4 +
+ 12 files changed, 1903 insertions(+), 172 deletions(-)
+
+-- 
+2.5.3
