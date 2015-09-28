@@ -1,188 +1,183 @@
-From: Weidong Wang <wangweidong1@huawei.com>
-Subject: [PATCH net-next v2] BNX2: fix a Null Pointer for stats_blk
-Date: Mon, 28 Sep 2015 15:01:50 +0800
-Message-ID: <5608E5DE.6010706@huawei.com>
-References: <56014CC0.3050201@huawei.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH v2 RFC] 8139cp: Fix GSO MSS handling
+Date: Mon, 28 Sep 2015 08:21:50 +0100
+Message-ID: <1443424910.4674.74.camel@infradead.org>
+References: <1442996049.36485.32.camel@infradead.org>
+	 <20150923.105812.149257816141624869.davem@davemloft.net>
+	 <1443037530.74600.29.camel@infradead.org>
+	 <20150923.144808.886375927698238398.davem@davemloft.net>
+	 <1443045602.74600.33.camel@infradead.org>
+	 <20150923232931.GA8365@electric-eye.fr.zoreil.com>
+	 <1443085112.74600.53.camel@infradead.org>
+	 <1443091102.74600.70.camel@infradead.org>
+	 <1443096325.29850.151.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1443097898.74600.91.camel@infradead.org>
+	 <CALx6S36pah3B7AgqAzpfExA8ehH3VMLzWF275sH0OA815e3TUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<rui.xiang@huawei.com>, <manish.chopra@qlogic.com>
-To: <sony.chacko@qlogic.com>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-eEecc5qSrrGs3c50X7qn"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:28449 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755319AbbI1HCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:02:18 -0400
-In-Reply-To: <56014CC0.3050201@huawei.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:43185 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756701AbbI1HV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:21:58 -0400
+In-Reply-To: <CALx6S36pah3B7AgqAzpfExA8ehH3VMLzWF275sH0OA815e3TUQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we have two processes to do:
-P1#: ifconfig eth0 down; which will call bnx2_close, then will
-, and set Null to stats_blk
-P2#: ifconfig eth0; which will call bnx2_get_stats64, it will
-use stats_blk.
-In one case:
-    --P1#--                   --P2#--
-                              stats_blk(no null)
-    bnx2_free_mem
-    ->bp->stats_blk = NULL
-                              GET_64BIT_NET_STATS
 
-then it will cause 'NULL Pointer' Problem.
-it is as well with 'ethtool -S ethx'.
+--=-eEecc5qSrrGs3c50X7qn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Allocate the statistics block at probe time so that this problem is
-impossible
+On Sun, 2015-09-27 at 22:37 -0700, Tom Herbert wrote:
+>=20
+> Which drivers are doing this? It is up to the driver to determine
+> whether a particular packet being sent can have checksum offloaded to
+> the device. If it cannot offload the checksum it must call
+> skb_checksum_help.
 
-Signed-off-by: Tianhong Ding <dingtianhong@huawei.com>
----
-Change in v2:
- - Use Allocate the statistics block instead of spinlock, which
-   suggested by David Miller.
- - Updating commit message according to changes.
+Not so.
 
----
- drivers/net/ethernet/broadcom/bnx2.c | 61 +++++++++++++++++++++++-------------
- 1 file changed, 40 insertions(+), 21 deletions(-)
+A driver sets the NETIF_F_IP_CSUM feature to indicate that it can do
+the checksum on Legacy IP TCP or UDP frames and *nothing* else.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 2b66ef3..1f33982 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -813,22 +813,11 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
- }
+It most certainly does not expect to be handed any other kind of packet
+for checksumming, and bad things will often happen if it is. If drivers
+*do* spot that they've been given something they don't handle, I see
+BUG() calls and warnings, but I don't see any of them calling
+skb_checksum_help() to silently cope. Many of them just feed it to the
+hardware and don't even notice at all because it's the *hardware* which
+decides whether to do a TCP or a UDP checksum. So who knows what'll
+happen.
 
- static void
--bnx2_free_mem(struct bnx2 *bp)
-+bnx2_free_stats_blk(struct net_device *dev)
- {
--	int i;
-+	struct bnx2 *bp = netdev_priv(dev);
- 	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
+The check is supposed to be done in can_checksum_protocol(), called
+from harmonize_features(). But as noted, that check has false positives
+and lets some inappropriate packets through =E2=80=94 for NETIF_F_IP_CSUM i=
+t
+lets through *all* skbuffs with ->protocol =3D=3D ETH_P_IP instead of only
+TCP and UDP.
 
--	bnx2_free_tx_mem(bp);
--	bnx2_free_rx_mem(bp);
--
--	for (i = 0; i < bp->ctx_pages; i++) {
--		if (bp->ctx_blk[i]) {
--			dma_free_coherent(&bp->pdev->dev, BNX2_PAGE_SIZE,
--					  bp->ctx_blk[i],
--					  bp->ctx_blk_mapping[i]);
--			bp->ctx_blk[i] = NULL;
--		}
--	}
- 	if (bnapi->status_blk.msi) {
- 		dma_free_coherent(&bp->pdev->dev, bp->status_stats_size,
- 				  bnapi->status_blk.msi,
-@@ -839,11 +828,12 @@ bnx2_free_mem(struct bnx2 *bp)
- }
+I originally couldn't see how to deal with this except by looking at
+the contents of the packet, which sucked. But I think I've found a
+somewhat more acceptable approach now:
+http://lists.openwall.net/netdev/2015/09/25/85
 
- static int
--bnx2_alloc_mem(struct bnx2 *bp)
-+bnx2_alloc_stats_blk(struct net_device *dev)
- {
--	int i, status_blk_size, err;
-+	int i, status_blk_size;
- 	struct bnx2_napi *bnapi;
- 	void *status_blk;
-+	struct bnx2 *bp = netdev_priv(dev);
+--=20
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
- 	/* Combine status and statistics blocks into one allocation. */
- 	status_blk_size = L1_CACHE_ALIGN(sizeof(struct status_block));
-@@ -852,11 +842,10 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 						 BNX2_SBLK_MSIX_ALIGN_SIZE);
- 	bp->status_stats_size = status_blk_size +
- 				sizeof(struct statistics_block);
--
- 	status_blk = dma_zalloc_coherent(&bp->pdev->dev, bp->status_stats_size,
- 					 &bp->status_blk_mapping, GFP_KERNEL);
- 	if (status_blk == NULL)
--		goto alloc_mem_err;
-+		return -ENOMEM;
 
- 	bnapi = &bp->bnx2_napi[0];
- 	bnapi->status_blk.msi = status_blk;
-@@ -865,11 +854,10 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 	bnapi->hw_rx_cons_ptr =
- 		&bnapi->status_blk.msi->status_rx_quick_consumer_index0;
- 	if (bp->flags & BNX2_FLAG_MSIX_CAP) {
--		for (i = 1; i < bp->irq_nvecs; i++) {
-+		for (i = 1; i < BNX2_MAX_MSIX_HW_VEC; i++) {
- 			struct status_block_msix *sblk;
+--=-eEecc5qSrrGs3c50X7qn
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
- 			bnapi = &bp->bnx2_napi[i];
--
- 			sblk = (status_blk + BNX2_SBLK_MSIX_ALIGN_SIZE * i);
- 			bnapi->status_blk.msix = sblk;
- 			bnapi->hw_tx_cons_ptr =
-@@ -879,11 +867,35 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 			bnapi->int_num = i << 24;
- 		}
- 	}
--
- 	bp->stats_blk = status_blk + status_blk_size;
--
- 	bp->stats_blk_mapping = bp->status_blk_mapping + status_blk_size;
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwOTI4MDcyMTUxWjAjBgkqhkiG9w0BCQQxFgQUDAULBoQnFWyZzPepp4d1ZvYO5Qow
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQB5IPiuTRga9EFEBEifNkd3rOAZDxz+WElZ6ZjgaXQvDuEOgXhWIfupaFW6
+I8aDIsKRrMbDLwMp6+hgVmbGUafuzASSotlbjfrmZqVd9Bx3KH/PwMhu/ZmIRsKFfGJ7kuccGMSW
+WB3a31z98CtNdH7+EDJZ7BuNfa94YS2rgtJ6m0thDE5y8Cx6G7iriHUGKIxKHl4D4vg+7g4lB0ZV
+d9PwUysgpm8iPiSRcWwPtP0qcj0KSnYl6ySR5HCtxIPNlgecX0KURfxUUmEaUNw9l6j+tO6cr0AU
+osscMuL3JFAVN+OGn1cDmTEl/R2YTguK2d+ZcmAQG6bwzY9B00+GklVYAAAAAAAA
 
-+	return 0;
-+}
-+
-+static void
-+bnx2_free_mem(struct bnx2 *bp)
-+{
-+	int i;
-+
-+	bnx2_free_tx_mem(bp);
-+	bnx2_free_rx_mem(bp);
-+
-+	for (i = 0; i < bp->ctx_pages; i++) {
-+		if (bp->ctx_blk[i]) {
-+			dma_free_coherent(&bp->pdev->dev, BNX2_PAGE_SIZE,
-+					  bp->ctx_blk[i],
-+					  bp->ctx_blk_mapping[i]);
-+			bp->ctx_blk[i] = NULL;
-+		}
-+	}
-+}
-+
-+static int
-+bnx2_alloc_mem(struct bnx2 *bp)
-+{
-+	int i, err;
-+
- 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709) {
- 		bp->ctx_pages = 0x2000 / BNX2_PAGE_SIZE;
- 		if (bp->ctx_pages == 0)
-@@ -8330,6 +8342,11 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
 
- 	bp->phy_addr = 1;
-
-+	/* allocate stats_blk */
-+	rc = bnx2_alloc_stats_blk(dev);
-+	if (rc)
-+		goto err_out_unmap;
-+
- 	/* Disable WOL support if we are running on a SERDES chip. */
- 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709)
- 		bnx2_get_5709_media(bp);
-@@ -8586,6 +8603,7 @@ error:
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- err_free:
-+	bnx2_free_stats_blk(dev);
- 	free_netdev(dev);
- 	return rc;
- }
-@@ -8603,6 +8621,7 @@ bnx2_remove_one(struct pci_dev *pdev)
-
- 	pci_iounmap(bp->pdev, bp->regview);
-
-+	bnx2_free_stats_blk(dev);
- 	kfree(bp->temp_stats_blk);
-
- 	if (bp->flags & BNX2_FLAG_AER_ENABLED) {
--- 
-1.9.0
+--=-eEecc5qSrrGs3c50X7qn--
