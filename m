@@ -1,71 +1,66 @@
 From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH bluetooth-next 1/4] netlink: add nla_get for le32 and le64
-Date: Mon, 28 Sep 2015 09:00:23 +0200
-Message-ID: <1443423626-3609-2-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 4/4] mac802154: add comments for llsec issues
+Date: Mon, 28 Sep 2015 09:00:26 +0200
+Message-ID: <1443423626-3609-5-git-send-email-alex.aring@gmail.com>
 References: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
 Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
 	phoebe.buckheister@itwm.fraunhofer.de,
-	Alexander Aring <alex.aring@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Alexander Aring <alex.aring@gmail.com>
 To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:35417 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753914AbbI1HCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:02:16 -0400
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33342 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756394AbbI1HCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:02:21 -0400
 In-Reply-To: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds missing inline wrappers for nla_get_le32 and
-nla_get_le64. The 802.15.4 MAC byteorder is little endian and we keep
-the byteorder for fields like address configuration in the same
-byteorder as it comes from the MAC layer.
+While doing a little test with the llsec implementation I saw these
+issues. We should move decryption and encruption somewhere else,
+otherwise while capturing with wireshark the mac header shows secuirty
+fields but the payload is plaintext.
 
-To provide these fields for nl802154 userspace applications, we need
-these inline wrappers for netlink.
+A complete other issue is what doing with HardMAC drivers where the
+payload is always plaintext. I think we need a special handling then in
+userspace. We currently doesn't support any HardMAC transceivers, so we
+should fix the first issue for SoftMAC transceivers.
 
-Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- include/net/netlink.h | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ net/mac802154/rx.c | 4 ++++
+ net/mac802154/tx.c | 4 ++++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 2a5dbcc..0e31727 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -1004,6 +1004,15 @@ static inline __be32 nla_get_be32(const struct nlattr *nla)
- }
+diff --git a/net/mac802154/rx.c b/net/mac802154/rx.c
+index d1c33c1..42e9672 100644
+--- a/net/mac802154/rx.c
++++ b/net/mac802154/rx.c
+@@ -87,6 +87,10 @@ ieee802154_subif_frame(struct ieee802154_sub_if_data *sdata,
  
- /**
-+ * nla_get_le32 - return payload of __le32 attribute
-+ * @nla: __le32 netlink attribute
-+ */
-+static inline __le32 nla_get_le32(const struct nlattr *nla)
-+{
-+	return *(__le32 *) nla_data(nla);
-+}
-+
-+/**
-  * nla_get_u16 - return payload of u16 attribute
-  * @nla: u16 netlink attribute
-  */
-@@ -1066,6 +1075,15 @@ static inline __be64 nla_get_be64(const struct nlattr *nla)
- }
+ 	skb->dev = sdata->dev;
  
- /**
-+ * nla_get_le64 - return payload of __le64 attribute
-+ * @nla: __le64 netlink attribute
-+ */
-+static inline __le64 nla_get_le64(const struct nlattr *nla)
-+{
-+	return *(__le64 *) nla_data(nla);
-+}
-+
-+/**
-  * nla_get_s32 - return payload of s32 attribute
-  * @nla: s32 netlink attribute
-  */
++	/* TODO this should be moved after netif_receive_skb call, otherwise
++	 * wireshark will show a mac header with security fields and the
++	 * payload is already decrypted.
++	 */
+ 	rc = mac802154_llsec_decrypt(&sdata->sec, skb);
+ 	if (rc) {
+ 		pr_debug("decryption failed: %i\n", rc);
+diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+index 5ee596e..b205bbe 100644
+--- a/net/mac802154/tx.c
++++ b/net/mac802154/tx.c
+@@ -129,6 +129,10 @@ ieee802154_subif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct ieee802154_sub_if_data *sdata = IEEE802154_DEV_TO_SUB_IF(dev);
+ 	int rc;
+ 
++	/* TODO we should move it to wpan_dev_hard_header and dev_hard_header
++	 * functions. The reason is wireshark will show a mac header which is
++	 * with security fields but the payload is not encrypted.
++	 */
+ 	rc = mac802154_llsec_encrypt(&sdata->sec, skb);
+ 	if (rc) {
+ 		netdev_warn(dev, "encryption failed: %i\n", rc);
 -- 
 2.5.3
