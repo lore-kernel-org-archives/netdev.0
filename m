@@ -1,81 +1,181 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 5/5] net: sfc: avoid using timespec
-Date: Mon, 28 Sep 2015 22:21:32 +0200
-Message-ID: <1443471692-2946597-6-git-send-email-arnd@arndb.de>
+Subject: [PATCH 4/5] ntp/pps: use y2038 safe types in pps_event_time
+Date: Mon, 28 Sep 2015 22:21:31 +0200
+Message-ID: <1443471692-2946597-5-git-send-email-arnd@arndb.de>
 References: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Rodolfo Giometti <giometti@enneenne.com>, Arnd Bergmann <arnd@arndb.de>,
- netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
- linux-kernel@vger.kernel.org, linux-net-drivers@solarflare.com,
- John Stultz <john.stultz@linaro.org>, Shradha Shah <sshah@solarflare.com>,
- Thomas Gleixner <tglx@linutronix.de>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	linux-net-drivers@solarflare.com,
+	Shradha Shah <sshah@solarflare.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>
 To: y2038@lists.linaro.org
-Return-path: <y2038-bounces@lists.linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIHNmYyBkcml2ZXIgaW50ZXJuYWxseSB1c2VzIGEgdGltZSBmb3JtYXQgYmFzZWQgb24gMzIt
-Yml0ICh1bnNpZ25lZCkKc2Vjb25kcyBhbmQgMzItYml0IG5hbm9zZWNvbmRzLiBUaGlzIG1lYW5z
-IGl0IHdpbGwgb3ZlcmZsb3cgaW4gMjEwNiwKYnV0IHRoZSB2YWx1ZSB3ZSBwYXNzIGludG8gaXQg
-aXMgYSBzaWduZWQgMzItYml0IHR2X3NlYyB0aGF0IGFscmVhZHkKb3ZlcmZsb3dzIGluIDIwMzgg
-dG8gYSBuZWdhdGl2ZSB2YWx1ZS4KClRoaXMgcGF0Y2ggY2hhbmdlcyB0aGUgbG9naWMgdG8gdXNl
-IHRoZSBsb3dlciAzMiBiaXRzIG9mIHRoZSB0aW1lc3BlYzY0CnR2X3NlYyBpbiBlZnhfcHRwX25z
-X3RvX3NfbnMsIHdoaWNoIHdpbGwgaGF2ZSB0aGUgY29ycmVjdCB2YWx1ZSBiZXlvbmQgdGhlIG92
-ZXJmbG93LgpXaGlsZSB0aGlzIGRvZXMgbm90IGNoYW5nZSBhbnkgb2YgdGhlIHJlZ2lzdGVyIHZh
-bHVlcywgaXQgbGV0cyB1cwprZWVwIHVzaW5nIHRoZSBkcml2ZXIgYWZ0ZXIgd2UgZGVwcmVjYXRl
-IHRoZSB1c2Ugb2YgdGhlIHRpbWVzcGVjIHR5cGUKaW4gdGhlIGtlcm5lbC4KCkluIHRoZSBlZnhf
-cHRwX3Byb2Nlc3NfdGltZXMgZnVuY3Rpb24sIHRoZSBjaGFuZ2UgdG8gdXNlIHRpbWVzcGVjNjQK
-aXMgc2ltaWxhciwgaW4gdGhhdCB0aGUgdHZfc2VjIHBvcnRpb24gaXMgaWdub3JlZCBhbnl3YXkg
-YW5kIHdlIG9ubHkKY2FyZSBhYm91dCB0aGUgbmFub3NlY29uZCBwb3J0aW9uIHRoYXQgcmVtYWlu
-cyB1bmNoYW5nZWQuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRl
-PgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L3NmYy9wdHAuYyB8IDE0ICsrKysrKystLS0tLS0t
-CiAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA3IGRlbGV0aW9ucygtKQoKZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3NmYy9wdHAuYyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L3NmYy9wdHAuYwppbmRleCBmZTg0OWRiZjlmODAuLmM3NzFlMGFmNGUwNiAxMDA2NDQKLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvc2ZjL3B0cC5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L3NmYy9wdHAuYwpAQCAtNDAxLDggKzQwMSw4IEBAIHNpemVfdCBlZnhfcHRwX3VwZGF0ZV9z
-dGF0cyhzdHJ1Y3QgZWZ4X25pYyAqZWZ4LCB1NjQgKnN0YXRzKQogLyogRm9yIFNpZW5hIHBsYXRm
-b3JtcyBOSUMgdGltZSBpcyBzIGFuZCBucyAqLwogc3RhdGljIHZvaWQgZWZ4X3B0cF9uc190b19z
-X25zKHM2NCBucywgdTMyICpuaWNfbWFqb3IsIHUzMiAqbmljX21pbm9yKQogewotCXN0cnVjdCB0
-aW1lc3BlYyB0cyA9IG5zX3RvX3RpbWVzcGVjKG5zKTsKLQkqbmljX21ham9yID0gdHMudHZfc2Vj
-OworCXN0cnVjdCB0aW1lc3BlYzY0IHRzID0gbnNfdG9fdGltZXNwZWM2NChucyk7CisJKm5pY19t
-YWpvciA9ICh1MzIpdHMudHZfc2VjOwogCSpuaWNfbWlub3IgPSB0cy50dl9uc2VjOwogfQogCkBA
-IC00MzEsOCArNDMxLDggQEAgc3RhdGljIGt0aW1lX3QgZWZ4X3B0cF9zX25zX3RvX2t0aW1lX2Nv
-cnJlY3Rpb24odTMyIG5pY19tYWpvciwgdTMyIG5pY19taW5vciwKICAqLwogc3RhdGljIHZvaWQg
-ZWZ4X3B0cF9uc190b19zMjcoczY0IG5zLCB1MzIgKm5pY19tYWpvciwgdTMyICpuaWNfbWlub3Ip
-CiB7Ci0Jc3RydWN0IHRpbWVzcGVjIHRzID0gbnNfdG9fdGltZXNwZWMobnMpOwotCXUzMiBtYWog
-PSB0cy50dl9zZWM7CisJc3RydWN0IHRpbWVzcGVjNjQgdHMgPSBuc190b190aW1lc3BlYzY0KG5z
-KTsKKwl1MzIgbWFqID0gKHUzMil0cy50dl9zZWM7CiAJdTMyIG1pbiA9ICh1MzIpKCgodTY0KXRz
-LnR2X25zZWMgKiBOU19UT19TMjdfTVVMVCArCiAJCQkgKDFVTEwgPDwgKE5TX1RPX1MyN19TSElG
-VCAtIDEpKSkgPj4gTlNfVE9fUzI3X1NISUZUKTsKIApAQCAtNzM3LDE0ICs3MzcsMTQgQEAgZWZ4
-X3B0cF9wcm9jZXNzX3RpbWVzKHN0cnVjdCBlZnhfbmljICplZngsIE1DRElfREVDTEFSRV9TVFJV
-Q1RfUFRSKHN5bmNoX2J1ZiksCiAJICovCiAJZm9yIChpID0gMDsgaSA8IG51bWJlcl9yZWFkaW5n
-czsgaSsrKSB7CiAJCXMzMiB3aW5kb3csIGNvcnJlY3RlZDsKLQkJc3RydWN0IHRpbWVzcGVjIHdh
-aXQ7CisJCXN0cnVjdCB0aW1lc3BlYzY0IHdhaXQ7CiAKIAkJZWZ4X3B0cF9yZWFkX3RpbWVzZXQo
-CiAJCQlNQ0RJX0FSUkFZX1NUUlVDVF9QVFIoc3luY2hfYnVmLAogCQkJCQkgICAgICBQVFBfT1VU
-X1NZTkNIUk9OSVpFX1RJTUVTRVQsIGkpLAogCQkJJnB0cC0+dGltZXNldFtpXSk7CiAKLQkJd2Fp
-dCA9IGt0aW1lX3RvX3RpbWVzcGVjKAorCQl3YWl0ID0ga3RpbWVfdG9fdGltZXNwZWM2NCgKIAkJ
-CXB0cC0+bmljX3RvX2tlcm5lbF90aW1lKDAsIHB0cC0+dGltZXNldFtpXS53YWl0LCAwKSk7CiAJ
-CXdpbmRvdyA9IHB0cC0+dGltZXNldFtpXS53aW5kb3c7CiAJCWNvcnJlY3RlZCA9IHdpbmRvdyAt
-IHdhaXQudHZfbnNlYzsKQEAgLTgwMyw3ICs4MDMsNyBAQCBlZnhfcHRwX3Byb2Nlc3NfdGltZXMo
-c3RydWN0IGVmeF9uaWMgKmVmeCwgTUNESV9ERUNMQVJFX1NUUlVDVF9QVFIoc3luY2hfYnVmKSwK
-IAkJCQkJICBwdHAtPnRpbWVzZXRbbGFzdF9nb29kXS5taW5vciwgMCk7CiAKIAkvKiBDYWxjdWxh
-dGUgZGVsYXkgZnJvbSBOSUMgdG9wIG9mIHNlY29uZCB0byBsYXN0X3RpbWUgKi8KLQlkZWx0YS50
-dl9uc2VjICs9IGt0aW1lX3RvX3RpbWVzcGVjKG1jX3RpbWUpLnR2X25zZWM7CisJZGVsdGEudHZf
-bnNlYyArPSBrdGltZV90b190aW1lc3BlYzY0KG1jX3RpbWUpLnR2X25zZWM7CiAKIAkvKiBTZXQg
-UFBTIHRpbWVzdGFtcCB0byBtYXRjaCBOSUMgdG9wIG9mIHNlY29uZCAqLwogCXB0cC0+aG9zdF90
-aW1lX3BwcyA9ICpsYXN0X3RpbWU7Ci0tIAoyLjEuMC5yYzIKCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0
-cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ky
-MDM4Cg==
+The pps_event_time uses two 'timespec' structures internally, which
+suffer from the y2038 problem. The uses of this structure are
+fairly self-contained in the pps code, so this replaces them all at
+once.
+
+Unfortunately, this includes the sfc ethernet driver aside from the
+pps subsystem, so we change that one as well. Both touch the
+same data structure, and there probably is no good way to split
+the patch into smaller units.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/sfc/ptp.c | 16 ++++++++--------
+ drivers/pps/kapi.c             |  4 ++--
+ drivers/pps/kc.c               |  4 +---
+ include/linux/pps_kernel.h     | 21 ++++++++-------------
+ 4 files changed, 19 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index ad62615a93dc..fe849dbf9f80 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -646,28 +646,28 @@ static void efx_ptp_send_times(struct efx_nic *efx,
+ 			       struct pps_event_time *last_time)
+ {
+ 	struct pps_event_time now;
+-	struct timespec limit;
++	struct timespec64 limit;
+ 	struct efx_ptp_data *ptp = efx->ptp_data;
+-	struct timespec start;
++	struct timespec64 start;
+ 	int *mc_running = ptp->start.addr;
+ 
+ 	pps_get_ts(&now);
+ 	start = now.ts_real;
+ 	limit = now.ts_real;
+-	timespec_add_ns(&limit, SYNCHRONISE_PERIOD_NS);
++	timespec64_add_ns(&limit, SYNCHRONISE_PERIOD_NS);
+ 
+ 	/* Write host time for specified period or until MC is done */
+-	while ((timespec_compare(&now.ts_real, &limit) < 0) &&
++	while ((timespec64_compare(&now.ts_real, &limit) < 0) &&
+ 	       ACCESS_ONCE(*mc_running)) {
+-		struct timespec update_time;
++		struct timespec64 update_time;
+ 		unsigned int host_time;
+ 
+ 		/* Don't update continuously to avoid saturating the PCIe bus */
+ 		update_time = now.ts_real;
+-		timespec_add_ns(&update_time, SYNCHRONISATION_GRANULARITY_NS);
++		timespec64_add_ns(&update_time, SYNCHRONISATION_GRANULARITY_NS);
+ 		do {
+ 			pps_get_ts(&now);
+-		} while ((timespec_compare(&now.ts_real, &update_time) < 0) &&
++		} while ((timespec64_compare(&now.ts_real, &update_time) < 0) &&
+ 			 ACCESS_ONCE(*mc_running));
+ 
+ 		/* Synchronise NIC with single word of time only */
+@@ -723,7 +723,7 @@ efx_ptp_process_times(struct efx_nic *efx, MCDI_DECLARE_STRUCT_PTR(synch_buf),
+ 	struct efx_ptp_data *ptp = efx->ptp_data;
+ 	u32 last_sec;
+ 	u32 start_sec;
+-	struct timespec delta;
++	struct timespec64 delta;
+ 	ktime_t mc_time;
+ 
+ 	if (number_readings == 0)
+diff --git a/drivers/pps/kapi.c b/drivers/pps/kapi.c
+index cdad4d95b20e..805c749ac1ad 100644
+--- a/drivers/pps/kapi.c
++++ b/drivers/pps/kapi.c
+@@ -179,8 +179,8 @@ void pps_event(struct pps_device *pps, struct pps_event_time *ts, int event,
+ 	/* check event type */
+ 	BUG_ON((event & (PPS_CAPTUREASSERT | PPS_CAPTURECLEAR)) == 0);
+ 
+-	dev_dbg(pps->dev, "PPS event at %ld.%09ld\n",
+-			ts->ts_real.tv_sec, ts->ts_real.tv_nsec);
++	dev_dbg(pps->dev, "PPS event at %lld.%09ld\n",
++			(s64)ts->ts_real.tv_sec, ts->ts_real.tv_nsec);
+ 
+ 	timespec_to_pps_ktime(&ts_real, ts->ts_real);
+ 
+diff --git a/drivers/pps/kc.c b/drivers/pps/kc.c
+index a16cea2ba980..e219db1f1c84 100644
+--- a/drivers/pps/kc.c
++++ b/drivers/pps/kc.c
+@@ -113,12 +113,10 @@ void pps_kc_event(struct pps_device *pps, struct pps_event_time *ts,
+ 		int event)
+ {
+ 	unsigned long flags;
+-	struct timespec64 real = timespec_to_timespec64(ts->ts_real);
+-	struct timespec64 raw = timespec_to_timespec64(ts->ts_raw);
+ 
+ 	/* Pass some events to kernel consumer if activated */
+ 	spin_lock_irqsave(&pps_kc_hardpps_lock, flags);
+ 	if (pps == pps_kc_hardpps_dev && event & pps_kc_hardpps_mode)
+-		hardpps(&real, &raw);
++		hardpps(&ts->ts_real, &ts->ts_raw);
+ 	spin_unlock_irqrestore(&pps_kc_hardpps_lock, flags);
+ }
+diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
+index b2fbd62ab18d..54bf1484d41f 100644
+--- a/include/linux/pps_kernel.h
++++ b/include/linux/pps_kernel.h
+@@ -48,9 +48,9 @@ struct pps_source_info {
+ 
+ struct pps_event_time {
+ #ifdef CONFIG_NTP_PPS
+-	struct timespec ts_raw;
++	struct timespec64 ts_raw;
+ #endif /* CONFIG_NTP_PPS */
+-	struct timespec ts_real;
++	struct timespec64 ts_real;
+ };
+ 
+ /* The main struct */
+@@ -105,7 +105,7 @@ extern void pps_event(struct pps_device *pps,
+ struct pps_device *pps_lookup_dev(void const *cookie);
+ 
+ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
+-		struct timespec ts)
++		struct timespec64 ts)
+ {
+ 	kt->sec = ts.tv_sec;
+ 	kt->nsec = ts.tv_nsec;
+@@ -115,29 +115,24 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
+ 
+ static inline void pps_get_ts(struct pps_event_time *ts)
+ {
+-	struct timespec64 raw, real;
+-
+-	ktime_get_raw_and_real_ts64(&raw, &real);
+-
+-	ts->ts_raw = timespec64_to_timespec(raw);
+-	ts->ts_real = timespec64_to_timespec(real);
++	ktime_get_raw_and_real_ts64(&ts->ts_raw, &ts->ts_real);
+ }
+ 
+ #else /* CONFIG_NTP_PPS */
+ 
+ static inline void pps_get_ts(struct pps_event_time *ts)
+ {
+-	getnstimeofday(&ts->ts_real);
++	ktime_get_real_ts64(&ts->ts_real);
+ }
+ 
+ #endif /* CONFIG_NTP_PPS */
+ 
+ /* Subtract known time delay from PPS event time(s) */
+-static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec delta)
++static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec64 delta)
+ {
+-	ts->ts_real = timespec_sub(ts->ts_real, delta);
++	ts->ts_real = timespec64_sub(ts->ts_real, delta);
+ #ifdef CONFIG_NTP_PPS
+-	ts->ts_raw = timespec_sub(ts->ts_raw, delta);
++	ts->ts_raw = timespec64_sub(ts->ts_raw, delta);
+ #endif
+ }
+ 
+-- 
+2.1.0.rc2
