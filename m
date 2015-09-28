@@ -1,82 +1,30 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH] bna: fix error handling
-Date: Mon, 28 Sep 2015 10:49:48 +0200
-Message-ID: <1443430188-32702-1-git-send-email-a.hajda@samsung.com>
-Cc: Andrzej Hajda <a.hajda@samsung.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	Rasesh Mody <rasesh.mody@qlogic.com>,
-	netdev@vger.kernel.org (open list:BROCADE BNA 10 GIGABIT ETHERNET
-	DRIVER)
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthew Dupre <Matthew.Dupre@metaswitch.com>
+Subject: Per-flow IPv4 ECMP
+Date: Mon, 28 Sep 2015 08:57:25 +0000
+Message-ID: <BN1PR0201MB05777291EE3D91068CB2EE8E944F0@BN1PR0201MB0577.namprd02.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bn0109.outbound.protection.outlook.com ([157.56.110.109]:48299
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757007AbbI1I51 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 04:57:27 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Several functions can return negative value in case of error,
-so their return type should be fixed as well as type of variables
-to which this value is assigned.
+Hi,
 
-The problem has been detected using proposed semantic patch
-scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
+I'm interested in the Linux kernel's support for per-flow IPv4 ECMP (i.e. consistent path selection based on a hash of the connection tuple).  I'd been led to believe[1] that this depended on the route cache, which was removed in 3.6.
 
-[1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
+However, I tested a route with multiple next hops on a 3.10 and 3.13 kernel, and ECMP was per-flow!  Obviously I'm pleased that this was the case, but I'd like to understand why this is supported, and whether I can rely on it in future.
 
-Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
----
- drivers/net/ethernet/brocade/bna/bfa_ioc.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+Could anyone give me a little clarification on whether this is now supported by some means other than the route cache, and whether that support is intended to be continued?
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-index b7a0f78..9e59663 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-@@ -1543,7 +1543,7 @@ bfa_flash_cmd_act_check(void __iomem *pci_bar)
- }
- 
- /* Flush FLI data fifo. */
--static u32
-+static int
- bfa_flash_fifo_flush(void __iomem *pci_bar)
- {
- 	u32 i;
-@@ -1573,11 +1573,11 @@ bfa_flash_fifo_flush(void __iomem *pci_bar)
- }
- 
- /* Read flash status. */
--static u32
-+static int
- bfa_flash_status_read(void __iomem *pci_bar)
- {
- 	union bfa_flash_dev_status_reg	dev_status;
--	u32				status;
-+	int				status;
- 	u32			ret_status;
- 	int				i;
- 
-@@ -1611,11 +1611,11 @@ bfa_flash_status_read(void __iomem *pci_bar)
- }
- 
- /* Start flash read operation. */
--static u32
-+static int
- bfa_flash_read_start(void __iomem *pci_bar, u32 offset, u32 len,
- 		     char *buf)
- {
--	u32 status;
-+	int status;
- 
- 	/* len must be mutiple of 4 and not exceeding fifo size */
- 	if (len == 0 || len > BFA_FLASH_FIFO_SIZE || (len & 0x03) != 0)
-@@ -1703,7 +1703,8 @@ static enum bfa_status
- bfa_flash_raw_read(void __iomem *pci_bar, u32 offset, char *buf,
- 		   u32 len)
- {
--	u32 n, status;
-+	u32 n;
-+	int status;
- 	u32 off, l, s, residue, fifo_sz;
- 
- 	residue = len;
--- 
-1.9.1
+Thanks,
+Matt
+
+[1]: http://bird.network.cz/pipermail/bird-users/2014-February/008873.html
