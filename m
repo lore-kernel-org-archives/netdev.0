@@ -1,111 +1,189 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 08/11] net: Remove vrf header file
-Date: Mon, 28 Sep 2015 10:16:58 -0700
-Message-ID: <1443460621-24855-9-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 05/11] net: Replace vrf_dev_table and friends
+Date: Mon, 28 Sep 2015 10:16:55 -0700
+Message-ID: <1443460621-24855-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35729 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934425AbbI1RRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 13:17:22 -0400
-Received: by pacfv12 with SMTP id fv12so183547515pac.2
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 10:17:22 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36500 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934406AbbI1RRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 13:17:19 -0400
+Received: by pablk4 with SMTP id lk4so82786206pab.3
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 10:17:18 -0700 (PDT)
 In-Reply-To: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move remaining structs to VRF driver and delete the vrf header file.
+Replace calls to vrf_dev_table and friends with l3mdev_fib_table
+and kin.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- MAINTAINERS       |  1 -
- drivers/net/vrf.c | 16 +++++++++++++++-
- include/net/vrf.h | 29 -----------------------------
- 3 files changed, 15 insertions(+), 31 deletions(-)
- delete mode 100644 include/net/vrf.h
+ include/net/vrf.h       | 80 -------------------------------------------------
+ net/ipv4/af_inet.c      |  4 +--
+ net/ipv4/fib_frontend.c |  7 ++---
+ 3 files changed, 5 insertions(+), 86 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3f2d7a9d0bbf..fa43fa2f30e4 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -11273,7 +11273,6 @@ M:	Shrijeet Mukherjee <shm@cumulusnetworks.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
- F:	drivers/net/vrf.c
--F:	include/net/vrf.h
- F:	Documentation/networking/vrf.txt
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+index 874a6c9e4217..b05b96646e2a 100644
+--- a/include/net/vrf.h
++++ b/include/net/vrf.h
+@@ -34,66 +34,6 @@ struct net_vrf {
  
- VT1211 HARDWARE MONITOR DRIVER
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index df872f4efb0d..64f2ab663ffe 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -34,7 +34,6 @@
+ 
+ #if IS_ENABLED(CONFIG_NET_VRF)
+-/* called with rcu_read_lock */
+-static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
+-{
+-	u32 tb_id = 0;
+-
+-	if (dev) {
+-		struct net_vrf_dev *vrf_ptr;
+-
+-		vrf_ptr = rcu_dereference(dev->vrf_ptr);
+-		if (vrf_ptr)
+-			tb_id = vrf_ptr->tb_id;
+-	}
+-	return tb_id;
+-}
+-
+-static inline u32 vrf_dev_table(const struct net_device *dev)
+-{
+-	u32 tb_id;
+-
+-	rcu_read_lock();
+-	tb_id = vrf_dev_table_rcu(dev);
+-	rcu_read_unlock();
+-
+-	return tb_id;
+-}
+-
+-static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
+-{
+-	struct net_device *dev;
+-	u32 tb_id = 0;
+-
+-	if (!ifindex)
+-		return 0;
+-
+-	rcu_read_lock();
+-
+-	dev = dev_get_by_index_rcu(net, ifindex);
+-	if (dev)
+-		tb_id = vrf_dev_table_rcu(dev);
+-
+-	rcu_read_unlock();
+-
+-	return tb_id;
+-}
+-
+-/* called with rtnl */
+-static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
+-{
+-	u32 tb_id = 0;
+-
+-	if (dev) {
+-		struct net_vrf_dev *vrf_ptr;
+-
+-		vrf_ptr = rtnl_dereference(dev->vrf_ptr);
+-		if (vrf_ptr)
+-			tb_id = vrf_ptr->tb_id;
+-	}
+-	return tb_id;
+-}
+-
+ /* caller has already checked netif_is_l3_master(dev) */
+ static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+ {
+@@ -108,26 +48,6 @@ static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+ }
+ 
+ #else
+-static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
+-{
+-	return 0;
+-}
+-
+-static inline u32 vrf_dev_table(const struct net_device *dev)
+-{
+-	return 0;
+-}
+-
+-static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
+-{
+-	return 0;
+-}
+-
+-static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
+-{
+-	return 0;
+-}
+-
+ static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+ {
+ 	return ERR_PTR(-ENETUNREACH);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8a556643b874..0df3f0527648 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -119,7 +119,7 @@
+ #ifdef CONFIG_IP_MROUTE
+ #include <linux/mroute.h>
+ #endif
+-#include <net/vrf.h>
++#include <net/l3mdev.h>
+ 
+ 
+ /* The inetsw table contains everything that inet_create needs to
+@@ -450,7 +450,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			goto out;
+ 	}
+ 
+-	tb_id = vrf_dev_table_ifindex(net, sk->sk_bound_dev_if) ? : tb_id;
++	tb_id = l3mdev_fib_table_by_index(net, sk->sk_bound_dev_if) ? : tb_id;
+ 	chk_addr_ret = inet_addr_type_table(net, addr->sin_addr.s_addr, tb_id);
+ 
+ 	/* Not specified by any standard per-se, however it breaks too
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index b901b344f22d..fac172370276 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -45,7 +45,6 @@
+ #include <net/ip_fib.h>
  #include <net/rtnetlink.h>
- #include <net/route.h>
- #include <net/addrconf.h>
+ #include <net/xfrm.h>
 -#include <net/vrf.h>
  #include <net/l3mdev.h>
+ #include <trace/events/fib.h>
  
- #define DRV_NAME	"vrf"
-@@ -45,6 +44,21 @@
- #define vrf_master_get_rcu(dev) \
- 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
+@@ -256,7 +255,7 @@ EXPORT_SYMBOL(inet_addr_type);
+ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ 				__be32 addr)
+ {
+-	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++	u32 rt_table = l3mdev_fib_table(dev) ? : RT_TABLE_LOCAL;
  
-+struct slave {
-+	struct list_head        list;
-+	struct net_device       *dev;
-+};
-+
-+struct slave_queue {
-+	struct list_head        all_slaves;
-+};
-+
-+struct net_vrf {
-+	struct slave_queue      queue;
-+	struct rtable           *rth;
-+	u32                     tb_id;
-+};
-+
- struct pcpu_dstats {
- 	u64			tx_pkts;
- 	u64			tx_bytes;
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-deleted file mode 100644
-index e83fc38770dd..000000000000
---- a/include/net/vrf.h
-+++ /dev/null
-@@ -1,29 +0,0 @@
--/*
-- * include/net/net_vrf.h - adds vrf dev structure definitions
-- * Copyright (c) 2015 Cumulus Networks
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; either version 2 of the License, or
-- * (at your option) any later version.
-- */
--
--#ifndef __LINUX_NET_VRF_H
--#define __LINUX_NET_VRF_H
--
--struct slave {
--	struct list_head	list;
--	struct net_device	*dev;
--};
--
--struct slave_queue {
--	struct list_head	all_slaves;
--};
--
--struct net_vrf {
--	struct slave_queue	queue;
--	struct rtable           *rth;
--	u32			tb_id;
--};
--
--#endif /* __LINUX_NET_VRF_H */
+ 	return __inet_dev_addr_type(net, dev, addr, rt_table);
+ }
+@@ -269,7 +268,7 @@ unsigned int inet_addr_type_dev_table(struct net *net,
+ 				      const struct net_device *dev,
+ 				      __be32 addr)
+ {
+-	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++	u32 rt_table = l3mdev_fib_table(dev) ? : RT_TABLE_LOCAL;
+ 
+ 	return __inet_dev_addr_type(net, NULL, addr, rt_table);
+ }
+@@ -804,7 +803,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
+ {
+ 	struct net *net = dev_net(ifa->ifa_dev->dev);
+-	u32 tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
++	u32 tb_id = l3mdev_fib_table(ifa->ifa_dev->dev);
+ 	struct fib_table *tb;
+ 	struct fib_config cfg = {
+ 		.fc_protocol = RTPROT_KERNEL,
 -- 
 1.9.1
