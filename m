@@ -1,29 +1,58 @@
-From: Anand Gurram <anandarao.gurram@gmail.com>
-Subject: unregister_netdevice warnings when deleting netns
-Date: Mon, 28 Sep 2015 13:01:15 +0530
-Message-ID: <CAGGTERmzF7oYABWUR+6UhddpOCtpkciVUMUOU-OcPkQvMznS8Q@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH V4 1/2] ACPI / EC: Fix broken 64bit big-endian users of 'global_lock'
+Date: Mon, 28 Sep 2015 10:24:58 +0200
+Message-ID: <2003030.YkVHTCZahK@wuerfel>
+References: <e28c4b4deaf766910c366ab87b64325da59c8ad6.1443198783.git.viresh.kumar@linaro.org> <1540878.9slRi6Q7xb@wuerfel> <1578470.DLzaBp4j3T@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: NETDEV <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f195.google.com ([209.85.160.195]:36518 "EHLO
-	mail-yk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754371AbbI1HbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 03:31:19 -0400
-Received: by ykdz138 with SMTP id z138so13906062ykd.3
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 00:31:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>, "moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>, linaro-kernel@lists.linaro.org, "open list:TARGET SUBSYSTEM" <linux-scsi@vger.kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>, "open list:NETWORKING DRIVERS (WIRELESS)" <linux-wireless@vger.kernel.org>, QCA ath9k Development <ath9k-devel@qca.qualcomm.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Intel Linux Wireless <ilw@linux.intel.com>, Linux ACPI <linux-acpi@vger.kernel.org>, "open list:AMD IOMMU (AMD-VI)" <iommu@lists.linux-foundation.org>, "open list:ULTRA-WIDEB
+ AND (UWB) SUBSYSTEM:" <linux-usb@vger.kernel.org>, Linux Memory Management List <linux-mm@kvack.or
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1578470.DLzaBp4j3T@vostro.rjw.lan>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sunday 27 September 2015 16:10:48 Rafael J. Wysocki wrote:
+> On Saturday, September 26, 2015 09:33:56 PM Arnd Bergmann wrote:
+> > On Saturday 26 September 2015 11:40:00 Viresh Kumar wrote:
+> > > On 25 September 2015 at 15:19, Rafael J. Wysocki <rafael@kernel.org> wrote:
+> > > > So if you allow something like debugfs to update your structure, how
+> > > > do you make sure there is the proper locking?
+> > > 
+> > > Not really sure at all.. Isn't there some debugfs locking that will
+> > > jump in, to avoid updation of fields to the same device?
+> > 
+> > No, if you need any locking to access variable, you cannot use the
+> > simple debugfs helpers but have to provide your own functions.
+> > 
+> > > >> Anyway, that problem isn't here for sure as its between two
+> > > >> unsigned-longs. So, should I just move it to bool and resend ?
+> > > >
+> > > > I guess it might be more convenient to fold this into the other patch,
+> > > > because we seem to be splitting hairs here.
+> > > 
+> > > I can and that's what I did. But then Arnd asked me to separate it
+> > > out. I can fold it back if that's what you want.
+> > 
+> > It still makes sense to keep it separate I think, the patch is clearly
+> > different from the other parts.
+> 
+> I just don't see much point in going from unsigned long to u32 and then
+> from 32 to bool if we can go directly to bool in one go.
 
-I am currently using kernel version 3.16.7 on a linux switch.
-While creating and destroying network namespaces I am observing below logs
-on the console
-"unregister_netdevice: waiting for lo to become free. Usage count = 1"
+It's only important to keep the 34-file multi-subsystem trivial cleanup
+that doesn't change any functionality separate from the bugfix. If you
+like to avoid patching one of the files twice, the alternative would
+be to first change the API for all other instances from u32 to bool
+and leave ACPI alone, and then do the second patch that changes ACPI
+from long to bool.
 
-Can you please suggest and provide instructions on how to debug this issue.
-If any fix already available can you please point me to the link.
+	Arnd
 
-Best Regards,
-Anand
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
