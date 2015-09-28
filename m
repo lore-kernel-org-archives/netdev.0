@@ -1,67 +1,47 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 3/3] net: Remove martian_source_keep_err goto label
-Date: Mon, 28 Sep 2015 11:10:44 -0700
-Message-ID: <20150928181044.20320.30541.stgit@ahduyck-vm-fedora22>
-References: <20150928175512.20320.97537.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] i40e: fix VLAN inside VXLAN
+Date: Mon, 28 Sep 2015 11:21:48 -0700
+Message-ID: <1443464508-53806-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34525 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756675AbbI1SKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 14:10:45 -0400
-Received: by padhy16 with SMTP id hy16so180778401pad.1
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 11:10:45 -0700 (PDT)
-In-Reply-To: <20150928175512.20320.97537.stgit@ahduyck-vm-fedora22>
+Received: from mga02.intel.com ([134.134.136.20]:40566 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934152AbbI1SX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 14:23:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-err is initialized to -EINVAL when it is declared. It is not reset until
-fib_lookup which is well after the 3 users of the martian_source jump. So
-resetting err to -EINVAL at martian_source label is not needed.
+Previously to this patch, the hardware was removing
+VLAN tags from the inner header of VXLAN packets.  The
+hardware configuration can be changed to leave the
+packet alone since that is what the linux stack
+expects for this type of VLAN in VXLAN packet.
 
-Removing that line obviates the need for the martian_source_keep_err label
-so delete it.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/route.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 43508c8d08e2..8c84a6664b30 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1759,7 +1759,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		err = fib_validate_source(skb, saddr, daddr, tos,
- 					  0, dev, in_dev, &itag);
- 		if (err < 0)
--			goto martian_source_keep_err;
-+			goto martian_source;
- 		goto local_input;
- 	}
- 
-@@ -1781,7 +1781,7 @@ brd_input:
- 		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
- 					  in_dev, &itag);
- 		if (err < 0)
--			goto martian_source_keep_err;
-+			goto martian_source;
- 	}
- 	flags |= RTCF_BROADCAST;
- 	res.type = RTN_BROADCAST;
-@@ -1857,8 +1857,6 @@ e_nobufs:
- 	goto out;
- 
- martian_source:
--	err = -EINVAL;
--martian_source_keep_err:
- 	ip_handle_martian_source(dev, in_dev, skb, daddr, saddr);
- 	goto out;
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 48a52b3..5bb1e67 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2590,7 +2590,8 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
+ 		rx_ctx.lrxqthresh = 2;
+ 	rx_ctx.crcstrip = 1;
+ 	rx_ctx.l2tsel = 1;
+-	rx_ctx.showiv = 1;
++	/* this controls whether VLAN is stripped from inner headers */
++	rx_ctx.showiv = 0;
+ #ifdef I40E_FCOE
+ 	rx_ctx.fc_ena = (vsi->type == I40E_VSI_FCOE);
+ #endif
+-- 
+2.4.3
