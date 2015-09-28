@@ -1,40 +1,35 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2] net: sctp: Don't use 64 kilobyte lookup table for
- four elements
-Date: Mon, 28 Sep 2015 09:42:03 -0300
-Message-ID: <20150928124203.GB24740@localhost.localdomain>
-References: <1443443644-12825-1-git-send-email-dvlasenk@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Denys Vlasenko <dvlasenk@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52496 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933011AbbI1MmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 08:42:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1443443644-12825-1-git-send-email-dvlasenk@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: [PATCH 1/1] net sysfs: Print link speed as signed integer
+Date: Mon, 28 Sep 2015 14:48:49 +0200
+Message-ID: <1443444529-12868-1-git-send-email-alexander.stein@systec-electronic.com>
+Cc: Alexander Stein <alexander.stein@systec-electronic.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 28, 2015 at 02:34:04PM +0200, Denys Vlasenko wrote:
-> Seemingly innocuous sctp_trans_state_to_prio_map[] array
-> is way bigger than it looks, since
-> "[SCTP_UNKNOWN] = 2" expands into "[0xffff] = 2" !
-> 
-> This patch replaces it with switch() statement.
-> 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> CC: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> CC: linux-sctp@vger.kernel.org
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
+Otherwise 4294967295 (MBit/s) (-1) will be printed when there is no link.
+Documentation/ABI/testing/sysfs-class-net does not state if this shall be
+signed or unsigned.
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
+---
+ net/core/net-sysfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 805a95a..e3f7eea 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -31,7 +31,7 @@
+ static const char fmt_hex[] = "%#x\n";
+ static const char fmt_long_hex[] = "%#lx\n";
+ static const char fmt_dec[] = "%d\n";
+-static const char fmt_udec[] = "%u\n";
++static const char fmt_udec[] = "%d\n";
+ static const char fmt_ulong[] = "%lu\n";
+ static const char fmt_u64[] = "%llu\n";
+ 
+-- 
+2.4.9
