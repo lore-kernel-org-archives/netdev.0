@@ -1,138 +1,127 @@
-From: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 08/23] usb-gadget/f_midi: use per-attribute show and store
- methods
-Date: Mon, 28 Sep 2015 13:47:43 +0200
-Message-ID: <560928DF.5040605@samsung.com>
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Subject: Re: [PATCH 09/23] usb-gadget/f_printer: use per-attribute show and
+ store methods
+Date: Mon, 28 Sep 2015 13:50:53 +0200
+Message-ID: <5609299D.7090302@samsung.com>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-9-git-send-email-hch@lst.de>
+ <1443189000-13398-10-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <1443189000-13398-9-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Felipe Balbi <balbi@ti.com>, Tejun Heo <tj@kernel.org>,
+	Pratyush Anand <pratyush.anand@gmail.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-reply-to: <1443189000-13398-10-git-send-email-hch@lst.de>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Christoph,
+
+The same remark as for f_loopback (__CONFIGFS_ATTR location vs
+CONFIGFS_ATTR location after applying)
+
+If addressed
+
+Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+
 W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
-> Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-
-Reviewed-by: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
->   drivers/usb/gadget/function/f_midi.c | 37 ++++++++++++++++--------------------
->   1 file changed, 16 insertions(+), 21 deletions(-)
+>   drivers/usb/gadget/function/f_printer.c | 31 ++++++++++++-------------------
+>   1 file changed, 12 insertions(+), 19 deletions(-)
 >
-> diff --git a/drivers/usb/gadget/function/f_midi.c b/drivers/usb/gadget/function/f_midi.c
-> index a287a48..0e2b8ed 100644
-> --- a/drivers/usb/gadget/function/f_midi.c
-> +++ b/drivers/usb/gadget/function/f_midi.c
-> @@ -906,9 +906,6 @@ static inline struct f_midi_opts *to_f_midi_opts(struct config_item *item)
+> diff --git a/drivers/usb/gadget/function/f_printer.c b/drivers/usb/gadget/function/f_printer.c
+> index 8e2b6be..29c90d5 100644
+> --- a/drivers/usb/gadget/function/f_printer.c
+> +++ b/drivers/usb/gadget/function/f_printer.c
+> @@ -1148,9 +1148,6 @@ static inline struct f_printer_opts
 >   			    func_inst.group);
 >   }
 >
-> -CONFIGFS_ATTR_STRUCT(f_midi_opts);
-> -CONFIGFS_ATTR_OPS(f_midi_opts);
+> -CONFIGFS_ATTR_STRUCT(f_printer_opts);
+> -CONFIGFS_ATTR_OPS(f_printer_opts);
 > -
->   static void midi_attr_release(struct config_item *item)
+>   static void printer_attr_release(struct config_item *item)
 >   {
->   	struct f_midi_opts *opts = to_f_midi_opts(item);
-> @@ -918,13 +915,12 @@ static void midi_attr_release(struct config_item *item)
+>   	struct f_printer_opts *opts = to_f_printer_opts(item);
+> @@ -1160,13 +1157,12 @@ static void printer_attr_release(struct config_item *item)
 >
->   static struct configfs_item_operations midi_item_ops = {
->   	.release	= midi_attr_release,
-> -	.show_attribute	= f_midi_opts_attr_show,
-> -	.store_attribute = f_midi_opts_attr_store,
+>   static struct configfs_item_operations printer_item_ops = {
+>   	.release	= printer_attr_release,
+> -	.show_attribute	= f_printer_opts_attr_show,
+> -	.store_attribute = f_printer_opts_attr_store,
 >   };
 >
->   #define F_MIDI_OPT(name, test_limit, limit)				\
-> -static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
-> +static ssize_t f_midi_opts_##name##_show(struct config_item *item, char *page) \
->   {									\
-> +	struct f_midi_opts *opts = to_f_midi_opts(item);		\
->   	int result;							\
->   									\
->   	mutex_lock(&opts->lock);					\
-> @@ -934,9 +930,10 @@ static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
->   	return result;							\
->   }									\
->   									\
-> -static ssize_t f_midi_opts_##name##_store(struct f_midi_opts *opts,	\
-> +static ssize_t f_midi_opts_##name##_store(struct config_item *item,	\
->   					 const char *page, size_t len)	\
->   {									\
-> +	struct f_midi_opts *opts = to_f_midi_opts(item);		\
->   	int ret;							\
->   	u32 num;							\
->   									\
-> @@ -962,9 +959,7 @@ end:									\
->   	return ret;							\
->   }									\
->   									\
-> -static struct f_midi_opts_attribute f_midi_opts_##name =		\
-> -	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR, f_midi_opts_##name##_show, \
-> -			f_midi_opts_##name##_store)
-> +CONFIGFS_ATTR(f_midi_opts_, name);
->
->   F_MIDI_OPT(index, true, SNDRV_CARDS);
->   F_MIDI_OPT(buflen, false, 0);
-> @@ -972,8 +967,9 @@ F_MIDI_OPT(qlen, false, 0);
->   F_MIDI_OPT(in_ports, true, MAX_PORTS);
->   F_MIDI_OPT(out_ports, true, MAX_PORTS);
->
-> -static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
-> +static ssize_t f_midi_opts_id_show(struct config_item *item, char *page)
+> -static ssize_t f_printer_opts_pnp_string_show(struct f_printer_opts *opts,
+> +static ssize_t f_printer_opts_pnp_string_show(struct config_item *item,
+>   					      char *page)
 >   {
-> +	struct f_midi_opts *opts = to_f_midi_opts(item);
+> +	struct f_printer_opts *opts = to_f_printer_opts(item);
 >   	int result;
 >
 >   	mutex_lock(&opts->lock);
-> @@ -989,9 +985,10 @@ static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
+> @@ -1176,9 +1172,10 @@ static ssize_t f_printer_opts_pnp_string_show(struct f_printer_opts *opts,
 >   	return result;
 >   }
 >
-> -static ssize_t f_midi_opts_id_store(struct f_midi_opts *opts,
-> +static ssize_t f_midi_opts_id_store(struct config_item *item,
->   				    const char *page, size_t len)
+> -static ssize_t f_printer_opts_pnp_string_store(struct f_printer_opts *opts,
+> +static ssize_t f_printer_opts_pnp_string_store(struct config_item *item,
+>   					       const char *page, size_t len)
 >   {
-> +	struct f_midi_opts *opts = to_f_midi_opts(item);
->   	int ret;
->   	char *c;
+> +	struct f_printer_opts *opts = to_f_printer_opts(item);
+>   	int result, l;
 >
-> @@ -1016,17 +1013,15 @@ end:
+>   	mutex_lock(&opts->lock);
+> @@ -1191,14 +1188,10 @@ static ssize_t f_printer_opts_pnp_string_store(struct f_printer_opts *opts,
+>   	return result;
+>   }
+>
+> -static struct f_printer_opts_attribute f_printer_opts_pnp_string =
+> -	__CONFIGFS_ATTR(pnp_string, S_IRUGO | S_IWUSR,
+> -			f_printer_opts_pnp_string_show,
+> -			f_printer_opts_pnp_string_store);
+> -
+> -static ssize_t f_printer_opts_q_len_show(struct f_printer_opts *opts,
+> +static ssize_t f_printer_opts_q_len_show(struct config_item *item,
+>   					 char *page)
+>   {
+> +	struct f_printer_opts *opts = to_f_printer_opts(item);
+>   	int result;
+>
+>   	mutex_lock(&opts->lock);
+> @@ -1208,9 +1201,10 @@ static ssize_t f_printer_opts_q_len_show(struct f_printer_opts *opts,
+>   	return result;
+>   }
+>
+> -static ssize_t f_printer_opts_q_len_store(struct f_printer_opts *opts,
+> +static ssize_t f_printer_opts_q_len_store(struct config_item *item,
+>   					  const char *page, size_t len)
+>   {
+> +	struct f_printer_opts *opts = to_f_printer_opts(item);
+>   	int ret;
+>   	u16 num;
+>
+> @@ -1231,13 +1225,12 @@ end:
 >   	return ret;
 >   }
 >
-> -static struct f_midi_opts_attribute f_midi_opts_id =
-> -	__CONFIGFS_ATTR(id, S_IRUGO | S_IWUSR, f_midi_opts_id_show,
-> -			f_midi_opts_id_store);
-> +CONFIGFS_ATTR(f_midi_opts_, id);
+> -static struct f_printer_opts_attribute f_printer_opts_q_len =
+> -	__CONFIGFS_ATTR(q_len, S_IRUGO | S_IWUSR, f_printer_opts_q_len_show,
+> -			f_printer_opts_q_len_store);
+> +CONFIGFS_ATTR(f_printer_opts_, pnp_string);
+> +CONFIGFS_ATTR(f_printer_opts_, q_len);
 >
->   static struct configfs_attribute *midi_attrs[] = {
-> -	&f_midi_opts_index.attr,
-> -	&f_midi_opts_buflen.attr,
-> -	&f_midi_opts_qlen.attr,
-> -	&f_midi_opts_in_ports.attr,
-> -	&f_midi_opts_out_ports.attr,
-> -	&f_midi_opts_id.attr,
-> +	&f_midi_opts_attr_index,
-> +	&f_midi_opts_attr_buflen,
-> +	&f_midi_opts_attr_qlen,
-> +	&f_midi_opts_attr_in_ports,
-> +	&f_midi_opts_attr_out_ports,
-> +	&f_midi_opts_attr_id,
+>   static struct configfs_attribute *printer_attrs[] = {
+> -	&f_printer_opts_pnp_string.attr,
+> -	&f_printer_opts_q_len.attr,
+> +	&f_printer_opts_attr_pnp_string,
+> +	&f_printer_opts_attr_q_len,
 >   	NULL,
 >   };
 >
 >
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
