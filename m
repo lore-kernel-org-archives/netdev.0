@@ -1,115 +1,87 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 09/11] net: Move netif_index_is_l3_master to l3mdev.h
-Date: Mon, 28 Sep 2015 10:16:59 -0700
-Message-ID: <1443460621-24855-10-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 06/11] net: Replace calls to vrf_dev_get_rth
+Date: Mon, 28 Sep 2015 10:16:56 -0700
+Message-ID: <1443460621-24855-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36577 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933540AbbI1RRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 13:17:24 -0400
-Received: by pablk4 with SMTP id lk4so82788034pab.3
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 10:17:23 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33396 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934419AbbI1RRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 13:17:20 -0400
+Received: by pacex6 with SMTP id ex6so179729033pac.0
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 10:17:19 -0700 (PDT)
 In-Reply-To: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change CONFIG dependency to CONFIG_NET_L3_MASTER_DEV as well.
+Replace calls to vrf_dev_get_rth with l3mdev_get_rtable.
+The check on the flow flags is handled in the l3mdev operation.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/linux/netdevice.h | 21 ---------------------
- include/net/l3mdev.h      | 24 ++++++++++++++++++++++++
- include/net/route.h       |  1 +
- 3 files changed, 25 insertions(+), 21 deletions(-)
+ include/net/vrf.h | 22 ----------------------
+ net/ipv4/route.c  |  8 +++-----
+ 2 files changed, 3 insertions(+), 27 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 72bf9e37a2f0..b9450784ae06 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3840,27 +3840,6 @@ static inline bool netif_is_ovs_master(const struct net_device *dev)
- 	return dev->priv_flags & IFF_OPENVSWITCH;
- }
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+index b05b96646e2a..5bba1535ba73 100644
+--- a/include/net/vrf.h
++++ b/include/net/vrf.h
+@@ -32,26 +32,4 @@ struct net_vrf {
+ 	u32			tb_id;
+ };
  
--static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
--{
--	bool rc = false;
 -
 -#if IS_ENABLED(CONFIG_NET_VRF)
--	struct net_device *dev;
+-/* caller has already checked netif_is_l3_master(dev) */
+-static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+-{
+-	struct rtable *rth = ERR_PTR(-ENETUNREACH);
+-	struct net_vrf *vrf = netdev_priv(dev);
 -
--	if (ifindex == 0)
--		return false;
--
--	rcu_read_lock();
--
--	dev = dev_get_by_index_rcu(net, ifindex);
--	if (dev)
--		rc = netif_is_l3_master(dev);
--
--	rcu_read_unlock();
--#endif
--	return rc;
+-	if (vrf) {
+-		rth = vrf->rth;
+-		atomic_inc(&rth->dst.__refcnt);
+-	}
+-	return rth;
 -}
 -
- /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
- static inline void netif_keep_dst(struct net_device *dev)
- {
-diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index cd44d24eac57..3353a0d7cae4 100644
---- a/include/net/l3mdev.h
-+++ b/include/net/l3mdev.h
-@@ -83,6 +83,25 @@ static inline struct rtable *l3mdev_get_rtable(const struct net_device *dev,
- 	return NULL;
- }
- 
-+static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
-+{
-+	struct net_device *dev;
-+	bool rc = false;
-+
-+	if (ifindex == 0)
-+		return false;
-+
-+	rcu_read_lock();
-+
-+	dev = dev_get_by_index_rcu(net, ifindex);
-+	if (dev)
-+		rc = netif_is_l3_master(dev);
-+
-+	rcu_read_unlock();
-+
-+	return rc;
-+}
-+
- #else
- 
- static inline int l3mdev_master_ifindex_rcu(struct net_device *dev)
-@@ -122,6 +141,11 @@ static inline struct rtable *l3mdev_get_rtable(const struct net_device *dev,
- 	return NULL;
- }
- 
-+static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
-+{
-+	return false;
-+}
-+
+-#else
+-static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
+-{
+-	return ERR_PTR(-ENETUNREACH);
+-}
+-#endif
+-
+ #endif /* __LINUX_NET_VRF_H */
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index cf790aeb7f74..240f5ea02618 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -112,7 +112,6 @@
  #endif
+ #include <net/secure_seq.h>
+ #include <net/ip_tunnels.h>
+-#include <net/vrf.h>
+ #include <net/l3mdev.h>
  
- #endif /* _NET_L3MDEV_H_ */
-diff --git a/include/net/route.h b/include/net/route.h
-index a565d0dad12c..e211dc167db1 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -28,6 +28,7 @@
- #include <net/inetpeer.h>
- #include <net/flow.h>
- #include <net/inet_sock.h>
-+#include <net/l3mdev.h>
- #include <linux/in_route.h>
- #include <linux/rtnetlink.h>
- #include <linux/rcupdate.h>
+ #define RT_FL_TOS(oldflp4) \
+@@ -2128,11 +2127,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 				fl4->saddr = inet_select_addr(dev_out, 0,
+ 							      RT_SCOPE_HOST);
+ 		}
+-		if (netif_is_l3_master(dev_out) &&
+-		    !(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
+-			rth = vrf_dev_get_rth(dev_out);
++
++		rth = l3mdev_get_rtable(dev_out, fl4);
++		if (rth)
+ 			goto out;
+-		}
+ 	}
+ 
+ 	if (!fl4->daddr) {
 -- 
 1.9.1
