@@ -1,86 +1,124 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 0/6] make non-modular code explicitly non-modular
-Date: Mon, 28 Sep 2015 15:51:24 -0400
-Message-ID: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Anish Bhatt <anish@chelsio.com>,
-	Craig Gallek <kraig@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	<linux-m68k@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 2/5] ntp/pps: replace getnstime_raw_and_real with 64-bit version
+Date: Mon, 28 Sep 2015 22:21:29 +0200
+Message-ID: <1443471692-2946597-3-git-send-email-arnd@arndb.de>
+References: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	linux-net-drivers@solarflare.com,
+	Shradha Shah <sshah@solarflare.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>
+To: y2038@lists.linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:56608 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbbI1UXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 16:23:06 -0400
+In-Reply-To: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In a previous merge window, we made changes to allow better
-delineation between modular and non-modular code in commit
-0fd972a7d91d6e15393c449492a04d94c0b89351 ("module: relocate module_init
-from init.h to module.h").  This allows us to now ensure module code
-looks modular and non-modular code does not accidentally look modular
-just to avoid suffering build breakage.
+There is exactly one caller of getnstime_raw_and_real in the kernel,
+which is the pps_get_ts function. This changes the caller and
+the implementation to work on timespec64 types rather than timespec,
+to avoid the time_t overflow on 32-bit architectures.
 
-Here we target code that is, by nature of their Makefile and/or
-Kconfig settings, only available to be built-in, but implicitly
-presenting itself as being possibly modular by way of using modular
-headers, macros, and functions.
+For consistency with the other new functions (ktime_get_seconds,
+ktime_get_real_*, ...), I'm renaming the function to
+ktime_get_raw_and_real_ts64.
 
-The goal here is to remove that illusion of modularity from these
-files, but in a way that leaves the actual runtime unchanged.
-In doing so, we remove code that has never been tested and adds
-no value to the tree.  And we continue the process of expecting a
-level of consistency between the Kconfig/Makefile of code and the
-code in use itself.
+We still need to convert from the internal 64-bit type to 32 bit
+types in the caller, but this conversion is now pushed out from
+getnstime_raw_and_real to pps_get_ts. A follow-up patch changes
+the remaining pps code to completely avoid the conversion.
 
-Fortuntately the net subsystem has relatively few instances, given
-the overall amount of code and drivers it contains.  For comparison
-there are over 300 instances tree wide, resulting in a possible net
-removal of on the order of 5000 lines of unused code.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ include/linux/pps_kernel.h  |  7 ++++++-
+ include/linux/timekeeping.h |  4 ++--
+ kernel/time/timekeeping.c   | 12 ++++++------
+ 3 files changed, 14 insertions(+), 9 deletions(-)
 
-Build tested on net-next 34c2d9fb0498 on m68k, since that is the arch
-where the three ethernet drivers changed here are available.
-
-Paul.
---
-
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Anish Bhatt <anish@chelsio.com>
-Cc: Craig Gallek <kraig@google.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>
-Cc: Shani Michaeli <shanim@mellanox.com>
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: netdev@vger.kernel.org
-
-Paul Gortmaker (6):
-  net/core: make sock_diag.c explicitly non-modular
-  net/dcb: make dcbnl.c explicitly non-modular
-  net/sched: make sch_blackhole.c explicitly non-modular
-  net/ethernet: make amd/hplance.c driver explicitly non-modular
-  net/ethernet: make 8390/mac8390.c driver explicitly non-modular
-  net/ethernet: make apple/macmace.c driver explicitly non-modular
-
- drivers/net/ethernet/8390/mac8390.c  | 40 ++----------------------------------
- drivers/net/ethernet/amd/hplance.c   | 13 ++----------
- drivers/net/ethernet/apple/macmace.c | 38 +++-------------------------------
- net/core/sock_diag.c                 | 14 +++----------
- net/dcb/dcbnl.c                      | 30 +++------------------------
- net/sched/sch_blackhole.c            | 15 +++-----------
- 6 files changed, 16 insertions(+), 134 deletions(-)
-
+diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
+index 1d2cd21242e8..b2fbd62ab18d 100644
+--- a/include/linux/pps_kernel.h
++++ b/include/linux/pps_kernel.h
+@@ -115,7 +115,12 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
+ 
+ static inline void pps_get_ts(struct pps_event_time *ts)
+ {
+-	getnstime_raw_and_real(&ts->ts_raw, &ts->ts_real);
++	struct timespec64 raw, real;
++
++	ktime_get_raw_and_real_ts64(&raw, &real);
++
++	ts->ts_raw = timespec64_to_timespec(raw);
++	ts->ts_real = timespec64_to_timespec(real);
+ }
+ 
+ #else /* CONFIG_NTP_PPS */
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 474331cd1ef8..ca2eaa9077eb 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -269,8 +269,8 @@ extern void timekeeping_inject_sleeptime64(struct timespec64 *delta);
+ /*
+  * PPS accessor
+  */
+-extern void getnstime_raw_and_real(struct timespec *ts_raw,
+-				   struct timespec *ts_real);
++extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
++				        struct timespec64 *ts_real);
+ 
+ /*
+  * Persistent clock related interfaces
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index 3112977dfca0..ed5049ff94c5 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -849,7 +849,7 @@ EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
+ #ifdef CONFIG_NTP_PPS
+ 
+ /**
+- * getnstime_raw_and_real - get day and raw monotonic time in timespec format
++ * ktime_get_raw_and_real_ts64 - get day and raw monotonic time in timespec format
+  * @ts_raw:	pointer to the timespec to be set to raw monotonic time
+  * @ts_real:	pointer to the timespec to be set to the time of day
+  *
+@@ -857,7 +857,7 @@ EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
+  * same time atomically and stores the resulting timestamps in timespec
+  * format.
+  */
+-void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
++void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw, struct timespec64 *ts_real)
+ {
+ 	struct timekeeper *tk = &tk_core.timekeeper;
+ 	unsigned long seq;
+@@ -868,7 +868,7 @@ void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
+ 	do {
+ 		seq = read_seqcount_begin(&tk_core.seq);
+ 
+-		*ts_raw = timespec64_to_timespec(tk->raw_time);
++		*ts_raw = tk->raw_time;
+ 		ts_real->tv_sec = tk->xtime_sec;
+ 		ts_real->tv_nsec = 0;
+ 
+@@ -877,10 +877,10 @@ void getnstime_raw_and_real(struct timespec *ts_raw, struct timespec *ts_real)
+ 
+ 	} while (read_seqcount_retry(&tk_core.seq, seq));
+ 
+-	timespec_add_ns(ts_raw, nsecs_raw);
+-	timespec_add_ns(ts_real, nsecs_real);
++	timespec64_add_ns(ts_raw, nsecs_raw);
++	timespec64_add_ns(ts_real, nsecs_real);
+ }
+-EXPORT_SYMBOL(getnstime_raw_and_real);
++EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
+ 
+ #endif /* CONFIG_NTP_PPS */
+ 
 -- 
-2.6.0.rc3
+2.1.0.rc2
