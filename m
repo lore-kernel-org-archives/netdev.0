@@ -1,49 +1,79 @@
-From: Christoffer Dall <christoffer.dall@linaro.org>
-Subject: BUG: Mellanox crash with iommu=soft and swiotlb=force
-Date: Mon, 28 Sep 2015 23:04:50 +0200
-Message-ID: <20150928210450.GA7610@cbox>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH net-next 0/6] make non-modular code explicitly non-modular
+Date: Mon, 28 Sep 2015 23:09:13 +0200
+Message-ID: <CAMuHMdXnk2ZoyoMj2U2iz2NYDkX=rQqZzMZyccy3g1JVqbrZMw@mail.gmail.com>
+References: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ian.campbell@citrix.com, stefano.stabellini@eu.citrix.com,
-	konrad.wilk@oracle.com
-To: amirv@mellanox.com, idos@mellanox.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:34924 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998AbbI1VEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 17:04:51 -0400
-Received: by laer8 with SMTP id r8so45798292lae.2
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 14:04:49 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	Craig Gallek <kraig@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	"Linux/m68k" <linux-m68k@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Paul,
 
-In doing some performance experiments I found that using a 10G Mellanox
-MX354A Dual port FDR CX3 device on a server running Apache and running
-ab against that server causes the system to crash with 'iommu=soft
-swiotlb=force'.  The same behavior is seen without these options on Dom0
-running under Xen.
+On Mon, Sep 28, 2015 at 9:51 PM, Paul Gortmaker
+<paul.gortmaker@windriver.com> wrote:
+> In a previous merge window, we made changes to allow better
+> delineation between modular and non-modular code in commit
+> 0fd972a7d91d6e15393c449492a04d94c0b89351 ("module: relocate module_init
+> from init.h to module.h").  This allows us to now ensure module code
+> looks modular and non-modular code does not accidentally look modular
+> just to avoid suffering build breakage.
+>
+> Here we target code that is, by nature of their Makefile and/or
+> Kconfig settings, only available to be built-in, but implicitly
+> presenting itself as being possibly modular by way of using modular
+> headers, macros, and functions.
+>
+> The goal here is to remove that illusion of modularity from these
+> files, but in a way that leaves the actual runtime unchanged.
+> In doing so, we remove code that has never been tested and adds
+> no value to the tree.  And we continue the process of expecting a
+> level of consistency between the Kconfig/Makefile of code and the
+> code in use itself.
+>
+> Fortuntately the net subsystem has relatively few instances, given
+> the overall amount of code and drivers it contains.  For comparison
+> there are over 300 instances tree wide, resulting in a possible net
+> removal of on the order of 5000 lines of unused code.
+>
+> Build tested on net-next 34c2d9fb0498 on m68k, since that is the arch
+> where the three ethernet drivers changed here are available.
 
-I have tried this on v4.0 and v4.3-rc3.
+>   net/ethernet: make amd/hplance.c driver explicitly non-modular
+>   net/ethernet: make 8390/mac8390.c driver explicitly non-modular
+>   net/ethernet: make apple/macmace.c driver explicitly non-modular
 
-Examples of crashes:
-http://pastebin.ubuntu.com/11953498/
-http://pastebin.ubuntu.com/11953443/
+Why did you choose this approach?
+What about changing the "bool"s to "tristate"s in Kconfig instead?
 
-Kernel config (v4.3):
-http://paste.ubuntu.com/12605446/
+I gave it a try, and with some small changes the three m68k ethernet drivers
+build fine as modular drivers. I can send patches if you like it.
 
-To reproduce, host a file in apache server on a system with the Mellanox
-NIC (I used the 41K index file of the GCC manual) and run ab (apache
-bench) from a client machine, something like this:
+Thanks!
 
-$ ab -n 100000 -c 100 http://10.10.1.2/gcc/index.html
+Gr{oetje,eeting}s,
 
-I'm afraid debugging this is out of my area of expertise.  Is this
-something you could have a look at?
+                        Geert
 
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-Thanks,
--Christoffer
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
