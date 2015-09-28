@@ -1,9 +1,10 @@
 From: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 02/23] usb-gadget: use per-attribute show and store methods
-Date: Mon, 28 Sep 2015 12:54:57 +0200
-Message-ID: <56091C81.9090008@samsung.com>
+Subject: Re: [PATCH 03/23] usb-gadget/uvc: use per-attribute show and store
+ methods
+Date: Mon, 28 Sep 2015 13:35:38 +0200
+Message-ID: <5609260A.7010806@samsung.com>
 References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-3-git-send-email-hch@lst.de>
+ <1443189000-13398-4-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,710 +16,892 @@ Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2yg
 To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
 	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <1443189000-13398-3-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
+In-reply-to: <1443189000-13398-4-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
-> Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Hi Christoph,
+
+please see my comments inline.
+
+With the issues addressed you can add
 
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 
+W dniu 25.09.2015 o 15:49, Christoph Hellwig pisze:
+> UVC is a little different from other configfs consumers in that it wants
+> different function and field names from the exposed attribute name, so
+> it keeps it's local macros to define attributes instead of using the common
+> ones.
+>
+> Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 > ---
->   drivers/usb/gadget/configfs.c       | 295 ++++++++++++++----------------------
->   include/linux/usb/gadget_configfs.h |  19 +--
->   2 files changed, 118 insertions(+), 196 deletions(-)
+>   drivers/usb/gadget/function/uvc_configfs.c | 391 +++++++++++------------------
+>   1 file changed, 146 insertions(+), 245 deletions(-)
 >
-> diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
-> index 294eb74..163d305 100644
-> --- a/drivers/usb/gadget/configfs.c
-> +++ b/drivers/usb/gadget/configfs.c
-> @@ -64,6 +64,11 @@ struct gadget_info {
->   	char qw_sign[OS_STRING_QW_SIGN_LEN];
->   };
+> diff --git a/drivers/usb/gadget/function/uvc_configfs.c b/drivers/usb/gadget/function/uvc_configfs.c
+> index 3c0467b..8ae8ff8 100644
+> --- a/drivers/usb/gadget/function/uvc_configfs.c
+> +++ b/drivers/usb/gadget/function/uvc_configfs.c
+> @@ -15,23 +15,27 @@
+>   #include "u_uvc.h"
+>   #include "uvc_configfs.h"
 >
-> +static inline struct gadget_info *to_gadget_info(struct config_item *item)
-> +{
-> +	 return container_of(to_config_group(item), struct gadget_info, group);
+> -#define UVCG_STREAMING_CONTROL_SIZE	1
+
+Moving this define seems an unrelated change to me.
+
+> +#define UVC_ATTR(prefix, cname, aname) \
+> +static struct configfs_attribute prefix##attr_##cname = { \
+> +	.ca_name	= __stringify(aname),				\
+> +	.ca_mode	= S_IRUGO,					\
+> +	.ca_owner	= THIS_MODULE,					\
+> +	.show		= prefix##cname##_show,				\
+> +	.store		= prefix##cname##_store,			\
 > +}
+>
+> -#define CONFIGFS_ATTR_OPS_RO(_item)					\
+> -static ssize_t _item##_attr_show(struct config_item *item,		\
+> -				 struct configfs_attribute *attr,	\
+> -				 char *page)				\
+> -{									\
+> -	struct _item *_item = to_##_item(item);				\
+> -	struct _item##_attribute *_item##_attr =			\
+> -		container_of(attr, struct _item##_attribute, attr);	\
+> -	ssize_t ret = 0;						\
+> -									\
+> -	if (_item##_attr->show)						\
+> -		ret = _item##_attr->show(_item, page);			\
+> -	return ret;							\
+> +#define UVC_ATTR_RO(prefix, cname, aname) \
+> +static struct configfs_attribute prefix##attr_##cname = { \
+> +	.ca_name	= __stringify(aname),				\
+> +	.ca_mode	= S_IRUGO,					\
+> +	.ca_owner	= THIS_MODULE,					\
+> +	.show		= prefix##cname##_show,				\
+>   }
+>
+> +#define identity_conv(x) (x)
+
+What is this needed for here?
+
+This #define is not used near the place it is defined.
+Throughout the file the identity_conv is being defined multiple times,
+each time near the place it is used and then undefined.
+
+Without this line the code still compiles.
+
 > +
->   struct config_usb_cfg {
->   	struct config_group group;
->   	struct config_group strings_group;
-> @@ -74,6 +79,12 @@ struct config_usb_cfg {
->   	struct usb_gadget_strings *gstrings[MAX_USB_STRING_LANGS + 1];
->   };
->
-> +static inline struct config_usb_cfg *to_config_usb_cfg(struct config_item *item)
-> +{
-> +	return container_of(to_config_group(item), struct config_usb_cfg,
-> +			group);
-> +}
+> +#define UVCG_STREAMING_CONTROL_SIZE	1
 > +
->   struct gadget_strings {
->   	struct usb_gadget_strings stringtab_dev;
->   	struct usb_string strings[USB_GADGET_FIRST_AVAIL_IDX];
-> @@ -117,32 +128,25 @@ static int usb_string_copy(const char *s, char **s_copy)
->   	return 0;
+>   static inline struct f_uvc_opts *to_f_uvc_opts(struct config_item *item);
+>
+>   /* control/header/<NAME> */
+> @@ -48,18 +52,11 @@ static struct uvcg_control_header *to_uvcg_control_header(struct config_item *it
+>   	return container_of(item, struct uvcg_control_header, item);
 >   }
 >
-> -CONFIGFS_ATTR_STRUCT(gadget_info);
-> -CONFIGFS_ATTR_STRUCT(config_usb_cfg);
+> -CONFIGFS_ATTR_STRUCT(uvcg_control_header);
+> -CONFIGFS_ATTR_OPS(uvcg_control_header);
 > -
-> -#define GI_DEVICE_DESC_ITEM_ATTR(name)	\
-> -	static struct gadget_info_attribute gadget_cdev_desc_##name = \
-> -		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
-> -				gadget_dev_desc_##name##_show,		\
-> -				gadget_dev_desc_##name##_store)
-> -
->   #define GI_DEVICE_DESC_SIMPLE_R_u8(__name)	\
-> -	static ssize_t gadget_dev_desc_##__name##_show(struct gadget_info *gi, \
-> +static ssize_t gadget_dev_desc_##__name##_show(struct config_item *item, \
->   			char *page)	\
->   {	\
-> -	return sprintf(page, "0x%02x\n", gi->cdev.desc.__name);	\
-> +	return sprintf(page, "0x%02x\n", \
-> +		to_gadget_info(item)->cdev.desc.__name); \
->   }
->
->   #define GI_DEVICE_DESC_SIMPLE_R_u16(__name)	\
-> -	static ssize_t gadget_dev_desc_##__name##_show(struct gadget_info *gi, \
-> +static ssize_t gadget_dev_desc_##__name##_show(struct config_item *item, \
->   			char *page)	\
->   {	\
-> -	return sprintf(page, "0x%04x\n", le16_to_cpup(&gi->cdev.desc.__name)); \
-> +	return sprintf(page, "0x%04x\n", \
-> +		le16_to_cpup(&to_gadget_info(item)->cdev.desc.__name)); \
->   }
->
->
->   #define GI_DEVICE_DESC_SIMPLE_W_u8(_name)		\
-> -	static ssize_t gadget_dev_desc_##_name##_store(struct gadget_info *gi, \
-> +static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
->   		const char *page, size_t len)		\
->   {							\
->   	u8 val;						\
-> @@ -150,12 +154,12 @@ CONFIGFS_ATTR_STRUCT(config_usb_cfg);
->   	ret = kstrtou8(page, 0, &val);			\
->   	if (ret)					\
->   		return ret;				\
-> -	gi->cdev.desc._name = val;			\
-> +	to_gadget_info(item)->cdev.desc._name = val;	\
->   	return len;					\
->   }
->
->   #define GI_DEVICE_DESC_SIMPLE_W_u16(_name)	\
-> -	static ssize_t gadget_dev_desc_##_name##_store(struct gadget_info *gi, \
-> +static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
->   		const char *page, size_t len)		\
->   {							\
->   	u16 val;					\
-> @@ -163,7 +167,7 @@ CONFIGFS_ATTR_STRUCT(config_usb_cfg);
->   	ret = kstrtou16(page, 0, &val);			\
->   	if (ret)					\
->   		return ret;				\
-> -	gi->cdev.desc._name = cpu_to_le16p(&val);	\
-> +	to_gadget_info(item)->cdev.desc._name = cpu_to_le16p(&val);	\
->   	return len;					\
->   }
->
-> @@ -193,7 +197,7 @@ static ssize_t is_valid_bcd(u16 bcd_val)
->   	return 0;
->   }
->
-> -static ssize_t gadget_dev_desc_bcdDevice_store(struct gadget_info *gi,
-> +static ssize_t gadget_dev_desc_bcdDevice_store(struct config_item *item,
->   		const char *page, size_t len)
->   {
->   	u16 bcdDevice;
-> @@ -206,11 +210,11 @@ static ssize_t gadget_dev_desc_bcdDevice_store(struct gadget_info *gi,
->   	if (ret)
->   		return ret;
->
-> -	gi->cdev.desc.bcdDevice = cpu_to_le16(bcdDevice);
-> +	to_gadget_info(item)->cdev.desc.bcdDevice = cpu_to_le16(bcdDevice);
->   	return len;
->   }
->
-> -static ssize_t gadget_dev_desc_bcdUSB_store(struct gadget_info *gi,
-> +static ssize_t gadget_dev_desc_bcdUSB_store(struct config_item *item,
->   		const char *page, size_t len)
->   {
->   	u16 bcdUSB;
-> @@ -223,13 +227,13 @@ static ssize_t gadget_dev_desc_bcdUSB_store(struct gadget_info *gi,
->   	if (ret)
->   		return ret;
->
-> -	gi->cdev.desc.bcdUSB = cpu_to_le16(bcdUSB);
-> +	to_gadget_info(item)->cdev.desc.bcdUSB = cpu_to_le16(bcdUSB);
->   	return len;
->   }
->
-> -static ssize_t gadget_dev_desc_UDC_show(struct gadget_info *gi, char *page)
-> +static ssize_t gadget_dev_desc_UDC_show(struct config_item *item, char *page)
->   {
-> -	return sprintf(page, "%s\n", gi->udc_name ?: "");
-> +	return sprintf(page, "%s\n", to_gadget_info(item)->udc_name ?: "");
->   }
->
->   static int unregister_gadget(struct gadget_info *gi)
-> @@ -247,9 +251,10 @@ static int unregister_gadget(struct gadget_info *gi)
->   	return 0;
->   }
->
-> -static ssize_t gadget_dev_desc_UDC_store(struct gadget_info *gi,
-> +static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
->   		const char *page, size_t len)
->   {
-> +	struct gadget_info *gi = to_gadget_info(item);
->   	char *name;
->   	int ret;
->
-> @@ -283,34 +288,29 @@ err:
->   	return ret;
->   }
->
-> -GI_DEVICE_DESC_ITEM_ATTR(bDeviceClass);
-> -GI_DEVICE_DESC_ITEM_ATTR(bDeviceSubClass);
-> -GI_DEVICE_DESC_ITEM_ATTR(bDeviceProtocol);
-> -GI_DEVICE_DESC_ITEM_ATTR(bMaxPacketSize0);
-> -GI_DEVICE_DESC_ITEM_ATTR(idVendor);
-> -GI_DEVICE_DESC_ITEM_ATTR(idProduct);
-> -GI_DEVICE_DESC_ITEM_ATTR(bcdDevice);
-> -GI_DEVICE_DESC_ITEM_ATTR(bcdUSB);
-> -GI_DEVICE_DESC_ITEM_ATTR(UDC);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bDeviceClass);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bDeviceSubClass);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bDeviceProtocol);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bMaxPacketSize0);
-> +CONFIGFS_ATTR(gadget_dev_desc_, idVendor);
-> +CONFIGFS_ATTR(gadget_dev_desc_, idProduct);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bcdDevice);
-> +CONFIGFS_ATTR(gadget_dev_desc_, bcdUSB);
-> +CONFIGFS_ATTR(gadget_dev_desc_, UDC);
->
->   static struct configfs_attribute *gadget_root_attrs[] = {
-> -	&gadget_cdev_desc_bDeviceClass.attr,
-> -	&gadget_cdev_desc_bDeviceSubClass.attr,
-> -	&gadget_cdev_desc_bDeviceProtocol.attr,
-> -	&gadget_cdev_desc_bMaxPacketSize0.attr,
-> -	&gadget_cdev_desc_idVendor.attr,
-> -	&gadget_cdev_desc_idProduct.attr,
-> -	&gadget_cdev_desc_bcdDevice.attr,
-> -	&gadget_cdev_desc_bcdUSB.attr,
-> -	&gadget_cdev_desc_UDC.attr,
-> +	&gadget_dev_desc_attr_bDeviceClass,
-> +	&gadget_dev_desc_attr_bDeviceSubClass,
-> +	&gadget_dev_desc_attr_bDeviceProtocol,
-> +	&gadget_dev_desc_attr_bMaxPacketSize0,
-> +	&gadget_dev_desc_attr_idVendor,
-> +	&gadget_dev_desc_attr_idProduct,
-> +	&gadget_dev_desc_attr_bcdDevice,
-> +	&gadget_dev_desc_attr_bcdUSB,
-> +	&gadget_dev_desc_attr_UDC,
->   	NULL,
->   };
->
-> -static inline struct gadget_info *to_gadget_info(struct config_item *item)
-> -{
-> -	 return container_of(to_config_group(item), struct gadget_info, group);
-> -}
-> -
->   static inline struct gadget_strings *to_gadget_strings(struct config_item *item)
->   {
->   	 return container_of(to_config_group(item), struct gadget_strings,
-> @@ -324,12 +324,6 @@ static inline struct gadget_config_name *to_gadget_config_name(
->   			 group);
->   }
->
-> -static inline struct config_usb_cfg *to_config_usb_cfg(struct config_item *item)
-> -{
-> -	return container_of(to_config_group(item), struct config_usb_cfg,
-> -			group);
-> -}
-> -
->   static inline struct usb_function_instance *to_usb_function_instance(
->   		struct config_item *item)
->   {
-> @@ -348,12 +342,8 @@ static void gadget_info_attr_release(struct config_item *item)
->   	kfree(gi);
->   }
->
-> -CONFIGFS_ATTR_OPS(gadget_info);
-> -
->   static struct configfs_item_operations gadget_root_item_ops = {
->   	.release                = gadget_info_attr_release,
-> -	.show_attribute         = gadget_info_attr_show,
-> -	.store_attribute        = gadget_info_attr_store,
->   };
->
->   static void gadget_config_attr_release(struct config_item *item)
-> @@ -454,24 +444,20 @@ static int config_usb_cfg_unlink(
->   	return 0;
->   }
->
-> -CONFIGFS_ATTR_OPS(config_usb_cfg);
-> -
->   static struct configfs_item_operations gadget_config_item_ops = {
->   	.release                = gadget_config_attr_release,
-> -	.show_attribute         = config_usb_cfg_attr_show,
-> -	.store_attribute        = config_usb_cfg_attr_store,
->   	.allow_link             = config_usb_cfg_link,
->   	.drop_link              = config_usb_cfg_unlink,
->   };
->
->
-> -static ssize_t gadget_config_desc_MaxPower_show(struct config_usb_cfg *cfg,
-> +static ssize_t gadget_config_desc_MaxPower_show(struct config_item *item,
->   		char *page)
->   {
-> -	return sprintf(page, "%u\n", cfg->c.MaxPower);
-> +	return sprintf(page, "%u\n", to_config_usb_cfg(item)->c.MaxPower);
->   }
->
-> -static ssize_t gadget_config_desc_MaxPower_store(struct config_usb_cfg *cfg,
-> +static ssize_t gadget_config_desc_MaxPower_store(struct config_item *item,
->   		const char *page, size_t len)
->   {
->   	u16 val;
-> @@ -481,17 +467,18 @@ static ssize_t gadget_config_desc_MaxPower_store(struct config_usb_cfg *cfg,
->   		return ret;
->   	if (DIV_ROUND_UP(val, 8) > 0xff)
->   		return -ERANGE;
-> -	cfg->c.MaxPower = val;
-> +	to_config_usb_cfg(item)->c.MaxPower = val;
->   	return len;
->   }
->
-> -static ssize_t gadget_config_desc_bmAttributes_show(struct config_usb_cfg *cfg,
-> +static ssize_t gadget_config_desc_bmAttributes_show(struct config_item *item,
->   		char *page)
->   {
-> -	return sprintf(page, "0x%02x\n", cfg->c.bmAttributes);
-> +	return sprintf(page, "0x%02x\n",
-> +		to_config_usb_cfg(item)->c.bmAttributes);
->   }
->
-> -static ssize_t gadget_config_desc_bmAttributes_store(struct config_usb_cfg *cfg,
-> +static ssize_t gadget_config_desc_bmAttributes_store(struct config_item *item,
->   		const char *page, size_t len)
->   {
->   	u8 val;
-> @@ -504,22 +491,16 @@ static ssize_t gadget_config_desc_bmAttributes_store(struct config_usb_cfg *cfg,
->   	if (val & ~(USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER |
->   				USB_CONFIG_ATT_WAKEUP))
->   		return -EINVAL;
-> -	cfg->c.bmAttributes = val;
-> +	to_config_usb_cfg(item)->c.bmAttributes = val;
->   	return len;
->   }
->
-> -#define CFG_CONFIG_DESC_ITEM_ATTR(name)	\
-> -	static struct config_usb_cfg_attribute gadget_usb_cfg_##name = \
-> -		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
-> -				gadget_config_desc_##name##_show,	\
-> -				gadget_config_desc_##name##_store)
-> -
-> -CFG_CONFIG_DESC_ITEM_ATTR(MaxPower);
-> -CFG_CONFIG_DESC_ITEM_ATTR(bmAttributes);
-> +CONFIGFS_ATTR(gadget_config_desc_, MaxPower);
-> +CONFIGFS_ATTR(gadget_config_desc_, bmAttributes);
->
->   static struct configfs_attribute *gadget_config_attrs[] = {
-> -	&gadget_usb_cfg_MaxPower.attr,
-> -	&gadget_usb_cfg_bmAttributes.attr,
-> +	&gadget_config_desc_attr_MaxPower,
-> +	&gadget_config_desc_attr_bmAttributes,
->   	NULL,
->   };
->
-> @@ -616,11 +597,10 @@ static struct config_item_type functions_type = {
->   	.ct_owner       = THIS_MODULE,
->   };
->
-> -CONFIGFS_ATTR_STRUCT(gadget_config_name);
->   GS_STRINGS_RW(gadget_config_name, configuration);
->
->   static struct configfs_attribute *gadget_config_name_langid_attrs[] = {
-> -	&gadget_config_name_configuration.attr,
-> +	&gadget_config_name_attr_configuration,
->   	NULL,
->   };
->
-> @@ -719,15 +699,14 @@ static struct config_item_type config_desc_type = {
->   	.ct_owner       = THIS_MODULE,
->   };
->
-> -CONFIGFS_ATTR_STRUCT(gadget_strings);
->   GS_STRINGS_RW(gadget_strings, manufacturer);
->   GS_STRINGS_RW(gadget_strings, product);
->   GS_STRINGS_RW(gadget_strings, serialnumber);
->
->   static struct configfs_attribute *gadget_strings_langid_attrs[] = {
-> -	&gadget_strings_manufacturer.attr,
-> -	&gadget_strings_product.attr,
-> -	&gadget_strings_serialnumber.attr,
-> +	&gadget_strings_attr_manufacturer,
-> +	&gadget_strings_attr_product,
-> +	&gadget_strings_attr_serialnumber,
->   	NULL,
->   };
->
-> @@ -751,27 +730,25 @@ static inline struct os_desc *to_os_desc(struct config_item *item)
->   	return container_of(to_config_group(item), struct os_desc, group);
->   }
->
-> -CONFIGFS_ATTR_STRUCT(os_desc);
-> -CONFIGFS_ATTR_OPS(os_desc);
-> -
-> -static ssize_t os_desc_use_show(struct os_desc *os_desc, char *page)
-> +static inline struct gadget_info *os_desc_item_to_gadget_info(
-> +		struct config_item *item)
->   {
-> -	struct gadget_info *gi;
-> -
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
-> +	return to_gadget_info(to_os_desc(item)->group.cg_item.ci_parent);
-> +}
->
-> -	return sprintf(page, "%d", gi->use_os_desc);
-> +static ssize_t os_desc_use_show(struct config_item *item, char *page)
-> +{
-> +	return sprintf(page, "%d",
-> +			os_desc_item_to_gadget_info(item)->use_os_desc);
->   }
->
-> -static ssize_t os_desc_use_store(struct os_desc *os_desc, const char *page,
-> +static ssize_t os_desc_use_store(struct config_item *item, const char *page,
->   				 size_t len)
->   {
-> -	struct gadget_info *gi;
-> +	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
->   	int ret;
->   	bool use;
->
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
-> -
->   	mutex_lock(&gi->lock);
->   	ret = strtobool(page, &use);
->   	if (!ret) {
-> @@ -783,29 +760,19 @@ static ssize_t os_desc_use_store(struct os_desc *os_desc, const char *page,
->   	return ret;
->   }
->
-> -static struct os_desc_attribute os_desc_use =
-> -	__CONFIGFS_ATTR(use, S_IRUGO | S_IWUSR,
-> -			os_desc_use_show,
-> -			os_desc_use_store);
-> -
-> -static ssize_t os_desc_b_vendor_code_show(struct os_desc *os_desc, char *page)
-> +static ssize_t os_desc_b_vendor_code_show(struct config_item *item, char *page)
->   {
-> -	struct gadget_info *gi;
-> -
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
-> -
-> -	return sprintf(page, "%d", gi->b_vendor_code);
-> +	return sprintf(page, "%d",
-> +			os_desc_item_to_gadget_info(item)->b_vendor_code);
->   }
->
-> -static ssize_t os_desc_b_vendor_code_store(struct os_desc *os_desc,
-> +static ssize_t os_desc_b_vendor_code_store(struct config_item *item,
->   					   const char *page, size_t len)
->   {
-> -	struct gadget_info *gi;
-> +	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
->   	int ret;
->   	u8 b_vendor_code;
->
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
-> -
->   	mutex_lock(&gi->lock);
->   	ret = kstrtou8(page, 0, &b_vendor_code);
->   	if (!ret) {
-> @@ -817,29 +784,20 @@ static ssize_t os_desc_b_vendor_code_store(struct os_desc *os_desc,
->   	return ret;
->   }
->
-> -static struct os_desc_attribute os_desc_b_vendor_code =
-> -	__CONFIGFS_ATTR(b_vendor_code, S_IRUGO | S_IWUSR,
-> -			os_desc_b_vendor_code_show,
-> -			os_desc_b_vendor_code_store);
-> -
-> -static ssize_t os_desc_qw_sign_show(struct os_desc *os_desc, char *page)
-> +static ssize_t os_desc_qw_sign_show(struct config_item *item, char *page)
->   {
-> -	struct gadget_info *gi;
-> -
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
-> +	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
->
->   	memcpy(page, gi->qw_sign, OS_STRING_QW_SIGN_LEN);
-> -
->   	return OS_STRING_QW_SIGN_LEN;
->   }
->
-> -static ssize_t os_desc_qw_sign_store(struct os_desc *os_desc, const char *page,
-> +static ssize_t os_desc_qw_sign_store(struct config_item *item, const char *page,
->   				     size_t len)
->   {
-> -	struct gadget_info *gi;
-> +	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
->   	int res, l;
->
-> -	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
->   	l = min((int)len, OS_STRING_QW_SIGN_LEN >> 1);
->   	if (page[l - 1] == '\n')
->   		--l;
-> @@ -855,15 +813,14 @@ static ssize_t os_desc_qw_sign_store(struct os_desc *os_desc, const char *page,
->   	return res;
->   }
->
-> -static struct os_desc_attribute os_desc_qw_sign =
-> -	__CONFIGFS_ATTR(qw_sign, S_IRUGO | S_IWUSR,
-> -			os_desc_qw_sign_show,
-> -			os_desc_qw_sign_store);
-> +CONFIGFS_ATTR(os_desc_, use);
-> +CONFIGFS_ATTR(os_desc_, b_vendor_code);
-> +CONFIGFS_ATTR(os_desc_, qw_sign);
->
->   static struct configfs_attribute *os_desc_attrs[] = {
-> -	&os_desc_use.attr,
-> -	&os_desc_b_vendor_code.attr,
-> -	&os_desc_qw_sign.attr,
-> +	&os_desc_attr_use,
-> +	&os_desc_attr_b_vendor_code,
-> +	&os_desc_attr_qw_sign,
->   	NULL,
->   };
->
-> @@ -926,8 +883,6 @@ static int os_desc_unlink(struct config_item *os_desc_ci,
->
->   static struct configfs_item_operations os_desc_ops = {
->   	.release                = os_desc_attr_release,
-> -	.show_attribute         = os_desc_attr_show,
-> -	.store_attribute        = os_desc_attr_store,
->   	.allow_link		= os_desc_link,
->   	.drop_link		= os_desc_unlink,
->   };
-> @@ -938,28 +893,21 @@ static struct config_item_type os_desc_type = {
->   	.ct_owner	= THIS_MODULE,
->   };
->
-> -CONFIGFS_ATTR_STRUCT(usb_os_desc);
-> -CONFIGFS_ATTR_OPS(usb_os_desc);
-> -
-> -
->   static inline struct usb_os_desc_ext_prop
->   *to_usb_os_desc_ext_prop(struct config_item *item)
->   {
->   	return container_of(item, struct usb_os_desc_ext_prop, item);
->   }
->
-> -CONFIGFS_ATTR_STRUCT(usb_os_desc_ext_prop);
-> -CONFIGFS_ATTR_OPS(usb_os_desc_ext_prop);
-> -
-> -static ssize_t ext_prop_type_show(struct usb_os_desc_ext_prop *ext_prop,
-> -				  char *page)
-> +static ssize_t ext_prop_type_show(struct config_item *item, char *page)
->   {
-> -	return sprintf(page, "%d", ext_prop->type);
-> +	return sprintf(page, "%d", to_usb_os_desc_ext_prop(item)->type);
->   }
->
-> -static ssize_t ext_prop_type_store(struct usb_os_desc_ext_prop *ext_prop,
-> +static ssize_t ext_prop_type_store(struct config_item *item,
->   				   const char *page, size_t len)
->   {
-> +	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
->   	struct usb_os_desc *desc = to_usb_os_desc(ext_prop->item.ci_parent);
->   	u8 type;
->   	int ret;
-> @@ -997,9 +945,9 @@ end:
->   	return ret;
->   }
->
-> -static ssize_t ext_prop_data_show(struct usb_os_desc_ext_prop *ext_prop,
-> -				  char *page)
-> +static ssize_t ext_prop_data_show(struct config_item *item, char *page)
->   {
-> +	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
->   	int len = ext_prop->data_len;
->
->   	if (ext_prop->type == USB_EXT_PROP_UNICODE ||
-> @@ -1011,9 +959,10 @@ static ssize_t ext_prop_data_show(struct usb_os_desc_ext_prop *ext_prop,
->   	return len;
->   }
->
-> -static ssize_t ext_prop_data_store(struct usb_os_desc_ext_prop *ext_prop,
-> +static ssize_t ext_prop_data_store(struct config_item *item,
->   				   const char *page, size_t len)
->   {
-> +	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
->   	struct usb_os_desc *desc = to_usb_os_desc(ext_prop->item.ci_parent);
->   	char *new_data;
->   	size_t ret_len = len;
-> @@ -1044,17 +993,12 @@ static ssize_t ext_prop_data_store(struct usb_os_desc_ext_prop *ext_prop,
->   	return ret_len;
->   }
->
-> -static struct usb_os_desc_ext_prop_attribute ext_prop_type =
-> -	__CONFIGFS_ATTR(type, S_IRUGO | S_IWUSR,
-> -			ext_prop_type_show, ext_prop_type_store);
-> -
-> -static struct usb_os_desc_ext_prop_attribute ext_prop_data =
-> -	__CONFIGFS_ATTR(data, S_IRUGO | S_IWUSR,
-> -			ext_prop_data_show, ext_prop_data_store);
-> +CONFIGFS_ATTR(ext_prop_, type);
-> +CONFIGFS_ATTR(ext_prop_, data);
->
->   static struct configfs_attribute *ext_prop_attrs[] = {
-> -	&ext_prop_type.attr,
-> -	&ext_prop_data.attr,
-> +	&ext_prop_attr_type,
-> +	&ext_prop_attr_data,
->   	NULL,
->   };
->
-> @@ -1067,8 +1011,6 @@ static void usb_os_desc_ext_prop_release(struct config_item *item)
->
->   static struct configfs_item_operations ext_prop_ops = {
->   	.release		= usb_os_desc_ext_prop_release,
-> -	.show_attribute		= usb_os_desc_ext_prop_attr_show,
-> -	.store_attribute	= usb_os_desc_ext_prop_attr_store,
->   };
->
->   static struct config_item *ext_prop_make(
-> @@ -1137,21 +1079,17 @@ static struct configfs_group_operations interf_grp_ops = {
->   	.drop_item	= &ext_prop_drop,
->   };
->
-> -static struct configfs_item_operations interf_item_ops = {
-> -	.show_attribute		= usb_os_desc_attr_show,
-> -	.store_attribute	= usb_os_desc_attr_store,
+> -static struct configfs_item_operations uvcg_control_header_item_ops = {
+> -	.show_attribute		= uvcg_control_header_attr_show,
+> -	.store_attribute	= uvcg_control_header_attr_store,
 > -};
 > -
-> -static ssize_t interf_grp_compatible_id_show(struct usb_os_desc *desc,
-> +static ssize_t interf_grp_compatible_id_show(struct config_item *item,
->   					     char *page)
->   {
-> -	memcpy(page, desc->ext_compat_id, 8);
-> +	memcpy(page, to_usb_os_desc(item)->ext_compat_id, 8);
->   	return 8;
->   }
+>   #define UVCG_CTRL_HDR_ATTR(cname, aname, conv, str2u, uxx, vnoc, limit)	\
+>   static ssize_t uvcg_control_header_##cname##_show(			\
+> -	struct uvcg_control_header *ch, char *page)			\
+> +	struct config_item *item, char *page)			\
+>   {									\
+> +	struct uvcg_control_header *ch = to_uvcg_control_header(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &ch->item.ci_group->cg_subsys->su_mutex;\
+> @@ -79,9 +76,10 @@ static ssize_t uvcg_control_header_##cname##_show(			\
+>   }									\
+>   									\
+>   static ssize_t								\
+> -uvcg_control_header_##cname##_store(struct uvcg_control_header *ch,	\
+> +uvcg_control_header_##cname##_store(struct config_item *item,		\
+>   			   const char *page, size_t len)		\
+>   {									\
+> +	struct uvcg_control_header *ch = to_uvcg_control_header(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &ch->item.ci_group->cg_subsys->su_mutex;\
+> @@ -115,11 +113,7 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct uvcg_control_header_attribute				\
+> -	uvcg_control_header_##cname =					\
+> -	__CONFIGFS_ATTR(aname, S_IRUGO | S_IWUSR,			\
+> -			uvcg_control_header_##cname##_show,		\
+> -			uvcg_control_header_##cname##_store)
+> +UVC_ATTR(uvcg_control_header_, cname, aname)
 >
-> -static ssize_t interf_grp_compatible_id_store(struct usb_os_desc *desc,
-> +static ssize_t interf_grp_compatible_id_store(struct config_item *item,
->   					      const char *page, size_t len)
->   {
-> +	struct usb_os_desc *desc = to_usb_os_desc(item);
->   	int l;
+>   UVCG_CTRL_HDR_ATTR(bcd_uvc, bcdUVC, le16_to_cpu, kstrtou16, u16, cpu_to_le16,
+>   		   0xffff);
+> @@ -130,13 +124,12 @@ UVCG_CTRL_HDR_ATTR(dw_clock_frequency, dwClockFrequency, le32_to_cpu, kstrtou32,
+>   #undef UVCG_CTRL_HDR_ATTR
 >
->   	l = min_t(int, 8, len);
-> @@ -1167,21 +1105,17 @@ static ssize_t interf_grp_compatible_id_store(struct usb_os_desc *desc,
->   	return len;
->   }
->
-> -static struct usb_os_desc_attribute interf_grp_attr_compatible_id =
-> -	__CONFIGFS_ATTR(compatible_id, S_IRUGO | S_IWUSR,
-> -			interf_grp_compatible_id_show,
-> -			interf_grp_compatible_id_store);
-> -
-> -static ssize_t interf_grp_sub_compatible_id_show(struct usb_os_desc *desc,
-> +static ssize_t interf_grp_sub_compatible_id_show(struct config_item *item,
->   						 char *page)
->   {
-> -	memcpy(page, desc->ext_compat_id + 8, 8);
-> +	memcpy(page, to_usb_os_desc(item)->ext_compat_id + 8, 8);
->   	return 8;
->   }
->
-> -static ssize_t interf_grp_sub_compatible_id_store(struct usb_os_desc *desc,
-> +static ssize_t interf_grp_sub_compatible_id_store(struct config_item *item,
->   						  const char *page, size_t len)
->   {
-> +	struct usb_os_desc *desc = to_usb_os_desc(item);
->   	int l;
->
->   	l = min_t(int, 8, len);
-> @@ -1197,14 +1131,12 @@ static ssize_t interf_grp_sub_compatible_id_store(struct usb_os_desc *desc,
->   	return len;
->   }
->
-> -static struct usb_os_desc_attribute interf_grp_attr_sub_compatible_id =
-> -	__CONFIGFS_ATTR(sub_compatible_id, S_IRUGO | S_IWUSR,
-> -			interf_grp_sub_compatible_id_show,
-> -			interf_grp_sub_compatible_id_store);
-> +CONFIGFS_ATTR(interf_grp_, compatible_id);
-> +CONFIGFS_ATTR(interf_grp_, sub_compatible_id);
->
->   static struct configfs_attribute *interf_grp_attrs[] = {
-> -	&interf_grp_attr_compatible_id.attr,
-> -	&interf_grp_attr_sub_compatible_id.attr,
-> +	&interf_grp_attr_compatible_id,
-> +	&interf_grp_attr_sub_compatible_id,
->   	NULL
+>   static struct configfs_attribute *uvcg_control_header_attrs[] = {
+> -	&uvcg_control_header_bcd_uvc.attr,
+> -	&uvcg_control_header_dw_clock_frequency.attr,
+> +	&uvcg_control_header_attr_bcd_uvc,
+> +	&uvcg_control_header_attr_dw_clock_frequency,
+>   	NULL,
 >   };
 >
-> @@ -1242,7 +1174,6 @@ int usb_os_desc_prepare_interf_dir(struct config_group *parent,
->   	f_default_groups[0] = os_desc_group;
->
->   	os_desc_group->default_groups = interface_groups;
-> -	interface_type->ct_item_ops = &interf_item_ops;
->   	interface_type->ct_group_ops = &interf_grp_ops;
->   	interface_type->ct_attrs = interf_grp_attrs;
->   	interface_type->ct_owner = owner;
-> diff --git a/include/linux/usb/gadget_configfs.h b/include/linux/usb/gadget_configfs.h
-> index d74c0ae..c36e957 100644
-> --- a/include/linux/usb/gadget_configfs.h
-> +++ b/include/linux/usb/gadget_configfs.h
-> @@ -7,9 +7,10 @@ int check_user_usb_string(const char *name,
->   		struct usb_gadget_strings *stringtab_dev);
->
->   #define GS_STRINGS_W(__struct, __name)	\
-> -	static ssize_t __struct##_##__name##_store(struct __struct *gs, \
-> +static ssize_t __struct##_##__name##_store(struct config_item *item, \
->   		const char *page, size_t len)		\
->   {							\
-> +	struct __struct *gs = to_##__struct(item);	\
->   	int ret;					\
->   							\
->   	ret = usb_string_copy(page, &gs->__name);	\
-> @@ -19,30 +20,20 @@ int check_user_usb_string(const char *name,
+>   static struct config_item_type uvcg_control_header_type = {
+> -	.ct_item_ops	= &uvcg_control_header_item_ops,
+>   	.ct_attrs	= uvcg_control_header_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -196,17 +189,11 @@ static inline struct uvcg_default_processing
+>   			    struct uvcg_default_processing, group);
 >   }
 >
->   #define GS_STRINGS_R(__struct, __name)	\
-> -	static ssize_t __struct##_##__name##_show(struct __struct *gs, \
-> -			char *page)	\
-> +static ssize_t __struct##_##__name##_show(struct config_item *item, char *page) \
->   {	\
-> +	struct __struct *gs = to_##__struct(item);	\
->   	return sprintf(page, "%s\n", gs->__name ?: "");	\
->   }
->
-> -#define GS_STRING_ITEM_ATTR(struct_name, name)	\
-> -	static struct struct_name##_attribute struct_name##_##name = \
-> -		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
-> -				struct_name##_##name##_show,		\
-> -				struct_name##_##name##_store)
+> -CONFIGFS_ATTR_STRUCT(uvcg_default_processing);
+> -CONFIGFS_ATTR_OPS_RO(uvcg_default_processing);
 > -
->   #define GS_STRINGS_RW(struct_name, _name)	\
->   	GS_STRINGS_R(struct_name, _name)	\
->   	GS_STRINGS_W(struct_name, _name)	\
-> -	GS_STRING_ITEM_ATTR(struct_name, _name)
-> +	CONFIGFS_ATTR(struct_name##_, _name)
->
->   #define USB_CONFIG_STRING_RW_OPS(struct_in)				\
-> -	CONFIGFS_ATTR_OPS(struct_in);					\
-> -									\
->   static struct configfs_item_operations struct_in##_langid_item_ops = {	\
->   	.release                = struct_in##_attr_release,		\
-> -	.show_attribute         = struct_in##_attr_show,		\
-> -	.store_attribute        = struct_in##_attr_store,		\
->   };									\
+> -static struct configfs_item_operations uvcg_default_processing_item_ops = {
+> -	.show_attribute		= uvcg_default_processing_attr_show,
+> -};
+> -
+>   #define UVCG_DEFAULT_PROCESSING_ATTR(cname, aname, conv)		\
+>   static ssize_t uvcg_default_processing_##cname##_show(			\
+> -	struct uvcg_default_processing *dp, char *page)			\
+> +	struct config_item *item, char *page)				\
+>   {									\
+> +	struct uvcg_default_processing *dp = to_uvcg_default_processing(item); \
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &dp->group.cg_subsys->su_mutex;	\
+> @@ -227,9 +214,7 @@ static ssize_t uvcg_default_processing_##cname##_show(			\
+>   	return result;							\
+>   }									\
 >   									\
->   static struct config_item_type struct_in##_langid_type = {		\
+> -static struct uvcg_default_processing_attribute				\
+> -	uvcg_default_processing_##cname =				\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_default_processing_##cname##_show)
+> +UVC_ATTR_RO(uvcg_default_processing_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -243,8 +228,9 @@ UVCG_DEFAULT_PROCESSING_ATTR(i_processing, iProcessing, identity_conv);
+>   #undef UVCG_DEFAULT_PROCESSING_ATTR
+>
+>   static ssize_t uvcg_default_processing_bm_controls_show(
+> -	struct uvcg_default_processing *dp, char *page)
+> +	struct config_item *item, char *page)
+>   {
+> +	struct uvcg_default_processing *dp = to_uvcg_default_processing(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct mutex *su_mutex = &dp->group.cg_subsys->su_mutex;
+> @@ -270,22 +256,18 @@ static ssize_t uvcg_default_processing_bm_controls_show(
+>   	return result;
+>   }
+>
+> -static struct uvcg_default_processing_attribute
+> -	uvcg_default_processing_bm_controls =
+> -	__CONFIGFS_ATTR_RO(bmControls,
+> -		uvcg_default_processing_bm_controls_show);
+> +UVC_ATTR_RO(uvcg_default_processing_, bm_controls, bmControls);
+>
+>   static struct configfs_attribute *uvcg_default_processing_attrs[] = {
+> -	&uvcg_default_processing_b_unit_id.attr,
+> -	&uvcg_default_processing_b_source_id.attr,
+> -	&uvcg_default_processing_w_max_multiplier.attr,
+> -	&uvcg_default_processing_bm_controls.attr,
+> -	&uvcg_default_processing_i_processing.attr,
+> +	&uvcg_default_processing_attr_b_unit_id,
+> +	&uvcg_default_processing_attr_b_source_id,
+> +	&uvcg_default_processing_attr_w_max_multiplier,
+> +	&uvcg_default_processing_attr_bm_controls,
+> +	&uvcg_default_processing_attr_i_processing,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_default_processing_type = {
+> -	.ct_item_ops	= &uvcg_default_processing_item_ops,
+>   	.ct_attrs	= uvcg_default_processing_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -318,17 +300,11 @@ static inline struct uvcg_default_camera
+>   			    struct uvcg_default_camera, group);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_default_camera);
+> -CONFIGFS_ATTR_OPS_RO(uvcg_default_camera);
+> -
+> -static struct configfs_item_operations uvcg_default_camera_item_ops = {
+> -	.show_attribute		= uvcg_default_camera_attr_show,
+> -};
+> -
+>   #define UVCG_DEFAULT_CAMERA_ATTR(cname, aname, conv)			\
+>   static ssize_t uvcg_default_camera_##cname##_show(			\
+> -	struct uvcg_default_camera *dc, char *page)			\
+> +	struct config_item *item, char *page)				\
+>   {									\
+> +	struct uvcg_default_camera *dc = to_uvcg_default_camera(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &dc->group.cg_subsys->su_mutex;	\
+> @@ -351,9 +327,7 @@ static ssize_t uvcg_default_camera_##cname##_show(			\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_default_camera_attribute				\
+> -	uvcg_default_camera_##cname =					\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_default_camera_##cname##_show)
+> +UVC_ATTR_RO(uvcg_default_camera_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -373,8 +347,9 @@ UVCG_DEFAULT_CAMERA_ATTR(w_ocular_focal_length, wOcularFocalLength,
+>   #undef UVCG_DEFAULT_CAMERA_ATTR
+>
+>   static ssize_t uvcg_default_camera_bm_controls_show(
+> -	struct uvcg_default_camera *dc, char *page)
+> +	struct config_item *item, char *page)
+>   {
+> +	struct uvcg_default_camera *dc = to_uvcg_default_camera(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct mutex *su_mutex = &dc->group.cg_subsys->su_mutex;
+> @@ -400,24 +375,21 @@ static ssize_t uvcg_default_camera_bm_controls_show(
+>   	return result;
+>   }
+>
+> -static struct uvcg_default_camera_attribute
+> -	uvcg_default_camera_bm_controls =
+> -	__CONFIGFS_ATTR_RO(bmControls, uvcg_default_camera_bm_controls_show);
+> +UVC_ATTR_RO(uvcg_default_camera_, bm_controls, bmControls);
+>
+>   static struct configfs_attribute *uvcg_default_camera_attrs[] = {
+> -	&uvcg_default_camera_b_terminal_id.attr,
+> -	&uvcg_default_camera_w_terminal_type.attr,
+> -	&uvcg_default_camera_b_assoc_terminal.attr,
+> -	&uvcg_default_camera_i_terminal.attr,
+> -	&uvcg_default_camera_w_objective_focal_length_min.attr,
+> -	&uvcg_default_camera_w_objective_focal_length_max.attr,
+> -	&uvcg_default_camera_w_ocular_focal_length.attr,
+> -	&uvcg_default_camera_bm_controls.attr,
+> +	&uvcg_default_camera_attr_b_terminal_id,
+> +	&uvcg_default_camera_attr_w_terminal_type,
+> +	&uvcg_default_camera_attr_b_assoc_terminal,
+> +	&uvcg_default_camera_attr_i_terminal,
+> +	&uvcg_default_camera_attr_w_objective_focal_length_min,
+> +	&uvcg_default_camera_attr_w_objective_focal_length_max,
+> +	&uvcg_default_camera_attr_w_ocular_focal_length,
+> +	&uvcg_default_camera_attr_bm_controls,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_default_camera_type = {
+> -	.ct_item_ops	= &uvcg_default_camera_item_ops,
+>   	.ct_attrs	= uvcg_default_camera_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -450,17 +422,11 @@ static inline struct uvcg_default_output
+>   			    struct uvcg_default_output, group);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_default_output);
+> -CONFIGFS_ATTR_OPS_RO(uvcg_default_output);
+> -
+> -static struct configfs_item_operations uvcg_default_output_item_ops = {
+> -	.show_attribute		= uvcg_default_output_attr_show,
+> -};
+> -
+>   #define UVCG_DEFAULT_OUTPUT_ATTR(cname, aname, conv)			\
+>   static ssize_t uvcg_default_output_##cname##_show(			\
+> -	struct uvcg_default_output *dout, char *page)			\
+> +	struct config_item *item, char *page)			\
+>   {									\
+> +	struct uvcg_default_output *dout = to_uvcg_default_output(item); \
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &dout->group.cg_subsys->su_mutex;	\
+> @@ -483,9 +449,7 @@ static ssize_t uvcg_default_output_##cname##_show(			\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_default_output_attribute				\
+> -	uvcg_default_output_##cname =					\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_default_output_##cname##_show)
+> +UVC_ATTR_RO(uvcg_default_output_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -500,16 +464,15 @@ UVCG_DEFAULT_OUTPUT_ATTR(i_terminal, iTerminal, identity_conv);
+>   #undef UVCG_DEFAULT_OUTPUT_ATTR
+>
+>   static struct configfs_attribute *uvcg_default_output_attrs[] = {
+> -	&uvcg_default_output_b_terminal_id.attr,
+> -	&uvcg_default_output_w_terminal_type.attr,
+> -	&uvcg_default_output_b_assoc_terminal.attr,
+> -	&uvcg_default_output_b_source_id.attr,
+> -	&uvcg_default_output_i_terminal.attr,
+> +	&uvcg_default_output_attr_b_terminal_id,
+> +	&uvcg_default_output_attr_w_terminal_type,
+> +	&uvcg_default_output_attr_b_assoc_terminal,
+> +	&uvcg_default_output_attr_b_source_id,
+> +	&uvcg_default_output_attr_i_terminal,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_default_output_type = {
+> -	.ct_item_ops	= &uvcg_default_output_item_ops,
+>   	.ct_attrs	= uvcg_default_output_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -800,9 +763,6 @@ static struct uvcg_streaming_header *to_uvcg_streaming_header(struct config_item
+>   	return container_of(item, struct uvcg_streaming_header, item);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_streaming_header);
+> -CONFIGFS_ATTR_OPS(uvcg_streaming_header);
+> -
+>   static int uvcg_streaming_header_allow_link(struct config_item *src,
+>   					    struct config_item *target)
+>   {
+> @@ -893,16 +853,15 @@ out:
+>   }
+>
+>   static struct configfs_item_operations uvcg_streaming_header_item_ops = {
+> -	.show_attribute		= uvcg_streaming_header_attr_show,
+> -	.store_attribute	= uvcg_streaming_header_attr_store,
+>   	.allow_link		= uvcg_streaming_header_allow_link,
+>   	.drop_link		= uvcg_streaming_header_drop_link,
+>   };
+>
+>   #define UVCG_STREAMING_HEADER_ATTR(cname, aname, conv)			\
+>   static ssize_t uvcg_streaming_header_##cname##_show(			\
+> -	struct uvcg_streaming_header *sh, char *page)			\
+> +	struct config_item *item, char *page)			\
+>   {									\
+> +	struct uvcg_streaming_header *sh = to_uvcg_streaming_header(item); \
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &sh->item.ci_group->cg_subsys->su_mutex;\
+> @@ -921,9 +880,7 @@ static ssize_t uvcg_streaming_header_##cname##_show(			\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_streaming_header_attribute				\
+> -	uvcg_streaming_header_##cname =					\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_streaming_header_##cname##_show)
+> +UVC_ATTR_RO(uvcg_streaming_header_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -939,11 +896,11 @@ UVCG_STREAMING_HEADER_ATTR(b_trigger_usage, bTriggerUsage, identity_conv);
+>   #undef UVCG_STREAMING_HEADER_ATTR
+>
+>   static struct configfs_attribute *uvcg_streaming_header_attrs[] = {
+> -	&uvcg_streaming_header_bm_info.attr,
+> -	&uvcg_streaming_header_b_terminal_link.attr,
+> -	&uvcg_streaming_header_b_still_capture_method.attr,
+> -	&uvcg_streaming_header_b_trigger_support.attr,
+> -	&uvcg_streaming_header_b_trigger_usage.attr,
+> +	&uvcg_streaming_header_attr_bm_info,
+> +	&uvcg_streaming_header_attr_b_terminal_link,
+> +	&uvcg_streaming_header_attr_b_still_capture_method,
+> +	&uvcg_streaming_header_attr_b_trigger_support,
+> +	&uvcg_streaming_header_attr_b_trigger_usage,
+>   	NULL,
+>   };
+>
+> @@ -1022,17 +979,10 @@ static struct uvcg_frame *to_uvcg_frame(struct config_item *item)
+>   	return container_of(item, struct uvcg_frame, item);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_frame);
+> -CONFIGFS_ATTR_OPS(uvcg_frame);
+> -
+> -static struct configfs_item_operations uvcg_frame_item_ops = {
+> -	.show_attribute		= uvcg_frame_attr_show,
+> -	.store_attribute	= uvcg_frame_attr_store,
+> -};
+> -
+>   #define UVCG_FRAME_ATTR(cname, aname, to_cpu_endian, to_little_endian, bits) \
+> -static ssize_t uvcg_frame_##cname##_show(struct uvcg_frame *f, char *page)\
+> +static ssize_t uvcg_frame_##cname##_show(struct config_item *item, char *page)\
+>   {									\
+> +	struct uvcg_frame *f = to_uvcg_frame(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &f->item.ci_group->cg_subsys->su_mutex;\
+> @@ -1051,9 +1001,10 @@ static ssize_t uvcg_frame_##cname##_show(struct uvcg_frame *f, char *page)\
+>   	return result;							\
+>   }									\
+>   									\
+> -static ssize_t  uvcg_frame_##cname##_store(struct uvcg_frame *f,	\
+> +static ssize_t  uvcg_frame_##cname##_store(struct config_item *item,	\
+>   					   const char *page, size_t len)\
+>   {									\
+> +	struct uvcg_frame *f = to_uvcg_frame(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct uvcg_format *fmt;					\
+> @@ -1085,11 +1036,7 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct uvcg_frame_attribute					\
+> -	uvcg_frame_##cname =						\
+> -	__CONFIGFS_ATTR(aname, S_IRUGO | S_IWUSR,			\
+> -			uvcg_frame_##cname##_show,			\
+> -			uvcg_frame_##cname##_store)
+> +UVC_ATTR(uvcg_frame_, cname, aname);
+>
+>   #define noop_conversion(x) (x)
+>
+> @@ -1108,9 +1055,10 @@ UVCG_FRAME_ATTR(dw_default_frame_interval, dwDefaultFrameInterval,
+>
+>   #undef UVCG_FRAME_ATTR
+>
+> -static ssize_t uvcg_frame_dw_frame_interval_show(struct uvcg_frame *frm,
+> +static ssize_t uvcg_frame_dw_frame_interval_show(struct config_item *item,
+>   						 char *page)
+>   {
+> +	struct uvcg_frame *frm = to_uvcg_frame(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct mutex *su_mutex = &frm->item.ci_group->cg_subsys->su_mutex;
+> @@ -1185,9 +1133,10 @@ static int __uvcg_iter_frm_intrv(const char *page, size_t len,
+>   	return 0;
+>   }
+>
+> -static ssize_t uvcg_frame_dw_frame_interval_store(struct uvcg_frame *ch,
+> +static ssize_t uvcg_frame_dw_frame_interval_store(struct config_item *item,
+>   						  const char *page, size_t len)
+>   {
+> +	struct uvcg_frame *ch = to_uvcg_frame(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct uvcg_format *fmt;
+> @@ -1234,26 +1183,21 @@ end:
+>   	return ret;
+>   }
+>
+> -static struct uvcg_frame_attribute
+> -	uvcg_frame_dw_frame_interval =
+> -	__CONFIGFS_ATTR(dwFrameInterval, S_IRUGO | S_IWUSR,
+> -			uvcg_frame_dw_frame_interval_show,
+> -			uvcg_frame_dw_frame_interval_store);
+> +UVC_ATTR(uvcg_frame_, dw_frame_interval, dwFrameInterval);
+>
+>   static struct configfs_attribute *uvcg_frame_attrs[] = {
+> -	&uvcg_frame_bm_capabilities.attr,
+> -	&uvcg_frame_w_width.attr,
+> -	&uvcg_frame_w_height.attr,
+> -	&uvcg_frame_dw_min_bit_rate.attr,
+> -	&uvcg_frame_dw_max_bit_rate.attr,
+> -	&uvcg_frame_dw_max_video_frame_buffer_size.attr,
+> -	&uvcg_frame_dw_default_frame_interval.attr,
+> -	&uvcg_frame_dw_frame_interval.attr,
+> +	&uvcg_frame_attr_bm_capabilities,
+> +	&uvcg_frame_attr_w_width,
+> +	&uvcg_frame_attr_w_height,
+> +	&uvcg_frame_attr_dw_min_bit_rate,
+> +	&uvcg_frame_attr_dw_max_bit_rate,
+> +	&uvcg_frame_attr_dw_max_video_frame_buffer_size,
+> +	&uvcg_frame_attr_dw_default_frame_interval,
+> +	&uvcg_frame_attr_dw_frame_interval,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_frame_type = {
+> -	.ct_item_ops	= &uvcg_frame_item_ops,
+>   	.ct_attrs	= uvcg_frame_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -1333,22 +1277,15 @@ static struct uvcg_uncompressed *to_uvcg_uncompressed(struct config_item *item)
+>   		struct uvcg_uncompressed, fmt);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_uncompressed);
+> -CONFIGFS_ATTR_OPS(uvcg_uncompressed);
+> -
+> -static struct configfs_item_operations uvcg_uncompressed_item_ops = {
+> -	.show_attribute		= uvcg_uncompressed_attr_show,
+> -	.store_attribute	= uvcg_uncompressed_attr_store,
+> -};
+> -
+>   static struct configfs_group_operations uvcg_uncompressed_group_ops = {
+>   	.make_item		= uvcg_frame_make,
+>   	.drop_item		= uvcg_frame_drop,
+>   };
+>
+> -static ssize_t uvcg_uncompressed_guid_format_show(struct uvcg_uncompressed *ch,
+> +static ssize_t uvcg_uncompressed_guid_format_show(struct config_item *item,
+>   							char *page)
+>   {
+> +	struct uvcg_uncompressed *ch = to_uvcg_uncompressed(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct mutex *su_mutex = &ch->fmt.group.cg_subsys->su_mutex;
+> @@ -1367,9 +1304,10 @@ static ssize_t uvcg_uncompressed_guid_format_show(struct uvcg_uncompressed *ch,
+>   	return sizeof(ch->desc.guidFormat);
+>   }
+>
+> -static ssize_t uvcg_uncompressed_guid_format_store(struct uvcg_uncompressed *ch,
+> +static ssize_t uvcg_uncompressed_guid_format_store(struct config_item *item,
+>   						   const char *page, size_t len)
+>   {
+> +	struct uvcg_uncompressed *ch = to_uvcg_uncompressed(item);
+>   	struct f_uvc_opts *opts;
+>   	struct config_item *opts_item;
+>   	struct mutex *su_mutex = &ch->fmt.group.cg_subsys->su_mutex;
+> @@ -1396,16 +1334,13 @@ end:
+>   	return ret;
+>   }
+>
+> -static struct uvcg_uncompressed_attribute uvcg_uncompressed_guid_format =
+> -	__CONFIGFS_ATTR(guidFormat, S_IRUGO | S_IWUSR,
+> -			uvcg_uncompressed_guid_format_show,
+> -			uvcg_uncompressed_guid_format_store);
+> -
+> +UVC_ATTR(uvcg_uncompressed_, guid_format, guidFormat);
+>
+>   #define UVCG_UNCOMPRESSED_ATTR_RO(cname, aname, conv)			\
+>   static ssize_t uvcg_uncompressed_##cname##_show(			\
+> -	struct uvcg_uncompressed *u, char *page)			\
+> +	struct config_item *item, char *page)				\
+>   {									\
+> +	struct uvcg_uncompressed *u = to_uvcg_uncompressed(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1424,14 +1359,13 @@ static ssize_t uvcg_uncompressed_##cname##_show(			\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_uncompressed_attribute				\
+> -	uvcg_uncompressed_##cname =					\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_uncompressed_##cname##_show)
+> +UVC_ATTR_RO(uvcg_uncompressed_, cname, aname);
+>
+>   #define UVCG_UNCOMPRESSED_ATTR(cname, aname, conv)			\
+>   static ssize_t uvcg_uncompressed_##cname##_show(			\
+> -	struct uvcg_uncompressed *u, char *page)			\
+> +	struct config_item *item, char *page)				\
+>   {									\
+> +	struct uvcg_uncompressed *u = to_uvcg_uncompressed(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1451,9 +1385,10 @@ static ssize_t uvcg_uncompressed_##cname##_show(			\
+>   }									\
+>   									\
+>   static ssize_t								\
+> -uvcg_uncompressed_##cname##_store(struct uvcg_uncompressed *u,		\
+> +uvcg_uncompressed_##cname##_store(struct config_item *item,		\
+>   				    const char *page, size_t len)	\
+>   {									\
+> +	struct uvcg_uncompressed *u = to_uvcg_uncompressed(item);	\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1487,11 +1422,7 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct uvcg_uncompressed_attribute				\
+> -	uvcg_uncompressed_##cname =					\
+> -	__CONFIGFS_ATTR(aname, S_IRUGO | S_IWUSR,			\
+> -			uvcg_uncompressed_##cname##_show,		\
+> -			uvcg_uncompressed_##cname##_store)
+> +UVC_ATTR(uvcg_uncompressed_, cname, aname);
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -1508,36 +1439,34 @@ UVCG_UNCOMPRESSED_ATTR_RO(bm_interface_flags, bmInterfaceFlags, identity_conv);
+>   #undef UVCG_UNCOMPRESSED_ATTR_RO
+>
+>   static inline ssize_t
+> -uvcg_uncompressed_bma_controls_show(struct uvcg_uncompressed *unc, char *page)
+> +uvcg_uncompressed_bma_controls_show(struct config_item *item, char *page)
+>   {
+> +	struct uvcg_uncompressed *unc = to_uvcg_uncompressed(item);
+>   	return uvcg_format_bma_controls_show(&unc->fmt, page);
+>   }
+>
+>   static inline ssize_t
+> -uvcg_uncompressed_bma_controls_store(struct uvcg_uncompressed *ch,
+> +uvcg_uncompressed_bma_controls_store(struct config_item *item,
+>   				     const char *page, size_t len)
+>   {
+> -	return uvcg_format_bma_controls_store(&ch->fmt, page, len);
+> +	struct uvcg_uncompressed *unc = to_uvcg_uncompressed(item);
+> +	return uvcg_format_bma_controls_store(&unc->fmt, page, len);
+>   }
+>
+> -static struct uvcg_uncompressed_attribute uvcg_uncompressed_bma_controls =
+> -	__CONFIGFS_ATTR(bmaControls, S_IRUGO | S_IWUSR,
+> -			uvcg_uncompressed_bma_controls_show,
+> -			uvcg_uncompressed_bma_controls_store);
+> +UVC_ATTR(uvcg_uncompressed_, bma_controls, bmaControls);
+>
+>   static struct configfs_attribute *uvcg_uncompressed_attrs[] = {
+> -	&uvcg_uncompressed_guid_format.attr,
+> -	&uvcg_uncompressed_b_bits_per_pixel.attr,
+> -	&uvcg_uncompressed_b_default_frame_index.attr,
+> -	&uvcg_uncompressed_b_aspect_ratio_x.attr,
+> -	&uvcg_uncompressed_b_aspect_ratio_y.attr,
+> -	&uvcg_uncompressed_bm_interface_flags.attr,
+> -	&uvcg_uncompressed_bma_controls.attr,
+> +	&uvcg_uncompressed_attr_guid_format,
+> +	&uvcg_uncompressed_attr_b_bits_per_pixel,
+> +	&uvcg_uncompressed_attr_b_default_frame_index,
+> +	&uvcg_uncompressed_attr_b_aspect_ratio_x,
+> +	&uvcg_uncompressed_attr_b_aspect_ratio_y,
+> +	&uvcg_uncompressed_attr_bm_interface_flags,
+> +	&uvcg_uncompressed_attr_bma_controls,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_uncompressed_type = {
+> -	.ct_item_ops	= &uvcg_uncompressed_item_ops,
+>   	.ct_group_ops	= &uvcg_uncompressed_group_ops,
+>   	.ct_attrs	= uvcg_uncompressed_attrs,
+>   	.ct_owner	= THIS_MODULE,
+> @@ -1605,22 +1534,15 @@ static struct uvcg_mjpeg *to_uvcg_mjpeg(struct config_item *item)
+>   		struct uvcg_mjpeg, fmt);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_mjpeg);
+> -CONFIGFS_ATTR_OPS(uvcg_mjpeg);
+> -
+> -static struct configfs_item_operations uvcg_mjpeg_item_ops = {
+> -	.show_attribute		= uvcg_mjpeg_attr_show,
+> -	.store_attribute	= uvcg_mjpeg_attr_store,
+> -};
+> -
+>   static struct configfs_group_operations uvcg_mjpeg_group_ops = {
+>   	.make_item		= uvcg_frame_make,
+>   	.drop_item		= uvcg_frame_drop,
+>   };
+>
+>   #define UVCG_MJPEG_ATTR_RO(cname, aname, conv)				\
+> -static ssize_t uvcg_mjpeg_##cname##_show(struct uvcg_mjpeg *u, char *page)\
+> +static ssize_t uvcg_mjpeg_##cname##_show(struct config_item *item, char *page)\
+>   {									\
+> +	struct uvcg_mjpeg *u = to_uvcg_mjpeg(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1639,13 +1561,12 @@ static ssize_t uvcg_mjpeg_##cname##_show(struct uvcg_mjpeg *u, char *page)\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_mjpeg_attribute					\
+> -	uvcg_mjpeg_##cname =						\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_mjpeg_##cname##_show)
+> +UVC_ATTR_RO(uvcg_mjpeg_, cname, aname)
+>
+>   #define UVCG_MJPEG_ATTR(cname, aname, conv)				\
+> -static ssize_t uvcg_mjpeg_##cname##_show(struct uvcg_mjpeg *u, char *page)\
+> +static ssize_t uvcg_mjpeg_##cname##_show(struct config_item *item, char *page)\
+>   {									\
+> +	struct uvcg_mjpeg *u = to_uvcg_mjpeg(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1665,9 +1586,10 @@ static ssize_t uvcg_mjpeg_##cname##_show(struct uvcg_mjpeg *u, char *page)\
+>   }									\
+>   									\
+>   static ssize_t								\
+> -uvcg_mjpeg_##cname##_store(struct uvcg_mjpeg *u,			\
+> +uvcg_mjpeg_##cname##_store(struct config_item *item,			\
+>   			   const char *page, size_t len)		\
+>   {									\
+> +	struct uvcg_mjpeg *u = to_uvcg_mjpeg(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &u->fmt.group.cg_subsys->su_mutex;	\
+> @@ -1701,11 +1623,7 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct uvcg_mjpeg_attribute					\
+> -	uvcg_mjpeg_##cname =						\
+> -	__CONFIGFS_ATTR(aname, S_IRUGO | S_IWUSR,			\
+> -			uvcg_mjpeg_##cname##_show,			\
+> -			uvcg_mjpeg_##cname##_store)
+> +UVC_ATTR(uvcg_mjpeg_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -1722,35 +1640,33 @@ UVCG_MJPEG_ATTR_RO(bm_interface_flags, bmInterfaceFlags, identity_conv);
+>   #undef UVCG_MJPEG_ATTR_RO
+>
+>   static inline ssize_t
+> -uvcg_mjpeg_bma_controls_show(struct uvcg_mjpeg *unc, char *page)
+> +uvcg_mjpeg_bma_controls_show(struct config_item *item, char *page)
+>   {
+> -	return uvcg_format_bma_controls_show(&unc->fmt, page);
+> +	struct uvcg_mjpeg *u = to_uvcg_mjpeg(item);
+> +	return uvcg_format_bma_controls_show(&u->fmt, page);
+>   }
+>
+>   static inline ssize_t
+> -uvcg_mjpeg_bma_controls_store(struct uvcg_mjpeg *ch,
+> +uvcg_mjpeg_bma_controls_store(struct config_item *item,
+>   				     const char *page, size_t len)
+>   {
+> -	return uvcg_format_bma_controls_store(&ch->fmt, page, len);
+> +	struct uvcg_mjpeg *u = to_uvcg_mjpeg(item);
+> +	return uvcg_format_bma_controls_store(&u->fmt, page, len);
+>   }
+>
+> -static struct uvcg_mjpeg_attribute uvcg_mjpeg_bma_controls =
+> -	__CONFIGFS_ATTR(bmaControls, S_IRUGO | S_IWUSR,
+> -			uvcg_mjpeg_bma_controls_show,
+> -			uvcg_mjpeg_bma_controls_store);
+> +UVC_ATTR(uvcg_mjpeg_, bma_controls, bmaControls);
+>
+>   static struct configfs_attribute *uvcg_mjpeg_attrs[] = {
+> -	&uvcg_mjpeg_b_default_frame_index.attr,
+> -	&uvcg_mjpeg_bm_flags.attr,
+> -	&uvcg_mjpeg_b_aspect_ratio_x.attr,
+> -	&uvcg_mjpeg_b_aspect_ratio_y.attr,
+> -	&uvcg_mjpeg_bm_interface_flags.attr,
+> -	&uvcg_mjpeg_bma_controls.attr,
+> +	&uvcg_mjpeg_attr_b_default_frame_index,
+> +	&uvcg_mjpeg_attr_bm_flags,
+> +	&uvcg_mjpeg_attr_b_aspect_ratio_x,
+> +	&uvcg_mjpeg_attr_b_aspect_ratio_y,
+> +	&uvcg_mjpeg_attr_bm_interface_flags,
+> +	&uvcg_mjpeg_attr_bma_controls,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_mjpeg_type = {
+> -	.ct_item_ops	= &uvcg_mjpeg_item_ops,
+>   	.ct_group_ops	= &uvcg_mjpeg_group_ops,
+>   	.ct_attrs	= uvcg_mjpeg_attrs,
+>   	.ct_owner	= THIS_MODULE,
+> @@ -1811,17 +1727,12 @@ static inline struct uvcg_default_color_matching
+>   			    struct uvcg_default_color_matching, group);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(uvcg_default_color_matching);
+> -CONFIGFS_ATTR_OPS_RO(uvcg_default_color_matching);
+> -
+> -static struct configfs_item_operations uvcg_default_color_matching_item_ops = {
+> -	.show_attribute		= uvcg_default_color_matching_attr_show,
+> -};
+> -
+>   #define UVCG_DEFAULT_COLOR_MATCHING_ATTR(cname, aname, conv)		\
+>   static ssize_t uvcg_default_color_matching_##cname##_show(		\
+> -	struct uvcg_default_color_matching *dc, char *page)		\
+> +	struct config_item *item, char *page)		\
+>   {									\
+> +	struct uvcg_default_color_matching *dc =			\
+> +		to_uvcg_default_color_matching(item);			\
+>   	struct f_uvc_opts *opts;					\
+>   	struct config_item *opts_item;					\
+>   	struct mutex *su_mutex = &dc->group.cg_subsys->su_mutex;	\
+> @@ -1842,9 +1753,7 @@ static ssize_t uvcg_default_color_matching_##cname##_show(		\
+>   	return result;							\
+>   }									\
+>   									\
+> -static struct uvcg_default_color_matching_attribute			\
+> -	uvcg_default_color_matching_##cname =				\
+> -	__CONFIGFS_ATTR_RO(aname, uvcg_default_color_matching_##cname##_show)
+> +UVC_ATTR_RO(uvcg_default_color_matching_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -1860,14 +1769,13 @@ UVCG_DEFAULT_COLOR_MATCHING_ATTR(b_matrix_coefficients, bMatrixCoefficients,
+>   #undef UVCG_DEFAULT_COLOR_MATCHING_ATTR
+>
+>   static struct configfs_attribute *uvcg_default_color_matching_attrs[] = {
+> -	&uvcg_default_color_matching_b_color_primaries.attr,
+> -	&uvcg_default_color_matching_b_transfer_characteristics.attr,
+> -	&uvcg_default_color_matching_b_matrix_coefficients.attr,
+> +	&uvcg_default_color_matching_attr_b_color_primaries,
+> +	&uvcg_default_color_matching_attr_b_transfer_characteristics,
+> +	&uvcg_default_color_matching_attr_b_matrix_coefficients,
+>   	NULL,
+>   };
+>
+>   static struct config_item_type uvcg_default_color_matching_type = {
+> -	.ct_item_ops	= &uvcg_default_color_matching_item_ops,
+>   	.ct_attrs	= uvcg_default_color_matching_attrs,
+>   	.ct_owner	= THIS_MODULE,
+>   };
+> @@ -2285,9 +2193,6 @@ static inline struct f_uvc_opts *to_f_uvc_opts(struct config_item *item)
+>   			    func_inst.group);
+>   }
+>
+> -CONFIGFS_ATTR_STRUCT(f_uvc_opts);
+> -CONFIGFS_ATTR_OPS(f_uvc_opts);
+> -
+>   static void uvc_attr_release(struct config_item *item)
+>   {
+>   	struct f_uvc_opts *opts = to_f_uvc_opts(item);
+> @@ -2297,14 +2202,13 @@ static void uvc_attr_release(struct config_item *item)
+>
+>   static struct configfs_item_operations uvc_item_ops = {
+>   	.release		= uvc_attr_release,
+> -	.show_attribute		= f_uvc_opts_attr_show,
+> -	.store_attribute	= f_uvc_opts_attr_store,
+>   };
+>
+>   #define UVCG_OPTS_ATTR(cname, conv, str2u, uxx, vnoc, limit)		\
+>   static ssize_t f_uvc_opts_##cname##_show(				\
+> -	struct f_uvc_opts *opts, char *page)				\
+> +	struct config_item *item, char *page)				\
+>   {									\
+> +	struct f_uvc_opts *opts = to_f_uvc_opts(item);			\
+>   	int result;							\
+>   									\
+>   	mutex_lock(&opts->lock);					\
+> @@ -2315,9 +2219,10 @@ static ssize_t f_uvc_opts_##cname##_show(				\
+>   }									\
+>   									\
+>   static ssize_t								\
+> -f_uvc_opts_##cname##_store(struct f_uvc_opts *opts,			\
+> +f_uvc_opts_##cname##_store(struct config_item *item,			\
+>   			   const char *page, size_t len)		\
+>   {									\
+> +	struct f_uvc_opts *opts = to_f_uvc_opts(item);			\
+>   	int ret;							\
+>   	uxx num;							\
+>   									\
+> @@ -2342,11 +2247,7 @@ end:									\
+>   	return ret;							\
+>   }									\
+>   									\
+> -static struct f_uvc_opts_attribute					\
+> -	f_uvc_opts_attribute_##cname =					\
+> -	__CONFIGFS_ATTR(cname, S_IRUGO | S_IWUSR,			\
+> -			f_uvc_opts_##cname##_show,			\
+> -			f_uvc_opts_##cname##_store)
+> +UVC_ATTR(f_uvc_opts_, cname, aname)
+>
+>   #define identity_conv(x) (x)
+>
+> @@ -2362,9 +2263,9 @@ UVCG_OPTS_ATTR(streaming_maxburst, identity_conv, kstrtou8, u8, identity_conv,
+>   #undef UVCG_OPTS_ATTR
+>
+>   static struct configfs_attribute *uvc_attrs[] = {
+> -	&f_uvc_opts_attribute_streaming_interval.attr,
+> -	&f_uvc_opts_attribute_streaming_maxpacket.attr,
+> -	&f_uvc_opts_attribute_streaming_maxburst.attr,
+> +	&f_uvc_opts_attr_streaming_interval,
+> +	&f_uvc_opts_attr_streaming_maxpacket,
+> +	&f_uvc_opts_attr_streaming_maxburst,
+>   	NULL,
+>   };
+>
 >
 
 --
