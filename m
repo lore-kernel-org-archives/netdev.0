@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 4/6] net/ethernet: make amd/hplance.c driver explicitly non-modular
-Date: Mon, 28 Sep 2015 15:51:28 -0400
-Message-ID: <1443469890-19485-5-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH 6/6] net/ethernet: make apple/macmace.c driver explicitly non-modular
+Date: Mon, 28 Sep 2015 15:51:30 -0400
+Message-ID: <1443469890-19485-7-git-send-email-paul.gortmaker@windriver.com>
 References: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,66 +9,103 @@ Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	<linux-m68k@vger.kernel.org>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:40476 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752017AbbI1TwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 15:52:04 -0400
 In-Reply-To: <1443469890-19485-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Kconfig for this driver is currently:
+The Kconfig for this option is currently:
 
-config HPLANCE
-        bool "HP on-board LANCE support"
+config MACMACE
+        bool "Macintosh (AV) onboard MACE ethernet"
 
-...meaning that it currently is not being built as a module by
-anyone.  Lets remove the modular and unused code here, so that
-when reading the driver there is no doubt it is builtin-only.
+...meaning that it currently is not being built as a module by anyone.
+Lets remove the modular code that is essentially orphaned, so when
+reading the driver there should be no doubt it is builtin-only.
 
 Since module_init translates to device_initcall in the non-modular
 case, the init ordering remains unchanged with this commit.
 
-We don't swap module.h for init.h since this file has init.h already.
-
-We move the information from the MODULE_LICENSE tag to the top of the
-file in this case, since it is not duplicating similar information
-already there.
+We also delete the MODULE_LICENSE tag etc. since all that information
+is already contained at the top of the file in the comments.
 
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 Cc: linux-m68k@lists.linux-m68k.org
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/ethernet/amd/hplance.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/apple/macmace.c | 38 +++---------------------------------
+ 1 file changed, 3 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/hplance.c b/drivers/net/ethernet/amd/hplance.c
-index 6c9de117ffc6..fa9397508a79 100644
---- a/drivers/net/ethernet/amd/hplance.c
-+++ b/drivers/net/ethernet/amd/hplance.c
-@@ -3,9 +3,9 @@
-  * Copyright (C) 05/1998 Peter Maydell <pmaydell@chiark.greenend.org.uk>
-  * Based on the Sun Lance driver and the NetBSD HP Lance driver
-  * Uses the generic 7990.c LANCE code.
-+ * License: GPL
-  */
+diff --git a/drivers/net/ethernet/apple/macmace.c b/drivers/net/ethernet/apple/macmace.c
+index 89914ca17a49..1f78bc1d04ce 100644
+--- a/drivers/net/ethernet/apple/macmace.c
++++ b/drivers/net/ethernet/apple/macmace.c
+@@ -21,7 +21,7 @@
  
--#include <linux/module.h>
+ 
  #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/interrupt.h>
-@@ -220,13 +220,4 @@ static int __init hplance_init_module(void)
- {
- 	return dio_register_driver(&hplance_driver);
+-#include <linux/module.h>
++#include <linux/init.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/delay.h>
+@@ -739,50 +739,18 @@ static irqreturn_t mace_dma_intr(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
  }
+ 
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Macintosh MACE ethernet driver");
+-MODULE_ALIAS("platform:macmace");
 -
--static void __exit hplance_cleanup_module(void)
+-static int mac_mace_device_remove(struct platform_device *pdev)
 -{
--	dio_unregister_driver(&hplance_driver);
+-	struct net_device *dev = platform_get_drvdata(pdev);
+-	struct mace_data *mp = netdev_priv(dev);
+-
+-	unregister_netdev(dev);
+-
+-	free_irq(dev->irq, dev);
+-	free_irq(IRQ_MAC_MACE_DMA, dev);
+-
+-	dma_free_coherent(mp->device, N_RX_RING * MACE_BUFF_SIZE,
+-	                  mp->rx_ring, mp->rx_ring_phys);
+-	dma_free_coherent(mp->device, N_TX_RING * MACE_BUFF_SIZE,
+-	                  mp->tx_ring, mp->tx_ring_phys);
+-
+-	free_netdev(dev);
+-
+-	return 0;
 -}
 -
--module_init(hplance_init_module);
--module_exit(hplance_cleanup_module);
+ static struct platform_driver mac_mace_driver = {
+ 	.probe  = mace_probe,
+-	.remove = mac_mace_device_remove,
+ 	.driver	= {
+ 		.name	= mac_mace_string,
+ 	},
+ };
+ 
+-static int __init mac_mace_init_module(void)
++static int __init mac_mace_init(void)
+ {
+ 	if (!MACH_IS_MAC)
+ 		return -ENODEV;
+ 
+ 	return platform_driver_register(&mac_mace_driver);
+ }
 -
--MODULE_LICENSE("GPL");
-+device_initcall(hplance_init_module);
+-static void __exit mac_mace_cleanup_module(void)
+-{
+-	platform_driver_unregister(&mac_mace_driver);
+-}
+-
+-module_init(mac_mace_init_module);
+-module_exit(mac_mace_cleanup_module);
++device_initcall(mac_mace_init);
 -- 
 2.6.0.rc3
