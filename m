@@ -1,82 +1,62 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 7/7] slub: do prefetching in kmem_cache_alloc_bulk()
-Date: Mon, 28 Sep 2015 07:53:16 -0700
-Message-ID: <5609545C.4010807@gmail.com>
-References: <20150928122444.15409.10498.stgit@canyon>
- <20150928122639.15409.21583.stgit@canyon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pekka Enberg <penberg@kernel.org>,
- David Rientjes <rientjes@google.com>, Christoph Lameter <cl@linux.com>,
- Joonsoo Kim <iamjoonsoo.kim@lge.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
- Andrew Morton <akpm@linux-foundation.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 4/7] slab: implement bulking for SLAB allocator
+Date: Mon, 28 Sep 2015 10:11:09 -0500 (CDT)
+Message-ID: <alpine.DEB.2.20.1509281008480.30332@east.gentwo.org>
+References: <20150928122444.15409.10498.stgit@canyon> <20150928122624.15409.23038.stgit@canyon>
+Content-Type: text/plain; charset=US-ASCII
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+    netdev@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>,
+    Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+    Joonsoo Kim <iamjoonsoo.kim@lge.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150928122639.15409.21583.stgit@canyon>
+In-Reply-To: <20150928122624.15409.23038.stgit@canyon>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 09/28/2015 05:26 AM, Jesper Dangaard Brouer wrote:
-> For practical use-cases it is beneficial to prefetch the next freelist
-> object in bulk allocation loop.
->
-> Micro benchmarking show approx 1 cycle change:
->
-> bulk -  prev-patch     -  this patch
->     1 -  49 cycles(tsc) - 49 cycles(tsc) - increase in cycles:0
->     2 -  30 cycles(tsc) - 31 cycles(tsc) - increase in cycles:1
->     3 -  23 cycles(tsc) - 25 cycles(tsc) - increase in cycles:2
->     4 -  20 cycles(tsc) - 22 cycles(tsc) - increase in cycles:2
->     8 -  18 cycles(tsc) - 19 cycles(tsc) - increase in cycles:1
->    16 -  17 cycles(tsc) - 18 cycles(tsc) - increase in cycles:1
->    30 -  18 cycles(tsc) - 17 cycles(tsc) - increase in cycles:-1
->    32 -  18 cycles(tsc) - 19 cycles(tsc) - increase in cycles:1
->    34 -  23 cycles(tsc) - 24 cycles(tsc) - increase in cycles:1
->    48 -  21 cycles(tsc) - 22 cycles(tsc) - increase in cycles:1
->    64 -  20 cycles(tsc) - 21 cycles(tsc) - increase in cycles:1
->   128 -  27 cycles(tsc) - 27 cycles(tsc) - increase in cycles:0
->   158 -  30 cycles(tsc) - 30 cycles(tsc) - increase in cycles:0
->   250 -  37 cycles(tsc) - 37 cycles(tsc) - increase in cycles:0
->
-> Note, benchmark done with slab_nomerge to keep it stable enough
-> for accurate comparison.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->   mm/slub.c |    2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/mm/slub.c b/mm/slub.c
-> index c25717ab3b5a..5af75a618b91 100644
-> --- a/mm/slub.c
-> +++ b/mm/slub.c
-> @@ -2951,6 +2951,7 @@ bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
->   				goto error;
->   
->   			c = this_cpu_ptr(s->cpu_slab);
-> +			prefetch_freepointer(s, c->freelist);
->   			continue; /* goto for-loop */
->   		}
->   
-> @@ -2960,6 +2961,7 @@ bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
->   			goto error;
->   
->   		c->freelist = get_freepointer(s, object);
-> +		prefetch_freepointer(s, c->freelist);
->   		p[i] = object;
->   
->   		/* kmem_cache debug support */
+On Mon, 28 Sep 2015, Jesper Dangaard Brouer wrote:
+
+> +/* Note that interrupts must be enabled when calling this function. */
+>  bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
+> -								void **p)
+> +			   void **p)
+>  {
+> -	return __kmem_cache_alloc_bulk(s, flags, size, p);
+> +	size_t i;
+> +
+> +	local_irq_disable();
+> +	for (i = 0; i < size; i++) {
+> +		void *x = p[i] = slab_alloc(s, flags, _RET_IP_, false);
+> +
+> +		if (!x) {
+> +			__kmem_cache_free_bulk(s, i, p);
+> +			return false;
+> +		}
+> +	}
+> +	local_irq_enable();
+> +	return true;
+>  }
+>  EXPORT_SYMBOL(kmem_cache_alloc_bulk);
 >
 
-I can see the prefetch in the last item case being possibly useful since 
-you have time between when you call the prefetch and when you are 
-accessing the next object.  However, is there any actual benefit to 
-prefetching inside the loop itself?  Based on your data above it doesn't 
-seem like that is the case since you are now adding one additional cycle 
-to the allocation and I am not seeing any actual gain reported here.
+Ok the above could result in excessive times when the interrupts are
+kept off.  Lets say someone is freeing 1000 objects?
 
-- Alex
+> +/* Note that interrupts must be enabled when calling this function. */
+> +void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+> +{
+> +	size_t i;
+> +
+> +	local_irq_disable();
+> +	for (i = 0; i < size; i++)
+> +		__kmem_cache_free(s, p[i], false);
+> +	local_irq_enable();
+> +}
+> +EXPORT_SYMBOL(kmem_cache_free_bulk);
+
+Same concern here. We may just have to accept this for now.
+
+Acked-by: Christoph Lameter <cl@linux.com>
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
