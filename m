@@ -1,102 +1,84 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH net 3/7] openvswitch: Fix skb leak in ovs_fragment()
-Date: Tue, 29 Sep 2015 22:48:56 +0000
-Message-ID: <55E40A4D-8CE1-4433-9BB0-43CB41021BA1@intel.com>
-References: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
- <1443566380-22640-4-git-send-email-joestringer@nicira.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH] Fix false positives in can_checksum_protocol()
+Date: Tue, 29 Sep 2015 15:52:07 -0700
+Message-ID: <CALx6S35Jg1fOCkXM3zkzPW=GbKV0Ake5NKc8iq2CJ255nKJgag@mail.gmail.com>
+References: <1443185758.4674.44.camel@infradead.org>
+	<CALx6S34Bs8pOyGXEOvABdG16wyWZuhsg5G4sO_vJgCnz0xxi5A@mail.gmail.com>
+	<1443464822.4674.109.camel@infradead.org>
+	<CALx6S35VXGfCeYtXm9z2APgt=kAwR2qJ5v7psN+Pg17LcDKasw@mail.gmail.com>
+	<1443468381.4674.115.camel@infradead.org>
+	<CALx6S354aBCxosvvBFUFSparq981rPf-vAunwdKtUKZLNBxFmQ@mail.gmail.com>
+	<CAEuXFEzmnLJGTx2n89DWVeOd37=w4=zC8BX8E=ikr6s0N=ZWVQ@mail.gmail.com>
+	<CALx6S35f8hWfBktvou9B41EwFoODYZJZyfetOdLmeeLcuMHT9A@mail.gmail.com>
+	<1443510778.4674.123.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_BA95ECFC-B11B-4B4E-B4CE-0710A46764CA";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:21609 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751031AbbI2Ws6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 18:48:58 -0400
-In-Reply-To: <1443566380-22640-4-git-send-email-joestringer@nicira.com>
-Content-Language: en-US
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:36738 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbbI2WwI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 18:52:08 -0400
+Received: by igcrk20 with SMTP id rk20so89109244igc.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 15:52:08 -0700 (PDT)
+In-Reply-To: <1443510778.4674.123.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_BA95ECFC-B11B-4B4E-B4CE-0710A46764CA
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On Tue, Sep 29, 2015 at 12:12 AM, David Woodhouse <dwmw2@infradead.org>=
+ wrote:
+> On Mon, 2015-09-28 at 20:04 -0700, Tom Herbert wrote:
+>>
+>> > I've been pondering a bit of a redesign in this space.  I think th=
+e
+>> > skb struct should be explicit in its instructions to hardware for
+>> > which offloads to do for each packet.
+>> >
+>> > In this way, the stack would be *directly* telling the drivers wha=
+t to
+>> > do (and what not to do), solving all sorts of bugs and really impr=
+oving
+>> > driver reliability and implementation.
+>> >
+>> Doesn't CHECKSUM_PARTIAL with csum_offset and csum_start already tel=
+l
+>> the driver unambiguously what to do wrt checksum offload?
+>
+> Right. That's precisely what we *do* have. But as things stand, we
+> can't *use* it to its full capability.
+>
+> It's fine for decent devices which can handle such explicit
+> instructions (advertised by the NETIF_F_HW_CSUM feature).
+>
+> The problem is the crappy devices that can *only* checksum UDP and TC=
+P
+> frames, advertised with the NETIF_F_IP{V6,}_CSUM features. We make a
+> primitive attempt *not* to feed arbitrary checksum requests to such
+> hardware. But we fail =E2=80=94 we end up feeding *all* Legacy IP pac=
+kets to a
+> NETIF_F_IP_CSUM device, and *all* IPv6 packets to a NETIF_F_IPV6_CSUM
+> device, regardless of whether they're *actually* TCP or UDP packets.
+>
+Please look at ixgbe_tx_csum in ixgbe driver. This one example of how
+a driver can determine whether the checksum being offloaded is TCP or
+UDP. The bug in this driver is that skb_checksum_help is not called
+for a protocol the driver isn't looking for. In particular, I believe
+this driver will probably send packets with invalid checksums when
+TCP/UDP is used with IPv6 packets that contain extension headers.
 
-> On Sep 29, 2015, at 3:39 PM, Joe Stringer <joestringer@nicira.com> =
-wrote:
->=20
-> @@ -728,8 +727,14 @@ static void ovs_fragment(struct vport *vport, =
-struct sk_buff *skb, u16 mru,
-> 		WARN_ONCE(1, "Failed fragment ->%s: eth=3D%04x, MRU=3D%d, =
-MTU=3D%d.",
-> 			  ovs_vport_name(vport), ntohs(ethertype), mru,
-> 			  vport->dev->mtu);
-> -		kfree_skb(skb);
-> +		goto out;
-> 	}
-> +
-> +	skb =3D NULL;
-> +
-> +out:
-> +	if (skb)
-> +		kfree_skb(skb);
-> }
->=20
-> static void do_output(struct datapath *dp, struct sk_buff *skb, int =
-out_port,
+Tom
 
-Wouldn't that hunk be better as:
-
-@@ -728,8 +727,13 @@ static void ovs_fragment(struct vport *vport, =
-struct sk_buff *skb, u16 mru,
-		WARN_ONCE(1, "Failed fragment ->%s: eth=3D%04x, MRU=3D%d, =
-MTU=3D%d.",
-			  ovs_vport_name(vport), ntohs(ethertype), mru,
-			  vport->dev->mtu);
--		kfree_skb(skb);
-+		goto out;
-	}
-+
-+	return;
-+
-+out:
-+	kfree_skb(skb);
-}
-
-static void do_output(struct datapath *dp, struct sk_buff *skb, int =
-out_port,
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_BA95ECFC-B11B-4B4E-B4CE-0710A46764CA
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJWCxVXAAoJEDwO/+eO4+5u/RMP/iIK5L0FRjna4opcl08SuBdT
-QHUF8m4UZywqWT81mfX6plEtH/UbwBw/IqkrA5xJFHKK+TxLmtBdKWnOwQllSQIR
-knZrROgE7RoYNPWeDHupKK4EyKKX+FjfOKvEwLADF8mGxW2JwOKuBeFJfPFD43Jr
-7vtNK0vG3Fv4cayyF7vBJcomTT7iKjhFj7NZcFn+G4Ag16PMT+ltZpJsPPCjGzd/
-oM5tCp1zG4s3jERgR3k8pL+6ugNGLoU2tDHG5BYX5InvyR7KV+ubP5fySVeuwgxL
-HijqcY5S+P1iH8kPXP8zJkb4uk+ESq/CVM0JgXtycNUZWxYN+bv74gxef0B6JESh
-WbNvc/HvyF2cLPsk464lCPrA5ONaPmwnjLOlTt7q1/z3kj1t1HJExCAvFuoiVL6V
-lGSuk86Q4/6G9aZ8/LpV0qgJngXo3fFChDfZNgFb0Qxe2SXq6AWTUM3ziAy7oEJe
-c9BleynEr/1BBdF2j/uSA3DV+ilyEZTVVJ+hRzP0182R28qZuWGsS/6m7wL2BANH
-Vn+vDuAZdo3V5zJeHtgOeC0Rizjdg4goMCn0qrRx7yVur6sx/km5QNnzAL5epArA
-52AWwc08Z/mSc+hem7rnKahmFXg1ulH7NU+D07t2L47XzlR3a1eVmKhxmRoQRoEw
-YDj4jlmr0QB3I+7wBkA0
-=u2tb
------END PGP SIGNATURE-----
-
---Apple-Mail=_BA95ECFC-B11B-4B4E-B4CE-0710A46764CA--
+> That's the problem I'm trying to solve. And then we *can* make full u=
+se
+> of the generic checksum offload (I had it working for ICMPv6 at one
+> point: http://lists.openwall.net/netdev/2013/01/14/38 ).
+>
+> --
+> David Woodhouse                            Open Source Technology Cen=
+tre
+> David.Woodhouse@intel.com                              Intel Corporat=
+ion
+>
