@@ -1,56 +1,104 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH RFC 1/7] netfilter: add socket to struct nft_pktinfo
-Date: Tue, 29 Sep 2015 13:12:14 +0200
-Message-ID: <1443525140-13493-2-git-send-email-daniel@zonque.org>
+Subject: [PATCH RFC 7/7] net: dccp: hook up LOCAL_SOCKET_IN netfilter chains
+Date: Tue, 29 Sep 2015 13:12:20 +0200
+Message-ID: <1443525140-13493-8-git-send-email-daniel@zonque.org>
 References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
 Cc: daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org, fw@strlen.de, balazs.scheidler@balabit.com,
 	Daniel Mack <daniel@zonque.org>
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:60161 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934568AbbI2LMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 07:12:37 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1443525140-13493-1-git-send-email-daniel@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The high-level netfilter hook API already enables users to pass a socket,
-but that information is lost when the chains are walked.
-
-In order to let internal eval callbacks use the passed filter rather than
-skb->sk, add a pointer of type 'struct sock' to 'struct nft_pktinfo' and
-set that field via nft_set_pktinfo().
-
-This allows us to run filter chains from situations where skb->sk is unset.
-Fall back to skb->sk in case state->sk is NULL, so filter callbacks can be
-written in a generic way.
+Run the NF_INET_LOCAL_SOCKET_IN netfilter chain rules after the
+destination socket for DCCP packets have been looked up.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- include/net/netfilter/nf_tables.h | 2 ++
- 1 file changed, 2 insertions(+)
+ net/dccp/ipv4.c | 14 +++++++++++++-
+ net/dccp/ipv6.c | 14 +++++++++++++-
+ 2 files changed, 26 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index aa8bee7..05e97ed 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -13,6 +13,7 @@
- #define NFT_JUMP_STACK_SIZE	16
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index ccf4c56..9746138 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -14,6 +14,7 @@
+ #include <linux/icmp.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/netfilter.h>
+ #include <linux/skbuff.h>
+ #include <linux/random.h>
  
- struct nft_pktinfo {
-+	struct sock			*sk;
- 	struct sk_buff			*skb;
- 	const struct net_device		*in;
- 	const struct net_device		*out;
-@@ -29,6 +30,7 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
- 				   struct sk_buff *skb,
- 				   const struct nf_hook_state *state)
+@@ -807,7 +808,7 @@ static int dccp_v4_rcv(struct sk_buff *skb)
+ 	const struct dccp_hdr *dh;
+ 	const struct iphdr *iph;
+ 	struct sock *sk;
+-	int min_cov;
++	int ret, min_cov;
+ 
+ 	/* Step 1: Check header basics */
+ 
+@@ -857,6 +858,17 @@ static int dccp_v4_rcv(struct sk_buff *skb)
+ 
+ 	/*
+ 	 * Step 2:
++	 *	... or any LOCAL_SOCKET_IN rule disagrees ...
++	 */
++	ret = nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_SOCKET_IN, sk,
++		      skb, skb->dev, NULL, NULL);
++	if (ret != 1) {
++		sock_put(sk);
++		return 0;
++	}
++
++	/*
++	 * Step 2:
+ 	 *	... or S.state == TIMEWAIT,
+ 	 *		Generate Reset(No Connection) unless P.type == Reset
+ 	 *		Drop packet and return
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 5165571..63b51e6 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -14,6 +14,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/random.h>
++#include <linux/netfilter.h>
+ #include <linux/slab.h>
+ #include <linux/xfrm.h>
+ 
+@@ -691,7 +692,7 @@ static int dccp_v6_rcv(struct sk_buff *skb)
  {
-+	pkt->sk = state->sk ?: skb->sk;
- 	pkt->skb = skb;
- 	pkt->in = pkt->xt.in = state->in;
- 	pkt->out = pkt->xt.out = state->out;
+ 	const struct dccp_hdr *dh;
+ 	struct sock *sk;
+-	int min_cov;
++	int ret, min_cov;
+ 
+ 	/* Step 1: Check header basics */
+ 
+@@ -732,6 +733,17 @@ static int dccp_v6_rcv(struct sk_buff *skb)
+ 
+ 	/*
+ 	 * Step 2:
++	 *	... or any LOCAL_SOCKET_IN rule disagrees ...
++	 */
++	ret = nf_hook(NFPROTO_IPV6, NF_INET_LOCAL_SOCKET_IN, sk,
++		      skb, skb->dev, NULL, NULL);
++	if (ret != 1) {
++		sock_put(sk);
++		return 0;
++	}
++
++	/*
++	 * Step 2:
+ 	 *	... or S.state == TIMEWAIT,
+ 	 *		Generate Reset(No Connection) unless P.type == Reset
+ 	 *		Drop packet and return
 -- 
 2.5.0
+
