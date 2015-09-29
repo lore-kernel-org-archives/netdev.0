@@ -1,243 +1,78 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 4/6] i40e: Fix RS bit update in Tx path and disable force WB workaround
-Date: Mon, 28 Sep 2015 17:55:32 -0700
-Message-ID: <1443488134-36387-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next v2 0/6][pull request] Intel Wired LAN Driver Updates 2015-09-28
+Date: Mon, 28 Sep 2015 17:55:28 -0700
+Message-ID: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59845 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:16566 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932197AbbI2Azi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 20:55:38 -0400
-In-Reply-To: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1754353AbbI2Azh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 20:55:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai <anjali.singhai@intel.com>
+This series contains updates to i40e, i40evf and igb to resolve issues
+seen and reported by Red Hat.
 
-This patch fixes the issue of forcing WB too often causing us to not
-benefit from NAPI.
+Kiran moves i40e_get_head() in preparation for the refactor of the Tx
+timeout logic, so that it can be used in other areas of the driver.
+Refactored the driver timeout logic by issuing a writeback request via
+a software interrupt to the hardware the first time the driver detects
+a hang.  This was due to the driver being too aggressive in resetting a
+hung queue.
 
-Without this patch we were forcing WB/arming interrupt too often taking
-away the benefits of NAPI and causing a performance impact.
+Shannon adds the GRE protocol to the transmit checksum encoding.
 
-With this patch we disable force WB in the clean routine for X710
-and XL710 adapters. X722 adapters do not enable interrupt to force
-a WB and benefit from WB_ON_ITR and hence force WB is left enabled
-for those adapters.
-For XL710 and X710 adapters if we have less than 4 packets pending
-a software Interrupt triggered from service task will force a WB.
+Anjali fixes an issue of forcing writeback too often, which caused us to
+not benefit from NAPI.  We now disable force writeback in the clean
+routine for X710 and XL710 adapters.  The X722 adapters do not enable
+interrupt to force a writeback and benefit from WB_ON_ITR and so force
+WB is left enabled for those adapters.  Fixed a possible deadlock issue
+where sync_vsi_filters() can be called directly under RTNL or through
+the timer subtask without RTNL.  So update the flow to see if we are
+already under RTNL before trying to grab it.
 
-This patch also changes the conditions for setting RS bit as described
-in code comments. This optimizes when the HW does a tail bump and when
-it does a WB. It also optimizes when we do a wmb.
+Stefan Assmann provides a fix for igb where SR-IOV was not getting
+enabled properly and we ran into a NULL pointer if the max_vfs module
+parameter is specified.  This is prevented by setting the
+IGB_FLAG_HAS_MSIX bit before calling igb_probe_vfs().
 
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 129 ++++++++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h |   2 +
- 2 files changed, 87 insertions(+), 44 deletions(-)
+v2: added "i40e: Fix for recursive RTNL lock during PROMISC change" patch
+    to the series, as it resolves another issues seen and reported by
+    Red Hat.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index d699fc9..3ce4900 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -726,17 +726,22 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
- 
--	/* check to see if there are any non-cache aligned descriptors
--	 * waiting to be written back, and kick the hardware to force
--	 * them to be written back in case of napi polling
--	 */
--	if (budget &&
--	    !((i & WB_STRIDE) == WB_STRIDE) &&
--	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
--	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
--		tx_ring->arm_wb = true;
--	else
--		tx_ring->arm_wb = false;
-+	if (tx_ring->flags & I40E_TXR_FLAGS_WB_ON_ITR) {
-+		unsigned int j = 0;
-+
-+		/* check to see if there are < 4 descriptors
-+		 * waiting to be written back, then kick the hardware to force
-+		 * them to be written back in case we stay in NAPI.
-+		 * In this mode on X722 we do not enable Interrupt.
-+		 */
-+		j = i40e_get_tx_pending(tx_ring);
-+
-+		if (budget &&
-+		    ((j / (WB_STRIDE + 1)) == 0) && (j != 0) &&
-+		    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
-+		    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
-+			tx_ring->arm_wb = true;
-+	}
- 
- 	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						      tx_ring->queue_index),
-@@ -2500,6 +2505,9 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	u32 td_tag = 0;
- 	dma_addr_t dma;
- 	u16 gso_segs;
-+	u16 desc_count = 0;
-+	bool tail_bump = true;
-+	bool do_rs = false;
- 
- 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
- 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-@@ -2540,6 +2548,8 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 			tx_desc++;
- 			i++;
-+			desc_count++;
-+
- 			if (i == tx_ring->count) {
- 				tx_desc = I40E_TX_DESC(tx_ring, 0);
- 				i = 0;
-@@ -2559,6 +2569,8 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 		tx_desc++;
- 		i++;
-+		desc_count++;
-+
- 		if (i == tx_ring->count) {
- 			tx_desc = I40E_TX_DESC(tx_ring, 0);
- 			i = 0;
-@@ -2573,34 +2585,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	/* Place RS bit on last descriptor of any packet that spans across the
--	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
--	 */
--	if (((i & WB_STRIDE) != WB_STRIDE) &&
--	    (first <= &tx_ring->tx_bi[i]) &&
--	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
--		tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
--					 I40E_TXD_QW1_CMD_SHIFT);
--	} else {
--		tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)I40E_TXD_CMD <<
--					 I40E_TXD_QW1_CMD_SHIFT);
--	}
--
--	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
--						 tx_ring->queue_index),
--			     first->bytecount);
--
--	/* Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64).
--	 */
--	wmb();
--
- 	/* set next_to_watch value indicating a packet is present */
- 	first->next_to_watch = tx_desc;
- 
-@@ -2610,15 +2594,72 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 	tx_ring->next_to_use = i;
- 
-+	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
-+						 tx_ring->queue_index),
-+						 first->bytecount);
- 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
-+
-+	/* Algorithm to optimize tail and RS bit setting:
-+	 * if xmit_more is supported
-+	 *	if xmit_more is true
-+	 *		do not update tail and do not mark RS bit.
-+	 *	if xmit_more is false and last xmit_more was false
-+	 *		if every packet spanned less than 4 desc
-+	 *			then set RS bit on 4th packet and update tail
-+	 *			on every packet
-+	 *		else
-+	 *			update tail and set RS bit on every packet.
-+	 *	if xmit_more is false and last_xmit_more was true
-+	 *		update tail and set RS bit.
-+	 *
-+	 * Optimization: wmb to be issued only in case of tail update.
-+	 * Also optimize the Descriptor WB path for RS bit with the same
-+	 * algorithm.
-+	 *
-+	 * Note: If there are less than 4 packets
-+	 * pending and interrupts were disabled the service task will
-+	 * trigger a force WB.
-+	 */
-+	if (skb->xmit_more  &&
-+	    !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
-+						    tx_ring->queue_index))) {
-+		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
-+		tail_bump = false;
-+	} else if (!skb->xmit_more &&
-+		   !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
-+						       tx_ring->queue_index)) &&
-+		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
-+		   (tx_ring->packet_stride < WB_STRIDE) &&
-+		   (desc_count < WB_STRIDE)) {
-+		tx_ring->packet_stride++;
-+	} else {
-+		tx_ring->packet_stride = 0;
-+		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
-+		do_rs = true;
-+	}
-+	if (do_rs)
-+		tx_ring->packet_stride = 0;
-+
-+	tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
-+						  I40E_TX_DESC_CMD_EOP) <<
-+						  I40E_TXD_QW1_CMD_SHIFT);
-+
- 	/* notify HW of packet */
--	if (!skb->xmit_more ||
--	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
--						   tx_ring->queue_index)))
--		writel(i, tx_ring->tail);
--	else
-+	if (!tail_bump)
- 		prefetchw(tx_desc + 1);
- 
-+	if (tail_bump) {
-+		/* Force memory writes to complete before letting h/w
-+		 * know there are new descriptors to fetch.  (Only
-+		 * applicable for weak-ordered memory model archs,
-+		 * such as IA-64).
-+		 */
-+		wmb();
-+		writel(i, tx_ring->tail);
-+	}
-+
- 	return;
- 
- dma_error:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 977cb5b..a3978c2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -256,10 +256,12 @@ struct i40e_ring {
- 
- 	bool ring_active;		/* is ring online or not */
- 	bool arm_wb;		/* do something to arm write back */
-+	u8 packet_stride;
- 
- 	u16 flags;
- #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
- #define I40E_TXR_FLAGS_OUTER_UDP_CSUM	BIT(1)
-+#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
- 
- 	/* stats structs */
- 	struct i40e_queue_stats	stats;
+The following are changes since commit 34c2d9fb0498c066afbe610b15e18995fd8be792:
+  bridge: Allow forward delay to be cfgd when STP enabled
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Anjali Singhai (2):
+  i40e: Fix RS bit update in Tx path and disable force WB workaround
+  i40e: Fix for recursive RTNL lock during PROMISC change
+
+Kiran Patil (2):
+  i40e: Move i40e_get_head into header file
+  i40e/i40evf: refactor tx timeout logic
+
+Shannon Nelson (1):
+  i40e: add GRE tunnel type to csum encoding
+
+Stefan Assmann (1):
+  igb: assume MSI-X interrupts during initialization
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 291 ++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 214 ++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  26 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   8 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  94 +------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   8 -
+ drivers/net/ethernet/intel/igb/igb_main.c          |   3 +
+ 9 files changed, 296 insertions(+), 355 deletions(-)
+
 -- 
 2.4.3
