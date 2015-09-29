@@ -1,47 +1,68 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net 0/7] OVS conntrack fixes for net
-Date: Tue, 29 Sep 2015 15:39:33 -0700
-Message-ID: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
+Subject: [PATCH net 3/7] openvswitch: Fix skb leak in ovs_fragment()
+Date: Tue, 29 Sep 2015 15:39:36 -0700
+Message-ID: <1443566380-22640-4-git-send-email-joestringer@nicira.com>
+References: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35938 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbbI2WkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 18:40:00 -0400
-Received: by pablk4 with SMTP id lk4so18017329pab.3
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 15:40:00 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35546 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbbI2WkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 18:40:03 -0400
+Received: by pacfv12 with SMTP id fv12so18820905pac.2
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 15:40:02 -0700 (PDT)
+In-Reply-To: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The userspace side of the Open vSwitch conntrack changes is currently
-undergoing review, which has highlighted some minor bugs in the existing
-conntrack implementation in the kernel, as well as pointing out some
-future-proofing that can be done on the interface to reduce the need for
-additional compatibility code in future.
+If ovs_fragment() was unable to fragment the skb due to an L2 header
+that exceeds the supported length, skbs would be leaked. Fix the bug.
 
-The biggest changes here are to the userspace API for the ct_state match
-field and the CT action. This series proposes to firstly extend the ct_state
-match field to 32 bits, ensuring to reject any currently unsupported bits.
-Secondly, rather than representing CT action flags within a 32-bit field,
-simply use a netlink attribute as presence of the single flag that is
-defined today. This also serves to reject unsupported ct action flag bits.
+Fixes: 7f8a436 "openvswitch: Add conntrack action"
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+ net/openvswitch/actions.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-Joe Stringer (7):
-  openvswitch: Make LABELS name more consistent
-  openvswitch: Fix typos in CT headers
-  openvswitch: Fix skb leak in ovs_fragment()
-  openvswitch: Ensure flow is valid before executing ct
-  openvswitch: Reject ct_state unsupported bits
-  openvswitch: Extend ct_state match field to 32 bits
-  openvswitch: Change CT_ATTR_FLAGS to CT_ATTR_COMMIT
-
- include/uapi/linux/openvswitch.h | 28 +++++++++++-----------------
- net/openvswitch/actions.c        | 21 ++++++++++++++++-----
- net/openvswitch/conntrack.c      | 32 +++++++++++++++++++-------------
- net/openvswitch/conntrack.h      | 12 ++++++++++++
- net/openvswitch/flow_netlink.c   | 26 ++++++++++++++++----------
- 5 files changed, 74 insertions(+), 45 deletions(-)
-
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index e23a61c..e1afbd1 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -684,7 +684,7 @@ static void ovs_fragment(struct vport *vport, struct sk_buff *skb, u16 mru,
+ {
+ 	if (skb_network_offset(skb) > MAX_L2_LEN) {
+ 		OVS_NLERR(1, "L2 header too long to fragment");
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (ethertype == htons(ETH_P_IP)) {
+@@ -708,8 +708,7 @@ static void ovs_fragment(struct vport *vport, struct sk_buff *skb, u16 mru,
+ 		struct rt6_info ovs_rt;
+ 
+ 		if (!v6ops) {
+-			kfree_skb(skb);
+-			return;
++			goto out;
+ 		}
+ 
+ 		prepare_frag(vport, skb);
+@@ -728,8 +727,14 @@ static void ovs_fragment(struct vport *vport, struct sk_buff *skb, u16 mru,
+ 		WARN_ONCE(1, "Failed fragment ->%s: eth=%04x, MRU=%d, MTU=%d.",
+ 			  ovs_vport_name(vport), ntohs(ethertype), mru,
+ 			  vport->dev->mtu);
+-		kfree_skb(skb);
++		goto out;
+ 	}
++
++	skb = NULL;
++
++out:
++	if (skb)
++		kfree_skb(skb);
+ }
+ 
+ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
 -- 
 2.1.4
