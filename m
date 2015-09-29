@@ -1,61 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: avoid reorders for TFO passive
- connections
-Date: Mon, 28 Sep 2015 22:11:45 -0700 (PDT)
-Message-ID: <20150928.221145.1804590785343592452.davem@davemloft.net>
-References: <1443140165.29850.181.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 17/19] tools: bpf_jit_disasm: make
+ get_last_jit_image return unsigned
+Date: Mon, 28 Sep 2015 22:18:17 -0700 (PDT)
+Message-ID: <20150928.221817.1088984521154137505.davem@davemloft.net>
+References: <560446A2.2020907@iogearbox.net>
+	<1443163543-25733-1-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53883 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbbI2FLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:11:46 -0400
-In-Reply-To: <1443140165.29850.181.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com,
+	m.szyprowski@samsung.com, netdev@vger.kernel.org
+To: a.hajda@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443163543-25733-1-git-send-email-a.hajda@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Sep 2015 17:16:05 -0700
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Fri, 25 Sep 2015 08:45:43 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> The function returns always non-negative values.
 > 
-> We found that a TCP Fast Open passive connection was vulnerable
-> to reorders, as the exchange might look like
+> The problem has been detected using proposed semantic patch
+> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
 > 
-> [1] C -> S S <FO ...> <request>
-> [2] S -> C S. ack request <options>
-> [3] S -> C . <answer>
+> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
 > 
-> packets [2] and [3] can be generated at almost the same time.
-> 
-> If C receives the 3rd packet before the 2nd, it will drop it as
-> the socket is in SYN_SENT state and expects a SYNACK.
-> 
-> S will have to retransmit the answer.
-> 
-> Current OOO avoidance in linux is defeated because SYNACK
-> packets are attached to the LISTEN socket, while DATA packets
-> are attached to the children. They might be sent by different cpus,
-> and different TX queues might be selected.
-> 
-> It turns out that for TFO, we created a child, which is a
-> full blown socket in TCP_SYN_RECV state, and we simply can attach
-> the SYNACK packet to this socket.
-> 
-> This means that at the time tcp_sendmsg() pushes DATA packet,
-> skb->ooo_okay will be set iff the SYNACK packet had been sent
-> and TX completed.
-> 
-> This removes the reorder source at the host level.
-> 
-> We also removed the export of tcp_try_fastopen(), as it is no
-> longer called from IPv6.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+> ---
+> v2: fixed indentation
 
 Applied, thanks.
