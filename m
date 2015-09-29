@@ -1,89 +1,85 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/5][pull request] Intel Wired LAN Driver Updates
- 2015-09-28
-Date: Mon, 28 Sep 2015 17:33:54 -0700
-Message-ID: <1443486834.2864.1.camel@intel.com>
-References: <1443468800-37102-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net] skbuff: Fix skb checksum partial check.
+Date: Mon, 28 Sep 2015 17:46:50 -0700
+Message-ID: <CALx6S35z9BHcSDHso1ZyNa+5beZe=5tXSPNOYFkVEV80+k=Eqw@mail.gmail.com>
+References: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-y8OiL14+OldNjWAnr+Jd"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:46540 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754457AbbI2Afn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 20:35:43 -0400
-In-Reply-To: <1443468800-37102-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-io0-f175.google.com ([209.85.223.175]:36005 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752763AbbI2Aqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 20:46:51 -0400
+Received: by ioii196 with SMTP id i196so195345348ioi.3
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 17:46:50 -0700 (PDT)
+In-Reply-To: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Sep 28, 2015 at 5:24 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Earlier patch 6ae459bda tried to detect void ckecksum partial
+> skb by comparing pull length to checksum offset. But it does
+> not work for all cases since checksum-offset depends on
+> updates to skb->data.
+>
+> Following patch fixes it by validating checksum start offset
+> after skb-data pointer is updated. Negative value of checksum
+> offset start means there is no need to checksum.
+>
+> Fixes: 6ae459bda ("skbuff: Fix skb checksum flag on skb pull")
+> Reported-by: Andrew Vagin <avagin@odin.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> This and 6ae459bda patches needs to be backported to stable.
+> ---
+>  include/linux/skbuff.h |    2 +-
+>  net/core/skbuff.c      |    9 +++++----
+>  2 files changed, 6 insertions(+), 5 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 2b0a30a..4398411 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2708,7 +2708,7 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
+>         if (skb->ip_summed == CHECKSUM_COMPLETE)
+>                 skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
+>         else if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> -                skb_checksum_start_offset(skb) <= len)
+> +                skb_checksum_start_offset(skb) < 0)
+>                 skb->ip_summed = CHECKSUM_NONE;
+>  }
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index dad4dd3..fab4599 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2958,11 +2958,12 @@ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
+>   */
+>  unsigned char * skb_pull_rcsum(struct sk_buff *skb, unsigned int len)
+>  {
+> +       unsigned char *data = skb->data;
+> +
+>         BUG_ON(len > skb->len);
+> -       skb->len -= len;
+> -       BUG_ON(skb->len < skb->data_len);
+> -       skb_postpull_rcsum(skb, skb->data, len);
+> -       return skb->data += len;
+> +       __skb_pull(skb, len);
+> +       skb_postpull_rcsum(skb, data, len);
+> +       return skb->data;
+>  }
 
---=-y8OiL14+OldNjWAnr+Jd
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Nice cleanup in skb_pull_rcsum, but does this affect other calls to
+skb_postpull_rcsum?
 
-On Mon, 2015-09-28 at 12:33 -0700, Jeff Kirsher wrote:
-> This series contains updates to i40e, i40evf and igb to resolve
-> issues
-> seen and reported by Red Hat.
->=20
-> Kiran moves i40e_get_head() in preparation for the refactor of the Tx
-> timeout logic, so that it can be used in other areas of the driver.
-> Refactored the driver timeout logic by issuing a writeback request
-> via
-> a software interrupt to the hardware the first time the driver
-> detects
-> a hang.  This was due to the driver being too aggressive in resetting
-> a
-> hung queue.
->=20
-> Shannon adds the GRE protocol to the transmit checksum encoding.
->=20
-> Anjali fixes an issue of forcing writeback too often, which caused us
-> to
-> not benefit from NAPI.  We now disable force writeback in the clean
-> routine for X710 and XL710 adapters.  The X722 adapters do not enable
-> interrupt to force a writeback and benefit from WB_ON_ITR and so
-> force
-> WB is left enabled for those adapters.
->=20
-> Stefan Assmann provides a fix for igb where SR-IOV was not getting
-> enabled properly and we ran into a NULL pointer if the max_vfs module
-> parameter is specified.  This is prevented by setting the
-> IGB_FLAG_HAS_MSIX bit before calling igb_probe_vfs().
->=20
-> The following are changes since commit
-> 34c2d9fb0498c066afbe610b15e18995fd8be792:
->   bridge: Allow forward delay to be cfgd when STP enabled
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-> master
-
-I need to add one more patch to this series from Anjali which resolves
-a possible deadlock issue.  So v2 of the series is coming shortly.
---=-y8OiL14+OldNjWAnr+Jd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWCdxyAAoJEOVv75VaS+3OfhAP/jBgn3uIzirCd+PIEBiXreqE
-X2O+QBcoZgHtap/AtWmmYRScAr0HNbq1CFwIRTU+31/RDn1QFJOFKxHoaJeDclHD
-WFgxdc2CvDzIWg2SrfFk5gAUzWON9if6joE8jVzEALRTHAS1GI7Xc9WBZsJa+mVF
-vMMvTRTGqqBvGYFz4N9MmMRYag9TVWYiitBYB/xtktKOVZ57wFS/6VkZQQE7HMtX
-odT9oXOzEI9UmY1nUOUF9D1p1+MKzHfpETRymcWr3lQOYdedhNdn04BQAQbtX2sc
-bUgZZdMwYZ1pFoKmcFFCNzBmnWAuPk0zfpdS8lCN3uaHzYnpt4/S3xrjDf+Q6d5a
-j6Kk81thG5bi/16DHhQGSPXSUyIDX4dcS4uwPcEHUdKBR7RefHJDXVEsyMEllvdy
-E4cBkW1tgMXxD2prlsB5dhtdBbW5X0efpl39GPhSa2UooYNWTJrK2YcpJc+cuuT4
-0yXn/z9AuMjNB9OA+o9QVjgaTCAm0FreJ3SAgT/PkCy6XRQeFk4myh1ut/gq2l3/
-ZmGfpqiWkNbJvsaTZAk6SkCR90sLKTl6plvV3Z/SRnQAuCJcS/qKJITQJxxEfKtD
-8nlWFI7IVoQAWpVGUJr1dSt31bgf/6SGcIfy3asr4oc8dX4D2rUm1CVUSEt6Diy6
-tzFMKdgS6MZULBPgINHo
-=BJkA
------END PGP SIGNATURE-----
-
---=-y8OiL14+OldNjWAnr+Jd--
+>  EXPORT_SYMBOL_GPL(skb_pull_rcsum);
+>
+> --
+> 1.7.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
