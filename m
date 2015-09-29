@@ -1,73 +1,48 @@
-From: Anand Gurram <anandarao.gurram@gmail.com>
-Subject: Re: unregister_netdevice warnings when deleting netns
-Date: Tue, 29 Sep 2015 21:42:57 +0530
-Message-ID: <CAGGTERkduFPmoiRJ+oUQ02kXe+dbOW=5e9W3f71=9hTjG_amVA@mail.gmail.com>
-References: <CAGGTERmzF7oYABWUR+6UhddpOCtpkciVUMUOU-OcPkQvMznS8Q@mail.gmail.com>
-	<alpine.LFD.2.11.1509282202270.7276@ja.home.ssi.bg>
-	<8737xy5is2.fsf@x220.int.ebiederm.org>
-	<CAGGTERk3G=q09i0v2=Yo+2CQiwSn3qyhTq7ehw7A9ez0mqK=vQ@mail.gmail.com>
-	<87mvw54tcu.fsf@x220.int.ebiederm.org>
+From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
+Subject: [v4.3.0-rc2->3] Regression: BIG networking performance loss
+Date: Tue, 29 Sep 2015 18:32:03 +0200
+Message-ID: <CADDKRnDgTkFudt-rsCCPub5iK=1hbmUUaxqrEO+_sg7JarEUQw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Julian Anastasov <ja@ssi.bg>, NETDEV <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:33914 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932797AbbI2QM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 12:12:58 -0400
-Received: by ykdg206 with SMTP id g206so11779609ykd.1
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 09:12:57 -0700 (PDT)
-In-Reply-To: <87mvw54tcu.fsf@x220.int.ebiederm.org>
+Received: from mail-wi0-f193.google.com ([209.85.212.193]:36262 "EHLO
+	mail-wi0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751196AbbI2QcF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 12:32:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Julian and Eric
+With kernels vmlinuz-4.3.0-rc2-00228-gd4a748a and earlier it is no
+problem for me to stream HD-videos (700-800 Kbyte/s) from YouTube.
 
-I tried both the patches which you have suggested, the issue is still
-seen, I am observing same warning message thrown on the console
-  "unregister_netdevice: waiting for lo to become free. Usage count = 1".
+With the same video material and kernels
+vmlinuz-4.3.0-rc2-00438-gd8cc397 and later I only reach 70-80 KByte/s.
+That's a one-tenth than before.
 
+The merges between 00228 -> 00438 are:
+d8cc397 Merge git://git.kernel.org/pub/scm/linux/kernel/git/herbert/cry=
+pto-2.6
+c91d707 Merge git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-=
+pending
+bcba282 Merge tag 'usb-4.3-rc3' of
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb
+fb740f9 Merge tag 'tty-4.3-rc3' of
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/tty
+b11e7b8 Merge tag 'staging-4.3-rc3' of
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging
+7c1efea Merge tag 'driver-core-4.3-rc3' of
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core
+64b796e Merge tag 'char-misc-4.3-rc3' of
+git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/char-misc
+518a7cb Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
 
->Sometimes people have addressed this class of issue with code review,
->but with a slow cleanup you can't catch this by finding a missing
->dev_put.
+Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411
+PCI Express Gigabit Ethernet Controller (rev 07)
+Driver:r8169.
 
-Yeah, currently since slow cleanup is happening I am unable to trace
-just by having count for dev_hold and dev_put.
-
-
-Actually at the time of tearing down the name space there is an active
-TCP connection present.
-When this TCP connection is not present then we are not seeing this issue.
-
-Any additional ideas and suggestions on debugging in above scenario?
-
-Best Regards,
-Anand
-
-On Tue, Sep 29, 2015 at 12:14 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Anand Gurram <anandarao.gurram@gmail.com> writes:
->
->>>If the message just spits out a few times and then goes away it simply
->>>means that something is taking a while to cleanup and drop it's
->>>reference.
->>
->> The message just spits out few times and then goes away, I am trying
->> to debug why cleanup is taking long,
->> and where it is still referenced. Any pointers in debugging such
->> issues will be of great help.
->
-> The one thing I have done in the past is to instrument dev_hold
-> and dev_put and look where in the code the stragglers are coming from
-> (when I can reproduce the issue reliably).
->
-> Sometimes people have addressed this class of issue with code review,
-> but with a slow cleanup you can't catch this by finding a missing
-> dev_put.
->
-> It takes some creativity to find these as people rarely make the same
-> mistake twice.
->
-> Eric
+Thanks, J=C3=B6rg
