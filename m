@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/6][pull request] Intel Wired LAN Driver Updates
- 2015-09-28
-Date: Mon, 28 Sep 2015 20:59:23 -0700 (PDT)
-Message-ID: <20150928.205923.1879277677343031208.davem@davemloft.net>
-References: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net 0/2] sctp: Fix SCTP deadlock
+Date: Mon, 28 Sep 2015 21:03:57 -0700 (PDT)
+Message-ID: <20150928.210357.1723865763239680947.davem@davemloft.net>
+References: <1443111307-16503-1-git-send-email-kheiss@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	nhorman@tuxdriver.com, vyasevich@gmail.com
+To: kheiss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52887 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52896 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932337AbbI2D7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 23:59:24 -0400
-In-Reply-To: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751388AbbI2ED6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 00:03:58 -0400
+In-Reply-To: <1443111307-16503-1-git-send-email-kheiss@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 28 Sep 2015 17:55:28 -0700
+From: Karl Heiss <kheiss@gmail.com>
+Date: Thu, 24 Sep 2015 12:15:05 -0400
 
-> This series contains updates to i40e, i40evf and igb to resolve issues
-> seen and reported by Red Hat.
+> These patches fix a deadlock during accept() of an SCTP connection.
+> 
+> The first patch fixes whitespace issues.
+> 
+> The second patch actually fixes the deadlock race.
 
-Pulled, thanks Jeff.
+Seems reasonable, series applied, thanks.
