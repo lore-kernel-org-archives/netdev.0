@@ -1,85 +1,243 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] skbuff: Fix skb checksum partial check.
-Date: Mon, 28 Sep 2015 17:46:50 -0700
-Message-ID: <CALx6S35z9BHcSDHso1ZyNa+5beZe=5tXSPNOYFkVEV80+k=Eqw@mail.gmail.com>
-References: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 4/6] i40e: Fix RS bit update in Tx path and disable force WB workaround
+Date: Mon, 28 Sep 2015 17:55:32 -0700
+Message-ID: <1443488134-36387-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36005 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752763AbbI2Aqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 20:46:51 -0400
-Received: by ioii196 with SMTP id i196so195345348ioi.3
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 17:46:50 -0700 (PDT)
-In-Reply-To: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
+Received: from mga11.intel.com ([192.55.52.93]:59845 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932197AbbI2Azi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 20:55:38 -0400
+In-Reply-To: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 28, 2015 at 5:24 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> Earlier patch 6ae459bda tried to detect void ckecksum partial
-> skb by comparing pull length to checksum offset. But it does
-> not work for all cases since checksum-offset depends on
-> updates to skb->data.
->
-> Following patch fixes it by validating checksum start offset
-> after skb-data pointer is updated. Negative value of checksum
-> offset start means there is no need to checksum.
->
-> Fixes: 6ae459bda ("skbuff: Fix skb checksum flag on skb pull")
-> Reported-by: Andrew Vagin <avagin@odin.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> This and 6ae459bda patches needs to be backported to stable.
-> ---
->  include/linux/skbuff.h |    2 +-
->  net/core/skbuff.c      |    9 +++++----
->  2 files changed, 6 insertions(+), 5 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2b0a30a..4398411 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2708,7 +2708,7 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
->         if (skb->ip_summed == CHECKSUM_COMPLETE)
->                 skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
->         else if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> -                skb_checksum_start_offset(skb) <= len)
-> +                skb_checksum_start_offset(skb) < 0)
->                 skb->ip_summed = CHECKSUM_NONE;
->  }
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index dad4dd3..fab4599 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2958,11 +2958,12 @@ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
->   */
->  unsigned char * skb_pull_rcsum(struct sk_buff *skb, unsigned int len)
->  {
-> +       unsigned char *data = skb->data;
-> +
->         BUG_ON(len > skb->len);
-> -       skb->len -= len;
-> -       BUG_ON(skb->len < skb->data_len);
-> -       skb_postpull_rcsum(skb, skb->data, len);
-> -       return skb->data += len;
-> +       __skb_pull(skb, len);
-> +       skb_postpull_rcsum(skb, data, len);
-> +       return skb->data;
->  }
+From: Anjali Singhai <anjali.singhai@intel.com>
 
-Nice cleanup in skb_pull_rcsum, but does this affect other calls to
-skb_postpull_rcsum?
+This patch fixes the issue of forcing WB too often causing us to not
+benefit from NAPI.
 
->  EXPORT_SYMBOL_GPL(skb_pull_rcsum);
->
-> --
-> 1.7.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Without this patch we were forcing WB/arming interrupt too often taking
+away the benefits of NAPI and causing a performance impact.
+
+With this patch we disable force WB in the clean routine for X710
+and XL710 adapters. X722 adapters do not enable interrupt to force
+a WB and benefit from WB_ON_ITR and hence force WB is left enabled
+for those adapters.
+For XL710 and X710 adapters if we have less than 4 packets pending
+a software Interrupt triggered from service task will force a WB.
+
+This patch also changes the conditions for setting RS bit as described
+in code comments. This optimizes when the HW does a tail bump and when
+it does a WB. It also optimizes when we do a wmb.
+
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 129 ++++++++++++++++++----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h |   2 +
+ 2 files changed, 87 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index d699fc9..3ce4900 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -726,17 +726,22 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 	tx_ring->q_vector->tx.total_bytes += total_bytes;
+ 	tx_ring->q_vector->tx.total_packets += total_packets;
+ 
+-	/* check to see if there are any non-cache aligned descriptors
+-	 * waiting to be written back, and kick the hardware to force
+-	 * them to be written back in case of napi polling
+-	 */
+-	if (budget &&
+-	    !((i & WB_STRIDE) == WB_STRIDE) &&
+-	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
+-	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
+-		tx_ring->arm_wb = true;
+-	else
+-		tx_ring->arm_wb = false;
++	if (tx_ring->flags & I40E_TXR_FLAGS_WB_ON_ITR) {
++		unsigned int j = 0;
++
++		/* check to see if there are < 4 descriptors
++		 * waiting to be written back, then kick the hardware to force
++		 * them to be written back in case we stay in NAPI.
++		 * In this mode on X722 we do not enable Interrupt.
++		 */
++		j = i40e_get_tx_pending(tx_ring);
++
++		if (budget &&
++		    ((j / (WB_STRIDE + 1)) == 0) && (j != 0) &&
++		    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
++		    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
++			tx_ring->arm_wb = true;
++	}
+ 
+ 	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
+ 						      tx_ring->queue_index),
+@@ -2500,6 +2505,9 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	u32 td_tag = 0;
+ 	dma_addr_t dma;
+ 	u16 gso_segs;
++	u16 desc_count = 0;
++	bool tail_bump = true;
++	bool do_rs = false;
+ 
+ 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
+ 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
+@@ -2540,6 +2548,8 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 			tx_desc++;
+ 			i++;
++			desc_count++;
++
+ 			if (i == tx_ring->count) {
+ 				tx_desc = I40E_TX_DESC(tx_ring, 0);
+ 				i = 0;
+@@ -2559,6 +2569,8 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 		tx_desc++;
+ 		i++;
++		desc_count++;
++
+ 		if (i == tx_ring->count) {
+ 			tx_desc = I40E_TX_DESC(tx_ring, 0);
+ 			i = 0;
+@@ -2573,34 +2585,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		tx_bi = &tx_ring->tx_bi[i];
+ 	}
+ 
+-	/* Place RS bit on last descriptor of any packet that spans across the
+-	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
+-	 */
+-	if (((i & WB_STRIDE) != WB_STRIDE) &&
+-	    (first <= &tx_ring->tx_bi[i]) &&
+-	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
+-		tx_desc->cmd_type_offset_bsz =
+-			build_ctob(td_cmd, td_offset, size, td_tag) |
+-			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
+-					 I40E_TXD_QW1_CMD_SHIFT);
+-	} else {
+-		tx_desc->cmd_type_offset_bsz =
+-			build_ctob(td_cmd, td_offset, size, td_tag) |
+-			cpu_to_le64((u64)I40E_TXD_CMD <<
+-					 I40E_TXD_QW1_CMD_SHIFT);
+-	}
+-
+-	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
+-						 tx_ring->queue_index),
+-			     first->bytecount);
+-
+-	/* Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
+-
+ 	/* set next_to_watch value indicating a packet is present */
+ 	first->next_to_watch = tx_desc;
+ 
+@@ -2610,15 +2594,72 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 	tx_ring->next_to_use = i;
+ 
++	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
++						 tx_ring->queue_index),
++						 first->bytecount);
+ 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
++
++	/* Algorithm to optimize tail and RS bit setting:
++	 * if xmit_more is supported
++	 *	if xmit_more is true
++	 *		do not update tail and do not mark RS bit.
++	 *	if xmit_more is false and last xmit_more was false
++	 *		if every packet spanned less than 4 desc
++	 *			then set RS bit on 4th packet and update tail
++	 *			on every packet
++	 *		else
++	 *			update tail and set RS bit on every packet.
++	 *	if xmit_more is false and last_xmit_more was true
++	 *		update tail and set RS bit.
++	 *
++	 * Optimization: wmb to be issued only in case of tail update.
++	 * Also optimize the Descriptor WB path for RS bit with the same
++	 * algorithm.
++	 *
++	 * Note: If there are less than 4 packets
++	 * pending and interrupts were disabled the service task will
++	 * trigger a force WB.
++	 */
++	if (skb->xmit_more  &&
++	    !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
++						    tx_ring->queue_index))) {
++		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
++		tail_bump = false;
++	} else if (!skb->xmit_more &&
++		   !netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
++						       tx_ring->queue_index)) &&
++		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
++		   (tx_ring->packet_stride < WB_STRIDE) &&
++		   (desc_count < WB_STRIDE)) {
++		tx_ring->packet_stride++;
++	} else {
++		tx_ring->packet_stride = 0;
++		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
++		do_rs = true;
++	}
++	if (do_rs)
++		tx_ring->packet_stride = 0;
++
++	tx_desc->cmd_type_offset_bsz =
++			build_ctob(td_cmd, td_offset, size, td_tag) |
++			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
++						  I40E_TX_DESC_CMD_EOP) <<
++						  I40E_TXD_QW1_CMD_SHIFT);
++
+ 	/* notify HW of packet */
+-	if (!skb->xmit_more ||
+-	    netif_xmit_stopped(netdev_get_tx_queue(tx_ring->netdev,
+-						   tx_ring->queue_index)))
+-		writel(i, tx_ring->tail);
+-	else
++	if (!tail_bump)
+ 		prefetchw(tx_desc + 1);
+ 
++	if (tail_bump) {
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.  (Only
++		 * applicable for weak-ordered memory model archs,
++		 * such as IA-64).
++		 */
++		wmb();
++		writel(i, tx_ring->tail);
++	}
++
+ 	return;
+ 
+ dma_error:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 977cb5b..a3978c2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -256,10 +256,12 @@ struct i40e_ring {
+ 
+ 	bool ring_active;		/* is ring online or not */
+ 	bool arm_wb;		/* do something to arm write back */
++	u8 packet_stride;
+ 
+ 	u16 flags;
+ #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
+ #define I40E_TXR_FLAGS_OUTER_UDP_CSUM	BIT(1)
++#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
+ 
+ 	/* stats structs */
+ 	struct i40e_queue_stats	stats;
+-- 
+2.4.3
