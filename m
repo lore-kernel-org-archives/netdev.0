@@ -1,87 +1,99 @@
 From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: [linux 3.14-stable] ipv6: addrconf: validate new MTU before
- applying it
-Date: Tue, 29 Sep 2015 16:01:19 -0400
-Message-ID: <1443556879.3494.38.camel@gmail.com>
+Subject: [linux 3.14-stable] RDS: verify the underlying transport exists
+ before creating a connection
+Date: Tue, 29 Sep 2015 16:01:49 -0400
+Message-ID: <1443556909.3494.39.camel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:35798 "EHLO
-	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbbI2UBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:21 -0400
-Received: by qkap81 with SMTP id p81so8389920qka.2
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:01:20 -0700 (PDT)
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:34738 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbbI2UBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:51 -0400
+Received: by qgez77 with SMTP id z77so16718257qge.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:01:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Leitner <mleitner@redhat.com>
+From: Sasha Levin <sasha.levin@oracle.com>
 
-commit 77751427a1ff25b27d47a4c36b12c3c8667855ac upstream.
+commit 74e98eb085889b0d2d4908f59f6e00026063014f upstream.
 
-Currently we don't check if the new MTU is valid or not and this allows
-one to configure a smaller than minimum allowed by RFCs or even bigger
-than interface own MTU, which is a problem as it may lead to packet
-drops.
+There was no verification that an underlying transport exists when creating
+a connection, this would cause dereferencing a NULL ptr.
 
-If you have a daemon like NetworkManager running, this may be exploited
-by remote attackers by forging RA packets with an invalid MTU, possibly
-leading to a DoS. (NetworkManager currently only validates for values
-too small, but not for too big ones.)
+It might happen on sockets that weren't properly bound before attempting to
+send a message, which will cause a NULL ptr deref:
 
-The fix is just to make sure the new value is valid. That is, between
-IPV6_MIN_MTU and interface's MTU.
+[135546.047719] kasan: GPF could be caused by NULL-ptr deref or user memory accessgeneral protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
+[135546.051270] Modules linked in:
+[135546.051781] CPU: 4 PID: 15650 Comm: trinity-c4 Not tainted 4.2.0-next-20150902-sasha-00041-gbaa1222-dirty #2527
+[135546.053217] task: ffff8800835bc000 ti: ffff8800bc708000 task.ti: ffff8800bc708000
+[135546.054291] RIP: __rds_conn_create (net/rds/connection.c:194)
+[135546.055666] RSP: 0018:ffff8800bc70fab0  EFLAGS: 00010202
+[135546.056457] RAX: dffffc0000000000 RBX: 0000000000000f2c RCX: ffff8800835bc000
+[135546.057494] RDX: 0000000000000007 RSI: ffff8800835bccd8 RDI: 0000000000000038
+[135546.058530] RBP: ffff8800bc70fb18 R08: 0000000000000001 R09: 0000000000000000
+[135546.059556] R10: ffffed014d7a3a23 R11: ffffed014d7a3a21 R12: 0000000000000000
+[135546.060614] R13: 0000000000000001 R14: ffff8801ec3d0000 R15: 0000000000000000
+[135546.061668] FS:  00007faad4ffb700(0000) GS:ffff880252000000(0000) knlGS:0000000000000000
+[135546.062836] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[135546.063682] CR2: 000000000000846a CR3: 000000009d137000 CR4: 00000000000006a0
+[135546.064723] Stack:
+[135546.065048]  ffffffffafe2055c ffffffffafe23fc1 ffffed00493097bf ffff8801ec3d0008
+[135546.066247]  0000000000000000 00000000000000d0 0000000000000000 ac194a24c0586342
+[135546.067438]  1ffff100178e1f78 ffff880320581b00 ffff8800bc70fdd0 ffff880320581b00
+[135546.068629] Call Trace:
+[135546.069028] ? __rds_conn_create (include/linux/rcupdate.h:856 net/rds/connection.c:134)
+[135546.069989] ? rds_message_copy_from_user (net/rds/message.c:298)
+[135546.071021] rds_conn_create_outgoing (net/rds/connection.c:278)
+[135546.071981] rds_sendmsg (net/rds/send.c:1058)
+[135546.072858] ? perf_trace_lock (include/trace/events/lock.h:38)
+[135546.073744] ? lockdep_init (kernel/locking/lockdep.c:3298)
+[135546.074577] ? rds_send_drop_to (net/rds/send.c:976)
+[135546.075508] ? __might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3795)
+[135546.076349] ? __might_fault (mm/memory.c:3795)
+[135546.077179] ? rds_send_drop_to (net/rds/send.c:976)
+[135546.078114] sock_sendmsg (net/socket.c:611 net/socket.c:620)
+[135546.078856] SYSC_sendto (net/socket.c:1657)
+[135546.079596] ? SYSC_connect (net/socket.c:1628)
+[135546.080510] ? trace_dump_stack (kernel/trace/trace.c:1926)
+[135546.081397] ? ring_buffer_unlock_commit (kernel/trace/ring_buffer.c:2479 kernel/trace/ring_buffer.c:2558 kernel/trace/ring_buffer.c:2674)
+[135546.082390] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+[135546.083410] ? trace_event_raw_event_sys_enter (include/trace/events/syscalls.h:16)
+[135546.084481] ? do_audit_syscall_entry (include/trace/events/syscalls.h:16)
+[135546.085438] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+[135546.085515] rds_ib_laddr_check(): addr 36.74.25.172 ret -99 node type -1
 
-Note that similar check is already performed at
-ndisc_router_discovery(), for when kernel itself parses the RA.
+Fixes CVE-2015-6937.
 
-Fixes CVE-2015-0272.
-
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Chas Williams <3chas3@gmail.com>
 ---
- net/ipv6/addrconf.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ net/rds/connection.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3f0ec06..7b74fca 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4793,6 +4793,21 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- 	return ret;
- }
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 378c3a6..f5fb7d6 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -183,6 +183,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
+ 		}
+ 	}
  
-+static
-+int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
-+			void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	struct inet6_dev *idev = ctl->extra1;
-+	int min_mtu = IPV6_MIN_MTU;
-+	struct ctl_table lctl;
++	if (trans == NULL) {
++		kmem_cache_free(rds_conn_slab, conn);
++		conn = ERR_PTR(-ENODEV);
++		goto out;
++	}
 +
-+	lctl = *ctl;
-+	lctl.extra1 = &min_mtu;
-+	lctl.extra2 = idev ? &idev->dev->mtu : NULL;
-+
-+	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
-+}
-+
- static void dev_disable_change(struct inet6_dev *idev)
- {
- 	struct netdev_notifier_info info;
-@@ -4944,7 +4959,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.mtu6,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_sysctl_mtu,
- 		},
- 		{
- 			.procname	= "accept_ra",
+ 	conn->c_trans = trans;
+ 
+ 	ret = trans->conn_alloc(conn, gfp);
 -- 
 2.1.0
