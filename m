@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] skbuff: Fix skb checksum flag on skb pull
-Date: Mon, 28 Sep 2015 22:32:11 -0700 (PDT)
-Message-ID: <20150928.223211.487857375598451901.davem@davemloft.net>
-References: <1442951873-4803-1-git-send-email-pshelar@nicira.com>
-	<20150924.140931.1967362456389755405.davem@davemloft.net>
-	<CALnjE+pyz_qTYXOm1vB89g+-KvE7dHfaaw5iG5manoYzLd7FHg@mail.gmail.com>
+Subject: Re: [PATCH v3 1/3] net: irda: pxaficp_ir: use sched_clock() for
+ time management
+Date: Mon, 28 Sep 2015 22:33:10 -0700 (PDT)
+Message-ID: <20150928.223310.709463014669733152.davem@davemloft.net>
+References: <1443293360-16377-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53963 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53966 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbbI2FcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:32:12 -0400
-In-Reply-To: <CALnjE+pyz_qTYXOm1vB89g+-KvE7dHfaaw5iG5manoYzLd7FHg@mail.gmail.com>
+	with ESMTP id S1752853AbbI2FdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:33:10 -0400
+In-Reply-To: <1443293360-16377-1-git-send-email-robert.jarzmik@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Fri, 25 Sep 2015 19:48:57 -0700
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Sat, 26 Sep 2015 20:49:18 +0200
 
-> On Thu, Sep 24, 2015 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
->> From: Pravin B Shelar <pshelar@nicira.com>
->> Date: Tue, 22 Sep 2015 12:57:53 -0700
->>
->>> VXLAN device can receive skb with checksum partial. But the checksum
->>> offset could be in outer header which is pulled on receive. This results
->>> in negative checksum offset for the skb. Such skb can cause the assert
->>> failure in skb_checksum_help(). Following patch fixes the bug by setting
->>> checksum-none while pulling outer header.
->>>
->>> Following is the kernel panic msg from old kernel hitting the bug.
->>  ...
->>> Reported-by: Anupam Chanda <achanda@vmware.com>
->>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->>
->> Applied, thanks.
+> Instead of using directly the OS timer through direct register access,
+> use the standard sched_clock(), which will end up in OSCR reading
+> anyway.
 > 
-> Thanks for applying it. Since I have seen this bug on older kernel can
-> you also queue it for -stable.
+> This is a first step for direct access register removal and machine
+> specific code removal from this driver.
+> 
+> This commit changes the behavior, as previously the minimum turnaround
+> time was counted in 76ns steps, while with this patch it is counted in
+> microsecond steps. The strictly equal formula would have been :
+> 	    while ((sched_clock() - si->last_clk) * 76 < mtt)
+> 
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> ---
+> Since v2: fixed clock calculation as pointed out by David
 
-Not until we resolve all of the regressions caused by it.
+Applied to net-next.
