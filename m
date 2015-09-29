@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next 0/6] net: switchdev: use specific switchdev_obj_*
-Date: Tue, 29 Sep 2015 12:07:12 -0400
-Message-ID: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2 net-next 6/6] net: switchdev: extract struct switchdev_obj_*
+Date: Tue, 29 Sep 2015 12:07:18 -0400
+Message-ID: <1443542838-19234-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Scott Feldman <sfeldma@gmail.com>,
@@ -10,68 +11,92 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:33783
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934274AbbI2QHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 12:07:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset changes switchdev add, del, dump operations from this:
+Now that switchdev and its drivers directly use specific switchdev_obj_*
+structures, move them out of the switchdev_obj union and get rif of this
+outer structure.
 
-    int     (*switchdev_port_obj_add)(struct net_device *dev,
-                                      struct switchdev_obj *obj,
-                                      struct switchdev_trans *trans);
-    int     (*switchdev_port_obj_del)(struct net_device *dev,
-                                      struct switchdev_obj *obj);
-    int     (*switchdev_port_obj_dump)(struct net_device *dev,
-                                      struct switchdev_obj *obj);
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/switchdev.h | 53 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 26 insertions(+), 27 deletions(-)
 
-to something similar to the notifier_call callback of a notifier_block:
-
-    int     (*switchdev_port_obj_add)(struct net_device *dev,
-                                      enum switchdev_obj_id id,
-                                      const void *obj,
-                                      struct switchdev_trans *trans);                                                             
-    int     (*switchdev_port_obj_del)(struct net_device *dev,
-                                      enum switchdev_obj_id id,
-                                      const void *obj);
-    int     (*switchdev_port_obj_dump)(struct net_device *dev,
-                                       enum switchdev_obj_id id, void *obj,
-                                       int (*cb)(void *obj));
-
-This allows the caller to pass and expect back a specific switchdev_obj_*
-structure (e.g. switchdev_obj_fdb) instead of the generic switchdev_obj one.
-
-This will simplify pushing the callback function down to the drivers.
-
-The first 3 patches get rid of the dev parameter of the dump callback, since it
-is not always neeeded (e.g. vlan_dump) and some drivers (such as DSA drivers)
-may not have easy access to it.
-
-Patches 4 and 5 implement the change in the switchdev operations and its users.
-
-Patch 6 extracts the inner switchdev_obj_* structures from switchdev_obj and
-removes this last one.
-
-v2: fix error spotted by kbuild (extra ';' inline switchdev_port_obj_dump).
-
-Vivien Didelot (6):
-  net: switchdev: remove dev in port_vlan_dump_put
-  net: switchdev: move dev in switchdev_fdb_dump
-  net: switchdev: remove dev from switchdev_obj cb
-  net: switchdev: pass callback to dump operation
-  net: switchdev: abstract object in add/del ops
-  net: switchdev: extract struct switchdev_obj_*
-
- drivers/net/ethernet/rocker/rocker.c |  42 ++++----
- include/net/switchdev.h              |  80 ++++++++-------
- net/bridge/br_fdb.c                  |  11 +--
- net/bridge/br_vlan.c                 |  24 ++---
- net/dsa/slave.c                      |  46 +++++----
- net/switchdev/switchdev.c            | 184 ++++++++++++++++-------------------
- 6 files changed, 186 insertions(+), 201 deletions(-)
-
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index bcadac3..e11425e 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -64,30 +64,29 @@ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_PORT_FDB,
+ };
+ 
+-struct switchdev_obj {
+-	enum switchdev_obj_id id;
+-	int (*cb)(struct switchdev_obj *obj);
+-	union {
+-		struct switchdev_obj_vlan {		/* PORT_VLAN */
+-			u16 flags;
+-			u16 vid_begin;
+-			u16 vid_end;
+-		} vlan;
+-		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
+-			u32 dst;
+-			int dst_len;
+-			struct fib_info *fi;
+-			u8 tos;
+-			u8 type;
+-			u32 nlflags;
+-			u32 tb_id;
+-		} ipv4_fib;
+-		struct switchdev_obj_fdb {		/* PORT_FDB */
+-			const unsigned char *addr;
+-			u16 vid;
+-			u16 ndm_state;
+-		} fdb;
+-	} u;
++/* SWITCHDEV_OBJ_PORT_VLAN */
++struct switchdev_obj_vlan {
++	u16 flags;
++	u16 vid_begin;
++	u16 vid_end;
++};
++
++/* SWITCHDEV_OBJ_IPV4_FIB */
++struct switchdev_obj_ipv4_fib {
++	u32 dst;
++	int dst_len;
++	struct fib_info *fi;
++	u8 tos;
++	u8 type;
++	u32 nlflags;
++	u32 tb_id;
++};
++
++/* SWITCHDEV_OBJ_PORT_FDB */
++struct switchdev_obj_fdb {
++	const unsigned char *addr;
++	u16 vid;
++	u16 ndm_state;
+ };
+ 
+ void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
+@@ -102,11 +101,11 @@ void *switchdev_trans_item_dequeue(struct switchdev_trans *trans);
+  *
+  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
+  *
+- * @switchdev_port_obj_add: Add an object to port (see switchdev_obj).
++ * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).
+  *
+- * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj).
++ * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).
+  *
+- * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj).
++ * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).
+  */
+ struct switchdev_ops {
+ 	int	(*switchdev_port_attr_get)(struct net_device *dev,
 -- 
 2.6.0
