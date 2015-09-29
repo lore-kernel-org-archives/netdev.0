@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Remove unneeded FEATURES_NEED_QUIESCE
- definition
-Date: Mon, 28 Sep 2015 22:31:37 -0700 (PDT)
-Message-ID: <20150928.223137.1393704643379436835.davem@davemloft.net>
-References: <1443216692-29042-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH net v2] skbuff: Fix skb checksum flag on skb pull
+Date: Mon, 28 Sep 2015 22:32:11 -0700 (PDT)
+Message-ID: <20150928.223211.487857375598451901.davem@davemloft.net>
+References: <1442951873-4803-1-git-send-email-pshelar@nicira.com>
+	<20150924.140931.1967362456389755405.davem@davemloft.net>
+	<CALnjE+pyz_qTYXOm1vB89g+-KvE7dHfaaw5iG5manoYzLd7FHg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53959 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53963 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792AbbI2Fbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:31:38 -0400
-In-Reply-To: <1443216692-29042-1-git-send-email-festevam@gmail.com>
+	with ESMTP id S1751230AbbI2FcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:32:12 -0400
+In-Reply-To: <CALnjE+pyz_qTYXOm1vB89g+-KvE7dHfaaw5iG5manoYzLd7FHg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Fri, 25 Sep 2015 18:31:32 -0300
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Fri, 25 Sep 2015 19:48:57 -0700
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+> On Thu, Sep 24, 2015 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>> Date: Tue, 22 Sep 2015 12:57:53 -0700
+>>
+>>> VXLAN device can receive skb with checksum partial. But the checksum
+>>> offset could be in outer header which is pulled on receive. This results
+>>> in negative checksum offset for the skb. Such skb can cause the assert
+>>> failure in skb_checksum_help(). Following patch fixes the bug by setting
+>>> checksum-none while pulling outer header.
+>>>
+>>> Following is the kernel panic msg from old kernel hitting the bug.
+>>  ...
+>>> Reported-by: Anupam Chanda <achanda@vmware.com>
+>>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>>
+>> Applied, thanks.
 > 
-> There is no need to have FEATURES_NEED_QUIESCE defined as we
-> can simply use NETIF_F_RXCSUM instead as done in other parts
-> of the driver.
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Thanks for applying it. Since I have seen this bug on older kernel can
+> you also queue it for -stable.
 
-Applied to net-next, thanks.
+Not until we resolve all of the regressions caused by it.
