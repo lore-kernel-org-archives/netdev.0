@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lan78xx: Return 0 when lan78xx_suspend() has
- no error.
-Date: Mon, 28 Sep 2015 22:29:18 -0700 (PDT)
-Message-ID: <20150928.222918.819971433540165698.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D40423528@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net-next] net: Remove redundant oif checks in
+ rt6_device_match
+Date: Mon, 28 Sep 2015 22:30:53 -0700 (PDT)
+Message-ID: <20150928.223053.1568032481735754170.davem@davemloft.net>
+References: <1443216174-72579-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53946 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53956 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752719AbbI2F3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:29:20 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40423528@CHN-SV-EXMX02.mchp-main.com>
+	with ESMTP id S1751455AbbI2Fay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:30:54 -0400
+In-Reply-To: <1443216174-72579-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Fri, 25 Sep 2015 21:13:48 +0000
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri, 25 Sep 2015 15:22:54 -0600
 
-> lan78xx_suspend() may return non-zero from lan78xx_write_reg() in some scenario.
-> Fix to return 0 when lan78xx_suspend() has no error.
+> The oif has already been checked that it is non-zero; the 2 additional
+> checks on oif within that if (oif) {...} block are redundant.
 > 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> CC: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied, thanks.
+Looks good, applied, thanks.
