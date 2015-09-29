@@ -1,102 +1,80 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next 6/6] net: switchdev: extract struct switchdev_obj_*
-Date: Tue, 29 Sep 2015 12:07:18 -0400
-Message-ID: <1443542838-19234-7-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH bluetooth-next 1/4] netlink: add nla_get for le32 and le64
+Date: Tue, 29 Sep 2015 18:08:32 +0200
+Message-ID: <18B6043F-0D8C-4330-8227-094548D1E9BC@holtmann.org>
+References: <1443423626-3609-1-git-send-email-alex.aring@gmail.com> <1443423626-3609-2-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linux-wpan@vger.kernel.org, kernel@pengutronix.de,
+	Network Development <netdev@vger.kernel.org>,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: Alexander Aring <alex.aring@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:60507 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933165AbbI2QIh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 12:08:37 -0400
+In-Reply-To: <1443423626-3609-2-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that switchdev and its drivers directly use specific switchdev_obj_*
-structures, move them out of the switchdev_obj union and get rif of this
-outer structure.
+Hi Dave,
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/switchdev.h | 53 ++++++++++++++++++++++++-------------------------
- 1 file changed, 26 insertions(+), 27 deletions(-)
+> This patch adds missing inline wrappers for nla_get_le32 and
+> nla_get_le64. The 802.15.4 MAC byteorder is little endian and we keep
+> the byteorder for fields like address configuration in the same
+> byteorder as it comes from the MAC layer.
+> 
+> To provide these fields for nl802154 userspace applications, we need
+> these inline wrappers for netlink.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+> include/net/netlink.h | 18 ++++++++++++++++++
+> 1 file changed, 18 insertions(+)
+> 
+> diff --git a/include/net/netlink.h b/include/net/netlink.h
+> index 2a5dbcc..0e31727 100644
+> --- a/include/net/netlink.h
+> +++ b/include/net/netlink.h
+> @@ -1004,6 +1004,15 @@ static inline __be32 nla_get_be32(const struct nlattr *nla)
+> }
+> 
+> /**
+> + * nla_get_le32 - return payload of __le32 attribute
+> + * @nla: __le32 netlink attribute
+> + */
+> +static inline __le32 nla_get_le32(const struct nlattr *nla)
+> +{
+> +	return *(__le32 *) nla_data(nla);
+> +}
+> +
+> +/**
+>  * nla_get_u16 - return payload of u16 attribute
+>  * @nla: u16 netlink attribute
+>  */
+> @@ -1066,6 +1075,15 @@ static inline __be64 nla_get_be64(const struct nlattr *nla)
+> }
+> 
+> /**
+> + * nla_get_le64 - return payload of __le64 attribute
+> + * @nla: __le64 netlink attribute
+> + */
+> +static inline __le64 nla_get_le64(const struct nlattr *nla)
+> +{
+> +	return *(__le64 *) nla_data(nla);
+> +}
+> +
+> +/**
+>  * nla_get_s32 - return payload of s32 attribute
+>  * @nla: s32 netlink attribute
+>  */
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index bcadac3..e11425e 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -64,30 +64,29 @@ enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_PORT_FDB,
- };
- 
--struct switchdev_obj {
--	enum switchdev_obj_id id;
--	int (*cb)(struct switchdev_obj *obj);
--	union {
--		struct switchdev_obj_vlan {		/* PORT_VLAN */
--			u16 flags;
--			u16 vid_begin;
--			u16 vid_end;
--		} vlan;
--		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
--			u32 dst;
--			int dst_len;
--			struct fib_info *fi;
--			u8 tos;
--			u8 type;
--			u32 nlflags;
--			u32 tb_id;
--		} ipv4_fib;
--		struct switchdev_obj_fdb {		/* PORT_FDB */
--			const unsigned char *addr;
--			u16 vid;
--			u16 ndm_state;
--		} fdb;
--	} u;
-+/* SWITCHDEV_OBJ_PORT_VLAN */
-+struct switchdev_obj_vlan {
-+	u16 flags;
-+	u16 vid_begin;
-+	u16 vid_end;
-+};
-+
-+/* SWITCHDEV_OBJ_IPV4_FIB */
-+struct switchdev_obj_ipv4_fib {
-+	u32 dst;
-+	int dst_len;
-+	struct fib_info *fi;
-+	u8 tos;
-+	u8 type;
-+	u32 nlflags;
-+	u32 tb_id;
-+};
-+
-+/* SWITCHDEV_OBJ_PORT_FDB */
-+struct switchdev_obj_fdb {
-+	const unsigned char *addr;
-+	u16 vid;
-+	u16 ndm_state;
- };
- 
- void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
-@@ -102,11 +101,11 @@ void *switchdev_trans_item_dequeue(struct switchdev_trans *trans);
-  *
-  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
-  *
-- * @switchdev_port_obj_add: Add an object to port (see switchdev_obj).
-+ * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).
-  *
-- * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj).
-+ * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).
-  *
-- * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj).
-+ * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).
-  */
- struct switchdev_ops {
- 	int	(*switchdev_port_attr_get)(struct net_device *dev,
--- 
-2.6.0
+do you have any objections to me taking this change through the bluetooth-next tree?
+
+Regards
+
+Marcel
