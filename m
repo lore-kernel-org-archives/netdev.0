@@ -1,57 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/2] ipv4: Hash-based multipath routing
-Date: Mon, 28 Sep 2015 19:55:41 -0700 (PDT)
-Message-ID: <20150928.195541.2230338616645241909.davem@davemloft.net>
-References: <1443037777-25390-1-git-send-email-pch@ordbogen.com>
-	<20150928.193355.515603960827814980.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH] Fix false positives in can_checksum_protocol()
+Date: Mon, 28 Sep 2015 20:04:54 -0700
+Message-ID: <CALx6S35f8hWfBktvou9B41EwFoODYZJZyfetOdLmeeLcuMHT9A@mail.gmail.com>
+References: <1443185758.4674.44.camel@infradead.org>
+	<CALx6S34Bs8pOyGXEOvABdG16wyWZuhsg5G4sO_vJgCnz0xxi5A@mail.gmail.com>
+	<1443464822.4674.109.camel@infradead.org>
+	<CALx6S35VXGfCeYtXm9z2APgt=kAwR2qJ5v7psN+Pg17LcDKasw@mail.gmail.com>
+	<1443468381.4674.115.camel@infradead.org>
+	<CALx6S354aBCxosvvBFUFSparq981rPf-vAunwdKtUKZLNBxFmQ@mail.gmail.com>
+	<CAEuXFEzmnLJGTx2n89DWVeOd37=w4=zC8BX8E=ikr6s0N=ZWVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: pch@ordbogen.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52677 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091AbbI2Czm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 22:55:42 -0400
-In-Reply-To: <20150928.193355.515603960827814980.davem@davemloft.net>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33592 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932154AbbI2DEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 23:04:55 -0400
+Received: by iofh134 with SMTP id h134so197228986iof.0
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 20:04:54 -0700 (PDT)
+In-Reply-To: <CAEuXFEzmnLJGTx2n89DWVeOd37=w4=zC8BX8E=ikr6s0N=ZWVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: David Miller <davem@davemloft.net>
-Date: Mon, 28 Sep 2015 19:33:55 -0700 (PDT)
+On Mon, Sep 28, 2015 at 6:38 PM, Jesse Brandeburg
+<jesse.brandeburg@gmail.com> wrote:
+> On Mon, Sep 28, 2015 at 12:37 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Mon, Sep 28, 2015 at 12:26 PM, David Woodhouse <dwmw2@infradead.org> wrote:
+>>> On Mon, 2015-09-28 at 12:13 -0700, Tom Herbert wrote:
+>>>>
+>>>> > Perhaps a better solution would be a bit in the skbuff which indicates
+>>>> > that it *is* a TCP or UDP checksum. That would be set by our UDP and
+>>>> > TCP sockets, cleared by encapsulation, also set if appropriate by
+>>>> > skb_partial_csum_set().
+>
+> I've been pondering a bit of a redesign in this space.  I think the
+> skb struct should be
+> explicit in its instructions to hardware for which offloads to do for
+> each packet.
+>
+> In this way, the stack would be *directly* telling the drivers what to
+> do (and what not
+> to do), solving all sorts of bugs and really improving driver
+> reliability and implementation.
+>
+Doesn't CHECKSUM_PARTIAL with csum_offset and csum_start already tell
+the driver unambiguously what to do wrt checksum offload?
 
-> From: Peter N=F8rlund <pch@ordbogen.com>
-> Date: Wed, 23 Sep 2015 21:49:35 +0200
->=20
->> When the routing cache was removed in 3.6, the IPv4 multipath algori=
-thm changed
->> from more or less being destination-based into being quasi-random pe=
-r-packet
->> scheduling. This increases the risk of out-of-order packets and make=
-s it
->> impossible to use multipath together with anycast services.
->>=20
->> This patch series replaces the old implementation with flow-based lo=
-ad
->> balancing based on a hash over the source and destination addresses.
->=20
-> This isn't perfect but it's a significant step in the right direction=
-=2E
-> So I'm going to apply this to net-next now and we can make incrementa=
-l
-> improvements upon it.
-
-Actually, I had to revert, this doesn't build:
-
-[davem@localhost net-next]$ make -s -j8
-Setup is 16876 bytes (padded to 16896 bytes).
-System is 10011 kB
-CRC 324f2811
-Kernel: arch/x86/boot/bzImage is ready  (#337)
-ERROR: "__ip_route_output_key_hash" [net/dccp/dccp_ipv4.ko] undefined!
-scripts/Makefile.modpost:90: recipe for target '__modpost' failed
-make[1]: *** [__modpost] Error 1
-Makefile:1095: recipe for target 'modules' failed
-make: *** [modules] Error 2
+> These other solutions you guys are discussing are half solving the
+> problem, only to
+> make it worse when the next thing comes along.  Unfortunately it is only an
+> idea right now and no patches.
