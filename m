@@ -1,78 +1,37 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 3/3] 802.1AD: Flow handling, actions,
- vlan parsing and netlink attributes
-Date: Tue, 29 Sep 2015 15:56:20 -0700
-Message-ID: <CALnjE+oqFNGUNHbXgkr8+gWM1TDFSi-jbuL+kggrqZD+AaDK1A@mail.gmail.com>
-References: <1443117498-19123-1-git-send-email-thomasfherbert@gmail.com>
- <1443117498-19123-4-git-send-email-thomasfherbert@gmail.com>
- <CALnjE+q6s=D2P5+=1U6RsLC8FqhANP5j8MKqzHpuYvpT-eW3_w@mail.gmail.com>
- <5605CC2F.1010700@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 4/6] xfrm: Add xfrm6 address translation function
+Date: Tue, 29 Sep 2015 16:58:46 -0600
+Message-ID: <560B17A6.8040308@cumulusnetworks.com>
+References: <1443565043-1287886-1-git-send-email-tom@herbertland.com>
+ <1443565043-1287886-5-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5605CC2F.1010700-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33851 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbbI2W6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 18:58:49 -0400
+Received: by padhy16 with SMTP id hy16so18714824pad.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 15:58:49 -0700 (PDT)
+In-Reply-To: <1443565043-1287886-5-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBTZXAgMjUsIDIwMTUgYXQgMzozNSBQTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
-ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBQcmF2aW4sCj4KPiBBbm90aGVyIGNvbW1lbnQg
-YW5kIHF1ZXN0aW9uLiBQbGVhc2Ugc2VlbiBpbmxpbmUgYmVsb3cuCj4KPiBUaGFua3MsCj4KPiAt
-LVRvbQo+Cj4gT24gOS8yNC8xNSA3OjQyIFBNLCBQcmF2aW4gU2hlbGFyIHdyb3RlOgo+Pgo+PiBP
-biBUaHUsIFNlcCAyNCwgMjAxNSBhdCAxMDo1OCBBTSwgVGhvbWFzIEYgSGVyYmVydAo+PiA8dGhv
-bWFzZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPj4+Cj4+PiBBZGQgc3VwcG9ydCBmb3IgODAy
-LjFhZCBpbmNsdWRpbmcgdGhlIGFiaWxpdHkgdG8gcHVzaCBhbmQgcG9wIGRvdWJsZQo+Pj4gdGFn
-Z2VkIHZsYW5zLiBBZGQgc3VwcG9ydCBmb3IgODAyLjFhZCB0byBuZXRsaW5rIHBhcnNpbmcgYW5k
-IGZsb3cKPj4+IGNvbnZlcnNpb24uIFVzZXMgZG91YmxlIG5lc3RlZCBlbmNhcCBhdHRyaWJ1dGVz
-IHRvIHJlcHJlc2VudCBkb3VibGUKPj4+IHRhZ2dlZCB2bGFuLiBJbm5lciBUUElEIGVuY29kZWQg
-YWxvbmcgd2l0aCBjdGNpIGluIG5lc3RlZCBhdHRyaWJ1dGVzLgo+Pj4KPj4+IFNpZ25lZC1vZmYt
-Ynk6IFRob21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPj4+IC0tLQo+
-Pj4gICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAgICAgfCAgODMgKysrKysrKysrKysrKysr
-KystLS0tCj4+PiAgIG5ldC9vcGVudnN3aXRjaC9mbG93LmggICAgICAgICB8ICAgNSArKwo+Pj4g
-ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAxNjYKPj4+ICsrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrLS0tCj4+PiAgIDMgZmlsZXMgY2hhbmdlZCwgMjMwIGlu
-c2VydGlvbnMoKyksIDI0IGRlbGV0aW9ucygtKQo+Pj4KLi4uCgo+Pj4gQEAgLTEzMjAsNiArMTQz
-Nyw3IEBAIHN0YXRpYyBpbnQgX19vdnNfbmxhX3B1dF9rZXkoY29uc3Qgc3RydWN0Cj4+PiBzd19m
-bG93X2tleSAqc3drZXksCj4+PiAgIHsKPj4+ICAgICAgICAgIHN0cnVjdCBvdnNfa2V5X2V0aGVy
-bmV0ICpldGhfa2V5Owo+Pj4gICAgICAgICAgc3RydWN0IG5sYXR0ciAqbmxhLCAqZW5jYXA7Cj4+
-PiArICAgICAgIHN0cnVjdCBubGF0dHIgKmluX2VuY2FwID0gTlVMTDsKPj4+Cj4+PiAgICAgICAg
-ICBpZiAobmxhX3B1dF91MzIoc2tiLCBPVlNfS0VZX0FUVFJfUkVDSVJDX0lELCBvdXRwdXQtPnJl
-Y2lyY19pZCkpCj4+PiAgICAgICAgICAgICAgICAgIGdvdG8gbmxhX3B1dF9mYWlsdXJlOwo+Pj4g
-QEAgLTEzNjgsMTcgKzE0ODYsNDIgQEAgc3RhdGljIGludCBfX292c19ubGFfcHV0X2tleShjb25z
-dCBzdHJ1Y3QKPj4+IHN3X2Zsb3dfa2V5ICpzd2tleSwKPj4+ICAgICAgICAgIGV0aGVyX2FkZHJf
-Y29weShldGhfa2V5LT5ldGhfc3JjLCBvdXRwdXQtPmV0aC5zcmMpOwo+Pj4gICAgICAgICAgZXRo
-ZXJfYWRkcl9jb3B5KGV0aF9rZXktPmV0aF9kc3QsIG91dHB1dC0+ZXRoLmRzdCk7Cj4+Pgo+Pj4g
-LSAgICAgICBpZiAoc3drZXktPmV0aC50Y2kgfHwgc3drZXktPmV0aC50eXBlID09IGh0b25zKEVU
-SF9QXzgwMjFRKSkgewo+Pj4gKyAgICAgICBpZiAoc3drZXktPmV0aC50Y2kgfHwgZXRoX3R5cGVf
-dmxhbihzd2tleS0+ZXRoLnR5cGUpKSB7Cj4+PiAgICAgICAgICAgICAgICAgIF9fYmUxNiBldGhf
-dHlwZTsKPj4+IC0gICAgICAgICAgICAgICBldGhfdHlwZSA9ICFpc19tYXNrID8gaHRvbnMoRVRI
-X1BfODAyMVEpIDogaHRvbnMoMHhmZmZmKTsKPj4+ICsKPj4+ICsgICAgICAgICAgICAgICBpZiAo
-c3drZXktPmV0aC5jdmxhbi5jdGNpIHx8Cj4+PiArICAgICAgICAgICAgICAgICAgIGV0aF90eXBl
-X3ZsYW4oc3drZXktPmV0aC5jdmxhbi5jX3RwaWQpKQo+Pj4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgZXRoX3R5cGUgPSAhaXNfbWFzayA/IGh0b25zKEVUSF9QXzgwMjFBRCkgOgo+Pj4gKyAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGh0b25zKDB4ZmZmZik7Cj4+
-PiArICAgICAgICAgICAgICAgZWxzZQo+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgZXRoX3R5
-cGUgPSAhaXNfbWFzayA/IGh0b25zKEVUSF9QXzgwMjFRKSA6Cj4+PiArICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaHRvbnMoMHhmZmZmKTsKPj4+ICsKPj4KPj4g
-SGVyZSB3ZSBjYW4gZGlyZWN0bHkgZHVtcCBvdXRwdXQtPmV0aC50eXBlIHRvIG5ldGxpbmsuIE5v
-IG5lZWQgdG8KPj4gY2hlY2sgZm9yIGlubmVyIGVuY2FwLgo+Cj4gVGhlIGV0aC50eXBlIGlzIHNl
-dCB0byB0aGUgaW5uZXIgZW5jYXBzdWxhdGVkIHByb3RvY29sIG5vdCB0byB0aGUgdHBpZC4gV2UK
-PiBkb24ndCAia25vdyIgd2hhdCB0aGUgb3V0ZXIgdHBpZCBzbyBJIGFzc3VtZSBpdCBpcyA4MDIu
-MVEuIFRvIGFkZHJlc3MgdGhpcwo+IHNpdHVhdGlvbiwgZG8geW91IHRoaW5rIEkgc2hvdWxkIGFk
-ZCB0aGUgb3V0ZXIgdHBpZCB0byBzd19mbG93X2tleT8KPiBBbHNvIHNlZSBjb21tZW50IGFib3Zl
-IGluIGZsb3cuaC4KPgoKV2l0aCB0aGUgYWRkaXRpb24gb2YgbmVzdGVkIHZsYW4sIHdlIG5lZWQg
-dG8gYWRkIG91dGVyIHRwaWQuIFRoaXMgd2lsbApzaW1wbGlmeSB2bGFuIG5ldGxpbmsgc2VyaWFs
-aXphdGlvbiB0b28uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
-Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Hi Tom:
+
+On 9/29/15 4:17 PM, Tom Herbert wrote:
+> This patch adds xfrm6_xlat_addr which is called in the data path
+> to perform address translation (primarily for the receive path). Modules
+> may register their own callback to perform a translation-- this
+> registration is managed by xfrm6_xlat_addr_add and xfrm6_xlat_addr_del.
+> xfrm6_xlat_addr allows translation of addresses for an sk_buff.
+
+
+Seems like a stretch to lump this into xfrms. You have a separate genl 
+based config as opposed to the netlink xfrm API and you are calling the 
+xlat_addr function directly in ip6_rcv as opposed to via some policy 
+with dst_ops driven redirection. Why call this a xfrm?
