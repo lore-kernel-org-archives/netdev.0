@@ -1,34 +1,102 @@
-From: Jeremy Harris <jgh@redhat.com>
-Subject: Re: [PATCH v2 1/1] net sysfs: Print link speed as signed integer
-Date: Tue, 29 Sep 2015 16:13:46 +0100
-Message-ID: <560AAAAA.1020605@redhat.com>
-References: <1443445533-14474-1-git-send-email-alexander.stein@systec-electronic.com>
-Reply-To: jgh@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/6] net: switchdev: extract struct switchdev_obj_*
+Date: Tue, 29 Sep 2015 11:16:52 -0400
+Message-ID: <1443539812-2508-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1443539054-25997-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54345 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933384AbbI2PNt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 11:13:49 -0400
-In-Reply-To: <1443445533-14474-1-git-send-email-alexander.stein@systec-electronic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443539054-25997-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 28/09/15 14:05, Alexander Stein wrote:
-> Otherwise 4294967295 (MBit/s) (-1) will be printed when there is no link.
-> Documentation/ABI/testing/sysfs-class-net does not state if this shall be
-> signed or unsigned.
-> Also remove the now unused variable fmt_udec.
-[...]
-> -			ret = sprintf(buf, fmt_udec, ethtool_cmd_speed(&cmd));
-> +			ret = sprintf(buf, fmt_dec, ethtool_cmd_speed(&cmd));
+Now that switchdev and its drivers directly use specific switchdev_obj_*
+structures, move them out of the switchdev_obj union and get rif of this
+outer structure.
 
-If we print anything numeric, why is zero not appropriate
-(which would still be unsigned)?
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/switchdev.h | 53 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 26 insertions(+), 27 deletions(-)
+
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 230fcfc..8a3bacc 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -64,30 +64,29 @@ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_PORT_FDB,
+ };
+ 
+-struct switchdev_obj {
+-	enum switchdev_obj_id id;
+-	int (*cb)(struct switchdev_obj *obj);
+-	union {
+-		struct switchdev_obj_vlan {		/* PORT_VLAN */
+-			u16 flags;
+-			u16 vid_begin;
+-			u16 vid_end;
+-		} vlan;
+-		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
+-			u32 dst;
+-			int dst_len;
+-			struct fib_info *fi;
+-			u8 tos;
+-			u8 type;
+-			u32 nlflags;
+-			u32 tb_id;
+-		} ipv4_fib;
+-		struct switchdev_obj_fdb {		/* PORT_FDB */
+-			const unsigned char *addr;
+-			u16 vid;
+-			u16 ndm_state;
+-		} fdb;
+-	} u;
++/* SWITCHDEV_OBJ_PORT_VLAN */
++struct switchdev_obj_vlan {
++	u16 flags;
++	u16 vid_begin;
++	u16 vid_end;
++};
++
++/* SWITCHDEV_OBJ_IPV4_FIB */
++struct switchdev_obj_ipv4_fib {
++	u32 dst;
++	int dst_len;
++	struct fib_info *fi;
++	u8 tos;
++	u8 type;
++	u32 nlflags;
++	u32 tb_id;
++};
++
++/* SWITCHDEV_OBJ_PORT_FDB */
++struct switchdev_obj_fdb {
++	const unsigned char *addr;
++	u16 vid;
++	u16 ndm_state;
+ };
+ 
+ void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
+@@ -102,11 +101,11 @@ void *switchdev_trans_item_dequeue(struct switchdev_trans *trans);
+  *
+  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
+  *
+- * @switchdev_port_obj_add: Add an object to port (see switchdev_obj).
++ * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).
+  *
+- * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj).
++ * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).
+  *
+- * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj).
++ * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).
+  */
+ struct switchdev_ops {
+ 	int	(*switchdev_port_attr_get)(struct net_device *dev,
 -- 
-Cheers,
-     Jeremy
+2.5.3
