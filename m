@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/ibm/emac: bump version numbers for correct work
- with ethtool
-Date: Mon, 28 Sep 2015 22:23:32 -0700 (PDT)
-Message-ID: <20150928.222332.150002799807100193.davem@davemloft.net>
-References: <20150925115227.636d658d@fr-ThinkPad-W520>
+Subject: Re: [PATCH] net ipv4 ipconfig: use preferred log methods
+Date: Mon, 28 Sep 2015 22:24:09 -0700 (PDT)
+Message-ID: <20150928.222409.1641594777817922710.davem@davemloft.net>
+References: <1443175110-23498-1-git-send-email-bst@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ben@decadent.org.uk
-To: ivan@ru.ibm.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org, trivial@kernel.org,
+	kernel@pengutronix.de
+To: bst@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53919 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53925 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbbI2FXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:23:33 -0400
-In-Reply-To: <20150925115227.636d658d@fr-ThinkPad-W520>
+	with ESMTP id S1753588AbbI2FYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:24:10 -0400
+In-Reply-To: <1443175110-23498-1-git-send-email-bst@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Date: Fri, 25 Sep 2015 11:52:27 +0400
+From: Bastian Stender <bst@pengutronix.de>
+Date: Fri, 25 Sep 2015 11:58:30 +0200
 
-> The size of the MAC register dump used to be the size specified by the
-> reg property in the device tree.  Userland has no good way of finding
-> out that size, and it was not specified consistently for each MAC type,
-> so ethtool would end up printing junk at the end of the register dump
-> if the device tree didn't match the size it assumed.
-> 
-> Using the new version numbers indicates unambiguously that the size of
-> the MAC register dump is dependent only on the MAC type.
-> 
-> Fixes: 5369c71f7ca2 ("net/ibm/emac: fix size of emac dump memory areas")
-> 
-> Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
+> @@ -69,7 +69,7 @@
+>  #undef IPCONFIG_DEBUG
+>  
+>  #ifdef IPCONFIG_DEBUG
+> -#define DBG(x) printk x
+> +#define DBG(x) pr_debug(x)
+>  #else
+>  #define DBG(x) do { } while(0)
+>  #endif
 
-Applied and queued up for -stable.
+I agree with Stephen, just get rid of this and use pr_debug()
+unconditionally.
