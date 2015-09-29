@@ -1,99 +1,97 @@
-From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: [linux 3.14-stable] RDS: verify the underlying transport exists
- before creating a connection
-Date: Tue, 29 Sep 2015 16:01:49 -0400
-Message-ID: <1443556909.3494.39.camel@gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [PATCH v2] ixgbevf: Limit lowest interrupt rate for adaptive
+ interrupt moderation to 12K
+Date: Tue, 29 Sep 2015 13:11:15 -0700
+Message-ID: <20150929201022.1388.91691.stgit@ahduyck-vm-fedora22>
+References: <20150929195346.1125.48492.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:34738 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbbI2UBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:51 -0400
-Received: by qgez77 with SMTP id z77so16718257qge.1
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:01:50 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34870 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748AbbI2ULR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:11:17 -0400
+Received: by pacfv12 with SMTP id fv12so15688360pac.2
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:11:17 -0700 (PDT)
+In-Reply-To: <20150929195346.1125.48492.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
+This patch is the ixgbevf version of commit 8ac34f10a5ea4 "ixgbe: Limit
+lowest interrupt rate for adaptive interrupt moderation to 12K"
 
-commit 74e98eb085889b0d2d4908f59f6e00026063014f upstream.
+The same logic applies here as well as the same results since a netperf
+test will starve for memory in the time from one Tx interrupt to the next.
+As a result the ixgbevf driver underperformed when compared to vhost_net.
 
-There was no verification that an underlying transport exists when creating
-a connection, this would cause dereferencing a NULL ptr.
-
-It might happen on sockets that weren't properly bound before attempting to
-send a message, which will cause a NULL ptr deref:
-
-[135546.047719] kasan: GPF could be caused by NULL-ptr deref or user memory accessgeneral protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
-[135546.051270] Modules linked in:
-[135546.051781] CPU: 4 PID: 15650 Comm: trinity-c4 Not tainted 4.2.0-next-20150902-sasha-00041-gbaa1222-dirty #2527
-[135546.053217] task: ffff8800835bc000 ti: ffff8800bc708000 task.ti: ffff8800bc708000
-[135546.054291] RIP: __rds_conn_create (net/rds/connection.c:194)
-[135546.055666] RSP: 0018:ffff8800bc70fab0  EFLAGS: 00010202
-[135546.056457] RAX: dffffc0000000000 RBX: 0000000000000f2c RCX: ffff8800835bc000
-[135546.057494] RDX: 0000000000000007 RSI: ffff8800835bccd8 RDI: 0000000000000038
-[135546.058530] RBP: ffff8800bc70fb18 R08: 0000000000000001 R09: 0000000000000000
-[135546.059556] R10: ffffed014d7a3a23 R11: ffffed014d7a3a21 R12: 0000000000000000
-[135546.060614] R13: 0000000000000001 R14: ffff8801ec3d0000 R15: 0000000000000000
-[135546.061668] FS:  00007faad4ffb700(0000) GS:ffff880252000000(0000) knlGS:0000000000000000
-[135546.062836] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[135546.063682] CR2: 000000000000846a CR3: 000000009d137000 CR4: 00000000000006a0
-[135546.064723] Stack:
-[135546.065048]  ffffffffafe2055c ffffffffafe23fc1 ffffed00493097bf ffff8801ec3d0008
-[135546.066247]  0000000000000000 00000000000000d0 0000000000000000 ac194a24c0586342
-[135546.067438]  1ffff100178e1f78 ffff880320581b00 ffff8800bc70fdd0 ffff880320581b00
-[135546.068629] Call Trace:
-[135546.069028] ? __rds_conn_create (include/linux/rcupdate.h:856 net/rds/connection.c:134)
-[135546.069989] ? rds_message_copy_from_user (net/rds/message.c:298)
-[135546.071021] rds_conn_create_outgoing (net/rds/connection.c:278)
-[135546.071981] rds_sendmsg (net/rds/send.c:1058)
-[135546.072858] ? perf_trace_lock (include/trace/events/lock.h:38)
-[135546.073744] ? lockdep_init (kernel/locking/lockdep.c:3298)
-[135546.074577] ? rds_send_drop_to (net/rds/send.c:976)
-[135546.075508] ? __might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3795)
-[135546.076349] ? __might_fault (mm/memory.c:3795)
-[135546.077179] ? rds_send_drop_to (net/rds/send.c:976)
-[135546.078114] sock_sendmsg (net/socket.c:611 net/socket.c:620)
-[135546.078856] SYSC_sendto (net/socket.c:1657)
-[135546.079596] ? SYSC_connect (net/socket.c:1628)
-[135546.080510] ? trace_dump_stack (kernel/trace/trace.c:1926)
-[135546.081397] ? ring_buffer_unlock_commit (kernel/trace/ring_buffer.c:2479 kernel/trace/ring_buffer.c:2558 kernel/trace/ring_buffer.c:2674)
-[135546.082390] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
-[135546.083410] ? trace_event_raw_event_sys_enter (include/trace/events/syscalls.h:16)
-[135546.084481] ? do_audit_syscall_entry (include/trace/events/syscalls.h:16)
-[135546.085438] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
-[135546.085515] rds_ib_laddr_check(): addr 36.74.25.172 ret -99 node type -1
-
-Fixes CVE-2015-6937.
-
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Chas Williams <3chas3@gmail.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- net/rds/connection.c | 6 ++++++
- 1 file changed, 6 insertions(+)
 
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 378c3a6..f5fb7d6 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -183,6 +183,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 		}
+v2: Fixed comment describing lowest interrupt rate as 8000 ints/s
+
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    3 +--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 +++---
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index d3e5f5b37999..c48aef613b0a 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -774,7 +774,7 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+ 		adapter->tx_itr_setting = ec->tx_coalesce_usecs;
+ 
+ 	if (adapter->tx_itr_setting == 1)
+-		tx_itr_param = IXGBE_10K_ITR;
++		tx_itr_param = IXGBE_12K_ITR;
+ 	else
+ 		tx_itr_param = adapter->tx_itr_setting;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 04c7ec8446e0..8b437b54cd98 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -326,8 +326,7 @@ static inline bool ixgbevf_qv_disable(struct ixgbevf_q_vector *q_vector)
+ #define IXGBE_MIN_RSC_ITR	24
+ #define IXGBE_100K_ITR		40
+ #define IXGBE_20K_ITR		200
+-#define IXGBE_10K_ITR		400
+-#define IXGBE_8K_ITR		500
++#define IXGBE_12K_ITR		336
+ 
+ /* Helper macros to switch between ints/sec and what the register uses.
+  * And yes, it's the same math going both ways.  The lowest value
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 35da2d74e73e..1551b5dfde7e 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1136,7 +1136,7 @@ static void ixgbevf_configure_msix(struct ixgbevf_adapter *adapter)
+ 		if (q_vector->tx.ring && !q_vector->rx.ring) {
+ 			/* Tx only vector */
+ 			if (adapter->tx_itr_setting == 1)
+-				q_vector->itr = IXGBE_10K_ITR;
++				q_vector->itr = IXGBE_12K_ITR;
+ 			else
+ 				q_vector->itr = adapter->tx_itr_setting;
+ 		} else {
+@@ -1194,7 +1194,7 @@ static void ixgbevf_update_itr(struct ixgbevf_q_vector *q_vector,
+ 	/* simple throttle rate management
+ 	 *    0-20MB/s lowest (100000 ints/s)
+ 	 *   20-100MB/s low   (20000 ints/s)
+-	 *  100-1249MB/s bulk (8000 ints/s)
++	 *  100-1249MB/s bulk (12000 ints/s)
+ 	 */
+ 	/* what was last interrupt timeslice? */
+ 	timepassed_us = q_vector->itr >> 2;
+@@ -1245,7 +1245,7 @@ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector)
+ 		break;
+ 	case bulk_latency:
+ 	default:
+-		new_itr = IXGBE_8K_ITR;
++		new_itr = IXGBE_12K_ITR;
+ 		break;
  	}
  
-+	if (trans == NULL) {
-+		kmem_cache_free(rds_conn_slab, conn);
-+		conn = ERR_PTR(-ENODEV);
-+		goto out;
-+	}
-+
- 	conn->c_trans = trans;
- 
- 	ret = trans->conn_alloc(conn, gfp);
--- 
-2.1.0
