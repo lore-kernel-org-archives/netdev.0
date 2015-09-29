@@ -1,83 +1,61 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [PATCH] ixgbevf: Limit lowest interrupt rate for adaptive interrupt
- moderation to 12K
-Date: Tue, 29 Sep 2015 12:53:46 -0700
-Message-ID: <20150929195346.1125.48492.stgit@ahduyck-vm-fedora22>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: [linux 3.14-stable] virtio-net: drop NETIF_F_FRAGLIST
+Date: Tue, 29 Sep 2015 16:00:57 -0400
+Message-ID: <1443556857.3494.36.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33344 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166AbbI2Txs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 15:53:48 -0400
-Received: by pacex6 with SMTP id ex6so15076119pac.0
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 12:53:48 -0700 (PDT)
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:36199 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbbI2UBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:00 -0400
+Received: by qgx61 with SMTP id 61so16596994qgx.3
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:00:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is the ixgbevf version of commit 8ac34f10a5ea4 "ixgbe: Limit
-lowest interrupt rate for adaptive interrupt moderation to 12K"
+From: Jason Wang <jasowang@redhat.com>
 
-The same logic applies here as well as the same results since a netperf
-test will starve for memory in the time from one Tx interrupt to the next.
-As a result the ixgbevf driver underperformed when compared to vhost_net.
+commit 48900cb6af4282fa0fb6ff4d72a81aa3dadb5c39 upstream.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+virtio declares support for NETIF_F_FRAGLIST, but assumes
+that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
+always true with a fraglist.
+
+A longer fraglist in the skb will make the call to skb_to_sgvec overflow
+the sg array, leading to memory corruption.
+
+Drop NETIF_F_FRAGLIST so we only get what we can handle.
+
+Fixes CVE-2015-5156.
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Chas Williams <3chas3@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    3 +--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    4 ++--
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/virtio_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index d3e5f5b37999..c48aef613b0a 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -774,7 +774,7 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
- 		adapter->tx_itr_setting = ec->tx_coalesce_usecs;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 841b608..5c150a0 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1652,9 +1652,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* Do we support "hardware" checksums? */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG;
+ 		if (csum)
+-			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++			dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
  
- 	if (adapter->tx_itr_setting == 1)
--		tx_itr_param = IXGBE_10K_ITR;
-+		tx_itr_param = IXGBE_12K_ITR;
- 	else
- 		tx_itr_param = adapter->tx_itr_setting;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 04c7ec8446e0..8b437b54cd98 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -326,8 +326,7 @@ static inline bool ixgbevf_qv_disable(struct ixgbevf_q_vector *q_vector)
- #define IXGBE_MIN_RSC_ITR	24
- #define IXGBE_100K_ITR		40
- #define IXGBE_20K_ITR		200
--#define IXGBE_10K_ITR		400
--#define IXGBE_8K_ITR		500
-+#define IXGBE_12K_ITR		336
- 
- /* Helper macros to switch between ints/sec and what the register uses.
-  * And yes, it's the same math going both ways.  The lowest value
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 35da2d74e73e..4ae77953ad76 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1136,7 +1136,7 @@ static void ixgbevf_configure_msix(struct ixgbevf_adapter *adapter)
- 		if (q_vector->tx.ring && !q_vector->rx.ring) {
- 			/* Tx only vector */
- 			if (adapter->tx_itr_setting == 1)
--				q_vector->itr = IXGBE_10K_ITR;
-+				q_vector->itr = IXGBE_12K_ITR;
- 			else
- 				q_vector->itr = adapter->tx_itr_setting;
- 		} else {
-@@ -1245,7 +1245,7 @@ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector)
- 		break;
- 	case bulk_latency:
- 	default:
--		new_itr = IXGBE_8K_ITR;
-+		new_itr = IXGBE_12K_ITR;
- 		break;
- 	}
- 
+ 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+ 			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
+-- 
+2.1.0
