@@ -1,71 +1,119 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 00/14] tcp: listener refactoring preparations
-Date: Tue, 29 Sep 2015 07:42:38 -0700
-Message-ID: <1443537772-15305-1-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 02/14] tcp: remove unused len argument from tcp_rcv_state_process()
+Date: Tue, 29 Sep 2015 07:42:40 -0700
+Message-ID: <1443537772-15305-3-git-send-email-edumazet@google.com>
+References: <1443537772-15305-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36517 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756521AbbI2OnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 10:43:03 -0400
-Received: by pablk4 with SMTP id lk4so8019847pab.3
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 07:43:02 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:32811 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755091AbbI2OnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 10:43:19 -0400
+Received: by pacex6 with SMTP id ex6so8404942pac.0
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 07:43:19 -0700 (PDT)
+In-Reply-To: <1443537772-15305-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series makes changes to TCP/DCCP stacks so that
-we can switch listener code to lockless mode.
+Once we realize tcp_rcv_synsent_state_process() does not use
+its 'len' argument and we get rid of it, then it becomes clear
+this argument is no longer used in tcp_rcv_state_process()
 
-This is done by marking const the listener socket in all
-appropriate paths.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h        | 2 +-
+ net/ipv4/tcp_input.c     | 6 +++---
+ net/ipv4/tcp_ipv4.c      | 2 +-
+ net/ipv4/tcp_minisocks.c | 3 +--
+ net/ipv6/tcp_ipv6.c      | 2 +-
+ 5 files changed, 7 insertions(+), 8 deletions(-)
 
-FastOpen code had to be changed to not dynamically allocate
-a very small structure to make code simpler for following changes.
-
-Eric Dumazet (14):
-  tcp/dccp: constify send_synack and send_reset socket argument
-  tcp: remove unused len argument from tcp_rcv_state_process()
-  tcp: remove tcp_rcv_state_process() tcp_hdr argument
-  dccp: use inet6_csk_route_req() helper
-  inet: constify inet_csk_route_child_sock() socket argument
-  inet: constify __inet_inherit_port() sock argument
-  net: constify sk_gfp_atomic() sock argument
-  dccp: constify dccp_create_openreq_child() sock argument
-  tcp: constify tcp_create_openreq_child() socket argument
-  tcp/dccp: constify syn_recv_sock() method sock argument
-  tcp: cookie_init_sequence() cleanups
-  tcp: constify tcp_v{4|6}_route_req() sock argument
-  tcp: constify tcp_syn_flood_action() socket argument
-  tcp: prepare fastopen code for upcoming listener changes
-
- include/linux/tcp.h                 | 22 ++++------------------
- include/net/inet6_connection_sock.h |  2 +-
- include/net/inet_connection_sock.h  |  5 +++--
- include/net/inet_hashtables.h       |  2 +-
- include/net/request_sock.h          | 16 ++++++----------
- include/net/sock.h                  |  2 +-
- include/net/tcp.h                   | 28 ++++++++++++++--------------
- net/core/request_sock.c             |  9 ++++++++-
- net/dccp/dccp.h                     |  6 +++---
- net/dccp/ipv4.c                     |  5 +++--
- net/dccp/ipv6.c                     | 24 +++++++-----------------
- net/dccp/minisocks.c                |  4 ++--
- net/ipv4/af_inet.c                  | 10 +++-------
- net/ipv4/inet_connection_sock.c     | 19 +++++++++----------
- net/ipv4/inet_hashtables.c          |  2 +-
- net/ipv4/syncookies.c               |  6 +-----
- net/ipv4/tcp.c                      | 14 ++------------
- net/ipv4/tcp_fastopen.c             | 10 +++++-----
- net/ipv4/tcp_input.c                | 17 +++++++++--------
- net/ipv4/tcp_ipv4.c                 | 13 +++++++------
- net/ipv4/tcp_minisocks.c            |  7 ++++---
- net/ipv6/inet6_connection_sock.c    |  8 +++++---
- net/ipv6/syncookies.c               |  5 +----
- net/ipv6/tcp_ipv6.c                 | 33 ++++++++++++++++++---------------
- 24 files changed, 118 insertions(+), 151 deletions(-)
-
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cdbf63d3c5cf..1cfdedbe47e1 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -366,7 +366,7 @@ void tcp_write_timer_handler(struct sock *sk);
+ void tcp_delack_timer_handler(struct sock *sk);
+ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+-			  const struct tcphdr *th, unsigned int len);
++			  const struct tcphdr *th);
+ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 			 const struct tcphdr *th, unsigned int len);
+ void tcp_rcv_space_adjust(struct sock *sk);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4964d53907e9..dcbddf12f4b3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5472,7 +5472,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
+ }
+ 
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+-					 const struct tcphdr *th, unsigned int len)
++					 const struct tcphdr *th)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -5699,7 +5699,7 @@ reset_and_undo:
+  */
+ 
+ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+-			  const struct tcphdr *th, unsigned int len)
++			  const struct tcphdr *th)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -5749,7 +5749,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		goto discard;
+ 
+ 	case TCP_SYN_SENT:
+-		queued = tcp_rcv_synsent_state_process(sk, skb, th, len);
++		queued = tcp_rcv_synsent_state_process(sk, skb, th);
+ 		if (queued >= 0)
+ 			return queued;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4300d0132b9f..7e5ae1e01009 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1420,7 +1420,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	} else
+ 		sock_rps_save_rxhash(sk, skb);
+ 
+-	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
++	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb))) {
+ 		rsk = sk;
+ 		goto reset;
+ 	}
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index e4fe62b6b106..9c7c61cf7462 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -821,8 +821,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 	int state = child->sk_state;
+ 
+ 	if (!sock_owned_by_user(child)) {
+-		ret = tcp_rcv_state_process(child, skb, tcp_hdr(skb),
+-					    skb->len);
++		ret = tcp_rcv_state_process(child, skb, tcp_hdr(skb));
+ 		/* Wakeup parent, send SIGIO */
+ 		if (state == TCP_SYN_RECV && child->sk_state != state)
+ 			parent->sk_data_ready(parent);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index c47e5c87a2a8..b6e473f0f62e 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1272,7 +1272,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	} else
+ 		sock_rps_save_rxhash(sk, skb);
+ 
+-	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len))
++	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb)))
+ 		goto reset;
+ 	if (opt_skb)
+ 		goto ipv6_pktoptions;
 -- 
 2.6.0.rc2.230.g3dd15c0
