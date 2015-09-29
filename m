@@ -1,50 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] switchdev: push bridge attributes down
-Date: Mon, 28 Sep 2015 22:07:15 -0700 (PDT)
-Message-ID: <20150928.220715.1323851557788272372.davem@davemloft.net>
-References: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] tcp: avoid reorders for TFO passive
+ connections
+Date: Mon, 28 Sep 2015 22:11:45 -0700 (PDT)
+Message-ID: <20150928.221145.1804590785343592452.davem@davemloft.net>
+References: <1443140165.29850.181.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
-	stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53851 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53883 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbbI2FHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:07:17 -0400
-In-Reply-To: <1443128370-27353-1-git-send-email-sfeldma@gmail.com>
+	with ESMTP id S1750993AbbI2FLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:11:46 -0400
+In-Reply-To: <1443140165.29850.181.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sfeldma@gmail.com
-Date: Thu, 24 Sep 2015 13:59:26 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 24 Sep 2015 17:16:05 -0700
 
-> From: Scott Feldman <sfeldma@gmail.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Push bridge-level attributes down to switchdev drivers.  This patchset
-> adds the infrastructure and then pushes, as an example, ageing_time attribute
-> down from bridge to switchdev (rocker) driver.  Add some range-checking
-> for ageing_time.
+> We found that a TCP Fast Open passive connection was vulnerable
+> to reorders, as the exchange might look like
 > 
-> # ip link set dev br0 type bridge ageing_time 1000
+> [1] C -> S S <FO ...> <request>
+> [2] S -> C S. ack request <options>
+> [3] S -> C . <answer>
 > 
-> # ip link set dev br0 type bridge ageing_time 999
-> RTNETLINK answers: Numerical result out of range
+> packets [2] and [3] can be generated at almost the same time.
 > 
-> Up until now, switchdev attrs where port-level attrs, so the netdev used in
-> switchdev_attr_set() would be a switch port or bond of switch ports.  With
-> bridge-level attrs, the netdev passed to switchdev_attr_set() is the bridge
-> netdev.  The same recusive algo is used to visit the leaves of the stacked
-> drivers to set the attr, it's just in this case we start one layer higher in
-> the stack.  One note is not all ports in the bridge may support setting a
-> bridge-level attribute, so rather than failing the entire set, we'll skip over
-> those ports returning -EOPNOTSUPP.
+> If C receives the 3rd packet before the 2nd, it will drop it as
+> the socket is in SYN_SENT state and expects a SYNACK.
+> 
+> S will have to retransmit the answer.
+> 
+> Current OOO avoidance in linux is defeated because SYNACK
+> packets are attached to the LISTEN socket, while DATA packets
+> are attached to the children. They might be sent by different cpus,
+> and different TX queues might be selected.
+> 
+> It turns out that for TFO, we created a child, which is a
+> full blown socket in TCP_SYN_RECV state, and we simply can attach
+> the SYNACK packet to this socket.
+> 
+> This means that at the time tcp_sendmsg() pushes DATA packet,
+> skb->ooo_okay will be set iff the SYNACK packet had been sent
+> and TX completed.
+> 
+> This removes the reorder source at the host level.
+> 
+> We also removed the export of tcp_try_fastopen(), as it is no
+> longer called from IPv6.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-This doesn't apply cleanly to net-next, please respin.
-
-Thanks.
+Applied, thanks.
