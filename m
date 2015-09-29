@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] skbuff: Fix skb checksum partial check.
-Date: Tue, 29 Sep 2015 16:49:32 -0700 (PDT)
-Message-ID: <20150929.164932.1619659673911486443.davem@davemloft.net>
-References: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 00/11] net: L3 master device
+Date: Tue, 29 Sep 2015 17:52:10 -0600
+Message-ID: <560B242A.5070702@cumulusnetworks.com>
+References: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
+ <20150929.162306.94737407786085218.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60244 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbbI2Xtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:49:33 -0400
-In-Reply-To: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33937 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbbI2XwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:52:13 -0400
+Received: by padhy16 with SMTP id hy16so19888301pad.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 16:52:13 -0700 (PDT)
+In-Reply-To: <20150929.162306.94737407786085218.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 28 Sep 2015 17:24:25 -0700
+On 9/29/15 5:23 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Mon, 28 Sep 2015 10:16:50 -0700
+>
+>> v2
+>> - rebased to top of net-next
+>>
+>> - addressed Niks comments (checking master, removing extra lines, and
+>>    flipping the order of patches 1 and 2)
+>
+> This still needs some work:
+>
+> ERROR: "l3mdev_master_ifindex_rcu" [net/ipv6/ipv6.ko] undefined!
+> scripts/Makefile.modpost:90: recipe for target '__modpost' failed
+> make[1]: *** [__modpost] Error 1
+> Makefile:1095: recipe for target 'modules' failed
+> make: *** [modules] Error 2
+>
 
-> Earlier patch 6ae459bda tried to detect void ckecksum partial
-> skb by comparing pull length to checksum offset. But it does
-> not work for all cases since checksum-offset depends on
-> updates to skb->data.
-> 
-> Following patch fixes it by validating checksum start offset
-> after skb-data pointer is updated. Negative value of checksum
-> offset start means there is no need to checksum.
-> 
-> Fixes: 6ae459bda ("skbuff: Fix skb checksum flag on skb pull")
-> Reported-by: Andrew Vagin <avagin@odin.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> This and 6ae459bda patches needs to be backported to stable.
-
-Applied and both queued up for -stable, thanks.
+ugh. All of my builds have CONFIG_IPV6=y. Will kickout a v3 later.
