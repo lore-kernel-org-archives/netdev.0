@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/6] net: switchdev: remove dev in port_vlan_dump_put
-Date: Tue, 29 Sep 2015 11:04:09 -0400
-Message-ID: <1443539054-25997-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/6] net: switchdev: move dev in switchdev_fdb_dump
+Date: Tue, 29 Sep 2015 11:04:10 -0400
+Message-ID: <1443539054-25997-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1443539054-25997-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,63 +16,44 @@ In-Reply-To: <1443539054-25997-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The static switchdev_port_vlan_dump_put function don't need the
-net_device parameter, so remove it.
+The FDB dump callback requires the related net_device so move it to the
+struct switchdev_fdb_dump superset instead of using a callback param.
+
+With this done, it'll be simpler to change the dump function signature.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/switchdev/switchdev.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ net/switchdev/switchdev.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 00ee547..56d34ed 100644
+index 56d34ed..c0e2047 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -484,8 +484,7 @@ struct switchdev_vlan_dump {
- 	u16 end;
- };
+@@ -858,6 +858,7 @@ EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
  
--static int switchdev_port_vlan_dump_put(struct net_device *dev,
--					struct switchdev_vlan_dump *dump)
-+static int switchdev_port_vlan_dump_put(struct switchdev_vlan_dump *dump)
- {
- 	struct bridge_vlan_info vinfo;
+ struct switchdev_fdb_dump {
+ 	struct switchdev_obj obj;
++	struct net_device *dev;
+ 	struct sk_buff *skb;
+ 	struct netlink_callback *cb;
+ 	int idx;
+@@ -887,7 +888,7 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
+ 	ndm->ndm_pad2    = 0;
+ 	ndm->ndm_flags   = NTF_SELF;
+ 	ndm->ndm_type    = 0;
+-	ndm->ndm_ifindex = dev->ifindex;
++	ndm->ndm_ifindex = dump->dev->ifindex;
+ 	ndm->ndm_state   = obj->u.fdb.ndm_state;
  
-@@ -531,7 +530,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 		for (dump->begin = dump->end = vlan->vid_begin;
- 		     dump->begin <= vlan->vid_end;
- 		     dump->begin++, dump->end++) {
--			err = switchdev_port_vlan_dump_put(dev, dump);
-+			err = switchdev_port_vlan_dump_put(dump);
- 			if (err)
- 				return err;
- 		}
-@@ -543,7 +542,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 				/* prepend */
- 				dump->begin = vlan->vid_begin;
- 			} else {
--				err = switchdev_port_vlan_dump_put(dev, dump);
-+				err = switchdev_port_vlan_dump_put(dump);
- 				dump->flags = vlan->flags;
- 				dump->begin = vlan->vid_begin;
- 				dump->end = vlan->vid_end;
-@@ -555,7 +554,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 				/* append */
- 				dump->end = vlan->vid_end;
- 			} else {
--				err = switchdev_port_vlan_dump_put(dev, dump);
-+				err = switchdev_port_vlan_dump_put(dump);
- 				dump->flags = vlan->flags;
- 				dump->begin = vlan->vid_begin;
- 				dump->end = vlan->vid_end;
-@@ -588,7 +587,7 @@ static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
- 			goto err_out;
- 		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
- 			/* last one */
--			err = switchdev_port_vlan_dump_put(dev, &dump);
-+			err = switchdev_port_vlan_dump_put(&dump);
- 	}
- 
- err_out:
+ 	if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, obj->u.fdb.addr))
+@@ -927,6 +928,7 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 			.id = SWITCHDEV_OBJ_PORT_FDB,
+ 			.cb = switchdev_port_fdb_dump_cb,
+ 		},
++		.dev = dev,
+ 		.skb = skb,
+ 		.cb = cb,
+ 		.idx = idx,
 -- 
 2.5.3
