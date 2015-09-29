@@ -1,388 +1,88 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
-Date: Tue, 29 Sep 2015 20:09:49 +0200
-Message-ID: <CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com>
-References: <20150913195354.GA12352@jig.fritz.box>
-	<20150914023949.GA15012@dcvr.yhbt.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [MM PATCH V4 5/6] slub: support for bulk free with SLUB
+ freelists
+Date: Tue, 29 Sep 2015 20:16:05 +0200
+Message-ID: <20150929201605.18626b1b@redhat.com>
+References: <20150929154605.14465.98995.stgit@canyon>
+	<20150929154807.14465.76422.stgit@canyon>
+	<560ABE86.9050508@gmail.com>
+	<20150929190029.01ca01f2@redhat.com>
+	<560AC854.6040601@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Wong <normalperson@yhbt.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Davidlohr Bueso <dave@stgolabs.net>,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>,
-	Jason Baron <jbaron@akamai.com>
-To: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:35244 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935258AbbI2SJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 14:09:50 -0400
-In-Reply-To: <20150914023949.GA15012@dcvr.yhbt.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+        Christoph
+ Lameter <cl@linux.com>, netdev@vger.kernel.org,
+        Pekka Enberg
+ <penberg@kernel.org>,
+        David Rientjes <rientjes@google.com>,
+        Joonsoo Kim
+ <iamjoonsoo.kim@lge.com>, brouer@redhat.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <560AC854.6040601@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 14 September 2015 at 04:39, Eric Wong <normalperson@yhbt.net> wrote:
-> +cc Jason Baron since he might be able to provide more insight into
-> epoll.
->
-> Mathias Krause <minipli@googlemail.com> wrote:
->> Hi,
->>
->> this is an attempt to resurrect the thread initially started here:
->>
->>   http://thread.gmane.org/gmane.linux.network/353003
->>
->> As that patch fixed the issue for the mentioned reproducer, it did not
->> fix the bug for the production code Olivier is using. :(
->>
->> Changing the reproducer only slightly allows me to trigger the following
->> list debug splat (CONFIG_DEBUG_LIST=y) reliable within seconds -- even
->> with the above linked patch applied:
->>
->> [   50.264249] ------------[ cut here ]------------
->> [   50.264249] WARNING: CPU: 0 PID: 214 at lib/list_debug.c:59 __list_del_entry+0xa4/0xd0()
->> [   50.264249] list_del corruption. prev->next should be ffff88003c2c1bb8, but was ffff88003f07bbb8
->> [   50.264249] Modules linked in: ipv6 pcspkr serio_raw microcode virtio_net virtio_pci virtio_ring virtio sr_mod cdrom
->> [   50.264249] CPU: 0 PID: 214 Comm: epoll_bug Not tainted 4.2.0 #75
->> [   50.264249] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
->> [   50.264249]  ffffffff817e902e ffff880000087d08 ffffffff8155593c 0000000000000007
->> [   50.264249]  ffff880000087d58 ffff880000087d48 ffffffff8105202a 0000000000000001
->> [   50.264249]  ffff88003c2c1bb8 ffff88003f07bb80 0000000000000286 ffff88003f736640
->> [   50.264249] Call Trace:
->> [   50.264249]  [<ffffffff8155593c>] dump_stack+0x4c/0x65
->> [   50.264249]  [<ffffffff8105202a>] warn_slowpath_common+0x8a/0xc0
->> [   50.264249]  [<ffffffff810520a6>] warn_slowpath_fmt+0x46/0x50
->> [   50.264249]  [<ffffffff81322354>] __list_del_entry+0xa4/0xd0
->> [   50.264249]  [<ffffffff81322391>] list_del+0x11/0x40
->> [   50.264249]  [<ffffffff81094d39>] remove_wait_queue+0x29/0x40
->> [   50.264249]  [<ffffffff811bc898>] ep_unregister_pollwait.isra.6+0x58/0x1a0
->> [   50.264249]  [<ffffffff811bc8e9>] ? ep_unregister_pollwait.isra.6+0xa9/0x1a0
->> [   50.264249]  [<ffffffff811bca02>] ep_remove+0x22/0x110
->> [   50.264249]  [<ffffffff811be28b>] SyS_epoll_ctl+0x62b/0xf70
->> [   50.264249]  [<ffffffff81000f44>] ? lockdep_sys_exit_thunk+0x12/0x14
->> [   50.264249]  [<ffffffff8155cd97>] entry_SYSCALL_64_fastpath+0x12/0x6f
->> [   50.264249] ---[ end trace d9af9b915df9667e ]---
->> [   50.572100] ------------[ cut here ]------------
->> [   50.572100] WARNING: CPU: 1 PID: 212 at lib/list_debug.c:62 __list_del_entry+0xc3/0xd0()
->> [   50.584263] list_del corruption. next->prev should be ffff88003f664c90, but was ffff88003f0cb5b8
->> [   50.584263] Modules linked in: ipv6 pcspkr serio_raw microcode virtio_net virtio_pci virtio_ring virtio sr_mod cdrom
->> [   50.584263] CPU: 1 PID: 212 Comm: epoll_bug Tainted: G        W       4.2.0 #75
->> [   50.584263] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
->> [   50.584263]  ffffffff817e902e ffff88003d37fce8 ffffffff8155593c 0000000000000007
->> [   50.584263]  ffff88003d37fd38 ffff88003d37fd28 ffffffff8105202a 0000000000000001
->> [   50.584263]  ffff88003f664c90 ffff88003f0cb580 0000000000000282 ffff88003f731740
->> [   50.584263] Call Trace:
->> [   50.584263]  [<ffffffff8155593c>] dump_stack+0x4c/0x65
->> [   50.584263]  [<ffffffff8105202a>] warn_slowpath_common+0x8a/0xc0
->> [   50.584263]  [<ffffffff810520a6>] warn_slowpath_fmt+0x46/0x50
->> [   50.584263]  [<ffffffff81322373>] __list_del_entry+0xc3/0xd0
->> [   50.584263]  [<ffffffff81322391>] list_del+0x11/0x40
->> [   50.584263]  [<ffffffff81094d39>] remove_wait_queue+0x29/0x40
->> [   50.584263]  [<ffffffff811bc898>] ep_unregister_pollwait.isra.6+0x58/0x1a0
->> [   50.584263]  [<ffffffff811bc8e9>] ? ep_unregister_pollwait.isra.6+0xa9/0x1a0
->> [   50.584263]  [<ffffffff811bca02>] ep_remove+0x22/0x110
->> [   50.584263]  [<ffffffff811bda62>] eventpoll_release_file+0x62/0xa0
->> [   50.584263]  [<ffffffff8117704f>] __fput+0x1af/0x200
->> [   50.584263]  [<ffffffff8155cf20>] ? int_very_careful+0x5/0x3f
->> [   50.584263]  [<ffffffff811770ee>] ____fput+0xe/0x10
->> [   50.584263]  [<ffffffff8107271d>] task_work_run+0x8d/0xc0
->> [   50.584263]  [<ffffffff8100390f>] do_notify_resume+0x4f/0x60
->> [   50.584263]  [<ffffffff8155cf6c>] int_signal+0x12/0x17
->> [   50.584263] ---[ end trace d9af9b915df9667f ]---
->> [   50.584263] BUG: spinlock already unlocked on CPU#1, epoll_bug/212
->> [   50.584263]  lock: 0xffff88003f0cb580, .magic: dead4ead, .owner: <none>/-1, .owner_cpu: -1
->> [   50.584263] CPU: 1 PID: 212 Comm: epoll_bug Tainted: G        W       4.2.0 #75
->> [   50.584263] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
->> [   50.584263]  ffff88003f0cb580 ffff88003d37fd38 ffffffff8155593c 0000000000000007
->> [   50.584263]  ffffffffffffffff ffff88003d37fd58 ffffffff810a3375 ffff88003f0cb580
->> [   50.584263]  ffffffff817b9cc8 ffff88003d37fd78 ffffffff810a33f6 ffff88003f0cb580
->> [   50.584263] Call Trace:
->> [   50.584263]  [<ffffffff8155593c>] dump_stack+0x4c/0x65
->> [   50.584263]  [<ffffffff810a3375>] spin_dump+0x85/0xe0
->> [   50.584263]  [<ffffffff810a33f6>] spin_bug+0x26/0x30
->> [   50.584263]  [<ffffffff810a3645>] do_raw_spin_unlock+0x75/0xa0
->> [   50.584263]  [<ffffffff8155c4ec>] _raw_spin_unlock_irqrestore+0x2c/0x50
->> [   50.584263]  [<ffffffff81094d44>] remove_wait_queue+0x34/0x40
->> [   50.584263]  [<ffffffff811bc898>] ep_unregister_pollwait.isra.6+0x58/0x1a0
->> [   50.584263]  [<ffffffff811bc8e9>] ? ep_unregister_pollwait.isra.6+0xa9/0x1a0
->> [   50.584263]  [<ffffffff811bca02>] ep_remove+0x22/0x110
->> [   50.584263]  [<ffffffff811bda62>] eventpoll_release_file+0x62/0xa0
->> [   50.584263]  [<ffffffff8117704f>] __fput+0x1af/0x200
->> [   50.584263]  [<ffffffff8155cf20>] ? int_very_careful+0x5/0x3f
->> [   50.584263]  [<ffffffff811770ee>] ____fput+0xe/0x10
->> [   50.584263]  [<ffffffff8107271d>] task_work_run+0x8d/0xc0
->> [   50.584263]  [<ffffffff8100390f>] do_notify_resume+0x4f/0x60
->> [   50.584263]  [<ffffffff8155cf6c>] int_signal+0x12/0x17
->> [...]
->>
->> That 'spinlock already unlocked' message is also interesting. But even
->> better, enabling slab debugging (CONFIG_SLUB_DEBUG_ON=y) makes that
->> list_del corruption warning a GPF:
->>
->> [   21.124241] general protection fault: 0000 [#1] SMP
->> [   21.128193] Modules linked in: ipv6 pcspkr serio_raw microcode virtio_net virtio_pci virtio_ring virtio sr_mod cdrom
->> [   21.144249] CPU: 1 PID: 221 Comm: epoll_bug Not tainted 4.2.0 #75
->> [   21.144249] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
->> [   21.144249] task: ffff88001fa82b80 ti: ffff880018894000 task.ti: ffff880018894000
->> [   21.144249] RIP: 0010:[<ffffffff8109def0>]  [<ffffffff8109def0>] __lock_acquire+0x240/0x1800
->> [   21.144249] RSP: 0018:ffff880018897c98  EFLAGS: 00010002
->> [   21.144249] RAX: 0000000000000000 RBX: 6b6b6b6b6b6b6b6b RCX: 0000000000000000
->> [   21.144249] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88001f8b1c18
->> [   21.144249] RBP: ffff880018897d28 R08: 0000000000000001 R09: 0000000000000001
->> [   21.144249] R10: 0000000000000000 R11: ffff88001f8b1c18 R12: 0000000000000000
->> [   21.144249] R13: 0000000000000000 R14: 0000000000000000 R15: ffff88001fa82b80
->> [   21.144249] FS:  00007f0c87e5d700(0000) GS:ffff88001eb00000(0000) knlGS:0000000000000000
->> [   21.144249] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> [   21.144249] CR2: 00007f0c87e5cff8 CR3: 000000001899c000 CR4: 00000000001406e0
->> [   21.144249] Stack:
->> [   21.144249]  ffff880018897cb8 ffffffff8109d94b ffff880018b6fdb0 ffff88001e3d3b80
->> [   21.144249]  ffff880018897cc8 ffff88001fa83250 0000000000000002 0000000000000000
->> [   21.144249]  0000000000000001 ffff88001fa82b80 ffff880018897d88 ffffffff8109e0f7
->> [   21.144249] Call Trace:
->> [   21.144249]  [<ffffffff8109d94b>] ? trace_hardirqs_on_caller+0x14b/0x1e0
->> [   21.144249]  [<ffffffff8109e0f7>] ? __lock_acquire+0x447/0x1800
->> [   21.144249]  [<ffffffff8109fdd7>] lock_acquire+0xc7/0x260
->> [   21.144249]  [<ffffffff81094d2d>] ? remove_wait_queue+0x1d/0x40
->> [   21.144249]  [<ffffffff8155c373>] _raw_spin_lock_irqsave+0x43/0x60
->> [   21.144249]  [<ffffffff81094d2d>] ? remove_wait_queue+0x1d/0x40
->> [   21.144249]  [<ffffffff81094d2d>] remove_wait_queue+0x1d/0x40
->> [   21.144249]  [<ffffffff811bc898>] ep_unregister_pollwait.isra.6+0x58/0x1a0
->> [   21.144249]  [<ffffffff811bc8e9>] ? ep_unregister_pollwait.isra.6+0xa9/0x1a0
->> [   21.144249]  [<ffffffff811bca02>] ep_remove+0x22/0x110
->> [   21.144249]  [<ffffffff811be28b>] SyS_epoll_ctl+0x62b/0xf70
->> [   21.144249]  [<ffffffff81000f44>] ? lockdep_sys_exit_thunk+0x12/0x14
->> [   21.144249]  [<ffffffff8155cd97>] entry_SYSCALL_64_fastpath+0x12/0x6f
->> [   21.144249] Code: 49 81 3b c0 9e c4 81 b8 00 00 00 00 44 0f 44 c0 41 83 fe 01 0f 87 39 fe ff ff 44 89 f0 49 8b 5c c3 08 48 85 db 0f 84 28 fe ff ff <f0> ff 83 98 01 00 00 45 8b b7 a0 06 00 00 41 83 fe 2f 76 10 44
->> [   21.144249] RIP  [<ffffffff8109def0>] __lock_acquire+0x240/0x1800
->> [   21.144249]  RSP <ffff880018897c98>
->> [   21.144249] ---[ end trace 7136cfe3b6480f34 ]---
->>
->> The slab poisoning hits, as can be seen by the pattern in RBX which the
->> faulting instruction is using as a memory operand. So this is probably a
->> use-after-free bug -- or, more likely, an object that better had been
->> freed via rcu semantics.
->>
->> I looked at the epoll code really hard and concluded I don't understand
->> it at all. I've added a few calls to synchroize_rcu() and changed direct
->> pointer assignments to rcu_assign_pointer() in places I thought would
->> need them. But that only made the race happen less often, not cured it.
->>
->> This is what I did:
->> - add a call to synchroize_rcu() in eventpoll_release_file() after
->>   taking the epmutex. It's traversing an rcu list, after all.
->> - make the NULL pointer assignment of whead in ep_poll_callback() an
->>   rcu_assign_pointer() assignment and call synchronize_rcu() afterwards.
->>   It's also an rcu pointer that should be assigned that way, no?
->>
->> But, apparently, all irrelevant.
->>
->> I had the same luck while staring at the af_unix code. I've added a few
->> unix_state_lock() / -unlock() calls to places I though would need them
->> to be able to reliably test / set socket flags and the peer member of
->> struct unix_sock. But again, that only made the bug happen less often.
->>
->> What I did:
->> - take other's unix_state_lock() in unix_dgram_disconnected() for
->>   testing the flags and signaling the error
->> - moving the 'unix_peer(sk) = NULL' assignment to the section that holds
->>   the unix_state_lock() in unix_release_sock(). This ensures others will
->>   see changes to the peer pointer atomically -- when themselves making
->>   use of the lock only, of course.
->> - in unix_dgram_poll() avoid calling sock_poll_wait() if the peer is
->>   already SOCK_DEAD or RCV_SHUTDOWN. For testing the flags, other's
->>   unix_state_lock() is taken.
->>
->> The last one is, in fact, the old patch, extended by the
->> '(other->sk_shutdown & RCV_SHUTDOWN)' test. But Eric already noted back
->> then, it might be an expensive lock to take here.
->>
->> Anyways, none of the above changes fixed the issue. I suspect it's
->> related to the double usage of the peer_wq waitQ in unix_dgram_sendmsg()
->> (via unix_wait_for_peer()) and unix_dgram_poll() (via sock_poll_wait()).
->> But I might be totally wrong, here.
->>
->> However, it's definitely the second sock_poll_wait() call in
->> unix_dgram_poll() that triggers the issue. Commenting out the call --
->> thereby obviously breaking its functionality -- gets me rid of the list
->> debug splat and the GFP. But that's not a fix either. So I'm asking for
->> help.
->>
->>
->> Regards,
->> Mathias
->
->> /* use-after-free in poll routine of AF_UNIX sockets, triggerable using epoll
->>  *
->>  * ..intruduced in 3c73419c09 "af_unix: fix 'poll for write'/ connected DGRAM
->>  * sockets" (v2.6.26-rc7)
->>  *
->>  * $ gcc -pthread -o epoll_bug epoll_bug.c
->>  *
->>  * - minipli
->>  */
->> #include <sys/socket.h>
->> #include <sys/epoll.h>
->> #include <sys/un.h>
->> #include <pthread.h>
->> #include <unistd.h>
->> #include <signal.h>
->> #include <stdlib.h>
->> #include <string.h>
->> #include <stdio.h>
->> #include <fcntl.h>
->> #include <errno.h>
->>
->>
->> static long fd_max;
->> static int ep = -1;
->>
->>
->> static int get_fd(void) {
->>       int fd;
->>
->>       for (;;) {
->>               fd = rand() % fd_max;
->>
->>               if (fd > 2 && fd != ep)
->>                       break;
->>       }
->>
->>       return fd;
->> }
->>
->>
->> static void *opener(void *ptr) {
->>       sleep(1);
->>
->>       for (;;) {
->>               if (rand() % 2) {
->>                       struct sockaddr_un sa = {
->>                               .sun_family = AF_UNIX,
->>                               .sun_path = "\0epool_bug-",
->>                       };
->>                       int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
->>                       int err;
->>
->>                       /* take a short nap when there are no more fds left so closer() can
->>                        * catch up */
->>                       if (sock < 0) {
->>                               usleep(1);
->>
->>                               continue;
->>                       }
->>
->>                       /* ensure the write won't block */
->>                       fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK);
->>
->>                       sa.sun_path[11] = rand() % 26 + 'A';
->>                       if (rand() % 2)
->>                               err = connect(sock, (struct sockaddr *) &sa, sizeof(sa));
->>                       else
->>                               err = bind(sock, (struct sockaddr *) &sa, sizeof(sa));
->>
->>                       if (err)
->>                               close(sock);
->>               } else {
->>                       static const char dot[] = { [0 ... 1023] = '.' };
->>
->>                       write(get_fd(), dot, rand() % 2 ? 1 : sizeof(dot));
->>               }
->>       }
->>
->>       return ptr;
->> }
->>
->>
->> static void *closer(void *ptr) {
->>       int miss = 0;
->>
->>       sleep(1);
->>
->>       for (;;) {
->>               errno = 0;
->>               close(get_fd());
->>
->>               /* take a short nap when we're hitting invalid fds 5 times in a row so
->>                * opener() can catch up */
->>               if (errno == EBADF && ++miss >= 5) {
->>                       usleep(10);
->>                       miss = 0;
->>               } else if (errno == 0) {
->>                       miss = 0;
->>               }
->>       }
->>
->>       return ptr;
->> }
->>
->>
->> static void *ep_add(void *ptr) {
->>       sleep(1);
->>
->>       for (;;) {
->>               int fd = get_fd();
->>               struct epoll_event ev = {
->>                       .events = EPOLLIN | EPOLLOUT,
->>                       .data.fd = fd,
->>               };
->>
->>               if (epoll_ctl(ep, EPOLL_CTL_ADD, fd, &ev) < 0 && errno == ENOSPC)
->>                       usleep(1);
->>       }
->>
->>       return ptr;
->> }
->>
->>
->> static void *ep_del(void *ptr) {
->>       sleep(1);
->>
->>       for (;;)
->>               epoll_ctl(ep, EPOLL_CTL_DEL, get_fd(), NULL);
->>
->>       return ptr;
->> }
->>
->>
->> int main(void) {
->>       pthread_t thread[4];
->>       int i;
->>
->>       signal(SIGPIPE, SIG_IGN);
->>
->>       ep = epoll_create(42);  /* use epoll_create() for older kernels */
->>       if (ep < 0) {
->>               fprintf(stderr, "err: epoll_create1() failed (%s)\n", strerror(errno));
->>
->>               return 1;
->>       }
->>
->>       fd_max = sysconf(_SC_OPEN_MAX);
->>       if (pthread_create(&thread[0], NULL, opener, NULL) ||
->>               pthread_create(&thread[1], NULL, closer, NULL) ||
->>               pthread_create(&thread[2], NULL, ep_add, NULL) ||
->>               pthread_create(&thread[3], NULL, ep_del, NULL))
->>       {
->>               fprintf(stderr, "err: failed to start all threads!\n");
->>
->>               return 1;
->>       }
->>
->>       /* XXX: pthread_cancel() all threads on termination request */
->>
->>       for (i = 0; i < 4; i++)
->>               pthread_join(thread[i], NULL);
->>
->>       return 0;
->> }
+On Tue, 29 Sep 2015 10:20:20 -0700
+Alexander Duyck <alexander.duyck@gmail.com> wrote:
 
-Ping. This still triggers on v4.3-rc3.
-Any epoll expert around to have a look at this?
+> On 09/29/2015 10:00 AM, Jesper Dangaard Brouer wrote:
+> > On Tue, 29 Sep 2015 09:38:30 -0700
+> > Alexander Duyck <alexander.duyck@gmail.com> wrote:
+> >
+> >> On 09/29/2015 08:48 AM, Jesper Dangaard Brouer wrote:
+> >>> +#if defined(CONFIG_KMEMCHECK) ||		\
+> >>> +	defined(CONFIG_LOCKDEP)	||		\
+> >>> +	defined(CONFIG_DEBUG_KMEMLEAK) ||	\
+> >>> +	defined(CONFIG_DEBUG_OBJECTS_FREE) ||	\
+> >>> +	defined(CONFIG_KASAN)
+> >>> +static inline void slab_free_freelist_hook(struct kmem_cache *s,
+> >>> +					   void *head, void *tail)
+> >>> +{
+> >>> +	void *object = head;
+> >>> +	void *tail_obj = tail ? : head;
+> >>> +
+> >>> +	do {
+> >>> +		slab_free_hook(s, object);
+> >>> +	} while ((object != tail_obj) &&
+> >>> +		 (object = get_freepointer(s, object)));
+> >>> +}
+> >>> +#else
+> >>> +static inline void slab_free_freelist_hook(struct kmem_cache *s, void *obj_tail,
+> >>> +					   void *freelist_head) {}
+> >>> +#endif
+> >>> +
+> >> Instead of messing around with an #else you might just wrap the contents
+> >> of slab_free_freelist_hook in the #if/#endif instead of the entire
+> >> function declaration.
+> >
+> > I had it that way in an earlier version of the patch, but I liked
+> > better this way.
+> 
+> It would be nice if the argument names were the same for both cases.  
+> Having the names differ will make it more difficult to maintain when 
+> changes need to be made to the function.
 
-Regards,
-Mathias
+Nice spotted, I forgot to change arg names of the empty function, when
+I updated the patch. Guess, it is an argument for moving the "if
+defined()" into the function body.
+
+It just looked strange to have such a big ifdef block inside the
+function.  I also earlier had it define another def and use that inside
+the function, but then the code-reader would not know if this new def
+was/could-be used later (nitpicking alert...)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
