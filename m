@@ -1,78 +1,40 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next 1/6] net: switchdev: remove dev in port_vlan_dump_put
-Date: Tue, 29 Sep 2015 12:07:13 -0400
-Message-ID: <1443542838-19234-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFT] geneve: implement support for IPv6-based tunnels
+Date: Tue, 29 Sep 2015 18:10:07 +0200
+Message-ID: <20150929181007.55ecc3a2@griffin>
+References: <1443119682-14236-1-git-send-email-linville@tuxdriver.com>
+	<20150925140844.3e8faae2@griffin>
+	<20150928192033.GC19079@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53680 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933391AbbI2QKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2015 12:10:13 -0400
+In-Reply-To: <20150928192033.GC19079@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The static switchdev_port_vlan_dump_put function does not need the
-net_device parameter, so remove it.
+On Mon, 28 Sep 2015 15:20:33 -0400, John W. Linville wrote:
+> > To be really useful, geneve should open both IPv4 and IPv6 socket when
+> > it's metadata based. Take a look at my recent patchset that does this
+> > for vxlan: http://thread.gmane.org/gmane.linux.network/379282
+> 
+> OK, that seems simple enough.  So we should just assume that a metadata
+> tunnel could do either protocol at any time?  Or are there more rules
+> than that?
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/switchdev/switchdev.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+That should be it, on egress. On ingress, udp_tun_rx_dst needs to be
+called with the appropriate family which seems to be missing from your
+patch, too (there's AF_INET unconditionally, currently).
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 00ee547..56d34ed 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -484,8 +484,7 @@ struct switchdev_vlan_dump {
- 	u16 end;
- };
- 
--static int switchdev_port_vlan_dump_put(struct net_device *dev,
--					struct switchdev_vlan_dump *dump)
-+static int switchdev_port_vlan_dump_put(struct switchdev_vlan_dump *dump)
- {
- 	struct bridge_vlan_info vinfo;
- 
-@@ -531,7 +530,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 		for (dump->begin = dump->end = vlan->vid_begin;
- 		     dump->begin <= vlan->vid_end;
- 		     dump->begin++, dump->end++) {
--			err = switchdev_port_vlan_dump_put(dev, dump);
-+			err = switchdev_port_vlan_dump_put(dump);
- 			if (err)
- 				return err;
- 		}
-@@ -543,7 +542,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 				/* prepend */
- 				dump->begin = vlan->vid_begin;
- 			} else {
--				err = switchdev_port_vlan_dump_put(dev, dump);
-+				err = switchdev_port_vlan_dump_put(dump);
- 				dump->flags = vlan->flags;
- 				dump->begin = vlan->vid_begin;
- 				dump->end = vlan->vid_end;
-@@ -555,7 +554,7 @@ static int switchdev_port_vlan_dump_cb(struct net_device *dev,
- 				/* append */
- 				dump->end = vlan->vid_end;
- 			} else {
--				err = switchdev_port_vlan_dump_put(dev, dump);
-+				err = switchdev_port_vlan_dump_put(dump);
- 				dump->flags = vlan->flags;
- 				dump->begin = vlan->vid_begin;
- 				dump->end = vlan->vid_end;
-@@ -588,7 +587,7 @@ static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
- 			goto err_out;
- 		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
- 			/* last one */
--			err = switchdev_port_vlan_dump_put(dev, &dump);
-+			err = switchdev_port_vlan_dump_put(&dump);
- 	}
- 
- err_out:
+ Jiri
+
 -- 
-2.6.0
+Jiri Benc
