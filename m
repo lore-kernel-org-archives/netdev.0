@@ -1,77 +1,35 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 6/6] ila: Add support for xfrm6_xlat_addr
-Date: Wed, 30 Sep 2015 07:18:37 +0800
-Message-ID: <201509300753.y5HAbZ1M%fengguang.wu@intel.com>
-References: <1443565043-1287886-7-git-send-email-tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/11] net: L3 master device
+Date: Tue, 29 Sep 2015 16:23:06 -0700 (PDT)
+Message-ID: <20150929.162306.94737407786085218.davem@davemloft.net>
+References: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30389 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750970AbbI2XTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 19:19:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1443565043-1287886-7-git-send-email-tom@herbertland.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60155 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbbI2XXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:23:09 -0400
+In-Reply-To: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 28 Sep 2015 10:16:50 -0700
 
-[auto build test results on next-20150929 -- if it's inappropriate base, please ignore]
+> v2
+> - rebased to top of net-next
+> 
+> - addressed Niks comments (checking master, removing extra lines, and
+>   flipping the order of patches 1 and 2)
 
-reproduce:
-  # apt-get install sparse
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+This still needs some work:
 
-
-sparse warnings: (new ones prefixed by >>)
-
->> net/ipv6/ila/ila_xlat.c:218:24: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:269:32: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:275:25: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:279:25: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:315:31: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:329:32: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:201:23: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:514:31: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c:184:23: sparse: incompatible types in comparison expression (different address spaces)
-   net/ipv6/ila/ila_xlat.c: In function 'ila_xlat_fini':
-   net/ipv6/ila/ila_xlat.c:636:6: warning: unused variable 'i' [-Wunused-variable]
-     int i;
-         ^
-
-vim +218 net/ipv6/ila/ila_xlat.c
-
-   202		}
-   203	
-   204		return NULL;
-   205	}
-   206	
-   207	static inline void ila_release(struct ila_map *ila)
-   208	{
-   209		kfree_rcu(ila, rcu);
-   210	}
-   211	
-   212	static void ila_free_cb(void *ptr, void *arg)
-   213	{
-   214		struct ila_map *ila = (struct ila_map *)ptr, *next;
-   215	
-   216		/* Assume rcu_readlock held */
-   217		while (ila) {
- > 218			next = rcu_access_pointer(ila->next);
-   219			ila_release(ila);
-   220			ila = next;
-   221		}
-   222	}
-   223	
-   224	static int ila_add_mapping(struct net *net, struct ila_xlat_params *p)
-   225	{
-   226		struct ila_net *ilan = net_generic(net, ila_net_id);
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ERROR: "l3mdev_master_ifindex_rcu" [net/ipv6/ipv6.ko] undefined!
+scripts/Makefile.modpost:90: recipe for target '__modpost' failed
+make[1]: *** [__modpost] Error 1
+Makefile:1095: recipe for target 'modules' failed
+make: *** [modules] Error 2
