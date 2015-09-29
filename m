@@ -1,98 +1,96 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Tue, 29 Sep 2015 13:12:16 +0200
-Message-ID: <1443525140-13493-4-git-send-email-daniel@zonque.org>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
-Cc: daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, fw@strlen.de, balazs.scheidler@balabit.com,
-	Daniel Mack <daniel@zonque.org>
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1443525140-13493-1-git-send-email-daniel@zonque.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
+Subject: Re: [PATCH v4 net-next 0/2] ipv4: Hash-based multipath routing
+Date: Tue, 29 Sep 2015 13:29:24 +0200
+Message-ID: <20150929132924.1e4b3108@pch.odense.ordbogen.com>
+References: <1443037777-25390-1-git-send-email-pch@ordbogen.com>
+	<20150928.193355.515603960827814980.davem@davemloft.net>
+	<20150928.195541.2230338616645241909.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ordbogen.com ([91.240.88.21]:60693 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964803AbbI2L30 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 07:29:26 -0400
+In-Reply-To: <20150928.195541.2230338616645241909.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new chain type NF_INET_LOCAL_SOCKET_IN which is ran after the
-input demux is complete and the final destination socket (if any)
-has been determined.
+On Mon, 28 Sep 2015 19:55:41 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-This helps filtering packets based on information stored in the
-destination socket, such as cgroup controller supplied net class IDs.
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 28 Sep 2015 19:33:55 -0700 (PDT)
+>=20
+> > From: Peter N=C3=B8rlund <pch@ordbogen.com>
+> > Date: Wed, 23 Sep 2015 21:49:35 +0200
+> >=20
+> >> When the routing cache was removed in 3.6, the IPv4 multipath
+> >> algorithm changed from more or less being destination-based into
+> >> being quasi-random per-packet scheduling. This increases the risk
+> >> of out-of-order packets and makes it impossible to use multipath
+> >> together with anycast services.
+> >>=20
+> >> This patch series replaces the old implementation with flow-based
+> >> load balancing based on a hash over the source and destination
+> >> addresses.
+> >=20
+> > This isn't perfect but it's a significant step in the right
+> > direction. So I'm going to apply this to net-next now and we can
+> > make incremental improvements upon it.
+>=20
+> Actually, I had to revert, this doesn't build:
+>=20
+> [davem@localhost net-next]$ make -s -j8
+> Setup is 16876 bytes (padded to 16896 bytes).
+> System is 10011 kB
+> CRC 324f2811
+> Kernel: arch/x86/boot/bzImage is ready  (#337)
+> ERROR: "__ip_route_output_key_hash" [net/dccp/dccp_ipv4.ko] undefined=
+!
+> scripts/Makefile.modpost:90: recipe for target '__modpost' failed
+> make[1]: *** [__modpost] Error 1
+> Makefile:1095: recipe for target 'modules' failed
+> make: *** [modules] Error 2
 
-Note that rules in such chains are not processed in case the local
-listen socket cannot be determined. Hence, if no application is
-listening on a specific task, the resulting error code that is sent
-back to the remote peer can't be controlled with rules in
-NF_INET_LOCAL_SOCKET_IN chains.
+Sorry! I forgot to update the EXPORT_SYMBOL_GPL line.
 
-Signed-off-by: Daniel Mack <daniel@zonque.org>
----
- include/uapi/linux/netfilter.h      | 1 +
- net/ipv4/netfilter/iptable_filter.c | 1 +
- net/ipv4/netfilter/nf_tables_ipv4.c | 4 +++-
- net/netfilter/nf_tables_inet.c      | 3 ++-
- 4 files changed, 7 insertions(+), 2 deletions(-)
+In the meantime I've been doing some thinking (and measuring).
+Considering that the broader goal is to make IPv6 and IPv4 behave as
+identical as possible, it is probably not such a bad idea to just use
+the flow dissector + modulo in the IPv4 code too - the patch will be
+simpler than the current one.
 
-diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfilter.h
-index d93f949..96c3f8b 100644
---- a/include/uapi/linux/netfilter.h
-+++ b/include/uapi/linux/netfilter.h
-@@ -49,6 +49,7 @@ enum nf_inet_hooks {
- 	NF_INET_FORWARD,
- 	NF_INET_LOCAL_OUT,
- 	NF_INET_POST_ROUTING,
-+	NF_INET_LOCAL_SOCKET_IN,
- 	NF_INET_NUMHOOKS
- };
- 
-diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
-index a0f3bec..d65616a5 100644
---- a/net/ipv4/netfilter/iptable_filter.c
-+++ b/net/ipv4/netfilter/iptable_filter.c
-@@ -21,6 +21,7 @@ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
- MODULE_DESCRIPTION("iptables filter table");
- 
- #define FILTER_VALID_HOOKS ((1 << NF_INET_LOCAL_IN) | \
-+			    (1 << NF_INET_LOCAL_SOCKET_IN) | \
- 			    (1 << NF_INET_FORWARD) | \
- 			    (1 << NF_INET_LOCAL_OUT))
- 
-diff --git a/net/ipv4/netfilter/nf_tables_ipv4.c b/net/ipv4/netfilter/nf_tables_ipv4.c
-index aa180d3..abee60a 100644
---- a/net/ipv4/netfilter/nf_tables_ipv4.c
-+++ b/net/ipv4/netfilter/nf_tables_ipv4.c
-@@ -55,6 +55,7 @@ struct nft_af_info nft_af_ipv4 __read_mostly = {
- 		[NF_INET_FORWARD]	= nft_do_chain_ipv4,
- 		[NF_INET_PRE_ROUTING]	= nft_do_chain_ipv4,
- 		[NF_INET_POST_ROUTING]	= nft_do_chain_ipv4,
-+		[NF_INET_LOCAL_SOCKET_IN]	= nft_do_chain_ipv4,
- 	},
- };
- EXPORT_SYMBOL_GPL(nft_af_ipv4);
-@@ -96,7 +97,8 @@ static const struct nf_chain_type filter_ipv4 = {
- 			  (1 << NF_INET_LOCAL_OUT) |
- 			  (1 << NF_INET_FORWARD) |
- 			  (1 << NF_INET_PRE_ROUTING) |
--			  (1 << NF_INET_POST_ROUTING),
-+			  (1 << NF_INET_POST_ROUTING) |
-+			  (1 << NF_INET_LOCAL_SOCKET_IN),
- };
- 
- static int __init nf_tables_ipv4_init(void)
-diff --git a/net/netfilter/nf_tables_inet.c b/net/netfilter/nf_tables_inet.c
-index 9dd2d21..5544196 100644
---- a/net/netfilter/nf_tables_inet.c
-+++ b/net/netfilter/nf_tables_inet.c
-@@ -75,7 +75,8 @@ static const struct nf_chain_type filter_inet = {
- 			  (1 << NF_INET_LOCAL_OUT) |
- 			  (1 << NF_INET_FORWARD) |
- 			  (1 << NF_INET_PRE_ROUTING) |
--			  (1 << NF_INET_POST_ROUTING),
-+			  (1 << NF_INET_POST_ROUTING) |
-+			  (1 << NF_INET_LOCAL_SOCKET_IN),
- };
- 
- static int __init nf_tables_inet_init(void)
--- 
-2.5.0
+I fear the performance impact of the flow dissector though - some of my
+earlier measurements showed that it was 5-6 times slower than the
+simple one I used. But maybe it is better to streamline the IPv4/IPv6
+multipath first and then improve upon it afterward (make it work, make
+it right, make it fast).
 
+As for using L4 hashing with anycast, CloudFlare apparently does L4
+hashing - they could have disabled it, but they didn't. Besides,
+analysis of my own load balancers showed that only one in every
+500,000,000 packets is fragmented. And even if I hit a fragmented
+packet, it is only a problem if the packet hits the wrong load
+balancer, and if that load balancer haven't been updated with the state
+from another load balancer (that is, one of the very first packets). It
+is still a possible scenario though - especially with large HTTP
+cookies or file uploads. But apparently it is a common problem that IP
+fragments gets dropped on the Internet, so I suspect that ECMP+Anycast
+sites are just part of the pool of problematic sites for people with
+fragments.
+
+I'm still unsettled as to whether the ICMP handling belongs to the
+kernel or not. The above breakage was in the ICMP-part of the
+patchset, so judging from that, I guess it wasn't out of the question.
+But in the "IPv4 and IPv6 should behave identical"-mindset, it probably
+belongs to a separate, future patchset, adding ICMP handling to both
+IPv4 and IPv6 - and it is actually more important for IPv6 than IPv4
+since PMTUD cannot be disabled.
+
+Best Regards,
+  Peter N=C3=B8rlund
