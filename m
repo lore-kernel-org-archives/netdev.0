@@ -1,122 +1,91 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [MM PATCH V4 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Tue, 29 Sep 2015 19:00:29 +0200
-Message-ID: <20150929190029.01ca01f2@redhat.com>
-References: <20150929154605.14465.98995.stgit@canyon>
-	<20150929154807.14465.76422.stgit@canyon>
-	<560ABE86.9050508@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/4] ila: Use NF_INET_PRE_ROUTING nfhook
+Date: Tue, 29 Sep 2015 10:17:17 -0700
+Message-ID: <CALx6S36n68LjzyfYbBNR+aLEJxK9cp1HefhP22mNCPNrcSGJQQ@mail.gmail.com>
+References: <1443112224-574543-1-git-send-email-tom@herbertland.com>
+	<20150926.231554.1860934088223264189.davem@davemloft.net>
+	<20150927081055.GA17055@breakpoint.cc>
+	<CALx6S35gFbcFjCWEQsDY_DzBOrr0i7+3fdBWiF4rLmcz9HJRBg@mail.gmail.com>
+	<20150928230010.GB19923@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-        Christoph
- Lameter <cl@linux.com>, netdev@vger.kernel.org,
-        Pekka Enberg
- <penberg@kernel.org>,
-        David Rientjes <rientjes@google.com>,
-        Joonsoo Kim
- <iamjoonsoo.kim@lge.com>, brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <560ABE86.9050508@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:37454 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934655AbbI2RRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 13:17:18 -0400
+Received: by igbni9 with SMTP id ni9so12055993igb.0
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 10:17:17 -0700 (PDT)
+In-Reply-To: <20150928230010.GB19923@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Sep 2015 09:38:30 -0700
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
+On Mon, Sep 28, 2015 at 4:00 PM, Florian Westphal <fw@strlen.de> wrote:
+> Tom Herbert <tom@herbertland.com> wrote:
+>> RFC6296 doesn't work because it allows an invalid checksum to be sent
+>> on wire relative to the addresses used on the wire. That means we
+>> would lose CHECKSUM_UNNECESSARY for ILA which is way too big of a
+>> performance hit.
+>
+> Not following.  I did not say you should use NPT instead of ILA.
+>
+> [..]
+>> In any case, I did at one point create some netfilter targets for ILA
+>> to do the translation correctly updating the checksum. While this
+>> provided the required functionality, I couldn't get sufficient
+>> performance. A specialized fixed length lookup table gets most of the
+>> performance needed for ILA.
+>
+> I'm not following at all.
+>
+> Could you explain why you can't just 'relocate' your proposed
+> implementation to netfilter/ipv6?
+>
+Florian
 
-> On 09/29/2015 08:48 AM, Jesper Dangaard Brouer wrote:
-> > Make it possible to free a freelist with several objects by adjusting
-> > API of slab_free() and __slab_free() to have head, tail and an objects
-> > counter (cnt).
-> >
-> > Tail being NULL indicate single object free of head object.  This
-> > allow compiler inline constant propagation in slab_free() and
-> > slab_free_freelist_hook() to avoid adding any overhead in case of
-> > single object free.
-> >
-> > This allows a freelist with several objects (all within the same
-> > slab-page) to be free'ed using a single locked cmpxchg_double in
-> > __slab_free() and with an unlocked cmpxchg_double in slab_free().
-> >
-> > Object debugging on the free path is also extended to handle these
-> > freelists.  When CONFIG_SLUB_DEBUG is enabled it will also detect if
-> > objects don't belong to the same slab-page.
-> >
-> > These changes are needed for the next patch to bulk free the detached
-> > freelists it introduces and constructs.
-> >
-> > Micro benchmarking showed no performance reduction due to this change,
-> > when debugging is turned off (compiled with CONFIG_SLUB_DEBUG).
-> >
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> >
-> > ---
-> > V4:
-> >   - Change API per req of Christoph Lameter
-> >   - Remove comments in init_object.
-> >
-[...]
-> >
-> > +/* Compiler cannot detect that slab_free_freelist_hook() can be
-> > + * removed if slab_free_hook() evaluates to nothing.  Thus, we need to
-> > + * catch all relevant config debug options here.
-> > + */
-> 
-> Is it actually generating nothing but a pointer walking loop or is there 
-> a bit of code cruft that is being evaluated inside the loop?
+I modified DNPT to perform ILA. Performance results are below. What I
+see is that DNPT offers only a slight improvement over just doing
+translation at LWT and not getting a hit in early demux. Top function
+in perf is:
 
-If any of the defines are activated, then slab_free_hook(s, object)
-will generate some code.
+2.49%  [kernel]                   [k] ip6t_do_table
 
-In the case of single object free, then the compiler see that it can
-remove the loop, and also notice if slab_free_hook() eval to nothing.
+so I think this performance result is mostly the overhead of netfilter
+and not ILA translation. But in any case, doing a direct specialized
+lookup like what we do in this patch gets us close to same performance
+without ILA enabled-- low performance overhead is critical for our ILA
+use cases.
 
-The compiler is not smart enough to remove the loop for multiobject
-case, even-though it can see that slab_free_hook() eval to nothing
-(in that case it does a pointer walk without any code eval).  Thus, I
-need this construct.
+Tom
 
-> > +#if defined(CONFIG_KMEMCHECK) ||		\
-> > +	defined(CONFIG_LOCKDEP)	||		\
-> > +	defined(CONFIG_DEBUG_KMEMLEAK) ||	\
-> > +	defined(CONFIG_DEBUG_OBJECTS_FREE) ||	\
-> > +	defined(CONFIG_KASAN)
-> > +static inline void slab_free_freelist_hook(struct kmem_cache *s,
-> > +					   void *head, void *tail)
-> > +{
-> > +	void *object = head;
-> > +	void *tail_obj = tail ? : head;
-> > +
-> > +	do {
-> > +		slab_free_hook(s, object);
-> > +	} while ((object != tail_obj) &&
-> > +		 (object = get_freepointer(s, object)));
-> > +}
-> > +#else
-> > +static inline void slab_free_freelist_hook(struct kmem_cache *s, void *obj_tail,
-> > +					   void *freelist_head) {}
-> > +#endif
-> > +
-> 
-> Instead of messing around with an #else you might just wrap the contents 
-> of slab_free_freelist_hook in the #if/#endif instead of the entire 
-> function declaration.
+No ILA, baseline
+   85.72% CPU utilization
+   1861945 tps
+   93/163/330 50/90/99% latencies
 
-I had it that way in an earlier version of the patch, but I liked
-better this way.
+ILA before fix (LWT on both input and output)
+   83.47 CPU utilization
+   16583186 tps (-11% from baseline)
+   107/183/338 50/90/99% latencies
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+ILA after fix (hook for input)
+   84.97% CPU utilization
+   1833948 tps (-1.5% from baseline)
+   95/164/331 50/90/99% latencies
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Modify DNPT to do ILA (ip6tables -t mangle -I PREROUTING -d
+2001:0:0:3::/64 -j DNPT --src-pfx 2001:0:0:3::/64 --dst-pfx
+3333:0:0:1::/64)
+   80.94% CPU utilization
+   1683315 tps (-10% from baseline)
+   104/179/350 50/90/99% latencies
+
+> F.e. I see no reason why you could not use a lookup table in a netfilter
+> target (or nft expression, for that matter) ... ?
+>
+> Thanks,
+> Florian
