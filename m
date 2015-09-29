@@ -1,53 +1,56 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH RFC 2/7] netfilter: nft_meta: look at pkt->sk rather than skb->sk
-Date: Tue, 29 Sep 2015 13:12:15 +0200
-Message-ID: <1443525140-13493-3-git-send-email-daniel@zonque.org>
+Subject: [PATCH RFC 1/7] netfilter: add socket to struct nft_pktinfo
+Date: Tue, 29 Sep 2015 13:12:14 +0200
+Message-ID: <1443525140-13493-2-git-send-email-daniel@zonque.org>
 References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
 Cc: daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org, fw@strlen.de, balazs.scheidler@balabit.com,
 	Daniel Mack <daniel@zonque.org>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:60161 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934568AbbI2LMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2015 07:12:37 -0400
 In-Reply-To: <1443525140-13493-1-git-send-email-daniel@zonque.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-pkt->sk is set to whatever was passed to nh_hook() by the caller,
-and for post demux chains, this is the one that should be looked
-at, as skb->sk is still NULL at this point in time.
+The high-level netfilter hook API already enables users to pass a socket,
+but that information is lost when the chains are walked.
+
+In order to let internal eval callbacks use the passed filter rather than
+skb->sk, add a pointer of type 'struct sock' to 'struct nft_pktinfo' and
+set that field via nft_set_pktinfo().
+
+This allows us to run filter chains from situations where skb->sk is unset.
+Fall back to skb->sk in case state->sk is NULL, so filter callbacks can be
+written in a generic way.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- net/netfilter/nft_meta.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ include/net/netfilter/nf_tables.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index cb2f13e..f195bee 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -29,8 +29,9 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		       const struct nft_pktinfo *pkt)
- {
- 	const struct nft_meta *priv = nft_expr_priv(expr);
--	const struct sk_buff *skb = pkt->skb;
- 	const struct net_device *in = pkt->in, *out = pkt->out;
-+	struct sk_buff *skb = pkt->skb;
-+	struct sock *sk = pkt->sk;
- 	u32 *dest = &regs->data[priv->dreg];
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index aa8bee7..05e97ed 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -13,6 +13,7 @@
+ #define NFT_JUMP_STACK_SIZE	16
  
- 	switch (priv->key) {
-@@ -168,9 +169,9 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		break;
- #ifdef CONFIG_CGROUP_NET_CLASSID
- 	case NFT_META_CGROUP:
--		if (skb->sk == NULL || !sk_fullsock(skb->sk))
-+		if (sk == NULL || !sk_fullsock(sk))
- 			goto err;
--		*dest = skb->sk->sk_classid;
-+		*dest = sk->sk_classid;
- 		break;
- #endif
- 	default:
+ struct nft_pktinfo {
++	struct sock			*sk;
+ 	struct sk_buff			*skb;
+ 	const struct net_device		*in;
+ 	const struct net_device		*out;
+@@ -29,6 +30,7 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
+ 				   struct sk_buff *skb,
+ 				   const struct nf_hook_state *state)
+ {
++	pkt->sk = state->sk ?: skb->sk;
+ 	pkt->skb = skb;
+ 	pkt->in = pkt->xt.in = state->in;
+ 	pkt->out = pkt->xt.out = state->out;
 -- 
 2.5.0
-
