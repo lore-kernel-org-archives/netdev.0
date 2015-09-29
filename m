@@ -1,36 +1,40 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v3,1/2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-Date: Tue, 29 Sep 2015 08:08:07 +0000 (UTC)
-Message-ID: <20150929080807.80C6D13F6A5@smtp.codeaurora.org>
-References: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37656 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932623AbbI2III (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 04:08:08 -0400
-In-Reply-To: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH 5/5] net: macmace: Allow modular build
+Date: Tue, 29 Sep 2015 10:24:06 +0200
+Message-ID: <1443515046-13968-6-git-send-email-geert@linux-m68k.org>
+References: <1443515046-13968-1-git-send-email-geert@linux-m68k.org>
+Cc: Finn Thain <fthain@telegraphics.com.au>,
+	Joshua Thompson <funaho@jurai.org>,
+	Philip Blundell <philb@gnu.org>, netdev@vger.kernel.org,
+	linux-m68k@lists.linux-m68k.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1443515046-13968-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+This depends on "[PATCH 4/5] m68k/mac: Export Peripheral System
+Controller (PSC) base address to modules".
+---
+ drivers/net/ethernet/apple/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
-> wpa_supplicant uses it for both no encryption and WEP open system.
-> Cache the last mode set (only of these two) and use it here.
-> 
-> This allows wpa_supplicant to work with unencrypted APs.
-> 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-
-Thanks, 2 patches applied to wireless-drivers-next.git:
-
-4a0f2ea79797 airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-2b8fa9e870b7 airo: Implement netif_carrier_on/off
-
-Kalle Valo
+diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
+index d19a41b0c6d26691..31071297896c96b5 100644
+--- a/drivers/net/ethernet/apple/Kconfig
++++ b/drivers/net/ethernet/apple/Kconfig
+@@ -51,7 +51,7 @@ config BMAC
+ 	  will be called bmac.
+ 
+ config MACMACE
+-	bool "Macintosh (AV) onboard MACE ethernet"
++	tristate "Macintosh (AV) onboard MACE ethernet"
+ 	depends on MAC
+ 	select CRC32
+ 	---help---
+-- 
+1.9.1
