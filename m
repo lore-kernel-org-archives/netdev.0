@@ -1,61 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] dsa: mv88e6xxx: Fix unsigned/signed issue
-Date: Tue, 29 Sep 2015 01:53:48 +0200
-Message-ID: <1443484428-29075-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net] skbuff: Fix skb checksum partial check.
+Date: Mon, 28 Sep 2015 17:24:25 -0700
+Message-ID: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36543 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752887AbbI2ACI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 20:02:08 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35397 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754098AbbI2AZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2015 20:25:21 -0400
+Received: by pacfv12 with SMTP id fv12so192219738pac.2
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2015 17:25:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit dea870242a9c ("dsa: mv88e6xxx: Allow speed/duplex of port to be
-configured") leads to the following static checker warning:
+Earlier patch 6ae459bda tried to detect void ckecksum partial
+skb by comparing pull length to checksum offset. But it does
+not work for all cases since checksum-offset depends on
+updates to skb->data.
 
-        drivers/net/dsa/mv88e6xxx.c:585 mv88e6xxx_adjust_link()
-        warn: unsigned 'ret' is never less than zero.
+Following patch fixes it by validating checksum start offset
+after skb-data pointer is updated. Negative value of checksum
+offset start means there is no need to checksum.
 
-drivers/net/dsa/mv88e6xxx.c
-   573  void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
-   574                             struct phy_device *phydev)
-   575  {
-   576          struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-   577          u32 ret, reg;
-   578
-   579          if (!phy_is_pseudo_fixed_link(phydev))
-   580                  return;
-   581
-   582          mutex_lock(&ps->smi_mutex);
-   583
-   584          ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
-   585          if (ret < 0)
-
-Make ret an int, which is the return type for _mv88e6xxx_reg_read()
-
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Fixes: 6ae459bda ("skbuff: Fix skb checksum flag on skb pull")
+Reported-by: Andrew Vagin <avagin@odin.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This and 6ae459bda patches needs to be backported to stable.
+---
+ include/linux/skbuff.h |    2 +-
+ net/core/skbuff.c      |    9 +++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 30227ca2d5db..05c0938da8c3 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -574,7 +574,8 @@ void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
- 			   struct phy_device *phydev)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	u32 ret, reg;
-+	u32 reg;
-+	int ret;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2b0a30a..4398411 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2708,7 +2708,7 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE)
+ 		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
+ 	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
+-		 skb_checksum_start_offset(skb) <= len)
++		 skb_checksum_start_offset(skb) < 0)
+ 		skb->ip_summed = CHECKSUM_NONE;
+ }
  
- 	if (!phy_is_pseudo_fixed_link(phydev))
- 		return;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index dad4dd3..fab4599 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2958,11 +2958,12 @@ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
+  */
+ unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len)
+ {
++	unsigned char *data = skb->data;
++
+ 	BUG_ON(len > skb->len);
+-	skb->len -= len;
+-	BUG_ON(skb->len < skb->data_len);
+-	skb_postpull_rcsum(skb, skb->data, len);
+-	return skb->data += len;
++	__skb_pull(skb, len);
++	skb_postpull_rcsum(skb, data, len);
++	return skb->data;
+ }
+ EXPORT_SYMBOL_GPL(skb_pull_rcsum);
+ 
 -- 
-2.5.1
+1.7.1
