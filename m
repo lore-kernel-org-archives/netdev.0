@@ -1,25 +1,35 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] testptp: Silence compiler warnings on ppc64
-Date: Tue, 29 Sep 2015 19:46:09 +0200
-Message-ID: <20150929174609.GA7957@localhost.localdomain>
-References: <1443541528-937-1-git-send-email-thuth@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, corbet@lwn.net, linux-doc@vger.kernel.org,
-	trivial@kernel.org
-To: Thomas Huth <thuth@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1443541528-937-1-git-send-email-thuth@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 0/2] openvswitch: add IPv6 tunneling support
+Date: Tue, 29 Sep 2015 19:52:24 +0200
+Message-ID: <cover.1443548447.git.jbenc@redhat.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53263 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753788AbbI2Rwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2015 13:52:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2015 at 05:45:28PM +0200, Thomas Huth wrote:
-> This happens because __s64 is by default defined as "long" on ppc64,
-> not as "long long". However, to fix these warnings, it's possible to
-> define the __SANE_USERSPACE_TYPES__ so that __s64 gets defined to
-> "long long" on ppc64, too.
-> 
-> Signed-off-by: Thomas Huth <thuth@redhat.com>
+This builds on the previous work that added IPv6 support to lwtunnels and
+adds IPv6 tunneling support to ovs; it is now pretty straightforward. 
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+To use IPv6 tunneling, there needs to be a metadata based tunnel net_device
+created and added to the ovs bridge. Currently, only vxlan is supported by
+the kernel, with geneve to follow shortly. There's no need nor intent to add
+a support for this into the vport-vxlan compat layer.
+
+Jiri Benc (2):
+  openvswitch: add tunnel protocol to sw_flow_key
+  openvswitch: netlink attributes for IPv6 tunneling
+
+ include/uapi/linux/openvswitch.h |   2 +
+ net/openvswitch/flow.c           |   4 +-
+ net/openvswitch/flow.h           |   1 +
+ net/openvswitch/flow_netlink.c   | 125 +++++++++++++++++++++++++++------------
+ net/openvswitch/flow_table.c     |   2 +-
+ 5 files changed, 93 insertions(+), 41 deletions(-)
+
+-- 
+1.8.3.1
