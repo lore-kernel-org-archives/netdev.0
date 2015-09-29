@@ -1,61 +1,87 @@
 From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: [linux 3.14-stable] virtio-net: drop NETIF_F_FRAGLIST
-Date: Tue, 29 Sep 2015 16:00:57 -0400
-Message-ID: <1443556857.3494.36.camel@gmail.com>
+Subject: [linux 3.14-stable] ipv6: addrconf: validate new MTU before
+ applying it
+Date: Tue, 29 Sep 2015 16:01:19 -0400
+Message-ID: <1443556879.3494.38.camel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:36199 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbbI2UBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:00 -0400
-Received: by qgx61 with SMTP id 61so16596994qgx.3
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:00:59 -0700 (PDT)
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:35798 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbbI2UBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 16:01:21 -0400
+Received: by qkap81 with SMTP id p81so8389920qka.2
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 13:01:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
+From: Marcelo Leitner <mleitner@redhat.com>
 
-commit 48900cb6af4282fa0fb6ff4d72a81aa3dadb5c39 upstream.
+commit 77751427a1ff25b27d47a4c36b12c3c8667855ac upstream.
 
-virtio declares support for NETIF_F_FRAGLIST, but assumes
-that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
-always true with a fraglist.
+Currently we don't check if the new MTU is valid or not and this allows
+one to configure a smaller than minimum allowed by RFCs or even bigger
+than interface own MTU, which is a problem as it may lead to packet
+drops.
 
-A longer fraglist in the skb will make the call to skb_to_sgvec overflow
-the sg array, leading to memory corruption.
+If you have a daemon like NetworkManager running, this may be exploited
+by remote attackers by forging RA packets with an invalid MTU, possibly
+leading to a DoS. (NetworkManager currently only validates for values
+too small, but not for too big ones.)
 
-Drop NETIF_F_FRAGLIST so we only get what we can handle.
+The fix is just to make sure the new value is valid. That is, between
+IPV6_MIN_MTU and interface's MTU.
 
-Fixes CVE-2015-5156.
+Note that similar check is already performed at
+ndisc_router_discovery(), for when kernel itself parses the RA.
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Fixes CVE-2015-0272.
+
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Chas Williams <3chas3@gmail.com>
 ---
- drivers/net/virtio_net.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/addrconf.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 841b608..5c150a0 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1652,9 +1652,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	/* Do we support "hardware" checksums? */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
- 		/* This opens up the world of extra features. */
--		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-+		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG;
- 		if (csum)
--			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-+			dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3f0ec06..7b74fca 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4793,6 +4793,21 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
+ 	return ret;
+ }
  
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
- 			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
++static
++int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
++			void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct inet6_dev *idev = ctl->extra1;
++	int min_mtu = IPV6_MIN_MTU;
++	struct ctl_table lctl;
++
++	lctl = *ctl;
++	lctl.extra1 = &min_mtu;
++	lctl.extra2 = idev ? &idev->dev->mtu : NULL;
++
++	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
++}
++
+ static void dev_disable_change(struct inet6_dev *idev)
+ {
+ 	struct netdev_notifier_info info;
+@@ -4944,7 +4959,7 @@ static struct addrconf_sysctl_table
+ 			.data		= &ipv6_devconf.mtu6,
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.proc_handler	= addrconf_sysctl_mtu,
+ 		},
+ 		{
+ 			.procname	= "accept_ra",
 -- 
 2.1.0
