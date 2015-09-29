@@ -1,47 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 0/3] BPF updates
-Date: Wed, 30 Sep 2015 01:41:49 +0200
-Message-ID: <cover.1443567433.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] skbuff: Fix skb checksum partial check.
+Date: Tue, 29 Sep 2015 16:49:32 -0700 (PDT)
+Message-ID: <20150929.164932.1619659673911486443.davem@davemloft.net>
+References: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59693 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbbI2Xl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:41:58 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60244 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbbI2Xtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:49:33 -0400
+In-Reply-To: <1443486265-2246-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some minor updates to {cls,act}_bpf to retrieve routing realms
-and to make skb->priority writable.
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Mon, 28 Sep 2015 17:24:25 -0700
 
-Thanks!
+> Earlier patch 6ae459bda tried to detect void ckecksum partial
+> skb by comparing pull length to checksum offset. But it does
+> not work for all cases since checksum-offset depends on
+> updates to skb->data.
+> 
+> Following patch fixes it by validating checksum start offset
+> after skb-data pointer is updated. Negative value of checksum
+> offset start means there is no need to checksum.
+> 
+> Fixes: 6ae459bda ("skbuff: Fix skb checksum flag on skb pull")
+> Reported-by: Andrew Vagin <avagin@odin.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> This and 6ae459bda patches needs to be backported to stable.
 
-v1 -> v2:
- - Dropped preclassify patch for now from the series as the
-   rest is pretty much independent of it
- - Rest unchanged, only rebased and already posted Acked-by's kept
-
-Daniel Borkmann (3):
-  ebpf: migrate bpf_prog's flags to bitfield
-  sched, bpf: add helper for retrieving routing realms
-  sched, bpf: make skb->priority writable
-
- arch/arm/net/bpf_jit_32.c       |  2 +-
- arch/arm64/net/bpf_jit_comp.c   |  2 +-
- arch/mips/net/bpf_jit.c         |  2 +-
- arch/powerpc/net/bpf_jit_comp.c |  2 +-
- arch/s390/net/bpf_jit_comp.c    |  2 +-
- arch/sparc/net/bpf_jit_comp.c   |  2 +-
- arch/x86/net/bpf_jit_comp.c     |  2 +-
- include/linux/filter.h          |  7 +++++--
- include/uapi/linux/bpf.h        |  7 +++++++
- kernel/bpf/core.c               |  4 ++++
- kernel/bpf/syscall.c            |  6 ++++--
- net/core/filter.c               | 33 ++++++++++++++++++++++++++++++---
- net/sched/cls_bpf.c             |  8 ++++++--
- 13 files changed, 63 insertions(+), 16 deletions(-)
-
--- 
-1.9.3
+Applied and both queued up for -stable, thanks.
