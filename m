@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 2/3] sched, bpf: add helper for retrieving routing realms
-Date: Wed, 30 Sep 2015 01:41:51 +0200
-Message-ID: <719d0c9b5f2919cf3d34735553318136a6df0b5f.1443567433.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 1/3] ebpf: migrate bpf_prog's flags to bitfield
+Date: Wed, 30 Sep 2015 01:41:50 +0200
+Message-ID: <1b3e186eddba7b76ff2311d088512eed1fb47fae.1443567433.git.daniel@iogearbox.net>
 References: <cover.1443567433.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59688 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:59686 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbbI2Xl5 (ORCPT
+	with ESMTP id S1751035AbbI2Xl5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:41:57 -0400
 In-Reply-To: <cover.1443567433.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1443567433.git.daniel@iogearbox.net>
@@ -17,154 +17,189 @@ References: <cover.1443567433.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using routing realms as part of the classifier is quite useful, it
-can be viewed as a tag for one or multiple routing entries (think of
-an analogy to net_cls cgroup for processes), set by user space routing
-daemons or via iproute2 as an indicator for traffic classifiers and
-later on processed in the eBPF program.
+As we need to add further flags to the bpf_prog structure, lets migrate
+both bools to a bitfield representation. The size of the base structure
+(excluding insns) remains unchanged at 40 bytes.
 
-Unlike actions, the classifier can inspect device flags and enable
-netif_keep_dst() if necessary. tc actions don't have that possibility,
-but in case people know what they are doing, it can be used from there
-as well (e.g. via devs that must keep dsts by design anyway).
-
-If a realm is set, the handler returns the non-zero realm. User space
-can set the full 32bit realm for the dst.
+Add also tags for the kmemchecker, so that it doesn't throw false
+positives. Even in case gcc would generate suboptimal code, it's not
+being accessed in performance critical paths.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/filter.h   |  3 ++-
- include/uapi/linux/bpf.h |  7 +++++++
- kernel/bpf/syscall.c     |  2 ++
- net/core/filter.c        | 22 ++++++++++++++++++++++
- net/sched/cls_bpf.c      |  8 ++++++--
- 5 files changed, 39 insertions(+), 3 deletions(-)
+ arch/arm/net/bpf_jit_32.c       | 2 +-
+ arch/arm64/net/bpf_jit_comp.c   | 2 +-
+ arch/mips/net/bpf_jit.c         | 2 +-
+ arch/powerpc/net/bpf_jit_comp.c | 2 +-
+ arch/s390/net/bpf_jit_comp.c    | 2 +-
+ arch/sparc/net/bpf_jit_comp.c   | 2 +-
+ arch/x86/net/bpf_jit_comp.c     | 2 +-
+ include/linux/filter.h          | 6 ++++--
+ kernel/bpf/core.c               | 4 ++++
+ kernel/bpf/syscall.c            | 4 ++--
+ net/core/filter.c               | 2 +-
+ 11 files changed, 18 insertions(+), 12 deletions(-)
 
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 876060b..0df5fd5 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -1047,7 +1047,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 
+ 	set_memory_ro((unsigned long)header, header->pages);
+ 	fp->bpf_func = (void *)ctx.target;
+-	fp->jited = true;
++	fp->jited = 1;
+ out:
+ 	kfree(ctx.offsets);
+ 	return;
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index c047598..a44e529 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -744,7 +744,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 
+ 	set_memory_ro((unsigned long)header, header->pages);
+ 	prog->bpf_func = (void *)ctx.image;
+-	prog->jited = true;
++	prog->jited = 1;
+ out:
+ 	kfree(ctx.offset);
+ }
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 0c4a133..77cb273 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -1251,7 +1251,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 		bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
+ 
+ 	fp->bpf_func = (void *)ctx.target;
+-	fp->jited = true;
++	fp->jited = 1;
+ 
+ out:
+ 	kfree(ctx.offsets);
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 17cea18..0478216 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -679,7 +679,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 		((u64 *)image)[1] = local_paca->kernel_toc;
+ #endif
+ 		fp->bpf_func = (void *)image;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index eeda051..9a0c4c2 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -1310,7 +1310,7 @@ void bpf_int_jit_compile(struct bpf_prog *fp)
+ 	if (jit.prg_buf) {
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *) jit.prg_buf;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ free_addrs:
+ 	kfree(jit.addrs);
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index f8b9f71..22564f5 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -812,7 +812,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
+ 	if (image) {
+ 		bpf_flush_icache(image, image + proglen);
+ 		fp->bpf_func = (void *)image;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 70efcd0..7599197 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -1109,7 +1109,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 		bpf_flush_icache(header, image + proglen);
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		prog->bpf_func = (void *)image;
+-		prog->jited = true;
++		prog->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
 diff --git a/include/linux/filter.h b/include/linux/filter.h
-index bad618f..3d5fd24 100644
+index fa2cab9..bad618f 100644
 --- a/include/linux/filter.h
 +++ b/include/linux/filter.h
-@@ -328,7 +328,8 @@ struct bpf_prog {
+@@ -326,8 +326,10 @@ struct bpf_binary_header {
+ 
+ struct bpf_prog {
  	u16			pages;		/* Number of allocated pages */
- 	kmemcheck_bitfield_begin(meta);
- 	u16			jited:1,	/* Is our filter JIT'ed? */
--				gpl_compatible:1; /* Is filter GPL compatible? */
-+				gpl_compatible:1, /* Is filter GPL compatible? */
-+				dst_needed:1;	/* Do we need dst entry? */
- 	kmemcheck_bitfield_end(meta);
+-	bool			jited;		/* Is our filter JIT'ed? */
+-	bool			gpl_compatible;	/* Is our filter GPL compatible? */
++	kmemcheck_bitfield_begin(meta);
++	u16			jited:1,	/* Is our filter JIT'ed? */
++				gpl_compatible:1; /* Is filter GPL compatible? */
++	kmemcheck_bitfield_end(meta);
  	u32			len;		/* Number of filter blocks */
  	enum bpf_prog_type	type;		/* Type of BPF program */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 4ec0b54..564f1f0 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -280,6 +280,13 @@ enum bpf_func_id {
- 	 * Return: TC_ACT_REDIRECT
- 	 */
- 	BPF_FUNC_redirect,
+ 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 67c380c..c8855c2 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -82,6 +82,8 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
+ 	if (fp == NULL)
+ 		return NULL;
+ 
++	kmemcheck_annotate_bitfield(fp, meta);
 +
-+	/**
-+	 * bpf_get_route_realm(skb) - retrieve a dst's tclassid
-+	 * @skb: pointer to skb
-+	 * Return: realm if != 0
-+	 */
-+	BPF_FUNC_get_route_realm,
- 	__BPF_FUNC_MAX_ID,
- };
+ 	aux = kzalloc(sizeof(*aux), GFP_KERNEL | gfp_extra_flags);
+ 	if (aux == NULL) {
+ 		vfree(fp);
+@@ -110,6 +112,8 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
+ 
+ 	fp = __vmalloc(size, gfp_flags, PAGE_KERNEL);
+ 	if (fp != NULL) {
++		kmemcheck_annotate_bitfield(fp, meta);
++
+ 		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
+ 		fp->pages = size / PAGE_SIZE;
  
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 2190ab1..5f35f42 100644
+index 35bac8e..2190ab1 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -402,6 +402,8 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 			 */
- 			BUG_ON(!prog->aux->ops->get_func_proto);
+@@ -553,10 +553,10 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 		goto free_prog;
  
-+			if (insn->imm == BPF_FUNC_get_route_realm)
-+				prog->dst_needed = 1;
- 			if (insn->imm == BPF_FUNC_tail_call) {
- 				/* mark bpf_tail_call as different opcode
- 				 * to avoid conditional branch in
+ 	prog->orig_prog = NULL;
+-	prog->jited = false;
++	prog->jited = 0;
+ 
+ 	atomic_set(&prog->aux->refcnt, 1);
+-	prog->gpl_compatible = is_gpl;
++	prog->gpl_compatible = is_gpl ? 1 : 0;
+ 
+ 	/* find program type: socket_filter vs tracing_filter */
+ 	err = find_prog_type(type, prog);
 diff --git a/net/core/filter.c b/net/core/filter.c
-index 04664ac..45c69ce 100644
+index 60e3fe7..04664ac 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -49,6 +49,7 @@
- #include <net/sch_generic.h>
- #include <net/cls_cgroup.h>
- #include <net/dst_metadata.h>
-+#include <net/dst.h>
+@@ -1001,7 +1001,7 @@ static struct bpf_prog *bpf_prepare_filter(struct bpf_prog *fp,
+ 	int err;
  
- /**
-  *	sk_filter - run a packet through a socket filter
-@@ -1478,6 +1479,25 @@ static const struct bpf_func_proto bpf_get_cgroup_classid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
+ 	fp->bpf_func = NULL;
+-	fp->jited = false;
++	fp->jited = 0;
  
-+static u64 bpf_get_route_realm(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	const struct dst_entry *dst;
-+
-+	dst = skb_dst((struct sk_buff *) (unsigned long) r1);
-+	if (dst)
-+		return dst->tclassid;
-+#endif
-+	return 0;
-+}
-+
-+static const struct bpf_func_proto bpf_get_route_realm_proto = {
-+	.func           = bpf_get_route_realm,
-+	.gpl_only       = false,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_PTR_TO_CTX,
-+};
-+
- static u64 bpf_skb_vlan_push(u64 r1, u64 r2, u64 vlan_tci, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
-@@ -1648,6 +1668,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return bpf_get_skb_set_tunnel_key_proto();
- 	case BPF_FUNC_redirect:
- 		return &bpf_redirect_proto;
-+	case BPF_FUNC_get_route_realm:
-+		return &bpf_get_route_realm_proto;
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 7eeffaf6..5faaa54 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -262,7 +262,8 @@ static int cls_bpf_prog_from_ops(struct nlattr **tb, struct cls_bpf_prog *prog)
- 	return 0;
- }
- 
--static int cls_bpf_prog_from_efd(struct nlattr **tb, struct cls_bpf_prog *prog)
-+static int cls_bpf_prog_from_efd(struct nlattr **tb, struct cls_bpf_prog *prog,
-+				 const struct tcf_proto *tp)
- {
- 	struct bpf_prog *fp;
- 	char *name = NULL;
-@@ -294,6 +295,9 @@ static int cls_bpf_prog_from_efd(struct nlattr **tb, struct cls_bpf_prog *prog)
- 	prog->bpf_name = name;
- 	prog->filter = fp;
- 
-+	if (fp->dst_needed)
-+		netif_keep_dst(qdisc_dev(tp->q));
-+
- 	return 0;
- }
- 
-@@ -330,7 +334,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
- 	prog->exts_integrated = have_exts;
- 
- 	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
--		       cls_bpf_prog_from_efd(tb, prog);
-+		       cls_bpf_prog_from_efd(tb, prog, tp);
- 	if (ret < 0) {
- 		tcf_exts_destroy(&exts);
- 		return ret;
+ 	err = bpf_check_classic(fp->insns, fp->len);
+ 	if (err) {
 -- 
 1.9.3
