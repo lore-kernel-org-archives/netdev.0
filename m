@@ -1,80 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 1/6] i40e: Move i40e_get_head into header file
-Date: Mon, 28 Sep 2015 17:55:29 -0700
-Message-ID: <1443488134-36387-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 6/6] igb: assume MSI-X interrupts during initialization
+Date: Mon, 28 Sep 2015 17:55:34 -0700
+Message-ID: <1443488134-36387-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16566 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:59845 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754428AbbI2Azh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2015 20:55:37 -0400
+	id S932205AbbI2Azi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2015 20:55:38 -0400
 In-Reply-To: <1443488134-36387-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kiran Patil <kiran.patil@intel.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-i40e_get_head needs to be called in multiple files in a further patch,
-prepare by moving the function into a header file.
+In igb_sw_init() the sequence of calls was changed from
+igb_init_queue_configuration()
+igb_init_interrupt_scheme()
+igb_probe_vfs()
+to
+igb_probe_vfs()
+igb_init_queue_configuration()
+igb_init_interrupt_scheme()
 
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+This results in adapter->flags not having the IGB_FLAG_HAS_MSIX bit set
+during igb_probe_vfs()->igb_enable_sriov(). Therefore SR-IOV does not
+get enabled properly and we run into a NULL pointer if the max_vfs
+module parameter is specified (adapter->vf_data does not get allocated,
+crash on accessing the structure).
+
+[    7.419348] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
+[    7.419367] IP: [<ffffffffa02161c6>] igb_reset+0xe6/0x5d0 [igb]
+[    7.419370] PGD 0
+[    7.419373] Oops: 0002 [#1] SMP
+[    7.419381] Modules linked in: ahci(+) libahci igb(+) i40e(+) vxlan ip6_udp_tunnel udp_tunnel megaraid_sas(+) ixgbe(+) mdio
+[    7.419385] CPU: 0 PID: 4 Comm: kworker/0:0 Not tainted 4.2.0+ #153
+[    7.419387] Hardware name: Dell Inc. PowerEdge R720/0C4Y3R, BIOS 1.6.0 03/07/2013
+[...]
+[    7.419431] Call Trace:
+[    7.419442]  [<ffffffffa0217236>] igb_probe+0x8b6/0x1340 [igb]
+[    7.419447]  [<ffffffff814c7f15>] local_pci_probe+0x45/0xa0
+
+Prevent this by setting the IGB_FLAG_HAS_MSIX bit before calling
+igb_probe_vfs(). The real interrupt capabilities will be checked during
+igb_init_interrupt_scheme() so this is safe to do.
+
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 13 -------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 14 ++++++++++++++
- 2 files changed, 14 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 738aca6..9a800f9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -600,19 +600,6 @@ void i40e_free_tx_resources(struct i40e_ring *tx_ring)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index e174fbb..ba019fc 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2986,6 +2986,9 @@ static int igb_sw_init(struct igb_adapter *adapter)
  	}
- }
+ #endif /* CONFIG_PCI_IOV */
  
--/**
-- * i40e_get_head - Retrieve head from head writeback
-- * @tx_ring:  tx ring to fetch head of
-- *
-- * Returns value of Tx ring head based on value stored
-- * in head write-back location
-- **/
--static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
--{
--	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
--
--	return le32_to_cpu(*(volatile __le32 *)head);
--}
++	/* Assume MSI-X interrupts, will be checked during IRQ allocation */
++	adapter->flags |= IGB_FLAG_HAS_MSIX;
++
+ 	igb_probe_vfs(adapter);
  
- /**
-  * i40e_get_tx_pending - how many tx descriptors not processed
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index f1385a1..51487ef 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -326,4 +326,18 @@ int i40e_xmit_descriptor_count(struct sk_buff *skb, struct i40e_ring *tx_ring);
- int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
- 			       struct i40e_ring *tx_ring, u32 *flags);
- #endif
-+
-+/**
-+ * i40e_get_head - Retrieve head from head writeback
-+ * @tx_ring:  tx ring to fetch head of
-+ *
-+ * Returns value of Tx ring head based on value stored
-+ * in head write-back location
-+ **/
-+static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
-+{
-+	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
-+
-+	return le32_to_cpu(*(volatile __le32 *)head);
-+}
- #endif /* _I40E_TXRX_H_ */
+ 	igb_init_queue_configuration(adapter);
 -- 
 2.4.3
