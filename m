@@ -1,35 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/11] net: L3 master device
-Date: Tue, 29 Sep 2015 16:23:06 -0700 (PDT)
-Message-ID: <20150929.162306.94737407786085218.davem@davemloft.net>
-References: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 5/6] ipv6: Call xfrm6_xlat_addr from ipv6_rcv
+Date: Wed, 30 Sep 2015 01:26:17 +0200
+Message-ID: <20150929232617.GG19923@breakpoint.cc>
+References: <1443565043-1287886-1-git-send-email-tom@herbertland.com>
+ <1443565043-1287886-6-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60155 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbbI2XXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:23:09 -0400
-In-Reply-To: <1443460621-24855-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42424 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750827AbbI2X0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 19:26:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1443565043-1287886-6-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 28 Sep 2015 10:16:50 -0700
-
-> v2
-> - rebased to top of net-next
+Tom Herbert <tom@herbertland.com> wrote:
+> Call before performing NF_HOOK and routing in order to perform address
+> translation in the receive path.
 > 
-> - addressed Niks comments (checking master, removing extra lines, and
->   flipping the order of patches 1 and 2)
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  net/ipv6/ip6_input.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 9075acf..06dac55 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -183,6 +183,9 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+>  	/* Must drop socket now because of tproxy. */
+>  	skb_orphan(skb);
+>  
+> +	/* Translate destination address before routing */
+> +	xfrm6_xlat_addr(skb);
+> +
 
-This still needs some work:
+Ugh.  Yet another hook :-(
+One would think we have enough by now.
 
-ERROR: "l3mdev_master_ifindex_rcu" [net/ipv6/ipv6.ko] undefined!
-scripts/Makefile.modpost:90: recipe for target '__modpost' failed
-make[1]: *** [__modpost] Error 1
-Makefile:1095: recipe for target 'modules' failed
-make: *** [modules] Error 2
+In any case, I still think this ILA translation stuff should either
+go into xtables (NPT-ish), nftables, or into tc if nft is unusable for
+whatever reeason.  Judging by where this hook is placed, nf hooks
+would work just fine.
+
+If the iptables traverser has too high cost (unfortunately,
+xtables design enforces counters and iface name matching even if its
+not wanted/unneeded for instance), maybe nft would perform better in that
+regard.
