@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Remove redundant oif checks in
- rt6_device_match
-Date: Mon, 28 Sep 2015 22:30:53 -0700 (PDT)
-Message-ID: <20150928.223053.1568032481735754170.davem@davemloft.net>
-References: <1443216174-72579-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: fec: Remove unneeded FEATURES_NEED_QUIESCE
+ definition
+Date: Mon, 28 Sep 2015 22:31:37 -0700 (PDT)
+Message-ID: <20150928.223137.1393704643379436835.davem@davemloft.net>
+References: <1443216692-29042-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53956 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53959 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbbI2Fay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:30:54 -0400
-In-Reply-To: <1443216174-72579-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1752792AbbI2Fbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 01:31:38 -0400
+In-Reply-To: <1443216692-29042-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Fri, 25 Sep 2015 15:22:54 -0600
+From: Fabio Estevam <festevam@gmail.com>
+Date: Fri, 25 Sep 2015 18:31:32 -0300
 
-> The oif has already been checked that it is non-zero; the 2 additional
-> checks on oif within that if (oif) {...} block are redundant.
+> From: Fabio Estevam <fabio.estevam@freescale.com>
 > 
-> CC: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> There is no need to have FEATURES_NEED_QUIESCE defined as we
+> can simply use NETIF_F_RXCSUM instead as done in other parts
+> of the driver.
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Looks good, applied, thanks.
+Applied to net-next, thanks.
