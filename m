@@ -1,52 +1,36 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [RFC v2 net-next 05/10] qede: Add basic network device support
-Date: Tue, 29 Sep 2015 07:54:32 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E351A3@avmb3.qlogic.org>
-References: <1442499839-22762-6-git-send-email-Yuval.Mintz@qlogic.com>
-	<20150924142536.052d6175@urahara>
-	<B5657A6538887040AD3A81F1008BEC63E32A5E@avmb3.qlogic.org>
- <20150924.225637.783498142122739755.davem@davemloft.net>
- <B5657A6538887040AD3A81F1008BEC63E32AD4@avmb3.qlogic.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v3,1/2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
+Date: Tue, 29 Sep 2015 08:08:07 +0000 (UTC)
+Message-ID: <20150929080807.80C6D13F6A5@smtp.codeaurora.org>
+References: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:24158 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755683AbbI2Hyh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 03:54:37 -0400
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E32AD4@avmb3.qlogic.org>
-Content-Language: en-US
+Received: from smtp.codeaurora.org ([198.145.29.96]:37656 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932623AbbI2III (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 04:08:08 -0400
+In-Reply-To: <1442843065-30234-1-git-send-email-linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > >> > +struct qede_rx_queue {
-> > >> > +	__le16			*hw_cons_ptr;
-> > >>
-> > >> The __ variants of constants should be reserved for use in user
-> > >> visible API's
-> > >
-> > > Really? If so, this needs to be fixed not only here but in lots of
-> > > places in the series [e.g., entire HW HSI uses __le variants instead of le].
-> > > But why is it so? I.e., I understand that __le16 is defined in the
-> > > uapi directory and thus accessible to users, but why the distinction?
-> >
-> > Because it shows whether the type is something exposed to userspace or not.
-> >
-> > If there are places where this is done incorrectly in the tree, it is
-> > not a legitimate reason for you to do so as well.
+
+> IW_AUTH_ALG_OPEN_SYSTEM is ambiguous in set_auth for WEP as
+> wpa_supplicant uses it for both no encryption and WEP open system.
+> Cache the last mode set (only of these two) and use it here.
 > 
-> Obviously.
-> We'll fix all of those for next version.
+> This allows wpa_supplicant to work with unencrypted APs.
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-I've taken a look and I couldn't find reference to 'le16' anywhere under
-drivers/net/ethernet/. And 'le16' is actually a fs/ntfs/types.h definition.
+Thanks, 2 patches applied to wireless-drivers-next.git:
 
-What am I missing here?
+4a0f2ea79797 airo: fix IW_AUTH_ALG_OPEN_SYSTEM
+2b8fa9e870b7 airo: Implement netif_carrier_on/off
+
+Kalle Valo
