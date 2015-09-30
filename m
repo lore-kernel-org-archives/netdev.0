@@ -1,41 +1,45 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/2] openvswitch: add tunnel protocol to
- sw_flow_key
-Date: Wed, 30 Sep 2015 09:09:46 +0200
-Message-ID: <20150930090946.4e4bb610@griffin>
+Subject: Re: [ovs-dev] [PATCH net-next 1/2] openvswitch: add tunnel protocol
+ to sw_flow_key
+Date: Wed, 30 Sep 2015 09:14:09 +0200
+Message-ID: <20150930091409.33d4b7ae@griffin>
 References: <cover.1443548447.git.jbenc@redhat.com>
 	<428cee4cb7e04cfea5bef90b37d257562ea78a83.1443548447.git.jbenc@redhat.com>
-	<CALnjE+qWmENWj_hL87++Sk=zzrvj2U0VAEW26ySAjg5RsDymuA@mail.gmail.com>
+	<CAEP_g=_5EhyYeSNvitYSbNX9G52Kt=R6ruNz4V0uJK8sxPyYWQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Pravin Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60026 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60622 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753714AbbI3HJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 03:09:50 -0400
-In-Reply-To: <CALnjE+qWmENWj_hL87++Sk=zzrvj2U0VAEW26ySAjg5RsDymuA@mail.gmail.com>
+	id S1753746AbbI3HOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 03:14:12 -0400
+In-Reply-To: <CAEP_g=_5EhyYeSNvitYSbNX9G52Kt=R6ruNz4V0uJK8sxPyYWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Sep 2015 13:41:34 -0700, Pravin Shelar wrote:
-> We can add rather add TUNNEL_IPV6 flag to distinguish IPv4 and IPv6
-> tunnel keys. This can be stored in ip_tunnel_key.tun_flags.
+On Tue, 29 Sep 2015 19:08:44 -0700, Jesse Gross wrote:
+> On Tue, Sep 29, 2015 at 10:52 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> > diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> > index 5c030a4d7338..03ba070c3256 100644
+> > --- a/net/openvswitch/flow_netlink.c
+> > +++ b/net/openvswitch/flow_netlink.c
+> > @@ -643,6 +643,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+> >         }
+> >
+> >         SW_FLOW_KEY_PUT(match, tun_key.tun_flags, tun_flags, is_mask);
+> > +       SW_FLOW_KEY_PUT(match, tun_proto, AF_INET, is_mask);
+> 
+> I don't think this is right in the case of the mask. It will cause the
+> the mask to be the value AF_INET - instead you want to set the mask to
+> be 0xff.
 
-Not really. This was my original approach, too, but openvswitch is not
-the only user of struct ip_tunnel_key, and in the lwtunnel core,
-tun_flags are handled in the way that makes this impractical. Most
-importantly, the tun_flags value is directly taken from/stored to
-LWTUNNEL_IP_FLAGS/LWTUNNEL_IP6_FLAGS netlink attributes in
-net/ipv4/ip_tunnel_core.c. This would mean complicated masking, etc.
+I think you're right, this is a special case. I'll fix it.
 
-> That also saves space in flow key.
-
-The field was added to a 2 byte hole in the struct sw_flow_key (leaving
-still 1 byte free), thus there's no additional space used.
+Thanks,
 
  Jiri
 
