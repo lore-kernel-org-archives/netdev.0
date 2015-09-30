@@ -1,30 +1,106 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain
- type
-Date: Wed, 30 Sep 2015 09:40:19 +0200 (CEST)
-Message-ID: <alpine.LSU.2.20.1509300938060.9960@nerf40.vanv.qr>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org> <1443525140-13493-4-git-send-email-daniel@zonque.org> <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
+From: =?UTF-8?q?Peter=20N=C3=B8rlund?= <pch@ordbogen.com>
+Subject: [PATCH v5 net-next 0/2] ipv4: Hash-based multipath routing
+Date: Wed, 30 Sep 2015 10:12:20 +0200
+Message-ID: <1443600742-20516-1-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
-	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, balazs.scheidler@balabit.com
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <560B8E25.7050801@zonque.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ordbogen.com ([91.240.88.21]:39400 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754317AbbI3IMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 04:12:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+When the routing cache was removed in 3.6, the IPv4 multipath algorithm=
+ changed
+from more or less being destination-based into being quasi-random per-p=
+acket
+scheduling. This increases the risk of out-of-order packets and makes i=
+t
+impossible to use multipath together with anycast services.
+
+This patch series replaces the old implementation with flow-based load
+balancing based on a hash over the source and destination addresses.
+
+Distribution of the hash is done with thresholds as described in RFC 29=
+92.
+This reduces the disruption when a path is added/remove when having mor=
+e than
+two paths.
+
+To futher the chance of successful usage in conjuction with anycast, IC=
+MP
+error packets are hashed over the inner IP addresses. This ensures that=
+ PMTU
+will work together with anycast or load-balancers such as IPVS.
+
+Port numbers are not considered since fragments could cause problems wi=
+th
+anycast and IPVS. Relying on the DF-flag for TCP packets is also insuff=
+icient,
+since ICMP inspection effectively extracts information from the opposit=
+e
+flow which might have a different state of the DF-flag. This is also wh=
+y the
+RSS hash is not used. These are typically based on the NDIS RSS spec wh=
+ich
+mandates TCP support.
+
+Measurements of the additional overhead of a two-path multipath
+(p_mkroute_input excl. __mkroute_input) on a Xeon X3550 (4 cores, 2.66G=
+Hz):
+
+Original per-packet: ~394 cycles/packet
+L3 hash:              ~76 cycles/packet
+
+Changes in v5:
+- Fixed compilation error
+
+Changes in v4:
+- Functions take hash directly instead of func ptr
+- Added inline hash function
+- Added dummy macros to minimize ifdefs
+- Use upper 31 bits of hash instead of lower
+
+Changes in v3:
+- Multipath algorithm is no longer configurable (always L3)
+- Added random seed to hash
+- Moved ICMP inspection to isolated function
+- Ignore source quench packets (deprecated as per RFC 6633)
+
+Changes in v2:
+- Replaced 8-bit xor hash with 31-bit jenkins hash
+- Don't scale weights (since 31-bit)
+- Avoided unnecesary renaming of variables
+- Rely on DF-bit instead of fragment offset when checking for fragmenta=
+tion
+- upper_bound is now inclusive to avoid overflow
+- Use a callback to postpone extracting flow information until necessar=
+y
+- Skipped ICMP inspection entirely with L4 hashing
+- Handle newly added sysctl ignore_routes_with_linkdown
+
+Best Regards
+ Peter N=C3=B8rlund
 
 
-On Wednesday 2015-09-30 09:24, Daniel Mack wrote:
->
->> Drop?  Makes no sense, else application would not be running in the first
->> place.
->
->Of course you can drop certain packets at this point, depending on other
->details. Say, for instance, you want to match all packets that are
->received by a certain task [...]
->Another use case is accounting. If you want to know how much traffic a
->certain service or application in your system has caused
+Peter N=C3=B8rlund (2):
+      ipv4: L3 hash-based multipath
+      ipv4: ICMP packet inspection for multipath
 
-But the sk info would be available in INPUT already, would it not?
+
+ include/net/ip_fib.h     |   14 ++++-
+ include/net/route.h      |   11 +++-
+ net/ipv4/fib_semantics.c |  140 ++++++++++++++++++++++----------------=
+----
+ net/ipv4/icmp.c          |   19 +++++-
+ net/ipv4/route.c         |   65 ++++++++++++++++++--
+ 5 files changed, 173 insertions(+), 76 deletions(-)
