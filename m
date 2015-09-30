@@ -1,87 +1,182 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 06/11] net: Replace calls to vrf_dev_get_rth
-Date: Tue, 29 Sep 2015 20:07:15 -0700
-Message-ID: <1443582438-23823-7-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 07/11] net: Remove the now unused vrf_ptr
+Date: Tue, 29 Sep 2015 20:07:16 -0700
+Message-ID: <1443582438-23823-8-git-send-email-dsa@cumulusnetworks.com>
 References: <1443582438-23823-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34352 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618AbbI3DHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 23:07:34 -0400
-Received: by padhy16 with SMTP id hy16so24930972pad.1
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 20:07:34 -0700 (PDT)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34380 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049AbbI3DHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 23:07:36 -0400
+Received: by padhy16 with SMTP id hy16so24931667pad.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 20:07:36 -0700 (PDT)
 In-Reply-To: <1443582438-23823-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace calls to vrf_dev_get_rth with l3mdev_get_rtable.
-The check on the flow flags is handled in the l3mdev operation.
-
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/vrf.h | 22 ----------------------
- net/ipv4/route.c  |  8 +++-----
- 2 files changed, 3 insertions(+), 27 deletions(-)
+ drivers/net/vrf.c         | 32 ++------------------------------
+ include/linux/netdevice.h |  2 --
+ include/net/vrf.h         |  6 ------
+ 3 files changed, 2 insertions(+), 38 deletions(-)
 
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 72f1892ebad0..df872f4efb0d 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -396,18 +396,15 @@ static void __vrf_insert_slave(struct slave_queue *queue, struct slave *slave)
+ 
+ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ {
+-	struct net_vrf_dev *vrf_ptr = kmalloc(sizeof(*vrf_ptr), GFP_KERNEL);
+ 	struct slave *slave = kzalloc(sizeof(*slave), GFP_KERNEL);
+ 	struct net_vrf *vrf = netdev_priv(dev);
+ 	struct slave_queue *queue = &vrf->queue;
+ 	int ret = -ENOMEM;
+ 
+-	if (!slave || !vrf_ptr)
++	if (!slave)
+ 		goto out_fail;
+ 
+ 	slave->dev = port_dev;
+-	vrf_ptr->ifindex = dev->ifindex;
+-	vrf_ptr->tb_id = vrf->tb_id;
+ 
+ 	/* register the packet handler for slave ports */
+ 	ret = netdev_rx_handler_register(port_dev, vrf_handle_frame, dev);
+@@ -424,7 +421,6 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 
+ 	port_dev->flags |= IFF_SLAVE;
+ 	__vrf_insert_slave(queue, slave);
+-	rcu_assign_pointer(port_dev->vrf_ptr, vrf_ptr);
+ 	cycle_netdev(port_dev);
+ 
+ 	return 0;
+@@ -432,7 +428,6 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ out_unregister:
+ 	netdev_rx_handler_unregister(port_dev);
+ out_fail:
+-	kfree(vrf_ptr);
+ 	kfree(slave);
+ 	return ret;
+ }
+@@ -448,21 +443,15 @@ static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ /* inverse of do_vrf_add_slave */
+ static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
+ {
+-	struct net_vrf_dev *vrf_ptr = rtnl_dereference(port_dev->vrf_ptr);
+ 	struct net_vrf *vrf = netdev_priv(dev);
+ 	struct slave_queue *queue = &vrf->queue;
+ 	struct slave *slave;
+ 
+-	RCU_INIT_POINTER(port_dev->vrf_ptr, NULL);
+-
+ 	netdev_upper_dev_unlink(port_dev, dev);
+ 	port_dev->flags &= ~IFF_SLAVE;
+ 
+ 	netdev_rx_handler_unregister(port_dev);
+ 
+-	/* after netdev_rx_handler_unregister for synchronize_rcu */
+-	kfree(vrf_ptr);
+-
+ 	cycle_netdev(port_dev);
+ 
+ 	slave = __vrf_find_slave_dev(queue, port_dev);
+@@ -601,10 +590,6 @@ static int vrf_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ static void vrf_dellink(struct net_device *dev, struct list_head *head)
+ {
+-	struct net_vrf_dev *vrf_ptr = rtnl_dereference(dev->vrf_ptr);
+-
+-	RCU_INIT_POINTER(dev->vrf_ptr, NULL);
+-	kfree_rcu(vrf_ptr, rcu);
+ 	unregister_netdevice_queue(dev, head);
+ }
+ 
+@@ -612,7 +597,6 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net_vrf *vrf = netdev_priv(dev);
+-	struct net_vrf_dev *vrf_ptr;
+ 	int err;
+ 
+ 	if (!data || !data[IFLA_VRF_TABLE])
+@@ -622,24 +606,13 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	dev->priv_flags |= IFF_L3MDEV_MASTER;
+ 
+-	err = -ENOMEM;
+-	vrf_ptr = kmalloc(sizeof(*dev->vrf_ptr), GFP_KERNEL);
+-	if (!vrf_ptr)
+-		goto out_fail;
+-
+-	vrf_ptr->ifindex = dev->ifindex;
+-	vrf_ptr->tb_id = vrf->tb_id;
+-
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+ 		goto out_fail;
+ 
+-	rcu_assign_pointer(dev->vrf_ptr, vrf_ptr);
+-
+ 	return 0;
+ 
+ out_fail:
+-	kfree(vrf_ptr);
+ 	free_netdev(dev);
+ 	return err;
+ }
+@@ -683,10 +656,9 @@ static int vrf_device_event(struct notifier_block *unused,
+ 
+ 	/* only care about unregister events to drop slave references */
+ 	if (event == NETDEV_UNREGISTER) {
+-		struct net_vrf_dev *vrf_ptr = rtnl_dereference(dev->vrf_ptr);
+ 		struct net_device *vrf_dev;
+ 
+-		if (!vrf_ptr || netif_is_l3_master(dev))
++		if (netif_is_l3_master(dev))
+ 			goto out;
+ 
+ 		vrf_dev = netdev_master_upper_dev_get(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c7f14794fe14..72bf9e37a2f0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1427,7 +1427,6 @@ enum netdev_priv_flags {
+  *	@dn_ptr:	DECnet specific data
+  *	@ip6_ptr:	IPv6 specific data
+  *	@ax25_ptr:	AX.25 specific data
+- *	@vrf_ptr:	VRF specific data
+  *	@ieee80211_ptr:	IEEE 802.11 specific data, assign before registering
+  *
+  *	@last_rx:	Time of last Rx
+@@ -1649,7 +1648,6 @@ struct net_device {
+ 	struct dn_dev __rcu     *dn_ptr;
+ 	struct inet6_dev __rcu	*ip6_ptr;
+ 	void			*ax25_ptr;
+-	struct net_vrf_dev __rcu *vrf_ptr;
+ 	struct wireless_dev	*ieee80211_ptr;
+ 	struct wpan_dev		*ieee802154_ptr;
+ #if IS_ENABLED(CONFIG_MPLS_ROUTING)
 diff --git a/include/net/vrf.h b/include/net/vrf.h
-index b05b96646e2a..5bba1535ba73 100644
+index 5bba1535ba73..e83fc38770dd 100644
 --- a/include/net/vrf.h
 +++ b/include/net/vrf.h
-@@ -32,26 +32,4 @@ struct net_vrf {
- 	u32			tb_id;
- };
+@@ -11,12 +11,6 @@
+ #ifndef __LINUX_NET_VRF_H
+ #define __LINUX_NET_VRF_H
  
+-struct net_vrf_dev {
+-	struct rcu_head		rcu;
+-	int                     ifindex; /* ifindex of master dev */
+-	u32                     tb_id;   /* table id for VRF */
+-};
 -
--#if IS_ENABLED(CONFIG_NET_VRF)
--/* caller has already checked netif_is_l3_master(dev) */
--static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
--{
--	struct rtable *rth = ERR_PTR(-ENETUNREACH);
--	struct net_vrf *vrf = netdev_priv(dev);
--
--	if (vrf) {
--		rth = vrf->rth;
--		atomic_inc(&rth->dst.__refcnt);
--	}
--	return rth;
--}
--
--#else
--static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
--{
--	return ERR_PTR(-ENETUNREACH);
--}
--#endif
--
- #endif /* __LINUX_NET_VRF_H */
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index ba466667c45c..1441de1550e6 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -112,7 +112,6 @@
- #endif
- #include <net/secure_seq.h>
- #include <net/ip_tunnels.h>
--#include <net/vrf.h>
- #include <net/l3mdev.h>
- 
- #define RT_FL_TOS(oldflp4) \
-@@ -2125,11 +2124,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      RT_SCOPE_HOST);
- 		}
--		if (netif_is_l3_master(dev_out) &&
--		    !(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
--			rth = vrf_dev_get_rth(dev_out);
-+
-+		rth = l3mdev_get_rtable(dev_out, fl4);
-+		if (rth)
- 			goto out;
--		}
- 	}
- 
- 	if (!fl4->daddr) {
+ struct slave {
+ 	struct list_head	list;
+ 	struct net_device	*dev;
 -- 
 1.9.1
