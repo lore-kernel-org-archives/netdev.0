@@ -1,80 +1,183 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 06/14] RDS: use rds_send_xmit() state instead of RDS_LL_SEND_FULL
-Date: Wed, 30 Sep 2015 13:24:25 -0400
-Message-ID: <1443633873-13359-7-git-send-email-santosh.shilimkar@oracle.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH v2 04/14] RDS: Use per-bucket rw lock for bind hash-table
+Date: Wed, 30 Sep 2015 13:24:23 -0400
+Message-ID: <1443633873-13359-5-git-send-email-santosh.shilimkar@oracle.com>
 References: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1443633873-13359-1-git-send-email-santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-rdma@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ssantosh@kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In Transport indepedent rds_sendmsg(), we shouldn't make decisions based
-on RDS_LL_SEND_FULL which is used to manage the ring for RDMA based
-transports. We can safely issue rds_send_xmit() and the using its
-return value take decision on deferred work. This will also fix
-the scenario where at times we are seeing connections stuck with
-the LL_SEND_FULL bit getting set and never cleared.
+One global lock protecting hash-tables with 1024 buckets isn't
+efficient and it shows up in a massive systems with truck
+loads of RDS sockets serving multiple databases. The
+perf data clearly highlights the contention on the rw
+lock in these massive workloads.
 
-We kick krdsd after any time we see -ENOMEM or -EAGAIN from the
-ring allocation code.
+When the contention gets worse, the code gets into a state where
+it decides to back off on the lock. So while it has disabled interrupts,
+it sits and backs off on this lock get. This causes the system to
+become sluggish and eventually all sorts of bad things happen.
 
-Signed-off-by: Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+The simple fix is to move the lock into the hash bucket and
+use per-bucket lock to improve the scalability.
+
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c    | 10 ++++++----
- net/rds/threads.c |  2 ++
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ net/rds/af_rds.c |  2 ++
+ net/rds/bind.c   | 47 ++++++++++++++++++++++++++++++++---------------
+ net/rds/rds.h    |  1 +
+ 3 files changed, 35 insertions(+), 15 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index f1e709c..9d8b52d 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -1122,8 +1122,9 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 	 */
- 	rds_stats_inc(s_send_queued);
- 
--	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
--		rds_send_xmit(conn);
-+	ret = rds_send_xmit(conn);
-+	if (ret == -ENOMEM || ret == -EAGAIN)
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
- 
- 	rds_message_put(rm);
- 	return payload_len;
-@@ -1179,8 +1180,9 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
- 	rds_stats_inc(s_send_queued);
- 	rds_stats_inc(s_send_pong);
- 
--	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
--		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-+	ret = rds_send_xmit(conn);
-+	if (ret == -ENOMEM || ret == -EAGAIN)
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
- 
- 	rds_message_put(rm);
- 	return 0;
-diff --git a/net/rds/threads.c b/net/rds/threads.c
-index dc2402e..454aa6d 100644
---- a/net/rds/threads.c
-+++ b/net/rds/threads.c
-@@ -162,7 +162,9 @@ void rds_send_worker(struct work_struct *work)
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index dc08766..384ea1e 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -582,6 +582,8 @@ static int rds_init(void)
+ {
  	int ret;
  
- 	if (rds_conn_state(conn) == RDS_CONN_UP) {
-+		clear_bit(RDS_LL_SEND_FULL, &conn->c_flags);
- 		ret = rds_send_xmit(conn);
-+		cond_resched();
- 		rdsdebug("conn %p ret %d\n", conn, ret);
- 		switch (ret) {
- 		case -EAGAIN:
++	rds_bind_lock_init();
++
+ 	ret = rds_conn_init();
+ 	if (ret)
+ 		goto out;
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index 166c605..bc6b93e 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -38,22 +38,27 @@
+ #include <linux/ratelimit.h>
+ #include "rds.h"
+ 
++struct bind_bucket {
++	rwlock_t                lock;
++	struct hlist_head	head;
++};
++
+ #define BIND_HASH_SIZE 1024
+-static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
+-static DEFINE_RWLOCK(rds_bind_lock);
++static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
+ 
+-static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
++static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
+ {
+ 	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+ 				  (BIND_HASH_SIZE - 1));
+ }
+ 
+ /* must hold either read or write lock (write lock for insert != NULL) */
+-static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
++static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
++					__be32 addr, __be16 port,
+ 					struct rds_sock *insert)
+ {
+ 	struct rds_sock *rs;
+-	struct hlist_head *head = hash_to_bucket(addr, port);
++	struct hlist_head *head = &bucket->head;
+ 	u64 cmp;
+ 	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
+ 
+@@ -91,10 +96,11 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ {
+ 	struct rds_sock *rs;
+ 	unsigned long flags;
++	struct bind_bucket *bucket = hash_to_bucket(addr, port);
+ 
+-	read_lock_irqsave(&rds_bind_lock, flags);
+-	rs = rds_bind_lookup(addr, port, NULL);
+-	read_unlock_irqrestore(&rds_bind_lock, flags);
++	read_lock_irqsave(&bucket->lock, flags);
++	rs = rds_bind_lookup(bucket, addr, port, NULL);
++	read_unlock_irqrestore(&bucket->lock, flags);
+ 
+ 	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
+ 		rds_sock_put(rs);
+@@ -113,6 +119,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	unsigned long flags;
+ 	int ret = -EADDRINUSE;
+ 	u16 rover, last;
++	struct bind_bucket *bucket;
+ 
+ 	if (*port != 0) {
+ 		rover = be16_to_cpu(*port);
+@@ -122,13 +129,15 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 		last = rover - 1;
+ 	}
+ 
+-	write_lock_irqsave(&rds_bind_lock, flags);
+-
+ 	do {
+ 		struct rds_sock *rrs;
+ 		if (rover == 0)
+ 			rover++;
+-		rrs = rds_bind_lookup(addr, cpu_to_be16(rover), rs);
++
++		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
++		write_lock_irqsave(&bucket->lock, flags);
++		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
++		write_unlock_irqrestore(&bucket->lock, flags);
+ 		if (!rrs) {
+ 			*port = rs->rs_bound_port;
+ 			ret = 0;
+@@ -140,16 +149,16 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 		}
+ 	} while (rover++ != last);
+ 
+-	write_unlock_irqrestore(&rds_bind_lock, flags);
+-
+ 	return ret;
+ }
+ 
+ void rds_remove_bound(struct rds_sock *rs)
+ {
+ 	unsigned long flags;
++	struct bind_bucket *bucket =
++		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
+ 
+-	write_lock_irqsave(&rds_bind_lock, flags);
++	write_lock_irqsave(&bucket->lock, flags);
+ 
+ 	if (rs->rs_bound_addr) {
+ 		rdsdebug("rs %p unbinding from %pI4:%d\n",
+@@ -161,7 +170,7 @@ void rds_remove_bound(struct rds_sock *rs)
+ 		rs->rs_bound_addr = 0;
+ 	}
+ 
+-	write_unlock_irqrestore(&rds_bind_lock, flags);
++	write_unlock_irqrestore(&bucket->lock, flags);
+ }
+ 
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -207,3 +216,11 @@ out:
+ 	release_sock(sk);
+ 	return ret;
+ }
++
++void rds_bind_lock_init(void)
++{
++	int i;
++
++	for (i = 0; i < BIND_HASH_SIZE; i++)
++		rwlock_init(&bind_hash_table[i].lock);
++}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index afb4048..121fb81 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -603,6 +603,7 @@ extern wait_queue_head_t rds_poll_waitq;
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
+ void rds_remove_bound(struct rds_sock *rs);
+ struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
++void rds_bind_lock_init(void);
+ 
+ /* cong.c */
+ int rds_cong_get_maps(struct rds_connection *conn);
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
