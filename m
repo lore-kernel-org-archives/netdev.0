@@ -1,169 +1,69 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 11/12] [RFC] ipv4: avoid timespec in timestamp computation
-Date: Wed, 30 Sep 2015 13:26:41 +0200
-Message-ID: <1443612402-3000775-12-git-send-email-arnd@arndb.de>
+Subject: [PATCH 05/12] mwifiex: avoid gettimeofday in ba_threshold
+	setting
+Date: Wed, 30 Sep 2015 13:26:35 +0200
+Message-ID: <1443612402-3000775-6-git-send-email-arnd@arndb.de>
 References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Nishant Sarmukadam <nishants@marvell.com>,
+ Amitkumar Karwar <akarwar@marvell.com>,
+ "David S. Miller" <davem@davemloft.net>, Kalle Valo <kvalo@codeaurora.org>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <y2038-bounces@lists.linaro.org>
 In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-This is an attempt to avoid the use of timespec in ipv4, where
-getnstimeofday() used to be used for computing the number of
-milliseconds since midnight, in three places.
-
-That computation would overflow in 2038 on 32-bit machines,
-and the normal workaround for this is to use timespec64, which
-in turn requires an expensive div_s64_mod() function call
-for calculating the seconds modulo 86400.
-
-Instead, this approach introduces a new generic helper function
-that does this more efficiently, by using only a 32-bit modulo
-(which the compiler can turn into two multiplications), relying
-on 39 bits to be sufficient for the current time of day. This
-is roughly 100 times faster than a full divmod operation on ARM.
-
-As a further optimization, this does not use the exact nanosecond
-value but instead relies tk_xtime() to report the time of the
-last jiffy, which is slightly less accurate, depending on the
-value of HZ.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: John Stultz <john.stultz@linaro.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
----
- include/linux/timekeeping.h |  2 ++
- kernel/time/timekeeping.c   | 34 ++++++++++++++++++++++++++++++++++
- net/ipv4/icmp.c             |  8 +++-----
- net/ipv4/ip_options.c       |  9 ++-------
- 4 files changed, 41 insertions(+), 12 deletions(-)
-
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index ca2eaa9077eb..3e126f8c2876 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -44,6 +44,8 @@ extern void ktime_get_ts64(struct timespec64 *ts);
- extern time64_t ktime_get_seconds(void);
- extern time64_t ktime_get_real_seconds(void);
- 
-+extern u32 ktime_get_ms_since_midnight(void);
-+
- extern int __getnstimeofday64(struct timespec64 *tv);
- extern void getnstimeofday64(struct timespec64 *tv);
- extern void getboottime64(struct timespec64 *ts);
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index ed5049ff94c5..3a1e030fa969 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -846,6 +846,40 @@ time64_t ktime_get_real_seconds(void)
- }
- EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
- 
-+#if IS_ENABLED(CONFIG_INET)
-+u32 ktime_get_ms_of_day(void)
-+{
-+	struct timekeeper *tk = &tk_core.timekeeper;
-+	struct timespec64 now;
-+	unsigned long seq;
-+	u32 ms;
-+
-+	/* we assume that the coarse time is good enough here */
-+	do {
-+		seq = read_seqcount_begin(&tk_core.seq);
-+
-+		now = tk_xtime(tk);
-+	} while (read_seqcount_retry(&tk_core.seq, seq));
-+
-+	/*
-+	 * efficiently calculate the milliseconds since midnight:
-+	 * 86400 seconds per day == 2^7 * 675, which helps us
-+	 * replace an expensive div_s64_rem() with a hand-written
-+	 * 39-bit modulo on 32-bit architectures.
-+	 */
-+	if (!IS_ENABLED(CONFIG_64BIT))
-+		ms = (now.tv_sec & 0x7f) * MSEC_PER_SEC +
-+		     ((u32)(now.tv_sec >> 7) % 675) * 0x80 * MSEC_PER_SEC;
-+	else
-+		ms = (now.tv_sec % 86400) * MSEC_PER_SEC;
-+
-+	ms += now.tv_nsec / NSEC_PER_MSEC;
-+
-+	return ms;
-+}
-+EXPORT_SYMBOL_GPL(ktime_get_ms_since_midnight);
-+#endif
-+
- #ifdef CONFIG_NTP_PPS
- 
- /**
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index e5eb8ac4089d..b1c53f2f7bd5 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -914,7 +914,6 @@ static bool icmp_echo(struct sk_buff *skb)
-  */
- static bool icmp_timestamp(struct sk_buff *skb)
- {
--	struct timespec tv;
- 	struct icmp_bxm icmp_param;
- 	/*
- 	 *	Too short.
-@@ -923,11 +922,10 @@ static bool icmp_timestamp(struct sk_buff *skb)
- 		goto out_err;
- 
- 	/*
--	 *	Fill in the current time as ms since midnight UT:
-+	 *	Fill in the current time as ms since midnight UT,
-+	 *	this could probably be done faster.
- 	 */
--	getnstimeofday(&tv);
--	icmp_param.data.times[1] = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC +
--					 tv.tv_nsec / NSEC_PER_MSEC);
-+	icmp_param.data.times[1] = htonl(ktime_get_ms_since_midnight());
- 	icmp_param.data.times[2] = icmp_param.data.times[1];
- 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
- 		BUG();
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index bd246792360b..339ce528ecae 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -58,10 +58,8 @@ void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
- 		if (opt->ts_needaddr)
- 			ip_rt_get_source(iph+opt->ts+iph[opt->ts+2]-9, skb, rt);
- 		if (opt->ts_needtime) {
--			struct timespec tv;
- 			__be32 midtime;
--			getnstimeofday(&tv);
--			midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
-+			midtime = htonl(ktime_get_ms_since_midnight());
- 			memcpy(iph+opt->ts+iph[opt->ts+2]-5, &midtime, 4);
- 		}
- 		return;
-@@ -415,10 +413,7 @@ int ip_options_compile(struct net *net,
- 					break;
- 				}
- 				if (timeptr) {
--					struct timespec tv;
--					u32  midtime;
--					getnstimeofday(&tv);
--					midtime = (tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC;
-+					u32 midtime = ktime_get_ms_since_midnight();
- 					put_unaligned_be32(midtime, timeptr);
- 					opt->is_changed = 1;
- 				}
--- 
-2.1.0.rc2
+bXdpZmlleF9nZXRfcmFuZG9tX2JhX3RocmVzaG9sZCgpIHVzZXMgYSBjb21wbGV4IGhvbWVncm93
+biBpbXBsZW1lbnRhdGlvbgp0byBnZW5lcmF0ZSBhIHBzZXVkby1yYW5kb20gbnVtYmVyIGZyb20g
+dGhlIGN1cnJlbnQgdGltZSBhcyByZXR1cm5lZApmcm9tIGRvX2dldHRpbWVvZmRheSgpLgoKVGhp
+cyBjdXJyZW50bHkgcmVxdWlyZXMgdHdvIDMyLWJpdCBkaXZpc2lvbnMgcGx1cyBhIGNvdXBsZSBv
+ZiBvdGhlcgpjb21wdXRhdGlvbnMgdGhhdCBhcmUgZXZlbnR1YWxseSBkaXNjYXJkZWQgYXMgb25s
+eSBlaWdodCBiaXRzIG9mCnRoZSBtaWNyb3NlY29uZCBwb3J0aW9uIGFyZSB1c2VkIGF0IGFsbC4K
+CldlIGNvdWxkIHJlcGxhY2UgdGhpcyB3aXRoIGEgY2FsbCB0byBnZXRfcmFuZG9tX2J5dGVzKCks
+IGJ1dCB0aGF0Cm1pZ2h0IGRyYWluIHRoZSBlbnRyb3B5IHBvb2wgdG9vIGZhc3QgaWYgdGhpcyBp
+cyBjYWxsZWQgZm9yIGVhY2gKcGFja2V0LgoKSW5zdGVhZCwgdGhpcyBwYXRjaCBjb252ZXJ0cyBp
+dCB0byB1c2Uga3RpbWVfZ2V0X25zKCksIHdoaWNoIGlzIGEKYml0IGZhc3RlciB0aGFuIGRvX2dl
+dHRpbWVvZmRheSgpLCBhbmQgdGhlbiB1c2VzIGEgc2ltaWxhciBhbGdvcml0aG0KYXMgYmVmb3Jl
+LCBidXQgaW4gYSB3YXkgdGhhdCB0YWtlcyBib3RoIHRoZSBuYW5vc2Vjb25kIGFuZCBzZWNvbmQK
+cG9ydGlvbiBpbnRvIGFjY291bnQgZm9yIHNsaWdodGx5LW1vcmUtYnV0LXN0aWxsLW5vdC12ZXJ5
+LXJhbmRvbQpwc2V1ZG9yYW5kb20gbnVtYmVyLgoKU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFu
+biA8YXJuZEBhcm5kYi5kZT4KQ2M6IEFtaXRrdW1hciBLYXJ3YXIgPGFrYXJ3YXJAbWFydmVsbC5j
+b20+CkNjOiBOaXNoYW50IFNhcm11a2FkYW0gPG5pc2hhbnRzQG1hcnZlbGwuY29tPgpDYzogS2Fs
+bGUgVmFsbyA8a3ZhbG9AY29kZWF1cm9yYS5vcmc+CkNjOiBsaW51eC13aXJlbGVzc0B2Z2VyLmtl
+cm5lbC5vcmcKLS0tCiBkcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3dtbS5jIHwgMTUgKysr
+Ky0tLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspLCAxMSBkZWxldGlv
+bnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3dtbS5jIGIv
+ZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC93bW0uYwppbmRleCAxNzNkMzY2M2MyZTAuLjg3
+OGQzNTgwNjNkYyAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC93bW0u
+YworKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3dtbS5jCkBAIC0xMTcsMjIgKzEx
+NywxNSBAQCBtd2lmaWV4X3dtbV9hbGxvY2F0ZV9yYWxpc3Rfbm9kZShzdHJ1Y3QgbXdpZmlleF9h
+ZGFwdGVyICphZGFwdGVyLCBjb25zdCB1OCAqcmEpCiAgKi8KIHN0YXRpYyB1OCBtd2lmaWV4X2dl
+dF9yYW5kb21fYmFfdGhyZXNob2xkKHZvaWQpCiB7Ci0JdTMyIHNlYywgdXNlYzsKLQlzdHJ1Y3Qg
+dGltZXZhbCBiYV90c3RhbXA7Ci0JdTggYmFfdGhyZXNob2xkOwotCisJdTY0IG5zOwogCS8qIHNl
+dHVwIGJhX3BhY2tldF90aHJlc2hvbGQgaGVyZSByYW5kb20gbnVtYmVyIGJldHdlZW4KIAkgKiBb
+QkFfU0VUVVBfUEFDS0VUX09GRlNFVCwKIAkgKiBCQV9TRVRVUF9QQUNLRVRfT0ZGU0VUK0JBX1NF
+VFVQX01BWF9QQUNLRVRfVEhSRVNIT0xELTFdCiAJICovCisJbnMgPSBrdGltZV9nZXRfbnMoKTsK
+KwlucyArPSAobnMgPj4gMzIpICsgKG5zID4+IDE2KTsKIAotCWRvX2dldHRpbWVvZmRheSgmYmFf
+dHN0YW1wKTsKLQlzZWMgPSAoYmFfdHN0YW1wLnR2X3NlYyAmIDB4RkZGRikgKyAoYmFfdHN0YW1w
+LnR2X3NlYyA+PiAxNik7Ci0JdXNlYyA9IChiYV90c3RhbXAudHZfdXNlYyAmIDB4RkZGRikgKyAo
+YmFfdHN0YW1wLnR2X3VzZWMgPj4gMTYpOwotCWJhX3RocmVzaG9sZCA9ICgoKHNlYyA8PCAxNikg
+KyB1c2VjKSAlIEJBX1NFVFVQX01BWF9QQUNLRVRfVEhSRVNIT0xEKQotCQkJCQkJICAgICAgKyBC
+QV9TRVRVUF9QQUNLRVRfT0ZGU0VUOwotCi0JcmV0dXJuIGJhX3RocmVzaG9sZDsKKwlyZXR1cm4g
+KCh1OClucyAlIEJBX1NFVFVQX01BWF9QQUNLRVRfVEhSRVNIT0xEKSArIEJBX1NFVFVQX1BBQ0tF
+VF9PRkZTRVQ7CiB9CiAKIC8qCi0tIAoyLjEuMC5yYzIKCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5s
+aW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4
+Cg==
