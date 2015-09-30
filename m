@@ -1,66 +1,47 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 net-next 2/3] RDS-TCP: Do not bloat sndbuf/rcvbuf in rds_tcp_tune
-Date: Wed, 30 Sep 2015 16:54:08 -0400
-Message-ID: <e1014f977fa75a3e88ef877226b8c5dbf954b94a.1443636587.git.sowmini.varadhan@oracle.com>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next 0/3]  RDS: RDS-TCP perf enhancements
+Date: Wed, 30 Sep 2015 16:54:06 -0400
+Message-ID: <cover.1443636587.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
 	sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com,
 	sergei.shtylyov@cogentembedded.com
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:22400 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932980AbbI3Uyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 16:54:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Using the value of RDS_TCP_DEFAULT_BUFSIZE (128K)
-clobbers efficient use of TSO because it inflates the size_goal
-that is computed in tcp_sendmsg/tcp_sendpage and skews packet
-latency, and the default values for these parameters actually
-results in significantly better performance.
+A 3-part patchset that (a) improves current RDS-TCP perf
+by 2X-3X and (b) refactors earlier robustness code for
+better observability/scaling.
 
-In request-response tests using rds-stress with a packet size of
-100K with 16 threads (test parameters -q 100000 -a 256 -t16 -d16)
-between a single pair of IP addresses achieves a throughput of
-6-8 Gbps. Without this patch, throughput maxes at 2-3 Gbps under
-equivalent conditions on these platforms.
+Patch 1 is an enhancment of earlier robustness fixes 
+that had used separate sockets for client and server endpoints to
+resolve race conditions. It is possible to have an equivalent
+solution that does not use 2 sockets. The benefit of a
+single socket solution is that it results in more predictable
+and observable behavior for the underlying TCP pipe of an 
+RDS connection
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/tcp.c |   16 ++++------------
- 1 files changed, 4 insertions(+), 12 deletions(-)
+Patches 2 and 3 are simple, straightforward perf bug fixes
+that align the RDS TCP socket with other parts of the kernel stack.
 
-diff --git a/net/rds/tcp.c b/net/rds/tcp.c
-index c42b60b..9d6ddba 100644
---- a/net/rds/tcp.c
-+++ b/net/rds/tcp.c
-@@ -67,21 +67,13 @@ void rds_tcp_nonagle(struct socket *sock)
- 	set_fs(oldfs);
- }
- 
-+/* All module specific customizations to the RDS-TCP socket should be done in
-+ * rds_tcp_tune() and applied after socket creation. In general these
-+ * customizations should be tunable via module_param()
-+ */
- void rds_tcp_tune(struct socket *sock)
- {
--	struct sock *sk = sock->sk;
--
- 	rds_tcp_nonagle(sock);
--
--	/*
--	 * We're trying to saturate gigabit with the default,
--	 * see svc_sock_setbufsize().
--	 */
--	lock_sock(sk);
--	sk->sk_sndbuf = RDS_TCP_DEFAULT_BUFSIZE;
--	sk->sk_rcvbuf = RDS_TCP_DEFAULT_BUFSIZE;
--	sk->sk_userlocks |= SOCK_SNDBUF_LOCK|SOCK_RCVBUF_LOCK;
--	release_sock(sk);
- }
- 
- u32 rds_tcp_snd_nxt(struct rds_tcp_connection *tc)
--- 
-1.7.1
+v2: fix kbuild-test-robot warnings, comments from  Sergei Shtylov
+    and Santosh Shilimkar. 
+
+Sowmini Varadhan (3):
+  Use a single TCP socket for both send and receive.
+  Do not bloat sndbuf/rcvbuf in rds_tcp_tune
+  Set up MSG_MORE and MSG_SENDPAGE_NOTLAST as appropriate in
+    rds_tcp_xmit
+
+ net/rds/connection.c |   22 ++++++----------------
+ net/rds/rds.h        |    4 +++-
+ net/rds/tcp.c        |   16 ++++------------
+ net/rds/tcp_listen.c |   22 +++++++++-------------
+ net/rds/tcp_send.c   |    8 +++++++-
+ 5 files changed, 29 insertions(+), 43 deletions(-)
