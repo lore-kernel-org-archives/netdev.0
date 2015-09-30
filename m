@@ -1,54 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/3] RDS-TCP: Set up MSG_MORE and
- MSG_SENDPAGE_NOTLAST as appropriate in rds_tcp_xmit
-Date: Wed, 30 Sep 2015 17:53:20 +0300
-Message-ID: <560BF760.9000901@cogentembedded.com>
-References: <cover.1443569239.git.sowmini.varadhan@oracle.com>
- <4471e1253cbbd917c1b1bd62b5b14844c19a857f.1443569239.git.sowmini.varadhan@oracle.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v2 0/7] net: mvneta: Switch to per-CPU irq and make
+ rxq_def useful
+Date: Wed, 30 Sep 2015 16:53:52 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1509301650150.4500@nanos>
+References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
-	santosh.shilimkar@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jason Cooper <jason@lakedaemon.net>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4471e1253cbbd917c1b1bd62b5b14844c19a857f.1443569239.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 25 Sep 2015, Gregory CLEMENT wrote:
+> I also reorganized the series, the 3 first patches should go through
+> the irq subsystem, whereas the 4 others should go to the network
+> subsystem.
+> 
+> However, there is a runtime dependency between the two parts. Patch 5
+> depend on the patch 3 to be able to use the percpu irq.
 
-On 09/30/2015 04:45 PM, Sowmini Varadhan wrote:
+The first 3 are good to go from my side. To avoid merge window
+dependencies, I'll create a branch irq/for-net with these 3 patches
+and merge that into irq/core.
 
-> For the same reasons as 2f53384424 and 35f9c09fe9, rds_tcp_xmit
-> may have multiple pages to send, so use the MSG_MORE and
-> MSG_SENDPAGE_NOTLAST as hints to tcp_sendpage()
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
->   net/rds/tcp_send.c |    8 +++++++-
->   1 files changed, 7 insertions(+), 1 deletions(-)
->
-> diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
-> index 53b17ca..5f3e3fa 100644
-> --- a/net/rds/tcp_send.c
-> +++ b/net/rds/tcp_send.c
-[...]
-> @@ -116,12 +117,15 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
->   			goto out;
->   	}
->
-> +	more = (rm->data.op_nents > 1 ? (MSG_MORE | MSG_SENDPAGE_NOTLAST) : 0);
+So if the network folks want to pick up the rest, they can merge in
+that branch as well.
 
-    No need for either inner or outer parens.
+Thanks,
 
->   	while (sg < rm->data.op_nents) {
-> +		int flags = (MSG_DONTWAIT | MSG_NOSIGNAL | more);
-
-    Parens not needed as well.
-
-[...]
-
-MBR, Sergei
+	tglx
