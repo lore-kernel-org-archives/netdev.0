@@ -1,70 +1,167 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 10/12] net: sctp: avoid incorrect time_t use
-Date: Wed, 30 Sep 2015 09:57:31 -0400
-Message-ID: <20150930135731.GC32524@hmsreliant.think-freely.org>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
- <1443612402-3000775-11-git-send-email-arnd@arndb.de>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [RFC v3 net-next 04/10] qed: Add slowpath L2 support
+Date: Wed, 30 Sep 2015 21:59:28 +0800
+Message-ID: <201509302101.J2pnChYQ%fengguang.wu@intel.com>
+References: <1443618217-18069-5-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com, Manish Chopra <Manish.Chopra@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:37241 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752660AbbI3OAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 10:00:19 -0400
 Content-Disposition: inline
-In-Reply-To: <1443612402-3000775-11-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1443618217-18069-5-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 01:26:40PM +0200, Arnd Bergmann wrote:
-> We want to avoid using time_t in the kernel because of the y2038
-> overflow problem. The use in sctp is not for storing seconds at
-> all, but instead uses microseconds and is passed as 32-bit
-> on all machines.
-> 
-> This patch changes the type to u32, which better fits the use.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: linux-sctp@vger.kernel.org
-> ---
->  net/sctp/sm_make_chunk.c | 2 +-
->  net/sctp/sm_statefuns.c  | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 7954c52e1794..763e06a55155 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -2494,7 +2494,7 @@ static int sctp_process_param(struct sctp_association *asoc,
->  	__u16 sat;
->  	int retval = 1;
->  	sctp_scope_t scope;
-> -	time_t stale;
-> +	u32 stale;
->  	struct sctp_af *af;
->  	union sctp_addr_param *addr_param;
->  	struct sctp_transport *t;
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index d7eaa7354cf7..6f46aa16cb76 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -2306,7 +2306,7 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
->  						 sctp_cmd_seq_t *commands)
->  {
->  	struct sctp_chunk *chunk = arg;
-> -	time_t stale;
-> +	u32 stale;
->  	sctp_cookie_preserve_param_t bht;
->  	sctp_errhdr_t *err;
->  	struct sctp_chunk *reply;
-> -- 
-> 2.1.0.rc2
-> 
-> 
+Hi Manish,
 
-Assignments to this variable use ntohl, won't this change risk overflow?
+[auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
 
-Neil
+reproduce:
+  # apt-get install sparse
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
+
+
+sparse warnings: (new ones prefixed by >>)
+
+>> drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:226:9:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:229:9:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:232:9:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:235:9:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:238:9:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:241:9:    right side has type unsigned long long
+>> drivers/net/ethernet/qlogic/qed/qed_l2.c:247:17: sparse: cast from restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:296:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:300:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:303:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:307:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:311:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:324:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:327:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:331:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:334:17:    right side has type unsigned long long
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17: sparse: invalid assignment: &=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17:    right side has type int
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17: sparse: invalid assignment: |=
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17:    left side has type restricted __le16
+   drivers/net/ethernet/qlogic/qed/qed_l2.c:338:17:    right side has type unsigned long long
+
+vim +226 drivers/net/ethernet/qlogic/qed/qed_l2.c
+
+   220	
+   221		p_ramrod->rss_config.rss_mode = p_rss_params->rss_enable ?
+   222			ETH_VPORT_RSS_MODE_REGULAR : ETH_VPORT_RSS_MODE_DISABLED;
+   223	
+   224		p_ramrod->rss_config.capabilities = 0;
+   225	
+ > 226		SET_FIELD(p_ramrod->rss_config.capabilities,
+   227			  ETH_VPORT_RSS_CONFIG_IPV4_CAPABILITY,
+   228			  !!(p_rss_params->rss_caps & QED_RSS_IPV4));
+   229		SET_FIELD(p_ramrod->rss_config.capabilities,
+   230			  ETH_VPORT_RSS_CONFIG_IPV6_CAPABILITY,
+   231			  !!(p_rss_params->rss_caps & QED_RSS_IPV6));
+   232		SET_FIELD(p_ramrod->rss_config.capabilities,
+   233			  ETH_VPORT_RSS_CONFIG_IPV4_TCP_CAPABILITY,
+   234			  !!(p_rss_params->rss_caps & QED_RSS_IPV4_TCP));
+   235		SET_FIELD(p_ramrod->rss_config.capabilities,
+   236			  ETH_VPORT_RSS_CONFIG_IPV6_TCP_CAPABILITY,
+   237			  !!(p_rss_params->rss_caps & QED_RSS_IPV6_TCP));
+ > 238		SET_FIELD(p_ramrod->rss_config.capabilities,
+   239			  ETH_VPORT_RSS_CONFIG_IPV4_UDP_CAPABILITY,
+   240			  !!(p_rss_params->rss_caps & QED_RSS_IPV4_UDP));
+   241		SET_FIELD(p_ramrod->rss_config.capabilities,
+   242			  ETH_VPORT_RSS_CONFIG_IPV6_UDP_CAPABILITY,
+   243			  !!(p_rss_params->rss_caps & QED_RSS_IPV6_UDP));
+   244		p_ramrod->rss_config.tbl_size =
+   245			p_rss_params->rss_table_size_log;
+   246		p_ramrod->rss_config.capabilities =
+ > 247			cpu_to_le16(p_ramrod->rss_config.capabilities);
+   248	
+   249		DP_VERBOSE(
+   250			p_hwfn,
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
