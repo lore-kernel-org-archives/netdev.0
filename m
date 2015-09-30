@@ -1,60 +1,110 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 10/12] net: sctp: avoid incorrect time_t use
-Date: Wed, 30 Sep 2015 13:26:40 +0200
-Message-ID: <1443612402-3000775-11-git-send-email-arnd@arndb.de>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
+Subject: [PATCH 00/12] net: assorted y2038 changes
+Date: Wed, 30 Sep 2015 13:26:30 +0200
+Message-ID: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
+ linux-api@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-can@vger.kernel.org, linux-sctp@vger.kernel.org, coreteam@netfilter.org,
+ intel-wired-lan@lists.osuosl.org, netfilter-devel@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <y2038-bounces@lists.linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-We want to avoid using time_t in the kernel because of the y2038
-overflow problem. The use in sctp is not for storing seconds at
-all, but instead uses microseconds and is passed as 32-bit
-on all machines.
-
-This patch changes the type to u32, which better fits the use.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: linux-sctp@vger.kernel.org
----
- net/sctp/sm_make_chunk.c | 2 +-
- net/sctp/sm_statefuns.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 7954c52e1794..763e06a55155 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2494,7 +2494,7 @@ static int sctp_process_param(struct sctp_association *asoc,
- 	__u16 sat;
- 	int retval = 1;
- 	sctp_scope_t scope;
--	time_t stale;
-+	u32 stale;
- 	struct sctp_af *af;
- 	union sctp_addr_param *addr_param;
- 	struct sctp_transport *t;
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index d7eaa7354cf7..6f46aa16cb76 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2306,7 +2306,7 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
- 						 sctp_cmd_seq_t *commands)
- {
- 	struct sctp_chunk *chunk = arg;
--	time_t stale;
-+	u32 stale;
- 	sctp_cookie_preserve_param_t bht;
- 	sctp_errhdr_t *err;
- 	struct sctp_chunk *reply;
--- 
-2.1.0.rc2
+SGkgZXZlcnlvbmUsCgpUaGlzIGlzIGEgc2V0IG9mIGNoYW5nZXMgZm9yIG5ldHdvcmsgZHJpdmVy
+cyBhbmQgY29yZSBjb2RlIHRvCmdldCByaWQgb2YgdGhlIHVzZSBvZiB0aW1lX3QgYW5kIGRlcml2
+ZWQgZGF0YSBzdHJ1Y3R1cmVzLgoKSSBoYXZlIGEgbG9uZ2VyIHNldCBvZiBwYXRjaGVzIHRoYXQg
+ZW5hYmxlcyBtZSB0byBidWlsZCBrZXJuZWxzCndpdGggdGhlIHRpbWVfdCBkZWZpbml0aW9uIHJl
+bW92ZWQgY29tcGxldGVseSBhcyBhIGhlbHAgdG8gZmluZAp5MjAzOCBvdmVyZmxvdyBpc3N1ZXMu
+IFRoaXMgaXMgdGhlIHN1YnNldCBmb3IgbmV0d29ya2luZyB0aGF0CmNvbnRhaW5zIGFsbCBjb2Rl
+IHRoYXQgaGFzIGEgcmVhc29uYWJsZSB3YXkgb2YgZml4aW5nIGF0IHRoZQptb21lbnQgYW5kIHRo
+YXQgaXMgZWl0aGVyIGNvbW1vbmx5IHVzZWQgKGluIG9uZSBvZiB0aGUgZGVmY29uZmlncykKb3Ig
+dGhhdCBibG9ja3MgYnVpbGRpbmcgYSB3aG9sZSBzdWJzeXN0ZW0uCgpNb3N0IG9mIHRoZSBwYXRj
+aGVzIGluIHRoaXMgc2VyaWVzIHNob3VsZCBiZSBub25jb250cm92ZXJzaWFsLApidXQgdGhlIGxh
+c3QgdHdvIHRoYXQgSSBtYXJrZWQgW1JGQ10gYXJlIGEgYml0IHRyaWNreSBhbmQKbmVlZCBpbnB1
+dCBmcm9tIHBlb3BsZSB0aGF0IGFyZSBtb3JlIGZhbWlsaWFyIHdpdGggdGhlIGNvZGUgdGhhbgpJ
+IGFtLiBBbGwgMTIgcGF0Y2hlcyBhcmUgaW5kZXBlbmRlbnQgb2Ygb25lIGFub3RoZXIgYW5kIGNh
+bgpiZSBhcHBsaWVkIGluIGFueSBvcmRlciwgc28gZmVlbCBmcmVlIHRvIHBpY2sgYWxsIHRoYXQg
+bG9vawpnb29kLgoKUGF0Y2hlcyB0aGF0IGFyZSBub3QgaW5jbHVkZWQgaGVyZSBhcmU6CgogLSBk
+aXNhYmxpbmcgbGVzcyBjb21tb24gZGV2aWNlIGRyaXZlcnMgdGhhdCBJIGRvbid0IGhhdmUgYSBm
+aXgKICAgZm9yIHlldCwgdGhpcyBpbmNsdWRlcwoJZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvY2Fk
+ZS9ibmEvYmZhX2lvYy5jCglkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhl
+bl9uaWNfaHcuYwoJZHJpdmVycy9uZXQvZXRoZXJuZXQvdGlsZS90aWxlZ3guYwoJZHJpdmVycy9u
+ZXQvaGFtcmFkaW8vYmF5Y29tX3Nlcl9mZHguYwoJZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0
+aDEway9jb3JlLmgKCWRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay8KCWRyaXZlcnMvbmV0
+L3dpcmVsZXNzL2F0aC9hdGg5ay8KCWRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0bWVsLmMKCWRyaXZl
+cnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQvaXNsXzM4eHguYwoJZHJpdmVycy9uZXQvd2lyZWxlc3Mv
+cnQyeDAwL3J0MngwMGRlYnVnLmMKCWRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvCglkcml2
+ZXJzL25ldC93aXJlbGVzcy90aS93bGNvcmUvCglkcml2ZXJzL3N0YWdpbmcvb3p3cGFuLwoJbmV0
+L2F0bS9tcG9hX2NhY2hlcy5jCgluZXQvYXRtL21wb2FfcHJvYy5jCgluZXQvZGNjcC9wcm9iZS5j
+CgluZXQvaXB2NC90Y3BfcHJvYmUuYwoJbmV0L25ldGZpbHRlci9uZm5ldGxpbmtfcXVldWVfY29y
+ZS5jCgluZXQvbmV0ZmlsdGVyL25mbmV0bGlua19xdWV1ZV9jb3JlLmMKCW5ldC9uZXRmaWx0ZXIv
+eHRfdGltZS5jCgluZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCgluZXQvc2N0cC9wcm9iZS5jCgluZXQv
+c3VucnBjL2F1dGhfZ3NzLwoJbmV0L3N1bnJwYy9zdmNhdXRoX3VuaXguYwoJbmV0L3Ztd192c29j
+ay9hZl92c29jay5jCiAgIFdlJ2xsIGdldCB0aGVyZSBldmVudHVhbGx5LCBvciB3ZSBhbiBhZGQg
+YSBkZXBlbmRlbmN5IHRvIGVuc3VyZQogICB0aGV5IGFyZSBub3QgYnVpbHQgb24gMzItYml0IGtl
+cm5lbHMgdGhhdCBuZWVkIHRvIHN1cnZpdmUKICAgYmV5b25kIDIwMzguIE1vc3Qgb2YgdGhlc2Ug
+c2hvdWxkIGJlIHJlYWxseSBlYXN5IHRvIGZpeC4KCiAtIHJlY3ZtbXNnL3NlbmRtbXNnIHN5c3Rl
+bSBjYWxsczogcGF0Y2hlcyBoYXZlIGJlZW4gc2VudCBvdXQKICAgYXMgcGFydCBvZiB0aGUgc3lz
+Y2FsbCBzZXJpZXMsIG5lZWQgYSBsaXR0bGUgbW9yZSB3b3JrIGFuZAogICByZXZpZXcKCiAtIFNJ
+T0NHU1RBTVAvU0lPQ0dTVEFNUE5TLyBpb2N0bCBjYWxsczogdHJpY2t5LCBuZWVkIHRvIGRpc2N1
+c3MKICAgd2l0aCBzb21lIGZvbGtzIGF0IGtlcm5lbCBzdW1taXQKCiAtIFNPX1JDVlRJTUVPL1NP
+X1NORFRJTUVPL1NPX1RJTUVTVEFNUC9TT19USU1FU1RBTVBOUyBzb2NrZXQKICAgb3B0OiBzaW1p
+bGFyIGFuZCByZWxhdGVkIHRvIHRoZSBpb2N0bAoKIC0gbW1hcHBlZCBwYWNrZXQgc29ja2V0OiBu
+ZWVkIHRvIGNyZWF0ZSB2NCBvZiB0aGUgQVBJLCBub250cml2aWFsCgogLSBwa3RnZW46IHNlbmRz
+IDMyLWJpdCB0aW1lc3RhbXBzIG92ZXIgbmV0d29yaywgbmVlZCB0byBmaW5kIG91dAogICBpZiB1
+c2luZyB1bnNpZ25lZCBzdGFtcHMgaXMgZ29vZCBlbm91Z2gKCiAtIGFmX3J4cGM6IHNpbWlsYXIg
+dG8gcGt0Z2VuLCB1c2VzIDMyLWJpdCB0aW1lcyBmb3IgZGVhZGxpbmVzCgogLSBwcHAgaW9jdGw6
+IHBhdGNoIGlzIGJlaW5nIHdvcmtlZCBvbiwgbm9udHJpdmlhbCBidXQgZG9hYmxlCgoJQXJuZAoK
+QXJuZCBCZXJnbWFubiAoMTIpOgogIG5ldDogZmVjOiBhdm9pZCB0aW1lc3BlYyB1c2UKICBuZXQ6
+IHN0bW1hYzogYXZvaWQgdXNpbmcgdGltZXNwZWMKICBuZXQ6IGlnYjogYXZvaWQgdXNpbmcgdGlt
+ZXNwZWMKICBtd2lmaWV4OiB1c2Uga3RpbWVfZ2V0X3JlYWwgZm9yIHRpbWVzdGFtcGluZwogIG13
+aWZpZXg6IGF2b2lkIGdldHRpbWVvZmRheSBpbiBiYV90aHJlc2hvbGQgc2V0dGluZwogIG1hYzgw
+MjExOiB1c2Uga3RpbWVfZ2V0X3NlY29uZHMKICBhdG06IGhpZGUgJ3N0cnVjdCB6YXRtX3RfaGlz
+dCcKICBuZm5ldGxpbms6IHVzZSB5MjAzOCBzYWZlIHRpbWVzdGFtcAogIGlwdjY6IHVzZSBrdGlt
+ZV90IGZvciBpbnRlcm5hbCB0aW1lc3RhbXBzCiAgbmV0OiBzY3RwOiBhdm9pZCBpbmNvcnJlY3Qg
+dGltZV90IHVzZQogIFtSRkNdIGlwdjQ6IGF2b2lkIHRpbWVzcGVjIGluIHRpbWVzdGFtcCBjb21w
+dXRhdGlvbgogIFtSRkNdIGNhbjogYXZvaWQgdXNpbmcgdGltZXZhbCBmb3IgdWFwaQoKIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfcHRwLmMgICAgICAgICAgfCAgNiArKy0tCiBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiLmggICAgICAgICAgICAgIHwgIDQgKy0t
+CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYyAgICAgICAgIHwgMTUg
+KysrKystLS0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAuYyAgICAg
+ICAgICB8ICA4ICsrKy0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3Rt
+bWFjX21haW4uYyB8ICA4ICsrKystLQogZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC8xMW5f
+YWdnci5jICAgICAgICAgICB8ICA0ICstLQogZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC93
+bW0uYyAgICAgICAgICAgICAgICB8IDE1ICsrKy0tLS0tLS0KIGluY2x1ZGUvbGludXgvdGltZWtl
+ZXBpbmcuaCAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArKwogaW5jbHVkZS91YXBpL2xpbnV4
+L2F0bV96YXRtLmggICAgICAgICAgICAgICAgICAgICB8ICAzICstCiBpbmNsdWRlL3VhcGkvbGlu
+dXgvY2FuL2JjbS5oICAgICAgICAgICAgICAgICAgICAgIHwgIDcgKysrKy0KIGtlcm5lbC90aW1l
+L3RpbWVrZWVwaW5nLmMgICAgICAgICAgICAgICAgICAgICAgICAgfCAzNCArKysrKysrKysrKysr
+KysrKysrKysrKwogbmV0L2Nhbi9iY20uYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICB8IDE1ICsrKysrKy0tLS0KIG5ldC9pcHY0L2ljbXAuYyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgfCAgOCArKy0tLS0KIG5ldC9pcHY0L2lwX29wdGlvbnMuYyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgOSArKy0tLS0KIG5ldC9pcHY2L21pcDYuYyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxNiArKysrKy0tLS0tLQogbmV0L21hYzgwMjEx
+L3N0YV9pbmZvLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA4ICsrLS0tLQogbmV0L25l
+dGZpbHRlci9uZm5ldGxpbmtfbG9nLmMgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrLS0KIG5l
+dC9zY3RwL3NtX21ha2VfY2h1bmsuYyAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQog
+bmV0L3NjdHAvc21fc3RhdGVmdW5zLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICst
+CiAxOSBmaWxlcyBjaGFuZ2VkLCA5OSBpbnNlcnRpb25zKCspLCA3MyBkZWxldGlvbnMoLSkKCkNj
+OiBjb3JldGVhbUBuZXRmaWx0ZXIub3JnCkNjOiBpbnRlbC13aXJlZC1sYW5AbGlzdHMub3N1b3Ns
+Lm9yZwpDYzogbGludXgtYXBpQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgtYXRtLWdlbmVyYWxA
+bGlzdHMuc291cmNlZm9yZ2UubmV0CkNjOiBsaW51eC1jYW5Admdlci5rZXJuZWwub3JnCkNjOiBs
+aW51eC1zY3RwQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgtd2lyZWxlc3NAdmdlci5rZXJuZWwu
+b3JnCkNjOiBuZXRmaWx0ZXItZGV2ZWxAdmdlci5rZXJuZWwub3JnCgoKLS0gCjIuMS4wLnJjMgoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFp
+bGluZyBsaXN0ClkyMDM4QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3Jn
+L21haWxtYW4vbGlzdGluZm8veTIwMzgK
