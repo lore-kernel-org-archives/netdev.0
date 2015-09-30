@@ -1,103 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/17][pull request] Intel Wired LAN Driver Updates 2015-09-30
-Date: Wed, 30 Sep 2015 05:52:24 -0700
-Message-ID: <1443617561-40490-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 03/17] i40e/i40evf: fix up type clash in i40e_aq_rc_to_posix conversion
+Date: Wed, 30 Sep 2015 05:52:27 -0700
+Message-ID: <1443617561-40490-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1443617561-40490-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:48753 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:8321 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754899AbbI3Mwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 08:52:43 -0400
+	id S1755397AbbI3Mwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 08:52:44 -0400
+In-Reply-To: <1443617561-40490-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Vasily Averin provides a couple of rtnl lock/unlock fixes for both i40e
-and i40evf.
+The error code sent into i40e_aq_rc_to_posix() are signed values, so we
+really need to treat them as such.
 
-Shannon provides several updates and fixes, first fixes up a type clash
-in i40e_aq_rc_to_posix(), where the error codes are signed values, so we
-need to treat them as such.  Then fixes up a padding issue where an
-extra byte is added in i40e_aqc_get_cee_dcb_cfg_v1_resp to directly
-acknowledge the padding.  Updated i40e to keep debugfs register read
-and writes from accessing outside of the io-remapped space.  Added
-support and device id for another 20 GbE device.
+Change-ID: I3d1ae0ee9ae0b1b6f5fc424f8b8cc58b0ea93203
+Reported-by: Helin Zhang <helin.zhang@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 9 ++++++---
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 9 ++++++---
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
-Jesse fixes the transmit hand workaround code for ARM that was causing
-Tx hangs to still occur occasionally when there really was no hang.  Then
-fixed the receive dropped counter to show up in netstat interface.
-Refactor the interrupt enable function since it was always making the
-caller add the base_vector from the VSI struct which is already passed
-to the function.  Fix kbuild warnings found in 0day build infrastructure
-by adding a harmless cast to a dev_info(), also fix 32 bit build
-warnings found by sparse.
-
-Greg fixed a configuration error that results if a port VLAN is set
-for a VF before the VF driver is loaded, so that when the VF driver is
-loaded the port VLAN is ignored.
-
-Mitch fixes the use of QOS field consistently in
-i40e_ndo_set_vf_port_vlan().  Modified the init timing of the driver
-to increase stability on load/unload and SR-IOV enable/disable cycles.
-
-Anjali updates i40e to not collect VEB stats if they are disabled in the
-hardware for performance reasons.
-
-The following are changes since commit 4bf1b54f9df7ced4869f7dfd0bdf5eb22aa98447:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Anjali Singhai Jain (1):
-  i40e: Strip VEB stats if they are disabled in HW
-
-Greg Rose (2):
-  i40e: Fix a port VLAN configuration bug
-  i40e: Remove useless message
-
-Jesse Brandeburg (6):
-  i40e/i40evf: fix Tx hang workaround code
-  i40e: count drops in netstat interface
-  i40e: refactor interrupt enable
-  i40e: warn on double free
-  i40e: fix kbuild warnings
-  i40e: fix 32 bit build warnings
-
-Mitch Williams (2):
-  i40e: use QOS field consistently
-  i40evf: tweak init timing
-
-Shannon Nelson (4):
-  i40e/i40evf: fix up type clash in i40e_aq_rc_to_posix conversion
-  i40e: fixup padding issue in get_cee_dcb_cfg_v1_resp
-  i40e: limit debugfs io ops
-  i40e/i40evf: add new device id 1588
-
-Vasily Averin (2):
-  i40evf: missing rtnl_unlock in i40evf_resume()
-  i40e: rtnl_lock called twice in i40e_pci_error_resume()
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  4 ++-
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  9 +++--
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 13 +++++--
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  6 +---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 12 +++----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 10 ++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 42 +++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 11 +++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 12 +++----
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  9 +++--
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  9 +++--
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  3 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  7 ++--
- 16 files changed, 87 insertions(+), 63 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index b67b34c..ca81b0b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -109,9 +109,10 @@ struct i40e_adminq_info {
+ 
+ /**
+  * i40e_aq_rc_to_posix - convert errors to user-land codes
+- * aq_rc: AdminQ error code to convert
++ * aq_ret: AdminQ handler error code can override aq_rc
++ * aq_rc: AdminQ firmware error code to convert
+  **/
+-static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
++static inline int i40e_aq_rc_to_posix(int aq_ret, int aq_rc)
+ {
+ 	int aq_to_posix[] = {
+ 		0,           /* I40E_AQ_RC_OK */
+@@ -143,8 +144,10 @@ static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
+ 	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
+ 		return -EAGAIN;
+ 
+-	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
++	if (aq_rc >= (sizeof(aq_to_posix) / sizeof((aq_to_posix)[0])) ||
++	    aq_rc < 0)
+ 		return -ERANGE;
++
+ 	return aq_to_posix[aq_rc];
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index 547b79b..e62e951 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -109,9 +109,10 @@ struct i40e_adminq_info {
+ 
+ /**
+  * i40e_aq_rc_to_posix - convert errors to user-land codes
+- * aq_rc: AdminQ error code to convert
++ * aq_ret: AdminQ handler error code can override aq_rc
++ * aq_rc: AdminQ firmware error code to convert
+  **/
+-static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
++static inline int i40e_aq_rc_to_posix(int aq_ret, int aq_rc)
+ {
+ 	int aq_to_posix[] = {
+ 		0,           /* I40E_AQ_RC_OK */
+@@ -143,8 +144,10 @@ static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
+ 	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
+ 		return -EAGAIN;
+ 
+-	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
++	if (aq_rc >= (sizeof(aq_to_posix) / sizeof((aq_to_posix)[0])) ||
++	    aq_rc < 0)
+ 		return -ERANGE;
++
+ 	return aq_to_posix[aq_rc];
+ }
+ 
 -- 
 2.4.3
