@@ -1,73 +1,86 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH v3 4/5] kcmp: add KCMP_FILE_PRIVATE_DATA
-Date: Wed, 30 Sep 2015 11:56:25 -0700
-Message-ID: <CALCETrWx_yCF7o6ZnbeoDqw-Fxa3GzARX30SZWeg40FMGqR25Q@mail.gmail.com>
-References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
- <1443636820-17083-5-git-send-email-tycho.andersen@canonical.com>
- <CALCETrUosV+ND1BC-qH3xZMaLwnex50SvMhaSa3FQ19oy1MBVg@mail.gmail.com>
- <20150930184129.GB23065@smitten> <CALCETrWjLGLAnf5_tCZohKYtTDi5Jo=bk_BkchTgXi8Bzz9YDA@mail.gmail.com>
- <20150930185504.GC23065@smitten>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Wed, 30 Sep 2015 14:56:52 -0400
+Message-ID: <20150930185652.GA2455@ketchup.lan>
+References: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
+ <20150925043640.GB18915@ketchup.lan>
+ <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
+ <20150924.225508.2124748200966556070.davem@davemloft.net>
+ <20150925150303.GA21567@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150930185504.GC23065@smitten>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
+	idosch@mellanox.com, eladr@mellanox.com, f.fainelli@gmail.com,
+	linux@roeck-us.net, rami.rosen@intel.com,
+	roopa@cumulusnetworks.com, pjonnala@broadcom.com, andrew@lunn.ch,
+	gospo@cumulusnetworks.com, jiri@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, sfeldma@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:51362
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932904AbbI3S46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:56:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20150925150303.GA21567@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 11:55 AM, Tycho Andersen
-<tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> On Wed, Sep 30, 2015 at 11:47:05AM -0700, Andy Lutomirski wrote:
->> On Wed, Sep 30, 2015 at 11:41 AM, Tycho Andersen
->> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
->> > On Wed, Sep 30, 2015 at 11:25:41AM -0700, Andy Lutomirski wrote:
->> >> On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
->> >> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
->> >> > This command allows comparing the underling private data of two fds. This
->> >> > is useful e.g. to find out if a seccomp filter is inherited, since struct
->> >> > seccomp_filter are unique across tasks and are the private_data seccomp
->> >> > fds.
->> >>
->> >> This is very implementation-specific and may have nasty ABI
->> >> consequences far outside seccomp.  Let's do something specific to
->> >> seccomp and/or eBPF.
->> >
->> > We could change the name to a less generic KCMP_SECCOMP_FD or
->> > something, but without some sort of GUID on each struct
->> > seccomp_filter, the implementation would be effectively the same as it
->> > is today. Is that enough, or do we need a GUID?
->> >
->>
->> I don't care about the GUID.  I think we should name it
->> KCMP_SECCOMP_FD and make it only work on seccomp fds.
->
-> Ok, I can do that.
->
->> Alternatively, we could figure out why KCMP_FILE doesn't do the trick
->> and consider fixing it.  IMO it's really too bad that struct file is
->> so heavyweight that we can't really just embed one in all kinds of
->> structures.
->
-> The problem is that KCMP_FILE compares the file objects themselves,
-> instead of the underlying data. If I ask for a seccomp fd for filter 0
-> twice, I'll have two different file objects and they won't be equal. I
-> suppose we could add some special logic inside KCMP_FILE to compare
-> the underlying data in special cases (seccomp, ebpf, others?), but it
-> seems cleaner to have a separate command as you described above.
->
+Hi all,
 
-What I meant was that maybe we could get the two requests to actually
-produce the same struct file.  But that could get very messy
-memory-wise.
+On Sep. Friday 25 (39) 11:03 AM, Vivien Didelot wrote:
+> On Sep. Thursday 24 (39) 10:55 PM, David Miller wrote:
+> > From: Scott Feldman <sfeldma@gmail.com>
+> > Date: Thu, 24 Sep 2015 22:29:43 -0700
+> > 
+> > > I'd rather keep 2-phase not optional, or at least make it some what of
+> > > a pain for drivers to opt-out of 2-phase.  Forcing the driver to see
+> > > both phases means the driver needs to put some code to skip phase 1
+> > > (and hopefully has some persistent comment explaining why its being
+> > > skipped).  Something like:
+> > > 
+> > > /* I'm skipping phase 1 prepare for this operation.  I have infinite hardware
+> > >  * resources and I'm not setting any persistent state in the driver or device
+> > >  * and I don't need any dynamic resources from the kernel, so its impossible
+> > >  * for me to fail phase 2 commit.  Nothing to prepare, sorry.
+> > >  */
+> > 
+> > I agree with Scott here.
+> > 
+> > If you can opt out of something, you can not think about it and thus
+> > more likely get it wrong.
+> > 
+> > I can just see a driver not implementing prepare at all and then doing
+> > stupid things in commit when they hit some resource limit or whatever,
+> > rather than taking care of such issues in prepare.
+> 
+> OK, I have no experience with stacked devices nor what it actually looks
+> like, but I understand that it is a redundant setup where it makes sense
+> to ensure that an operation is feasible before programming the hardware.
+> 
+> I agree with both of you on imposing switchdev drivers such notion.
+> 
+> I was confused with the rtnl lock (from bridge netlink requests) which
+> seemed to limit a lot the usage of this prepare phase.
+> 
+> I don't know the batch mode neither, but I can think about a potentially
+> powerful usage of the prepare phase in Marvell switches (or any basic
+> home router switches), please tell me if the following is feasible:
+> 
+> Every hardware VLANs I know of are programmed with all port membership
+> in one shot. This is not feasible today with the bridge command. If I
+> could bundle in one request the equivalent of ("VID 100: 0u 1u 5t"):
+> 
+>     bridge vlan add master dev swp0 vid 100 pvid untagged
+>     bridge vlan add master dev swp1 vid 100 pvid untagged
+>     bridge vlan add master dev swp5 vid 100 # cpu
+> 
+> In such case the prepare phase could be great to allocate and populate a
+> VLAN entry structure (i.e. struct mv88e6xxx_vtu_stu_entry) before
+> programming the hardware *just once*. Is that doable?
 
---Andy
+May I get answers for this? I'd need that in order to suggest a next
+step for the prepare phase in DSA drivers.
+
+Thanks,
+-v
