@@ -1,50 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/17] i40e: Fix a port VLAN configuration bug
-Date: Wed, 30 Sep 2015 05:52:28 -0700
-Message-ID: <1443617561-40490-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1443617561-40490-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] ipv4: add support for "gratuitous" redirect
+Date: Wed, 30 Sep 2015 14:55:18 +0200
+Message-ID: <1443617718.6398.25.camel@dhcp-176-88.mxp.redhat.com>
+References: <a3cf0539c78b2d8641539a8467daf840c259f310.1443186508.git.pabeni@redhat.com>
+	 <20150929.114921.767637932140523708.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, corbet@lwn.net, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:48753 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39410 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755406AbbI3Mwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 08:52:44 -0400
-In-Reply-To: <1443617561-40490-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S932144AbbI3MzY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 08:55:24 -0400
+In-Reply-To: <20150929.114921.767637932140523708.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
 
-If a port VLAN is set for a given virtual function (VF) before the VF
-driver is loaded then a configuration error results in which the port
-VLAN is ignored when the VF driver is subsequently loaded.  This causes
-the VF's MAC/VLAN filters to not use the correct VLAN filter.  This
-patch ensures that the port VLAN filter is considered at the right time
-during configuration of the VF's MAC/VLAN filters.
+On Tue, 2015-09-29 at 11:49 -0700, David Miller wrote:
+> I don't know if it's a question of terminology but RFC1122 does
+> seem to ask us to make this check, from 3.2.2.2:
+> 
+>         A Redirect message SHOULD be silently discarded if ... the
+>         source of the Redirect is not the current first-hop gateway
+>         for the specified destination (see Section 3.3.1).
 
-Change-ID: I28f404cbc21a4c6d70a7980b87c77f13f06685a4
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+According to the same RFC:
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 613da51..dce7d85 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1269,7 +1269,7 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
- 	 * so we have to go through all the list in order to make sure
- 	 */
- 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
--		if (f->vlan >= 0)
-+		if (f->vlan >= 0 || vsi->info.pvid)
- 			return true;
- 	}
- 
--- 
-2.4.3
+*    "SHOULD"
+
+              This word or the adjective "RECOMMENDED" means that there
+              may exist valid reasons in particular circumstances to
+              ignore this item, but the full implications should be
+              understood and the case carefully weighed before choosing
+              a different course. 
+
+So, if we agree that there are valid reasons we can make this check
+optional.
+
+> Whereas if we changed the routers to send ICMP redirects that these
+> hosts would actually accept, you'd only have to make the change on
+> the routers.  This is several orders of magnitude easier to deploy.
+
+Actually fixing this behavior on the VRRP router requires somewhat
+'NATing' ICMP redirect packets, which AFAIK is not possible on a Linux
+box, since ICMP reply packets do not traverse the nat table.
+
+To cope with the original issue on the router, it would be needed an
+'icmp_errors_use_inbound_daddr' sysctl, that, when enabled, forces the
+kernel to send icmp error messages using the destination address of the
+incoming packet as source. 
+
+Eventually we can restrict the above option to icmp redirect only.
+
+Do you think that adding such configuration would be more acceptable?
+
+Some time ago, there was already some discussion on this topic:
+
+http://comments.gmane.org/gmane.linux.kernel/1128505
+
+Thank you,
+
+Paolo
