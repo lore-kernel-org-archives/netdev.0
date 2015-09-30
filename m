@@ -1,76 +1,76 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [RFC v3 net-next 07/10] qed: Add link support
-Date: Wed, 30 Sep 2015 22:08:40 +0800
-Message-ID: <201509302215.QZctJocl%fengguang.wu@intel.com>
-References: <1443618217-18069-8-git-send-email-Yuval.Mintz@qlogic.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH 10/12] net: sctp: avoid incorrect time_t use
+Date: Wed, 30 Sep 2015 11:15:20 -0300
+Message-ID: <20150930141520.GA4893@localhost.localdomain>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+ <1443612402-3000775-11-git-send-email-arnd@arndb.de>
+ <20150930135731.GC32524@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56351 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753610AbbI3OJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:09:31 -0400
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1443618217-18069-8-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150930135731.GC32524@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Yuval,
+On Wed, Sep 30, 2015 at 09:57:31AM -0400, Neil Horman wrote:
+> On Wed, Sep 30, 2015 at 01:26:40PM +0200, Arnd Bergmann wrote:
+> > We want to avoid using time_t in the kernel because of the y2038
+> > overflow problem. The use in sctp is not for storing seconds at
+> > all, but instead uses microseconds and is passed as 32-bit
+> > on all machines.
+> > 
+> > This patch changes the type to u32, which better fits the use.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Cc: Neil Horman <nhorman@tuxdriver.com>
+> > Cc: linux-sctp@vger.kernel.org
+> > ---
+> >  net/sctp/sm_make_chunk.c | 2 +-
+> >  net/sctp/sm_statefuns.c  | 2 +-
+> >  2 files changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> > index 7954c52e1794..763e06a55155 100644
+> > --- a/net/sctp/sm_make_chunk.c
+> > +++ b/net/sctp/sm_make_chunk.c
+> > @@ -2494,7 +2494,7 @@ static int sctp_process_param(struct sctp_association *asoc,
+> >  	__u16 sat;
+> >  	int retval = 1;
+> >  	sctp_scope_t scope;
+> > -	time_t stale;
+> > +	u32 stale;
+> >  	struct sctp_af *af;
+> >  	union sctp_addr_param *addr_param;
+> >  	struct sctp_transport *t;
+> > diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> > index d7eaa7354cf7..6f46aa16cb76 100644
+> > --- a/net/sctp/sm_statefuns.c
+> > +++ b/net/sctp/sm_statefuns.c
+> > @@ -2306,7 +2306,7 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
+> >  						 sctp_cmd_seq_t *commands)
+> >  {
+> >  	struct sctp_chunk *chunk = arg;
+> > -	time_t stale;
+> > +	u32 stale;
+> >  	sctp_cookie_preserve_param_t bht;
+> >  	sctp_errhdr_t *err;
+> >  	struct sctp_chunk *reply;
+> > -- 
+> > 2.1.0.rc2
+> > 
+> > 
+> 
+> Assignments to this variable use ntohl, won't this change risk overflow?
+> 
+> Neil
 
-[auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
+But isn't ntohl always 4 bytes long?
 
-reproduce:
-  # apt-get install sparse
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
-
-
-sparse warnings: (new ones prefixed by >>)
-
->> drivers/net/ethernet/qlogic/qed/qed_int.c:181:29: sparse: incorrect type in assignment (different base types)
-   drivers/net/ethernet/qlogic/qed/qed_int.c:181:29:    expected restricted __le16 [usertype] sb_index
-   drivers/net/ethernet/qlogic/qed/qed_int.c:181:29:    got unsigned short [unsigned] [assigned] [usertype] index
-   include/linux/qed/qed_if.h:430:16: sparse: restricted __le32 degrades to integer
-   include/linux/qed/qed_if.h:430:16: sparse: cast to restricted __le32
---
-   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21: sparse: incorrect type in assignment (different base types)
-   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21:    expected restricted __be32 [usertype] tmp
-   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21:    got unsigned int
->> drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55: sparse: incorrect type in argument 4 (different base types)
-   drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55:    expected unsigned int [unsigned] [usertype] val
-   drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55:    got restricted __be32 [usertype] val
-
-vim +181 drivers/net/ethernet/qlogic/qed/qed_int.c
-
-   165	{
-   166		struct qed_sb_attn_info	 *p_sb_attn_sw   = p_hwfn->p_sb_attn;
-   167		struct atten_status_block       *p_sb_attn      = p_sb_attn_sw->sb_attn;
-   168		u32			     attn_bits       = 0, attn_acks = 0;
-   169		u16			     index	   = 0, asserted_bits,
-   170						deasserted_bits;
-   171		int			     rc = 0;
-   172	
-   173		/* Read current attention bits/acks - safeguard against attentions
-   174		 * by guaranting work on a synchronized timeframe
-   175		 */
-   176		do {
-   177			index	   = le16_to_cpu(p_sb_attn->sb_index);
-   178			attn_bits       = le32_to_cpu(p_sb_attn->atten_bits);
-   179			attn_acks       = le32_to_cpu(p_sb_attn->atten_ack);
-   180		} while (index != le16_to_cpu(p_sb_attn->sb_index));
- > 181		p_sb_attn->sb_index = index;
-   182	
-   183		/* Attention / Deassertion are meaningful (and in correct state)
-   184		 * only when they differ and consistent with known state - deassertion
-   185		 * when previous attention & current ack, and assertion when current
-   186		 * attention with no previous attention
-   187		 */
-   188		asserted_bits = (attn_bits & ~attn_acks & ATTN_STATE_BITS) &
-   189			~p_sb_attn_sw->known_attn;
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Marcelo
