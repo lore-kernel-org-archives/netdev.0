@@ -1,48 +1,35 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 5/5] bridge: vlan: don't pass flags when creating context only
-Date: Wed, 30 Sep 2015 20:16:55 +0200
-Message-ID: <1443637015-4153-6-git-send-email-razor@blackwall.org>
-References: <1443637015-4153-1-git-send-email-razor@blackwall.org>
-Cc: roopa@cumulusnetworks.com, vyasevich@gmail.com,
-	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:38728 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933177AbbI3SRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:17:04 -0400
-Received: by wiclk2 with SMTP id lk2so74353001wic.1
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:17:03 -0700 (PDT)
-In-Reply-To: <1443637015-4153-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH v3 4/5] kcmp: add KCMP_FILE_PRIVATE_DATA
+Date: Wed, 30 Sep 2015 11:25:41 -0700
+Message-ID: <CALCETrUosV+ND1BC-qH3xZMaLwnex50SvMhaSa3FQ19oy1MBVg@mail.gmail.com>
+References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com> <1443636820-17083-5-git-send-email-tycho.andersen@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443636820-17083-5-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
+<tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+> This command allows comparing the underling private data of two fds. This
+> is useful e.g. to find out if a seccomp filter is inherited, since struct
+> seccomp_filter are unique across tasks and are the private_data seccomp
+> fds.
 
-We should not pass the original flags when creating a context vlan only
-because they may contain some flags that change behaviour in the bridge.
-The new global context should be with minimal set of flags, so pass 0
-and let br_vlan_add() set the master flag only.
+This is very implementation-specific and may have nasty ABI
+consequences far outside seccomp.  Let's do something specific to
+seccomp and/or eBPF.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_vlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 7e9d60a402e2..75214a51cf0e 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -197,7 +197,7 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
- 		masterv = br_vlan_find(br->vlgrp, v->vid);
- 		if (!masterv) {
- 			/* missing global ctx, create it now */
--			err = br_vlan_add(br, v->vid, master_flags);
-+			err = br_vlan_add(br, v->vid, 0);
- 			if (err)
- 				goto out_filt;
- 			masterv = br_vlan_find(br->vlgrp, v->vid);
--- 
-2.4.3
+--Andy
