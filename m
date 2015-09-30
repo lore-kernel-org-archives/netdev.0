@@ -1,111 +1,88 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [RFC v3 net-next 09/10] qed: Add statistics support
-Date: Wed, 30 Sep 2015 22:18:00 +0800
-Message-ID: <201509302225.Cv9Emifk%fengguang.wu@intel.com>
-References: <1443618217-18069-10-git-send-email-Yuval.Mintz@qlogic.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 10/12] net: sctp: avoid incorrect time_t use
+Date: Wed, 30 Sep 2015 10:19:21 -0400
+Message-ID: <20150930141921.GD32524@hmsreliant.think-freely.org>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+ <1443612402-3000775-11-git-send-email-arnd@arndb.de>
+ <20150930135731.GC32524@hmsreliant.think-freely.org>
+ <20150930141520.GA4893@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com, Manish Chopra <Manish.Chopra@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:58147 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751279AbbI3OTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:19:22 -0400
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1443618217-18069-10-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150930141520.GA4893@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Manish,
+On Wed, Sep 30, 2015 at 11:15:20AM -0300, Marcelo Ricardo Leitner wrote:
+> On Wed, Sep 30, 2015 at 09:57:31AM -0400, Neil Horman wrote:
+> > On Wed, Sep 30, 2015 at 01:26:40PM +0200, Arnd Bergmann wrote:
+> > > We want to avoid using time_t in the kernel because of the y2038
+> > > overflow problem. The use in sctp is not for storing seconds at
+> > > all, but instead uses microseconds and is passed as 32-bit
+> > > on all machines.
+> > > 
+> > > This patch changes the type to u32, which better fits the use.
+> > > 
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > > Cc: Neil Horman <nhorman@tuxdriver.com>
+> > > Cc: linux-sctp@vger.kernel.org
+> > > ---
+> > >  net/sctp/sm_make_chunk.c | 2 +-
+> > >  net/sctp/sm_statefuns.c  | 2 +-
+> > >  2 files changed, 2 insertions(+), 2 deletions(-)
+> > > 
+> > > diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> > > index 7954c52e1794..763e06a55155 100644
+> > > --- a/net/sctp/sm_make_chunk.c
+> > > +++ b/net/sctp/sm_make_chunk.c
+> > > @@ -2494,7 +2494,7 @@ static int sctp_process_param(struct sctp_association *asoc,
+> > >  	__u16 sat;
+> > >  	int retval = 1;
+> > >  	sctp_scope_t scope;
+> > > -	time_t stale;
+> > > +	u32 stale;
+> > >  	struct sctp_af *af;
+> > >  	union sctp_addr_param *addr_param;
+> > >  	struct sctp_transport *t;
+> > > diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> > > index d7eaa7354cf7..6f46aa16cb76 100644
+> > > --- a/net/sctp/sm_statefuns.c
+> > > +++ b/net/sctp/sm_statefuns.c
+> > > @@ -2306,7 +2306,7 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
+> > >  						 sctp_cmd_seq_t *commands)
+> > >  {
+> > >  	struct sctp_chunk *chunk = arg;
+> > > -	time_t stale;
+> > > +	u32 stale;
+> > >  	sctp_cookie_preserve_param_t bht;
+> > >  	sctp_errhdr_t *err;
+> > >  	struct sctp_chunk *reply;
+> > > -- 
+> > > 2.1.0.rc2
+> > > 
+> > > 
+> > 
+> > Assignments to this variable use ntohl, won't this change risk overflow?
+> > 
+> > Neil
+> 
+> But isn't ntohl always 4 bytes long?
+> 
+Oh, you might be right. I was thinking it was 8, but I'm wrong
 
-[auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-reproduce:
-  # apt-get install sparse
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
-
-
-sparse warnings: (new ones prefixed by >>)
-
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:374:16: sparse: incorrect type in argument 4 (different base types)
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:374:16:    expected unsigned int [unsigned] [usertype] val
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:374:16:    got restricted __le32 [usertype] <noident>
->> drivers/net/ethernet/qlogic/qed/qed_dev.c:1582:25: sparse: cast from restricted __le32
->> drivers/net/ethernet/qlogic/qed/qed_dev.c:1582:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1584:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1584:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1586:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1586:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1588:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1588:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1590:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1590:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1592:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1592:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1594:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1594:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1597:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1597:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1599:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1599:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1601:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1601:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1603:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1603:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1605:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1605:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1607:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1607:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1610:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1610:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1612:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1612:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1615:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1615:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1617:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1617:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1619:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1619:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1621:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1621:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1623:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1623:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1625:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1625:25: sparse: restricted __le32 degrades to integer
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1627:25: sparse: cast from restricted __le32
-   drivers/net/ethernet/qlogic/qed/qed_dev.c:1627:25: sparse: restricted __le32 degrades to integer
-
-vim +1582 drivers/net/ethernet/qlogic/qed/qed_dev.c
-
-  1566	
-  1567			memset(&tstats, 0, sizeof(tstats));
-  1568			qed_memcpy_from(p_hwfn, p_ptt, &tstats,
-  1569					p_hwfn->storm_stats.tstats.address,
-  1570					p_hwfn->storm_stats.tstats.len);
-  1571	
-  1572			memset(&port_stats, 0, sizeof(port_stats));
-  1573	
-  1574			if (p_hwfn->mcp_info)
-  1575				qed_memcpy_from(p_hwfn, p_ptt, &port_stats,
-  1576						p_hwfn->mcp_info->port_addr +
-  1577						offsetof(struct public_port, stats),
-  1578						sizeof(port_stats));
-  1579			qed_ptt_release(p_hwfn, p_ptt);
-  1580	
-  1581			stats->no_buff_discards +=
-> 1582				HILO_64_REGPAIR(mstats.no_buff_discard);
-  1583			stats->packet_too_big_discard +=
-  1584				HILO_64_REGPAIR(mstats.packet_too_big_discard);
-  1585			stats->ttl0_discard +=
-  1586				HILO_64_REGPAIR(mstats.ttl0_discard);
-  1587			stats->tpa_coalesced_pkts +=
-  1588				HILO_64_REGPAIR(mstats.tpa_coalesced_pkts);
-  1589			stats->tpa_coalesced_events +=
-  1590				HILO_64_REGPAIR(mstats.tpa_coalesced_events);
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> Marcelo
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
