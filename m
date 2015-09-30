@@ -1,44 +1,21 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: add pfmemalloc check in sk_add_backlog()
-Date: Tue, 29 Sep 2015 21:56:07 -0700 (PDT)
-Message-ID: <20150929.215607.1418732892830129304.davem@davemloft.net>
-References: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Loan@vger.kernel.org, Offer@vger.kernel.org
+Subject: Loan Offer
+Date: Wed, 30 Sep 2015 11:12:50 +0530
+Message-ID: <HK2PR0201MB0947A6B77DEB05C98078B2F9B84D0@HK2PR0201MB0947.apcprd02.prod.outlook.com>
+Reply-To: <worldtrading1122@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gthelen@google.com, mhocko@suse.com,
-	mgorman@suse.de
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33428 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847AbbI3E4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:56:08 -0400
-In-Reply-To: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pu1apc01hn0214.outbound.protection.outlook.com ([104.47.126.214]:13824
+	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752820AbbI3FnC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 01:43:02 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 29 Sep 2015 18:52:25 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Greg reported crashes hitting the following check in __sk_backlog_rcv()
-> 
-> 	BUG_ON(!sock_flag(sk, SOCK_MEMALLOC)); 
-> 
-> The pfmemalloc bit is currently checked in sk_filter().
-> 
-> This works correctly for TCP, because sk_filter() is ran in
-> tcp_v[46]_rcv() before hitting the prequeue or backlog checks.
-> 
-> For UDP or other protocols, this does not work, because the sk_filter()
-> is ran from sock_queue_rcv_skb(), which might be called _after_ backlog
-> queuing if socket is owned by user by the time packet is processed by
-> softirq handler.
-> 
-> Fixes: b4b9e35585089 ("netvm: set PF_MEMALLOC as appropriate during SKB processing")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Greg Thelen <gthelen@google.com>
-
-Applied, thanks Eric.
+Contact us as we offer our finance service at a low and affordable interest rate for long and short cash term. Interested applicant should contact us for further acquisition procedures. Thanks as we remain obliged to render service to you; worldtrading1122@gmail.com
