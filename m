@@ -1,41 +1,47 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next 4/6] xfrm: Add xfrm6 address translation function
-Date: Wed, 30 Sep 2015 10:39:27 +0200
-Message-ID: <20150930083927.GE7701@secunet.com>
-References: <1443565043-1287886-1-git-send-email-tom@herbertland.com>
- <1443565043-1287886-5-git-send-email-tom@herbertland.com>
- <560B17A6.8040308@cumulusnetworks.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
+Date: Wed, 30 Sep 2015 10:54:29 +0200
+Message-ID: <560BA345.40504@zonque.org>
+References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
+ <1443525140-13493-4-git-send-email-daniel@zonque.org>
+ <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
+ <alpine.LSU.2.20.1509300938060.9960@nerf40.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Tom Herbert <tom@herbertland.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
+	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, balazs.scheidler@balabit.com
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:43786 "EHLO a.mx.secunet.com"
+Received: from svenfoo.org ([82.94.215.22]:39459 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755027AbbI3Ijb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 04:39:31 -0400
-Content-Disposition: inline
-In-Reply-To: <560B17A6.8040308@cumulusnetworks.com>
+	id S1752644AbbI3Iyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 04:54:32 -0400
+In-Reply-To: <alpine.LSU.2.20.1509300938060.9960@nerf40.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2015 at 04:58:46PM -0600, David Ahern wrote:
-> Hi Tom:
+On 09/30/2015 09:40 AM, Jan Engelhardt wrote:
 > 
-> On 9/29/15 4:17 PM, Tom Herbert wrote:
-> >This patch adds xfrm6_xlat_addr which is called in the data path
-> >to perform address translation (primarily for the receive path). Modules
-> >may register their own callback to perform a translation-- this
-> >registration is managed by xfrm6_xlat_addr_add and xfrm6_xlat_addr_del.
-> >xfrm6_xlat_addr allows translation of addresses for an sk_buff.
+> On Wednesday 2015-09-30 09:24, Daniel Mack wrote:
+>>
+>>> Drop?  Makes no sense, else application would not be running in the first
+>>> place.
+>>
+>> Of course you can drop certain packets at this point, depending on other
+>> details. Say, for instance, you want to match all packets that are
+>> received by a certain task [...]
+>> Another use case is accounting. If you want to know how much traffic a
+>> certain service or application in your system has caused
 > 
-> 
-> Seems like a stretch to lump this into xfrms. You have a separate
-> genl based config as opposed to the netlink xfrm API and you are
-> calling the xlat_addr function directly in ip6_rcv as opposed to via
-> some policy with dst_ops driven redirection. Why call this a xfrm?
+> But the sk info would be available in INPUT already, would it not?
 
-I have to agree here. We have policies and states to do the lookups
-and to describe the transformation. Just adding a callback to do this
-in a different way does not integrate well into xfrm.
+No, only for established connections, as those are subject to early
+demux which sets skb->sk. For all other packets, netfilter callbacks are
+called with skb->sk == NULL.
+
+That's the whole point of this patch set ;)
+
+
+Daniel
