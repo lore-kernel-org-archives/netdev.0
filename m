@@ -1,146 +1,76 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [PATCH wpan-tools 2/2] security: add store and restore scripts
-Date: Wed, 30 Sep 2015 16:09:04 +0200
-Message-ID: <560BED00.8020909@osg.samsung.com>
-References: <1443425134-27910-1-git-send-email-alex.aring@gmail.com>
- <1443425134-27910-2-git-send-email-alex.aring@gmail.com>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [RFC v3 net-next 07/10] qed: Add link support
+Date: Wed, 30 Sep 2015 22:08:40 +0800
+Message-ID: <201509302215.QZctJocl%fengguang.wu@intel.com>
+References: <1443618217-18069-8-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
-	phoebe.buckheister@itwm.fraunhofer.de
-To: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:40111 "EHLO lists.s-osg.org"
+Received: from mga02.intel.com ([134.134.136.20]:56351 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752123AbbI3OJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:09:09 -0400
-In-Reply-To: <1443425134-27910-2-git-send-email-alex.aring@gmail.com>
+	id S1753610AbbI3OJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 10:09:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1443618217-18069-8-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Yuval,
 
-On 28/09/15 09:25, Alexander Aring wrote:
-> This patch adds two new bash script commands."iwpan-store" and
-> "iwpan-restore" which can store and restore the current security
-> table settings. This is currently a very KISS solution, we should lookup
-> iptables implementation for storing and restoring the tables.
->
-> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> ---
->   src/Makefile.am   |  4 ++++
->   src/iwpan-restore | 36 ++++++++++++++++++++++++++++++++++++
->   src/iwpan-store   | 39 +++++++++++++++++++++++++++++++++++++++
+[auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
 
-Why not call it ipwan-dump and iwpan-restore? You use dump in other 
-places and I think it makes a lot sense to keep this.
->   3 files changed, 79 insertions(+)
->   create mode 100755 src/iwpan-restore
->   create mode 100755 src/iwpan-store
->
-> diff --git a/src/Makefile.am b/src/Makefile.am
-> index b2177a2..37a6d82 100644
-> --- a/src/Makefile.am
-> +++ b/src/Makefile.am
-> @@ -1,6 +1,10 @@
->   bin_PROGRAMS = \
->   	iwpan
->   
-> +bin_SCRIPTS = \
-> +	iwpan-store \
-> +	iwpan-restore
-> +
->   iwpan_SOURCES = \
->   	iwpan.c \
->   	iwpan.h \
-> diff --git a/src/iwpan-restore b/src/iwpan-restore
-> new file mode 100755
-> index 0000000..0e305f6
-> --- /dev/null
-> +++ b/src/iwpan-restore
-> @@ -0,0 +1,36 @@
-> +#!/bin/bash
-> +
-> +WPAN_DEV=""
-> +FILE=""
-> +
-> +function usage() {
-> +	echo "usage: -d \$WPAN_DEV -f \$FILE"
-> +}
-> +
-> +while getopts "d:f:" opt; do
-> +	case $opt in
-> +		d)
-> +			WPAN_DEV=$OPTARG
-> +			;;
-> +		f)
-> +			FILE=$OPTARG
-> +			;;
-> +		?)
-> +			usage
-> +			;;
-> +	esac
-> +done
-> +
-> +if [ -z $FILE ] || [ -z $WPAN_DEV ]
-> +then
-> +	usage
-> +	exit 1
-> +fi
-> +
-> +function failed() {
-> +	echo "failed" >&2
-> +}
-> +
-> +export WPAN_DEV &&
-> +/bin/bash $FILE ||
-> +failed
-> diff --git a/src/iwpan-store b/src/iwpan-store
-> new file mode 100755
-> index 0000000..acce807
-> --- /dev/null
-> +++ b/src/iwpan-store
-> @@ -0,0 +1,39 @@
-> +#!/bin/bash
-> +
-> +WPAN_DEV=""
-> +FILE=""
-> +
-> +function usage() {
-> +	echo "usage: -d \$WPAN_DEV -f \$FILE"
-> +}
-> +
-> +while getopts "d:f:" opt; do
-> +	case $opt in
-> +		d)
-> +			WPAN_DEV=$OPTARG
-> +			;;
-> +		f)
-> +			FILE=$OPTARG
-> +			;;
-> +		?)
-> +			usage
-> +			;;
-> +	esac
-> +done
-> +
-> +if [ -z $FILE ] || [ -z $WPAN_DEV ]
-> +then
-> +	usage
-> +	exit 1
-> +fi
-> +
-> +function failed() {
-> +	echo "failed" >&2
-> +	rm $FILE
-> +}
-> +
-> +iwpan dev $WPAN_DEV seclevel dump > $FILE &&
-> +iwpan dev $WPAN_DEV device dump >> $FILE &&
-> +iwpan dev $WPAN_DEV devkey dump >> $FILE &&
-> +iwpan dev $WPAN_DEV key dump >> $FILE ||
-> +failed
+reproduce:
+  # apt-get install sparse
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
 
-regards
-Stefan Schmidt
+
+sparse warnings: (new ones prefixed by >>)
+
+>> drivers/net/ethernet/qlogic/qed/qed_int.c:181:29: sparse: incorrect type in assignment (different base types)
+   drivers/net/ethernet/qlogic/qed/qed_int.c:181:29:    expected restricted __le16 [usertype] sb_index
+   drivers/net/ethernet/qlogic/qed/qed_int.c:181:29:    got unsigned short [unsigned] [assigned] [usertype] index
+   include/linux/qed/qed_if.h:430:16: sparse: restricted __le32 degrades to integer
+   include/linux/qed/qed_if.h:430:16: sparse: cast to restricted __le32
+--
+   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21: sparse: incorrect type in assignment (different base types)
+   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21:    expected restricted __be32 [usertype] tmp
+   drivers/net/ethernet/qlogic/qed/qed_mcp.c:87:21:    got unsigned int
+>> drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55: sparse: incorrect type in argument 4 (different base types)
+   drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55:    expected unsigned int [unsigned] [usertype] val
+   drivers/net/ethernet/qlogic/qed/qed_mcp.c:622:55:    got restricted __be32 [usertype] val
+
+vim +181 drivers/net/ethernet/qlogic/qed/qed_int.c
+
+   165	{
+   166		struct qed_sb_attn_info	 *p_sb_attn_sw   = p_hwfn->p_sb_attn;
+   167		struct atten_status_block       *p_sb_attn      = p_sb_attn_sw->sb_attn;
+   168		u32			     attn_bits       = 0, attn_acks = 0;
+   169		u16			     index	   = 0, asserted_bits,
+   170						deasserted_bits;
+   171		int			     rc = 0;
+   172	
+   173		/* Read current attention bits/acks - safeguard against attentions
+   174		 * by guaranting work on a synchronized timeframe
+   175		 */
+   176		do {
+   177			index	   = le16_to_cpu(p_sb_attn->sb_index);
+   178			attn_bits       = le32_to_cpu(p_sb_attn->atten_bits);
+   179			attn_acks       = le32_to_cpu(p_sb_attn->atten_ack);
+   180		} while (index != le16_to_cpu(p_sb_attn->sb_index));
+ > 181		p_sb_attn->sb_index = index;
+   182	
+   183		/* Attention / Deassertion are meaningful (and in correct state)
+   184		 * only when they differ and consistent with known state - deassertion
+   185		 * when previous attention & current ack, and assertion when current
+   186		 * attention with no previous attention
+   187		 */
+   188		asserted_bits = (attn_bits & ~attn_acks & ATTN_STATE_BITS) &
+   189			~p_sb_attn_sw->known_attn;
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
