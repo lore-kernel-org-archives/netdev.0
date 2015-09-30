@@ -1,54 +1,85 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: DSA driver - how to glue to a PCI based NIC's mdio?
-Date: Wed, 30 Sep 2015 14:27:19 -0700
-Message-ID: <CAJ+vNU2SUpsQ+7dwPfR6EHVofpvVFF42KO=YUDaarLaDwWvXFw@mail.gmail.com>
-References: <CAJ+vNU2rf0r9V3DfF1-=hpEhdqxkDHz-LmHWOJqscLdsw2EDEA@mail.gmail.com>
-	<20150930211210.GD20219@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH 1/3] net: dsa: Use devm_ prefixed allocations
+Date: Wed, 30 Sep 2015 23:28:33 +0200
+Message-ID: <20150930212833.GF20219@lunn.ch>
+References: <560B9B74.3080905@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:32848 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752734AbbI3V1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:27:20 -0400
-Received: by obbbh8 with SMTP id bh8so42563476obb.0
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 14:27:19 -0700 (PDT)
-In-Reply-To: <20150930211210.GD20219@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:38182 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752734AbbI3V2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 17:28:37 -0400
+Content-Disposition: inline
+In-Reply-To: <560B9B74.3080905@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 2:12 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Wed, Sep 30, 2015 at 01:44:52PM -0700, Tim Harvey wrote:
->> Greetings,
->>
->> I'm working on adding DSA support for a PCIe expansion card (designed
->> by us) that has common PCIe NIC connected via its mii-bus to a Marvell
->> MV88E6171. Because the NIC is a PCIe device, it has no device-tree
->> representation of its NIC or its mdio bus, but does register its mdio
->> bus with Linux.
->
-> It is possible to represent PCIe devices in device tree. Take a look
-> at ePAPR. Is the PCIe host in DT?
+Hi Neil
 
-It is possible to represent PCI devices in device-tree however not in
-a dynamic or plug-able fashion - they have to be nested per bus/slot
-which defeats the purpose of dynamic enumeration.
+I tested all three patches on a board with three switches.
 
->
->> Perhaps the right approach is to program the NIC's EEPROM on our board
->> with a PCI_ID/DEVICE_ID of ours, add support for those ID's to the
->> NIC's driver, and within the NIC's driver create and register dsa
->> platform device when our ID is encountered?
->
-> This sounds sensible. But i doubt you can add your DSA platform
-> information to the NIC's device driver. Better would be to have a
-> small shim driver which is loaded on your PCI_ID/DEVICE_ID. That would
-> instantiate the NIC driver, and insert a DSA platform device.
+1) Normal boot
+2) Bad address set for the 3rd switch so that it was not found, so
+   causing the probe to fail.
 
-I was thinking of this as well, but then I would still need that shim
-to know the netdevice that the driver I'm shimming creates so I can't
-figure a way to do it without touching the PCI driver.
+No regressions observed. 
 
-Tim
+Tested-by: Andrew Lunn <andrew@lunn.ch>
+
+As Florian said, this is going in the right direction for modular DSA,
+but still quite a way to go...
+
+    Thanks
+	Andrew
+
+On Wed, Sep 30, 2015 at 10:21:08AM +0200, Neil Armstrong wrote:
+> To simplify and prevent memory leakage when unbinding, use
+> the devm_ memory allocation calls.
+> 
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  net/dsa/dsa.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index c59fa5d..98f94c2 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  	if (ret < 0)
+>  		goto out;
+> 
+> -	ds->slave_mii_bus = mdiobus_alloc();
+> +	ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+>  	if (ds->slave_mii_bus == NULL) {
+>  		ret = -ENOMEM;
+>  		goto out;
+> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>  	/*
+>  	 * Allocate and initialise switch state.
+>  	 */
+> -	ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+> +	ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>  	if (ds == NULL)
+>  		return ERR_PTR(-ENOMEM);
+> 
+> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
+>  		goto out;
+>  	}
+> 
+> -	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
+> +	dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
+>  	if (dst == NULL) {
+>  		dev_put(dev);
+>  		ret = -ENOMEM;
+> -- 
+> 1.9.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
