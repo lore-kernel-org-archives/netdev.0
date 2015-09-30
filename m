@@ -1,12 +1,14 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v3 2/5] seccomp: add the concept of a seccomp filter FD
-Date: Wed, 30 Sep 2015 11:47:28 -0700
-Message-ID: <CALCETrX1uW-jM4SJEuxLeDGhqg6_-=K5_RM8e9yNUn2m8uLkJQ@mail.gmail.com>
+From: Tycho Andersen <tycho.andersen@canonical.com>
+Subject: Re: [PATCH v3 4/5] kcmp: add KCMP_FILE_PRIVATE_DATA
+Date: Wed, 30 Sep 2015 12:55:04 -0600
+Message-ID: <20150930185504.GC23065@smitten>
 References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
- <1443636820-17083-3-git-send-email-tycho.andersen@canonical.com>
- <CALCETrXkG6QCx9ptyN+VWrjgoTvwZAOfa-pWhS4iCZ=fpm6YnQ@mail.gmail.com> <20150930183632.GA23065@smitten>
+ <1443636820-17083-5-git-send-email-tycho.andersen@canonical.com>
+ <CALCETrUosV+ND1BC-qH3xZMaLwnex50SvMhaSa3FQ19oy1MBVg@mail.gmail.com>
+ <20150930184129.GB23065@smitten>
+ <CALCETrWjLGLAnf5_tCZohKYtTDi5Jo=bk_BkchTgXi8Bzz9YDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Cc: Kees Cook <keescook@chromium.org>,
 	Alexei Starovoitov <ast@kernel.org>,
 	Will Drewry <wad@chromium.org>,
@@ -17,41 +19,49 @@ Cc: Kees Cook <keescook@chromium.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
 	Linux API <linux-api@vger.kernel.org>
-To: Tycho Andersen <tycho.andersen@canonical.com>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150930183632.GA23065@smitten>
+Content-Disposition: inline
+In-Reply-To: <CALCETrWjLGLAnf5_tCZohKYtTDi5Jo=bk_BkchTgXi8Bzz9YDA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 30, 2015 at 11:36 AM, Tycho Andersen
-<tycho.andersen@canonical.com> wrote:
-> On Wed, Sep 30, 2015 at 11:27:34AM -0700, Andy Lutomirski wrote:
->> On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
->> <tycho.andersen@canonical.com> wrote:
->> > This patch introduces the concept of a seccomp fd, with a similar interface
->> > and usage to ebpf fds. Initially, one is allowed to create, install, and
->> > dump these fds. Any manipulation of seccomp fds requires users to be root
->> > in their own user namespace, matching the checks done for
->> > SECCOMP_SET_MODE_FILTER.
->> >
->> > Installing a filterfd has some gotchas, though. Andy mentioned previously
->> > that we should restrict installation to filter fds whose parent is already
->> > in the filter tree. This doesn't quite work in the case of created seccomp
->> > fds, since once you install a filter fd, you can't install any other filter
->> > fd since it has no parent and there is no way to "pre-chain" filters before
->> > installing them.
->>
->> ISTM, if we like the seccomp fd approach, we should have them be
->> created with a parent already set.  IOW the default should be that
->> their parent is the creator's seccomp fd and, if needed, creators
->> could specify a different parent.
->
-> Allowing people doing SECCOMP_FD_NEW to specify a parent fd would
-> work. Then we can disallow installing a seccomp fd if its parent is
-> not the current filter, and get rid of the whole mess with prev
-> locking and all that.
->
+On Wed, Sep 30, 2015 at 11:47:05AM -0700, Andy Lutomirski wrote:
+> On Wed, Sep 30, 2015 at 11:41 AM, Tycho Andersen
+> <tycho.andersen@canonical.com> wrote:
+> > On Wed, Sep 30, 2015 at 11:25:41AM -0700, Andy Lutomirski wrote:
+> >> On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
+> >> <tycho.andersen@canonical.com> wrote:
+> >> > This command allows comparing the underling private data of two fds. This
+> >> > is useful e.g. to find out if a seccomp filter is inherited, since struct
+> >> > seccomp_filter are unique across tasks and are the private_data seccomp
+> >> > fds.
+> >>
+> >> This is very implementation-specific and may have nasty ABI
+> >> consequences far outside seccomp.  Let's do something specific to
+> >> seccomp and/or eBPF.
+> >
+> > We could change the name to a less generic KCMP_SECCOMP_FD or
+> > something, but without some sort of GUID on each struct
+> > seccomp_filter, the implementation would be effectively the same as it
+> > is today. Is that enough, or do we need a GUID?
+> >
+> 
+> I don't care about the GUID.  I think we should name it
+> KCMP_SECCOMP_FD and make it only work on seccomp fds.
 
-Yes, please.
+Ok, I can do that.
 
---Andy
+> Alternatively, we could figure out why KCMP_FILE doesn't do the trick
+> and consider fixing it.  IMO it's really too bad that struct file is
+> so heavyweight that we can't really just embed one in all kinds of
+> structures.
+
+The problem is that KCMP_FILE compares the file objects themselves,
+instead of the underlying data. If I ask for a seccomp fd for filter 0
+twice, I'll have two different file objects and they won't be equal. I
+suppose we could add some special logic inside KCMP_FILE to compare
+the underlying data in special cases (seccomp, ebpf, others?), but it
+seems cleaner to have a separate command as you described above.
+
+Tycho
