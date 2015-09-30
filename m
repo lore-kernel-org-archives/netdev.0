@@ -1,77 +1,176 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [ovs-dev] [PATCH net-next 1/2] openvswitch: add tunnel protocol
- to sw_flow_key
-Date: Wed, 30 Sep 2015 22:52:49 +0200
-Message-ID: <20150930225250.3192e5a7@griffin>
-References: <cover.1443548447.git.jbenc@redhat.com>
-	<428cee4cb7e04cfea5bef90b37d257562ea78a83.1443548447.git.jbenc@redhat.com>
-	<CALnjE+qWmENWj_hL87++Sk=zzrvj2U0VAEW26ySAjg5RsDymuA@mail.gmail.com>
-	<20150930090946.4e4bb610@griffin>
-	<CALnjE+pNXwAisxyZnb3Lik1ZMa_0QLvLip9TOOqLEZUbboT8BQ@mail.gmail.com>
-	<CAEP_g=--y7J36S7fKVUA2Hjb=Sy=iRHot2XsJ=RbNTM20HhA1A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33523 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932747AbbI3Uwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 16:52:54 -0400
-In-Reply-To: <CAEP_g=--y7J36S7fKVUA2Hjb=Sy=iRHot2XsJ=RbNTM20HhA1A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next 1/3] RDS: Use a single TCP socket for both send and receive.
+Date: Wed, 30 Sep 2015 16:54:07 -0400
+Message-ID: <4510d08ce935c1496111c02c72b223a836c963f3.1443636587.git.sowmini.varadhan@oracle.com>
+References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
+	sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com,
+	sergei.shtylyov@cogentembedded.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Sep 2015 13:25:12 -0700, Jesse Gross wrote:
-> On Wed, Sep 30, 2015 at 1:13 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> > On Wed, Sep 30, 2015 at 12:09 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> >> On Tue, 29 Sep 2015 13:41:34 -0700, Pravin Shelar wrote:
-> >>> We can add rather add TUNNEL_IPV6 flag to distinguish IPv4 and IPv6
-> >>> tunnel keys. This can be stored in ip_tunnel_key.tun_flags.
-> >>
-> >> Not really. This was my original approach, too, but openvswitch is not
-> >> the only user of struct ip_tunnel_key, and in the lwtunnel core,
-> >> tun_flags are handled in the way that makes this impractical. Most
-> >> importantly, the tun_flags value is directly taken from/stored to
-> >> LWTUNNEL_IP_FLAGS/LWTUNNEL_IP6_FLAGS netlink attributes in
-> >> net/ipv4/ip_tunnel_core.c. This would mean complicated masking, etc.
-> >>
-> > How is it impractical ? Userspace can set flag for IPv6 tunnel info.
-> > That should be easy.
-> >
-> > IPv6 bit can not be masked anyways so I do not see problem with
-> > masking this flag due to the new bit.
-> 
-> I think he meant for non-OVS users.
+Commit f711a6ae062c ("net/rds: RDS-TCP: Always create a new rds_sock
+for an incoming connection.") modified rds-tcp so that an incoming SYN
+would ignore an existing "client" TCP connection which had the local
+port set to the transient port.  The motivation for ignoring the existing
+"client" connection in f711a6ae was to avoid race conditions and an
+endless duel of reconnect attempts triggered by a restart/abort of one
+of the nodes in the TCP connection.
 
-Yes, I didn't mean masking in ovs, I meant that we'd need to hide the
-bit from other users, for example in net/ipv4/ip_tunnel_core.c.
-Currently, the information about ip_tunnel_key protocol is stored
-outside the structure. Changing this would mean quite big changes in
-the lwtunnel code (or, rather, IP users of lwtunnel) which doesn't seem
-worth it just because of ovs. Especially when ovs can store the
-information just fine without impact on memory footprint.
+However, having separate sockets for active and passive sides
+is avoidable, and the simpler model of a single TCP socket for
+both send and receives of all RDS connections associated with
+that tcp socket makes for easier observability. We avoid the race
+conditions from f711a6ae by attempting reconnects in rds_conn_shutdown
+if, and only if, the (new) c_outgoing bit is set for RDS_TRANS_TCP.
+The c_outgoing bit is initialized in __rds_conn_create().
 
-I don't see any real advantage in storing the protocol inside
-ip_tunnel_key, this looks like it would be just a change for the change.
+A side-effect of re-using the client rds_connection for an incoming
+SYN is the potential of encountering duelling SYNs, i.e., we
+have an outgoing RDS_CONN_CONNECTING socket when we get the incoming
+SYN. The logic to arbitrate this criss-crossing SYN exchange in
+rds_tcp_accept_one() has been modified to emulate the BGP state
+machine: the smaller IP address should back off from the connection attempt.
 
-> > Since this field is exposed to userspace. TUNNEL_* flags needs to be
-> > moved to uapi header.
-> 
-> This doesn't really seem all that desirable to me. It's nice to be
-> able to change these as necessary and in the particular case of IPv6,
-> it seems like something that the kernel can manage by itself (as is
-> done in this patch and I think the same strategy would apply
-> regardless of the particular representation).
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2: kbuild-test-robot warning around __be32, modify subject line per 
+    Santosh Shilimkar
 
-User space can set and get those bits in LWTUNNEL_IP_FLAGS netlink
-attribute when using lwtunnel+routing rules. It would make sense to
-move them to uapi but that's for a different patch(set).
+ net/rds/connection.c |   22 ++++++----------------
+ net/rds/rds.h        |    4 +++-
+ net/rds/tcp_listen.c |   22 +++++++++-------------
+ 3 files changed, 18 insertions(+), 30 deletions(-)
 
- Jiri
-
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 49adeef..d456403 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -128,10 +128,7 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 	struct rds_transport *loop_trans;
+ 	unsigned long flags;
+ 	int ret;
+-	struct rds_transport *otrans = trans;
+ 
+-	if (!is_outgoing && otrans->t_type == RDS_TRANS_TCP)
+-		goto new_conn;
+ 	rcu_read_lock();
+ 	conn = rds_conn_lookup(net, head, laddr, faddr, trans);
+ 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
+@@ -147,7 +144,6 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 	if (conn)
+ 		goto out;
+ 
+-new_conn:
+ 	conn = kmem_cache_zalloc(rds_conn_slab, gfp);
+ 	if (!conn) {
+ 		conn = ERR_PTR(-ENOMEM);
+@@ -207,6 +203,7 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 
+ 	atomic_set(&conn->c_state, RDS_CONN_DOWN);
+ 	conn->c_send_gen = 0;
++	conn->c_outgoing = (is_outgoing ? 1 : 0);
+ 	conn->c_reconnect_jiffies = 0;
+ 	INIT_DELAYED_WORK(&conn->c_send_w, rds_send_worker);
+ 	INIT_DELAYED_WORK(&conn->c_recv_w, rds_recv_worker);
+@@ -243,22 +240,13 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 		/* Creating normal conn */
+ 		struct rds_connection *found;
+ 
+-		if (!is_outgoing && otrans->t_type == RDS_TRANS_TCP)
+-			found = NULL;
+-		else
+-			found = rds_conn_lookup(net, head, laddr, faddr, trans);
++		found = rds_conn_lookup(net, head, laddr, faddr, trans);
+ 		if (found) {
+ 			trans->conn_free(conn->c_transport_data);
+ 			kmem_cache_free(rds_conn_slab, conn);
+ 			conn = found;
+ 		} else {
+-			if ((is_outgoing && otrans->t_type == RDS_TRANS_TCP) ||
+-			    (otrans->t_type != RDS_TRANS_TCP)) {
+-				/* Only the active side should be added to
+-				 * reconnect list for TCP.
+-				 */
+-				hlist_add_head_rcu(&conn->c_hash_node, head);
+-			}
++			hlist_add_head_rcu(&conn->c_hash_node, head);
+ 			rds_cong_add_conn(conn);
+ 			rds_conn_count++;
+ 		}
+@@ -337,7 +325,9 @@ void rds_conn_shutdown(struct rds_connection *conn)
+ 	rcu_read_lock();
+ 	if (!hlist_unhashed(&conn->c_hash_node)) {
+ 		rcu_read_unlock();
+-		rds_queue_reconnect(conn);
++		if (conn->c_trans->t_type != RDS_TRANS_TCP ||
++		    conn->c_outgoing == 1)
++			rds_queue_reconnect(conn);
+ 	} else {
+ 		rcu_read_unlock();
+ 	}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index afb4048..b4c7ac0 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -86,7 +86,9 @@ struct rds_connection {
+ 	struct hlist_node	c_hash_node;
+ 	__be32			c_laddr;
+ 	__be32			c_faddr;
+-	unsigned int		c_loopback:1;
++	unsigned int		c_loopback:1,
++				c_outgoing:1,
++				c_pad_to_32:30;
+ 	struct rds_connection	*c_passive;
+ 
+ 	struct rds_cong_map	*c_lcong;
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 444d78d..1d90240 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -110,28 +110,24 @@ int rds_tcp_accept_one(struct socket *sock)
+ 		goto out;
+ 	}
+ 	/* An incoming SYN request came in, and TCP just accepted it.
+-	 * We always create a new conn for listen side of TCP, and do not
+-	 * add it to the c_hash_list.
+ 	 *
+ 	 * If the client reboots, this conn will need to be cleaned up.
+ 	 * rds_tcp_state_change() will do that cleanup
+ 	 */
+ 	rs_tcp = (struct rds_tcp_connection *)conn->c_transport_data;
+-	WARN_ON(!rs_tcp || rs_tcp->t_sock);
+-
+-	/*
+-	 * see the comment above rds_queue_delayed_reconnect()
+-	 */
+-	if (!rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING)) {
+-		if (rds_conn_state(conn) == RDS_CONN_UP)
+-			rds_tcp_stats_inc(s_tcp_listen_closed_stale);
+-		else
+-			rds_tcp_stats_inc(s_tcp_connect_raced);
+-		rds_conn_drop(conn);
++	if (rs_tcp->t_sock &&
++	    ntohl(inet->inet_saddr) < ntohl(inet->inet_daddr)) {
++		struct sock *nsk = new_sock->sk;
++
++		nsk->sk_user_data = NULL;
++		nsk->sk_prot->disconnect(nsk, 0);
++		tcp_done(nsk);
++		new_sock = NULL;
+ 		ret = 0;
+ 		goto out;
+ 	}
+ 
++	rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING);
+ 	rds_tcp_set_callbacks(new_sock, conn);
+ 	rds_connect_complete(conn);
+ 	new_sock = NULL;
 -- 
-Jiri Benc
+1.7.1
