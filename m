@@ -1,48 +1,43 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [RFC PATCH 1/3] net: dsa: Use devm_ prefixed allocations
-Date: Wed, 30 Sep 2015 18:34:29 -0300
-Message-ID: <CAOMZO5A6UyLN2w3jsQB4r48-jOfKep6abkW0p+-Emsg0-hvkRw@mail.gmail.com>
-References: <560B9B74.3080905@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560B9B74.3080905@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH net-next 5/6] bridge: Remove br_nf_push_frag_xmit_sk
+Date: Wed, 30 Sep 2015 16:25:35 -0500
+Message-ID: <1443648336-31741-5-git-send-email-ebiederm@xmission.com>
+References: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:45888 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932834AbbI3VeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:34:23 -0400
+In-Reply-To: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 5:21 AM, Neil Armstrong <narmstrong@baylibre.com> wrote:
-> To simplify and prevent memory leakage when unbinding, use
-> the devm_ memory allocation calls.
->
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  net/dsa/dsa.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index c59fa5d..98f94c2 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->         if (ret < 0)
->                 goto out;
->
-> -       ds->slave_mii_bus = mdiobus_alloc();
-> +       ds->slave_mii_bus = devm_mdiobus_alloc(parent);
->         if (ds->slave_mii_bus == NULL) {
->                 ret = -ENOMEM;
->                 goto out;
-> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->         /*
->          * Allocate and initialise switch state.
->          */
-> -       ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
-> +       ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+Now that this compatability function no longer has any callers remove it.
 
-Shouldn't devm_ functions be called only from probe and remove functions?
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/bridge/br_netfilter_hooks.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 815994d5b02d..370aa4d4cf4d 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -691,11 +691,6 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 	nf_bridge_info_free(skb);
+ 	return br_dev_queue_push_xmit(net, sk, skb);
+ }
+-static int br_nf_push_frag_xmit_sk(struct sock *sk, struct sk_buff *skb)
+-{
+-	struct net *net = dev_net(skb_dst(skb)->dev);
+-	return br_nf_push_frag_xmit(net, sk, skb);
+-}
+ #endif
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+-- 
+2.2.1
