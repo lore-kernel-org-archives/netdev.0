@@ -1,69 +1,61 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: DSA driver - how to glue to a PCI based NIC's mdio?
-Date: Wed, 30 Sep 2015 14:33:42 -0700
-Message-ID: <560C5536.5070101@gmail.com>
-References: <CAJ+vNU2rf0r9V3DfF1-=hpEhdqxkDHz-LmHWOJqscLdsw2EDEA@mail.gmail.com>	<20150930211210.GD20219@lunn.ch> <CAJ+vNU2SUpsQ+7dwPfR6EHVofpvVFF42KO=YUDaarLaDwWvXFw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Tim Harvey <tharvey@gateworks.com>, Andrew Lunn <andrew@lunn.ch>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH net-next 2/6] openvswitch: Pass net into ovs_fragment
+Date: Wed, 30 Sep 2015 16:25:32 -0500
+Message-ID: <1443648336-31741-2-git-send-email-ebiederm@xmission.com>
+References: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:32863 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932463AbbI3Vd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:33:56 -0400
-Received: by pacex6 with SMTP id ex6so51846400pac.0
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 14:33:56 -0700 (PDT)
-In-Reply-To: <CAJ+vNU2SUpsQ+7dwPfR6EHVofpvVFF42KO=YUDaarLaDwWvXFw@mail.gmail.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:55870 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754572AbbI3VeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:34:17 -0400
+In-Reply-To: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/09/15 14:27, Tim Harvey wrote:
-> On Wed, Sep 30, 2015 at 2:12 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> On Wed, Sep 30, 2015 at 01:44:52PM -0700, Tim Harvey wrote:
->>> Greetings,
->>>
->>> I'm working on adding DSA support for a PCIe expansion card (designed
->>> by us) that has common PCIe NIC connected via its mii-bus to a Marvell
->>> MV88E6171. Because the NIC is a PCIe device, it has no device-tree
->>> representation of its NIC or its mdio bus, but does register its mdio
->>> bus with Linux.
->>
->> It is possible to represent PCIe devices in device tree. Take a look
->> at ePAPR. Is the PCIe host in DT?
-> 
-> It is possible to represent PCI devices in device-tree however not in
-> a dynamic or plug-able fashion - they have to be nested per bus/slot
-> which defeats the purpose of dynamic enumeration.
+In preparation for the ipv4 and ipv6 fragmentation code taking a net
+parameter pass a struct net into ovs_fragment where the v4 and v6
+fragmentation code is called.
 
-Even though a bus is completely auto-discoverable, if there is
-additional information needed to supplement that topology, having things
-be represented in Device Tree is typically accepted.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/openvswitch/actions.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-> 
->>
->>> Perhaps the right approach is to program the NIC's EEPROM on our board
->>> with a PCI_ID/DEVICE_ID of ours, add support for those ID's to the
->>> NIC's driver, and within the NIC's driver create and register dsa
->>> platform device when our ID is encountered?
->>
->> This sounds sensible. But i doubt you can add your DSA platform
->> information to the NIC's device driver. Better would be to have a
->> small shim driver which is loaded on your PCI_ID/DEVICE_ID. That would
->> instantiate the NIC driver, and insert a DSA platform device.
-> 
-> I was thinking of this as well, but then I would still need that shim
-> to know the netdevice that the driver I'm shimming creates so I can't
-> figure a way to do it without touching the PCI driver.
-
-You can register a network device notifier, and try to extract that
-information about this network device you need once you see that device
-being registered. As an example, there is a loopback/fake DSA switch
-driver here which uses the loopback interface as a parent network device
-(NB: this is using the network device name, which is pretty lame, but
-that does the job):
-
-https://github.com/ffainelli/linux/commit/67d1db45d17f8cc3b32d7a46c49d5df736cee56c
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index f00c641ecd93..ba38662f9f5e 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -684,8 +684,8 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb)
+ 	skb_pull(skb, hlen);
+ }
+ 
+-static void ovs_fragment(struct vport *vport, struct sk_buff *skb, u16 mru,
+-			 __be16 ethertype)
++static void ovs_fragment(struct net *net, struct vport *vport,
++			 struct sk_buff *skb, u16 mru, __be16 ethertype)
+ {
+ 	if (skb_network_offset(skb) > MAX_L2_LEN) {
+ 		OVS_NLERR(1, "L2 header too long to fragment");
+@@ -748,6 +748,7 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ 		if (likely(!mru || (skb->len <= mru + ETH_HLEN))) {
+ 			ovs_vport_send(vport, skb);
+ 		} else if (mru <= vport->dev->mtu) {
++			struct net *net = read_pnet(&dp->net);
+ 			__be16 ethertype = key->eth.type;
+ 
+ 			if (!is_flow_key_valid(key)) {
+@@ -757,7 +758,7 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ 					ethertype = vlan_get_protocol(skb);
+ 			}
+ 
+-			ovs_fragment(vport, skb, mru, ethertype);
++			ovs_fragment(net, vport, skb, mru, ethertype);
+ 		} else {
+ 			kfree_skb(skb);
+ 		}
 -- 
-Florian
+2.2.1
