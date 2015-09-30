@@ -1,7 +1,7 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH net-next 2/4] ravb: Provide dev parameter to DMA API
-Date: Wed, 30 Sep 2015 15:15:53 +0900
-Message-ID: <1443593755-20991-3-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH net-next 3/4] ravb: Document binding for r8a7795 SoC
+Date: Wed, 30 Sep 2015 15:15:54 +0900
+Message-ID: <1443593755-20991-4-git-send-email-horms+renesas@verge.net.au>
 References: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
 Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -15,192 +15,148 @@ List-Id: netdev.vger.kernel.org
 
 From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-This patch is in preparation for using this driver on arm64 where the
-implementation of __dma_alloc_coherent fails if a device parameter is not
-provided.
+This patch updates the ravb binding to support the r8a7795 SoC by:
+- Adding a compat string for the new hardware
+- Adding 25 named interrupts to binding for the new SoC;
+  older SoCs continue to use a single multiplexed interrupt
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
-[horms: squashed into a single patch]
+The example is also updated to reflect the r8a7795 as this is the
+more complex case.
+
+Based on work by Kazuya Mizuguchi and others.
+
 Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
 ---
-* [horms]
-  I have only tested this on arm64 using r8a7795/salvator-x.
+v2
+* First post; broken out of a driver update patch
+* As discussed with Geert Uytterhoeven and Sergei Shtylyov
+  - Binding: Make all interrupts mandatory as named-interrupts of
+    the form ch%u
 
-v0 [Kazuya Mizuguchi, Yoshihiro Shimoda, Masaru Nagai]
-
-v1 [Simon Horman]
-* Squashed into a single patch
-
-v2 [Simon Horman]
-* No change
+v3
+* A suggested by Geert Uytterhoeven
+  - Reword description of interrupts and interrupt-names to
+    make things clearer. It is now based to some extent on
+    spi-rspi.txt and renesas,usb-dmac.txt.
+* As suggested by Sergei Shtylyov
+  - Drop phy-reset-gpio from example
+* Added power-domains to example
 
 v4
-* No change
+* A suggested by Geert Uytterhoeven
+  - grammar fix for interrupt-names description
+* Add ack
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 38 ++++++++++++++++----------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+ .../devicetree/bindings/net/renesas,ravb.txt       | 69 +++++++++++++++++++---
+ 1 file changed, 62 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 450899e9cea2..4ca093d033f8 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -201,7 +201,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 	if (priv->rx_ring[q]) {
- 		ring_size = sizeof(struct ravb_ex_rx_desc) *
- 			    (priv->num_rx_ring[q] + 1);
--		dma_free_coherent(NULL, ring_size, priv->rx_ring[q],
-+		dma_free_coherent(ndev->dev.parent, ring_size, priv->rx_ring[q],
- 				  priv->rx_desc_dma[q]);
- 		priv->rx_ring[q] = NULL;
- 	}
-@@ -209,7 +209,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 	if (priv->tx_ring[q]) {
- 		ring_size = sizeof(struct ravb_tx_desc) *
- 			    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
--		dma_free_coherent(NULL, ring_size, priv->tx_ring[q],
-+		dma_free_coherent(ndev->dev.parent, ring_size, priv->tx_ring[q],
- 				  priv->tx_desc_dma[q]);
- 		priv->tx_ring[q] = NULL;
- 	}
-@@ -240,13 +240,13 @@ static void ravb_ring_format(struct net_device *ndev, int q)
- 		rx_desc = &priv->rx_ring[q][i];
- 		/* The size of the buffer should be on 16-byte boundary. */
- 		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
--		dma_addr = dma_map_single(&ndev->dev, priv->rx_skb[q][i]->data,
-+		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
- 					  ALIGN(PKT_BUF_SZ, 16),
- 					  DMA_FROM_DEVICE);
- 		/* We just set the data size to 0 for a failed mapping which
- 		 * should prevent DMA from happening...
- 		 */
--		if (dma_mapping_error(&ndev->dev, dma_addr))
-+		if (dma_mapping_error(ndev->dev.parent, dma_addr))
- 			rx_desc->ds_cc = cpu_to_le16(0);
- 		rx_desc->dptr = cpu_to_le32(dma_addr);
- 		rx_desc->die_dt = DT_FEMPTY;
-@@ -309,7 +309,7 @@ static int ravb_ring_init(struct net_device *ndev, int q)
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index 1fd8831437bf..b486f3f5f6a3 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -6,8 +6,12 @@ interface contains.
+ Required properties:
+ - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+ 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
++	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+ - reg: offset and length of (1) the register block and (2) the stream buffer.
+-- interrupts: interrupt specifier for the sole interrupt.
++- interrupts: A list of interrupt-specifiers, one for each entry in
++	      interrupt-names.
++	      If interrupt-names is not present, an interrupt specifier
++	      for a single muxed interrupt.
+ - phy-mode: see ethernet.txt file in the same directory.
+ - phy-handle: see ethernet.txt file in the same directory.
+ - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
+@@ -18,6 +22,12 @@ Required properties:
+ Optional properties:
+ - interrupt-parent: the phandle for the interrupt controller that services
+ 		    interrupts for this device.
++- interrupt-names: A list of interrupt names.
++		   For the R8A7795 SoC this property is mandatory;
++		   it should include one entry per channel, named "ch%u",
++		   where %u is the channel number ranging from 0 to 24.
++		   For other SoCs this property is optional; if present
++		   it should contain "mux" for a single muxed interrupt.
+ - pinctrl-names: pin configuration state name ("default").
+ - renesas,no-ether-link: boolean, specify when a board does not provide a proper
+ 			 AVB_LINK signal.
+@@ -27,13 +37,46 @@ Optional properties:
+ Example:
  
- 	/* Allocate all RX descriptors. */
- 	ring_size = sizeof(struct ravb_ex_rx_desc) * (priv->num_rx_ring[q] + 1);
--	priv->rx_ring[q] = dma_alloc_coherent(NULL, ring_size,
-+	priv->rx_ring[q] = dma_alloc_coherent(ndev->dev.parent, ring_size,
- 					      &priv->rx_desc_dma[q],
- 					      GFP_KERNEL);
- 	if (!priv->rx_ring[q])
-@@ -320,7 +320,7 @@ static int ravb_ring_init(struct net_device *ndev, int q)
- 	/* Allocate all TX descriptors. */
- 	ring_size = sizeof(struct ravb_tx_desc) *
- 		    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
--	priv->tx_ring[q] = dma_alloc_coherent(NULL, ring_size,
-+	priv->tx_ring[q] = dma_alloc_coherent(ndev->dev.parent, ring_size,
- 					      &priv->tx_desc_dma[q],
- 					      GFP_KERNEL);
- 	if (!priv->tx_ring[q])
-@@ -443,7 +443,7 @@ static int ravb_tx_free(struct net_device *ndev, int q)
- 		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
- 		/* Free the original skb. */
- 		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
--			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-+			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
- 					 size, DMA_TO_DEVICE);
- 			/* Last packet descriptor? */
- 			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
-@@ -546,7 +546,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+ 	ethernet@e6800000 {
+-		compatible = "renesas,etheravb-r8a7790";
+-		reg = <0 0xe6800000 0 0x800>, <0 0xee0e8000 0 0x4000>;
++		compatible = "renesas,etheravb-r8a7795";
++		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
+ 		interrupt-parent = <&gic>;
+-		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
+-		clocks = <&mstp8_clks R8A7790_CLK_ETHERAVB>;
+-		phy-mode = "rmii";
++		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "ch0", "ch1", "ch2", "ch3",
++				  "ch4", "ch5", "ch6", "ch7",
++				  "ch8", "ch9", "ch10", "ch11",
++				  "ch12", "ch13", "ch14", "ch15",
++				  "ch16", "ch17", "ch18", "ch19",
++				  "ch20", "ch21", "ch22", "ch23",
++				  "ch24";
++		clocks = <&mstp8_clks R8A7795_CLK_ETHERAVB>;
++		power-domains = <&cpg_clocks>;
++		phy-mode = "rgmii-id";
+ 		phy-handle = <&phy0>;
++
+ 		pinctrl-0 = <&ether_pins>;
+ 		pinctrl-names = "default";
+ 		renesas,no-ether-link;
+@@ -41,8 +84,20 @@ Example:
+ 		#size-cells = <0>;
  
- 			skb = priv->rx_skb[q][entry];
- 			priv->rx_skb[q][entry] = NULL;
--			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-+			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
- 					 ALIGN(PKT_BUF_SZ, 16),
- 					 DMA_FROM_DEVICE);
- 			get_ts &= (q == RAVB_NC) ?
-@@ -586,14 +586,14 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
- 			if (!skb)
- 				break;	/* Better luck next round. */
- 			ravb_set_buffer_align(skb);
--			dma_addr = dma_map_single(&ndev->dev, skb->data,
-+			dma_addr = dma_map_single(ndev->dev.parent, skb->data,
- 						  le16_to_cpu(desc->ds_cc),
- 						  DMA_FROM_DEVICE);
- 			skb_checksum_none_assert(skb);
- 			/* We just set the data size to 0 for a failed mapping
- 			 * which should prevent DMA  from happening...
- 			 */
--			if (dma_mapping_error(&ndev->dev, dma_addr))
-+			if (dma_mapping_error(ndev->dev.parent, dma_addr))
- 				desc->ds_cc = cpu_to_le16(0);
- 			desc->dptr = cpu_to_le32(dma_addr);
- 			priv->rx_skb[q][entry] = skb;
-@@ -1300,8 +1300,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		 entry / NUM_TX_DESC * DPTR_ALIGN;
- 	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
- 	memcpy(buffer, skb->data, len);
--	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
--	if (dma_mapping_error(&ndev->dev, dma_addr))
-+	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(ndev->dev.parent, dma_addr))
- 		goto drop;
- 
- 	desc = &priv->tx_ring[q][entry];
-@@ -1310,8 +1310,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	buffer = skb->data + len;
- 	len = skb->len - len;
--	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
--	if (dma_mapping_error(&ndev->dev, dma_addr))
-+	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(ndev->dev.parent, dma_addr))
- 		goto unmap;
- 
- 	desc++;
-@@ -1323,7 +1323,7 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		ts_skb = kmalloc(sizeof(*ts_skb), GFP_ATOMIC);
- 		if (!ts_skb) {
- 			desc--;
--			dma_unmap_single(&ndev->dev, dma_addr, len,
-+			dma_unmap_single(ndev->dev.parent, dma_addr, len,
- 					 DMA_TO_DEVICE);
- 			goto unmap;
- 		}
-@@ -1358,7 +1358,7 @@ exit:
- 	return NETDEV_TX_OK;
- 
- unmap:
--	dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-+	dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
- 			 le16_to_cpu(desc->ds_tagl), DMA_TO_DEVICE);
- drop:
- 	dev_kfree_skb_any(skb);
-@@ -1708,7 +1708,7 @@ static int ravb_probe(struct platform_device *pdev)
- 
- 	/* Allocate descriptor base address table */
- 	priv->desc_bat_size = sizeof(struct ravb_desc) * DBAT_ENTRY_NUM;
--	priv->desc_bat = dma_alloc_coherent(NULL, priv->desc_bat_size,
-+	priv->desc_bat = dma_alloc_coherent(ndev->dev.parent, priv->desc_bat_size,
- 					    &priv->desc_bat_dma, GFP_KERNEL);
- 	if (!priv->desc_bat) {
- 		dev_err(&ndev->dev,
-@@ -1763,7 +1763,7 @@ out_napi_del:
- 	netif_napi_del(&priv->napi[RAVB_BE]);
- 	ravb_mdio_release(priv);
- out_dma_free:
--	dma_free_coherent(NULL, priv->desc_bat_size, priv->desc_bat,
-+	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
- 			  priv->desc_bat_dma);
- out_release:
- 	if (ndev)
-@@ -1779,7 +1779,7 @@ static int ravb_remove(struct platform_device *pdev)
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct ravb_private *priv = netdev_priv(ndev);
- 
--	dma_free_coherent(NULL, priv->desc_bat_size, priv->desc_bat,
-+	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
- 			  priv->desc_bat_dma);
- 	/* Set reset mode */
- 	ravb_write(ndev, CCC_OPC_RESET, CCC);
+ 		phy0: ethernet-phy@0 {
++			rxc-skew-ps = <900>;
++			rxdv-skew-ps = <0>;
++			rxd0-skew-ps = <0>;
++			rxd1-skew-ps = <0>;
++			rxd2-skew-ps = <0>;
++			rxd3-skew-ps = <0>;
++			txc-skew-ps = <900>;
++			txen-skew-ps = <0>;
++			txd0-skew-ps = <0>;
++			txd1-skew-ps = <0>;
++			txd2-skew-ps = <0>;
++			txd3-skew-ps = <0>;
+ 			reg = <0>;
+ 			interrupt-parent = <&gpio2>;
+-			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
++			interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+ 		};
+ 	};
 -- 
 2.1.4
 
