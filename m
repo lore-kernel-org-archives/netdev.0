@@ -1,47 +1,34 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: rtl8188eu: Add missing include
-Date: Wed, 30 Sep 2015 10:20:47 -0500
-Message-ID: <1443626447-3227-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Jakub Sitnicki <jsitnicki@gmail.com>
-To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:33607 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754255AbbI3PUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 11:20:54 -0400
-Received: by oixx17 with SMTP id x17so24111355oix.0
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 08:20:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: Re: [PATCH 07/12] atm: hide 'struct zatm_t_hist'
+Date: Wed, 30 Sep 2015 11:24:35 -0400
+Message-ID: <1443626675.3494.41.camel@gmail.com>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+	 <1443612402-3000775-8-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-atm-general@lists.sourceforge.net
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443612402-3000775-8-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 0a0796eb16f3, there is no include to mon.h, a newly created
-header file. This omission leads to the following Sparse warnings:
+On Wed, 2015-09-30 at 13:26 +0200, Arnd Bergmann wrote:
+> The zatm_t_hist structure is not used anywhere in the kernel, but is
+> exported to user space. As we are trying to eliminate uses of time_t
+> in the kernel for y2038 compatibility, the current definition triggers
+> checking tools because it contains 'struct timeval'.
+> 
+> We can work around this by adding '#ifdef __KERNEL__'. I could not find
+> out what the structure is actually used for, so this is the safe choice
+> in case there is some user space tool that relies on the definition.
+> 
+> If we are sure that nothing in user space relies on the structure, we
+> can instead remove the definition completely.
 
-  CHECK   drivers/staging/rtl8188eu/os_dep/mon.c
-drivers/staging/rtl8188eu/os_dep/mon.c:81:6: warning: symbol 'rtl88eu_mon_recv_hook' was not declared. Should it be static?
-drivers/staging/rtl8188eu/os_dep/mon.c:113:6: warning: symbol 'rtl88eu_mon_xmit_hook' was not declared. Should it be static?
-drivers/staging/rtl8188eu/os_dep/mon.c:167:19: warning: symbol 'rtl88eu_mon_init' was not declared. Should it be static?
-drivers/staging/rtl8188eu/os_dep/mon.c:188:6: warning: symbol 'rtl88eu_mon_deinit' was not declared. Should it be static?
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jakub Sitnicki <jsitnicki@gmail.com>
----
- drivers/staging/rtl8188eu/os_dep/mon.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/staging/rtl8188eu/os_dep/mon.c b/drivers/staging/rtl8188eu/os_dep/mon.c
-index 3dd3dc0..63bb875 100644
---- a/drivers/staging/rtl8188eu/os_dep/mon.c
-+++ b/drivers/staging/rtl8188eu/os_dep/mon.c
-@@ -20,6 +20,7 @@
- #include <drv_types.h>
- #include <rtw_recv.h>
- #include <rtw_xmit.h>
-+#include <mon.h>
- 
- /**
-  * unprotect_frame() - unset Protected flag and strip off IV and ICV/MIC
--- 
-2.1.4
+It was used by the ZATM_GETHIST ioctl which is long since gone in the
+kernel driver.  You can just remove this.
