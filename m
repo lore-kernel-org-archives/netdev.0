@@ -1,47 +1,47 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: peak_pci: add unused device id. in devices table
-Date: Wed, 30 Sep 2015 13:12:44 +0200
-Message-ID: <1443611564-1299-2-git-send-email-mkl@pengutronix.de>
-References: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
+Subject: pull-request: can 2015-09-30
+Date: Wed, 30 Sep 2015 13:12:43 +0200
+Message-ID: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57327 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43073 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755443AbbI3LMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:12:48 -0400
-In-Reply-To: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
+	with ESMTP id S1754981AbbI3LMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:12:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephane Grosjean <s.grosjean@peak-system.com>
+Hello David,
 
-While new PEAK_PCIE_OEM_ID has been defined since 3.17, no corresponding
-entry has been added in the peak_pci_tbl[] of the peak_pci CAN driver.
+this is a pull request of a single patch for 4.3.
 
-This patch enables now users of the PCAN-PCI Express OEM card to run the
-peak_pci driver too.
+The patch is by Stephane Grosjean and add support for the peak OEM PCI card to
+the peak_pci driver by adding its device ID.
 
-Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+regards,
+Marc
 ---
+
+The following changes since commit b84f78782052ee4516903e5d0566a5eee365b771:
+
+  net: Initialize flow flags in input path (2015-09-29 21:52:32 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.3-20150930
+
+for you to fetch changes up to 7253054e5d05233063c48f57ac02283bd35753d8:
+
+  can: peak_pci: add unused device id. in devices table (2015-09-30 12:57:58 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.3-20150930
+
+----------------------------------------------------------------
+Stephane Grosjean (1):
+      can: peak_pci: add unused device id. in devices table
+
  drivers/net/can/sja1000/peak_pci.c | 1 +
  1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index e5fac368068a..131026fbc2d7 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -87,6 +87,7 @@ static const struct pci_device_id peak_pci_tbl[] = {
- 	{PEAK_PCI_VENDOR_ID, PEAK_PC_104P_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
- 	{PEAK_PCI_VENDOR_ID, PEAK_PCI_104E_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
- 	{PEAK_PCI_VENDOR_ID, PEAK_CPCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_OEM_ID, PCI_ANY_ID, PCI_ANY_ID,},
- #ifdef CONFIG_CAN_PEAK_PCIEC
- 	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
- 	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC34_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
--- 
-2.6.0
