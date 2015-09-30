@@ -1,140 +1,59 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: [PATCH v3 3/5] seccomp: add a ptrace command to get seccomp filter fds
-Date: Wed, 30 Sep 2015 12:13:38 -0600
-Message-ID: <1443636820-17083-4-git-send-email-tycho.andersen@canonical.com>
-References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
-Cc: Will Drewry <wad@chromium.org>, Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org,
-	Tycho Andersen <tycho.andersen@canonical.com>
-To: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 2/5] bridge: vlan: fix possible null vlgrp deref while registering new port
+Date: Wed, 30 Sep 2015 20:16:52 +0200
+Message-ID: <1443637015-4153-3-git-send-email-razor@blackwall.org>
+References: <1443637015-4153-1-git-send-email-razor@blackwall.org>
+Cc: roopa@cumulusnetworks.com, vyasevich@gmail.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:37657 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933103AbbI3SRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:17:03 -0400
+Received: by wicfx3 with SMTP id fx3so74253369wic.0
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:17:01 -0700 (PDT)
+In-Reply-To: <1443637015-4153-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I just picked 40 for the constant out of thin air, but there may be a more
-appropriate value for this. Also, we return EINVAL when there is no filter
-for the index the user requested, but ptrace also returns EINVAL for
-invalid commands, making it slightly awkward to test whether or not the
-kernel supports this feature. It can still be done via,
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-if (is_in_mode_filter(pid)) {
-	int fd;
+While a new port is being initialized the rx_handler gets set, but the
+vlans get initialized later in br_add_if() and in that window if we
+receive a frame with a link-local address we can try to dereference
+p->vlgrp in:
+br_handle_frame() -> br_handle_local_finish() -> br_should_learn()
 
-	fd = ptrace(PTRACE_SECCOMP_GET_FILTER_FD, pid, NULL, 0);
-	if (fd < 0 && errno == -EINVAL)
-		/* not supported */
+Fix this by checking vlgrp before using it.
 
-	...
-}
-
-since being in SECCOMP_MODE_FILTER implies that there is at least one
-filter. If there is a more appropriate errno (ESRCH collides as well with
-ptrace) to give here that may be better.
-
-Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
-CC: Kees Cook <keescook@chromium.org>
-CC: Will Drewry <wad@chromium.org>
-CC: Oleg Nesterov <oleg@redhat.com>
-CC: Andy Lutomirski <luto@amacapital.net>
-CC: Pavel Emelyanov <xemul@parallels.com>
-CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
-CC: Alexei Starovoitov <ast@kernel.org>
-CC: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/linux/seccomp.h     |  9 +++++++++
- include/uapi/linux/ptrace.h |  2 ++
- kernel/ptrace.c             |  4 ++++
- kernel/seccomp.c            | 28 ++++++++++++++++++++++++++++
- 4 files changed, 43 insertions(+)
+ net/bridge/br_vlan.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index f426503..637d91f 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -95,4 +95,13 @@ static inline void get_seccomp_filter(struct task_struct *tsk)
- 	return;
- }
- #endif /* CONFIG_SECCOMP_FILTER */
-+
-+#if defined(CONFIG_CHECKPOINT_RESTORE) && defined(CONFIG_SECCOMP_FILTER)
-+extern long seccomp_get_filter_fd(struct task_struct *task, long data);
-+#else
-+static inline long seccomp_get_filter_fd(struct task_struct *task, long data)
-+{
-+	return -EINVAL;
-+}
-+#endif /* CONFIG_CHECKPOINT_RESTORE && CONFIG_SECCOMP_FILTER */
- #endif /* _LINUX_SECCOMP_H */
-diff --git a/include/uapi/linux/ptrace.h b/include/uapi/linux/ptrace.h
-index a7a6979..3271f5a 100644
---- a/include/uapi/linux/ptrace.h
-+++ b/include/uapi/linux/ptrace.h
-@@ -23,6 +23,8 @@
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 283d012c3d89..678d5c41b551 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -476,13 +476,15 @@ bool br_allowed_egress(struct net_bridge_vlan_group *vg,
+ /* Called under RCU */
+ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
+ {
++	struct net_bridge_vlan_group *vg;
+ 	struct net_bridge *br = p->br;
  
- #define PTRACE_SYSCALL		  24
+ 	/* If filtering was disabled at input, let it pass. */
+ 	if (!br->vlan_enabled)
+ 		return true;
  
-+#define PTRACE_SECCOMP_GET_FILTER_FD 40
-+
- /* 0x4200-0x4300 are reserved for architecture-independent additions.  */
- #define PTRACE_SETOPTIONS	0x4200
- #define PTRACE_GETEVENTMSG	0x4201
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 787320d..aede440 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -1016,6 +1016,10 @@ int ptrace_request(struct task_struct *child, long request,
- 		break;
- 	}
- #endif
-+
-+	case PTRACE_SECCOMP_GET_FILTER_FD:
-+		return seccomp_get_filter_fd(child, data);
-+
- 	default:
- 		break;
- 	}
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index 6f0465c..7275ce0 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -1058,3 +1058,31 @@ long prctl_set_seccomp(unsigned long seccomp_mode, char __user *filter)
- 	/* prctl interface doesn't have flags, so they are always zero. */
- 	return do_seccomp(op, 0, uargs);
- }
-+
-+#if defined(CONFIG_CHECKPOINT_RESTORE) && defined(CONFIG_SECCOMP_FILTER)
-+long seccomp_get_filter_fd(struct task_struct *task, long n)
-+{
-+	struct seccomp_filter *filter;
-+	long fd;
-+
-+	if (task->seccomp.mode != SECCOMP_MODE_FILTER)
-+		return -EINVAL;
-+
-+	filter = task->seccomp.filter;
-+	while (n > 0 && filter) {
-+		filter = filter->prev;
-+		n--;
-+	}
-+
-+	if (!filter)
-+		return -EINVAL;
-+
-+	atomic_inc(&filter->usage);
-+	fd = anon_inode_getfd("seccomp", &seccomp_fops, filter,
-+			      O_RDONLY | O_CLOEXEC);
-+	if (fd < 0)
-+		seccomp_filter_decref(filter);
-+
-+	return fd;
-+}
-+#endif
+-	if (!p->vlgrp->num_vlans)
++	vg = p->vlgrp;
++	if (!vg || !vg->num_vlans)
+ 		return false;
+ 
+ 	if (!br_vlan_get_tag(skb, vid) && skb->vlan_proto != br->vlan_proto)
 -- 
-2.5.0
+2.4.3
