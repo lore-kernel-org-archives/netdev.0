@@ -1,10 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v2 net-next 6/6] net: switchdev: extract struct
- switchdev_obj_*
-Date: Wed, 30 Sep 2015 12:36:18 +0200
-Message-ID: <20150930103618.GC2098@nanopsycho.orion>
+Subject: Re: [PATCH v2 net-next 4/6] net: switchdev: pass callback to dump
+ operation
+Date: Wed, 30 Sep 2015 12:41:02 +0200
+Message-ID: <20150930104102.GD2098@nanopsycho.orion>
 References: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1443542838-19234-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1443542838-19234-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,119 +16,44 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1443542838-19234-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1443542838-19234-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Sep 29, 2015 at 06:07:18PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->Now that switchdev and its drivers directly use specific switchdev_obj_*
->structures, move them out of the switchdev_obj union and get rif of this
->outer structure.
+Tue, Sep 29, 2015 at 06:07:16PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>Similar to the notifier_call callback of a notifier_block, change the
+>function signature of switchdev dump operation to:
+>
+>    int switchdev_port_obj_dump(struct net_device *dev,
+>                                enum switchdev_obj_id id, void *obj,
+>                                int (*cb)(void *obj));
+>
+>This allows the caller to pass and expect back a specific
+>switchdev_obj_* structure instead of the generic switchdev_obj one.
+>
+>Drivers implementation of dump operation can now expect this specific
+>structure and call the callback with it. Drivers have been changed
+>accordingly.
 >
 >Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 >---
-> include/net/switchdev.h | 53 ++++++++++++++++++++++++-------------------------
-> 1 file changed, 26 insertions(+), 27 deletions(-)
+> drivers/net/ethernet/rocker/rocker.c | 21 +++++++++--------
+> include/net/switchdev.h              |  9 +++++---
+> net/dsa/slave.c                      | 26 +++++++++++----------
+> net/switchdev/switchdev.c            | 45 ++++++++++++++++++------------------
+> 4 files changed, 53 insertions(+), 48 deletions(-)
 >
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index bcadac3..e11425e 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -64,30 +64,29 @@ enum switchdev_obj_id {
-> 	SWITCHDEV_OBJ_PORT_FDB,
-> };
+>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>index 78fd443..107adb6 100644
+>--- a/drivers/net/ethernet/rocker/rocker.c
+>+++ b/drivers/net/ethernet/rocker/rocker.c
+>@@ -4538,10 +4538,10 @@ static int rocker_port_obj_del(struct net_device *dev,
+> }
 > 
->-struct switchdev_obj {
->-	enum switchdev_obj_id id;
->-	int (*cb)(struct switchdev_obj *obj);
->-	union {
->-		struct switchdev_obj_vlan {		/* PORT_VLAN */
->-			u16 flags;
->-			u16 vid_begin;
->-			u16 vid_end;
->-		} vlan;
->-		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
->-			u32 dst;
->-			int dst_len;
->-			struct fib_info *fi;
->-			u8 tos;
->-			u8 type;
->-			u32 nlflags;
->-			u32 tb_id;
->-		} ipv4_fib;
->-		struct switchdev_obj_fdb {		/* PORT_FDB */
->-			const unsigned char *addr;
->-			u16 vid;
->-			u16 ndm_state;
->-		} fdb;
->-	} u;
->+/* SWITCHDEV_OBJ_PORT_VLAN */
->+struct switchdev_obj_vlan {
->+	u16 flags;
->+	u16 vid_begin;
->+	u16 vid_end;
->+};
->+
->+/* SWITCHDEV_OBJ_IPV4_FIB */
->+struct switchdev_obj_ipv4_fib {
->+	u32 dst;
->+	int dst_len;
->+	struct fib_info *fi;
->+	u8 tos;
->+	u8 type;
->+	u32 nlflags;
->+	u32 tb_id;
->+};
->+
->+/* SWITCHDEV_OBJ_PORT_FDB */
->+struct switchdev_obj_fdb {
->+	const unsigned char *addr;
->+	u16 vid;
->+	u16 ndm_state;
-> };
+> static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
+>-				struct switchdev_obj *obj)
+>+				struct switchdev_obj_fdb *fdb,
+>+				int (*cb)(void *obj))
 
-
-I don't like these structs being passed down as a "void *". I think that
-we should have some "common" struct for these objects, event if it would
-be empty and pass it down. "void *" does not look good at all, does not
-tell the reader what that param is about. How about:
-
-struct switchdev_obj {
-};
-
-struct switchdev_obj_vlan {
-	struct switchdev_obj obj;
-	u16 flags;
-	u16 vid_begin;
-	u16 vid_end;
-};
-#define SWITCHDEV_OBJ_VLAN(obj)	\
-	container_of(obj, struct switchdev_obj_vlan, obj)
-
-/* SWITCHDEV_OBJ_IPV4_FIB */
-struct switchdev_obj_ipv4_fib {
-	struct switchdev_obj obj;
-	u32 dst;
-	int dst_len;
-	struct fib_info *fi;
-	u8 tos;
-	u8 type;
-	u32 nlflags;
-	u32 tb_id;
-};
-#define SWITCHDEV_OBJ_IPV4_FIB(obj)	\
-	container_of(obj, struct switchdev_obj_ipv4_fib, obj)
-
-/* SWITCHDEV_OBJ_PORT_FDB */
-struct switchdev_obj_fdb {
-	struct switchdev_obj obj;
-	const unsigned char *addr;
-	u16 vid;
-	u16 ndm_state;
-};
-#define SWITCHDEV_OBJ_FDB(obj)	\
-	container_of(obj, struct switchdev_obj_fdb, obj)
- 
-
-then pass struct switchdev_obj *obj down to drivers and in driver, get
-original object by SWITCHDEV_OBJ_* ?
+                                ^^^^^^^^^^^^^^^^^^^^ we should have some
+				typedef for this.
