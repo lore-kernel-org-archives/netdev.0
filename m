@@ -1,56 +1,72 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 02/23] usb-gadget: use per-attribute show and store
- methods
-Date: Wed, 30 Sep 2015 12:59:34 -0400
-Message-ID: <20150930165934.GD2627@mtj.duckdns.org>
-References: <1443189000-13398-1-git-send-email-hch@lst.de>
- <1443189000-13398-3-git-send-email-hch@lst.de>
- <20150927155053.GD16364@saruman.tx.rr.com>
- <20150928133514.GB30453@lst.de>
- <20150930161925.GJ32625@saruman.tx.rr.com>
- <20150930162046.GB2627@mtj.duckdns.org>
- <20150930163219.GN32625@saruman.tx.rr.com>
- <20150930163538.GC2627@mtj.duckdns.org>
- <20150930164301.GP32625@saruman.tx.rr.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: Rate limiting AP bandwidth change messages in ieee80211_config_bw?
+Date: Wed, 30 Sep 2015 13:02:53 -0400
+Message-ID: <CA+5PVA4yaLG2NtJ_Bg5-BQzR-Wa5ABxPb-cLxF7bjSsf-P1_5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	target-devel@vger.kernel.org, cluster-devel@redhat.com,
-	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Felipe Balbi <balbi@ti.com>
-Return-path: <target-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150930164301.GP32625@saruman.tx.rr.com>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: drago01 <drago01@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:36535 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752673AbbI3RCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 13:02:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 11:43:01AM -0500, Felipe Balbi wrote:
-> Seems like there are *ton* of uses of container_of() wrapped within a simple
-> macro. What convention are you talking about, again ?
+Hi Johannes,
 
-The convention of using inline functions over macros when possible.
-We don't do that all the time but that's where we wanna be in general.
+We've seen a handful of reports that seem to have verbose output from
+the ieee80211_config_bw function in net/mac80211/mlme.c.  It looks
+similar to this:
 
-> And again, what benefit is an inline function bringing in this specific
-> case ? As for a technical reason, we know the macro definition will be
-> copied Verbatim into the caller body. GCC might decide to not inline
-> those helpers (unlikely, but could).
+[   66.578652] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   68.522437] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   69.548353] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   70.568677] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   71.489416] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   72.512917] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   73.535866] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   81.777530] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   82.540576] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   94.513467] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   95.634855] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   97.474767] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[   98.498036] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[   99.520472] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[  100.551344] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
+[  101.571100] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 1 (2437/0 MHz)
+[  102.490708] wlp3s0: AP xx:xx:xx:xx:xx changed bandwidth, new config
+is 2437 MHz, width 2 (2447/0 MHz)
 
-That's really grasping at straws.  Let's not go there.
+Essentially, this looks like the AP is changing the bandwidth (and
+only the width) every second or so.  Why it is doing this, I'm not
+sure.  However, this doesn't seem to actually be an error case yet the
+kernel logs are getting spammed with this message.
 
-For simple stuff like container_of(), a more valid reason would be
-"it's shorter and sweeter and AFAICS doesn't have any known downsides
-of using macros" but this ultimately is a bike-shedding problem.
+I'm wondering if we could either change this message to use sdata_dbg
+instead of sdata_info, or if we could possibly ratelimit it somehow.
+I'd be happy to come up with a patch for either, but I wanted to get
+your feedback on it before I started.  Do you have any objections or
+preference?
 
-You asked where and why we said we prefer inline functions so that's
-the answer (aside from individual technical advantages).  It's not an
-absolute rule but we're better off if we try to keep things consistent
-if possible.  As for this specific case, I don't know.  I might do the
-macro too just because it's less typing and I don't really care but at
-the same time I'd just switch to inline if somebody points it out.
-
--- 
-tejun
+josh
