@@ -1,51 +1,40 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v2 2/7] irq: Export per-cpu irq allocation and
- de-allocation functions
-Date: Wed, 30 Sep 2015 16:56:07 +0200
-Message-ID: <20150930165607.1e1ed55d@free-electrons.com>
-References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com>
-	<1443197378-30717-3-git-send-email-gregory.clement@free-electrons.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v2 0/7] net: mvneta: Switch to per-CPU irq and make
+ rxq_def useful
+Date: Wed, 30 Sep 2015 16:56:06 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1509301655140.4500@nanos>
+References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com> <20150929.115157.1923947727727463035.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Jason Cooper <jason@lakedaemon.net>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443197378-30717-3-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: gregory.clement@free-electrons.com, jason@lakedaemon.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
+	sebastian.hesselbarth@gmail.com, alior@marvell.com,
+	tawfik@marvell.com, nadavh@marvell.com,
+	ezequiel.garcia@free-electrons.com,
+	maxime.ripard@free-electrons.com,
+	boris.brezillon@free-electrons.com, w@1wt.eu,
+	linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:38616 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015AbbI3O4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 10:56:47 -0400
+In-Reply-To: <20150929.115157.1923947727727463035.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-Some minor typos, quite certainly not worth respining a new iteration
-of the series.
-
-On Fri, 25 Sep 2015 18:09:33 +0200, Gregory CLEMENT wrote:
-> From: Maxime Ripard <maxime.ripard@free-electrons.com>
+On Tue, 29 Sep 2015, David Miller wrote:
+> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Date: Fri, 25 Sep 2015 18:09:31 +0200
 > 
-> Some drivers might use the per-cpu interrupts and still might be built as a
-> module. Export request_percpu_irq an free_percpu_irq to these user, which
+> > As stated in the first version: "this patchset reworks the Marvell
+> > neta driver in order to really support its per-CPU interrupts, instead
+> > of faking them as SPI, and allow the use of any RX queue instead of
+> > the hardcoded RX queue 0 that we have currently."
+> 
+> Series applied, thanks.
 
-an -> and
-
-these user -> these users
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+You could have had the courtesy to wait for an ack for the core irq
+parts at least....
