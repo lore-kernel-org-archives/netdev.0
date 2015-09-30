@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 2/8] amd-xgbe: Use proper DT / ACPI precedence
- checking
-Date: Wed, 30 Sep 2015 08:52:45 -0500
-Message-ID: <20150930135245.12605.37559.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 3/8] amd-xgbe: Add ethtool support for setting
+ the msglevel
+Date: Wed, 30 Sep 2015 08:52:51 -0500
+Message-ID: <20150930135251.12605.53602.stgit@tlendack-t1.amdoffice.net>
 References: <20150930135232.12605.15604.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,34 +10,54 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0086.outbound.protection.outlook.com ([207.46.100.86]:41127
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0091.outbound.protection.outlook.com ([157.56.110.91]:59776
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754057AbbI3OIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:08:07 -0400
+	id S1753984AbbI3OIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 10:08:09 -0400
 In-Reply-To: <20150930135232.12605.15604.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device tree presence takes precedence over ACPI in the device_* APIs.
-The amd-xgbe driver should follow the same precedence. Update the check
-on whether to use DT / ACPI to follow this.
+Provide the ethtool functions to support getting and setting the
+msglevel for the driver.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index e83bd76..7dd8933 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -371,7 +371,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	set_bit(XGBE_DOWN, &pdata->dev_state);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 59e090e..29db64b 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -388,6 +388,20 @@ static void xgbe_get_drvinfo(struct net_device *netdev,
+ 	drvinfo->n_stats = XGBE_STATS_COUNT;
+ }
  
- 	/* Check if we should use ACPI or DT */
--	pdata->use_acpi = (!pdata->adev || acpi_disabled) ? 0 : 1;
-+	pdata->use_acpi = dev->of_node ? 0 : 1;
- 
- 	phy_pdev = xgbe_get_phy_pdev(pdata);
- 	if (!phy_pdev) {
++static u32 xgbe_get_msglevel(struct net_device *netdev)
++{
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++
++	return pdata->msg_enable;
++}
++
++static void xgbe_set_msglevel(struct net_device *netdev, u32 msglevel)
++{
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++
++	pdata->msg_enable = msglevel;
++}
++
+ static int xgbe_get_coalesce(struct net_device *netdev,
+ 			     struct ethtool_coalesce *ec)
+ {
+@@ -594,6 +608,8 @@ static const struct ethtool_ops xgbe_ethtool_ops = {
+ 	.get_settings = xgbe_get_settings,
+ 	.set_settings = xgbe_set_settings,
+ 	.get_drvinfo = xgbe_get_drvinfo,
++	.get_msglevel = xgbe_get_msglevel,
++	.set_msglevel = xgbe_set_msglevel,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_coalesce = xgbe_get_coalesce,
+ 	.set_coalesce = xgbe_set_coalesce,
