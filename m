@@ -1,97 +1,99 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Wed, 30 Sep 2015 23:48:52 +0200
-Message-ID: <20150930214852.GA8443@breakpoint.cc>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
- <1443525140-13493-4-git-send-email-daniel@zonque.org>
- <20150929211959.GF19923@breakpoint.cc>
- <560B8E25.7050801@zonque.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v3 4/5] kcmp: add KCMP_FILE_PRIVATE_DATA
+Date: Wed, 30 Sep 2015 14:48:47 -0700
+Message-ID: <CALCETrW9-bpUd+quFF7fBjbBLS84VDT4dmBS=-cVe6+9S-DenA@mail.gmail.com>
+References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
+ <1443636820-17083-5-git-send-email-tycho.andersen@canonical.com>
+ <CALCETrUosV+ND1BC-qH3xZMaLwnex50SvMhaSa3FQ19oy1MBVg@mail.gmail.com>
+ <20150930184129.GB23065@smitten> <CALCETrWjLGLAnf5_tCZohKYtTDi5Jo=bk_BkchTgXi8Bzz9YDA@mail.gmail.com>
+ <20150930185504.GC23065@smitten> <CALCETrWx_yCF7o6ZnbeoDqw-Fxa3GzARX30SZWeg40FMGqR25Q@mail.gmail.com>
+ <20150930213909.GD23065@smitten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
-	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, balazs.scheidler@balabit.com
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:46262 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754177AbbI3Vs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:48:57 -0400
-Content-Disposition: inline
-In-Reply-To: <560B8E25.7050801@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux API <linux-api@vger.kernel.org>
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150930213909.GD23065@smitten>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Daniel Mack <daniel@zonque.org> wrote:
-> Of course you can drop certain packets at this point, depending on other
-> details. Say, for instance, you want to match all packets that are
-> received by a certain task and that are originated from IP addresses of
-> a specific subnet, and drop the rest. Rather than adding matches to your
-> global firewall configuration for all the ports that tasks may or may
-> not listen on, you can just do it on a higher level, from the
-> perspective of an administrator. If you decide to let your web server
-> listen on another port as well, no firewall rule configuration change is
-> needed at all.
+On Wed, Sep 30, 2015 at 2:39 PM, Tycho Andersen
+<tycho.andersen@canonical.com> wrote:
+> On Wed, Sep 30, 2015 at 11:56:25AM -0700, Andy Lutomirski wrote:
+>> On Wed, Sep 30, 2015 at 11:55 AM, Tycho Andersen
+>> <tycho.andersen@canonical.com> wrote:
+>> > On Wed, Sep 30, 2015 at 11:47:05AM -0700, Andy Lutomirski wrote:
+>> >> On Wed, Sep 30, 2015 at 11:41 AM, Tycho Andersen
+>> >> <tycho.andersen@canonical.com> wrote:
+>> >> > On Wed, Sep 30, 2015 at 11:25:41AM -0700, Andy Lutomirski wrote:
+>> >> >> On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
+>> >> >> <tycho.andersen@canonical.com> wrote:
+>> >> >> > This command allows comparing the underling private data of two fds. This
+>> >> >> > is useful e.g. to find out if a seccomp filter is inherited, since struct
+>> >> >> > seccomp_filter are unique across tasks and are the private_data seccomp
+>> >> >> > fds.
+>> >> >>
+>> >> >> This is very implementation-specific and may have nasty ABI
+>> >> >> consequences far outside seccomp.  Let's do something specific to
+>> >> >> seccomp and/or eBPF.
+>> >> >
+>> >> > We could change the name to a less generic KCMP_SECCOMP_FD or
+>> >> > something, but without some sort of GUID on each struct
+>> >> > seccomp_filter, the implementation would be effectively the same as it
+>> >> > is today. Is that enough, or do we need a GUID?
+>> >> >
+>> >>
+>> >> I don't care about the GUID.  I think we should name it
+>> >> KCMP_SECCOMP_FD and make it only work on seccomp fds.
+>> >
+>> > Ok, I can do that.
+>> >
+>> >> Alternatively, we could figure out why KCMP_FILE doesn't do the trick
+>> >> and consider fixing it.  IMO it's really too bad that struct file is
+>> >> so heavyweight that we can't really just embed one in all kinds of
+>> >> structures.
+>> >
+>> > The problem is that KCMP_FILE compares the file objects themselves,
+>> > instead of the underlying data. If I ask for a seccomp fd for filter 0
+>> > twice, I'll have two different file objects and they won't be equal. I
+>> > suppose we could add some special logic inside KCMP_FILE to compare
+>> > the underlying data in special cases (seccomp, ebpf, others?), but it
+>> > seems cleaner to have a separate command as you described above.
+>> >
+>>
+>> What I meant was that maybe we could get the two requests to actually
+>> produce the same struct file.  But that could get very messy
+>> memory-wise.
+>
+> I see. The attached patch seems to work with KCMP_FILE and doesn't
+> look too bad if you don't mind the circular references. What do you
+> think?
+>
 
-We don't have per application configurations, not even with these
-patches...?
-The configuration is still global/per netns?
+Could be reasonable.  I'm not that well versed on what fd_release
+does.  Are we guaranteed that it's called when the last fd goes away
+even if the struct file is pinned by the struct seccomp filter but is
+otherwise unreferenced?
 
-> Another use case is accounting. If you want to know how much traffic a
-> certain service or application in your system has caused, you don't want
-> to match all its ports to firewall rules just in order to get that
-> information. Instead, you can now derive that information on a
-> per-application base. With this patch set, this even works just fine for
-> multicast listeners, which is something that is currently impossible to
-> achieve otherwise.
+Kees?
 
-> > So the only 'benefit' is that netcls id is available; but
-> > a) why is that even needed and
-> 
-> It's currently the only way of realizing application-level firewalls,
-> and it'd be an awesome feature if it actually worked.
+How many of you will be at KS?
 
-Application level firewall makes me think of proxies.
-What exactly are we talking about?
-Can you provide examples?
+--Andy
 
-> > b) is such a huge sledgehammer just for net cgroup accounting
-> > worth it?
-> 
-> I really don't know if this approach is intrusive enough to make it
-> qualify as sledgehammer. I'd like to see some real-world benchmarks and
-> have proof there is a performance decrease for setups that don't use
-> such chains.
+> Tycho
 
-We have static keys for nf hooks so there is no performance decrease if
-no netfilter hooks are active.
 
-HOWEVER, this discussion seems to hint at the opposite, namely that this
-will turn into a mandatory or at least auto-enabled feature.
 
-But regardless, I called it a sledgehammer not because of performance
-concerns but because just to get this proposed socket matching facility we
-now have to put hooks into all protocol handlers and commit to keeping them
-there forever.
-
-Also, some time ago Eric suggested to allow binding to tcp ports
-from packet sockets to implement userspace-driven TCP stacks (i.e.
-kernel would just queue raw frames for the given quadruple withput
-caring about ordering etc).
-
-If we allow this proposed change, we'd also have to extend that
-with these hooks.
-
-Next time someone mentions that we don't have application matching
-but only sk/cgroup tests. Are we then going to consider doing task lookups?
-
-> > For deterministic ingress filtering you can only rely on what
-> > is contained in the packet.
-> 
-> Why so? For deterministic ingress filtering of traffic directed to a
-> local socket, you can as well rely on information associated with that
-> socket. And this is what application-level firewall rule sets are all about.
-
-Application not running -> different behaviour.  I'm sure thats obvious
-to you, but I'm not sure if its obvious to users that their
-'match on net clsid 42' won't work anymore when that service isn't running.
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
