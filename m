@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] testptp: Silence compiler warnings on ppc64
-Date: Tue, 29 Sep 2015 21:17:14 -0700 (PDT)
-Message-ID: <20150929.211714.402151449882462113.davem@davemloft.net>
-References: <1443541528-937-1-git-send-email-thuth@redhat.com>
+Subject: Re: [PATCH bluetooth-next 1/4] netlink: add nla_get for le32 and
+ le64
+Date: Tue, 29 Sep 2015 21:17:54 -0700 (PDT)
+Message-ID: <20150929.211754.1536294056240926621.davem@davemloft.net>
+References: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
+	<1443423626-3609-2-git-send-email-alex.aring@gmail.com>
+	<18B6043F-0D8C-4330-8227-094548D1E9BC@holtmann.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org, corbet@lwn.net,
-	linux-doc@vger.kernel.org, trivial@kernel.org
-To: thuth@redhat.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1443541528-937-1-git-send-email-thuth@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.aring@gmail.com, linux-wpan@vger.kernel.org,
+	kernel@pengutronix.de, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33277 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbbI3ERz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:17:55 -0400
+In-Reply-To: <18B6043F-0D8C-4330-8227-094548D1E9BC@holtmann.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Huth <thuth@redhat.com>
-Date: Tue, 29 Sep 2015 17:45:28 +0200
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Tue, 29 Sep 2015 18:08:32 +0200
 
-> When compiling Documentation/ptp/testptp.c the following compiler
-> warnings are printed out:
- ...
-> This happens because __s64 is by default defined as "long" on ppc64,
-> not as "long long". However, to fix these warnings, it's possible to
-> define the __SANE_USERSPACE_TYPES__ so that __s64 gets defined to
-> "long long" on ppc64, too.
-> 
-> Signed-off-by: Thomas Huth <thuth@redhat.com>
+> do you have any objections to me taking this change through the bluetooth-next tree?
 
-Applied, thanks.
+No objections.
