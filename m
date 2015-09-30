@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 7/8] amd-xgbe: Use device workqueue instead of
- system workqueue
-Date: Wed, 30 Sep 2015 08:53:16 -0500
-Message-ID: <20150930135316.12605.46198.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 4/8] amd-xgbe: Add ethtool error and debug
+ messages
+Date: Wed, 30 Sep 2015 08:52:57 -0500
+Message-ID: <20150930135257.12605.25708.stgit@tlendack-t1.amdoffice.net>
 References: <20150930135232.12605.15604.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,71 +10,288 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0073.outbound.protection.outlook.com ([157.56.110.73]:28421
+Received: from mail-bn1bon0074.outbound.protection.outlook.com ([157.56.111.74]:51424
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752671AbbI3OI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:08:29 -0400
+	id S1754266AbbI3OIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 10:08:32 -0400
 In-Reply-To: <20150930135232.12605.15604.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver creates, flushes and destroys a device workqueue but queues
-work to the system workqueue. Switch from using the system workqueue to
-the device workqueue.
+Add error and dynamic debug messages to various ethtool functions in
+the driver while also removing the DBGPR debug print calls. Also, change
+the message level for some error messages from alert to err.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   89 +++++++++++---------------
+ 1 file changed, 37 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 24212d2..14bad8c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -365,7 +365,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 
- 		/* Restart the device on a Fatal Bus Error */
- 		if (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, FBE))
--			schedule_work(&pdata->restart_work);
-+			queue_work(pdata->dev_workqueue, &pdata->restart_work);
- 
- 		/* Clear all interrupt signals */
- 		XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_ch_isr);
-@@ -387,7 +387,8 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 				/* Read Tx Timestamp to clear interrupt */
- 				pdata->tx_tstamp =
- 					hw_if->get_tx_tstamp(pdata);
--				schedule_work(&pdata->tx_tstamp_work);
-+				queue_work(pdata->dev_workqueue,
-+					   &pdata->tx_tstamp_work);
- 			}
- 		}
- 	}
-@@ -453,7 +454,7 @@ static void xgbe_service_timer(unsigned long data)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 29db64b..95b6373 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -187,8 +187,6 @@ static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
  {
- 	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
+ 	int i;
  
--	schedule_work(&pdata->service_work);
-+	queue_work(pdata->dev_workqueue, &pdata->service_work);
- 
- 	mod_timer(&pdata->service_timer, jiffies + HZ);
+-	DBGPR("-->%s\n", __func__);
+-
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+ 		for (i = 0; i < XGBE_STATS_COUNT; i++) {
+@@ -198,8 +196,6 @@ static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 		}
+ 		break;
+ 	}
+-
+-	DBGPR("<--%s\n", __func__);
  }
-@@ -894,7 +895,7 @@ static int xgbe_start(struct xgbe_prv_data *pdata)
- 	netif_tx_start_all_queues(netdev);
  
- 	xgbe_start_timers(pdata);
--	schedule_work(&pdata->service_work);
-+	queue_work(pdata->dev_workqueue, &pdata->service_work);
+ static void xgbe_get_ethtool_stats(struct net_device *netdev,
+@@ -209,23 +205,17 @@ static void xgbe_get_ethtool_stats(struct net_device *netdev,
+ 	u8 *stat;
+ 	int i;
  
- 	DBGPR("<--xgbe_start\n");
+-	DBGPR("-->%s\n", __func__);
+-
+ 	pdata->hw_if.read_mmc_stats(pdata);
+ 	for (i = 0; i < XGBE_STATS_COUNT; i++) {
+ 		stat = (u8 *)pdata + xgbe_gstring_stats[i].stat_offset;
+ 		*data++ = *(u64 *)stat;
+ 	}
+-
+-	DBGPR("<--%s\n", __func__);
+ }
  
-@@ -1536,7 +1537,7 @@ static void xgbe_tx_timeout(struct net_device *netdev)
+ static int xgbe_get_sset_count(struct net_device *netdev, int stringset)
+ {
+ 	int ret;
+ 
+-	DBGPR("-->%s\n", __func__);
+-
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+ 		ret = XGBE_STATS_COUNT;
+@@ -235,8 +225,6 @@ static int xgbe_get_sset_count(struct net_device *netdev, int stringset)
+ 		ret = -EOPNOTSUPP;
+ 	}
+ 
+-	DBGPR("<--%s\n", __func__);
+-
+ 	return ret;
+ }
+ 
+@@ -245,13 +233,9 @@ static void xgbe_get_pauseparam(struct net_device *netdev,
+ {
  	struct xgbe_prv_data *pdata = netdev_priv(netdev);
  
- 	netdev_warn(netdev, "tx timeout, device restarting\n");
--	schedule_work(&pdata->restart_work);
-+	queue_work(pdata->dev_workqueue, &pdata->restart_work);
+-	DBGPR("-->xgbe_get_pauseparam\n");
+-
+ 	pause->autoneg = pdata->phy.pause_autoneg;
+ 	pause->tx_pause = pdata->phy.tx_pause;
+ 	pause->rx_pause = pdata->phy.rx_pause;
+-
+-	DBGPR("<--xgbe_get_pauseparam\n");
  }
  
- static struct rtnl_link_stats64 *xgbe_get_stats64(struct net_device *netdev,
+ static int xgbe_set_pauseparam(struct net_device *netdev,
+@@ -260,13 +244,11 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	int ret = 0;
+ 
+-	DBGPR("-->xgbe_set_pauseparam\n");
+-
+-	DBGPR("  autoneg = %d, tx_pause = %d, rx_pause = %d\n",
+-	      pause->autoneg, pause->tx_pause, pause->rx_pause);
+-
+-	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE))
++	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE)) {
++		netdev_err(netdev,
++			   "autoneg disabled, pause autoneg not avialable\n");
+ 		return -EINVAL;
++	}
+ 
+ 	pdata->phy.pause_autoneg = pause->autoneg;
+ 	pdata->phy.tx_pause = pause->tx_pause;
+@@ -286,8 +268,6 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
+ 	if (netif_running(netdev))
+ 		ret = pdata->phy_if.phy_config_aneg(pdata);
+ 
+-	DBGPR("<--xgbe_set_pauseparam\n");
+-
+ 	return ret;
+ }
+ 
+@@ -296,8 +276,6 @@ static int xgbe_get_settings(struct net_device *netdev,
+ {
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 
+-	DBGPR("-->xgbe_get_settings\n");
+-
+ 	cmd->phy_address = pdata->phy.address;
+ 
+ 	cmd->supported = pdata->phy.supported;
+@@ -311,8 +289,6 @@ static int xgbe_get_settings(struct net_device *netdev,
+ 	cmd->port = PORT_NONE;
+ 	cmd->transceiver = XCVR_INTERNAL;
+ 
+-	DBGPR("<--xgbe_get_settings\n");
+-
+ 	return 0;
+ }
+ 
+@@ -323,16 +299,20 @@ static int xgbe_set_settings(struct net_device *netdev,
+ 	u32 speed;
+ 	int ret;
+ 
+-	DBGPR("-->xgbe_set_settings\n");
+-
+ 	speed = ethtool_cmd_speed(cmd);
+ 
+-	if (cmd->phy_address != pdata->phy.address)
++	if (cmd->phy_address != pdata->phy.address) {
++		netdev_err(netdev, "invalid phy address %hhu\n",
++			   cmd->phy_address);
+ 		return -EINVAL;
++	}
+ 
+ 	if ((cmd->autoneg != AUTONEG_ENABLE) &&
+-	    (cmd->autoneg != AUTONEG_DISABLE))
++	    (cmd->autoneg != AUTONEG_DISABLE)) {
++		netdev_err(netdev, "unsupported autoneg %hhu\n",
++			   cmd->autoneg);
+ 		return -EINVAL;
++	}
+ 
+ 	if (cmd->autoneg == AUTONEG_DISABLE) {
+ 		switch (speed) {
+@@ -341,16 +321,27 @@ static int xgbe_set_settings(struct net_device *netdev,
+ 		case SPEED_1000:
+ 			break;
+ 		default:
++			netdev_err(netdev, "unsupported speed %u\n", speed);
+ 			return -EINVAL;
+ 		}
+ 
+-		if (cmd->duplex != DUPLEX_FULL)
++		if (cmd->duplex != DUPLEX_FULL) {
++			netdev_err(netdev, "unsupported duplex %hhu\n",
++				   cmd->duplex);
+ 			return -EINVAL;
++		}
+ 	}
+ 
++	netif_dbg(pdata, link, netdev,
++		  "requested advertisement %#x, phy supported %#x\n",
++		  cmd->advertising, pdata->phy.supported);
++
+ 	cmd->advertising &= pdata->phy.supported;
+-	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising)
++	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising) {
++		netdev_err(netdev,
++			   "unsupported requested advertisement\n");
+ 		return -EINVAL;
++	}
+ 
+ 	ret = 0;
+ 	pdata->phy.autoneg = cmd->autoneg;
+@@ -366,8 +357,6 @@ static int xgbe_set_settings(struct net_device *netdev,
+ 	if (netif_running(netdev))
+ 		ret = pdata->phy_if.phy_config_aneg(pdata);
+ 
+-	DBGPR("<--xgbe_set_settings\n");
+-
+ 	return ret;
+ }
+ 
+@@ -407,8 +396,6 @@ static int xgbe_get_coalesce(struct net_device *netdev,
+ {
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 
+-	DBGPR("-->xgbe_get_coalesce\n");
+-
+ 	memset(ec, 0, sizeof(struct ethtool_coalesce));
+ 
+ 	ec->rx_coalesce_usecs = pdata->rx_usecs;
+@@ -416,8 +403,6 @@ static int xgbe_get_coalesce(struct net_device *netdev,
+ 
+ 	ec->tx_max_coalesced_frames = pdata->tx_frames;
+ 
+-	DBGPR("<--xgbe_get_coalesce\n");
+-
+ 	return 0;
+ }
+ 
+@@ -429,8 +414,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	unsigned int rx_frames, rx_riwt, rx_usecs;
+ 	unsigned int tx_frames;
+ 
+-	DBGPR("-->xgbe_set_coalesce\n");
+-
+ 	/* Check for not supported parameters  */
+ 	if ((ec->rx_coalesce_usecs_irq) ||
+ 	    (ec->rx_max_coalesced_frames_irq) ||
+@@ -450,8 +433,10 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	    (ec->rx_max_coalesced_frames_high) ||
+ 	    (ec->tx_coalesce_usecs_high) ||
+ 	    (ec->tx_max_coalesced_frames_high) ||
+-	    (ec->rate_sample_interval))
++	    (ec->rate_sample_interval)) {
++		netdev_err(netdev, "unsupported coalescing parameter\n");
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	rx_riwt = hw_if->usec_to_riwt(pdata, ec->rx_coalesce_usecs);
+ 	rx_usecs = ec->rx_coalesce_usecs;
+@@ -463,13 +448,13 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 
+ 	/* Check the bounds of values for Rx */
+ 	if (rx_riwt > XGMAC_MAX_DMA_RIWT) {
+-		netdev_alert(netdev, "rx-usec is limited to %d usecs\n",
+-			     hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT));
++		netdev_err(netdev, "rx-usec is limited to %d usecs\n",
++			   hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT));
+ 		return -EINVAL;
+ 	}
+ 	if (rx_frames > pdata->rx_desc_count) {
+-		netdev_alert(netdev, "rx-frames is limited to %d frames\n",
+-			     pdata->rx_desc_count);
++		netdev_err(netdev, "rx-frames is limited to %d frames\n",
++			   pdata->rx_desc_count);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -477,8 +462,8 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 
+ 	/* Check the bounds of values for Tx */
+ 	if (tx_frames > pdata->tx_desc_count) {
+-		netdev_alert(netdev, "tx-frames is limited to %d frames\n",
+-			     pdata->tx_desc_count);
++		netdev_err(netdev, "tx-frames is limited to %d frames\n",
++			   pdata->tx_desc_count);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -490,8 +475,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	pdata->tx_frames = tx_frames;
+ 	hw_if->config_tx_coalesce(pdata);
+ 
+-	DBGPR("<--xgbe_set_coalesce\n");
+-
+ 	return 0;
+ }
+ 
+@@ -553,8 +536,10 @@ static int xgbe_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+ 	unsigned int ret;
+ 
+-	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
++	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP) {
++		netdev_err(netdev, "unsupported hash function\n");
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	if (indir) {
+ 		ret = hw_if->set_rss_lookup_table(pdata, indir);
