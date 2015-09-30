@@ -1,44 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/90] Netfilter/IPVS updates for net-next
-Date: Tue, 29 Sep 2015 21:48:35 -0700 (PDT)
-Message-ID: <20150929.214835.192307345267282932.davem@davemloft.net>
-References: <1443554721-11554-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] net: Initialize flow flags in input path
+Date: Tue, 29 Sep 2015 21:52:54 -0700 (PDT)
+Message-ID: <20150929.215254.543961910298277124.davem@davemloft.net>
+References: <1443578827-40533-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, dsahern@gmail.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33394 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33403 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847AbbI3Esg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:48:36 -0400
-In-Reply-To: <1443554721-11554-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1750847AbbI3Ewz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:52:55 -0400
+In-Reply-To: <1443578827-40533-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 29 Sep 2015 21:25:21 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 29 Sep 2015 19:07:07 -0700
 
-> Hi David,
+> The fib_table_lookup tracepoint found 2 places where the flowi4_flags is
+> not initialized.
 > 
-> The following pull request contains Netfilter/IPVS updates for net-next
-> containing 90 patches from Eric Biederman.
-> 
-> The main goal of this batch is to avoid recurrent lookups for the netns
-> pointer, that happens over and over again in our Netfilter/IPVS code. The idea
-> consists of passing netns pointer from the hook state to the relevant functions
-> and objects where this may be needed.
-> 
-> You can find more information on the IPVS updates from Simon Horman's commit
-> merge message:
-> 
-> c3456026adc0 ("Merge tag 'ipvs2-for-v4.4' of https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next").
-> 
-> Exceptionally, this time, I'm not posting the patches again on netdev, Eric
-> already Cc'ed this mailing list in the original submission. If you need me to
-> make, just let me know.
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Yeah that's appropriate in this situation.
-
-Pulled, thanks Pablo.
+Applied, thanks David.
