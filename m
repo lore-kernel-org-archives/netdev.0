@@ -1,101 +1,60 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 03/12] net: igb: avoid using timespec
-Date: Wed, 30 Sep 2015 13:26:33 +0200
-Message-ID: <1443612402-3000775-4-git-send-email-arnd@arndb.de>
+Subject: [PATCH 10/12] net: sctp: avoid incorrect time_t use
+Date: Wed, 30 Sep 2015 13:26:40 +0200
+Message-ID: <1443612402-3000775-11-git-send-email-arnd@arndb.de>
 References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
- linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- "David S. Miller" <davem@davemloft.net>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <y2038-bounces@lists.linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-V2Ugd2FudCB0byBkZXByZWNhdGUgdGhlIHVzZSBvZiAnc3RydWN0IHRpbWVzcGVjJyBvbiAzMi1i
-aXQKYXJjaGl0ZWN0dXJlcywgYXMgaXQgaXMgd2lsbCBvdmVyZmxvdyBpbiAyMDM4LiBUaGUgaWdi
-CmRyaXZlciB1c2VzIGl0IHRvIHJlYWQgdGhlIGN1cnJlbnQgdGltZSwgYW5kIGNhbiBzaW1wbHkK
-YmUgY2hhbmdlZCB0byB1c2Uga3RpbWVfZ2V0X3JlYWxfdHM2NCgpIGluc3RlYWQuCgpCZWNhdXNl
-IG9mIGhhcmR3YXJlIGxpbWl0YXRpb25zLCB0aGVyZSBpcyBzdGlsbCBhbiBvdmVyZmxvdwppbiB5
-ZWFyIDIxMDYsIHdoaWNoIHdlIGNhbm5vdCByZWFsbHkgYXZvaWQsIGJ1dCB0aGlzIGRvY3VtZW50
-cwp0aGUgb3ZlcmZsb3cuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRi
-LmRlPgpDYzogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+CkNjOiBp
-bnRlbC13aXJlZC1sYW5AbGlzdHMub3N1b3NsLm9yZwotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2ludGVsL2lnYi9pZ2IuaCAgICAgIHwgIDQgKystLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaWdiL2lnYl9tYWluLmMgfCAxNSArKysrKysrKy0tLS0tLS0KIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMgIHwgIDggKysrKy0tLS0KIDMgZmlsZXMgY2hhbmdlZCwg
-MTQgaW5zZXJ0aW9ucygrKSwgMTMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYi5oIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aWdiL2lnYi5oCmluZGV4IDIxMmQ2NjhkYWJiMy4uMWEyZjFjYzQ0YjI4IDEwMDY0NAotLS0gYS9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiLmgKKysrIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaWdiL2lnYi5oCkBAIC00NDQsOCArNDQ0LDggQEAgc3RydWN0IGlnYl9hZGFw
-dGVyIHsKIAogCXN0cnVjdCBwdHBfcGluX2Rlc2Mgc2RwX2NvbmZpZ1tJR0JfTl9TRFBdOwogCXN0
-cnVjdCB7Ci0JCXN0cnVjdCB0aW1lc3BlYyBzdGFydDsKLQkJc3RydWN0IHRpbWVzcGVjIHBlcmlv
-ZDsKKwkJc3RydWN0IHRpbWVzcGVjNjQgc3RhcnQ7CisJCXN0cnVjdCB0aW1lc3BlYzY0IHBlcmlv
-ZDsKIAl9IHBlcm91dFtJR0JfTl9QRVJPVVRdOwogCiAJY2hhciBmd192ZXJzaW9uWzMyXTsKZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMKaW5kZXggZTE3NGZiYmRiYTQw
-Li45MTFiYmFkYmI5OTQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
-Yi9pZ2JfbWFpbi5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFp
-bi5jCkBAIC01Mzg5LDcgKzUzODksNyBAQCBzdGF0aWMgdm9pZCBpZ2JfdHN5bmNfaW50ZXJydXB0
-KHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlcikKIHsKIAlzdHJ1Y3QgZTEwMDBfaHcgKmh3ID0g
-JmFkYXB0ZXItPmh3OwogCXN0cnVjdCBwdHBfY2xvY2tfZXZlbnQgZXZlbnQ7Ci0Jc3RydWN0IHRp
-bWVzcGVjIHRzOworCXN0cnVjdCB0aW1lc3BlYzY0IHRzOwogCXUzMiBhY2sgPSAwLCB0c2F1eGMs
-IHNlYywgbnNlYywgdHNpY3IgPSByZDMyKEUxMDAwX1RTSUNSKTsKIAogCWlmICh0c2ljciAmIFRT
-SU5UUl9TWVNfV1JBUCkgewpAQCAtNTQwOSwxMCArNTQwOSwxMSBAQCBzdGF0aWMgdm9pZCBpZ2Jf
-dHN5bmNfaW50ZXJydXB0KHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlcikKIAogCWlmICh0c2lj
-ciAmIFRTSU5UUl9UVDApIHsKIAkJc3Bpbl9sb2NrKCZhZGFwdGVyLT50bXJlZ19sb2NrKTsKLQkJ
-dHMgPSB0aW1lc3BlY19hZGQoYWRhcHRlci0+cGVyb3V0WzBdLnN0YXJ0LAotCQkJCSAgYWRhcHRl
-ci0+cGVyb3V0WzBdLnBlcmlvZCk7CisJCXRzID0gdGltZXNwZWM2NF9hZGQoYWRhcHRlci0+cGVy
-b3V0WzBdLnN0YXJ0LAorCQkJCSAgICBhZGFwdGVyLT5wZXJvdXRbMF0ucGVyaW9kKTsKKwkJLyog
-dTMyIGNvbnZlcnNpb24gb2YgdHZfc2VjIGlzIHNhZmUgdW50aWwgeTIxMDYgKi8KIAkJd3IzMihF
-MTAwMF9UUkdUVElNTDAsIHRzLnR2X25zZWMpOwotCQl3cjMyKEUxMDAwX1RSR1RUSU1IMCwgdHMu
-dHZfc2VjKTsKKwkJd3IzMihFMTAwMF9UUkdUVElNSDAsICh1MzIpdHMudHZfc2VjKTsKIAkJdHNh
-dXhjID0gcmQzMihFMTAwMF9UU0FVWEMpOwogCQl0c2F1eGMgfD0gVFNBVVhDX0VOX1RUMDsKIAkJ
-d3IzMihFMTAwMF9UU0FVWEMsIHRzYXV4Yyk7CkBAIC01NDIzLDEwICs1NDI0LDEwIEBAIHN0YXRp
-YyB2b2lkIGlnYl90c3luY19pbnRlcnJ1cHQoc3RydWN0IGlnYl9hZGFwdGVyICphZGFwdGVyKQog
-CiAJaWYgKHRzaWNyICYgVFNJTlRSX1RUMSkgewogCQlzcGluX2xvY2soJmFkYXB0ZXItPnRtcmVn
-X2xvY2spOwotCQl0cyA9IHRpbWVzcGVjX2FkZChhZGFwdGVyLT5wZXJvdXRbMV0uc3RhcnQsCi0J
-CQkJICBhZGFwdGVyLT5wZXJvdXRbMV0ucGVyaW9kKTsKKwkJdHMgPSB0aW1lc3BlYzY0X2FkZChh
-ZGFwdGVyLT5wZXJvdXRbMV0uc3RhcnQsCisJCQkJICAgIGFkYXB0ZXItPnBlcm91dFsxXS5wZXJp
-b2QpOwogCQl3cjMyKEUxMDAwX1RSR1RUSU1MMSwgdHMudHZfbnNlYyk7Ci0JCXdyMzIoRTEwMDBf
-VFJHVFRJTUgxLCB0cy50dl9zZWMpOworCQl3cjMyKEUxMDAwX1RSR1RUSU1IMSwgKHUzMil0cy50
-dl9zZWMpOwogCQl0c2F1eGMgPSByZDMyKEUxMDAwX1RTQVVYQyk7CiAJCXRzYXV4YyB8PSBUU0FV
-WENfRU5fVFQxOwogCQl3cjMyKEUxMDAwX1RTQVVYQywgdHNhdXhjKTsKZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jCmluZGV4IDU5ODJmMjhkNTIxYS4uYzQ0ZGY4N2MzOGRl
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jCisr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMKQEAgLTE0Myw3ICsx
-NDMsNyBAQCBzdGF0aWMgdm9pZCBpZ2JfcHRwX3dyaXRlX2kyMTAoc3RydWN0IGlnYl9hZGFwdGVy
-ICphZGFwdGVyLAogCSAqIHN1Yi1uYW5vc2Vjb25kIHJlc29sdXRpb24uCiAJICovCiAJd3IzMihF
-MTAwMF9TWVNUSU1MLCB0cy0+dHZfbnNlYyk7Ci0Jd3IzMihFMTAwMF9TWVNUSU1ILCB0cy0+dHZf
-c2VjKTsKKwl3cjMyKEUxMDAwX1NZU1RJTUgsICh1MzIpdHMtPnR2X3NlYyk7CiB9CiAKIC8qKgpA
-QCAtNDc5LDcgKzQ3OSw3IEBAIHN0YXRpYyBpbnQgaWdiX3B0cF9mZWF0dXJlX2VuYWJsZV9pMjEw
-KHN0cnVjdCBwdHBfY2xvY2tfaW5mbyAqcHRwLAogCXN0cnVjdCBlMTAwMF9odyAqaHcgPSAmaWdi
-LT5odzsKIAl1MzIgdHNhdXhjLCB0c2ltLCB0c2F1eGNfbWFzaywgdHNpbV9tYXNrLCB0cmd0dGlt
-bCwgdHJndHRpbWgsIGZyZXFvdXQ7CiAJdW5zaWduZWQgbG9uZyBmbGFnczsKLQlzdHJ1Y3QgdGlt
-ZXNwZWMgdHM7CisJc3RydWN0IHRpbWVzcGVjNjQgdHM7CiAJaW50IHVzZV9mcmVxID0gMCwgcGlu
-ID0gLTE7CiAJczY0IG5zOwogCkBAIC01MjMsMTQgKzUyMywxNCBAQCBzdGF0aWMgaW50IGlnYl9w
-dHBfZmVhdHVyZV9lbmFibGVfaTIxMChzdHJ1Y3QgcHRwX2Nsb2NrX2luZm8gKnB0cCwKIAkJfQog
-CQl0cy50dl9zZWMgPSBycS0+cGVyb3V0LnBlcmlvZC5zZWM7CiAJCXRzLnR2X25zZWMgPSBycS0+
-cGVyb3V0LnBlcmlvZC5uc2VjOwotCQlucyA9IHRpbWVzcGVjX3RvX25zKCZ0cyk7CisJCW5zID0g
-dGltZXNwZWM2NF90b19ucygmdHMpOwogCQlucyA9IG5zID4+IDE7CiAJCWlmIChvbiAmJiBucyA8
-PSA3MDAwMDAwMExMKSB7CiAJCQlpZiAobnMgPCA4TEwpCiAJCQkJcmV0dXJuIC1FSU5WQUw7CiAJ
-CQl1c2VfZnJlcSA9IDE7CiAJCX0KLQkJdHMgPSBuc190b190aW1lc3BlYyhucyk7CisJCXRzID0g
-bnNfdG9fdGltZXNwZWM2NChucyk7CiAJCWlmIChycS0+cGVyb3V0LmluZGV4ID09IDEpIHsKIAkJ
-CWlmICh1c2VfZnJlcSkgewogCQkJCXRzYXV4Y19tYXNrID0gVFNBVVhDX0VOX0NMSzEgfCBUU0FV
-WENfU1QxOwotLSAKMi4xLjAucmMyCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpo
-dHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+We want to avoid using time_t in the kernel because of the y2038
+overflow problem. The use in sctp is not for storing seconds at
+all, but instead uses microseconds and is passed as 32-bit
+on all machines.
+
+This patch changes the type to u32, which better fits the use.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: linux-sctp@vger.kernel.org
+---
+ net/sctp/sm_make_chunk.c | 2 +-
+ net/sctp/sm_statefuns.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 7954c52e1794..763e06a55155 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2494,7 +2494,7 @@ static int sctp_process_param(struct sctp_association *asoc,
+ 	__u16 sat;
+ 	int retval = 1;
+ 	sctp_scope_t scope;
+-	time_t stale;
++	u32 stale;
+ 	struct sctp_af *af;
+ 	union sctp_addr_param *addr_param;
+ 	struct sctp_transport *t;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index d7eaa7354cf7..6f46aa16cb76 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2306,7 +2306,7 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
+ 						 sctp_cmd_seq_t *commands)
+ {
+ 	struct sctp_chunk *chunk = arg;
+-	time_t stale;
++	u32 stale;
+ 	sctp_cookie_preserve_param_t bht;
+ 	sctp_errhdr_t *err;
+ 	struct sctp_chunk *reply;
+-- 
+2.1.0.rc2
