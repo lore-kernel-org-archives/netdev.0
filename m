@@ -1,7 +1,7 @@
 From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: [PATCH v3 4/5] kcmp: add KCMP_FILE_PRIVATE_DATA
-Date: Wed, 30 Sep 2015 12:13:39 -0600
-Message-ID: <1443636820-17083-5-git-send-email-tycho.andersen@canonical.com>
+Subject: [PATCH v3 5/5] bpf: save the program the user actually supplied
+Date: Wed, 30 Sep 2015 12:13:40 -0600
+Message-ID: <1443636820-17083-6-git-send-email-tycho.andersen@canonical.com>
 References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
 Cc: Will Drewry <wad@chromium.org>, Oleg Nesterov <oleg@redhat.com>,
 	Andy Lutomirski <luto@amacapital.net>,
@@ -14,20 +14,23 @@ Cc: Will Drewry <wad@chromium.org>, Oleg Nesterov <oleg@redhat.com>,
 To: Kees Cook <keescook@chromium.org>,
 	Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:36600 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933289AbbI3SOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:14:38 -0400
-Received: by igcrk20 with SMTP id rk20so108813407igc.1
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:14:37 -0700 (PDT)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37829 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933305AbbI3SOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:14:39 -0400
+Received: by igbni9 with SMTP id ni9so37160442igb.0
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:14:38 -0700 (PDT)
 In-Reply-To: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This command allows comparing the underling private data of two fds. This
-is useful e.g. to find out if a seccomp filter is inherited, since struct
-seccomp_filter are unique across tasks and are the private_data seccomp
-fds.
+In some cases (e.g. seccomp) the program result might be translated from
+the original program the user supplied. If we're saving the result for
+checkpoint/restore, we should save exactly the program the user initially
+supplied.
+
+This causes problems when the translations seccomp makes are not allowed by
+bpf_check_classic.
 
 Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
 CC: Kees Cook <keescook@chromium.org>
@@ -39,46 +42,22 @@ CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 CC: Alexei Starovoitov <ast@kernel.org>
 CC: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/uapi/linux/kcmp.h |  1 +
- kernel/kcmp.c             | 14 ++++++++++++++
- 2 files changed, 15 insertions(+)
+ net/core/filter.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/kcmp.h b/include/uapi/linux/kcmp.h
-index 84df14b..ed389d2 100644
---- a/include/uapi/linux/kcmp.h
-+++ b/include/uapi/linux/kcmp.h
-@@ -10,6 +10,7 @@ enum kcmp_type {
- 	KCMP_SIGHAND,
- 	KCMP_IO,
- 	KCMP_SYSVSEM,
-+	KCMP_FILE_PRIVATE_DATA,
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 70995dd..5a4596b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -845,8 +845,7 @@ int bpf_prog_store_orig_filter(struct bpf_prog *fp,
+ 	fkprog = fp->orig_prog;
+ 	fkprog->len = fprog->len;
  
- 	KCMP_TYPES,
- };
-diff --git a/kernel/kcmp.c b/kernel/kcmp.c
-index 0aa69ea..9ae673b 100644
---- a/kernel/kcmp.c
-+++ b/kernel/kcmp.c
-@@ -165,6 +165,20 @@ SYSCALL_DEFINE5(kcmp, pid_t, pid1, pid_t, pid2, int, type,
- 		ret = -EOPNOTSUPP;
- #endif
- 		break;
-+	case KCMP_FILE_PRIVATE_DATA: {
-+		struct file *filp1, *filp2;
-+
-+		filp1 = get_file_raw_ptr(task1, idx1);
-+		filp2 = get_file_raw_ptr(task2, idx2);
-+
-+		if (filp1 && filp2)
-+			ret = kcmp_ptr(filp1->private_data,
-+				       filp2->private_data,
-+				       KCMP_FILE_PRIVATE_DATA);
-+		else
-+			ret = -EBADF;
-+		break;
-+	}
- 	default:
- 		ret = -EINVAL;
- 		break;
+-	fkprog->filter = kmemdup(fp->insns, fsize,
+-				 GFP_KERNEL | __GFP_NOWARN);
++	fkprog->filter = memdup_user(fprog->filter, fsize);
+ 	if (!fkprog->filter) {
+ 		kfree(fp->orig_prog);
+ 		return -ENOMEM;
 -- 
 2.5.0
