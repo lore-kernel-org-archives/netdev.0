@@ -1,30 +1,42 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] net: Add support for filtering neigh dump
- by master device
-Date: Tue, 29 Sep 2015 21:28:34 -0700
-Message-ID: <560B64F2.9000101@cumulusnetworks.com>
-References: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/6] net: switchdev: use specific
+ switchdev_obj_*
+Date: Tue, 29 Sep 2015 21:32:32 -0700 (PDT)
+Message-ID: <20150929.213232.861100072512358746.davem@davemloft.net>
+References: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34209 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbI3E2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:28:37 -0400
-Received: by padhy16 with SMTP id hy16so27082943pad.1
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 21:28:36 -0700 (PDT)
-In-Reply-To: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
+	f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1443542838-19234-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/29/15, 9:32 AM, David Ahern wrote:
-> Add support for filtering neighbor dumps by master device by adding
-> the NDA_MASTER attribute to the dump request. A new netlink flag,
-> NLM_F_DUMP_FILTERED, is added to indicate the kernel supports the
-> request and output is filtered as requested.
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 29 Sep 2015 12:07:12 -0400
+
+> This patchset changes switchdev add, del, dump operations from this:
+ ...
+> to something similar to the notifier_call callback of a notifier_block:
+ ...
+> This allows the caller to pass and expect back a specific switchdev_obj_*
+> structure (e.g. switchdev_obj_fdb) instead of the generic switchdev_obj one.
+> 
+> This will simplify pushing the callback function down to the drivers.
+> 
+> The first 3 patches get rid of the dev parameter of the dump callback, since it
+> is not always neeeded (e.g. vlan_dump) and some drivers (such as DSA drivers)
+> may not have easy access to it.
+> 
+> Patches 4 and 5 implement the change in the switchdev operations and its users.
+> 
+> Patch 6 extracts the inner switchdev_obj_* structures from switchdev_obj and
+> removes this last one.
+> 
+> v2: fix error spotted by kbuild (extra ';' inline switchdev_port_obj_dump).
+
+Series applied, thanks Vivien.
