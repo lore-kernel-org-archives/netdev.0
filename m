@@ -1,115 +1,42 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH v2] Documentation: improve line discipline method descriptions
-Date: Wed, 30 Sep 2015 01:45:11 +0200 (CEST)
-Message-ID: <1349c282fb3642264c7c8c1478ce8a0dcdd93aef.1443569708.git.tilman@imap.cc>
-References: <d43bc9f8bddbd7ce07200a8a149ae15e5eac5d6d.1436827841.git.tilman@imap.cc> <1436901132.2679.54.camel@tiscali.nl>
-Cc: Peter Hurley <peter@hurleysoftware.com>,
-	Paul Bolle <pebolle@tiscali.nl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1436901132.2679.54.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH net-next] netfilter: remove dead code
+Date: Tue, 29 Sep 2015 21:25:00 -0300
+Message-ID: <1443572700-29705-1-git-send-email-fbl@redhat.com>
+Cc: Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34234 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751072AbbI3AZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2015 20:25:05 -0400
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (Postfix) with ESMTPS id 16B4AC0A147F
+	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 00:25:05 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mention that the ldisc open method must set tty->receive_room, and
-that many methods are optional. Add description of receive_buf2 method.
+Remove __nf_conntrack_find() from headers.
+Fixes: dcd93ed4cd1 ("netfilter: nf_conntrack: remove dead code"
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
 ---
- Documentation/serial/tty.txt | 60 ++++++++++++++++++++++++++++----------------
- 1 file changed, 39 insertions(+), 21 deletions(-)
+ include/net/netfilter/nf_conntrack.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/Documentation/serial/tty.txt b/Documentation/serial/tty.txt
-index 973c8ad..bc3842d 100644
---- a/Documentation/serial/tty.txt
-+++ b/Documentation/serial/tty.txt
-@@ -39,8 +39,13 @@ TTY side interfaces:
- open()		-	Called when the line discipline is attached to
- 			the terminal. No other call into the line
- 			discipline for this tty will occur until it
--			completes successfully. Returning an error will
--			prevent the ldisc from being attached. Can sleep.
-+			completes successfully. Should initialize any
-+			state needed by the ldisc, and set receive_room
-+			in the tty_struct to the maximum amount of data
-+			the line discipline is willing to accept from the
-+			driver with a single call to receive_buf().
-+			Returning an error will prevent the ldisc from
-+			being attached. Can sleep.
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index d642f68..fde4068 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -183,10 +183,6 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
  
- close()		-	This is called on a terminal when the line
- 			discipline is being unplugged. At the point of
-@@ -52,9 +57,16 @@ hangup()	-	Called when the tty line is hung up.
- 			No further calls into the ldisc code will occur.
- 			The return value is ignored. Can sleep.
+ void nf_ct_free_hashtable(void *hash, unsigned int size);
  
--write()		-	A process is writing data through the line
--			discipline.  Multiple write calls are serialized
--			by the tty layer for the ldisc.  May sleep. 
-+read()		-	(optional) A process requests reading data from
-+			the line. Multiple read calls may occur in parallel
-+			and the ldisc must deal with serialization issues.
-+			If not defined, the process will receive an EIO
-+			error. May sleep.
-+
-+write()		-	(optional) A process requests writing data to the
-+			line. Multiple write calls are serialized by the
-+			tty layer for the ldisc. If not defined, the
-+			process will receive an EIO error. May sleep.
- 
- flush_buffer()	-	(optional) May be called at any point between
- 			open and close, and instructs the line discipline
-@@ -69,27 +81,33 @@ set_termios()	-	(optional) Called on termios structure changes.
- 			termios semaphore so allowed to sleep. Serialized
- 			against itself only.
- 
--read()		-	Move data from the line discipline to the user.
--			Multiple read calls may occur in parallel and the
--			ldisc must deal with serialization issues. May 
--			sleep.
+-struct nf_conntrack_tuple_hash *
+-__nf_conntrack_find(struct net *net, u16 zone,
+-		    const struct nf_conntrack_tuple *tuple);
 -
--poll()		-	Check the status for the poll/select calls. Multiple
--			poll calls may occur in parallel. May sleep.
-+poll()		-	(optional) Check the status for the poll/select
-+			calls. Multiple poll calls may occur in parallel.
-+			May sleep.
+ int nf_conntrack_hash_check_insert(struct nf_conn *ct);
+ bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
  
--ioctl()		-	Called when an ioctl is handed to the tty layer
--			that might be for the ldisc. Multiple ioctl calls
--			may occur in parallel. May sleep. 
-+ioctl()		-	(optional) Called when an ioctl is handed to the
-+			tty layer that might be for the ldisc. Multiple
-+			ioctl calls may occur in parallel. May sleep.
- 
--compat_ioctl()	-	Called when a 32 bit ioctl is handed to the tty layer
--			that might be for the ldisc. Multiple ioctl calls
--			may occur in parallel. May sleep.
-+compat_ioctl()	-	(optional) Called when a 32 bit ioctl is handed
-+			to the tty layer that might be for the ldisc.
-+			Multiple ioctl calls may occur in parallel.
-+			May sleep.
- 
- Driver Side Interfaces:
- 
--receive_buf()	-	Hand buffers of bytes from the driver to the ldisc
--			for processing. Semantics currently rather
--			mysterious 8(
-+receive_buf()	-	(optional) Called by the low-level driver to hand
-+			a buffer of received bytes to the ldisc for
-+			processing. The number of bytes is guaranteed not
-+			to exceed the current value of tty->receive_room.
-+			All bytes must be processed.
-+
-+receive_buf2()	-	(optional) Called by the low-level driver to hand
-+			a buffer of received bytes to the ldisc for
-+			processing. Returns the number of bytes processed.
-+
-+			If both receive_buf() and receive_buf2() are
-+			defined, receive_buf2() should be preferred.
- 
- write_wakeup()	-	May be called at any point between open and close.
- 			The TTY_DO_WRITE_WAKEUP flag indicates if a call
 -- 
-1.9.2.459.g68773ac
+2.4.3
