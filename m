@@ -1,100 +1,53 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 09/12] ipv6: use ktime_t for internal timestamps
-Date: Wed, 30 Sep 2015 13:26:39 +0200
-Message-ID: <1443612402-3000775-10-git-send-email-arnd@arndb.de>
+Subject: [PATCH 07/12] atm: hide 'struct zatm_t_hist'
+Date: Wed, 30 Sep 2015 13:26:37 +0200
+Message-ID: <1443612402-3000775-8-git-send-email-arnd@arndb.de>
 References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
+ linux-atm-general@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+ Chas Williams <3chas3@gmail.com>, "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:64749 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933224AbbI3L1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:27:23 -0400
+Return-path: <y2038-bounces@lists.linaro.org>
 In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-The ipv6 mip6 implementation is one of only a few users of the
-skb_get_timestamp() function in the kernel, which is both unsafe
-on 32-bit architectures because of the 2038 overflow, and slightly
-less efficient than the skb_get_ktime() based approach.
-
-This converts the function call and the mip6_report_rate_limiter
-structure that stores the time stamp, eliminating all uses of
-timeval in the ipv6 code.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
----
- net/ipv6/mip6.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index b9779d441b12..60c79a08e14a 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -118,7 +118,7 @@ static int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
- 
- struct mip6_report_rate_limiter {
- 	spinlock_t lock;
--	struct timeval stamp;
-+	ktime_t stamp;
- 	int iif;
- 	struct in6_addr src;
- 	struct in6_addr dst;
-@@ -184,20 +184,18 @@ static int mip6_destopt_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return 0;
- }
- 
--static inline int mip6_report_rl_allow(struct timeval *stamp,
-+static inline int mip6_report_rl_allow(ktime_t stamp,
- 				       const struct in6_addr *dst,
- 				       const struct in6_addr *src, int iif)
- {
- 	int allow = 0;
- 
- 	spin_lock_bh(&mip6_report_rl.lock);
--	if (mip6_report_rl.stamp.tv_sec != stamp->tv_sec ||
--	    mip6_report_rl.stamp.tv_usec != stamp->tv_usec ||
-+	if (!ktime_equal(mip6_report_rl.stamp, stamp) ||
- 	    mip6_report_rl.iif != iif ||
- 	    !ipv6_addr_equal(&mip6_report_rl.src, src) ||
- 	    !ipv6_addr_equal(&mip6_report_rl.dst, dst)) {
--		mip6_report_rl.stamp.tv_sec = stamp->tv_sec;
--		mip6_report_rl.stamp.tv_usec = stamp->tv_usec;
-+		mip6_report_rl.stamp = stamp;
- 		mip6_report_rl.iif = iif;
- 		mip6_report_rl.src = *src;
- 		mip6_report_rl.dst = *dst;
-@@ -216,7 +214,7 @@ static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb,
- 	struct ipv6_destopt_hao *hao = NULL;
- 	struct xfrm_selector sel;
- 	int offset;
--	struct timeval stamp;
-+	ktime_t stamp;
- 	int err = 0;
- 
- 	if (unlikely(fl6->flowi6_proto == IPPROTO_MH &&
-@@ -230,9 +228,9 @@ static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb,
- 					(skb_network_header(skb) + offset);
- 	}
- 
--	skb_get_timestamp(skb, &stamp);
-+	stamp = skb_get_ktime(skb);
- 
--	if (!mip6_report_rl_allow(&stamp, &ipv6_hdr(skb)->daddr,
-+	if (!mip6_report_rl_allow(stamp, &ipv6_hdr(skb)->daddr,
- 				  hao ? &hao->addr : &ipv6_hdr(skb)->saddr,
- 				  opt->iif))
- 		goto out;
--- 
-2.1.0.rc2
+VGhlIHphdG1fdF9oaXN0IHN0cnVjdHVyZSBpcyBub3QgdXNlZCBhbnl3aGVyZSBpbiB0aGUga2Vy
+bmVsLCBidXQgaXMKZXhwb3J0ZWQgdG8gdXNlciBzcGFjZS4gQXMgd2UgYXJlIHRyeWluZyB0byBl
+bGltaW5hdGUgdXNlcyBvZiB0aW1lX3QKaW4gdGhlIGtlcm5lbCBmb3IgeTIwMzggY29tcGF0aWJp
+bGl0eSwgdGhlIGN1cnJlbnQgZGVmaW5pdGlvbiB0cmlnZ2VycwpjaGVja2luZyB0b29scyBiZWNh
+dXNlIGl0IGNvbnRhaW5zICdzdHJ1Y3QgdGltZXZhbCcuCgpXZSBjYW4gd29yayBhcm91bmQgdGhp
+cyBieSBhZGRpbmcgJyNpZmRlZiBfX0tFUk5FTF9fJy4gSSBjb3VsZCBub3QgZmluZApvdXQgd2hh
+dCB0aGUgc3RydWN0dXJlIGlzIGFjdHVhbGx5IHVzZWQgZm9yLCBzbyB0aGlzIGlzIHRoZSBzYWZl
+IGNob2ljZQppbiBjYXNlIHRoZXJlIGlzIHNvbWUgdXNlciBzcGFjZSB0b29sIHRoYXQgcmVsaWVz
+IG9uIHRoZSBkZWZpbml0aW9uLgoKSWYgd2UgYXJlIHN1cmUgdGhhdCBub3RoaW5nIGluIHVzZXIg
+c3BhY2UgcmVsaWVzIG9uIHRoZSBzdHJ1Y3R1cmUsIHdlCmNhbiBpbnN0ZWFkIHJlbW92ZSB0aGUg
+ZGVmaW5pdGlvbiBjb21wbGV0ZWx5LgoKU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJu
+ZEBhcm5kYi5kZT4KQ2M6IENoYXMgV2lsbGlhbXMgPDNjaGFzM0BnbWFpbC5jb20+CkNjOiBsaW51
+eC1hdG0tZ2VuZXJhbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKLS0tCiBpbmNsdWRlL3VhcGkvbGlu
+dXgvYXRtX3phdG0uaCB8IDMgKystCiAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAx
+IGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L2F0bV96YXRtLmgg
+Yi9pbmNsdWRlL3VhcGkvbGludXgvYXRtX3phdG0uaAppbmRleCAxMGYwZmEyOTQ1NGYuLjI5MDhl
+YTg2ZTZmMiAxMDA2NDQKLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L2F0bV96YXRtLmgKKysrIGIv
+aW5jbHVkZS91YXBpL2xpbnV4L2F0bV96YXRtLmgKQEAgLTM1LDExICszNSwxMiBAQCBzdHJ1Y3Qg
+emF0bV9wb29sX3JlcSB7CiAJc3RydWN0IHphdG1fcG9vbF9pbmZvIGluZm87CS8qIGFjdHVhbCBp
+bmZvcm1hdGlvbiAqLwogfTsKIAorI2lmbmRlZiBfX0tFUk5FTF9fCiBzdHJ1Y3QgemF0bV90X2hp
+c3QgewogCXN0cnVjdCB0aW1ldmFsIHJlYWw7CQkvKiByZWFsICh3YWxsLWNsb2NrKSB0aW1lICov
+CiAJc3RydWN0IHRpbWV2YWwgZXhwZWN0ZWQ7CS8qIGV4cGVjdGVkIHJlYWwgdGltZSAqLwogfTsK
+LQorI2VuZGlmCiAKICNkZWZpbmUgWkFUTV9PQU1fUE9PTAkJMAkvKiBmcmVlIGJ1ZmZlciBwb29s
+IGZvciBPQU0gY2VsbHMgKi8KICNkZWZpbmUgWkFUTV9BQUwwX1BPT0wJCTEJLyogZnJlZSBidWZm
+ZXIgcG9vbCBmb3IgQUFMMCBjZWxscyAqLwotLSAKMi4xLjAucmMyCgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhA
+bGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5m
+by95MjAzOAo=
