@@ -1,40 +1,33 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH] net: macb: fix two typos
-Date: Tue, 29 Sep 2015 19:31:32 -0700
-Message-ID: <6195cc372d956bdd3adbf41623ee1645cce30211.1443608885.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: netlink attributes for IPv6 tunneling
+Date: Tue, 29 Sep 2015 20:05:00 -0700
+Message-ID: <CAEP_g=-oijtUY1fD7AqK5PndCAt85uEF1Gh0yqbqz0u3-bPcRg@mail.gmail.com>
+References: <cover.1443548447.git.jbenc@redhat.com> <ac7ce77d8104dca2c8378096575276984dd2a11e.1443548447.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-14.163.com ([220.181.12.14]:33330 "EHLO m12-14.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbbI3Cb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2015 22:31:57 -0400
+Received: from mail-la0-f42.google.com ([209.85.215.42]:36131 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbbI3DFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 23:05:21 -0400
+Received: by laclj5 with SMTP id lj5so30365652lac.3
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 20:05:20 -0700 (PDT)
+In-Reply-To: <ac7ce77d8104dca2c8378096575276984dd2a11e.1443548447.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just fix two typos in code comments.
+On Tue, Sep 29, 2015 at 10:52 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> When compat code for tunnel configuration is used, IPv6 tun_info will be
+> rejected by ovs_tunnel_get_egress_info. As the consequence, only the new way
+> of tunnel config supports IPv6.
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
- drivers/net/ethernet/cadence/macb.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 6e1faea..866b128 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -267,9 +267,9 @@
- #define MACB_BEX_SIZE		1
- #define MACB_RM9200_BNQ_OFFSET	4 /* AT91RM9200 only */
- #define MACB_RM9200_BNQ_SIZE	1 /* AT91RM9200 only */
--#define MACB_COMP_OFFSET	5 /* Trnasmit complete */
-+#define MACB_COMP_OFFSET	5 /* Transmit complete */
- #define MACB_COMP_SIZE		1
--#define MACB_UND_OFFSET		6 /* Trnasmit under run */
-+#define MACB_UND_OFFSET		6 /* Transmit under run */
- #define MACB_UND_SIZE		1
- 
- /* Bitfields in RSR */
--- 
-1.9.1
+This appears to me to be a bug in the existing code.
+ovs_tunnel_get_egress_info() as a general mechanism is still in use
+and should work with both the old and new configuration methods.
+However, I agree that it doesn't look like it will work currently with
+tunnel devices. I think we need to fix this rather than making it more
+broken.
