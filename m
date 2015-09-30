@@ -1,145 +1,206 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH net-next 1/4] phylib: Add phy_set_max_speed helper
-Date: Wed, 30 Sep 2015 15:15:52 +0900
-Message-ID: <1443593755-20991-2-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH net-next 2/4] ravb: Provide dev parameter to DMA API
+Date: Wed, 30 Sep 2015 15:15:53 +0900
+Message-ID: <1443593755-20991-3-git-send-email-horms+renesas@verge.net.au>
 References: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
 Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Geert Uytterhoeven <geert@linux-m68k.org>,
 	Magnus Damm <magnus.damm@gmail.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59106 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753681AbbI3GQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 02:16:00 -0400
+Return-path: <linux-sh-owner@vger.kernel.org>
 In-Reply-To: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a helper to allow ethernet drivers to limit the speed of a phy
-(that they are attached to).
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-This mainly involves factoring out the business-end of
-of_set_phy_supported() and exporting a new symbol.
+This patch is in preparation for using this driver on arm64 where the
+implementation of __dma_alloc_coherent fails if a device parameter is not
+provided.
 
-This code seems to be open coded in several places, in several different
-variants.
-
-It is is envisaged that this will be used in situations where setting the
-"max-speed" property in DT is not appropriate, e.g. because the maximum
-speed is not a property of the phy hardware.
-
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+[horms: squashed into a single patch]
 Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
 ---
-v2
-* First post
+* [horms]
+  I have only tested this on arm64 using r8a7795/salvator-x.
 
-v3
-* As suggested by Florian Fainelli
-  - Do not check for !IS_ENABLED(CONFIG_OF_MDIO) in __set_phy_supported.
-    This is already done in of_set_phy_supported() and is not relevant to
-    phy_set_max_speed)
-  - Return -ENOTSUPP if 'max_speed' is not an unknown value
-* As suggested by Sergei Shtylyov
-  - White-space and comment enhancements.
+v0 [Kazuya Mizuguchi, Yoshihiro Shimoda, Masaru Nagai]
+
+v1 [Simon Horman]
+* Squashed into a single patch
+
+v2 [Simon Horman]
+* No change
 
 v4
 * No change
 ---
- drivers/net/phy/phy_device.c | 59 ++++++++++++++++++++++++++++++--------------
- include/linux/phy.h          |  1 +
- 2 files changed, 41 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/renesas/ravb_main.c | 38 ++++++++++++++++----------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index f761288abe66..383389146099 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1239,6 +1239,44 @@ static int gen10g_resume(struct phy_device *phydev)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 450899e9cea2..4ca093d033f8 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -201,7 +201,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+ 	if (priv->rx_ring[q]) {
+ 		ring_size = sizeof(struct ravb_ex_rx_desc) *
+ 			    (priv->num_rx_ring[q] + 1);
+-		dma_free_coherent(NULL, ring_size, priv->rx_ring[q],
++		dma_free_coherent(ndev->dev.parent, ring_size, priv->rx_ring[q],
+ 				  priv->rx_desc_dma[q]);
+ 		priv->rx_ring[q] = NULL;
+ 	}
+@@ -209,7 +209,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+ 	if (priv->tx_ring[q]) {
+ 		ring_size = sizeof(struct ravb_tx_desc) *
+ 			    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
+-		dma_free_coherent(NULL, ring_size, priv->tx_ring[q],
++		dma_free_coherent(ndev->dev.parent, ring_size, priv->tx_ring[q],
+ 				  priv->tx_desc_dma[q]);
+ 		priv->tx_ring[q] = NULL;
+ 	}
+@@ -240,13 +240,13 @@ static void ravb_ring_format(struct net_device *ndev, int q)
+ 		rx_desc = &priv->rx_ring[q][i];
+ 		/* The size of the buffer should be on 16-byte boundary. */
+ 		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
+-		dma_addr = dma_map_single(&ndev->dev, priv->rx_skb[q][i]->data,
++		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
+ 					  ALIGN(PKT_BUF_SZ, 16),
+ 					  DMA_FROM_DEVICE);
+ 		/* We just set the data size to 0 for a failed mapping which
+ 		 * should prevent DMA from happening...
+ 		 */
+-		if (dma_mapping_error(&ndev->dev, dma_addr))
++		if (dma_mapping_error(ndev->dev.parent, dma_addr))
+ 			rx_desc->ds_cc = cpu_to_le16(0);
+ 		rx_desc->dptr = cpu_to_le32(dma_addr);
+ 		rx_desc->die_dt = DT_FEMPTY;
+@@ -309,7 +309,7 @@ static int ravb_ring_init(struct net_device *ndev, int q)
  
-+static int __set_phy_supported(struct phy_device *phydev, u32 max_speed)
-+{
-+	/* The default values for phydev->supported are provided by the PHY
-+	 * driver "features" member, we want to reset to sane defaults first
-+	 * before supporting higher speeds.
-+	 */
-+	phydev->supported &= PHY_DEFAULT_FEATURES;
-+
-+	switch (max_speed) {
-+	default:
-+		return -ENOTSUPP;
-+	case SPEED_1000:
-+		phydev->supported |= PHY_1000BT_FEATURES;
-+		/* fall through */
-+	case SPEED_100:
-+		phydev->supported |= PHY_100BT_FEATURES;
-+		/* fall through */
-+	case SPEED_10:
-+		phydev->supported |= PHY_10BT_FEATURES;
-+	}
-+
-+	return 0;
-+}
-+
-+int phy_set_max_speed(struct phy_device *phydev, u32 max_speed)
-+{
-+	int err;
-+
-+	err = __set_phy_supported(phydev, max_speed);
-+	if (err)
-+		return err;
-+
-+	phydev->advertising = phydev->supported;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(phy_set_max_speed);
-+
- static void of_set_phy_supported(struct phy_device *phydev)
- {
- 	struct device_node *node = phydev->dev.of_node;
-@@ -1250,25 +1288,8 @@ static void of_set_phy_supported(struct phy_device *phydev)
- 	if (!node)
- 		return;
+ 	/* Allocate all RX descriptors. */
+ 	ring_size = sizeof(struct ravb_ex_rx_desc) * (priv->num_rx_ring[q] + 1);
+-	priv->rx_ring[q] = dma_alloc_coherent(NULL, ring_size,
++	priv->rx_ring[q] = dma_alloc_coherent(ndev->dev.parent, ring_size,
+ 					      &priv->rx_desc_dma[q],
+ 					      GFP_KERNEL);
+ 	if (!priv->rx_ring[q])
+@@ -320,7 +320,7 @@ static int ravb_ring_init(struct net_device *ndev, int q)
+ 	/* Allocate all TX descriptors. */
+ 	ring_size = sizeof(struct ravb_tx_desc) *
+ 		    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
+-	priv->tx_ring[q] = dma_alloc_coherent(NULL, ring_size,
++	priv->tx_ring[q] = dma_alloc_coherent(ndev->dev.parent, ring_size,
+ 					      &priv->tx_desc_dma[q],
+ 					      GFP_KERNEL);
+ 	if (!priv->tx_ring[q])
+@@ -443,7 +443,7 @@ static int ravb_tx_free(struct net_device *ndev, int q)
+ 		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
+ 		/* Free the original skb. */
+ 		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
+-			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
++			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+ 					 size, DMA_TO_DEVICE);
+ 			/* Last packet descriptor? */
+ 			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
+@@ -546,7 +546,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
  
--	if (!of_property_read_u32(node, "max-speed", &max_speed)) {
--		/* The default values for phydev->supported are provided by the PHY
--		 * driver "features" member, we want to reset to sane defaults fist
--		 * before supporting higher speeds.
--		 */
--		phydev->supported &= PHY_DEFAULT_FEATURES;
--
--		switch (max_speed) {
--		default:
--			return;
--
--		case SPEED_1000:
--			phydev->supported |= PHY_1000BT_FEATURES;
--		case SPEED_100:
--			phydev->supported |= PHY_100BT_FEATURES;
--		case SPEED_10:
--			phydev->supported |= PHY_10BT_FEATURES;
--		}
--	}
-+	if (!of_property_read_u32(node, "max-speed", &max_speed))
-+		__set_phy_supported(phydev, max_speed);
- }
+ 			skb = priv->rx_skb[q][entry];
+ 			priv->rx_skb[q][entry] = NULL;
+-			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
++			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+ 					 ALIGN(PKT_BUF_SZ, 16),
+ 					 DMA_FROM_DEVICE);
+ 			get_ts &= (q == RAVB_NC) ?
+@@ -586,14 +586,14 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+ 			if (!skb)
+ 				break;	/* Better luck next round. */
+ 			ravb_set_buffer_align(skb);
+-			dma_addr = dma_map_single(&ndev->dev, skb->data,
++			dma_addr = dma_map_single(ndev->dev.parent, skb->data,
+ 						  le16_to_cpu(desc->ds_cc),
+ 						  DMA_FROM_DEVICE);
+ 			skb_checksum_none_assert(skb);
+ 			/* We just set the data size to 0 for a failed mapping
+ 			 * which should prevent DMA  from happening...
+ 			 */
+-			if (dma_mapping_error(&ndev->dev, dma_addr))
++			if (dma_mapping_error(ndev->dev.parent, dma_addr))
+ 				desc->ds_cc = cpu_to_le16(0);
+ 			desc->dptr = cpu_to_le32(dma_addr);
+ 			priv->rx_skb[q][entry] = skb;
+@@ -1300,8 +1300,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		 entry / NUM_TX_DESC * DPTR_ALIGN;
+ 	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
+ 	memcpy(buffer, skb->data, len);
+-	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
+-	if (dma_mapping_error(&ndev->dev, dma_addr))
++	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
++	if (dma_mapping_error(ndev->dev.parent, dma_addr))
+ 		goto drop;
  
- /**
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 4a4e3a092337..4c477e6ece33 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -798,6 +798,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
- void phy_print_status(struct phy_device *phydev);
- void phy_device_free(struct phy_device *phydev);
-+int phy_set_max_speed(struct phy_device *phydev, u32 max_speed);
+ 	desc = &priv->tx_ring[q][entry];
+@@ -1310,8 +1310,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
  
- int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
- 		       int (*run)(struct phy_device *));
+ 	buffer = skb->data + len;
+ 	len = skb->len - len;
+-	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
+-	if (dma_mapping_error(&ndev->dev, dma_addr))
++	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
++	if (dma_mapping_error(ndev->dev.parent, dma_addr))
+ 		goto unmap;
+ 
+ 	desc++;
+@@ -1323,7 +1323,7 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		ts_skb = kmalloc(sizeof(*ts_skb), GFP_ATOMIC);
+ 		if (!ts_skb) {
+ 			desc--;
+-			dma_unmap_single(&ndev->dev, dma_addr, len,
++			dma_unmap_single(ndev->dev.parent, dma_addr, len,
+ 					 DMA_TO_DEVICE);
+ 			goto unmap;
+ 		}
+@@ -1358,7 +1358,7 @@ exit:
+ 	return NETDEV_TX_OK;
+ 
+ unmap:
+-	dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
++	dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+ 			 le16_to_cpu(desc->ds_tagl), DMA_TO_DEVICE);
+ drop:
+ 	dev_kfree_skb_any(skb);
+@@ -1708,7 +1708,7 @@ static int ravb_probe(struct platform_device *pdev)
+ 
+ 	/* Allocate descriptor base address table */
+ 	priv->desc_bat_size = sizeof(struct ravb_desc) * DBAT_ENTRY_NUM;
+-	priv->desc_bat = dma_alloc_coherent(NULL, priv->desc_bat_size,
++	priv->desc_bat = dma_alloc_coherent(ndev->dev.parent, priv->desc_bat_size,
+ 					    &priv->desc_bat_dma, GFP_KERNEL);
+ 	if (!priv->desc_bat) {
+ 		dev_err(&ndev->dev,
+@@ -1763,7 +1763,7 @@ out_napi_del:
+ 	netif_napi_del(&priv->napi[RAVB_BE]);
+ 	ravb_mdio_release(priv);
+ out_dma_free:
+-	dma_free_coherent(NULL, priv->desc_bat_size, priv->desc_bat,
++	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
+ 			  priv->desc_bat_dma);
+ out_release:
+ 	if (ndev)
+@@ -1779,7 +1779,7 @@ static int ravb_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 
+-	dma_free_coherent(NULL, priv->desc_bat_size, priv->desc_bat,
++	dma_free_coherent(ndev->dev.parent, priv->desc_bat_size, priv->desc_bat,
+ 			  priv->desc_bat_dma);
+ 	/* Set reset mode */
+ 	ravb_write(ndev, CCC_OPC_RESET, CCC);
 -- 
 2.1.4
+
