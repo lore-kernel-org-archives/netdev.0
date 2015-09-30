@@ -1,54 +1,69 @@
-From: Arun Parameswaran <aparames@broadcom.com>
-Subject: Re: [PATCH 4/4] net: phy: Broadcom Cygnus internal Etherent PHY driver
-Date: Wed, 30 Sep 2015 14:43:05 -0700
-Message-ID: <560C5769.4070607@broadcom.com>
-References: <1443645163-2822-1-git-send-email-arunp@broadcom.com> <1443645163-2822-5-git-send-email-arunp@broadcom.com> <560C5633.5080203@gmail.com>
+From: Arun Parameswaran <aparames-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 1/4] dt-bindings: net: Broadcom iProc MDIO bus driver
+ device tree binding
+Date: Wed, 30 Sep 2015 14:45:39 -0700
+Message-ID: <560C5803.1040907@broadcom.com>
+References: <1443645163-2822-1-git-send-email-arunp@broadcom.com> <1443645163-2822-2-git-send-email-arunp@broadcom.com> <560C55C2.3010906@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Arun Parameswaran <arunp@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560C5633.5080203@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <560C55C2.3010906-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 15-09-30 02:37 PM, Florian Fainelli wrote:
+On 15-09-30 02:36 PM, Florian Fainelli wrote:
 > On 30/09/15 13:32, Arun Parameswaran wrote:
->> Add support for the Broadcom Cygnus SoCs internal PHY's.
->> The PHYs are 1000M/100M/10M capable with support for 'EEE'
->> and 'APD' (Auto Power Down).
+>> Add device tree binding documentation for the Broadcom iProc MDIO
+>> bus driver.
 >>
->> This driver supports the following Broadcom Cygnus SoCs:
->>  - BCM583XX (BCM58300, BCM58302, BCM58303, BCM58305)
->>  - BCM113XX (BCM11300, BCM11320, BCM11350, BCM11360)
+>> Signed-off-by: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> ---
+>>  .../devicetree/bindings/net/brcm,iproc-mdio.txt    | 23 ++++++++++++++++++++++
+>>  1 file changed, 23 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
 >>
->> The PHY's on these SoC's require some workarounds for
->> stable operation, both during configuration time and
->> during suspend/resume. This driver handles the
->> application of the workarounds.
->>
->> Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>> diff --git a/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt b/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
+>> new file mode 100644
+>> index 0000000..689f97c
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
+>> @@ -0,0 +1,23 @@
+>> +* Broadcom iProc MDIO bus controller
+>> +
+>> +Required properties:
+>> +- compatible: should be "brcm,iproc-mdio"
+>> +- reg: address and length of the register set for the MDIO interface
+>> +- #size-cells: must be 1
+>> +- #address-cells: must be 0
+>> +
+>> +Child nodes of this MDIO bus controller node are standard Ethernet PHY device
+>> +nodes as described in Documentation/devicetree/bindings/net/phy.txt
+>> +
+>> +Example:
+>> +
+>> +mdio@0x18002000 {
+> Sorry for not catching this earlier, you might want to drop the leading
+> 0x here from your example, other than that:
 >
-> Some suggestions if you need to respin this patch series below, sorry
-> for not catching that during the internal review:
->
->> +/* Broadcom Cygnus Phy specific registers */
->> +#define MII_BCM_CORE_BASE1E       0x1E /* Core BASE1E register */
->> +#define MII_BCM_EXPB0             0xB0 /* EXPB0 register */
->> +#define MII_BCM_EXPB1             0xB1 /* EXPB1 register */
-> These defines could be moved to brcmphy.h for instance, since they are
-> shared between all Broadcom PHY drivers AFAICT.
+> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Ok, Will move these and modify the corresponding PHY drivers.
+Will fix this.
 
 Thanks,
+
 Arun
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
