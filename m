@@ -1,43 +1,43 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: [RFC PATCH] ipv4: ktime_get_ms_of_day() can be static
+Subject: Re: [PATCH 11/12] [RFC] ipv4: avoid timespec in timestamp
+	computation
 Date: Wed, 30 Sep 2015 20:15:49 +0800
-Message-ID: <20150930121549.GA204787@lkp-ib04.intel.com>
-References: <201509302049.z9c32MsP%fengguang.wu@intel.com>
+Message-ID: <201509302049.z9c32MsP%fengguang.wu@intel.com>
+References: <1443612402-3000775-12-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, y2038@lists.linaro.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
+ y2038@lists.linaro.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ James Morris <jmorris@namei.org>, Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+ John Stultz <john.stultz@linaro.org>, kbuild-all@01.org,
+ Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Thomas Gleixner <tglx@linutronix.de>,
+ "David S. Miller" <davem@davemloft.net>
 To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <y2038-bounces@lists.linaro.org>
 Content-Disposition: inline
 In-Reply-To: <1443612402-3000775-12-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
----
- timekeeping.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 5611a6d..46b847a 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -847,7 +847,7 @@ time64_t ktime_get_real_seconds(void)
- EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
- 
- #if IS_ENABLED(CONFIG_INET)
--u32 ktime_get_ms_of_day(void)
-+static u32 ktime_get_ms_of_day(void)
- {
- 	struct timekeeper *tk = &tk_core.timekeeper;
- 	struct timespec64 now;
+SGkgQXJuZCwKClthdXRvIGJ1aWxkIHRlc3QgcmVzdWx0cyBvbiB2NC4zLXJjMyAtLSBpZiBpdCdz
+IGluYXBwcm9wcmlhdGUgYmFzZSwgcGxlYXNlIGlnbm9yZV0KCnJlcHJvZHVjZToKICAjIGFwdC1n
+ZXQgaW5zdGFsbCBzcGFyc2UKICBtYWtlIEFSQ0g9eDg2XzY0IGFsbG1vZGNvbmZpZwogIG1ha2Ug
+Qz0xIENGPS1EX19DSEVDS19FTkRJQU5fXwoKCnNwYXJzZSB3YXJuaW5nczogKG5ldyBvbmVzIHBy
+ZWZpeGVkIGJ5ID4+KQoKPj4ga2VybmVsL3RpbWUvdGltZWtlZXBpbmcuYzo4NTA6NTogc3BhcnNl
+OiBzeW1ib2wgJ2t0aW1lX2dldF9tc19vZl9kYXknIHdhcyBub3QgZGVjbGFyZWQuIFNob3VsZCBp
+dCBiZSBzdGF0aWM/CgpQbGVhc2UgcmV2aWV3IGFuZCBwb3NzaWJseSBmb2xkIHRoZSBmb2xsb3d1
+cCBwYXRjaC4KCi0tLQowLURBWSBrZXJuZWwgdGVzdCBpbmZyYXN0cnVjdHVyZSAgICAgICAgICAg
+ICAgICBPcGVuIFNvdXJjZSBUZWNobm9sb2d5IENlbnRlcgpodHRwczovL2xpc3RzLjAxLm9yZy9w
+aXBlcm1haWwva2J1aWxkLWFsbCAgICAgICAgICAgICAgICAgICBJbnRlbCBDb3Jwb3JhdGlvbgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWls
+aW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcv
+bWFpbG1hbi9saXN0aW5mby95MjAzOAo=
