@@ -1,108 +1,57 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH bluetooth-next 0/4] ieee802154: add llsec support over nl802154
-Date: Wed, 30 Sep 2015 13:25:23 +0200
-Message-ID: <C5EE5750-4DFF-4B10-A807-B72DB324291D@holtmann.org>
-References: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-wpan@vger.kernel.org, kernel@pengutronix.de,
-	netdev@vger.kernel.org, phoebe.buckheister@itwm.fraunhofer.de
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:39419 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755976AbbI3LZ4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:25:56 -0400
-In-Reply-To: <1443423626-3609-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 02/12] net: stmmac: avoid using timespec
+Date: Wed, 30 Sep 2015 13:26:32 +0200
+Message-ID: <1443612402-3000775-3-git-send-email-arnd@arndb.de>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
+ Richard Cochran <richardcochran@gmail.com>, linux-kernel@vger.kernel.org,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Alex,
-
-> this patch series will add llsec support for nl802154.
-> 
-> What is "llsec"?
-> 
-> The llsec (I suppose it stands for linklayer security) is part of the SoftMAC
-> implementation of 802.15.4 "net/mac802154/llsec.c". The 802.15.4 standard
-> describes an security mechanism over ACL's. The encryption/decryption will do
-> llsec. To access llsec we need an interface for nl802154. The 802.15.4 standard
-> describes PHY/MAC layer and we have "possible" similar paradigms like wireless
-> with SoftMAC and HardMAC drivers. (We don't support HardMAC transceivers right
-> now, I never had some HardMAC transceivers, are really expensive and there are
-> only few some which can also run in a "raw" mode.) Anyway the nl802154 should
-> access SoftMAC/HardMAC drivers to abstract "one interface to userspace".
-> 
-> These ACL's are known as "security tables" inside the mac information base
-> (MIB) of 802.15.4 standard, security MIB.
-> 
-> The final goal we have to provide these tables in userspace is an "iptables"
-> handling "store" and "restore", over the userspace application "iwpan" which
-> contains the general "framework mechanism" like wireless "iw" tool, you can
-> add/del entries on these security tables, then.
-> 
-> I don't looked right now how iptables userspace application do "exactly" the
-> store and restore mechanism. The current way is a very KISS handling:
-> 
-> We add netlink cmd's to add/del the table entries. Over the dump callback
-> it's possible to get all information which is printed out as the command
-> line string "iwpan dev $WPAN_DEV $TABLE add ...". The restore script will
-> simple export $WPAN_DEV variable to restore these configuration for a
-> specific interface.
-> 
-> I will send the userspace patches as well to netdev, maybe somebody wants
-> to know what I did there for first support.
-> 
-> This sounds weird but is to support llsec somehow a acceptable use-case. The
-> final goal is to lookup how iptables works and make a nicer C implementation.
-> There is currently no "official supported" userspace tool which support
-> accessing the "llsec".
-> 
-> I added several TODO's to the current implementation and added a new:
-> 
-> CONFIG_IEEE802154_NL802154_EXPERIMENTAL
-> 
-> This config will not build the nl802154 llsec layer and reduce the MAX_ATTR
-> attribute of nl802154 interface. With this config I explicit say this interface
-> over nl802154 is still in development and will be changed later.
-> 
-> The 802.15.4 subsystem is still in EXPERIMENTAL state, there was some commit
-> f4671a90c418b5aae14b61a9fc9d79c629403ca0 ("net/ieee802154: remove depends on
-> CONFIG_EXPERIMENTAL") which is fine but no maintainer ever said it's not
-> experimental anymore.
-> 
-> Checkpatch will complain about some above 80-chars width, at these places I
-> ignore these warning otherwise the code looks awful in my opinion.
-> 
-> My current working repository is still bluetooth-next/master. David if
-> everything is fine, then please ack patch "[PATCH bluetooth-next 1/4]
-> netlink: add nla_get for le32 and le64", so Marcel can apply it. Thanks.
-> 
-> - Alex
-> 
-> Alexander Aring (4):
->  netlink: add nla_get for le32 and le64
->  nl802154: use nla_get_le64 for get extended addr
->  nl802154: add support for security layer
->  mac802154: add comments for llsec issues
-> 
-> include/net/cfg802154.h         |  131 ++++
-> include/net/ieee802154_netdev.h |   75 ---
-> include/net/netlink.h           |   18 +
-> include/net/nl802154.h          |  191 ++++++
-> net/ieee802154/Kconfig          |    5 +
-> net/ieee802154/core.c           |   12 +
-> net/ieee802154/core.h           |    1 +
-> net/ieee802154/nl802154.c       | 1320 ++++++++++++++++++++++++++++++++++++---
-> net/ieee802154/rdev-ops.h       |  109 ++++
-> net/mac802154/cfg.c             |  205 ++++++
-> net/mac802154/rx.c              |    4 +
-> net/mac802154/tx.c              |    4 +
-> 12 files changed, 1903 insertions(+), 172 deletions(-)
-
-all 4 patches have been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+V2Ugd2FudCB0byBkZXByZWNhdGUgdGhlIHVzZSBvZiAnc3RydWN0IHRpbWVzcGVjJyBvbiAzMi1i
+aXQKYXJjaGl0ZWN0dXJlcywgYXMgaXQgaXMgd2lsbCBvdmVyZmxvdyBpbiAyMDM4LiBUaGUgc3Rt
+bWFjCmRyaXZlciB1c2VzIGl0IHRvIHJlYWQgdGhlIGN1cnJlbnQgdGltZSwgYW5kIGNhbiBzaW1w
+bHkKYmUgY2hhbmdlZCB0byB1c2Uga3RpbWVfZ2V0X3JlYWxfdHM2NCgpIGluc3RlYWQuCgpCZWNh
+dXNlIG9mIGhhcmR3YXJlIGxpbWl0YXRpb25zLCB0aGVyZSBpcyBzdGlsbCBhbiBvdmVyZmxvdwpp
+biB5ZWFyIDIxMDYsIHdoaWNoIHdlIGNhbm5vdCByZWFsbHkgYXZvaWQsIGJ1dCB0aGlzIGRvY3Vt
+ZW50cwp0aGUgb3ZlcmZsb3cuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFy
+bmRiLmRlPgpDYzogR2l1c2VwcGUgQ2F2YWxsYXJvIDxwZXBwZS5jYXZhbGxhcm9Ac3QuY29tPgpD
+YzogUmljaGFyZCBDb2NocmFuIDxyaWNoYXJkY29jaHJhbkBnbWFpbC5jb20+Ci0tLQogZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYyB8IDggKysrKystLS0K
+IDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYyBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMKaW5kZXgg
+OTI1ZjJmODY1OWI4Li44M2ExZGIxYjUzZjMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYwpAQCAtNDI0LDcgKzQyNCw3IEBAIHN0YXRp
+YyBpbnQgc3RtbWFjX2h3dHN0YW1wX2lvY3RsKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVj
+dCBpZnJlcSAqaWZyKQogewogCXN0cnVjdCBzdG1tYWNfcHJpdiAqcHJpdiA9IG5ldGRldl9wcml2
+KGRldik7CiAJc3RydWN0IGh3dHN0YW1wX2NvbmZpZyBjb25maWc7Ci0Jc3RydWN0IHRpbWVzcGVj
+IG5vdzsKKwlzdHJ1Y3QgdGltZXNwZWM2NCBub3c7CiAJdTY0IHRlbXAgPSAwOwogCXUzMiBwdHBf
+djIgPSAwOwogCXUzMiB0c3RhbXBfYWxsID0gMDsKQEAgLTYyMSw4ICs2MjEsMTAgQEAgc3RhdGlj
+IGludCBzdG1tYWNfaHd0c3RhbXBfaW9jdGwoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0
+IGlmcmVxICppZnIpCiAJCQkJCSAgICAgcHJpdi0+ZGVmYXVsdF9hZGRlbmQpOwogCiAJCS8qIGlu
+aXRpYWxpemUgc3lzdGVtIHRpbWUgKi8KLQkJZ2V0bnN0aW1lb2ZkYXkoJm5vdyk7Ci0JCXByaXYt
+Pmh3LT5wdHAtPmluaXRfc3lzdGltZShwcml2LT5pb2FkZHIsIG5vdy50dl9zZWMsCisJCWt0aW1l
+X2dldF9yZWFsX3RzNjQoJm5vdyk7CisKKwkJLyogbG93ZXIgMzIgYml0cyBvZiB0dl9zZWMgYXJl
+IHNhZmUgdW50aWwgeTIxMDYgKi8KKwkJcHJpdi0+aHctPnB0cC0+aW5pdF9zeXN0aW1lKHByaXYt
+PmlvYWRkciwgKHUzMilub3cudHZfc2VjLAogCQkJCQkgICAgbm93LnR2X25zZWMpOwogCX0KIAot
+LSAKMi4xLjAucmMyCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xp
+c3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
