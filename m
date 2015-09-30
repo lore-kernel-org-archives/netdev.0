@@ -1,109 +1,275 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 12/12] [RFC] can: avoid using timeval for uapi
-Date: Wed, 30 Sep 2015 13:26:42 +0200
-Message-ID: <1443612402-3000775-13-git-send-email-arnd@arndb.de>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB freelists
+Date: Wed, 30 Sep 2015 13:44:19 +0200
+Message-ID: <20150930114255.13505.2618.stgit@canyon>
+References: <560ABE86.9050508@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
- Oliver Hartkopp <socketcan@hartkopp.net>, linux-kernel@vger.kernel.org,
- linux-can@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
- linux-api@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Enberg <penberg@kernel.org>, netdev@vger.kernel.org,
+        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        David Rientjes <rientjes@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+        Christoph Lameter <cl@linux.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <560ABE86.9050508@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIGNhbiBzdWJzeXN0ZW0gY29tbXVuaWNhdGVzIHdpdGggdXNlciBzcGFjZSB1c2luZyBhIGJj
-bV9tc2dfaGVhZApoZWFkZXIsIHdoaWNoIGNvbnRhaW5zIHR3byB0aW1lc3RhbXBzLiBUaGlzIGlz
-IHByb2JsZW1hdGljIGZvcgptdWx0aXBsZSByZWFzb25zOgoKYSkgVGhlIHN0cnVjdHVyZSBsYXlv
-dXQgaXMgY3VycmVudGx5IGluY29tcGF0aWJsZSBiZXR3ZWVuIDY0LWJpdAogICB1c2VyIHNwYWNl
-IGFuZCAzMi1iaXQgdXNlciBzcGFjZSwgYW5kIGNhbm5vdCB3b3JrIGluIGNvbXBhdAogICBtb2Rl
-IChvdGhlciB0aGFuIHgzMikuCgpiKSBUaGUgdGltZXZhbCBzdHJ1Y3R1cmUgbGF5b3V0IHdpbGwg
-Y2hhbmdlIGluIDMyLWJpdCB1c2VyCiAgIHNwYWNlIHdoZW4gd2UgZml4IHRoZSB5MjAzOCBvdmVy
-ZmxvdyBwcm9ibGVtIGJ5IHJlZGVmaW5pbmcKICAgdGltZV90IHRvIDY0LWJpdCwgbWFraW5nIG5l
-dyAzMi1iaXQgdXNlciBzcGFjZSBpbmNvbXBhdGlibGUKICAgd2l0aCB0aGUgY3VycmVudCBrZXJu
-ZWwgaW50ZXJmYWNlLgogICBDYXJzIGxhc3QgYSBsb25nIHRpbWUgYW5kIG9mdGVuIHVzZSBvbGQg
-a2VybmVscywgc28gdGhlIGFjdHVhbAogICB1c2VycyBvZiB0aGlzIGNvZGUgYXJlIHRoZSBtb3N0
-IGxpa2VseSBvbmVzIHRvIG1pZ3JhdGUgdG8geTIwMzgKICAgc2FmZSB1c2VyIHNwYWNlLgoKVGhp
-cyB0cmllcyB0byB3b3JrIGFyb3VuZCBwYXJ0IG9mIHRoZSBwcm9ibGVtIGJ5IGNoYW5naW5nIHRo
-ZQpwdWJsaWNseSB2aXNpYmxlIHVzZXIgaW50ZXJmYWNlIGluIHRoZSBoZWFkZXIsIGJ1dCBub3Qg
-dGhlIGJpbmFyeQppbnRlcmZhY2UuIEZvcnR1bmF0ZWx5LCB0aGUgdmFsdWVzIHBhc3NlZCBhcm91
-bmQgaW4gdGhlIHN0cnVjdHVyZQphcmUgcmVsYXRpdmUgdGltZXMgYW5kIGRvIG5vdCBhY3R1YWxs
-eSBzdWZmZXIgZnJvbSB0aGUgeTIwMzgKb3ZlcmZsb3csIHNvIDMyLWJpdCBpcyBlbm91Z2ggaGVy
-ZS4KCldlIHJlcGxhY2UgdGhlIHVzZSBvZiAnc3RydWN0IHRpbWV2YWwnIHdpdGggYSBuZXdseSBk
-ZWZpbmVkCidzdHJ1Y3QgYmNtX3RpbWV2YWwnIHRoYXQgdXNlcyB0aGUgZXhhY3Qgc2FtZSBiaW5h
-cnkgbGF5b3V0CmFzIGJlZm9yZSBhbmQgdGhhdCBzdGlsbCBzdWZmZXJzIGZyb20gcHJvYmxlbSBh
-KSBidXQgbm90IHByb2JsZW0KYikuCgpUaGUgZG93bnNpZGUgb2YgdGhpcyBhcHByb2FjaCBpcyB0
-aGF0IGFueSB1c2VyIHNwYWNlIHByb2dyYW0KdGhhdCBjdXJyZW50bHkgYXNzaWducyBhIHRpbWV2
-YWwgc3RydWN0dXJlIHRvIHRoZXNlIG1lbWJlcnMKcmF0aGVyIHRoYW4gd3JpdGluZyB0aGUgdHZf
-c2VjL3R2X3VzZWMgcG9ydGlvbnMgaW5kaXZpZHVhbGx5CndpbGwgc3VmZmVyIGEgY29tcGlsZS10
-aW1lIGVycm9yIHdoZW4gYnVpbHQgd2l0aCBhbiB1cGRhdGVkCmtlcm5lbCBoZWFkZXIuIEZpeGlu
-ZyB0aGlzIGVycm9yIG1ha2VzIGl0IHdvcmsgZmluZSB3aXRoIG9sZAphbmQgbmV3IGhlYWRlcnMg
-dGhvdWdoLgoKV2UgY291bGQgYWRkcmVzcyBwcm9ibGVtIGEpIGJ5IHVzaW5nICdfX3UzMicgb3Ig
-J2ludCcgbWVtYmVycwpyYXRoZXIgdGhhbiAnbG9uZycsIGJ1dCB0aGF0IHdvdWxkIGhhdmUgYSBt
-b3JlIHNpZ25pZmljYW50CmRvd25zaWRlIGluIGFsc28gYnJlYWtpbmcgc3VwcG9ydCBmb3IgYWxs
-IGV4aXN0aW5nIDY0LWJpdCB1c2VyCmJpbmFyaWVzIHRoYXQgbWlnaHQgYmUgdXNpbmcgdGhpcyBp
-bnRlcmZhY2UsIHdoaWNoIGlzIGxpa2VseQpub3QgYWNjZXB0YWJsZS4KClNpZ25lZC1vZmYtYnk6
-IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+CkNjOiBPbGl2ZXIgSGFydGtvcHAgPHNvY2tl
-dGNhbkBoYXJ0a29wcC5uZXQ+CkNjOiBNYXJjIEtsZWluZS1CdWRkZSA8bWtsQHBlbmd1dHJvbml4
-LmRlPgpDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgtYXBpQHZnZXIua2Vy
-bmVsLm9yZwotLS0KIGluY2x1ZGUvdWFwaS9saW51eC9jYW4vYmNtLmggfCAgNyArKysrKystCiBu
-ZXQvY2FuL2JjbS5jICAgICAgICAgICAgICAgIHwgMTUgKysrKysrKysrKy0tLS0tCiAyIGZpbGVz
-IGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEv
-aW5jbHVkZS91YXBpL2xpbnV4L2Nhbi9iY20uaCBiL2luY2x1ZGUvdWFwaS9saW51eC9jYW4vYmNt
-LmgKaW5kZXggODlkZGI5ZGM5YmRmLi43YTI5MWRjMWZmMTUgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUv
-dWFwaS9saW51eC9jYW4vYmNtLmgKKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L2Nhbi9iY20uaApA
-QCAtNDcsNiArNDcsMTEgQEAKICNpbmNsdWRlIDxsaW51eC90eXBlcy5oPgogI2luY2x1ZGUgPGxp
-bnV4L2Nhbi5oPgogCitzdHJ1Y3QgYmNtX3RpbWV2YWwgeworCWxvbmcgdHZfc2VjOworCWxvbmcg
-dHZfdXNlYzsKK307CisKIC8qKgogICogc3RydWN0IGJjbV9tc2dfaGVhZCAtIGhlYWQgb2YgbWVz
-c2FnZXMgdG8vZnJvbSB0aGUgYnJvYWRjYXN0IG1hbmFnZXIKICAqIEBvcGNvZGU6ICAgIG9wY29k
-ZSwgc2VlIGVudW0gYmVsb3cuCkBAIC02Miw3ICs2Nyw3IEBAIHN0cnVjdCBiY21fbXNnX2hlYWQg
-ewogCV9fdTMyIG9wY29kZTsKIAlfX3UzMiBmbGFnczsKIAlfX3UzMiBjb3VudDsKLQlzdHJ1Y3Qg
-dGltZXZhbCBpdmFsMSwgaXZhbDI7CisJc3RydWN0IGJjbV90aW1ldmFsIGl2YWwxLCBpdmFsMjsK
-IAljYW5pZF90IGNhbl9pZDsKIAlfX3UzMiBuZnJhbWVzOwogCXN0cnVjdCBjYW5fZnJhbWUgZnJh
-bWVzWzBdOwpkaWZmIC0tZ2l0IGEvbmV0L2Nhbi9iY20uYyBiL25ldC9jYW4vYmNtLmMKaW5kZXgg
-YTFiYTY4NzVjMmEyLi42ODYzMzEwZDY5NzMgMTAwNjQ0Ci0tLSBhL25ldC9jYW4vYmNtLmMKKysr
-IGIvbmV0L2Nhbi9iY20uYwpAQCAtOTYsNyArOTYsNyBAQCBzdHJ1Y3QgYmNtX29wIHsKIAljYW5p
-ZF90IGNhbl9pZDsKIAl1MzIgZmxhZ3M7CiAJdW5zaWduZWQgbG9uZyBmcmFtZXNfYWJzLCBmcmFt
-ZXNfZmlsdGVyZWQ7Ci0Jc3RydWN0IHRpbWV2YWwgaXZhbDEsIGl2YWwyOworCXN0cnVjdCBiY21f
-dGltZXZhbCBpdmFsMSwgaXZhbDI7CiAJc3RydWN0IGhydGltZXIgdGltZXIsIHRocnRpbWVyOwog
-CXN0cnVjdCB0YXNrbGV0X3N0cnVjdCB0c2tsZXQsIHRocnRza2xldDsKIAlrdGltZV90IHJ4X3N0
-YW1wLCBrdF9pdmFsMSwga3RfaXZhbDIsIGt0X2xhc3Rtc2c7CkBAIC0xMzEsNiArMTMxLDExIEBA
-IHN0YXRpYyBpbmxpbmUgc3RydWN0IGJjbV9zb2NrICpiY21fc2soY29uc3Qgc3RydWN0IHNvY2sg
-KnNrKQogCXJldHVybiAoc3RydWN0IGJjbV9zb2NrICopc2s7CiB9CiAKK3N0YXRpYyBpbmxpbmUg
-a3RpbWVfdCBiY21fdGltZXZhbF90b19rdGltZShzdHJ1Y3QgYmNtX3RpbWV2YWwgdHYpCit7CisJ
-cmV0dXJuIGt0aW1lX3NldCh0di50dl9zZWMsIHR2LnR2X3VzZWMgKiBOU0VDX1BFUl9VU0VDKTsK
-K30KKwogI2RlZmluZSBDRlNJWiBzaXplb2Yoc3RydWN0IGNhbl9mcmFtZSkKICNkZWZpbmUgT1BT
-SVogc2l6ZW9mKHN0cnVjdCBiY21fb3ApCiAjZGVmaW5lIE1IU0laIHNpemVvZihzdHJ1Y3QgYmNt
-X21zZ19oZWFkKQpAQCAtOTUzLDggKzk1OCw4IEBAIHN0YXRpYyBpbnQgYmNtX3R4X3NldHVwKHN0
-cnVjdCBiY21fbXNnX2hlYWQgKm1zZ19oZWFkLCBzdHJ1Y3QgbXNnaGRyICptc2csCiAJCW9wLT5j
-b3VudCA9IG1zZ19oZWFkLT5jb3VudDsKIAkJb3AtPml2YWwxID0gbXNnX2hlYWQtPml2YWwxOwog
-CQlvcC0+aXZhbDIgPSBtc2dfaGVhZC0+aXZhbDI7Ci0JCW9wLT5rdF9pdmFsMSA9IHRpbWV2YWxf
-dG9fa3RpbWUobXNnX2hlYWQtPml2YWwxKTsKLQkJb3AtPmt0X2l2YWwyID0gdGltZXZhbF90b19r
-dGltZShtc2dfaGVhZC0+aXZhbDIpOworCQlvcC0+a3RfaXZhbDEgPSBiY21fdGltZXZhbF90b19r
-dGltZShtc2dfaGVhZC0+aXZhbDEpOworCQlvcC0+a3RfaXZhbDIgPSBiY21fdGltZXZhbF90b19r
-dGltZShtc2dfaGVhZC0+aXZhbDIpOwogCiAJCS8qIGRpc2FibGUgYW4gYWN0aXZlIHRpbWVyIGR1
-ZSB0byB6ZXJvIHZhbHVlcz8gKi8KIAkJaWYgKCFvcC0+a3RfaXZhbDEudHY2NCAmJiAhb3AtPmt0
-X2l2YWwyLnR2NjQpCkBAIC0xMTM0LDggKzExMzksOCBAQCBzdGF0aWMgaW50IGJjbV9yeF9zZXR1
-cChzdHJ1Y3QgYmNtX21zZ19oZWFkICptc2dfaGVhZCwgc3RydWN0IG1zZ2hkciAqbXNnLAogCQkJ
-Lyogc2V0IHRpbWVyIHZhbHVlICovCiAJCQlvcC0+aXZhbDEgPSBtc2dfaGVhZC0+aXZhbDE7CiAJ
-CQlvcC0+aXZhbDIgPSBtc2dfaGVhZC0+aXZhbDI7Ci0JCQlvcC0+a3RfaXZhbDEgPSB0aW1ldmFs
-X3RvX2t0aW1lKG1zZ19oZWFkLT5pdmFsMSk7Ci0JCQlvcC0+a3RfaXZhbDIgPSB0aW1ldmFsX3Rv
-X2t0aW1lKG1zZ19oZWFkLT5pdmFsMik7CisJCQlvcC0+a3RfaXZhbDEgPSBiY21fdGltZXZhbF90
-b19rdGltZShtc2dfaGVhZC0+aXZhbDEpOworCQkJb3AtPmt0X2l2YWwyID0gYmNtX3RpbWV2YWxf
-dG9fa3RpbWUobXNnX2hlYWQtPml2YWwyKTsKIAogCQkJLyogZGlzYWJsZSBhbiBhY3RpdmUgdGlt
-ZXIgZHVlIHRvIHplcm8gdmFsdWU/ICovCiAJCQlpZiAoIW9wLT5rdF9pdmFsMS50djY0KQotLSAK
-Mi4xLjAucmMyCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3Rz
-LmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+Make it possible to free a freelist with several objects by adjusting
+API of slab_free() and __slab_free() to have head, tail and an objects
+counter (cnt).
+
+Tail being NULL indicate single object free of head object.  This
+allow compiler inline constant propagation in slab_free() and
+slab_free_freelist_hook() to avoid adding any overhead in case of
+single object free.
+
+This allows a freelist with several objects (all within the same
+slab-page) to be free'ed using a single locked cmpxchg_double in
+__slab_free() and with an unlocked cmpxchg_double in slab_free().
+
+Object debugging on the free path is also extended to handle these
+freelists.  When CONFIG_SLUB_DEBUG is enabled it will also detect if
+objects don't belong to the same slab-page.
+
+These changes are needed for the next patch to bulk free the detached
+freelists it introduces and constructs.
+
+Micro benchmarking showed no performance reduction due to this change,
+when debugging is turned off (compiled with CONFIG_SLUB_DEBUG).
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+
+---
+V4:
+ - Change API per req of Christoph Lameter
+ - Remove comments in init_object.
+
+V4.1:
+ - Took Alex'es approach on defines inside slab_free_freelist_hook()
+
+ mm/slub.c |   85 ++++++++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 67 insertions(+), 18 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index 1cf98d89546d..99fcfa8ed0c7 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -1063,11 +1063,15 @@ bad:
+ 	return 0;
+ }
+ 
++/* Supports checking bulk free of a constructed freelist */
+ static noinline struct kmem_cache_node *free_debug_processing(
+-	struct kmem_cache *s, struct page *page, void *object,
++	struct kmem_cache *s, struct page *page,
++	void *head, void *tail, int bulk_cnt,
+ 	unsigned long addr, unsigned long *flags)
+ {
+ 	struct kmem_cache_node *n = get_node(s, page_to_nid(page));
++	void *object = head;
++	int cnt = 0;
+ 
+ 	spin_lock_irqsave(&n->list_lock, *flags);
+ 	slab_lock(page);
+@@ -1075,6 +1079,9 @@ static noinline struct kmem_cache_node *free_debug_processing(
+ 	if (!check_slab(s, page))
+ 		goto fail;
+ 
++next_object:
++	cnt++;
++
+ 	if (!check_valid_pointer(s, page, object)) {
+ 		slab_err(s, page, "Invalid object pointer 0x%p", object);
+ 		goto fail;
+@@ -1105,8 +1112,19 @@ static noinline struct kmem_cache_node *free_debug_processing(
+ 	if (s->flags & SLAB_STORE_USER)
+ 		set_track(s, object, TRACK_FREE, addr);
+ 	trace(s, page, object, 0);
++	/* Freepointer not overwritten by init_object(), SLAB_POISON moved it */
+ 	init_object(s, object, SLUB_RED_INACTIVE);
++
++	/* Reached end of constructed freelist yet? */
++	if (object != tail) {
++		object = get_freepointer(s, object);
++		goto next_object;
++	}
+ out:
++	if (cnt != bulk_cnt)
++		slab_err(s, page, "Bulk freelist count(%d) invalid(%d)\n",
++			 bulk_cnt, cnt);
++
+ 	slab_unlock(page);
+ 	/*
+ 	 * Keep node_lock to preserve integrity
+@@ -1210,7 +1228,8 @@ static inline int alloc_debug_processing(struct kmem_cache *s,
+ 	struct page *page, void *object, unsigned long addr) { return 0; }
+ 
+ static inline struct kmem_cache_node *free_debug_processing(
+-	struct kmem_cache *s, struct page *page, void *object,
++	struct kmem_cache *s, struct page *page,
++	void *head, void *tail, int bulk_cnt,
+ 	unsigned long addr, unsigned long *flags) { return NULL; }
+ 
+ static inline int slab_pad_check(struct kmem_cache *s, struct page *page)
+@@ -1306,6 +1325,29 @@ static inline void slab_free_hook(struct kmem_cache *s, void *x)
+ 	kasan_slab_free(s, x);
+ }
+ 
++static inline void slab_free_freelist_hook(struct kmem_cache *s,
++					   void *head, void *tail)
++{
++/*
++ * Compiler cannot detect this function can be removed if slab_free_hook()
++ * evaluates to nothing.  Thus, catch all relevant config debug options here.
++ */
++#if defined(CONFIG_KMEMCHECK) ||		\
++	defined(CONFIG_LOCKDEP)	||		\
++	defined(CONFIG_DEBUG_KMEMLEAK) ||	\
++	defined(CONFIG_DEBUG_OBJECTS_FREE) ||	\
++	defined(CONFIG_KASAN)
++
++	void *object = head;
++	void *tail_obj = tail ? : head;
++
++	do {
++		slab_free_hook(s, object);
++	} while ((object != tail_obj) &&
++		 (object = get_freepointer(s, object)));
++#endif
++}
++
+ static void setup_object(struct kmem_cache *s, struct page *page,
+ 				void *object)
+ {
+@@ -2586,10 +2628,11 @@ EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
+  * handling required then we can return immediately.
+  */
+ static void __slab_free(struct kmem_cache *s, struct page *page,
+-			void *x, unsigned long addr)
++			void *head, void *tail, int cnt,
++			unsigned long addr)
++
+ {
+ 	void *prior;
+-	void **object = (void *)x;
+ 	int was_frozen;
+ 	struct page new;
+ 	unsigned long counters;
+@@ -2599,7 +2642,8 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+ 	stat(s, FREE_SLOWPATH);
+ 
+ 	if (kmem_cache_debug(s) &&
+-		!(n = free_debug_processing(s, page, x, addr, &flags)))
++	    !(n = free_debug_processing(s, page, head, tail, cnt,
++					addr, &flags)))
+ 		return;
+ 
+ 	do {
+@@ -2609,10 +2653,10 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+ 		}
+ 		prior = page->freelist;
+ 		counters = page->counters;
+-		set_freepointer(s, object, prior);
++		set_freepointer(s, tail, prior);
+ 		new.counters = counters;
+ 		was_frozen = new.frozen;
+-		new.inuse--;
++		new.inuse -= cnt;
+ 		if ((!new.inuse || !prior) && !was_frozen) {
+ 
+ 			if (kmem_cache_has_cpu_partial(s) && !prior) {
+@@ -2643,7 +2687,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+ 
+ 	} while (!cmpxchg_double_slab(s, page,
+ 		prior, counters,
+-		object, new.counters,
++		head, new.counters,
+ 		"__slab_free"));
+ 
+ 	if (likely(!n)) {
+@@ -2708,15 +2752,20 @@ slab_empty:
+  *
+  * If fastpath is not possible then fall back to __slab_free where we deal
+  * with all sorts of special processing.
++ *
++ * Bulk free of a freelist with several objects (all pointing to the
++ * same page) possible by specifying head and tail ptr, plus objects
++ * count (cnt). Bulk free indicated by tail pointer being set.
+  */
+-static __always_inline void slab_free(struct kmem_cache *s,
+-			struct page *page, void *x, unsigned long addr)
++static __always_inline void slab_free(struct kmem_cache *s, struct page *page,
++				      void *head, void *tail, int cnt,
++				      unsigned long addr)
+ {
+-	void **object = (void *)x;
++	void *tail_obj = tail ? : head;
+ 	struct kmem_cache_cpu *c;
+ 	unsigned long tid;
+ 
+-	slab_free_hook(s, x);
++	slab_free_freelist_hook(s, head, tail);
+ 
+ redo:
+ 	/*
+@@ -2735,19 +2784,19 @@ redo:
+ 	barrier();
+ 
+ 	if (likely(page == c->page)) {
+-		set_freepointer(s, object, c->freelist);
++		set_freepointer(s, tail_obj, c->freelist);
+ 
+ 		if (unlikely(!this_cpu_cmpxchg_double(
+ 				s->cpu_slab->freelist, s->cpu_slab->tid,
+ 				c->freelist, tid,
+-				object, next_tid(tid)))) {
++				head, next_tid(tid)))) {
+ 
+ 			note_cmpxchg_failure("slab_free", s, tid);
+ 			goto redo;
+ 		}
+ 		stat(s, FREE_FASTPATH);
+ 	} else
+-		__slab_free(s, page, x, addr);
++		__slab_free(s, page, head, tail_obj, cnt, addr);
+ 
+ }
+ 
+@@ -2756,7 +2805,7 @@ void kmem_cache_free(struct kmem_cache *s, void *x)
+ 	s = cache_from_obj(s, x);
+ 	if (!s)
+ 		return;
+-	slab_free(s, virt_to_head_page(x), x, _RET_IP_);
++	slab_free(s, virt_to_head_page(x), x, NULL, 1, _RET_IP_);
+ 	trace_kmem_cache_free(_RET_IP_, x);
+ }
+ EXPORT_SYMBOL(kmem_cache_free);
+@@ -2791,7 +2840,7 @@ void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+ 			c->tid = next_tid(c->tid);
+ 			local_irq_enable();
+ 			/* Slowpath: overhead locked cmpxchg_double_slab */
+-			__slab_free(s, page, object, _RET_IP_);
++			__slab_free(s, page, object, object, 1, _RET_IP_);
+ 			local_irq_disable();
+ 			c = this_cpu_ptr(s->cpu_slab);
+ 		}
+@@ -3531,7 +3580,7 @@ void kfree(const void *x)
+ 		__free_kmem_pages(page, compound_order(page));
+ 		return;
+ 	}
+-	slab_free(page->slab_cache, page, object, _RET_IP_);
++	slab_free(page->slab_cache, page, object, NULL, 1, _RET_IP_);
+ }
+ EXPORT_SYMBOL(kfree);
+ 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
