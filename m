@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v2 04/14] RDS: Use per-bucket rw lock for bind hash-table
-Date: Wed, 30 Sep 2015 13:24:23 -0400
-Message-ID: <1443633873-13359-5-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v2 02/14] RDS: make socket bind/release locking scheme simple and more efficient
+Date: Wed, 30 Sep 2015 13:24:21 -0400
+Message-ID: <1443633873-13359-3-git-send-email-santosh.shilimkar@oracle.com>
 References: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-rdma@vger.kernel.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, ssantosh@kernel.org,
@@ -12,172 +12,173 @@ In-Reply-To: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One global lock protecting hash-tables with 1024 buckets isn't
-efficient and it shows up in a massive systems with truck
-loads of RDS sockets serving multiple databases. The
-perf data clearly highlights the contention on the rw
-lock in these massive workloads.
+RDS bind and release locking scheme is very inefficient. It
+uses RCU for maintaining the bind hash-table which is great but
+it also needs to hold spinlock for [add/remove]_bound(). So
+overall usecase, the hash-table concurrent speedup doesn't pay off.
+In fact blocking nature of synchronize_rcu() makes the RDS
+socket shutdown too slow which hurts RDS performance since
+connection shutdown and re-connect happens quite often to
+maintain the RC part of the protocol.
 
-When the contention gets worse, the code gets into a state where
-it decides to back off on the lock. So while it has disabled interrupts,
-it sits and backs off on this lock get. This causes the system to
-become sluggish and eventually all sorts of bad things happen.
+So we make the locking scheme simpler and more efficient by
+replacing spin_locks with reader/writer locks and getting rid
+off rcu for bind hash-table.
 
-The simple fix is to move the lock into the hash bucket and
-use per-bucket lock to improve the scalability.
+In subsequent patch, we also covert the global lock with per-bucket
+lock to reduce the global lock contention.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/af_rds.c |  2 ++
- net/rds/bind.c   | 47 ++++++++++++++++++++++++++++++++---------------
- net/rds/rds.h    |  1 +
- 3 files changed, 35 insertions(+), 15 deletions(-)
+ net/rds/af_rds.c |  6 ------
+ net/rds/bind.c   | 35 +++++++++++++++--------------------
+ 2 files changed, 15 insertions(+), 26 deletions(-)
 
 diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index dc08766..384ea1e 100644
+index a2f28a6..dc08766 100644
 --- a/net/rds/af_rds.c
 +++ b/net/rds/af_rds.c
-@@ -582,6 +582,8 @@ static int rds_init(void)
- {
- 	int ret;
+@@ -72,13 +72,7 @@ static int rds_release(struct socket *sock)
+ 	rds_clear_recv_queue(rs);
+ 	rds_cong_remove_socket(rs);
  
-+	rds_bind_lock_init();
-+
- 	ret = rds_conn_init();
- 	if (ret)
- 		goto out;
+-	/*
+-	 * the binding lookup hash uses rcu, we need to
+-	 * make sure we synchronize_rcu before we free our
+-	 * entry
+-	 */
+ 	rds_remove_bound(rs);
+-	synchronize_rcu();
+ 
+ 	rds_send_drop_to(rs, NULL);
+ 	rds_rdma_drop_keys(rs);
 diff --git a/net/rds/bind.c b/net/rds/bind.c
-index 166c605..bc6b93e 100644
+index dd666fb..01989e2 100644
 --- a/net/rds/bind.c
 +++ b/net/rds/bind.c
-@@ -38,22 +38,27 @@
- #include <linux/ratelimit.h>
- #include "rds.h"
+@@ -40,7 +40,7 @@
  
-+struct bind_bucket {
-+	rwlock_t                lock;
-+	struct hlist_head	head;
-+};
-+
  #define BIND_HASH_SIZE 1024
--static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
--static DEFINE_RWLOCK(rds_bind_lock);
-+static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
+ static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
+-static DEFINE_SPINLOCK(rds_bind_lock);
++static DEFINE_RWLOCK(rds_bind_lock);
  
--static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
-+static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
+ static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
  {
- 	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+@@ -48,6 +48,7 @@ static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
  				  (BIND_HASH_SIZE - 1));
  }
  
- /* must hold either read or write lock (write lock for insert != NULL) */
--static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
-+static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
-+					__be32 addr, __be16 port,
++/* must hold either read or write lock (write lock for insert != NULL) */
+ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
  					struct rds_sock *insert)
  {
- 	struct rds_sock *rs;
--	struct hlist_head *head = hash_to_bucket(addr, port);
-+	struct hlist_head *head = &bucket->head;
+@@ -56,30 +57,24 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
  	u64 cmp;
  	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
  
-@@ -91,10 +96,11 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+-	rcu_read_lock();
+-	hlist_for_each_entry_rcu(rs, head, rs_bound_node) {
++	hlist_for_each_entry(rs, head, rs_bound_node) {
+ 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+ 		      be16_to_cpu(rs->rs_bound_port);
+ 
+-		if (cmp == needle) {
+-			rcu_read_unlock();
++		if (cmp == needle)
+ 			return rs;
+-		}
+ 	}
+-	rcu_read_unlock();
+ 
+ 	if (insert) {
+ 		/*
+ 		 * make sure our addr and port are set before
+-		 * we are added to the list, other people
+-		 * in rcu will find us as soon as the
+-		 * hlist_add_head_rcu is done
++		 * we are added to the list.
+ 		 */
+ 		insert->rs_bound_addr = addr;
+ 		insert->rs_bound_port = port;
+ 		rds_sock_addref(insert);
+ 
+-		hlist_add_head_rcu(&insert->rs_bound_node, head);
++		hlist_add_head(&insert->rs_bound_node, head);
+ 	}
+ 	return NULL;
+ }
+@@ -93,8 +88,11 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
  {
  	struct rds_sock *rs;
- 	unsigned long flags;
-+	struct bind_bucket *bucket = hash_to_bucket(addr, port);
++	unsigned long flags;
  
--	read_lock_irqsave(&rds_bind_lock, flags);
--	rs = rds_bind_lookup(addr, port, NULL);
--	read_unlock_irqrestore(&rds_bind_lock, flags);
-+	read_lock_irqsave(&bucket->lock, flags);
-+	rs = rds_bind_lookup(bucket, addr, port, NULL);
-+	read_unlock_irqrestore(&bucket->lock, flags);
++	read_lock_irqsave(&rds_bind_lock, flags);
+ 	rs = rds_bind_lookup(addr, port, NULL);
++	read_unlock_irqrestore(&rds_bind_lock, flags);
  
- 	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
- 		rds_sock_put(rs);
-@@ -113,6 +119,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
- 	unsigned long flags;
- 	int ret = -EADDRINUSE;
- 	u16 rover, last;
-+	struct bind_bucket *bucket;
+ 	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
+ 		rds_sock_addref(rs);
+@@ -103,6 +101,7 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
  
- 	if (*port != 0) {
- 		rover = be16_to_cpu(*port);
-@@ -122,13 +129,15 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
+ 		ntohs(port));
++
+ 	return rs;
+ }
+ 
+@@ -121,7 +120,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
  		last = rover - 1;
  	}
  
--	write_lock_irqsave(&rds_bind_lock, flags);
--
+-	spin_lock_irqsave(&rds_bind_lock, flags);
++	write_lock_irqsave(&rds_bind_lock, flags);
+ 
  	do {
- 		struct rds_sock *rrs;
  		if (rover == 0)
- 			rover++;
--		rrs = rds_bind_lookup(addr, cpu_to_be16(rover), rs);
-+
-+		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
-+		write_lock_irqsave(&bucket->lock, flags);
-+		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
-+		write_unlock_irqrestore(&bucket->lock, flags);
- 		if (!rrs) {
- 			*port = rs->rs_bound_port;
- 			ret = 0;
-@@ -140,16 +149,16 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+@@ -135,7 +134,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
  		}
  	} while (rover++ != last);
  
--	write_unlock_irqrestore(&rds_bind_lock, flags);
--
+-	spin_unlock_irqrestore(&rds_bind_lock, flags);
++	write_unlock_irqrestore(&rds_bind_lock, flags);
+ 
  	return ret;
  }
- 
- void rds_remove_bound(struct rds_sock *rs)
+@@ -144,19 +143,19 @@ void rds_remove_bound(struct rds_sock *rs)
  {
  	unsigned long flags;
-+	struct bind_bucket *bucket =
-+		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
  
--	write_lock_irqsave(&rds_bind_lock, flags);
-+	write_lock_irqsave(&bucket->lock, flags);
+-	spin_lock_irqsave(&rds_bind_lock, flags);
++	write_lock_irqsave(&rds_bind_lock, flags);
  
  	if (rs->rs_bound_addr) {
  		rdsdebug("rs %p unbinding from %pI4:%d\n",
-@@ -161,7 +170,7 @@ void rds_remove_bound(struct rds_sock *rs)
+ 		  rs, &rs->rs_bound_addr,
+ 		  ntohs(rs->rs_bound_port));
+ 
+-		hlist_del_init_rcu(&rs->rs_bound_node);
++		hlist_del_init(&rs->rs_bound_node);
+ 		rds_sock_put(rs);
  		rs->rs_bound_addr = 0;
  	}
  
--	write_unlock_irqrestore(&rds_bind_lock, flags);
-+	write_unlock_irqrestore(&bucket->lock, flags);
+-	spin_unlock_irqrestore(&rds_bind_lock, flags);
++	write_unlock_irqrestore(&rds_bind_lock, flags);
  }
  
  int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-@@ -207,3 +216,11 @@ out:
+@@ -200,9 +199,5 @@ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 
+ out:
  	release_sock(sk);
+-
+-	/* we might have called rds_remove_bound on error */
+-	if (ret)
+-		synchronize_rcu();
  	return ret;
  }
-+
-+void rds_bind_lock_init(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < BIND_HASH_SIZE; i++)
-+		rwlock_init(&bind_hash_table[i].lock);
-+}
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index afb4048..121fb81 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -603,6 +603,7 @@ extern wait_queue_head_t rds_poll_waitq;
- int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
- void rds_remove_bound(struct rds_sock *rs);
- struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
-+void rds_bind_lock_init(void);
- 
- /* cong.c */
- int rds_cong_get_maps(struct rds_connection *conn);
 -- 
 1.9.1
