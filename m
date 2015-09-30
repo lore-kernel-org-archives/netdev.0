@@ -1,85 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH 1/3] net: dsa: Use devm_ prefixed allocations
-Date: Wed, 30 Sep 2015 23:28:33 +0200
-Message-ID: <20150930212833.GF20219@lunn.ch>
-References: <560B9B74.3080905@baylibre.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: netlink attributes for IPv6 tunneling
+Date: Wed, 30 Sep 2015 14:29:09 -0700
+Message-ID: <CAEP_g=_rHyaW87Tit52Y4dF_p1xicQ6i049deJHhCnNK8pYb6g@mail.gmail.com>
+References: <cover.1443548447.git.jbenc@redhat.com> <ac7ce77d8104dca2c8378096575276984dd2a11e.1443548447.git.jbenc@redhat.com>
+ <CAEP_g=-oijtUY1fD7AqK5PndCAt85uEF1Gh0yqbqz0u3-bPcRg@mail.gmail.com>
+ <20150930092850.09b71dff@griffin> <CAEP_g=_OWHD8AuO5t3aTEJVNDHihpjzfz29ppoE1Ownm8PgRJw@mail.gmail.com>
+ <20150930230554.4c6889d0@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38182 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbbI3V2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 17:28:37 -0400
-Content-Disposition: inline
-In-Reply-To: <560B9B74.3080905@baylibre.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:35306 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754151AbbI3V3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 17:29:30 -0400
+Received: by laer8 with SMTP id r8so61902893lae.2
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 14:29:29 -0700 (PDT)
+In-Reply-To: <20150930230554.4c6889d0@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Neil
+On Wed, Sep 30, 2015 at 2:05 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Wed, 30 Sep 2015 13:18:40 -0700, Jesse Gross wrote:
+>> This function is used to report back information that is the result of
+>> the encapsulation process, such as the UDP source port chosen. Take a
+>> look at net/openvswitch/actions.c:output_userspace(), particularly the
+>> OVS_USERSPACE_ATTR_EGRESS_TUN_PORT case.
+>
+> I see. I think it should be addressed separately from this patchset,
+> though, as the function needs to be completely rewritten even for IPv4
+> and IPv6 can be handled alongside it.
+>
+> I'll change the patch description in v2, the current wording is not
+> correct. I don't think that fixing the bug should be a prerequisite for
+> this patchset, the problem is already there and this patchset doesn't
+> change that.
 
-I tested all three patches on a board with three switches.
-
-1) Normal boot
-2) Bad address set for the 3rd switch so that it was not found, so
-   causing the probe to fail.
-
-No regressions observed. 
-
-Tested-by: Andrew Lunn <andrew@lunn.ch>
-
-As Florian said, this is going in the right direction for modular DSA,
-but still quite a way to go...
-
-    Thanks
-	Andrew
-
-On Wed, Sep 30, 2015 at 10:21:08AM +0200, Neil Armstrong wrote:
-> To simplify and prevent memory leakage when unbinding, use
-> the devm_ memory allocation calls.
-> 
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  net/dsa/dsa.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index c59fa5d..98f94c2 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  	if (ret < 0)
->  		goto out;
-> 
-> -	ds->slave_mii_bus = mdiobus_alloc();
-> +	ds->slave_mii_bus = devm_mdiobus_alloc(parent);
->  	if (ds->slave_mii_bus == NULL) {
->  		ret = -ENOMEM;
->  		goto out;
-> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->  	/*
->  	 * Allocate and initialise switch state.
->  	 */
-> -	ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
-> +	ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
->  	if (ds == NULL)
->  		return ERR_PTR(-ENOMEM);
-> 
-> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
->  		goto out;
->  	}
-> 
-> -	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-> +	dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
->  	if (dst == NULL) {
->  		dev_put(dev);
->  		ret = -ENOMEM;
-> -- 
-> 1.9.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can you at least update the existing code for IPv6 so that this
+doesn't introduce another lurking issue when the bug is fixed?
