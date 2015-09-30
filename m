@@ -1,52 +1,54 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v2 0/7] net: mvneta: Switch to per-CPU irq and make
- rxq_def useful
-Date: Wed, 30 Sep 2015 19:39:26 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1509301938130.4500@nanos>
-References: <1443197378-30717-1-git-send-email-gregory.clement@free-electrons.com> <20150929.115157.1923947727727463035.davem@davemloft.net> <alpine.DEB.2.11.1509301655140.4500@nanos> <20150930.084039.1788742148434227487.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH 0/3] net: dsa: Complete and fix the dsa unbinding
+Date: Wed, 30 Sep 2015 10:43:54 -0700
+Message-ID: <560C1F5A.5070506@gmail.com>
+References: <560B9B70.6030202@baylibre.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: gregory.clement@free-electrons.com, jason@lakedaemon.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	sebastian.hesselbarth@gmail.com, alior@marvell.com,
-	tawfik@marvell.com, nadavh@marvell.com,
-	ezequiel.garcia@free-electrons.com,
-	maxime.ripard@free-electrons.com,
-	boris.brezillon@free-electrons.com, w@1wt.eu,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+	linux@roeck-us.net
+To: Neil Armstrong <narmstrong@baylibre.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150930.084039.1788742148434227487.davem@davemloft.net>
+In-Reply-To: <560B9B70.6030202@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Sep 2015, David Miller wrote:
-> From: Thomas Gleixner <tglx@linutronix.de>
-> Date: Wed, 30 Sep 2015 16:56:06 +0200 (CEST)
+On 30/09/15 01:21, Neil Armstrong wrote:
+> In order to cleanly unbind the dsa core, either as a module removal,
+> or a platform device unbind, switch the allocation the their devm_
+> counterparts and complete the destroy functions.
 > 
-> > On Tue, 29 Sep 2015, David Miller wrote:
-> >> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> >> Date: Fri, 25 Sep 2015 18:09:31 +0200
-> >> 
-> >> > As stated in the first version: "this patchset reworks the Marvell
-> >> > neta driver in order to really support its per-CPU interrupts, instead
-> >> > of faking them as SPI, and allow the use of any RX queue instead of
-> >> > the hardcoded RX queue 0 that we have currently."
-> >> 
-> >> Series applied, thanks.
-> > 
-> > You could have had the courtesy to wait for an ack for the core irq
-> > parts at least....
+> The last patch is an experimental way to exit the probe when no
+> switch is found in the discover process.
 > 
-> Sorry, my impression was that those parts were already discussed and
-> agreed upon.
+> The patches are based on the current net-next.
 
-No problem. I would have preferred to merge them to a separate branch
-which you could have pulled so we don't end up with conflicts on
-further changes in that area. But it's ok as it is. The patches are
-good to go.
+I looked at the patches and they bring DSA in a better direction. For
+future submissions, could you CC people who recently worked on DSA, like
+Andrew Lunn, Guenter Roeck, Vivien Didelot and myself? We can typically
+give your patches a try fairly quickly.
 
-Thanks,
+In case you are seriously considering making DSA a loadable module,
+there were an earlier attempt here:
 
-	tglx
+http://comments.gmane.org/gmane.linux.network/345803
+
+Thanks!
+
+> 
+> Neil Armstrong (3):
+>   net: dsa: Use devm_ prefixed allocations
+>   net: dsa: complete dsa_switch_destroy calls
+>   net: dsa: exit probe if no switch were found
+> 
+>  net/dsa/dsa.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 file changed, 60 insertions(+), 7 deletions(-)
+> 
+
+
+-- 
+Florian
