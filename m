@@ -1,71 +1,45 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 net-next 3/3] RDS-TCP: Set up MSG_MORE and MSG_SENDPAGE_NOTLAST as appropriate in rds_tcp_xmit
-Date: Wed, 30 Sep 2015 16:54:09 -0400
-Message-ID: <d37e27a682cce2fc60faeaa1d76ade62c83ec19e.1443636587.git.sowmini.varadhan@oracle.com>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
-	sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com,
-	sergei.shtylyov@cogentembedded.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: netlink attributes for IPv6
+ tunneling
+Date: Wed, 30 Sep 2015 23:05:54 +0200
+Message-ID: <20150930230554.4c6889d0@griffin>
+References: <cover.1443548447.git.jbenc@redhat.com>
+	<ac7ce77d8104dca2c8378096575276984dd2a11e.1443548447.git.jbenc@redhat.com>
+	<CAEP_g=-oijtUY1fD7AqK5PndCAt85uEF1Gh0yqbqz0u3-bPcRg@mail.gmail.com>
+	<20150930092850.09b71dff@griffin>
+	<CAEP_g=_OWHD8AuO5t3aTEJVNDHihpjzfz29ppoE1Ownm8PgRJw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36434 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753675AbbI3VF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 17:05:58 -0400
+In-Reply-To: <CAEP_g=_OWHD8AuO5t3aTEJVNDHihpjzfz29ppoE1Ownm8PgRJw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For the same reasons as commit 2f5338442425 ("tcp: allow splice() to
-build full TSO packets") and commit 35f9c09fe9c7 ("tcp: tcp_sendpages()
-should call tcp_push() once"), rds_tcp_xmit may have multiple pages to
-send, so use the MSG_MORE and MSG_SENDPAGE_NOTLAST as hints to
-tcp_sendpage()
+On Wed, 30 Sep 2015 13:18:40 -0700, Jesse Gross wrote:
+> This function is used to report back information that is the result of
+> the encapsulation process, such as the UDP source port chosen. Take a
+> look at net/openvswitch/actions.c:output_userspace(), particularly the
+> OVS_USERSPACE_ATTR_EGRESS_TUN_PORT case.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-v2: Sergei Shtylov, Santosh Shilimkar comments (some parens retained for
-    readability)
+I see. I think it should be addressed separately from this patchset,
+though, as the function needs to be completely rewritten even for IPv4
+and IPv6 can be handled alongside it.
 
- net/rds/tcp_send.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+I'll change the patch description in v2, the current wording is not
+correct. I don't think that fixing the bug should be a prerequisite for
+this patchset, the problem is already there and this patchset doesn't
+change that.
 
-diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
-index 53b17ca..2894e60 100644
---- a/net/rds/tcp_send.c
-+++ b/net/rds/tcp_send.c
-@@ -83,6 +83,7 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
- 	struct rds_tcp_connection *tc = conn->c_transport_data;
- 	int done = 0;
- 	int ret = 0;
-+	int more;
- 
- 	if (hdr_off == 0) {
- 		/*
-@@ -116,12 +117,15 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
- 			goto out;
- 	}
- 
-+	more = rm->data.op_nents > 1 ? (MSG_MORE | MSG_SENDPAGE_NOTLAST) : 0;
- 	while (sg < rm->data.op_nents) {
-+		int flags = MSG_DONTWAIT | MSG_NOSIGNAL | more;
-+
- 		ret = tc->t_sock->ops->sendpage(tc->t_sock,
- 						sg_page(&rm->data.op_sg[sg]),
- 						rm->data.op_sg[sg].offset + off,
- 						rm->data.op_sg[sg].length - off,
--						MSG_DONTWAIT|MSG_NOSIGNAL);
-+						flags);
- 		rdsdebug("tcp sendpage %p:%u:%u ret %d\n", (void *)sg_page(&rm->data.op_sg[sg]),
- 			 rm->data.op_sg[sg].offset + off, rm->data.op_sg[sg].length - off,
- 			 ret);
-@@ -134,6 +138,8 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
- 			off = 0;
- 			sg++;
- 		}
-+		if (sg == rm->data.op_nents - 1)
-+			more = 0;
- 	}
- 
- out:
+ Jiri
+
 -- 
-1.7.1
+Jiri Benc
