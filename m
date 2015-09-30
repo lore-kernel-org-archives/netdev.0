@@ -1,275 +1,61 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB freelists
-Date: Wed, 30 Sep 2015 13:44:19 +0200
-Message-ID: <20150930114255.13505.2618.stgit@canyon>
-References: <560ABE86.9050508@gmail.com>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
+Date: Wed, 30 Sep 2015 13:55:57 +0200
+Message-ID: <CA+rthh_LqYaOBBMmdCa=zo55ukVDTff-pKM8cw0HzJDapg5Vvg@mail.gmail.com>
+References: <20150913195354.GA12352@jig.fritz.box>
+	<20150914023949.GA15012@dcvr.yhbt.net>
+	<CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com>
+	<560AE202.4020402@akamai.com>
+	<CA+rthh9XU+5oN9Ua-+8XPF9Q0y03FZyxds53sxUjsvsJN2kaJA@mail.gmail.com>
+	<87612skwfb.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@kernel.org>, netdev@vger.kernel.org,
-        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-        David Rientjes <rientjes@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-        Christoph Lameter <cl@linux.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <560ABE86.9050508@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Eric Wong <normalperson@yhbt.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Davidlohr Bueso <dave@stgolabs.net>,
+	Olivier Mauras <olivier@mauras.ch>,
+	PaX Team <pageexec@freemail.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:36796 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184AbbI3Lz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:55:58 -0400
+In-Reply-To: <87612skwfb.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make it possible to free a freelist with several objects by adjusting
-API of slab_free() and __slab_free() to have head, tail and an objects
-counter (cnt).
+On 30 September 2015 at 12:56, Rainer Weikusat
+<rweikusat@mobileactivedefense.com> wrote:
+> Mathias Krause <minipli@googlemail.com> writes:
+>> On 29 September 2015 at 21:09, Jason Baron <jbaron@akamai.com> wrote:
+>>> However, if we call connect on socket 's', to connect to a new socket 'o2', we
+>>> drop the reference on the original socket 'o'. Thus, we can now close socket
+>>> 'o' without unregistering from epoll. Then, when we either close the ep
+>>> or unregister 'o', we end up with this list corruption. Thus, this is not a
+>>> race per se, but can be triggered sequentially.
+>>
+>> Sounds profound, but the reproducers calls connect only once per
+>> socket. So there is no "connect to a new socket", no?
+>> But w/e, see below.
+>
+> In case you want some information on this: This is a kernel warning I
+> could trigger (more than once) on the single day I could so far spend
+> looking into this (3.2.54 kernel):
+>
+> Sep 15 19:37:19 doppelsaurus kernel: WARNING: at lib/list_debug.c:53 list_del+0x9/0x30()
+> Sep 15 19:37:19 doppelsaurus kernel: Hardware name: 500-330nam
+> Sep 15 19:37:19 doppelsaurus kernel: list_del corruption. prev->next should be ffff88022c38f078, but was dead000000100100
+> [snip]
 
-Tail being NULL indicate single object free of head object.  This
-allow compiler inline constant propagation in slab_free() and
-slab_free_freelist_hook() to avoid adding any overhead in case of
-single object free.
+Is that with Jason's patch or a vanilla v3.2.54?
 
-This allows a freelist with several objects (all within the same
-slab-page) to be free'ed using a single locked cmpxchg_double in
-__slab_free() and with an unlocked cmpxchg_double in slab_free().
-
-Object debugging on the free path is also extended to handle these
-freelists.  When CONFIG_SLUB_DEBUG is enabled it will also detect if
-objects don't belong to the same slab-page.
-
-These changes are needed for the next patch to bulk free the detached
-freelists it introduces and constructs.
-
-Micro benchmarking showed no performance reduction due to this change,
-when debugging is turned off (compiled with CONFIG_SLUB_DEBUG).
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-
----
-V4:
- - Change API per req of Christoph Lameter
- - Remove comments in init_object.
-
-V4.1:
- - Took Alex'es approach on defines inside slab_free_freelist_hook()
-
- mm/slub.c |   85 ++++++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 67 insertions(+), 18 deletions(-)
-
-diff --git a/mm/slub.c b/mm/slub.c
-index 1cf98d89546d..99fcfa8ed0c7 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -1063,11 +1063,15 @@ bad:
- 	return 0;
- }
- 
-+/* Supports checking bulk free of a constructed freelist */
- static noinline struct kmem_cache_node *free_debug_processing(
--	struct kmem_cache *s, struct page *page, void *object,
-+	struct kmem_cache *s, struct page *page,
-+	void *head, void *tail, int bulk_cnt,
- 	unsigned long addr, unsigned long *flags)
- {
- 	struct kmem_cache_node *n = get_node(s, page_to_nid(page));
-+	void *object = head;
-+	int cnt = 0;
- 
- 	spin_lock_irqsave(&n->list_lock, *flags);
- 	slab_lock(page);
-@@ -1075,6 +1079,9 @@ static noinline struct kmem_cache_node *free_debug_processing(
- 	if (!check_slab(s, page))
- 		goto fail;
- 
-+next_object:
-+	cnt++;
-+
- 	if (!check_valid_pointer(s, page, object)) {
- 		slab_err(s, page, "Invalid object pointer 0x%p", object);
- 		goto fail;
-@@ -1105,8 +1112,19 @@ static noinline struct kmem_cache_node *free_debug_processing(
- 	if (s->flags & SLAB_STORE_USER)
- 		set_track(s, object, TRACK_FREE, addr);
- 	trace(s, page, object, 0);
-+	/* Freepointer not overwritten by init_object(), SLAB_POISON moved it */
- 	init_object(s, object, SLUB_RED_INACTIVE);
-+
-+	/* Reached end of constructed freelist yet? */
-+	if (object != tail) {
-+		object = get_freepointer(s, object);
-+		goto next_object;
-+	}
- out:
-+	if (cnt != bulk_cnt)
-+		slab_err(s, page, "Bulk freelist count(%d) invalid(%d)\n",
-+			 bulk_cnt, cnt);
-+
- 	slab_unlock(page);
- 	/*
- 	 * Keep node_lock to preserve integrity
-@@ -1210,7 +1228,8 @@ static inline int alloc_debug_processing(struct kmem_cache *s,
- 	struct page *page, void *object, unsigned long addr) { return 0; }
- 
- static inline struct kmem_cache_node *free_debug_processing(
--	struct kmem_cache *s, struct page *page, void *object,
-+	struct kmem_cache *s, struct page *page,
-+	void *head, void *tail, int bulk_cnt,
- 	unsigned long addr, unsigned long *flags) { return NULL; }
- 
- static inline int slab_pad_check(struct kmem_cache *s, struct page *page)
-@@ -1306,6 +1325,29 @@ static inline void slab_free_hook(struct kmem_cache *s, void *x)
- 	kasan_slab_free(s, x);
- }
- 
-+static inline void slab_free_freelist_hook(struct kmem_cache *s,
-+					   void *head, void *tail)
-+{
-+/*
-+ * Compiler cannot detect this function can be removed if slab_free_hook()
-+ * evaluates to nothing.  Thus, catch all relevant config debug options here.
-+ */
-+#if defined(CONFIG_KMEMCHECK) ||		\
-+	defined(CONFIG_LOCKDEP)	||		\
-+	defined(CONFIG_DEBUG_KMEMLEAK) ||	\
-+	defined(CONFIG_DEBUG_OBJECTS_FREE) ||	\
-+	defined(CONFIG_KASAN)
-+
-+	void *object = head;
-+	void *tail_obj = tail ? : head;
-+
-+	do {
-+		slab_free_hook(s, object);
-+	} while ((object != tail_obj) &&
-+		 (object = get_freepointer(s, object)));
-+#endif
-+}
-+
- static void setup_object(struct kmem_cache *s, struct page *page,
- 				void *object)
- {
-@@ -2586,10 +2628,11 @@ EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
-  * handling required then we can return immediately.
-  */
- static void __slab_free(struct kmem_cache *s, struct page *page,
--			void *x, unsigned long addr)
-+			void *head, void *tail, int cnt,
-+			unsigned long addr)
-+
- {
- 	void *prior;
--	void **object = (void *)x;
- 	int was_frozen;
- 	struct page new;
- 	unsigned long counters;
-@@ -2599,7 +2642,8 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
- 	stat(s, FREE_SLOWPATH);
- 
- 	if (kmem_cache_debug(s) &&
--		!(n = free_debug_processing(s, page, x, addr, &flags)))
-+	    !(n = free_debug_processing(s, page, head, tail, cnt,
-+					addr, &flags)))
- 		return;
- 
- 	do {
-@@ -2609,10 +2653,10 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
- 		}
- 		prior = page->freelist;
- 		counters = page->counters;
--		set_freepointer(s, object, prior);
-+		set_freepointer(s, tail, prior);
- 		new.counters = counters;
- 		was_frozen = new.frozen;
--		new.inuse--;
-+		new.inuse -= cnt;
- 		if ((!new.inuse || !prior) && !was_frozen) {
- 
- 			if (kmem_cache_has_cpu_partial(s) && !prior) {
-@@ -2643,7 +2687,7 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
- 
- 	} while (!cmpxchg_double_slab(s, page,
- 		prior, counters,
--		object, new.counters,
-+		head, new.counters,
- 		"__slab_free"));
- 
- 	if (likely(!n)) {
-@@ -2708,15 +2752,20 @@ slab_empty:
-  *
-  * If fastpath is not possible then fall back to __slab_free where we deal
-  * with all sorts of special processing.
-+ *
-+ * Bulk free of a freelist with several objects (all pointing to the
-+ * same page) possible by specifying head and tail ptr, plus objects
-+ * count (cnt). Bulk free indicated by tail pointer being set.
-  */
--static __always_inline void slab_free(struct kmem_cache *s,
--			struct page *page, void *x, unsigned long addr)
-+static __always_inline void slab_free(struct kmem_cache *s, struct page *page,
-+				      void *head, void *tail, int cnt,
-+				      unsigned long addr)
- {
--	void **object = (void *)x;
-+	void *tail_obj = tail ? : head;
- 	struct kmem_cache_cpu *c;
- 	unsigned long tid;
- 
--	slab_free_hook(s, x);
-+	slab_free_freelist_hook(s, head, tail);
- 
- redo:
- 	/*
-@@ -2735,19 +2784,19 @@ redo:
- 	barrier();
- 
- 	if (likely(page == c->page)) {
--		set_freepointer(s, object, c->freelist);
-+		set_freepointer(s, tail_obj, c->freelist);
- 
- 		if (unlikely(!this_cpu_cmpxchg_double(
- 				s->cpu_slab->freelist, s->cpu_slab->tid,
- 				c->freelist, tid,
--				object, next_tid(tid)))) {
-+				head, next_tid(tid)))) {
- 
- 			note_cmpxchg_failure("slab_free", s, tid);
- 			goto redo;
- 		}
- 		stat(s, FREE_FASTPATH);
- 	} else
--		__slab_free(s, page, x, addr);
-+		__slab_free(s, page, head, tail_obj, cnt, addr);
- 
- }
- 
-@@ -2756,7 +2805,7 @@ void kmem_cache_free(struct kmem_cache *s, void *x)
- 	s = cache_from_obj(s, x);
- 	if (!s)
- 		return;
--	slab_free(s, virt_to_head_page(x), x, _RET_IP_);
-+	slab_free(s, virt_to_head_page(x), x, NULL, 1, _RET_IP_);
- 	trace_kmem_cache_free(_RET_IP_, x);
- }
- EXPORT_SYMBOL(kmem_cache_free);
-@@ -2791,7 +2840,7 @@ void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
- 			c->tid = next_tid(c->tid);
- 			local_irq_enable();
- 			/* Slowpath: overhead locked cmpxchg_double_slab */
--			__slab_free(s, page, object, _RET_IP_);
-+			__slab_free(s, page, object, object, 1, _RET_IP_);
- 			local_irq_disable();
- 			c = this_cpu_ptr(s->cpu_slab);
- 		}
-@@ -3531,7 +3580,7 @@ void kfree(const void *x)
- 		__free_kmem_pages(page, compound_order(page));
- 		return;
- 	}
--	slab_free(page->slab_cache, page, object, _RET_IP_);
-+	slab_free(page->slab_cache, page, object, NULL, 1, _RET_IP_);
- }
- EXPORT_SYMBOL(kfree);
- 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards,
+Mathias
