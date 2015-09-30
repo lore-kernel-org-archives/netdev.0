@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] net: m68k: Allow modular build
-Date: Tue, 29 Sep 2015 21:11:33 -0700 (PDT)
-Message-ID: <20150929.211133.981150232001662857.davem@davemloft.net>
-References: <1443515046-13968-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [net-next:master 414/428] net/ipv6/tcp_ipv6.c:930: warning:
+ passing argument 1 of 'tcp_v6_md5_do_lookup' discards qualifiers from
+ pointer target type
+Date: Tue, 29 Sep 2015 21:12:43 -0700 (PDT)
+Message-ID: <20150929.211243.946334552303109593.davem@davemloft.net>
+References: <201509301242.V51qs4FL%fengguang.wu@intel.com>
+	<1443586228.32531.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, fthain@telegraphics.com.au,
-	funaho@jurai.org, philb@gnu.org, netdev@vger.kernel.org,
-	linux-m68k@lists.linux-m68k.org
-To: geert@linux-m68k.org
+Cc: fengguang.wu@intel.com, edumazet@google.com, kbuild-all@01.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33236 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33247 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718AbbI3ELe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:11:34 -0400
-In-Reply-To: <1443515046-13968-1-git-send-email-geert@linux-m68k.org>
+	with ESMTP id S1750726AbbI3EMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 00:12:44 -0400
+In-Reply-To: <1443586228.32531.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 29 Sep 2015 10:24:01 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 29 Sep 2015 21:10:28 -0700
 
-> This patch series makes the remaining m68k Ethernet drivers modular.
-> It's an alternative to the last 3 patches of Paul Gortmaker's series
-> "[PATCH net-next 0/6] make non-modular code explicitly non-modular".
-> 
-> Note that "[PATCH 5/5] net: macmace: Allow modular build" depends on
-> "[PATCH 4/5] m68k/mac: Export Peripheral System Controller (PSC) base
-> address to modules". Feel free to take the dependency through the netdev
-> tree to avoid modular build breakage.
-> 
-> This was compile-tested only (mac_defconfig + allmodconfig) due to lack
-> of hardware.
+> Thanks, probably a matter of applying this patch.
 
-Series applied, thanks Geert.
+Looks obvious enough, please submit this formally, thanks.
