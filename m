@@ -1,664 +1,371 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [RFC v3 net-next 02/10] qed: Add basic L2 interface
-Date: Wed, 30 Sep 2015 16:03:29 +0300
-Message-ID: <1443618217-18069-3-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [RFC v3 net-next 06/10] qede: classification configuration
+Date: Wed, 30 Sep 2015 16:03:33 +0300
+Message-ID: <1443618217-18069-7-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1443618217-18069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, <Yuval.Mintz@qlogic.com>,
-	Manish Chopra <Manish.Chopra@qlogic.com>
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:11503 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932744AbbI3NDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 09:03:55 -0400
-Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
-	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8UD35wc001279
-	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:03:55 -0700
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:63819 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932385AbbI3NEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 09:04:09 -0400
+Received: from pps.filterd (m0085408.ppops.net [127.0.0.1])
+	by mx0b-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8UD2SsL005194
+	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:09 -0700
 Received: from avcashub1.qlogic.com (avcashub2.qlogic.com [198.70.193.116])
-	by mx0a-0016ce01.pphosted.com with ESMTP id 1x5tguwa1r-1
+	by mx0b-0016ce01.pphosted.com with ESMTP id 1x5tbnw9nr-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:03:55 -0700
+	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:09 -0700
 In-Reply-To: <1443618217-18069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <Manish.Chopra@qlogic.com>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 
-This patch adds a public API for a network driver to work on top of QED.
-The interface itself is very minimal - it's mostly infrastructure, as the
-only content it has after this patch is a query for HW-based information
-required for the creation of a network interface [I.e., no actual
-protocol-specific configurations are supported].
+Add the ability to configure basic classification in driver by
+implementing ndo_set_mac_address() and ndo_set_rx_mode().
 
-Signed-off-by: Manish Chopra <Manish.Chopra@qlogic.com>
+Signed-off-by: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/Makefile  |   2 +-
- drivers/net/ethernet/qlogic/qed/qed.h     |  14 ++
- drivers/net/ethernet/qlogic/qed/qed_dev.c |  62 +++++++
- drivers/net/ethernet/qlogic/qed/qed_hsi.h |   1 +
- drivers/net/ethernet/qlogic/qed/qed_l2.c  |  87 ++++++++++
- include/linux/qed/eth_common.h            | 278 ++++++++++++++++++++++++++++++
- include/linux/qed/qed_eth_if.h            |  38 ++++
- 7 files changed, 481 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_l2.c
- create mode 100644 include/linux/qed/eth_common.h
- create mode 100644 include/linux/qed/qed_eth_if.h
+ drivers/net/ethernet/qlogic/qede/qede.h      |  10 ++
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 241 +++++++++++++++++++++++++++
+ 2 files changed, 251 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-index 5bbe0c7..dbe6938 100644
---- a/drivers/net/ethernet/qlogic/qed/Makefile
-+++ b/drivers/net/ethernet/qlogic/qed/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_QED) := qed.o
- 
--qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o qed_int.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o
-+qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o qed_int.o qed_l2.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index f9f01bb..7373928 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -24,6 +24,7 @@
- #include <linux/qed/qed_if.h>
- #include "qed_hsi.h"
- 
-+extern const struct qed_common_ops qed_common_ops_pass;
- #define DRV_MODULE_VERSION "8.4.0.0"
- 
- #define MAX_HWFNS_PER_DEVICE    (4)
-@@ -91,13 +92,22 @@ struct qed_qm_iids {
- 
- enum QED_RESOURCES {
- 	QED_SB,
-+	QED_L2_QUEUE,
- 	QED_VPORT,
-+	QED_RSS_ENG,
- 	QED_PQ,
- 	QED_RL,
-+	QED_MAC,
-+	QED_VLAN,
- 	QED_ILT,
- 	QED_MAX_RESC,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 424ef4a..7947942 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -87,6 +87,9 @@ struct qede_dev {
+ 	struct qed_update_vport_rss_params	rss_params;
+ 	u16			q_num_rx_buffers; /* Must be a power of two */
+ 	u16			q_num_tx_buffers; /* Must be a power of two */
++
++	struct delayed_work		sp_task;
++	unsigned long			sp_flags;
  };
  
-+enum QED_FEATURE {
-+	QED_PF_L2_QUE,
-+	QED_MAX_FEATURES,
+ enum QEDE_STATE {
+@@ -184,6 +187,13 @@ struct qede_fastpath {
+ 
+ #define QEDE_CSUM_ERROR			BIT(0)
+ #define QEDE_CSUM_UNNECESSARY		BIT(1)
++
++#define QEDE_SP_RX_MODE		1
++
++union qede_reload_args {
++	u16 mtu;
 +};
 +
- struct qed_hw_info {
- 	/* PCI personality */
- 	enum qed_pci_personality	personality;
-@@ -105,6 +115,7 @@ struct qed_hw_info {
- 	/* Resource Allocation scheme results */
- 	u32				resc_start[QED_MAX_RESC];
- 	u32				resc_num[QED_MAX_RESC];
-+	u32				feat_num[QED_MAX_FEATURES];
+ #define RX_RING_SIZE_POW	13
+ #define RX_RING_SIZE		BIT(RX_RING_SIZE_POW)
+ #define NUM_RX_BDS_MAX		(RX_RING_SIZE - 1)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 2894c8b..7e88365 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1030,10 +1030,31 @@ static irqreturn_t qede_msix_fp_int(int irq, void *fp_cookie)
  
- #define RESC_START(_p_hwfn, resc) ((_p_hwfn)->hw_info.resc_start[resc])
- #define RESC_NUM(_p_hwfn, resc) ((_p_hwfn)->hw_info.resc_num[resc])
-@@ -266,6 +277,9 @@ struct qed_hwfn {
- 
- 	struct qed_mcp_info		*mcp_info;
- 
-+	struct qed_hw_cid_data		*p_tx_cids;
-+	struct qed_hw_cid_data		*p_rx_cids;
+ static int qede_open(struct net_device *ndev);
+ static int qede_close(struct net_device *ndev);
++static int qede_set_mac_addr(struct net_device *ndev, void *p);
++static void qede_set_rx_mode(struct net_device *ndev);
++static void qede_config_rx_mode(struct net_device *ndev);
 +
- 	struct qed_dmae_info		dmae_info;
- 
- 	/* QM init */
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 7769720..1053388d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -94,6 +94,15 @@ void qed_resc_free(struct qed_dev *cdev)
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
- 
-+		kfree(p_hwfn->p_tx_cids);
-+		p_hwfn->p_tx_cids = NULL;
-+		kfree(p_hwfn->p_rx_cids);
-+		p_hwfn->p_rx_cids = NULL;
-+	}
-+
-+	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-+
- 		qed_cxt_mngr_free(p_hwfn);
- 		qed_qm_info_free(p_hwfn);
- 		qed_spq_free(p_hwfn);
-@@ -204,6 +213,29 @@ int qed_resc_alloc(struct qed_dev *cdev)
- 	if (!cdev->fw_data)
- 		return -ENOMEM;
- 
-+	/* Allocate Memory for the Queue->CID mapping */
-+	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-+		int	tx_size = sizeof(struct qed_hw_cid_data) *
-+				  RESC_NUM(p_hwfn, QED_L2_QUEUE);
-+		int	rx_size = sizeof(struct qed_hw_cid_data) *
-+				  RESC_NUM(p_hwfn, QED_L2_QUEUE);
-+
-+		p_hwfn->p_tx_cids = kzalloc(tx_size, GFP_KERNEL);
-+		if (!p_hwfn->p_tx_cids) {
-+			DP_NOTICE(p_hwfn,
-+				  "Failed to allocate memory for Tx Cids\n");
-+			goto alloc_err;
-+		}
-+
-+		p_hwfn->p_rx_cids = kzalloc(rx_size, GFP_KERNEL);
-+		if (!p_hwfn->p_rx_cids) {
-+			DP_NOTICE(p_hwfn,
-+				  "Failed to allocate memory for Rx Cids\n");
-+			goto alloc_err;
-+		}
-+	}
-+
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
- 
-@@ -882,6 +914,20 @@ static void get_function_id(struct qed_hwfn *p_hwfn)
- 				    PXP_CONCRETE_FID_PORT);
- }
- 
-+static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
++static int qede_set_ucast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char mac[ETH_ALEN])
 +{
-+	u32 *feat_num = p_hwfn->hw_info.feat_num;
-+	int num_features = 1;
++	struct qed_filter_params filter_cmd;
 +
-+	feat_num[QED_PF_L2_QUE] = min_t(u32, RESC_NUM(p_hwfn, QED_SB) /
-+						num_features,
-+					RESC_NUM(p_hwfn, QED_L2_QUEUE));
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE,
-+		   "#PF_L2_QUEUES=%d #SBS=%d num_features=%d\n",
-+		   feat_num[QED_PF_L2_QUE], RESC_NUM(p_hwfn, QED_SB),
-+		   num_features);
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_UCAST;
++	filter_cmd.filter.ucast.type = opcode;
++	filter_cmd.filter.ucast.mac_valid = 1;
++	ether_addr_copy(filter_cmd.filter.ucast.mac, mac);
++
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
 +}
 +
- static void qed_hw_get_resc(struct qed_hwfn *p_hwfn)
- {
- 	u32 *resc_start = p_hwfn->hw_info.resc_start;
-@@ -894,29 +940,45 @@ static void qed_hw_get_resc(struct qed_hwfn *p_hwfn)
- 	resc_num[QED_SB] = min_t(u32,
- 				 (MAX_SB_PER_PATH_BB / num_funcs),
- 				 qed_int_get_num_sbs(p_hwfn, NULL));
-+	resc_num[QED_L2_QUEUE] = MAX_NUM_L2_QUEUES_BB / num_funcs;
- 	resc_num[QED_VPORT] = MAX_NUM_VPORTS_BB / num_funcs;
-+	resc_num[QED_RSS_ENG] = ETH_RSS_ENGINE_NUM_BB / num_funcs;
- 	resc_num[QED_PQ] = MAX_QM_TX_QUEUES_BB / num_funcs;
- 	resc_num[QED_RL] = 8;
-+	resc_num[QED_MAC] = ETH_NUM_MAC_FILTERS / num_funcs;
-+	resc_num[QED_VLAN] = (ETH_NUM_VLAN_FILTERS - 1 /*For vlan0*/) /
-+			     num_funcs;
- 	resc_num[QED_ILT] = 950;
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+ 	.ndo_start_xmit = qede_start_xmit,
++	.ndo_set_rx_mode = qede_set_rx_mode,
++	.ndo_set_mac_address = qede_set_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
+ };
  
- 	for (i = 0; i < QED_MAX_RESC; i++)
- 		resc_start[i] = resc_num[i] * p_hwfn->rel_pf_id;
- 
-+	qed_hw_set_feat(p_hwfn);
-+
- 	DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE,
- 		   "The numbers for each resource are:\n"
- 		   "SB = %d start = %d\n"
-+		   "L2_QUEUE = %d start = %d\n"
- 		   "VPORT = %d start = %d\n"
- 		   "PQ = %d start = %d\n"
- 		   "RL = %d start = %d\n"
-+		   "MAC = %d start = %d\n"
-+		   "VLAN = %d start = %d\n"
- 		   "ILT = %d start = %d\n",
- 		   p_hwfn->hw_info.resc_num[QED_SB],
- 		   p_hwfn->hw_info.resc_start[QED_SB],
-+		   p_hwfn->hw_info.resc_num[QED_L2_QUEUE],
-+		   p_hwfn->hw_info.resc_start[QED_L2_QUEUE],
- 		   p_hwfn->hw_info.resc_num[QED_VPORT],
- 		   p_hwfn->hw_info.resc_start[QED_VPORT],
- 		   p_hwfn->hw_info.resc_num[QED_PQ],
- 		   p_hwfn->hw_info.resc_start[QED_PQ],
- 		   p_hwfn->hw_info.resc_num[QED_RL],
- 		   p_hwfn->hw_info.resc_start[QED_RL],
-+		   p_hwfn->hw_info.resc_num[QED_MAC],
-+		   p_hwfn->hw_info.resc_start[QED_MAC],
-+		   p_hwfn->hw_info.resc_num[QED_VLAN],
-+		   p_hwfn->hw_info.resc_start[QED_VLAN],
- 		   p_hwfn->hw_info.resc_num[QED_ILT],
- 		   p_hwfn->hw_info.resc_start[QED_ILT]);
+@@ -1198,6 +1219,20 @@ err:
+ 	return -ENOMEM;
  }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index cbb0c1c..52a6d68 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -16,6 +16,7 @@
- #include <linux/list.h>
- #include <linux/slab.h>
- #include <linux/qed/common_hsi.h>
-+#include <linux/qed/eth_common.h>
  
- struct qed_hwfn;
- struct qed_ptt;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-new file mode 100644
-index 0000000..a8620b5
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -0,0 +1,87 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+#include <asm/param.h>
-+#include <linux/delay.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/etherdevice.h>
-+#include <linux/interrupt.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/slab.h>
-+#include <linux/stddef.h>
-+#include <linux/string.h>
-+#include <linux/version.h>
-+#include <linux/workqueue.h>
-+#include <linux/bitops.h>
-+#include <linux/bug.h>
-+#include "qed.h"
-+#include <linux/qed/qed_chain.h>
-+#include "qed_cxt.h"
-+#include "qed_dev_api.h"
-+#include <linux/qed/qed_eth_if.h>
-+#include "qed_hsi.h"
-+#include "qed_hw.h"
-+#include "qed_int.h"
-+#include "qed_reg_addr.h"
-+#include "qed_sp.h"
-+
-+static int qed_fill_eth_dev_info(struct qed_dev *cdev,
-+				 struct qed_dev_eth_info *info)
++static void qede_sp_task(struct work_struct *work)
 +{
++	struct qede_dev *edev = container_of(work, struct qede_dev,
++					     sp_task.work);
++	mutex_lock(&edev->qede_lock);
++
++	if (edev->state == QEDE_STATE_OPEN) {
++		if (test_and_clear_bit(QEDE_SP_RX_MODE, &edev->sp_flags))
++			qede_config_rx_mode(edev->ndev);
++	}
++
++	mutex_unlock(&edev->qede_lock);
++}
++
+ static void qede_update_pf_params(struct qed_dev *cdev)
+ {
+ 	struct qed_pf_params pf_params;
+@@ -1269,6 +1304,9 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
+ 
++	INIT_DELAYED_WORK(&edev->sp_task, qede_sp_task);
++	mutex_init(&edev->qede_lock);
++
+ 	DP_INFO(edev, "Ending successfully qede probe\n");
+ 
+ 	return 0;
+@@ -1306,6 +1344,7 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 
+ 	DP_INFO(edev, "Starting qede_remove\n");
+ 
++	cancel_delayed_work_sync(&edev->sp_task);
+ 	unregister_netdev(ndev);
+ 
+ 	edev->ops->common->set_power_state(cdev, PCI_D0);
+@@ -2025,6 +2064,24 @@ static int qede_start_queues(struct qede_dev *edev)
+ 	return 0;
+ }
+ 
++static int qede_set_mcast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char *mac, int num_macs)
++{
++	struct qed_filter_params filter_cmd;
 +	int i;
 +
-+	memset(info, 0, sizeof(*info));
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_MCAST;
++	filter_cmd.filter.mcast.type = opcode;
++	filter_cmd.filter.mcast.num = num_macs;
 +
-+	info->num_tc = 1;
++	for (i = 0; i < num_macs; i++, mac += ETH_ALEN)
++		ether_addr_copy(filter_cmd.filter.mcast.mac[i], mac);
 +
-+	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
-+		for_each_hwfn(cdev, i)
-+			info->num_queues += FEAT_NUM(&cdev->hwfns[i],
-+						     QED_PF_L2_QUE);
-+		if (cdev->int_params.fp_msix_cnt)
-+			info->num_queues = min_t(u8, info->num_queues,
-+						 cdev->int_params.fp_msix_cnt);
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
++}
++
+ enum qede_unload_mode {
+ 	QEDE_UNLOAD_NORMAL,
+ };
+@@ -2035,6 +2092,9 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode)
+ 
+ 	DP_INFO(edev, "Starting qede unload\n");
+ 
++	mutex_lock(&edev->qede_lock);
++	edev->state = QEDE_STATE_CLOSED;
++
+ 	/* Close OS Tx */
+ 	netif_tx_disable(edev->ndev);
+ 	netif_carrier_off(edev->ndev);
+@@ -2109,6 +2169,9 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode)
+ 	/* Add primary mac and set Rx filters */
+ 	ether_addr_copy(edev->primary_mac, edev->ndev->dev_addr);
+ 
++	mutex_lock(&edev->qede_lock);
++	edev->state = QEDE_STATE_OPEN;
++	mutex_unlock(&edev->qede_lock);
+ 	DP_INFO(edev, "Ending successfully qede load\n");
+ 
+ 	return 0;
+@@ -2153,3 +2216,181 @@ static int qede_close(struct net_device *ndev)
+ 
+ 	return 0;
+ }
++
++static int qede_set_mac_addr(struct net_device *ndev, void *p)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct sockaddr *addr = p;
++	int rc;
++
++	ASSERT_RTNL(); /* @@@TBD To be removed */
++
++	DP_INFO(edev, "Set_mac_addr called\n");
++
++	if (!is_valid_ether_addr(addr->sa_data)) {
++		DP_NOTICE(edev, "The MAC address is not valid\n");
++		return -EFAULT;
++	}
++
++	ether_addr_copy(ndev->dev_addr, addr->sa_data);
++
++	if (!netif_running(ndev))  {
++		DP_NOTICE(edev, "The device is currently down\n");
++		return 0;
++	}
++
++	/* Remove the previous primary mac */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   edev->primary_mac);
++	if (rc)
++		return rc;
++
++	/* Add MAC filter according to the new unicast HW MAC address */
++	ether_addr_copy(edev->primary_mac, ndev->dev_addr);
++	return qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++				      edev->primary_mac);
++}
++
++static int
++qede_configure_mcast_filtering(struct net_device *ndev,
++			       enum qed_filter_rx_mode_type *accept_flags)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	unsigned char *mc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc = 0, mc_count;
++	size_t size;
++
++	size = 64 * ETH_ALEN;
++
++	mc_macs = kzalloc(size, GFP_KERNEL);
++	if (!mc_macs) {
++		DP_NOTICE(edev,
++			  "Failed to allocate memory for multicast MACs\n");
++		rc = -ENOMEM;
++		goto exit;
++	}
++
++	temp = mc_macs;
++
++	/* Remove all previously configured MAC filters */
++	rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   mc_macs, 1);
++	if (rc)
++		goto exit;
++
++	netif_addr_lock_bh(ndev);
++
++	mc_count = netdev_mc_count(ndev);
++	if (mc_count < 64) {
++		netdev_for_each_mc_addr(ha, ndev) {
++			ether_addr_copy(temp, ha->addr);
++			temp += ETH_ALEN;
++		}
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Check for all multicast @@@TBD resource allocation */
++	if ((ndev->flags & IFF_ALLMULTI) ||
++	    (mc_count > 64)) {
++		if (*accept_flags == QED_FILTER_RX_MODE_TYPE_REGULAR)
++			*accept_flags = QED_FILTER_RX_MODE_TYPE_MULTI_PROMISC;
 +	} else {
-+		info->num_queues = cdev->num_hwfns;
++		/* Add all multicast MAC filters */
++		rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++					   mc_macs, mc_count);
 +	}
 +
-+	info->num_vlan_filters = RESC_NUM(&cdev->hwfns[0], QED_VLAN);
-+	ether_addr_copy(info->port_mac,
-+			cdev->hwfns[0].hw_info.hw_mac_addr);
-+
-+	qed_fill_dev_info(cdev, &info->common);
-+
-+	return 0;
++exit:
++	kfree(mc_macs);
++	return rc;
 +}
 +
-+static const struct qed_eth_ops qed_eth_ops_pass = {
-+	.common = &qed_common_ops_pass,
-+	.fill_dev_info = &qed_fill_eth_dev_info,
-+};
-+
-+const struct qed_eth_ops	*qed_get_eth_ops(u32 version)
++static void qede_set_rx_mode(struct net_device *ndev)
 +{
-+	if (version != QED_ETH_INTERFACE_VERSION) {
-+		pr_notice("Cannot supply ethtool operations [%08x != %08x]\n",
-+			  version, QED_ETH_INTERFACE_VERSION);
-+		return NULL;
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	DP_INFO(edev, "qede_set_rx_mode called\n");
++
++	if (edev->state != QEDE_STATE_OPEN) {
++		DP_INFO(edev,
++			"qede_set_rx_mode called while interface is down\n");
++	} else {
++		set_bit(QEDE_SP_RX_MODE, &edev->sp_flags);
++		schedule_delayed_work(&edev->sp_task, 0);
++	}
++}
++
++/* Must be called with qede_lock held */
++static void qede_config_rx_mode(struct net_device *ndev)
++{
++	enum qed_filter_rx_mode_type accept_flags = QED_FILTER_TYPE_UCAST;
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct qed_filter_params rx_mode;
++	unsigned char *uc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc, uc_count;
++	size_t size;
++
++	netif_addr_lock_bh(ndev);
++
++	uc_count = netdev_uc_count(ndev);
++	size = uc_count * ETH_ALEN;
++
++	uc_macs = kzalloc(size, GFP_ATOMIC);
++	if (!uc_macs) {
++		DP_NOTICE(edev, "Failed to allocate memory for unicast MACs\n");
++		netif_addr_unlock_bh(ndev);
++		return;
 +	}
 +
-+	return &qed_eth_ops_pass;
++	temp = uc_macs;
++	netdev_for_each_uc_addr(ha, ndev) {
++		ether_addr_copy(temp, ha->addr);
++		temp += ETH_ALEN;
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Configure the struct for the Rx mode */
++	memset(&rx_mode, 0, sizeof(struct qed_filter_params));
++	rx_mode.type = QED_FILTER_TYPE_RX_MODE;
++
++	/* Remove all previous unicast secondary macs and multicast macs
++	 * (configrue / leave the primary mac)
++	 */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_REPLACE,
++				   edev->primary_mac);
++	if (rc)
++		goto out;
++
++	/* Check for promiscuous */
++	if ((ndev->flags & IFF_PROMISC) ||
++	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
++		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
++	} else {
++		/* Add MAC filters according to the unicast secondary macs */
++		int i;
++
++		temp = uc_macs;
++		for (i = 0; i < uc_count; i++) {
++			rc = qede_set_ucast_rx_mac(edev,
++						   QED_FILTER_XCAST_TYPE_ADD,
++						   temp);
++			if (rc)
++				goto out;
++
++			temp += ETH_ALEN;
++		}
++
++		rc = qede_configure_mcast_filtering(ndev, &accept_flags);
++		if (rc)
++			goto out;
++	}
++
++	rx_mode.filter.accept_flags = accept_flags;
++	edev->ops->filter_config(edev->cdev, &rx_mode);
++out:
++	kfree(uc_macs);
 +}
-+EXPORT_SYMBOL(qed_get_eth_ops);
-+
-+void qed_put_eth_ops(void)
-+{
-+	/* TODO - reference count for module? */
-+}
-+EXPORT_SYMBOL(qed_put_eth_ops);
-diff --git a/include/linux/qed/eth_common.h b/include/linux/qed/eth_common.h
-new file mode 100644
-index 0000000..43d1237
---- /dev/null
-+++ b/include/linux/qed/eth_common.h
-@@ -0,0 +1,278 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+
-+#ifndef __ETH_COMMON__
-+#define __ETH_COMMON__
-+/********************/
-+/* ETH FW CONSTANTS */
-+/********************/
-+#define ETH_CACHE_LINE_SIZE                 64
-+
-+#define ETH_MAX_RAMROD_PER_CON                          8
-+#define ETH_TX_BD_PAGE_SIZE_BYTES                       4096
-+#define ETH_RX_BD_PAGE_SIZE_BYTES                       4096
-+#define ETH_RX_SGE_PAGE_SIZE_BYTES                      4096
-+#define ETH_RX_CQE_PAGE_SIZE_BYTES                      4096
-+#define ETH_RX_NUM_NEXT_PAGE_BDS                        2
-+#define ETH_RX_NUM_NEXT_PAGE_SGES                       2
-+
-+#define ETH_TX_MIN_BDS_PER_NON_LSO_PKT                          1
-+#define ETH_TX_MAX_BDS_PER_NON_LSO_PACKET                       18
-+#define ETH_TX_MAX_LSO_HDR_NBD                                          4
-+#define ETH_TX_MIN_BDS_PER_LSO_PKT                                      3
-+#define ETH_TX_MIN_BDS_PER_TUNN_IPV6_WITH_EXT_PKT       3
-+#define ETH_TX_MIN_BDS_PER_IPV6_WITH_EXT_PKT            2
-+#define ETH_TX_MIN_BDS_PER_PKT_W_LOOPBACK_MODE          2
-+#define ETH_TX_MAX_NON_LSO_PKT_LEN                  (9700 - (4 + 12 + 8))
-+#define ETH_TX_MAX_LSO_HDR_BYTES                    510
-+
-+#define ETH_NUM_STATISTIC_COUNTERS                      MAX_NUM_VPORTS
-+
-+#define ETH_REG_CQE_PBL_SIZE                3
-+
-+/* num of MAC/VLAN filters */
-+#define ETH_NUM_MAC_FILTERS                                     512
-+#define ETH_NUM_VLAN_FILTERS                            512
-+
-+/* approx. multicast constants */
-+#define ETH_MULTICAST_BIN_FROM_MAC_SEED     0
-+#define ETH_MULTICAST_MAC_BINS                          256
-+#define ETH_MULTICAST_MAC_BINS_IN_REGS          (ETH_MULTICAST_MAC_BINS / 32)
-+
-+/*  ethernet vport update constants */
-+#define ETH_FILTER_RULES_COUNT                          10
-+#define ETH_RSS_IND_TABLE_ENTRIES_NUM           128
-+#define ETH_RSS_KEY_SIZE_REGS                       10
-+#define ETH_RSS_ENGINE_NUM_K2               207
-+#define ETH_RSS_ENGINE_NUM_BB               127
-+
-+/* TPA constants */
-+#define ETH_TPA_MAX_AGGS_NUM              64
-+#define ETH_TPA_CQE_START_SGL_SIZE        3
-+#define ETH_TPA_CQE_CONT_SGL_SIZE         6
-+#define ETH_TPA_CQE_END_SGL_SIZE          4
-+
-+/* Queue Zone sizes */
-+#define TSTORM_QZONE_SIZE    0
-+#define MSTORM_QZONE_SIZE    sizeof(struct mstorm_eth_queue_zone)
-+#define USTORM_QZONE_SIZE    sizeof(struct ustorm_eth_queue_zone)
-+#define XSTORM_QZONE_SIZE    0
-+#define YSTORM_QZONE_SIZE    sizeof(struct ystorm_eth_queue_zone)
-+#define PSTORM_QZONE_SIZE    0
-+
-+/* Interrupt coalescing TimeSet */
-+struct coalescing_timeset {
-+	u8	timeset;
-+	u8	valid;
-+};
-+
-+struct eth_tx_1st_bd_flags {
-+	u8 bitfields;
-+#define ETH_TX_1ST_BD_FLAGS_FORCE_VLAN_MODE_MASK  0x1
-+#define ETH_TX_1ST_BD_FLAGS_FORCE_VLAN_MODE_SHIFT 0
-+#define ETH_TX_1ST_BD_FLAGS_IP_CSUM_MASK          0x1
-+#define ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT         1
-+#define ETH_TX_1ST_BD_FLAGS_L4_CSUM_MASK          0x1
-+#define ETH_TX_1ST_BD_FLAGS_L4_CSUM_SHIFT         2
-+#define ETH_TX_1ST_BD_FLAGS_VLAN_INSERTION_MASK   0x1
-+#define ETH_TX_1ST_BD_FLAGS_VLAN_INSERTION_SHIFT  3
-+#define ETH_TX_1ST_BD_FLAGS_LSO_MASK              0x1
-+#define ETH_TX_1ST_BD_FLAGS_LSO_SHIFT             4
-+#define ETH_TX_1ST_BD_FLAGS_START_BD_MASK         0x1
-+#define ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT        5
-+#define ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_MASK     0x1
-+#define ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_SHIFT    6
-+#define ETH_TX_1ST_BD_FLAGS_TUNN_L4_CSUM_MASK     0x1
-+#define ETH_TX_1ST_BD_FLAGS_TUNN_L4_CSUM_SHIFT    7
-+};
-+
-+/* The parsing information data fo rthe first tx bd of a given packet. */
-+struct eth_tx_data_1st_bd {
-+	__le16				vlan;
-+	u8				nbds;
-+	struct eth_tx_1st_bd_flags	bd_flags;
-+	__le16				fw_use_only;
-+};
-+
-+/* The parsing information data for the second tx bd of a given packet. */
-+struct eth_tx_data_2nd_bd {
-+	__le16	tunn_ip_size;
-+	__le16	bitfields;
-+#define ETH_TX_DATA_2ND_BD_L4_HDR_START_OFFSET_W_MASK     0x1FFF
-+#define ETH_TX_DATA_2ND_BD_L4_HDR_START_OFFSET_W_SHIFT    0
-+#define ETH_TX_DATA_2ND_BD_RESERVED0_MASK                 0x7
-+#define ETH_TX_DATA_2ND_BD_RESERVED0_SHIFT                13
-+	__le16	bitfields2;
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_L2_HDR_SIZE_W_MASK  0xF
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_L2_HDR_SIZE_W_SHIFT 0
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_ETH_TYPE_MASK       0x3
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_ETH_TYPE_SHIFT      4
-+#define ETH_TX_DATA_2ND_BD_DEST_PORT_MODE_MASK            0x3
-+#define ETH_TX_DATA_2ND_BD_DEST_PORT_MODE_SHIFT           6
-+#define ETH_TX_DATA_2ND_BD_TUNN_TYPE_MASK                 0x3
-+#define ETH_TX_DATA_2ND_BD_TUNN_TYPE_SHIFT                8
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_IPV6_MASK           0x1
-+#define ETH_TX_DATA_2ND_BD_TUNN_INNER_IPV6_SHIFT          10
-+#define ETH_TX_DATA_2ND_BD_IPV6_EXT_MASK                  0x1
-+#define ETH_TX_DATA_2ND_BD_IPV6_EXT_SHIFT                 11
-+#define ETH_TX_DATA_2ND_BD_TUNN_IPV6_EXT_MASK             0x1
-+#define ETH_TX_DATA_2ND_BD_TUNN_IPV6_EXT_SHIFT            12
-+#define ETH_TX_DATA_2ND_BD_L4_UDP_MASK                    0x1
-+#define ETH_TX_DATA_2ND_BD_L4_UDP_SHIFT                   13
-+#define ETH_TX_DATA_2ND_BD_L4_PSEUDO_CSUM_MODE_MASK       0x1
-+#define ETH_TX_DATA_2ND_BD_L4_PSEUDO_CSUM_MODE_SHIFT      14
-+#define ETH_TX_DATA_2ND_BD_RESERVED1_MASK                 0x1
-+#define ETH_TX_DATA_2ND_BD_RESERVED1_SHIFT                15
-+};
-+
-+/* Regular ETH Rx FP CQE. */
-+struct eth_fast_path_rx_reg_cqe {
-+	u8	type;
-+	u8	bitfields;
-+#define ETH_FAST_PATH_RX_REG_CQE_RSS_HASH_TYPE_MASK  0x7
-+#define ETH_FAST_PATH_RX_REG_CQE_RSS_HASH_TYPE_SHIFT 0
-+#define ETH_FAST_PATH_RX_REG_CQE_TC_MASK             0xF
-+#define ETH_FAST_PATH_RX_REG_CQE_TC_SHIFT            3
-+#define ETH_FAST_PATH_RX_REG_CQE_RESERVED0_MASK      0x1
-+#define ETH_FAST_PATH_RX_REG_CQE_RESERVED0_SHIFT     7
-+	__le16				pkt_len;
-+	struct parsing_and_err_flags	pars_flags;
-+	__le16				vlan_tag;
-+	__le32				rss_hash;
-+	__le16				len_on_bd;
-+	u8				placement_offset;
-+	u8				reserved;
-+	__le16				pbl[ETH_REG_CQE_PBL_SIZE];
-+	u8				reserved1[10];
-+};
-+
-+/* The L4 pseudo checksum mode for Ethernet */
-+enum eth_l4_pseudo_checksum_mode {
-+	ETH_L4_PSEUDO_CSUM_CORRECT_LENGTH,
-+	ETH_L4_PSEUDO_CSUM_ZERO_LENGTH,
-+	MAX_ETH_L4_PSEUDO_CHECKSUM_MODE
-+};
-+
-+struct eth_rx_bd {
-+	struct regpair addr;
-+};
-+
-+/* regular ETH Rx SP CQE */
-+struct eth_slow_path_rx_cqe {
-+	u8	type;
-+	u8	ramrod_cmd_id;
-+	u8	error_flag;
-+	u8	reserved[27];
-+	__le16	echo;
-+};
-+
-+/* union for all ETH Rx CQE types */
-+union eth_rx_cqe {
-+	struct eth_fast_path_rx_reg_cqe		fast_path_regular;
-+	struct eth_slow_path_rx_cqe		slow_path;
-+};
-+
-+/* ETH Rx CQE type */
-+enum eth_rx_cqe_type {
-+	ETH_RX_CQE_TYPE_UNUSED,
-+	ETH_RX_CQE_TYPE_REGULAR,
-+	ETH_RX_CQE_TYPE_SLOW_PATH,
-+	MAX_ETH_RX_CQE_TYPE
-+};
-+
-+/* ETH Rx producers data */
-+struct eth_rx_prod_data {
-+	__le16	bd_prod;
-+	__le16	sge_prod;
-+	__le16	cqe_prod;
-+	__le16	reserved;
-+};
-+
-+/* The first tx bd of a given packet */
-+struct eth_tx_1st_bd {
-+	struct regpair			addr;
-+	__le16				nbytes;
-+	struct eth_tx_data_1st_bd	data;
-+};
-+
-+/* The second tx bd of a given packet */
-+struct eth_tx_2nd_bd {
-+	struct regpair			addr;
-+	__le16				nbytes;
-+	struct eth_tx_data_2nd_bd	data;
-+};
-+
-+/* The parsing information data for the third tx bd of a given packet. */
-+struct eth_tx_data_3rd_bd {
-+	__le16	lso_mss;
-+	u8	bitfields;
-+#define ETH_TX_DATA_3RD_BD_TCP_HDR_LEN_DW_MASK  0xF
-+#define ETH_TX_DATA_3RD_BD_TCP_HDR_LEN_DW_SHIFT 0
-+#define ETH_TX_DATA_3RD_BD_HDR_NBD_MASK         0xF
-+#define ETH_TX_DATA_3RD_BD_HDR_NBD_SHIFT        4
-+	u8	resereved0[3];
-+};
-+
-+/* The third tx bd of a given packet */
-+struct eth_tx_3rd_bd {
-+	struct regpair			addr;
-+	__le16				nbytes;
-+	struct eth_tx_data_3rd_bd	data;
-+};
-+
-+/* The common non-special TX BD ring element */
-+struct eth_tx_bd {
-+	struct regpair	addr;
-+	__le16		nbytes;
-+	__le16		reserved0;
-+	__le32		reserved1;
-+};
-+
-+union eth_tx_bd_types {
-+	struct eth_tx_1st_bd	first_bd;
-+	struct eth_tx_2nd_bd	second_bd;
-+	struct eth_tx_3rd_bd	third_bd;
-+	struct eth_tx_bd	reg_bd;
-+};
-+
-+/* Mstorm Queue Zone */
-+struct mstorm_eth_queue_zone {
-+	struct eth_rx_prod_data rx_producers;
-+	__le32			reserved[2];
-+};
-+
-+/* Ustorm Queue Zone */
-+struct ustorm_eth_queue_zone {
-+	struct coalescing_timeset	int_coalescing_timeset;
-+	__le16				reserved[3];
-+};
-+
-+/* Ystorm Queue Zone */
-+struct ystorm_eth_queue_zone {
-+	struct coalescing_timeset	int_coalescing_timeset;
-+	__le16				reserved[3];
-+};
-+
-+/* ETH doorbell data */
-+struct eth_db_data {
-+	u8 params;
-+#define ETH_DB_DATA_DEST_MASK         0x3
-+#define ETH_DB_DATA_DEST_SHIFT        0
-+#define ETH_DB_DATA_AGG_CMD_MASK      0x3
-+#define ETH_DB_DATA_AGG_CMD_SHIFT     2
-+#define ETH_DB_DATA_BYPASS_EN_MASK    0x1
-+#define ETH_DB_DATA_BYPASS_EN_SHIFT   4
-+#define ETH_DB_DATA_RESERVED_MASK     0x1
-+#define ETH_DB_DATA_RESERVED_SHIFT    5
-+#define ETH_DB_DATA_AGG_VAL_SEL_MASK  0x3
-+#define ETH_DB_DATA_AGG_VAL_SEL_SHIFT 6
-+	u8	agg_flags;
-+	__le16	bd_prod;
-+};
-+
-+#endif /* __ETH_COMMON__ */
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-new file mode 100644
-index 0000000..fbd8700
---- /dev/null
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -0,0 +1,38 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+
-+#ifndef _QED_ETH_IF_H
-+#define _QED_ETH_IF_H
-+
-+#include <linux/list.h>
-+#include <linux/if_link.h>
-+#include <linux/qed/eth_common.h>
-+#include <linux/qed/qed_if.h>
-+
-+struct qed_dev_eth_info {
-+	struct qed_dev_info common;
-+
-+	u8	num_queues;
-+	u8	num_tc;
-+
-+	u8	port_mac[ETH_ALEN];
-+	u8	num_vlan_filters;
-+};
-+
-+struct qed_eth_ops {
-+	const struct qed_common_ops *common;
-+
-+	int (*fill_dev_info)(struct qed_dev *cdev,
-+			     struct qed_dev_eth_info *info);
-+
-+};
-+
-+const struct qed_eth_ops *qed_get_eth_ops(u32 version);
-+void qed_put_eth_ops(void);
-+
-+#endif
 -- 
 1.9.3
