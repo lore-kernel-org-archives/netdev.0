@@ -1,54 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: HW communication debugging interface - ideas?
-Date: Wed, 30 Sep 2015 15:51:41 +0200
-Message-ID: <20150930135141.GF2098@nanopsycho.orion>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
+Date: Wed, 30 Sep 2015 14:51:51 +0100
+Message-ID: <87lhbot3pk.fsf@doppelsaurus.mobileactivedefense.com>
+References: <20150913195354.GA12352@jig.fritz.box>
+	<20150914023949.GA15012@dcvr.yhbt.net>
+	<CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com>
+	<560AE202.4020402@akamai.com>
+	<CA+rthh9XU+5oN9Ua-+8XPF9Q0y03FZyxds53sxUjsvsJN2kaJA@mail.gmail.com>
+	<87612skwfb.fsf@doppelsaurus.mobileactivedefense.com>
+	<CA+rthh_LqYaOBBMmdCa=zo55ukVDTff-pKM8cw0HzJDapg5Vvg@mail.gmail.com>
+	<87pp10t4wp.fsf@doppelsaurus.mobileactivedefense.com>
+	<CA+rthh_ueokQKoVoHFpX_76Np+E3kOVc-x5g5-B059eujnq30A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eladr@mellanox.com, idosch@mellanox.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34386 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641AbbI3Nvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 09:51:44 -0400
-Received: by wicfx3 with SMTP id fx3so198668112wic.1
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:51:43 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Eric Wong <normalperson@yhbt.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Davidlohr Bueso <dave@stgolabs.net>,
+	Olivier Mauras <olivier@mauras.ch>,
+	PaX Team <pageexec@freemail.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"peterz\@infradead.org" <peterz@infradead.org>,
+	"davem\@davemloft.net" <davem@davemloft.net>
+To: Mathias Krause <minipli@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+rthh_ueokQKoVoHFpX_76Np+E3kOVc-x5g5-B059eujnq30A@mail.gmail.com>
+	(Mathias Krause's message of "Wed, 30 Sep 2015 15:38:31 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave/all.
+Mathias Krause <minipli@googlemail.com> writes:
+> On 30 September 2015 at 15:25, Rainer Weikusat
+> <rweikusat@mobileactivedefense.com> wrote:
+>> Mathias Krause <minipli@googlemail.com> writes:
+>>> On 30 September 2015 at 12:56, Rainer Weikusat <rweikusat@mobileactivedefense.com> wrote:
+>>>> In case you want some information on this: This is a kernel warning I
+>>>> could trigger (more than once) on the single day I could so far spend
+>>>> looking into this (3.2.54 kernel):
+>>>>
+>>>> Sep 15 19:37:19 doppelsaurus kernel: WARNING: at lib/list_debug.c:53 list_del+0x9/0x30()
+>>>> Sep 15 19:37:19 doppelsaurus kernel: Hardware name: 500-330nam
+>>>> Sep 15 19:37:19 doppelsaurus kernel: list_del corruption. prev->next should be ffff88022c38f078, but was dead000000100100
+>>>> [snip]
+>>>
+>>> Is that with Jason's patch or a vanilla v3.2.54?
+>>
+>> That's a kernel warning which occurred repeatedly (among other "link
+>> pointer disorganization" warnings) when I tested the "program with
+>> unknown behaviour" you wrote with the kernel I'm currently supporting a
+>> while ago (as I already wrote in the original mail).
+>
+> So I assume Jason's patch is not included in your kernel.  Then those
+> messages are expected; expected even on kernels as old as v2.6.27.
+> Can you re-try with Jason's patch applied?
 
-There is quite common for drivers to speak with HW using "packet-like"
-messages. In our case, we put message into skb and push that out as
-an ordinary packet. HW then sends us reply in a packet, similar to other
-rx-ed packets.
-
-It makes sense to monitor this communication. Not only for debugging
-during development, but mainly for collecting data for error reports
-from users.
-
-Very cool usecase is to teach wireshark to parse this communication so
-one can actually see online what is going on.
-
-Now the question is, what is the correct way to expose this
-communication to userspace. Naturally, this interface should be read-only.
-Also, the interface should be generic enough so it can be used for all
-drivers, including non-net drivers.
-
-1) Special monitoring netdev.
-Might make sense to use a separate netdev. Is is easy to tap the
-communication. Driver would just create new netdev and push incoming and
-outgoing messages there. Downside is that there would be needed to wrap the
-messages with some metadata header, which seems quite odd.
-
-2) generic Netlink (genl) interface. Easy to put metadata in, including the
-device identificator (pci address). User then can use nlmon in order to
-be able to use wireshark to see the netlink messages.
-
-Looks like 2) might be viable, well-defined, generic interface to carry
-this info. What do you think? Does this make sense?
-
-Thanks!
-
-Jiri
+If something needs to be unregistered here (which I don't claim to
+know but someone should), the corresponding code would need to be added
+to the unix_dgram_disconnected function (as was already pointed
+out).
