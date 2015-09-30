@@ -1,71 +1,54 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/4] cxgb4: For T4, don't read the Firmware
- Mailbox Control register
-Date: Wed, 30 Sep 2015 17:50:55 +0300
-Message-ID: <560BF6CF.8050208@cogentembedded.com>
-References: <1443623089-10039-1-git-send-email-hariprasad@chelsio.com>
- <1443623089-10039-3-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next 3/3] RDS-TCP: Set up MSG_MORE and
+ MSG_SENDPAGE_NOTLAST as appropriate in rds_tcp_xmit
+Date: Wed, 30 Sep 2015 17:53:20 +0300
+Message-ID: <560BF760.9000901@cogentembedded.com>
+References: <cover.1443569239.git.sowmini.varadhan@oracle.com>
+ <4471e1253cbbd917c1b1bd62b5b14844c19a857f.1443569239.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:32786 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753699AbbI3Ou6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 10:50:58 -0400
-Received: by lahh2 with SMTP id h2so49375498lah.0
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 07:50:56 -0700 (PDT)
-In-Reply-To: <1443623089-10039-3-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
+	santosh.shilimkar@oracle.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4471e1253cbbd917c1b1bd62b5b14844c19a857f.1443569239.git.sowmini.varadhan@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 09/30/2015 05:24 PM, Hariprasad Shenai wrote:
+On 09/30/2015 04:45 PM, Sowmini Varadhan wrote:
 
-> T4 doesn't have the Shadow copy of the register which we can read without
-> side effect. So don't read mbox control register for T4 adapter
+> For the same reasons as 2f53384424 and 35f9c09fe9, rds_tcp_xmit
+> may have multiple pages to send, so use the MSG_MORE and
+> MSG_SENDPAGE_NOTLAST as hints to tcp_sendpage()
 >
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 > ---
->   drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 18 +++++++++++++-----
->   1 file changed, 13 insertions(+), 5 deletions(-)
+>   net/rds/tcp_send.c |    8 +++++++-
+>   1 files changed, 7 insertions(+), 1 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> index 0a87a32..c20b41c 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-> @@ -1134,12 +1134,20 @@ static int mbox_show(struct seq_file *seq, void *v)
->   	unsigned int mbox = (uintptr_t)seq->private & 7;
->   	struct adapter *adap = seq->private - mbox;
->   	void __iomem *addr = adap->regs + PF_REG(mbox, CIM_PF_MAILBOX_DATA_A);
-> -	unsigned int ctrl_reg = (is_t4(adap->params.chip)
-> -				 ? CIM_PF_MAILBOX_CTRL_A
-> -				 : CIM_PF_MAILBOX_CTRL_SHADOW_COPY_A);
-> -	void __iomem *ctrl = adap->regs + PF_REG(mbox, ctrl_reg);
+> diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
+> index 53b17ca..5f3e3fa 100644
+> --- a/net/rds/tcp_send.c
+> +++ b/net/rds/tcp_send.c
+[...]
+> @@ -116,12 +117,15 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
+>   			goto out;
+>   	}
 >
-> -	i = MBOWNER_G(readl(ctrl));
-> +	/* For T4 we don't have a shadow copy of the Mailbox Control register.
-> +	 * And since reading that real register causes a side effect of
-> +	 * granting ownership, we're best of simply not reading it at all.
-> +	 */
-> +	if (is_t4(adap->params.chip))
-> +		i = 4; /* index of "<unread>" */
+> +	more = (rm->data.op_nents > 1 ? (MSG_MORE | MSG_SENDPAGE_NOTLAST) : 0);
 
-    The kernel CodingStyle dictates that you should enclose all branches in {} 
-if at least one branch has it.
+    No need for either inner or outer parens.
 
-> +	else {
-> +		unsigned int ctrl_reg = CIM_PF_MAILBOX_CTRL_SHADOW_COPY_A;
-> +		void __iomem *ctrl = adap->regs + PF_REG(mbox, ctrl_reg);
-> +
-> +		i = MBOWNER_G(readl(ctrl));
-> +	}
-> +
->   	seq_printf(seq, "mailbox owned by %s\n\n", owner[i]);
->
->   	for (i = 0; i < MBOX_LEN; i += 8)
+>   	while (sg < rm->data.op_nents) {
+> +		int flags = (MSG_DONTWAIT | MSG_NOSIGNAL | more);
+
+    Parens not needed as well.
+
+[...]
 
 MBR, Sergei
