@@ -1,50 +1,55 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 1/5] bridge: vlan: adjust rhashtable
-	initial size and hash locks size
-Date: Wed, 30 Sep 2015 20:16:51 +0200
-Message-ID: <1443637015-4153-2-git-send-email-razor@blackwall.org>
-References: <1443637015-4153-1-git-send-email-razor@blackwall.org>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, vyasevich@gmail.com
+Subject: [PATCH net-next 0/5] bridge: vlan: cleanups & fixes
+Date: Wed, 30 Sep 2015 20:16:50 +0200
+Message-ID: <1443637015-4153-1-git-send-email-razor@blackwall.org>
+Cc: roopa@cumulusnetworks.com, vyasevich@gmail.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1443637015-4153-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34759 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933080AbbI3SRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:17:01 -0400
+Received: by wicfx3 with SMTP id fx3so210277078wic.1
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:17:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-As Stephen pointed out the default initial size is more than we need, so
-let's start small (4 elements, thus nelem_hint = 3). Also limit the hash
-locks to the number of CPUs as we don't need any write-side scaling and
-this looks like the minimum.
+Hi,
+This is the first follow-up set, patch 01 reduces the default rhashtable
+size and the number of locks that can be allocated. Patch 02 and 04 fix
+possible null pointer dereferences due to the new ordering and
+initialization on port add/del, and patch 03 moves the "pvid" member in
+the net_bridge_vlan_group struct in order to simplify code (similar to how
+it was with the older struct). Patch 05 fixes adding a vlan on a port which
+is pvid and doesn't have a global context yet.
+Please review carefully, I think this is the first use of rhashtable's
+"locks_mul" member in the tree and I'd like to make sure it's correct.
+Another thing that needs special attention is the nbp_vlan_flush() move
+after the rx_handler unregister.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_vlan.c | 2 ++
- 1 file changed, 2 insertions(+)
+Cheers,
+ Nik
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index e227164bc3e1..283d012c3d89 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -19,6 +19,8 @@ static const struct rhashtable_params br_vlan_rht_params = {
- 	.head_offset = offsetof(struct net_bridge_vlan, vnode),
- 	.key_offset = offsetof(struct net_bridge_vlan, vid),
- 	.key_len = sizeof(u16),
-+	.nelem_hint = 3,
-+	.locks_mul = 1,
- 	.max_size = VLAN_N_VID,
- 	.obj_cmpfn = br_vlan_cmp,
- 	.automatic_shrinking = true,
+
+Nikolay Aleksandrov (5):
+  bridge: vlan: adjust rhashtable initial size and hash locks size
+  bridge: vlan: fix possible null vlgrp deref while registering new port
+  bridge: vlan: move pvid inside net_bridge_vlan_group
+  bridge: vlan: fix possible null ptr derefs on port init and deinit
+  bridge: vlan: don't pass flags when creating context only
+
+ net/bridge/br_device.c  |   2 +-
+ net/bridge/br_if.c      |   3 +-
+ net/bridge/br_input.c   |   2 +-
+ net/bridge/br_netlink.c |  42 +++++++---------
+ net/bridge/br_private.h |  44 +++++------------
+ net/bridge/br_vlan.c    | 127 ++++++++++++++++++++++--------------------------
+ 6 files changed, 93 insertions(+), 127 deletions(-)
+
 -- 
 2.4.3
