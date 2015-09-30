@@ -1,36 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net-next 1/2] openvswitch: add tunnel protocol
- to sw_flow_key
-Date: Tue, 29 Sep 2015 19:08:44 -0700
-Message-ID: <CAEP_g=_5EhyYeSNvitYSbNX9G52Kt=R6ruNz4V0uJK8sxPyYWQ@mail.gmail.com>
-References: <cover.1443548447.git.jbenc@redhat.com> <428cee4cb7e04cfea5bef90b37d257562ea78a83.1443548447.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jiri Benc <jbenc@redhat.com>
+From: Geliang Tang <geliangtang@163.com>
+Subject: [PATCH] net: macb: fix two typos
+Date: Tue, 29 Sep 2015 19:31:32 -0700
+Message-ID: <6195cc372d956bdd3adbf41623ee1645cce30211.1443608885.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:35683 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbbI3CJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2015 22:09:05 -0400
-Received: by laer8 with SMTP id r8so29355062lae.2
-        for <netdev@vger.kernel.org>; Tue, 29 Sep 2015 19:09:03 -0700 (PDT)
-In-Reply-To: <428cee4cb7e04cfea5bef90b37d257562ea78a83.1443548447.git.jbenc@redhat.com>
+Received: from m12-14.163.com ([220.181.12.14]:33330 "EHLO m12-14.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750914AbbI3Cb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2015 22:31:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2015 at 10:52 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index 5c030a4d7338..03ba070c3256 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -643,6 +643,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
->         }
->
->         SW_FLOW_KEY_PUT(match, tun_key.tun_flags, tun_flags, is_mask);
-> +       SW_FLOW_KEY_PUT(match, tun_proto, AF_INET, is_mask);
+Just fix two typos in code comments.
 
-I don't think this is right in the case of the mask. It will cause the
-the mask to be the value AF_INET - instead you want to set the mask to
-be 0xff.
+Signed-off-by: Geliang Tang <geliangtang@163.com>
+---
+ drivers/net/ethernet/cadence/macb.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 6e1faea..866b128 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -267,9 +267,9 @@
+ #define MACB_BEX_SIZE		1
+ #define MACB_RM9200_BNQ_OFFSET	4 /* AT91RM9200 only */
+ #define MACB_RM9200_BNQ_SIZE	1 /* AT91RM9200 only */
+-#define MACB_COMP_OFFSET	5 /* Trnasmit complete */
++#define MACB_COMP_OFFSET	5 /* Transmit complete */
+ #define MACB_COMP_SIZE		1
+-#define MACB_UND_OFFSET		6 /* Trnasmit under run */
++#define MACB_UND_OFFSET		6 /* Transmit under run */
+ #define MACB_UND_SIZE		1
+ 
+ /* Bitfields in RSR */
+-- 
+1.9.1
