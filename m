@@ -1,47 +1,61 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Wed, 30 Sep 2015 10:54:29 +0200
-Message-ID: <560BA345.40504@zonque.org>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
- <1443525140-13493-4-git-send-email-daniel@zonque.org>
- <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
- <alpine.LSU.2.20.1509300938060.9960@nerf40.vanv.qr>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 5/6] ipv6: Call xfrm6_xlat_addr from ipv6_rcv
+Date: Wed, 30 Sep 2015 11:06:17 +0200
+Message-ID: <20150930090617.GF7701@secunet.com>
+References: <1443565043-1287886-1-git-send-email-tom@herbertland.com>
+ <1443565043-1287886-6-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
-	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, balazs.scheidler@balabit.com
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:39459 "EHLO mail.zonque.de"
+Received: from a.mx.secunet.com ([195.81.216.161]:44603 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752644AbbI3Iyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 04:54:32 -0400
-In-Reply-To: <alpine.LSU.2.20.1509300938060.9960@nerf40.vanv.qr>
+	id S1752646AbbI3JG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 05:06:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1443565043-1287886-6-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/30/2015 09:40 AM, Jan Engelhardt wrote:
+On Tue, Sep 29, 2015 at 03:17:22PM -0700, Tom Herbert wrote:
+> Call before performing NF_HOOK and routing in order to perform address
+> translation in the receive path.
 > 
-> On Wednesday 2015-09-30 09:24, Daniel Mack wrote:
->>
->>> Drop?  Makes no sense, else application would not be running in the first
->>> place.
->>
->> Of course you can drop certain packets at this point, depending on other
->> details. Say, for instance, you want to match all packets that are
->> received by a certain task [...]
->> Another use case is accounting. If you want to know how much traffic a
->> certain service or application in your system has caused
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  net/ipv6/ip6_input.c | 3 +++
+>  1 file changed, 3 insertions(+)
 > 
-> But the sk info would be available in INPUT already, would it not?
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 9075acf..06dac55 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -183,6 +183,9 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+>  	/* Must drop socket now because of tproxy. */
+>  	skb_orphan(skb);
+>  
+> +	/* Translate destination address before routing */
+> +	xfrm6_xlat_addr(skb);
+> +
 
-No, only for established connections, as those are subject to early
-demux which sets skb->sk. For all other packets, netfilter callbacks are
-called with skb->sk == NULL.
+This shows that xfrm is not the right place to add this. The existing
+xfrm hooks are located at the same place as your current LWT hooks are.
 
-That's the whole point of this patch set ;)
+You could use the existing xfrm hooks similar to xfrm tunnel modes.
+This reinserts the transformed packet back into layer2, but I guess
+this is not what you want.
 
+I'm currently paying with a GRO codepath for IPsec to get the
+packets transformed early. If you can do your address translation
+that early, it could be an option too. This clearly depends on
+enabled GRO at the receiving device, but you would still have
+the LWT hook as a fallback.
 
-Daniel
+>  	return NF_HOOK(NFPROTO_IPV6, NF_INET_PRE_ROUTING,
+>  		       net, NULL, skb, dev, NULL,
+>  		       ip6_rcv_finish);
+
+Or, try to use the netfilter hook that seems to be at the right
+place at least.
