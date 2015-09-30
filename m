@@ -1,43 +1,47 @@
-From: Bastian Stender <bst@pengutronix.de>
-Subject: Re: [PATCH] net ipv4: use preferred log methods
-Date: Wed, 30 Sep 2015 13:07:53 +0200
-Message-ID: <560BC289.40002@pengutronix.de>
-References: <20150928.222409.1641594777817922710.davem@davemloft.net> <1443604843-22166-1-git-send-email-bst@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, trivial@kernel.org, kernel@pengutronix.de
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] can: peak_pci: add unused device id. in devices table
+Date: Wed, 30 Sep 2015 13:12:44 +0200
+Message-ID: <1443611564-1299-2-git-send-email-mkl@pengutronix.de>
+References: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60143 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57327 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317AbbI3LH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:07:56 -0400
-In-Reply-To: <1443604843-22166-1-git-send-email-bst@pengutronix.de>
+	with ESMTP id S1755443AbbI3LMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:12:48 -0400
+In-Reply-To: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Stephane Grosjean <s.grosjean@peak-system.com>
 
-On 09/30/2015 11:20 AM, Bastian Stender wrote:
-> Replace printk calls with preferred unconditional log method calls to keep
-> kernel messages clean.
->
-> Signed-off-by: Bastian Stender <bst@pengutronix.de>
-> ---
->   net/ipv4/ipconfig.c                            | 53 +++++++++-----------------
->   net/ipv4/netfilter/arp_tables.c                | 17 +--------
->   net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  2 +-
->   net/ipv4/netfilter/nf_nat_snmp_basic.c         | 31 ++++++++-------
->   4 files changed, 36 insertions(+), 67 deletions(-)
+While new PEAK_PCIE_OEM_ID has been defined since 3.17, no corresponding
+entry has been added in the peak_pci_tbl[] of the peak_pci CAN driver.
 
-Please ignore my previous patch. I'll test it again and resubmit it.
+This patch enables now users of the PCAN-PCI Express OEM card to run the
+peak_pci driver too.
 
-Thanks for your patience.
+Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/sja1000/peak_pci.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Regards,
-Bastian Stender
+diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
+index e5fac368068a..131026fbc2d7 100644
+--- a/drivers/net/can/sja1000/peak_pci.c
++++ b/drivers/net/can/sja1000/peak_pci.c
+@@ -87,6 +87,7 @@ static const struct pci_device_id peak_pci_tbl[] = {
+ 	{PEAK_PCI_VENDOR_ID, PEAK_PC_104P_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+ 	{PEAK_PCI_VENDOR_ID, PEAK_PCI_104E_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+ 	{PEAK_PCI_VENDOR_ID, PEAK_CPCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
++	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_OEM_ID, PCI_ANY_ID, PCI_ANY_ID,},
+ #ifdef CONFIG_CAN_PEAK_PCIEC
+ 	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+ 	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC34_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+-- 
+2.6.0
