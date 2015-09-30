@@ -1,47 +1,71 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 net-next 0/3]  RDS: RDS-TCP perf enhancements
-Date: Wed, 30 Sep 2015 16:54:06 -0400
-Message-ID: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next 3/3] RDS-TCP: Set up MSG_MORE and MSG_SENDPAGE_NOTLAST as appropriate in rds_tcp_xmit
+Date: Wed, 30 Sep 2015 16:54:09 -0400
+Message-ID: <d37e27a682cce2fc60faeaa1d76ade62c83ec19e.1443636587.git.sowmini.varadhan@oracle.com>
+References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
 	sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com,
 	sergei.shtylyov@cogentembedded.com
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:22400 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932980AbbI3Uyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 16:54:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A 3-part patchset that (a) improves current RDS-TCP perf
-by 2X-3X and (b) refactors earlier robustness code for
-better observability/scaling.
+For the same reasons as commit 2f5338442425 ("tcp: allow splice() to
+build full TSO packets") and commit 35f9c09fe9c7 ("tcp: tcp_sendpages()
+should call tcp_push() once"), rds_tcp_xmit may have multiple pages to
+send, so use the MSG_MORE and MSG_SENDPAGE_NOTLAST as hints to
+tcp_sendpage()
 
-Patch 1 is an enhancment of earlier robustness fixes 
-that had used separate sockets for client and server endpoints to
-resolve race conditions. It is possible to have an equivalent
-solution that does not use 2 sockets. The benefit of a
-single socket solution is that it results in more predictable
-and observable behavior for the underlying TCP pipe of an 
-RDS connection
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2: Sergei Shtylov, Santosh Shilimkar comments (some parens retained for
+    readability)
 
-Patches 2 and 3 are simple, straightforward perf bug fixes
-that align the RDS TCP socket with other parts of the kernel stack.
+ net/rds/tcp_send.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-v2: fix kbuild-test-robot warnings, comments from  Sergei Shtylov
-    and Santosh Shilimkar. 
-
-Sowmini Varadhan (3):
-  Use a single TCP socket for both send and receive.
-  Do not bloat sndbuf/rcvbuf in rds_tcp_tune
-  Set up MSG_MORE and MSG_SENDPAGE_NOTLAST as appropriate in
-    rds_tcp_xmit
-
- net/rds/connection.c |   22 ++++++----------------
- net/rds/rds.h        |    4 +++-
- net/rds/tcp.c        |   16 ++++------------
- net/rds/tcp_listen.c |   22 +++++++++-------------
- net/rds/tcp_send.c   |    8 +++++++-
- 5 files changed, 29 insertions(+), 43 deletions(-)
+diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
+index 53b17ca..2894e60 100644
+--- a/net/rds/tcp_send.c
++++ b/net/rds/tcp_send.c
+@@ -83,6 +83,7 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 	struct rds_tcp_connection *tc = conn->c_transport_data;
+ 	int done = 0;
+ 	int ret = 0;
++	int more;
+ 
+ 	if (hdr_off == 0) {
+ 		/*
+@@ -116,12 +117,15 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 			goto out;
+ 	}
+ 
++	more = rm->data.op_nents > 1 ? (MSG_MORE | MSG_SENDPAGE_NOTLAST) : 0;
+ 	while (sg < rm->data.op_nents) {
++		int flags = MSG_DONTWAIT | MSG_NOSIGNAL | more;
++
+ 		ret = tc->t_sock->ops->sendpage(tc->t_sock,
+ 						sg_page(&rm->data.op_sg[sg]),
+ 						rm->data.op_sg[sg].offset + off,
+ 						rm->data.op_sg[sg].length - off,
+-						MSG_DONTWAIT|MSG_NOSIGNAL);
++						flags);
+ 		rdsdebug("tcp sendpage %p:%u:%u ret %d\n", (void *)sg_page(&rm->data.op_sg[sg]),
+ 			 rm->data.op_sg[sg].offset + off, rm->data.op_sg[sg].length - off,
+ 			 ret);
+@@ -134,6 +138,8 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 			off = 0;
+ 			sg++;
+ 		}
++		if (sg == rm->data.op_nents - 1)
++			more = 0;
+ 	}
+ 
+ out:
+-- 
+1.7.1
