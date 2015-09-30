@@ -1,54 +1,146 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 0/8] amd-xgbe: AMD XGBE driver updates 2015-09-30
-Date: Wed, 30 Sep 2015 08:52:32 -0500
-Message-ID: <20150930135232.12605.15604.stgit@tlendack-t1.amdoffice.net>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [PATCH wpan-tools 2/2] security: add store and restore scripts
+Date: Wed, 30 Sep 2015 16:09:04 +0200
+Message-ID: <560BED00.8020909@osg.samsung.com>
+References: <1443425134-27910-1-git-send-email-alex.aring@gmail.com>
+ <1443425134-27910-2-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de
+To: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0070.outbound.protection.outlook.com ([157.56.111.70]:64640
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751539AbbI3OIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 10:08:25 -0400
+Received: from lists.s-osg.org ([54.187.51.154]:40111 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752123AbbI3OJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 10:09:09 -0400
+In-Reply-To: <1443425134-27910-2-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patches are included in this driver update series:
+Hello.
 
-- Remove unneeded semi-colon
-- Follow the DT/ACPI precedence used by the device_ APIs
-- Add ethtool support for getting and setting the msglevel
-- Add ethtool support error and debug messages
-- Simplify the hardware FIFO assignment calculations
-- Add receive buffer unavailable statistic
-- Use the device workqueue instead of the system workqueue
-- Remove the use of a link state bit
+On 28/09/15 09:25, Alexander Aring wrote:
+> This patch adds two new bash script commands."iwpan-store" and
+> "iwpan-restore" which can store and restore the current security
+> table settings. This is currently a very KISS solution, we should lookup
+> iptables implementation for storing and restoring the tables.
+>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+>   src/Makefile.am   |  4 ++++
+>   src/iwpan-restore | 36 ++++++++++++++++++++++++++++++++++++
+>   src/iwpan-store   | 39 +++++++++++++++++++++++++++++++++++++++
 
-This patch series is based on net-next.
+Why not call it ipwan-dump and iwpan-restore? You use dump in other 
+places and I think it makes a lot sense to keep this.
+>   3 files changed, 79 insertions(+)
+>   create mode 100755 src/iwpan-restore
+>   create mode 100755 src/iwpan-store
+>
+> diff --git a/src/Makefile.am b/src/Makefile.am
+> index b2177a2..37a6d82 100644
+> --- a/src/Makefile.am
+> +++ b/src/Makefile.am
+> @@ -1,6 +1,10 @@
+>   bin_PROGRAMS = \
+>   	iwpan
+>   
+> +bin_SCRIPTS = \
+> +	iwpan-store \
+> +	iwpan-restore
+> +
+>   iwpan_SOURCES = \
+>   	iwpan.c \
+>   	iwpan.h \
+> diff --git a/src/iwpan-restore b/src/iwpan-restore
+> new file mode 100755
+> index 0000000..0e305f6
+> --- /dev/null
+> +++ b/src/iwpan-restore
+> @@ -0,0 +1,36 @@
+> +#!/bin/bash
+> +
+> +WPAN_DEV=""
+> +FILE=""
+> +
+> +function usage() {
+> +	echo "usage: -d \$WPAN_DEV -f \$FILE"
+> +}
+> +
+> +while getopts "d:f:" opt; do
+> +	case $opt in
+> +		d)
+> +			WPAN_DEV=$OPTARG
+> +			;;
+> +		f)
+> +			FILE=$OPTARG
+> +			;;
+> +		?)
+> +			usage
+> +			;;
+> +	esac
+> +done
+> +
+> +if [ -z $FILE ] || [ -z $WPAN_DEV ]
+> +then
+> +	usage
+> +	exit 1
+> +fi
+> +
+> +function failed() {
+> +	echo "failed" >&2
+> +}
+> +
+> +export WPAN_DEV &&
+> +/bin/bash $FILE ||
+> +failed
+> diff --git a/src/iwpan-store b/src/iwpan-store
+> new file mode 100755
+> index 0000000..acce807
+> --- /dev/null
+> +++ b/src/iwpan-store
+> @@ -0,0 +1,39 @@
+> +#!/bin/bash
+> +
+> +WPAN_DEV=""
+> +FILE=""
+> +
+> +function usage() {
+> +	echo "usage: -d \$WPAN_DEV -f \$FILE"
+> +}
+> +
+> +while getopts "d:f:" opt; do
+> +	case $opt in
+> +		d)
+> +			WPAN_DEV=$OPTARG
+> +			;;
+> +		f)
+> +			FILE=$OPTARG
+> +			;;
+> +		?)
+> +			usage
+> +			;;
+> +	esac
+> +done
+> +
+> +if [ -z $FILE ] || [ -z $WPAN_DEV ]
+> +then
+> +	usage
+> +	exit 1
+> +fi
+> +
+> +function failed() {
+> +	echo "failed" >&2
+> +	rm $FILE
+> +}
+> +
+> +iwpan dev $WPAN_DEV seclevel dump > $FILE &&
+> +iwpan dev $WPAN_DEV device dump >> $FILE &&
+> +iwpan dev $WPAN_DEV devkey dump >> $FILE &&
+> +iwpan dev $WPAN_DEV key dump >> $FILE ||
+> +failed
 
----
-
-Tom Lendacky (8):
-      amd-xgbe: Remove an unneeded semicolon on a switch statement
-      amd-xgbe: Use proper DT / ACPI precedence checking
-      amd-xgbe: Add ethtool support for setting the msglevel
-      amd-xgbe: Add ethtool error and debug messages
-      amd-xgbe: Simplify calculation and setting of queue fifos
-      amd-xgbe: Add receive buffer unavailable statistic
-      amd-xgbe: Use device workqueue instead of system workqueue
-      amd-xgbe: Remove the XGBE_LINK state bit
-
-
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   83 ++++----------------
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   14 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |  106 +++++++++++++-------------
- drivers/net/ethernet/amd/xgbe/xgbe-main.c    |    2 
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |   16 +---
- drivers/net/ethernet/amd/xgbe/xgbe.h         |   18 ----
- 6 files changed, 84 insertions(+), 155 deletions(-)
-
--- 
-Tom Lendacky
+regards
+Stefan Schmidt
