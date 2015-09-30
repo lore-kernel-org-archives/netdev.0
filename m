@@ -1,40 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA driver - how to glue to a PCI based NIC's mdio?
-Date: Wed, 30 Sep 2015 23:40:52 +0200
-Message-ID: <20150930214052.GG20219@lunn.ch>
-References: <CAJ+vNU2rf0r9V3DfF1-=hpEhdqxkDHz-LmHWOJqscLdsw2EDEA@mail.gmail.com>
- <20150930211210.GD20219@lunn.ch>
- <CAJ+vNU2SUpsQ+7dwPfR6EHVofpvVFF42KO=YUDaarLaDwWvXFw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH 1/3] net: dsa: Use devm_ prefixed allocations
+Date: Wed, 30 Sep 2015 14:40:43 -0700
+Message-ID: <560C56DB.6040404@gmail.com>
+References: <560B9B74.3080905@baylibre.com> <CAOMZO5A6UyLN2w3jsQB4r48-jOfKep6abkW0p+-Emsg0-hvkRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Tim Harvey <tharvey@gateworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38214 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754200AbbI3Vkx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2015 17:40:53 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJ+vNU2SUpsQ+7dwPfR6EHVofpvVFF42KO=YUDaarLaDwWvXFw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Fabio Estevam <festevam@gmail.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOMZO5A6UyLN2w3jsQB4r48-jOfKep6abkW0p+-Emsg0-hvkRw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > information to the NIC's device driver. Better would be to have a
-> > small shim driver which is loaded on your PCI_ID/DEVICE_ID. That would
-> > instantiate the NIC driver, and insert a DSA platform device.
+On 30/09/15 14:34, Fabio Estevam wrote:
+> On Wed, Sep 30, 2015 at 5:21 AM, Neil Armstrong <narmstrong@baylibre.com> wrote:
+>> To simplify and prevent memory leakage when unbinding, use
+>> the devm_ memory allocation calls.
+>>
+>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>> ---
+>>  net/dsa/dsa.c | 6 +++---
+>>  1 file changed, 3 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>> index c59fa5d..98f94c2 100644
+>> --- a/net/dsa/dsa.c
+>> +++ b/net/dsa/dsa.c
+>> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>>         if (ret < 0)
+>>                 goto out;
+>>
+>> -       ds->slave_mii_bus = mdiobus_alloc();
+>> +       ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+>>         if (ds->slave_mii_bus == NULL) {
+>>                 ret = -ENOMEM;
+>>                 goto out;
+>> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>>         /*
+>>          * Allocate and initialise switch state.
+>>          */
+>> -       ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>> +       ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
 > 
-> I was thinking of this as well, but then I would still need that shim
-> to know the netdevice that the driver I'm shimming creates so I can't
-> figure a way to do it without touching the PCI driver.
+> Shouldn't devm_ functions be called only from probe and remove functions?
 
-You can probably get that from the PCI information you have:
+That's the case AFAICT, the call chain looks like this:
 
-# /sys/devices/pci0000:00/0000:00:1c.2/0000:06:00.0 is the PCIe device. And it has
-
-# /sys/devices/pci0000:00/0000:00:1c.2/0000:06:00.0/net$ ls -l
-total 0
-drwxr-xr-x 5 root root 0 Aug 19 18:23 eth0
-
-So the linking is there.
-
-   Andrew
+dsa_probe()
+	-> dsa_setup_dst()
+		-> dsa_switch_setup()
+			-> dsa_switch_setup_one()
+-- 
+Florian
