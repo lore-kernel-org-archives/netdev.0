@@ -1,56 +1,69 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 04/12] mwifiex: use ktime_get_real for timestamping
-Date: Wed, 30 Sep 2015 13:26:34 +0200
-Message-ID: <1443612402-3000775-5-git-send-email-arnd@arndb.de>
+Subject: [PATCH 01/12] net: fec: avoid timespec use
+Date: Wed, 30 Sep 2015 13:26:31 +0200
+Message-ID: <1443612402-3000775-2-git-send-email-arnd@arndb.de>
 References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- Nishant Sarmukadam <nishants@marvell.com>,
- Amitkumar Karwar <akarwar@marvell.com>,
- "David S. Miller" <davem@davemloft.net>, Kalle Valo <kvalo@codeaurora.org>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Fugang Duan <b38611@freescale.com>,
+	Luwei Zhou <b45643@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
 To: netdev@vger.kernel.org
-Return-path: <y2038-bounces@lists.linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:64318 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932661AbbI3L1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 07:27:03 -0400
 In-Reply-To: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIG13aWZpZXhfMTFuX2FnZ3JlZ2F0ZV9wa3QoKSBmdW5jdGlvbiBjcmVhdGVzIGEga3RpbWVf
-dCBmcm9tCmEgdGltZXZhbCByZXR1cm5lZCBieSBkb19nZXR0aW1lb2ZkYXksIHdoaWNoIGlzIHNs
-b3cgYW5kIGNhdXNlcwphbiBvdmVyZmxvdyBpbiAyMDM4IG9uIDMyLWJpdCBhcmNoaXRlY3R1cmVz
-LgoKVGhpcyBzb2x2ZXMgYm90aCBwcm9ibGVtcyBieSB1c2luZyB0aGUgYXBwcm9wcmlhdGUga3Rp
-bWVfZ2V0X3JlYWwoKQpmdW5jdGlvbi4KClNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFy
-bmRAYXJuZGIuZGU+CkNjOiBBbWl0a3VtYXIgS2Fyd2FyIDxha2Fyd2FyQG1hcnZlbGwuY29tPgpD
-YzogTmlzaGFudCBTYXJtdWthZGFtIDxuaXNoYW50c0BtYXJ2ZWxsLmNvbT4KQ2M6IEthbGxlIFZh
-bG8gPGt2YWxvQGNvZGVhdXJvcmEub3JnPgpDYzogbGludXgtd2lyZWxlc3NAdmdlci5rZXJuZWwu
-b3JnCi0tLQogZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC8xMW5fYWdnci5jIHwgNCArLS0t
-CiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC8xMW5fYWdnci5jIGIvZHJpdmVycy9u
-ZXQvd2lyZWxlc3MvbXdpZmlleC8xMW5fYWdnci5jCmluZGV4IGY3YzcxNzI1M2E2Ni4uNzg4NTNj
-NTE3NzRkIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4LzExbl9hZ2dy
-LmMKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC8xMW5fYWdnci5jCkBAIC0xNzMs
-NyArMTczLDYgQEAgbXdpZmlleF8xMW5fYWdncmVnYXRlX3BrdChzdHJ1Y3QgbXdpZmlleF9wcml2
-YXRlICpwcml2LAogCWludCBwYWQgPSAwLCBhZ2dyX251bSA9IDAsIHJldDsKIAlzdHJ1Y3QgbXdp
-ZmlleF90eF9wYXJhbSB0eF9wYXJhbTsKIAlzdHJ1Y3QgdHhwZCAqcHR4X3BkID0gTlVMTDsKLQlz
-dHJ1Y3QgdGltZXZhbCB0djsKIAlpbnQgaGVhZHJvb20gPSBhZGFwdGVyLT5pZmFjZV90eXBlID09
-IE1XSUZJRVhfVVNCID8gMCA6IElOVEZfSEVBREVSX0xFTjsKIAogCXNrYl9zcmMgPSBza2JfcGVl
-aygmcHJhX2xpc3QtPnNrYl9oZWFkKTsKQEAgLTIwMyw4ICsyMDIsNyBAQCBtd2lmaWV4XzExbl9h
-Z2dyZWdhdGVfcGt0KHN0cnVjdCBtd2lmaWV4X3ByaXZhdGUgKnByaXYsCiAJdHhfaW5mb19hZ2dy
-LT5mbGFncyB8PSBNV0lGSUVYX0JVRl9GTEFHX0FHR1JfUEtUOwogCXNrYl9hZ2dyLT5wcmlvcml0
-eSA9IHNrYl9zcmMtPnByaW9yaXR5OwogCi0JZG9fZ2V0dGltZW9mZGF5KCZ0dik7Ci0Jc2tiX2Fn
-Z3ItPnRzdGFtcCA9IHRpbWV2YWxfdG9fa3RpbWUodHYpOworCXNrYl9hZ2dyLT50c3RhbXAgPSBr
-dGltZV9nZXRfcmVhbCgpOwogCiAJZG8gewogCQkvKiBDaGVjayBpZiBBTVNEVSBjYW4gYWNjb21t
-b2RhdGUgdGhpcyBNU0RVICovCi0tIAoyLjEuMC5yYzIKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5s
-aW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4
-Cg==
+The fec_ptp_enable_pps uses an open-coded implementation of ns_to_timespec,
+which will be removed eventually as it is not y2038-safe on 32-bit
+architectures. Two more instances of the same code in this file were
+already converted to use the safe ns_to_timespec64 in commit 6630514fcee
+("ptp: fec: use helpers for converting ns to timespec"), this changes
+the last one as well.
+
+The seconds portion here is actually unused and we could just remove the
+timespec variable, but using ns_to_timespec64 can still be better as the
+implementation can be hand-optimized in the future.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: Fugang Duan <b38611@freescale.com>
+Cc: Luwei Zhou <b45643@freescale.com>
+Cc: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_ptp.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 1543cf0e8ef6..f9e74461bdc0 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -112,9 +112,8 @@ static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
+ 	unsigned long flags;
+ 	u32 val, tempval;
+ 	int inc;
+-	struct timespec ts;
++	struct timespec64 ts;
+ 	u64 ns;
+-	u32 remainder;
+ 	val = 0;
+ 
+ 	if (!(fep->hwts_tx_en || fep->hwts_rx_en)) {
+@@ -163,8 +162,7 @@ static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
+ 		tempval = readl(fep->hwp + FEC_ATIME);
+ 		/* Convert the ptp local counter to 1588 timestamp */
+ 		ns = timecounter_cyc2time(&fep->tc, tempval);
+-		ts.tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
+-		ts.tv_nsec = remainder;
++		ts = ns_to_timespec64(ns);
+ 
+ 		/* The tempval is  less than 3 seconds, and  so val is less than
+ 		 * 4 seconds. No overflow for 32bit calculation.
+-- 
+2.1.0.rc2
