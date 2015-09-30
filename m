@@ -1,88 +1,74 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] ppp: don't override sk->sk_state in pppoe_flush_dev()
-Date: Wed, 30 Sep 2015 11:45:33 +0200
-Message-ID: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: xfrm4_garbage_collect reaching limit
+Date: Wed, 30 Sep 2015 11:54:19 +0200
+Message-ID: <20150930095419.GH7701@secunet.com>
+References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+ <20150911094808.GI25499@secunet.com>
+ <CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
+ <20150916084541.GB7701@secunet.com>
+ <CALZtONDZXmTPJgRH6OzF+cX9Ac5Tt+Q6wkX2sUbXzN8zdj1DyQ@mail.gmail.com>
+ <CAOZ2QJMFNRza8cLnB4Wu0TZCi4pQE0UL7Ch=+D7igMvjNjpONQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>,
-	Oleksii Berezhniak <core@irc.lg.ua>,
-	Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Dan Streetman <ddstreet@ieee.org>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	<netdev@vger.kernel.org>
+To: Dan Streetman <dan.streetman@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:50837 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932181AbbI3Jpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 05:45:49 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:45728 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932880AbbI3JyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2015 05:54:23 -0400
 Content-Disposition: inline
+In-Reply-To: <CAOZ2QJMFNRza8cLnB4Wu0TZCi4pQE0UL7Ch=+D7igMvjNjpONQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release"),
-pppoe_release() calls dev_put(po->pppoe_dev) if sk is in the
-PPPOX_ZOMBIE state. But pppoe_flush_dev() can set sk->sk_state to
-PPPOX_ZOMBIE _and_ reset po->pppoe_dev to NULL. This leads to the
-following oops:
+On Mon, Sep 21, 2015 at 10:51:11AM -0400, Dan Streetman wrote:
+> On Fri, Sep 18, 2015 at 1:00 AM, Dan Streetman <ddstreet@ieee.org> wrote:
+> > On Wed, Sep 16, 2015 at 4:45 AM, Steffen Klassert
+> > <steffen.klassert@secunet.com> wrote:
+> >>
+> >> What about the patch below? With this we are independent of the number
+> >> of cpus. It should cover most, if not all usecases.
+> >
+> > yep that works, thanks!  I'll give it a test also, but I don't see how
+> > it would fail.
+> 
+> Yep, on a test setup that previously failed within several hours, it
+> ran over the weekend successfully.  Thanks!
+> 
+> Tested-by: Dan Streetman <dan.streetman@canonical.com>
+> 
+> >
+> >>
+> >> While we are at it, we could think about increasing the flowcache
+> >> percpu limit. This value was choosen back in 2003, so maybe we could
+> >> have more than 4k cache entries per cpu these days.
+> >>
+> >>
+> >> Subject: [PATCH RFC] xfrm: Let the flowcache handle its size by default.
+> >>
+> >> The xfrm flowcache size is limited by the flowcache limit
+> >> (4096 * number of online cpus) and the xfrm garbage collector
+> >> threshold (2 * 32768), whatever is reached first. This means
+> >> that we can hit the garbage collector limit only on systems
+> >> with more than 16 cpus. On such systems we simply refuse
+> >> new allocations if we reach the limit, so new flows are dropped.
+> >> On syslems with 16 or less cpus, we hit the flowcache limit.
+> >> In this case, we shrink the flow cache instead of refusing new
+> >> flows.
+> >>
+> >> We increase the xfrm garbage collector threshold to INT_MAX
+> >> to get the same behaviour, independent of the number of cpus.
+> >>
+> >> The xfrm garbage collector threshold can still be set below
+> >> the flowcache limit to reduce the memory usage of the flowcache.
+> >>
+> >> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-[  570.140800] BUG: unable to handle kernel NULL pointer dereference at 00000000000004e0
-[  570.142931] IP: [<ffffffffa018c701>] pppoe_release+0x50/0x101 [pppoe]
-[  570.144601] PGD 3d119067 PUD 3dbc1067 PMD 0
-[  570.144601] Oops: 0000 [#1] SMP
-[  570.144601] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core ip6_udp_tunnel udp_tunnel pppoe pppox ppp_generic slhc loop crc32c_intel ghash_clmulni_intel jitterentropy_rng sha256_generic hmac drbg ansi_cprng aesni_intel aes_x86_64 ablk_helper cryptd lrw gf128mul glue_helper acpi_cpufreq evdev serio_raw processor button ext4 crc16 mbcache jbd2 virtio_net virtio_blk virtio_pci virtio_ring virtio
-[  570.144601] CPU: 1 PID: 15738 Comm: ppp-apitest Not tainted 4.2.0 #1
-[  570.144601] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
-[  570.144601] task: ffff88003d30d600 ti: ffff880036b60000 task.ti: ffff880036b60000
-[  570.144601] RIP: 0010:[<ffffffffa018c701>]  [<ffffffffa018c701>] pppoe_release+0x50/0x101 [pppoe]
-[  570.144601] RSP: 0018:ffff880036b63e08  EFLAGS: 00010202
-[  570.144601] RAX: 0000000000000000 RBX: ffff880034340000 RCX: 0000000000000206
-[  570.144601] RDX: 0000000000000006 RSI: ffff88003d30dd20 RDI: ffff88003d30dd20
-[  570.144601] RBP: ffff880036b63e28 R08: 0000000000000001 R09: 0000000000000000
-[  570.144601] R10: 00007ffee9b50420 R11: ffff880034340078 R12: ffff8800387ec780
-[  570.144601] R13: ffff8800387ec7b0 R14: ffff88003e222aa0 R15: ffff8800387ec7b0
-[  570.144601] FS:  00007f5672f48700(0000) GS:ffff88003fc80000(0000) knlGS:0000000000000000
-[  570.144601] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  570.144601] CR2: 00000000000004e0 CR3: 0000000037f7e000 CR4: 00000000000406a0
-[  570.144601] Stack:
-[  570.144601]  ffffffffa018f240 ffff8800387ec780 ffffffffa018f240 ffff8800387ec7b0
-[  570.144601]  ffff880036b63e48 ffffffff812caabe ffff880039e4e000 0000000000000008
-[  570.144601]  ffff880036b63e58 ffffffff812cabad ffff880036b63ea8 ffffffff811347f5
-[  570.144601] Call Trace:
-[  570.144601]  [<ffffffff812caabe>] sock_release+0x1a/0x75
-[  570.144601]  [<ffffffff812cabad>] sock_close+0xd/0x11
-[  570.144601]  [<ffffffff811347f5>] __fput+0xff/0x1a5
-[  570.144601]  [<ffffffff811348cb>] ____fput+0x9/0xb
-[  570.144601]  [<ffffffff81056682>] task_work_run+0x66/0x90
-[  570.144601]  [<ffffffff8100189e>] prepare_exit_to_usermode+0x8c/0xa7
-[  570.144601]  [<ffffffff81001a26>] syscall_return_slowpath+0x16d/0x19b
-[  570.144601]  [<ffffffff813babb1>] int_ret_from_sys_call+0x25/0x9f
-[  570.144601] Code: 48 8b 83 c8 01 00 00 a8 01 74 12 48 89 df e8 8b 27 14 e1 b8 f7 ff ff ff e9 b7 00 00 00 8a 43 12 a8 0b 74 1c 48 8b 83 a8 04 00 00 <48> 8b 80 e0 04 00 00 65 ff 08 48 c7 83 a8 04 00 00 00 00 00 00
-[  570.144601] RIP  [<ffffffffa018c701>] pppoe_release+0x50/0x101 [pppoe]
-[  570.144601]  RSP <ffff880036b63e08>
-[  570.144601] CR2: 00000000000004e0
-[  570.200518] ---[ end trace 46956baf17349563 ]---
+I've applied this to ipsec-next now. It can be considered as a fix too,
+but we still can tweak the value via the sysctl in the meantime. So
+it is better to test it a bit longer before it hits the mainline.
 
-pppoe_flush_dev() has no reason to override sk->sk_state with
-PPPOX_ZOMBIE. pppox_unbind_sock() already sets sk->sk_state to
-PPPOX_DEAD, which is the correct state given that sk is unbound and
-po->pppoe_dev is NULL.
-
-Fixes: 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release")
-Tested-by: Oleksii Berezhniak <core@irc.lg.ua>
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/pppoe.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 3837ae3..2ed7506 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -313,7 +313,6 @@ static void pppoe_flush_dev(struct net_device *dev)
- 			if (po->pppoe_dev == dev &&
- 			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND | PPPOX_ZOMBIE)) {
- 				pppox_unbind_sock(sk);
--				sk->sk_state = PPPOX_ZOMBIE;
- 				sk->sk_state_change(sk);
- 				po->pppoe_dev = NULL;
- 				dev_put(dev);
--- 
-2.5.3
+Thanks a lot for your work Dan!
