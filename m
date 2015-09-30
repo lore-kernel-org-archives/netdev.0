@@ -1,72 +1,71 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 1/3] net/rds: Use a single TCP socket for both
- send and receive.
-Date: Wed, 30 Sep 2015 22:45:27 +0800
-Message-ID: <201509302258.lJKbyxRW%fengguang.wu@intel.com>
-References: <603874beb1dedd0a989d84740d22565bfc568c97.1443569239.git.sowmini.varadhan@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/4] cxgb4: For T4, don't read the Firmware
+ Mailbox Control register
+Date: Wed, 30 Sep 2015 17:50:55 +0300
+Message-ID: <560BF6CF.8050208@cogentembedded.com>
+References: <1443623089-10039-1-git-send-email-hariprasad@chelsio.com>
+ <1443623089-10039-3-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
-	igor.maximov@oracle.com, sowmini.varadhan@oracle.com,
-	santosh.shilimkar@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <603874beb1dedd0a989d84740d22565bfc568c97.1443569239.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:32786 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753699AbbI3Ou6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 10:50:58 -0400
+Received: by lahh2 with SMTP id h2so49375498lah.0
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 07:50:56 -0700 (PDT)
+In-Reply-To: <1443623089-10039-3-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sowmini,
+Hello.
 
-[auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
+On 09/30/2015 05:24 PM, Hariprasad Shenai wrote:
 
-reproduce:
-  # apt-get install sparse
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+> T4 doesn't have the Shadow copy of the register which we can read without
+> side effect. So don't read mbox control register for T4 adapter
+>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> ---
+>   drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 18 +++++++++++++-----
+>   1 file changed, 13 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+> index 0a87a32..c20b41c 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+> @@ -1134,12 +1134,20 @@ static int mbox_show(struct seq_file *seq, void *v)
+>   	unsigned int mbox = (uintptr_t)seq->private & 7;
+>   	struct adapter *adap = seq->private - mbox;
+>   	void __iomem *addr = adap->regs + PF_REG(mbox, CIM_PF_MAILBOX_DATA_A);
+> -	unsigned int ctrl_reg = (is_t4(adap->params.chip)
+> -				 ? CIM_PF_MAILBOX_CTRL_A
+> -				 : CIM_PF_MAILBOX_CTRL_SHADOW_COPY_A);
+> -	void __iomem *ctrl = adap->regs + PF_REG(mbox, ctrl_reg);
+>
+> -	i = MBOWNER_G(readl(ctrl));
+> +	/* For T4 we don't have a shadow copy of the Mailbox Control register.
+> +	 * And since reading that real register causes a side effect of
+> +	 * granting ownership, we're best of simply not reading it at all.
+> +	 */
+> +	if (is_t4(adap->params.chip))
+> +		i = 4; /* index of "<unread>" */
 
+    The kernel CodingStyle dictates that you should enclose all branches in {} 
+if at least one branch has it.
 
-sparse warnings: (new ones prefixed by >>)
+> +	else {
+> +		unsigned int ctrl_reg = CIM_PF_MAILBOX_CTRL_SHADOW_COPY_A;
+> +		void __iomem *ctrl = adap->regs + PF_REG(mbox, ctrl_reg);
+> +
+> +		i = MBOWNER_G(readl(ctrl));
+> +	}
+> +
+>   	seq_printf(seq, "mailbox owned by %s\n\n", owner[i]);
+>
+>   	for (i = 0; i < MBOX_LEN; i += 8)
 
->> net/rds/tcp_listen.c:118:35: sparse: restricted __be32 degrades to integer
-   net/rds/tcp_listen.c:118:56: sparse: restricted __be32 degrades to integer
-   net/rds/tcp_listen.c:187:29: sparse: incorrect type in assignment (different base types)
-   net/rds/tcp_listen.c:187:29:    expected restricted __be32 [assigned] [usertype] s_addr
-   net/rds/tcp_listen.c:187:29:    got unsigned int [unsigned] [usertype] <noident>
-   net/rds/tcp_listen.c:188:22: sparse: incorrect type in assignment (different base types)
-   net/rds/tcp_listen.c:188:22:    expected restricted __be16 [assigned] [usertype] sin_port
-   net/rds/tcp_listen.c:188:22:    got unsigned short [unsigned] [usertype] <noident>
-
-vim +118 net/rds/tcp_listen.c
-
-   102			 &inet->inet_saddr, ntohs(inet->inet_sport),
-   103			 &inet->inet_daddr, ntohs(inet->inet_dport));
-   104	
-   105		conn = rds_conn_create(sock_net(sock->sk),
-   106				       inet->inet_saddr, inet->inet_daddr,
-   107				       &rds_tcp_transport, GFP_KERNEL);
-   108		if (IS_ERR(conn)) {
-   109			ret = PTR_ERR(conn);
-   110			goto out;
-   111		}
-   112		/* An incoming SYN request came in, and TCP just accepted it.
-   113		 *
-   114		 * If the client reboots, this conn will need to be cleaned up.
-   115		 * rds_tcp_state_change() will do that cleanup
-   116		 */
-   117		rs_tcp = (struct rds_tcp_connection *)conn->c_transport_data;
- > 118		if (rs_tcp->t_sock && inet->inet_saddr < inet->inet_daddr) {
-   119			struct sock *nsk = new_sock->sk;
-   120	
-   121			nsk->sk_user_data = NULL;
-   122			nsk->sk_prot->disconnect(nsk, 0);
-   123			tcp_done(nsk);
-   124			new_sock = NULL;
-   125			ret = 0;
-   126			goto out;
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+MBR, Sergei
