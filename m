@@ -1,1410 +1,446 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [RFC v3 net-next 07/10] qed: Add link support
-Date: Wed, 30 Sep 2015 16:03:34 +0300
-Message-ID: <1443618217-18069-8-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [RFC v3 net-next 09/10] qed: Add statistics support
+Date: Wed, 30 Sep 2015 16:03:36 +0300
+Message-ID: <1443618217-18069-10-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1443618217-18069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, <Yuval.Mintz@qlogic.com>
+Cc: <Ariel.Elior@qlogic.com>, <Yuval.Mintz@qlogic.com>,
+	Manish Chopra <Manish.Chopra@qlogic.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:21014 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:44001 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933117AbbI3NEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 09:04:13 -0400
+	by vger.kernel.org with ESMTP id S933138AbbI3NET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 09:04:19 -0400
 Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
-	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8UD2dki001238
-	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:12 -0700
+	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8UD35we001279
+	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:18 -0700
 Received: from avcashub1.qlogic.com (avcashub2.qlogic.com [198.70.193.116])
-	by mx0a-0016ce01.pphosted.com with ESMTP id 1x5tguwa25-1
+	by mx0a-0016ce01.pphosted.com with ESMTP id 1x5tguwa28-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:12 -0700
+	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 06:04:18 -0700
 In-Reply-To: <1443618217-18069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Physical link is handled by the management Firmware.
-This patch lays the infrastructure for attention handling in the driver,
-as link change notifications arrive via async. attentions,
-as well the handling of such notifications.
+From: Manish Chopra <Manish.Chopra@qlogic.com>
 
-This patch also extends the API with the protocol drivers by adding registered
-callbacks which the protocol driver passes to qed in order to be notified
-of async. events originating from the FW/HW.
+Device statistics can be gathered on-demand. This adds the qed support for
+reading the statistics [both function and port] from the device, and adds
+to the public API a method for requesting the current statistics.
 
+Signed-off-by: Manish Chopra <Manish.Chopra@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h      |  20 ++
- drivers/net/ethernet/qlogic/qed/qed_dev.c  | 106 ++++++++-
- drivers/net/ethernet/qlogic/qed/qed_int.c  | 340 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_l2.c   |   9 +
- drivers/net/ethernet/qlogic/qed/qed_main.c | 212 ++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.c  | 300 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h  | 126 ++++++++++-
- include/linux/qed/qed_eth_if.h             |   4 +
- 8 files changed, 1112 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h         |  14 ++
+ drivers/net/ethernet/qlogic/qed/qed_dev.c     | 244 +++++++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h |   3 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h     |  30 ++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c      |   3 +
+ include/linux/qed/qed_eth_if.h                |   3 +
+ 6 files changed, 296 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 7373928..4e21d79 100644
+index 4e21d79..f195cbd 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -108,6 +108,18 @@ enum QED_FEATURE {
- 	QED_MAX_FEATURES,
+@@ -212,7 +212,20 @@ struct qed_qm_info {
+ 	u32				pf_rl;
  };
  
-+enum QED_PORT_MODE {
-+	QED_PORT_MODE_DE_2X40G,
-+	QED_PORT_MODE_DE_2X50G,
-+	QED_PORT_MODE_DE_1X100G,
-+	QED_PORT_MODE_DE_4X10G_F,
-+	QED_PORT_MODE_DE_4X10G_E,
-+	QED_PORT_MODE_DE_4X20G,
-+	QED_PORT_MODE_DE_1X40G,
-+	QED_PORT_MODE_DE_2X25G,
-+	QED_PORT_MODE_DE_1X25G
++struct storm_stats {
++	u32     address;
++	u32     len;
 +};
 +
- struct qed_hw_info {
- 	/* PCI personality */
- 	enum qed_pci_personality	personality;
-@@ -404,6 +416,13 @@ struct qed_dev {
- 	u8				protocol;
- #define IS_QED_ETH_IF(cdev)     ((cdev)->protocol == QED_PROTOCOL_ETH)
- 
-+	/* Callbacks to protocol driver */
-+	union {
-+		struct qed_common_cb_ops	*common;
-+		struct qed_eth_cb_ops		*eth;
-+	} protocol_ops;
-+	void				*ops_cookie;
++struct qed_storm_stats {
++	struct storm_stats mstats;
++	struct storm_stats pstats;
++	struct storm_stats tstats;
++	struct storm_stats ustats;
++};
 +
- 	const struct firmware		*firmware;
- };
+ struct qed_fw_data {
++	struct fw_ver_info	*fw_ver_info;
+ 	const u8		*modes_tree_buf;
+ 	union init_op		*init_ops;
+ 	const u32		*arr_data;
+@@ -296,6 +309,7 @@ struct qed_hwfn {
  
-@@ -453,6 +472,7 @@ static inline u8 qed_concrete_to_sw_fid(struct qed_dev *cdev,
- /* Prototypes */
- int qed_fill_dev_info(struct qed_dev		*cdev,
- 		      struct qed_dev_info	*dev_info);
-+void qed_link_update(struct qed_hwfn *hwfn);
- u32 qed_unzip_data(struct qed_hwfn *p_hwfn,
- 		   u32 input_len, u8 *input_buf,
- 		   u32 max_size, u8 *unzip_buf);
+ 	/* QM init */
+ 	struct qed_qm_info		qm_info;
++	struct qed_storm_stats		storm_stats;
+ 
+ 	/* Buffer for unzipping firmware data */
+ 	void				*unzip_buf;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 30408b7..cde72e2 100644
+index cde72e2..3993584 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1040,8 +1040,9 @@ static void qed_hw_get_resc(struct qed_hwfn *p_hwfn)
- static int qed_hw_get_nvm_info(struct qed_hwfn	*p_hwfn,
- 			       struct qed_ptt	*p_ptt)
+@@ -647,8 +647,10 @@ int qed_hw_init(struct qed_dev *cdev,
+ 		bool allow_npar_tx_switch,
+ 		const u8 *bin_fw_data)
  {
--	u32 nvm_cfg1_offset, mf_mode, addr, generic_cont0;
--	u32 val;
-+	u32 nvm_cfg1_offset, mf_mode, addr, generic_cont0, core_cfg;
-+	struct qed_mcp_link_params *link;
-+	u32 port_cfg_addr, link_temp, val;
+-	u32 load_code, param;
++	struct qed_storm_stats *p_stat;
++	u32 load_code, param, *p_address;
+ 	int rc, mfw_rc, i;
++	u8 fw_vport = 0;
  
- 	/* Read global nvm_cfg address */
- 	u32 nvm_cfg_addr = qed_rd(p_hwfn, p_ptt, MISC_REG_GEN_PURP_CR0);
-@@ -1061,6 +1062,48 @@ static int qed_hw_get_nvm_info(struct qed_hwfn	*p_hwfn,
- 	       offsetof(struct nvm_cfg1_glob, pci_id);
- 	p_hwfn->hw_info.vendor_id = qed_rd(p_hwfn, p_ptt, addr) &
- 				    NVM_CFG1_GLOB_VENDOR_ID_MASK;
-+
-+	addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
-+	       offsetof(struct nvm_cfg1, glob) +
-+	       offsetof(struct nvm_cfg1_glob, core_cfg);
-+
-+	core_cfg = qed_rd(p_hwfn, p_ptt, addr);
-+
-+	switch ((core_cfg & NVM_CFG1_GLOB_NETWORK_PORT_MODE_MASK) >>
-+		NVM_CFG1_GLOB_NETWORK_PORT_MODE_OFFSET) {
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_2X40G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_2X40G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_2X50G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_2X50G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_1X100G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_1X100G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_4X10G_F:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_4X10G_F;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_4X10G_E:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_4X10G_E;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_4X20G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_4X20G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_1X40G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_1X40G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_2X25G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_2X25G;
-+		break;
-+	case NVM_CFG1_GLOB_NETWORK_PORT_MODE_DE_1X25G:
-+		p_hwfn->hw_info.port_mode = QED_PORT_MODE_DE_1X25G;
-+		break;
-+	default:
-+		DP_NOTICE(p_hwfn, "Unknown port mode in 0x%08x\n",
-+			  core_cfg);
-+		break;
-+	}
-+
- 	addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
- 	       offsetof(struct nvm_cfg1, func[MCP_PF_ID(p_hwfn)]) +
- 	       offsetof(struct nvm_cfg1_func, device_id);
-@@ -1076,6 +1119,65 @@ static int qed_hw_get_nvm_info(struct qed_hwfn	*p_hwfn,
- 			NVM_CFG1_FUNC_VENDOR_DEVICE_ID_OFFSET;
- 	}
+ 	rc = qed_init_fw_data(cdev, bin_fw_data);
+ 	if (rc != 0)
+@@ -657,6 +659,10 @@ int qed_hw_init(struct qed_dev *cdev,
+ 	for_each_hwfn(cdev, i) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
  
-+	/* Read default link configuration */
-+	link = &p_hwfn->mcp_info->link_input;
-+	port_cfg_addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
-+			offsetof(struct nvm_cfg1, port[MFW_PORT(p_hwfn)]);
-+	link_temp = qed_rd(p_hwfn, p_ptt,
-+			   port_cfg_addr +
-+			   offsetof(struct nvm_cfg1_port, speed_cap_mask));
-+	link->speed.advertised_speeds =
-+		link_temp & NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_MASK;
-+
-+	p_hwfn->mcp_info->link_capabilities.speed_capabilities =
-+						link->speed.advertised_speeds;
-+
-+	link_temp = qed_rd(p_hwfn, p_ptt,
-+			   port_cfg_addr +
-+			   offsetof(struct nvm_cfg1_port, link_settings));
-+	switch ((link_temp & NVM_CFG1_PORT_DRV_LINK_SPEED_MASK) >>
-+		NVM_CFG1_PORT_DRV_LINK_SPEED_OFFSET) {
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_AUTONEG:
-+		link->speed.autoneg = true;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_1G:
-+		link->speed.forced_speed = 1000;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_10G:
-+		link->speed.forced_speed = 10000;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_25G:
-+		link->speed.forced_speed = 25000;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_40G:
-+		link->speed.forced_speed = 40000;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_50G:
-+		link->speed.forced_speed = 50000;
-+		break;
-+	case NVM_CFG1_PORT_DRV_LINK_SPEED_100G:
-+		link->speed.forced_speed = 100000;
-+		break;
-+	default:
-+		DP_NOTICE(p_hwfn, "Unknown Speed in 0x%08x\n",
-+			  link_temp);
-+	}
-+
-+	link_temp &= NVM_CFG1_PORT_DRV_FLOW_CONTROL_MASK;
-+	link_temp >>= NVM_CFG1_PORT_DRV_FLOW_CONTROL_OFFSET;
-+	link->pause.autoneg = !!(link_temp &
-+				 NVM_CFG1_PORT_DRV_FLOW_CONTROL_AUTONEG);
-+	link->pause.forced_rx = !!(link_temp &
-+				   NVM_CFG1_PORT_DRV_FLOW_CONTROL_RX);
-+	link->pause.forced_tx = !!(link_temp &
-+				   NVM_CFG1_PORT_DRV_FLOW_CONTROL_TX);
-+	link->loopback_mode = 0;
-+
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
-+		   "Read default link: Speed 0x%08x, Adv. Speed 0x%08x, AN: 0x%02x, PAUSE AN: 0x%02x\n",
-+		   link->speed.forced_speed, link->speed.advertised_speeds,
-+		   link->speed.autoneg, link->pause.autoneg);
-+
- 	/* Read Multi-function information from shmem */
- 	addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
- 	       offsetof(struct nvm_cfg1, glob) +
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 4152c04..fbae11e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -39,10 +39,217 @@ struct qed_sb_sp_info {
- 	struct qed_pi_info	pi_info_arr[PIS_PER_SB];
- };
- 
-+#define SB_ATTN_ALIGNED_SIZE(p_hwfn) \
-+	ALIGNED_TYPE_SIZE(struct atten_status_block, p_hwfn)
-+
-+#define ATTN_STATE_BITS (0xfff)
-+#define ATTN_BITS_MASKABLE      (0x3ff)
-+struct qed_sb_attn_info {
-+	/* Virtual & Physical address of the SB */
-+	struct atten_status_block       *sb_attn;
-+	dma_addr_t		      sb_phys;
-+
-+	/* Last seen running index */
-+	u16			     index;
-+
-+	/* Previously asserted attentions, which are still unasserted */
-+	u16			     known_attn;
-+
-+	/* Cleanup address for the link's general hw attention */
-+	u32			     mfw_attn_addr;
-+};
-+
-+static inline u16 qed_attn_update_idx(struct qed_hwfn	   *p_hwfn,
-+				      struct qed_sb_attn_info   *p_sb_desc)
-+{
-+	u16     rc = 0;
-+	u16     index;
-+
-+	mmiowb();
-+
-+	index = le16_to_cpu(p_sb_desc->sb_attn->sb_index);
-+	if (p_sb_desc->index != index) {
-+		p_sb_desc->index	= index;
-+		rc		      = QED_SB_ATT_IDX;
-+	}
-+
-+	mmiowb();
-+
-+	return rc;
-+}
-+
-+/**
-+ *  @brief qed_int_assertion - handles asserted attention bits
-+ *
-+ *  @param p_hwfn
-+ *  @param asserted_bits newly asserted bits
-+ *  @return int
-+ */
-+static int qed_int_assertion(struct qed_hwfn    *p_hwfn,
-+			     u16		asserted_bits)
-+{
-+	struct qed_sb_attn_info *sb_attn_sw = p_hwfn->p_sb_attn;
-+	u32		     igu_mask;
-+
-+	/* Mask the source of the attention in the IGU */
-+	igu_mask = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
-+			  IGU_REG_ATTENTION_ENABLE);
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR, "IGU mask: 0x%08x --> 0x%08x\n",
-+		   igu_mask, igu_mask & ~(asserted_bits & ATTN_BITS_MASKABLE));
-+	igu_mask &= ~(asserted_bits & ATTN_BITS_MASKABLE);
-+	qed_wr(p_hwfn, p_hwfn->p_dpc_ptt, IGU_REG_ATTENTION_ENABLE, igu_mask);
-+
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+		   "inner known ATTN state: 0x%04x --> 0x%04x\n",
-+		   sb_attn_sw->known_attn,
-+		   sb_attn_sw->known_attn | asserted_bits);
-+	sb_attn_sw->known_attn |= asserted_bits;
-+
-+	/* Handle MCP events */
-+	if (asserted_bits & 0x100) {
-+		qed_mcp_handle_events(p_hwfn, p_hwfn->p_dpc_ptt);
-+		/* Clean the MCP attention */
-+		qed_wr(p_hwfn, p_hwfn->p_dpc_ptt,
-+		       sb_attn_sw->mfw_attn_addr, 0);
-+	}
-+
-+	/* FIXME - this will change once we'll have GOOD gtt definitions */
-+	DIRECT_REG_WR(
-+		(u8 __iomem *)p_hwfn->regview + GTT_BAR0_MAP_REG_IGU_CMD +
-+		((IGU_CMD_ATTN_BIT_SET_UPPER - IGU_CMD_INT_ACK_BASE) << 3),
-+		(u32)asserted_bits);
-+
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR, "set cmd IGU: 0x%04x\n",
-+		   asserted_bits);
-+
-+	return 0;
-+}
-+
-+/**
-+ * @brief - handles deassertion of previously asserted attentions.
-+ *
-+ * @param p_hwfn
-+ * @param deasserted_bits - newly deasserted bits
-+ * @return int
-+ *
-+ */
-+static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
-+			       u16	      deasserted_bits)
-+{
-+	struct qed_sb_attn_info *sb_attn_sw = p_hwfn->p_sb_attn;
-+	u32 aeu_mask;
-+
-+	if (deasserted_bits != 0x100)
-+		DP_ERR(p_hwfn, "Unexpected - non-link deassertion\n");
-+
-+	/* Clear IGU indication for the deasserted bits */
-+	/* FIXME - this will change once we'll have GOOD gtt definitions */
-+	DIRECT_REG_WR(
-+		(u8 __iomem *)p_hwfn->regview + GTT_BAR0_MAP_REG_IGU_CMD +
-+		((IGU_CMD_ATTN_BIT_CLR_UPPER - IGU_CMD_INT_ACK_BASE) << 3),
-+		~((u32)deasserted_bits));
-+
-+	/* Unmask deasserted attentions in IGU */
-+	aeu_mask = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
-+			  IGU_REG_ATTENTION_ENABLE);
-+	aeu_mask |= (deasserted_bits & ATTN_BITS_MASKABLE);
-+	qed_wr(p_hwfn, p_hwfn->p_dpc_ptt, IGU_REG_ATTENTION_ENABLE, aeu_mask);
-+
-+	/* Clear deassertion from inner state */
-+	sb_attn_sw->known_attn &= ~deasserted_bits;
-+
-+	return 0;
-+}
-+
-+static int qed_int_attentions(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_sb_attn_info	 *p_sb_attn_sw   = p_hwfn->p_sb_attn;
-+	struct atten_status_block       *p_sb_attn      = p_sb_attn_sw->sb_attn;
-+	u32			     attn_bits       = 0, attn_acks = 0;
-+	u16			     index	   = 0, asserted_bits,
-+					deasserted_bits;
-+	int			     rc = 0;
-+
-+	/* Read current attention bits/acks - safeguard against attentions
-+	 * by guaranting work on a synchronized timeframe
-+	 */
-+	do {
-+		index	   = le16_to_cpu(p_sb_attn->sb_index);
-+		attn_bits       = le32_to_cpu(p_sb_attn->atten_bits);
-+		attn_acks       = le32_to_cpu(p_sb_attn->atten_ack);
-+	} while (index != le16_to_cpu(p_sb_attn->sb_index));
-+	p_sb_attn->sb_index = index;
-+
-+	/* Attention / Deassertion are meaningful (and in correct state)
-+	 * only when they differ and consistent with known state - deassertion
-+	 * when previous attention & current ack, and assertion when current
-+	 * attention with no previous attention
-+	 */
-+	asserted_bits = (attn_bits & ~attn_acks & ATTN_STATE_BITS) &
-+		~p_sb_attn_sw->known_attn;
-+	deasserted_bits = (~attn_bits & attn_acks & ATTN_STATE_BITS) &
-+		p_sb_attn_sw->known_attn;
-+
-+	if ((asserted_bits & ~0x100) || (deasserted_bits & ~0x100)) {
-+		DP_INFO(
-+			p_hwfn,
-+			"Attention: Index: 0x%04x, Bits: 0x%08x, Acks: 0x%08x, asserted: 0x%04x, De-asserted 0x%04x [Prev. known: 0x%04x]\n",
-+			index,
-+			attn_bits,
-+			attn_acks,
-+			asserted_bits,
-+			deasserted_bits,
-+			p_sb_attn_sw->known_attn);
-+	} else if (asserted_bits == 0x100) {
-+		DP_INFO(p_hwfn,
-+			"MFW indication via attention\n");
-+	} else {
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+			   "MFW indication [deassertion]\n");
-+	}
-+
-+	if (asserted_bits) {
-+		rc = qed_int_assertion(p_hwfn, asserted_bits);
-+		if (rc)
++		rc = qed_fw_vport(p_hwfn, 0, &fw_vport);
++		if (rc != 0)
 +			return rc;
-+	}
 +
-+	if (deasserted_bits) {
-+		rc = qed_int_deassertion(p_hwfn, deasserted_bits);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	return rc;
-+}
-+
-+static void qed_sb_ack_attn(struct qed_hwfn     *p_hwfn,
-+			    void __iomem	*igu_addr,
-+			    u32		 ack_cons)
-+{
-+	struct igu_prod_cons_update igu_ack = { 0 };
-+
-+	igu_ack.sb_id_and_flags =
-+		((ack_cons << IGU_PROD_CONS_UPDATE_SB_INDEX_SHIFT) |
-+		 (1 << IGU_PROD_CONS_UPDATE_UPDATE_FLAG_SHIFT) |
-+		 (IGU_INT_NOP << IGU_PROD_CONS_UPDATE_ENABLE_INT_SHIFT) |
-+		 (IGU_SEG_ACCESS_ATTN <<
-+		  IGU_PROD_CONS_UPDATE_SEGMENT_ACCESS_SHIFT));
-+
-+	DIRECT_REG_WR(igu_addr, igu_ack.sb_id_and_flags);
-+
-+	/* Both segments (interrupts & acks) are written to same place address;
-+	 * Need to guarantee all commands will be received (in-order) by HW.
-+	 */
-+	mmiowb();
-+	barrier();
-+}
-+
- void qed_int_sp_dpc(unsigned long hwfn_cookie)
- {
- 	struct qed_hwfn		*p_hwfn = (struct qed_hwfn *)hwfn_cookie;
- 	struct qed_sb_info	*sb_info;
-+	struct qed_sb_attn_info *sb_attn;
- 	struct qed_pi_info	*pi_info	= NULL;
- 	u16			rc		= 0;
- 	static int		arr_size;
-@@ -65,6 +272,12 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
- 		return;
- 	}
+ 		/* Enable DMAE in PXP */
+ 		rc = qed_change_pci_hwfn(p_hwfn, p_hwfn->p_main_ptt, true);
  
-+	if (!p_hwfn->p_sb_attn) {
-+		DP_ERR(p_hwfn->cdev, "DPC called - no p_sb_attn");
-+		return;
-+	}
-+	sb_attn = p_hwfn->p_sb_attn;
-+
- 	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR, "DPC Called! (hwfn %p %d)\n",
- 		   p_hwfn, p_hwfn->my_id);
- 
-@@ -87,6 +300,19 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
- 			   tmp_index, sb_info->sb_ack);
- 	}
- 
-+	if (!sb_attn || !sb_attn->sb_attn) {
-+		DP_ERR(
-+			p_hwfn->cdev,
-+			"Attentions Status block is NULL - cannot check for new attentions!\n");
-+	} else {
-+		u16 tmp_index = sb_attn->index;
-+
-+		rc |= qed_attn_update_idx(p_hwfn, sb_attn);
-+		DP_VERBOSE(p_hwfn->cdev, NETIF_MSG_INTR,
-+			   "Attention indices: 0x%08x --> 0x%08x\n",
-+			   tmp_index, sb_attn->index);
-+	}
-+
- 	/* Check if we expect interrupts at this time. if not just ack them */
- 	if (!(rc & QED_SB_EVENT_MASK)) {
- 		qed_sb_ack(sb_info, IGU_INT_ENABLE, 1);
-@@ -100,6 +326,9 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
- 		return;
- 	}
- 
-+	if (rc & QED_SB_ATT_IDX)
-+		qed_int_attentions(p_hwfn);
-+
- 	if (rc & QED_SB_IDX) {
- 		int pi;
- 
-@@ -111,9 +340,97 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
+@@ -723,6 +729,25 @@ int qed_hw_init(struct qed_dev *cdev,
  		}
+ 
+ 		p_hwfn->hw_init_done = true;
++
++		/* init PF stats */
++		p_stat = &p_hwfn->storm_stats;
++		p_stat->mstats.address = BAR0_MAP_REG_MSDM_RAM +
++					 MSTORM_QUEUE_STAT_OFFSET(fw_vport);
++		p_stat->mstats.len = sizeof(struct eth_mstorm_per_queue_stat);
++
++		p_stat->ustats.address = BAR0_MAP_REG_USDM_RAM +
++					 USTORM_QUEUE_STAT_OFFSET(fw_vport);
++		p_stat->ustats.len = sizeof(struct eth_ustorm_per_queue_stat);
++
++		p_stat->pstats.address = BAR0_MAP_REG_PSDM_RAM +
++					 PSTORM_QUEUE_STAT_OFFSET(fw_vport);
++		p_stat->pstats.len = sizeof(struct eth_pstorm_per_queue_stat);
++
++		p_address = &p_stat->tstats.address;
++		*p_address = BAR0_MAP_REG_TSDM_RAM +
++			     TSTORM_PORT_STAT_OFFSET(MFW_PORT(p_hwfn));
++		p_stat->tstats.len = sizeof(struct tstorm_per_port_stat);
  	}
  
-+	if (sb_attn && (rc & QED_SB_ATT_IDX))
-+		/* This should be done before the interrupts are enabled,
-+		 * since otherwise a new attention will be generated.
-+		 */
-+		qed_sb_ack_attn(p_hwfn, sb_info->igu_addr, sb_attn->index);
-+
- 	qed_sb_ack(sb_info, IGU_INT_ENABLE, 1);
- }
- 
-+static void qed_int_sb_attn_free(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_dev	  *cdev   = p_hwfn->cdev;
-+	struct qed_sb_attn_info *p_sb   = p_hwfn->p_sb_attn;
-+
-+	if (p_sb) {
-+		if (p_sb->sb_attn)
-+			dma_free_coherent(&cdev->pdev->dev,
-+					  SB_ATTN_ALIGNED_SIZE(p_hwfn),
-+					  p_sb->sb_attn,
-+					  p_sb->sb_phys);
-+		kfree(p_sb);
-+	}
-+}
-+
-+static void qed_int_sb_attn_setup(struct qed_hwfn       *p_hwfn,
-+				  struct qed_ptt	*p_ptt)
-+{
-+	struct qed_sb_attn_info *sb_info = p_hwfn->p_sb_attn;
-+
-+	memset(sb_info->sb_attn, 0, sizeof(*sb_info->sb_attn));
-+
-+	sb_info->index	  = 0;
-+	sb_info->known_attn     = 0;
-+
-+	/* Configure Attention Status Block in IGU */
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_ATTN_MSG_ADDR_L,
-+	       DMA_LO(p_hwfn->p_sb_attn->sb_phys));
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_ATTN_MSG_ADDR_H,
-+	       DMA_HI(p_hwfn->p_sb_attn->sb_phys));
-+}
-+
-+static void qed_int_sb_attn_init(struct qed_hwfn	*p_hwfn,
-+				 struct qed_ptt	 *p_ptt,
-+				 void		   *sb_virt_addr,
-+				 dma_addr_t	     sb_phy_addr)
-+{
-+	struct qed_sb_attn_info *sb_info = p_hwfn->p_sb_attn;
-+
-+	sb_info->sb_attn	= sb_virt_addr;
-+	sb_info->sb_phys	= sb_phy_addr;
-+
-+	/* Set the address of cleanup for the mcp attention */
-+	sb_info->mfw_attn_addr = (p_hwfn->rel_pf_id << 3) +
-+		MISC_REG_AEU_GENERAL_ATTN_0;
-+
-+	qed_int_sb_attn_setup(p_hwfn, p_ptt);
-+}
-+
-+static int qed_int_sb_attn_alloc(struct qed_hwfn	*p_hwfn,
-+				 struct qed_ptt	 *p_ptt)
-+{
-+	struct qed_dev	  *cdev = p_hwfn->cdev;
-+	struct qed_sb_attn_info *p_sb;
-+	void		    *p_virt;
-+	dma_addr_t	      p_phys = 0;
-+
-+	/* SB struct */
-+	p_sb = kmalloc(sizeof(*p_sb), GFP_ATOMIC);
-+	if (!p_sb) {
-+		DP_NOTICE(cdev, "Failed to allocate `struct qed_sb_attn_info'\n");
-+		return -ENOMEM;
-+	}
-+
-+	/* SB ring  */
-+	p_virt =
-+		dma_alloc_coherent(&cdev->pdev->dev, SB_ATTN_ALIGNED_SIZE(
-+					   p_hwfn), &p_phys, GFP_KERNEL);
-+
-+	if (!p_virt) {
-+		DP_NOTICE(cdev, "Failed to allocate status block (attentions)\n");
-+		kfree(p_sb);
-+		return -ENOMEM;
-+	}
-+
-+	/* Attention setup */
-+	p_hwfn->p_sb_attn = p_sb;
-+	qed_int_sb_attn_init(p_hwfn, p_ptt, p_virt, p_phys);
-+
-+	return 0;
-+}
-+
- /* coalescing timeout = timeset << (timer_res + 1) */
- #define QED_CAU_DEF_RX_USECS 24
- #define QED_CAU_DEF_TX_USECS 48
-@@ -403,6 +720,13 @@ static void qed_int_sp_sb_setup(struct qed_hwfn *p_hwfn,
- 		DP_NOTICE(
- 			p_hwfn->cdev,
- 			"Failed to setup Slow path status block - NULL pointer\n");
-+
-+	if (p_hwfn->p_sb_attn)
-+		qed_int_sb_attn_setup(p_hwfn, p_ptt);
-+	else
-+		DP_NOTICE(
-+			p_hwfn->cdev,
-+			"Failed to setup attentions status block - NULL pointer\n");
- }
- 
- int qed_int_register_cb(struct qed_hwfn		*p_hwfn,
-@@ -455,7 +779,7 @@ void qed_int_igu_enable_int(struct qed_hwfn	*p_hwfn,
- 			    struct qed_ptt	*p_ptt,
- 			    enum qed_int_mode	int_mode)
- {
--	u32 igu_pf_conf = IGU_PF_CONF_FUNC_EN;
-+	u32 igu_pf_conf = IGU_PF_CONF_FUNC_EN | IGU_PF_CONF_ATTN_BIT_EN;
- 
- 	p_hwfn->cdev->int_mode = int_mode;
- 	switch (p_hwfn->cdev->int_mode) {
-@@ -495,8 +819,15 @@ void qed_int_igu_enable(struct qed_hwfn		*p_hwfn,
- 	/* Enable interrupt Generation */
- 	qed_int_igu_enable_int(p_hwfn, p_ptt, int_mode);
- 
-+	/* Configure AEU signal change to produce attentions for link */
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_LEADING_EDGE_LATCH, 0xfff);
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_TRAILING_EDGE_LATCH, 0xfff);
-+
- 	/* Flush the writes to IGU */
- 	mmiowb();
-+
-+	/* Unmask AEU signals toward IGU */
-+	qed_wr(p_hwfn, p_ptt, MISC_REG_AEU_MASK_ATTN_IGU, 0xff);
- }
- 
- void qed_int_igu_disable_int(struct qed_hwfn	*p_hwfn,
-@@ -806,13 +1137,18 @@ int qed_int_alloc(struct qed_hwfn	*p_hwfn,
- 		DP_ERR(p_hwfn->cdev, "Failed to allocate sp sb mem\n");
- 		return rc;
- 	}
--
-+	rc = qed_int_sb_attn_alloc(p_hwfn, p_ptt);
-+	if (rc) {
-+		DP_ERR(p_hwfn->cdev, "Failed to allocate sb attn mem\n");
-+		return rc;
-+	}
- 	return rc;
- }
- 
- void qed_int_free(struct qed_hwfn *p_hwfn)
- {
- 	qed_int_sp_sb_free(p_hwfn);
-+	qed_int_sb_attn_free(p_hwfn);
- 	qed_int_sp_dpc_free(p_hwfn);
- }
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 71f21dc..e4747c6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1314,6 +1314,14 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
  	return 0;
+@@ -1503,6 +1528,223 @@ void qed_chain_free(struct qed_dev *cdev,
+ 			  p_chain->p_phys_addr);
  }
  
-+static void qed_register_eth_ops(struct qed_dev		*cdev,
-+				 struct qed_eth_cb_ops	*ops,
-+				 void			*cookie)
++static void __qed_get_vport_stats(struct qed_dev	*cdev,
++				  struct qed_eth_stats  *stats)
 +{
-+	cdev->protocol_ops.eth	= ops;
-+	cdev->ops_cookie	= cookie;
-+}
++	int i, j;
 +
- static int qed_start_vport(struct qed_dev	*cdev,
- 			   u8			vport_id,
- 			   u16			mtu,
-@@ -1728,6 +1736,7 @@ static int qed_fp_cqe_completion(struct qed_dev			*dev,
- static const struct qed_eth_ops qed_eth_ops_pass = {
- 	.common = &qed_common_ops_pass,
- 	.fill_dev_info = &qed_fill_eth_dev_info,
-+	.register_ops = &qed_register_eth_ops,
- 	.vport_start = &qed_start_vport,
- 	.vport_stop = &qed_stop_vport,
- 	.vport_update = &qed_update_vport,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 0e0a1d1..6590ebc 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -956,6 +956,216 @@ static u32 qed_sb_release(struct qed_dev *cdev,
- 	return rc;
- }
- 
-+static int qed_set_link(struct qed_dev *cdev,
-+			struct qed_link_params *params)
-+{
-+	struct qed_hwfn *hwfn;
-+	struct qed_mcp_link_params *link_params;
-+	struct qed_ptt *ptt;
-+	int rc;
++	memset(stats, 0, sizeof(*stats));
 +
-+	if (!cdev)
-+		return -ENODEV;
++	for_each_hwfn(cdev, i) {
++		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
++		struct eth_mstorm_per_queue_stat mstats;
++		struct eth_ustorm_per_queue_stat ustats;
++		struct eth_pstorm_per_queue_stat pstats;
++		struct tstorm_per_port_stat tstats;
++		struct port_stats port_stats;
++		struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
 +
-+	/* The link should be set only once per PF */
-+	hwfn = &cdev->hwfns[0];
-+
-+	ptt = qed_ptt_acquire(hwfn);
-+	if (!ptt)
-+		return -EBUSY;
-+
-+	link_params = qed_mcp_get_link_params(hwfn);
-+	if (params->override_flags & QED_LINK_OVERRIDE_SPEED_AUTONEG)
-+		link_params->speed.autoneg = params->autoneg;
-+	if (params->override_flags & QED_LINK_OVERRIDE_SPEED_ADV_SPEEDS) {
-+		link_params->speed.advertised_speeds = 0;
-+		if ((params->adv_speeds & SUPPORTED_1000baseT_Half) ||
-+		    (params->adv_speeds & SUPPORTED_1000baseT_Full))
-+			link_params->speed.advertised_speeds |=
-+				NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_1G;
-+		if (params->adv_speeds & SUPPORTED_10000baseKR_Full)
-+			link_params->speed.advertised_speeds |=
-+				NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_10G;
-+		if (params->adv_speeds & SUPPORTED_40000baseLR4_Full)
-+			link_params->speed.advertised_speeds |=
-+				NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_40G;
-+		if (params->adv_speeds & 0)
-+			link_params->speed.advertised_speeds |=
-+				NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_50G;
-+		if (params->adv_speeds & 0)
-+			link_params->speed.advertised_speeds |=
-+				NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_100G;
-+	}
-+	if (params->override_flags & QED_LINK_OVERRIDE_SPEED_FORCED_SPEED)
-+		link_params->speed.forced_speed = params->forced_speed;
-+
-+	/* TODO - override default values */
-+	rc = qed_mcp_set_link(hwfn, ptt, params->link_up);
-+
-+	qed_ptt_release(hwfn, ptt);
-+
-+	return rc;
-+}
-+
-+static int qed_get_port_type(u32 media_type)
-+{
-+	int port_type;
-+
-+	switch (media_type) {
-+	case MEDIA_SFPP_10G_FIBER:
-+	case MEDIA_SFP_1G_FIBER:
-+	case MEDIA_XFP_FIBER:
-+	case MEDIA_KR:
-+		port_type = PORT_FIBRE;
-+		break;
-+	case MEDIA_DA_TWINAX:
-+		port_type = PORT_DA;
-+		break;
-+	case MEDIA_BASE_T:
-+		port_type = PORT_TP;
-+		break;
-+	case MEDIA_NOT_PRESENT:
-+		port_type = PORT_NONE;
-+		break;
-+	case MEDIA_UNSPECIFIED:
-+	default:
-+		port_type = PORT_OTHER;
-+		break;
-+	}
-+	return port_type;
-+}
-+
-+static void qed_fill_link(struct qed_hwfn *hwfn,
-+			  struct qed_link_output *if_link)
-+{
-+	struct qed_mcp_link_params params;
-+	struct qed_mcp_link_state link;
-+	struct qed_mcp_link_capabilities link_caps;
-+	u32 media_type;
-+
-+	memset(if_link, 0, sizeof(*if_link));
-+
-+	/* Prepare source inputs */
-+	memcpy(&params, qed_mcp_get_link_params(hwfn), sizeof(params));
-+	memcpy(&link, qed_mcp_get_link_state(hwfn), sizeof(link));
-+	memcpy(&link_caps, qed_mcp_get_link_capabilities(hwfn),
-+	       sizeof(link_caps));
-+
-+	/* Set the link parameters to pass to protocol driver */
-+	if (link.link_up)
-+		if_link->link_up = true;
-+
-+	/* TODO - at the moment assume supported and advertised speed equal */
-+	if_link->supported_caps = SUPPORTED_FIBRE;
-+	if (params.speed.autoneg)
-+		if_link->supported_caps |= SUPPORTED_Autoneg;
-+	if (params.pause.autoneg ||
-+	    (params.pause.forced_rx && params.pause.forced_tx))
-+		if_link->supported_caps |= SUPPORTED_Asym_Pause;
-+	if (params.pause.autoneg || params.pause.forced_rx ||
-+	    params.pause.forced_tx)
-+		if_link->supported_caps |= SUPPORTED_Pause;
-+
-+	if_link->advertised_caps = if_link->supported_caps;
-+	if (params.speed.advertised_speeds &
-+	    NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_1G)
-+		if_link->advertised_caps |= SUPPORTED_1000baseT_Half |
-+					   SUPPORTED_1000baseT_Full;
-+	if (params.speed.advertised_speeds &
-+	    NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_10G)
-+		if_link->advertised_caps |= SUPPORTED_10000baseKR_Full;
-+	if (params.speed.advertised_speeds &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_40G)
-+		if_link->advertised_caps |= SUPPORTED_40000baseLR4_Full;
-+	if (params.speed.advertised_speeds &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_50G)
-+		if_link->advertised_caps |= 0;
-+	if (params.speed.advertised_speeds &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_100G)
-+		if_link->advertised_caps |= 0;
-+
-+	if (link_caps.speed_capabilities &
-+	    NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_1G)
-+		if_link->supported_caps |= SUPPORTED_1000baseT_Half |
-+					   SUPPORTED_1000baseT_Full;
-+	if (link_caps.speed_capabilities &
-+	    NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_10G)
-+		if_link->supported_caps |= SUPPORTED_10000baseKR_Full;
-+	if (link_caps.speed_capabilities &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_40G)
-+		if_link->supported_caps |= SUPPORTED_40000baseLR4_Full;
-+	if (link_caps.speed_capabilities &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_50G)
-+		if_link->supported_caps |= 0;
-+	if (link_caps.speed_capabilities &
-+		NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_100G)
-+		if_link->supported_caps |= 0;
-+
-+	if (link.link_up)
-+		if_link->speed = link.speed;
-+
-+	/* TODO - fill duplex properly */
-+	if_link->duplex = DUPLEX_FULL;
-+	qed_mcp_get_media_type(hwfn->cdev, &media_type);
-+	if_link->port = qed_get_port_type(media_type);
-+
-+	if_link->autoneg = params.speed.autoneg;
-+
-+	if (params.pause.autoneg)
-+		if_link->pause_config |= QED_LINK_PAUSE_AUTONEG_ENABLE;
-+	if (params.pause.forced_rx)
-+		if_link->pause_config |= QED_LINK_PAUSE_RX_ENABLE;
-+	if (params.pause.forced_tx)
-+		if_link->pause_config |= QED_LINK_PAUSE_TX_ENABLE;
-+
-+	/* Link partner capabilities */
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_1G_HD)
-+		if_link->lp_caps |= SUPPORTED_1000baseT_Half;
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_1G_FD)
-+		if_link->lp_caps |= SUPPORTED_1000baseT_Full;
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_10G)
-+		if_link->lp_caps |= SUPPORTED_10000baseKR_Full;
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_40G)
-+		if_link->lp_caps |= SUPPORTED_40000baseLR4_Full;
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_50G)
-+		if_link->lp_caps |= 0;
-+	if (link.partner_adv_speed &
-+	    QED_LINK_PARTNER_SPEED_100G)
-+		if_link->lp_caps |= 0;
-+
-+	if (link.an_complete)
-+		if_link->lp_caps |= SUPPORTED_Autoneg;
-+
-+	if (link.partner_adv_pause)
-+		if_link->lp_caps |= SUPPORTED_Pause;
-+	if (link.partner_adv_pause == QED_LINK_PARTNER_ASYMMETRIC_PAUSE ||
-+	    link.partner_adv_pause == QED_LINK_PARTNER_BOTH_PAUSE)
-+		if_link->lp_caps |= SUPPORTED_Asym_Pause;
-+}
-+
-+static void qed_get_current_link(struct qed_dev *cdev,
-+				 struct qed_link_output *if_link)
-+{
-+	qed_fill_link(&cdev->hwfns[0], if_link);
-+}
-+
-+void qed_link_update(struct qed_hwfn *hwfn)
-+{
-+	void *cookie = hwfn->cdev->ops_cookie;
-+	struct qed_common_cb_ops *op = hwfn->cdev->protocol_ops.common;
-+	struct qed_link_output if_link;
-+
-+	qed_fill_link(hwfn, &if_link);
-+
-+	if (IS_LEAD_HWFN(hwfn) && cookie)
-+		op->link_update(cookie, &if_link);
-+}
-+
- static int qed_drain(struct qed_dev *cdev)
- {
- 	struct qed_hwfn *hwfn;
-@@ -992,6 +1202,8 @@ const struct qed_common_ops qed_common_ops_pass = {
- 	.sb_release = &qed_sb_release,
- 	.simd_handler_config = &qed_simd_handler_config,
- 	.simd_handler_clean = &qed_simd_handler_clean,
-+	.set_link = &qed_set_link,
-+	.get_link = &qed_get_current_link,
- 	.drain = &qed_drain,
- 	.update_msglvl = &qed_init_dp,
- 	.chain_alloc = &qed_chain_alloc,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index bd68b9a..d9a9feb 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -384,6 +384,257 @@ int qed_mcp_load_req(struct qed_hwfn	*p_hwfn,
- 	return 0;
- }
- 
-+static void qed_mcp_handle_link_change(struct qed_hwfn	*p_hwfn,
-+				       struct qed_ptt	*p_ptt,
-+				       bool		b_reset)
-+{
-+	struct qed_mcp_link_state	*p_link;
-+	u32				status = 0;
-+
-+	p_link = &p_hwfn->mcp_info->link_output;
-+	memset(p_link, 0, sizeof(*p_link));
-+	if (!b_reset) {
-+		status = qed_rd(p_hwfn, p_ptt,
-+				p_hwfn->mcp_info->port_addr +
-+				offsetof(struct public_port, link_status));
-+		DP_VERBOSE(
-+			p_hwfn,
-+			(NETIF_MSG_LINK | QED_MSG_SP),
-+			"Received link update [0x%08x] from mfw [Addr 0x%x]\n",
-+			status,
-+			(u32)(p_hwfn->mcp_info->port_addr +
-+			      offsetof(struct public_port,
-+				       link_status)));
-+	} else {
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
-+			   "Resetting link indications\n");
-+		return;
-+	}
-+
-+	p_link->link_up = !!(status & LINK_STATUS_LINK_UP);
-+
-+	p_link->full_duplex = true;
-+	switch ((status & LINK_STATUS_SPEED_AND_DUPLEX_MASK)) {
-+	case LINK_STATUS_SPEED_AND_DUPLEX_100G:
-+		p_link->speed = 100000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_50G:
-+		p_link->speed = 50000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_40G:
-+		p_link->speed = 40000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_25G:
-+		p_link->speed = 25000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_20G:
-+		p_link->speed = 20000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_10G:
-+		p_link->speed = 10000;
-+		break;
-+	case LINK_STATUS_SPEED_AND_DUPLEX_1000THD:
-+		p_link->full_duplex = false;
-+	/* Fall-through */
-+	case LINK_STATUS_SPEED_AND_DUPLEX_1000TFD:
-+		p_link->speed = 1000;
-+		break;
-+	default:
-+		p_link->speed = 0;
-+	}
-+
-+	/* Correct speed according to bandwidth allocation */
-+	if (p_hwfn->mcp_info->func_info.bandwidth_max && p_link->speed) {
-+		p_link->speed = p_link->speed *
-+			p_hwfn->mcp_info->func_info.bandwidth_max /
-+			100;
-+		qed_init_pf_rl(p_hwfn, p_ptt, p_hwfn->rel_pf_id,
-+			       p_link->speed);
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
-+			   "Configured MAX bandwidth to be %08x Mb/sec\n",
-+			   p_link->speed);
-+	}
-+
-+	p_link->an =
-+		!!(status & LINK_STATUS_AUTO_NEGOTIATE_ENABLED);
-+	p_link->an_complete = !!(status &
-+				 LINK_STATUS_AUTO_NEGOTIATE_COMPLETE);
-+	p_link->parallel_detection = !!(status &
-+					LINK_STATUS_PARALLEL_DETECTION_USED);
-+	p_link->pfc_enabled = !!(status & LINK_STATUS_PFC_ENABLED);
-+
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_1G_FD : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_1000THD_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_1G_HD : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_10G_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_10G : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_20G_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_20G : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_40G_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_40G : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_50G_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_50G : 0;
-+	p_link->partner_adv_speed |=
-+		(status & LINK_STATUS_LINK_PARTNER_100G_CAPABLE) ?
-+		QED_LINK_PARTNER_SPEED_100G : 0;
-+
-+	p_link->partner_tx_flow_ctrl_en =
-+		!!(status & LINK_STATUS_TX_FLOW_CONTROL_ENABLED);
-+	p_link->partner_rx_flow_ctrl_en =
-+		!!(status & LINK_STATUS_RX_FLOW_CONTROL_ENABLED);
-+
-+	switch (status & LINK_STATUS_LINK_PARTNER_FLOW_CONTROL_MASK) {
-+	case LINK_STATUS_LINK_PARTNER_SYMMETRIC_PAUSE:
-+		p_link->partner_adv_pause = QED_LINK_PARTNER_SYMMETRIC_PAUSE;
-+		break;
-+	case LINK_STATUS_LINK_PARTNER_ASYMMETRIC_PAUSE:
-+		p_link->partner_adv_pause = QED_LINK_PARTNER_ASYMMETRIC_PAUSE;
-+		break;
-+	case LINK_STATUS_LINK_PARTNER_BOTH_PAUSE:
-+		p_link->partner_adv_pause = QED_LINK_PARTNER_BOTH_PAUSE;
-+		break;
-+	default:
-+		p_link->partner_adv_pause = 0;
-+	}
-+
-+	p_link->sfp_tx_fault = !!(status & LINK_STATUS_SFP_TX_FAULT);
-+
-+	qed_link_update(p_hwfn);
-+}
-+
-+int qed_mcp_set_link(struct qed_hwfn	*p_hwfn,
-+		     struct qed_ptt	*p_ptt,
-+		     bool		b_up)
-+{
-+	struct qed_mcp_link_params	*params = &p_hwfn->mcp_info->link_input;
-+	int				rc	= 0;
-+	u32				param	= 0, reply = 0, cmd;
-+	struct pmm_phy_cfg		phy_cfg;
-+	u32				i;
-+
-+	if (!qed_mcp_is_init(p_hwfn)) {
-+		DP_NOTICE(p_hwfn, "MFW is not initialized !\n");
-+		return -EBUSY;
-+	}
-+
-+	/* Set the shmem configuration according to params */
-+	memset(&phy_cfg, 0, sizeof(phy_cfg));
-+	cmd = b_up ? DRV_MSG_CODE_INIT_PHY : DRV_MSG_CODE_LINK_RESET;
-+	if (!params->speed.autoneg)
-+		phy_cfg.speed = params->speed.forced_speed;
-+	phy_cfg.pause |=
-+		(params->pause.autoneg) ? PMM_PAUSE_AUTONEG : 0;
-+	phy_cfg.pause		|= (params->pause.forced_rx) ? PMM_PAUSE_RX : 0;
-+	phy_cfg.pause		|= (params->pause.forced_tx) ? PMM_PAUSE_TX : 0;
-+	phy_cfg.adv_speed	= params->speed.advertised_speeds;
-+	phy_cfg.loopback_mode	= params->loopback_mode;
-+
-+	/* Write the requested configuration to shmem */
-+	for (i = 0; i < sizeof(phy_cfg); i += 4)
-+		qed_wr(p_hwfn, p_ptt,
-+		       p_hwfn->mcp_info->drv_mb_addr +
-+		       offsetof(struct public_drv_mb, union_data) + i,
-+		       ((u32 *)&phy_cfg)[i >> 2]);
-+
-+	if (b_up) {
-+		DP_VERBOSE(
-+			p_hwfn,
-+			NETIF_MSG_LINK,
-+			"Configuring Link: Speed 0x%08x, Pause 0x%08x, adv_speed 0x%08x, loopback 0x%08x, features 0x%08x\n",
-+			phy_cfg.speed,
-+			phy_cfg.pause,
-+			phy_cfg.adv_speed,
-+			phy_cfg.loopback_mode,
-+			phy_cfg.feature_config_flags);
-+	} else {
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
-+			   "Resetting link\n");
-+	}
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_SP, "fw_seq 0x%08x, drv_pulse 0x%x\n",
-+		   p_hwfn->mcp_info->drv_mb_seq,
-+		   p_hwfn->mcp_info->drv_pulse_seq);
-+
-+	/* Load Request */
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, cmd, 0, &reply, &param);
-+
-+	/* if mcp fails to respond we must abort */
-+	if (rc) {
-+		DP_ERR(p_hwfn, "MCP response failure, aborting\n");
-+		return rc;
-+	}
-+
-+	/* Reset the link status if needed */
-+	if (!b_up)
-+		qed_mcp_handle_link_change(p_hwfn, p_ptt, true);
-+
-+	return 0;
-+}
-+
-+int qed_mcp_handle_events(struct qed_hwfn	*p_hwfn,
-+			  struct qed_ptt	*p_ptt)
-+{
-+	struct qed_mcp_info	*info	= p_hwfn->mcp_info;
-+	int			rc	= 0;
-+	bool			found	= false;
-+	u16			i;
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_SP, "Received message from MFW\n");
-+
-+	/* Read Messages from MFW */
-+	qed_mcp_read_mb(p_hwfn, p_ptt);
-+
-+	/* Compare current messages to old ones */
-+	for (i = 0; i < info->mfw_mb_length; i++) {
-+		if (info->mfw_mb_cur[i] == info->mfw_mb_shadow[i])
++		if (!p_ptt) {
++			DP_ERR(p_hwfn, "Failed to acquire ptt\n");
 +			continue;
++		}
 +
-+		found = true;
++		memset(&mstats, 0, sizeof(mstats));
++		qed_memcpy_from(p_hwfn, p_ptt, &mstats,
++				p_hwfn->storm_stats.mstats.address,
++				p_hwfn->storm_stats.mstats.len);
 +
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
-+			   "Msg [%d] - old CMD 0x%02x, new CMD 0x%02x\n",
-+			   i, info->mfw_mb_shadow[i], info->mfw_mb_cur[i]);
++		memset(&ustats, 0, sizeof(ustats));
++		qed_memcpy_from(p_hwfn, p_ptt, &ustats,
++				p_hwfn->storm_stats.ustats.address,
++				p_hwfn->storm_stats.ustats.len);
 +
-+		switch (i) {
-+		case MFW_DRV_MSG_LINK_CHANGE:
-+			qed_mcp_handle_link_change(p_hwfn, p_ptt, false);
-+			break;
-+		default:
-+			DP_NOTICE(p_hwfn, "Unimplemented MFW message %d\n", i);
-+			rc = -EINVAL;
++		memset(&pstats, 0, sizeof(pstats));
++		qed_memcpy_from(p_hwfn, p_ptt, &pstats,
++				p_hwfn->storm_stats.pstats.address,
++				p_hwfn->storm_stats.pstats.len);
++
++		memset(&tstats, 0, sizeof(tstats));
++		qed_memcpy_from(p_hwfn, p_ptt, &tstats,
++				p_hwfn->storm_stats.tstats.address,
++				p_hwfn->storm_stats.tstats.len);
++
++		memset(&port_stats, 0, sizeof(port_stats));
++
++		if (p_hwfn->mcp_info)
++			qed_memcpy_from(p_hwfn, p_ptt, &port_stats,
++					p_hwfn->mcp_info->port_addr +
++					offsetof(struct public_port, stats),
++					sizeof(port_stats));
++		qed_ptt_release(p_hwfn, p_ptt);
++
++		stats->no_buff_discards +=
++			HILO_64_REGPAIR(mstats.no_buff_discard);
++		stats->packet_too_big_discard +=
++			HILO_64_REGPAIR(mstats.packet_too_big_discard);
++		stats->ttl0_discard +=
++			HILO_64_REGPAIR(mstats.ttl0_discard);
++		stats->tpa_coalesced_pkts +=
++			HILO_64_REGPAIR(mstats.tpa_coalesced_pkts);
++		stats->tpa_coalesced_events +=
++			HILO_64_REGPAIR(mstats.tpa_coalesced_events);
++		stats->tpa_aborts_num +=
++			HILO_64_REGPAIR(mstats.tpa_aborts_num);
++		stats->tpa_coalesced_bytes +=
++			HILO_64_REGPAIR(mstats.tpa_coalesced_bytes);
++
++		stats->rx_ucast_bytes +=
++			HILO_64_REGPAIR(ustats.rcv_ucast_bytes);
++		stats->rx_mcast_bytes +=
++			HILO_64_REGPAIR(ustats.rcv_mcast_bytes);
++		stats->rx_bcast_bytes +=
++			HILO_64_REGPAIR(ustats.rcv_bcast_bytes);
++		stats->rx_ucast_pkts +=
++			HILO_64_REGPAIR(ustats.rcv_ucast_pkts);
++		stats->rx_mcast_pkts +=
++			HILO_64_REGPAIR(ustats.rcv_mcast_pkts);
++		stats->rx_bcast_pkts +=
++			HILO_64_REGPAIR(ustats.rcv_bcast_pkts);
++
++		stats->mftag_filter_discards +=
++			HILO_64_REGPAIR(tstats.mftag_filter_discard);
++		stats->mac_filter_discards +=
++			HILO_64_REGPAIR(tstats.eth_mac_filter_discard);
++
++		stats->tx_ucast_bytes +=
++			HILO_64_REGPAIR(pstats.sent_ucast_bytes);
++		stats->tx_mcast_bytes +=
++			HILO_64_REGPAIR(pstats.sent_mcast_bytes);
++		stats->tx_bcast_bytes +=
++			HILO_64_REGPAIR(pstats.sent_bcast_bytes);
++		stats->tx_ucast_pkts +=
++			HILO_64_REGPAIR(pstats.sent_ucast_pkts);
++		stats->tx_mcast_pkts +=
++			HILO_64_REGPAIR(pstats.sent_mcast_pkts);
++		stats->tx_bcast_pkts +=
++			HILO_64_REGPAIR(pstats.sent_bcast_pkts);
++		stats->tx_err_drop_pkts +=
++			HILO_64_REGPAIR(pstats.error_drop_pkts);
++		stats->rx_64_byte_packets       += port_stats.pmm.r64;
++		stats->rx_127_byte_packets      += port_stats.pmm.r127;
++		stats->rx_255_byte_packets      += port_stats.pmm.r255;
++		stats->rx_511_byte_packets      += port_stats.pmm.r511;
++		stats->rx_1023_byte_packets     += port_stats.pmm.r1023;
++		stats->rx_1518_byte_packets     += port_stats.pmm.r1518;
++		stats->rx_1522_byte_packets     += port_stats.pmm.r1522;
++		stats->rx_2047_byte_packets     += port_stats.pmm.r2047;
++		stats->rx_4095_byte_packets     += port_stats.pmm.r4095;
++		stats->rx_9216_byte_packets     += port_stats.pmm.r9216;
++		stats->rx_16383_byte_packets    += port_stats.pmm.r16383;
++		stats->rx_crc_errors	    += port_stats.pmm.rfcs;
++		stats->rx_mac_crtl_frames       += port_stats.pmm.rxcf;
++		stats->rx_pause_frames	  += port_stats.pmm.rxpf;
++		stats->rx_pfc_frames	    += port_stats.pmm.rxpp;
++		stats->rx_align_errors	  += port_stats.pmm.raln;
++		stats->rx_carrier_errors	+= port_stats.pmm.rfcr;
++		stats->rx_oversize_packets      += port_stats.pmm.rovr;
++		stats->rx_jabbers	       += port_stats.pmm.rjbr;
++		stats->rx_undersize_packets     += port_stats.pmm.rund;
++		stats->rx_fragments	     += port_stats.pmm.rfrg;
++		stats->tx_64_byte_packets       += port_stats.pmm.t64;
++		stats->tx_65_to_127_byte_packets += port_stats.pmm.t127;
++		stats->tx_128_to_255_byte_packets += port_stats.pmm.t255;
++		stats->tx_256_to_511_byte_packets  += port_stats.pmm.t511;
++		stats->tx_512_to_1023_byte_packets += port_stats.pmm.t1023;
++		stats->tx_1024_to_1518_byte_packets += port_stats.pmm.t1518;
++		stats->tx_1519_to_2047_byte_packets += port_stats.pmm.t2047;
++		stats->tx_2048_to_4095_byte_packets += port_stats.pmm.t4095;
++		stats->tx_4096_to_9216_byte_packets += port_stats.pmm.t9216;
++		stats->tx_9217_to_16383_byte_packets += port_stats.pmm.t16383;
++		stats->tx_pause_frames	  += port_stats.pmm.txpf;
++		stats->tx_pfc_frames	    += port_stats.pmm.txpp;
++		stats->tx_lpi_entry_count       += port_stats.pmm.tlpiec;
++		stats->tx_total_collisions      += port_stats.pmm.tncl;
++		stats->rx_mac_bytes	     += port_stats.pmm.rbyte;
++		stats->rx_mac_uc_packets	+= port_stats.pmm.rxuca;
++		stats->rx_mac_mc_packets	+= port_stats.pmm.rxmca;
++		stats->rx_mac_bc_packets	+= port_stats.pmm.rxbca;
++		stats->rx_mac_frames_ok	 += port_stats.pmm.rxpok;
++		stats->tx_mac_bytes	     += port_stats.pmm.tbyte;
++		stats->tx_mac_uc_packets	+= port_stats.pmm.txuca;
++		stats->tx_mac_mc_packets	+= port_stats.pmm.txmca;
++		stats->tx_mac_bc_packets	+= port_stats.pmm.txbca;
++		stats->tx_mac_ctrl_frames       += port_stats.pmm.txcf;
++
++		for (j = 0; j < 8; j++) {
++			stats->brb_truncates += port_stats.brb.brb_truncate[j];
++			stats->brb_discards += port_stats.brb.brb_discard[j];
 +		}
 +	}
++}
 +
-+	/* ACK everything */
-+	for (i = 0; i < MFW_DRV_MSG_MAX_DWORDS(info->mfw_mb_length); i++) {
-+		__be32 val = cpu_to_be32(((u32 *)info->mfw_mb_cur)[i]);
++void qed_get_vport_stats(struct qed_dev *cdev,
++			 struct qed_eth_stats *stats)
++{
++	u32 i;
 +
-+		qed_wr(p_hwfn, p_ptt,
-+		       info->mfw_mb_addr + sizeof(u32) +
-+		       MFW_DRV_MSG_MAX_DWORDS(info->mfw_mb_length) *
-+		       sizeof(u32) + i * sizeof(u32), val);
++	if (!cdev) {
++		memset(stats, 0, sizeof(*stats));
++		return;
 +	}
 +
-+	if (!found) {
-+		DP_NOTICE(
-+			p_hwfn,
-+			"Received an MFW message indication but no new message!\n");
-+		rc = -EINVAL;
++	__qed_get_vport_stats(cdev, stats);
++
++	if (!cdev->reset_stats)
++		return;
++
++	/* Reduce the statistics baseline */
++	for (i = 0; i < sizeof(struct qed_eth_stats) / sizeof(u64); i++)
++		((u64 *)stats)[i] -= ((u64 *)cdev->reset_stats)[i];
++}
++
++/* zeroes V-PORT specific portion of stats (Port stats remains untouched) */
++void qed_reset_vport_stats(struct qed_dev *cdev)
++{
++	int i;
++
++	for_each_hwfn(cdev, i) {
++		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
++		struct eth_mstorm_per_queue_stat mstats;
++		struct eth_ustorm_per_queue_stat ustats;
++		struct eth_pstorm_per_queue_stat pstats;
++		struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
++
++		if (!p_ptt) {
++			DP_ERR(p_hwfn, "Failed to acquire ptt\n");
++			continue;
++		}
++
++		memset(&mstats, 0, sizeof(mstats));
++		qed_memcpy_to(p_hwfn, p_ptt,
++			      p_hwfn->storm_stats.mstats.address,
++			      &mstats,
++			      p_hwfn->storm_stats.mstats.len);
++
++		memset(&ustats, 0, sizeof(ustats));
++		qed_memcpy_to(p_hwfn, p_ptt,
++			      p_hwfn->storm_stats.ustats.address,
++			      &ustats,
++			      p_hwfn->storm_stats.ustats.len);
++
++		memset(&pstats, 0, sizeof(pstats));
++		qed_memcpy_to(p_hwfn, p_ptt,
++			      p_hwfn->storm_stats.pstats.address,
++			      &pstats,
++			      p_hwfn->storm_stats.pstats.len);
++
++		qed_ptt_release(p_hwfn, p_ptt);
 +	}
 +
-+	/* Copy the new mfw messages into the shadow */
-+	memcpy(info->mfw_mb_shadow, info->mfw_mb_cur, info->mfw_mb_length);
-+
-+	return rc;
++	/* PORT statistics are not necessarily reset, so we need to
++	 * read and create a baseline for future statistics.
++	 */
++	if (!cdev->reset_stats)
++		DP_INFO(cdev, "Reset stats not allocated\n");
++	else
++		__qed_get_vport_stats(cdev, cdev->reset_stats);
 +}
 +
- int qed_mcp_get_mfw_ver(struct qed_dev	*cdev,
- 			u32		*p_mfw_ver)
- {
-@@ -408,6 +659,31 @@ int qed_mcp_get_mfw_ver(struct qed_dev	*cdev,
- 	return 0;
- }
+ int qed_fw_l2_queue(struct qed_hwfn *p_hwfn,
+ 		    u16 src_id,
+ 		    u16 *dst_id)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+index 2207483..a8017aa 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+@@ -155,6 +155,9 @@ struct qed_ptt *qed_ptt_acquire(struct qed_hwfn *p_hwfn);
+  */
+ void qed_ptt_release(struct qed_hwfn	*p_hwfn,
+ 		     struct qed_ptt	*p_ptt);
++void qed_get_vport_stats(struct qed_dev *cdev,
++			 struct qed_eth_stats   *stats);
++void qed_reset_vport_stats(struct qed_dev *cdev);
  
-+int qed_mcp_get_media_type(struct qed_dev       *cdev,
-+			   u32		  *p_media_type)
-+{
-+	struct qed_hwfn *p_hwfn = &cdev->hwfns[0];
-+	struct qed_ptt  *p_ptt;
-+
-+	if (!qed_mcp_is_init(p_hwfn)) {
-+		DP_NOTICE(p_hwfn, "MFW is not initialized !\n");
-+		return -EBUSY;
-+	}
-+
-+	*p_media_type = MEDIA_UNSPECIFIED;
-+
-+	p_ptt = qed_ptt_acquire(p_hwfn);
-+	if (!p_ptt)
-+		return -EBUSY;
-+
-+	*p_media_type = qed_rd(p_hwfn, p_ptt, p_hwfn->mcp_info->port_addr +
-+			       offsetof(struct public_port, media_type));
-+
-+	qed_ptt_release(p_hwfn, p_ptt);
-+
-+	return 0;
-+}
-+
- static u32 qed_mcp_get_shmem_func(struct qed_hwfn	*p_hwfn,
- 				  struct qed_ptt	*p_ptt,
- 				  struct public_func	*p_data,
-@@ -532,6 +808,30 @@ int qed_mcp_fill_shmem_func_info(struct qed_hwfn	*p_hwfn,
- 	return 0;
- }
- 
-+struct qed_mcp_link_params
-+*qed_mcp_get_link_params(struct qed_hwfn *p_hwfn)
-+{
-+	if (!p_hwfn || !p_hwfn->mcp_info)
-+		return NULL;
-+	return &p_hwfn->mcp_info->link_input;
-+}
-+
-+struct qed_mcp_link_state
-+*qed_mcp_get_link_state(struct qed_hwfn *p_hwfn)
-+{
-+	if (!p_hwfn || !p_hwfn->mcp_info)
-+		return NULL;
-+	return &p_hwfn->mcp_info->link_output;
-+}
-+
-+struct qed_mcp_link_capabilities
-+*qed_mcp_get_link_capabilities(struct qed_hwfn *p_hwfn)
-+{
-+	if (!p_hwfn || !p_hwfn->mcp_info)
-+		return NULL;
-+	return &p_hwfn->mcp_info->link_capabilities;
-+}
-+
- int qed_mcp_drain(struct qed_hwfn	*p_hwfn,
- 		  struct qed_ptt	*p_ptt)
- {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 160f499..c328a63 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -14,6 +14,59 @@
- #include <linux/slab.h>
- #include "qed_hsi.h"
- 
-+struct qed_mcp_link_speed_params {
-+	bool    autoneg;
-+	u32     advertised_speeds;      /* bitmask of DRV_SPEED_CAPABILITY */
-+	u32     forced_speed;	   /* In Mb/s */
-+};
-+
-+struct qed_mcp_link_pause_params {
-+	bool    autoneg;
-+	bool    forced_rx;
-+	bool    forced_tx;
-+};
-+
-+struct qed_mcp_link_params {
-+	struct qed_mcp_link_speed_params	speed;
-+	struct qed_mcp_link_pause_params	pause;
-+	u32				     loopback_mode;
-+};
-+
-+struct qed_mcp_link_capabilities {
-+	u32 speed_capabilities;
-+};
-+
-+struct qed_mcp_link_state {
-+	bool    link_up;
-+
-+	u32     speed; /* In Mb/s */
-+	bool    full_duplex;
-+
-+	bool    an;
-+	bool    an_complete;
-+	bool    parallel_detection;
-+	bool    pfc_enabled;
-+
-+#define QED_LINK_PARTNER_SPEED_1G_HD    BIT(0)
-+#define QED_LINK_PARTNER_SPEED_1G_FD    BIT(1)
-+#define QED_LINK_PARTNER_SPEED_10G      BIT(2)
-+#define QED_LINK_PARTNER_SPEED_20G      BIT(3)
-+#define QED_LINK_PARTNER_SPEED_40G      BIT(4)
-+#define QED_LINK_PARTNER_SPEED_50G      BIT(5)
-+#define QED_LINK_PARTNER_SPEED_100G     BIT(6)
-+	u32     partner_adv_speed;
-+
-+	bool    partner_tx_flow_ctrl_en;
-+	bool    partner_rx_flow_ctrl_en;
-+
-+#define QED_LINK_PARTNER_SYMMETRIC_PAUSE (1)
-+#define QED_LINK_PARTNER_ASYMMETRIC_PAUSE (2)
-+#define QED_LINK_PARTNER_BOTH_PAUSE (3)
-+	u8      partner_adv_pause;
-+
-+	bool    sfp_tx_fault;
-+};
-+
- struct qed_mcp_function_info {
- 	u8				pause_on_host;
- 
-@@ -44,6 +97,47 @@ struct qed_mcp_drv_version {
+ enum qed_dmae_address_type_t {
+ 	QED_DMAE_ADDRESS_HOST_VIRT,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index f94b50c..72da343 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -354,6 +354,36 @@ struct core_conn_context {
+ 	struct regpair			ustorm_st_padding[2] /* padding */;
  };
  
- /**
-+ * @brief - returns the link params of the hw function
-+ *
-+ * @param p_hwfn
-+ *
-+ * @returns pointer to link params
-+ */
-+struct qed_mcp_link_params *qed_mcp_get_link_params(struct qed_hwfn *);
++struct eth_mstorm_per_queue_stat {
++	struct regpair  ttl0_discard;
++	struct regpair  packet_too_big_discard;
++	struct regpair  no_buff_discard;
++	struct regpair  not_active_discard;
++	struct regpair  tpa_coalesced_pkts;
++	struct regpair  tpa_coalesced_events;
++	struct regpair  tpa_aborts_num;
++	struct regpair  tpa_coalesced_bytes;
++};
 +
-+/**
-+ * @brief - return the link state of the hw function
-+ *
-+ * @param p_hwfn
-+ *
-+ * @returns pointer to link state
-+ */
-+struct qed_mcp_link_state *qed_mcp_get_link_state(struct qed_hwfn *);
++struct eth_pstorm_per_queue_stat {
++	struct regpair  sent_ucast_bytes;
++	struct regpair  sent_mcast_bytes;
++	struct regpair  sent_bcast_bytes;
++	struct regpair  sent_ucast_pkts;
++	struct regpair  sent_mcast_pkts;
++	struct regpair  sent_bcast_pkts;
++	struct regpair  error_drop_pkts;
++};
 +
-+/**
-+ * @brief - return the link capabilities of the hw function
-+ *
-+ * @param p_hwfn
-+ *
-+ * @returns pointer to link capabilities
-+ */
-+struct qed_mcp_link_capabilities
-+	*qed_mcp_get_link_capabilities(struct qed_hwfn *p_hwfn);
++struct eth_ustorm_per_queue_stat {
++	struct regpair  rcv_ucast_bytes;
++	struct regpair  rcv_mcast_bytes;
++	struct regpair  rcv_bcast_bytes;
++	struct regpair  rcv_ucast_pkts;
++	struct regpair  rcv_mcast_pkts;
++	struct regpair  rcv_bcast_pkts;
++};
 +
-+/**
-+ * @brief Request the MFW to set the the link according to 'link_input'.
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ * @param b_up - raise link if `true'. Reset link if `false'.
-+ *
-+ * @return int
-+ */
-+int qed_mcp_set_link(struct qed_hwfn   *p_hwfn,
-+		     struct qed_ptt     *p_ptt,
-+		     bool               b_up);
-+
-+/**
-  * @brief Get the management firmware version value
-  *
-  * @param cdev       - qed dev pointer
-@@ -55,6 +149,19 @@ int qed_mcp_get_mfw_ver(struct qed_dev	*cdev,
- 			u32		*mfw_ver);
+ /* Event Ring Next Page Address */
+ struct event_ring_next_addr {
+ 	struct regpair	addr /* Next Page Address */;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index e4747c6..e0d0dc1 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1353,6 +1353,8 @@ static int qed_start_vport(struct qed_dev	*cdev,
+ 			   vport_id, mtu);
+ 	}
  
- /**
-+ * @brief Get media type value of the port.
-+ *
-+ * @param cdev      - qed dev pointer
-+ * @param mfw_ver    - media type value
-+ *
-+ * @return int -
-+ *      0 - Operation was successul.
-+ *      -EBUSY - Operation failed
-+ */
-+int qed_mcp_get_media_type(struct qed_dev      *cdev,
-+			   u32                  *media_type);
++	qed_reset_vport_stats(cdev);
 +
-+/**
-  * @brief General function for sending commands to the MCP
-  *        mailbox. It acquire mutex lock for the entire
-  *        operation, from sending the request until the MCP
-@@ -141,8 +248,10 @@ struct qed_mcp_info {
- 	u32					port_addr;
- 	u16					drv_mb_seq;
- 	u16					drv_pulse_seq;
-+	struct qed_mcp_link_params		link_input;
-+	struct qed_mcp_link_state		link_output;
-+	struct qed_mcp_link_capabilities	link_capabilities;
- 	struct qed_mcp_function_info		func_info;
--
- 	u8					*mfw_mb_cur;
- 	u8					*mfw_mb_shadow;
- 	u16					mfw_mb_length;
-@@ -181,6 +290,21 @@ void qed_mcp_cmd_port_init(struct qed_hwfn	*p_hwfn,
- int qed_mcp_free(struct qed_hwfn *p_hwfn);
+ 	return 0;
+ }
  
- /**
-+ * @brief This function is called from the DPC context. After
-+ * pointing PTT to the mfw mb, check for events sent by the MCP
-+ * to the driver and ack them. In case a critical event
-+ * detected, it will be handled here, otherwise the work will be
-+ * queued to a sleepable work-queue.
-+ *
-+ * @param p_hwfn - HW function
-+ * @param p_ptt - PTT required for register access
-+ * @return int - 0 - operation
-+ * was successul.
-+ */
-+int qed_mcp_handle_events(struct qed_hwfn      *p_hwfn,
-+			  struct qed_ptt        *p_ptt);
-+
-+/**
-  * @brief Sends a LOAD_REQ to the MFW, and in case operation
-  *        succeed, returns whether this PF is the first on the
-  *        chip/engine/port or function. This function should be
+@@ -1747,6 +1749,7 @@ static const struct qed_eth_ops qed_eth_ops_pass = {
+ 	.filter_config = &qed_configure_filter,
+ 	.fastpath_stop = &qed_fastpath_stop,
+ 	.eth_cqe_completion = &qed_fp_cqe_completion,
++	.get_vport_stats = &qed_get_vport_stats,
+ };
+ 
+ const struct qed_eth_ops	*qed_get_eth_ops(u32 version)
 diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index aeb6855..cae4877 100644
+index cae4877..1244d22 100644
 --- a/include/linux/qed/qed_eth_if.h
 +++ b/include/linux/qed/qed_eth_if.h
-@@ -103,6 +103,10 @@ struct qed_eth_ops {
- 	int (*fill_dev_info)(struct qed_dev *cdev,
- 			     struct qed_dev_eth_info *info);
- 
-+	void (*register_ops)(struct qed_dev *cdev,
-+			     struct qed_eth_cb_ops *ops,
-+			     void *cookie);
+@@ -149,6 +149,9 @@ struct qed_eth_ops {
+ 	int (*eth_cqe_completion)(struct qed_dev *cdev,
+ 				  u8 rss_id,
+ 				  struct eth_slow_path_rx_cqe *cqe);
 +
- 	int (*vport_start)(struct qed_dev *cdev,
- 			   u8 vport_id, u16 mtu,
- 			   u8 drop_ttl0_flg,
++	void (*get_vport_stats)(struct qed_dev *cdev,
++				struct qed_eth_stats *stats);
+ };
+ 
+ const struct qed_eth_ops *qed_get_eth_ops(u32 version);
 -- 
 1.9.3
