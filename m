@@ -1,53 +1,83 @@
-From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v3 2/5] seccomp: add the concept of a seccomp filter FD
-Date: Wed, 30 Sep 2015 12:36:32 -0600
-Message-ID: <20150930183632.GA23065@smitten>
-References: <1443636820-17083-1-git-send-email-tycho.andersen@canonical.com>
- <1443636820-17083-3-git-send-email-tycho.andersen@canonical.com>
- <CALCETrXkG6QCx9ptyN+VWrjgoTvwZAOfa-pWhS4iCZ=fpm6YnQ@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 5/6] ipv6: Call xfrm6_xlat_addr from ipv6_rcv
+Date: Wed, 30 Sep 2015 11:40:55 -0700
+Message-ID: <CALx6S36My3jVm=_PgKYVqdJ7b8ccDPQhhgWW59wfekK7kTe+5Q@mail.gmail.com>
+References: <1443565043-1287886-1-git-send-email-tom@herbertland.com>
+	<1443565043-1287886-6-git-send-email-tom@herbertland.com>
+	<20150930090617.GF7701@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrXkG6QCx9ptyN+VWrjgoTvwZAOfa-pWhS4iCZ=fpm6YnQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:34195 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932495AbbI3Sk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 14:40:56 -0400
+Received: by igcpb10 with SMTP id pb10so53775igc.1
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 11:40:55 -0700 (PDT)
+In-Reply-To: <20150930090617.GF7701@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 11:27:34AM -0700, Andy Lutomirski wrote:
-> On Wed, Sep 30, 2015 at 11:13 AM, Tycho Andersen
-> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> > This patch introduces the concept of a seccomp fd, with a similar interface
-> > and usage to ebpf fds. Initially, one is allowed to create, install, and
-> > dump these fds. Any manipulation of seccomp fds requires users to be root
-> > in their own user namespace, matching the checks done for
-> > SECCOMP_SET_MODE_FILTER.
-> >
-> > Installing a filterfd has some gotchas, though. Andy mentioned previously
-> > that we should restrict installation to filter fds whose parent is already
-> > in the filter tree. This doesn't quite work in the case of created seccomp
-> > fds, since once you install a filter fd, you can't install any other filter
-> > fd since it has no parent and there is no way to "pre-chain" filters before
-> > installing them.
-> 
-> ISTM, if we like the seccomp fd approach, we should have them be
-> created with a parent already set.  IOW the default should be that
-> their parent is the creator's seccomp fd and, if needed, creators
-> could specify a different parent.
+On Wed, Sep 30, 2015 at 2:06 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Tue, Sep 29, 2015 at 03:17:22PM -0700, Tom Herbert wrote:
+>> Call before performing NF_HOOK and routing in order to perform address
+>> translation in the receive path.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> ---
+>>  net/ipv6/ip6_input.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+>> index 9075acf..06dac55 100644
+>> --- a/net/ipv6/ip6_input.c
+>> +++ b/net/ipv6/ip6_input.c
+>> @@ -183,6 +183,9 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+>>       /* Must drop socket now because of tproxy. */
+>>       skb_orphan(skb);
+>>
+>> +     /* Translate destination address before routing */
+>> +     xfrm6_xlat_addr(skb);
+>> +
+>
+> This shows that xfrm is not the right place to add this. The existing
+> xfrm hooks are located at the same place as your current LWT hooks are.
+>
+> You could use the existing xfrm hooks similar to xfrm tunnel modes.
+> This reinserts the transformed packet back into layer2, but I guess
+> this is not what you want.
+>
+> I'm currently paying with a GRO codepath for IPsec to get the
+> packets transformed early. If you can do your address translation
+> that early, it could be an option too. This clearly depends on
+> enabled GRO at the receiving device, but you would still have
+> the LWT hook as a fallback.
+>
+GRO probably doesn't help here. ILA already works with GRO, and
+performing translation for every segment instead of just once for the
+GRO packet would be unnecessary overhead. Besides, that still doesn't
+address the problem of how to hook in a lookup and translation
+function in the data path.
 
-Allowing people doing SECCOMP_FD_NEW to specify a parent fd would
-work. Then we can disallow installing a seccomp fd if its parent is
-not the current filter, and get rid of the whole mess with prev
-locking and all that.
+>>       return NF_HOOK(NFPROTO_IPV6, NF_INET_PRE_ROUTING,
+>>                      net, NULL, skb, dev, NULL,
+>>                      ip6_rcv_finish);
+>
+> Or, try to use the netfilter hook that seems to be at the right
+> place at least.
+>
+My original patch did hook into nf so it didn't require any change to
+IP data path. The suggested alternatives were to use iptables or nft,
+but the overhead of is too great for these to be useful for as a
+performance optimization. The problem is that any additional lookup
+added for this purpose only makes sense if it is significantly cheaper
+than the cost of doing a route lookup (the part that can be eliminated
+by early demux), and needs to have near zero impact on unrelated
+traffic.
 
-Tycho
+Tom
