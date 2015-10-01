@@ -1,105 +1,105 @@
-From: =?UTF-8?Q?Holger_Hoffst=c3=a4tte?=
-	<holger.hoffstaette@googlemail.com>
-Subject: Re: Soft lockup issue in Linux 4.1.9
-Date: Thu, 1 Oct 2015 13:43:22 +0200
-Message-ID: <560D1C5A.3050508@googlemail.com>
-References: <1443650383.13282.10.camel@daevel.fr>
- <560D1223.3070606@googlemail.com>
- <CANn89i+B5T4Rhs8HnrC0+f+GhLvBFfpr4BVDvhkVOveSfy9B8Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+B5T4Rhs8HnrC0+f+GhLvBFfpr4BVDvhkVOveSfy9B8Q@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+From: jon@ringle.org
+Subject: [PATCH net-next v2 1/2] regmap: Allow installing custom reg_update_bits function
+Date: Thu,  1 Oct 2015 07:43:20 -0400
+Message-ID: <1443699801-8888-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/01/15 13:29, Eric Dumazet wrote:
-> On Thu, Oct 1, 2015 at 3:59 AM, Holger Hoffst=C3=A4tte
-> <holger.hoffstaette@googlemail.com> wrote:
->>
->> On Thu, 01 Oct 2015 06:41:46 +0200, Andre Tomt wrote:
->>
->>> On 01. okt. 2015 00:37, Holger Hoffst=C3=A4tte wrote:
->>>> On Wed, 30 Sep 2015 23:59:43 +0200, Olivier Bonvalet wrote:
->>>>
->>>>> for information, I've just upgraded 6 servers from Linux 4.1.8 to=
- Linux
->>>>> 4.1.9, and have some random soft lockup. If this can help :
->>>>
->>>> Congratulations! You're not the first one to get hit by this, but
->>>> you are probably the first one to get a meaningful stacktrace! \o/
->>>>
->>>>> [  204.478380] Call Trace:
->>>>> [  204.478381]  <IRQ>
->>>>> [  204.478385]  [<ffffffff81076121>] ? try_to_del_timer_sync+0x43=
-/0x4d
->>>>> [  204.478386]  [<ffffffff810760de>] ? del_timer+0x4d/0x4d
->>>>> [  204.478388]  [<ffffffff8107614b>] ? del_timer_sync+0x20/0x3d
->>>>
->>>> Can you try to revert
->>>>
->>>>     [PATCH 4.1 157/159] inet: fix races with reqsk timers
->>>>
->>>> and see how that works for you? I'll do the same on my end. So far=
- the
->>>> only thing I ever could gleam was an rcu stall after cpuidle_enter=
-(),
->>>> but never anything regarding the timer - though it was definitely
->>>> related to NIC activity after idle.
->>>
->>> I'm running with this patch reverted now as well. 2 hours no issues=
- so
->>> far, but I can't conclude anything yet as I've seen it take up to 6=
+From: Jon Ringle <jringle@gridpoint.com>
+
+This commit allows installing a custom reg_update_bits function for cases where
+the hardware provides a mechanism to set or clear register bits without a
+read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
+
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+ drivers/base/regmap/internal.h |  3 +++
+ drivers/base/regmap/regmap.c   | 25 +++++++++++++++++++++++++
+ include/linux/regmap.h         |  4 ++++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/drivers/base/regmap/internal.h b/drivers/base/regmap/internal.h
+index cc55788..4036d7a 100644
+--- a/drivers/base/regmap/internal.h
++++ b/drivers/base/regmap/internal.h
+@@ -98,6 +98,9 @@ struct regmap {
+ 
+ 	int (*reg_read)(void *context, unsigned int reg, unsigned int *val);
+ 	int (*reg_write)(void *context, unsigned int reg, unsigned int val);
++	int (*reg_update_bits)(void *context, unsigned int reg,
++			       unsigned int mask, unsigned int val,
++			       bool *change, bool force_write);
+ 
+ 	bool defer_caching;
+ 
+diff --git a/drivers/base/regmap/regmap.c b/drivers/base/regmap/regmap.c
+index afaf562..70387c9 100644
+--- a/drivers/base/regmap/regmap.c
++++ b/drivers/base/regmap/regmap.c
+@@ -619,6 +619,7 @@ struct regmap *__regmap_init(struct device *dev,
+ 		goto skip_format_initialization;
+ 	} else {
+ 		map->reg_read  = _regmap_bus_read;
++		map->reg_update_bits = bus->reg_update_bits;
+ 	}
+ 
+ 	reg_endian = regmap_get_reg_endian(bus, config);
+@@ -2509,6 +2510,30 @@ static int _regmap_update_bits(struct regmap *map, unsigned int reg,
+ 	int ret;
+ 	unsigned int tmp, orig;
+ 
++	if (map->reg_update_bits) {
++		ret = map->reg_update_bits(map->bus_context, reg, mask, val,
++					   change, force_write);
++		if (ret != 0)
++			return ret;
 +
->>> hours to explode here. As a result the bisect was going veeery slow=
-ly.
->>
->> Now 12+ hours going without problems, never got this far with the pa=
-tch
->> included, as it would usually freeze during idle periods.
->>
->> As far as I'm concerned this is the culprit and should be reverted i=
-n
->> 4.1.x, unless Eric can suggest how to fix this. (cc'ed).
->>
->=20
-> Looks an old and known problem...
->=20
-> Following commit should be sent/added for 4.1 stable tree :
->=20
-> commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Thu Aug 13 15:44:51 2015 -0700
->=20
->     inet: fix potential deadlock in reqsk_queue_unlink()
->=20
->     When replacing del_timer() with del_timer_sync(), I introduced
->     a deadlock condition :
->=20
->     reqsk_queue_unlink() is called from inet_csk_reqsk_queue_drop()
->=20
->     inet_csk_reqsk_queue_drop() can be called from many contexts,
->     one being the timer handler itself (reqsk_timer_handler()).
->=20
->     In this case, del_timer_sync() loops forever.
->=20
->     Simple fix is to test if timer is pending.
->=20
->     Fixes: 2235f2ac75fd ("inet: fix races with reqsk timers")
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Whohoo! It applies/builds cleanly to 4.1.10-rc1 and is running as
-we speak. Let's hope that this fixes the lockups.
-
-Thanks for the quick reply!
-
-Holger
++		/* Fix up the cache by read/modify/write */
++		if (!map->cache_bypass && !map->defer_caching) {
++			ret = regcache_read(map, reg, &orig);
++			if (ret != 0)
++				return ret;
++
++			tmp = orig & ~mask;
++			tmp |= val & mask;
++
++			ret = regcache_write(map, reg, tmp);
++			if (ret != 0)
++				return ret;
++			if (map->cache_only)
++				map->cache_dirty = true;
++		}
++		return ret;
++	}
++
+ 	ret = _regmap_read(map, reg, &orig);
+ 	if (ret != 0)
+ 		return ret;
+diff --git a/include/linux/regmap.h b/include/linux/regmap.h
+index 8fc0bfd..4d3a3b1 100644
+--- a/include/linux/regmap.h
++++ b/include/linux/regmap.h
+@@ -296,6 +296,9 @@ typedef int (*regmap_hw_reg_read)(void *context, unsigned int reg,
+ 				  unsigned int *val);
+ typedef int (*regmap_hw_reg_write)(void *context, unsigned int reg,
+ 				   unsigned int val);
++typedef int (*regmap_hw_reg_update_bits)(void *context, unsigned int reg,
++					 unsigned int mask, unsigned int val,
++					 bool *change, bool force_write);
+ typedef struct regmap_async *(*regmap_hw_async_alloc)(void);
+ typedef void (*regmap_hw_free_context)(void *context);
+ 
+@@ -335,6 +338,7 @@ struct regmap_bus {
+ 	regmap_hw_gather_write gather_write;
+ 	regmap_hw_async_write async_write;
+ 	regmap_hw_reg_write reg_write;
++	regmap_hw_reg_update_bits reg_update_bits;
+ 	regmap_hw_read read;
+ 	regmap_hw_reg_read reg_read;
+ 	regmap_hw_free_context free_context;
+-- 
+2.4.1
