@@ -1,43 +1,72 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next] switchdev: bring back switchdev_obj and use it
- as a generic object param
-Date: Wed, 30 Sep 2015 20:44:55 -0700
-Message-ID: <CAE4R7bDOAvR4WKJ5-_Tpx_MOgA=9Eo=rDASUD3pTRitAo1mjMA@mail.gmail.com>
-References: <1443628815-25095-1-git-send-email-jiri@resnulli.us>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: GPF in do_raw_spin_lock on Linux 4.1
+Date: Wed, 30 Sep 2015 21:02:15 -0700
+Message-ID: <CAM_iQpW1NbaKbCgUwPOKQ2zfewRjM-LHWZPwMcPOEo2unfZU8Q@mail.gmail.com>
+References: <CAHTgTXVdvTJHg3Sj5bGcfsB8FUwwqnP6mCGGMcF0cQ0U7fVrEw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>, Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:34337 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754929AbbJADpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 23:45:15 -0400
-Received: by obbda8 with SMTP id da8so48177047obb.1
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 20:45:14 -0700 (PDT)
-In-Reply-To: <1443628815-25095-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Fan Du <fan.du@intel.com>, Tom Herbert <tom@herbertland.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Vinson Lee <vlee@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHTgTXVdvTJHg3Sj5bGcfsB8FUwwqnP6mCGGMcF0cQ0U7fVrEw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 30, 2015 at 9:00 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+(Cc'ing Jamal)
+
+On Wed, Sep 30, 2015 at 5:49 PM, Vinson Lee <vlee@twopensource.com> wrote:
+> Hi.
 >
-> Replace "void *obj" with a generic structure. Introduce couple of
-> helpers along that.
+> We've hit this GPF on several different machines on Linux 4.1.
 >
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> general protection fault: 0000 [#1] SMP
+> Modules linked in: sch_htb cls_basic act_mirred cls_u32 veth
+> sch_ingress netconsole configfs cpufreq_ondemand ipv6 dm_multipath
+> scsi_dh video sbs sbshc hed acpi_pad acpi_ipmi sch_fq_codel parport_pc
+> lp parport tcp_diag inet_diag ipmi_devintf sg iTCO_wdt
+> iTCO_vendor_support igb serio_raw hpwdt hpilo i2c_algo_bit i2c_core
+> ptp pps_core wmi ipmi_si ipmi_msghandler lpc_ich mfd_core sb_edac
+> ioatdma dca edac_core shpchp microcode acpi_cpufreq ahci libahci
+> libata sd_mod scsi_mod
+> CPU: 8 PID: 45989 Comm: kworker/u128:0 Not tainted 4.1.1 #1
+> Workqueue: netns cleanup_net
+> task: ffff8809973d1890 ti: ffff880c96cc4000 task.ti: ffff880c96cc4000
+> RIP: 0010:[<ffffffff8109c107>]  [<ffffffff8109c107>] do_raw_spin_lock+0x9/0x21
+> RSP: 0018:ffff880c96cc7bc8  EFLAGS: 00010286
+> RAX: 0000000000000100 RBX: dead000000100060 RCX: 0000000000000007
+> RDX: 0000000000000012 RSI: 00000000fffffe01 RDI: dead0000001000d0
+> RBP: ffff880c96cc7bc8 R08: 0000000000000000 R09: ffffffffa043f6b0
+> R10: ffffffff8145dac7 R11: ffff8809843423f8 R12: ffff880528fa2800
+> R13: dead0000001000d0 R14: ffffffff81ac9460 R15: ffff88080f219148
+> FS:  0000000000000000(0000) GS:ffff88103f840000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: ffffffffff600000 CR3: 0000000fab9e7000 CR4: 00000000001407e0
+> Stack:
+>  ffff880c96cc7bd8 ffffffff8150290a ffff880c96cc7c08 ffffffffa043f041
+>  0000000000000007 00000000ffffffee 0000000000000006 ffff880c96cc7ca0
+>  ffff880c96cc7c48 ffffffff810815d6 ffff880c96cc7b38 0000000000000000
+> Call Trace:
+>  [<ffffffff8150290a>] _raw_spin_lock_bh+0x19/0x1b
+>  [<ffffffffa043f041>] mirred_device_event+0x41/0x82 [act_mirred]
+>  [<ffffffff810815d6>] notifier_call_chain+0x3e/0x61
 
-Looks good to me, except for the macro/enum collision Vivien pointed
-out.  Vivien's suggestion to use SWITCHDEV_OBJ_ID_xxx for ID enums
-would work.
 
-Actually, id should be moved back into switchdev_obj, otherwise that
-info is lost in dump callbacks.  Could have a common callback that
-switches on id, for id specific work.  I'll submit a patch to move id
-back into obj if Jiri doesn't add it to this one.
+Looks like the mirred action is already freed at that time, but I don't
+see how, when we release the mirred action, we remove it from the
+mirred_list, and the operations on mirred_list are always protected
+by RTNL lock.
+
+I suspect these are non-bind mirred actions, which exist independently
+of network devices, so that when we remove the network namespace,
+they still hang there. They seem only released when we remove the
+whole module...
+
+I will double check this tomorrow.
