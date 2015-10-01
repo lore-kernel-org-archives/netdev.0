@@ -1,79 +1,75 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: GPF in do_raw_spin_lock on Linux 4.1
-Date: Thu, 1 Oct 2015 10:16:59 -0700
-Message-ID: <CAHA+R7Nxpue4S2sHvsN4Sa5V1pm4DBrUUD2V=i0VcdQ4NoQfrQ@mail.gmail.com>
-References: <CAHTgTXVdvTJHg3Sj5bGcfsB8FUwwqnP6mCGGMcF0cQ0U7fVrEw@mail.gmail.com>
-	<CAM_iQpW1NbaKbCgUwPOKQ2zfewRjM-LHWZPwMcPOEo2unfZU8Q@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC PATCH 0/3] net: dsa: Complete and fix the dsa unbinding
+Date: Thu, 1 Oct 2015 13:20:44 -0400
+Message-ID: <20151001172044.GA25785@ketchup.mtl.sfl>
+References: <560B9B70.6030202@baylibre.com>
+ <560C1F5A.5070506@gmail.com>
+ <560D4BDE.3080400@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vinson Lee <vlee@twopensource.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Fan Du <fan.du@intel.com>, Tom Herbert <tom@herbertland.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andrew@lunn.ch, linux@roeck-us.net
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpW1NbaKbCgUwPOKQ2zfewRjM-LHWZPwMcPOEo2unfZU8Q@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <560D4BDE.3080400@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 30, 2015 at 9:02 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> (Cc'ing Jamal)
->
-> On Wed, Sep 30, 2015 at 5:49 PM, Vinson Lee <vlee@twopensource.com> wrote:
->> Hi.
->>
->> We've hit this GPF on several different machines on Linux 4.1.
->>
->> general protection fault: 0000 [#1] SMP
->> Modules linked in: sch_htb cls_basic act_mirred cls_u32 veth
->> sch_ingress netconsole configfs cpufreq_ondemand ipv6 dm_multipath
->> scsi_dh video sbs sbshc hed acpi_pad acpi_ipmi sch_fq_codel parport_pc
->> lp parport tcp_diag inet_diag ipmi_devintf sg iTCO_wdt
->> iTCO_vendor_support igb serio_raw hpwdt hpilo i2c_algo_bit i2c_core
->> ptp pps_core wmi ipmi_si ipmi_msghandler lpc_ich mfd_core sb_edac
->> ioatdma dca edac_core shpchp microcode acpi_cpufreq ahci libahci
->> libata sd_mod scsi_mod
->> CPU: 8 PID: 45989 Comm: kworker/u128:0 Not tainted 4.1.1 #1
->> Workqueue: netns cleanup_net
->> task: ffff8809973d1890 ti: ffff880c96cc4000 task.ti: ffff880c96cc4000
->> RIP: 0010:[<ffffffff8109c107>]  [<ffffffff8109c107>] do_raw_spin_lock+0x9/0x21
->> RSP: 0018:ffff880c96cc7bc8  EFLAGS: 00010286
->> RAX: 0000000000000100 RBX: dead000000100060 RCX: 0000000000000007
->> RDX: 0000000000000012 RSI: 00000000fffffe01 RDI: dead0000001000d0
->> RBP: ffff880c96cc7bc8 R08: 0000000000000000 R09: ffffffffa043f6b0
->> R10: ffffffff8145dac7 R11: ffff8809843423f8 R12: ffff880528fa2800
->> R13: dead0000001000d0 R14: ffffffff81ac9460 R15: ffff88080f219148
->> FS:  0000000000000000(0000) GS:ffff88103f840000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: ffffffffff600000 CR3: 0000000fab9e7000 CR4: 00000000001407e0
->> Stack:
->>  ffff880c96cc7bd8 ffffffff8150290a ffff880c96cc7c08 ffffffffa043f041
->>  0000000000000007 00000000ffffffee 0000000000000006 ffff880c96cc7ca0
->>  ffff880c96cc7c48 ffffffff810815d6 ffff880c96cc7b38 0000000000000000
->> Call Trace:
->>  [<ffffffff8150290a>] _raw_spin_lock_bh+0x19/0x1b
->>  [<ffffffffa043f041>] mirred_device_event+0x41/0x82 [act_mirred]
->>  [<ffffffff810815d6>] notifier_call_chain+0x3e/0x61
->
->
-> Looks like the mirred action is already freed at that time, but I don't
-> see how, when we release the mirred action, we remove it from the
-> mirred_list, and the operations on mirred_list are always protected
-> by RTNL lock.
->
-> I suspect these are non-bind mirred actions, which exist independently
-> of network devices, so that when we remove the network namespace,
-> they still hang there. They seem only released when we remove the
-> whole module...
+Hi Neil,
 
-^^ That is a different problem.
+On Oct. Thursday 01 (40) 05:06 PM, Neil Armstrong wrote:
+> On 09/30/2015 07:43 PM, Florian Fainelli wrote:
+> > On 30/09/15 01:21, Neil Armstrong wrote:
+> >> In order to cleanly unbind the dsa core, either as a module removal,
+> >> or a platform device unbind, switch the allocation the their devm_
+> >> counterparts and complete the destroy functions.
+> >>
+> >> The last patch is an experimental way to exit the probe when no
+> >> switch is found in the discover process.
+> >>
+> >> The patches are based on the current net-next.
+> > 
+> > I looked at the patches and they bring DSA in a better direction. For
+> > future submissions, could you CC people who recently worked on DSA, like
+> > Andrew Lunn, Guenter Roeck, Vivien Didelot and myself? We can typically
+> > give your patches a try fairly quickly.
+> > 
+> > In case you are seriously considering making DSA a loadable module,
+> > there were an earlier attempt here:
+> > 
+> > http://comments.gmane.org/gmane.linux.network/345803
+> > 
+> > Thanks!
+> > 
+> >>
+> >> Neil Armstrong (3):
+> >>   net: dsa: Use devm_ prefixed allocations
+> >>   net: dsa: complete dsa_switch_destroy calls
+> >>   net: dsa: exit probe if no switch were found
+> >>
+> >>  net/dsa/dsa.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++-------
+> >>  1 file changed, 60 insertions(+), 7 deletions(-)
+> >>
+> > 
+> > 
+> Hi All,
+> 
+> Thanks for the tests and reviews.
+> 
+> My first intent is to make dynamic unbind/bind reliable, the reliable loadable module support
+> is a more complex target, but starting with unbind is a simpler start.
+> 
+> Should I re-post with the missing people, the Tested-by & without the RFC tag ?
 
-For this one, looks like we begin to release the mirred action in RCU
-callback, which means we don't have RTNL lock any more... I am
-cooking a fix now.
+I didn't take a look at it, but given Florian's feedback, it seems to
+make sense, so I'd suggest to resend it without the RFC prefix.
+
+If a patch in the serie got a "Tested-by:" or whatever tag, include it
+when resending, only if you didn't modify this patch in the meantime.
+
+Thanks,
+-v
