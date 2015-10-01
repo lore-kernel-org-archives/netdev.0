@@ -1,37 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 00/14] RDS: connection scalability and performance
- improvements
-Date: Thu, 1 Oct 2015 16:19:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBAA322@AcuExch.aculab.com>
-References: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Thu, 1 Oct 2015 18:26:20 +0200
+Message-ID: <20151001162620.GO20219@lunn.ch>
+References: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
+ <20150925043640.GB18915@ketchup.lan>
+ <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
+ <20150924.225508.2124748200966556070.davem@davemloft.net>
+ <20150925150303.GA21567@ketchup.mtl.sfl>
+ <20150930185652.GA2455@ketchup.lan>
+ <CAE4R7bBooYJTBTUpb6zCRfoZs4N9VW1exfFBZgY5B1FmdQVtpg@mail.gmail.com>
+ <20151001151535.GA31603@ketchup.mtl.sfl>
+ <20151001152821.GK20219@lunn.ch>
+ <20151001161706.GA1836@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ssantosh@kernel.org" <ssantosh@kernel.org>
-To: 'Santosh Shilimkar' <santosh.shilimkar@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Rosen, Rami" <rami.rosen@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:48639 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750923AbbJAQ00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 12:26:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20151001161706.GA1836@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar
-> Sent: 30 September 2015 18:24
-...
-> This is being addressed by simply using per bucket rw lock which makes the
-> locking simple and very efficient. The hash table size is still an issue and
-> I plan to address it by using re-sizable hash tables as suggested on the list.
+> DSA drivers don't need dynamic resources from the kernel.
 
-If the hash chains are short do you need the expense of a rw lock
-for each chain?
-A simple spinlock may be faster.
+It is hard to say if that is going to remain true. I think when we
+start doing more D in DSA, we might need to keep more state
+information.
 
-If you use the hash chain lock for the reference count on the hashed
-objects you should be able to release the lock before locking the
-object itself.
+What we need to avoid is making changes now that we later need to undo
+because we need dynamic resources. So i'm happy for a simple
+interface, so long as i can still use the complex interface, when i
+need it.
 
-	David
+     Andrew
