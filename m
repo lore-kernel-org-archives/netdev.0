@@ -1,49 +1,63 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [PATCH 0/5] y2038 conversion for ntp/pps and sfc driver
-Date: Thu, 1 Oct 2015 10:00:05 -0700
-Message-ID: <CALAqxLWgw8jwHiE=RBCS10+mKGN70Q9R482SgFbgtsDbE-y62w@mail.gmail.com>
-References: <1443471692-2946597-1-git-send-email-arnd@arndb.de>
- <20150929.210612.769591464523592086.davem@davemloft.net>
- <alpine.DEB.2.11.1509300926050.4500@nanos>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
+ queue for attr_set and obj_add
+Date: Thu, 1 Oct 2015 13:11:48 -0400
+Message-ID: <20151001171147.GA24533@ketchup.mtl.sfl>
+References: <20150925043640.GB18915@ketchup.lan>
+ <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
+ <20150924.225508.2124748200966556070.davem@davemloft.net>
+ <20150925150303.GA21567@ketchup.mtl.sfl>
+ <20150930185652.GA2455@ketchup.lan>
+ <CAE4R7bBooYJTBTUpb6zCRfoZs4N9VW1exfFBZgY5B1FmdQVtpg@mail.gmail.com>
+ <20151001151535.GA31603@ketchup.mtl.sfl>
+ <20151001152821.GK20219@lunn.ch>
+ <20151001161706.GA1836@ketchup.mtl.sfl>
+ <20151001162620.GO20219@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: giometti@enneenne.com, Arnd Bergmann <arnd@arndb.de>,
- y2038 Mailman List <y2038@lists.linaro.org>, netdev@vger.kernel.org,
- Richard Cochran <richardcochran@gmail.com>,
- lkml <linux-kernel@vger.kernel.org>, linux-net-drivers@solarflare.com,
- sshah@solarflare.com, David Miller <davem@davemloft.net>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <alpine.DEB.2.11.1509300926050.4500@nanos>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Rosen, Rami" <rami.rosen@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:33262
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753295AbbJARLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 13:11:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20151001162620.GO20219@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBTZXAgMzAsIDIwMTUgYXQgMTI6MjcgQU0sIFRob21hcyBHbGVpeG5lciA8dGdseEBs
-aW51dHJvbml4LmRlPiB3cm90ZToKPiBPbiBUdWUsIDI5IFNlcCAyMDE1LCBEYXZpZCBNaWxsZXIg
-d3JvdGU6Cj4+IEZyb206IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+Cj4+IERhdGU6IE1v
-biwgMjggU2VwIDIwMTUgMjI6MjE6MjcgKzAyMDAKPj4KPj4gPiBXaGVuIHRyeWluZyB0byBidWls
-ZCBhIGtlcm5lbCB3aXRoIHRpbWVfdCBjb21tZW50ZWQgb3V0LCBJIGZvdW5kIHRoYXQKPj4gPiB0
-aGUgbnRwIHN1YnN5c3RlbSBzdGlsbCByZWxpZXMgb24gdGltZXNwZWMgZm9yIGl0cyBwcHMgaGFu
-ZGxpbmcuCj4+ID4KPj4gPiBUaGlzIHNlcmllcyBhZGRyZXNzZXMgdGhpcyBhbmQgY29udmVydHMg
-YWxsIHRoZSBjb2RlIHRvIHVzZSB0aW1lc3BlYzY0Cj4+ID4gaW5zdGVhZCwgc3RlcCBieSBzdGVw
-LiBUaGVyZSBpcyBvbmUgZGV2aWNlIGRyaXZlciB0aGF0IGludGVyYWN0cyB3aXRoCj4+ID4gdGhp
-cyBjb2RlIGRpcmVjdGx5IChyYXRoZXIgdGhhbiBvbmx5IHRocm91Z2ggdGhlIHB0cCBzdWJzeXN0
-ZW0pLCBzbwo+PiA+IEkgaGF2ZSB0byBjb252ZXJ0IHRoYXQgZHJpdmVyIGF0IHRoZSBzYW1lIHRp
-bWUuCj4+ID4KPj4gPiBUaGUgcGF0Y2hlcyBzaG91bGQgaWRlYWxseSBzdGF5IHRvZ2V0aGVyIGFz
-IGEgc2VyaWVzLCBidXQgdGhleSBkbwo+PiA+IHNwYW4gbXVsdGlwbGUgc3Vic3lzdGVtcywgc28g
-SSdtIGFsc28gbG9va2luZyBmb3IgdGhlIHJpZ2h0IHBlcnNvbgo+PiA+IHRvIG1lcmdlIHRoZW0u
-Cj4+Cj4+IEknbSBoYXBweSB3aXRoIHRoaXMgZ29pbmcgdmlhIGEgdHJlZSBvdGhlciB0aGFuIG1p
-bmUsIGFuZCBmb3IgdGhlCj4KPiBJIHRoaW5rIGl0IHNob3VsZCBnbyB2aWEgSm9obiBTdHVsdHog
-dGltZWtlZXBpbmcgdHJlZS4KCkkndmUgcXVldWVkIHRoZSBzZXQgZm9yIHRlc3RpbmcuCgp0aGFu
-a3MKLWpvaG4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-WTIwMzggbWFpbGluZyBsaXN0ClkyMDM4QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5s
-aW5hcm8ub3JnL21haWxtYW4vbGlzdGluZm8veTIwMzgK
+Hi Andrew,
+
+On Oct. Thursday 01 (40) 06:26 PM, Andrew Lunn wrote:
+> > DSA drivers don't need dynamic resources from the kernel.
+> 
+> It is hard to say if that is going to remain true. I think when we
+> start doing more D in DSA, we might need to keep more state
+> information.
+
+Maybe, but we should keep things simple and do not use complex
+structures until we need them.
+
+> What we need to avoid is making changes now that we later need to undo
+> because we need dynamic resources. So i'm happy for a simple
+> interface, so long as i can still use the complex interface, when i
+> need it.
+
+Yes, note that I don't want to get rid of switchdev_trans here.
+
+I want to explicitly skip it in the DSA framework (net/dev/slave.c)
+while allowing DSA drivers (e.g. mv88e6xxx.c) to tell us if a feature
+object is supported or not.
+
+Thanks,
+-v
