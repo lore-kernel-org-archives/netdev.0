@@ -1,41 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problem with ICMP rate limiting and redirects
-Date: Thu, 01 Oct 2015 13:53:02 -0700
-Message-ID: <1443732782.32531.52.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACOGZ=uKqPpNBWuuJox1JTCC5e0G_j4KG+zFA_Ykr8wHj4jPgA@mail.gmail.com>
-	 <1443631374.32531.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CACOGZ=vM6N3J5voA=-zGYwedx9s6Bt7iwR3f-SwEdVOEPP6T9g@mail.gmail.com>
-	 <1443646098.32531.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CACOGZ=tHZ0w0GhY9n+3pzCPBGZrBM-16q3455Du7w69+et4RvQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hugo Vasconcelos Saldanha <hugovs@gmail.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv2 2/7] openvswitch: Fix typos in CT headers
+Date: Thu,  1 Oct 2015 13:53:25 -0700
+Message-ID: <1443732810-38746-3-git-send-email-joestringer@nicira.com>
+References: <1443732810-38746-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, jesse@nicira.com
+To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36335 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210AbbJAUxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 16:53:05 -0400
-Received: by pablk4 with SMTP id lk4so84242522pab.3
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 13:53:04 -0700 (PDT)
-In-Reply-To: <CACOGZ=tHZ0w0GhY9n+3pzCPBGZrBM-16q3455Du7w69+et4RvQ@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36833 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757081AbbJAUxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 16:53:38 -0400
+Received: by pablk4 with SMTP id lk4so84254651pab.3
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 13:53:38 -0700 (PDT)
+In-Reply-To: <1443732810-38746-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-01 at 15:38 -0300, Hugo Vasconcelos Saldanha wrote:
+These comments hadn't caught up to their implementations, fix them.
 
-> Thanks for pointing that out.
-> 
-> But how should all the sysctl's that control ICMP messages sent to
-> specific targets (icmp_ratelimit, redirect_load, redirect_number,
-> redirect_silence, error_cost and error_burst) be treated without
-> relying on inetpeer? Entries in ip_idents hash don't represent
-> specific targets. Am I missing something?
+Fixes: 7f8a436 "openvswitch: Add conntrack action"
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v2: Acked.
+---
+ include/uapi/linux/openvswitch.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
-You could still rely on inetpeer if its size is controlled and capped.
-
-And then fallback to ip_idents hash if inetpeer tree gets too big.
-
-Best effort would be enough.
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index c736344..a9a4a59 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -630,7 +630,7 @@ struct ovs_action_hash {
+  */
+ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_UNSPEC,
+-	OVS_CT_ATTR_FLAGS,      /* u8 bitmask of OVS_CT_F_*. */
++	OVS_CT_ATTR_FLAGS,      /* u32 bitmask of OVS_CT_F_*. */
+ 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
+ 	OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
+ 	OVS_CT_ATTR_LABELS,     /* labels to associate with this connection. */
+@@ -705,7 +705,7 @@ enum ovs_action_attr {
+ 				       * data immediately followed by a mask.
+ 				       * The data must be zero for the unmasked
+ 				       * bits. */
+-	OVS_ACTION_ATTR_CT,           /* One nested OVS_CT_ATTR_* . */
++	OVS_ACTION_ATTR_CT,           /* Nested OVS_CT_ATTR_* . */
+ 
+ 	__OVS_ACTION_ATTR_MAX,	      /* Nothing past this will be accepted
+ 				       * from userspace. */
+-- 
+2.1.4
