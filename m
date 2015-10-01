@@ -1,40 +1,53 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv3 net-next 3/4] cxgb4: Adds a new Device Log Facility FW_DEVLOG_FACILITY_CF
-Date: Thu,  1 Oct 2015 13:48:47 +0530
-Message-ID: <1443687528-25836-4-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv3 net-next 4/4] cxgb4: Report correct link speed for unsupported ones
+Date: Thu,  1 Oct 2015 13:48:48 +0530
+Message-ID: <1443687528-25836-5-git-send-email-hariprasad@chelsio.com>
 References: <1443687528-25836-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3062 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:15239 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752992AbbJAISJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 04:18:09 -0400
+	by vger.kernel.org with ESMTP id S1753952AbbJAISM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 04:18:12 -0400
 In-Reply-To: <1443687528-25836-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The firmware team added a new Device Log Facility FW_DEVLOG_FACILITY_CF,
-but the driver has been decoding Device Log messages with that Facility as
-"(NULL)", fixing it.
+When we get garbage from the firmware with weird Port Speeds,
+etc. we should emit a warning regarding unsupported speeds rather than
+use the bogus default of "10Mbps" which isn't even an option in the
+firmware Port Information message
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index b4ace19..4269944 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -940,6 +940,7 @@ static const char * const devlog_level_strings[] = {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0b7570d..9f1f5b2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -275,7 +275,7 @@ static void link_report(struct net_device *dev)
+ 	else {
+ 		static const char *fc[] = { "no", "Rx", "Tx", "Tx/Rx" };
  
- static const char * const devlog_facility_strings[] = {
- 	[FW_DEVLOG_FACILITY_CORE]	= "CORE",
-+	[FW_DEVLOG_FACILITY_CF]         = "CF",
- 	[FW_DEVLOG_FACILITY_SCHED]	= "SCHED",
- 	[FW_DEVLOG_FACILITY_TIMER]	= "TIMER",
- 	[FW_DEVLOG_FACILITY_RES]	= "RES",
+-		const char *s = "10Mbps";
++		const char *s;
+ 		const struct port_info *p = netdev_priv(dev);
+ 
+ 		switch (p->link_cfg.speed) {
+@@ -291,6 +291,10 @@ static void link_report(struct net_device *dev)
+ 		case 40000:
+ 			s = "40Gbps";
+ 			break;
++		default:
++			pr_info("%s: unsupported speed: %d\n",
++				dev->name, p->link_cfg.speed);
++			return;
+ 		}
+ 
+ 		netdev_info(dev, "link up, %s, full-duplex, %s PAUSE\n", s,
 -- 
 2.3.4
