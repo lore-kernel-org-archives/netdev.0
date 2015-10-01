@@ -1,47 +1,73 @@
-From: "L. A. Walsh" <lkml@tlinx.org>
-Subject: WARNING: iputils is not very fresh, upgrade is recommended; bug in
- iputils or kernel?
-Date: Wed, 30 Sep 2015 17:46:26 -0700
-Message-ID: <560C8262.6030405@tlinx.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net 5/7] openvswitch: Reject ct_state unsupported bits
+Date: Wed, 30 Sep 2015 18:20:59 -0700
+Message-ID: <CANr6G5zYCaxct_gjF2Q_9wGDEZZWF9WG3RtX0Cj88eQztFb3hA@mail.gmail.com>
+References: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
+ <1443566380-22640-6-git-send-email-joestringer@nicira.com> <CALnjE+qh7hGu_45fTazJc8E_hr_Q-au1QOe-osYNKJPHxqx7hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ishtar.tlinx.org ([173.164.175.65]:34380 "EHLO
-	Ishtar.hs.tlinx.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902AbbJABQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 21:16:37 -0400
-Received: from [192.168.4.12] (Athenae [192.168.4.12])
-	by Ishtar.hs.tlinx.org (8.14.9/8.14.4/SuSE Linux 0.8) with ESMTP id t910kRxm060177
-	for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 17:46:29 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+qh7hGu_45fTazJc8E_hr_Q-au1QOe-osYNKJPHxqx7hA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-According to the comment in the code:
----
-            /* Sigh, IP_RECVERR for raw socket
-             * was broken until 2.4.9. So, we ignore
-             * the first error and warn on the second.
-             */
-            if (once++ == 1)
-              fprintf(stderr, "\rWARNING: kernel is not very fresh, 
-upgrade is recommended.\n");
+On 30 September 2015 at 17:31, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Tue, Sep 29, 2015 at 3:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>> Previously, if userspace specified ct_state bits in the flow key which
+>> are currently undefined (and therefore unsupported), then they would be
+>> ignored. This could cause unexpected behaviour in future if userspace is
+>> extended to support additional bits but attempts to communicate with the
+>> current version of the kernel. This patch rectifies the situation by
+>> rejecting such ct_state bits.
+>>
+>> Fixes: 7f8a436 "openvswitch: Add conntrack action"
+>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>> ---
+>>  net/openvswitch/conntrack.h    | 12 ++++++++++++
+>>  net/openvswitch/flow_netlink.c |  6 ++++++
+>>  2 files changed, 18 insertions(+)
+>>
+>> diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
+>> index 43f5dd7..c658d95 100644
+>> --- a/net/openvswitch/conntrack.h
+>> +++ b/net/openvswitch/conntrack.h
+>> @@ -34,6 +34,13 @@ int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
+>>  void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
+>>  int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
+>>  void ovs_ct_free_action(const struct nlattr *a);
+>> +
+>> +static inline bool ovs_ct_state_supported(u8 state)
+>> +{
+>> +       return !(state & ~(OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED |
+>> +                        OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR |
+>> +                        OVS_CS_F_INVALID | OVS_CS_F_TRACKED));
+>> +}
+>>  #else
+>>  #include <linux/errno.h>
+>>
+>> @@ -46,6 +53,11 @@ static inline bool ovs_ct_verify(struct net *net, int attr)
+>>         return false;
+>>  }
+>>
+>> +static inline bool ovs_ct_state_supported(u8 state)
+>> +{
+>> +       return false;
+>> +}
+>> +
+>>  static inline int ovs_ct_copy_action(struct net *net, const struct nlattr *nla,
+>>                                      const struct sw_flow_key *key,
+>>                                      struct sw_flow_actions **acts, bool log)
+>> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+>> index ea82cd5..c4917c9 100644
+>> --- a/net/openvswitch/flow_netlink.c
+>> +++ b/net/openvswitch/flow_netlink.c
+>> @@ -816,6 +816,12 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
+>>             ovs_ct_verify(net, OVS_KEY_ATTR_CT_STATE)) {
+>>                 u8 ct_state = nla_get_u8(a[OVS_KEY_ATTR_CT_STATE]);
+>>
+> We also need to return error if kernel does not support the feature.
 
-----
-When I first saw the error I wondered how fresh my kernel had
-to be to pass iputils' tests, since I'm running on:
-
-Ishtar:packages/build/iputils-s20121221> uname -a
-Linux Ishtar 4.1.0-Isht-Van #2 SMP PREEMPT Tue Jun 23 07:52:09 PDT 2015 
-x86_64 x86_64 x86_64 GNU/Linux
-
-So I looked at code  Um... why is iputils thinking
-that 4.1.0 < 2.4.9 -- or that 4.1.0 is older than
-2.4.9?
-
-I humbly submit that 4.1.0, released in 2015 is
-unquestionably 'fresher' than the date on iputils of 2012.
-
-Does this mean the check in iputils is faulty w/r/t new
-kernels, or do new kernels have a *SERIOUS* regression?
+Already handled by ovs_ct_verify() in conntrack.h.
