@@ -1,66 +1,44 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] ipv4: fix reply_dst leakage on arp reply
-Date: Thu,  1 Oct 2015 16:25:43 +0200
-Message-ID: <7d4263830abc45f0a1cea8aebcbc7c56debb4270.1443709468.git.jbenc@redhat.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net-next] netfilter: remove dead code
+Date: Thu, 1 Oct 2015 11:39:29 -0300
+Message-ID: <20151001143929.GA3385@x240.home>
+References: <1443572700-29705-1-git-send-email-fbl@redhat.com>
+ <20150930004507.GH19923@breakpoint.cc>
+ <20150929.215435.823982622418043263.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36061 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755799AbbJAO02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2015 10:26:28 -0400
+Received: from sender163-mail.zoho.com ([74.201.84.163]:25365 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbbJAOji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 10:39:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20150929.215435.823982622418043263.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are cases when the created metadata reply is not used. Ensure the
-allocated memory is freed also in such cases.
+On Tue, Sep 29, 2015 at 09:54:35PM -0700, David Miller wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Wed, 30 Sep 2015 02:45:07 +0200
+> 
+> > Flavio Leitner <fbl@redhat.com> wrote:
+> >> Remove __nf_conntrack_find() from headers.
+> >> Fixes: dcd93ed4cd1 ("netfilter: nf_conntrack: remove dead code"
+> > 
+> > For the record: netfilter patches should go to
+> > netfilter-devel@vger.kernel.org .
+> > 
+> > That being said, in this case I doubt Pablo minds if David takes this
+> > directly, patch ts obviously correct[tm] :)
 
-Fixes: 63d008a4e9ee ("ipv4: send arp replies to the correct tunnel")
-Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- net/ipv4/arp.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+That's what I thought.
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index f03db8b7abee..0c9c3482e419 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -312,7 +312,7 @@ static void arp_send_dst(int type, int ptype, __be32 dest_ip,
- 	if (!skb)
- 		return;
- 
--	skb_dst_set(skb, dst);
-+	skb_dst_set(skb, dst_clone(dst));
- 	arp_xmit(skb);
- }
- 
-@@ -384,7 +384,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	}
- 
- 	if (skb && !(dev->priv_flags & IFF_XMIT_DST_RELEASE))
--		dst = dst_clone(skb_dst(skb));
-+		dst = skb_dst(skb);
- 	arp_send_dst(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
- 		     dst_hw, dev->dev_addr, NULL, dst);
- }
-@@ -811,7 +811,7 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 				} else {
- 					pneigh_enqueue(&arp_tbl,
- 						       in_dev->arp_parms, skb);
--					return 0;
-+					goto out_free_dst;
- 				}
- 				goto out;
- 			}
-@@ -865,6 +865,8 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 
- out:
- 	consume_skb(skb);
-+out_free_dst:
-+	dst_release(reply_dst);
- 	return 0;
- }
- 
--- 
-1.8.3.1
+> I don't want to create any unnecessary merge hassles, so please
+> resubmit this properly to netfilter-devel, thanks.
+
+Ok, done.
+http://marc.info/?l=netfilter-devel&m=144361945411969&w=2
+Thanks,
+fbl
