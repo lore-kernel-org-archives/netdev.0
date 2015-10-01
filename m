@@ -1,103 +1,66 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
-Date: Wed, 30 Sep 2015 22:55:59 -0400
-Message-ID: <560CA0BF.7090608@akamai.com>
-References: <20150913195354.GA12352@jig.fritz.box> <20150914023949.GA15012@dcvr.yhbt.net> <CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com> <560AE202.4020402@akamai.com> <CA+rthh9XU+5oN9Ua-+8XPF9Q0y03FZyxds53sxUjsvsJN2kaJA@mail.gmail.com> <20150930073410.GA7339@unicorn.suse.cz>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V14 0/3] openvswitch: Add support for
+	802.1ad
+Date: Wed, 30 Sep 2015 23:32:57 -0400
+Message-ID: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Wong <normalperson@yhbt.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Davidlohr Bueso <dave@stgolabs.net>,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	Mathias Krause <minipli@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a23-79-238-179.deploy.static.akamaitechnologies.com ([23.79.238.179]:12051
-	"EHLO prod-mail-xrelay05.akamai.com" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755094AbbJAC4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 22:56:01 -0400
-In-Reply-To: <20150930073410.GA7339@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 09/30/2015 03:34 AM, Michal Kubecek wrote:
-> On Wed, Sep 30, 2015 at 07:54:29AM +0200, Mathias Krause wrote:
->> On 29 September 2015 at 21:09, Jason Baron <jbaron@akamai.com> wrote:
->>> However, if we call connect on socket 's', to connect to a new socket 'o2', we
->>> drop the reference on the original socket 'o'. Thus, we can now close socket
->>> 'o' without unregistering from epoll. Then, when we either close the ep
->>> or unregister 'o', we end up with this list corruption. Thus, this is not a
->>> race per se, but can be triggered sequentially.
->>
->> Sounds profound, but the reproducers calls connect only once per
->> socket. So there is no "connect to a new socket", no?
-> 
-> I believe there is another scenario: 'o' becomes SOCK_DEAD while 's' is
-> still connected to it. This is detected by 's' in unix_dgram_sendmsg()
-> so that 's' releases its reference on 'o' and 'o' can be freed. If this
-> happens before 's' is unregistered, we get use-after-free as 'o' has
-> never been unregistered. And as the interval between freeing 'o' and
-> unregistering 's' can be quite long, there is a chance for the memory to
-> be reused. This is what one of our customers has seen:
-> 
->     [exception RIP: _raw_spin_lock_irqsave+156]
->     RIP: ffffffff8040f5bc  RSP: ffff8800e929de78  RFLAGS: 00010082
->     RAX: 000000000000a32c  RBX: ffff88003954ab80  RCX: 0000000000001000
->     RDX: 00000000f2320000  RSI: 000000000000f232  RDI: ffff88003954ab80
->     RBP: 0000000000005220   R8: dead000000100100   R9: 0000000000000000
->     R10: 00007fff1a284960  R11: 0000000000000246  R12: 0000000000000000
->     R13: ffff8800e929de8c  R14: 000000000000000e  R15: 0000000000000000
->     ORIG_RAX: ffffffffffffffff  CS: 10000e030  SS: e02b
->  #8 [ffff8800e929de70] _raw_spin_lock_irqsave at ffffffff8040f5a9
->  #9 [ffff8800e929deb0] remove_wait_queue at ffffffff8006ad09
-> #10 [ffff8800e929ded0] ep_unregister_pollwait at ffffffff80170043
-> #11 [ffff8800e929def0] ep_remove at ffffffff80170073
-> #12 [ffff8800e929df10] sys_epoll_ctl at ffffffff80171453
-> #13 [ffff8800e929df80] system_call_fastpath at ffffffff80417553
-> 
-> In this case, crash happened on unregistering 's' which had null peer
-> (i.e. not reconnected but rather disconnected) but there were still two
-> items in the list, the other pointing to an unallocated page which has
-> apparently been modified in between.
-> 
-> IMHO unix_dgram_disonnected() could be the place to handle this issue:
-> it is called from both places where we disconnect from a peer (dead peer
-> detection in unix_dgram_sendmsg() and reconnect in unix_dgram_connect())
-> just before the reference to peer is released. I'm not familiar with the
-> epoll implementation so I'm still trying to find what exactly needs to
-> be done to unregister the peer at this moment.
-> 
-
-Indeed that is a path as well. The patch I posted here deals with that
-case as well. It does a remove_wait_queue() in that case.
-
-unix_dgram_disconnected() gets called as you point out when we are removing
-the remote peer, and I have a remove_wait_queue() in that case. The patch
-I posted converts us back to a polling() against a single wait queue.
-
-The wait structure that epoll()/select()/poll() adds to the peer wait
-queue is really opaque to the unix code. The normal pattern is for
-epoll()/select()/poll() to do the unregister, not the socket/fd that
-we are waiting on. Further we could not just release all of the wait
-queues in unix_dgram_disconnected() b/c there could be multiple waiters
-there. So the POLLFREE thing really has to be done from the
-unix_sock_destructor() path, since it going to free the entire queue.
-
-In addition, I think that removing the the wait queue from
-unix_dgram_disconnected() will still be broken, b/c we would need to
-re-add to the remote peer via subsequent poll(), to get events if the
-socket was re-connected to a new peer.
-
-Thanks,
-
--Jason
+QWx0aG91Z2ggdGhlIE9wZW4gRmxvdyBzcGVjaWZpY2F0aW9uIHNwZWNpZmllZCBzdXBwb3J0IGZv
+ciA4MDIuMUFEIChxaW5xKQphcyB3ZWxsIGFzIHB1c2ggYW5kIHBvcCB2bGFuIGhlYWRlcnMsICBT
+byBmYXIgT3BlbiB2U3dpdGNoIGhhcyBvbmx5CnN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVhZGVy
+LiBUaGlzIHBhdGNoIGltcGxlbWVudHMgODAyLjFBRCBpbiB0aGUga2VybmVsCm1vZHVsZS4KClRo
+aXMgcGF0Y2ggYWNjb21wYW5pZXMgdmVyc2lvbiAxNCBvZiB0aGUgdXNlciBsZXZlbCBvcGVudnN3
+aXRjaCBwYXRjaApzdWJtaXR0ZWQgdG8gb3BlbnZzd2l0Y2ggZGV2IGxpc3QuCgpWMTQ6IEFkZCBv
+dXRlciB0cGlkIHRvIGZsb3dfa2V5CgpWMTM6IEZpeCBpbmNvcnJlY3QgZW5jb2RpbmcgYW5kIGRl
+Y29kaW5nIG9mIG5ldGxpbmsgdG8vZnJvbSBrZXkKYXR0cmlidXRlcy4KClYxMjogRml4IHNvbWUg
+cHJvYmxlbXMgYW5kIGlzc3VlcyBwb2ludGVkIG91dCBieSByZXZpZXdlcnMuIFdoZW4gcGFyc2lu
+ZwpuZXRsaW5rIGF0dHJpYnV0ZXMgRXRoZXIgdHlwZXMgb3RoZXIgdGhlbiAweDg4YTggYXMgb3V0
+ZXIgdHBpZC4KClYxMTogQWRkIGlubmVyIHRwaWQgdG8gZmxvdyBrZXkuIEZpeCBzZXBhcmF0ZSBp
+bm5lciBlbmNhcCBhdHRyaWJ1dGUKd2hlbiBwYXJzaW5nIG5ldGxpbmsgYXR0cmlidXRlcy4gTWVy
+Z2UgMiBwYXRjaGVzIHRvIGNvbnNvbGlkYXRlCnFpbnEgY2hhbmdlcy4KClYxMDogSW1wbGVtZW50
+IHJldmlld2VyIGNvbW1lbnRzOiBDb25zb2xpZGF0ZSB2bGFuIHBhcnNpbmcgZnVuY3Rpb25zLgpT
+cGxpdHMgbmV0bGluayBwYXJzaW5nIGFuZCBmbG93IGNvbnZlcnNpb24gaW50byBhIHNlcGFyYXRl
+IHBhdGNoLiBVc2VzCmRvdWJsZSBlbmNhcCBhdHRyaWJ1dGUgZW5jYXBzdWxhdGlvbiBmb3IgODAy
+LjFhZC4gIE5ldGxpbmsgYXR0cmlidXRlcwpub3cgbG9vayBsaWtlIHRoaXM6CgogICAgZXRoX3R5
+cGUoMHg4OGE4KSx2bGFuKHZpZD0xMDApLGVuY2FwKGV0aF90eXBlKDB4ODEwMCksIHZsYW4odmlk
+PTIwMCksCiAgICAgICAgICAgICAgICAgZW5jYXAoZXRoX3R5cGUoMHgwODAwKSwgLi4uKSkKClRo
+ZSBkb3VibGUgZW5jYXAgYXRyaWJ1dGVzIGluIHRoaXMgdmVyc2lvbiBvZiB0aGUgcGF0Y2ggaXMg
+aW5jb21wYXRpYmxlIHdpdGgKb2xkIHZlcnNpb25zIG9mIHRoZSB1c2VyIGxldmVsIDgwMi4xYWQg
+cGF0Y2guIEEgbmV3IHVzZXIgbGV2ZWwgcGF0Y2ggd2hpY2gKaXMgYWxzbyBiZWluZyBzdWJtaXR0
+ZWQgc2ltdWx0YW5lb3VzbHkgdG8gb3BlbnZzd2l0Y2ggZGV2IG1haWxpbmcgbGlzdC4KClY5OiAg
+SW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkgcmV2aWV3ZXJzCgpWODogIEluY2x1ZGVzIGNo
+YW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2VycwoKVjc6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dl
+c3RlZCBieSByZXZpZXdlcnMKClY2OiAgUmViYXNlZCB0byBuZXQtbmV4dAoKVjU6ICBVc2UgZW5j
+YXBzdWxhdGVkIGF0dHJpYnV0ZXMKCgpGb3IgZGlzY3Vzc2lvbiwgaGlzdG9yeSAgYW5kIHByZXZp
+b3VzIHZlcnNpb25zIG9mIHRoZSBrZXJuZWwgbW9kdWxlCnBhdGNoIGFuZCB0aGUgdXNlciBjb2Rl
+IHBhdGNoIHNlZSB0aGUgT1ZTIGRldiBtYWlsaW5nIGxpc3QsCm9wZW52c3dpdGNoLm9yZy9waXBl
+cm1haWwvZGV2Ly4uCgpUaG9tYXMgRiBIZXJiZXJ0ICgzKToKICBvcGVudnN3aXRjaDogODAyLjFh
+ZCB1YXBpIGNoYW5nZXMuCiAgQ2hlY2sgZm9yIHZsYW4gZXRoZXJuZXQgdHlwZXMgZm9yIDgwMjEu
+cSBvciA4MDIuMWFkCiAgODAyLjFBRDogRmxvdyBoYW5kbGluZywgYWN0aW9ucywgdmxhbiBwYXJz
+aW5nIGFuZCBuZXRsaW5rIGF0dHJpYnV0ZXMKCiBpbmNsdWRlL2xpbnV4L2lmX3ZsYW4uaCAgICAg
+ICAgICB8ICAxNyArKysrCiBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCB8ICAxNyAr
+Ky0tCiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICAgNCArLQogbmV0L29wZW52
+c3dpdGNoL2Zsb3cuYyAgICAgICAgICAgfCAgODcgKysrKysrKysrKysrKysrKy0tLS0KIG5ldC9v
+cGVudnN3aXRjaC9mbG93LmggICAgICAgICAgIHwgIDExICsrLQogbmV0L29wZW52c3dpdGNoL2Zs
+b3dfbmV0bGluay5jICAgfCAxNjcgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKyst
+LS0tCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMgICB8ICAgNCArLQogNyBmaWxlcyBj
+aGFuZ2VkLCAyNjUgaW5zZXJ0aW9ucygrKSwgNDIgZGVsZXRpb25zKC0pCgotLSAKMi40LjMKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5n
+IGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4v
+bGlzdGluZm8vZGV2Cg==
