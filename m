@@ -1,75 +1,72 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC PATCH 0/3] net: dsa: Complete and fix the dsa unbinding
-Date: Thu, 1 Oct 2015 13:20:44 -0400
-Message-ID: <20151001172044.GA25785@ketchup.mtl.sfl>
-References: <560B9B70.6030202@baylibre.com>
- <560C1F5A.5070506@gmail.com>
- <560D4BDE.3080400@baylibre.com>
+From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 02/23] usb-gadget: use per-attribute show and store
+ methods
+Date: Thu, 1 Oct 2015 12:23:40 -0500
+Message-ID: <20151001172340.GF4469@saruman.tx.rr.com>
+References: <1443189000-13398-1-git-send-email-hch@lst.de>
+ <1443189000-13398-3-git-send-email-hch@lst.de>
+ <20150927154752.GC16364@saruman.tx.rr.com>
+ <20150928133328.GA30453@lst.de>
+Reply-To: <balbi-l0cyMroinI0@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andrew@lunn.ch, linux@roeck-us.net
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="KR/qxknboQ7+Tpez"
+Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <560D4BDE.3080400@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20150928133328.GA30453-jcswGhMUV9g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Neil,
+--KR/qxknboQ7+Tpez
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Oct. Thursday 01 (40) 05:06 PM, Neil Armstrong wrote:
-> On 09/30/2015 07:43 PM, Florian Fainelli wrote:
-> > On 30/09/15 01:21, Neil Armstrong wrote:
-> >> In order to cleanly unbind the dsa core, either as a module removal,
-> >> or a platform device unbind, switch the allocation the their devm_
-> >> counterparts and complete the destroy functions.
-> >>
-> >> The last patch is an experimental way to exit the probe when no
-> >> switch is found in the discover process.
-> >>
-> >> The patches are based on the current net-next.
-> > 
-> > I looked at the patches and they bring DSA in a better direction. For
-> > future submissions, could you CC people who recently worked on DSA, like
-> > Andrew Lunn, Guenter Roeck, Vivien Didelot and myself? We can typically
-> > give your patches a try fairly quickly.
-> > 
-> > In case you are seriously considering making DSA a loadable module,
-> > there were an earlier attempt here:
-> > 
-> > http://comments.gmane.org/gmane.linux.network/345803
-> > 
-> > Thanks!
-> > 
-> >>
-> >> Neil Armstrong (3):
-> >>   net: dsa: Use devm_ prefixed allocations
-> >>   net: dsa: complete dsa_switch_destroy calls
-> >>   net: dsa: exit probe if no switch were found
-> >>
-> >>  net/dsa/dsa.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++-------
-> >>  1 file changed, 60 insertions(+), 7 deletions(-)
-> >>
-> > 
-> > 
-> Hi All,
-> 
-> Thanks for the tests and reviews.
-> 
-> My first intent is to make dynamic unbind/bind reliable, the reliable loadable module support
-> is a more complex target, but starting with unbind is a simpler start.
-> 
-> Should I re-post with the missing people, the Tested-by & without the RFC tag ?
+Hi,
 
-I didn't take a look at it, but given Florian's feedback, it seems to
-make sense, so I'd suggest to resend it without the RFC prefix.
+On Mon, Sep 28, 2015 at 03:33:28PM +0200, Christoph Hellwig wrote:
+> The Subject line is part of the commit log.  If you have a useful
 
-If a patch in the serie got a "Tested-by:" or whatever tag, include it
-when resending, only if you didn't modify this patch in the meantime.
+heh
 
-Thanks,
--v
+> suggestion for improving the logs please feel free to suggest it.
+
+how about explaining why you want per-attribute show/store methods ?
+
+--=20
+balbi
+
+--KR/qxknboQ7+Tpez
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWDWwcAAoJEIaOsuA1yqREApsP/37MI4kN77BkL1aS0LqLVLhD
+cdLeKtaFz2DCoh7mBHX5csMPCmtV3c1RYFcLdqNhGCu9NE/Ea4PFYKTIBLZmxBGk
+1K3nt7E163PF1PpIni1+OVtd6ebG9bLLeGmsWyg3EUZVFI25LuywT8tQ6lrjAJDA
+TZ0i2UAnccZ4qxJNE4k1GlVW//3mMm9Hf9f6SJ9Zss9/JhzC6KpTe9fzLhgRd2gx
+waWR1mQfl2mOU/BclklQk41i1R0j7W/Iw+UgifsCvWWhGuKH+BiVqGMoUM0SDtTt
+f1GHTYq6lu+UcBC4dXT+7I2G/Lr1LxuxXZyVEvR1FrwzDD+cFZN1hw4NJ2qEDgKy
+RGkxmYmMi+I7roCoa7GsJ/CP3t2AXrh8adE2XlAERBYpreZjHjHbH353kfUjhjT5
+94Z3990DeCR5d+5XjMK+Be1BSGrKbA6Qwe58RUsfgt92k7PloDQmxRzF821y1SBr
+F3fLAfdzk0T/kIjuddfDVOr2vgfZcocpURFOZU9W+IWTlHe+suw1Ma72EheXv30/
+Kdrc9gdHzhgGk96NicDSIGWFKnjLTKZAmo92QW8cH24MkgA9FOg9vtczJGi5g8QL
+HkDRkScSWCBwE1akcNlczwEcHFyaKDz/SUdq/YexGdwT+Gamiu1nJul6HTMoyARz
+tcPvVSCO/PUuIHZ5Iexn
+=H4fV
+-----END PGP SIGNATURE-----
+
+--KR/qxknboQ7+Tpez--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
