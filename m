@@ -1,85 +1,66 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
-Date: Thu, 01 Oct 2015 13:58:42 +0100
-Message-ID: <87y4fm4uf1.fsf@doppelsaurus.mobileactivedefense.com>
-References: <20150913195354.GA12352@jig.fritz.box>
-	<20150914023949.GA15012@dcvr.yhbt.net>
-	<CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com>
-	<560AE202.4020402@akamai.com>
-	<CA+rthh9XU+5oN9Ua-+8XPF9Q0y03FZyxds53sxUjsvsJN2kaJA@mail.gmail.com>
-	<560C9CFE.6090509@akamai.com>
-	<87oagiho88.fsf@doppelsaurus.mobileactivedefense.com>
-	<87bnciiybf.fsf@doppelsaurus.mobileactivedefense.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathias Krause <minipli@googlemail.com>, netdev@vger.kernel.org,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Wong <normalperson@yhbt.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Davidlohr Bueso <dave@stgolabs.net>,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"peterz\@infradead.org" <peterz@infradead.org>,
-	"davem\@davemloft.net" <davem@davemloft.net>
-To: Jason Baron <jbaron@akamai.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bnciiybf.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Thu, 01 Oct 2015 13:10:44 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net] ipv4: fix reply_dst leakage on arp reply
+Date: Thu,  1 Oct 2015 16:25:43 +0200
+Message-ID: <7d4263830abc45f0a1cea8aebcbc7c56debb4270.1443709468.git.jbenc@redhat.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36061 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755799AbbJAO02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 10:26:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
-> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
->> Jason Baron <jbaron@akamai.com> writes:
->>> On 09/30/2015 01:54 AM, Mathias Krause wrote:
->>>> On 29 September 2015 at 21:09, Jason Baron <jbaron@akamai.com> wrote:
->>>>> However, if we call connect on socket 's', to connect to a new socket 'o2', we
->>>>> drop the reference on the original socket 'o'. Thus, we can now close socket
->>>>> 'o' without unregistering from epoll. Then, when we either close the ep
->>>>> or unregister 'o', we end up with this list corruption. Thus, this is not a
->>>>> race per se, but can be triggered sequentially.
+There are cases when the created metadata reply is not used. Ensure the
+allocated memory is freed also in such cases.
 
-[...]
+Fixes: 63d008a4e9ee ("ipv4: send arp replies to the correct tunnel")
+Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/ipv4/arp.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-
-> Test program (assumes that it can execute itself as ./a.out):
->
-> -------------
-> #include <fcntl.h>
-> #include <pthread.h>
-> #include <string.h>
-> #include <sys/socket.h>
-> #include <sys/un.h>
-> #include <sys/epoll.h>
-> #include <signal.h>
-> #include <unistd.h>
->
-> static int sk;
->
-> static void *epoller(void *unused)
-> {
->     struct epoll_event epev;
->     int epfd;
->     
->     epfd = epoll_create(1);
->
->     epev.events = EPOLLOUT;
->     epoll_ctl(epfd, EPOLL_CTL_ADD, sk, &epev);
->     epoll_wait(epfd, &epev, 1, 5000);
->
->     execl("./a.out", "./a.out", (void *)0);
->
->     return NULL;
-> }
-
-[...]
-
-Possibly interesting additional bit of information: The list corruption
-warnings appear only if the 2nd connect is there and both the sk and
-epfd file descriptors are left open accross the exec. Closing either of
-both still triggers the _destructor warnings but nothing else (until the
-process runs out of file descriptors).
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index f03db8b7abee..0c9c3482e419 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -312,7 +312,7 @@ static void arp_send_dst(int type, int ptype, __be32 dest_ip,
+ 	if (!skb)
+ 		return;
+ 
+-	skb_dst_set(skb, dst);
++	skb_dst_set(skb, dst_clone(dst));
+ 	arp_xmit(skb);
+ }
+ 
+@@ -384,7 +384,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	}
+ 
+ 	if (skb && !(dev->priv_flags & IFF_XMIT_DST_RELEASE))
+-		dst = dst_clone(skb_dst(skb));
++		dst = skb_dst(skb);
+ 	arp_send_dst(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+ 		     dst_hw, dev->dev_addr, NULL, dst);
+ }
+@@ -811,7 +811,7 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
+ 				} else {
+ 					pneigh_enqueue(&arp_tbl,
+ 						       in_dev->arp_parms, skb);
+-					return 0;
++					goto out_free_dst;
+ 				}
+ 				goto out;
+ 			}
+@@ -865,6 +865,8 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
+ 
+ out:
+ 	consume_skb(skb);
++out_free_dst:
++	dst_release(reply_dst);
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.1
