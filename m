@@ -1,59 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
- queue for attr_set and obj_add
-Date: Thu, 1 Oct 2015 17:28:21 +0200
-Message-ID: <20151001152821.GK20219@lunn.ch>
-References: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
- <20150925043640.GB18915@ketchup.lan>
- <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
- <20150924.225508.2124748200966556070.davem@davemloft.net>
- <20150925150303.GA21567@ketchup.mtl.sfl>
- <20150930185652.GA2455@ketchup.lan>
- <CAE4R7bBooYJTBTUpb6zCRfoZs4N9VW1exfFBZgY5B1FmdQVtpg@mail.gmail.com>
- <20151001151535.GA31603@ketchup.mtl.sfl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Rosen, Rami" <rami.rosen@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/5] net: Add saddr op to l3mdev and vrf
+Date: Thu,  1 Oct 2015 08:27:22 -0700
+Message-ID: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48424 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756724AbbJAP21 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2015 11:28:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20151001151535.GA31603@ketchup.mtl.sfl>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36083 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756403AbbJAP1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:35 -0400
+Received: by pablk4 with SMTP id lk4so77033364pab.3
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Does this help?  Maybe we should walk before running and focus on
-> > getting non-batch ops working and then revisit?
-> 
-> I agree. I understand the need for a prepare phase, but it looks like it
-> exists for specific combinations, i.e. stacked and bonded devices.
-> 
-> For basic Ethernet switch chips (even DSA), it is *for the moment* a bit
-> too unnecessarily complex.
+First 2 patches are re-sends of patches that got lost in the ethosphere
+Tuesday; they were part of the first round of l3mdev conversions.
+Next 3 handle the source address lookup for raw and datagram sockets
+bound to a VRF device.
 
-I think we are going to need it though. I have bonding on my TODO
-list. That will put DSA into a stacked system.
- 
-> What I will suggest next, is to explicitly skip the prepare phase in DSA
-> (with a good comment as you already suggested), and fix switchdev to
-> allow drivers to return -EOPNOTSUPP from its commit phase.
+The conversion to the get_saddr op also fixes locally originated TCP
+packets showing up at the VRF device. The use of the FLOWI_FLAG_L3MDEV_SRC
+flag in ip_route_connect_init was causing locally generated packets
+to skip the VRF device.
 
-The switches have a limited number of bonds, called trunks in Marvells
-terminology. So we will need the prepare phase to say: Sorry, im out
-of trunks, do it in software. And different chips have different
-numbers of trunks, so it will need to go down into the chip driver,
-the DSA layer probably cannot decide.
+David Ahern (5):
+  net: Rename FLOWI_FLAG_VRFSRC to FLOWI_FLAG_L3MDEV_SRC
+  net: Add netif_is_l3_slave
+  net: Refactor path selection in __ip_route_output_key
+  net: Add source address lookup op for VRF
+  net: Add l3mdev saddr lookup to raw_sendmsg
 
-    Andrew
+ drivers/net/vrf.c         | 47 ++++++++++++++++++++++++++++++++++++++++-------
+ include/linux/netdevice.h |  7 +++++++
+ include/net/flow.h        |  2 +-
+ include/net/ip_fib.h      |  2 ++
+ include/net/l3mdev.h      | 27 +++++++++++++++++++++++++++
+ include/net/route.h       |  7 ++++---
+ net/ipv4/fib_semantics.c  | 18 ++++++++++++++++++
+ net/ipv4/raw.c            |  8 ++++++--
+ net/ipv4/route.c          | 13 +------------
+ net/ipv4/udp.c            | 22 +++-------------------
+ net/l3mdev/l3mdev.c       |  8 ++++----
+ 11 files changed, 113 insertions(+), 48 deletions(-)
+
+-- 
+1.9.1
