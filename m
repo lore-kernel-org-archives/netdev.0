@@ -1,80 +1,85 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] switchdev: bring back switchdev_obj and use it
- as a generic object param
-Date: Thu, 1 Oct 2015 08:24:50 +0200
-Message-ID: <20151001062449.GA2153@nanopsycho.orion>
-References: <1443628815-25095-1-git-send-email-jiri@resnulli.us>
- <20150930180040.GC21695@ketchup.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, andrew@lunn.ch, Jiri Pirko <jiri@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:35696 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbbJAGYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 02:24:54 -0400
-Received: by wicge5 with SMTP id ge5so13622675wic.0
-        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 23:24:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150930180040.GC21695@ketchup.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jon@ringle.org
+Subject: [PATCH 1/2] regmap: Allow installing custom reg_update_bits function
+Date: Thu,  1 Oct 2015 02:33:06 -0400
+Message-ID: <1443681187-29505-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Sep 30, 2015 at 08:00:40PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+From: Jon Ringle <jringle@gridpoint.com>
 
-<snip>
+This commit allows installing a custom reg_update_bits function for cases where
+the hardware provides a mechanism to set or clear register bits without a
+read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
 
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index e11425e..a79a7f0 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -64,15 +64,23 @@ enum switchdev_obj_id {
->>  	SWITCHDEV_OBJ_PORT_FDB,
->>  };
->>  
->> +struct switchdev_obj {
->> +};
->> +
->>  /* SWITCHDEV_OBJ_PORT_VLAN */
->>  struct switchdev_obj_vlan {
->> +	struct switchdev_obj obj;
->>  	u16 flags;
->>  	u16 vid_begin;
->>  	u16 vid_end;
->>  };
->>  
->> +#define SWITCHDEV_OBJ_VLAN(obj) \
->> +	container_of(obj, struct switchdev_obj_vlan, obj)
->> +
->>  /* SWITCHDEV_OBJ_IPV4_FIB */
->>  struct switchdev_obj_ipv4_fib {
->> +	struct switchdev_obj obj;
->>  	u32 dst;
->>  	int dst_len;
->>  	struct fib_info *fi;
->> @@ -82,18 +90,27 @@ struct switchdev_obj_ipv4_fib {
->>  	u32 tb_id;
->>  };
->>  
->> +#define SWITCHDEV_OBJ_IPV4_FIB(obj) \
->> +	container_of(obj, struct switchdev_obj_ipv4_fib, obj)
->
->Isn't there a collision to have a SWITCHDEV_OBJ_IPV4_FIB enum and a
->SWITCHDEV_OBJ_IPV4_FIB macro?
->
->Maybe switchdev will support not only port-objects, but also switch chip
->objects, so would it be good to make the distinction between them? e.g.:
->
-> * struct switchdev_obj_port_vlan
-> * SWITCHDEV_OBJ_ID_PORT_VLAN
-> * SWITCHDEV_OBJ_PORT_VLAN(obj)
-> * ...
->
->What do you think?
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+ drivers/base/regmap/internal.h | 3 +++
+ drivers/base/regmap/regmap.c   | 5 +++++
+ include/linux/regmap.h         | 4 ++++
+ 3 files changed, 12 insertions(+)
 
-Sounds good. Will make adjustments.
-
-Thanks
+diff --git a/drivers/base/regmap/internal.h b/drivers/base/regmap/internal.h
+index cc55788..4036d7a 100644
+--- a/drivers/base/regmap/internal.h
++++ b/drivers/base/regmap/internal.h
+@@ -98,6 +98,9 @@ struct regmap {
+ 
+ 	int (*reg_read)(void *context, unsigned int reg, unsigned int *val);
+ 	int (*reg_write)(void *context, unsigned int reg, unsigned int val);
++	int (*reg_update_bits)(void *context, unsigned int reg,
++			       unsigned int mask, unsigned int val,
++			       bool *change, bool force_write);
+ 
+ 	bool defer_caching;
+ 
+diff --git a/drivers/base/regmap/regmap.c b/drivers/base/regmap/regmap.c
+index afaf562..ba00d62 100644
+--- a/drivers/base/regmap/regmap.c
++++ b/drivers/base/regmap/regmap.c
+@@ -619,6 +619,7 @@ struct regmap *__regmap_init(struct device *dev,
+ 		goto skip_format_initialization;
+ 	} else {
+ 		map->reg_read  = _regmap_bus_read;
++		map->reg_update_bits = bus->reg_update_bits;
+ 	}
+ 
+ 	reg_endian = regmap_get_reg_endian(bus, config);
+@@ -2509,6 +2510,10 @@ static int _regmap_update_bits(struct regmap *map, unsigned int reg,
+ 	int ret;
+ 	unsigned int tmp, orig;
+ 
++	if (map->reg_update_bits)
++		return map->reg_update_bits(map->bus_context, reg, mask, val,
++					    change, force_write);
++
+ 	ret = _regmap_read(map, reg, &orig);
+ 	if (ret != 0)
+ 		return ret;
+diff --git a/include/linux/regmap.h b/include/linux/regmap.h
+index 8fc0bfd..4d3a3b1 100644
+--- a/include/linux/regmap.h
++++ b/include/linux/regmap.h
+@@ -296,6 +296,9 @@ typedef int (*regmap_hw_reg_read)(void *context, unsigned int reg,
+ 				  unsigned int *val);
+ typedef int (*regmap_hw_reg_write)(void *context, unsigned int reg,
+ 				   unsigned int val);
++typedef int (*regmap_hw_reg_update_bits)(void *context, unsigned int reg,
++					 unsigned int mask, unsigned int val,
++					 bool *change, bool force_write);
+ typedef struct regmap_async *(*regmap_hw_async_alloc)(void);
+ typedef void (*regmap_hw_free_context)(void *context);
+ 
+@@ -335,6 +338,7 @@ struct regmap_bus {
+ 	regmap_hw_gather_write gather_write;
+ 	regmap_hw_async_write async_write;
+ 	regmap_hw_reg_write reg_write;
++	regmap_hw_reg_update_bits reg_update_bits;
+ 	regmap_hw_read read;
+ 	regmap_hw_reg_read reg_read;
+ 	regmap_hw_free_context free_context;
+-- 
+2.4.1
