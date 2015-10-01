@@ -1,164 +1,134 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/6] switchdev: rename switchdev_obj_fdb to switchdev_obj_port_fdb
-Date: Thu,  1 Oct 2015 11:03:44 +0200
-Message-ID: <1443690226-29833-5-git-send-email-jiri@resnulli.us>
-References: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
-To: netdev@vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
+Date: Thu, 1 Oct 2015 11:04:32 +0200
+Message-ID: <560CF720.9060301@zonque.org>
+References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
+ <1443525140-13493-4-git-send-email-daniel@zonque.org>
+ <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
+ <20150930214852.GA8443@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: pablo@netfilter.org, daniel@iogearbox.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	balazs.scheidler@balabit.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:38318 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755345AbbJAJDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 05:03:54 -0400
-Received: by wiclk2 with SMTP id lk2so18338627wic.1
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 02:03:52 -0700 (PDT)
-In-Reply-To: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
+Received: from svenfoo.org ([82.94.215.22]:49383 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933027AbbJAJEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 05:04:35 -0400
+In-Reply-To: <20150930214852.GA8443@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hi Florian,
 
-Make the struct name in sync with object id name.
+On 09/30/2015 11:48 PM, Florian Westphal wrote:
+> Daniel Mack <daniel@zonque.org> wrote:
+>> Of course you can drop certain packets at this point, depending on other
+>> details. Say, for instance, you want to match all packets that are
+>> received by a certain task and that are originated from IP addresses of
+>> a specific subnet, and drop the rest. Rather than adding matches to your
+>> global firewall configuration for all the ports that tasks may or may
+>> not listen on, you can just do it on a higher level, from the
+>> perspective of an administrator. If you decide to let your web server
+>> listen on another port as well, no firewall rule configuration change is
+>> needed at all.
+> 
+> We don't have per application configurations, not even with these
+> patches...?
+> The configuration is still global/per netns?
 
-Suggested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/rocker/rocker.c | 6 +++---
- include/net/switchdev.h              | 2 +-
- net/bridge/br_fdb.c                  | 2 +-
- net/dsa/slave.c                      | 6 +++---
- net/switchdev/switchdev.c            | 8 ++++----
- 5 files changed, 12 insertions(+), 12 deletions(-)
+The configuration is per net_cls ID, and with a cgroup manager that
+assigns unique IDs to each application/service/task, this effectively
+becomes a per-application setting (or anything else for that matter, see
+below).
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index d75fc4b3..875f9b5b 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4425,7 +4425,7 @@ static int rocker_port_vlans_add(struct rocker_port *rocker_port,
- 
- static int rocker_port_fdb_add(struct rocker_port *rocker_port,
- 			       struct switchdev_trans *trans,
--			       const struct switchdev_obj_fdb *fdb)
-+			       const struct switchdev_obj_port_fdb *fdb)
- {
- 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
- 	int flags = 0;
-@@ -4496,7 +4496,7 @@ static int rocker_port_vlans_del(struct rocker_port *rocker_port,
- 
- static int rocker_port_fdb_del(struct rocker_port *rocker_port,
- 			       struct switchdev_trans *trans,
--			       const struct switchdev_obj_fdb *fdb)
-+			       const struct switchdev_obj_port_fdb *fdb)
- {
- 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
- 	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
-@@ -4537,7 +4537,7 @@ static int rocker_port_obj_del(struct net_device *dev,
- }
- 
- static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
--				struct switchdev_obj_fdb *fdb,
-+				struct switchdev_obj_port_fdb *fdb,
- 				int (*cb)(void *obj))
- {
- 	struct rocker *rocker = rocker_port->rocker;
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 0138f9b..8d71fdb 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -83,7 +83,7 @@ struct switchdev_obj_ipv4_fib {
- };
- 
- /* SWITCHDEV_OBJ_ID_PORT_FDB */
--struct switchdev_obj_fdb {
-+struct switchdev_obj_port_fdb {
- 	const unsigned char *addr;
- 	u16 vid;
- 	u16 ndm_state;
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 6fc8e71..36aab5e 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -133,7 +133,7 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
- 
- static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
- {
--	struct switchdev_obj_fdb fdb = {
-+	struct switchdev_obj_port_fdb fdb = {
- 		.addr = f->addr.addr,
- 		.vid = f->vlan_id,
- 	};
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index baf34f2..6e8dc6a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -341,7 +341,7 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
- }
- 
- static int dsa_slave_port_fdb_add(struct net_device *dev,
--				  const struct switchdev_obj_fdb *fdb,
-+				  const struct switchdev_obj_port_fdb *fdb,
- 				  struct switchdev_trans *trans)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -357,7 +357,7 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
- }
- 
- static int dsa_slave_port_fdb_del(struct net_device *dev,
--				  const struct switchdev_obj_fdb *fdb)
-+				  const struct switchdev_obj_port_fdb *fdb)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
-@@ -370,7 +370,7 @@ static int dsa_slave_port_fdb_del(struct net_device *dev,
- }
- 
- static int dsa_slave_port_fdb_dump(struct net_device *dev,
--				   struct switchdev_obj_fdb *fdb,
-+				   struct switchdev_obj_port_fdb *fdb,
- 				   int (*cb)(void *obj))
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 02ee926..250d013 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -819,7 +819,7 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 			   struct net_device *dev, const unsigned char *addr,
- 			   u16 vid, u16 nlm_flags)
- {
--	struct switchdev_obj_fdb fdb = {
-+	struct switchdev_obj_port_fdb fdb = {
- 		.addr = addr,
- 		.vid = vid,
- 	};
-@@ -843,7 +843,7 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 			   struct net_device *dev, const unsigned char *addr,
- 			   u16 vid)
- {
--	struct switchdev_obj_fdb fdb = {
-+	struct switchdev_obj_port_fdb fdb = {
- 		.addr = addr,
- 		.vid = vid,
- 	};
-@@ -853,7 +853,7 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
- 
- struct switchdev_fdb_dump {
--	struct switchdev_obj_fdb fdb;
-+	struct switchdev_obj_port_fdb fdb;
- 	struct net_device *dev;
- 	struct sk_buff *skb;
- 	struct netlink_callback *cb;
-@@ -862,7 +862,7 @@ struct switchdev_fdb_dump {
- 
- static int switchdev_port_fdb_dump_cb(void *obj)
- {
--	struct switchdev_obj_fdb *fdb = obj;
-+	struct switchdev_obj_port_fdb *fdb = obj;
- 	struct switchdev_fdb_dump *dump =
- 		container_of(fdb, struct switchdev_fdb_dump, fdb);
- 	u32 portid = NETLINK_CB(dump->cb->skb).portid;
--- 
-1.9.3
+> Application level firewall makes me think of proxies.
+> What exactly are we talking about?
+> Can you provide examples?
+
+Ok, so the term is misleading, I agree. I am talking about a possibility
+for userspace to install netfilter rules that match packets sent to or
+sent by a task, or a set of tasks (you may call that an application or
+service).
+
+So for example, I want a way to redirect netfilter decisions that are
+about tasks in net_cls cgroup 23 to a dedicated chain, so the admin can
+configure rules that only apply to a certain service or application.
+
+>> I really don't know if this approach is intrusive enough to make it
+>> qualify as sledgehammer. I'd like to see some real-world benchmarks and
+>> have proof there is a performance decrease for setups that don't use
+>> such chains.
+> 
+> We have static keys for nf hooks so there is no performance decrease if
+> no netfilter hooks are active.
+> 
+> HOWEVER, this discussion seems to hint at the opposite, namely that this
+> will turn into a mandatory or at least auto-enabled feature.
+>
+> But regardless, I called it a sledgehammer not because of performance
+> concerns but because just to get this proposed socket matching facility we
+> now have to put hooks into all protocol handlers and commit to keeping them
+> there forever.
+
+Sure, but why is that a problem exactly? I still don't understand your
+technical concerns.
+
+> Also, some time ago Eric suggested to allow binding to tcp ports
+> from packet sockets to implement userspace-driven TCP stacks (i.e.
+> kernel would just queue raw frames for the given quadruple withput
+> caring about ordering etc).
+>
+> If we allow this proposed change, we'd also have to extend that
+> with these hooks.
+
+In that case, the receiver socket would be the one of that
+userspace-driven TCP stack, and the same rules apply. The feature might
+not make much sense in such setups though, but that's not an issue.
+
+> Next time someone mentions that we don't have application matching
+> but only sk/cgroup tests. Are we then going to consider doing task lookups?
+
+cgroups are the most comprehensive notion the kernel has about a group
+of tasks, which may be called a service or an application. By allowing
+users to make netfilter rules specific to a setting in a cgroup
+controller, we open the doors for supporting a lot of interesting use
+cases. Which tasks to put into a cgroup with a certain net_cls setting
+is up to userspace, but it would be possible to group everything the OS
+considers an 'application'.
+
+>> Why so? For deterministic ingress filtering of traffic directed to a
+>> local socket, you can as well rely on information associated with that
+>> socket. And this is what application-level firewall rule sets are all about.
+> 
+> Application not running -> different behaviour.  I'm sure thats obvious
+> to you, but I'm not sure if its obvious to users that their
+> 'match on net clsid 42' won't work anymore when that service isn't running.
+
+That's a matter of explaining that fact in the documentation, I'd say :)
+
+In a sense, what happens is comparable to rules that are specific to an
+ingress interface. Depending on whether that interface is up or down,
+these netfilter rules are iterated or they aren't, right?
+
+Anyway, note that socket uid/gid and cgroup matches already exist for
+ingress today, so the exact same change in behavior that you describe is
+in place since a number of releases. It's just that right now, what the
+kernel does is to only match packets that had early demux treatment,
+which makes it largely unusable for users. So, what this patch set aims
+for is to make an existing feature actually usable.
+
+I'm open to other approaches, as long as it allows us to install
+netfilter rules that match against net_cls IDs. The demux target would
+probably be another option, but I'm not convinced yet that would be any
+better from a technical perspective.
+
+Pablo, what do you think?
+
+
+
+Thanks,
+Daniel
