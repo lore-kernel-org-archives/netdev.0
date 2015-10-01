@@ -1,49 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [regression] 6ae459bd skbuff: Fix skb checksum flag on skb pull
-Date: Thu, 1 Oct 2015 16:42:22 +0800
-Message-ID: <20151001084222.GA25104@gondor.apana.org.au>
-References: <1443686148.2726.6.camel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org
-To: Mike Galbraith <umgwanakikbuti@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1443686148.2726.6.camel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next 1/2] enic: handle spurious error interrupt
+Date: Thu,  1 Oct 2015 14:18:46 +0530
+Message-ID: <1443689327-15776-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.19]:51930 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750954AbbJAItJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 04:49:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mike Galbraith <umgwanakikbuti@gmail.com> wrote:
-> 
-> homer:/usr/local/src/kernel/linux-3.x.git # time strace -vvvfFtT git remote update 2> /strace.out
-> Fetching origin
-> 
-> real    2m9.164s
-> user    0m1.616s
-> sys     0m0.316s
-> 
-> 2 minutes of thumb twiddling should have been..
-> 
-> homer:/usr/local/src/kernel/linux-3.x.git # time git remote update
-> Fetching origin
-> 
-> real    0m0.213s
-> user    0m0.156s
-> sys     0m0.036s
-> 
-> Daemon runs as user git like so, with all repositories living in ~git:
-> /usr/lib/git/git-daemon --syslog --detach --reuseaddr --user=git --group=daemon --pid-file=/var/run/git-daemon.pid --export-all --user-path
-> 
-> Bisected and post bisect verified by applying/removing a revert.
+Some of the enic adaptors are know to generate spurious interrupts. When
+error interrupt is generated, driver just resets the device. This patch
+resets the device only when an error is occurred.
 
-So do you use VXLANs?
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-If this patch is indeed causing the regression you should be able
-to spot some differences in the tcpdump.  Can you confirm this?
-
-Thanks,
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 3352d02..0b54429 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -178,13 +178,15 @@ static int enic_wq_service(struct vnic_dev *vdev, struct cq_desc *cq_desc,
+ 	return 0;
+ }
+ 
+-static void enic_log_q_error(struct enic *enic)
++static bool enic_log_q_error(struct enic *enic)
+ {
+ 	unsigned int i;
+ 	u32 error_status;
++	bool err = false;
+ 
+ 	for (i = 0; i < enic->wq_count; i++) {
+ 		error_status = vnic_wq_error_status(&enic->wq[i]);
++		err |= error_status;
+ 		if (error_status)
+ 			netdev_err(enic->netdev, "WQ[%d] error_status %d\n",
+ 				i, error_status);
+@@ -192,10 +194,13 @@ static void enic_log_q_error(struct enic *enic)
+ 
+ 	for (i = 0; i < enic->rq_count; i++) {
+ 		error_status = vnic_rq_error_status(&enic->rq[i]);
++		err |= error_status;
+ 		if (error_status)
+ 			netdev_err(enic->netdev, "RQ[%d] error_status %d\n",
+ 				i, error_status);
+ 	}
++
++	return err;
+ }
+ 
+ static void enic_msglvl_check(struct enic *enic)
+@@ -333,10 +338,9 @@ static irqreturn_t enic_isr_msix_err(int irq, void *data)
+ 
+ 	vnic_intr_return_all_credits(&enic->intr[intr]);
+ 
+-	enic_log_q_error(enic);
+-
+-	/* schedule recovery from WQ/RQ error */
+-	schedule_work(&enic->reset);
++	if (enic_log_q_error(enic))
++		/* schedule recovery from WQ/RQ error */
++		schedule_work(&enic->reset);
+ 
+ 	return IRQ_HANDLED;
+ }
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.6.0
