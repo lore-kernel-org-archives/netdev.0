@@ -1,169 +1,73 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [patch net-next v3 02/10] switchdev: introduce transaction item
- queue for attr_set and obj_add
-Date: Thu, 1 Oct 2015 11:15:36 -0400
-Message-ID: <20151001151535.GA31603@ketchup.mtl.sfl>
-References: <1443081769-11193-3-git-send-email-jiri@resnulli.us>
- <20150925043640.GB18915@ketchup.lan>
- <CAE4R7bA=xwfNT1cEp7_B7zfiuqg=PZ421j+GNCP+hi9DrhccAA@mail.gmail.com>
- <20150924.225508.2124748200966556070.davem@davemloft.net>
- <20150925150303.GA21567@ketchup.mtl.sfl>
- <20150930185652.GA2455@ketchup.lan>
- <CAE4R7bBooYJTBTUpb6zCRfoZs4N9VW1exfFBZgY5B1FmdQVtpg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Rosen, Rami" <rami.rosen@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 5/5] net: Add l3mdev saddr lookup to raw_sendmsg
+Date: Thu,  1 Oct 2015 08:27:27 -0700
+Message-ID: <1443713247-11230-6-git-send-email-dsa@cumulusnetworks.com>
+References: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:55838
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753460AbbJAPWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:22:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBooYJTBTUpb6zCRfoZs4N9VW1exfFBZgY5B1FmdQVtpg@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35220 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756625AbbJAP1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:42 -0400
+Received: by pacfv12 with SMTP id fv12so79197062pac.2
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:42 -0700 (PDT)
+In-Reply-To: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+ping originated on box through a VRF device is showing up in tcpdump
+without a source address:
+    $ tcpdump -n -i vrf-blue
+    08:58:33.311303 IP 0.0.0.0 > 10.2.2.254: ICMP echo request, id 2834, seq 1, length 64
+    08:58:33.311562 IP 10.2.2.254 > 10.2.2.2: ICMP echo reply, id 2834, seq 1, length 64
 
-On Sep. Wednesday 30 (40) 09:27 PM, Scott Feldman wrote:
-> On Wed, Sep 30, 2015 at 11:56 AM, Vivien Didelot
-> <vivien.didelot@savoirfairelinux.com> wrote:
-> > Hi all,
-> >
-> > On Sep. Friday 25 (39) 11:03 AM, Vivien Didelot wrote:
-> >> On Sep. Thursday 24 (39) 10:55 PM, David Miller wrote:
-> >> > From: Scott Feldman <sfeldma@gmail.com>
-> >> > Date: Thu, 24 Sep 2015 22:29:43 -0700
-> >> >
-> >> > > I'd rather keep 2-phase not optional, or at least make it some what of
-> >> > > a pain for drivers to opt-out of 2-phase.  Forcing the driver to see
-> >> > > both phases means the driver needs to put some code to skip phase 1
-> >> > > (and hopefully has some persistent comment explaining why its being
-> >> > > skipped).  Something like:
-> >> > >
-> >> > > /* I'm skipping phase 1 prepare for this operation.  I have infinite hardware
-> >> > >  * resources and I'm not setting any persistent state in the driver or device
-> >> > >  * and I don't need any dynamic resources from the kernel, so its impossible
-> >> > >  * for me to fail phase 2 commit.  Nothing to prepare, sorry.
-> >> > >  */
-> >> >
-> >> > I agree with Scott here.
-> >> >
-> >> > If you can opt out of something, you can not think about it and thus
-> >> > more likely get it wrong.
-> >> >
-> >> > I can just see a driver not implementing prepare at all and then doing
-> >> > stupid things in commit when they hit some resource limit or whatever,
-> >> > rather than taking care of such issues in prepare.
-> >>
-> >> OK, I have no experience with stacked devices nor what it actually looks
-> >> like, but I understand that it is a redundant setup where it makes sense
-> >> to ensure that an operation is feasible before programming the hardware.
-> >>
-> >> I agree with both of you on imposing switchdev drivers such notion.
-> >>
-> >> I was confused with the rtnl lock (from bridge netlink requests) which
-> >> seemed to limit a lot the usage of this prepare phase.
-> >>
-> >> I don't know the batch mode neither, but I can think about a potentially
-> >> powerful usage of the prepare phase in Marvell switches (or any basic
-> >> home router switches), please tell me if the following is feasible:
-> >>
-> >> Every hardware VLANs I know of are programmed with all port membership
-> >> in one shot. This is not feasible today with the bridge command. If I
-> >> could bundle in one request the equivalent of ("VID 100: 0u 1u 5t"):
-> >>
-> >>     bridge vlan add master dev swp0 vid 100 pvid untagged
-> >>     bridge vlan add master dev swp1 vid 100 pvid untagged
-> >>     bridge vlan add master dev swp5 vid 100 # cpu
-> >>
-> >> In such case the prepare phase could be great to allocate and populate a
-> >> VLAN entry structure (i.e. struct mv88e6xxx_vtu_stu_entry) before
-> >> programming the hardware *just once*. Is that doable?
-> >
-> > May I get answers for this? I'd need that in order to suggest a next
-> > step for the prepare phase in DSA drivers.
-> 
-> You know we're just making this all up as we go, right?  ;)
-> 
-> Actually, bringing real-world examples us think about solutions, so thank you.
+Add the call to l3mdev_get_saddr to raw_sendmsg.
 
-Sorry for the pushing, I'm a little too enthusiast with the ongoing
-support for Ethernet switch chips :)
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/raw.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-> 
-> A partial answer to your question, I guess, is to consider
-> switchdev_port_obj_add(dev, obj), which is basically:
-> 
->    switchdev_port_obj_add(dev, obj)
->        dev->ops->switchdev_port_obj_add(dev, obj, PREPARE)
->        if no err
->            dev->ops->switchdev_port_obj_add(dev, obj, COMMIT)
->        else
->            // abort transaction
-> 
-> Seems you could make a batch version that iterates over list of devs
-> to add the same obj:
-> 
->    switchdev_port_obj_add_batch(devs, obj)
->        for dev in devs:
->            dev->ops->switchdev_port_obj_add(dev, obj, PREPARE)
->        if no errs:
->            for dev in devs:
->                dev->ops->switchdev_port_obj_add(dev, obj, COMMIT)
->        else
->            // abort transaction (on all devs)
-> 
-> Who calls this _batch version with a list of devs is TBD.   Not sure
-> if you can get the -batch and -force options in iproute2 ip cmd to get
-> you here.
-> 
-> And as I look back at your example, you really have two diff objs in
-> your cmd list.  First obj is vlan 100 pvid untagged, second obj is
-> vlan 100.  Would this be two batches?  Oh, hmmm, maybe the batch
-> version iterates over list of {dev, obj} tuples.
-
-Exactly. A list a {dev, obj} tuples would indeed be the key to bring
-efficient hardware access, when a user wants to program a switch through
-a Linux bridge.
-
-> Something like (sorry, my pseudo code is turning into python):
-> 
->    switchdev_port_obj_add_batch(dev_objs)
->        for dev, obj in dev_objs.items:
->            dev->ops->switchdev_port_obj_add(dev, obj, PREPARE)
->        if no errs:
->            for dev, obj in dev_objs.items:
->                dev->ops->switchdev_port_obj_add(dev, obj, COMMIT)
->        else
->            // abort transaction (on all devs)
-> 
-> Does this help?  Maybe we should walk before running and focus on
-> getting non-batch ops working and then revisit?
-
-I agree. I understand the need for a prepare phase, but it looks like it
-exists for specific combinations, i.e. stacked and bonded devices.
-
-For basic Ethernet switch chips (even DSA), it is *for the moment* a bit
-too unnecessarily complex.
-
-What I will suggest next, is to explicitly skip the prepare phase in DSA
-(with a good comment as you already suggested), and fix switchdev to
-allow drivers to return -EOPNOTSUPP from its commit phase.
-
-I hope we can agree that asking the hardware "do you support this
-object?", and offering the driver a nice preparation framework, are two
-different things that switchdev_port_{obj_add,attr_set} accomplish.
-
-Thanks for feeding this thread!
--v
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 28ef8a913130..09a07e8b2f35 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -484,6 +484,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
+ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
++	struct net *net = sock_net(sk);
+ 	struct ipcm_cookie ipc;
+ 	struct rtable *rt = NULL;
+ 	struct flowi4 fl4;
+@@ -543,7 +544,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	ipc.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
++		err = ip_cmsg_send(net, msg, &ipc, false);
+ 		if (err)
+ 			goto out;
+ 		if (ipc.opt)
+@@ -598,6 +599,9 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 			    (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0),
+ 			   daddr, saddr, 0, 0);
+ 
++	if (!saddr && ipc.oif)
++		l3mdev_get_saddr(net, ipc.oif, &fl4);
++
+ 	if (!inet->hdrincl) {
+ 		rfv.msg = msg;
+ 		rfv.hlen = 0;
+@@ -608,7 +612,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	}
+ 
+ 	security_sk_classify_flow(sk, flowi4_to_flowi(&fl4));
+-	rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
++	rt = ip_route_output_flow(net, &fl4, sk);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		rt = NULL;
+-- 
+1.9.1
