@@ -1,40 +1,43 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH v2 net-next 0/3] RDS: RDS-TCP perf enhancements
-Date: Wed, 30 Sep 2015 16:25:10 -0700
-Message-ID: <560C6F56.1040402@oracle.com>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: Re: Rate limiting AP bandwidth change messages in ieee80211_config_bw?
+Date: Wed, 30 Sep 2015 20:09:48 -0400
+Message-ID: <CA+5PVA5L2LwwbJmoxwkYtJ=PYc9Q5g4KpqwmA0urxX8CRe=L+g@mail.gmail.com>
+References: <CA+5PVA4yaLG2NtJ_Bg5-BQzR-Wa5ABxPb-cLxF7bjSsf-P1_5Q@mail.gmail.com>
+	<1443637937.1859.19.camel@sipsolutions.net>
+	<1443639852.1859.25.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
-	sergei.shtylyov@cogentembedded.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: drago01 <drago01@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <1443639852.1859.25.camel@sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 30, 2015 at 3:04 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+>
+>>
+>> I'm not sure ratelimiting it would even work - it's not *that* high
+>> frequency? Not really sure though.
+>>
+>> I think we can do either, it's not such a terribly important message as
+>> far as I can tell.
+>>
+>
+> Seems like Emmanuel would like to see the message stay in some form -
 
+For what purpose?  Or rather, when a user sees this in their dmesg,
+what are they supposed to do about it?
 
-On 9/30/2015 1:54 PM, Sowmini Varadhan wrote:
-> A 3-part patchset that (a) improves current RDS-TCP perf
-> by 2X-3X and (b) refactors earlier robustness code for
-> better observability/scaling.
->
-> Patch 1 is an enhancment of earlier robustness fixes
-> that had used separate sockets for client and server endpoints to
-> resolve race conditions. It is possible to have an equivalent
-> solution that does not use 2 sockets. The benefit of a
-> single socket solution is that it results in more predictable
-> and observable behavior for the underlying TCP pipe of an
-> RDS connection
->
-> Patches 2 and 3 are simple, straightforward perf bug fixes
-> that align the RDS TCP socket with other parts of the kernel stack.
->
-> v2: fix kbuild-test-robot warnings, comments from  Sergei Shtylov
->      and Santosh Shilimkar.
->
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> perhaps we should try rate limiting it then? Could you check if that
+> actually works?
+
+I'll think on it, sure.  I was hoping sdata_dbg would be sufficient
+because it's much easier, but if there's value in the message I can
+look at limiting it in some fashion.
+
+josh
