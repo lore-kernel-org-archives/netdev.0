@@ -1,48 +1,94 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/5] net: Add saddr op to l3mdev and vrf
-Date: Thu,  1 Oct 2015 08:27:22 -0700
-Message-ID: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 3/5] net: Refactor path selection in __ip_route_output_key
+Date: Thu,  1 Oct 2015 08:27:25 -0700
+Message-ID: <1443713247-11230-4-git-send-email-dsa@cumulusnetworks.com>
+References: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36083 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756403AbbJAP1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:35 -0400
-Received: by pablk4 with SMTP id lk4so77033364pab.3
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:35 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34719 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756401AbbJAP1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:39 -0400
+Received: by padhy16 with SMTP id hy16so77696933pad.1
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:39 -0700 (PDT)
+In-Reply-To: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First 2 patches are re-sends of patches that got lost in the ethosphere
-Tuesday; they were part of the first round of l3mdev conversions.
-Next 3 handle the source address lookup for raw and datagram sockets
-bound to a VRF device.
+VRF device needs same path selection following lookup to set source
+address. Rather than duplicating code, move existing code into a
+function that is exported to modules.
 
-The conversion to the get_saddr op also fixes locally originated TCP
-packets showing up at the VRF device. The use of the FLOWI_FLAG_L3MDEV_SRC
-flag in ip_route_connect_init was causing locally generated packets
-to skip the VRF device.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/net/ip_fib.h     |  2 ++
+ net/ipv4/fib_semantics.c | 18 ++++++++++++++++++
+ net/ipv4/route.c         | 13 +------------
+ 3 files changed, 21 insertions(+), 12 deletions(-)
 
-David Ahern (5):
-  net: Rename FLOWI_FLAG_VRFSRC to FLOWI_FLAG_L3MDEV_SRC
-  net: Add netif_is_l3_slave
-  net: Refactor path selection in __ip_route_output_key
-  net: Add source address lookup op for VRF
-  net: Add l3mdev saddr lookup to raw_sendmsg
-
- drivers/net/vrf.c         | 47 ++++++++++++++++++++++++++++++++++++++++-------
- include/linux/netdevice.h |  7 +++++++
- include/net/flow.h        |  2 +-
- include/net/ip_fib.h      |  2 ++
- include/net/l3mdev.h      | 27 +++++++++++++++++++++++++++
- include/net/route.h       |  7 ++++---
- net/ipv4/fib_semantics.c  | 18 ++++++++++++++++++
- net/ipv4/raw.c            |  8 ++++++--
- net/ipv4/route.c          | 13 +------------
- net/ipv4/udp.c            | 22 +++-------------------
- net/l3mdev/l3mdev.c       |  8 ++++----
- 11 files changed, 113 insertions(+), 48 deletions(-)
-
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 727d6e9a9685..30469855edf5 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -321,6 +321,8 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event);
+ int fib_sync_down_addr(struct net *net, __be32 local);
+ int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
+ void fib_select_multipath(struct fib_result *res);
++void fib_select_path(struct net *net, struct fib_result *res,
++		     struct flowi4 *fl4);
+ 
+ /* Exported by fib_trie.c */
+ void fib_trie_init(void);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 064bd3caaa4f..facba7ed27de 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1547,3 +1547,21 @@ void fib_select_multipath(struct fib_result *res)
+ 	spin_unlock_bh(&fib_multipath_lock);
+ }
+ #endif
++
++void fib_select_path(struct net *net, struct fib_result *res,
++		     struct flowi4 *fl4)
++{
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++	if (res->fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
++		fib_select_multipath(res);
++	else
++#endif
++	if (!res->prefixlen &&
++	    res->table->tb_num_default > 1 &&
++	    res->type == RTN_UNICAST && !fl4->flowi4_oif)
++		fib_select_default(fl4, res);
++
++	if (!fl4->saddr)
++		fl4->saddr = FIB_RES_PREFSRC(net, *res);
++}
++EXPORT_SYMBOL_GPL(fib_select_path);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 1441de1550e6..747042504967 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2187,18 +2187,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 		goto make_route;
+ 	}
+ 
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
+-		fib_select_multipath(&res);
+-	else
+-#endif
+-	if (!res.prefixlen &&
+-	    res.table->tb_num_default > 1 &&
+-	    res.type == RTN_UNICAST && !fl4->flowi4_oif)
+-		fib_select_default(fl4, &res);
+-
+-	if (!fl4->saddr)
+-		fl4->saddr = FIB_RES_PREFSRC(net, res);
++	fib_select_path(net, &res, fl4);
+ 
+ 	dev_out = FIB_RES_DEV(res);
+ 	fl4->flowi4_oif = dev_out->ifindex;
 -- 
 1.9.1
