@@ -1,76 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp/dccp: fix old style declarations
-Date: Thu, 01 Oct 2015 04:48:53 -0700
-Message-ID: <1443700133.32531.39.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: Soft lockup issue in Linux 4.1.9
+Date: Thu, 1 Oct 2015 04:52:18 -0700
+Message-ID: <CANn89iKvTUKZTiWQYbjXLr4NvYKDgd_mKYVzZHiSqk0e0OfGxA@mail.gmail.com>
+References: <1443650383.13282.10.camel@daevel.fr>
+	<560D1223.3070606@googlemail.com>
+	<CANn89i+B5T4Rhs8HnrC0+f+GhLvBFfpr4BVDvhkVOveSfy9B8Q@mail.gmail.com>
+	<560D1C5A.3050508@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Raanan Avargil <raanan.avargil@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33439 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbbJALsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 07:48:55 -0400
-Received: by pacex6 with SMTP id ex6so72911943pac.0
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 04:48:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Holger_Hoffst=C3=A4tte?=
+	<holger.hoffstaette@googlemail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <560D1C5A.3050508@googlemail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Raanan Avargil <raanan.avargil@intel.com>
+On Thu, Oct 1, 2015 at 4:43 AM, Holger Hoffst=C3=A4tte
+<holger.hoffstaette@googlemail.com> wrote:
+> On 10/01/15 13:29, Eric Dumazet wrote:
 
-I=E2=80=99m using the compilation flag -Werror=3Dold-style-declaration,=
- which
-requires that the =E2=80=9Cinline=E2=80=9D word would come at the begin=
-ning of the code
-line.
-=20
-$ make drivers/net/ethernet/intel/e1000e/e1000e.ko
-=2E..
-include/net/inet_timewait_sock.h:116:1: error: =E2=80=98inline=E2=80=99=
- is not at
-beginning of declaration [-Werror=3Dold-style-declaration]
-static void inline inet_twsk_schedule(struct inet_timewait_sock *tw, in=
-t
-timeo)
+>> commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
+>> Author: Eric Dumazet <edumazet@google.com>
+>> Date:   Thu Aug 13 15:44:51 2015 -0700
+>>
+>>     inet: fix potential deadlock in reqsk_queue_unlink()
+>>
+>>     When replacing del_timer() with del_timer_sync(), I introduced
+>>     a deadlock condition :
+>>
+>>     reqsk_queue_unlink() is called from inet_csk_reqsk_queue_drop()
+>>
+>>     inet_csk_reqsk_queue_drop() can be called from many contexts,
+>>     one being the timer handler itself (reqsk_timer_handler()).
+>>
+>>     In this case, del_timer_sync() loops forever.
+>>
+>>     Simple fix is to test if timer is pending.
+>>
+>>     Fixes: 2235f2ac75fd ("inet: fix races with reqsk timers")
+>>     Signed-off-by: Eric Dumazet <edumazet@google.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> Whohoo! It applies/builds cleanly to 4.1.10-rc1 and is running as
+> we speak. Let's hope that this fixes the lockups.
+>
 
-include/net/inet_timewait_sock.h:121:1: error: =E2=80=98inline=E2=80=99=
- is not at
-beginning of declaration [-Werror=3Dold-style-declaration]
-static void inline inet_twsk_reschedule(struct inet_timewait_sock *tw,
-int timeo)
+It definitely should help !
 
-=46ixes: ed2e92394589 ("tcp/dccp: fix timewait races in timer handling"=
-)
-Signed-off-by: Raanan Avargil <raanan.avargil@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/inet_timewait_sock.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+David, since patch is not yet seen on
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
+could you please add it to your queue ?
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewa=
-it_sock.h
-index 186f3a1e1b1f..fc1937698625 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -113,12 +113,12 @@ void __inet_twsk_hashdance(struct inet_timewait_s=
-ock *tw, struct sock *sk,
- void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo,
- 			  bool rearm);
-=20
--static void inline inet_twsk_schedule(struct inet_timewait_sock *tw, i=
-nt timeo)
-+static inline void inet_twsk_schedule(struct inet_timewait_sock *tw, i=
-nt timeo)
- {
- 	__inet_twsk_schedule(tw, timeo, false);
- }
-=20
--static void inline inet_twsk_reschedule(struct inet_timewait_sock *tw,=
- int timeo)
-+static inline void inet_twsk_reschedule(struct inet_timewait_sock *tw,=
- int timeo)
- {
- 	__inet_twsk_schedule(tw, timeo, true);
- }
+Thanks.
