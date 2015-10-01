@@ -1,33 +1,50 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 6/6] switchdev: push object ID back to object structure
-Date: Thu, 1 Oct 2015 08:54:08 -0700
-Message-ID: <CAE4R7bBxRc3zAwoGwyprAPC7r5hNH0Ncq4j6vsdOhgmSfgRhpg@mail.gmail.com>
-References: <1443690226-29833-1-git-send-email-jiri@resnulli.us> <1443690226-29833-7-git-send-email-jiri@resnulli.us>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 2/6] openvswitch: Pass net into ovs_fragment
+Date: Thu, 01 Oct 2015 11:03:59 -0500
+Message-ID: <87lhbma840.fsf@x220.int.ebiederm.org>
+References: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+	<1443648336-31741-2-git-send-email-ebiederm@xmission.com>
+	<560CEF75.9050703@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35397 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753193AbbJAPy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:54:27 -0400
-Received: by oiww128 with SMTP id w128so43151840oiw.2
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:54:27 -0700 (PDT)
-In-Reply-To: <1443690226-29833-7-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <560CEF75.9050703@6wind.com> (Nicolas Dichtel's message of "Thu,
+	1 Oct 2015 10:31:49 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 1, 2015 at 2:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+
+> Le 30/09/2015 23:25, Eric W. Biederman a =C3=A9crit :
+>> In preparation for the ipv4 and ipv6 fragmentation code taking a net
+>> parameter pass a struct net into ovs_fragment where the v4 and v6
+>> fragmentation code is called.
+>>
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+> [snip]
+>> @@ -748,6 +748,7 @@ static void do_output(struct datapath *dp, struc=
+t sk_buff *skb, int out_port,
+>>   		if (likely(!mru || (skb->len <=3D mru + ETH_HLEN))) {
+>>   			ovs_vport_send(vport, skb);
+>>   		} else if (mru <=3D vport->dev->mtu) {
+>> +			struct net *net =3D read_pnet(&dp->net);
+> nit: add an empty line after variables declaration.
 >
-> Suggested-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>   			__be16 ethertype =3D key->eth.type;
+>>
+^^^^^^^^^^^  The empty line is right here, after the second variable
+             declaration.
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+>>   			if (!is_flow_key_valid(key)) {
+> [snip]
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
