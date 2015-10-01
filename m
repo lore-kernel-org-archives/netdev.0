@@ -1,24 +1,30 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net: panic when removing device due to vrf
-Date: Thu, 1 Oct 2015 16:51:25 -0600
-Message-ID: <560DB8ED.5080609@cumulusnetworks.com>
-References: <560DB8BA.9020700@oracle.com>
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: Re: [PATCH nf-next] netfilter: Line layout whitespace fixes
+Date: Fri, 2 Oct 2015 00:44:03 +0100
+Message-ID: <560DC543.3060809@chirality.org.uk>
+References: <1443089406-8996-1-git-send-email-ipm@chirality.org.uk>
+ <20150930221707.GA14994@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560DB8BA.9020700@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150930221707.GA14994@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/1/15 4:50 PM, Sasha Levin wrote:
-> Hi David,
->
-> Commit 93a7e7e837 ("net: Remove the now unused vrf_ptr") is causing a panic whenever
-> I unplug a network device:
 
-Cong just sent a patch. Sorry for the trouble.
+On 30/09/15 23:17, Pablo Neira Ayuso wrote:
+> On Thu, Sep 24, 2015 at 11:10:06AM +0100, Ian Morris wrote:
+>> Fixes various whitespace issues detected by checkpatch (e.g. adding spaces between operations, replacing spaces with tabs, etc)
+>>
+>> No changes detected by objdiff.
+> These large cleanup patch causes problems for -stable maintainers,
+> since they have more conflicts when backporting stuff.
+>
+> I'd rather keep this back.
+>
+Please help me understand: until when do you propose such changes be 
+deferred? Or are you suggesting we should apply changes more 
+incrementally somehow?
