@@ -1,48 +1,104 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Rate limiting AP bandwidth change messages in
- ieee80211_config_bw?
-Date: Thu, 01 Oct 2015 09:48:25 +0200
-Message-ID: <1443685705.1880.6.camel@sipsolutions.net>
-References: <CA+5PVA4yaLG2NtJ_Bg5-BQzR-Wa5ABxPb-cLxF7bjSsf-P1_5Q@mail.gmail.com>
-	 <1443637937.1859.19.camel@sipsolutions.net>
-	 <1443639852.1859.25.camel@sipsolutions.net>
-	 <CA+5PVA5L2LwwbJmoxwkYtJ=PYc9Q5g4KpqwmA0urxX8CRe=L+g@mail.gmail.com>
-	 (sfid-20151001_020951_577334_ECF74B43)
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] net ipv4: use preferred log methods
+Date: Thu, 1 Oct 2015 09:55:30 +0200
+Message-ID: <20151001075530.GL3982@pengutronix.de>
+References: <20150928.222409.1641594777817922710.davem@davemloft.net>
+ <1443625231-1871-1-git-send-email-bst@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: drago01 <drago01@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Josh Boyer <jwboyer@fedoraproject.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	trivial@kernel.org, kernel@pengutronix.de,
+	Joe Perches <joe@perches.com>
+To: Bastian Stender <bst@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55256 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755279AbbJAHs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2015 03:48:29 -0400
-In-Reply-To: <CA+5PVA5L2LwwbJmoxwkYtJ=PYc9Q5g4KpqwmA0urxX8CRe=L+g@mail.gmail.com> (sfid-20151001_020951_577334_ECF74B43)
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:37370 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246AbbJAHzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 03:55:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1443625231-1871-1-git-send-email-bst@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello Basti,
 
-> For what purpose?  Or rather, when a user sees this in their dmesg,
-> what are they supposed to do about it?
+Cc +=3D Joe Perches
 
-I think the idea isn't that the user would do something, but more that
-in case of performance issues, or perhaps driver/device bugs handling
-the changes, or similar you'd have an indication that this happened.
+On Wed, Sep 30, 2015 at 05:00:31PM +0200, Bastian Stender wrote:
+> Replace printk calls with preferred unconditional log method calls to=
+ keep
+> kernel messages clean.
+>=20
+> Signed-off-by: Bastian Stender <bst@pengutronix.de>
+> ---
+>  net/ipv4/ipconfig.c                            |  77 +++++-------
+>  net/ipv4/netfilter/arp_tables.c                | 165 +++++++++++----=
+----------
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   2 +-
+>  net/ipv4/netfilter/nf_nat_snmp_basic.c         |  31 +++--
+>  4 files changed, 122 insertions(+), 153 deletions(-)
+>=20
+> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+> index ed4ef09..50ec7c6 100644
+> --- a/net/ipv4/ipconfig.c
+> +++ b/net/ipv4/ipconfig.c
+> [...]
+> @@ -857,12 +848,12 @@ static void __init ic_bootp_send_if(struct ic_d=
+evice *d, unsigned long jiffies_d
+>  	if (dev_hard_header(skb, dev, ntohs(skb->protocol),
+>  			    dev->broadcast, dev->dev_addr, skb->len) < 0) {
+>  		kfree_skb(skb);
+> -		printk("E");
+> +		pr_alert("E\n");
+>  		return;
+>  	}
+> =20
+>  	if (dev_queue_xmit(skb) < 0)
+> -		printk("E");
+> +		pr_alert("E\n");
 
+I'm not sure about this change. If after
 
-> > perhaps we should try rate limiting it then? Could you check if 
-> > that
-> > actually works?
-> 
-> I'll think on it, sure.  I was hoping sdata_dbg would be sufficient
-> because it's much easier, but if there's value in the message I can
-> look at limiting it in some fashion.
-> 
+	printk("E");
+	printk("E");
 
-Thanks.
+both E are on the same line I'd say switching to pr_alert and adding \n
+is bad. I don't know off-hand if that's the case, maybe Joe does?
 
-johannes
+> [...]
+> diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfil=
+ter/nf_nat_snmp_basic.c
+> index 7c67667..78f63f5 100644
+> --- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
+> +++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+> @@ -915,8 +915,7 @@ static inline void mangle_address(unsigned char *=
+begin,
+>  		}
+> =20
+>  		if (debug)
+> -			printk(KERN_DEBUG "bsalg: mapped %pI4 to %pI4\n",
+> -			       &old, addr);
+> +			pr_debug("bsalg: mapped %pI4 to %pI4\n", &old, addr);
+
+This is also a change in behaviour. The removed line results in the
+message making it into the kernel log buffer unconditionally (though
+probably not on the console). The newly added line is a noop however
+unless DEBUG is defined. This doesn't mean the change is bad, but at
+least it's not in the scope for a trivial cleanup patch that just
+converts existing code to the modern way with no intend to change
+behaviour.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
