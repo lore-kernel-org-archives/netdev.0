@@ -1,36 +1,55 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: [RFC PATCH] net: encx24j600_exit() can be static
-Date: Thu, 1 Oct 2015 20:26:20 +0800
-Message-ID: <20151001122620.GA9861@xian>
-References: <201510012040.yAkBkB49%fengguang.wu@intel.com>
+From: Jon Ringle <jon@ringle.org>
+Subject: Re: [PATCH 1/2] regmap: Allow installing custom reg_update_bits
+ function
+Date: Thu, 1 Oct 2015 08:29:19 -0400 (EDT)
+Message-ID: <alpine.DEB.2.10.1510010826450.21737@jring-w510-7m3g.gridpoint.com>
+References: <1443681187-29505-1-git-send-email-jon@ringle.org> <20151001094424.GG15635@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, broonie@kernel.org, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jon Ringle <jringle@gridpoint.com>
-To: jon@ringle.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1443699801-8888-2-git-send-email-jon@ringle.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jon@ringle.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mark Brown <broonie@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:32893 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932255AbbJAM3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 08:29:37 -0400
+In-Reply-To: <20151001094424.GG15635@sirena.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
----
- encx24j600.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
-index 1da37fd..afc008a 100644
---- a/drivers/net/ethernet/microchip/encx24j600.c
-+++ b/drivers/net/ethernet/microchip/encx24j600.c
-@@ -1112,7 +1112,7 @@ static int __init encx24j600_init(void)
- }
- module_init(encx24j600_init);
- 
--void encx24j600_exit(void)
-+static void encx24j600_exit(void)
- {
- 	spi_unregister_driver(&encx24j600_spi_net_driver);
- }
+On Thu, 1 Oct 2015, Mark Brown wrote:
+
+> On Thu, Oct 01, 2015 at 02:33:06AM -0400, jon@ringle.org wrote:
+> 
+> > @@ -2509,6 +2510,10 @@ static int _regmap_update_bits(struct regmap *map, unsigned int reg,
+> >  	int ret;
+> >  	unsigned int tmp, orig;
+> >  
+> > +	if (map->reg_update_bits)
+> > +		return map->reg_update_bits(map->bus_context, reg, mask, val,
+> > +					    change, force_write);
+> > +
+> >  	ret = _regmap_read(map, reg, &orig);
+> >  	if (ret != 0)
+> >  		return ret;
+> 
+> This completely bypasses and therefore breaks the cache infrastructure.
+> 
+
+Hi Mark,
+
+Right after sending the v2 patch, I realized that calling the 
+custom reg_update_bits would only be applicable for registers that are 
+marked as volatile. Would the following solution be acceptable (it would 
+also simplify the regmap_update_bits in the encx24j600 driver):
+
+	if (regmap_volatile(map, reg) && map->reg_update_bits) {
+		return map->reg_update_bits(map->bus_context, reg, mask, 
+		                            val, change, force_write);
+		
+The cache state should not matter for volatile registers, right?
+
+-Jon
