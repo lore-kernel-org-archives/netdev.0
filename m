@@ -1,117 +1,94 @@
-From: Hugo Vasconcelos Saldanha <hugovs@gmail.com>
-Subject: Re: Problem with ICMP rate limiting and redirects
-Date: Thu, 1 Oct 2015 15:38:03 -0300
-Message-ID: <CACOGZ=tHZ0w0GhY9n+3pzCPBGZrBM-16q3455Du7w69+et4RvQ@mail.gmail.com>
-References: <CACOGZ=uKqPpNBWuuJox1JTCC5e0G_j4KG+zFA_Ykr8wHj4jPgA@mail.gmail.com>
-	<1443631374.32531.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACOGZ=vM6N3J5voA=-zGYwedx9s6Bt7iwR3f-SwEdVOEPP6T9g@mail.gmail.com>
-	<1443646098.32531.31.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] act_mirred: fix a race condition on mirred_list
+Date: Thu,  1 Oct 2015 11:37:42 -0700
+Message-ID: <1443724663-27158-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:34432 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753537AbbJASiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 14:38:05 -0400
-Received: by igcpb10 with SMTP id pb10so2052457igc.1
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 11:38:04 -0700 (PDT)
-In-Reply-To: <1443646098.32531.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35327 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756066AbbJASiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 14:38:14 -0400
+Received: by pacfv12 with SMTP id fv12so83609556pac.2
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 11:38:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2015 at 5:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-09-30 at 15:13 -0300, Hugo Vasconcelos Saldanha wrote:
->> Hi Eric,
->>
->> On Wed, Sep 30, 2015 at 1:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2015-09-30 at 13:10 -0300, Hugo Vasconcelos Saldanha wrote:
->> >> Hi,
->> >>
->> >> While updating the kernel from v3.2 to v3.14, I started to see a
->> >> different behavior concerning ICMP redirects sent by this updated
->> >> server. The network is somewhat configured like this:
->> >>
->> >>                ---|firewall|----{Internet}
->> >> |client|------|
->> >>               |
->> >>                ---|router|------|172.16/12 network|
->> >>
->> >> The client's default gateway is 'firewall', which is the updated
->> >> server. It has a static route to 172.16 network by 'router'. If
->> >> 'client' wants to talk to a server in that network, 'firewall' sends a
->> >> ICMP redirect pointing to router as the gateway.
->> >>
->> >> This worked fine with v3.2. But after the upgrade, if an ICMP message
->> >> that is rate-limited (by the sysctl_icmp_ratelimit mask) is sent to
->> >> 'client', ICMP redirects stop being sent to the same client. This
->> >> happens, for example, when traceroute'ing from the client to the
->> >> server inside the mentioned network. In this situation, a ICMP Time
->> >> Exceeded message is sent in response to traceroute's first packet, but
->> >> then the following packets never generate any ICMP redirect messages
->> >> in 'firewall'.
->> >>
->> >> Debugging the code, I was able to see that the problem is being caused
->> >> by the fact that ip_rt_send_redirect() started to use the inetpeer
->> >> cache and the fields used to rate limit ICMP redirects (rate_tokens
->> >> and rate_last) are now being shared with the algorithm applied in
->> >> inet_peer_xrlim_allow(). This never happened with v3.2 because
->> >> apparently inet_peer_xrlim_allow() and ip_rt_send_redirect() used
->> >> different inetpeer objects.
->> >>
->> >> The reason why this breaks the functionality is that, while
->> >> inet_peer_xrlim_allow() uses a time bucket, ip_rt_send_redirect() uses
->> >> rate_tokens as a packet counter. Not to mention the fact that these
->> >> are two completely different policies which should be controlled by
->> >> different buckets, counters, flags, etc. Because of this,
->> >> ip_rt_redirect_silence, ip_rt_redirect_number and ip_rt_redirect_load
->> >> /proc files are broken also.
->> >>
->> >> The easiest solution would be to create new fields in 'struct
->> >> inetpeer' to control ICMP redirects only, but I'm not able to measure
->> >> its convenience.
->> >>
->> >> Any thoughts?
->> >>
->> >> PS: Apparently, a similar problem was reported here:
->> >> http://marc.info/?l=linux-netdev&m=139696540600985
->> >>
->> >> PS2: I could try to reproduce the problem with the latest code if this
->> >> is really necessary.
->> >
->> > Hmm... Do you have commit
->> >
->> > 4cdf507d54525842dfd9f6313fdafba039084046
->> > ("icmp: add a global rate limitation")
->> > in your kernel ?
->> >
->>
->> No, but i just tested it and problem continues. AFAICT, ICMP redirects
->> shouldn't be limited by the logic implemented by that patch, at least
->> with default icmp_ratemask. And the algorithm in ip_rt_send_redirect()
->> has a different purpose, too.
->
-> OK thanks.
->
-> I guess I also gave the commit to give a hint why relying on inetpeer
-> might open doors for DDOS.
->
-> <quote of the changelog>
->     Note that if we really want to send millions of ICMP messages per
->     second, we might extend idea and infra added in commit 04ca6973f7c1a
->     ("ip: make IP identifiers less predictable") :
->     add a token bucket in the ip_idents hash and no longer rely on
->     inetpeer.
->
-> </quote>
->
->
+After commit 1ce87720d456 ("net: sched: make cls_u32 lockless")
+we began to release tc actions in a RCU callback. However,
+mirred action relies on RTNL lock to protect the global
+mirred_list, therefore we could have a race condition
+between RCU callback and netdevice event, which caused
+a list corruption as reported by Vinson.
 
-Thanks for pointing that out.
+Instead of relying on RTNL lock, introduce a spinlock to
+protect this list.
 
-But how should all the sysctl's that control ICMP messages sent to
-specific targets (icmp_ratelimit, redirect_load, redirect_number,
-redirect_silence, error_cost and error_burst) be treated without
-relying on inetpeer? Entries in ip_idents hash don't represent
-specific targets. Am I missing something?
+Note, in non-bind case, it is still called with RTNL lock,
+therefore should disable BH too.
+
+Reported-by: Vinson Lee <vlee@twopensource.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/act_mirred.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 2d1be4a..3e7c51a 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -31,13 +31,17 @@
+ 
+ #define MIRRED_TAB_MASK     7
+ static LIST_HEAD(mirred_list);
++static DEFINE_SPINLOCK(mirred_list_lock);
+ 
+ static void tcf_mirred_release(struct tc_action *a, int bind)
+ {
+ 	struct tcf_mirred *m = to_mirred(a);
+ 	struct net_device *dev = rcu_dereference_protected(m->tcfm_dev, 1);
+ 
++	/* We could be called either in a RCU callback or with RTNL lock held. */
++	spin_lock_bh(&mirred_list_lock);
+ 	list_del(&m->tcfm_list);
++	spin_unlock_bh(&mirred_list_lock);
+ 	if (dev)
+ 		dev_put(dev);
+ }
+@@ -123,7 +127,9 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	}
+ 
+ 	if (ret == ACT_P_CREATED) {
++		spin_lock_bh(&mirred_list_lock);
+ 		list_add(&m->tcfm_list, &mirred_list);
++		spin_unlock_bh(&mirred_list_lock);
+ 		tcf_hash_insert(a);
+ 	}
+ 
+@@ -221,7 +227,8 @@ static int mirred_device_event(struct notifier_block *unused,
+ 	struct tcf_mirred *m;
+ 
+ 	ASSERT_RTNL();
+-	if (event == NETDEV_UNREGISTER)
++	if (event == NETDEV_UNREGISTER) {
++		spin_lock_bh(&mirred_list_lock);
+ 		list_for_each_entry(m, &mirred_list, tcfm_list) {
+ 			if (rcu_access_pointer(m->tcfm_dev) == dev) {
+ 				dev_put(dev);
+@@ -231,6 +238,8 @@ static int mirred_device_event(struct notifier_block *unused,
+ 				RCU_INIT_POINTER(m->tcfm_dev, NULL);
+ 			}
+ 		}
++		spin_unlock_bh(&mirred_list_lock);
++	}
+ 
+ 	return NOTIFY_DONE;
+ }
+-- 
+1.8.3.1
