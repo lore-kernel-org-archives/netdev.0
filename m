@@ -1,56 +1,27 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 03/12] net: igb: avoid using timespec
-Date: Thu, 01 Oct 2015 22:01:57 +0200
-Message-ID: <1803983.ImzkvzgWES@wuerfel>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
- <1443612402-3000775-4-git-send-email-arnd@arndb.de>
- <20151001191745.GC1872@localhost.localdomain>
+From: Ani Sinha <ani@arista.com>
+Subject: iproute2 compatibility
+Date: Thu, 1 Oct 2015 13:06:00 -0700
+Message-ID: <CAOxq_8MPyWbPLeNWyEiSwq9xXgHwSXm29T3849HLmOg3Z7TXuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- "David S. Miller" <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <20151001191745.GC1872@localhost.localdomain>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: shemminger@vyatta.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:33633 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705AbbJAUGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 16:06:20 -0400
+Received: by igbkq10 with SMTP id kq10so3944943igb.0
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 13:06:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1cnNkYXkgMDEgT2N0b2JlciAyMDE1IDIxOjE3OjQ1IFJpY2hhcmQgQ29jaHJhbiB3cm90
-ZToKPiBPbiBXZWQsIFNlcCAzMCwgMjAxNSBhdCAwMToyNjozM1BNICswMjAwLCBBcm5kIEJlcmdt
-YW5uIHdyb3RlOgo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
-Yi9pZ2JfcHRwLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jCj4g
-PiBpbmRleCA1OTgyZjI4ZDUyMWEuLmM0NGRmODdjMzhkZSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMKPiA+ICsrKyBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMKPiA+IEBAIC0xNDMsNyArMTQzLDcgQEAgc3Rh
-dGljIHZvaWQgaWdiX3B0cF93cml0ZV9pMjEwKHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlciwK
-PiA+ICAgICAgICAqIHN1Yi1uYW5vc2Vjb25kIHJlc29sdXRpb24uCj4gPiAgICAgICAgKi8KPiA+
-ICAgICAgIHdyMzIoRTEwMDBfU1lTVElNTCwgdHMtPnR2X25zZWMpOwo+ID4gLSAgICAgd3IzMihF
-MTAwMF9TWVNUSU1ILCB0cy0+dHZfc2VjKTsKPiA+ICsgICAgIHdyMzIoRTEwMDBfU1lTVElNSCwg
-KHUzMil0cy0+dHZfc2VjKTsKPiAKPiBUaGlzIGNhc3QgaXMgdW5uZWNlc3NhcnksIGJlY2F1c2Ug
-d3IzMiBpcyB3cml0ZWwsIGFuZCB0aGF0IHBhcmFtZXRlcgo+IGlzIGEgdTMyLgoKSSB0cmllZCB0
-byB1c2UgdGhpcyBwYXR0ZXJuIHdoZW5ldmVyIEkgY29udmVydCB0aGUgNjQtYml0ICdsb25nIGxv
-bmcnCnR2X3NlYyBtZW1iZXIgb2YgJ3N0cnVjdCB0aW1lc3BlYzY0JyBpbnRvIGEgMzItYml0IG51
-bWJlciwgdG8gYW5ub3RhdGUKdGhlIGxvc3Mgb2YgcmFuZ2UuCgpJIGhhdmUgdGhvdWdodCBhYm91
-dCBkZWZpbmluZyBzZXBhcmF0ZSBoZWxwZXJzIGxpa2UgdGhpcwoKLyogcmVzdWx0IHdpbGwgb3Zl
-cmZsb3cgaW4gMjAzOCBmb3IgcmVhbCB0aW1lICovCnN0YXRpYyBpbmxpbmUgczMyIHRpbWU2NF90
-b19zMzJfeTIwMzgodGltZTY0X3QgdGltZSkKewoJcmV0dXJuIHRpbWU7Cn0KCi8qIHJlc3VsdCB3
-aWxsIG92ZXJmbG93IGluIDIxMDYgZm9yIHJlYWwgdGltZSAqLwpzdGF0aWMgaW5saW5lIHUzMiB0
-aW1lNjRfdG9fdTMyX3kyMTA2KHRpbWU2NF90IHRpbWUpCnsKCXJldHVybiB0aW1lOwp9CgovKiBt
-b25vdG9uaWMgdGltZXMgY2FuIHNhZmVseSBiZSByZXByZXNlbnRlZCBhcyAzMiBiaXQgKi8Kc3Rh
-dGljIGlubGluZSBzMzIgdGltZTY0X3RvX3MzMl9tb25vdG9uaWModGltZTY0X3QgdGltZSkKewoJ
-cmV0dXJuIHRpbWU7Cn0KClRoaXMgd291bGQgbWFrZSBpdCBldmVuIG1vcmUgZXhwbGljaXQsIGJ1
-dCBteSBmZWFyIHdhcyB0aGF0IEkgd2FzCmFkZGluZyB0b28gbXVjaCBjb21wbGV4aXR5IGxpa2Ug
-dGhhdC4KCglBcm5kCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlz
-dHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
+Hi Stephen :
+
+I was looking around but could not find clear evidence that a later
+version of iproute2 is compatible with an older kernel. Specifically,
+we are wondering if iproute2 v 3.6 is compatible with linux kernel
+3.4. Highly appreciate any pointers on this.
+
+thanks
+ani
