@@ -1,53 +1,49 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv3 net-next 4/4] cxgb4: Report correct link speed for unsupported ones
-Date: Thu,  1 Oct 2015 13:48:48 +0530
-Message-ID: <1443687528-25836-5-git-send-email-hariprasad@chelsio.com>
-References: <1443687528-25836-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 4/6] ipv6: Pass struct net through ip6_fragment
+Date: Thu, 1 Oct 2015 10:31:43 +0200
+Message-ID: <560CEF6F.4030403@6wind.com>
+References: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+ <1443648336-31741-4-git-send-email-ebiederm@xmission.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:15239 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753952AbbJAISM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 04:18:12 -0400
-In-Reply-To: <1443687528-25836-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:32836 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbbJAIbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 04:31:47 -0400
+Received: by wiclk2 with SMTP id lk2so21599143wic.0
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 01:31:46 -0700 (PDT)
+In-Reply-To: <1443648336-31741-4-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we get garbage from the firmware with weird Port Speeds,
-etc. we should emit a warning regarding unsupported speeds rather than
-use the bogus default of "10Mbps" which isn't even an option in the
-firmware Port Information message
+Le 30/09/2015 23:25, Eric W. Biederman a =C3=A9crit :
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+[snip]
+> diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+> index 0c3e9ffcf231..335066a64b45 100644
+> --- a/net/ipv6/xfrm6_output.c
+> +++ b/net/ipv6/xfrm6_output.c
+> @@ -131,6 +131,12 @@ int xfrm6_output_finish(struct sock *sk, struct =
+sk_buff *skb)
+>   	return xfrm_output(sk, skb);
+>   }
+>
+> +static int __xfrm6_output_finish(struct net *net, struct sock *sk, s=
+truct sk_buff *skb)
+> +{
+> +	struct xfrm_state *x =3D skb_dst(skb)->xfrm;
+nit: add an empty line after variables declaration.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 0b7570d..9f1f5b2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -275,7 +275,7 @@ static void link_report(struct net_device *dev)
- 	else {
- 		static const char *fc[] = { "no", "Rx", "Tx", "Tx/Rx" };
- 
--		const char *s = "10Mbps";
-+		const char *s;
- 		const struct port_info *p = netdev_priv(dev);
- 
- 		switch (p->link_cfg.speed) {
-@@ -291,6 +291,10 @@ static void link_report(struct net_device *dev)
- 		case 40000:
- 			s = "40Gbps";
- 			break;
-+		default:
-+			pr_info("%s: unsupported speed: %d\n",
-+				dev->name, p->link_cfg.speed);
-+			return;
- 		}
- 
- 		netdev_info(dev, "link up, %s, full-duplex, %s PAUSE\n", s,
--- 
-2.3.4
+> +	return x->outer_mode->afinfo->output_finish(sk, skb);
+> +}
+> +
+[snip]
