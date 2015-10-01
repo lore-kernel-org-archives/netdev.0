@@ -1,22 +1,21 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv2 2/7] openvswitch: Fix typos in CT headers
-Date: Thu,  1 Oct 2015 13:53:25 -0700
-Message-ID: <1443732810-38746-3-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv2 5/7] openvswitch: Reject ct_state unsupported bits
+Date: Thu,  1 Oct 2015 13:53:28 -0700
+Message-ID: <1443732810-38746-6-git-send-email-joestringer@nicira.com>
 References: <1443732810-38746-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, jesse@nicira.com
 To: netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36833 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757081AbbJAUxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 16:53:38 -0400
-Received: by pablk4 with SMTP id lk4so84254651pab.3
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 13:53:38 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443732810-38746-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These comments hadn't caught up to their implementations, fix them.
+Previously, if userspace specified ct_state bits in the flow key which
+are currently undefined (and therefore unsupported), then they would be
+ignored. This could cause unexpected behaviour in future if userspace is
+extended to support additional bits but attempts to communicate with the
+current version of the kernel. This patch rectifies the situation by
+rejecting such ct_state bits.
 
 Fixes: 7f8a436 "openvswitch: Add conntrack action"
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
@@ -24,30 +23,56 @@ Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
 v2: Acked.
 ---
- include/uapi/linux/openvswitch.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/conntrack.h    | 12 ++++++++++++
+ net/openvswitch/flow_netlink.c |  6 ++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index c736344..a9a4a59 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -630,7 +630,7 @@ struct ovs_action_hash {
-  */
- enum ovs_ct_attr {
- 	OVS_CT_ATTR_UNSPEC,
--	OVS_CT_ATTR_FLAGS,      /* u8 bitmask of OVS_CT_F_*. */
-+	OVS_CT_ATTR_FLAGS,      /* u32 bitmask of OVS_CT_F_*. */
- 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
- 	OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
- 	OVS_CT_ATTR_LABELS,     /* labels to associate with this connection. */
-@@ -705,7 +705,7 @@ enum ovs_action_attr {
- 				       * data immediately followed by a mask.
- 				       * The data must be zero for the unmasked
- 				       * bits. */
--	OVS_ACTION_ATTR_CT,           /* One nested OVS_CT_ATTR_* . */
-+	OVS_ACTION_ATTR_CT,           /* Nested OVS_CT_ATTR_* . */
+diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
+index 43f5dd7..c658d95 100644
+--- a/net/openvswitch/conntrack.h
++++ b/net/openvswitch/conntrack.h
+@@ -34,6 +34,13 @@ int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
+ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
+ int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
+ void ovs_ct_free_action(const struct nlattr *a);
++
++static inline bool ovs_ct_state_supported(u8 state)
++{
++	return !(state & ~(OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED |
++			 OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR |
++			 OVS_CS_F_INVALID | OVS_CS_F_TRACKED));
++}
+ #else
+ #include <linux/errno.h>
  
- 	__OVS_ACTION_ATTR_MAX,	      /* Nothing past this will be accepted
- 				       * from userspace. */
+@@ -46,6 +53,11 @@ static inline bool ovs_ct_verify(struct net *net, int attr)
+ 	return false;
+ }
+ 
++static inline bool ovs_ct_state_supported(u8 state)
++{
++	return false;
++}
++
+ static inline int ovs_ct_copy_action(struct net *net, const struct nlattr *nla,
+ 				     const struct sw_flow_key *key,
+ 				     struct sw_flow_actions **acts, bool log)
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index a60e3b7..d47b5c5 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -816,6 +816,12 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
+ 	    ovs_ct_verify(net, OVS_KEY_ATTR_CT_STATE)) {
+ 		u8 ct_state = nla_get_u8(a[OVS_KEY_ATTR_CT_STATE]);
+ 
++		if (!is_mask && !ovs_ct_state_supported(ct_state)) {
++			OVS_NLERR(log, "ct_state flags %02x unsupported",
++				  ct_state);
++			return -EINVAL;
++		}
++
+ 		SW_FLOW_KEY_PUT(match, ct.state, ct_state, is_mask);
+ 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_STATE);
+ 	}
 -- 
 2.1.4
