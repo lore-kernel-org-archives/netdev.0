@@ -1,134 +1,164 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Thu, 1 Oct 2015 11:04:32 +0200
-Message-ID: <560CF720.9060301@zonque.org>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
- <1443525140-13493-4-git-send-email-daniel@zonque.org>
- <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
- <20150930214852.GA8443@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: pablo@netfilter.org, daniel@iogearbox.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	balazs.scheidler@balabit.com
-To: Florian Westphal <fw@strlen.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 3/6] switchdev: rename switchdev_obj_vlan to switchdev_obj_port_vlan
+Date: Thu,  1 Oct 2015 11:03:43 +0200
+Message-ID: <1443690226-29833-4-git-send-email-jiri@resnulli.us>
+References: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:49383 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933027AbbJAJEf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2015 05:04:35 -0400
-In-Reply-To: <20150930214852.GA8443@breakpoint.cc>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:38294 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755305AbbJAJDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 05:03:53 -0400
+Received: by wiclk2 with SMTP id lk2so18337973wic.1
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 02:03:51 -0700 (PDT)
+In-Reply-To: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Jiri Pirko <jiri@mellanox.com>
 
-On 09/30/2015 11:48 PM, Florian Westphal wrote:
-> Daniel Mack <daniel@zonque.org> wrote:
->> Of course you can drop certain packets at this point, depending on other
->> details. Say, for instance, you want to match all packets that are
->> received by a certain task and that are originated from IP addresses of
->> a specific subnet, and drop the rest. Rather than adding matches to your
->> global firewall configuration for all the ports that tasks may or may
->> not listen on, you can just do it on a higher level, from the
->> perspective of an administrator. If you decide to let your web server
->> listen on another port as well, no firewall rule configuration change is
->> needed at all.
-> 
-> We don't have per application configurations, not even with these
-> patches...?
-> The configuration is still global/per netns?
+Make the struct name in sync with object id name.
 
-The configuration is per net_cls ID, and with a cgroup manager that
-assigns unique IDs to each application/service/task, this effectively
-becomes a per-application setting (or anything else for that matter, see
-below).
+Suggested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 6 +++---
+ include/net/switchdev.h              | 2 +-
+ net/bridge/br_vlan.c                 | 4 ++--
+ net/dsa/slave.c                      | 6 +++---
+ net/switchdev/switchdev.c            | 6 +++---
+ 5 files changed, 12 insertions(+), 12 deletions(-)
 
-> Application level firewall makes me think of proxies.
-> What exactly are we talking about?
-> Can you provide examples?
-
-Ok, so the term is misleading, I agree. I am talking about a possibility
-for userspace to install netfilter rules that match packets sent to or
-sent by a task, or a set of tasks (you may call that an application or
-service).
-
-So for example, I want a way to redirect netfilter decisions that are
-about tasks in net_cls cgroup 23 to a dedicated chain, so the admin can
-configure rules that only apply to a certain service or application.
-
->> I really don't know if this approach is intrusive enough to make it
->> qualify as sledgehammer. I'd like to see some real-world benchmarks and
->> have proof there is a performance decrease for setups that don't use
->> such chains.
-> 
-> We have static keys for nf hooks so there is no performance decrease if
-> no netfilter hooks are active.
-> 
-> HOWEVER, this discussion seems to hint at the opposite, namely that this
-> will turn into a mandatory or at least auto-enabled feature.
->
-> But regardless, I called it a sledgehammer not because of performance
-> concerns but because just to get this proposed socket matching facility we
-> now have to put hooks into all protocol handlers and commit to keeping them
-> there forever.
-
-Sure, but why is that a problem exactly? I still don't understand your
-technical concerns.
-
-> Also, some time ago Eric suggested to allow binding to tcp ports
-> from packet sockets to implement userspace-driven TCP stacks (i.e.
-> kernel would just queue raw frames for the given quadruple withput
-> caring about ordering etc).
->
-> If we allow this proposed change, we'd also have to extend that
-> with these hooks.
-
-In that case, the receiver socket would be the one of that
-userspace-driven TCP stack, and the same rules apply. The feature might
-not make much sense in such setups though, but that's not an issue.
-
-> Next time someone mentions that we don't have application matching
-> but only sk/cgroup tests. Are we then going to consider doing task lookups?
-
-cgroups are the most comprehensive notion the kernel has about a group
-of tasks, which may be called a service or an application. By allowing
-users to make netfilter rules specific to a setting in a cgroup
-controller, we open the doors for supporting a lot of interesting use
-cases. Which tasks to put into a cgroup with a certain net_cls setting
-is up to userspace, but it would be possible to group everything the OS
-considers an 'application'.
-
->> Why so? For deterministic ingress filtering of traffic directed to a
->> local socket, you can as well rely on information associated with that
->> socket. And this is what application-level firewall rule sets are all about.
-> 
-> Application not running -> different behaviour.  I'm sure thats obvious
-> to you, but I'm not sure if its obvious to users that their
-> 'match on net clsid 42' won't work anymore when that service isn't running.
-
-That's a matter of explaining that fact in the documentation, I'd say :)
-
-In a sense, what happens is comparable to rules that are specific to an
-ingress interface. Depending on whether that interface is up or down,
-these netfilter rules are iterated or they aren't, right?
-
-Anyway, note that socket uid/gid and cgroup matches already exist for
-ingress today, so the exact same change in behavior that you describe is
-in place since a number of releases. It's just that right now, what the
-kernel does is to only match packets that had early demux treatment,
-which makes it largely unusable for users. So, what this patch set aims
-for is to make an existing feature actually usable.
-
-I'm open to other approaches, as long as it allows us to install
-netfilter rules that match against net_cls IDs. The demux target would
-probably be another option, but I'm not convinced yet that would be any
-better from a technical perspective.
-
-Pablo, what do you think?
-
-
-
-Thanks,
-Daniel
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 4540ca6..d75fc4b3 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4408,7 +4408,7 @@ static int rocker_port_vlan_add(struct rocker_port *rocker_port,
+ 
+ static int rocker_port_vlans_add(struct rocker_port *rocker_port,
+ 				 struct switchdev_trans *trans,
+-				 const struct switchdev_obj_vlan *vlan)
++				 const struct switchdev_obj_port_vlan *vlan)
+ {
+ 	u16 vid;
+ 	int err;
+@@ -4480,7 +4480,7 @@ static int rocker_port_vlan_del(struct rocker_port *rocker_port,
+ }
+ 
+ static int rocker_port_vlans_del(struct rocker_port *rocker_port,
+-				 const struct switchdev_obj_vlan *vlan)
++				 const struct switchdev_obj_port_vlan *vlan)
+ {
+ 	u16 vid;
+ 	int err;
+@@ -4565,7 +4565,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
+ }
+ 
+ static int rocker_port_vlan_dump(const struct rocker_port *rocker_port,
+-				 struct switchdev_obj_vlan *vlan,
++				 struct switchdev_obj_port_vlan *vlan,
+ 				int (*cb)(void *obj))
+ {
+ 	u16 vid;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 612719b..0138f9b 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -65,7 +65,7 @@ enum switchdev_obj_id {
+ };
+ 
+ /* SWITCHDEV_OBJ_ID_PORT_VLAN */
+-struct switchdev_obj_vlan {
++struct switchdev_obj_port_vlan {
+ 	u16 flags;
+ 	u16 vid_begin;
+ 	u16 vid_end;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 6c3ac5c..8bcb661 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -80,7 +80,7 @@ static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
+ 	if (ops->ndo_vlan_rx_add_vid) {
+ 		err = vlan_vid_add(dev, br->vlan_proto, vid);
+ 	} else {
+-		struct switchdev_obj_vlan v = {
++		struct switchdev_obj_port_vlan v = {
+ 			.flags = flags,
+ 			.vid_begin = vid,
+ 			.vid_end = vid,
+@@ -130,7 +130,7 @@ static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
+ 	if (ops->ndo_vlan_rx_kill_vid) {
+ 		vlan_vid_del(dev, br->vlan_proto, vid);
+ 	} else {
+-		struct switchdev_obj_vlan v = {
++		struct switchdev_obj_port_vlan v = {
+ 			.vid_begin = vid,
+ 			.vid_end = vid,
+ 		};
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 8992568..baf34f2 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -242,7 +242,7 @@ static int dsa_bridge_check_vlan_range(struct dsa_switch *ds,
+ }
+ 
+ static int dsa_slave_port_vlan_add(struct net_device *dev,
+-				   const struct switchdev_obj_vlan *vlan,
++				   const struct switchdev_obj_port_vlan *vlan,
+ 				   struct switchdev_trans *trans)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -278,7 +278,7 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ }
+ 
+ static int dsa_slave_port_vlan_del(struct net_device *dev,
+-				   const struct switchdev_obj_vlan *vlan)
++				   const struct switchdev_obj_port_vlan *vlan)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+@@ -298,7 +298,7 @@ static int dsa_slave_port_vlan_del(struct net_device *dev,
+ }
+ 
+ static int dsa_slave_port_vlan_dump(struct net_device *dev,
+-				    struct switchdev_obj_vlan *vlan,
++				    struct switchdev_obj_port_vlan *vlan,
+ 				    int (*cb)(void *obj))
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index c457c1f..02ee926 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -483,7 +483,7 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
+ EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 
+ struct switchdev_vlan_dump {
+-	struct switchdev_obj_vlan vlan;
++	struct switchdev_obj_port_vlan vlan;
+ 	struct sk_buff *skb;
+ 	u32 filter_mask;
+ 	u16 flags;
+@@ -523,7 +523,7 @@ static int switchdev_port_vlan_dump_put(struct switchdev_vlan_dump *dump)
+ 
+ static int switchdev_port_vlan_dump_cb(void *obj)
+ {
+-	struct switchdev_obj_vlan *vlan = obj;
++	struct switchdev_obj_port_vlan *vlan = obj;
+ 	struct switchdev_vlan_dump *dump =
+ 		container_of(vlan, struct switchdev_vlan_dump, vlan);
+ 	int err = 0;
+@@ -704,7 +704,7 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+ {
+ 	struct nlattr *attr;
+ 	struct bridge_vlan_info *vinfo;
+-	struct switchdev_obj_vlan vlan = { 0 };
++	struct switchdev_obj_port_vlan vlan = { 0 };
+ 	int rem;
+ 	int err;
+ 
+-- 
+1.9.3
