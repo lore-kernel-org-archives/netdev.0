@@ -1,75 +1,103 @@
-From: Arun Parameswaran <arunp@broadcom.com>
-Subject: [PATCH v2 5/5] net: phy: bcm7xxx: Modified to use global core register defines
-Date: Wed, 30 Sep 2015 17:16:43 -0700
-Message-ID: <1443658603-1848-6-git-send-email-arunp@broadcom.com>
-References: <1443658603-1848-1-git-send-email-arunp@broadcom.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net 1/7] openvswitch: Make LABELS name more consistent
+Date: Wed, 30 Sep 2015 17:31:07 -0700
+Message-ID: <CALnjE+riooX7ZzWh2FBXn2V4YZWx2jjJdRMDkNVQQbDbdeDRUg@mail.gmail.com>
+References: <1443566380-22640-1-git-send-email-joestringer@nicira.com>
+	<1443566380-22640-2-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<bcm-kernel-feedback-list@broadcom.com>,
-	Arun Parameswaran <arunp@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443658603-1848-1-git-send-email-arunp@broadcom.com>
+In-Reply-To: <1443566380-22640-2-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Modified the bcm7xxx phy driver to remove local core register
-defines and use the common ones from "include/linux/brcmphy.h"
+On Tue, Sep 29, 2015 at 3:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Conntrack LABELS (plural) are exposed by conntrack; rename the OVS name
+> for these to be consistent with conntrack.
+>
+> Fixes: c2ac667 "openvswitch: Allow matching on conntrack label"
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+>  include/uapi/linux/openvswitch.h |  4 ++--
+>  net/openvswitch/actions.c        |  2 +-
+>  net/openvswitch/conntrack.c      | 10 +++++-----
+>  net/openvswitch/flow_netlink.c   | 14 +++++++-------
+>  4 files changed, 15 insertions(+), 15 deletions(-)
+>
+...
 
-Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
----
- drivers/net/phy/bcm7xxx.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index efa31a6..03d4809 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -25,7 +25,6 @@
- #define MII_BCM7XXX_100TX_DISC		0x14
- #define MII_BCM7XXX_AUX_MODE		0x1d
- #define  MII_BCM7XX_64CLK_MDIO		BIT(12)
--#define MII_BCM7XXX_CORE_BASE1E		0x1e
- #define MII_BCM7XXX_TEST		0x1f
- #define  MII_BCM7XXX_SHD_MODE_2		BIT(2)
- 
-@@ -46,8 +45,6 @@
- #define AFE_VDAC_OTHERS_0		MISC_ADDR(0x39, 3)
- #define AFE_HPF_TRIM_OTHERS		MISC_ADDR(0x3a, 0)
- 
--#define CORE_EXPB0			0xb0
--
- static void r_rc_cal_reset(struct phy_device *phydev)
- {
- 	/* Reset R_CAL/RC_CAL Engine */
-@@ -76,7 +73,7 @@ static int bcm7xxx_28nm_b0_afe_config_init(struct phy_device *phydev)
- 	bcm_phy_write_misc(phydev, DSP_TAP10, 0x690b);
- 
- 	/* Switch to CORE_BASE1E */
--	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0xd);
-+	phy_write(phydev, MII_BRCM_CORE_BASE1E, 0xd);
- 
- 	r_rc_cal_reset(phydev);
- 
-@@ -127,7 +124,7 @@ static int bcm7xxx_28nm_d0_afe_config_init(struct phy_device *phydev)
- 	bcm_phy_write_misc(phydev, AFE_HPF_TRIM_OTHERS, 0x00e3);
- 
- 	/* CORE_BASE1E, force trim to overwrite and set I_ext trim to 0000 */
--	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0x0010);
-+	phy_write(phydev, MII_BRCM_CORE_BASE1E, 0x0010);
- 
- 	/* DSP_TAP10, adjust bias current trim (+0% swing, +0 tick) */
- 	bcm_phy_write_misc(phydev, DSP_TAP10, 0x011b);
-@@ -155,7 +152,7 @@ static int bcm7xxx_28nm_e0_plus_afe_config_init(struct phy_device *phydev)
- 	bcm_phy_write_misc(phydev, AFE_HPF_TRIM_OTHERS, 0x00e3);
- 
- 	/* CORE_BASE1E, force trim to overwrite and set I_ext trim to 0000 */
--	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0x0010);
-+	phy_write(phydev, MII_BRCM_CORE_BASE1E, 0x0010);
- 
- 	/* DSP_TAP10, adjust bias current trim (+0% swing, +0 tick) */
- 	bcm_phy_write_misc(phydev, DSP_TAP10, 0x011b);
--- 
-2.5.2
+> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+> index 002a755..8c5d482c 100644
+> --- a/net/openvswitch/conntrack.c
+> +++ b/net/openvswitch/conntrack.c
+> @@ -179,7 +179,7 @@ int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb)
+>                 return -EMSGSIZE;
+>
+>         if (IS_ENABLED(CONFIG_NF_CONNTRACK_LABELS) &&
+> -           nla_put(skb, OVS_KEY_ATTR_CT_LABEL, sizeof(key->ct.label),
+> +           nla_put(skb, OVS_KEY_ATTR_CT_LABELS, sizeof(key->ct.label),
+>                     &key->ct.label))
+>                 return -EMSGSIZE;
+>
+> @@ -545,7 +545,7 @@ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+>                                     .maxlen = sizeof(u16) },
+>         [OVS_CT_ATTR_MARK]      = { .minlen = sizeof(struct md_mark),
+>                                     .maxlen = sizeof(struct md_mark) },
+> -       [OVS_CT_ATTR_LABEL]     = { .minlen = sizeof(struct md_label),
+> +       [OVS_CT_ATTR_LABELS]    = { .minlen = sizeof(struct md_label),
+>                                     .maxlen = sizeof(struct md_label) },
+>         [OVS_CT_ATTR_HELPER]    = { .minlen = 1,
+>                                     .maxlen = NF_CT_HELPER_NAME_LEN }
+> @@ -593,7 +593,7 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+>                 }
+>  #endif
+>  #ifdef CONFIG_NF_CONNTRACK_LABELS
+> -               case OVS_CT_ATTR_LABEL: {
+> +               case OVS_CT_ATTR_LABELS: {
+>                         struct md_label *label = nla_data(a);
+>
+>                         info->label = *label;
+> @@ -633,7 +633,7 @@ bool ovs_ct_verify(struct net *net, enum ovs_key_attr attr)
+>             attr == OVS_KEY_ATTR_CT_MARK)
+>                 return true;
+>         if (IS_ENABLED(CONFIG_NF_CONNTRACK_LABELS) &&
+> -           attr == OVS_KEY_ATTR_CT_LABEL) {
+> +           attr == OVS_KEY_ATTR_CT_LABELS) {
+>                 struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+>
+>                 return ovs_net->xt_label;
+> @@ -711,7 +711,7 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+>                     &ct_info->mark))
+>                 return -EMSGSIZE;
+>         if (IS_ENABLED(CONFIG_NF_CONNTRACK_LABELS) &&
+> -           nla_put(skb, OVS_CT_ATTR_LABEL, sizeof(ct_info->label),
+> +           nla_put(skb, OVS_CT_ATTR_LABELS, sizeof(ct_info->label),
+>                     &ct_info->label))
+>                 return -EMSGSIZE;
+>         if (ct_info->helper) {
+> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> index 5c030a4..ea82cd5 100644
+> --- a/net/openvswitch/flow_netlink.c
+> +++ b/net/openvswitch/flow_netlink.c
+> @@ -294,7 +294,7 @@ size_t ovs_key_attr_size(void)
+>                 + nla_total_size(1)   /* OVS_KEY_ATTR_CT_STATE */
+>                 + nla_total_size(2)   /* OVS_KEY_ATTR_CT_ZONE */
+>                 + nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
+> -               + nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABEL */
+> +               + nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABELS */
+>                 + nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
+>                 + nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
+>                 + nla_total_size(4)   /* OVS_KEY_ATTR_VLAN */
+> @@ -352,7 +352,7 @@ static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+>         [OVS_KEY_ATTR_CT_STATE]  = { .len = sizeof(u8) },
+>         [OVS_KEY_ATTR_CT_ZONE]   = { .len = sizeof(u16) },
+>         [OVS_KEY_ATTR_CT_MARK]   = { .len = sizeof(u32) },
+> -       [OVS_KEY_ATTR_CT_LABEL]  = { .len = sizeof(struct ovs_key_ct_label) },
+> +       [OVS_KEY_ATTR_CT_LABELS] = { .len = sizeof(struct ovs_key_ct_label) },
+>  };
+After this change, struct ovs_key_ct_label and other reference to
+label also should be renamed to labels. is there reason you did only
+this one?
