@@ -1,80 +1,75 @@
-From: Andrey Vagin <avagin@gmail.com>
-Subject: [PATCH] net/unix: fix logic about sk_peek_offset
-Date: Fri,  2 Oct 2015 00:05:36 +0300
-Message-ID: <1443733536-992-1-git-send-email-avagin@gmail.com>
-Cc: Andrey Vagin <avagin@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Aaron Conole <aconole@bytheb.org>
-To: netdev@vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
+Date: Thu, 1 Oct 2015 23:07:30 +0200
+Message-ID: <560DA092.60100@zonque.org>
+References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
+ <1443525140-13493-4-git-send-email-daniel@zonque.org>
+ <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
+ <20151001171323.GA4890@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
+	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, balazs.scheidler@balabit.com
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f193.google.com ([209.85.217.193]:36266 "EHLO
-	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbbJAVGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 17:06:08 -0400
-Received: by lbbti1 with SMTP id ti1so1348485lbb.3
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 14:06:06 -0700 (PDT)
+Received: from svenfoo.org ([82.94.215.22]:54807 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750715AbbJAVHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 17:07:33 -0400
+In-Reply-To: <20151001171323.GA4890@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Vagin <avagin@openvz.org>
+On 10/01/2015 07:13 PM, Marcelo Ricardo Leitner wrote:
+> On Wed, Sep 30, 2015 at 09:24:21AM +0200, Daniel Mack wrote:
+>> On 09/29/2015 11:19 PM, Florian Westphal wrote:
+>>> Daniel Mack <daniel@zonque.org> wrote:
+>>>> Add a new chain type NF_INET_LOCAL_SOCKET_IN which is ran after the
+>>>> input demux is complete and the final destination socket (if any)
+>>>> has been determined.
+>>>>
+>>>> This helps filtering packets based on information stored in the
+>>>> destination socket, such as cgroup controller supplied net class IDs.
+>>>
+>>> This still seems like the 'x y' problem ("want to do X, think Y is
+>>> correct solution; ask about Y, but thats a strange thing to do").
+>>>
+>>> There is nothing that this offers over INPUT *except* that sk is
+>>> available.  But there is zero benefit as far as I am concerned --
+>>> why would you want to do any meaningful filtering based on the sk at
+>>> that point...?
+>>
+>> Well, INPUT and SOCKET_INPUT are just two different tools that help
+>> solve different classes of problems. INPUT is for filtering all local
+>> traffic while SOCKET_INPUT is just for such that actually has a
+>> listener, and they both make sense in different scenarios.
+> 
+> How is it better than -m socket ? It's used with tproxy, but not only,
+> and works quite well, thought it only supports TCP and UDP.
 
-Now send with MSG_PEEK can return data from multiple SKBs.
+Yes, but not multicast.
 
-Unfortunately we take into account the peek offset for each skb,
-that is wrong. We need to apply the peek offset only once.
+> Something like
+>   iptables -N INPUT_SOCKET
+>   iptables -I INPUT -m socket -j INPUT_SOCKET
+> would achieve similar results, if I got you right.
+> 
+> -m socket implies in a double-lookup for the socket, yes, but that
+> sounds a reasonable price to pay for this while not inserting another
+> hook. I know of deployments using -m socket for tproxy and handling very
+> high rates, performance has not been a problem..
 
-In addition, the peek offset should be used only if MSG_PEEK is set.
+I know, and my primary attempt to get this fixed was to factor out the
+early demux code from the socket matching code and make it available to
+the cgroup matcher as well:
 
-Cc: "David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
-Cc: Eric Dumazet <edumazet@google.com> (commit_signer:1/14=7%)
-Cc: Aaron Conole <aconole@bytheb.org>
-Fixes: 9f389e35674f ("af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag")
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- net/unix/af_unix.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ef31b40..94f6582 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2064,6 +2064,11 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 		goto out;
- 	}
- 
-+	if (flags & MSG_PEEK)
-+		skip = sk_peek_offset(sk, flags);
-+	else
-+		skip = 0;
-+
- 	do {
- 		int chunk;
- 		struct sk_buff *skb, *last;
-@@ -2112,7 +2117,6 @@ unlock:
- 			break;
- 		}
- 
--		skip = sk_peek_offset(sk, flags);
- 		while (skip >= unix_skb_len(skb)) {
- 			skip -= unix_skb_len(skb);
- 			last = skb;
-@@ -2179,14 +2183,12 @@ unlock:
- 			if (UNIXCB(skb).fp)
- 				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
- 
--			if (skip) {
--				sk_peek_offset_fwd(sk, chunk);
--				skip -= chunk;
--			}
-+			sk_peek_offset_fwd(sk, chunk);
- 
- 			if (UNIXCB(skb).fp)
- 				break;
- 
-+			skip = 0;
- 			last = skb;
- 			last_len = skb->len;
- 			unix_state_lock(sk);
--- 
-2.4.3
+http://thread.gmane.org/gmane.comp.security.firewalls.netfilter.devel/58054
+
+That, however, got rejected because it doesn't work for multicast. This
+patch set implements one of the things Pablo suggested in his reply.
+
+
+Daniel
