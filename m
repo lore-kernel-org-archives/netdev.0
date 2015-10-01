@@ -1,139 +1,89 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/5] net: Add netif_is_l3_slave
-Date: Thu,  1 Oct 2015 08:27:24 -0700
-Message-ID: <1443713247-11230-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/5] net: Rename FLOWI_FLAG_VRFSRC to FLOWI_FLAG_L3MDEV_SRC
+Date: Thu,  1 Oct 2015 08:27:23 -0700
+Message-ID: <1443713247-11230-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36123 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756472AbbJAP1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:38 -0400
-Received: by pablk4 with SMTP id lk4so77034313pab.3
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:37 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35128 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756442AbbJAP1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 11:27:36 -0400
+Received: by pacfv12 with SMTP id fv12so79194735pac.2
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 08:27:36 -0700 (PDT)
 In-Reply-To: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 addrconf keys off of IFF_SLAVE so can not use it for L3 slave.
-Add a new private flag and add netif_is_l3_slave function for checking
-it.
-
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/vrf.c         | 8 +++-----
- include/linux/netdevice.h | 7 +++++++
- net/l3mdev/l3mdev.c       | 8 ++++----
- 3 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/net/vrf.c   | 4 ++--
+ include/net/flow.h  | 2 +-
+ include/net/route.h | 2 +-
+ net/ipv4/udp.c      | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index f2f9c7091130..277a8e0a6a4f 100644
+index 64f2ab663ffe..f2f9c7091130 100644
 --- a/drivers/net/vrf.c
 +++ b/drivers/net/vrf.c
-@@ -39,8 +39,6 @@
- #define DRV_NAME	"vrf"
- #define DRV_VERSION	"1.0"
- 
--#define vrf_is_slave(dev)   ((dev)->flags & IFF_SLAVE)
--
- #define vrf_master_get_rcu(dev) \
- 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
- 
-@@ -433,7 +431,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 	if (ret < 0)
- 		goto out_unregister;
- 
--	port_dev->flags |= IFF_SLAVE;
-+	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
- 	__vrf_insert_slave(queue, slave);
- 	cycle_netdev(port_dev);
- 
-@@ -448,7 +446,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 
- static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+@@ -208,7 +208,7 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
+ 		.flowi4_oif = vrf_dev->ifindex,
+ 		.flowi4_iif = LOOPBACK_IFINDEX,
+ 		.flowi4_tos = RT_TOS(ip4h->tos),
+-		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC |
++		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_L3MDEV_SRC |
+ 				FLOWI_FLAG_SKIP_NH_OIF,
+ 		.daddr = ip4h->daddr,
+ 	};
+@@ -545,7 +545,7 @@ static struct rtable *vrf_get_rtable(const struct net_device *dev,
  {
--	if (netif_is_l3_master(port_dev) || vrf_is_slave(port_dev))
-+	if (netif_is_l3_master(port_dev) || netif_is_l3_slave(port_dev))
- 		return -EINVAL;
+ 	struct rtable *rth = NULL;
  
- 	return do_vrf_add_slave(dev, port_dev);
-@@ -462,7 +460,7 @@ static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
- 	struct slave *slave;
+-	if (!(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
++	if (!(fl4->flowi4_flags & FLOWI_FLAG_L3MDEV_SRC)) {
+ 		struct net_vrf *vrf = netdev_priv(dev);
  
- 	netdev_upper_dev_unlink(port_dev, dev);
--	port_dev->flags &= ~IFF_SLAVE;
-+	port_dev->priv_flags &= ~IFF_L3MDEV_SLAVE;
+ 		rth = vrf->rth;
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 9b85db85f13c..83969eebebf3 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -34,7 +34,7 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_KNOWN_NH		0x02
+-#define FLOWI_FLAG_VRFSRC		0x04
++#define FLOWI_FLAG_L3MDEV_SRC		0x04
+ #define FLOWI_FLAG_SKIP_NH_OIF		0x08
+ 	__u32	flowic_secid;
+ 	struct flowi_tunnel flowic_tun_key;
+diff --git a/include/net/route.h b/include/net/route.h
+index e211dc167db1..7929c9c33587 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -258,7 +258,7 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
+ 		flow_flags |= FLOWI_FLAG_ANYSRC;
  
- 	netdev_rx_handler_unregister(port_dev);
+ 	if (netif_index_is_l3_master(sock_net(sk), oif))
+-		flow_flags |= FLOWI_FLAG_VRFSRC | FLOWI_FLAG_SKIP_NH_OIF;
++		flow_flags |= FLOWI_FLAG_L3MDEV_SRC | FLOWI_FLAG_SKIP_NH_OIF;
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b9450784ae06..b3374402c1ea 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1261,6 +1261,7 @@ struct net_device_ops {
-  * @IFF_L3MDEV_MASTER: device is an L3 master device
-  * @IFF_NO_QUEUE: device can run without qdisc attached
-  * @IFF_OPENVSWITCH: device is a Open vSwitch master
-+ * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
-@@ -1286,6 +1287,7 @@ enum netdev_priv_flags {
- 	IFF_L3MDEV_MASTER		= 1<<20,
- 	IFF_NO_QUEUE			= 1<<21,
- 	IFF_OPENVSWITCH			= 1<<22,
-+	IFF_L3MDEV_SLAVE		= 1<<23,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -3830,6 +3832,11 @@ static inline bool netif_is_l3_master(const struct net_device *dev)
- 	return dev->priv_flags & IFF_L3MDEV_MASTER;
- }
- 
-+static inline bool netif_is_l3_slave(const struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_L3MDEV_SLAVE;
-+}
-+
- static inline bool netif_is_bridge_master(const struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_EBRIDGE;
-diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
-index ddf75ad41713..8e5ead366e7f 100644
---- a/net/l3mdev/l3mdev.c
-+++ b/net/l3mdev/l3mdev.c
-@@ -26,11 +26,11 @@ int l3mdev_master_ifindex_rcu(struct net_device *dev)
- 
- 	if (netif_is_l3_master(dev)) {
- 		ifindex = dev->ifindex;
--	} else if (dev->flags & IFF_SLAVE) {
-+	} else if (netif_is_l3_slave(dev)) {
- 		struct net_device *master;
- 
- 		master = netdev_master_upper_dev_get_rcu(dev);
--		if (master && netif_is_l3_master(master))
-+		if (master)
- 			ifindex = master->ifindex;
- 	}
- 
-@@ -54,7 +54,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
- 	if (netif_is_l3_master(dev)) {
- 		if (dev->l3mdev_ops->l3mdev_fib_table)
- 			tb_id = dev->l3mdev_ops->l3mdev_fib_table(dev);
--	} else if (dev->flags & IFF_SLAVE) {
-+	} else if (netif_is_l3_slave(dev)) {
- 		/* Users of netdev_master_upper_dev_get_rcu need non-const,
- 		 * but current inet_*type functions take a const
- 		 */
-@@ -62,7 +62,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
- 		const struct net_device *master;
- 
- 		master = netdev_master_upper_dev_get_rcu(_dev);
--		if (master && netif_is_l3_master(master) &&
-+		if (master &&
- 		    master->l3mdev_ops->l3mdev_fib_table)
- 			tb_id = master->l3mdev_ops->l3mdev_fib_table(master);
- 	}
+ 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
+ 			   protocol, flow_flags, dst, src, dport, sport);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 156ba75b6000..b2882cfd3136 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1024,7 +1024,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 		if (netif_index_is_l3_master(net, ipc.oif)) {
+ 			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+ 					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-					   (flow_flags | FLOWI_FLAG_VRFSRC |
++					   (flow_flags | FLOWI_FLAG_L3MDEV_SRC |
+ 					    FLOWI_FLAG_SKIP_NH_OIF),
+ 					   faddr, saddr, dport,
+ 					   inet->inet_sport);
 -- 
 1.9.1
