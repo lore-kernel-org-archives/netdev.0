@@ -1,34 +1,119 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH 3/3] net: dsa: exit probe if no switch were found
-Date: Thu, 1 Oct 2015 18:32:57 +0200
-Message-ID: <20151001163257.GQ20219@lunn.ch>
-References: <560B9B7C.9080406@baylibre.com>
- <560D50E4.6040400@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
+From: jon@ringle.org
+Subject: [PATCH net-next v3 1/2] regmap: Allow installing custom reg_update_bits function
+Date: Thu,  1 Oct 2015 12:38:07 -0400
+Message-ID: <1443717488-16533-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <560D50E4.6040400@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 01, 2015 at 05:27:32PM +0200, Neil Armstrong wrote:
-> On 09/30/2015 10:21 AM, Neil Armstrong wrote:
-> > If no switch were found in dsa_setup_dst, return -ENODEV and
-> > exit the dsa_probe cleanly.
+From: Jon Ringle <jringle@gridpoint.com>
 
-...
+This commit allows installing a custom reg_update_bits function for cases where
+the hardware provides a mechanism to set or clear register bits without a
+read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
+
+If a custom reg_update_bits function is provided, it will only be used against
+volatile registers.
+
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+
+I am now only calling map->reg_update_bits() if the register is marked as being
+volatile, and therefore should have no impact on the reg cache.
+
+Jon
+
+ drivers/base/regmap/internal.h |  2 ++
+ drivers/base/regmap/regmap.c   | 29 ++++++++++++++++++-----------
+ include/linux/regmap.h         |  3 +++
+ 3 files changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/base/regmap/internal.h b/drivers/base/regmap/internal.h
+index cc55788..628ad7a 100644
+--- a/drivers/base/regmap/internal.h
++++ b/drivers/base/regmap/internal.h
+@@ -98,6 +98,8 @@ struct regmap {
  
-> Couldn't we use the probe defer mechanism here ? (until complete rework is done)
-
-Hi Neil
-
-I was thinking the same last night. We know the switch should be
-there, otherwise it would not be in DT. So returning -EPROBE_DEFER
-would be valid.
-
-      Andrew
+ 	int (*reg_read)(void *context, unsigned int reg, unsigned int *val);
+ 	int (*reg_write)(void *context, unsigned int reg, unsigned int val);
++	int (*reg_update_bits)(void *context, unsigned int reg,
++			       unsigned int mask, unsigned int val);
+ 
+ 	bool defer_caching;
+ 
+diff --git a/drivers/base/regmap/regmap.c b/drivers/base/regmap/regmap.c
+index afaf562..8cd155a 100644
+--- a/drivers/base/regmap/regmap.c
++++ b/drivers/base/regmap/regmap.c
+@@ -619,6 +619,7 @@ struct regmap *__regmap_init(struct device *dev,
+ 		goto skip_format_initialization;
+ 	} else {
+ 		map->reg_read  = _regmap_bus_read;
++		map->reg_update_bits = bus->reg_update_bits;
+ 	}
+ 
+ 	reg_endian = regmap_get_reg_endian(bus, config);
+@@ -2509,20 +2510,26 @@ static int _regmap_update_bits(struct regmap *map, unsigned int reg,
+ 	int ret;
+ 	unsigned int tmp, orig;
+ 
+-	ret = _regmap_read(map, reg, &orig);
+-	if (ret != 0)
+-		return ret;
++	if (change)
++		*change = false;
+ 
+-	tmp = orig & ~mask;
+-	tmp |= val & mask;
+-
+-	if (force_write || (tmp != orig)) {
+-		ret = _regmap_write(map, reg, tmp);
+-		if (change)
++	if (regmap_volatile(map, reg) && map->reg_update_bits) {
++		ret = map->reg_update_bits(map->bus_context, reg, mask, val);
++		if (ret == 0 && change)
+ 			*change = true;
+ 	} else {
+-		if (change)
+-			*change = false;
++		ret = _regmap_read(map, reg, &orig);
++		if (ret != 0)
++			return ret;
++
++		tmp = orig & ~mask;
++		tmp |= val & mask;
++
++		if (force_write || (tmp != orig)) {
++			ret = _regmap_write(map, reg, tmp);
++			if (ret == 0 && change)
++				*change = true;
++		}
+ 	}
+ 
+ 	return ret;
+diff --git a/include/linux/regmap.h b/include/linux/regmap.h
+index 8fc0bfd..b49d413 100644
+--- a/include/linux/regmap.h
++++ b/include/linux/regmap.h
+@@ -296,6 +296,8 @@ typedef int (*regmap_hw_reg_read)(void *context, unsigned int reg,
+ 				  unsigned int *val);
+ typedef int (*regmap_hw_reg_write)(void *context, unsigned int reg,
+ 				   unsigned int val);
++typedef int (*regmap_hw_reg_update_bits)(void *context, unsigned int reg,
++					 unsigned int mask, unsigned int val);
+ typedef struct regmap_async *(*regmap_hw_async_alloc)(void);
+ typedef void (*regmap_hw_free_context)(void *context);
+ 
+@@ -335,6 +337,7 @@ struct regmap_bus {
+ 	regmap_hw_gather_write gather_write;
+ 	regmap_hw_async_write async_write;
+ 	regmap_hw_reg_write reg_write;
++	regmap_hw_reg_update_bits reg_update_bits;
+ 	regmap_hw_read read;
+ 	regmap_hw_reg_read reg_read;
+ 	regmap_hw_free_context free_context;
+-- 
+2.4.1
