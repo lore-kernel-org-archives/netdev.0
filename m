@@ -1,66 +1,67 @@
-From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next V14 0/3] openvswitch: Add support for
-	802.1ad
-Date: Wed, 30 Sep 2015 23:32:57 -0400
-Message-ID: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Thomas F Herbert <thomasfherbert@gmail.com>
+Subject: [PATCH net-next V14 1/3] openvswitch: 802.1ad uapi changes.
+Date: Wed, 30 Sep 2015 23:32:58 -0400
+Message-ID: <1443670380-4245-2-git-send-email-thomasfherbert@gmail.com>
+References: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
+Cc: therbert@redhat.com, dev@openvswitch.org,
+	Thomas F Herbert <thomasfherbert@gmail.com>
+To: netdev@vger.kernel.org, pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:35517 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754929AbbJADdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2015 23:33:51 -0400
+Received: by qgt47 with SMTP id 47so53932582qgt.2
+        for <netdev@vger.kernel.org>; Wed, 30 Sep 2015 20:33:50 -0700 (PDT)
+In-Reply-To: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWx0aG91Z2ggdGhlIE9wZW4gRmxvdyBzcGVjaWZpY2F0aW9uIHNwZWNpZmllZCBzdXBwb3J0IGZv
-ciA4MDIuMUFEIChxaW5xKQphcyB3ZWxsIGFzIHB1c2ggYW5kIHBvcCB2bGFuIGhlYWRlcnMsICBT
-byBmYXIgT3BlbiB2U3dpdGNoIGhhcyBvbmx5CnN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVhZGVy
-LiBUaGlzIHBhdGNoIGltcGxlbWVudHMgODAyLjFBRCBpbiB0aGUga2VybmVsCm1vZHVsZS4KClRo
-aXMgcGF0Y2ggYWNjb21wYW5pZXMgdmVyc2lvbiAxNCBvZiB0aGUgdXNlciBsZXZlbCBvcGVudnN3
-aXRjaCBwYXRjaApzdWJtaXR0ZWQgdG8gb3BlbnZzd2l0Y2ggZGV2IGxpc3QuCgpWMTQ6IEFkZCBv
-dXRlciB0cGlkIHRvIGZsb3dfa2V5CgpWMTM6IEZpeCBpbmNvcnJlY3QgZW5jb2RpbmcgYW5kIGRl
-Y29kaW5nIG9mIG5ldGxpbmsgdG8vZnJvbSBrZXkKYXR0cmlidXRlcy4KClYxMjogRml4IHNvbWUg
-cHJvYmxlbXMgYW5kIGlzc3VlcyBwb2ludGVkIG91dCBieSByZXZpZXdlcnMuIFdoZW4gcGFyc2lu
-ZwpuZXRsaW5rIGF0dHJpYnV0ZXMgRXRoZXIgdHlwZXMgb3RoZXIgdGhlbiAweDg4YTggYXMgb3V0
-ZXIgdHBpZC4KClYxMTogQWRkIGlubmVyIHRwaWQgdG8gZmxvdyBrZXkuIEZpeCBzZXBhcmF0ZSBp
-bm5lciBlbmNhcCBhdHRyaWJ1dGUKd2hlbiBwYXJzaW5nIG5ldGxpbmsgYXR0cmlidXRlcy4gTWVy
-Z2UgMiBwYXRjaGVzIHRvIGNvbnNvbGlkYXRlCnFpbnEgY2hhbmdlcy4KClYxMDogSW1wbGVtZW50
-IHJldmlld2VyIGNvbW1lbnRzOiBDb25zb2xpZGF0ZSB2bGFuIHBhcnNpbmcgZnVuY3Rpb25zLgpT
-cGxpdHMgbmV0bGluayBwYXJzaW5nIGFuZCBmbG93IGNvbnZlcnNpb24gaW50byBhIHNlcGFyYXRl
-IHBhdGNoLiBVc2VzCmRvdWJsZSBlbmNhcCBhdHRyaWJ1dGUgZW5jYXBzdWxhdGlvbiBmb3IgODAy
-LjFhZC4gIE5ldGxpbmsgYXR0cmlidXRlcwpub3cgbG9vayBsaWtlIHRoaXM6CgogICAgZXRoX3R5
-cGUoMHg4OGE4KSx2bGFuKHZpZD0xMDApLGVuY2FwKGV0aF90eXBlKDB4ODEwMCksIHZsYW4odmlk
-PTIwMCksCiAgICAgICAgICAgICAgICAgZW5jYXAoZXRoX3R5cGUoMHgwODAwKSwgLi4uKSkKClRo
-ZSBkb3VibGUgZW5jYXAgYXRyaWJ1dGVzIGluIHRoaXMgdmVyc2lvbiBvZiB0aGUgcGF0Y2ggaXMg
-aW5jb21wYXRpYmxlIHdpdGgKb2xkIHZlcnNpb25zIG9mIHRoZSB1c2VyIGxldmVsIDgwMi4xYWQg
-cGF0Y2guIEEgbmV3IHVzZXIgbGV2ZWwgcGF0Y2ggd2hpY2gKaXMgYWxzbyBiZWluZyBzdWJtaXR0
-ZWQgc2ltdWx0YW5lb3VzbHkgdG8gb3BlbnZzd2l0Y2ggZGV2IG1haWxpbmcgbGlzdC4KClY5OiAg
-SW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkgcmV2aWV3ZXJzCgpWODogIEluY2x1ZGVzIGNo
-YW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2VycwoKVjc6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dl
-c3RlZCBieSByZXZpZXdlcnMKClY2OiAgUmViYXNlZCB0byBuZXQtbmV4dAoKVjU6ICBVc2UgZW5j
-YXBzdWxhdGVkIGF0dHJpYnV0ZXMKCgpGb3IgZGlzY3Vzc2lvbiwgaGlzdG9yeSAgYW5kIHByZXZp
-b3VzIHZlcnNpb25zIG9mIHRoZSBrZXJuZWwgbW9kdWxlCnBhdGNoIGFuZCB0aGUgdXNlciBjb2Rl
-IHBhdGNoIHNlZSB0aGUgT1ZTIGRldiBtYWlsaW5nIGxpc3QsCm9wZW52c3dpdGNoLm9yZy9waXBl
-cm1haWwvZGV2Ly4uCgpUaG9tYXMgRiBIZXJiZXJ0ICgzKToKICBvcGVudnN3aXRjaDogODAyLjFh
-ZCB1YXBpIGNoYW5nZXMuCiAgQ2hlY2sgZm9yIHZsYW4gZXRoZXJuZXQgdHlwZXMgZm9yIDgwMjEu
-cSBvciA4MDIuMWFkCiAgODAyLjFBRDogRmxvdyBoYW5kbGluZywgYWN0aW9ucywgdmxhbiBwYXJz
-aW5nIGFuZCBuZXRsaW5rIGF0dHJpYnV0ZXMKCiBpbmNsdWRlL2xpbnV4L2lmX3ZsYW4uaCAgICAg
-ICAgICB8ICAxNyArKysrCiBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCB8ICAxNyAr
-Ky0tCiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICAgNCArLQogbmV0L29wZW52
-c3dpdGNoL2Zsb3cuYyAgICAgICAgICAgfCAgODcgKysrKysrKysrKysrKysrKy0tLS0KIG5ldC9v
-cGVudnN3aXRjaC9mbG93LmggICAgICAgICAgIHwgIDExICsrLQogbmV0L29wZW52c3dpdGNoL2Zs
-b3dfbmV0bGluay5jICAgfCAxNjcgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKyst
-LS0tCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMgICB8ICAgNCArLQogNyBmaWxlcyBj
-aGFuZ2VkLCAyNjUgaW5zZXJ0aW9ucygrKSwgNDIgZGVsZXRpb25zKC0pCgotLSAKMi40LjMKCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5n
-IGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4v
-bGlzdGluZm8vZGV2Cg==
+openvswitch: Add support for 8021.AD
+
+Change the description of the VLAN tpid field.
+
+Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+---
+ include/uapi/linux/openvswitch.h | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 32e07d8..b0c959c 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -585,13 +585,13 @@ struct ovs_action_push_mpls {
+  * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
+  * (but it will not be set in the 802.1Q header that is pushed).
+  *
+- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
+- * values are those that the kernel module also parses as 802.1Q headers, to
+- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
+- * from having surprising results.
++ * The @vlan_tpid value is typically %ETH_P_8021Q or %ETH_P_8021AD.
++ * The only acceptable TPID values are those that the kernel module also parses
++ * as 802.1Q or 802.1AD headers, to prevent %OVS_ACTION_ATTR_PUSH_VLAN followed
++ * by %OVS_ACTION_ATTR_POP_VLAN from having surprising results.
+  */
+ struct ovs_action_push_vlan {
+-	__be16 vlan_tpid;	/* 802.1Q TPID. */
++	__be16 vlan_tpid;	/* 802.1Q or 802.1ad TPID. */
+ 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
+ };
+ 
+@@ -664,9 +664,10 @@ enum ovs_ct_attr {
+  * is copied from the value to the packet header field, rest of the bits are
+  * left unchanged.  The non-masked value bits must be passed in as zeroes.
+  * Masking is not supported for the %OVS_KEY_ATTR_TUNNEL attribute.
+- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
+- * packet.
+- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
++ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q or 802.1ad header
++ * onto the packet.
++ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q or 802.1ad header
++ * from the packet.
+  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
+  * the nested %OVS_SAMPLE_ATTR_* attributes.
+  * @OVS_ACTION_ATTR_PUSH_MPLS: Push a new MPLS label stack entry onto the
+-- 
+2.4.3
