@@ -1,61 +1,74 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
-Date: Thu, 01 Oct 2015 11:33:59 +0100
-Message-ID: <87oagiho88.fsf@doppelsaurus.mobileactivedefense.com>
-References: <20150913195354.GA12352@jig.fritz.box>
-	<20150914023949.GA15012@dcvr.yhbt.net>
-	<CA+rthh8smc0fxL5sEhMpKRQgzMi=BCVyxKc=O1JWesHGwYW8XA@mail.gmail.com>
-	<560AE202.4020402@akamai.com>
-	<CA+rthh9XU+5oN9Ua-+8XPF9Q0y03FZyxds53sxUjsvsJN2kaJA@mail.gmail.com>
-	<560C9CFE.6090509@akamai.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: Re: [PATCH] net: usb: asix: Fix crash on skb alloc failure
+Date: Thu, 1 Oct 2015 11:51:31 +0100
+Message-ID: <560D1033.6020301@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathias Krause <minipli@googlemail.com>, netdev@vger.kernel.org,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Wong <normalperson@yhbt.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Davidlohr Bueso <dave@stgolabs.net>,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"peterz\@infradead.org" <peterz@infradead.org>,
-	"davem\@davemloft.net" <davem@davemloft.net>
-To: Jason Baron <jbaron@akamai.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Craske, Mark" <Mark_Craske@mentor.com>
+To: "David B. Robins" <linux@davidrobins.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:39308 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751140AbbJAKfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 06:35:11 -0400
-In-Reply-To: <560C9CFE.6090509@akamai.com> (Jason Baron's message of "Wed, 30
-	Sep 2015 22:39:58 -0400")
+Received: from relay1.mentorg.com ([192.94.38.131]:51349 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755769AbbJAKw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 06:52:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jason Baron <jbaron@akamai.com> writes:
-> On 09/30/2015 01:54 AM, Mathias Krause wrote:
->> On 29 September 2015 at 21:09, Jason Baron <jbaron@akamai.com> wrote:
->>> However, if we call connect on socket 's', to connect to a new socket 'o2', we
->>> drop the reference on the original socket 'o'. Thus, we can now close socket
->>> 'o' without unregistering from epoll. Then, when we either close the ep
->>> or unregister 'o', we end up with this list corruption. Thus, this is not a
->>> race per se, but can be triggered sequentially.
->> 
->> Sounds profound, but the reproducers calls connect only once per
->> socket. So there is no "connect to a new socket", no?
->> But w/e, see below.
+> If asix_rx_fixup_internal() fails to allocate rx->ax_skb, it will return
+> but not clear rx->size. rx points to driver private data. A later call
+> assumes that nonzero size means ax_skb was allocated and passes a null
+> ax_skb to skb_put. Changed allocation failure return to clear size first.
 >
-> Yes, but it can be reproduced this way too. It can also happen with a
-> close() on the remote peer 'o', and a send to 'o' from 's', which the
-> reproducer can do as pointed out Michal. The patch I sent deals with
-> both cases.
+> Found testing board with AX88772B devices.
+>
+> Signed-off-by: David B. Robins <linux@xxxxxxxxxxxxxxx>
+> ---
+>   drivers/net/usb/asix_common.c | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
+> index 75d6f26..079069a 100644
+> --- a/drivers/net/usb/asix_common.c
+> +++ b/drivers/net/usb/asix_common.c
+> @@ -91,8 +91,10 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+>   			}
+>   			rx->ax_skb = netdev_alloc_skb_ip_align(dev->net,
+>   							       rx->size);
+> -			if (!rx->ax_skb)
+> +			if (!rx->ax_skb) {
+> +				rx->size = 0;
+>   				return 0;
+> +			}
+>   		}
+>   
+>   		if (rx->size > dev->net->mtu + ETH_HLEN + VLAN_HLEN) {
+> -- 
+> 1.9.1
+Hi David,
 
-As Michal also pointed out, there's a unix_dgram_disconnected routine
-being called in both cases and insofar "deregistering" anything beyond
-what unix_dgram_disconnected (and - insofar I can tell this -
-unix_release_sock) already do is actually required, this would be the
-obvious place to add it. A good step on the way to that would be to
-write (and post) some test code which actually reproduces the problem in
-a predictable way.
+I copied your patch from 
+http://www.spinics.net/lists/netdev/msg345724.html and resubscribed to 
+netdev@vger.kernel.org so I am unable to directly reply to your original 
+post. But I should now see any subsequent reply on the mailing list.
+
+We are preparing to release some fixes in this area of the asix driver 
+which fixes your observation. Unfortunately, your simple proposal has a 
+flaw because state variables exist outside of the scope of 
+asix_rx_fixup_internal() which handles Ethernet frames spanning multiple 
+URBs (depends on the variant of the USB ASIX chipset). Therefore, 
+subsequent URBs with the remainder of the Ethernet frame need to be 
+handled when no netdev socket buffer exists.
+
+We intend to release the patches within the next few days so please 
+watch out for them.
+
+Regards,
+Dean
+
+-- 
+Dean Jenkins
+Embedded Software Engineer
+Linux Transportation Solutions
+Mentor Embedded Software Division
+Mentor Graphics (UK) Ltd.
