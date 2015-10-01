@@ -1,45 +1,76 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: skbuff: Fix checksum start check in skb_postpull_rcsum
-Date: Thu, 01 Oct 2015 13:48:13 +0200
-Message-ID: <1443700093.3237.0.camel@gmail.com>
-References: <20151001084222.GA25104@gondor.apana.org.au>
-	 <1443698177.3401.1.camel@gmail.com>
-	 <20151001112134.GA26657@gondor.apana.org.au>
-	 <20151001113407.GA26772@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp/dccp: fix old style declarations
+Date: Thu, 01 Oct 2015 04:48:53 -0700
+Message-ID: <1443700133.32531.39.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151001113407.GA26772@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Raanan Avargil <raanan.avargil@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33439 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752706AbbJALsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 07:48:55 -0400
+Received: by pacex6 with SMTP id ex6so72911943pac.0
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 04:48:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yup, all better.  Thanks.
+=46rom: Raanan Avargil <raanan.avargil@intel.com>
 
-	-Mike
+I=E2=80=99m using the compilation flag -Werror=3Dold-style-declaration,=
+ which
+requires that the =E2=80=9Cinline=E2=80=9D word would come at the begin=
+ning of the code
+line.
+=20
+$ make drivers/net/ethernet/intel/e1000e/e1000e.ko
+=2E..
+include/net/inet_timewait_sock.h:116:1: error: =E2=80=98inline=E2=80=99=
+ is not at
+beginning of declaration [-Werror=3Dold-style-declaration]
+static void inline inet_twsk_schedule(struct inet_timewait_sock *tw, in=
+t
+timeo)
 
-On Thu, 2015-10-01 at 19:34 +0800, Herbert Xu wrote:
-> In skb_postpull_rcsum the skb has already been pulled so we should
-> be testing whether the checksum start offset is non-negative rather
-> than how it compares to the length that we have pulled.
-> 
-> Fixes: 6ae459bdaaee ("skbuff: Fix skb checksum flag on skb pull")
-> Reported-by: Mike Galbraith <umgwanakikbuti@gmail.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2b0a30a..4398411 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2708,7 +2708,7 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
->  	if (skb->ip_summed == CHECKSUM_COMPLETE)
->  		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
->  	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> -		 skb_checksum_start_offset(skb) <= len)
-> +		 skb_checksum_start_offset(skb) < 0)
->  		skb->ip_summed = CHECKSUM_NONE;
->  }
->  
+include/net/inet_timewait_sock.h:121:1: error: =E2=80=98inline=E2=80=99=
+ is not at
+beginning of declaration [-Werror=3Dold-style-declaration]
+static void inline inet_twsk_reschedule(struct inet_timewait_sock *tw,
+int timeo)
+
+=46ixes: ed2e92394589 ("tcp/dccp: fix timewait races in timer handling"=
+)
+Signed-off-by: Raanan Avargil <raanan.avargil@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/inet_timewait_sock.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewa=
+it_sock.h
+index 186f3a1e1b1f..fc1937698625 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -113,12 +113,12 @@ void __inet_twsk_hashdance(struct inet_timewait_s=
+ock *tw, struct sock *sk,
+ void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo,
+ 			  bool rearm);
+=20
+-static void inline inet_twsk_schedule(struct inet_timewait_sock *tw, i=
+nt timeo)
++static inline void inet_twsk_schedule(struct inet_timewait_sock *tw, i=
+nt timeo)
+ {
+ 	__inet_twsk_schedule(tw, timeo, false);
+ }
+=20
+-static void inline inet_twsk_reschedule(struct inet_timewait_sock *tw,=
+ int timeo)
++static inline void inet_twsk_reschedule(struct inet_timewait_sock *tw,=
+ int timeo)
+ {
+ 	__inet_twsk_schedule(tw, timeo, true);
+ }
