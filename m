@@ -1,44 +1,45 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH net-next] netfilter: remove dead code
-Date: Thu, 1 Oct 2015 11:39:29 -0300
-Message-ID: <20151001143929.GA3385@x240.home>
-References: <1443572700-29705-1-git-send-email-fbl@redhat.com>
- <20150930004507.GH19923@breakpoint.cc>
- <20150929.215435.823982622418043263.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next v2 0/4] openvswitch: add IPv6 tunneling support
+Date: Thu,  1 Oct 2015 16:44:38 +0200
+Message-ID: <cover.1443710454.git.jbenc@redhat.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender163-mail.zoho.com ([74.201.84.163]:25365 "EHLO
-	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbbJAOji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 10:39:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20150929.215435.823982622418043263.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:40100 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750923AbbJAOpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 10:45:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2015 at 09:54:35PM -0700, David Miller wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Wed, 30 Sep 2015 02:45:07 +0200
-> 
-> > Flavio Leitner <fbl@redhat.com> wrote:
-> >> Remove __nf_conntrack_find() from headers.
-> >> Fixes: dcd93ed4cd1 ("netfilter: nf_conntrack: remove dead code"
-> > 
-> > For the record: netfilter patches should go to
-> > netfilter-devel@vger.kernel.org .
-> > 
-> > That being said, in this case I doubt Pablo minds if David takes this
-> > directly, patch ts obviously correct[tm] :)
+This builds on the previous work that added IPv6 support to lwtunnels and
+adds IPv6 tunneling support to ovs.
 
-That's what I thought.
+To use IPv6 tunneling, there needs to be a metadata based tunnel net_device
+created and added to the ovs bridge. Currently, only vxlan is supported by
+the kernel, with geneve to follow shortly. There's no need nor intent to add
+a support for this into the vport-vxlan (etc.) compat layer.
 
-> I don't want to create any unnecessary merge hassles, so please
-> resubmit this properly to netfilter-devel, thanks.
+Jiri Benc (4):
+  openvswitch: add tunnel protocol to sw_flow_key
+  openvswitch: netlink attributes for IPv6 tunneling
+  ip_tunnels: introduce ip6_tunnel_key_init
+  openvswitch: IPv6 support for ovs_tunnel_get_egress_info
 
-Ok, done.
-http://marc.info/?l=netfilter-devel&m=144361945411969&w=2
-Thanks,
-fbl
+ include/net/dst_metadata.h       |  18 ++----
+ include/net/ip_tunnels.h         |  40 +++++++++---
+ include/uapi/linux/openvswitch.h |   2 +
+ net/openvswitch/flow.c           |   4 +-
+ net/openvswitch/flow.h           |   1 +
+ net/openvswitch/flow_netlink.c   | 129 +++++++++++++++++++++++++++------------
+ net/openvswitch/flow_table.c     |   2 +-
+ net/openvswitch/vport-geneve.c   |   4 +-
+ net/openvswitch/vport-gre.c      |   4 +-
+ net/openvswitch/vport-vxlan.c    |   6 +-
+ net/openvswitch/vport.c          |  62 +++++++++++++------
+ net/openvswitch/vport.h          |  26 ++++++++
+ 12 files changed, 211 insertions(+), 87 deletions(-)
+
+-- 
+1.8.3.1
