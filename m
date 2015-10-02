@@ -1,73 +1,65 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH] unix: fix use-after-free with unix_dgram_poll()
-Date: Fri,  2 Oct 2015 19:10:39 +0000 (GMT)
-Message-ID: <20151002191039.9124420ED@prod-mail-relay10.akamai.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: Soft lockup issue in Linux 4.1.9
+Date: Fri, 02 Oct 2015 21:25:31 +0200
+Message-ID: <4566854.f3tDMKHNpU@h2o.as.studentenwerk.mhn.de>
+References: <1443650383.13282.10.camel@daevel.fr> <560E2994.5020400@tomt.net> <560E2F7C.4040102@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andre Tomt <andre@tomt.net>, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Holger =?ISO-8859-1?Q?Hoffst=E4tte?=
+	<holger.hoffstaette@googlemail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <560E2F7C.4040102@googlemail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Baron <jbaron@akamai.com>
+Am Freitag, 2. Oktober 2015, 09:17:16 schrieb Holger Hoffst=E4tte:
+> On 10/02/15 08:52, Andre Tomt wrote:
+> > On 01. okt. 2015 13:52, Eric Dumazet wrote:
+> >> On Thu, Oct 1, 2015 at 4:43 AM, Holger Hoffst=E4tte
+> >>=20
+> >> <holger.hoffstaette@googlemail.com> wrote:
+> >>> On 10/01/15 13:29, Eric Dumazet wrote:
+> >>>> commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
+> >>>> Author: Eric Dumazet <edumazet@google.com>
+> >>>> Date:   Thu Aug 13 15:44:51 2015 -0700
+> >>>>=20
+> >>>>      inet: fix potential deadlock in reqsk_queue_unlink()
+> >=20
+> > <snip>
+> >=20
+> >>> Whohoo! It applies/builds cleanly to 4.1.10-rc1 and is running as
+> >>> we speak. Let's hope that this fixes the lockups.
+> >>=20
+> >> It definitely should help !
+> >>=20
+> >> David, since patch is not yet seen on
+> >> http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
+> >> could you please add it to your queue ?
+> >=20
+> > Seems to fix it for me as well. 3 systems have been running varying
+> > types of production-like loads with it for 14+ hours without hangin=
+g.
+>=20
+> Just got up, and yes - my systems survived the night as well, no issu=
+es.
+>=20
+> Greg, any chance you can drop this into the pending 4.1.10? Otherwise=
+ people
+> will get another broken release.
+>=20
 
-The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
-queue associated with the socket s that we've called poll() on, but it also
-calls sock_poll_wait() for a remote peer socket's wait queue, if it's connected.
-Thus, if we call poll()/select()/epoll() for the socket s, there are then
-a couple of code paths in which the remote peer socket s2 and its associated
-peer_wait queue can be freed before poll()/select()/epoll() have a chance
-to remove themselves from this remote peer socket s2's wait queue.
+=46ixes the problem here, too.
 
-The remote peer's socket and associated wait queues can be freed via:
-
-1. If s calls connect() to connect to a new socket other than s2, it will
-drop its reference on s2, and thus a close() on s2 will free it.
-
-2. If we call close() on s2, then a subsequent sendmsg() from s, will drop
-the final reference to s2, allowing it to be freed.
-
-Address this issue, by reverting unix_dgram_poll() to only register with
-the wait queue associated with s and simply drop the second sock_poll_wait()
-registration for the remote peer socket wait queue. This then presents the
-expected semantics to poll()/select()/epoll().
-
-This works because we will continue to get POLLOUT wakeups from
-unix_write_space(), which is called via sock_wfree(). In fact, we avoid having
-two wakeup calls here for every buffer we read, since unix_dgram_recvmsg()
-unconditionally calls wake_up_interruptible_sync_poll() on its 'peer_wait' queue
-and we will no longer be in poll against that queue. So I think this should be
-more performant than the current code. And we avoid the second poll() call here
-as well during registration.
-
-unix_write_space() should probably be enhanced such that it checks for the
-unix_recvq_full() condition as well. In fact, it should probably look for
-some fraction of that buffer being free, as is done in unix_writable(). But I'm
-considering that a separate enhancement from fixing this issue.
-
-I've tested this by specifically reproducing cases #1 and #2 above as well as
-by running the test code here: https://lkml.org/lkml/2015/9/13/195
-
-Signed-off-by: Jason Baron <jbaron@akamai.com>
----
- net/unix/af_unix.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 03ee4d3..c1ae595 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2441,7 +2441,6 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
- 	other = unix_peer_get(sk);
- 	if (other) {
- 		if (unix_peer(other) != sk) {
--			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
- 			if (unix_recvq_full(other))
- 				writable = 0;
- 		}
--- 
-1.8.2.rc2
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
