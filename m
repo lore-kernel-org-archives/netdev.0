@@ -1,75 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/3] net: dsa: Use devm_ prefixed allocations
-Date: Fri, 2 Oct 2015 16:37:55 +0300
-Message-ID: <560E88B3.30706@cogentembedded.com>
-References: <560E60E4.8020706@baylibre.com>
- <560E86BC.3090104@cogentembedded.com> <560E86F5.2030301@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>,
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH net] ARM: net: make BPF_LD | BPF_IND instruction trigger r_X initialisation to 0.
+Date: Fri,  2 Oct 2015 15:39:12 +0200
+Message-ID: <1443793152-8661-1-git-send-email-nschichan@freebox.fr>
+To: Russell King <linux@arm.linux.org.uk>,
+	Nicolas Schichan <nschichan@freebox.fr>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
+	Mircea Gherzan <mgherzan@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560E86F5.2030301@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/2/2015 4:30 PM, Neil Armstrong wrote:
+Without this patch, if the only instructions using r_X are of the
+BPF_LD | BPF_IND type, r_X would not be reset to 0, using whatever
+value was there when entering the jited code. With this patch, r_X
+will be correctly marked as used so it will be reset to 0 in the
+prologue code.
 
->>> To simplify and prevent memory leakage when unbinding, use
->>> the devm_ memory allocation calls.
->>>
->>> Tested-by: Andrew Lunn <andrew@lunn.ch>
->>> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
->>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
->>> ---
->>>    net/dsa/dsa.c | 6 +++---
->>>    1 file changed, 3 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
->>> index c59fa5d..98f94c2 100644
->>> --- a/net/dsa/dsa.c
->>> +++ b/net/dsa/dsa.c
->>> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->>>        if (ret < 0)
->>>            goto out;
->>>
->>> -    ds->slave_mii_bus = mdiobus_alloc();
->>> +    ds->slave_mii_bus = devm_mdiobus_alloc(parent);
->>>        if (ds->slave_mii_bus == NULL) {
->>>            ret = -ENOMEM;
->>>            goto out;
->>> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->>>        /*
->>>         * Allocate and initialise switch state.
->>>         */
->>> -    ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
->>> +    ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
->>>        if (ds == NULL)
->>>            return ERR_PTR(-ENOMEM);
->>>
->>> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
->>>            goto out;
->>>        }
->>>
->>> -    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
->>> +    dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
->>>        if (dst == NULL) {
->>>            dev_put(dev);
->>>            ret = -ENOMEM;
->>>
->>
->>     Shouldn't you remove the correspoding kfree(), etc. calls?
->>
->> MBR, Sergei
->>
-> The corresponding kfree() calls were all missing.
+This fix also makes the test "LD_IND byte default X" pass in the
+test_bpf module when the ARM JIT is enabled.
 
-    Then this patch should be for net, not net-next. Either that, or add the 
-kfree() calls first, then remove them in this net-next patch.
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+---
+ arch/arm/net/bpf_jit_32.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> Neil
-
-MBR, Sergei
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 876060b..b8efb8c 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -614,6 +614,7 @@ load_common:
+ 		case BPF_LD | BPF_B | BPF_IND:
+ 			load_order = 0;
+ load_ind:
++			update_on_xread(ctx);
+ 			OP_IMM3(ARM_ADD, r_off, r_X, k, ctx);
+ 			goto load_common;
+ 		case BPF_LDX | BPF_IMM:
+-- 
+1.9.1
