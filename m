@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 15/17] tcp: remove max_qlen_log
-Date: Fri,  2 Oct 2015 11:43:37 -0700
-Message-ID: <1443811419-4798-16-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 17/17] tcp: do not lock listener to process SYN packets
+Date: Fri,  2 Oct 2015 11:43:39 -0700
+Message-ID: <1443811419-4798-18-git-send-email-edumazet@google.com>
 References: <1443811419-4798-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>, Ying Cai <ycai@google.com>,
@@ -9,125 +9,121 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35745 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753297AbbJBSo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 14:44:26 -0400
-Received: by pacfv12 with SMTP id fv12so115656082pac.2
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 11:44:26 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35979 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753894AbbJBSod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 14:44:33 -0400
+Received: by pablk4 with SMTP id lk4so112698091pab.3
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 11:44:32 -0700 (PDT)
 In-Reply-To: <1443811419-4798-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This control variable was set at first listen(fd, backlog)
-call, but not updated if application tried to increase or decrease
-backlog. It made sense at the time listener had a non resizeable
-hash table.
+Everything should now be ready to finally allow SYN
+packets processing without holding listener lock.
 
-Also rounding to powers of two was not very friendly.
+Tested:
+
+3.5 Mpps SYNFLOOD. Plenty of cpu cycles available.
+
+Next bottleneck is the refcount taken on listener,
+that could be avoided if we remove SLAB_DESTROY_BY_RCU
+strict semantic for listeners, and use regular RCU.
+
+    13.18%  [kernel]  [k] __inet_lookup_listener
+     9.61%  [kernel]  [k] tcp_conn_request
+     8.16%  [kernel]  [k] sha_transform
+     5.30%  [kernel]  [k] inet_reqsk_alloc
+     4.22%  [kernel]  [k] sock_put
+     3.74%  [kernel]  [k] tcp_make_synack
+     2.88%  [kernel]  [k] ipt_do_table
+     2.56%  [kernel]  [k] memcpy_erms
+     2.53%  [kernel]  [k] sock_wfree
+     2.40%  [kernel]  [k] tcp_v4_rcv
+     2.08%  [kernel]  [k] fib_table_lookup
+     1.84%  [kernel]  [k] tcp_openreq_init_rwin
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/inet_connection_sock.h |  2 +-
- include/net/request_sock.h         | 10 ++--------
- net/core/request_sock.c            |  8 +-------
- net/ipv4/inet_connection_sock.c    |  4 ++--
- 4 files changed, 6 insertions(+), 18 deletions(-)
+ net/ipv4/tcp_ipv4.c | 11 +++++++++--
+ net/ipv6/tcp_ipv6.c | 11 +++++++++--
+ 2 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 730aa034cd3d..3208a65d1c28 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -295,7 +295,7 @@ static inline int inet_csk_reqsk_queue_young(const struct sock *sk)
- 
- static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
- {
--	return reqsk_queue_is_full(&inet_csk(sk)->icsk_accept_queue);
-+	return inet_csk_reqsk_queue_len(sk) >= sk->sk_max_ack_backlog;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ac2ea73e9aaf..34310748a365 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1355,7 +1355,7 @@ static struct sock *tcp_v4_cookie_check(struct sock *sk, struct sk_buff *skb)
  }
  
- void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req);
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index a66ab1345373..bae6936d75c4 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -157,7 +157,7 @@ struct fastopen_queue {
- struct request_sock_queue {
- 	spinlock_t		rskq_lock;
- 	u8			rskq_defer_accept;
--	u8			max_qlen_log;
+ /* The socket must have it's spinlock held when we get
+- * here.
++ * here, unless it is a TCP_LISTEN socket.
+  *
+  * We have a potential double-lock case here, so even when
+  * doing backlog processing we use the BH locking scheme.
+@@ -1619,9 +1619,15 @@ process:
+ 	if (sk_filter(sk, skb))
+ 		goto discard_and_relse;
+ 
+-	sk_incoming_cpu_update(sk);
+ 	skb->dev = NULL;
+ 
++	if (sk->sk_state == TCP_LISTEN) {
++		ret = tcp_v4_do_rcv(sk, skb);
++		goto put_and_return;
++	}
 +
- 	u32			synflood_warned;
- 	atomic_t		qlen;
- 	atomic_t		young;
-@@ -169,8 +169,7 @@ struct request_sock_queue {
- 					     */
- };
++	sk_incoming_cpu_update(sk);
++
+ 	bh_lock_sock_nested(sk);
+ 	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
+ 	ret = 0;
+@@ -1636,6 +1642,7 @@ process:
+ 	}
+ 	bh_unlock_sock(sk);
  
--void reqsk_queue_alloc(struct request_sock_queue *queue,
--		       unsigned int nr_table_entries);
-+void reqsk_queue_alloc(struct request_sock_queue *queue);
++put_and_return:
+ 	sock_put(sk);
  
- void reqsk_fastopen_remove(struct sock *sk, struct request_sock *req,
- 			   bool reset);
-@@ -240,9 +239,4 @@ static inline int reqsk_queue_len_young(const struct request_sock_queue *queue)
- 	return atomic_read(&queue->young);
+ 	return ret;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3d18571811c5..33334f0c217d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1161,7 +1161,7 @@ out:
  }
  
--static inline int reqsk_queue_is_full(const struct request_sock_queue *queue)
--{
--	return reqsk_queue_len(queue) >> queue->max_qlen_log;
--}
--
- #endif /* _REQUEST_SOCK_H */
-diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-index ecf74189bd3f..15c853806518 100644
---- a/net/core/request_sock.c
-+++ b/net/core/request_sock.c
-@@ -37,13 +37,8 @@
- int sysctl_max_syn_backlog = 256;
- EXPORT_SYMBOL(sysctl_max_syn_backlog);
+ /* The socket must have it's spinlock held when we get
+- * here.
++ * here, unless it is a TCP_LISTEN socket.
+  *
+  * We have a potential double-lock case here, so even when
+  * doing backlog processing we use the BH locking scheme.
+@@ -1415,9 +1415,15 @@ process:
+ 	if (sk_filter(sk, skb))
+ 		goto discard_and_relse;
  
--void reqsk_queue_alloc(struct request_sock_queue *queue,
--		       unsigned int nr_table_entries)
-+void reqsk_queue_alloc(struct request_sock_queue *queue)
- {
--	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
--	nr_table_entries = max_t(u32, nr_table_entries, 8);
--	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
--
- 	spin_lock_init(&queue->rskq_lock);
+-	sk_incoming_cpu_update(sk);
+ 	skb->dev = NULL;
  
- 	spin_lock_init(&queue->fastopenq.lock);
-@@ -53,7 +48,6 @@ void reqsk_queue_alloc(struct request_sock_queue *queue,
- 	queue->fastopenq.max_qlen = 0;
++	if (sk->sk_state == TCP_LISTEN) {
++		ret = tcp_v6_do_rcv(sk, skb);
++		goto put_and_return;
++	}
++
++	sk_incoming_cpu_update(sk);
++
+ 	bh_lock_sock_nested(sk);
+ 	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
+ 	ret = 0;
+@@ -1432,6 +1438,7 @@ process:
+ 	}
+ 	bh_unlock_sock(sk);
  
- 	queue->rskq_accept_head = NULL;
--	queue->max_qlen_log = ilog2(nr_table_entries);
- }
++put_and_return:
+ 	sock_put(sk);
+ 	return ret ? -1 : 0;
  
- /*
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 775483283fa7..5f6e31a4aeae 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -579,7 +579,7 @@ static void reqsk_timer_handler(unsigned long data)
- 	 * ones are about to clog our table.
- 	 */
- 	qlen = reqsk_queue_len(queue);
--	if (qlen >> (queue->max_qlen_log - 1)) {
-+	if ((qlen << 1) > sk_listener->sk_max_ack_backlog) {
- 		int young = reqsk_queue_len_young(queue) << 1;
- 
- 		while (thresh > 2) {
-@@ -732,7 +732,7 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct inet_sock *inet = inet_sk(sk);
- 
--	reqsk_queue_alloc(&icsk->icsk_accept_queue, nr_table_entries);
-+	reqsk_queue_alloc(&icsk->icsk_accept_queue);
- 
- 	sk->sk_max_ack_backlog = 0;
- 	sk->sk_ack_backlog = 0;
 -- 
 2.6.0.rc2.230.g3dd15c0
