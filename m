@@ -1,128 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2] net: Add support for filtering neigh dump by master device
-Date: Fri, 02 Oct 2015 12:18:51 -0500
-Message-ID: <87h9m9tchw.fsf@x220.int.ebiederm.org>
-References: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next V14 0/3] openvswitch: Add support for
+	802.1ad
+Date: Fri, 2 Oct 2015 10:38:03 -0700
+Message-ID: <CALnjE+oehKQQcr3pBVTK3tDjfYtAwqn392m7d3_V8o2rDZDOLw@mail.gmail.com>
+References: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:54521 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbbJBR0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 13:26:19 -0400
-In-Reply-To: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
-	(David Ahern's message of "Tue, 29 Sep 2015 09:32:03 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1443670380-4245-1-git-send-email-thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-David Ahern <dsa@cumulusnetworks.com> writes:
-
-> Add support for filtering neighbor dumps by master device by adding
-> the NDA_MASTER attribute to the dump request. A new netlink flag,
-> NLM_F_DUMP_FILTERED, is added to indicate the kernel supports the
-> request and output is filtered as requested.
-
-*Scratches my head*
-
-I thought you only wanted L3 functionality, and that you did not want a
-network namespace.
-
-What is the thinking here because it sure looks like you are busily
-adding layer two functionality you swore you did not want.
-
-Eric
-
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - added NLM_F_DUMP_FILTERED flag for userspace feedback that request is
->   supported
->
-> This method works for other filters as well and other dump commands.
-> Works fine for all combinations of new and old kernel and new and old ip:
-> 1. new ip command on old kernel, NDA_MASTER attribute is ignored
-> 2. old ip command on new kernel, NDA_MASTER attribute is not present
-> 3. new ip on new kernel ... goodness ensues by limiting data to
->    only what user wants
->
->  include/uapi/linux/netlink.h |  1 +
->  net/core/neighbour.c         | 32 +++++++++++++++++++++++++++++++-
->  2 files changed, 32 insertions(+), 1 deletion(-)
->
-> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-> index 6f3fe16cd22a..f095155d8749 100644
-> --- a/include/uapi/linux/netlink.h
-> +++ b/include/uapi/linux/netlink.h
-> @@ -54,6 +54,7 @@ struct nlmsghdr {
->  #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
->  #define NLM_F_ECHO		8	/* Echo this request 		*/
->  #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
-> +#define NLM_F_DUMP_FILTERED	32	/* Dump was filtered as requested */
->  
->  /* Modifiers to GET request */
->  #define NLM_F_ROOT	0x100	/* specify tree	root	*/
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 2b515ba7e94f..8c57fdf4d68e 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -2235,14 +2235,42 @@ static void neigh_update_notify(struct neighbour *neigh)
->  	__neigh_notify(neigh, RTM_NEWNEIGH, 0);
->  }
->  
-> +static bool neigh_master_filtered(struct net_device *dev, int master_idx)
-> +{
-> +	struct net_device *master;
-> +
-> +	if (!master_idx)
-> +		return false;
-> +
-> +	master = netdev_master_upper_dev_get(dev);
-> +	if (!master || master->ifindex != master_idx)
-> +		return true;
-> +
-> +	return false;
-> +}
-> +
->  static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
->  			    struct netlink_callback *cb)
->  {
->  	struct net *net = sock_net(skb->sk);
-> +	const struct nlmsghdr *nlh = cb->nlh;
-> +	struct nlattr *tb[NDA_MAX + 1];
->  	struct neighbour *n;
->  	int rc, h, s_h = cb->args[1];
->  	int idx, s_idx = idx = cb->args[2];
->  	struct neigh_hash_table *nht;
-> +	int filter_master_idx = 0;
-> +	unsigned int flags = NLM_F_MULTI;
-> +	int err;
-> +
-> +	err = nlmsg_parse(nlh, sizeof(struct ndmsg), tb, NDA_MAX, NULL);
-> +	if (!err) {
-> +		if (tb[NDA_MASTER])
-> +			filter_master_idx = nla_get_u32(tb[NDA_MASTER]);
-> +
-> +		if (filter_master_idx)
-> +			flags |= NLM_F_DUMP_FILTERED;
-> +	}
->  
->  	rcu_read_lock_bh();
->  	nht = rcu_dereference_bh(tbl->nht);
-> @@ -2255,12 +2283,14 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
->  		     n = rcu_dereference_bh(n->next)) {
->  			if (!net_eq(dev_net(n->dev), net))
->  				continue;
-> +			if (neigh_master_filtered(n->dev, filter_master_idx))
-> +				continue;
->  			if (idx < s_idx)
->  				goto next;
->  			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
->  					    cb->nlh->nlmsg_seq,
->  					    RTM_NEWNEIGH,
-> -					    NLM_F_MULTI) < 0) {
-> +					    flags) < 0) {
->  				rc = -1;
->  				goto out;
->  			}
+T24gV2VkLCBTZXAgMzAsIDIwMTUgYXQgODozMiBQTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
+ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBBbHRob3VnaCB0aGUgT3BlbiBGbG93IHNwZWNp
+ZmljYXRpb24gc3BlY2lmaWVkIHN1cHBvcnQgZm9yIDgwMi4xQUQgKHFpbnEpCj4gYXMgd2VsbCBh
+cyBwdXNoIGFuZCBwb3AgdmxhbiBoZWFkZXJzLCAgU28gZmFyIE9wZW4gdlN3aXRjaCBoYXMgb25s
+eQo+IHN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVhZGVyLiBUaGlzIHBhdGNoIGltcGxlbWVudHMg
+ODAyLjFBRCBpbiB0aGUga2VybmVsCj4gbW9kdWxlLgo+Cj4gVGhpcyBwYXRjaCBhY2NvbXBhbmll
+cyB2ZXJzaW9uIDE0IG9mIHRoZSB1c2VyIGxldmVsIG9wZW52c3dpdGNoIHBhdGNoCj4gc3VibWl0
+dGVkIHRvIG9wZW52c3dpdGNoIGRldiBsaXN0Lgo+Cj4gVjE0OiBBZGQgb3V0ZXIgdHBpZCB0byBm
+bG93X2tleQo+Cj4gVjEzOiBGaXggaW5jb3JyZWN0IGVuY29kaW5nIGFuZCBkZWNvZGluZyBvZiBu
+ZXRsaW5rIHRvL2Zyb20ga2V5Cj4gYXR0cmlidXRlcy4KPgo+IFYxMjogRml4IHNvbWUgcHJvYmxl
+bXMgYW5kIGlzc3VlcyBwb2ludGVkIG91dCBieSByZXZpZXdlcnMuIFdoZW4gcGFyc2luZwo+IG5l
+dGxpbmsgYXR0cmlidXRlcyBFdGhlciB0eXBlcyBvdGhlciB0aGVuIDB4ODhhOCBhcyBvdXRlciB0
+cGlkLgo+Cj4gVjExOiBBZGQgaW5uZXIgdHBpZCB0byBmbG93IGtleS4gRml4IHNlcGFyYXRlIGlu
+bmVyIGVuY2FwIGF0dHJpYnV0ZQo+IHdoZW4gcGFyc2luZyBuZXRsaW5rIGF0dHJpYnV0ZXMuIE1l
+cmdlIDIgcGF0Y2hlcyB0byBjb25zb2xpZGF0ZQo+IHFpbnEgY2hhbmdlcy4KPgo+IFYxMDogSW1w
+bGVtZW50IHJldmlld2VyIGNvbW1lbnRzOiBDb25zb2xpZGF0ZSB2bGFuIHBhcnNpbmcgZnVuY3Rp
+b25zLgo+IFNwbGl0cyBuZXRsaW5rIHBhcnNpbmcgYW5kIGZsb3cgY29udmVyc2lvbiBpbnRvIGEg
+c2VwYXJhdGUgcGF0Y2guIFVzZXMKPiBkb3VibGUgZW5jYXAgYXR0cmlidXRlIGVuY2Fwc3VsYXRp
+b24gZm9yIDgwMi4xYWQuICBOZXRsaW5rIGF0dHJpYnV0ZXMKPiBub3cgbG9vayBsaWtlIHRoaXM6
+Cj4KPiAgICAgZXRoX3R5cGUoMHg4OGE4KSx2bGFuKHZpZD0xMDApLGVuY2FwKGV0aF90eXBlKDB4
+ODEwMCksIHZsYW4odmlkPTIwMCksCj4gICAgICAgICAgICAgICAgICBlbmNhcChldGhfdHlwZSgw
+eDA4MDApLCAuLi4pKQo+Cj4gVGhlIGRvdWJsZSBlbmNhcCBhdHJpYnV0ZXMgaW4gdGhpcyB2ZXJz
+aW9uIG9mIHRoZSBwYXRjaCBpcyBpbmNvbXBhdGlibGUgd2l0aAo+IG9sZCB2ZXJzaW9ucyBvZiB0
+aGUgdXNlciBsZXZlbCA4MDIuMWFkIHBhdGNoLiBBIG5ldyB1c2VyIGxldmVsIHBhdGNoIHdoaWNo
+Cj4gaXMgYWxzbyBiZWluZyBzdWJtaXR0ZWQgc2ltdWx0YW5lb3VzbHkgdG8gb3BlbnZzd2l0Y2gg
+ZGV2IG1haWxpbmcgbGlzdC4KPgo+IFY5OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkg
+cmV2aWV3ZXJzCj4KPiBWODogIEluY2x1ZGVzIGNoYW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2Vy
+cwo+Cj4gVjc6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dlc3RlZCBieSByZXZpZXdlcnMKPgo+IFY2
+OiAgUmViYXNlZCB0byBuZXQtbmV4dAo+Cj4gVjU6ICBVc2UgZW5jYXBzdWxhdGVkIGF0dHJpYnV0
+ZXMKPgo+Cj4gRm9yIGRpc2N1c3Npb24sIGhpc3RvcnkgIGFuZCBwcmV2aW91cyB2ZXJzaW9ucyBv
+ZiB0aGUga2VybmVsIG1vZHVsZQo+IHBhdGNoIGFuZCB0aGUgdXNlciBjb2RlIHBhdGNoIHNlZSB0
+aGUgT1ZTIGRldiBtYWlsaW5nIGxpc3QsCj4gb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYv
+Li4KPgpIaSBUaG9tYXMsCkNhbiB5b3Ugc2VuZCBtZSBsaW5rIHRvIHVzZXJzcGFjZSBwYXRjaGVz
+LCBzbyB0aGF0IEkgY2FuIHRyeSBpdCBvdXQuCgpUaGFua3MsClByYXZpbi4KX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
+b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+ZXYK
