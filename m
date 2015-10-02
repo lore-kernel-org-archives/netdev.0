@@ -1,42 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netfilter: Line layout whitespace fixes
-Date: Fri, 2 Oct 2015 13:19:02 +0200
-Message-ID: <20151002111902.GA29902@salvia>
-References: <1443089406-8996-1-git-send-email-ipm@chirality.org.uk>
- <20150930221707.GA14994@salvia>
- <560DC543.3060809@chirality.org.uk>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [RFC PATCH 3/3] net: dsa: exit probe if no switch were found
+Date: Fri, 2 Oct 2015 14:10:54 +0200
+Message-ID: <560E744E.4010502@baylibre.com>
+References: <560B9B7C.9080406@baylibre.com> <560D50E4.6040400@baylibre.com>
+ <20151001163257.GQ20219@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Ian Morris <ipm@chirality.org.uk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <560DC543.3060809@chirality.org.uk>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151001163257.GQ20219@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 02, 2015 at 12:44:03AM +0100, Ian Morris wrote:
+On 10/01/2015 06:32 PM, Andrew Lunn wrote:
+> On Thu, Oct 01, 2015 at 05:27:32PM +0200, Neil Armstrong wrote:
+>> On 09/30/2015 10:21 AM, Neil Armstrong wrote:
+>>> If no switch were found in dsa_setup_dst, return -ENODEV and
+>>> exit the dsa_probe cleanly.
 > 
-> On 30/09/15 23:17, Pablo Neira Ayuso wrote:
-> >On Thu, Sep 24, 2015 at 11:10:06AM +0100, Ian Morris wrote:
-> >>Fixes various whitespace issues detected by checkpatch (e.g. adding spaces between operations, replacing spaces with tabs, etc)
-> >>
-> >>No changes detected by objdiff.
-> >These large cleanup patch causes problems for -stable maintainers,
-> >since they have more conflicts when backporting stuff.
-> >
-> >I'd rather keep this back.
-> >
-> Please help me understand: until when do you propose such changes be
-> deferred? Or are you suggesting we should apply changes more incrementally
-> somehow?
+> ...
+>  
+>> Couldn't we use the probe defer mechanism here ? (until complete rework is done)
+> 
+> Hi Neil
+> 
+> I was thinking the same last night. We know the switch should be
+> there, otherwise it would not be in DT. So returning -EPROBE_DEFER
+> would be valid.
+> 
+>       Andrew
+> 
+Hi,
 
-Regarding your suggestion to apply changes more incrementally, I think
-that's a good idea since that will help us evaluate if there are
-better things we can do to improve that code.
+It makes sens but does a module insertion triggers the differed probe ?
 
-So please go send small batches with incremental way that we can
-review.  Depending on the change, some of them may trigger the rework
-of existing code, others probably will just get in as is.
+I will still post this change in a next set of patch.
 
-Thanks.
+Neil
