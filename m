@@ -1,54 +1,94 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [v3 1/8] devres: add devm_alloc_percpu()
-Date: Fri, 2 Oct 2015 09:16:42 +0000
-Message-ID: <BL2PR03MB54503928C025D7EAF9F8814E64B0@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1443106819-5549-1-git-send-email-madalin.bucur@freescale.com>
- <1443106819-5549-2-git-send-email-madalin.bucur@freescale.com>
- <20151002010041.GA4245@home.buserror.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
- Roy Pledge <roy.pledge@freescale.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "ppc@mindchasers.com" <ppc@mindchasers.com>, "stsp@list.ru" <stsp@list.ru>,
- Liberman Igal <Igal.Liberman@freescale.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- "joe@perches.com" <joe@perches.com>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20151002010041.GA4245@home.buserror.net>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 1/1] i40e: re-use %*ph specifier to hexdump a data
+Date: Fri,  2 Oct 2015 12:18:16 +0300
+Message-ID: <1443777496-43299-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:57386 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208AbbJBJSu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2015 05:18:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IFdvb2QgU2NvdHQtQjA3NDIxCj4g
-U2VudDogRnJpZGF5LCBPY3RvYmVyIDAyLCAyMDE1IDQ6MDEgQU0KPiAKPiBPbiBUaHUsIFNlcCAy
-NCwgMjAxNSBhdCAwNjowMDoxMlBNICswMzAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOgo+ID4gSW50
-cm9kdWNlIG1hbmFnZWQgY291bnRlcnBhcnRzIGZvciBhbGxvY19wZXJjcHUoKSBhbmQgZnJlZV9w
-ZXJjcHUoKS4KPiA+IEFkZCBkZXZtX2FsbG9jX3BlcmNwdSgpIGFuZCBkZXZtX2ZyZWVfcGVyY3B1
-KCkgaW50byB0aGUgbWFuYWdlZAo+ID4gaW50ZXJmYWNlcyBsaXN0Lgo+ID4KPiA+IFNpZ25lZC1v
-ZmYtYnk6IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4KPiA+IFRl
-c3RlZC1ieTogTWFkYWxpbi1DcmlzdGlhbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBmcmVlc2NhbGUu
-Y29tPgo+ID4gLS0tCj4gPiAgRG9jdW1lbnRhdGlvbi9kcml2ZXItbW9kZWwvZGV2cmVzLnR4dCB8
-ICA0ICsrKwo+ID4gIGRyaXZlcnMvYmFzZS9kZXZyZXMuYyAgICAgICAgICAgICAgICAgfCA2NAo+
-ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrCj4gPiAgaW5jbHVkZS9saW51eC9k
-ZXZpY2UuaCAgICAgICAgICAgICAgICB8IDE5ICsrKysrKysrKysrCj4gPiAgMyBmaWxlcyBjaGFu
-Z2VkLCA4NyBpbnNlcnRpb25zKCspCj4gCj4gR3JlZyBLSCBuZWVkcyB0byBiZSBDQ2VkIG9uIGFu
-eSBkcml2ZXJzL2Jhc2UgY2hhbmdlcy4KPiAKPiAtU2NvdHQKClRoYW5rIHlvdSwgSSB3aWxsIGFk
-ZCBoaW0uCgpNYWRhbGluCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFi
-cy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+Instead of using a custom approach change the code to use %*ph format
+specifier.
+
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c   | 22 ++++------------------
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 22 ++++------------------
+ 2 files changed, 8 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 114dc64..3bc772c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -329,25 +329,11 @@ void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 			len = buf_len;
+ 		/* write the full 16-byte chunks */
+ 		for (i = 0; i < (len - 16); i += 16)
+-			i40e_debug(hw, mask,
+-				   "\t0x%04X  %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+-				   i, buf[i], buf[i + 1], buf[i + 2],
+-				   buf[i + 3], buf[i + 4], buf[i + 5],
+-				   buf[i + 6], buf[i + 7], buf[i + 8],
+-				   buf[i + 9], buf[i + 10], buf[i + 11],
+-				   buf[i + 12], buf[i + 13], buf[i + 14],
+-				   buf[i + 15]);
++			i40e_debug(hw, mask, "\t0x%04X  %16ph\n", i, buf + i);
+ 		/* write whatever's left over without overrunning the buffer */
+-		if (i < len) {
+-			char d_buf[80];
+-			int j = 0;
+-
+-			memset(d_buf, 0, sizeof(d_buf));
+-			j += sprintf(d_buf, "\t0x%04X ", i);
+-			while (i < len)
+-				j += sprintf(&d_buf[j], " %02X", buf[i++]);
+-			i40e_debug(hw, mask, "%s\n", d_buf);
+-		}
++		if (i < len)
++			i40e_debug(hw, mask, "\t0x%04X  %*ph\n",
++					     i, len - i, buf + i);
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index d45d0ae..200bbcb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -329,25 +329,11 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 			len = buf_len;
+ 		/* write the full 16-byte chunks */
+ 		for (i = 0; i < (len - 16); i += 16)
+-			i40e_debug(hw, mask,
+-				   "\t0x%04X  %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+-				   i, buf[i], buf[i + 1], buf[i + 2],
+-				   buf[i + 3], buf[i + 4], buf[i + 5],
+-				   buf[i + 6], buf[i + 7], buf[i + 8],
+-				   buf[i + 9], buf[i + 10], buf[i + 11],
+-				   buf[i + 12], buf[i + 13], buf[i + 14],
+-				   buf[i + 15]);
++			i40e_debug(hw, mask, "\t0x%04X  %16ph\n", i, buf + i);
+ 		/* write whatever's left over without overrunning the buffer */
+-		if (i < len) {
+-			char d_buf[80];
+-			int j = 0;
+-
+-			memset(d_buf, 0, sizeof(d_buf));
+-			j += sprintf(d_buf, "\t0x%04X ", i);
+-			while (i < len)
+-				j += sprintf(&d_buf[j], " %02X", buf[i++]);
+-			i40e_debug(hw, mask, "%s\n", d_buf);
+-		}
++		if (i < len)
++			i40e_debug(hw, mask, "\t0x%04X  %*ph\n",
++					     i, len - i, buf + i);
+ 	}
+ }
+ 
+-- 
+2.5.1
