@@ -1,59 +1,146 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Fri, 2 Oct 2015 15:52:06 +0200
-Message-ID: <560E8C06.6040502@zonque.org>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
- <1443525140-13493-4-git-send-email-daniel@zonque.org>
- <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
- <20151001171323.GA4890@localhost.localdomain> <560DA092.60100@zonque.org>
- <20151002110756.GA29822@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Florian Westphal <fw@strlen.de>, daniel@iogearbox.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	balazs.scheidler@balabit.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:32770 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754006AbbJBNwL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2015 09:52:11 -0400
-In-Reply-To: <20151002110756.GA29822@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH net-next] ARM: net: support BPF_ALU | BPF_MOD instructions in the BPF JIT.
+Date: Fri,  2 Oct 2015 16:37:51 +0200
+Message-ID: <1443796671-12598-1-git-send-email-nschichan@freebox.fr>
+To: Russell King <linux@arm.linux.org.uk>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/02/2015 01:07 PM, Pablo Neira Ayuso wrote:
-> On Thu, Oct 01, 2015 at 11:07:30PM +0200, Daniel Mack wrote:
-> [...]
->> That, however, got rejected because it doesn't work for multicast. This
->> patch set implements one of the things Pablo suggested in his reply.
-> 
-> People are rising valid concerns here, so far we got a RFC where you
-> say that you don't have a proper setup to validate performance impact.
-> 
-> From the locking front, you indicated that there are possible problems
-> in this RFC, although you claim those can be fixed.
-> 
-> No examples on how you will use this are shown, which has triggered
-> questions on how you plan to use this. Only one use-case that has been
-> described in natural language.
-> 
-> Rergading inconsistent behaviour when no process are listening, your
-> argument is that "that can be documented".
-> 
-> Frankly, I would expect you do the work from your side to justify the
-> inclusion of this, and that requires that your cover open fronts from
-> the technical side, not just arguing.
+For ARMv7 with UDIV instruction support, generate an UDIV instruction
+followed by an MLS instruction.
 
-Sure, I'm willing to do this of course. The purpose of this RFC was only
-to outline where this approach would go, and to allow discussions about
-possible show stoppers.
+For other ARM variants, generate code calling a C wrapper similar to
+the jit_udiv() function used for BPF_ALU | BPF_DIV instructions.
 
-I'll respin this in a new series then.
+Some performance numbers reported by the test_bpf module (the duration
+per filter run is reported in nanoseconds, between "jitted:<x>" and
+"PASS":
 
+ARMv7 QEMU nojit:	test_bpf: #3 DIV_MOD_KX jited:0 2196 PASS
+ARMv7 QEMU jit:		test_bpf: #3 DIV_MOD_KX jited:1 104 PASS
+ARMv5 QEMU nojit:	test_bpf: #3 DIV_MOD_KX jited:0 2176 PASS
+ARMv5 QEMU jit:		test_bpf: #3 DIV_MOD_KX jited:1 1104 PASS
+ARMv5 kirkwood nojit:	test_bpf: #3 DIV_MOD_KX jited:0 1103 PASS
+ARMv5 kirkwood jit:	test_bpf: #3 DIV_MOD_KX jited:1 311 PASS
 
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+---
+ arch/arm/net/bpf_jit_32.c | 38 ++++++++++++++++++++++++++++++++------
+ arch/arm/net/bpf_jit_32.h |  5 +++++
+ 2 files changed, 37 insertions(+), 6 deletions(-)
 
-Thanks,
-Daniel
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 876060b..17214d9 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -125,7 +125,7 @@ static u64 jit_get_skb_w(struct sk_buff *skb, int offset)
+ }
+ 
+ /*
+- * Wrapper that handles both OABI and EABI and assures Thumb2 interworking
++ * Wrappers that handles both OABI and EABI and assures Thumb2 interworking
+  * (where the assembly routines like __aeabi_uidiv could cause problems).
+  */
+ static u32 jit_udiv(u32 dividend, u32 divisor)
+@@ -133,6 +133,11 @@ static u32 jit_udiv(u32 dividend, u32 divisor)
+ 	return dividend / divisor;
+ }
+ 
++static u32 jit_mod(u32 dividend, u32 divisor)
++{
++	return dividend % divisor;
++}
++
+ static inline void _emit(int cond, u32 inst, struct jit_ctx *ctx)
+ {
+ 	inst |= (cond << 28);
+@@ -471,11 +476,17 @@ static inline void emit_blx_r(u8 tgt_reg, struct jit_ctx *ctx)
+ #endif
+ }
+ 
+-static inline void emit_udiv(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx)
++static inline void emit_udivmod(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx,
++				int bpf_op)
+ {
+ #if __LINUX_ARM_ARCH__ == 7
+ 	if (elf_hwcap & HWCAP_IDIVA) {
+-		emit(ARM_UDIV(rd, rm, rn), ctx);
++		if (bpf_op == BPF_DIV)
++			emit(ARM_UDIV(rd, rm, rn), ctx);
++		else {
++			emit(ARM_UDIV(ARM_R3, rm, rn), ctx);
++			emit(ARM_MLS(rd, rn, ARM_R3, rm), ctx);
++		}
+ 		return;
+ 	}
+ #endif
+@@ -496,7 +507,8 @@ static inline void emit_udiv(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx)
+ 		emit(ARM_MOV_R(ARM_R0, rm), ctx);
+ 
+ 	ctx->seen |= SEEN_CALL;
+-	emit_mov_i(ARM_R3, (u32)jit_udiv, ctx);
++	emit_mov_i(ARM_R3, bpf_op == BPF_DIV ? (u32)jit_udiv : (u32)jit_mod,
++		   ctx);
+ 	emit_blx_r(ARM_R3, ctx);
+ 
+ 	if (rd != ARM_R0)
+@@ -697,13 +709,27 @@ load_ind:
+ 			if (k == 1)
+ 				break;
+ 			emit_mov_i(r_scratch, k, ctx);
+-			emit_udiv(r_A, r_A, r_scratch, ctx);
++			emit_udivmod(r_A, r_A, r_scratch, ctx, BPF_DIV);
+ 			break;
+ 		case BPF_ALU | BPF_DIV | BPF_X:
+ 			update_on_xread(ctx);
+ 			emit(ARM_CMP_I(r_X, 0), ctx);
+ 			emit_err_ret(ARM_COND_EQ, ctx);
+-			emit_udiv(r_A, r_A, r_X, ctx);
++			emit_udivmod(r_A, r_A, r_X, ctx, BPF_DIV);
++			break;
++		case BPF_ALU | BPF_MOD | BPF_K:
++			if (k == 1) {
++				emit_mov_i(r_A, 0, ctx);
++				break;
++			}
++			emit_mov_i(r_scratch, k, ctx);
++			emit_udivmod(r_A, r_A, r_scratch, ctx, BPF_MOD);
++			break;
++		case BPF_ALU | BPF_MOD | BPF_X:
++			update_on_xread(ctx);
++			emit(ARM_CMP_I(r_X, 0), ctx);
++			emit_err_ret(ARM_COND_EQ, ctx);
++			emit_udivmod(r_A, r_A, r_X, ctx, BPF_MOD);
+ 			break;
+ 		case BPF_ALU | BPF_OR | BPF_K:
+ 			/* A |= K */
+diff --git a/arch/arm/net/bpf_jit_32.h b/arch/arm/net/bpf_jit_32.h
+index 4b17d5ab..c46fca2 100644
+--- a/arch/arm/net/bpf_jit_32.h
++++ b/arch/arm/net/bpf_jit_32.h
+@@ -115,6 +115,8 @@
+ 
+ #define ARM_INST_UMULL		0x00800090
+ 
++#define ARM_INST_MLS		0x00600090
++
+ /*
+  * Use a suitable undefined instruction to use for ARM/Thumb2 faulting.
+  * We need to be careful not to conflict with those used by other modules
+@@ -210,4 +212,7 @@
+ #define ARM_UMULL(rd_lo, rd_hi, rn, rm)	(ARM_INST_UMULL | (rd_hi) << 16 \
+ 					 | (rd_lo) << 12 | (rm) << 8 | rn)
+ 
++#define ARM_MLS(rd, rn, rm, ra)	(ARM_INST_MLS | (rd) << 16 | (rn) | (rm) << 8 \
++				 | (ra) << 12)
++
+ #endif /* PFILTER_OPCODES_ARM_H */
+-- 
+1.9.1
