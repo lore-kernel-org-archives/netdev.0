@@ -1,55 +1,59 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH v1 0/5] Improve ASIX RX memory allocation error handling
-Date: Fri, 2 Oct 2015 14:39:39 +0100
-Message-ID: <1443793179-3895-1-git-send-email-Dean_Jenkins@mentor.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
+Date: Fri, 2 Oct 2015 15:52:06 +0200
+Message-ID: <560E8C06.6040502@zonque.org>
+References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
+ <1443525140-13493-4-git-send-email-daniel@zonque.org>
+ <20150929211959.GF19923@breakpoint.cc> <560B8E25.7050801@zonque.org>
+ <20151001171323.GA4890@localhost.localdomain> <560DA092.60100@zonque.org>
+ <20151002110756.GA29822@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-usb@vger.kernel.org>, <ben.hutchings@codethink.co.uk>,
-	<davem@davemloft.net>, <bjorn@mork.no>, <linux@davidrobins.net>,
-	Mark Craske <Mark_Craske@mentor.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Florian Westphal <fw@strlen.de>, daniel@iogearbox.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	balazs.scheidler@balabit.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:49195 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033AbbJBNm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 09:42:26 -0400
+Received: from svenfoo.org ([82.94.215.22]:32770 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754006AbbJBNwL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2015 09:52:11 -0400
+In-Reply-To: <20151002110756.GA29822@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Craske <Mark_Craske@mentor.com>
+On 10/02/2015 01:07 PM, Pablo Neira Ayuso wrote:
+> On Thu, Oct 01, 2015 at 11:07:30PM +0200, Daniel Mack wrote:
+> [...]
+>> That, however, got rejected because it doesn't work for multicast. This
+>> patch set implements one of the things Pablo suggested in his reply.
+> 
+> People are rising valid concerns here, so far we got a RFC where you
+> say that you don't have a proper setup to validate performance impact.
+> 
+> From the locking front, you indicated that there are possible problems
+> in this RFC, although you claim those can be fixed.
+> 
+> No examples on how you will use this are shown, which has triggered
+> questions on how you plan to use this. Only one use-case that has been
+> described in natural language.
+> 
+> Rergading inconsistent behaviour when no process are listening, your
+> argument is that "that can be documented".
+> 
+> Frankly, I would expect you do the work from your side to justify the
+> inclusion of this, and that requires that your cover open fronts from
+> the technical side, not just arguing.
 
-Please ignore the cover letter PATCH v2 as sent in error.
-Patches are all v1, (there are no v2 patches yet)
+Sure, I'm willing to do this of course. The purpose of this RFC was only
+to outline where this approach would go, and to allow discussions about
+possible show stoppers.
 
-The ASIX RX handler algorithm is weak on error handling.
-There is a design flaw in the ASIX RX handler algorithm because the
-implementation for handling RX Ethernet frames for the DUB-E100 C1 can
-have Ethernet frames spanning multiple URBs. This means that payload data
-from more than 1 URB is sometimes needed to fill the socket buffer with a
-complete Ethernet frame. When the URB with the start of an Ethernet frame
-is received then an attempt is made to allocate a socket buffer. If the
-memory allocation fails then the algorithm sets the buffer pointer member
-to NULL and the function exits (no crash yet). Subsequently, the RX hander
-is called again to process the next URB which assumes there is a socket
-buffer available and the kernel crashes when there is no buffer.
+I'll respin this in a new series then.
 
-This patchset implements an improvement to the RX handling algorithm to
-avoid a crash when no memory is available for the socket buffer.
 
-The patchset will apply cleanly to the net-next master branch but the
-created kernel has not been tested. The driver was tested on ARM kernels
-v3.8 and v3.14 for a commercial product.
 
-Dean Jenkins (5):
-  asix: Rename remaining and size for clarity
-  asix: Tidy-up 32-bit header word synchronisation
-  asix: Simplify asix_rx_fixup_internal() netdev alloc
-  asix: On RX avoid creating bad Ethernet frames
-  asix: Continue processing URB if no RX netdev buffer
-
- drivers/net/usb/asix.h        |    2 +-
- drivers/net/usb/asix_common.c |  114 ++++++++++++++++++++++++++---------------
- 2 files changed, 74 insertions(+), 42 deletions(-)
-
--- 
-1.7.9.5
+Thanks,
+Daniel
