@@ -1,73 +1,128 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH 1/2] regmap: Allow installing custom reg_update_bits
- function
-Date: Fri, 2 Oct 2015 18:19:08 +0100
-Message-ID: <20151002171908.GY12635@sirena.org.uk>
-References: <1443681187-29505-1-git-send-email-jon@ringle.org>
- <20151001094424.GG15635@sirena.org.uk>
- <alpine.DEB.2.10.1510010826450.21737@jring-w510-7m3g.gridpoint.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2] net: Add support for filtering neigh dump by master device
+Date: Fri, 02 Oct 2015 12:18:51 -0500
+Message-ID: <87h9m9tchw.fsf@x220.int.ebiederm.org>
+References: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="sKosZo66cxuwvnFI"
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jon Ringle <jon@ringle.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:35975 "EHLO
-	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752534AbbJBRTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 13:19:16 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1510010826450.21737@jring-w510-7m3g.gridpoint.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:54521 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbbJBR0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 13:26:19 -0400
+In-Reply-To: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
+	(David Ahern's message of "Tue, 29 Sep 2015 09:32:03 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Ahern <dsa@cumulusnetworks.com> writes:
 
---sKosZo66cxuwvnFI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Add support for filtering neighbor dumps by master device by adding
+> the NDA_MASTER attribute to the dump request. A new netlink flag,
+> NLM_F_DUMP_FILTERED, is added to indicate the kernel supports the
+> request and output is filtered as requested.
 
-On Thu, Oct 01, 2015 at 08:29:19AM -0400, Jon Ringle wrote:
-> On Thu, 1 Oct 2015, Mark Brown wrote:
+*Scratches my head*
 
-> > This completely bypasses and therefore breaks the cache infrastructure.
+I thought you only wanted L3 functionality, and that you did not want a
+network namespace.
 
-> Right after sending the v2 patch, I realized that calling the=20
-> custom reg_update_bits would only be applicable for registers that are=20
-> marked as volatile. Would the following solution be acceptable (it would=
-=20
+What is the thinking here because it sure looks like you are busily
+adding layer two functionality you swore you did not want.
 
-Well, it should still *work* with a cache, though it's certainly true
-that it's unlikely to have any performance benefit with cached register
-since the read part of the read/modify/write cycle is essentially free=20
-with the cache.
+Eric
 
-> also simplify the regmap_update_bits in the encx24j600 driver):
-
-> 	if (regmap_volatile(map, reg) && map->reg_update_bits) {
-> 		return map->reg_update_bits(map->bus_context, reg, mask,=20
-> 		                            val, change, force_write);
-
-> The cache state should not matter for volatile registers, right?
-
-Right.  I see you've sent a new patch already, I'll reply to that after
-I've thought about it a little.
-
---sKosZo66cxuwvnFI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJWDryLAAoJECTWi3JdVIfQ85AH/1N0hojqldZspZOSkngT4+85
-+03SYBQHzEpnjlOFk9VrdTppKIKroZKwQQ6S+1PdEG1bdjVioc4Hken0eaHkEFB+
-nG+V2Z7yH7+SFydtDR/vLK786RWQVvTvr+k9GJAPer/rHNwknxXy2RPhB4XN+Gvz
-RZrbps0a+h9qJyHbWROiduRRwtphi4L46H+gR27ZmYvhJ2LzHnuM07piTtMU0u1h
-hM1ow316B6dZZnc4SqNgX+NstmXT7MB6IECSBHmKrD0xvmTU9I9RnvooQrgFOprN
-cIYvQe1MHQqvFFMjjIZ/n9WWdhqiV/0JcK6oIc+L8qIXa0OUaZxiM+7Et8O8tgk=
-=Ox6S
------END PGP SIGNATURE-----
-
---sKosZo66cxuwvnFI--
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v2
+> - added NLM_F_DUMP_FILTERED flag for userspace feedback that request is
+>   supported
+>
+> This method works for other filters as well and other dump commands.
+> Works fine for all combinations of new and old kernel and new and old ip:
+> 1. new ip command on old kernel, NDA_MASTER attribute is ignored
+> 2. old ip command on new kernel, NDA_MASTER attribute is not present
+> 3. new ip on new kernel ... goodness ensues by limiting data to
+>    only what user wants
+>
+>  include/uapi/linux/netlink.h |  1 +
+>  net/core/neighbour.c         | 32 +++++++++++++++++++++++++++++++-
+>  2 files changed, 32 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+> index 6f3fe16cd22a..f095155d8749 100644
+> --- a/include/uapi/linux/netlink.h
+> +++ b/include/uapi/linux/netlink.h
+> @@ -54,6 +54,7 @@ struct nlmsghdr {
+>  #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
+>  #define NLM_F_ECHO		8	/* Echo this request 		*/
+>  #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
+> +#define NLM_F_DUMP_FILTERED	32	/* Dump was filtered as requested */
+>  
+>  /* Modifiers to GET request */
+>  #define NLM_F_ROOT	0x100	/* specify tree	root	*/
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 2b515ba7e94f..8c57fdf4d68e 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -2235,14 +2235,42 @@ static void neigh_update_notify(struct neighbour *neigh)
+>  	__neigh_notify(neigh, RTM_NEWNEIGH, 0);
+>  }
+>  
+> +static bool neigh_master_filtered(struct net_device *dev, int master_idx)
+> +{
+> +	struct net_device *master;
+> +
+> +	if (!master_idx)
+> +		return false;
+> +
+> +	master = netdev_master_upper_dev_get(dev);
+> +	if (!master || master->ifindex != master_idx)
+> +		return true;
+> +
+> +	return false;
+> +}
+> +
+>  static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+>  			    struct netlink_callback *cb)
+>  {
+>  	struct net *net = sock_net(skb->sk);
+> +	const struct nlmsghdr *nlh = cb->nlh;
+> +	struct nlattr *tb[NDA_MAX + 1];
+>  	struct neighbour *n;
+>  	int rc, h, s_h = cb->args[1];
+>  	int idx, s_idx = idx = cb->args[2];
+>  	struct neigh_hash_table *nht;
+> +	int filter_master_idx = 0;
+> +	unsigned int flags = NLM_F_MULTI;
+> +	int err;
+> +
+> +	err = nlmsg_parse(nlh, sizeof(struct ndmsg), tb, NDA_MAX, NULL);
+> +	if (!err) {
+> +		if (tb[NDA_MASTER])
+> +			filter_master_idx = nla_get_u32(tb[NDA_MASTER]);
+> +
+> +		if (filter_master_idx)
+> +			flags |= NLM_F_DUMP_FILTERED;
+> +	}
+>  
+>  	rcu_read_lock_bh();
+>  	nht = rcu_dereference_bh(tbl->nht);
+> @@ -2255,12 +2283,14 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+>  		     n = rcu_dereference_bh(n->next)) {
+>  			if (!net_eq(dev_net(n->dev), net))
+>  				continue;
+> +			if (neigh_master_filtered(n->dev, filter_master_idx))
+> +				continue;
+>  			if (idx < s_idx)
+>  				goto next;
+>  			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+>  					    cb->nlh->nlmsg_seq,
+>  					    RTM_NEWNEIGH,
+> -					    NLM_F_MULTI) < 0) {
+> +					    flags) < 0) {
+>  				rc = -1;
+>  				goto out;
+>  			}
