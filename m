@@ -1,101 +1,58 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: [PATCH v5 3/3] kcmp: add KCMP_SECCOMP_FD
-Date: Fri,  2 Oct 2015 10:27:23 -0600
-Message-ID: <1443803243-25912-4-git-send-email-tycho.andersen@canonical.com>
-References: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com>
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] ebpf: include perf_event only where really needed
+Date: Fri,  2 Oct 2015 18:42:00 +0200
+Message-ID: <1e7712d4d7b8638ad96ca74436fe96508ce89dfa.1443802548.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org,
-	Tycho Andersen <tycho.andersen@canonical.com>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Kaixu Xia <xiakaixu@huawei.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:47941 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642AbbJBQmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 12:42:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This command allows for comparing the filters pointed to by two seccomp
-fds. This is useful e.g. to find out if a seccomp filter is inherited,
-since struct seccomp_filter are unique across tasks and are the
-private_data seccomp fds.
+Commit ea317b267e9d ("bpf: Add new bpf map type to store the pointer
+to struct perf_event") added perf_event.h to the main eBPF header, so
+it gets included for all users. perf_event.h is actually only needed
+from array map side, so lets sanitize this a bit.
 
-v2: switch to KCMP_SECCOMP_FD instead of KCMP_FILE_PRIVATE_DATA
-
-Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
-CC: Kees Cook <keescook@chromium.org>
-CC: Will Drewry <wad@chromium.org>
-CC: Oleg Nesterov <oleg@redhat.com>
-CC: Andy Lutomirski <luto@amacapital.net>
-CC: Pavel Emelyanov <xemul@parallels.com>
-CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
-CC: Alexei Starovoitov <ast@kernel.org>
-CC: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Kaixu Xia <xiakaixu@huawei.com>
 ---
- include/uapi/linux/kcmp.h |  1 +
- kernel/kcmp.c             | 27 +++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ [ Did couple of tests, but lets see if Fengguang's build bot agrees
+   with me eventually. ;) P.s., the feature of pulling patches from
+   patchwork is awesome! ]
 
-diff --git a/include/uapi/linux/kcmp.h b/include/uapi/linux/kcmp.h
-index 84df14b..cd7870b 100644
---- a/include/uapi/linux/kcmp.h
-+++ b/include/uapi/linux/kcmp.h
-@@ -10,6 +10,7 @@ enum kcmp_type {
- 	KCMP_SIGHAND,
- 	KCMP_IO,
- 	KCMP_SYSVSEM,
-+	KCMP_SECCOMP_FD,
+ include/linux/bpf.h   | 1 -
+ kernel/bpf/arraymap.c | 1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index f57d7fe..c915a6b 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -10,7 +10,6 @@
+ #include <uapi/linux/bpf.h>
+ #include <linux/workqueue.h>
+ #include <linux/file.h>
+-#include <linux/perf_event.h>
  
- 	KCMP_TYPES,
- };
-diff --git a/kernel/kcmp.c b/kernel/kcmp.c
-index 0aa69ea..d53db53 100644
---- a/kernel/kcmp.c
-+++ b/kernel/kcmp.c
-@@ -11,6 +11,7 @@
- #include <linux/bug.h>
- #include <linux/err.h>
- #include <linux/kcmp.h>
-+#include <linux/seccomp.h>
+ struct bpf_map;
  
- #include <asm/unistd.h>
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 29ace10..2fecc4a 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -15,6 +15,7 @@
+ #include <linux/slab.h>
+ #include <linux/mm.h>
+ #include <linux/filter.h>
++#include <linux/perf_event.h>
  
-@@ -165,6 +166,32 @@ SYSCALL_DEFINE5(kcmp, pid_t, pid1, pid_t, pid2, int, type,
- 		ret = -EOPNOTSUPP;
- #endif
- 		break;
-+	case KCMP_SECCOMP_FD: {
-+		struct file *filp1, *filp2;
-+
-+		filp1 = get_file_raw_ptr(task1, idx1);
-+		filp2 = get_file_raw_ptr(task2, idx2);
-+
-+		if (filp1 && filp2) {
-+			struct seccomp_filter *filter1, *filter2;
-+
-+			filter1 = seccomp_filter_from_file(filp1);
-+			if (IS_ERR(filter1)) {
-+				ret = PTR_ERR(filter1);
-+				break;
-+			}
-+
-+			filter2 = seccomp_filter_from_file(filp2);
-+			if (IS_ERR(filter2)) {
-+				ret = PTR_ERR(filter2);
-+				break;
-+			}
-+
-+			ret = kcmp_ptr(filter1, filter2, KCMP_SECCOMP_FD);
-+		} else
-+			ret = -EBADF;
-+		break;
-+	}
- 	default:
- 		ret = -EINVAL;
- 		break;
+ /* Called from syscall */
+ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
 -- 
-2.5.0
+1.9.3
