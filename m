@@ -1,57 +1,36 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Fri, 2 Oct 2015 12:40:01 +0200
-Message-ID: <20151002124001.2c1d9d7d@redhat.com>
-References: <560ABE86.9050508@gmail.com>
-	<20150930114255.13505.2618.stgit@canyon>
-	<20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
-	<20151002114118.75aae2f9@redhat.com>
-	<alpine.DEB.2.20.1510020508580.2991@east.gentwo.org>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH 0/3] net: dsa: Complete and fix the dsa unbinding
+Date: Fri, 2 Oct 2015 12:47:59 +0200
+Message-ID: <560E60DF.4000505@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-        Alexander
- Duyck <alexander.duyck@gmail.com>,
-        Pekka Enberg <penberg@kernel.org>, netdev@vger.kernel.org,
-        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-        David
- Rientjes <rientjes@google.com>, brouer@redhat.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.20.1510020508580.2991@east.gentwo.org>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Oct 2015 05:10:02 -0500 (CDT)
-Christoph Lameter <cl@linux.com> wrote:
+In order to cleanly unbind the dsa core, either as a module removal,
+or a platform device unbind, switch the allocation the their devm_
+counterparts and complete the destroy functions.
 
-> On Fri, 2 Oct 2015, Jesper Dangaard Brouer wrote:
-> 
-> > Thus, I need introducing new code like this patch and at the same time
-> > have to reduce the number of instruction-cache misses/usage.  In this
-> > case we solve the problem by kmem_cache_free_bulk() not getting called
-> > too often. Thus, +17 bytes will hopefully not matter too much... but on
-> > the other hand we sort-of know that calling kmem_cache_free_bulk() will
-> > cause icache misses.
-> 
-> Can we just drop the WARN/BUG here? Nothing untoward happens if size == 0
-> right?
+The last patch is an experimental way to exit the probe when no
+switch is found in the discover process.
 
-I think we crash if size == 0, as we deref p[--size] in build_detached_freelist().
+The patches are based on the current net-next.
 
+Tested-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
 
-(aside note: The code do handles if pointers in the p array are NULL)
+Neil Armstrong (3):
+  net: dsa: Use devm_ prefixed allocations
+  net: dsa: complete dsa_switch_destroy calls
+  net: dsa: exit probe if no switch were found
+
+ net/dsa/dsa.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 60 insertions(+), 7 deletions(-)
+
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.9.1
