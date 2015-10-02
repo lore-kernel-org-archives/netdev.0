@@ -1,62 +1,57 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next V14 0/3] openvswitch: Add support for
-	802.1ad
-Date: Fri, 2 Oct 2015 10:38:03 -0700
-Message-ID: <CALnjE+oehKQQcr3pBVTK3tDjfYtAwqn392m7d3_V8o2rDZDOLw@mail.gmail.com>
-References: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH 3/3] net: dsa: exit probe if no switch were found
+Date: Fri, 02 Oct 2015 10:39:32 -0700
+Message-ID: <560EC154.8060400@gmail.com>
+References: <560B9B7C.9080406@baylibre.com> <560D50E4.6040400@baylibre.com> <20151001163257.GQ20219@lunn.ch> <560E744E.4010502@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1443670380-4245-1-git-send-email-thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <560E744E.4010502@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBTZXAgMzAsIDIwMTUgYXQgODozMiBQTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
-ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBBbHRob3VnaCB0aGUgT3BlbiBGbG93IHNwZWNp
-ZmljYXRpb24gc3BlY2lmaWVkIHN1cHBvcnQgZm9yIDgwMi4xQUQgKHFpbnEpCj4gYXMgd2VsbCBh
-cyBwdXNoIGFuZCBwb3AgdmxhbiBoZWFkZXJzLCAgU28gZmFyIE9wZW4gdlN3aXRjaCBoYXMgb25s
-eQo+IHN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVhZGVyLiBUaGlzIHBhdGNoIGltcGxlbWVudHMg
-ODAyLjFBRCBpbiB0aGUga2VybmVsCj4gbW9kdWxlLgo+Cj4gVGhpcyBwYXRjaCBhY2NvbXBhbmll
-cyB2ZXJzaW9uIDE0IG9mIHRoZSB1c2VyIGxldmVsIG9wZW52c3dpdGNoIHBhdGNoCj4gc3VibWl0
-dGVkIHRvIG9wZW52c3dpdGNoIGRldiBsaXN0Lgo+Cj4gVjE0OiBBZGQgb3V0ZXIgdHBpZCB0byBm
-bG93X2tleQo+Cj4gVjEzOiBGaXggaW5jb3JyZWN0IGVuY29kaW5nIGFuZCBkZWNvZGluZyBvZiBu
-ZXRsaW5rIHRvL2Zyb20ga2V5Cj4gYXR0cmlidXRlcy4KPgo+IFYxMjogRml4IHNvbWUgcHJvYmxl
-bXMgYW5kIGlzc3VlcyBwb2ludGVkIG91dCBieSByZXZpZXdlcnMuIFdoZW4gcGFyc2luZwo+IG5l
-dGxpbmsgYXR0cmlidXRlcyBFdGhlciB0eXBlcyBvdGhlciB0aGVuIDB4ODhhOCBhcyBvdXRlciB0
-cGlkLgo+Cj4gVjExOiBBZGQgaW5uZXIgdHBpZCB0byBmbG93IGtleS4gRml4IHNlcGFyYXRlIGlu
-bmVyIGVuY2FwIGF0dHJpYnV0ZQo+IHdoZW4gcGFyc2luZyBuZXRsaW5rIGF0dHJpYnV0ZXMuIE1l
-cmdlIDIgcGF0Y2hlcyB0byBjb25zb2xpZGF0ZQo+IHFpbnEgY2hhbmdlcy4KPgo+IFYxMDogSW1w
-bGVtZW50IHJldmlld2VyIGNvbW1lbnRzOiBDb25zb2xpZGF0ZSB2bGFuIHBhcnNpbmcgZnVuY3Rp
-b25zLgo+IFNwbGl0cyBuZXRsaW5rIHBhcnNpbmcgYW5kIGZsb3cgY29udmVyc2lvbiBpbnRvIGEg
-c2VwYXJhdGUgcGF0Y2guIFVzZXMKPiBkb3VibGUgZW5jYXAgYXR0cmlidXRlIGVuY2Fwc3VsYXRp
-b24gZm9yIDgwMi4xYWQuICBOZXRsaW5rIGF0dHJpYnV0ZXMKPiBub3cgbG9vayBsaWtlIHRoaXM6
-Cj4KPiAgICAgZXRoX3R5cGUoMHg4OGE4KSx2bGFuKHZpZD0xMDApLGVuY2FwKGV0aF90eXBlKDB4
-ODEwMCksIHZsYW4odmlkPTIwMCksCj4gICAgICAgICAgICAgICAgICBlbmNhcChldGhfdHlwZSgw
-eDA4MDApLCAuLi4pKQo+Cj4gVGhlIGRvdWJsZSBlbmNhcCBhdHJpYnV0ZXMgaW4gdGhpcyB2ZXJz
-aW9uIG9mIHRoZSBwYXRjaCBpcyBpbmNvbXBhdGlibGUgd2l0aAo+IG9sZCB2ZXJzaW9ucyBvZiB0
-aGUgdXNlciBsZXZlbCA4MDIuMWFkIHBhdGNoLiBBIG5ldyB1c2VyIGxldmVsIHBhdGNoIHdoaWNo
-Cj4gaXMgYWxzbyBiZWluZyBzdWJtaXR0ZWQgc2ltdWx0YW5lb3VzbHkgdG8gb3BlbnZzd2l0Y2gg
-ZGV2IG1haWxpbmcgbGlzdC4KPgo+IFY5OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkg
-cmV2aWV3ZXJzCj4KPiBWODogIEluY2x1ZGVzIGNoYW5nZXMgc3VnZ2VzdGVkIGJ5IHJldmlld2Vy
-cwo+Cj4gVjc6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dlc3RlZCBieSByZXZpZXdlcnMKPgo+IFY2
-OiAgUmViYXNlZCB0byBuZXQtbmV4dAo+Cj4gVjU6ICBVc2UgZW5jYXBzdWxhdGVkIGF0dHJpYnV0
-ZXMKPgo+Cj4gRm9yIGRpc2N1c3Npb24sIGhpc3RvcnkgIGFuZCBwcmV2aW91cyB2ZXJzaW9ucyBv
-ZiB0aGUga2VybmVsIG1vZHVsZQo+IHBhdGNoIGFuZCB0aGUgdXNlciBjb2RlIHBhdGNoIHNlZSB0
-aGUgT1ZTIGRldiBtYWlsaW5nIGxpc3QsCj4gb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYv
-Li4KPgpIaSBUaG9tYXMsCkNhbiB5b3Ugc2VuZCBtZSBsaW5rIHRvIHVzZXJzcGFjZSBwYXRjaGVz
-LCBzbyB0aGF0IEkgY2FuIHRyeSBpdCBvdXQuCgpUaGFua3MsClByYXZpbi4KX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
-b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
-ZXYK
+On 02/10/15 05:10, Neil Armstrong wrote:
+> On 10/01/2015 06:32 PM, Andrew Lunn wrote:
+>> On Thu, Oct 01, 2015 at 05:27:32PM +0200, Neil Armstrong wrote:
+>>> On 09/30/2015 10:21 AM, Neil Armstrong wrote:
+>>>> If no switch were found in dsa_setup_dst, return -ENODEV and
+>>>> exit the dsa_probe cleanly.
+>>
+>> ...
+>>  
+>>> Couldn't we use the probe defer mechanism here ? (until complete rework is done)
+>>
+>> Hi Neil
+>>
+>> I was thinking the same last night. We know the switch should be
+>> there, otherwise it would not be in DT. So returning -EPROBE_DEFER
+>> would be valid.
+>>
+>>       Andrew
+>>
+> Hi,
+> 
+> It makes sens but does a module insertion triggers the differed probe ?
+
+That's a good question, I am not convinced this is the case. Even with
+the EPROBE_DEFER returned if the list of drivers is empty, you would
+still very likely run into the following circular dependency, if you
+make everything built as a module:
+
+- dsa provides register_switch_driver and unregister_switch_driver
+- switch drivers in drivers/net/dsa/* depend on these two symbols, so
+until these symbols are loaded, the module loader cannot complete their
+load successfully
+- dsa will not be able to make any progress, that is, its driver list
+will be empty as long as no switch driver is loaded
+
+If you build dsa into your kernel, you might be fine though, or in a
+better shape at least.
+-- 
+Florian
