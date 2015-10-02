@@ -1,50 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
-Date: Fri, 2 Oct 2015 13:07:56 +0200
-Message-ID: <20151002110756.GA29822@salvia>
-References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
- <1443525140-13493-4-git-send-email-daniel@zonque.org>
- <20150929211959.GF19923@breakpoint.cc>
- <560B8E25.7050801@zonque.org>
- <20151001171323.GA4890@localhost.localdomain>
- <560DA092.60100@zonque.org>
+Subject: Re: [PATCH nf-next] netfilter: Line layout whitespace fixes
+Date: Fri, 2 Oct 2015 13:19:02 +0200
+Message-ID: <20151002111902.GA29902@salvia>
+References: <1443089406-8996-1-git-send-email-ipm@chirality.org.uk>
+ <20150930221707.GA14994@salvia>
+ <560DC543.3060809@chirality.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Florian Westphal <fw@strlen.de>, daniel@iogearbox.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	balazs.scheidler@balabit.com
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42216 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751329AbbJBLBE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2015 07:01:04 -0400
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Ian Morris <ipm@chirality.org.uk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <560DA092.60100@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <560DC543.3060809@chirality.org.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 01, 2015 at 11:07:30PM +0200, Daniel Mack wrote:
-[...]
-> That, however, got rejected because it doesn't work for multicast. This
-> patch set implements one of the things Pablo suggested in his reply.
+On Fri, Oct 02, 2015 at 12:44:03AM +0100, Ian Morris wrote:
+> 
+> On 30/09/15 23:17, Pablo Neira Ayuso wrote:
+> >On Thu, Sep 24, 2015 at 11:10:06AM +0100, Ian Morris wrote:
+> >>Fixes various whitespace issues detected by checkpatch (e.g. adding spaces between operations, replacing spaces with tabs, etc)
+> >>
+> >>No changes detected by objdiff.
+> >These large cleanup patch causes problems for -stable maintainers,
+> >since they have more conflicts when backporting stuff.
+> >
+> >I'd rather keep this back.
+> >
+> Please help me understand: until when do you propose such changes be
+> deferred? Or are you suggesting we should apply changes more incrementally
+> somehow?
 
-People are rising valid concerns here, so far we got a RFC where you
-say that you don't have a proper setup to validate performance impact.
+Regarding your suggestion to apply changes more incrementally, I think
+that's a good idea since that will help us evaluate if there are
+better things we can do to improve that code.
 
->From the locking front, you indicated that there are possible problems
-in this RFC, although you claim those can be fixed.
-
-No examples on how you will use this are shown, which has triggered
-questions on how you plan to use this. Only one use-case that has been
-described in natural language.
-
-Rergading inconsistent behaviour when no process are listening, your
-argument is that "that can be documented".
-
-Frankly, I would expect you do the work from your side to justify the
-inclusion of this, and that requires that your cover open fronts from
-the technical side, not just arguing.
+So please go send small batches with incremental way that we can
+review.  Depending on the change, some of them may trigger the rework
+of existing code, others probably will just get in as is.
 
 Thanks.
