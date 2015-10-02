@@ -1,57 +1,34 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH 3/3] net: dsa: exit probe if no switch were found
-Date: Fri, 02 Oct 2015 10:39:32 -0700
-Message-ID: <560EC154.8060400@gmail.com>
-References: <560B9B7C.9080406@baylibre.com> <560D50E4.6040400@baylibre.com> <20151001163257.GQ20219@lunn.ch> <560E744E.4010502@baylibre.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] fib_rules: fix fib rule dumps across multiple skbs
+Date: Fri, 02 Oct 2015 10:44:22 -0700
+Message-ID: <560EC276.3030905@cumulusnetworks.com>
+References: <1442983222-42750-1-git-send-email-roopa@cumulusnetworks.com> <CAL1RGDWBJr=D3sRyZTM4VxrPf+Dy35K1DRYCZW9OZSkbtZPhww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560E744E.4010502@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	wkok@cumulusnetworks.com, stable@vger.kernel.org
+To: Roland Dreier <roland@purestorage.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAL1RGDWBJr=D3sRyZTM4VxrPf+Dy35K1DRYCZW9OZSkbtZPhww@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/10/15 05:10, Neil Armstrong wrote:
-> On 10/01/2015 06:32 PM, Andrew Lunn wrote:
->> On Thu, Oct 01, 2015 at 05:27:32PM +0200, Neil Armstrong wrote:
->>> On 09/30/2015 10:21 AM, Neil Armstrong wrote:
->>>> If no switch were found in dsa_setup_dst, return -ENODEV and
->>>> exit the dsa_probe cleanly.
->>
->> ...
->>  
->>> Couldn't we use the probe defer mechanism here ? (until complete rework is done)
->>
->> Hi Neil
->>
->> I was thinking the same last night. We know the switch should be
->> there, otherwise it would not be in DT. So returning -EPROBE_DEFER
->> would be valid.
->>
->>       Andrew
->>
-> Hi,
-> 
-> It makes sens but does a module insertion triggers the differed probe ?
-
-That's a good question, I am not convinced this is the case. Even with
-the EPROBE_DEFER returned if the list of drivers is empty, you would
-still very likely run into the following circular dependency, if you
-make everything built as a module:
-
-- dsa provides register_switch_driver and unregister_switch_driver
-- switch drivers in drivers/net/dsa/* depend on these two symbols, so
-until these symbols are loaded, the module loader cannot complete their
-load successfully
-- dsa will not be able to make any progress, that is, its driver list
-will be empty as long as no switch driver is loaded
-
-If you build dsa into your kernel, you might be fine though, or in a
-better shape at least.
--- 
-Florian
+On 10/2/15, 10:18 AM, Roland Dreier wrote:
+> On Tue, Sep 22, 2015 at 9:40 PM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>> +               err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
+>> +                                      cb->nlh->nlmsg_seq, RTM_NEWRULE,
+>> +                                      NLM_F_MULTI, ops);
+>> +               if (err)
+> FWIW I believe this breaks pre-4.0 stable kernels (unfortunately it
+> just showed up in 3.10.90).  In kernels without 053c095a82cf
+> ("netlink: make nlmsg_end() and genlmsg_end() void") then
+> fib_nl_fill_rule() returns a positive value (skb->len) on success, so
+> we break out of the loop here immediately.  Symptom is "ip rule show"
+> loops forever printing the first rule.
+>
+> After I finish testing a fix (as trivial as changing to "if (err <
+> 0)") here, I'll send it to -stable guys.
+>
+Thanks for catching this.
