@@ -1,24 +1,30 @@
-From: Jason Baron <jbaron@akamai.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 Subject: Re: [PATCH] unix: fix use-after-free with unix_dgram_poll()
-Date: Fri, 02 Oct 2015 15:50:08 -0400
-Message-ID: <560EDFF0.9080108@akamai.com>
-References: <20151002191039.9124420ED@prod-mail-relay10.akamai.com> <871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com>
+Date: Fri, 02 Oct 2015 20:49:21 +0100
+Message-ID: <87io6pt5j2.fsf@doppelsaurus.mobileactivedefense.com>
+References: <20151002191039.9124420ED@prod-mail-relay10.akamai.com>
+	<871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, minipli@googlemail.com,
 	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	rweikusat@mobileactivedefense.com, viro@zeniv.linux.org.uk,
+	davidel@xmailserver.org, dave@stgolabs.net, olivier@mauras.ch,
+	pageexec@freemail.hu, torvalds@linux-foundation.org,
+	peterz@infradead.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:57472 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750758AbbJBTuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 15:50:09 -0400
+In-Reply-To: <871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Fri, 02 Oct 2015 20:30:55 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/02/2015 03:30 PM, Rainer Weikusat wrote:
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 > Jason Baron <jbaron@akamai.com> writes:
 >> From: Jason Baron <jbaron@akamai.com>
 >>
@@ -29,12 +35,12 @@ On 10/02/2015 03:30 PM, Rainer Weikusat wrote:
 >> a couple of code paths in which the remote peer socket s2 and its associated
 >> peer_wait queue can be freed before poll()/select()/epoll() have a chance
 >> to remove themselves from this remote peer socket s2's wait queue.
-> 
+>
 > [...]
-> 
+>
 >> This works because we will continue to get POLLOUT wakeups from
 >> unix_write_space(), which is called via sock_wfree().
-> 
+>
 > As pointed out in my original comment, this doesn't work (as far as I
 > can/ could tell) because it will only wake up sockets which had a chance
 > to enqueue datagrams to the queue of the receiving socket as only
@@ -42,24 +48,60 @@ On 10/02/2015 03:30 PM, Rainer Weikusat wrote:
 > waiting for space in the receiving queue won't ever be woken up in this
 > way.
 
-Ok, good point. I was hoping to avoid a more complex approach here. I think
-then that the patch I posted in the previous thread on this would address
-this concern. I will post it for review.
+Program which shows that (on 3.2.54 + "local modification", with the 2nd
+sock_poll_wait commented out):
 
-> 
-> Further, considering that you're demonstrably not interested in
-> debugging and fixing this issue (as you haven't even bothered to post
-> one of the test programs you claim to have), I'm beginning to wonder why
-> this tripe is being sent to me at all --- it's not "git on autopilot"
-> this time as someone took the time to dig up my current e-mail address
-> as the one in the original commit is not valid anymore. Could you please
-> refrain from such exercises in future unless a discussion is actually
-> intended?
-> 
-> 
+---------------
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/poll.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-Just trying to help fix this.
+int main(void)
+{
+    struct sockaddr_un sun;
+    struct pollfd pfd;
+    int tg, sk0, sk1, rc;
+    char buf[16];
 
-Thanks,
+    sun.sun_family = AF_UNIX;
+    
+    tg = socket(AF_UNIX, SOCK_DGRAM, 0);
+    strncpy(sun.sun_path, "/tmp/tg", sizeof(sun.sun_path));
+    unlink(sun.sun_path);
+    bind(tg, (struct sockaddr *)&sun, sizeof(sun));
+    
+    sk0 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    connect(sk0, (struct sockaddr *)&sun, sizeof(sun));
+    
+    sk1 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    connect(sk1, (struct sockaddr *)&sun, sizeof(sun));
 
--Jason
+    fcntl(sk0, F_SETFL, fcntl(sk0, F_GETFL) | O_NONBLOCK);
+    fcntl(sk1, F_SETFL, fcntl(sk1, F_GETFL) | O_NONBLOCK);
+    
+    while (write(sk0, "bla", 3) != -1);
+
+    if (fork() == 0) {
+	pfd.fd = sk1;
+	pfd.events = POLLOUT;
+	rc = poll(&pfd, 1, -1);
+
+	_exit(0);
+    }
+    
+    sleep(3);
+    read(tg, buf, sizeof(buf));
+    wait(&rc);
+
+    return 0;
+}
+------------
+
+For me, this blocks forever while it should terminate as soon as the
+datagram was read. Something else may have changed this behaviour in the
+meantime, though.
