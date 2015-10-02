@@ -1,75 +1,150 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: [PATCH net-next] bpf, seccomp: prepare for upcoming criu support
-Date: Fri, 2 Oct 2015 09:06:03 -0600
-Message-ID: <20151002150603.GM23065@smitten>
-References: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Kees Cook <keescook@chromium.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35910 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752877AbbJBPGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 11:06:06 -0400
-Received: by igcrk20 with SMTP id rk20so19233986igc.1
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 08:06:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH net-next V2] ARM: net: support BPF_ALU | BPF_MOD instructions in the BPF JIT.
+Date: Fri,  2 Oct 2015 17:06:47 +0200
+Message-ID: <1443798407-19154-1-git-send-email-nschichan@freebox.fr>
+To: Russell King <linux@arm.linux.org.uk>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
+For ARMv7 with UDIV instruction support, generate an UDIV instruction
+followed by an MLS instruction.
 
-On Fri, Oct 02, 2015 at 03:17:33PM +0200, Daniel Borkmann wrote:
-> The current ongoing effort to dump existing cBPF seccomp filters back
-> to user space requires to hold the pre-transformed instructions like
-> we do in case of socket filters from sk_attach_filter() side, so they
-> can be reloaded in original form at a later point in time by utilities
-> such as criu.
-> 
-> To prepare for this, simply extend the bpf_prog_create_from_user()
-> API to hold a flag that tells whether we should store the original
-> or not. Also, fanout filters could make use of that in future for
-> things like diag. While fanout filters already use bpf_prog_destroy(),
-> move seccomp over to them as well to handle original programs when
-> present.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Tycho Andersen <tycho.andersen@canonical.com>
+For other ARM variants, generate code calling a C wrapper similar to
+the jit_udiv() function used for BPF_ALU | BPF_DIV instructions.
 
-Thanks for this patch. When I rebase my tree on top of it it works
-fine,
+Some performance numbers reported by the test_bpf module (the duration
+per filter run is reported in nanoseconds, between "jitted:<x>" and
+"PASS":
 
-Tested-by: Tycho Andersen <tycho.andersen@canonical.com>
+ARMv7 QEMU nojit:	test_bpf: #3 DIV_MOD_KX jited:0 2196 PASS
+ARMv7 QEMU jit:		test_bpf: #3 DIV_MOD_KX jited:1 104 PASS
+ARMv5 QEMU nojit:	test_bpf: #3 DIV_MOD_KX jited:0 2176 PASS
+ARMv5 QEMU jit:		test_bpf: #3 DIV_MOD_KX jited:1 1104 PASS
+ARMv5 kirkwood nojit:	test_bpf: #3 DIV_MOD_KX jited:0 1103 PASS
+ARMv5 kirkwood jit:	test_bpf: #3 DIV_MOD_KX jited:1 311 PASS
 
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Andy Lutomirski <luto@amacapital.net>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  This is in realtion to Tycho's latest patch set under [1]. The BPF
->  handling is unfortunately not correct (triggering a crash on kernels
->  that can set pages as ro).
-> 
->  This patch here provides a minimal, simple interface from BPF API side
->  as a possible step forward, so that the focus can then be on seccomp
->  side wrt criu. F.e., dumping could happen similarly as in Pavel's
->  sk_get_filter().
-> 
->  I have tested/based this against net-next, but have no issues whether
->  Kees wants to take it, or whether it should go through both trees to
->  reduce merge issues as once the case with 0fc174dea545 ("ebpf: make
->  internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs").
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+---
 
-I'll send out a revised version of my set with Andy's comments later
-today and not include this patch. Let me know if I should do something
-differently.
+Changes from V1:
+- Address spelling in comment, following Russel's remarks.
 
-Thanks,
+ arch/arm/net/bpf_jit_32.c | 38 ++++++++++++++++++++++++++++++++------
+ arch/arm/net/bpf_jit_32.h |  5 +++++
+ 2 files changed, 37 insertions(+), 6 deletions(-)
 
-Tycho
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 876060b..36edd410 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -125,7 +125,7 @@ static u64 jit_get_skb_w(struct sk_buff *skb, int offset)
+ }
+ 
+ /*
+- * Wrapper that handles both OABI and EABI and assures Thumb2 interworking
++ * Wrappers which handle both OABI and EABI and assures Thumb2 interworking
+  * (where the assembly routines like __aeabi_uidiv could cause problems).
+  */
+ static u32 jit_udiv(u32 dividend, u32 divisor)
+@@ -133,6 +133,11 @@ static u32 jit_udiv(u32 dividend, u32 divisor)
+ 	return dividend / divisor;
+ }
+ 
++static u32 jit_mod(u32 dividend, u32 divisor)
++{
++	return dividend % divisor;
++}
++
+ static inline void _emit(int cond, u32 inst, struct jit_ctx *ctx)
+ {
+ 	inst |= (cond << 28);
+@@ -471,11 +476,17 @@ static inline void emit_blx_r(u8 tgt_reg, struct jit_ctx *ctx)
+ #endif
+ }
+ 
+-static inline void emit_udiv(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx)
++static inline void emit_udivmod(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx,
++				int bpf_op)
+ {
+ #if __LINUX_ARM_ARCH__ == 7
+ 	if (elf_hwcap & HWCAP_IDIVA) {
+-		emit(ARM_UDIV(rd, rm, rn), ctx);
++		if (bpf_op == BPF_DIV)
++			emit(ARM_UDIV(rd, rm, rn), ctx);
++		else {
++			emit(ARM_UDIV(ARM_R3, rm, rn), ctx);
++			emit(ARM_MLS(rd, rn, ARM_R3, rm), ctx);
++		}
+ 		return;
+ 	}
+ #endif
+@@ -496,7 +507,8 @@ static inline void emit_udiv(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx)
+ 		emit(ARM_MOV_R(ARM_R0, rm), ctx);
+ 
+ 	ctx->seen |= SEEN_CALL;
+-	emit_mov_i(ARM_R3, (u32)jit_udiv, ctx);
++	emit_mov_i(ARM_R3, bpf_op == BPF_DIV ? (u32)jit_udiv : (u32)jit_mod,
++		   ctx);
+ 	emit_blx_r(ARM_R3, ctx);
+ 
+ 	if (rd != ARM_R0)
+@@ -697,13 +709,27 @@ load_ind:
+ 			if (k == 1)
+ 				break;
+ 			emit_mov_i(r_scratch, k, ctx);
+-			emit_udiv(r_A, r_A, r_scratch, ctx);
++			emit_udivmod(r_A, r_A, r_scratch, ctx, BPF_DIV);
+ 			break;
+ 		case BPF_ALU | BPF_DIV | BPF_X:
+ 			update_on_xread(ctx);
+ 			emit(ARM_CMP_I(r_X, 0), ctx);
+ 			emit_err_ret(ARM_COND_EQ, ctx);
+-			emit_udiv(r_A, r_A, r_X, ctx);
++			emit_udivmod(r_A, r_A, r_X, ctx, BPF_DIV);
++			break;
++		case BPF_ALU | BPF_MOD | BPF_K:
++			if (k == 1) {
++				emit_mov_i(r_A, 0, ctx);
++				break;
++			}
++			emit_mov_i(r_scratch, k, ctx);
++			emit_udivmod(r_A, r_A, r_scratch, ctx, BPF_MOD);
++			break;
++		case BPF_ALU | BPF_MOD | BPF_X:
++			update_on_xread(ctx);
++			emit(ARM_CMP_I(r_X, 0), ctx);
++			emit_err_ret(ARM_COND_EQ, ctx);
++			emit_udivmod(r_A, r_A, r_X, ctx, BPF_MOD);
+ 			break;
+ 		case BPF_ALU | BPF_OR | BPF_K:
+ 			/* A |= K */
+diff --git a/arch/arm/net/bpf_jit_32.h b/arch/arm/net/bpf_jit_32.h
+index 4b17d5ab..c46fca2 100644
+--- a/arch/arm/net/bpf_jit_32.h
++++ b/arch/arm/net/bpf_jit_32.h
+@@ -115,6 +115,8 @@
+ 
+ #define ARM_INST_UMULL		0x00800090
+ 
++#define ARM_INST_MLS		0x00600090
++
+ /*
+  * Use a suitable undefined instruction to use for ARM/Thumb2 faulting.
+  * We need to be careful not to conflict with those used by other modules
+@@ -210,4 +212,7 @@
+ #define ARM_UMULL(rd_lo, rd_hi, rn, rm)	(ARM_INST_UMULL | (rd_hi) << 16 \
+ 					 | (rd_lo) << 12 | (rm) << 8 | rn)
+ 
++#define ARM_MLS(rd, rn, rm, ra)	(ARM_INST_MLS | (rd) << 16 | (rn) | (rm) << 8 \
++				 | (ra) << 12)
++
+ #endif /* PFILTER_OPCODES_ARM_H */
+-- 
+1.9.1
