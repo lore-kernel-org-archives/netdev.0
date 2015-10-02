@@ -1,75 +1,104 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH v1 3/5] asix: Simplify asix_rx_fixup_internal() netdev alloc
-Date: Fri, 2 Oct 2015 14:29:06 +0100
-Message-ID: <1443792548-2025-4-git-send-email-Dean_Jenkins@mentor.com>
+From: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v1 5/5] asix: Continue processing URB if no RX netdev buffer
+Date: Fri, 2 Oct 2015 14:29:08 +0100
+Message-ID: <1443792548-2025-6-git-send-email-Dean_Jenkins@mentor.com>
 References: <1443792548-2025-1-git-send-email-Dean_Jenkins@mentor.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-usb@vger.kernel.org>, <ben.hutchings@codethink.co.uk>,
-	<davem@davemloft.net>, <bjorn@mork.no>, <linux@davidrobins.net>,
-	Mark Craske <Mark_Craske@mentor.com>,
-	Dean Jenkins <Dean_Jenkins@mentor.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:47529 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146AbbJBNbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 09:31:34 -0400
-In-Reply-To: <1443792548-2025-1-git-send-email-Dean_Jenkins@mentor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <bjorn-yOkvZcmFvRU@public.gmane.org>, <linux-AegXhGwVzVhoAEGGzP886w@public.gmane.org>,
+	Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
+	Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443792548-2025-1-git-send-email-Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The code is checking that the Ethernet frame will fit into a
-netdev allocated socket buffer within the constraints of MTU size,
-Ethernet header length plus VLAN header length.
+Avoid a loss of synchronisation of the Ethernet Data header 32-bit
+word due to a failure to get a netdev socket buffer.
 
-The original code was checking rx->remaining each loop of the while
-loop that processes multiple Ethernet frames per URB and/or Ethernet
-frames that span across URBs. rx->remaining decreases per while loop
-so there is no point in potentially checking multiple times that the
-Ethernet frame (remaining part) will fit into the netdev socket buffer.
+The ASIX RX handling algorithm returned 0 upon a failure to get
+an allocation of a netdev socket buffer. This causes the URB
+processing to stop which potentially causes a loss of synchronisation
+with the Ethernet Data header 32-bit word. Therefore, subsequent
+processing of URBs may be rejected due to a loss of synchronisation.
+This may cause additional good Ethernet frames to be discarded
+along with outputting of synchronisation error messages.
 
-The modification checks that the size of the Ethernet frame will fit
-the netdev socket buffer before allocating the netdev socket buffer.
-This avoids grabbing memory and then deciding that the Ethernet frame
-is too big and then freeing the memory.
+Implement a solution which checks whether a netdev socket buffer
+has been allocated before trying to copy the Ethernet frame into
+the netdev socket buffer. But continue to process the URB so that
+synchronisation is maintained. Therefore, only a single Ethernet
+frame is discarded when no netdev socket buffer is available.
 
-Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
-Signed-off-by: Mark Craske <Mark_Craske@mentor.com>
+Signed-off-by: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/usb/asix_common.c |   16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/usb/asix_common.c |   31 +++++++++++++++++++------------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 89efd6a..6a8eddf 100644
+index 1e4768d..a186b0a 100644
 --- a/drivers/net/usb/asix_common.c
 +++ b/drivers/net/usb/asix_common.c
-@@ -87,19 +87,17 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 					   rx->header, offset);
- 				return 0;
- 			}
-+			if (size > dev->net->mtu + ETH_HLEN + VLAN_HLEN) {
-+				netdev_err(dev->net, "asix_rx_fixup() Bad RX Length %d\n",
-+					   size);
-+				return 0;
-+			}
-+
- 			rx->ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
- 			if (!rx->ax_skb)
- 				return 0;
--			rx->remaining = size;
--		}
- 
--		if (rx->remaining > dev->net->mtu + ETH_HLEN + VLAN_HLEN) {
--			netdev_err(dev->net, "asix_rx_fixup() Bad RX Length %d\n",
--				   rx->remaining);
+@@ -74,12 +74,14 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+ 		if (size != ((~rx->header >> 16) & 0x7ff)) {
+ 			netdev_err(dev->net, "asix_rx_fixup() Data Header synchronisation was lost, remaining %d\n",
+ 				   rx->remaining);
 -			kfree_skb(rx->ax_skb);
 -			rx->ax_skb = NULL;
--			rx->remaining = 0;
--			return 0;
-+			rx->remaining = size;
+-			/* Discard the incomplete netdev Ethernet frame and
+-			 * assume the Data header is at the start of the current
+-			 * URB socket buffer.
+-			 */
++			if (rx->ax_skb) {
++				kfree_skb(rx->ax_skb);
++				rx->ax_skb = NULL;
++				/* Discard the incomplete netdev Ethernet frame
++				 * and assume the Data header is at the start of
++				 * the current URB socket buffer.
++				 */
++			}
+ 			rx->remaining = 0;
+ 		}
+ 	}
+@@ -121,9 +123,12 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+ 				return 0;
+ 			}
+ 
++			/* Sometimes may fail to get a netdev socket buffer but
++			 * continue to process the URB socket buffer so that
++			 * synchronisation of the Ethernet frame Data header
++			 * word is maintained.
++			 */
+ 			rx->ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
+-			if (!rx->ax_skb)
+-				return 0;
+ 
+ 			rx->remaining = size;
+ 		}
+@@ -136,10 +141,12 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+ 			rx->remaining = 0;
  		}
  
- 		if (rx->remaining > skb->len - offset) {
+-		data = skb_put(rx->ax_skb, copy_length);
+-		memcpy(data, skb->data + offset, copy_length);
+-		if (!rx->remaining)
+-			usbnet_skb_return(dev, rx->ax_skb);
++		if (rx->ax_skb) {
++			data = skb_put(rx->ax_skb, copy_length);
++			memcpy(data, skb->data + offset, copy_length);
++			if (!rx->remaining)
++				usbnet_skb_return(dev, rx->ax_skb);
++		}
+ 
+ 		offset += (copy_length + 1) & 0xfffe;
+ 	}
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
