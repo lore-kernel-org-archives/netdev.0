@@ -1,59 +1,75 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 08/12] nfnetlink: use y2038 safe timestamp
-Date: Fri, 02 Oct 2015 23:23:30 +0200
-Message-ID: <5073868.Fiy2YhEjWN@wuerfel>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
- <1443612402-3000775-9-git-send-email-arnd@arndb.de>
- <20151002125355.GA31638@salvia>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: v5 of seccomp filter c/r patches
+Date: Fri, 2 Oct 2015 14:29:44 -0700
+Message-ID: <CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ@mail.gmail.com>
+References: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com> <CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
- coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
- Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <20151002125355.GA31638@salvia>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpZGF5IDAyIE9jdG9iZXIgMjAxNSAxNDo1Mzo1NSBQYWJsbyBOZWlyYSBBeXVzbyB3cm90
-ZToKPiBPbiBXZWQsIFNlcCAzMCwgMjAxNSBhdCAwMToyNjozOFBNICswMjAwLCBBcm5kIEJlcmdt
-YW5uIHdyb3RlOgo+ID4gVGhlIF9fYnVpbGRfcGFja2V0X21lc3NhZ2UgZnVuY3Rpb24gZmlsbHMg
-YSBuZnVsbmxfbXNnX3BhY2tldF90aW1lc3RhbXAKPiA+IHN0cnVjdHVyZSB0aGF0IHVzZXMgNjQt
-Yml0IHNlY29uZHMgYW5kIGlzIHRoZXJlZm9yZSB5MjAzOCBzYWZlLCBidXQKPiA+IGl0IHVzZXMg
-YW4gaW50ZXJtZWRpYXRlICdzdHJ1Y3QgdGltZXNwZWMnIHdoaWNoIGlzIG5vdC4KPiA+IAo+ID4g
-VGhpcyB0cml2aWFsbHkgY2hhbmdlcyB0aGUgY29kZSB0byB1c2UgJ3N0cnVjdCB0aW1lc3BlYzY0
-JyBpbnN0ZWFkLAo+ID4gdG8gY29ycmVjdCB0aGUgcmVzdWx0IG9uIDMyLWJpdCBhcmNoaXRlY3R1
-cmVzLgo+ID4KPiA+IFNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+
-Cj4gPiBDYzogUGFibG8gTmVpcmEgQXl1c28gPHBhYmxvQG5ldGZpbHRlci5vcmc+Cj4gPiBDYzog
-UGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+Cj4gPiBDYzogSm96c2VmIEthZGxlY3Np
-ayA8a2FkbGVjQGJsYWNraG9sZS5rZmtpLmh1Pgo+ID4gQ2M6IG5ldGZpbHRlci1kZXZlbEB2Z2Vy
-Lmtlcm5lbC5vcmcKPiA+IENjOiBjb3JldGVhbUBuZXRmaWx0ZXIub3JnCj4gCj4gQWNrZWQtYnk6
-IFBhYmxvIE5laXJhIEF5dXNvIDxwYWJsb0BuZXRmaWx0ZXIub3JnPgoKVGhhbmtzCgo+IEJUVywg
-SSBkb24ndCBzZWUgdGhlIHBhdGNoIGZvciBuZm5ldGxpbmtfcXVldWUgYW5kIEkgdGhpbmsgSSBo
-YXZlIHNlZW4KPiBpdCBpbiB0aGUgZGlmZnN0YXQgZnJvbSB5b3VyIGNvdmVyIGxldHRlci4KCk15
-IHRleHQgbXVzdCBoYXZlIGJlZW4gdW5jbGVhci4gV2hhdCBJIG1lYW50IGlzIHRoYXQgSSBoYXZl
-IGlkZW50aWZpZWQKdGhhdCBmaWxlIGFzIG5lZWRpbmcgYSBwYXRjaCAoYW1vbmcgMTIwIG90aGVy
-IGZpbGVzKSBidXQgaGF2ZSBub3QKd3JpdHRlbiBvbmUuCgpUaGlzIG9uZSBpcyB0cml2aWFsLCBp
-dCBqdXN0IG5lZWRzIHJlcGxhY2luZyB0aGlzIGNvZGUKCiAgICAgICAgaWYgKGVudHNrYi0+dHN0
-YW1wLnR2NjQpIHsKICAgICAgICAgICAgICAgIHN0cnVjdCBuZnFubF9tc2dfcGFja2V0X3RpbWVz
-dGFtcCB0czsKICAgICAgICAgICAgICAgIHN0cnVjdCB0aW1ldmFsIHR2ID0ga3RpbWVfdG9fdGlt
-ZXZhbChlbnRza2ItPnRzdGFtcCk7CiAgICAgICAgICAgICAgICB0cy5zZWMgPSBjcHVfdG9fYmU2
-NCh0di50dl9zZWMpOwogICAgICAgICAgICAgICAgdHMudXNlYyA9IGNwdV90b19iZTY0KHR2LnR2
-X3VzZWMpOwoKICAgICAgICAgICAgICAgIGlmIChubGFfcHV0KHNrYiwgTkZRQV9USU1FU1RBTVAs
-IHNpemVvZih0cyksICZ0cykpCiAgICAgICAgICAgICAgICAgICAgICAgIGdvdG8gbmxhX3B1dF9m
-YWlsdXJlOwogICAgICAgIH0KCndpdGggYSB2ZXJzaW9uIHVzaW5nIGt0aW1lX3RvX3RpbWVzcGVj
-NjQuIElmIHlvdSBvciBzb21lb25lIGVsc2UgZG9lcwp0aGlzLCB0aGF0IG1ha2VzIG9uZSBsZXNz
-IGZpbGUgZm9yIG1lIHRvIHRyYWNrLgoKCUFybmQKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0ClkyMDM4QGxpc3RzLmxpbmFy
-by5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4vbGlzdGluZm8veTIwMzgK
+On Fri, Oct 2, 2015 at 2:10 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+> On Fri, Oct 2, 2015 at 9:27 AM, Tycho Andersen
+> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+>> Hi all,
+>>
+>> Here's v5 of the seccomp filter c/r set. The individual patch notes have
+>> changes, but two highlights are:
+>>
+>> * This series is now based on http://patchwork.ozlabs.org/patch/525492/ and
+>>   will need to be built with that patch applied. This gets rid of two incorrect
+>>   patches in the previous series and is a nicer API.
+>>
+>> * I couldn't figure out a nice way to have SECCOMP_GET_FILTER_FD return the
+>>   same struct file across calls, so we still need a kcmp command. I've narrowed
+>>   the scope of the one being added to only compare seccomp fds.
+>>
+>> Thoughts welcome,
+>
+> Hi, sorry I've been slow/busy. I'm finally reading through these threads.
+>
+> Happy bit:
+> - avoiding eBPF and just saving the original filters makes things much easier.
+>
+> Sad bit:
+> - inventing a new interface for seccompfds feels like massive overkill to me.
+>
+> While Andy has big dreams, we're not presently doing seccompfd
+> monitoring, etc. There's no driving user for that kind of interface,
+> and accepting the maintenance burden of it only for CRIU seems unwise.
+>
+> So, I'll go back to what I originally proposed at LSS (which it looks
+> like we're half way there now):
+>
+> - save the original filter (done!)
+> - extract filters through a single special-purpose interface (looks
+> like ptrace is the way to go: root-only, stopped process, etc)
+> - compare filter content and issue TSYNCs to merge detected sibling
+> threads, since merging things that weren't merged before creates no
+> problems.
+>
+> This means the parenting logic is heuristic, but it's entirely in
+> userspace, so the complexity burden doesn't live in seccomp which we,
+> by design, want to keep as simple as possible.
+
+This is okay with me with a future-proofing caveat: I think that
+whatever reads out the filter should be clearly documented as
+returning some special error code that indicates that that filter it
+tried to read wasn't in the expected form.  That would happen for
+native eBPF filters, and it would also happen for seccomp monitors
+even if those monitors use classic BPF.
+
+--Andy
