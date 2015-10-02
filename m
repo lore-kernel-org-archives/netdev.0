@@ -1,64 +1,42 @@
-From: =?UTF-8?Q?Holger_Hoffst=c3=a4tte?=
-	<holger.hoffstaette@googlemail.com>
-Subject: Re: Soft lockup issue in Linux 4.1.9
-Date: Fri, 2 Oct 2015 09:17:16 +0200
-Message-ID: <560E2F7C.4040102@googlemail.com>
-References: <1443650383.13282.10.camel@daevel.fr>
- <560D1223.3070606@googlemail.com>
- <CANn89i+B5T4Rhs8HnrC0+f+GhLvBFfpr4BVDvhkVOveSfy9B8Q@mail.gmail.com>
- <560D1C5A.3050508@googlemail.com>
- <CANn89iKvTUKZTiWQYbjXLr4NvYKDgd_mKYVzZHiSqk0e0OfGxA@mail.gmail.com>
- <560E2994.5020400@tomt.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 03/12] net: igb: avoid using timespec
+Date: Fri, 2 Oct 2015 09:47:16 +0200
+Message-ID: <20151002074716.GA3930@localhost.localdomain>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+ <1443612402-3000775-4-git-send-email-arnd@arndb.de>
+ <20151001191745.GC1872@localhost.localdomain>
+ <1803983.ImzkvzgWES@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Andre Tomt <andre@tomt.net>, Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.68.134.40.188.clients.your-server.de ([188.40.134.68]:49532
-	"EHLO mail02.iobjects.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443AbbJBHRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 03:17:19 -0400
-In-Reply-To: <560E2994.5020400@tomt.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ "David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <y2038-bounces@lists.linaro.org>
+Content-Disposition: inline
+In-Reply-To: <1803983.ImzkvzgWES@wuerfel>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-On 10/02/15 08:52, Andre Tomt wrote:
-> On 01. okt. 2015 13:52, Eric Dumazet wrote:
->> On Thu, Oct 1, 2015 at 4:43 AM, Holger Hoffst=C3=A4tte
->> <holger.hoffstaette@googlemail.com> wrote:
->>> On 10/01/15 13:29, Eric Dumazet wrote:
->>
->>>> commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
->>>> Author: Eric Dumazet <edumazet@google.com>
->>>> Date:   Thu Aug 13 15:44:51 2015 -0700
->>>>
->>>>      inet: fix potential deadlock in reqsk_queue_unlink()
-> <snip>
->>> Whohoo! It applies/builds cleanly to 4.1.10-rc1 and is running as
->>> we speak. Let's hope that this fixes the lockups.
->>>
->>
->> It definitely should help !
->>
->> David, since patch is not yet seen on
->> http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
->> could you please add it to your queue ?
->=20
-> Seems to fix it for me as well. 3 systems have been running varying
-> types of production-like loads with it for 14+ hours without hanging.
-
-Just got up, and yes - my systems survived the night as well, no issues=
-=2E
-
-Greg, any chance you can drop this into the pending 4.1.10? Otherwise p=
-eople
-will get another broken release.
-
-cheers
-Holger
+T24gVGh1LCBPY3QgMDEsIDIwMTUgYXQgMTA6MDE6NTdQTSArMDIwMCwgQXJuZCBCZXJnbWFubiB3
+cm90ZToKPiBJIHRyaWVkIHRvIHVzZSB0aGlzIHBhdHRlcm4gd2hlbmV2ZXIgSSBjb252ZXJ0IHRo
+ZSA2NC1iaXQgJ2xvbmcgbG9uZycKPiB0dl9zZWMgbWVtYmVyIG9mICdzdHJ1Y3QgdGltZXNwZWM2
+NCcgaW50byBhIDMyLWJpdCBudW1iZXIsIHRvIGFubm90YXRlCj4gdGhlIGxvc3Mgb2YgcmFuZ2Uu
+CgpTb3VuZHMgcmVhc29uYWJsZSB0byBtZS4KIAo+IEkgaGF2ZSB0aG91Z2h0IGFib3V0IGRlZmlu
+aW5nIHNlcGFyYXRlIGhlbHBlcnMgbGlrZSB0aGlzCi4uLgo+IFRoaXMgd291bGQgbWFrZSBpdCBl
+dmVuIG1vcmUgZXhwbGljaXQsIGJ1dCBteSBmZWFyIHdhcyB0aGF0IEkgd2FzCj4gYWRkaW5nIHRv
+byBtdWNoIGNvbXBsZXhpdHkgbGlrZSB0aGF0LgoKSSB0aGluayBhIGNhc3QgcGx1cyBhIGNvbW1l
+bnQgd2hlbiBuZWVkZWQgaXMgY2xlYXIgZW5vdWdoLgoKVGhhbmtzLApSaWNoYXJkCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlz
+dApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL3kyMDM4Cg==
