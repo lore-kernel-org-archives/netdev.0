@@ -1,22 +1,38 @@
-From: Mr@vger.kernel.org, Holmes@vger.kernel.org
-Subject: proposal
-Date: Fri, 2 Oct 2015 21:46:59 +0100
-Message-ID: <DB5PR09MB04568D908750C56B88F8381CB84B0@DB5PR09MB0456.eurprd09.prod.outlook.com>
-Reply-To: <leungwing.lok@live.hk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Soft lockup issue in Linux 4.1.9
+Date: Fri, 02 Oct 2015 13:59:43 -0700
+Message-ID: <1443819583.32531.55.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1443650383.13282.10.camel@daevel.fr>
+	 <560D1223.3070606@googlemail.com>
+	 <CANn89i+B5T4Rhs8HnrC0+f+GhLvBFfpr4BVDvhkVOveSfy9B8Q@mail.gmail.com>
+	 <560D1C5A.3050508@googlemail.com>
+	 <CANn89iKvTUKZTiWQYbjXLr4NvYKDgd_mKYVzZHiSqk0e0OfGxA@mail.gmail.com>
+	 <alpine.DEB.2.11.1510022200130.4500@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Holger =?ISO-8859-1?Q?Hoffst=E4tte?=
+	<holger.hoffstaette@googlemail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1hn0253.outbound.protection.outlook.com ([157.56.112.253]:43179
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750944AbbJBUrX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 16:47:23 -0400
-Content-Description: Mail message body
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:32915 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236AbbJBU7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 16:59:45 -0400
+In-Reply-To: <alpine.DEB.2.11.1510022200130.4500@nanos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I wish to discuss a very confidential business proposition worth $48Million USD with you that will be of immense benefit to the both of us, but I want your consent before sending details.
+On Fri, 2015-10-02 at 22:04 +0200, Thomas Gleixner wrote:
 
-Mr Wing
+> What makes sure, that the timer cannot be readded while that timer
+> callback is running?
+
+What is exactly your question ?
