@@ -1,67 +1,61 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next] ipvs: Don't protect ip_vs_addr_is_unicast with CONFIG_SYSCTL
-Date: Fri,  2 Oct 2015 10:04:49 +0900
-Message-ID: <1443747889-7725-2-git-send-email-horms@verge.net.au>
-References: <1443747889-7725-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] i40e: fix offload of GRE tunnels
+Date: Thu,  1 Oct 2015 18:25:42 -0700
+Message-ID: <1443749142-40988-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46455 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbbJBBEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 21:04:52 -0400
-In-Reply-To: <1443747889-7725-1-git-send-email-horms@verge.net.au>
+Received: from mga02.intel.com ([134.134.136.20]:56725 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751287AbbJBB0J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2015 21:26:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-I arranged the code so that the compiler can remove the unecessary bits
-in ip_vs_leave when CONFIG_SYSCTL is unset, and removed an explicit
-CONFIG_SYSCTL.
+The driver still was not offloading TSO on GRE tunnels because
+it forgot to set the GSO_GRE flag, causing lots of retransmits.
 
-Unfortunately when rebasing my work on top of that of Alex Gartrell I
-missed the fact that the newly added function ip_vs_addr_is_unicast was
-surrounded by CONFIG_SYSCTL.
+This fixes generic GRE traffic (like a tunnel added like below)
+whereas before it would get 1Gb/s or less, now on a 10G adapter
+it gets 8.7Gb/s.
 
-So remove the now unnecessary CONFIG_SYSCTL guards around
-ip_vs_addr_is_unicast.  It is causing build failures today when
-CONFIG_SYSCTL is not selected and any self respecting compiler will
-notice that sysctl_cache_bypass is always false without CONFIG_SYSCTL
-and not include the logic from the function ip_vs_addr_is_unicast in
-the compiled code.
+ip ad ad 11.1.0.2/24 dev ens2f0
+ip l set ens2f0 up
+ip link add gre2 type gretap remote 11.1.0.1 local 11.1.0.2 dev ens2f0
+ip l set gre2 up
+ip ad ad 192.168.124.2/24 dev gre2
+ping 192.168.124.1
+netperf -H 192.168.124.1
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/netfilter/ipvs/ip_vs_core.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 37dd77a3d0fb..d08df435c2aa 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -547,7 +547,6 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	return cp;
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 48a52b3..171e0b8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8166,6 +8166,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
  
--#ifdef CONFIG_SYSCTL
- static inline int ip_vs_addr_is_unicast(struct net *net, int af,
- 					union nf_inet_addr *addr)
- {
-@@ -557,7 +556,6 @@ static inline int ip_vs_addr_is_unicast(struct net *net, int af,
- #endif
- 	return (inet_addr_type(net, addr->ip) == RTN_UNICAST);
- }
--#endif
+ 	netdev->hw_enc_features |= NETIF_F_IP_CSUM	 |
+ 				  NETIF_F_GSO_UDP_TUNNEL |
++				  NETIF_F_GSO_GRE	 |
+ 				  NETIF_F_TSO;
  
- /*
-  *  Pass or drop the packet.
+ 	netdev->features = NETIF_F_SG		       |
+@@ -8173,6 +8174,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 			   NETIF_F_SCTP_CSUM	       |
+ 			   NETIF_F_HIGHDMA	       |
+ 			   NETIF_F_GSO_UDP_TUNNEL      |
++			   NETIF_F_GSO_GRE	       |
+ 			   NETIF_F_HW_VLAN_CTAG_TX     |
+ 			   NETIF_F_HW_VLAN_CTAG_RX     |
+ 			   NETIF_F_HW_VLAN_CTAG_FILTER |
 -- 
-2.1.4
+2.4.3
