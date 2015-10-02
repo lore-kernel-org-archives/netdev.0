@@ -1,8 +1,8 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 4/4] bridge: vlan: use br_vlan_should_use
-	to simplify __vlan_add/del
-Date: Fri,  2 Oct 2015 15:05:13 +0200
-Message-ID: <1443791113-12738-5-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 1/4] bridge: vlan: use rcu list for the
+	ordered vlan list
+Date: Fri,  2 Oct 2015 15:05:10 +0200
+Message-ID: <1443791113-12738-2-git-send-email-razor@blackwall.org>
 References: <1443791113-12738-1-git-send-email-razor@blackwall.org>
 Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
 	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
@@ -23,132 +23,72 @@ List-Id: netdev.vger.kernel.org
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-The checks that lead to num_vlans change are always what
-br_vlan_should_use checks for, namely if the vlan is only a context or
-not and depending on that it's either not counted or counted
-as a real/used vlan respectively.
-Also give better explanation in br_vlan_should_use's comment.
+When I did the conversion to rhashtable I missed the required locking of
+one important user of the vlan list - br_get_link_af_size_filtered()
+which is called:
+br_ifinfo_notify() -> br_nlmsg_size() -> br_get_link_af_size_filtered()
+and the notifications can be sent without holding rtnl. Before this
+conversion the function relied on using rcu and since we already use rcu to
+destroy the vlans, we can simply migrate the list to use the rcu helpers.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/bridge/br_private.h |  2 +-
- net/bridge/br_vlan.c    | 36 ++++++++++++++----------------------
- 2 files changed, 15 insertions(+), 23 deletions(-)
+ net/bridge/br_netlink.c | 10 ++++++++--
+ net/bridge/br_vlan.c    |  4 ++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 4ed8308db66e..1ff6a0faef3f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -400,7 +400,7 @@ static inline bool br_vlan_is_brentry(const struct net_bridge_vlan *v)
- 	return v->flags & BRIDGE_VLAN_INFO_BRENTRY;
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index c64dcad11662..c3186198d46d 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -34,7 +34,7 @@ static int __get_num_vlan_infos(struct net_bridge_vlan_group *vg,
+ 
+ 	pvid = br_get_pvid(vg);
+ 	/* Count number of vlan infos */
+-	list_for_each_entry(v, &vg->vlan_list, vlist) {
++	list_for_each_entry_rcu(v, &vg->vlan_list, vlist) {
+ 		flags = 0;
+ 		/* only a context, bridge vlan not activated */
+ 		if (!br_vlan_should_use(v))
+@@ -76,13 +76,19 @@ initvars:
+ static int br_get_num_vlan_infos(struct net_bridge_vlan_group *vg,
+ 				 u32 filter_mask)
+ {
++	int num_vlans;
++
+ 	if (!vg)
+ 		return 0;
+ 
+ 	if (filter_mask & RTEXT_FILTER_BRVLAN)
+ 		return vg->num_vlans;
+ 
+-	return __get_num_vlan_infos(vg, filter_mask);
++	rcu_read_lock();
++	num_vlans = __get_num_vlan_infos(vg, filter_mask);
++	rcu_read_unlock();
++
++	return num_vlans;
  }
  
--/* check if we should use the vlan entry is usable */
-+/* check if we should use the vlan entry, returns false if it's only context */
- static inline bool br_vlan_should_use(const struct net_bridge_vlan *v)
- {
- 	if (br_vlan_is_master(v)) {
+ static size_t br_get_link_af_size_filtered(const struct net_device *dev,
 diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 1f6f9f5b2c73..d2811f8ea5f7 100644
+index 75214a51cf0e..106d3f890b73 100644
 --- a/net/bridge/br_vlan.c
 +++ b/net/bridge/br_vlan.c
-@@ -193,7 +193,7 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
+@@ -110,12 +110,12 @@ static void __vlan_add_list(struct net_bridge_vlan *v)
+ 		else
+ 			break;
+ 	}
+-	list_add(&v->vlist, hpos);
++	list_add_rcu(&v->vlist, hpos);
+ }
+ 
+ static void __vlan_del_list(struct net_bridge_vlan *v)
  {
- 	struct net_bridge_vlan *masterv = NULL;
- 	struct net_bridge_port *p = NULL;
--	struct rhashtable *tbl;
-+	struct net_bridge_vlan_group *vg;
- 	struct net_device *dev;
- 	struct net_bridge *br;
- 	int err;
-@@ -201,12 +201,12 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
- 	if (br_vlan_is_master(v)) {
- 		br = v->br;
- 		dev = br->dev;
--		tbl = &br->vlgrp->vlan_hash;
-+		vg = br->vlgrp;
- 	} else {
- 		p = v->port;
- 		br = p->br;
- 		dev = p->dev;
--		tbl = &p->vlgrp->vlan_hash;
-+		vg = p->vlgrp;
- 	}
+-	list_del(&v->vlist);
++	list_del_rcu(&v->vlist);
+ }
  
- 	if (p) {
-@@ -232,32 +232,31 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
- 		v->brvlan = masterv;
- 	}
- 
--	/* Add the dev mac only if it's a usable vlan */
-+	/* Add the dev mac and count the vlan only if it's usable */
- 	if (br_vlan_should_use(v)) {
- 		err = br_fdb_insert(br, p, dev->dev_addr, v->vid);
- 		if (err) {
- 			br_err(br, "failed insert local address into bridge forwarding table\n");
- 			goto out_filt;
- 		}
-+		vg->num_vlans++;
- 	}
- 
--	err = rhashtable_lookup_insert_fast(tbl, &v->vnode, br_vlan_rht_params);
-+	err = rhashtable_lookup_insert_fast(&vg->vlan_hash, &v->vnode,
-+					    br_vlan_rht_params);
- 	if (err)
- 		goto out_fdb_insert;
- 
- 	__vlan_add_list(v);
- 	__vlan_add_flags(v, flags);
--	if (br_vlan_is_master(v)) {
--		if (br_vlan_is_brentry(v))
--			br->vlgrp->num_vlans++;
--	} else {
--		p->vlgrp->num_vlans++;
--	}
- out:
- 	return err;
- 
- out_fdb_insert:
--	br_fdb_find_delete_local(br, p, br->dev->dev_addr, v->vid);
-+	if (br_vlan_should_use(v)) {
-+		br_fdb_find_delete_local(br, p, dev->dev_addr, v->vid);
-+		vg->num_vlans--;
-+	}
- 
- out_filt:
- 	if (p) {
-@@ -276,15 +275,12 @@ static int __vlan_del(struct net_bridge_vlan *v)
- 	struct net_bridge_vlan *masterv = v;
- 	struct net_bridge_vlan_group *vg;
- 	struct net_bridge_port *p = NULL;
--	struct net_bridge *br;
- 	int err = 0;
- 
- 	if (br_vlan_is_master(v)) {
--		br = v->br;
- 		vg = v->br->vlgrp;
- 	} else {
- 		p = v->port;
--		br = p->br;
- 		vg = v->port->vlgrp;
- 		masterv = v->brvlan;
- 	}
-@@ -296,13 +292,9 @@ static int __vlan_del(struct net_bridge_vlan *v)
- 			goto out;
- 	}
- 
--	if (br_vlan_is_master(v)) {
--		if (br_vlan_is_brentry(v)) {
--			v->flags &= ~BRIDGE_VLAN_INFO_BRENTRY;
--			br->vlgrp->num_vlans--;
--		}
--	} else {
--		p->vlgrp->num_vlans--;
-+	if (br_vlan_should_use(v)) {
-+		v->flags &= ~BRIDGE_VLAN_INFO_BRENTRY;
-+		vg->num_vlans--;
- 	}
- 
- 	if (masterv != v) {
+ static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
 -- 
 2.4.3
