@@ -1,94 +1,158 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 1/4] bridge: vlan: use rcu list for the
-	ordered vlan list
-Date: Fri,  2 Oct 2015 15:05:10 +0200
-Message-ID: <1443791113-12738-2-git-send-email-razor@blackwall.org>
-References: <1443791113-12738-1-git-send-email-razor@blackwall.org>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, vyasevich@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1443791113-12738-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, seccomp: prepare for upcoming criu support
+Date: Fri,  2 Oct 2015 15:17:33 +0200
+Message-ID: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Tycho Andersen <tycho.andersen@canonical.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Kees Cook <keescook@chromium.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59280 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbbJBNRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 09:17:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+The current ongoing effort to dump existing cBPF seccomp filters back
+to user space requires to hold the pre-transformed instructions like
+we do in case of socket filters from sk_attach_filter() side, so they
+can be reloaded in original form at a later point in time by utilities
+such as criu.
 
-When I did the conversion to rhashtable I missed the required locking of
-one important user of the vlan list - br_get_link_af_size_filtered()
-which is called:
-br_ifinfo_notify() -> br_nlmsg_size() -> br_get_link_af_size_filtered()
-and the notifications can be sent without holding rtnl. Before this
-conversion the function relied on using rcu and since we already use rcu to
-destroy the vlans, we can simply migrate the list to use the rcu helpers.
+To prepare for this, simply extend the bpf_prog_create_from_user()
+API to hold a flag that tells whether we should store the original
+or not. Also, fanout filters could make use of that in future for
+things like diag. While fanout filters already use bpf_prog_destroy(),
+move seccomp over to them as well to handle original programs when
+present.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Tycho Andersen <tycho.andersen@canonical.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
 ---
- net/bridge/br_netlink.c | 10 ++++++++--
- net/bridge/br_vlan.c    |  4 ++--
- 2 files changed, 10 insertions(+), 4 deletions(-)
+ This is in realtion to Tycho's latest patch set under [1]. The BPF
+ handling is unfortunately not correct (triggering a crash on kernels
+ that can set pages as ro).
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index c64dcad11662..c3186198d46d 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -34,7 +34,7 @@ static int __get_num_vlan_infos(struct net_bridge_vlan_group *vg,
+ This patch here provides a minimal, simple interface from BPF API side
+ as a possible step forward, so that the focus can then be on seccomp
+ side wrt criu. F.e., dumping could happen similarly as in Pavel's
+ sk_get_filter().
+
+ I have tested/based this against net-next, but have no issues whether
+ Kees wants to take it, or whether it should go through both trees to
+ reduce merge issues as once the case with 0fc174dea545 ("ebpf: make
+ internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs").
+
+ Thanks!
+
+ [1] http://thread.gmane.org/gmane.linux.network/380300
+
+ include/linux/filter.h |  2 +-
+ kernel/seccomp.c       |  4 ++--
+ net/core/filter.c      | 16 +++++++++++-----
+ net/packet/af_packet.c |  2 +-
+ 4 files changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index fa2cab9..1f0f7bf 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -408,7 +408,7 @@ typedef int (*bpf_aux_classic_check_t)(struct sock_filter *filter,
  
- 	pvid = br_get_pvid(vg);
- 	/* Count number of vlan infos */
--	list_for_each_entry(v, &vg->vlan_list, vlist) {
-+	list_for_each_entry_rcu(v, &vg->vlan_list, vlist) {
- 		flags = 0;
- 		/* only a context, bridge vlan not activated */
- 		if (!br_vlan_should_use(v))
-@@ -76,13 +76,19 @@ initvars:
- static int br_get_num_vlan_infos(struct net_bridge_vlan_group *vg,
- 				 u32 filter_mask)
+ int bpf_prog_create(struct bpf_prog **pfp, struct sock_fprog_kern *fprog);
+ int bpf_prog_create_from_user(struct bpf_prog **pfp, struct sock_fprog *fprog,
+-			      bpf_aux_classic_check_t trans);
++			      bpf_aux_classic_check_t trans, bool save_orig);
+ void bpf_prog_destroy(struct bpf_prog *fp);
+ 
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 5bd4779..06858a7 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -370,7 +370,7 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	ret = bpf_prog_create_from_user(&sfilter->prog, fprog,
+-					seccomp_check_filter);
++					seccomp_check_filter, false);
+ 	if (ret < 0) {
+ 		kfree(sfilter);
+ 		return ERR_PTR(ret);
+@@ -469,7 +469,7 @@ void get_seccomp_filter(struct task_struct *tsk)
+ static inline void seccomp_filter_free(struct seccomp_filter *filter)
  {
-+	int num_vlans;
-+
- 	if (!vg)
- 		return 0;
- 
- 	if (filter_mask & RTEXT_FILTER_BRVLAN)
- 		return vg->num_vlans;
- 
--	return __get_num_vlan_infos(vg, filter_mask);
-+	rcu_read_lock();
-+	num_vlans = __get_num_vlan_infos(vg, filter_mask);
-+	rcu_read_unlock();
-+
-+	return num_vlans;
- }
- 
- static size_t br_get_link_af_size_filtered(const struct net_device *dev,
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 75214a51cf0e..106d3f890b73 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -110,12 +110,12 @@ static void __vlan_add_list(struct net_bridge_vlan *v)
- 		else
- 			break;
+ 	if (filter) {
+-		bpf_prog_free(filter->prog);
++		bpf_prog_destroy(filter->prog);
+ 		kfree(filter);
  	}
--	list_add(&v->vlist, hpos);
-+	list_add_rcu(&v->vlist, hpos);
  }
- 
- static void __vlan_del_list(struct net_bridge_vlan *v)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 60e3fe7..9cf09ed 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1083,16 +1083,18 @@ EXPORT_SYMBOL_GPL(bpf_prog_create);
+  *	@pfp: the unattached filter that is created
+  *	@fprog: the filter program
+  *	@trans: post-classic verifier transformation handler
++ *	@save_orig: save classic BPF program
+  *
+  * This function effectively does the same as bpf_prog_create(), only
+  * that it builds up its insns buffer from user space provided buffer.
+  * It also allows for passing a bpf_aux_classic_check_t handler.
+  */
+ int bpf_prog_create_from_user(struct bpf_prog **pfp, struct sock_fprog *fprog,
+-			      bpf_aux_classic_check_t trans)
++			      bpf_aux_classic_check_t trans, bool save_orig)
  {
--	list_del(&v->vlist);
-+	list_del_rcu(&v->vlist);
- }
+ 	unsigned int fsize = bpf_classic_proglen(fprog);
+ 	struct bpf_prog *fp;
++	int err;
  
- static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
+ 	/* Make sure new filter is there and in the right amounts. */
+ 	if (fprog->filter == NULL)
+@@ -1108,12 +1110,16 @@ int bpf_prog_create_from_user(struct bpf_prog **pfp, struct sock_fprog *fprog,
+ 	}
+ 
+ 	fp->len = fprog->len;
+-	/* Since unattached filters are not copied back to user
+-	 * space through sk_get_filter(), we do not need to hold
+-	 * a copy here, and can spare us the work.
+-	 */
+ 	fp->orig_prog = NULL;
+ 
++	if (save_orig) {
++		err = bpf_prog_store_orig_filter(fp, fprog);
++		if (err) {
++			__bpf_prog_free(fp);
++			return -ENOMEM;
++		}
++	}
++
+ 	/* bpf_prepare_filter() already takes care of freeing
+ 	 * memory in case something goes wrong.
+ 	 */
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index aa4b15c..81c900f 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1567,7 +1567,7 @@ static int fanout_set_data_cbpf(struct packet_sock *po, char __user *data,
+ 	if (copy_from_user(&fprog, data, len))
+ 		return -EFAULT;
+ 
+-	ret = bpf_prog_create_from_user(&new, &fprog, NULL);
++	ret = bpf_prog_create_from_user(&new, &fprog, NULL, false);
+ 	if (ret)
+ 		return ret;
+ 
 -- 
-2.4.3
+1.9.3
