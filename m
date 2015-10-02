@@ -1,54 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: add pfmemalloc check in sk_add_backlog()
-Date: Fri, 02 Oct 2015 02:38:21 -0700
-Message-ID: <1443778701.32531.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150929.215607.1418732892830129304.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
+ freelists
+Date: Fri, 2 Oct 2015 11:41:18 +0200
+Message-ID: <20151002114118.75aae2f9@redhat.com>
+References: <560ABE86.9050508@gmail.com>
+	<20150930114255.13505.2618.stgit@canyon>
+	<20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gthelen@google.com, mhocko@suse.com,
-	mgorman@suse.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34151 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875AbbJBJiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 05:38:23 -0400
-Received: by padhy16 with SMTP id hy16so102648133pad.1
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 02:38:23 -0700 (PDT)
-In-Reply-To: <20150929.215607.1418732892830129304.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
+        Alexander Duyck
+ <alexander.duyck@gmail.com>,
+        Pekka Enberg <penberg@kernel.org>, netdev@vger.kernel.org,
+        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        David
+ Rientjes <rientjes@google.com>, brouer@redhat.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-09-29 at 21:56 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 29 Sep 2015 18:52:25 -0700
+On Thu, 1 Oct 2015 15:10:15 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
+
+> On Wed, 30 Sep 2015 13:44:19 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 > 
-> > From: Eric Dumazet <edumazet@google.com>
+> > Make it possible to free a freelist with several objects by adjusting
+> > API of slab_free() and __slab_free() to have head, tail and an objects
+> > counter (cnt).
 > > 
-> > Greg reported crashes hitting the following check in __sk_backlog_rcv()
+> > Tail being NULL indicate single object free of head object.  This
+> > allow compiler inline constant propagation in slab_free() and
+> > slab_free_freelist_hook() to avoid adding any overhead in case of
+> > single object free.
 > > 
-> > 	BUG_ON(!sock_flag(sk, SOCK_MEMALLOC)); 
+> > This allows a freelist with several objects (all within the same
+> > slab-page) to be free'ed using a single locked cmpxchg_double in
+> > __slab_free() and with an unlocked cmpxchg_double in slab_free().
 > > 
-> > The pfmemalloc bit is currently checked in sk_filter().
+> > Object debugging on the free path is also extended to handle these
+> > freelists.  When CONFIG_SLUB_DEBUG is enabled it will also detect if
+> > objects don't belong to the same slab-page.
 > > 
-> > This works correctly for TCP, because sk_filter() is ran in
-> > tcp_v[46]_rcv() before hitting the prequeue or backlog checks.
+> > These changes are needed for the next patch to bulk free the detached
+> > freelists it introduces and constructs.
 > > 
-> > For UDP or other protocols, this does not work, because the sk_filter()
-> > is ran from sock_queue_rcv_skb(), which might be called _after_ backlog
-> > queuing if socket is owned by user by the time packet is processed by
-> > softirq handler.
+> > Micro benchmarking showed no performance reduction due to this change,
+> > when debugging is turned off (compiled with CONFIG_SLUB_DEBUG).
 > > 
-> > Fixes: b4b9e35585089 ("netvm: set PF_MEMALLOC as appropriate during SKB processing")
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Greg Thelen <gthelen@google.com>
 > 
-> Applied, thanks Eric.
-Hi David
+> checkpatch says
+> 
+> WARNING: Avoid crashing the kernel - try using WARN_ON & recovery code rather than BUG() or BUG_ON()
+> #205: FILE: mm/slub.c:2888:
+> +       BUG_ON(!size);
+> 
+> 
+> Linus will get mad at you if he finds out, and we wouldn't want that.
+> 
+> --- a/mm/slub.c~slub-optimize-bulk-slowpath-free-by-detached-freelist-fix
+> +++ a/mm/slub.c
+> @@ -2885,7 +2885,8 @@ static int build_detached_freelist(struc
+>  /* Note that interrupts must be enabled when calling this function. */
+>  void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+>  {
+> -	BUG_ON(!size);
+> +	if (WARN_ON(!size))
+> +		return;
+>  
+>  	do {
+>  		struct detached_freelist df;
+> _
 
-I could not find this patch in any of your trees, would you take a
-look ?
+My problem with this change is that WARN_ON generates (slightly) larger
+code size, which is critical for instruction-cache usage...
 
-Thanks !
+ [net-next-mm]$ ./scripts/bloat-o-meter vmlinux-with_BUG_ON vmlinux-with_WARN_ON 
+ add/remove: 0/0 grow/shrink: 1/0 up/down: 17/0 (17)
+ function                                     old     new   delta
+ kmem_cache_free_bulk                         438     455     +17
+
+My IP-forwarding benchmark is actually a very challenging use-case,
+because the code path "size" a packet have to travel is larger than the
+instruction-cache of the CPU.
+
+Thus, I need introducing new code like this patch and at the same time
+have to reduce the number of instruction-cache misses/usage.  In this
+case we solve the problem by kmem_cache_free_bulk() not getting called
+too often. Thus, +17 bytes will hopefully not matter too much... but on
+the other hand we sort-of know that calling kmem_cache_free_bulk() will
+cause icache misses.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
