@@ -1,83 +1,50 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 3/3] net: dsa: exit probe if no switch were found
-Date: Fri, 2 Oct 2015 12:48:11 +0200
-Message-ID: <560E60EB.10703@baylibre.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RFC 3/7] netfilter: add NF_INET_LOCAL_SOCKET_IN chain type
+Date: Fri, 2 Oct 2015 13:07:56 +0200
+Message-ID: <20151002110756.GA29822@salvia>
+References: <1443525140-13493-1-git-send-email-daniel@zonque.org>
+ <1443525140-13493-4-git-send-email-daniel@zonque.org>
+ <20150929211959.GF19923@breakpoint.cc>
+ <560B8E25.7050801@zonque.org>
+ <20151001171323.GA4890@localhost.localdomain>
+ <560DA092.60100@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Florian Westphal <fw@strlen.de>, daniel@iogearbox.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	balazs.scheidler@balabit.com
+To: Daniel Mack <daniel@zonque.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42216 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751329AbbJBLBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2015 07:01:04 -0400
+Content-Disposition: inline
+In-Reply-To: <560DA092.60100@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If no switch were found in dsa_setup_dst, return -ENODEV and
-exit the dsa_probe cleanly.
+On Thu, Oct 01, 2015 at 11:07:30PM +0200, Daniel Mack wrote:
+[...]
+> That, however, got rejected because it doesn't work for multicast. This
+> patch set implements one of the things Pablo suggested in his reply.
 
-Tested-by: Andrew Lunn <andrew@lunn.ch>
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
----
- net/dsa/dsa.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+People are rising valid concerns here, so far we got a RFC where you
+say that you don't have a proper setup to validate performance impact.
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 0c104af..6ae1ab9 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -844,10 +844,11 @@ static inline void dsa_of_remove(struct device *dev)
- }
- #endif
+>From the locking front, you indicated that there are possible problems
+in this RFC, although you claim those can be fixed.
 
--static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
-+static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 			  struct device *parent, struct dsa_platform_data *pd)
- {
- 	int i;
-+	unsigned configured = 0;
+No examples on how you will use this are shown, which has triggered
+questions on how you plan to use this. Only one use-case that has been
+described in natural language.
 
- 	dst->pd = pd;
- 	dst->master_netdev = dev;
-@@ -867,9 +868,17 @@ static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 		dst->ds[i] = ds;
- 		if (ds->drv->poll_link != NULL)
- 			dst->link_poll_needed = 1;
-+
-+		++configured;
- 	}
+Rergading inconsistent behaviour when no process are listening, your
+argument is that "that can be documented".
 
- 	/*
-+	 * If no switch was found, exit cleanly
-+	 */
-+	if (!configured)
-+		return -ENODEV;
-+
-+	/*
- 	 * If we use a tagging format that doesn't have an ethertype
- 	 * field, make sure that all packets from this point on get
- 	 * sent to the tag format's receive function.
-@@ -885,6 +894,8 @@ static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 		dst->link_poll_timer.expires = round_jiffies(jiffies + HZ);
- 		add_timer(&dst->link_poll_timer);
- 	}
-+
-+	return 0;
- }
+Frankly, I would expect you do the work from your side to justify the
+inclusion of this, and that requires that your cover open fronts from
+the technical side, not just arguing.
 
- static int dsa_probe(struct platform_device *pdev)
-@@ -934,9 +945,9 @@ static int dsa_probe(struct platform_device *pdev)
-
- 	platform_set_drvdata(pdev, dst);
-
--	dsa_setup_dst(dst, dev, &pdev->dev, pd);
--
--	return 0;
-+	ret = dsa_setup_dst(dst, dev, &pdev->dev, pd);
-+	if (!ret)
-+		return 0;
-
- out:
- 	dsa_of_remove(&pdev->dev);
--- 
-1.9.1
+Thanks.
