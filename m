@@ -1,7 +1,7 @@
 From: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v1 5/5] asix: Continue processing URB if no RX netdev buffer
-Date: Fri, 2 Oct 2015 14:29:08 +0100
-Message-ID: <1443792548-2025-6-git-send-email-Dean_Jenkins@mentor.com>
+Subject: [PATCH v1 2/5] asix: Tidy-up 32-bit header word synchronisation
+Date: Fri, 2 Oct 2015 14:29:05 +0100
+Message-ID: <1443792548-2025-3-git-send-email-Dean_Jenkins@mentor.com>
 References: <1443792548-2025-1-git-send-email-Dean_Jenkins@mentor.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,86 +15,80 @@ In-Reply-To: <1443792548-2025-1-git-send-email-Dean_Jenkins-nmGgyN9QBj3QT0dZR+Al
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Avoid a loss of synchronisation of the Ethernet Data header 32-bit
-word due to a failure to get a netdev socket buffer.
+Tidy-up the Data header 32-bit word synchronisation logic in
+asix_rx_fixup_internal() by removing redundant logic tests.
 
-The ASIX RX handling algorithm returned 0 upon a failure to get
-an allocation of a netdev socket buffer. This causes the URB
-processing to stop which potentially causes a loss of synchronisation
-with the Ethernet Data header 32-bit word. Therefore, subsequent
-processing of URBs may be rejected due to a loss of synchronisation.
-This may cause additional good Ethernet frames to be discarded
-along with outputting of synchronisation error messages.
+The code is looking at the following cases of the Data header
+32-bit word that is present before each Ethernet frame:
 
-Implement a solution which checks whether a netdev socket buffer
-has been allocated before trying to copy the Ethernet frame into
-the netdev socket buffer. But continue to process the URB so that
-synchronisation is maintained. Therefore, only a single Ethernet
-frame is discarded when no netdev socket buffer is available.
+a) all 32 bits of the Data header word are in the URB socket buffer
+b) first 16 bits of the Data header word are at the end of the URB
+   socket buffer
+c) last 16 bits of the Data header word are at the start of the URB
+   socket buffer eg. split_head = true
+
+Note that the lifetime of rx->split_head exists outside of the
+function call and is accessed per processing of each URB. Therefore,
+split_head being true acts on the next URB to be processed.
+
+To check for b) the offset will be 16 bits (2 bytes) from the end of
+the buffer then indicate split_head is true.
+To check for c) split_head must be true because the first 16 bits
+have been found.
+To check for a) else c)
+
+Note that the || logic of the old code included the state
+(skb->len - offset == sizeof(u16) && rx->split_head) which is not
+possible because the split_head cannot be true whilst checking for b).
+This is because the split_head indicates that the first 16 bits have
+been found and that is not possible whilst checking for the first 16
+bits. Therefore simplify the logic.
 
 Signed-off-by: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/usb/asix_common.c |   31 +++++++++++++++++++------------
- 1 file changed, 19 insertions(+), 12 deletions(-)
+ drivers/net/usb/asix_common.c |   28 +++++++++++++---------------
+ 1 file changed, 13 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 1e4768d..a186b0a 100644
+index 2bd5bdd..89efd6a 100644
 --- a/drivers/net/usb/asix_common.c
 +++ b/drivers/net/usb/asix_common.c
-@@ -74,12 +74,14 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 		if (size != ((~rx->header >> 16) & 0x7ff)) {
- 			netdev_err(dev->net, "asix_rx_fixup() Data Header synchronisation was lost, remaining %d\n",
- 				   rx->remaining);
--			kfree_skb(rx->ax_skb);
--			rx->ax_skb = NULL;
--			/* Discard the incomplete netdev Ethernet frame and
--			 * assume the Data header is at the start of the current
--			 * URB socket buffer.
--			 */
-+			if (rx->ax_skb) {
-+				kfree_skb(rx->ax_skb);
-+				rx->ax_skb = NULL;
-+				/* Discard the incomplete netdev Ethernet frame
-+				 * and assume the Data header is at the start of
-+				 * the current URB socket buffer.
-+				 */
+@@ -61,21 +61,19 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+ 		unsigned char *data;
+ 
+ 		if (!rx->remaining) {
+-			if ((skb->len - offset == sizeof(u16)) ||
+-			    rx->split_head) {
+-				if(!rx->split_head) {
+-					rx->header = get_unaligned_le16(
+-							skb->data + offset);
+-					rx->split_head = true;
+-					offset += sizeof(u16);
+-					break;
+-				} else {
+-					rx->header |= (get_unaligned_le16(
+-							skb->data + offset)
+-							<< 16);
+-					rx->split_head = false;
+-					offset += sizeof(u16);
+-				}
++			if (skb->len - offset == sizeof(u16)) {
++				rx->header = get_unaligned_le16(
++						skb->data + offset);
++				rx->split_head = true;
++				offset += sizeof(u16);
++				break;
 +			}
- 			rx->remaining = 0;
- 		}
- 	}
-@@ -121,9 +123,12 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 				return 0;
- 			}
- 
-+			/* Sometimes may fail to get a netdev socket buffer but
-+			 * continue to process the URB socket buffer so that
-+			 * synchronisation of the Ethernet frame Data header
-+			 * word is maintained.
-+			 */
- 			rx->ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
--			if (!rx->ax_skb)
--				return 0;
- 
- 			rx->remaining = size;
- 		}
-@@ -136,10 +141,12 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 			rx->remaining = 0;
- 		}
- 
--		data = skb_put(rx->ax_skb, copy_length);
--		memcpy(data, skb->data + offset, copy_length);
--		if (!rx->remaining)
--			usbnet_skb_return(dev, rx->ax_skb);
-+		if (rx->ax_skb) {
-+			data = skb_put(rx->ax_skb, copy_length);
-+			memcpy(data, skb->data + offset, copy_length);
-+			if (!rx->remaining)
-+				usbnet_skb_return(dev, rx->ax_skb);
-+		}
- 
- 		offset += (copy_length + 1) & 0xfffe;
- 	}
++
++			if (rx->split_head == true) {
++				rx->header |= (get_unaligned_le16(
++						skb->data + offset) << 16);
++				rx->split_head = false;
++				offset += sizeof(u16);
+ 			} else {
+ 				rx->header = get_unaligned_le32(skb->data +
+ 								offset);
 -- 
 1.7.9.5
 
