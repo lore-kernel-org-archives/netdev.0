@@ -1,42 +1,52 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/4] openvswitch: IPv6 support for
-	ovs_tunnel_get_egress_info
-Date: Fri, 2 Oct 2015 12:32:42 -0700
-Message-ID: <CALnjE+qn7PrEYxKZ6c03-Bz63BcROVuqmwdp8sqi2eXvxY-yeg@mail.gmail.com>
-References: <cover.1443710454.git.jbenc@redhat.com>
- <8eeae62b794d6d7486cedd8178414d2fdfb6e4f8.1443710454.git.jbenc@redhat.com>
- <CALnjE+o-ou=Vpv8_e20-CyRMA62ceGiDOZuSaRU9Qwb_WBBP8Q@mail.gmail.com>
- <20151002080041.52017d26@griffin>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] unix: fix use-after-free with unix_dgram_poll()
+Date: Fri, 02 Oct 2015 20:30:55 +0100
+Message-ID: <871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com>
+References: <20151002191039.9124420ED@prod-mail-relay10.akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151002080041.52017d26@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	rweikusat@mobileactivedefense.com, viro@zeniv.linux.org.uk,
+	davidel@xmailserver.org, dave@stgolabs.net, olivier@mauras.ch,
+	pageexec@freemail.hu, torvalds@linux-foundation.org,
+	peterz@infradead.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151002191039.9124420ED@prod-mail-relay10.akamai.com> (Jason
+	Baron's message of "Fri, 2 Oct 2015 19:10:39 +0000 (GMT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBPY3QgMSwgMjAxNSBhdCAxMTowMCBQTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
-Y29tPiB3cm90ZToKPiBPbiBUaHUsIDEgT2N0IDIwMTUgMTc6MTE6NTYgLTA3MDAsIFByYXZpbiBT
-aGVsYXIgd3JvdGU6Cj4+IEkgZG9udCBzZWUgcG9pbnQgb2YgYWRkaW5nIHRoaXMgY29kZSB3aGVu
-IElQdjYgc2FtcGxpbmcgbm90IHN1cHBvcnQgYnkKPj4gdGhlIHBhdGNoIHNlcmllcy4KPgo+IEl0
-IHdhcyByZXF1ZXN0ZWQgYnkgSmVzc2U6Cj4gaHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dtYW5l
-LmxpbnV4Lm5ldHdvcmsvMzgwMzQ4Cj4KCkkgZG9uJ3QgdGhpbmsgd2UgY2FuIHVzZSB0aGlzIGZ1
-bmN0aW9uLCBsd3R1bm5lbCBkZXZpY2UgbmVlZCBuZXcgbmRvXwpvcGVyYXRpb24gdG8gZXhwb3J0
-IHRoaXMgaW5mb3JtYXRpb24uIFNvIGxldHMgZGVmZXIgdGhpcyBwYXRjaCB0aWxsIHdlCmhhdmUg
-c29sdXRpb24gZm9yIHJldHJpZXZpbmcgZWdyZXNzIGluZm8gZnJvbSBsd3R1bm5lbCBkZXZpY2Vz
-LgoKPiBJIGRvbid0IG1pbmQgbGVhdmluZyB0aGlzIGFuZCB0aGUgcHJldmlvdXMgcGF0Y2ggb3V0
-LCBpdCdzIGFjdHVhbGx5Cj4gd2hhdCBJIGRpZCBpbiB2MS4KPgo+ICBKaXJpCj4KPiAtLQo+IEpp
-cmkgQmVuYwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Jason Baron <jbaron@akamai.com> writes:
+> From: Jason Baron <jbaron@akamai.com>
+>
+> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
+> queue associated with the socket s that we've called poll() on, but it also
+> calls sock_poll_wait() for a remote peer socket's wait queue, if it's connected.
+> Thus, if we call poll()/select()/epoll() for the socket s, there are then
+> a couple of code paths in which the remote peer socket s2 and its associated
+> peer_wait queue can be freed before poll()/select()/epoll() have a chance
+> to remove themselves from this remote peer socket s2's wait queue.
+
+[...]
+
+> This works because we will continue to get POLLOUT wakeups from
+> unix_write_space(), which is called via sock_wfree().
+
+As pointed out in my original comment, this doesn't work (as far as I
+can/ could tell) because it will only wake up sockets which had a chance
+to enqueue datagrams to the queue of the receiving socket as only
+skbuffs enqueued there will be consumed. A socket which is really
+waiting for space in the receiving queue won't ever be woken up in this
+way.
+
+Further, considering that you're demonstrably not interested in
+debugging and fixing this issue (as you haven't even bothered to post
+one of the test programs you claim to have), I'm beginning to wonder why
+this tripe is being sent to me at all --- it's not "git on autopilot"
+this time as someone took the time to dig up my current e-mail address
+as the one in the original commit is not valid anymore. Could you please
+refrain from such exercises in future unless a discussion is actually
+intended?
