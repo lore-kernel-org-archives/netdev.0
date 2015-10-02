@@ -1,102 +1,114 @@
-From: Kees Cook <keescook@chromium.org>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Subject: Re: v5 of seccomp filter c/r patches
-Date: Fri, 2 Oct 2015 15:06:28 -0700
-Message-ID: <CAGXu5jJGakjhuBgZqvgxN8TraDJ0TEnSJ1dQXo9gRg=HwJXmwQ@mail.gmail.com>
+Date: Fri, 2 Oct 2015 15:16:24 -0700
+Message-ID: <CALCETrVNumXgriNN2-g9BmU1VHUiVr7asL0dXUH18AmYLfdPZw@mail.gmail.com>
 References: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com>
-	<CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w@mail.gmail.com>
-	<CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ@mail.gmail.com>
-	<CAGXu5jL_GVmbGk5twfASk7+M2gHyKQ1bv8+GD_CPf8B3pPF7ng@mail.gmail.com>
-	<CALCETrVC+owDKDGAdOpyrvP5Qq5rxUFMSpsxuc2PmF8FiBKfeg@mail.gmail.com>
+ <CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w@mail.gmail.com>
+ <CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ@mail.gmail.com>
+ <CAGXu5jL_GVmbGk5twfASk7+M2gHyKQ1bv8+GD_CPf8B3pPF7ng@mail.gmail.com>
+ <CALCETrVC+owDKDGAdOpyrvP5Qq5rxUFMSpsxuc2PmF8FiBKfeg@mail.gmail.com> <CAGXu5jJGakjhuBgZqvgxN8TraDJ0TEnSJ1dQXo9gRg=HwJXmwQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tycho Andersen <tycho.andersen@canonical.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVC+owDKDGAdOpyrvP5Qq5rxUFMSpsxuc2PmF8FiBKfeg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGXu5jJGakjhuBgZqvgxN8TraDJ0TEnSJ1dQXo9gRg=HwJXmwQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 2, 2015 at 3:04 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Fri, Oct 2, 2015 at 3:02 PM, Kees Cook <keescook@chromium.org> wrote:
->> On Fri, Oct 2, 2015 at 2:29 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->>> On Fri, Oct 2, 2015 at 2:10 PM, Kees Cook <keescook@chromium.org> wrote:
->>>> On Fri, Oct 2, 2015 at 9:27 AM, Tycho Andersen
->>>> <tycho.andersen@canonical.com> wrote:
->>>>> Hi all,
+On Fri, Oct 2, 2015 at 3:06 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+> On Fri, Oct 2, 2015 at 3:04 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Fri, Oct 2, 2015 at 3:02 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>>> On Fri, Oct 2, 2015 at 2:29 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>>> On Fri, Oct 2, 2015 at 2:10 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>>>>> On Fri, Oct 2, 2015 at 9:27 AM, Tycho Andersen
+>>>>> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+>>>>>> Hi all,
+>>>>>>
+>>>>>> Here's v5 of the seccomp filter c/r set. The individual patch notes have
+>>>>>> changes, but two highlights are:
+>>>>>>
+>>>>>> * This series is now based on http://patchwork.ozlabs.org/patch/525492/ and
+>>>>>>   will need to be built with that patch applied. This gets rid of two incorrect
+>>>>>>   patches in the previous series and is a nicer API.
+>>>>>>
+>>>>>> * I couldn't figure out a nice way to have SECCOMP_GET_FILTER_FD return the
+>>>>>>   same struct file across calls, so we still need a kcmp command. I've narrowed
+>>>>>>   the scope of the one being added to only compare seccomp fds.
+>>>>>>
+>>>>>> Thoughts welcome,
 >>>>>
->>>>> Here's v5 of the seccomp filter c/r set. The individual patch notes have
->>>>> changes, but two highlights are:
+>>>>> Hi, sorry I've been slow/busy. I'm finally reading through these threads.
 >>>>>
->>>>> * This series is now based on http://patchwork.ozlabs.org/patch/525492/ and
->>>>>   will need to be built with that patch applied. This gets rid of two incorrect
->>>>>   patches in the previous series and is a nicer API.
+>>>>> Happy bit:
+>>>>> - avoiding eBPF and just saving the original filters makes things much easier.
 >>>>>
->>>>> * I couldn't figure out a nice way to have SECCOMP_GET_FILTER_FD return the
->>>>>   same struct file across calls, so we still need a kcmp command. I've narrowed
->>>>>   the scope of the one being added to only compare seccomp fds.
+>>>>> Sad bit:
+>>>>> - inventing a new interface for seccompfds feels like massive overkill to me.
 >>>>>
->>>>> Thoughts welcome,
+>>>>> While Andy has big dreams, we're not presently doing seccompfd
+>>>>> monitoring, etc. There's no driving user for that kind of interface,
+>>>>> and accepting the maintenance burden of it only for CRIU seems unwise.
+>>>>>
+>>>>> So, I'll go back to what I originally proposed at LSS (which it looks
+>>>>> like we're half way there now):
+>>>>>
+>>>>> - save the original filter (done!)
+>>>>> - extract filters through a single special-purpose interface (looks
+>>>>> like ptrace is the way to go: root-only, stopped process, etc)
+>>>>> - compare filter content and issue TSYNCs to merge detected sibling
+>>>>> threads, since merging things that weren't merged before creates no
+>>>>> problems.
+>>>>>
+>>>>> This means the parenting logic is heuristic, but it's entirely in
+>>>>> userspace, so the complexity burden doesn't live in seccomp which we,
+>>>>> by design, want to keep as simple as possible.
 >>>>
->>>> Hi, sorry I've been slow/busy. I'm finally reading through these threads.
->>>>
->>>> Happy bit:
->>>> - avoiding eBPF and just saving the original filters makes things much easier.
->>>>
->>>> Sad bit:
->>>> - inventing a new interface for seccompfds feels like massive overkill to me.
->>>>
->>>> While Andy has big dreams, we're not presently doing seccompfd
->>>> monitoring, etc. There's no driving user for that kind of interface,
->>>> and accepting the maintenance burden of it only for CRIU seems unwise.
->>>>
->>>> So, I'll go back to what I originally proposed at LSS (which it looks
->>>> like we're half way there now):
->>>>
->>>> - save the original filter (done!)
->>>> - extract filters through a single special-purpose interface (looks
->>>> like ptrace is the way to go: root-only, stopped process, etc)
->>>> - compare filter content and issue TSYNCs to merge detected sibling
->>>> threads, since merging things that weren't merged before creates no
->>>> problems.
->>>>
->>>> This means the parenting logic is heuristic, but it's entirely in
->>>> userspace, so the complexity burden doesn't live in seccomp which we,
->>>> by design, want to keep as simple as possible.
+>>>> This is okay with me with a future-proofing caveat: I think that
+>>>> whatever reads out the filter should be clearly documented as
+>>>> returning some special error code that indicates that that filter it
+>>>> tried to read wasn't in the expected form.  That would happen for
+>>>> native eBPF filters, and it would also happen for seccomp monitors
+>>>> even if those monitors use classic BPF.
 >>>
->>> This is okay with me with a future-proofing caveat: I think that
->>> whatever reads out the filter should be clearly documented as
->>> returning some special error code that indicates that that filter it
->>> tried to read wasn't in the expected form.  That would happen for
->>> native eBPF filters, and it would also happen for seccomp monitors
->>> even if those monitors use classic BPF.
+>>> As in, it should have something like "give me BPF" and that'll start
+>>> failing when it's only eBPF in the future?
 >>
->> As in, it should have something like "give me BPF" and that'll start
->> failing when it's only eBPF in the future?
+>> Yes, but it might also start failing when if my dreams come true, it's
+>> still classic BPF, but it's no longer a classic seccomp bpf filter
+>> layer with the semantics we expect today.  (E.g. if it's classic bpf
+>> but has a monitor attached, then the read should fail because
+>> restoring it without restoring the monitor will cause all kinds of
+>> mess.)
 >
-> Yes, but it might also start failing when if my dreams come true, it's
-> still classic BPF, but it's no longer a classic seccomp bpf filter
-> layer with the semantics we expect today.  (E.g. if it's classic bpf
-> but has a monitor attached, then the read should fail because
-> restoring it without restoring the monitor will cause all kinds of
-> mess.)
+> Ah-ha! Understood, and yeah, that seems fine.
+>
+> Speaking of dreams -- what do you think about re-running seccomp in
+> the face of changed syscalls due to ptrace? Closing the ptrace hole
+> would be really nice.
 
-Ah-ha! Understood, and yeah, that seems fine.
+Yes, absolutely!  We might even want to just move the seccomp check
+after ptrace (except for seccomp-induced ptrace).
 
-Speaking of dreams -- what do you think about re-running seccomp in
-the face of changed syscalls due to ptrace? Closing the ptrace hole
-would be really nice.
+Unfortunately, I backed us into a corner with two-phase seccomp on
+x86, and it's a big mess.  (I wrote the seccomp vs ptrace patches, and
+I don't think they're acceptable.)  My big x86 low-level rewrite is an
+attempt to get back out of that corner, and I'm hoping to resubmit the
+bulk of it today or tomorrow.  Once that happens, I just need to fix
+up the 64-bit native case (trivial, I know) and then revert two-phase
+seccomp.
 
--Kees
+One nice outcome of all of this will be that the syscall tables will
+contain bona fide C ABI compliant function pointers, which is
+currently not the case.
 
--- 
-Kees Cook
-Chrome OS Security
+--Andy
