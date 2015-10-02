@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 05/17] tcp/dccp: init sk_prot and call sk_node_init() in reqsk_alloc()
-Date: Fri,  2 Oct 2015 11:43:27 -0700
-Message-ID: <1443811419-4798-6-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 04/17] tcp: call sk_mark_napi_id() on the child, not the listener
+Date: Fri,  2 Oct 2015 11:43:26 -0700
+Message-ID: <1443811419-4798-5-git-send-email-edumazet@google.com>
 References: <1443811419-4798-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>, Ying Cai <ycai@google.com>,
@@ -9,73 +9,51 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35383 "EHLO
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33649 "EHLO
 	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753237AbbJBSn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 14:43:59 -0400
-Received: by pacfv12 with SMTP id fv12so115647109pac.2
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 11:43:59 -0700 (PDT)
+	with ESMTP id S1753221AbbJBSn4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 14:43:56 -0400
+Received: by pacex6 with SMTP id ex6so113532986pac.0
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 11:43:56 -0700 (PDT)
 In-Reply-To: <1443811419-4798-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We plan to use generic functions to insert request sockets
-into ehash table.
+This fixes a typo : We want to store the NAPI id on child socket.
+Presumably nobody really uses busy polling, on short lived flows.
 
-sk_prot needs to be set (to retrieve sk_prot->h.hashinfo)
-sk_node needs to be cleared.
-
+Fixes: 3d97379a67486 ("tcp: move sk_mark_napi_id() at the right place")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/request_sock.h | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ net/ipv4/tcp_ipv4.c | 2 +-
+ net/ipv6/tcp_ipv6.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 273fb7235ce3..97c1ba61ed2d 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -69,6 +69,16 @@ struct request_sock {
- 	u32				peer_secid;
- };
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 64ece718d66c..2fb0945b9d83 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1411,7 +1411,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
  
-+static inline struct request_sock *inet_reqsk(struct sock *sk)
-+{
-+	return (struct request_sock *)sk;
-+}
-+
-+static inline struct sock *req_to_sk(struct request_sock *req)
-+{
-+	return (struct sock *)req;
-+}
-+
- static inline struct request_sock *
- reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
- {
-@@ -78,6 +88,8 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
- 		req->rsk_ops = ops;
- 		sock_hold(sk_listener);
- 		req->rsk_listener = sk_listener;
-+		req_to_sk(req)->sk_prot = sk_listener->sk_prot;
-+		sk_node_init(&req_to_sk(req)->sk_node);
- 		req->saved_syn = NULL;
- 		/* Following is temporary. It is coupled with debugging
- 		 * helpers in reqsk_put() & reqsk_free()
-@@ -87,16 +99,6 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
- 	return req;
- }
- 
--static inline struct request_sock *inet_reqsk(struct sock *sk)
--{
--	return (struct request_sock *)sk;
--}
--
--static inline struct sock *req_to_sk(struct request_sock *req)
--{
--	return (struct sock *)req;
--}
--
- static inline void reqsk_free(struct request_sock *req)
- {
- 	/* temporary debugging */
+ 		if (nsk != sk) {
+ 			sock_rps_save_rxhash(nsk, skb);
+-			sk_mark_napi_id(sk, skb);
++			sk_mark_napi_id(nsk, skb);
+ 			if (tcp_child_process(sk, nsk, skb)) {
+ 				rsk = nsk;
+ 				goto reset;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 2ae95e1d03e1..e463583c39ee 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1265,7 +1265,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		if (nsk != sk) {
+ 			sock_rps_save_rxhash(nsk, skb);
+-			sk_mark_napi_id(sk, skb);
++			sk_mark_napi_id(nsk, skb);
+ 			if (tcp_child_process(sk, nsk, skb))
+ 				goto reset;
+ 			if (opt_skb)
 -- 
 2.6.0.rc2.230.g3dd15c0
