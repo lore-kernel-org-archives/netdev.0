@@ -1,114 +1,108 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: v5 of seccomp filter c/r patches
-Date: Fri, 2 Oct 2015 15:16:24 -0700
-Message-ID: <CALCETrVNumXgriNN2-g9BmU1VHUiVr7asL0dXUH18AmYLfdPZw@mail.gmail.com>
-References: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com>
- <CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w@mail.gmail.com>
- <CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ@mail.gmail.com>
- <CAGXu5jL_GVmbGk5twfASk7+M2gHyKQ1bv8+GD_CPf8B3pPF7ng@mail.gmail.com>
- <CALCETrVC+owDKDGAdOpyrvP5Qq5rxUFMSpsxuc2PmF8FiBKfeg@mail.gmail.com> <CAGXu5jJGakjhuBgZqvgxN8TraDJ0TEnSJ1dQXo9gRg=HwJXmwQ@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] ovs: do not allocate memory from offline numa node
+Date: Fri, 2 Oct 2015 15:38:23 -0700
+Message-ID: <CALnjE+pWV9p5r4KnkAeK+85M3fVtKVWkwxomBkFLhN9BF+_FuQ@mail.gmail.com>
+References: <20151002101822.12499.27658.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGXu5jJGakjhuBgZqvgxN8TraDJ0TEnSJ1dQXo9gRg=HwJXmwQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 8BIT
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlastimil Babka <vbabka@suse.cz>, linux-mm@kvack.org
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151002101822.12499.27658.stgit@buzz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 2, 2015 at 3:06 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
-> On Fri, Oct 2, 2015 at 3:04 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->> On Fri, Oct 2, 2015 at 3:02 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>> On Fri, Oct 2, 2015 at 2:29 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->>>> On Fri, Oct 2, 2015 at 2:10 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>>>> On Fri, Oct 2, 2015 at 9:27 AM, Tycho Andersen
->>>>> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
->>>>>> Hi all,
->>>>>>
->>>>>> Here's v5 of the seccomp filter c/r set. The individual patch notes have
->>>>>> changes, but two highlights are:
->>>>>>
->>>>>> * This series is now based on http://patchwork.ozlabs.org/patch/525492/ and
->>>>>>   will need to be built with that patch applied. This gets rid of two incorrect
->>>>>>   patches in the previous series and is a nicer API.
->>>>>>
->>>>>> * I couldn't figure out a nice way to have SECCOMP_GET_FILTER_FD return the
->>>>>>   same struct file across calls, so we still need a kcmp command. I've narrowed
->>>>>>   the scope of the one being added to only compare seccomp fds.
->>>>>>
->>>>>> Thoughts welcome,
->>>>>
->>>>> Hi, sorry I've been slow/busy. I'm finally reading through these threads.
->>>>>
->>>>> Happy bit:
->>>>> - avoiding eBPF and just saving the original filters makes things much easier.
->>>>>
->>>>> Sad bit:
->>>>> - inventing a new interface for seccompfds feels like massive overkill to me.
->>>>>
->>>>> While Andy has big dreams, we're not presently doing seccompfd
->>>>> monitoring, etc. There's no driving user for that kind of interface,
->>>>> and accepting the maintenance burden of it only for CRIU seems unwise.
->>>>>
->>>>> So, I'll go back to what I originally proposed at LSS (which it looks
->>>>> like we're half way there now):
->>>>>
->>>>> - save the original filter (done!)
->>>>> - extract filters through a single special-purpose interface (looks
->>>>> like ptrace is the way to go: root-only, stopped process, etc)
->>>>> - compare filter content and issue TSYNCs to merge detected sibling
->>>>> threads, since merging things that weren't merged before creates no
->>>>> problems.
->>>>>
->>>>> This means the parenting logic is heuristic, but it's entirely in
->>>>> userspace, so the complexity burden doesn't live in seccomp which we,
->>>>> by design, want to keep as simple as possible.
->>>>
->>>> This is okay with me with a future-proofing caveat: I think that
->>>> whatever reads out the filter should be clearly documented as
->>>> returning some special error code that indicates that that filter it
->>>> tried to read wasn't in the expected form.  That would happen for
->>>> native eBPF filters, and it would also happen for seccomp monitors
->>>> even if those monitors use classic BPF.
->>>
->>> As in, it should have something like "give me BPF" and that'll start
->>> failing when it's only eBPF in the future?
->>
->> Yes, but it might also start failing when if my dreams come true, it's
->> still classic BPF, but it's no longer a classic seccomp bpf filter
->> layer with the semantics we expect today.  (E.g. if it's classic bpf
->> but has a monitor attached, then the read should fail because
->> restoring it without restoring the monitor will cause all kinds of
->> mess.)
+On Fri, Oct 2, 2015 at 3:18 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> When openvswitch tries allocate memory from offline numa node 0:
+> stats = kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO, 0)
+> It catches VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || !node_online(nid))
+> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
+> This patch disables numa affinity in this case.
 >
-> Ah-ha! Understood, and yeah, that seems fine.
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 >
-> Speaking of dreams -- what do you think about re-running seccomp in
-> the face of changed syscalls due to ptrace? Closing the ptrace hole
-> would be really nice.
+> ---
+>
+> <4>[   24.368805] ------------[ cut here ]------------
+> <2>[   24.368846] kernel BUG at include/linux/gfp.h:325!
+> <4>[   24.368868] invalid opcode: 0000 [#1] SMP
+> <4>[   24.368892] Modules linked in: openvswitch vxlan udp_tunnel ip6_udp_tunnel gre libcrc32c kvm_amd kvm crc32_pclmul ghash_clmulni_intel aesni_intel ablk_helper cryptd lrw mgag200 ttm drm_kms_helper drm gf128mul glue_helper serio_raw aes_x86_64 sysimgblt sysfillrect syscopyarea sp5100_tco amd64_edac_mod edac_core edac_mce_amd i2c_piix4 k10temp fam15h_power microcode raid10 raid456 async_raid6_recov async_memcpy async_pq async_xor async_tx xor raid6_pq raid1 raid0 igb multipath i2c_algo_bit i2c_core linear dca psmouse ptp ahci pata_atiixp pps_core libahci
+> <4>[   24.369225] CPU: 22 PID: 987 Comm: ovs-vswitchd Not tainted 3.18.19-24 #1
+> <4>[   24.369255] Hardware name: Supermicro H8DGU/H8DGU, BIOS 3.0b       05/07/2013
+> <4>[   24.369286] task: ffff8807f2433240 ti: ffff8807ec9a0000 task.ti: ffff8807ec9a0000
+> <4>[   24.369317] RIP: 0010:[<ffffffff8119da34>]  [<ffffffff8119da34>] new_slab+0x2d4/0x380
+> <4>[   24.369359] RSP: 0018:ffff8807ec9a35d8  EFLAGS: 00010246
+> <4>[   24.369383] RAX: 0000000000000000 RBX: ffff8807ff403c00 RCX: 0000000000000000
+> <4>[   24.369412] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000002012d0
+> <4>[   24.369441] RBP: ffff8807ec9a3608 R08: ffff8807f193cfe0 R09: 000000010080000a
+> <4>[   24.369471] R10: 00000000f193cf01 R11: 0000000000015f38 R12: 0000000000000000
+> <4>[   24.369501] R13: 0000000000000080 R14: 0000000000000000 R15: 00000000000000d0
+> <4>[   24.369531] FS:  00007febb0cbe980(0000) GS:ffff8807ffd80000(0000) knlGS:0000000000000000
+> <4>[   24.369563] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> <4>[   24.369588] CR2: 00007efc53abc1b8 CR3: 00000007f213f000 CR4: 00000000000407e0
+> <4>[   24.369618] Stack:
+> <4>[   24.369630]  ffff8807ec9a3618 0000000000000000 0000000000000000 ffff8807ffd958c0
+> <4>[   24.369669]  ffff8807ff403c00 00000000000080d0 ffff8807ec9a36f8 ffffffff816cc548
+> <4>[   24.370755]  ffff8807ec9a3708 0000000000000296 0000000000000004 0000000000000000
+> <4>[   24.371777] Call Trace:
+> <4>[   24.372929]  [<ffffffff816cc548>] __slab_alloc+0x33b/0x459
+> <4>[   24.374179]  [<ffffffffa0192a09>] ? ovs_flow_alloc+0x59/0x110 [openvswitch]
+> <4>[   24.375390]  [<ffffffff8114da93>] ? get_page_from_freelist+0x483/0x9f0
+> <4>[   24.376623]  [<ffffffff8136b15e>] ? memzero_explicit+0xe/0x10
+> <4>[   24.377767]  [<ffffffffa0192a09>] ? ovs_flow_alloc+0x59/0x110 [openvswitch]
+> <4>[   24.378951]  [<ffffffff8119e12c>] kmem_cache_alloc_node+0x9c/0x1b0
+> <4>[   24.379916]  [<ffffffff8119f08b>] ? kmem_cache_alloc+0x18b/0x1a0
+> <4>[   24.390806]  [<ffffffffa01929cd>] ? ovs_flow_alloc+0x1d/0x110 [openvswitch]
+> <4>[   24.391779]  [<ffffffffa0192a09>] ovs_flow_alloc+0x59/0x110 [openvswitch]
+> <4>[   24.392875]  [<ffffffffa018b18b>] ovs_flow_cmd_new+0x5b/0x360 [openvswitch]
+> <4>[   24.394004]  [<ffffffff8114e16c>] ? __alloc_pages_nodemask+0x16c/0xaf0
+> <4>[   24.394973]  [<ffffffff815bba77>] ? __alloc_skb+0x87/0x2a0
+> <4>[   24.395926]  [<ffffffff8138b240>] ? nla_parse+0x90/0x110
+> <4>[   24.476276]  [<ffffffff815fe453>] genl_family_rcv_msg+0x373/0x3d0
+> <4>[   24.477704]  [<ffffffff811a09dc>] ? __kmalloc_node_track_caller+0x6c/0x220
+> <4>[   24.478859]  [<ffffffff815fe4f4>] genl_rcv_msg+0x44/0x80
+> <4>[   24.479987]  [<ffffffff815fe4b0>] ? genl_family_rcv_msg+0x3d0/0x3d0
+> <4>[   24.481325]  [<ffffffff815fda49>] netlink_rcv_skb+0xb9/0xe0
+> <4>[   24.482466]  [<ffffffff815fdd6c>] genl_rcv+0x2c/0x40
+> <4>[   24.483554]  [<ffffffff815fd04b>] netlink_unicast+0x12b/0x1c0
+> <4>[   24.484739]  [<ffffffff815fd472>] netlink_sendmsg+0x392/0x6d0
+> <4>[   24.485942]  [<ffffffff815b2f9f>] sock_sendmsg+0xaf/0xc0
+> <4>[   24.486953]  [<ffffffff815fd2e2>] ? netlink_sendmsg+0x202/0x6d0
+> <4>[   24.487969]  [<ffffffff815b3622>] ___sys_sendmsg.part.19+0x322/0x330
+> <4>[   24.489167]  [<ffffffff815b3839>] ? SYSC_sendto+0xf9/0x130
+> <4>[   24.490217]  [<ffffffff815b367a>] ___sys_sendmsg+0x4a/0x70
+> <4>[   24.491162]  [<ffffffff815b40c9>] __sys_sendmsg+0x49/0x90
+> <4>[   24.492082]  [<ffffffff815b4129>] SyS_sendmsg+0x19/0x20
+> <4>[   24.493181]  [<ffffffff816d6c09>] system_call_fastpath+0x12/0x17
+> <4>[   24.494124] Code: 40 e9 ea fe ff ff 90 e8 6b 69 ff ff 49 89 c4 e9 07 fe ff ff 4c 89 f7 ff d0 e9 26 ff ff ff 49 c7 04 06 00 00 00 00 e9 3c ff ff ff <0f> 0b ba 00 10 00 00 be 5a 00 00 00 4c 89 ef 48 d3 e2 e8 65 2a
+> <1>[   24.496071] RIP  [<ffffffff8119da34>] new_slab+0x2d4/0x380
+> <4>[   24.497152]  RSP <ffff8807ec9a35d8>
+> <4>[   24.498945] ---[ end trace 6f97360ff4a9ee45 ]---
+> ---
+>  net/openvswitch/flow_table.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+> index f2ea83ba4763..c7f74aab34b9 100644
+> --- a/net/openvswitch/flow_table.c
+> +++ b/net/openvswitch/flow_table.c
+> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>
+>         /* Initialize the default stat node. */
+>         stats = kmem_cache_alloc_node(flow_stats_cache,
+> -                                     GFP_KERNEL | __GFP_ZERO, 0);
+> +                                     GFP_KERNEL | __GFP_ZERO,
+> +                                     node_online(0) ? 0 : NUMA_NO_NODE);
+>         if (!stats)
+>                 goto err;
+>
 
-Yes, absolutely!  We might even want to just move the seccomp check
-after ptrace (except for seccomp-induced ptrace).
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-Unfortunately, I backed us into a corner with two-phase seccomp on
-x86, and it's a big mess.  (I wrote the seccomp vs ptrace patches, and
-I don't think they're acceptable.)  My big x86 low-level rewrite is an
-attempt to get back out of that corner, and I'm hoping to resubmit the
-bulk of it today or tomorrow.  Once that happens, I just need to fix
-up the 64-bit native case (trivial, I know) and then revert two-phase
-seccomp.
-
-One nice outcome of all of this will be that the syscall tables will
-contain bona fide C ABI compliant function pointers, which is
-currently not the case.
-
---Andy
+Thanks!
