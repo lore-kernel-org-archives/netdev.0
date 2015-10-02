@@ -1,120 +1,73 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 08/17] tcp: get_openreq[46]() changes
-Date: Fri,  2 Oct 2015 11:43:30 -0700
-Message-ID: <1443811419-4798-9-git-send-email-edumazet@google.com>
-References: <1443811419-4798-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, Ying Cai <ycai@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36674 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221AbbJBSoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 14:44:08 -0400
-Received: by pablk4 with SMTP id lk4so112689912pab.3
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 11:44:07 -0700 (PDT)
-In-Reply-To: <1443811419-4798-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH] unix: fix use-after-free with unix_dgram_poll()
+Date: Fri,  2 Oct 2015 19:10:39 +0000 (GMT)
+Message-ID: <20151002191039.9124420ED@prod-mail-relay10.akamai.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When request sockets are no longer in a per listener hash table
-but on regular TCP ehash, we need to access listener uid
-through req->rsk_listener
+From: Jason Baron <jbaron@akamai.com>
 
-get_openreq6() also gets a const for its request socket argument.
+The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
+queue associated with the socket s that we've called poll() on, but it also
+calls sock_poll_wait() for a remote peer socket's wait queue, if it's connected.
+Thus, if we call poll()/select()/epoll() for the socket s, there are then
+a couple of code paths in which the remote peer socket s2 and its associated
+peer_wait queue can be freed before poll()/select()/epoll() have a chance
+to remove themselves from this remote peer socket s2's wait queue.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+The remote peer's socket and associated wait queues can be freed via:
+
+1. If s calls connect() to connect to a new socket other than s2, it will
+drop its reference on s2, and thus a close() on s2 will free it.
+
+2. If we call close() on s2, then a subsequent sendmsg() from s, will drop
+the final reference to s2, allowing it to be freed.
+
+Address this issue, by reverting unix_dgram_poll() to only register with
+the wait queue associated with s and simply drop the second sock_poll_wait()
+registration for the remote peer socket wait queue. This then presents the
+expected semantics to poll()/select()/epoll().
+
+This works because we will continue to get POLLOUT wakeups from
+unix_write_space(), which is called via sock_wfree(). In fact, we avoid having
+two wakeup calls here for every buffer we read, since unix_dgram_recvmsg()
+unconditionally calls wake_up_interruptible_sync_poll() on its 'peer_wait' queue
+and we will no longer be in poll against that queue. So I think this should be
+more performant than the current code. And we avoid the second poll() call here
+as well during registration.
+
+unix_write_space() should probably be enhanced such that it checks for the
+unix_recvq_full() condition as well. In fact, it should probably look for
+some fraction of that buffer being free, as is done in unix_writable(). But I'm
+considering that a separate enhancement from fixing this issue.
+
+I've tested this by specifically reproducing cases #1 and #2 above as well as
+by running the test code here: https://lkml.org/lkml/2015/9/13/195
+
+Signed-off-by: Jason Baron <jbaron@akamai.com>
 ---
- include/net/tcp.h   | 1 -
- net/ipv4/tcp_ipv4.c | 8 ++++----
- net/ipv6/tcp_ipv6.c | 7 ++++---
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ net/unix/af_unix.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2c7dfe52f473..a26341d2ad67 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1637,7 +1637,6 @@ struct tcp_iter_state {
- 	enum tcp_seq_states	state;
- 	struct sock		*syn_wait_sk;
- 	int			bucket, offset, sbucket, num;
--	kuid_t			uid;
- 	loff_t			last_pos;
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 56f8c6395966..a33101616215 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1871,7 +1871,6 @@ get_sk:
- 		spin_lock_bh(&icsk->icsk_accept_queue.syn_wait_lock);
- 		if (reqsk_queue_len(&icsk->icsk_accept_queue)) {
- start_req:
--			st->uid		= sock_i_uid(sk);
- 			st->syn_wait_sk = sk;
- 			st->state	= TCP_SEQ_STATE_OPENREQ;
- 			st->sbucket	= 0;
-@@ -2151,7 +2150,7 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
- EXPORT_SYMBOL(tcp_proc_unregister);
- 
- static void get_openreq4(const struct request_sock *req,
--			 struct seq_file *f, int i, kuid_t uid)
-+			 struct seq_file *f, int i)
- {
- 	const struct inet_request_sock *ireq = inet_rsk(req);
- 	long delta = req->rsk_timer.expires - jiffies;
-@@ -2168,7 +2167,8 @@ static void get_openreq4(const struct request_sock *req,
- 		1,    /* timers active (only the expire timer) */
- 		jiffies_delta_to_clock_t(delta),
- 		req->num_timeout,
--		from_kuid_munged(seq_user_ns(f), uid),
-+		from_kuid_munged(seq_user_ns(f),
-+				 sock_i_uid(req->rsk_listener)),
- 		0,  /* non standard timer */
- 		0, /* open_requests have no inode */
- 		0,
-@@ -2278,7 +2278,7 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
- 			get_tcp4_sock(v, seq, st->num);
- 		break;
- 	case TCP_SEQ_STATE_OPENREQ:
--		get_openreq4(v, seq, st->num, st->uid);
-+		get_openreq4(v, seq, st->num);
- 		break;
- 	}
- out:
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 65e797dba504..cadb44a2d34e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1635,7 +1635,7 @@ static void tcp_v6_destroy_sock(struct sock *sk)
- #ifdef CONFIG_PROC_FS
- /* Proc filesystem TCPv6 sock list dumping. */
- static void get_openreq6(struct seq_file *seq,
--			 struct request_sock *req, int i, kuid_t uid)
-+			 const struct request_sock *req, int i)
- {
- 	long ttd = req->rsk_timer.expires - jiffies;
- 	const struct in6_addr *src = &inet_rsk(req)->ir_v6_loc_addr;
-@@ -1659,7 +1659,8 @@ static void get_openreq6(struct seq_file *seq,
- 		   1,   /* timers active (only the expire timer) */
- 		   jiffies_to_clock_t(ttd),
- 		   req->num_timeout,
--		   from_kuid_munged(seq_user_ns(seq), uid),
-+		   from_kuid_munged(seq_user_ns(seq),
-+				    sock_i_uid(req->rsk_listener)),
- 		   0,  /* non standard timer */
- 		   0, /* open_requests have no inode */
- 		   0, req);
-@@ -1773,7 +1774,7 @@ static int tcp6_seq_show(struct seq_file *seq, void *v)
- 			get_tcp6_sock(seq, v, st->num);
- 		break;
- 	case TCP_SEQ_STATE_OPENREQ:
--		get_openreq6(seq, v, st->num, st->uid);
-+		get_openreq6(seq, v, st->num);
- 		break;
- 	}
- out:
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 03ee4d3..c1ae595 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2441,7 +2441,6 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	other = unix_peer_get(sk);
+ 	if (other) {
+ 		if (unix_peer(other) != sk) {
+-			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
+ 			if (unix_recvq_full(other))
+ 				writable = 0;
+ 		}
 -- 
-2.6.0.rc2.230.g3dd15c0
+1.8.2.rc2
