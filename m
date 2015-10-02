@@ -1,131 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Fri, 2 Oct 2015 15:40:39 +0200
-Message-ID: <20151002154039.69f82bdc@redhat.com>
-References: <560ABE86.9050508@gmail.com>
-	<20150930114255.13505.2618.stgit@canyon>
-	<20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
-	<20151002114118.75aae2f9@redhat.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: [PATCH v1 0/5] Improve ASIX RX memory allocation error handling
+Date: Fri, 2 Oct 2015 14:39:39 +0100
+Message-ID: <1443793179-3895-1-git-send-email-Dean_Jenkins@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
-        Alexander Duyck
- <alexander.duyck@gmail.com>,
-        Pekka Enberg <penberg@kernel.org>, netdev@vger.kernel.org,
-        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-        David
- Rientjes <rientjes@google.com>, brouer@redhat.com,
-        Hannes Frederic Sowa
- <hannes@redhat.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151002114118.75aae2f9@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-usb@vger.kernel.org>, <ben.hutchings@codethink.co.uk>,
+	<davem@davemloft.net>, <bjorn@mork.no>, <linux@davidrobins.net>,
+	Mark Craske <Mark_Craske@mentor.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.mentorg.com ([192.94.38.131]:49195 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbbJBNm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 09:42:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Oct 2015 11:41:18 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+From: Mark Craske <Mark_Craske@mentor.com>
 
-> On Thu, 1 Oct 2015 15:10:15 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Wed, 30 Sep 2015 13:44:19 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > 
-> > > Make it possible to free a freelist with several objects by adjusting
-> > > API of slab_free() and __slab_free() to have head, tail and an objects
-> > > counter (cnt).
-> > > 
-> > > Tail being NULL indicate single object free of head object.  This
-> > > allow compiler inline constant propagation in slab_free() and
-> > > slab_free_freelist_hook() to avoid adding any overhead in case of
-> > > single object free.
-> > > 
-> > > This allows a freelist with several objects (all within the same
-> > > slab-page) to be free'ed using a single locked cmpxchg_double in
-> > > __slab_free() and with an unlocked cmpxchg_double in slab_free().
-> > > 
-> > > Object debugging on the free path is also extended to handle these
-> > > freelists.  When CONFIG_SLUB_DEBUG is enabled it will also detect if
-> > > objects don't belong to the same slab-page.
-> > > 
-> > > These changes are needed for the next patch to bulk free the detached
-> > > freelists it introduces and constructs.
-> > > 
-> > > Micro benchmarking showed no performance reduction due to this change,
-> > > when debugging is turned off (compiled with CONFIG_SLUB_DEBUG).
-> > > 
-> > 
-> > checkpatch says
-> > 
-> > WARNING: Avoid crashing the kernel - try using WARN_ON & recovery code rather than BUG() or BUG_ON()
-> > #205: FILE: mm/slub.c:2888:
-> > +       BUG_ON(!size);
-> > 
-> > 
-> > Linus will get mad at you if he finds out, and we wouldn't want that.
-> > 
-> > --- a/mm/slub.c~slub-optimize-bulk-slowpath-free-by-detached-freelist-fix
-> > +++ a/mm/slub.c
-> > @@ -2885,7 +2885,8 @@ static int build_detached_freelist(struc
-> >  /* Note that interrupts must be enabled when calling this function. */
-> >  void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
-> >  {
-> > -	BUG_ON(!size);
-> > +	if (WARN_ON(!size))
-> > +		return;
-> >  
-> >  	do {
-> >  		struct detached_freelist df;
-> > _
-> 
-> My problem with this change is that WARN_ON generates (slightly) larger
-> code size, which is critical for instruction-cache usage...
-> 
->  [net-next-mm]$ ./scripts/bloat-o-meter vmlinux-with_BUG_ON vmlinux-with_WARN_ON 
->  add/remove: 0/0 grow/shrink: 1/0 up/down: 17/0 (17)
->  function                                     old     new   delta
->  kmem_cache_free_bulk                         438     455     +17
-> 
-> My IP-forwarding benchmark is actually a very challenging use-case,
-> because the code path "size" a packet have to travel is larger than the
-> instruction-cache of the CPU.
-> 
-> Thus, I need introducing new code like this patch and at the same time
-> have to reduce the number of instruction-cache misses/usage.  In this
-> case we solve the problem by kmem_cache_free_bulk() not getting called
-> too often. Thus, +17 bytes will hopefully not matter too much... but on
-> the other hand we sort-of know that calling kmem_cache_free_bulk() will
-> cause icache misses.
+Please ignore the cover letter PATCH v2 as sent in error.
+Patches are all v1, (there are no v2 patches yet)
 
-I just tested this change on top of my net-use-case patchset... and for
-some strange reason the code with this WARN_ON is faster and have much
-less icache-misses (1,278,276 vs 2,719,158 L1-icache-load-misses).
+The ASIX RX handler algorithm is weak on error handling.
+There is a design flaw in the ASIX RX handler algorithm because the
+implementation for handling RX Ethernet frames for the DUB-E100 C1 can
+have Ethernet frames spanning multiple URBs. This means that payload data
+from more than 1 URB is sometimes needed to fill the socket buffer with a
+complete Ethernet frame. When the URB with the start of an Ethernet frame
+is received then an attempt is made to allocate a socket buffer. If the
+memory allocation fails then the algorithm sets the buffer pointer member
+to NULL and the function exits (no crash yet). Subsequently, the RX hander
+is called again to process the next URB which assumes there is a socket
+buffer available and the kernel crashes when there is no buffer.
 
-Thus, I think we should keep your fix.
+This patchset implements an improvement to the RX handling algorithm to
+avoid a crash when no memory is available for the socket buffer.
 
-I cannot explain why using WARN_ON() is better and cause less icache
-misses.  And I hate when I don't understand every detail.
+The patchset will apply cleanly to the net-next master branch but the
+created kernel has not been tested. The driver was tested on ARM kernels
+v3.8 and v3.14 for a commercial product.
 
- My theory is, after reading the assembler code, that the UD2
-instruction (from BUG_ON) cause some kind of icache decoder stall
-(Intel experts???).  Now that should not be a problem, as UD2 is
-obviously placed as an unlikely branch and left at the end of the asm
-function call.  But the call to __slab_free() is also placed at the end
-of the asm function (gets inlined from slab_free() as unlikely).  And
-it is actually fairly likely that bulking is calling __slab_free (slub
-slowpath call).
+Dean Jenkins (5):
+  asix: Rename remaining and size for clarity
+  asix: Tidy-up 32-bit header word synchronisation
+  asix: Simplify asix_rx_fixup_internal() netdev alloc
+  asix: On RX avoid creating bad Ethernet frames
+  asix: Continue processing URB if no RX netdev buffer
+
+ drivers/net/usb/asix.h        |    2 +-
+ drivers/net/usb/asix_common.c |  114 ++++++++++++++++++++++++++---------------
+ 2 files changed, 74 insertions(+), 42 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.9.5
