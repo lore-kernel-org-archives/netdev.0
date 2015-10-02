@@ -1,90 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: linux-next: Tree for Oct 1 (ipvs)
-Date: Fri, 2 Oct 2015 09:45:49 +0900
-Message-ID: <20151002004549.GA22640@verge.net.au>
-References: <20151001165001.02d3ada5@canb.auug.org.au>
- <560D6CB6.5070904@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] bridge: vlan: cleanups & fixes
+Date: Thu, 01 Oct 2015 18:07:29 -0700 (PDT)
+Message-ID: <20151001.180729.1453077933138144189.davem@davemloft.net>
+References: <1443637015-4153-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lvs-devel@vger.kernel.org
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <560D6CB6.5070904@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	vyasevich@gmail.com, stephen@networkplumber.org,
+	bridge@lists.linux-foundation.org, nikolay@cumulusnetworks.com
+To: razor@blackwall.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46679 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762AbbJBAwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 20:52:05 -0400
+In-Reply-To: <1443637015-4153-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Randy,
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Wed, 30 Sep 2015 20:16:50 +0200
 
-On Thu, Oct 01, 2015 at 10:26:14AM -0700, Randy Dunlap wrote:
-> On 09/30/15 23:50, Stephen Rothwell wrote:
-> > Hi all,
-> > 
-> > Changes since 20150930:
-> > 
-> 
-> on x86_64:
-> 
-> ../net/netfilter/ipvs/ip_vs_core.c: In function 'ip_vs_leave':
-> ../net/netfilter/ipvs/ip_vs_core.c:584:6: error: implicit declaration of function 'ip_vs_addr_is_unicast' [-Werror=implicit-function-declaration]
->       ip_vs_addr_is_unicast(net, svc->af, &iph->daddr)) {
->       ^
-> ../net/netfilter/ipvs/ip_vs_core.c: In function 'ip_vs_out':
-> ../net/netfilter/ipvs/ip_vs_core.c:1177:14: warning: unused variable 'net' [-Wunused-variable]
->   struct net *net = ipvs->net;
+> This is the first follow-up set, patch 01 reduces the default rhashtable
+> size and the number of locks that can be allocated. Patch 02 and 04 fix
+> possible null pointer dereferences due to the new ordering and
+> initialization on port add/del, and patch 03 moves the "pvid" member in
+> the net_bridge_vlan_group struct in order to simplify code (similar to how
+> it was with the older struct). Patch 05 fixes adding a vlan on a port which
+> is pvid and doesn't have a global context yet.
+> Please review carefully, I think this is the first use of rhashtable's
+> "locks_mul" member in the tree and I'd like to make sure it's correct.
+> Another thing that needs special attention is the nbp_vlan_flush() move
+> after the rx_handler unregister.
 
-Thanks for reporting this problem.
-
-I have the following patch queued up in the ipvs-next tree
-and plan to send a pull request for it later today.
-
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH] ipvs: Don't protect ip_vs_addr_is_unicast with CONFIG_SYSCTL
-
-I arranged the code so that the compiler can remove the unecessary bits
-in ip_vs_leave when CONFIG_SYSCTL is unset, and removed an explicit
-CONFIG_SYSCTL.
-
-Unfortunately when rebasing my work on top of that of Alex Gartrell I
-missed the fact that the newly added function ip_vs_addr_is_unicast was
-surrounded by CONFIG_SYSCTL.
-
-So remove the now unnecessary CONFIG_SYSCTL guards around
-ip_vs_addr_is_unicast.  It is causing build failures today when
-CONFIG_SYSCTL is not selected and any self respecting compiler will
-notice that sysctl_cache_bypass is always false without CONFIG_SYSCTL
-and not include the logic from the function ip_vs_addr_is_unicast in
-the compiled code.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 37dd77a3d0fb..d08df435c2aa 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -547,7 +547,6 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 	return cp;
- }
- 
--#ifdef CONFIG_SYSCTL
- static inline int ip_vs_addr_is_unicast(struct net *net, int af,
- 					union nf_inet_addr *addr)
- {
-@@ -557,7 +556,6 @@ static inline int ip_vs_addr_is_unicast(struct net *net, int af,
- #endif
- 	return (inet_addr_type(net, addr->ip) == RTN_UNICAST);
- }
--#endif
- 
- /*
-  *  Pass or drop the packet.
--- 
-2.1.4
+Series applied, thanks.
