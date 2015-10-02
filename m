@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH 1/3] net: dsa: Use devm_ prefixed allocations
-Date: Fri, 2 Oct 2015 12:48:04 +0200
-Message-ID: <560E60E4.8020706@baylibre.com>
+Subject: [PATCH 2/3] net: dsa: complete dsa_switch_destroy calls
+Date: Fri, 2 Oct 2015 12:48:07 +0200
+Message-ID: <560E60E7.3000504@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -12,46 +12,79 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To simplify and prevent memory leakage when unbinding, use
-the devm_ memory allocation calls.
+When unbinding dsa, complete the dsa_switch_destroy to cleanly
+destroy and unregister the net and mdio devices.
 
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- net/dsa/dsa.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/dsa/dsa.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index c59fa5d..98f94c2 100644
+index 98f94c2..0c104af 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	if (ret < 0)
- 		goto out;
+@@ -22,6 +22,7 @@
+ #include <linux/of_platform.h>
+ #include <linux/of_net.h>
+ #include <linux/sysfs.h>
++#include <linux/phy_fixed.h>
+ #include "dsa_priv.h"
 
--	ds->slave_mii_bus = mdiobus_alloc();
-+	ds->slave_mii_bus = devm_mdiobus_alloc(parent);
- 	if (ds->slave_mii_bus == NULL) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	/*
- 	 * Allocate and initialise switch state.
- 	 */
--	ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
-+	ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
- 	if (ds == NULL)
- 		return ERR_PTR(-ENOMEM);
+ char dsa_driver_version[] = "0.1";
+@@ -420,10 +421,51 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
 
-@@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
- 		goto out;
- 	}
+ static void dsa_switch_destroy(struct dsa_switch *ds)
+ {
++	struct device_node *port_dn;
++	struct phy_device *phydev;
++	struct dsa_chip_data *cd = ds->pd;
++	int port;
++
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	if (ds->hwmon_dev)
+ 		hwmon_device_unregister(ds->hwmon_dev);
+ #endif
++
++	/* Disable configuration of the CPU and DSA ports */
++	for (port = 0; port < DSA_MAX_PORTS; port++) {
++		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
++			continue;
++
++		port_dn = cd->port_dn[port];
++		if (of_phy_is_fixed_link(port_dn)) {
++			phydev = of_phy_find_device(port_dn);
++			if (phydev) {
++				int addr = phydev->addr;
++				phy_device_free(phydev);
++				of_node_put(port_dn);
++				fixed_phy_del(addr);
++			}
++		}
++	}
++
++	/*
++	 * Destroy network devices for physical switch ports.
++	 */
++	for (port = 0; port < DSA_MAX_PORTS; port++) {
++		if (!(ds->phys_port_mask & (1 << port)))
++			continue;
++
++		if (!ds->ports[port])
++			continue;
++
++		unregister_netdev(ds->ports[port]);
++		free_netdev(ds->ports[port]);
++	}
++
++	/*
++	 * Do basic unregister.
++	 */
++	mdiobus_unregister(ds->slave_mii_bus);
+ }
 
--	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-+	dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
- 	if (dst == NULL) {
- 		dev_put(dev);
- 		ret = -ENOMEM;
+ #ifdef CONFIG_PM_SLEEP
 -- 
 1.9.1
