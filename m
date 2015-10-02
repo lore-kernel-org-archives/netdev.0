@@ -1,148 +1,85 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next V14 3/3] openvswitch: 802.1ad: Flow
- handling, actions, vlan parsing and netlink attributes
-Date: Fri, 2 Oct 2015 14:59:38 -0700
-Message-ID: <CALnjE+rxFp1nnvCV4rZke0JwLrR9Pumo_DAoGTzznYj_Fm7ozg@mail.gmail.com>
-References: <1443670380-4245-1-git-send-email-thomasfherbert@gmail.com>
- <1443670380-4245-4-git-send-email-thomasfherbert@gmail.com>
- <560EFBB2.707@gmail.com>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: v5 of seccomp filter c/r patches
+Date: Fri, 2 Oct 2015 15:02:05 -0700
+Message-ID: <CAGXu5jL_GVmbGk5twfASk7+M2gHyKQ1bv8+GD_CPf8B3pPF7ng@mail.gmail.com>
+References: <1443803243-25912-1-git-send-email-tycho.andersen@canonical.com>
+	<CAGXu5jJJoM3NdwSmigWy8trTBATsvkGUDmbZ02QOyU=1tD0Y-w@mail.gmail.com>
+	<CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <560EFBB2.707-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrV1XnOjqq1MFZk4WghPkOqTNp7kKqrvspzUp6zwxmLDWQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBPY3QgMiwgMjAxNSBhdCAyOjQ4IFBNLCBUaG9tYXMgRiBIZXJiZXJ0Cjx0aG9tYXNm
-aGVyYmVydEBnbWFpbC5jb20+IHdyb3RlOgo+IE9uIDkvMzAvMTUgMTE6MzMgUE0sIFRob21hcyBG
-IEhlcmJlcnQgd3JvdGU6Cj4+Cj4+IEFkZCBzdXBwb3J0IGZvciA4MDIuMWFkIGluY2x1ZGluZyB0
-aGUgYWJpbGl0eSB0byBwdXNoIGFuZCBwb3AgZG91YmxlCj4+IHRhZ2dlZCB2bGFucy4gQWRkIHN1
-cHBvcnQgZm9yIDgwMi4xYWQgdG8gbmV0bGluayBwYXJzaW5nIGFuZCBmbG93Cj4+IGNvbnZlcnNp
-b24uIFVzZXMgZG91YmxlIG5lc3RlZCBlbmNhcCBhdHRyaWJ1dGVzIHRvIHJlcHJlc2VudCBkb3Vi
-bGUKPj4gdGFnZ2VkIHZsYW4uIElubmVyIFRQSUQgZW5jb2RlZCBhbG9uZyB3aXRoIGN0Y2kgaW4g
-bmVzdGVkIGF0dHJpYnV0ZXMuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFRob21hcyBGIEhlcmJlcnQg
-PHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPj4gLS0tCj4+ICAgbmV0L29wZW52c3dpdGNoL2Fj
-dGlvbnMuYyAgICAgIHwgICA0ICstCj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICAg
-IHwgIDg3ICsrKysrKysrKysrKysrKysrLS0tLQo+PiAgIG5ldC9vcGVudnN3aXRjaC9mbG93Lmgg
-ICAgICAgICB8ICAxMSArKy0KPj4gICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAx
-NjcKPj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0KPj4gICBuZXQv
-b3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMgfCAgIDQgKy0KPj4gICA1IGZpbGVzIGNoYW5nZWQs
-IDIzOSBpbnNlcnRpb25zKCspLCAzNCBkZWxldGlvbnMoLSkKPj4KLi4uCj4+IGRpZmYgLS1naXQg
-YS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4gYi9uZXQvb3BlbnZzd2l0Y2gvZmxv
-d19uZXRsaW5rLmMKPj4gaW5kZXggYzkyZDZhMi4uMDhmNTZhYiAxMDA2NDQKPj4gLS0tIGEvbmV0
-L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCj4+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93
-X25ldGxpbmsuYwo+PiBAQCAtODExLDYgKzgxMSwyNyBAQCBzdGF0aWMgaW50IG1ldGFkYXRhX2Zy
-b21fbmxhdHRycyhzdHJ1Y3QgbmV0ICpuZXQsCj4+IHN0cnVjdCBzd19mbG93X21hdGNoICptYXRj
-aCwKPj4gICAgICAgICByZXR1cm4gMDsKPj4gICB9Cj4+ICAgK3N0YXRpYyBpbnQgY3VzdF92bGFu
-X2Zyb21fbmxhdHRycyhzdHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCj4+ICsgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBjb25zdCBzdHJ1Y3QgbmxhdHRyICphW10sCj4+ICsgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBib29sIGlzX21hc2ssIGJvb2wgbG9nKQo+PiAr
-ewo+PiArICAgICAgIF9fYmUxNiBjdGNpID0gMDsKPj4gKyAgICAgICBfX2JlMTYgY190cGlkID0g
-MDsKPj4gKwo+PiArICAgICAgIGN0Y2kgPSBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxB
-Tl0pOwo+PiArICAgICAgIGlmICghKGN0Y2kgJiBodG9ucyhWTEFOX1RBR19QUkVTRU5UKSkpIHsK
-Pj4gKyAgICAgICAgICAgICAgIGlmIChpc19tYXNrKQo+PiArICAgICAgICAgICAgICAgICAgICAg
-ICBPVlNfTkxFUlIobG9nLCAiVkxBTiBDVENJIG1hc2sgZG9lcyBub3QgaGF2ZSBleGFjdAo+PiBt
-YXRjaCBmb3IgVkxBTl9UQUdfUFJFU0VOVCBiaXQuIik7Cj4+ICsgICAgICAgICAgICAgICBlbHNl
-Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgIE9WU19OTEVSUihsb2csICJWTEFOIENUQ0kgZG9l
-cyBub3QgaGF2ZQo+PiBWTEFOX1RBR19QUkVTRU5UIGJpdCBzZXQuIik7Cj4+ICsgICAgICAgICAg
-ICAgICByZXR1cm4gLUVJTlZBTDsKPj4gKyAgICAgICB9Cj4+ICsgICAgICAgY190cGlkID0gbmxh
-X2dldF9iZTE2KGFbT1ZTX0tFWV9BVFRSX0VUSEVSVFlQRV0pOwo+PiArICAgICAgIFNXX0ZMT1df
-S0VZX1BVVChtYXRjaCwgZXRoLmN2bGFuLnRwaWQsIGNfdHBpZCwgaXNfbWFzayk7Cj4+ICsgICAg
-ICAgU1dfRkxPV19LRVlfUFVUKG1hdGNoLCBldGguY3ZsYW4udGNpLCBjdGNpLCBpc19tYXNrKTsK
-Pj4gKyAgICAgICByZXR1cm4gMDsKPj4gK30KPj4gKwo+PiAgIHN0YXRpYyBpbnQgb3ZzX2tleV9m
-cm9tX25sYXR0cnMoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19tYXRjaAo+PiAqbWF0
-Y2gsCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdTY0IGF0dHJzLCBjb25zdCBz
-dHJ1Y3QgbmxhdHRyICoqYSwKPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBib29s
-IGlzX21hc2ssIGJvb2wgbG9nKQo+PiBAQCAtODQ1LDcgKzg2Niw3IEBAIHN0YXRpYyBpbnQgb3Zz
-X2tleV9mcm9tX25sYXR0cnMoc3RydWN0IG5ldCAqbmV0LAo+PiBzdHJ1Y3Qgc3dfZmxvd19tYXRj
-aCAqbWF0Y2gsCj4+ICAgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+PiAg
-ICAgICAgICAgICAgICAgfQo+PiAgIC0gICAgICAgICAgICAgU1dfRkxPV19LRVlfUFVUKG1hdGNo
-LCBldGgudGNpLCB0Y2ksIGlzX21hc2spOwo+PiArICAgICAgICAgICAgICAgU1dfRkxPV19LRVlf
-UFVUKG1hdGNoLCBldGgudmxhbi50Y2ksIHRjaSwgaXNfbWFzayk7Cj4+ICAgICAgICAgICAgICAg
-ICBhdHRycyAmPSB+KDEgPDwgT1ZTX0tFWV9BVFRSX1ZMQU4pOwo+PiAgICAgICAgIH0KPj4gICBA
-QCAtMTA2NCw2ICsxMDg1LDkzIEBAIHN0YXRpYyB2b2lkIG1hc2tfc2V0X25sYXR0cihzdHJ1Y3Qg
-bmxhdHRyICphdHRyLAo+PiB1OCB2YWwpCj4+ICAgICAgICAgbmxhdHRyX3NldChhdHRyLCB2YWws
-IG92c19rZXlfbGVucyk7Cj4+ICAgfQo+PiAgICtzdGF0aWMgaW50IHBhcnNlX3ZsYW5fZnJvbV9u
-bGF0dHJzKGNvbnN0IHN0cnVjdCBubGF0dHIgKipubGEsCj4+ICsgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAo+PiArICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIHU2NCAqa2V5X2F0dHJzLCBib29sICppZV92YWxpZCwK
-Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb25zdCBzdHJ1Y3QgbmxhdHRy
-ICoqYSwgYm9vbCBpc19tYXNrLAo+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IGJvb2wgbG9nKQo+PiArewo+PiArICAgICAgIGludCBlcnI7Cj4+ICsgICAgICAgY29uc3Qgc3Ry
-dWN0IG5sYXR0ciAqZW5jYXA7Cj4+ICsKPj4gKyAgICAgICBpZiAoIWlzX21hc2spIHsKPj4gKyAg
-ICAgICAgICAgICAgIHU2NCB2X2F0dHJzID0gMDsKPj4gKwo+PiArICAgICAgICAgICAgICAgZXJy
-ID0gcGFyc2VfZmxvd19ubGF0dHJzKCpubGEsIGEsICZ2X2F0dHJzLCBsb2cpOwo+PiArICAgICAg
-ICAgICAgICAgaWYgKGVycikKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsK
-Pj4gKyAgICAgICAgICAgICAgIC8qIEFub3RoZXIgZW5jYXAgYXR0cmlidXRlIGhlcmUgaW5kaWNh
-dGVzCj4+ICsgICAgICAgICAgICAgICAgKiB0aGUgcHJlc2VuY2Ugb2YgYSBkb3VibGUgdGFnZ2Vk
-IHZsYW4uCj4+ICsgICAgICAgICAgICAgICAgKi8KPj4gKyAgICAgICAgICAgICAgIGlmICgodl9h
-dHRycyAmICgxIDw8IE9WU19LRVlfQVRUUl9FVEhFUlRZUEUpKSAmJgo+PiArCj4+IGV0aF90eXBl
-X3ZsYW4obmxhX2dldF9iZTE2KGFbT1ZTX0tFWV9BVFRSX0VUSEVSVFlQRV0pKSkgewo+PiArICAg
-ICAgICAgICAgICAgICAgICAgICBpZiAoISgodl9hdHRycyAmICgxVUxMIDw8IE9WU19LRVlfQVRU
-Ul9WTEFOKSkgJiYKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKHZfYXR0cnMgJiAo
-MVVMTCA8PCBPVlNfS0VZX0FUVFJfRU5DQVApKSkpIHsKPj4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBPVlNfTkxFUlIobG9nLCAiSW52YWxpZCBJbm5lciBWTEFOCj4+IGZyYW1lIik7
-Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Cj4+ICsg
-ICAgICAgICAgICAgICAgICAgICAgIH0KPj4gKyAgICAgICAgICAgICAgICAgICAgICAgU1dfRkxP
-V19LRVlfUFVUKG1hdGNoLCBldGgudmxhbi50cGlkLAo+PiArCj4+IG5sYV9nZXRfYmUxNihhW09W
-U19LRVlfQVRUUl9FVEhFUlRZUEVdKSwKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBpc19tYXNrKTsKPj4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgZW5jYXAgPSBhW09WU19LRVlfQVRUUl9FTkNBUF07Cj4+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIHZfYXR0cnMgJj0gfigxIDw8IE9WU19LRVlfQVRUUl9FTkNBUCk7Cj4+ICsKPj4gKyAgICAg
-ICAgICAgICAgICAgICAgICAgZXJyID0gY3VzdF92bGFuX2Zyb21fbmxhdHRycyhtYXRjaCwgYSwg
-aXNfbWFzaywKPj4gbG9nKTsKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgaWYgKGVycikKPj4g
-KyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gZXJyOwo+PiArICAgICAgICAg
-ICAgICAgICAgICAgICAqaWVfdmFsaWQgPSB0cnVlOwo+PiArICAgICAgICAgICAgICAgICAgICAg
-ICAqbmxhID0gZW5jYXA7Cj4+ICsKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgLyogSW5zdXJl
-IHRoYXQgdGNpIGtleSBhdHRyaWJ1dGUgaXNuJ3QKPj4gKyAgICAgICAgICAgICAgICAgICAgICAg
-ICogb3ZlcndyaXR0ZW4gYnkgZW5jYXBzdWxhdGVkIGN1c3RvbWVyIHRjaS4KPj4gKyAgICAgICAg
-ICAgICAgICAgICAgICAgICogRXRoZXJ0eXBlIGlzIGNsZWFyZWQgYmVjYXVzZSBpdCBpcyBjX3Rw
-aWQuCj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAqLwo+PiArICAgICAgICAgICAgICAgICAg
-ICAgICB2X2F0dHJzICY9IH4oMSA8PCBPVlNfS0VZX0FUVFJfVkxBTik7Cj4+ICsgICAgICAgICAg
-ICAgICAgICAgICAgIHZfYXR0cnMgJj0gfigxIDw8IE9WU19LRVlfQVRUUl9FVEhFUlRZUEUpOwo+
-PiArICAgICAgICAgICAgICAgfQo+PiArICAgICAgICAgICAgICAgKmtleV9hdHRycyB8PSB2X2F0
-dHJzOwo+PiArCj4+ICsgICAgICAgICAgICAgICBpZiAoKmllX3ZhbGlkKSB7Cj4+ICsgICAgICAg
-ICAgICAgICAgICAgICAgIGVyciA9IHBhcnNlX2Zsb3dfbmxhdHRycygqbmxhLCBhLCBrZXlfYXR0
-cnMsIGxvZyk7Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgIGlmIChlcnIpCj4+ICsgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsKPj4gKyAgICAgICAgICAgICAgIH0K
-Pj4gKwo+PiArICAgICAgIH0gZWxzZSB7Cj4+ICsgICAgICAgICAgICAgICB1NjQgbWFza192X2F0
-dHJzID0gMDsKPj4gKwo+PiArICAgICAgICAgICAgICAgZXJyID0gcGFyc2VfZmxvd19tYXNrX25s
-YXR0cnMoKm5sYSwgYSwgJm1hc2tfdl9hdHRycywKPj4gbG9nKTsKPj4gKyAgICAgICAgICAgICAg
-IGlmIChlcnIpCj4+ICsgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiBlcnI7Cj4+ICsKPj4g
-KyAgICAgICAgICAgICAgIGlmIChtYXNrX3ZfYXR0cnMgJiAxIDw8IE9WU19LRVlfQVRUUl9FTkNB
-UCkgewo+PiArICAgICAgICAgICAgICAgICAgICAgICBpZiAoISppZV92YWxpZCkgewo+PiArICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIE9WU19OTEVSUihsb2csICJFbmNhcCBtYXNrIGF0
-dHJpYnV0ZSBpcwo+PiBzZXQgZm9yIG5vbi1DVkxBTiBmcmFtZS4iKTsKPj4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBlcnIgPSAtRUlOVkFMOwo+PiArICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIHJldHVybiBlcnI7Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgIH0KPj4g
-KyAgICAgICAgICAgICAgICAgICAgICAgZW5jYXAgPSBhW09WU19LRVlfQVRUUl9FTkNBUF07Cj4+
-ICsgICAgICAgICAgICAgICAgICAgICAgIG1hc2tfdl9hdHRycyAmPSB+KDEgPDwgT1ZTX0tFWV9B
-VFRSX0VOQ0FQKTsKPj4gKwo+PiArICAgICAgICAgICAgICAgICAgICAgICBlcnIgPSBjdXN0X3Zs
-YW5fZnJvbV9ubGF0dHJzKG1hdGNoLCBhLCBpc19tYXNrLAo+PiBsb2cpOwo+PiArICAgICAgICAg
-ICAgICAgICAgICAgICBpZiAoZXJyKQo+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHJldHVybiBlcnI7Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgICpubGEgPSBlbmNhcDsKPj4g
-Kwo+PiArICAgICAgICAgICAgICAgICAgICAgICBtYXNrX3ZfYXR0cnMgJj0gfigxVUxMIDw8IE9W
-U19LRVlfQVRUUl9WTEFOKTsKPj4gKyAgICAgICAgICAgICAgICAgICAgICAgbWFza192X2F0dHJz
-ICY9IH4oMVVMTCA8PCBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFKTsKPj4gKyAgICAgICAgICAgICAg
-IH0KPj4gKwo+PiArICAgICAgICAgICAgICAgKmtleV9hdHRycyB8PSBtYXNrX3ZfYXR0cnM7Cj4+
-ICsgICAgICAgICAgICAgICBpZiAoKmllX3ZhbGlkKSB7Cj4KPiBQcmF2aW4sIGNvdWxkIHlvdSBw
-bGVhc2UgcmV2aWV3IHRoZSBhYm92ZSBjb2RlIGVuY29kaW5nIHRoZSBuZXRtYXNrIG9mIHRoZQo+
-IHRwaWRzLiBJIGFtIHNlZWluZyBhIGR1cGxpY2F0ZSBrZXkgKFR5cGUgNiwgZXRoZXJ0eXBlIGtl
-eSkgZGlzY292ZXJlZCBieQo+IHBhcnNlX3ZsYW5fZnJvbV9ubGF0dHJzKCkgYmVsb3cgd2hpY2gg
-SSBub3RpY2VkIChjaGFncmluZWQgSSBhbSkgb25seSBhZnRlcgo+IHN1Ym1pdHRpbmcgdGhpcyBw
-YXRjaC4KPgpTdXJlLCBJJ20gaGFsZndheSB0aHJvdWdoIHRoZSByZXZpZXcuIE9uY2UgaXQgZmlu
-aXNoZWQgSSB3aWxsIHBvc3QgaXQuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Fri, Oct 2, 2015 at 2:29 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+> On Fri, Oct 2, 2015 at 2:10 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>> On Fri, Oct 2, 2015 at 9:27 AM, Tycho Andersen
+>> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+>>> Hi all,
+>>>
+>>> Here's v5 of the seccomp filter c/r set. The individual patch notes have
+>>> changes, but two highlights are:
+>>>
+>>> * This series is now based on http://patchwork.ozlabs.org/patch/525492/ and
+>>>   will need to be built with that patch applied. This gets rid of two incorrect
+>>>   patches in the previous series and is a nicer API.
+>>>
+>>> * I couldn't figure out a nice way to have SECCOMP_GET_FILTER_FD return the
+>>>   same struct file across calls, so we still need a kcmp command. I've narrowed
+>>>   the scope of the one being added to only compare seccomp fds.
+>>>
+>>> Thoughts welcome,
+>>
+>> Hi, sorry I've been slow/busy. I'm finally reading through these threads.
+>>
+>> Happy bit:
+>> - avoiding eBPF and just saving the original filters makes things much easier.
+>>
+>> Sad bit:
+>> - inventing a new interface for seccompfds feels like massive overkill to me.
+>>
+>> While Andy has big dreams, we're not presently doing seccompfd
+>> monitoring, etc. There's no driving user for that kind of interface,
+>> and accepting the maintenance burden of it only for CRIU seems unwise.
+>>
+>> So, I'll go back to what I originally proposed at LSS (which it looks
+>> like we're half way there now):
+>>
+>> - save the original filter (done!)
+>> - extract filters through a single special-purpose interface (looks
+>> like ptrace is the way to go: root-only, stopped process, etc)
+>> - compare filter content and issue TSYNCs to merge detected sibling
+>> threads, since merging things that weren't merged before creates no
+>> problems.
+>>
+>> This means the parenting logic is heuristic, but it's entirely in
+>> userspace, so the complexity burden doesn't live in seccomp which we,
+>> by design, want to keep as simple as possible.
+>
+> This is okay with me with a future-proofing caveat: I think that
+> whatever reads out the filter should be clearly documented as
+> returning some special error code that indicates that that filter it
+> tried to read wasn't in the expected form.  That would happen for
+> native eBPF filters, and it would also happen for seccomp monitors
+> even if those monitors use classic BPF.
+
+As in, it should have something like "give me BPF" and that'll start
+failing when it's only eBPF in the future?
+
+-Kees
+
+-- 
+Kees Cook
+Chrome OS Security
