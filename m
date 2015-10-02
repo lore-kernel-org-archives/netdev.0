@@ -1,61 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] i40e: fix offload of GRE tunnels
-Date: Thu,  1 Oct 2015 18:25:42 -0700
-Message-ID: <1443749142-40988-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56725 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbbJBB0J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2015 21:26:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vinson Lee <vlee@twopensource.com>
+Subject: netpoll_send_skb_on_dev warning with bnx2
+Date: Thu, 1 Oct 2015 20:25:46 -0700
+Message-ID: <CAHTgTXVCwhYKFKHPJHK19uLPX4na8+WJ7WMEv15BZMPocNQBwA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Neil Horman <nhorman@redhat.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-HSGLinuxNICDev@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Hi.
 
-The driver still was not offloading TSO on GRE tunnels because
-it forgot to set the GSO_GRE flag, causing lots of retransmits.
+I am seeing a netpoll_send_skb_on_dev warning with bnx2. It happens on
+Linux 4.1 and I am able to reproduce the warning with Linux 4.3-rc3.
 
-This fixes generic GRE traffic (like a tunnel added like below)
-whereas before it would get 1Gb/s or less, now on a 10G adapter
-it gets 8.7Gb/s.
+------------[ cut here ]------------
+WARNING: CPU: 11 PID: 3110 at net/core/netpoll.c:368
+netpoll_send_skb_on_dev+0x183/0x201()
+netpoll_send_skb_on_dev(): eth0 enabled interrupts in poll
+(bnx2_start_xmit+0x0/0x5d4 [bnx2])
+Modules linked in: netconsole(+) configfs ipv6 ppdev parport_pc lp
+parport tcp_diag inet_diag ipmi_devintf serio_raw iTCO_wdt
+iTCO_vendor_support ipmi_si ipmi_msghandler hpilo hpwdt bnx2 coretemp
+kvm_intel kvm crc32c_intel ghash_clmulni_intel microcode lpc_ich
+mfd_core i7core_edac edac_core pcc_cpufreq acpi_cpufreq shpchp
+sch_fq_codel hpsa radeon ttm drm_kms_helper drm fb_sys_fops sysimgblt
+sysfillrect syscopyarea i2c_algo_bit i2c_core
+CPU: 11 PID: 3110 Comm: modprobe Not tainted 4.3.0-rc3 #1
+ 0000000000000170 ffff88060be17a18 ffffffff812bc84c ffffffff818b1a78
+ ffff88060be17a68 ffff88060be17a58 ffffffff81064712 000000000be17a68
+ ffffffff814ec12e ffff88060bc10900 0000000000000000 ffff8800d941c000
+Call Trace:
+ [<ffffffff812bc84c>] dump_stack+0x48/0x5c
+ [<ffffffff81064712>] warn_slowpath_common+0xa1/0xbb
+ [<ffffffff814ec12e>] ? netpoll_send_skb_on_dev+0x183/0x201
+ [<ffffffff810647cf>] warn_slowpath_fmt+0x46/0x48
+ [<ffffffffa039a6b9>] ? bnx2_run_loopback+0x391/0x391 [bnx2]
+ [<ffffffff814ec12e>] netpoll_send_skb_on_dev+0x183/0x201
+ [<ffffffff814ec58b>] netpoll_send_udp+0x3df/0x3f1
+ [<ffffffffa049324a>] write_msg+0xaf/0xe9 [netconsole]
+ [<ffffffff810a6daa>] call_console_drivers.clone.2+0xd1/0xe9
+ [<ffffffff810a70d0>] console_unlock+0x30e/0x3a5
+ [<ffffffff810a757d>] register_console+0x2af/0x322
+ [<ffffffffa04971b4>] init_netconsole+0x1b4/0x224 [netconsole]
+ [<ffffffffa0497000>] ? 0xffffffffa0497000
+ [<ffffffff810002bf>] do_one_initcall+0xf7/0x182
+ [<ffffffff811764fe>] ? kmem_cache_alloc_trace+0xb6/0xf0
+ [<ffffffff810cb8d8>] ? do_init_module+0x31/0x1e4
+ [<ffffffff810cb910>] do_init_module+0x69/0x1e4
+ [<ffffffff810ccedc>] load_module+0x1451/0x160b
+ [<ffffffff810ca1a3>] ? mod_kobject_put+0x4d/0x4d
+ [<ffffffff811606f3>] ? __vmalloc_node+0x3e/0x40
+ [<ffffffff810cd2aa>] SyS_init_module+0x14f/0x155
+ [<ffffffff815833d7>] entry_SYSCALL_64_fastpath+0x12/0x6a
+---[ end trace 878215466e581776 ]---
 
-ip ad ad 11.1.0.2/24 dev ens2f0
-ip l set ens2f0 up
-ip link add gre2 type gretap remote 11.1.0.1 local 11.1.0.2 dev ens2f0
-ip l set gre2 up
-ip ad ad 192.168.124.2/24 dev gre2
-ping 192.168.124.1
-netperf -H 192.168.124.1
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 48a52b3..171e0b8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8166,6 +8166,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 
- 	netdev->hw_enc_features |= NETIF_F_IP_CSUM	 |
- 				  NETIF_F_GSO_UDP_TUNNEL |
-+				  NETIF_F_GSO_GRE	 |
- 				  NETIF_F_TSO;
- 
- 	netdev->features = NETIF_F_SG		       |
-@@ -8173,6 +8174,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 			   NETIF_F_SCTP_CSUM	       |
- 			   NETIF_F_HIGHDMA	       |
- 			   NETIF_F_GSO_UDP_TUNNEL      |
-+			   NETIF_F_GSO_GRE	       |
- 			   NETIF_F_HW_VLAN_CTAG_TX     |
- 			   NETIF_F_HW_VLAN_CTAG_RX     |
- 			   NETIF_F_HW_VLAN_CTAG_FILTER |
--- 
-2.4.3
+Cheers,
+Vinson
