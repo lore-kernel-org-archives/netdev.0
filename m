@@ -1,98 +1,75 @@
-From: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v1 2/5] asix: Tidy-up 32-bit header word synchronisation
-Date: Fri, 2 Oct 2015 14:29:05 +0100
-Message-ID: <1443792548-2025-3-git-send-email-Dean_Jenkins@mentor.com>
-References: <1443792548-2025-1-git-send-email-Dean_Jenkins@mentor.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/3] net: dsa: Use devm_ prefixed allocations
+Date: Fri, 2 Oct 2015 16:37:55 +0300
+Message-ID: <560E88B3.30706@cogentembedded.com>
+References: <560E60E4.8020706@baylibre.com>
+ <560E86BC.3090104@cogentembedded.com> <560E86F5.2030301@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <bjorn-yOkvZcmFvRU@public.gmane.org>, <linux-AegXhGwVzVhoAEGGzP886w@public.gmane.org>,
-	Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
-	Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1443792548-2025-1-git-send-email-Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <560E86F5.2030301@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tidy-up the Data header 32-bit word synchronisation logic in
-asix_rx_fixup_internal() by removing redundant logic tests.
+On 10/2/2015 4:30 PM, Neil Armstrong wrote:
 
-The code is looking at the following cases of the Data header
-32-bit word that is present before each Ethernet frame:
+>>> To simplify and prevent memory leakage when unbinding, use
+>>> the devm_ memory allocation calls.
+>>>
+>>> Tested-by: Andrew Lunn <andrew@lunn.ch>
+>>> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+>>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>>> ---
+>>>    net/dsa/dsa.c | 6 +++---
+>>>    1 file changed, 3 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>>> index c59fa5d..98f94c2 100644
+>>> --- a/net/dsa/dsa.c
+>>> +++ b/net/dsa/dsa.c
+>>> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>>>        if (ret < 0)
+>>>            goto out;
+>>>
+>>> -    ds->slave_mii_bus = mdiobus_alloc();
+>>> +    ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+>>>        if (ds->slave_mii_bus == NULL) {
+>>>            ret = -ENOMEM;
+>>>            goto out;
+>>> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>>>        /*
+>>>         * Allocate and initialise switch state.
+>>>         */
+>>> -    ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>>> +    ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>>>        if (ds == NULL)
+>>>            return ERR_PTR(-ENOMEM);
+>>>
+>>> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
+>>>            goto out;
+>>>        }
+>>>
+>>> -    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
+>>> +    dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
+>>>        if (dst == NULL) {
+>>>            dev_put(dev);
+>>>            ret = -ENOMEM;
+>>>
+>>
+>>     Shouldn't you remove the correspoding kfree(), etc. calls?
+>>
+>> MBR, Sergei
+>>
+> The corresponding kfree() calls were all missing.
 
-a) all 32 bits of the Data header word are in the URB socket buffer
-b) first 16 bits of the Data header word are at the end of the URB
-   socket buffer
-c) last 16 bits of the Data header word are at the start of the URB
-   socket buffer eg. split_head = true
+    Then this patch should be for net, not net-next. Either that, or add the 
+kfree() calls first, then remove them in this net-next patch.
 
-Note that the lifetime of rx->split_head exists outside of the
-function call and is accessed per processing of each URB. Therefore,
-split_head being true acts on the next URB to be processed.
+> Neil
 
-To check for b) the offset will be 16 bits (2 bytes) from the end of
-the buffer then indicate split_head is true.
-To check for c) split_head must be true because the first 16 bits
-have been found.
-To check for a) else c)
-
-Note that the || logic of the old code included the state
-(skb->len - offset == sizeof(u16) && rx->split_head) which is not
-possible because the split_head cannot be true whilst checking for b).
-This is because the split_head indicates that the first 16 bits have
-been found and that is not possible whilst checking for the first 16
-bits. Therefore simplify the logic.
-
-Signed-off-by: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/usb/asix_common.c |   28 +++++++++++++---------------
- 1 file changed, 13 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 2bd5bdd..89efd6a 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -61,21 +61,19 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 		unsigned char *data;
- 
- 		if (!rx->remaining) {
--			if ((skb->len - offset == sizeof(u16)) ||
--			    rx->split_head) {
--				if(!rx->split_head) {
--					rx->header = get_unaligned_le16(
--							skb->data + offset);
--					rx->split_head = true;
--					offset += sizeof(u16);
--					break;
--				} else {
--					rx->header |= (get_unaligned_le16(
--							skb->data + offset)
--							<< 16);
--					rx->split_head = false;
--					offset += sizeof(u16);
--				}
-+			if (skb->len - offset == sizeof(u16)) {
-+				rx->header = get_unaligned_le16(
-+						skb->data + offset);
-+				rx->split_head = true;
-+				offset += sizeof(u16);
-+				break;
-+			}
-+
-+			if (rx->split_head == true) {
-+				rx->header |= (get_unaligned_le16(
-+						skb->data + offset) << 16);
-+				rx->split_head = false;
-+				offset += sizeof(u16);
- 			} else {
- 				rx->header = get_unaligned_le32(skb->data +
- 								offset);
--- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
