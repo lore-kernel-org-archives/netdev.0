@@ -1,157 +1,128 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 4/4] openvswitch: IPv6 support for ovs_tunnel_get_egress_info
-Date: Thu, 1 Oct 2015 17:11:56 -0700
-Message-ID: <CALnjE+o-ou=Vpv8_e20-CyRMA62ceGiDOZuSaRU9Qwb_WBBP8Q@mail.gmail.com>
-References: <cover.1443710454.git.jbenc@redhat.com>
-	<8eeae62b794d6d7486cedd8178414d2fdfb6e4f8.1443710454.git.jbenc@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 01 Oct 2015 17:43:28 -0700 (PDT)
+Message-ID: <20151001.174328.2107306212695015237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Jesse Gross <jesse@nicira.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36648 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbbJBAL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 20:11:57 -0400
-Received: by igcrk20 with SMTP id rk20so6820106igc.1
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 17:11:56 -0700 (PDT)
-In-Reply-To: <8eeae62b794d6d7486cedd8178414d2fdfb6e4f8.1443710454.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 1, 2015 at 7:44 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> For compat tunnel interfaces, reject IPv6 keys.
->
-> Also fixes a related thinko in vport-vxlan: upcall->egress_tun_info is not
-> yet set at the point where it is used, thus the obtained family is
-> incorrect. As this is IPv4 anyway, just use AF_INET.
->
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> New patch in v2 of the set.
-> ---
->  net/openvswitch/vport-geneve.c |  4 ++-
->  net/openvswitch/vport-gre.c    |  4 ++-
->  net/openvswitch/vport-vxlan.c  |  6 ++--
->  net/openvswitch/vport.c        | 62 ++++++++++++++++++++++++++++--------------
->  net/openvswitch/vport.h        | 26 ++++++++++++++++++
->  5 files changed, 77 insertions(+), 25 deletions(-)
->
-...
 
-> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-> index fb3cdb85905d..0973acb5432c 100644
-> --- a/net/openvswitch/vport-vxlan.c
-> +++ b/net/openvswitch/vport-vxlan.c
-> @@ -151,8 +151,7 @@ static int vxlan_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
->  {
->         struct vxlan_dev *vxlan = netdev_priv(vport->dev);
->         struct net *net = ovs_dp_get_net(vport->dp);
-> -       unsigned short family = ip_tunnel_info_af(upcall->egress_tun_info);
-> -       __be16 dst_port = vxlan_dev_dst_port(vxlan, family);
-> +       __be16 dst_port = vxlan_dev_dst_port(vxlan, AF_INET);
->         __be16 src_port;
->         int port_min;
->         int port_max;
-> @@ -160,7 +159,8 @@ static int vxlan_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
->         inet_get_local_port_range(net, &port_min, &port_max);
->         src_port = udp_flow_src_port(net, skb, 0, 0, true);
->
-> -       return ovs_tunnel_get_egress_info(upcall, net,
-> +       /* Only IPv4 supported in the compat layer. Pass NULL ipv6 socket. */
-> +       return ovs_tunnel_get_egress_info(upcall, net, NULL,
->                                           skb, IPPROTO_UDP,
->                                           src_port, dst_port);
->  }
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index dc81dc619aa2..c58d95eed5fd 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -489,6 +489,7 @@ EXPORT_SYMBOL_GPL(ovs_vport_deferred_free);
->
->  int ovs_tunnel_get_egress_info(struct dp_upcall_info *upcall,
->                                struct net *net,
-> +                              struct sock *ipv6_sk,
->                                struct sk_buff *skb,
->                                u8 ipproto,
->                                __be16 tp_src,
-> @@ -498,13 +499,9 @@ int ovs_tunnel_get_egress_info(struct dp_upcall_info *upcall,
->         const struct ip_tunnel_info *tun_info = skb_tunnel_info(skb);
->         const struct ip_tunnel_key *tun_key;
->         u32 skb_mark = skb->mark;
-> -       struct rtable *rt;
-> -       struct flowi4 fl;
->
->         if (unlikely(!tun_info))
->                 return -EINVAL;
-> -       if (ip_tunnel_info_af(tun_info) != AF_INET)
-> -               return -EINVAL;
->
->         tun_key = &tun_info->key;
->
-> @@ -512,22 +509,47 @@ int ovs_tunnel_get_egress_info(struct dp_upcall_info *upcall,
->          * The process may need to be changed if the corresponding process
->          * in vports ops changed.
->          */
-> -       rt = ovs_tunnel_route_lookup(net, tun_key, skb_mark, &fl, ipproto);
-> -       if (IS_ERR(rt))
-> -               return PTR_ERR(rt);
-> -
-> -       ip_rt_put(rt);
-> -
-> -       /* Generate egress_tun_info based on tun_info,
-> -        * saddr, tp_src and tp_dst
-> -        */
-> -       ip_tunnel_key_init(&egress_tun_info->key,
-> -                          fl.saddr, tun_key->u.ipv4.dst,
-> -                          tun_key->tos,
-> -                          tun_key->ttl,
-> -                          tp_src, tp_dst,
-> -                          tun_key->tun_id,
-> -                          tun_key->tun_flags);
-> +       if (ip_tunnel_info_af(tun_info) == AF_INET) {
-> +               struct rtable *rt;
-> +               struct flowi4 fl;
-> +
-> +               rt = ovs_tunnel_route_lookup(net, tun_key, skb_mark, &fl, ipproto);
-> +               if (IS_ERR(rt))
-> +                       return PTR_ERR(rt);
-> +
-> +               ip_rt_put(rt);
-> +
-> +               /* Generate egress_tun_info based on tun_info,
-> +               * saddr, tp_src and tp_dst
-> +               */
-> +               ip_tunnel_key_init(&egress_tun_info->key,
-> +                                  fl.saddr, tun_key->u.ipv4.dst,
-> +                                  tun_key->tos,
-> +                                  tun_key->ttl,
-> +                                  tp_src, tp_dst,
-> +                                  tun_key->tun_id,
-> +                                  tun_key->tun_flags);
-> +       } else {
-> +               struct dst_entry *ndst;
-> +               struct flowi6 fl6;
-> +
-> +               if (!ipv6_sk)
-> +                       return -EPFNOSUPPORT;
-> +
-> +               ndst = ovs_tunnel6_route_lookup(net, ipv6_sk, tun_key,
-> +                                               skb_mark, &fl6, ipproto);
-> +               if (IS_ERR(ndst))
-> +                       return PTR_ERR(ndst);
-> +               dst_release(ndst);
-> +
-> +               ip6_tunnel_key_init(&egress_tun_info->key,
-> +                                   &fl6.saddr, &tun_key->u.ipv6.dst,
-> +                                   tun_key->tos,
-> +                                   tun_key->ttl,
-> +                                   tp_src, tp_dst,
-> +                                   tun_key->tun_id,
-> +                                   tun_key->tun_flags);
-> +       }
+1) Fix regression in SKB partial checksum handling, from Pravin B
+   Shalar.
 
-I dont see point of adding this code when IPv6 sampling not support by
-the patch series.
+2) Fix VLAN inside of VXLAN handling in i40e driver, from Jesse
+   Brandeburg.
+
+3) Cure softlockups during accept() in SCTP, from Karl Heiss.
+
+4) MSG_PEEK should return multiple SKBs worth of data in AF_UNIX,
+   from Aaron Conole.
+
+5) IPV6 erroneously ignores output interface specifier in lookup
+   key for route lookups, fix from David Ahern.
+
+6) In Marvell DSA driver, forward unknown frames to CPU port, from
+   Andrew Lunn.
+
+7) Mission flow flag initializations in some code paths, from David
+   Ahern.
+
+Please pull, thanks a lot!
+
+The following changes since commit 518a7cb6980cd640c7f979d29021ad870f60d7d7:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-09-26 06:01:33 -0400)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to b84f78782052ee4516903e5d0566a5eee365b771:
+
+  net: Initialize flow flags in input path (2015-09-29 21:52:32 -0700)
+
+----------------------------------------------------------------
+Aaron Conole (2):
+      af_unix: Convert the unix_sk macro to an inline function for type safety
+      af_unix: return data from multiple SKBs on recv() with MSG_PEEK flag
+
+Alexander Couzens (1):
+      l2tp: protect tunnel->del_work by ref_count
+
+Alexander Stein (1):
+      net sysfs: Print link speed as signed integer
+
+Andrew Lunn (1):
+      dsa: mv88e6xxx: Enable forwarding for unknown to the CPU port
+
+Andrzej Hajda (3):
+      net: hisilicon: fix handling platform_get_irq result
+      r8169: fix handling rtl_readphy result
+      bna: fix error handling
+
+David Ahern (2):
+      net: ipv6: Add RT6_LOOKUP_F_IFACE flag if oif is set
+      net: Initialize flow flags in input path
+
+David S. Miller (2):
+      Merge branch 'sctp-accept-deadlock'
+      Merge branch 'af_unix_MSG_PEEK'
+
+Denys Vlasenko (1):
+      net: sctp: Don't use 64 kilobyte lookup table for four elements
+
+Ivan Mikhaylov (1):
+      net/ibm/emac: bump version numbers for correct work with ethtool
+
+Jesse Brandeburg (1):
+      i40e: fix VLAN inside VXLAN
+
+Karl Heiss (2):
+      sctp: Whitespace fix
+      sctp: Prevent soft lockup when sctp_accept() is called during a timeout event
+
+Mitch Williams (1):
+      i40e/i40evf: check for stopped admin queue
+
+Pravin B Shelar (1):
+      skbuff: Fix skb checksum partial check.
+
+Robb Manes (1):
+      net/mlx4: Handle return codes in mlx4_qp_attach_common
+
+Thomas Huth (1):
+      testptp: Silence compiler warnings on ppc64
+
+Vivien Didelot (1):
+      net: dsa: fix preparation of a port STP update
+
+ Documentation/ptp/testptp.c                     |    1 +
+ drivers/net/dsa/mv88e6xxx.c                     |    2 ++
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      |   13 +++++++------
+ drivers/net/ethernet/hisilicon/hip04_eth.c      |    2 +-
+ drivers/net/ethernet/ibm/emac/core.h            |    6 +++---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   |    9 +++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |    3 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c |    9 +++++++++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c        |    7 ++++---
+ drivers/net/ethernet/realtek/r8169.c            |    2 +-
+ include/linux/skbuff.h                          |    2 +-
+ include/net/af_unix.h                           |    6 +++++-
+ net/core/net-sysfs.c                            |    3 +--
+ net/core/skbuff.c                               |    9 +++++----
+ net/dsa/slave.c                                 |   11 ++++++++---
+ net/ipv4/fib_frontend.c                         |    1 +
+ net/ipv4/route.c                                |    1 +
+ net/ipv6/route.c                                |    3 ++-
+ net/l2tp/l2tp_core.c                            |   11 +++++++++--
+ net/sctp/associola.c                            |   20 +++++++++++---------
+ net/sctp/sm_sideeffect.c                        |   44 ++++++++++++++++++++++++--------------------
+ net/unix/af_unix.c                              |   15 ++++++++++++++-
+ 22 files changed, 121 insertions(+), 59 deletions(-)
