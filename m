@@ -1,30 +1,33 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: Re: [PATCH nf-next] netfilter: Line layout whitespace fixes
-Date: Fri, 2 Oct 2015 00:44:03 +0100
-Message-ID: <560DC543.3060809@chirality.org.uk>
-References: <1443089406-8996-1-git-send-email-ipm@chirality.org.uk>
- <20150930221707.GA14994@salvia>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 2/4] openvswitch: netlink attributes for IPv6 tunneling
+Date: Thu, 1 Oct 2015 17:10:57 -0700
+Message-ID: <CALnjE+qiL4warx0nLwvN8M2f39QnebFBBA4BuSXRkR7yphOfHQ@mail.gmail.com>
+References: <cover.1443710454.git.jbenc@redhat.com>
+	<57d072dd1b31821743d0ae92a93b842022118f76.1443710454.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150930221707.GA14994@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Jesse Gross <jesse@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:34486 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbbJBAK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2015 20:10:58 -0400
+Received: by igcpb10 with SMTP id pb10so7795497igc.1
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2015 17:10:57 -0700 (PDT)
+In-Reply-To: <57d072dd1b31821743d0ae92a93b842022118f76.1443710454.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On 30/09/15 23:17, Pablo Neira Ayuso wrote:
-> On Thu, Sep 24, 2015 at 11:10:06AM +0100, Ian Morris wrote:
->> Fixes various whitespace issues detected by checkpatch (e.g. adding spaces between operations, replacing spaces with tabs, etc)
->>
->> No changes detected by objdiff.
-> These large cleanup patch causes problems for -stable maintainers,
-> since they have more conflicts when backporting stuff.
+On Thu, Oct 1, 2015 at 7:44 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Add netlink attributes for IPv6 tunnel addresses. This enables IPv6 support
+> for tunnels.
 >
-> I'd rather keep this back.
->
-Please help me understand: until when do you propose such changes be 
-deferred? Or are you suggesting we should apply changes more 
-incrementally somehow?
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> v2: Changed description. Rebased tun_proto assignment in ip_tun_from_nlattr
+>     to accomodate changes in the previous patch.
+> ---
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
