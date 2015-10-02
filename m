@@ -1,107 +1,66 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] unix: fix use-after-free with unix_dgram_poll()
-Date: Fri, 02 Oct 2015 20:49:21 +0100
-Message-ID: <87io6pt5j2.fsf@doppelsaurus.mobileactivedefense.com>
-References: <20151002191039.9124420ED@prod-mail-relay10.akamai.com>
-	<871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] net: Add support for filtering neigh dump by
+ master device
+Date: Fri, 2 Oct 2015 13:51:15 -0600
+Message-ID: <560EE033.3040300@cumulusnetworks.com>
+References: <1443544323-13242-1-git-send-email-dsa@cumulusnetworks.com>
+ <87h9m9tchw.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, minipli@googlemail.com,
-	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	rweikusat@mobileactivedefense.com, viro@zeniv.linux.org.uk,
-	davidel@xmailserver.org, dave@stgolabs.net, olivier@mauras.ch,
-	pageexec@freemail.hu, torvalds@linux-foundation.org,
-	peterz@infradead.org
-To: Jason Baron <jbaron@akamai.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:57472 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750758AbbJBTuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 15:50:09 -0400
-In-Reply-To: <871tdd3w5s.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Fri, 02 Oct 2015 20:30:55 +0100")
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34870 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbbJBTvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2015 15:51:17 -0400
+Received: by pacfv12 with SMTP id fv12so116995207pac.2
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2015 12:51:17 -0700 (PDT)
+In-Reply-To: <87h9m9tchw.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
-> Jason Baron <jbaron@akamai.com> writes:
->> From: Jason Baron <jbaron@akamai.com>
->>
->> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
->> queue associated with the socket s that we've called poll() on, but it also
->> calls sock_poll_wait() for a remote peer socket's wait queue, if it's connected.
->> Thus, if we call poll()/select()/epoll() for the socket s, there are then
->> a couple of code paths in which the remote peer socket s2 and its associated
->> peer_wait queue can be freed before poll()/select()/epoll() have a chance
->> to remove themselves from this remote peer socket s2's wait queue.
->
-> [...]
->
->> This works because we will continue to get POLLOUT wakeups from
->> unix_write_space(), which is called via sock_wfree().
->
-> As pointed out in my original comment, this doesn't work (as far as I
-> can/ could tell) because it will only wake up sockets which had a chance
-> to enqueue datagrams to the queue of the receiving socket as only
-> skbuffs enqueued there will be consumed. A socket which is really
-> waiting for space in the receiving queue won't ever be woken up in this
-> way.
+On 10/2/15 11:18 AM, Eric W. Biederman wrote:
+> What is the thinking here because it sure looks like you are busily
+> adding layer two functionality you swore you did not want.
 
-Program which shows that (on 3.2.54 + "local modification", with the 2nd
-sock_poll_wait commented out):
+Interfaces are enslaved to a VRF device, but neighbor entries are 
+installed with a reference to the actual interface not the VRF device.
 
----------------
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/poll.h>
-#include <sys/wait.h>
-#include <unistd.h>
+This patch (plus the iproute2 one) fills a gap for usability and 
+debugging. I have one more patch to go and then I will send an update to 
+the documentation, but here is a preview (documentation update has more 
+detail via examples):
 
-int main(void)
-{
-    struct sockaddr_un sun;
-    struct pollfd pfd;
-    int tg, sk0, sk1, rc;
-    char buf[16];
+Using iproute2 for VRFs
+1. Create a VRF
+    ip link add dev NAME type vrf table ID
 
-    sun.sun_family = AF_UNIX;
-    
-    tg = socket(AF_UNIX, SOCK_DGRAM, 0);
-    strncpy(sun.sun_path, "/tmp/tg", sizeof(sun.sun_path));
-    unlink(sun.sun_path);
-    bind(tg, (struct sockaddr *)&sun, sizeof(sun));
-    
-    sk0 = socket(AF_UNIX, SOCK_DGRAM, 0);
-    connect(sk0, (struct sockaddr *)&sun, sizeof(sun));
-    
-    sk1 = socket(AF_UNIX, SOCK_DGRAM, 0);
-    connect(sk1, (struct sockaddr *)&sun, sizeof(sun));
+2. List VRFs
+    ip [-d] link show type vrf
+    --> -d is needed to show table id
 
-    fcntl(sk0, F_SETFL, fcntl(sk0, F_GETFL) | O_NONBLOCK);
-    fcntl(sk1, F_SETFL, fcntl(sk1, F_GETFL) | O_NONBLOCK);
-    
-    while (write(sk0, "bla", 3) != -1);
+3. Assign a Network Interface to a VRF
+    ip link set dev NAME master VRF-NAME
 
-    if (fork() == 0) {
-	pfd.fd = sk1;
-	pfd.events = POLLOUT;
-	rc = poll(&pfd, 1, -1);
+4. Show Devices Assigned to a VRF
+    ip [-br] link show master VRF-NAME
 
-	_exit(0);
-    }
-    
-    sleep(3);
-    read(tg, buf, sizeof(buf));
-    wait(&rc);
+5. Show Neighbor Entries for a VRF
+    ip [-6] neigh show master VRF-NAME
 
-    return 0;
-}
-------------
+    (This patch is what makes this command work efficiently.)
 
-For me, this blocks forever while it should terminate as soon as the
-datagram was read. Something else may have changed this behaviour in the
-meantime, though.
+6. Show Addresses Assigned to Interfaces in a VRF
+    ip [-br][-6] addr show master VRF-NAME
+
+7. Show Routes for a VRF
+    ip [-6] route show table ID
+
+8. Route Lookup for a VRF
+    ip [-6] route get oif VRF-NAME ADDRESS
+
+    (This one needs a kernel patch to display the correct entry.)
+
+David
