@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 18/23] spear13xx_pcie_gadget: use
-	per-attribute show and store methods
-Date: Sat,  3 Oct 2015 15:32:54 +0200
-Message-ID: <1443879179-22280-19-git-send-email-hch@lst.de>
+Subject: [PATCH 02/23] usb-gadget: use per-attribute show and
+	store methods
+Date: Sat,  3 Oct 2015 15:32:38 +0200
+Message-ID: <1443879179-22280-3-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,407 +30,705 @@ Sender: ocfs2-devel-bounces@oss.oracle.com
 Errors-To: ocfs2-devel-bounces@oss.oracle.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- drivers/misc/spear13xx_pcie_gadget.c | 216 ++++++++++++-----------------------
- 1 file changed, 71 insertions(+), 145 deletions(-)
+To simplify the configfs interface and remove boilerplate code that also
+causes binary bloat.
 
-diff --git a/drivers/misc/spear13xx_pcie_gadget.c b/drivers/misc/spear13xx_pcie_gadget.c
-index b8374cd..ee120dc 100644
---- a/drivers/misc/spear13xx_pcie_gadget.c
-+++ b/drivers/misc/spear13xx_pcie_gadget.c
-@@ -220,11 +220,17 @@ static irqreturn_t spear_pcie_gadget_irq(int irq, void *dev_id)
- /*
-  * configfs interfaces show/store functions
-  */
--static ssize_t pcie_gadget_show_link(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+
-+static struct pcie_gadget_target *to_target(struct config_item *item)
- {
--	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
-+	return item ?
-+		container_of(to_configfs_subsystem(to_config_group(item)),
-+				struct pcie_gadget_target, subsys) : NULL;
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+---
+ drivers/usb/gadget/configfs.c       | 295 ++++++++++++++----------------------
+ include/linux/usb/gadget_configfs.h |  19 +--
+ 2 files changed, 118 insertions(+), 196 deletions(-)
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index 294eb74..163d305 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -64,6 +64,11 @@ struct gadget_info {
+ 	char qw_sign[OS_STRING_QW_SIGN_LEN];
+ };
+ 
++static inline struct gadget_info *to_gadget_info(struct config_item *item)
++{
++	 return container_of(to_config_group(item), struct gadget_info, group);
 +}
 +
-+static ssize_t pcie_gadget_link_show(struct config_item *item, char *buf)
+ struct config_usb_cfg {
+ 	struct config_group group;
+ 	struct config_group strings_group;
+@@ -74,6 +79,12 @@ struct config_usb_cfg {
+ 	struct usb_gadget_strings *gstrings[MAX_USB_STRING_LANGS + 1];
+ };
+ 
++static inline struct config_usb_cfg *to_config_usb_cfg(struct config_item *item)
 +{
-+	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
- 
- 	if (readl(&app_reg->app_status_1) & ((u32)1 << XMLH_LINK_UP_ID))
- 		return sprintf(buf, "UP");
-@@ -232,11 +238,10 @@ static ssize_t pcie_gadget_show_link(
- 		return sprintf(buf, "DOWN");
++	return container_of(to_config_group(item), struct config_usb_cfg,
++			group);
++}
++
+ struct gadget_strings {
+ 	struct usb_gadget_strings stringtab_dev;
+ 	struct usb_string strings[USB_GADGET_FIRST_AVAIL_IDX];
+@@ -117,32 +128,25 @@ static int usb_string_copy(const char *s, char **s_copy)
+ 	return 0;
  }
  
--static ssize_t pcie_gadget_store_link(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_link_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
--	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
-+	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
- 
- 	if (sysfs_streq(buf, "UP"))
- 		writel(readl(&app_reg->app_ctrl_0) | (1 << APP_LTSSM_ENABLE_ID),
-@@ -250,17 +255,15 @@ static ssize_t pcie_gadget_store_link(
- 	return count;
+-CONFIGFS_ATTR_STRUCT(gadget_info);
+-CONFIGFS_ATTR_STRUCT(config_usb_cfg);
+-
+-#define GI_DEVICE_DESC_ITEM_ATTR(name)	\
+-	static struct gadget_info_attribute gadget_cdev_desc_##name = \
+-		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
+-				gadget_dev_desc_##name##_show,		\
+-				gadget_dev_desc_##name##_store)
+-
+ #define GI_DEVICE_DESC_SIMPLE_R_u8(__name)	\
+-	static ssize_t gadget_dev_desc_##__name##_show(struct gadget_info *gi, \
++static ssize_t gadget_dev_desc_##__name##_show(struct config_item *item, \
+ 			char *page)	\
+ {	\
+-	return sprintf(page, "0x%02x\n", gi->cdev.desc.__name);	\
++	return sprintf(page, "0x%02x\n", \
++		to_gadget_info(item)->cdev.desc.__name); \
  }
  
--static ssize_t pcie_gadget_show_int_type(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_int_type_show(struct config_item *item, char *buf)
- {
--	return sprintf(buf, "%s", config->int_type);
-+	return sprintf(buf, "%s", to_target(item)->int_type);
+ #define GI_DEVICE_DESC_SIMPLE_R_u16(__name)	\
+-	static ssize_t gadget_dev_desc_##__name##_show(struct gadget_info *gi, \
++static ssize_t gadget_dev_desc_##__name##_show(struct config_item *item, \
+ 			char *page)	\
+ {	\
+-	return sprintf(page, "0x%04x\n", le16_to_cpup(&gi->cdev.desc.__name)); \
++	return sprintf(page, "0x%04x\n", \
++		le16_to_cpup(&to_gadget_info(item)->cdev.desc.__name)); \
  }
  
--static ssize_t pcie_gadget_store_int_type(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_int_type_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	u32 cap, vec, flags;
- 	ulong vector;
  
-@@ -288,11 +291,10 @@ static ssize_t pcie_gadget_store_int_type(
- 	return count;
+ #define GI_DEVICE_DESC_SIMPLE_W_u8(_name)		\
+-	static ssize_t gadget_dev_desc_##_name##_store(struct gadget_info *gi, \
++static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
+ 		const char *page, size_t len)		\
+ {							\
+ 	u8 val;						\
+@@ -150,12 +154,12 @@ CONFIGFS_ATTR_STRUCT(config_usb_cfg);
+ 	ret = kstrtou8(page, 0, &val);			\
+ 	if (ret)					\
+ 		return ret;				\
+-	gi->cdev.desc._name = val;			\
++	to_gadget_info(item)->cdev.desc._name = val;	\
+ 	return len;					\
  }
  
--static ssize_t pcie_gadget_show_no_of_msi(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_no_of_msi_show(struct config_item *item, char *buf)
- {
--	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
-+	struct spear_pcie_gadget_config *config = to_target(item)
-+	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
- 	u32 cap, vec, flags;
- 	ulong vector;
- 
-@@ -313,13 +315,12 @@ static ssize_t pcie_gadget_show_no_of_msi(
- 	return sprintf(buf, "%lu", vector);
+ #define GI_DEVICE_DESC_SIMPLE_W_u16(_name)	\
+-	static ssize_t gadget_dev_desc_##_name##_store(struct gadget_info *gi, \
++static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
+ 		const char *page, size_t len)		\
+ {							\
+ 	u16 val;					\
+@@ -163,7 +167,7 @@ CONFIGFS_ATTR_STRUCT(config_usb_cfg);
+ 	ret = kstrtou16(page, 0, &val);			\
+ 	if (ret)					\
+ 		return ret;				\
+-	gi->cdev.desc._name = cpu_to_le16p(&val);	\
++	to_gadget_info(item)->cdev.desc._name = cpu_to_le16p(&val);	\
+ 	return len;					\
  }
  
--static ssize_t pcie_gadget_store_no_of_msi(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_no_of_msi_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
- 	int ret;
+@@ -193,7 +197,7 @@ static ssize_t is_valid_bcd(u16 bcd_val)
+ 	return 0;
+ }
  
--	ret = kstrtoul(buf, 0, &config->requested_msi);
-+	ret = kstrtoul(buf, 0, &to_target(item)->requested_msi);
+-static ssize_t gadget_dev_desc_bcdDevice_store(struct gadget_info *gi,
++static ssize_t gadget_dev_desc_bcdDevice_store(struct config_item *item,
+ 		const char *page, size_t len)
+ {
+ 	u16 bcdDevice;
+@@ -206,11 +210,11 @@ static ssize_t gadget_dev_desc_bcdDevice_store(struct gadget_info *gi,
  	if (ret)
  		return ret;
  
-@@ -329,11 +330,10 @@ static ssize_t pcie_gadget_store_no_of_msi(
- 	return count;
+-	gi->cdev.desc.bcdDevice = cpu_to_le16(bcdDevice);
++	to_gadget_info(item)->cdev.desc.bcdDevice = cpu_to_le16(bcdDevice);
+ 	return len;
  }
  
--static ssize_t pcie_gadget_store_inta(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_inta_store(struct config_item *item,
- 		const char *buf, size_t count)
+-static ssize_t gadget_dev_desc_bcdUSB_store(struct gadget_info *gi,
++static ssize_t gadget_dev_desc_bcdUSB_store(struct config_item *item,
+ 		const char *page, size_t len)
  {
--	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
-+	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
- 	ulong en;
- 	int ret;
- 
-@@ -351,10 +351,10 @@ static ssize_t pcie_gadget_store_inta(
- 	return count;
- }
- 
--static ssize_t pcie_gadget_store_send_msi(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_send_msi_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
- 	ulong vector;
- 	u32 ven_msi;
-@@ -388,19 +388,16 @@ static ssize_t pcie_gadget_store_send_msi(
- 	return count;
- }
- 
--static ssize_t pcie_gadget_show_vendor_id(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_vendor_id_show(struct config_item *item, char *buf)
- {
- 	u32 id;
- 
--	spear_dbi_read_reg(config, PCI_VENDOR_ID, 2, &id);
-+	spear_dbi_read_reg(to_target(item), PCI_VENDOR_ID, 2, &id);
- 
- 	return sprintf(buf, "%x", id);
- }
- 
--static ssize_t pcie_gadget_store_vendor_id(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_vendor_id_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
- 	ulong id;
-@@ -410,24 +407,21 @@ static ssize_t pcie_gadget_store_vendor_id(
+ 	u16 bcdUSB;
+@@ -223,13 +227,13 @@ static ssize_t gadget_dev_desc_bcdUSB_store(struct gadget_info *gi,
  	if (ret)
  		return ret;
  
--	spear_dbi_write_reg(config, PCI_VENDOR_ID, 2, id);
-+	spear_dbi_write_reg(to_target(item), PCI_VENDOR_ID, 2, id);
- 
- 	return count;
+-	gi->cdev.desc.bcdUSB = cpu_to_le16(bcdUSB);
++	to_gadget_info(item)->cdev.desc.bcdUSB = cpu_to_le16(bcdUSB);
+ 	return len;
  }
  
--static ssize_t pcie_gadget_show_device_id(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_device_id_show(struct config_item *item, char *buf)
+-static ssize_t gadget_dev_desc_UDC_show(struct gadget_info *gi, char *page)
++static ssize_t gadget_dev_desc_UDC_show(struct config_item *item, char *page)
  {
- 	u32 id;
- 
--	spear_dbi_read_reg(config, PCI_DEVICE_ID, 2, &id);
-+	spear_dbi_read_reg(to_target(item), PCI_DEVICE_ID, 2, &id);
- 
- 	return sprintf(buf, "%x", id);
+-	return sprintf(page, "%s\n", gi->udc_name ?: "");
++	return sprintf(page, "%s\n", to_gadget_info(item)->udc_name ?: "");
  }
  
--static ssize_t pcie_gadget_store_device_id(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_device_id_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
- 	ulong id;
-@@ -437,22 +431,20 @@ static ssize_t pcie_gadget_store_device_id(
- 	if (ret)
- 		return ret;
- 
--	spear_dbi_write_reg(config, PCI_DEVICE_ID, 2, id);
-+	spear_dbi_write_reg(to_target(item), PCI_DEVICE_ID, 2, id);
- 
- 	return count;
+ static int unregister_gadget(struct gadget_info *gi)
+@@ -247,9 +251,10 @@ static int unregister_gadget(struct gadget_info *gi)
+ 	return 0;
  }
  
--static ssize_t pcie_gadget_show_bar0_size(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_bar0_size_show(struct config_item *item, char *buf)
+-static ssize_t gadget_dev_desc_UDC_store(struct gadget_info *gi,
++static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
+ 		const char *page, size_t len)
  {
--	return sprintf(buf, "%lx", config->bar0_size);
-+	return sprintf(buf, "%lx", to_target(item)->bar0_size);
- }
- 
--static ssize_t pcie_gadget_store_bar0_size(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_size_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	ulong size;
- 	u32 pos, pos1;
- 	u32 no_of_bit = 0;
-@@ -489,21 +481,20 @@ static ssize_t pcie_gadget_store_bar0_size(
- 	return count;
- }
- 
--static ssize_t pcie_gadget_show_bar0_address(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_address_show(struct config_item *item,
- 		char *buf)
- {
--	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
-+	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
- 
- 	u32 address = readl(&app_reg->pim0_mem_addr_start);
- 
- 	return sprintf(buf, "%x", address);
- }
- 
--static ssize_t pcie_gadget_store_bar0_address(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_address_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
- 	ulong address;
- 	int ret;
-@@ -524,15 +515,13 @@ static ssize_t pcie_gadget_store_bar0_address(
- 	return count;
- }
- 
--static ssize_t pcie_gadget_show_bar0_rw_offset(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_rw_offset_show(struct config_item *item,
- 		char *buf)
- {
--	return sprintf(buf, "%lx", config->bar0_rw_offset);
-+	return sprintf(buf, "%lx", to_target(item)->bar0_rw_offset);
- }
- 
--static ssize_t pcie_gadget_store_bar0_rw_offset(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_rw_offset_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
- 	ulong offset;
-@@ -545,15 +534,14 @@ static ssize_t pcie_gadget_store_bar0_rw_offset(
- 	if (offset % 4)
- 		return -EINVAL;
- 
--	config->bar0_rw_offset = offset;
-+	to_target(item)->bar0_rw_offset = offset;
- 
- 	return count;
- }
- 
--static ssize_t pcie_gadget_show_bar0_data(
--		struct spear_pcie_gadget_config *config,
--		char *buf)
-+static ssize_t pcie_gadget_bar0_data_show(struct config_item *item, char *buf)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	ulong data;
- 
- 	if (!config->va_bar0_address)
-@@ -564,10 +552,10 @@ static ssize_t pcie_gadget_show_bar0_data(
- 	return sprintf(buf, "%lx", data);
- }
- 
--static ssize_t pcie_gadget_store_bar0_data(
--		struct spear_pcie_gadget_config *config,
-+static ssize_t pcie_gadget_bar0_data_store(struct config_item *item,
- 		const char *buf, size_t count)
- {
-+	struct spear_pcie_gadget_config *config = to_target(item)
- 	ulong data;
++	struct gadget_info *gi = to_gadget_info(item);
+ 	char *name;
  	int ret;
  
-@@ -583,97 +571,35 @@ static ssize_t pcie_gadget_store_bar0_data(
- 	return count;
+@@ -283,34 +288,29 @@ err:
+ 	return ret;
  }
  
--/*
-- * Attribute definitions.
-- */
--
--#define PCIE_GADGET_TARGET_ATTR_RO(_name)				\
--static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
--	__CONFIGFS_ATTR(_name, S_IRUGO, pcie_gadget_show_##_name, NULL)
--
--#define PCIE_GADGET_TARGET_ATTR_WO(_name)				\
--static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
--	__CONFIGFS_ATTR(_name, S_IWUSR, NULL, pcie_gadget_store_##_name)
--
--#define PCIE_GADGET_TARGET_ATTR_RW(_name)				\
--static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
--	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, pcie_gadget_show_##_name, \
--			pcie_gadget_store_##_name)
--PCIE_GADGET_TARGET_ATTR_RW(link);
--PCIE_GADGET_TARGET_ATTR_RW(int_type);
--PCIE_GADGET_TARGET_ATTR_RW(no_of_msi);
--PCIE_GADGET_TARGET_ATTR_WO(inta);
--PCIE_GADGET_TARGET_ATTR_WO(send_msi);
--PCIE_GADGET_TARGET_ATTR_RW(vendor_id);
--PCIE_GADGET_TARGET_ATTR_RW(device_id);
--PCIE_GADGET_TARGET_ATTR_RW(bar0_size);
--PCIE_GADGET_TARGET_ATTR_RW(bar0_address);
--PCIE_GADGET_TARGET_ATTR_RW(bar0_rw_offset);
--PCIE_GADGET_TARGET_ATTR_RW(bar0_data);
-+CONFIGFS_ATTR(pcie_gadget_, link);
-+CONFIGFS_ATTR(pcie_gadget_, int_type);
-+CONFIGFS_ATTR(pcie_gadget_, no_of_msi);
-+CONFIGFS_ATTR_WO(pcie_gadget_, inta);
-+CONFIGFS_ATTR_WO(pcie_gadget_, send_msi);
-+CONFIGFS_ATTR(pcie_gadget_, vendor_id);
-+CONFIGFS_ATTR(pcie_gadget_, device_id);
-+CONFIGFS_ATTR(pcie_gadget_, bar0_size);
-+CONFIGFS_ATTR(pcie_gadget_, bar0_address);
-+CONFIGFS_ATTR(pcie_gadget_, bar0_rw_offset);
-+CONFIGFS_ATTR(pcie_gadget_, bar0_data);
+-GI_DEVICE_DESC_ITEM_ATTR(bDeviceClass);
+-GI_DEVICE_DESC_ITEM_ATTR(bDeviceSubClass);
+-GI_DEVICE_DESC_ITEM_ATTR(bDeviceProtocol);
+-GI_DEVICE_DESC_ITEM_ATTR(bMaxPacketSize0);
+-GI_DEVICE_DESC_ITEM_ATTR(idVendor);
+-GI_DEVICE_DESC_ITEM_ATTR(idProduct);
+-GI_DEVICE_DESC_ITEM_ATTR(bcdDevice);
+-GI_DEVICE_DESC_ITEM_ATTR(bcdUSB);
+-GI_DEVICE_DESC_ITEM_ATTR(UDC);
++CONFIGFS_ATTR(gadget_dev_desc_, bDeviceClass);
++CONFIGFS_ATTR(gadget_dev_desc_, bDeviceSubClass);
++CONFIGFS_ATTR(gadget_dev_desc_, bDeviceProtocol);
++CONFIGFS_ATTR(gadget_dev_desc_, bMaxPacketSize0);
++CONFIGFS_ATTR(gadget_dev_desc_, idVendor);
++CONFIGFS_ATTR(gadget_dev_desc_, idProduct);
++CONFIGFS_ATTR(gadget_dev_desc_, bcdDevice);
++CONFIGFS_ATTR(gadget_dev_desc_, bcdUSB);
++CONFIGFS_ATTR(gadget_dev_desc_, UDC);
  
- static struct configfs_attribute *pcie_gadget_target_attrs[] = {
--	&pcie_gadget_target_link.attr,
--	&pcie_gadget_target_int_type.attr,
--	&pcie_gadget_target_no_of_msi.attr,
--	&pcie_gadget_target_inta.attr,
--	&pcie_gadget_target_send_msi.attr,
--	&pcie_gadget_target_vendor_id.attr,
--	&pcie_gadget_target_device_id.attr,
--	&pcie_gadget_target_bar0_size.attr,
--	&pcie_gadget_target_bar0_address.attr,
--	&pcie_gadget_target_bar0_rw_offset.attr,
--	&pcie_gadget_target_bar0_data.attr,
-+	&pcie_gadget_attr_link,
-+	&pcie_gadget_attr_int_type,
-+	&pcie_gadget_attr_no_of_msi,
-+	&pcie_gadget_attr_inta,
-+	&pcie_gadget_attr_send_msi,
-+	&pcie_gadget_attr_vendor_id,
-+	&pcie_gadget_attr_device_id,
-+	&pcie_gadget_attr_bar0_size,
-+	&pcie_gadget_attr_bar0_address,
-+	&pcie_gadget_attr_bar0_rw_offset,
-+	&pcie_gadget_attr_bar0_data,
+ static struct configfs_attribute *gadget_root_attrs[] = {
+-	&gadget_cdev_desc_bDeviceClass.attr,
+-	&gadget_cdev_desc_bDeviceSubClass.attr,
+-	&gadget_cdev_desc_bDeviceProtocol.attr,
+-	&gadget_cdev_desc_bMaxPacketSize0.attr,
+-	&gadget_cdev_desc_idVendor.attr,
+-	&gadget_cdev_desc_idProduct.attr,
+-	&gadget_cdev_desc_bcdDevice.attr,
+-	&gadget_cdev_desc_bcdUSB.attr,
+-	&gadget_cdev_desc_UDC.attr,
++	&gadget_dev_desc_attr_bDeviceClass,
++	&gadget_dev_desc_attr_bDeviceSubClass,
++	&gadget_dev_desc_attr_bDeviceProtocol,
++	&gadget_dev_desc_attr_bMaxPacketSize0,
++	&gadget_dev_desc_attr_idVendor,
++	&gadget_dev_desc_attr_idProduct,
++	&gadget_dev_desc_attr_bcdDevice,
++	&gadget_dev_desc_attr_bcdUSB,
++	&gadget_dev_desc_attr_UDC,
  	NULL,
  };
  
--static struct pcie_gadget_target *to_target(struct config_item *item)
+-static inline struct gadget_info *to_gadget_info(struct config_item *item)
 -{
--	return item ?
--		container_of(to_configfs_subsystem(to_config_group(item)),
--				struct pcie_gadget_target, subsys) : NULL;
+-	 return container_of(to_config_group(item), struct gadget_info, group);
 -}
 -
--/*
-- * Item operations and type for pcie_gadget_target.
-- */
--
--static ssize_t pcie_gadget_target_attr_show(struct config_item *item,
--					   struct configfs_attribute *attr,
--					   char *buf)
+ static inline struct gadget_strings *to_gadget_strings(struct config_item *item)
+ {
+ 	 return container_of(to_config_group(item), struct gadget_strings,
+@@ -324,12 +324,6 @@ static inline struct gadget_config_name *to_gadget_config_name(
+ 			 group);
+ }
+ 
+-static inline struct config_usb_cfg *to_config_usb_cfg(struct config_item *item)
 -{
--	ssize_t ret = -EINVAL;
--	struct pcie_gadget_target *target = to_target(item);
--	struct pcie_gadget_target_attr *t_attr =
--		container_of(attr, struct pcie_gadget_target_attr, attr);
--
--	if (t_attr->show)
--		ret = t_attr->show(&target->config, buf);
--	return ret;
+-	return container_of(to_config_group(item), struct config_usb_cfg,
+-			group);
 -}
 -
--static ssize_t pcie_gadget_target_attr_store(struct config_item *item,
--					struct configfs_attribute *attr,
--					const char *buf,
--					size_t count)
--{
--	ssize_t ret = -EINVAL;
--	struct pcie_gadget_target *target = to_target(item);
--	struct pcie_gadget_target_attr *t_attr =
--		container_of(attr, struct pcie_gadget_target_attr, attr);
+ static inline struct usb_function_instance *to_usb_function_instance(
+ 		struct config_item *item)
+ {
+@@ -348,12 +342,8 @@ static void gadget_info_attr_release(struct config_item *item)
+ 	kfree(gi);
+ }
+ 
+-CONFIGFS_ATTR_OPS(gadget_info);
 -
--	if (t_attr->store)
--		ret = t_attr->store(&target->config, buf, count);
--	return ret;
--}
--
--static struct configfs_item_operations pcie_gadget_target_item_ops = {
--	.show_attribute		= pcie_gadget_target_attr_show,
--	.store_attribute	= pcie_gadget_target_attr_store,
--};
--
- static struct config_item_type pcie_gadget_target_type = {
- 	.ct_attrs		= pcie_gadget_target_attrs,
--	.ct_item_ops		= &pcie_gadget_target_item_ops,
- 	.ct_owner		= THIS_MODULE,
+ static struct configfs_item_operations gadget_root_item_ops = {
+ 	.release                = gadget_info_attr_release,
+-	.show_attribute         = gadget_info_attr_show,
+-	.store_attribute        = gadget_info_attr_store,
  };
  
+ static void gadget_config_attr_release(struct config_item *item)
+@@ -454,24 +444,20 @@ static int config_usb_cfg_unlink(
+ 	return 0;
+ }
+ 
+-CONFIGFS_ATTR_OPS(config_usb_cfg);
+-
+ static struct configfs_item_operations gadget_config_item_ops = {
+ 	.release                = gadget_config_attr_release,
+-	.show_attribute         = config_usb_cfg_attr_show,
+-	.store_attribute        = config_usb_cfg_attr_store,
+ 	.allow_link             = config_usb_cfg_link,
+ 	.drop_link              = config_usb_cfg_unlink,
+ };
+ 
+ 
+-static ssize_t gadget_config_desc_MaxPower_show(struct config_usb_cfg *cfg,
++static ssize_t gadget_config_desc_MaxPower_show(struct config_item *item,
+ 		char *page)
+ {
+-	return sprintf(page, "%u\n", cfg->c.MaxPower);
++	return sprintf(page, "%u\n", to_config_usb_cfg(item)->c.MaxPower);
+ }
+ 
+-static ssize_t gadget_config_desc_MaxPower_store(struct config_usb_cfg *cfg,
++static ssize_t gadget_config_desc_MaxPower_store(struct config_item *item,
+ 		const char *page, size_t len)
+ {
+ 	u16 val;
+@@ -481,17 +467,18 @@ static ssize_t gadget_config_desc_MaxPower_store(struct config_usb_cfg *cfg,
+ 		return ret;
+ 	if (DIV_ROUND_UP(val, 8) > 0xff)
+ 		return -ERANGE;
+-	cfg->c.MaxPower = val;
++	to_config_usb_cfg(item)->c.MaxPower = val;
+ 	return len;
+ }
+ 
+-static ssize_t gadget_config_desc_bmAttributes_show(struct config_usb_cfg *cfg,
++static ssize_t gadget_config_desc_bmAttributes_show(struct config_item *item,
+ 		char *page)
+ {
+-	return sprintf(page, "0x%02x\n", cfg->c.bmAttributes);
++	return sprintf(page, "0x%02x\n",
++		to_config_usb_cfg(item)->c.bmAttributes);
+ }
+ 
+-static ssize_t gadget_config_desc_bmAttributes_store(struct config_usb_cfg *cfg,
++static ssize_t gadget_config_desc_bmAttributes_store(struct config_item *item,
+ 		const char *page, size_t len)
+ {
+ 	u8 val;
+@@ -504,22 +491,16 @@ static ssize_t gadget_config_desc_bmAttributes_store(struct config_usb_cfg *cfg,
+ 	if (val & ~(USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER |
+ 				USB_CONFIG_ATT_WAKEUP))
+ 		return -EINVAL;
+-	cfg->c.bmAttributes = val;
++	to_config_usb_cfg(item)->c.bmAttributes = val;
+ 	return len;
+ }
+ 
+-#define CFG_CONFIG_DESC_ITEM_ATTR(name)	\
+-	static struct config_usb_cfg_attribute gadget_usb_cfg_##name = \
+-		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
+-				gadget_config_desc_##name##_show,	\
+-				gadget_config_desc_##name##_store)
+-
+-CFG_CONFIG_DESC_ITEM_ATTR(MaxPower);
+-CFG_CONFIG_DESC_ITEM_ATTR(bmAttributes);
++CONFIGFS_ATTR(gadget_config_desc_, MaxPower);
++CONFIGFS_ATTR(gadget_config_desc_, bmAttributes);
+ 
+ static struct configfs_attribute *gadget_config_attrs[] = {
+-	&gadget_usb_cfg_MaxPower.attr,
+-	&gadget_usb_cfg_bmAttributes.attr,
++	&gadget_config_desc_attr_MaxPower,
++	&gadget_config_desc_attr_bmAttributes,
+ 	NULL,
+ };
+ 
+@@ -616,11 +597,10 @@ static struct config_item_type functions_type = {
+ 	.ct_owner       = THIS_MODULE,
+ };
+ 
+-CONFIGFS_ATTR_STRUCT(gadget_config_name);
+ GS_STRINGS_RW(gadget_config_name, configuration);
+ 
+ static struct configfs_attribute *gadget_config_name_langid_attrs[] = {
+-	&gadget_config_name_configuration.attr,
++	&gadget_config_name_attr_configuration,
+ 	NULL,
+ };
+ 
+@@ -719,15 +699,14 @@ static struct config_item_type config_desc_type = {
+ 	.ct_owner       = THIS_MODULE,
+ };
+ 
+-CONFIGFS_ATTR_STRUCT(gadget_strings);
+ GS_STRINGS_RW(gadget_strings, manufacturer);
+ GS_STRINGS_RW(gadget_strings, product);
+ GS_STRINGS_RW(gadget_strings, serialnumber);
+ 
+ static struct configfs_attribute *gadget_strings_langid_attrs[] = {
+-	&gadget_strings_manufacturer.attr,
+-	&gadget_strings_product.attr,
+-	&gadget_strings_serialnumber.attr,
++	&gadget_strings_attr_manufacturer,
++	&gadget_strings_attr_product,
++	&gadget_strings_attr_serialnumber,
+ 	NULL,
+ };
+ 
+@@ -751,27 +730,25 @@ static inline struct os_desc *to_os_desc(struct config_item *item)
+ 	return container_of(to_config_group(item), struct os_desc, group);
+ }
+ 
+-CONFIGFS_ATTR_STRUCT(os_desc);
+-CONFIGFS_ATTR_OPS(os_desc);
+-
+-static ssize_t os_desc_use_show(struct os_desc *os_desc, char *page)
++static inline struct gadget_info *os_desc_item_to_gadget_info(
++		struct config_item *item)
+ {
+-	struct gadget_info *gi;
+-
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
++	return to_gadget_info(to_os_desc(item)->group.cg_item.ci_parent);
++}
+ 
+-	return sprintf(page, "%d", gi->use_os_desc);
++static ssize_t os_desc_use_show(struct config_item *item, char *page)
++{
++	return sprintf(page, "%d",
++			os_desc_item_to_gadget_info(item)->use_os_desc);
+ }
+ 
+-static ssize_t os_desc_use_store(struct os_desc *os_desc, const char *page,
++static ssize_t os_desc_use_store(struct config_item *item, const char *page,
+ 				 size_t len)
+ {
+-	struct gadget_info *gi;
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
+ 	int ret;
+ 	bool use;
+ 
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
+-
+ 	mutex_lock(&gi->lock);
+ 	ret = strtobool(page, &use);
+ 	if (!ret) {
+@@ -783,29 +760,19 @@ static ssize_t os_desc_use_store(struct os_desc *os_desc, const char *page,
+ 	return ret;
+ }
+ 
+-static struct os_desc_attribute os_desc_use =
+-	__CONFIGFS_ATTR(use, S_IRUGO | S_IWUSR,
+-			os_desc_use_show,
+-			os_desc_use_store);
+-
+-static ssize_t os_desc_b_vendor_code_show(struct os_desc *os_desc, char *page)
++static ssize_t os_desc_b_vendor_code_show(struct config_item *item, char *page)
+ {
+-	struct gadget_info *gi;
+-
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
+-
+-	return sprintf(page, "%d", gi->b_vendor_code);
++	return sprintf(page, "%d",
++			os_desc_item_to_gadget_info(item)->b_vendor_code);
+ }
+ 
+-static ssize_t os_desc_b_vendor_code_store(struct os_desc *os_desc,
++static ssize_t os_desc_b_vendor_code_store(struct config_item *item,
+ 					   const char *page, size_t len)
+ {
+-	struct gadget_info *gi;
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
+ 	int ret;
+ 	u8 b_vendor_code;
+ 
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
+-
+ 	mutex_lock(&gi->lock);
+ 	ret = kstrtou8(page, 0, &b_vendor_code);
+ 	if (!ret) {
+@@ -817,29 +784,20 @@ static ssize_t os_desc_b_vendor_code_store(struct os_desc *os_desc,
+ 	return ret;
+ }
+ 
+-static struct os_desc_attribute os_desc_b_vendor_code =
+-	__CONFIGFS_ATTR(b_vendor_code, S_IRUGO | S_IWUSR,
+-			os_desc_b_vendor_code_show,
+-			os_desc_b_vendor_code_store);
+-
+-static ssize_t os_desc_qw_sign_show(struct os_desc *os_desc, char *page)
++static ssize_t os_desc_qw_sign_show(struct config_item *item, char *page)
+ {
+-	struct gadget_info *gi;
+-
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
+ 
+ 	memcpy(page, gi->qw_sign, OS_STRING_QW_SIGN_LEN);
+-
+ 	return OS_STRING_QW_SIGN_LEN;
+ }
+ 
+-static ssize_t os_desc_qw_sign_store(struct os_desc *os_desc, const char *page,
++static ssize_t os_desc_qw_sign_store(struct config_item *item, const char *page,
+ 				     size_t len)
+ {
+-	struct gadget_info *gi;
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
+ 	int res, l;
+ 
+-	gi = to_gadget_info(os_desc->group.cg_item.ci_parent);
+ 	l = min((int)len, OS_STRING_QW_SIGN_LEN >> 1);
+ 	if (page[l - 1] == '\n')
+ 		--l;
+@@ -855,15 +813,14 @@ static ssize_t os_desc_qw_sign_store(struct os_desc *os_desc, const char *page,
+ 	return res;
+ }
+ 
+-static struct os_desc_attribute os_desc_qw_sign =
+-	__CONFIGFS_ATTR(qw_sign, S_IRUGO | S_IWUSR,
+-			os_desc_qw_sign_show,
+-			os_desc_qw_sign_store);
++CONFIGFS_ATTR(os_desc_, use);
++CONFIGFS_ATTR(os_desc_, b_vendor_code);
++CONFIGFS_ATTR(os_desc_, qw_sign);
+ 
+ static struct configfs_attribute *os_desc_attrs[] = {
+-	&os_desc_use.attr,
+-	&os_desc_b_vendor_code.attr,
+-	&os_desc_qw_sign.attr,
++	&os_desc_attr_use,
++	&os_desc_attr_b_vendor_code,
++	&os_desc_attr_qw_sign,
+ 	NULL,
+ };
+ 
+@@ -926,8 +883,6 @@ static int os_desc_unlink(struct config_item *os_desc_ci,
+ 
+ static struct configfs_item_operations os_desc_ops = {
+ 	.release                = os_desc_attr_release,
+-	.show_attribute         = os_desc_attr_show,
+-	.store_attribute        = os_desc_attr_store,
+ 	.allow_link		= os_desc_link,
+ 	.drop_link		= os_desc_unlink,
+ };
+@@ -938,28 +893,21 @@ static struct config_item_type os_desc_type = {
+ 	.ct_owner	= THIS_MODULE,
+ };
+ 
+-CONFIGFS_ATTR_STRUCT(usb_os_desc);
+-CONFIGFS_ATTR_OPS(usb_os_desc);
+-
+-
+ static inline struct usb_os_desc_ext_prop
+ *to_usb_os_desc_ext_prop(struct config_item *item)
+ {
+ 	return container_of(item, struct usb_os_desc_ext_prop, item);
+ }
+ 
+-CONFIGFS_ATTR_STRUCT(usb_os_desc_ext_prop);
+-CONFIGFS_ATTR_OPS(usb_os_desc_ext_prop);
+-
+-static ssize_t ext_prop_type_show(struct usb_os_desc_ext_prop *ext_prop,
+-				  char *page)
++static ssize_t ext_prop_type_show(struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%d", ext_prop->type);
++	return sprintf(page, "%d", to_usb_os_desc_ext_prop(item)->type);
+ }
+ 
+-static ssize_t ext_prop_type_store(struct usb_os_desc_ext_prop *ext_prop,
++static ssize_t ext_prop_type_store(struct config_item *item,
+ 				   const char *page, size_t len)
+ {
++	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
+ 	struct usb_os_desc *desc = to_usb_os_desc(ext_prop->item.ci_parent);
+ 	u8 type;
+ 	int ret;
+@@ -997,9 +945,9 @@ end:
+ 	return ret;
+ }
+ 
+-static ssize_t ext_prop_data_show(struct usb_os_desc_ext_prop *ext_prop,
+-				  char *page)
++static ssize_t ext_prop_data_show(struct config_item *item, char *page)
+ {
++	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
+ 	int len = ext_prop->data_len;
+ 
+ 	if (ext_prop->type == USB_EXT_PROP_UNICODE ||
+@@ -1011,9 +959,10 @@ static ssize_t ext_prop_data_show(struct usb_os_desc_ext_prop *ext_prop,
+ 	return len;
+ }
+ 
+-static ssize_t ext_prop_data_store(struct usb_os_desc_ext_prop *ext_prop,
++static ssize_t ext_prop_data_store(struct config_item *item,
+ 				   const char *page, size_t len)
+ {
++	struct usb_os_desc_ext_prop *ext_prop = to_usb_os_desc_ext_prop(item);
+ 	struct usb_os_desc *desc = to_usb_os_desc(ext_prop->item.ci_parent);
+ 	char *new_data;
+ 	size_t ret_len = len;
+@@ -1044,17 +993,12 @@ static ssize_t ext_prop_data_store(struct usb_os_desc_ext_prop *ext_prop,
+ 	return ret_len;
+ }
+ 
+-static struct usb_os_desc_ext_prop_attribute ext_prop_type =
+-	__CONFIGFS_ATTR(type, S_IRUGO | S_IWUSR,
+-			ext_prop_type_show, ext_prop_type_store);
+-
+-static struct usb_os_desc_ext_prop_attribute ext_prop_data =
+-	__CONFIGFS_ATTR(data, S_IRUGO | S_IWUSR,
+-			ext_prop_data_show, ext_prop_data_store);
++CONFIGFS_ATTR(ext_prop_, type);
++CONFIGFS_ATTR(ext_prop_, data);
+ 
+ static struct configfs_attribute *ext_prop_attrs[] = {
+-	&ext_prop_type.attr,
+-	&ext_prop_data.attr,
++	&ext_prop_attr_type,
++	&ext_prop_attr_data,
+ 	NULL,
+ };
+ 
+@@ -1067,8 +1011,6 @@ static void usb_os_desc_ext_prop_release(struct config_item *item)
+ 
+ static struct configfs_item_operations ext_prop_ops = {
+ 	.release		= usb_os_desc_ext_prop_release,
+-	.show_attribute		= usb_os_desc_ext_prop_attr_show,
+-	.store_attribute	= usb_os_desc_ext_prop_attr_store,
+ };
+ 
+ static struct config_item *ext_prop_make(
+@@ -1137,21 +1079,17 @@ static struct configfs_group_operations interf_grp_ops = {
+ 	.drop_item	= &ext_prop_drop,
+ };
+ 
+-static struct configfs_item_operations interf_item_ops = {
+-	.show_attribute		= usb_os_desc_attr_show,
+-	.store_attribute	= usb_os_desc_attr_store,
+-};
+-
+-static ssize_t interf_grp_compatible_id_show(struct usb_os_desc *desc,
++static ssize_t interf_grp_compatible_id_show(struct config_item *item,
+ 					     char *page)
+ {
+-	memcpy(page, desc->ext_compat_id, 8);
++	memcpy(page, to_usb_os_desc(item)->ext_compat_id, 8);
+ 	return 8;
+ }
+ 
+-static ssize_t interf_grp_compatible_id_store(struct usb_os_desc *desc,
++static ssize_t interf_grp_compatible_id_store(struct config_item *item,
+ 					      const char *page, size_t len)
+ {
++	struct usb_os_desc *desc = to_usb_os_desc(item);
+ 	int l;
+ 
+ 	l = min_t(int, 8, len);
+@@ -1167,21 +1105,17 @@ static ssize_t interf_grp_compatible_id_store(struct usb_os_desc *desc,
+ 	return len;
+ }
+ 
+-static struct usb_os_desc_attribute interf_grp_attr_compatible_id =
+-	__CONFIGFS_ATTR(compatible_id, S_IRUGO | S_IWUSR,
+-			interf_grp_compatible_id_show,
+-			interf_grp_compatible_id_store);
+-
+-static ssize_t interf_grp_sub_compatible_id_show(struct usb_os_desc *desc,
++static ssize_t interf_grp_sub_compatible_id_show(struct config_item *item,
+ 						 char *page)
+ {
+-	memcpy(page, desc->ext_compat_id + 8, 8);
++	memcpy(page, to_usb_os_desc(item)->ext_compat_id + 8, 8);
+ 	return 8;
+ }
+ 
+-static ssize_t interf_grp_sub_compatible_id_store(struct usb_os_desc *desc,
++static ssize_t interf_grp_sub_compatible_id_store(struct config_item *item,
+ 						  const char *page, size_t len)
+ {
++	struct usb_os_desc *desc = to_usb_os_desc(item);
+ 	int l;
+ 
+ 	l = min_t(int, 8, len);
+@@ -1197,14 +1131,12 @@ static ssize_t interf_grp_sub_compatible_id_store(struct usb_os_desc *desc,
+ 	return len;
+ }
+ 
+-static struct usb_os_desc_attribute interf_grp_attr_sub_compatible_id =
+-	__CONFIGFS_ATTR(sub_compatible_id, S_IRUGO | S_IWUSR,
+-			interf_grp_sub_compatible_id_show,
+-			interf_grp_sub_compatible_id_store);
++CONFIGFS_ATTR(interf_grp_, compatible_id);
++CONFIGFS_ATTR(interf_grp_, sub_compatible_id);
+ 
+ static struct configfs_attribute *interf_grp_attrs[] = {
+-	&interf_grp_attr_compatible_id.attr,
+-	&interf_grp_attr_sub_compatible_id.attr,
++	&interf_grp_attr_compatible_id,
++	&interf_grp_attr_sub_compatible_id,
+ 	NULL
+ };
+ 
+@@ -1242,7 +1174,6 @@ int usb_os_desc_prepare_interf_dir(struct config_group *parent,
+ 	f_default_groups[0] = os_desc_group;
+ 
+ 	os_desc_group->default_groups = interface_groups;
+-	interface_type->ct_item_ops = &interf_item_ops;
+ 	interface_type->ct_group_ops = &interf_grp_ops;
+ 	interface_type->ct_attrs = interf_grp_attrs;
+ 	interface_type->ct_owner = owner;
+diff --git a/include/linux/usb/gadget_configfs.h b/include/linux/usb/gadget_configfs.h
+index d74c0ae..c36e957 100644
+--- a/include/linux/usb/gadget_configfs.h
++++ b/include/linux/usb/gadget_configfs.h
+@@ -7,9 +7,10 @@ int check_user_usb_string(const char *name,
+ 		struct usb_gadget_strings *stringtab_dev);
+ 
+ #define GS_STRINGS_W(__struct, __name)	\
+-	static ssize_t __struct##_##__name##_store(struct __struct *gs, \
++static ssize_t __struct##_##__name##_store(struct config_item *item, \
+ 		const char *page, size_t len)		\
+ {							\
++	struct __struct *gs = to_##__struct(item);	\
+ 	int ret;					\
+ 							\
+ 	ret = usb_string_copy(page, &gs->__name);	\
+@@ -19,30 +20,20 @@ int check_user_usb_string(const char *name,
+ }
+ 
+ #define GS_STRINGS_R(__struct, __name)	\
+-	static ssize_t __struct##_##__name##_show(struct __struct *gs, \
+-			char *page)	\
++static ssize_t __struct##_##__name##_show(struct config_item *item, char *page) \
+ {	\
++	struct __struct *gs = to_##__struct(item);	\
+ 	return sprintf(page, "%s\n", gs->__name ?: "");	\
+ }
+ 
+-#define GS_STRING_ITEM_ATTR(struct_name, name)	\
+-	static struct struct_name##_attribute struct_name##_##name = \
+-		__CONFIGFS_ATTR(name,  S_IRUGO | S_IWUSR,		\
+-				struct_name##_##name##_show,		\
+-				struct_name##_##name##_store)
+-
+ #define GS_STRINGS_RW(struct_name, _name)	\
+ 	GS_STRINGS_R(struct_name, _name)	\
+ 	GS_STRINGS_W(struct_name, _name)	\
+-	GS_STRING_ITEM_ATTR(struct_name, _name)
++	CONFIGFS_ATTR(struct_name##_, _name)
+ 
+ #define USB_CONFIG_STRING_RW_OPS(struct_in)				\
+-	CONFIGFS_ATTR_OPS(struct_in);					\
+-									\
+ static struct configfs_item_operations struct_in##_langid_item_ops = {	\
+ 	.release                = struct_in##_attr_release,		\
+-	.show_attribute         = struct_in##_attr_show,		\
+-	.store_attribute        = struct_in##_attr_store,		\
+ };									\
+ 									\
+ static struct config_item_type struct_in##_langid_type = {		\
 -- 
 1.9.1
