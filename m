@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 10/15] nouveau: don't call pci_dma_supported
-Date: Sat,  3 Oct 2015 17:19:34 +0200
-Message-ID: <1443885579-7094-11-git-send-email-hch@lst.de>
+Subject: [PATCH 11/15] sfc: don't call dma_supported
+Date: Sat,  3 Oct 2015 17:19:35 +0200
+Message-ID: <1443885579-7094-12-git-send-email-hch@lst.de>
 References: <1443885579-7094-1-git-send-email-hch@lst.de>
 Cc: linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
 	linux-media@vger.kernel.org, netdev@vger.kernel.org,
@@ -10,43 +10,37 @@ Cc: linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
 To: Andrew Morton <akpm@linux-foundation.org>,
 	Don Fry <pcnet32@frontier.com>,
 	Oliver Neukum <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:51300 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143AbbJCPYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 11:24:04 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1443885579-7094-1-git-send-email-hch@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just try to set a 64-bit DMA mask first and retry with the smaller dma_mask
-if dma_set_mask failed.
+dma_set_mask already checks for a supported DMA mask before updating it,
+the call to dma_supported is redundant.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/gpu/drm/nouveau/nouveau_ttm.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/efx.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nouveau_ttm.c
-index 3f0fb55..bb030e6 100644
---- a/drivers/gpu/drm/nouveau/nouveau_ttm.c
-+++ b/drivers/gpu/drm/nouveau/nouveau_ttm.c
-@@ -350,11 +350,14 @@ nouveau_ttm_init(struct nouveau_drm *drm)
- 
- 	bits = nvxx_mmu(&drm->device)->dma_bits;
- 	if (nvxx_device(&drm->device)->func->pci) {
--		if (drm->agp.bridge ||
--		     !pci_dma_supported(dev->pdev, DMA_BIT_MASK(bits)))
-+		if (drm->agp.bridge)
- 			bits = 32;
- 
- 		ret = pci_set_dma_mask(dev->pdev, DMA_BIT_MASK(bits));
-+		if (ret && bits != 32) {
-+			bits = 32;
-+			ret = pci_set_dma_mask(dev->pdev, DMA_BIT_MASK(bits));
-+		}
- 		if (ret)
- 			return ret;
- 
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 974637d..4abe886 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1247,11 +1247,9 @@ static int efx_init_io(struct efx_nic *efx)
+ 	 * masks event though they reject 46 bit masks.
+ 	 */
+ 	while (dma_mask > 0x7fffffffUL) {
+-		if (dma_supported(&pci_dev->dev, dma_mask)) {
+-			rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
+-			if (rc == 0)
+-				break;
+-		}
++		rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
++		if (rc == 0)
++			break;
+ 		dma_mask >>= 1;
+ 	}
+ 	if (rc) {
 -- 
 1.9.1
