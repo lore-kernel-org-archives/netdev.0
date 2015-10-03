@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 21/23] ocfs2/cluster: move locking into
-	attribute store methods
-Date: Sat,  3 Oct 2015 15:32:57 +0200
-Message-ID: <1443879179-22280-22-git-send-email-hch@lst.de>
+Subject: [PATCH 09/23] usb-gadget/f_printer: use per-attribute
+	show and store methods
+Date: Sat,  3 Oct 2015 15:32:45 +0200
+Message-ID: <1443879179-22280-10-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,133 +30,103 @@ Sender: ocfs2-devel-bounces@oss.oracle.com
 Errors-To: ocfs2-devel-bounces@oss.oracle.com
 List-Id: netdev.vger.kernel.org
 
-The test and separate set bit scheme was racy to start with, so move to do
-a test_and_set_bit after doing the earlier error checks inside the actual
-store methods.  Also remove the locking for the local attribute which
-already has a different scheme to synchronize.
+To simplify the configfs interface and remove boilerplate code that also
+causes binary bloat.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 ---
- fs/ocfs2/cluster/nodemanager.c | 54 +++++++++++++++---------------------------
- 1 file changed, 19 insertions(+), 35 deletions(-)
+ drivers/usb/gadget/function/f_printer.c | 30 ++++++++++++------------------
+ 1 file changed, 12 insertions(+), 18 deletions(-)
 
-diff --git a/fs/ocfs2/cluster/nodemanager.c b/fs/ocfs2/cluster/nodemanager.c
-index 441c84e..7a398f6 100644
---- a/fs/ocfs2/cluster/nodemanager.c
-+++ b/fs/ocfs2/cluster/nodemanager.c
-@@ -188,7 +188,6 @@ enum {
- 	O2NM_NODE_ATTR_NUM = 0,
- 	O2NM_NODE_ATTR_PORT,
- 	O2NM_NODE_ATTR_ADDRESS,
--	O2NM_NODE_ATTR_LOCAL,
- };
- 
- static ssize_t o2nm_node_num_write(struct o2nm_node *node, const char *page,
-@@ -197,6 +196,7 @@ static ssize_t o2nm_node_num_write(struct o2nm_node *node, const char *page,
- 	struct o2nm_cluster *cluster = to_o2nm_cluster_from_node(node);
- 	unsigned long tmp;
- 	char *p = (char *)page;
-+	int ret = 0;
- 
- 	tmp = simple_strtoul(p, &p, 0);
- 	if (!p || (*p && (*p != '\n')))
-@@ -215,15 +215,18 @@ static ssize_t o2nm_node_num_write(struct o2nm_node *node, const char *page,
- 
- 	write_lock(&cluster->cl_nodes_lock);
- 	if (cluster->cl_nodes[tmp])
--		p = NULL;
-+		ret = -EEXIST;
-+	else if (test_and_set_bit(O2NM_NODE_ATTR_NUM,
-+			&node->nd_set_attributes))
-+		ret = -EBUSY;
- 	else  {
- 		cluster->cl_nodes[tmp] = node;
- 		node->nd_num = tmp;
- 		set_bit(tmp, cluster->cl_nodes_bitmap);
- 	}
- 	write_unlock(&cluster->cl_nodes_lock);
--	if (p == NULL)
--		return -EEXIST;
-+	if (ret)
-+		return ret;
- 
- 	return count;
+diff --git a/drivers/usb/gadget/function/f_printer.c b/drivers/usb/gadget/function/f_printer.c
+index 8e2b6be..3a37846 100644
+--- a/drivers/usb/gadget/function/f_printer.c
++++ b/drivers/usb/gadget/function/f_printer.c
+@@ -1148,9 +1148,6 @@ static inline struct f_printer_opts
+ 			    func_inst.group);
  }
-@@ -247,6 +250,8 @@ static ssize_t o2nm_node_ipv4_port_write(struct o2nm_node *node,
- 	if (tmp >= (u16)-1)
- 		return -ERANGE;
  
-+	if (test_and_set_bit(O2NM_NODE_ATTR_PORT, &node->nd_set_attributes))
-+		return -EBUSY;
- 	node->nd_ipv4_port = htons(tmp);
+-CONFIGFS_ATTR_STRUCT(f_printer_opts);
+-CONFIGFS_ATTR_OPS(f_printer_opts);
+-
+ static void printer_attr_release(struct config_item *item)
+ {
+ 	struct f_printer_opts *opts = to_f_printer_opts(item);
+@@ -1160,13 +1157,12 @@ static void printer_attr_release(struct config_item *item)
  
- 	return count;
-@@ -282,6 +287,9 @@ static ssize_t o2nm_node_ipv4_address_write(struct o2nm_node *node,
- 	write_lock(&cluster->cl_nodes_lock);
- 	if (o2nm_node_ip_tree_lookup(cluster, ipv4_addr, &p, &parent))
- 		ret = -EEXIST;
-+	else if (test_and_set_bit(O2NM_NODE_ATTR_ADDRESS,
-+			&node->nd_set_attributes))
-+		ret = -EBUSY;
- 	else {
- 		rb_link_node(&node->nd_ip_node, parent, p);
- 		rb_insert_color(&node->nd_ip_node, &cluster->cl_node_ip_tree);
-@@ -388,24 +396,13 @@ static struct o2nm_node_attribute o2nm_node_attr_local = {
+ static struct configfs_item_operations printer_item_ops = {
+ 	.release	= printer_attr_release,
+-	.show_attribute	= f_printer_opts_attr_show,
+-	.store_attribute = f_printer_opts_attr_store,
  };
  
- static struct configfs_attribute *o2nm_node_attrs[] = {
--	[O2NM_NODE_ATTR_NUM] = &o2nm_node_attr_num.attr,
--	[O2NM_NODE_ATTR_PORT] = &o2nm_node_attr_ipv4_port.attr,
--	[O2NM_NODE_ATTR_ADDRESS] = &o2nm_node_attr_ipv4_address.attr,
--	[O2NM_NODE_ATTR_LOCAL] = &o2nm_node_attr_local.attr,
-+	&o2nm_node_attr_num.attr,
-+	&o2nm_node_attr_ipv4_port.attr,
-+	&o2nm_node_attr_ipv4_address.attr,
-+	&o2nm_node_attr_local.attr,
+-static ssize_t f_printer_opts_pnp_string_show(struct f_printer_opts *opts,
++static ssize_t f_printer_opts_pnp_string_show(struct config_item *item,
+ 					      char *page)
+ {
++	struct f_printer_opts *opts = to_f_printer_opts(item);
+ 	int result;
+ 
+ 	mutex_lock(&opts->lock);
+@@ -1176,9 +1172,10 @@ static ssize_t f_printer_opts_pnp_string_show(struct f_printer_opts *opts,
+ 	return result;
+ }
+ 
+-static ssize_t f_printer_opts_pnp_string_store(struct f_printer_opts *opts,
++static ssize_t f_printer_opts_pnp_string_store(struct config_item *item,
+ 					       const char *page, size_t len)
+ {
++	struct f_printer_opts *opts = to_f_printer_opts(item);
+ 	int result, l;
+ 
+ 	mutex_lock(&opts->lock);
+@@ -1191,14 +1188,12 @@ static ssize_t f_printer_opts_pnp_string_store(struct f_printer_opts *opts,
+ 	return result;
+ }
+ 
+-static struct f_printer_opts_attribute f_printer_opts_pnp_string =
+-	__CONFIGFS_ATTR(pnp_string, S_IRUGO | S_IWUSR,
+-			f_printer_opts_pnp_string_show,
+-			f_printer_opts_pnp_string_store);
++CONFIGFS_ATTR(f_printer_opts_, pnp_string);
+ 
+-static ssize_t f_printer_opts_q_len_show(struct f_printer_opts *opts,
++static ssize_t f_printer_opts_q_len_show(struct config_item *item,
+ 					 char *page)
+ {
++	struct f_printer_opts *opts = to_f_printer_opts(item);
+ 	int result;
+ 
+ 	mutex_lock(&opts->lock);
+@@ -1208,9 +1203,10 @@ static ssize_t f_printer_opts_q_len_show(struct f_printer_opts *opts,
+ 	return result;
+ }
+ 
+-static ssize_t f_printer_opts_q_len_store(struct f_printer_opts *opts,
++static ssize_t f_printer_opts_q_len_store(struct config_item *item,
+ 					  const char *page, size_t len)
+ {
++	struct f_printer_opts *opts = to_f_printer_opts(item);
+ 	int ret;
+ 	u16 num;
+ 
+@@ -1231,13 +1227,11 @@ end:
+ 	return ret;
+ }
+ 
+-static struct f_printer_opts_attribute f_printer_opts_q_len =
+-	__CONFIGFS_ATTR(q_len, S_IRUGO | S_IWUSR, f_printer_opts_q_len_show,
+-			f_printer_opts_q_len_store);
++CONFIGFS_ATTR(f_printer_opts_, q_len);
+ 
+ static struct configfs_attribute *printer_attrs[] = {
+-	&f_printer_opts_pnp_string.attr,
+-	&f_printer_opts_q_len.attr,
++	&f_printer_opts_attr_pnp_string,
++	&f_printer_opts_attr_q_len,
  	NULL,
  };
  
--static int o2nm_attr_index(struct configfs_attribute *attr)
--{
--	int i;
--	for (i = 0; i < ARRAY_SIZE(o2nm_node_attrs); i++) {
--		if (attr == o2nm_node_attrs[i])
--			return i;
--	}
--	BUG();
--	return 0;
--}
--
- static ssize_t o2nm_node_show(struct config_item *item,
- 			      struct configfs_attribute *attr,
- 			      char *page)
-@@ -427,24 +424,11 @@ static ssize_t o2nm_node_store(struct config_item *item,
- 	struct o2nm_node *node = to_o2nm_node(item);
- 	struct o2nm_node_attribute *o2nm_node_attr =
- 		container_of(attr, struct o2nm_node_attribute, attr);
--	ssize_t ret;
--	int attr_index = o2nm_attr_index(attr);
- 
--	if (o2nm_node_attr->store == NULL) {
--		ret = -EINVAL;
--		goto out;
--	}
--
--	if (test_bit(attr_index, &node->nd_set_attributes))
--		return -EBUSY;
--
--	ret = o2nm_node_attr->store(node, page, count);
--	if (ret < count)
--		goto out;
-+	if (o2nm_node_attr->store == NULL)
-+		return -EINVAL;
- 
--	set_bit(attr_index, &node->nd_set_attributes);
--out:
--	return ret;
-+	return o2nm_node_attr->store(node, page, count);
- }
- 
- static struct configfs_item_operations o2nm_node_item_ops = {
 -- 
 1.9.1
