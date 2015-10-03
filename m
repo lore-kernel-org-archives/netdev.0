@@ -1,286 +1,733 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 11/23] usb-gadget/f_mass_storage: use
-	per-attribute show and store methods
-Date: Sat,  3 Oct 2015 15:32:47 +0200
-Message-ID: <1443879179-22280-12-git-send-email-hch@lst.de>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Subject: [PATCH 22/23] ocfs2/cluster: use per-attribute show and store methods
+Date: Sat,  3 Oct 2015 15:32:58 +0200
+Message-ID: <1443879179-22280-23-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        Pratyush Anand <pratyush.anand@gmail.com>,
-        Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
-        Felipe Balbi <balbi@ti.com>, cluster-devel@redhat.com,
-        Tejun Heo <tj@kernel.org>, target-devel@vger.kernel.org,
-        Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
-        ocfs2-devel@oss.oracle.com
-To: Joel Becker <jlbec@evilplan.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Nicholas Bellinger <nab@linux-iscsi.org>
-Return-path: <cluster-devel-bounces@redhat.com>
-In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/cluster-devel>
-List-Post: <mailto:cluster-devel@redhat.com>
-List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
-Sender: cluster-devel-bounces@redhat.com
-Errors-To: cluster-devel-bounces@redhat.com
+Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
+	Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pantelis Antoniou <pantelis.antoniou-OWPKS81ov/FWk0Htik3J/w@public.gmane.org>,
+	target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Nicholas Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443879179-22280-1-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-To simplify the configfs interface and remove boilerplate code that also
-causes binary bloat.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 ---
- drivers/usb/gadget/function/f_mass_storage.c | 119 +++++++++++----------------
- 1 file changed, 46 insertions(+), 73 deletions(-)
+ fs/ocfs2/cluster/heartbeat.c   | 205 +++++++----------------------------
+ fs/ocfs2/cluster/nodemanager.c | 241 ++++++++++-------------------------------
+ 2 files changed, 100 insertions(+), 346 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_mass_storage.c b/drivers/usb/gadget/function/f_mass_storage.c
-index a6eb537..1ab089f 100644
---- a/drivers/usb/gadget/function/f_mass_storage.c
-+++ b/drivers/usb/gadget/function/f_mass_storage.c
-@@ -3144,9 +3144,6 @@ static inline struct fsg_opts *to_fsg_opts(struct config_item *item)
- 			    func_inst.group);
+diff --git a/fs/ocfs2/cluster/heartbeat.c b/fs/ocfs2/cluster/heartbeat.c
+index fa15deb..e404386 100644
+--- a/fs/ocfs2/cluster/heartbeat.c
++++ b/fs/ocfs2/cluster/heartbeat.c
+@@ -1473,16 +1473,17 @@ static int o2hb_read_block_input(struct o2hb_region *reg,
+ 	return 0;
  }
  
--CONFIGFS_ATTR_STRUCT(fsg_lun_opts);
--CONFIGFS_ATTR_OPS(fsg_lun_opts);
--
- static void fsg_lun_attr_release(struct config_item *item)
+-static ssize_t o2hb_region_block_bytes_read(struct o2hb_region *reg,
++static ssize_t o2hb_region_block_bytes_show(struct config_item *item,
+ 					    char *page)
  {
- 	struct fsg_lun_opts *lun_opts;
-@@ -3157,110 +3154,93 @@ static void fsg_lun_attr_release(struct config_item *item)
- 
- static struct configfs_item_operations fsg_lun_item_ops = {
- 	.release		= fsg_lun_attr_release,
--	.show_attribute		= fsg_lun_opts_attr_show,
--	.store_attribute	= fsg_lun_opts_attr_store,
- };
- 
--static ssize_t fsg_lun_opts_file_show(struct fsg_lun_opts *opts, char *page)
-+static ssize_t fsg_lun_opts_file_show(struct config_item *item, char *page)
- {
--	struct fsg_opts *fsg_opts;
--
--	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-+	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-+	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
- 
- 	return fsg_show_file(opts->lun, &fsg_opts->common->filesem, page);
+-	return sprintf(page, "%u\n", reg->hr_block_bytes);
++	return sprintf(page, "%u\n", to_o2hb_region(item)->hr_block_bytes);
  }
  
--static ssize_t fsg_lun_opts_file_store(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_file_store(struct config_item *item,
- 				       const char *page, size_t len)
+-static ssize_t o2hb_region_block_bytes_write(struct o2hb_region *reg,
++static ssize_t o2hb_region_block_bytes_store(struct config_item *item,
+ 					     const char *page,
+ 					     size_t count)
  {
--	struct fsg_opts *fsg_opts;
--
--	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-+	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-+	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
- 
- 	return fsg_store_file(opts->lun, &fsg_opts->common->filesem, page, len);
++	struct o2hb_region *reg = to_o2hb_region(item);
+ 	int status;
+ 	unsigned long block_bytes;
+ 	unsigned int block_bits;
+@@ -1501,16 +1502,17 @@ static ssize_t o2hb_region_block_bytes_write(struct o2hb_region *reg,
+ 	return count;
  }
  
--static struct fsg_lun_opts_attribute fsg_lun_opts_file =
--	__CONFIGFS_ATTR(file, S_IRUGO | S_IWUSR, fsg_lun_opts_file_show,
--			fsg_lun_opts_file_store);
-+CONFIGFS_ATTR(fsg_lun_opts_, file);
- 
--static ssize_t fsg_lun_opts_ro_show(struct fsg_lun_opts *opts, char *page)
-+static ssize_t fsg_lun_opts_ro_show(struct config_item *item, char *page)
+-static ssize_t o2hb_region_start_block_read(struct o2hb_region *reg,
++static ssize_t o2hb_region_start_block_show(struct config_item *item,
+ 					    char *page)
  {
--	return fsg_show_ro(opts->lun, page);
-+	return fsg_show_ro(to_fsg_lun_opts(item)->lun, page);
+-	return sprintf(page, "%llu\n", reg->hr_start_block);
++	return sprintf(page, "%llu\n", to_o2hb_region(item)->hr_start_block);
  }
  
--static ssize_t fsg_lun_opts_ro_store(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_ro_store(struct config_item *item,
- 				       const char *page, size_t len)
+-static ssize_t o2hb_region_start_block_write(struct o2hb_region *reg,
++static ssize_t o2hb_region_start_block_store(struct config_item *item,
+ 					     const char *page,
+ 					     size_t count)
  {
--	struct fsg_opts *fsg_opts;
--
--	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-+	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-+	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
++	struct o2hb_region *reg = to_o2hb_region(item);
+ 	unsigned long long tmp;
+ 	char *p = (char *)page;
  
- 	return fsg_store_ro(opts->lun, &fsg_opts->common->filesem, page, len);
+@@ -1526,16 +1528,16 @@ static ssize_t o2hb_region_start_block_write(struct o2hb_region *reg,
+ 	return count;
  }
  
--static struct fsg_lun_opts_attribute fsg_lun_opts_ro =
--	__CONFIGFS_ATTR(ro, S_IRUGO | S_IWUSR, fsg_lun_opts_ro_show,
--			fsg_lun_opts_ro_store);
-+CONFIGFS_ATTR(fsg_lun_opts_, ro);
- 
--static ssize_t fsg_lun_opts_removable_show(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_removable_show(struct config_item *item,
- 					   char *page)
+-static ssize_t o2hb_region_blocks_read(struct o2hb_region *reg,
+-				       char *page)
++static ssize_t o2hb_region_blocks_show(struct config_item *item, char *page)
  {
--	return fsg_show_removable(opts->lun, page);
-+	return fsg_show_removable(to_fsg_lun_opts(item)->lun, page);
+-	return sprintf(page, "%d\n", reg->hr_blocks);
++	return sprintf(page, "%d\n", to_o2hb_region(item)->hr_blocks);
  }
  
--static ssize_t fsg_lun_opts_removable_store(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_removable_store(struct config_item *item,
- 				       const char *page, size_t len)
+-static ssize_t o2hb_region_blocks_write(struct o2hb_region *reg,
++static ssize_t o2hb_region_blocks_store(struct config_item *item,
+ 					const char *page,
+ 					size_t count)
  {
--	return fsg_store_removable(opts->lun, page, len);
-+	return fsg_store_removable(to_fsg_lun_opts(item)->lun, page, len);
++	struct o2hb_region *reg = to_o2hb_region(item);
+ 	unsigned long tmp;
+ 	char *p = (char *)page;
+ 
+@@ -1554,13 +1556,12 @@ static ssize_t o2hb_region_blocks_write(struct o2hb_region *reg,
+ 	return count;
  }
  
--static struct fsg_lun_opts_attribute fsg_lun_opts_removable =
--	__CONFIGFS_ATTR(removable, S_IRUGO | S_IWUSR,
--			fsg_lun_opts_removable_show,
--			fsg_lun_opts_removable_store);
-+CONFIGFS_ATTR(fsg_lun_opts_, removable);
- 
--static ssize_t fsg_lun_opts_cdrom_show(struct fsg_lun_opts *opts, char *page)
-+static ssize_t fsg_lun_opts_cdrom_show(struct config_item *item, char *page)
+-static ssize_t o2hb_region_dev_read(struct o2hb_region *reg,
+-				    char *page)
++static ssize_t o2hb_region_dev_show(struct config_item *item, char *page)
  {
--	return fsg_show_cdrom(opts->lun, page);
-+	return fsg_show_cdrom(to_fsg_lun_opts(item)->lun, page);
+ 	unsigned int ret = 0;
+ 
+-	if (reg->hr_bdev)
+-		ret = sprintf(page, "%s\n", reg->hr_dev_name);
++	if (to_o2hb_region(item)->hr_bdev)
++		ret = sprintf(page, "%s\n", to_o2hb_region(item)->hr_dev_name);
+ 
+ 	return ret;
+ }
+@@ -1670,10 +1671,11 @@ out:
  }
  
--static ssize_t fsg_lun_opts_cdrom_store(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_cdrom_store(struct config_item *item,
- 				       const char *page, size_t len)
+ /* this is acting as commit; we set up all of hr_bdev and hr_task or nothing */
+-static ssize_t o2hb_region_dev_write(struct o2hb_region *reg,
++static ssize_t o2hb_region_dev_store(struct config_item *item,
+ 				     const char *page,
+ 				     size_t count)
  {
--	struct fsg_opts *fsg_opts;
--
--	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
-+	struct fsg_lun_opts *opts = to_fsg_lun_opts(item);
-+	struct fsg_opts *fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
- 
- 	return fsg_store_cdrom(opts->lun, &fsg_opts->common->filesem, page,
- 			       len);
- }
- 
--static struct fsg_lun_opts_attribute fsg_lun_opts_cdrom =
--	__CONFIGFS_ATTR(cdrom, S_IRUGO | S_IWUSR, fsg_lun_opts_cdrom_show,
--			fsg_lun_opts_cdrom_store);
-+CONFIGFS_ATTR(fsg_lun_opts_, cdrom);
- 
--static ssize_t fsg_lun_opts_nofua_show(struct fsg_lun_opts *opts, char *page)
-+static ssize_t fsg_lun_opts_nofua_show(struct config_item *item, char *page)
- {
--	return fsg_show_nofua(opts->lun, page);
-+	return fsg_show_nofua(to_fsg_lun_opts(item)->lun, page);
- }
- 
--static ssize_t fsg_lun_opts_nofua_store(struct fsg_lun_opts *opts,
-+static ssize_t fsg_lun_opts_nofua_store(struct config_item *item,
- 				       const char *page, size_t len)
- {
--	return fsg_store_nofua(opts->lun, page, len);
-+	return fsg_store_nofua(to_fsg_lun_opts(item)->lun, page, len);
- }
- 
--static struct fsg_lun_opts_attribute fsg_lun_opts_nofua =
--	__CONFIGFS_ATTR(nofua, S_IRUGO | S_IWUSR, fsg_lun_opts_nofua_show,
--			fsg_lun_opts_nofua_store);
-+CONFIGFS_ATTR(fsg_lun_opts_, nofua);
- 
- static struct configfs_attribute *fsg_lun_attrs[] = {
--	&fsg_lun_opts_file.attr,
--	&fsg_lun_opts_ro.attr,
--	&fsg_lun_opts_removable.attr,
--	&fsg_lun_opts_cdrom.attr,
--	&fsg_lun_opts_nofua.attr,
-+	&fsg_lun_opts_attr_file,
-+	&fsg_lun_opts_attr_ro,
-+	&fsg_lun_opts_attr_removable,
-+	&fsg_lun_opts_attr_cdrom,
-+	&fsg_lun_opts_attr_nofua,
- 	NULL,
- };
- 
-@@ -3352,9 +3332,6 @@ static void fsg_lun_drop(struct config_group *group, struct config_item *item)
- 	config_item_put(item);
- }
- 
--CONFIGFS_ATTR_STRUCT(fsg_opts);
--CONFIGFS_ATTR_OPS(fsg_opts);
--
- static void fsg_attr_release(struct config_item *item)
- {
- 	struct fsg_opts *opts = to_fsg_opts(item);
-@@ -3364,12 +3341,11 @@ static void fsg_attr_release(struct config_item *item)
- 
- static struct configfs_item_operations fsg_item_ops = {
- 	.release		= fsg_attr_release,
--	.show_attribute		= fsg_opts_attr_show,
--	.store_attribute	= fsg_opts_attr_store,
- };
- 
--static ssize_t fsg_opts_stall_show(struct fsg_opts *opts, char *page)
-+static ssize_t fsg_opts_stall_show(struct config_item *item, char *page)
- {
-+	struct fsg_opts *opts = to_fsg_opts(item);
- 	int result;
- 
- 	mutex_lock(&opts->lock);
-@@ -3379,9 +3355,10 @@ static ssize_t fsg_opts_stall_show(struct fsg_opts *opts, char *page)
- 	return result;
- }
- 
--static ssize_t fsg_opts_stall_store(struct fsg_opts *opts, const char *page,
-+static ssize_t fsg_opts_stall_store(struct config_item *item, const char *page,
- 				    size_t len)
- {
-+	struct fsg_opts *opts = to_fsg_opts(item);
- 	int ret;
- 	bool stall;
- 
-@@ -3403,13 +3380,12 @@ static ssize_t fsg_opts_stall_store(struct fsg_opts *opts, const char *page,
++	struct o2hb_region *reg = to_o2hb_region(item);
+ 	struct task_struct *hb_task;
+ 	long fd;
+ 	int sectsize;
+@@ -1828,9 +1830,9 @@ out:
  	return ret;
  }
  
--static struct fsg_opts_attribute fsg_opts_stall =
--	__CONFIGFS_ATTR(stall, S_IRUGO | S_IWUSR, fsg_opts_stall_show,
--			fsg_opts_stall_store);
-+CONFIGFS_ATTR(fsg_opts_, stall);
- 
- #ifdef CONFIG_USB_GADGET_DEBUG_FILES
--static ssize_t fsg_opts_num_buffers_show(struct fsg_opts *opts, char *page)
-+static ssize_t fsg_opts_num_buffers_show(struct config_item *item, char *page)
+-static ssize_t o2hb_region_pid_read(struct o2hb_region *reg,
+-                                      char *page)
++static ssize_t o2hb_region_pid_show(struct config_item *item, char *page)
  {
-+	struct fsg_opts *opts = to_fsg_opts(item);
- 	int result;
++	struct o2hb_region *reg = to_o2hb_region(item);
+ 	pid_t pid = 0;
  
- 	mutex_lock(&opts->lock);
-@@ -3419,9 +3395,10 @@ static ssize_t fsg_opts_num_buffers_show(struct fsg_opts *opts, char *page)
- 	return result;
+ 	spin_lock(&o2hb_live_lock);
+@@ -1844,92 +1846,23 @@ static ssize_t o2hb_region_pid_read(struct o2hb_region *reg,
+ 	return sprintf(page, "%u\n", pid);
  }
  
--static ssize_t fsg_opts_num_buffers_store(struct fsg_opts *opts,
-+static ssize_t fsg_opts_num_buffers_store(struct config_item *item,
- 					  const char *page, size_t len)
- {
-+	struct fsg_opts *opts = to_fsg_opts(item);
- 	int ret;
- 	u8 num;
+-struct o2hb_region_attribute {
+-	struct configfs_attribute attr;
+-	ssize_t (*show)(struct o2hb_region *, char *);
+-	ssize_t (*store)(struct o2hb_region *, const char *, size_t);
+-};
+-
+-static struct o2hb_region_attribute o2hb_region_attr_block_bytes = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "block_bytes",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2hb_region_block_bytes_read,
+-	.store	= o2hb_region_block_bytes_write,
+-};
+-
+-static struct o2hb_region_attribute o2hb_region_attr_start_block = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "start_block",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2hb_region_start_block_read,
+-	.store	= o2hb_region_start_block_write,
+-};
+-
+-static struct o2hb_region_attribute o2hb_region_attr_blocks = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "blocks",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2hb_region_blocks_read,
+-	.store	= o2hb_region_blocks_write,
+-};
+-
+-static struct o2hb_region_attribute o2hb_region_attr_dev = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "dev",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2hb_region_dev_read,
+-	.store	= o2hb_region_dev_write,
+-};
+-
+-static struct o2hb_region_attribute o2hb_region_attr_pid = {
+-       .attr   = { .ca_owner = THIS_MODULE,
+-                   .ca_name = "pid",
+-                   .ca_mode = S_IRUGO | S_IRUSR },
+-       .show   = o2hb_region_pid_read,
+-};
++CONFIGFS_ATTR(o2hb_region_, block_bytes);
++CONFIGFS_ATTR(o2hb_region_, start_block);
++CONFIGFS_ATTR(o2hb_region_, blocks);
++CONFIGFS_ATTR(o2hb_region_, dev);
++CONFIGFS_ATTR_RO(o2hb_region_, pid);
  
-@@ -3446,17 +3423,13 @@ end:
+ static struct configfs_attribute *o2hb_region_attrs[] = {
+-	&o2hb_region_attr_block_bytes.attr,
+-	&o2hb_region_attr_start_block.attr,
+-	&o2hb_region_attr_blocks.attr,
+-	&o2hb_region_attr_dev.attr,
+-	&o2hb_region_attr_pid.attr,
++	&o2hb_region_attr_block_bytes,
++	&o2hb_region_attr_start_block,
++	&o2hb_region_attr_blocks,
++	&o2hb_region_attr_dev,
++	&o2hb_region_attr_pid,
+ 	NULL,
+ };
+ 
+-static ssize_t o2hb_region_show(struct config_item *item,
+-				struct configfs_attribute *attr,
+-				char *page)
+-{
+-	struct o2hb_region *reg = to_o2hb_region(item);
+-	struct o2hb_region_attribute *o2hb_region_attr =
+-		container_of(attr, struct o2hb_region_attribute, attr);
+-	ssize_t ret = 0;
+-
+-	if (o2hb_region_attr->show)
+-		ret = o2hb_region_attr->show(reg, page);
+-	return ret;
+-}
+-
+-static ssize_t o2hb_region_store(struct config_item *item,
+-				 struct configfs_attribute *attr,
+-				 const char *page, size_t count)
+-{
+-	struct o2hb_region *reg = to_o2hb_region(item);
+-	struct o2hb_region_attribute *o2hb_region_attr =
+-		container_of(attr, struct o2hb_region_attribute, attr);
+-	ssize_t ret = -EINVAL;
+-
+-	if (o2hb_region_attr->store)
+-		ret = o2hb_region_attr->store(reg, page, count);
+-	return ret;
+-}
+-
+ static struct configfs_item_operations o2hb_region_item_ops = {
+ 	.release		= o2hb_region_release,
+-	.show_attribute		= o2hb_region_show,
+-	.store_attribute	= o2hb_region_store,
+ };
+ 
+ static struct config_item_type o2hb_region_type = {
+@@ -2124,49 +2057,14 @@ unlock:
+ 	spin_unlock(&o2hb_live_lock);
+ }
+ 
+-struct o2hb_heartbeat_group_attribute {
+-	struct configfs_attribute attr;
+-	ssize_t (*show)(struct o2hb_heartbeat_group *, char *);
+-	ssize_t (*store)(struct o2hb_heartbeat_group *, const char *, size_t);
+-};
+-
+-static ssize_t o2hb_heartbeat_group_show(struct config_item *item,
+-					 struct configfs_attribute *attr,
+-					 char *page)
+-{
+-	struct o2hb_heartbeat_group *reg = to_o2hb_heartbeat_group(to_config_group(item));
+-	struct o2hb_heartbeat_group_attribute *o2hb_heartbeat_group_attr =
+-		container_of(attr, struct o2hb_heartbeat_group_attribute, attr);
+-	ssize_t ret = 0;
+-
+-	if (o2hb_heartbeat_group_attr->show)
+-		ret = o2hb_heartbeat_group_attr->show(reg, page);
+-	return ret;
+-}
+-
+-static ssize_t o2hb_heartbeat_group_store(struct config_item *item,
+-					  struct configfs_attribute *attr,
+-					  const char *page, size_t count)
+-{
+-	struct o2hb_heartbeat_group *reg = to_o2hb_heartbeat_group(to_config_group(item));
+-	struct o2hb_heartbeat_group_attribute *o2hb_heartbeat_group_attr =
+-		container_of(attr, struct o2hb_heartbeat_group_attribute, attr);
+-	ssize_t ret = -EINVAL;
+-
+-	if (o2hb_heartbeat_group_attr->store)
+-		ret = o2hb_heartbeat_group_attr->store(reg, page, count);
+-	return ret;
+-}
+-
+-static ssize_t o2hb_heartbeat_group_threshold_show(struct o2hb_heartbeat_group *group,
+-						     char *page)
++static ssize_t o2hb_heartbeat_group_threshold_show(struct config_item *item,
++		char *page)
+ {
+ 	return sprintf(page, "%u\n", o2hb_dead_threshold);
+ }
+ 
+-static ssize_t o2hb_heartbeat_group_threshold_store(struct o2hb_heartbeat_group *group,
+-						    const char *page,
+-						    size_t count)
++static ssize_t o2hb_heartbeat_group_threshold_store(struct config_item *item,
++		const char *page, size_t count)
+ {
+ 	unsigned long tmp;
+ 	char *p = (char *)page;
+@@ -2181,17 +2079,15 @@ static ssize_t o2hb_heartbeat_group_threshold_store(struct o2hb_heartbeat_group
+ 	return count;
+ }
+ 
+-static
+-ssize_t o2hb_heartbeat_group_mode_show(struct o2hb_heartbeat_group *group,
+-				       char *page)
++static ssize_t o2hb_heartbeat_group_mode_show(struct config_item *item,
++		char *page)
+ {
+ 	return sprintf(page, "%s\n",
+ 		       o2hb_heartbeat_mode_desc[o2hb_heartbeat_mode]);
+ }
+ 
+-static
+-ssize_t o2hb_heartbeat_group_mode_store(struct o2hb_heartbeat_group *group,
+-					const char *page, size_t count)
++static ssize_t o2hb_heartbeat_group_mode_store(struct config_item *item,
++		const char *page, size_t count)
+ {
+ 	unsigned int i;
+ 	int ret;
+@@ -2216,33 +2112,15 @@ ssize_t o2hb_heartbeat_group_mode_store(struct o2hb_heartbeat_group *group,
+ 
+ }
+ 
+-static struct o2hb_heartbeat_group_attribute o2hb_heartbeat_group_attr_threshold = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "dead_threshold",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2hb_heartbeat_group_threshold_show,
+-	.store	= o2hb_heartbeat_group_threshold_store,
+-};
+-
+-static struct o2hb_heartbeat_group_attribute o2hb_heartbeat_group_attr_mode = {
+-	.attr   = { .ca_owner = THIS_MODULE,
+-		.ca_name = "mode",
+-		.ca_mode = S_IRUGO | S_IWUSR },
+-	.show   = o2hb_heartbeat_group_mode_show,
+-	.store  = o2hb_heartbeat_group_mode_store,
+-};
++CONFIGFS_ATTR(o2hb_heartbeat_group_, threshold);
++CONFIGFS_ATTR(o2hb_heartbeat_group_, mode);
+ 
+ static struct configfs_attribute *o2hb_heartbeat_group_attrs[] = {
+-	&o2hb_heartbeat_group_attr_threshold.attr,
+-	&o2hb_heartbeat_group_attr_mode.attr,
++	&o2hb_heartbeat_group_attr_threshold,
++	&o2hb_heartbeat_group_attr_mode,
+ 	NULL,
+ };
+ 
+-static struct configfs_item_operations o2hb_heartbeat_group_item_ops = {
+-	.show_attribute		= o2hb_heartbeat_group_show,
+-	.store_attribute	= o2hb_heartbeat_group_store,
+-};
+-
+ static struct configfs_group_operations o2hb_heartbeat_group_group_ops = {
+ 	.make_item	= o2hb_heartbeat_group_make_item,
+ 	.drop_item	= o2hb_heartbeat_group_drop_item,
+@@ -2250,7 +2128,6 @@ static struct configfs_group_operations o2hb_heartbeat_group_group_ops = {
+ 
+ static struct config_item_type o2hb_heartbeat_group_type = {
+ 	.ct_group_ops	= &o2hb_heartbeat_group_group_ops,
+-	.ct_item_ops	= &o2hb_heartbeat_group_item_ops,
+ 	.ct_attrs	= o2hb_heartbeat_group_attrs,
+ 	.ct_owner	= THIS_MODULE,
+ };
+diff --git a/fs/ocfs2/cluster/nodemanager.c b/fs/ocfs2/cluster/nodemanager.c
+index 7a398f6..72afdca 100644
+--- a/fs/ocfs2/cluster/nodemanager.c
++++ b/fs/ocfs2/cluster/nodemanager.c
+@@ -172,9 +172,9 @@ static void o2nm_node_release(struct config_item *item)
+ 	kfree(node);
+ }
+ 
+-static ssize_t o2nm_node_num_read(struct o2nm_node *node, char *page)
++static ssize_t o2nm_node_num_show(struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%d\n", node->nd_num);
++	return sprintf(page, "%d\n", to_o2nm_node(item)->nd_num);
+ }
+ 
+ static struct o2nm_cluster *to_o2nm_cluster_from_node(struct o2nm_node *node)
+@@ -190,9 +190,10 @@ enum {
+ 	O2NM_NODE_ATTR_ADDRESS,
+ };
+ 
+-static ssize_t o2nm_node_num_write(struct o2nm_node *node, const char *page,
++static ssize_t o2nm_node_num_store(struct config_item *item, const char *page,
+ 				   size_t count)
+ {
++	struct o2nm_node *node = to_o2nm_node(item);
+ 	struct o2nm_cluster *cluster = to_o2nm_cluster_from_node(node);
+ 	unsigned long tmp;
+ 	char *p = (char *)page;
+@@ -230,14 +231,15 @@ static ssize_t o2nm_node_num_write(struct o2nm_node *node, const char *page,
+ 
+ 	return count;
+ }
+-static ssize_t o2nm_node_ipv4_port_read(struct o2nm_node *node, char *page)
++static ssize_t o2nm_node_ipv4_port_show(struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%u\n", ntohs(node->nd_ipv4_port));
++	return sprintf(page, "%u\n", ntohs(to_o2nm_node(item)->nd_ipv4_port));
+ }
+ 
+-static ssize_t o2nm_node_ipv4_port_write(struct o2nm_node *node,
++static ssize_t o2nm_node_ipv4_port_store(struct config_item *item,
+ 					 const char *page, size_t count)
+ {
++	struct o2nm_node *node = to_o2nm_node(item);
+ 	unsigned long tmp;
+ 	char *p = (char *)page;
+ 
+@@ -257,15 +259,16 @@ static ssize_t o2nm_node_ipv4_port_write(struct o2nm_node *node,
+ 	return count;
+ }
+ 
+-static ssize_t o2nm_node_ipv4_address_read(struct o2nm_node *node, char *page)
++static ssize_t o2nm_node_ipv4_address_show(struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%pI4\n", &node->nd_ipv4_address);
++	return sprintf(page, "%pI4\n", &to_o2nm_node(item)->nd_ipv4_address);
+ }
+ 
+-static ssize_t o2nm_node_ipv4_address_write(struct o2nm_node *node,
++static ssize_t o2nm_node_ipv4_address_store(struct config_item *item,
+ 					    const char *page,
+ 					    size_t count)
+ {
++	struct o2nm_node *node = to_o2nm_node(item);
+ 	struct o2nm_cluster *cluster = to_o2nm_cluster_from_node(node);
+ 	int ret, i;
+ 	struct rb_node **p, *parent;
+@@ -303,14 +306,15 @@ static ssize_t o2nm_node_ipv4_address_write(struct o2nm_node *node,
+ 	return count;
+ }
+ 
+-static ssize_t o2nm_node_local_read(struct o2nm_node *node, char *page)
++static ssize_t o2nm_node_local_show(struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%d\n", node->nd_local);
++	return sprintf(page, "%d\n", to_o2nm_node(item)->nd_local);
+ }
+ 
+-static ssize_t o2nm_node_local_write(struct o2nm_node *node, const char *page,
++static ssize_t o2nm_node_local_store(struct config_item *item, const char *page,
+ 				     size_t count)
+ {
++	struct o2nm_node *node = to_o2nm_node(item);
+ 	struct o2nm_cluster *cluster = to_o2nm_cluster_from_node(node);
+ 	unsigned long tmp;
+ 	char *p = (char *)page;
+@@ -357,84 +361,21 @@ static ssize_t o2nm_node_local_write(struct o2nm_node *node, const char *page,
+ 	return count;
+ }
+ 
+-struct o2nm_node_attribute {
+-	struct configfs_attribute attr;
+-	ssize_t (*show)(struct o2nm_node *, char *);
+-	ssize_t (*store)(struct o2nm_node *, const char *, size_t);
+-};
+-
+-static struct o2nm_node_attribute o2nm_node_attr_num = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "num",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_node_num_read,
+-	.store	= o2nm_node_num_write,
+-};
+-
+-static struct o2nm_node_attribute o2nm_node_attr_ipv4_port = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "ipv4_port",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_node_ipv4_port_read,
+-	.store	= o2nm_node_ipv4_port_write,
+-};
+-
+-static struct o2nm_node_attribute o2nm_node_attr_ipv4_address = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "ipv4_address",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_node_ipv4_address_read,
+-	.store	= o2nm_node_ipv4_address_write,
+-};
+-
+-static struct o2nm_node_attribute o2nm_node_attr_local = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "local",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_node_local_read,
+-	.store	= o2nm_node_local_write,
+-};
++CONFIGFS_ATTR(o2nm_node_, num);
++CONFIGFS_ATTR(o2nm_node_, ipv4_port);
++CONFIGFS_ATTR(o2nm_node_, ipv4_address);
++CONFIGFS_ATTR(o2nm_node_, local);
+ 
+ static struct configfs_attribute *o2nm_node_attrs[] = {
+-	&o2nm_node_attr_num.attr,
+-	&o2nm_node_attr_ipv4_port.attr,
+-	&o2nm_node_attr_ipv4_address.attr,
+-	&o2nm_node_attr_local.attr,
++	&o2nm_node_attr_num,
++	&o2nm_node_attr_ipv4_port,
++	&o2nm_node_attr_ipv4_address,
++	&o2nm_node_attr_local,
+ 	NULL,
+ };
+ 
+-static ssize_t o2nm_node_show(struct config_item *item,
+-			      struct configfs_attribute *attr,
+-			      char *page)
+-{
+-	struct o2nm_node *node = to_o2nm_node(item);
+-	struct o2nm_node_attribute *o2nm_node_attr =
+-		container_of(attr, struct o2nm_node_attribute, attr);
+-	ssize_t ret = 0;
+-
+-	if (o2nm_node_attr->show)
+-		ret = o2nm_node_attr->show(node, page);
+-	return ret;
+-}
+-
+-static ssize_t o2nm_node_store(struct config_item *item,
+-			       struct configfs_attribute *attr,
+-			       const char *page, size_t count)
+-{
+-	struct o2nm_node *node = to_o2nm_node(item);
+-	struct o2nm_node_attribute *o2nm_node_attr =
+-		container_of(attr, struct o2nm_node_attribute, attr);
+-
+-	if (o2nm_node_attr->store == NULL)
+-		return -EINVAL;
+-
+-	return o2nm_node_attr->store(node, page, count);
+-}
+-
+ static struct configfs_item_operations o2nm_node_item_ops = {
+ 	.release		= o2nm_node_release,
+-	.show_attribute		= o2nm_node_show,
+-	.store_attribute	= o2nm_node_store,
+ };
+ 
+ static struct config_item_type o2nm_node_type = {
+@@ -459,12 +400,6 @@ static struct o2nm_node_group *to_o2nm_node_group(struct config_group *group)
+ }
+ #endif
+ 
+-struct o2nm_cluster_attribute {
+-	struct configfs_attribute attr;
+-	ssize_t (*show)(struct o2nm_cluster *, char *);
+-	ssize_t (*store)(struct o2nm_cluster *, const char *, size_t);
+-};
+-
+ static ssize_t o2nm_cluster_attr_write(const char *page, ssize_t count,
+                                        unsigned int *val)
+ {
+@@ -485,15 +420,16 @@ static ssize_t o2nm_cluster_attr_write(const char *page, ssize_t count,
+ 	return count;
+ }
+ 
+-static ssize_t o2nm_cluster_attr_idle_timeout_ms_read(
+-	struct o2nm_cluster *cluster, char *page)
++static ssize_t o2nm_cluster_idle_timeout_ms_show(struct config_item *item,
++	char *page)
+ {
+-	return sprintf(page, "%u\n", cluster->cl_idle_timeout_ms);
++	return sprintf(page, "%u\n", to_o2nm_cluster(item)->cl_idle_timeout_ms);
+ }
+ 
+-static ssize_t o2nm_cluster_attr_idle_timeout_ms_write(
+-	struct o2nm_cluster *cluster, const char *page, size_t count)
++static ssize_t o2nm_cluster_idle_timeout_ms_store(struct config_item *item,
++	const char *page, size_t count)
+ {
++	struct o2nm_cluster *cluster = to_o2nm_cluster(item);
+ 	ssize_t ret;
+ 	unsigned int val;
+ 
+@@ -520,15 +456,17 @@ static ssize_t o2nm_cluster_attr_idle_timeout_ms_write(
  	return ret;
  }
  
--static struct fsg_opts_attribute fsg_opts_num_buffers =
--	__CONFIGFS_ATTR(num_buffers, S_IRUGO | S_IWUSR,
--			fsg_opts_num_buffers_show,
--			fsg_opts_num_buffers_store);
--
-+CONFIGFS_ATTR(fsg_opts_, num_buffers);
- #endif
+-static ssize_t o2nm_cluster_attr_keepalive_delay_ms_read(
+-	struct o2nm_cluster *cluster, char *page)
++static ssize_t o2nm_cluster_keepalive_delay_ms_show(
++	struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%u\n", cluster->cl_keepalive_delay_ms);
++	return sprintf(page, "%u\n",
++			to_o2nm_cluster(item)->cl_keepalive_delay_ms);
+ }
  
- static struct configfs_attribute *fsg_attrs[] = {
--	&fsg_opts_stall.attr,
-+	&fsg_opts_attr_stall,
- #ifdef CONFIG_USB_GADGET_DEBUG_FILES
--	&fsg_opts_num_buffers.attr,
-+	&fsg_opts_attr_num_buffers,
- #endif
+-static ssize_t o2nm_cluster_attr_keepalive_delay_ms_write(
+-	struct o2nm_cluster *cluster, const char *page, size_t count)
++static ssize_t o2nm_cluster_keepalive_delay_ms_store(
++	struct config_item *item, const char *page, size_t count)
+ {
++	struct o2nm_cluster *cluster = to_o2nm_cluster(item);
+ 	ssize_t ret;
+ 	unsigned int val;
+ 
+@@ -555,22 +493,24 @@ static ssize_t o2nm_cluster_attr_keepalive_delay_ms_write(
+ 	return ret;
+ }
+ 
+-static ssize_t o2nm_cluster_attr_reconnect_delay_ms_read(
+-	struct o2nm_cluster *cluster, char *page)
++static ssize_t o2nm_cluster_reconnect_delay_ms_show(
++	struct config_item *item, char *page)
+ {
+-	return sprintf(page, "%u\n", cluster->cl_reconnect_delay_ms);
++	return sprintf(page, "%u\n",
++			to_o2nm_cluster(item)->cl_reconnect_delay_ms);
+ }
+ 
+-static ssize_t o2nm_cluster_attr_reconnect_delay_ms_write(
+-	struct o2nm_cluster *cluster, const char *page, size_t count)
++static ssize_t o2nm_cluster_reconnect_delay_ms_store(
++	struct config_item *item, const char *page, size_t count)
+ {
+ 	return o2nm_cluster_attr_write(page, count,
+-	                               &cluster->cl_reconnect_delay_ms);
++                               &to_o2nm_cluster(item)->cl_reconnect_delay_ms);
+ }
+ 
+-static ssize_t o2nm_cluster_attr_fence_method_read(
+-	struct o2nm_cluster *cluster, char *page)
++static ssize_t o2nm_cluster_fence_method_show(
++	struct config_item *item, char *page)
+ {
++	struct o2nm_cluster *cluster = to_o2nm_cluster(item);
+ 	ssize_t ret = 0;
+ 
+ 	if (cluster)
+@@ -579,8 +519,8 @@ static ssize_t o2nm_cluster_attr_fence_method_read(
+ 	return ret;
+ }
+ 
+-static ssize_t o2nm_cluster_attr_fence_method_write(
+-	struct o2nm_cluster *cluster, const char *page, size_t count)
++static ssize_t o2nm_cluster_fence_method_store(
++	struct config_item *item, const char *page, size_t count)
+ {
+ 	unsigned int i;
+ 
+@@ -592,10 +532,10 @@ static ssize_t o2nm_cluster_attr_fence_method_write(
+ 			continue;
+ 		if (strncasecmp(page, o2nm_fence_method_desc[i], count - 1))
+ 			continue;
+-		if (cluster->cl_fence_method != i) {
++		if (to_o2nm_cluster(item)->cl_fence_method != i) {
+ 			printk(KERN_INFO "ocfs2: Changing fence method to %s\n",
+ 			       o2nm_fence_method_desc[i]);
+-			cluster->cl_fence_method = i;
++			to_o2nm_cluster(item)->cl_fence_method = i;
+ 		}
+ 		return count;
+ 	}
+@@ -604,79 +544,18 @@ bail:
+ 	return -EINVAL;
+ }
+ 
+-static struct o2nm_cluster_attribute o2nm_cluster_attr_idle_timeout_ms = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "idle_timeout_ms",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_cluster_attr_idle_timeout_ms_read,
+-	.store	= o2nm_cluster_attr_idle_timeout_ms_write,
+-};
+-
+-static struct o2nm_cluster_attribute o2nm_cluster_attr_keepalive_delay_ms = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "keepalive_delay_ms",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_cluster_attr_keepalive_delay_ms_read,
+-	.store	= o2nm_cluster_attr_keepalive_delay_ms_write,
+-};
+-
+-static struct o2nm_cluster_attribute o2nm_cluster_attr_reconnect_delay_ms = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "reconnect_delay_ms",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_cluster_attr_reconnect_delay_ms_read,
+-	.store	= o2nm_cluster_attr_reconnect_delay_ms_write,
+-};
+-
+-static struct o2nm_cluster_attribute o2nm_cluster_attr_fence_method = {
+-	.attr	= { .ca_owner = THIS_MODULE,
+-		    .ca_name = "fence_method",
+-		    .ca_mode = S_IRUGO | S_IWUSR },
+-	.show	= o2nm_cluster_attr_fence_method_read,
+-	.store	= o2nm_cluster_attr_fence_method_write,
+-};
++CONFIGFS_ATTR(o2nm_cluster_, idle_timeout_ms);
++CONFIGFS_ATTR(o2nm_cluster_, keepalive_delay_ms);
++CONFIGFS_ATTR(o2nm_cluster_, reconnect_delay_ms);
++CONFIGFS_ATTR(o2nm_cluster_, fence_method);
+ 
+ static struct configfs_attribute *o2nm_cluster_attrs[] = {
+-	&o2nm_cluster_attr_idle_timeout_ms.attr,
+-	&o2nm_cluster_attr_keepalive_delay_ms.attr,
+-	&o2nm_cluster_attr_reconnect_delay_ms.attr,
+-	&o2nm_cluster_attr_fence_method.attr,
++	&o2nm_cluster_attr_idle_timeout_ms,
++	&o2nm_cluster_attr_keepalive_delay_ms,
++	&o2nm_cluster_attr_reconnect_delay_ms,
++	&o2nm_cluster_attr_fence_method,
  	NULL,
  };
--- 
-1.9.1
+-static ssize_t o2nm_cluster_show(struct config_item *item,
+-                                 struct configfs_attribute *attr,
+-                                 char *page)
+-{
+-	struct o2nm_cluster *cluster = to_o2nm_cluster(item);
+-	struct o2nm_cluster_attribute *o2nm_cluster_attr =
+-		container_of(attr, struct o2nm_cluster_attribute, attr);
+-	ssize_t ret = 0;
+-
+-	if (o2nm_cluster_attr->show)
+-		ret = o2nm_cluster_attr->show(cluster, page);
+-	return ret;
+-}
+-
+-static ssize_t o2nm_cluster_store(struct config_item *item,
+-                                  struct configfs_attribute *attr,
+-                                  const char *page, size_t count)
+-{
+-	struct o2nm_cluster *cluster = to_o2nm_cluster(item);
+-	struct o2nm_cluster_attribute *o2nm_cluster_attr =
+-		container_of(attr, struct o2nm_cluster_attribute, attr);
+-	ssize_t ret;
+-
+-	if (o2nm_cluster_attr->store == NULL) {
+-		ret = -EINVAL;
+-		goto out;
+-	}
