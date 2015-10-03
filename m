@@ -1,37 +1,83 @@
-From: Helpdesk <mojtaba_hakimi@qiet.ac.ir>
-Subject: Dear:  Account User
-Date: Sat, 03 Oct 2015 13:53:21 +0100
-Message-ID: <20151003123938.2B4234CF8C8@mail.qiet.ac.ir>
-Reply-To: No-reply@mail.qiet.ac.ir
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH 1/3] net: dsa: Use devm_ prefixed allocations
+Date: Sat, 3 Oct 2015 15:55:14 +0200
+Message-ID: <560FDE42.3050806@baylibre.com>
+References: <560E60E4.8020706@baylibre.com>
+ <560E86BC.3090104@cogentembedded.com> <560E86F5.2030301@baylibre.com>
+ <560FCC76.3060705@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <mojtaba_hakimi@qiet.ac.ir>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [217.219.81.69] ([217.219.81.69]:54943 "EHLO mail.qiet.ac.ir"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752971AbbJCNiy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 09:38:54 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Felix Fietkau <nbd@openwrt.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <560FCC76.3060705@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.
-To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://upgrade-survey-helpedesk.ezweb123.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2015.
+On 10/03/2015 02:39 PM, Felix Fietkau wrote:
+> On 2015-10-02 15:30, Neil Armstrong wrote:
+>> On 10/02/2015 03:29 PM, Sergei Shtylyov wrote:
+>>> On 10/2/2015 1:48 PM, Neil Armstrong wrote:
+>>>
+>>>> To simplify and prevent memory leakage when unbinding, use
+>>>> the devm_ memory allocation calls.
+>>>>
+>>>> Tested-by: Andrew Lunn <andrew@lunn.ch>
+>>>> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+>>>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>>>> ---
+>>>>   net/dsa/dsa.c | 6 +++---
+>>>>   1 file changed, 3 insertions(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>>>> index c59fa5d..98f94c2 100644
+>>>> --- a/net/dsa/dsa.c
+>>>> +++ b/net/dsa/dsa.c
+>>>> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>>>>       if (ret < 0)
+>>>>           goto out;
+>>>>
+>>>> -    ds->slave_mii_bus = mdiobus_alloc();
+>>>> +    ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+>>>>       if (ds->slave_mii_bus == NULL) {
+>>>>           ret = -ENOMEM;
+>>>>           goto out;
+>>>> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>>>>       /*
+>>>>        * Allocate and initialise switch state.
+>>>>        */
+>>>> -    ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>>>> +    ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
+>>>>       if (ds == NULL)
+>>>>           return ERR_PTR(-ENOMEM);
+>>>>
+>>>> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
+>>>>           goto out;
+>>>>       }
+>>>>
+>>>> -    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
+>>>> +    dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
+>>>>       if (dst == NULL) {
+>>>>           dev_put(dev);
+>>>>           ret = -ENOMEM;
+>>>>
+>>>
+>>>    Shouldn't you remove the correspoding kfree(), etc. calls?
+>>>
+>>> MBR, Sergei
+>>>
+>> The corresponding kfree() calls were all missing.
+> Not in the error handling path. mdiobus_alloc has a corresponding
+> mdiobus_free in the same function.
+> The ds kzalloc in dsa_switch_setup has a kfree in dsa_switch_setup_one.
+> 
+> - Felix
+> 
+Thanks Felix & Sergei,
 
----
-This email has been checked for viruses by Avast antivirus software.
-http://www.avast.com
+I will repost based on net with an intermediate commit adding the missing kfree calls.
+
+Neil
