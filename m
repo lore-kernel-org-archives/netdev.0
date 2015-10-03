@@ -1,79 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: Add support for filtering neigh dump by device index
-Date: Sat,  3 Oct 2015 11:43:46 -0700
-Message-ID: <1443897826-30209-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:32893 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750AbbJCSoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 14:44:18 -0400
-Received: by pacex6 with SMTP id ex6so136294949pac.0
-        for <netdev@vger.kernel.org>; Sat, 03 Oct 2015 11:44:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch - Nicholas's tree] netconsole: Missing unlock on error path
+Date: Sat, 3 Oct 2015 22:05:24 +0300
+Message-ID: <20151003190524.GA766@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Nicholas Bellinger <nab@linux-iscsi.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>, Christoph Hellwig <hch@lst.de>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for filtering neighbor dumps by device by adding the
-NDA_IFINDEX attribute to the dump request.
+We added new locking to this function but we missed one error path which
+needs an unlock.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Fixes: cdacad4993f4 ('netconsole: use per-attribute show and store methods')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
-v2
-- fix or on the index as noticed by Eagle-Eye Nikolay
+This is going through Nicholas Bellinger's tree not net-next.
 
- net/core/neighbour.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 8c57fdf4d68e..f7786eaef613 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2249,6 +2249,14 @@ static bool neigh_master_filtered(struct net_device *dev, int master_idx)
- 	return false;
- }
- 
-+static bool neigh_ifindex_filtered(struct net_device *dev, int filter_idx)
-+{
-+	if (filter_idx && dev->ifindex != filter_idx)
-+		return true;
-+
-+	return false;
-+}
-+
- static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 			    struct netlink_callback *cb)
- {
-@@ -2259,16 +2267,19 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 	int rc, h, s_h = cb->args[1];
- 	int idx, s_idx = idx = cb->args[2];
- 	struct neigh_hash_table *nht;
--	int filter_master_idx = 0;
-+	int filter_master_idx = 0, filter_idx = 0;
- 	unsigned int flags = NLM_F_MULTI;
- 	int err;
- 
- 	err = nlmsg_parse(nlh, sizeof(struct ndmsg), tb, NDA_MAX, NULL);
- 	if (!err) {
-+		if (tb[NDA_IFINDEX])
-+			filter_idx = nla_get_u32(tb[NDA_IFINDEX]);
-+
- 		if (tb[NDA_MASTER])
- 			filter_master_idx = nla_get_u32(tb[NDA_MASTER]);
- 
--		if (filter_master_idx)
-+		if (filter_idx || filter_master_idx)
- 			flags |= NLM_F_DUMP_FILTERED;
- 	}
- 
-@@ -2283,6 +2294,8 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 		     n = rcu_dereference_bh(n->next)) {
- 			if (!net_eq(dev_net(n->dev), net))
- 				continue;
-+			if (neigh_ifindex_filtered(n->dev, filter_idx))
-+				continue;
- 			if (neigh_master_filtered(n->dev, filter_master_idx))
- 				continue;
- 			if (idx < s_idx)
--- 
-1.9.1
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index 8783169..06ee639 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -535,7 +535,7 @@ static ssize_t remote_ip_store(struct config_item *item, const char *buf,
+ 		if (in6_pton(buf, count, nt->np.remote_ip.in6.s6_addr, -1, &end) > 0) {
+ 			if (*end && *end != '\n') {
+ 				pr_err("invalid IPv6 address at: <%c>\n", *end);
+-				return -EINVAL;
++				goto out_unlock;
+ 			}
+ 			nt->np.ipv6 = true;
+ 		} else
