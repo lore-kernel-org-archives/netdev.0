@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 08/23] usb-gadget/f_midi: use per-attribute show and store methods
-Date: Sat,  3 Oct 2015 15:32:44 +0200
-Message-ID: <1443879179-22280-9-git-send-email-hch@lst.de>
+Subject: [PATCH 06/23] usb-gadget/ether: use per-attribute show and store methods
+Date: Sat,  3 Oct 2015 15:32:42 +0200
+Message-ID: <1443879179-22280-7-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Cc: Felipe Balbi <balbi@ti.com>,
 	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
@@ -14,10 +14,14 @@ Cc: Felipe Balbi <balbi@ti.com>,
 To: Joel Becker <jlbec@evilplan.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Nicholas Bellinger <nab@linux-iscsi.org>
-Return-path: <target-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:59443 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752713AbbJCNhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 09:37:15 -0400
 In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 To simplify the configfs interface and remove boilerplate code that also
 causes binary bloat.
@@ -25,109 +29,241 @@ causes binary bloat.
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 ---
- drivers/usb/gadget/function/f_midi.c | 37 ++++++++++++++++--------------------
- 1 file changed, 16 insertions(+), 21 deletions(-)
+ drivers/usb/gadget/function/f_ecm.c            |  8 ++---
+ drivers/usb/gadget/function/f_eem.c            |  8 ++---
+ drivers/usb/gadget/function/f_ncm.c            |  8 ++---
+ drivers/usb/gadget/function/f_rndis.c          |  8 ++---
+ drivers/usb/gadget/function/f_subset.c         |  8 ++---
+ drivers/usb/gadget/function/u_ether_configfs.h | 44 +++++++++++---------------
+ 6 files changed, 38 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_midi.c b/drivers/usb/gadget/function/f_midi.c
-index a287a48..0e2b8ed 100644
---- a/drivers/usb/gadget/function/f_midi.c
-+++ b/drivers/usb/gadget/function/f_midi.c
-@@ -906,9 +906,6 @@ static inline struct f_midi_opts *to_f_midi_opts(struct config_item *item)
- 			    func_inst.group);
- }
+diff --git a/drivers/usb/gadget/function/f_ecm.c b/drivers/usb/gadget/function/f_ecm.c
+index 7b7424f..0106de8 100644
+--- a/drivers/usb/gadget/function/f_ecm.c
++++ b/drivers/usb/gadget/function/f_ecm.c
+@@ -855,10 +855,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(ecm);
+ USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(ecm);
  
--CONFIGFS_ATTR_STRUCT(f_midi_opts);
--CONFIGFS_ATTR_OPS(f_midi_opts);
--
- static void midi_attr_release(struct config_item *item)
- {
- 	struct f_midi_opts *opts = to_f_midi_opts(item);
-@@ -918,13 +915,12 @@ static void midi_attr_release(struct config_item *item)
- 
- static struct configfs_item_operations midi_item_ops = {
- 	.release	= midi_attr_release,
--	.show_attribute	= f_midi_opts_attr_show,
--	.store_attribute = f_midi_opts_attr_store,
- };
- 
- #define F_MIDI_OPT(name, test_limit, limit)				\
--static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
-+static ssize_t f_midi_opts_##name##_show(struct config_item *item, char *page) \
- {									\
-+	struct f_midi_opts *opts = to_f_midi_opts(item);		\
- 	int result;							\
- 									\
- 	mutex_lock(&opts->lock);					\
-@@ -934,9 +930,10 @@ static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
- 	return result;							\
- }									\
- 									\
--static ssize_t f_midi_opts_##name##_store(struct f_midi_opts *opts,	\
-+static ssize_t f_midi_opts_##name##_store(struct config_item *item,	\
- 					 const char *page, size_t len)	\
- {									\
-+	struct f_midi_opts *opts = to_f_midi_opts(item);		\
- 	int ret;							\
- 	u32 num;							\
- 									\
-@@ -962,9 +959,7 @@ end:									\
- 	return ret;							\
- }									\
- 									\
--static struct f_midi_opts_attribute f_midi_opts_##name =		\
--	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR, f_midi_opts_##name##_show, \
--			f_midi_opts_##name##_store)
-+CONFIGFS_ATTR(f_midi_opts_, name);
- 
- F_MIDI_OPT(index, true, SNDRV_CARDS);
- F_MIDI_OPT(buflen, false, 0);
-@@ -972,8 +967,9 @@ F_MIDI_OPT(qlen, false, 0);
- F_MIDI_OPT(in_ports, true, MAX_PORTS);
- F_MIDI_OPT(out_ports, true, MAX_PORTS);
- 
--static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
-+static ssize_t f_midi_opts_id_show(struct config_item *item, char *page)
- {
-+	struct f_midi_opts *opts = to_f_midi_opts(item);
- 	int result;
- 
- 	mutex_lock(&opts->lock);
-@@ -989,9 +985,10 @@ static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
- 	return result;
- }
- 
--static ssize_t f_midi_opts_id_store(struct f_midi_opts *opts,
-+static ssize_t f_midi_opts_id_store(struct config_item *item,
- 				    const char *page, size_t len)
- {
-+	struct f_midi_opts *opts = to_f_midi_opts(item);
- 	int ret;
- 	char *c;
- 
-@@ -1016,17 +1013,15 @@ end:
- 	return ret;
- }
- 
--static struct f_midi_opts_attribute f_midi_opts_id =
--	__CONFIGFS_ATTR(id, S_IRUGO | S_IWUSR, f_midi_opts_id_show,
--			f_midi_opts_id_store);
-+CONFIGFS_ATTR(f_midi_opts_, id);
- 
- static struct configfs_attribute *midi_attrs[] = {
--	&f_midi_opts_index.attr,
--	&f_midi_opts_buflen.attr,
--	&f_midi_opts_qlen.attr,
--	&f_midi_opts_in_ports.attr,
--	&f_midi_opts_out_ports.attr,
--	&f_midi_opts_id.attr,
-+	&f_midi_opts_attr_index,
-+	&f_midi_opts_attr_buflen,
-+	&f_midi_opts_attr_qlen,
-+	&f_midi_opts_attr_in_ports,
-+	&f_midi_opts_attr_out_ports,
-+	&f_midi_opts_attr_id,
+ static struct configfs_attribute *ecm_attrs[] = {
+-	&f_ecm_opts_dev_addr.attr,
+-	&f_ecm_opts_host_addr.attr,
+-	&f_ecm_opts_qmult.attr,
+-	&f_ecm_opts_ifname.attr,
++	&ecm_opts_attr_dev_addr,
++	&ecm_opts_attr_host_addr,
++	&ecm_opts_attr_qmult,
++	&ecm_opts_attr_ifname,
  	NULL,
  };
  
+diff --git a/drivers/usb/gadget/function/f_eem.c b/drivers/usb/gadget/function/f_eem.c
+index c9e90de..f965403 100644
+--- a/drivers/usb/gadget/function/f_eem.c
++++ b/drivers/usb/gadget/function/f_eem.c
+@@ -555,10 +555,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(eem);
+ USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(eem);
+ 
+ static struct configfs_attribute *eem_attrs[] = {
+-	&f_eem_opts_dev_addr.attr,
+-	&f_eem_opts_host_addr.attr,
+-	&f_eem_opts_qmult.attr,
+-	&f_eem_opts_ifname.attr,
++	&eem_opts_attr_dev_addr,
++	&eem_opts_attr_host_addr,
++	&eem_opts_attr_qmult,
++	&eem_opts_attr_ifname,
+ 	NULL,
+ };
+ 
+diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
+index 3f05c6bd..01a99e5 100644
+--- a/drivers/usb/gadget/function/f_ncm.c
++++ b/drivers/usb/gadget/function/f_ncm.c
+@@ -1503,10 +1503,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(ncm);
+ USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(ncm);
+ 
+ static struct configfs_attribute *ncm_attrs[] = {
+-	&f_ncm_opts_dev_addr.attr,
+-	&f_ncm_opts_host_addr.attr,
+-	&f_ncm_opts_qmult.attr,
+-	&f_ncm_opts_ifname.attr,
++	&ncm_opts_attr_dev_addr,
++	&ncm_opts_attr_host_addr,
++	&ncm_opts_attr_qmult,
++	&ncm_opts_attr_ifname,
+ 	NULL,
+ };
+ 
+diff --git a/drivers/usb/gadget/function/f_rndis.c b/drivers/usb/gadget/function/f_rndis.c
+index 32985da..a04b526 100644
+--- a/drivers/usb/gadget/function/f_rndis.c
++++ b/drivers/usb/gadget/function/f_rndis.c
+@@ -878,10 +878,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(rndis);
+ USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(rndis);
+ 
+ static struct configfs_attribute *rndis_attrs[] = {
+-	&f_rndis_opts_dev_addr.attr,
+-	&f_rndis_opts_host_addr.attr,
+-	&f_rndis_opts_qmult.attr,
+-	&f_rndis_opts_ifname.attr,
++	&rndis_opts_attr_dev_addr,
++	&rndis_opts_attr_host_addr,
++	&rndis_opts_attr_qmult,
++	&rndis_opts_attr_ifname,
+ 	NULL,
+ };
+ 
+diff --git a/drivers/usb/gadget/function/f_subset.c b/drivers/usb/gadget/function/f_subset.c
+index e3dfa67..055e4ea 100644
+--- a/drivers/usb/gadget/function/f_subset.c
++++ b/drivers/usb/gadget/function/f_subset.c
+@@ -413,10 +413,10 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(gether);
+ USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(gether);
+ 
+ static struct configfs_attribute *gether_attrs[] = {
+-	&f_gether_opts_dev_addr.attr,
+-	&f_gether_opts_host_addr.attr,
+-	&f_gether_opts_qmult.attr,
+-	&f_gether_opts_ifname.attr,
++	&gether_opts_attr_dev_addr,
++	&gether_opts_attr_host_addr,
++	&gether_opts_attr_qmult,
++	&gether_opts_attr_ifname,
+ 	NULL,
+ };
+ 
+diff --git a/drivers/usb/gadget/function/u_ether_configfs.h b/drivers/usb/gadget/function/u_ether_configfs.h
+index bcbd301..4f47289 100644
+--- a/drivers/usb/gadget/function/u_ether_configfs.h
++++ b/drivers/usb/gadget/function/u_ether_configfs.h
+@@ -17,9 +17,6 @@
+ #define __U_ETHER_CONFIGFS_H
+ 
+ #define USB_ETHERNET_CONFIGFS_ITEM(_f_)					\
+-	CONFIGFS_ATTR_STRUCT(f_##_f_##_opts);				\
+-	CONFIGFS_ATTR_OPS(f_##_f_##_opts);				\
+-									\
+ 	static void _f_##_attr_release(struct config_item *item)	\
+ 	{								\
+ 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+@@ -29,14 +26,13 @@
+ 									\
+ 	static struct configfs_item_operations _f_##_item_ops = {	\
+ 		.release	= _f_##_attr_release,			\
+-		.show_attribute = f_##_f_##_opts_attr_show,		\
+-		.store_attribute = f_##_f_##_opts_attr_store,		\
+ 	}
+ 
+ #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(_f_)			\
+-	static ssize_t _f_##_opts_dev_addr_show(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_dev_addr_show(struct config_item *item, \
+ 						char *page)		\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		int result;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -46,9 +42,10 @@
+ 		return result;						\
+ 	}								\
+ 									\
+-	static ssize_t _f_##_opts_dev_addr_store(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_dev_addr_store(struct config_item *item, \
+ 						 const char *page, size_t len)\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		int ret;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -64,15 +61,13 @@
+ 		return ret;						\
+ 	}								\
+ 									\
+-	static struct f_##_f_##_opts_attribute f_##_f_##_opts_dev_addr = \
+-		__CONFIGFS_ATTR(dev_addr, S_IRUGO | S_IWUSR,		\
+-				_f_##_opts_dev_addr_show,		\
+-				_f_##_opts_dev_addr_store)
++	CONFIGFS_ATTR(_f_##_opts_, dev_addr)
+ 
+ #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(_f_)			\
+-	static ssize_t _f_##_opts_host_addr_show(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_host_addr_show(struct config_item *item, \
+ 						 char *page)		\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		int result;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -82,9 +77,10 @@
+ 		return result;						\
+ 	}								\
+ 									\
+-	static ssize_t _f_##_opts_host_addr_store(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_host_addr_store(struct config_item *item, \
+ 						  const char *page, size_t len)\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		int ret;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -100,15 +96,13 @@
+ 		return ret;						\
+ 	}								\
+ 									\
+-	static struct f_##_f_##_opts_attribute f_##_f_##_opts_host_addr = \
+-		__CONFIGFS_ATTR(host_addr, S_IRUGO | S_IWUSR,		\
+-				_f_##_opts_host_addr_show,		\
+-				_f_##_opts_host_addr_store)
++	CONFIGFS_ATTR(_f_##_opts_, host_addr)
+ 
+ #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(_f_)			\
+-	static ssize_t _f_##_opts_qmult_show(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_qmult_show(struct config_item *item,	\
+ 					     char *page)		\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		unsigned qmult;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -117,9 +111,10 @@
+ 		return sprintf(page, "%d", qmult);			\
+ 	}								\
+ 									\
+-	static ssize_t _f_##_opts_qmult_store(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_qmult_store(struct config_item *item, \
+ 					      const char *page, size_t len)\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		u8 val;							\
+ 		int ret;						\
+ 									\
+@@ -140,15 +135,13 @@ out:									\
+ 		return ret;						\
+ 	}								\
+ 									\
+-	static struct f_##_f_##_opts_attribute f_##_f_##_opts_qmult =	\
+-		__CONFIGFS_ATTR(qmult, S_IRUGO | S_IWUSR,		\
+-				_f_##_opts_qmult_show,		\
+-				_f_##_opts_qmult_store)
++	CONFIGFS_ATTR(_f_##_opts_, qmult)
+ 
+ #define USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(_f_)			\
+-	static ssize_t _f_##_opts_ifname_show(struct f_##_f_##_opts *opts, \
++	static ssize_t _f_##_opts_ifname_show(struct config_item *item, \
+ 					      char *page)		\
+ 	{								\
++		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+ 		int ret;						\
+ 									\
+ 		mutex_lock(&opts->lock);				\
+@@ -158,7 +151,6 @@ out:									\
+ 		return ret;						\
+ 	}								\
+ 									\
+-	static struct f_##_f_##_opts_attribute f_##_f_##_opts_ifname =	\
+-		__CONFIGFS_ATTR_RO(ifname, _f_##_opts_ifname_show)
++	CONFIGFS_ATTR_RO(_f_##_opts_, ifname)
+ 
+ #endif /* __U_ETHER_CONFIGFS_H */
 -- 
 1.9.1
