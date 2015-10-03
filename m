@@ -1,44 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp/dccp: add SLAB_DESTROY_BY_RCU flag for
- request sockets
-Date: Sat, 03 Oct 2015 13:25:44 -0700 (PDT)
-Message-ID: <20151003.132544.1489547849171491402.davem@davemloft.net>
-References: <1443878848.32531.70.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: better error reporting
+Date: Sat, 3 Oct 2015 13:16:11 -0700
+Message-ID: <5610378B.4020009@gmail.com>
+References: <E1ZiQJ1-0003q8-78@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>
+To: Russell King <rmk+kernel@arm.linux.org.uk>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58080 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbbJCUK2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 16:10:28 -0400
-In-Reply-To: <1443878848.32531.70.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:36608 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbbJCUQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 16:16:13 -0400
+Received: by obcgx8 with SMTP id gx8so104242109obc.3
+        for <netdev@vger.kernel.org>; Sat, 03 Oct 2015 13:16:13 -0700 (PDT)
+In-Reply-To: <E1ZiQJ1-0003q8-78@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 03 Oct 2015 06:27:28 -0700
+Le 03/10/2015 10:09, Russell King a =C3=A9crit :
+> Add additional error reporting to the generic DSA code, so it's easie=
+r
+> to debug when things go wrong.  This was useful when initially bringi=
+ng
+> up 88e6176 on a new board.
+>=20
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> ---
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Before letting request sockets being put in TCP/DCCP regular
-> ehash table, we need to add either :
-> 
-> - SLAB_DESTROY_BY_RCU flag to their kmem_cache
-> - add RCU grace period before freeing them.
-> 
-> Since we carefully respected the SLAB_DESTROY_BY_RCU protocol
-> like ESTABLISH and TIMEWAIT sockets, use it here.
-> 
-> req_prot_init() being only used by TCP and DCCP, I did not add
-> a new slab_flags into their rsk_prot, but reuse prot->slab_flags
-> 
-> Since all reqsk_alloc() users are correctly dealing with a failure,
-> add the __GFP_NOWARN flag to avoid traces under pressure.
-> 
-> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+[snip]
 
-Applied, thanks Eric.
+>  	} else {
+>  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+>  			    p->phy->addr, p->phy->drv->name);
+> @@ -1195,6 +1202,7 @@ int dsa_slave_create(struct dsa_switch *ds, str=
+uct device *parent,
+> =20
+>  	ret =3D dsa_slave_phy_setup(p, slave_dev);
+>  	if (ret) {
+> +		netdev_err(master, "error %d setting up slave phy\n", ret);
+>  		free_netdev(slave_dev);
+>  		return ret;
+
+All of these debug messages are going to happen prior to the slave
+network device being registered, so you would get these error messages
+to be printed with an extraneous " (unregistered)" which is fine, just =
+a
+tad annoying sometimes.
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+--=20
+=46lorian
