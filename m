@@ -1,34 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 4/5] net: dsa: switch to devm_ calls and remove kfree
- calls
-Date: Sat, 3 Oct 2015 13:28:23 -0700
-Message-ID: <56103A67.3070606@gmail.com>
-References: <560FE583.7010107@baylibre.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: 4.3-rc3: `telnet ::1 <port>' hangs in SYN-SENT
+Date: Sat, 03 Oct 2015 23:13:59 +0200
+Message-ID: <87k2r34puw.fsf@igel.home>
+References: <87oagf4u8i.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Neil Armstrong <narmstrong@baylibre.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nbd@openwrt.org,
-	sergei.shtylyov@cogentembedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560FE583.7010107@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:42370 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbbJCVOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 17:14:04 -0400
+Received: from frontend01.mail.m-online.net (unknown [192.168.8.182])
+	by mail-out.m-online.net (Postfix) with ESMTP id 3nT1CF251qz3hj6q
+	for <netdev@vger.kernel.org>; Sat,  3 Oct 2015 23:14:01 +0200 (CEST)
+Received: from localhost (dynscan1.mnet-online.de [192.168.6.68])
+	by mail.m-online.net (Postfix) with ESMTP id 3nT1CF0Xjvzvh1x
+	for <netdev@vger.kernel.org>; Sat,  3 Oct 2015 23:14:01 +0200 (CEST)
+Received: from mail.mnet-online.de ([192.168.8.182])
+	by localhost (dynscan1.mail.m-online.net [192.168.6.68]) (amavisd-new, port 10024)
+	with ESMTP id 9fkQ-Mm8GhFw for <netdev@vger.kernel.org>;
+	Sat,  3 Oct 2015 23:14:00 +0200 (CEST)
+Received: from igel.home (ppp-93-104-63-53.dynamic.mnet-online.de [93.104.63.53])
+	by mail.mnet-online.de (Postfix) with ESMTPA
+	for <netdev@vger.kernel.org>; Sat,  3 Oct 2015 23:14:00 +0200 (CEST)
+In-Reply-To: <87oagf4u8i.fsf@igel.home> (Andreas Schwab's message of "Sat, 03
+	Oct 2015 21:39:25 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 03/10/2015 07:26, Neil Armstrong a =C3=A9crit :
-> Now the kfree calls exists in the the remove functions, remove them i=
-n all
-> places except the of_probe functions and replace allocation calls
-> with their devm_ counterparts.
->=20
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Ok, that is already fixed by 31b33df.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
---=20
-=46lorian
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
