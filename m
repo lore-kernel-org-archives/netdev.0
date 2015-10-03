@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 11/15] sfc: don't call dma_supported
-Date: Sat,  3 Oct 2015 17:19:35 +0200
-Message-ID: <1443885579-7094-12-git-send-email-hch@lst.de>
+Subject: [PATCH 08/15] netup_unidvb: use pci_set_dma_mask insted of pci_dma_supported
+Date: Sat,  3 Oct 2015 17:19:32 +0200
+Message-ID: <1443885579-7094-9-git-send-email-hch@lst.de>
 References: <1443885579-7094-1-git-send-email-hch@lst.de>
 Cc: linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
 	linux-media@vger.kernel.org, netdev@vger.kernel.org,
@@ -15,32 +15,26 @@ In-Reply-To: <1443885579-7094-1-git-send-email-hch@lst.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dma_set_mask already checks for a supported DMA mask before updating it,
-the call to dma_supported is redundant.
+This ensures the dma mask that is supported by the driver is recorded
+in the device structure.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/ethernet/sfc/efx.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/media/pci/netup_unidvb/netup_unidvb_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 974637d..4abe886 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1247,11 +1247,9 @@ static int efx_init_io(struct efx_nic *efx)
- 	 * masks event though they reject 46 bit masks.
- 	 */
- 	while (dma_mask > 0x7fffffffUL) {
--		if (dma_supported(&pci_dev->dev, dma_mask)) {
--			rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
--			if (rc == 0)
--				break;
--		}
-+		rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
-+		if (rc == 0)
-+			break;
- 		dma_mask >>= 1;
- 	}
- 	if (rc) {
+diff --git a/drivers/media/pci/netup_unidvb/netup_unidvb_core.c b/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
+index 6d8bf627..511144f 100644
+--- a/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
++++ b/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
+@@ -809,7 +809,7 @@ static int netup_unidvb_initdev(struct pci_dev *pci_dev,
+ 		"%s(): board vendor 0x%x, revision 0x%x\n",
+ 		__func__, board_vendor, board_revision);
+ 	pci_set_master(pci_dev);
+-	if (!pci_dma_supported(pci_dev, 0xffffffff)) {
++	if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
+ 		dev_err(&pci_dev->dev,
+ 			"%s(): 32bit PCI DMA is not supported\n", __func__);
+ 		goto pci_detect_err;
 -- 
 1.9.1
