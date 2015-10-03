@@ -1,174 +1,116 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] net: dsa: mv88e6xxx: remove link polling
-Date: Sat, 03 Oct 2015 18:09:01 +0100
-Message-ID: <E1ZiQIv-0003pw-Ur@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH] net: dsa: better error reporting
+Date: Sat, 03 Oct 2015 18:09:07 +0100
+Message-ID: <E1ZiQJ1-0003q8-78@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:36779 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:36782 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbbJCRJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 13:09:08 -0400
+	with ESMTP id S1750921AbbJCRJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 13:09:11 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The link status is polled by the generic phy layer, there's no need to
-duplicate that polling with additional polling.  This additional polling
-adds additional MDIO traffic, and races with the generic phy layer,
-resulting in missing or duplicated link status messages.
+Add additional error reporting to the generic DSA code, so it's easier
+to debug when things go wrong.  This was useful when initially bringing
+up 88e6176 on a new board.
 
-Tested-by: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/dsa/mv88e6123_61_65.c |  1 -
- drivers/net/dsa/mv88e6131.c       |  1 -
- drivers/net/dsa/mv88e6171.c       |  1 -
- drivers/net/dsa/mv88e6352.c       |  1 -
- drivers/net/dsa/mv88e6xxx.c       | 67 ---------------------------------------
- drivers/net/dsa/mv88e6xxx.h       |  1 -
- 6 files changed, 72 deletions(-)
+ net/dsa/dsa.c   |  4 ++--
+ net/dsa/slave.c | 24 ++++++++++++++++--------
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index 3de2a6d73fdc..4bcfd683bbea 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -125,7 +125,6 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
--	.poll_link		= mv88e6xxx_poll_link,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 3e8386529965..c73121c8f155 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -178,7 +178,6 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr_direct,
- 	.phy_read		= mv88e6131_phy_read,
- 	.phy_write		= mv88e6131_phy_write,
--	.poll_link		= mv88e6xxx_poll_link,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index c2daaf087761..c95cfab56a4f 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -104,7 +104,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read_indirect,
- 	.phy_write		= mv88e6xxx_phy_write_indirect,
--	.poll_link		= mv88e6xxx_poll_link,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 1f5129c105fb..37367060676f 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -324,7 +324,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr_indirect,
- 	.phy_read		= mv88e6xxx_phy_read_indirect,
- 	.phy_write		= mv88e6xxx_phy_write_indirect,
--	.poll_link		= mv88e6xxx_poll_link,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index f8baa897d1a0..c6683f65b125 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -388,73 +388,6 @@ int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
- }
- #endif
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index c59fa5d9c22c..aa398bcef9e3 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -326,8 +326,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
  
--void mv88e6xxx_poll_link(struct dsa_switch *ds)
--{
--	int i;
--
--	for (i = 0; i < DSA_MAX_PORTS; i++) {
--		struct net_device *dev;
--		int uninitialized_var(port_status);
--		int pcs_ctrl;
--		int link;
--		int speed;
--		int duplex;
--		int fc;
--
--		dev = ds->ports[i];
--		if (dev == NULL)
--			continue;
--
--		pcs_ctrl = mv88e6xxx_reg_read(ds, REG_PORT(i), PORT_PCS_CTRL);
--		if (pcs_ctrl < 0 || pcs_ctrl & PORT_PCS_CTRL_FORCE_LINK)
--			continue;
--
--		link = 0;
--		if (dev->flags & IFF_UP) {
--			port_status = mv88e6xxx_reg_read(ds, REG_PORT(i),
--							 PORT_STATUS);
--			if (port_status < 0)
--				continue;
--
--			link = !!(port_status & PORT_STATUS_LINK);
--		}
--
--		if (!link) {
--			if (netif_carrier_ok(dev)) {
--				netdev_info(dev, "link down\n");
--				netif_carrier_off(dev);
--			}
--			continue;
--		}
--
--		switch (port_status & PORT_STATUS_SPEED_MASK) {
--		case PORT_STATUS_SPEED_10:
--			speed = 10;
--			break;
--		case PORT_STATUS_SPEED_100:
--			speed = 100;
--			break;
--		case PORT_STATUS_SPEED_1000:
--			speed = 1000;
--			break;
--		default:
--			speed = -1;
--			break;
--		}
--		duplex = (port_status & PORT_STATUS_DUPLEX) ? 1 : 0;
--		fc = (port_status & PORT_STATUS_PAUSE_EN) ? 1 : 0;
--
--		if (!netif_carrier_ok(dev)) {
--			netdev_info(dev,
--				    "link up, %d Mb/s, %s duplex, flow control %sabled\n",
--				    speed,
--				    duplex ? "full" : "half",
--				    fc ? "en" : "dis");
--			netif_carrier_on(dev);
--		}
--	}
--}
--
- static bool mv88e6xxx_6065_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 9b6f3d9d5ae1..d94a4e134ee2 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -442,7 +442,6 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds);
- int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
- int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
- 			    int regnum, u16 val);
--void mv88e6xxx_poll_link(struct dsa_switch *ds);
- void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
- void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
- 				 uint64_t *data);
+ 		ret = dsa_slave_create(ds, parent, i, pd->port_names[i]);
+ 		if (ret < 0) {
+-			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s)\n",
+-				   index, i, pd->port_names[i]);
++			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
++				   index, i, pd->port_names[i], ret);
+ 			ret = 0;
+ 		}
+ 	}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index cce97385f743..115a3fda36b3 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1010,8 +1010,10 @@ static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
+ 	struct dsa_switch *ds = p->parent;
+ 
+ 	p->phy = ds->slave_mii_bus->phy_map[addr];
+-	if (!p->phy)
++	if (!p->phy) {
++		netdev_err(slave_dev, "no phy at %d\n", addr);
+ 		return -ENODEV;
++	}
+ 
+ 	/* Use already configured phy mode */
+ 	if (p->phy_interface == PHY_INTERFACE_MODE_NA)
+@@ -1045,7 +1047,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 		 */
+ 		ret = of_phy_register_fixed_link(port_dn);
+ 		if (ret) {
+-			netdev_err(slave_dev, "failed to register fixed PHY\n");
++			netdev_err(slave_dev, "failed to register fixed PHY: %d\n", ret);
+ 			return ret;
+ 		}
+ 		phy_is_fixed = true;
+@@ -1056,17 +1058,20 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 		phy_flags = ds->drv->get_phy_flags(ds, p->port);
+ 
+ 	if (phy_dn) {
+-		ret = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
++		int phy_id = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
++
+ 		/* If this PHY address is part of phys_mii_mask, which means
+ 		 * that we need to divert reads and writes to/from it, then we
+ 		 * want to bind this device using the slave MII bus created by
+ 		 * DSA to make that happen.
+ 		 */
+-		if (!phy_is_fixed && ret >= 0 &&
+-		    (ds->phys_mii_mask & (1 << ret))) {
+-			ret = dsa_slave_phy_connect(p, slave_dev, ret);
+-			if (ret)
++		if (!phy_is_fixed && phy_id >= 0 &&
++		    (ds->phys_mii_mask & (1 << phy_id))) {
++			ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
++			if (ret) {
++				netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
+ 				return ret;
++			}
+ 		} else {
+ 			p->phy = of_phy_connect(slave_dev, phy_dn,
+ 						dsa_slave_adjust_link,
+@@ -1083,8 +1088,10 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	 */
+ 	if (!p->phy) {
+ 		ret = dsa_slave_phy_connect(p, slave_dev, p->port);
+-		if (ret)
++		if (ret) {
++			netdev_err(slave_dev, "failed to connect to port %d: %d\n", p->port, ret);
+ 			return ret;
++		}
+ 	} else {
+ 		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+ 			    p->phy->addr, p->phy->drv->name);
+@@ -1195,6 +1202,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 
+ 	ret = dsa_slave_phy_setup(p, slave_dev);
+ 	if (ret) {
++		netdev_err(master, "error %d setting up slave phy\n", ret);
+ 		free_netdev(slave_dev);
+ 		return ret;
+ 	}
 -- 
 2.1.0
