@@ -1,54 +1,56 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: better error reporting
-Date: Sat, 3 Oct 2015 13:16:11 -0700
-Message-ID: <5610378B.4020009@gmail.com>
-References: <E1ZiQJ1-0003q8-78@rmk-PC.arm.linux.org.uk>
+Subject: Re: [PATCH v2 3/5] net: dsa: complete dsa_switch_destroy
+Date: Sat, 3 Oct 2015 13:25:19 -0700
+Message-ID: <561039AF.8080706@gmail.com>
+References: <560FE57C.5070608@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>, Guenter Roeck <linux@roeck-us.net>
-To: Russell King <rmk+kernel@arm.linux.org.uk>, netdev@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:36608 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbbJCUQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 16:16:13 -0400
-Received: by obcgx8 with SMTP id gx8so104242109obc.3
-        for <netdev@vger.kernel.org>; Sat, 03 Oct 2015 13:16:13 -0700 (PDT)
-In-Reply-To: <E1ZiQJ1-0003q8-78@rmk-PC.arm.linux.org.uk>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:32822 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788AbbJCUZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 16:25:22 -0400
+In-Reply-To: <560FE57C.5070608@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/10/2015 10:09, Russell King a =C3=A9crit :
-> Add additional error reporting to the generic DSA code, so it's easie=
-r
-> to debug when things go wrong.  This was useful when initially bringi=
-ng
-> up 88e6176 on a new board.
+Le 03/10/2015 07:26, Neil Armstrong a =C3=A9crit :
+> When unbinding dsa, complete the dsa_switch_destroy to unregister the
+> fixed link phy then cleanly unregister and destroy the net devices.
 >=20
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 > ---
 
 [snip]
 
->  	} else {
->  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
->  			    p->phy->addr, p->phy->drv->name);
-> @@ -1195,6 +1202,7 @@ int dsa_slave_create(struct dsa_switch *ds, str=
-uct device *parent,
-> =20
->  	ret =3D dsa_slave_phy_setup(p, slave_dev);
->  	if (ret) {
-> +		netdev_err(master, "error %d setting up slave phy\n", ret);
->  		free_netdev(slave_dev);
->  		return ret;
+> +		port_dn =3D cd->port_dn[port];
+> +		if (of_phy_is_fixed_link(port_dn)) {
+> +			phydev =3D of_phy_find_device(port_dn);
+> +			if (phydev) {
+> +				int addr =3D phydev->addr;
+> +				phy_device_free(phydev);
+> +				of_node_put(port_dn);
+> +				fixed_phy_del(addr);
 
-All of these debug messages are going to happen prior to the slave
-network device being registered, so you would get these error messages
-to be printed with an extraneous " (unregistered)" which is fine, just =
-a
-tad annoying sometimes.
+fixed_phy_del() removes the fixed PHY from the platform fixed MDIO bus
+list of PHYs, so we should be okay even with switch drivers which
+register a link_update callback via fixed_phy_set_link_update(), but I
+have not checked that. The sequence of call looks (phy_device_free then
+fixed_phy_del) looks sane though.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Eventually this logic might be better moved into net/dsa/slave.c such
+that it is easy to see how it balances dsa_slave_phy_setup().
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 --=20
 =46lorian
