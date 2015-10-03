@@ -1,72 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp/dccp: add SLAB_DESTROY_BY_RCU flag for request
- sockets
-Date: Sat, 03 Oct 2015 06:27:28 -0700
-Message-ID: <1443878848.32531.70.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 01/23] configfs: add show and store methods to struct configfs_attribute
+Date: Sat,  3 Oct 2015 15:32:37 +0200
+Message-ID: <1443879179-22280-2-git-send-email-hch@lst.de>
+References: <1443879179-22280-1-git-send-email-hch@lst.de>
+Cc: Felipe Balbi <balbi@ti.com>,
+	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Pratyush Anand <pratyush.anand@gmail.com>,
+	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Joel Becker <jlbec@evilplan.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35264 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbbJCN1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 09:27:30 -0400
-Received: by pacfv12 with SMTP id fv12so134614369pac.2
-        for <netdev@vger.kernel.org>; Sat, 03 Oct 2015 06:27:30 -0700 (PDT)
+Received: from bombadil.infradead.org ([198.137.202.9]:59329 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752068AbbJCNgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 09:36:50 -0400
+In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Add methods to struct configfs_attribute to directly show and store
+attributes without adding boilerplate code to every user.  In addition
+to the methods this also adds 3 helper macros to define read/write,
+read-only and write-only attributes with a single line of code.
 
-Before letting request sockets being put in TCP/DCCP regular
-ehash table, we need to add either :
-
-- SLAB_DESTROY_BY_RCU flag to their kmem_cache
-- add RCU grace period before freeing them.
-
-Since we carefully respected the SLAB_DESTROY_BY_RCU protocol
-like ESTABLISH and TIMEWAIT sockets, use it here.
-
-req_prot_init() being only used by TCP and DCCP, I did not add
-a new slab_flags into their rsk_prot, but reuse prot->slab_flags
-
-Since all reqsk_alloc() users are correctly dealing with a failure,
-add the __GFP_NOWARN flag to avoid traces under pressure.
-
-Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Nicholas Bellinger <nab@linux-iscsi.org>
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- include/net/request_sock.h |    4 +++-
- net/core/sock.c            |    2 +-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ fs/configfs/file.c       | 17 ++++++++++++-----
+ include/linux/configfs.h | 27 +++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index bae6936d75c4..dd423d840852 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -82,7 +82,9 @@ static inline struct sock *req_to_sk(struct request_sock *req)
- static inline struct request_sock *
- reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
- {
--	struct request_sock *req = kmem_cache_alloc(ops->slab, GFP_ATOMIC);
-+	struct request_sock *req;
+diff --git a/fs/configfs/file.c b/fs/configfs/file.c
+index 403269f..106ca58 100644
+--- a/fs/configfs/file.c
++++ b/fs/configfs/file.c
+@@ -74,7 +74,11 @@ static int fill_read_buffer(struct dentry * dentry, struct configfs_buffer * buf
+ 	if (!buffer->page)
+ 		return -ENOMEM;
+ 
+-	count = ops->show_attribute(item,attr,buffer->page);
++	if (ops->show_attribute)
++		count = ops->show_attribute(item, attr, buffer->page);
++	else
++		count = attr->show(item, buffer->page);
 +
-+	req = kmem_cache_alloc(ops->slab, GFP_ATOMIC | __GFP_NOWARN);
+ 	buffer->needs_read_fill = 0;
+ 	BUG_ON(count > (ssize_t)SIMPLE_ATTR_SIZE);
+ 	if (count >= 0)
+@@ -173,7 +177,9 @@ flush_write_buffer(struct dentry * dentry, struct configfs_buffer * buffer, size
+ 	struct config_item * item = to_item(dentry->d_parent);
+ 	struct configfs_item_operations * ops = buffer->ops;
  
- 	if (req) {
- 		req->rsk_ops = ops;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 3307c02244d3..7dd1263e4c24 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2758,7 +2758,7 @@ static int req_prot_init(const struct proto *prot)
+-	return ops->store_attribute(item,attr,buffer->page,count);
++	if (ops->store_attribute)
++		return ops->store_attribute(item, attr, buffer->page, count);
++	return attr->store(item, buffer->page, count);
+ }
  
- 	rsk_prot->slab = kmem_cache_create(rsk_prot->slab_name,
- 					   rsk_prot->obj_size, 0,
--					   0, NULL);
-+					   prot->slab_flags, NULL);
  
- 	if (!rsk_prot->slab) {
- 		pr_crit("%s: Can't create request sock SLAB cache!\n",
+@@ -237,8 +243,8 @@ static int check_perm(struct inode * inode, struct file * file)
+ 	 * and we must have a store method.
+ 	 */
+ 	if (file->f_mode & FMODE_WRITE) {
+-
+-		if (!(inode->i_mode & S_IWUGO) || !ops->store_attribute)
++		if (!(inode->i_mode & S_IWUGO) ||
++		    (!ops->store_attribute && !attr->store))
+ 			goto Eaccess;
+ 
+ 	}
+@@ -248,7 +254,8 @@ static int check_perm(struct inode * inode, struct file * file)
+ 	 * must be a show method for it.
+ 	 */
+ 	if (file->f_mode & FMODE_READ) {
+-		if (!(inode->i_mode & S_IRUGO) || !ops->show_attribute)
++		if (!(inode->i_mode & S_IRUGO) ||
++		    (!ops->show_attribute && !attr->show))
+ 			goto Eaccess;
+ 	}
+ 
+diff --git a/include/linux/configfs.h b/include/linux/configfs.h
+index 63a36e8..85e9956 100644
+--- a/include/linux/configfs.h
++++ b/include/linux/configfs.h
+@@ -125,8 +125,35 @@ struct configfs_attribute {
+ 	const char		*ca_name;
+ 	struct module 		*ca_owner;
+ 	umode_t			ca_mode;
++	ssize_t (*show)(struct config_item *, char *);
++	ssize_t (*store)(struct config_item *, const char *, size_t);
+ };
+ 
++#define CONFIGFS_ATTR(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IRUGO | S_IWUSR,		\
++	.ca_owner	= THIS_MODULE,			\
++	.show		= _pfx##_name##_show,		\
++	.store		= _pfx##_name##_store,		\
++}
++
++#define CONFIGFS_ATTR_RO(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IRUGO,			\
++	.ca_owner	= THIS_MODULE,			\
++	.show		= _pfx##_name##_show,		\
++}
++
++#define CONFIGFS_ATTR_WO(_pfx, _name)			\
++static struct configfs_attribute _pfx##attr_##_name = {	\
++	.ca_name	= __stringify(_name),		\
++	.ca_mode	= S_IWUSR,			\
++	.ca_owner	= THIS_MODULE,			\
++	.store		= _pfx##_name##_store,		\
++}
++
+ /*
+  * Users often need to create attribute structures for their configurable
+  * attributes, containing a configfs_attribute member and function pointers
+-- 
+1.9.1
