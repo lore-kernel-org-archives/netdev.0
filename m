@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 07/23] usb-gadget/f_loopback: use
-	per-attribute show and store methods
-Date: Sat,  3 Oct 2015 15:32:43 +0200
-Message-ID: <1443879179-22280-8-git-send-email-hch@lst.de>
+Subject: [PATCH 12/23] usb-gadget/f_uac1: use per-attribute
+	show and store methods
+Date: Sat,  3 Oct 2015 15:32:48 +0200
+Message-ID: <1443879179-22280-13-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         Pratyush Anand <pratyush.anand@gmail.com>,
@@ -33,94 +33,114 @@ causes binary bloat.
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 ---
- drivers/usb/gadget/function/f_loopback.c | 31 ++++++++++++-------------------
- 1 file changed, 12 insertions(+), 19 deletions(-)
+ drivers/usb/gadget/function/f_uac1.c | 39 +++++++++++++++---------------------
+ 1 file changed, 16 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_loopback.c b/drivers/usb/gadget/function/f_loopback.c
-index 6e2fe63..b9d8f05 100644
---- a/drivers/usb/gadget/function/f_loopback.c
-+++ b/drivers/usb/gadget/function/f_loopback.c
-@@ -413,9 +413,6 @@ static inline struct f_lb_opts *to_f_lb_opts(struct config_item *item)
+diff --git a/drivers/usb/gadget/function/f_uac1.c b/drivers/usb/gadget/function/f_uac1.c
+index 7856b33..ad01032 100644
+--- a/drivers/usb/gadget/function/f_uac1.c
++++ b/drivers/usb/gadget/function/f_uac1.c
+@@ -773,9 +773,6 @@ static inline struct f_uac1_opts *to_f_uac1_opts(struct config_item *item)
  			    func_inst.group);
  }
  
--CONFIGFS_ATTR_STRUCT(f_lb_opts);
--CONFIGFS_ATTR_OPS(f_lb_opts);
+-CONFIGFS_ATTR_STRUCT(f_uac1_opts);
+-CONFIGFS_ATTR_OPS(f_uac1_opts);
 -
- static void lb_attr_release(struct config_item *item)
+ static void f_uac1_attr_release(struct config_item *item)
  {
- 	struct f_lb_opts *lb_opts = to_f_lb_opts(item);
-@@ -425,12 +422,11 @@ static void lb_attr_release(struct config_item *item)
+ 	struct f_uac1_opts *opts = to_f_uac1_opts(item);
+@@ -785,14 +782,13 @@ static void f_uac1_attr_release(struct config_item *item)
  
- static struct configfs_item_operations lb_item_ops = {
- 	.release		= lb_attr_release,
--	.show_attribute		= f_lb_opts_attr_show,
--	.store_attribute	= f_lb_opts_attr_store,
+ static struct configfs_item_operations f_uac1_item_ops = {
+ 	.release	= f_uac1_attr_release,
+-	.show_attribute	= f_uac1_opts_attr_show,
+-	.store_attribute = f_uac1_opts_attr_store,
  };
  
--static ssize_t f_lb_opts_qlen_show(struct f_lb_opts *opts, char *page)
-+static ssize_t f_lb_opts_qlen_show(struct config_item *item, char *page)
- {
-+	struct f_lb_opts *opts = to_f_lb_opts(item);
- 	int result;
+ #define UAC1_INT_ATTRIBUTE(name)					\
+-static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
++static ssize_t f_uac1_opts_##name##_show(struct config_item *item,	\
+ 					 char *page)			\
+ {									\
++	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+ 	int result;							\
+ 									\
+ 	mutex_lock(&opts->lock);					\
+@@ -802,9 +798,10 @@ static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+ 	return result;							\
+ }									\
+ 									\
+-static ssize_t f_uac1_opts_##name##_store(struct f_uac1_opts *opts,	\
++static ssize_t f_uac1_opts_##name##_store(struct config_item *item,		\
+ 					  const char *page, size_t len)	\
+ {									\
++	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+ 	int ret;							\
+ 	u32 num;							\
+ 									\
+@@ -826,19 +823,17 @@ end:									\
+ 	return ret;							\
+ }									\
+ 									\
+-static struct f_uac1_opts_attribute f_uac1_opts_##name =		\
+-	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR,			\
+-			f_uac1_opts_##name##_show,			\
+-			f_uac1_opts_##name##_store)
++CONFIGFS_ATTR(f_uac1_opts_, name)
  
- 	mutex_lock(&opts->lock);
-@@ -440,9 +436,10 @@ static ssize_t f_lb_opts_qlen_show(struct f_lb_opts *opts, char *page)
- 	return result;
- }
+ UAC1_INT_ATTRIBUTE(req_buf_size);
+ UAC1_INT_ATTRIBUTE(req_count);
+ UAC1_INT_ATTRIBUTE(audio_buf_size);
  
--static ssize_t f_lb_opts_qlen_store(struct f_lb_opts *opts,
-+static ssize_t f_lb_opts_qlen_store(struct config_item *item,
- 				    const char *page, size_t len)
- {
-+	struct f_lb_opts *opts = to_f_lb_opts(item);
- 	int ret;
- 	u32 num;
+ #define UAC1_STR_ATTRIBUTE(name)					\
+-static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
++static ssize_t f_uac1_opts_##name##_show(struct config_item *item,	\
+ 					 char *page)			\
+ {									\
++	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+ 	int result;							\
+ 									\
+ 	mutex_lock(&opts->lock);					\
+@@ -848,9 +843,10 @@ static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
+ 	return result;							\
+ }									\
+ 									\
+-static ssize_t f_uac1_opts_##name##_store(struct f_uac1_opts *opts,	\
++static ssize_t f_uac1_opts_##name##_store(struct config_item *item,	\
+ 					  const char *page, size_t len)	\
+ {									\
++	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
+ 	int ret = -EBUSY;						\
+ 	char *tmp;							\
+ 									\
+@@ -874,22 +870,19 @@ end:									\
+ 	return ret;							\
+ }									\
+ 									\
+-static struct f_uac1_opts_attribute f_uac1_opts_##name =		\
+-	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR,			\
+-			f_uac1_opts_##name##_show,			\
+-			f_uac1_opts_##name##_store)
++CONFIGFS_ATTR(f_uac1_opts_, name)
  
-@@ -463,13 +460,11 @@ end:
- 	return ret;
- }
+ UAC1_STR_ATTRIBUTE(fn_play);
+ UAC1_STR_ATTRIBUTE(fn_cap);
+ UAC1_STR_ATTRIBUTE(fn_cntl);
  
--static struct f_lb_opts_attribute f_lb_opts_qlen =
--	__CONFIGFS_ATTR(qlen, S_IRUGO | S_IWUSR,
--			f_lb_opts_qlen_show,
--			f_lb_opts_qlen_store);
-+CONFIGFS_ATTR(f_lb_opts_, qlen);
- 
--static ssize_t f_lb_opts_bulk_buflen_show(struct f_lb_opts *opts, char *page)
-+static ssize_t f_lb_opts_bulk_buflen_show(struct config_item *item, char *page)
- {
-+	struct f_lb_opts *opts = to_f_lb_opts(item);
- 	int result;
- 
- 	mutex_lock(&opts->lock);
-@@ -479,9 +474,10 @@ static ssize_t f_lb_opts_bulk_buflen_show(struct f_lb_opts *opts, char *page)
- 	return result;
- }
- 
--static ssize_t f_lb_opts_bulk_buflen_store(struct f_lb_opts *opts,
-+static ssize_t f_lb_opts_bulk_buflen_store(struct config_item *item,
- 				    const char *page, size_t len)
- {
-+	struct f_lb_opts *opts = to_f_lb_opts(item);
- 	int ret;
- 	u32 num;
- 
-@@ -502,14 +498,11 @@ end:
- 	return ret;
- }
- 
--static struct f_lb_opts_attribute f_lb_opts_bulk_buflen =
--	__CONFIGFS_ATTR(buflen, S_IRUGO | S_IWUSR,
--			f_lb_opts_bulk_buflen_show,
--			f_lb_opts_bulk_buflen_store);
-+CONFIGFS_ATTR(f_lb_opts_, bulk_buflen);
- 
- static struct configfs_attribute *lb_attrs[] = {
--	&f_lb_opts_qlen.attr,
--	&f_lb_opts_bulk_buflen.attr,
-+	&f_lb_opts_attr_qlen,
-+	&f_lb_opts_attr_bulk_buflen,
+ static struct configfs_attribute *f_uac1_attrs[] = {
+-	&f_uac1_opts_req_buf_size.attr,
+-	&f_uac1_opts_req_count.attr,
+-	&f_uac1_opts_audio_buf_size.attr,
+-	&f_uac1_opts_fn_play.attr,
+-	&f_uac1_opts_fn_cap.attr,
+-	&f_uac1_opts_fn_cntl.attr,
++	&f_uac1_opts_attr_req_buf_size,
++	&f_uac1_opts_attr_req_count,
++	&f_uac1_opts_attr_audio_buf_size,
++	&f_uac1_opts_attr_fn_play,
++	&f_uac1_opts_attr_fn_cap,
++	&f_uac1_opts_attr_fn_cntl,
  	NULL,
  };
  
