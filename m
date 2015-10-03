@@ -1,83 +1,89 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [PATCH 1/3] net: dsa: Use devm_ prefixed allocations
-Date: Sat, 3 Oct 2015 15:55:14 +0200
-Message-ID: <560FDE42.3050806@baylibre.com>
-References: <560E60E4.8020706@baylibre.com>
- <560E86BC.3090104@cogentembedded.com> <560E86F5.2030301@baylibre.com>
- <560FCC76.3060705@openwrt.org>
+Subject: [PATCH v2 5/5] net: dsa: exit probe if no switch were found
+Date: Sat, 3 Oct 2015 16:26:15 +0200
+Message-ID: <560FE587.80307@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Felix Fietkau <nbd@openwrt.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <560FCC76.3060705@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/03/2015 02:39 PM, Felix Fietkau wrote:
-> On 2015-10-02 15:30, Neil Armstrong wrote:
->> On 10/02/2015 03:29 PM, Sergei Shtylyov wrote:
->>> On 10/2/2015 1:48 PM, Neil Armstrong wrote:
->>>
->>>> To simplify and prevent memory leakage when unbinding, use
->>>> the devm_ memory allocation calls.
->>>>
->>>> Tested-by: Andrew Lunn <andrew@lunn.ch>
->>>> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
->>>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
->>>> ---
->>>>   net/dsa/dsa.c | 6 +++---
->>>>   1 file changed, 3 insertions(+), 3 deletions(-)
->>>>
->>>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
->>>> index c59fa5d..98f94c2 100644
->>>> --- a/net/dsa/dsa.c
->>>> +++ b/net/dsa/dsa.c
->>>> @@ -305,7 +305,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->>>>       if (ret < 0)
->>>>           goto out;
->>>>
->>>> -    ds->slave_mii_bus = mdiobus_alloc();
->>>> +    ds->slave_mii_bus = devm_mdiobus_alloc(parent);
->>>>       if (ds->slave_mii_bus == NULL) {
->>>>           ret = -ENOMEM;
->>>>           goto out;
->>>> @@ -400,7 +400,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->>>>       /*
->>>>        * Allocate and initialise switch state.
->>>>        */
->>>> -    ds = kzalloc(sizeof(*ds) + drv->priv_size, GFP_KERNEL);
->>>> +    ds = devm_kzalloc(parent, sizeof(*ds) + drv->priv_size, GFP_KERNEL);
->>>>       if (ds == NULL)
->>>>           return ERR_PTR(-ENOMEM);
->>>>
->>>> @@ -883,7 +883,7 @@ static int dsa_probe(struct platform_device *pdev)
->>>>           goto out;
->>>>       }
->>>>
->>>> -    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
->>>> +    dst = devm_kzalloc(&pdev->dev, sizeof(*dst), GFP_KERNEL);
->>>>       if (dst == NULL) {
->>>>           dev_put(dev);
->>>>           ret = -ENOMEM;
->>>>
->>>
->>>    Shouldn't you remove the correspoding kfree(), etc. calls?
->>>
->>> MBR, Sergei
->>>
->> The corresponding kfree() calls were all missing.
-> Not in the error handling path. mdiobus_alloc has a corresponding
-> mdiobus_free in the same function.
-> The ds kzalloc in dsa_switch_setup has a kfree in dsa_switch_setup_one.
-> 
-> - Felix
-> 
-Thanks Felix & Sergei,
+If no switch were found in dsa_setup_dst, return -ENODEV and
+exit the dsa_probe cleanly.
 
-I will repost based on net with an intermediate commit adding the missing kfree calls.
+Tested-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ net/dsa/dsa.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
 
-Neil
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index dd171ff..9c521b7 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -836,10 +836,11 @@ static inline void dsa_of_remove(struct device *dev)
+ }
+ #endif
+
+-static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
++static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 			  struct device *parent, struct dsa_platform_data *pd)
+ {
+ 	int i;
++	unsigned configured = 0;
+
+ 	dst->pd = pd;
+ 	dst->master_netdev = dev;
+@@ -859,9 +860,17 @@ static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 		dst->ds[i] = ds;
+ 		if (ds->drv->poll_link != NULL)
+ 			dst->link_poll_needed = 1;
++
++		++configured;
+ 	}
+
+ 	/*
++	 * If no switch was found, exit cleanly
++	 */
++	if (!configured)
++		return -EPROBE_DEFER;
++
++	/*
+ 	 * If we use a tagging format that doesn't have an ethertype
+ 	 * field, make sure that all packets from this point on get
+ 	 * sent to the tag format's receive function.
+@@ -877,6 +886,8 @@ static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 		dst->link_poll_timer.expires = round_jiffies(jiffies + HZ);
+ 		add_timer(&dst->link_poll_timer);
+ 	}
++
++	return 0;
+ }
+
+ static int dsa_probe(struct platform_device *pdev)
+@@ -926,9 +937,9 @@ static int dsa_probe(struct platform_device *pdev)
+
+ 	platform_set_drvdata(pdev, dst);
+
+-	dsa_setup_dst(dst, dev, &pdev->dev, pd);
+-
+-	return 0;
++	ret = dsa_setup_dst(dst, dev, &pdev->dev, pd);
++	if (!ret)
++		return 0;
+
+ out:
+ 	dsa_of_remove(&pdev->dev);
+-- 
+1.9.1
