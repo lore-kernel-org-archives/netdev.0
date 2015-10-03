@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 04/23] usb-gadget/f_hid: use per-attribute show and store methods
-Date: Sat,  3 Oct 2015 15:32:40 +0200
-Message-ID: <1443879179-22280-5-git-send-email-hch@lst.de>
+Subject: [PATCH 08/23] usb-gadget/f_midi: use per-attribute show and store methods
+Date: Sat,  3 Oct 2015 15:32:44 +0200
+Message-ID: <1443879179-22280-9-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Cc: Felipe Balbi <balbi@ti.com>,
 	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
@@ -14,14 +14,10 @@ Cc: Felipe Balbi <balbi@ti.com>,
 To: Joel Becker <jlbec@evilplan.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Nicholas Bellinger <nab@linux-iscsi.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:59402 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbbJCNhK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 09:37:10 -0400
+Return-path: <target-devel-owner@vger.kernel.org>
 In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 To simplify the configfs interface and remove boilerplate code that also
 causes binary bloat.
@@ -29,102 +25,107 @@ causes binary bloat.
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 ---
- drivers/usb/gadget/function/f_hid.c | 34 ++++++++++++++--------------------
- 1 file changed, 14 insertions(+), 20 deletions(-)
+ drivers/usb/gadget/function/f_midi.c | 37 ++++++++++++++++--------------------
+ 1 file changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_hid.c b/drivers/usb/gadget/function/f_hid.c
-index 6df9715..d15b061 100644
---- a/drivers/usb/gadget/function/f_hid.c
-+++ b/drivers/usb/gadget/function/f_hid.c
-@@ -713,9 +713,6 @@ static inline struct f_hid_opts *to_f_hid_opts(struct config_item *item)
+diff --git a/drivers/usb/gadget/function/f_midi.c b/drivers/usb/gadget/function/f_midi.c
+index a287a48..0e2b8ed 100644
+--- a/drivers/usb/gadget/function/f_midi.c
++++ b/drivers/usb/gadget/function/f_midi.c
+@@ -906,9 +906,6 @@ static inline struct f_midi_opts *to_f_midi_opts(struct config_item *item)
  			    func_inst.group);
  }
  
--CONFIGFS_ATTR_STRUCT(f_hid_opts);
--CONFIGFS_ATTR_OPS(f_hid_opts);
+-CONFIGFS_ATTR_STRUCT(f_midi_opts);
+-CONFIGFS_ATTR_OPS(f_midi_opts);
 -
- static void hid_attr_release(struct config_item *item)
+ static void midi_attr_release(struct config_item *item)
  {
- 	struct f_hid_opts *opts = to_f_hid_opts(item);
-@@ -725,13 +722,12 @@ static void hid_attr_release(struct config_item *item)
+ 	struct f_midi_opts *opts = to_f_midi_opts(item);
+@@ -918,13 +915,12 @@ static void midi_attr_release(struct config_item *item)
  
- static struct configfs_item_operations hidg_item_ops = {
- 	.release	= hid_attr_release,
--	.show_attribute	= f_hid_opts_attr_show,
--	.store_attribute = f_hid_opts_attr_store,
+ static struct configfs_item_operations midi_item_ops = {
+ 	.release	= midi_attr_release,
+-	.show_attribute	= f_midi_opts_attr_show,
+-	.store_attribute = f_midi_opts_attr_store,
  };
  
- #define F_HID_OPT(name, prec, limit)					\
--static ssize_t f_hid_opts_##name##_show(struct f_hid_opts *opts, char *page)\
-+static ssize_t f_hid_opts_##name##_show(struct config_item *item, char *page)\
+ #define F_MIDI_OPT(name, test_limit, limit)				\
+-static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
++static ssize_t f_midi_opts_##name##_show(struct config_item *item, char *page) \
  {									\
-+	struct f_hid_opts *opts = to_f_hid_opts(item);			\
++	struct f_midi_opts *opts = to_f_midi_opts(item);		\
  	int result;							\
  									\
  	mutex_lock(&opts->lock);					\
-@@ -741,9 +737,10 @@ static ssize_t f_hid_opts_##name##_show(struct f_hid_opts *opts, char *page)\
+@@ -934,9 +930,10 @@ static ssize_t f_midi_opts_##name##_show(struct f_midi_opts *opts, char *page) \
  	return result;							\
  }									\
  									\
--static ssize_t f_hid_opts_##name##_store(struct f_hid_opts *opts,	\
-+static ssize_t f_hid_opts_##name##_store(struct config_item *item,	\
+-static ssize_t f_midi_opts_##name##_store(struct f_midi_opts *opts,	\
++static ssize_t f_midi_opts_##name##_store(struct config_item *item,	\
  					 const char *page, size_t len)	\
  {									\
-+	struct f_hid_opts *opts = to_f_hid_opts(item);			\
++	struct f_midi_opts *opts = to_f_midi_opts(item);		\
  	int ret;							\
- 	u##prec num;							\
+ 	u32 num;							\
  									\
-@@ -769,16 +766,15 @@ end:									\
+@@ -962,9 +959,7 @@ end:									\
  	return ret;							\
  }									\
  									\
--static struct f_hid_opts_attribute f_hid_opts_##name =			\
--	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR, f_hid_opts_##name##_show,\
--			f_hid_opts_##name##_store)
-+CONFIGFS_ATTR(f_hid_opts_, name)
+-static struct f_midi_opts_attribute f_midi_opts_##name =		\
+-	__CONFIGFS_ATTR(name, S_IRUGO | S_IWUSR, f_midi_opts_##name##_show, \
+-			f_midi_opts_##name##_store)
++CONFIGFS_ATTR(f_midi_opts_, name);
  
- F_HID_OPT(subclass, 8, 255);
- F_HID_OPT(protocol, 8, 255);
- F_HID_OPT(report_length, 16, 65535);
+ F_MIDI_OPT(index, true, SNDRV_CARDS);
+ F_MIDI_OPT(buflen, false, 0);
+@@ -972,8 +967,9 @@ F_MIDI_OPT(qlen, false, 0);
+ F_MIDI_OPT(in_ports, true, MAX_PORTS);
+ F_MIDI_OPT(out_ports, true, MAX_PORTS);
  
--static ssize_t f_hid_opts_report_desc_show(struct f_hid_opts *opts, char *page)
-+static ssize_t f_hid_opts_report_desc_show(struct config_item *item, char *page)
+-static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
++static ssize_t f_midi_opts_id_show(struct config_item *item, char *page)
  {
-+	struct f_hid_opts *opts = to_f_hid_opts(item);
++	struct f_midi_opts *opts = to_f_midi_opts(item);
  	int result;
  
  	mutex_lock(&opts->lock);
-@@ -789,9 +785,10 @@ static ssize_t f_hid_opts_report_desc_show(struct f_hid_opts *opts, char *page)
+@@ -989,9 +985,10 @@ static ssize_t f_midi_opts_id_show(struct f_midi_opts *opts, char *page)
  	return result;
  }
  
--static ssize_t f_hid_opts_report_desc_store(struct f_hid_opts *opts,
-+static ssize_t f_hid_opts_report_desc_store(struct config_item *item,
- 					    const char *page, size_t len)
+-static ssize_t f_midi_opts_id_store(struct f_midi_opts *opts,
++static ssize_t f_midi_opts_id_store(struct config_item *item,
+ 				    const char *page, size_t len)
  {
-+	struct f_hid_opts *opts = to_f_hid_opts(item);
- 	int ret = -EBUSY;
- 	char *d;
++	struct f_midi_opts *opts = to_f_midi_opts(item);
+ 	int ret;
+ 	char *c;
  
-@@ -818,16 +815,13 @@ end:
+@@ -1016,17 +1013,15 @@ end:
  	return ret;
  }
  
--static struct f_hid_opts_attribute f_hid_opts_report_desc =
--	__CONFIGFS_ATTR(report_desc, S_IRUGO | S_IWUSR,
--			f_hid_opts_report_desc_show,
--			f_hid_opts_report_desc_store);
-+CONFIGFS_ATTR(f_hid_opts_, report_desc);
+-static struct f_midi_opts_attribute f_midi_opts_id =
+-	__CONFIGFS_ATTR(id, S_IRUGO | S_IWUSR, f_midi_opts_id_show,
+-			f_midi_opts_id_store);
++CONFIGFS_ATTR(f_midi_opts_, id);
  
- static struct configfs_attribute *hid_attrs[] = {
--	&f_hid_opts_subclass.attr,
--	&f_hid_opts_protocol.attr,
--	&f_hid_opts_report_length.attr,
--	&f_hid_opts_report_desc.attr,
-+	&f_hid_opts_attr_subclass,
-+	&f_hid_opts_attr_protocol,
-+	&f_hid_opts_attr_report_length,
-+	&f_hid_opts_attr_report_desc,
+ static struct configfs_attribute *midi_attrs[] = {
+-	&f_midi_opts_index.attr,
+-	&f_midi_opts_buflen.attr,
+-	&f_midi_opts_qlen.attr,
+-	&f_midi_opts_in_ports.attr,
+-	&f_midi_opts_out_ports.attr,
+-	&f_midi_opts_id.attr,
++	&f_midi_opts_attr_index,
++	&f_midi_opts_attr_buflen,
++	&f_midi_opts_attr_qlen,
++	&f_midi_opts_attr_in_ports,
++	&f_midi_opts_attr_out_ports,
++	&f_midi_opts_attr_id,
  	NULL,
  };
  
