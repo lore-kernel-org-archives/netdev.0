@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/17] tcp/dccp: lockless listener
-Date: Sat, 03 Oct 2015 04:48:35 -0700 (PDT)
-Message-ID: <20151003.044835.592539615085639060.davem@davemloft.net>
-References: <1443811419-4798-1-git-send-email-edumazet@google.com>
+Subject: Re: [patch net-next v2 0/6] switchdev: bring back switchdev_obj
+Date: Sat, 03 Oct 2015 04:50:23 -0700 (PDT)
+Message-ID: <20151003.045023.1505695956387654766.davem@davemloft.net>
+References: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycai@google.com, willemb@google.com,
-	eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55742 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032AbbJCLdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 07:33:05 -0400
-In-Reply-To: <1443811419-4798-1-git-send-email-edumazet@google.com>
+	with ESMTP id S1752032AbbJCLev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 07:34:51 -0400
+In-Reply-To: <1443690226-29833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Fri,  2 Oct 2015 11:43:22 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  1 Oct 2015 11:03:40 +0200
 
-> TCP listener refactoring : this is becoming interesting !
-> 
-> This patch series takes the steps to use normal TCP/DCCP ehash
-> table to store SYN_RECV requests, instead of the private per-listener
-> hash table we had until now.
-> 
-> SYNACK skb are now attached to their syn_recv request socket,
-> so that we no longer heavily modify listener sk_wmem_alloc.
-> 
-> listener lock is no longer held in fast path, including
-> SYNCOOKIE mode.
-> 
-> During my tests, my server was able to process 3,500,000
-> SYN packets per second on one listener and still had available
-> cpu cycles.
-> 
-> That is about 2 to 3 order of magnitude what we had with older kernels.
-> 
-> This effort started two years ago and I am pleased to reach expectations.
-> 
-> We'll probably extend SO_REUSEPORT to add proper cpu/numa affinities,
-> so that heavy duty TCP servers can get proper siloing thanks to multi-queues
-> NIC.
+> Second version of the patch extends to a patchset. Basically this patchset
+> brings object structure back which disappeared with recent Vivien's patchset.
+> Also it does a bit of naming changes in order to get the things in line.
+> Also, object id is put back into object structure.
+> Thanks to Scott and Vivien for review and suggestions.
 
-This looks amazing, series applied, thanks Eric!
+Series applied, thanks Jiri.
