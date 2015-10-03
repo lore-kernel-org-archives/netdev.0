@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 13/15] usbnet: remove ifdefed out call to dma_supported
-Date: Sat,  3 Oct 2015 17:19:37 +0200
-Message-ID: <1443885579-7094-14-git-send-email-hch@lst.de>
+Subject: [PATCH 09/15] mpsc: use dma_set_mask insted of dma_supported
+Date: Sat,  3 Oct 2015 17:19:33 +0200
+Message-ID: <1443885579-7094-10-git-send-email-hch@lst.de>
 References: <1443885579-7094-1-git-send-email-hch@lst.de>
 Cc: linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
 	linux-media@vger.kernel.org, netdev@vger.kernel.org,
@@ -15,27 +15,26 @@ In-Reply-To: <1443885579-7094-1-git-send-email-hch@lst.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This ensures the dma mask that is supported by the driver is recorded
+in the device structure.
+
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/usb/usbnet.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/tty/serial/mpsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index b4cf107..9497d51 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1661,12 +1661,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	 * bind() should set rx_urb_size in that case.
- 	 */
- 	dev->hard_mtu = net->mtu + net->hard_header_len;
--#if 0
--// dma_supported() is deeply broken on almost all architectures
--	// possible with some EHCI controllers
--	if (dma_supported (&udev->dev, DMA_BIT_MASK(64)))
--		net->features |= NETIF_F_HIGHDMA;
--#endif
+diff --git a/drivers/tty/serial/mpsc.c b/drivers/tty/serial/mpsc.c
+index 82bb6d1..11e084e 100644
+--- a/drivers/tty/serial/mpsc.c
++++ b/drivers/tty/serial/mpsc.c
+@@ -755,7 +755,7 @@ static int mpsc_alloc_ring_mem(struct mpsc_port_info *pi)
+ 		pi->port.line);
  
- 	net->netdev_ops = &usbnet_netdev_ops;
- 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
+ 	if (!pi->dma_region) {
+-		if (!dma_supported(pi->port.dev, 0xffffffff)) {
++		if (!dma_set_mask(pi->port.dev, 0xffffffff)) {
+ 			printk(KERN_ERR "MPSC: Inadequate DMA support\n");
+ 			rc = -ENXIO;
+ 		} else if ((pi->dma_region = dma_alloc_noncoherent(pi->port.dev,
 -- 
 1.9.1
