@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 17/23] dlm: use per-attribute show and store
-	methods
-Date: Sat,  3 Oct 2015 15:32:53 +0200
-Message-ID: <1443879179-22280-18-git-send-email-hch@lst.de>
+Subject: [PATCH 18/23] spear13xx_pcie_gadget: use
+	per-attribute show and store methods
+Date: Sat,  3 Oct 2015 15:32:54 +0200
+Message-ID: <1443879179-22280-19-git-send-email-hch@lst.de>
 References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,471 +30,407 @@ Sender: ocfs2-devel-bounces@oss.oracle.com
 Errors-To: ocfs2-devel-bounces@oss.oracle.com
 List-Id: netdev.vger.kernel.org
 
-To simplify the configfs interface and remove boilerplate code that also
-causes binary bloat.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: David Teigland <teigland@redhat.com
 ---
- fs/dlm/config.c | 288 +++++++++++++++-----------------------------------------
- 1 file changed, 74 insertions(+), 214 deletions(-)
+ drivers/misc/spear13xx_pcie_gadget.c | 216 ++++++++++++-----------------------
+ 1 file changed, 71 insertions(+), 145 deletions(-)
 
-diff --git a/fs/dlm/config.c b/fs/dlm/config.c
-index d521bdd..8e294fb 100644
---- a/fs/dlm/config.c
-+++ b/fs/dlm/config.c
-@@ -61,35 +61,8 @@ static struct config_item *make_node(struct config_group *, const char *);
- static void drop_node(struct config_group *, struct config_item *);
- static void release_node(struct config_item *);
- 
--static ssize_t show_cluster(struct config_item *i, struct configfs_attribute *a,
--			    char *buf);
--static ssize_t store_cluster(struct config_item *i,
--			     struct configfs_attribute *a,
--			     const char *buf, size_t len);
--static ssize_t show_comm(struct config_item *i, struct configfs_attribute *a,
--			 char *buf);
--static ssize_t store_comm(struct config_item *i, struct configfs_attribute *a,
--			  const char *buf, size_t len);
--static ssize_t show_node(struct config_item *i, struct configfs_attribute *a,
--			 char *buf);
--static ssize_t store_node(struct config_item *i, struct configfs_attribute *a,
--			  const char *buf, size_t len);
--
--static ssize_t comm_nodeid_read(struct dlm_comm *cm, char *buf);
--static ssize_t comm_nodeid_write(struct dlm_comm *cm, const char *buf,
--				size_t len);
--static ssize_t comm_local_read(struct dlm_comm *cm, char *buf);
--static ssize_t comm_local_write(struct dlm_comm *cm, const char *buf,
--				size_t len);
--static ssize_t comm_addr_write(struct dlm_comm *cm, const char *buf,
--				size_t len);
--static ssize_t comm_addr_list_read(struct dlm_comm *cm, char *buf);
--static ssize_t node_nodeid_read(struct dlm_node *nd, char *buf);
--static ssize_t node_nodeid_write(struct dlm_node *nd, const char *buf,
--				size_t len);
--static ssize_t node_weight_read(struct dlm_node *nd, char *buf);
--static ssize_t node_weight_write(struct dlm_node *nd, const char *buf,
--				size_t len);
-+static struct configfs_attribute *comm_attrs[];
-+static struct configfs_attribute *node_attrs[];
- 
- struct dlm_cluster {
- 	struct config_group group;
-@@ -108,6 +81,12 @@ struct dlm_cluster {
- 	char cl_cluster_name[DLM_LOCKSPACE_LEN];
- };
- 
-+static struct dlm_cluster *config_item_to_cluster(struct config_item *i)
-+{
-+	return i ? container_of(to_config_group(i), struct dlm_cluster, group) :
-+		   NULL;
+diff --git a/drivers/misc/spear13xx_pcie_gadget.c b/drivers/misc/spear13xx_pcie_gadget.c
+index b8374cd..ee120dc 100644
+--- a/drivers/misc/spear13xx_pcie_gadget.c
++++ b/drivers/misc/spear13xx_pcie_gadget.c
+@@ -220,11 +220,17 @@ static irqreturn_t spear_pcie_gadget_irq(int irq, void *dev_id)
+ /*
+  * configfs interfaces show/store functions
+  */
+-static ssize_t pcie_gadget_show_link(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++
++static struct pcie_gadget_target *to_target(struct config_item *item)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	return item ?
++		container_of(to_configfs_subsystem(to_config_group(item)),
++				struct pcie_gadget_target, subsys) : NULL;
 +}
 +
- enum {
- 	CLUSTER_ATTR_TCP_PORT = 0,
- 	CLUSTER_ATTR_BUFFER_SIZE,
-@@ -124,33 +103,24 @@ enum {
- 	CLUSTER_ATTR_CLUSTER_NAME,
- };
++static ssize_t pcie_gadget_link_show(struct config_item *item, char *buf)
++{
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
  
--struct cluster_attribute {
--	struct configfs_attribute attr;
--	ssize_t (*show)(struct dlm_cluster *, char *);
--	ssize_t (*store)(struct dlm_cluster *, const char *, size_t);
--};
+ 	if (readl(&app_reg->app_status_1) & ((u32)1 << XMLH_LINK_UP_ID))
+ 		return sprintf(buf, "UP");
+@@ -232,11 +238,10 @@ static ssize_t pcie_gadget_show_link(
+ 		return sprintf(buf, "DOWN");
+ }
+ 
+-static ssize_t pcie_gadget_store_link(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_link_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 
+ 	if (sysfs_streq(buf, "UP"))
+ 		writel(readl(&app_reg->app_ctrl_0) | (1 << APP_LTSSM_ENABLE_ID),
+@@ -250,17 +255,15 @@ static ssize_t pcie_gadget_store_link(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_int_type(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_int_type_show(struct config_item *item, char *buf)
+ {
+-	return sprintf(buf, "%s", config->int_type);
++	return sprintf(buf, "%s", to_target(item)->int_type);
+ }
+ 
+-static ssize_t pcie_gadget_store_int_type(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_int_type_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	u32 cap, vec, flags;
+ 	ulong vector;
+ 
+@@ -288,11 +291,10 @@ static ssize_t pcie_gadget_store_int_type(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_no_of_msi(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_no_of_msi_show(struct config_item *item, char *buf)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct spear_pcie_gadget_config *config = to_target(item)
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 	u32 cap, vec, flags;
+ 	ulong vector;
+ 
+@@ -313,13 +315,12 @@ static ssize_t pcie_gadget_show_no_of_msi(
+ 	return sprintf(buf, "%lu", vector);
+ }
+ 
+-static ssize_t pcie_gadget_store_no_of_msi(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_no_of_msi_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	int ret;
+ 
+-	ret = kstrtoul(buf, 0, &config->requested_msi);
++	ret = kstrtoul(buf, 0, &to_target(item)->requested_msi);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -329,11 +330,10 @@ static ssize_t pcie_gadget_store_no_of_msi(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_store_inta(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_inta_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 	ulong en;
+ 	int ret;
+ 
+@@ -351,10 +351,10 @@ static ssize_t pcie_gadget_store_inta(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_store_send_msi(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_send_msi_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
+ 	ulong vector;
+ 	u32 ven_msi;
+@@ -388,19 +388,16 @@ static ssize_t pcie_gadget_store_send_msi(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_vendor_id(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_vendor_id_show(struct config_item *item, char *buf)
+ {
+ 	u32 id;
+ 
+-	spear_dbi_read_reg(config, PCI_VENDOR_ID, 2, &id);
++	spear_dbi_read_reg(to_target(item), PCI_VENDOR_ID, 2, &id);
+ 
+ 	return sprintf(buf, "%x", id);
+ }
+ 
+-static ssize_t pcie_gadget_store_vendor_id(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_vendor_id_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong id;
+@@ -410,24 +407,21 @@ static ssize_t pcie_gadget_store_vendor_id(
+ 	if (ret)
+ 		return ret;
+ 
+-	spear_dbi_write_reg(config, PCI_VENDOR_ID, 2, id);
++	spear_dbi_write_reg(to_target(item), PCI_VENDOR_ID, 2, id);
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_device_id(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_device_id_show(struct config_item *item, char *buf)
+ {
+ 	u32 id;
+ 
+-	spear_dbi_read_reg(config, PCI_DEVICE_ID, 2, &id);
++	spear_dbi_read_reg(to_target(item), PCI_DEVICE_ID, 2, &id);
+ 
+ 	return sprintf(buf, "%x", id);
+ }
+ 
+-static ssize_t pcie_gadget_store_device_id(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_device_id_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong id;
+@@ -437,22 +431,20 @@ static ssize_t pcie_gadget_store_device_id(
+ 	if (ret)
+ 		return ret;
+ 
+-	spear_dbi_write_reg(config, PCI_DEVICE_ID, 2, id);
++	spear_dbi_write_reg(to_target(item), PCI_DEVICE_ID, 2, id);
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_size(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_bar0_size_show(struct config_item *item, char *buf)
+ {
+-	return sprintf(buf, "%lx", config->bar0_size);
++	return sprintf(buf, "%lx", to_target(item)->bar0_size);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_size(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_size_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong size;
+ 	u32 pos, pos1;
+ 	u32 no_of_bit = 0;
+@@ -489,21 +481,20 @@ static ssize_t pcie_gadget_store_bar0_size(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_address(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_address_show(struct config_item *item,
+ 		char *buf)
+ {
+-	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
++	struct pcie_app_reg __iomem *app_reg = to_target(item)->va_app_base;
+ 
+ 	u32 address = readl(&app_reg->pim0_mem_addr_start);
+ 
+ 	return sprintf(buf, "%x", address);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_address(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_address_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	struct pcie_app_reg __iomem *app_reg = config->va_app_base;
+ 	ulong address;
+ 	int ret;
+@@ -524,15 +515,13 @@ static ssize_t pcie_gadget_store_bar0_address(
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_rw_offset(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_rw_offset_show(struct config_item *item,
+ 		char *buf)
+ {
+-	return sprintf(buf, "%lx", config->bar0_rw_offset);
++	return sprintf(buf, "%lx", to_target(item)->bar0_rw_offset);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_rw_offset(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_rw_offset_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
+ 	ulong offset;
+@@ -545,15 +534,14 @@ static ssize_t pcie_gadget_store_bar0_rw_offset(
+ 	if (offset % 4)
+ 		return -EINVAL;
+ 
+-	config->bar0_rw_offset = offset;
++	to_target(item)->bar0_rw_offset = offset;
+ 
+ 	return count;
+ }
+ 
+-static ssize_t pcie_gadget_show_bar0_data(
+-		struct spear_pcie_gadget_config *config,
+-		char *buf)
++static ssize_t pcie_gadget_bar0_data_show(struct config_item *item, char *buf)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong data;
+ 
+ 	if (!config->va_bar0_address)
+@@ -564,10 +552,10 @@ static ssize_t pcie_gadget_show_bar0_data(
+ 	return sprintf(buf, "%lx", data);
+ }
+ 
+-static ssize_t pcie_gadget_store_bar0_data(
+-		struct spear_pcie_gadget_config *config,
++static ssize_t pcie_gadget_bar0_data_store(struct config_item *item,
+ 		const char *buf, size_t count)
+ {
++	struct spear_pcie_gadget_config *config = to_target(item)
+ 	ulong data;
+ 	int ret;
+ 
+@@ -583,97 +571,35 @@ static ssize_t pcie_gadget_store_bar0_data(
+ 	return count;
+ }
+ 
+-/*
+- * Attribute definitions.
+- */
 -
--static ssize_t cluster_cluster_name_read(struct dlm_cluster *cl, char *buf)
-+static ssize_t cluster_cluster_name_show(struct config_item *item, char *buf)
- {
-+	struct dlm_cluster *cl = config_item_to_cluster(item);
- 	return sprintf(buf, "%s\n", cl->cl_cluster_name);
- }
+-#define PCIE_GADGET_TARGET_ATTR_RO(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO, pcie_gadget_show_##_name, NULL)
+-
+-#define PCIE_GADGET_TARGET_ATTR_WO(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IWUSR, NULL, pcie_gadget_store_##_name)
+-
+-#define PCIE_GADGET_TARGET_ATTR_RW(_name)				\
+-static struct pcie_gadget_target_attr pcie_gadget_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, pcie_gadget_show_##_name, \
+-			pcie_gadget_store_##_name)
+-PCIE_GADGET_TARGET_ATTR_RW(link);
+-PCIE_GADGET_TARGET_ATTR_RW(int_type);
+-PCIE_GADGET_TARGET_ATTR_RW(no_of_msi);
+-PCIE_GADGET_TARGET_ATTR_WO(inta);
+-PCIE_GADGET_TARGET_ATTR_WO(send_msi);
+-PCIE_GADGET_TARGET_ATTR_RW(vendor_id);
+-PCIE_GADGET_TARGET_ATTR_RW(device_id);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_size);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_address);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_rw_offset);
+-PCIE_GADGET_TARGET_ATTR_RW(bar0_data);
++CONFIGFS_ATTR(pcie_gadget_, link);
++CONFIGFS_ATTR(pcie_gadget_, int_type);
++CONFIGFS_ATTR(pcie_gadget_, no_of_msi);
++CONFIGFS_ATTR_WO(pcie_gadget_, inta);
++CONFIGFS_ATTR_WO(pcie_gadget_, send_msi);
++CONFIGFS_ATTR(pcie_gadget_, vendor_id);
++CONFIGFS_ATTR(pcie_gadget_, device_id);
++CONFIGFS_ATTR(pcie_gadget_, bar0_size);
++CONFIGFS_ATTR(pcie_gadget_, bar0_address);
++CONFIGFS_ATTR(pcie_gadget_, bar0_rw_offset);
++CONFIGFS_ATTR(pcie_gadget_, bar0_data);
  
--static ssize_t cluster_cluster_name_write(struct dlm_cluster *cl,
-+static ssize_t cluster_cluster_name_store(struct config_item *item,
- 					  const char *buf, size_t len)
- {
-+	struct dlm_cluster *cl = config_item_to_cluster(item);
-+
- 	strlcpy(dlm_config.ci_cluster_name, buf,
- 				sizeof(dlm_config.ci_cluster_name));
- 	strlcpy(cl->cl_cluster_name, buf, sizeof(cl->cl_cluster_name));
- 	return len;
- }
- 
--static struct cluster_attribute cluster_attr_cluster_name = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "cluster_name",
--                    .ca_mode = S_IRUGO | S_IWUSR },
--	.show   = cluster_cluster_name_read,
--	.store  = cluster_cluster_name_write,
--};
-+CONFIGFS_ATTR(cluster_, cluster_name);
- 
- static ssize_t cluster_set(struct dlm_cluster *cl, unsigned int *cl_field,
- 			   int *info_field, int check_zero,
-@@ -175,17 +145,19 @@ static ssize_t cluster_set(struct dlm_cluster *cl, unsigned int *cl_field,
- }
- 
- #define CLUSTER_ATTR(name, check_zero)                                        \
--static ssize_t name##_write(struct dlm_cluster *cl, const char *buf, size_t len) \
-+static ssize_t cluster_##name##_store(struct config_item *item, \
-+		const char *buf, size_t len) \
- {                                                                             \
-+	struct dlm_cluster *cl = config_item_to_cluster(item);		      \
- 	return cluster_set(cl, &cl->cl_##name, &dlm_config.ci_##name,         \
- 			   check_zero, buf, len);                             \
- }                                                                             \
--static ssize_t name##_read(struct dlm_cluster *cl, char *buf)                 \
-+static ssize_t cluster_##name##_show(struct config_item *item, char *buf)     \
- {                                                                             \
-+	struct dlm_cluster *cl = config_item_to_cluster(item);		      \
- 	return snprintf(buf, PAGE_SIZE, "%u\n", cl->cl_##name);               \
- }                                                                             \
--static struct cluster_attribute cluster_attr_##name =                         \
--__CONFIGFS_ATTR(name, 0644, name##_read, name##_write)
-+CONFIGFS_ATTR(cluster_, name);
- 
- CLUSTER_ATTR(tcp_port, 1);
- CLUSTER_ATTR(buffer_size, 1);
-@@ -201,19 +173,19 @@ CLUSTER_ATTR(new_rsb_count, 0);
- CLUSTER_ATTR(recover_callbacks, 0);
- 
- static struct configfs_attribute *cluster_attrs[] = {
--	[CLUSTER_ATTR_TCP_PORT] = &cluster_attr_tcp_port.attr,
--	[CLUSTER_ATTR_BUFFER_SIZE] = &cluster_attr_buffer_size.attr,
--	[CLUSTER_ATTR_RSBTBL_SIZE] = &cluster_attr_rsbtbl_size.attr,
--	[CLUSTER_ATTR_RECOVER_TIMER] = &cluster_attr_recover_timer.attr,
--	[CLUSTER_ATTR_TOSS_SECS] = &cluster_attr_toss_secs.attr,
--	[CLUSTER_ATTR_SCAN_SECS] = &cluster_attr_scan_secs.attr,
--	[CLUSTER_ATTR_LOG_DEBUG] = &cluster_attr_log_debug.attr,
--	[CLUSTER_ATTR_PROTOCOL] = &cluster_attr_protocol.attr,
--	[CLUSTER_ATTR_TIMEWARN_CS] = &cluster_attr_timewarn_cs.attr,
--	[CLUSTER_ATTR_WAITWARN_US] = &cluster_attr_waitwarn_us.attr,
--	[CLUSTER_ATTR_NEW_RSB_COUNT] = &cluster_attr_new_rsb_count.attr,
--	[CLUSTER_ATTR_RECOVER_CALLBACKS] = &cluster_attr_recover_callbacks.attr,
--	[CLUSTER_ATTR_CLUSTER_NAME] = &cluster_attr_cluster_name.attr,
-+	[CLUSTER_ATTR_TCP_PORT] = &cluster_attr_tcp_port,
-+	[CLUSTER_ATTR_BUFFER_SIZE] = &cluster_attr_buffer_size,
-+	[CLUSTER_ATTR_RSBTBL_SIZE] = &cluster_attr_rsbtbl_size,
-+	[CLUSTER_ATTR_RECOVER_TIMER] = &cluster_attr_recover_timer,
-+	[CLUSTER_ATTR_TOSS_SECS] = &cluster_attr_toss_secs,
-+	[CLUSTER_ATTR_SCAN_SECS] = &cluster_attr_scan_secs,
-+	[CLUSTER_ATTR_LOG_DEBUG] = &cluster_attr_log_debug,
-+	[CLUSTER_ATTR_PROTOCOL] = &cluster_attr_protocol,
-+	[CLUSTER_ATTR_TIMEWARN_CS] = &cluster_attr_timewarn_cs,
-+	[CLUSTER_ATTR_WAITWARN_US] = &cluster_attr_waitwarn_us,
-+	[CLUSTER_ATTR_NEW_RSB_COUNT] = &cluster_attr_new_rsb_count,
-+	[CLUSTER_ATTR_RECOVER_CALLBACKS] = &cluster_attr_recover_callbacks,
-+	[CLUSTER_ATTR_CLUSTER_NAME] = &cluster_attr_cluster_name,
+ static struct configfs_attribute *pcie_gadget_target_attrs[] = {
+-	&pcie_gadget_target_link.attr,
+-	&pcie_gadget_target_int_type.attr,
+-	&pcie_gadget_target_no_of_msi.attr,
+-	&pcie_gadget_target_inta.attr,
+-	&pcie_gadget_target_send_msi.attr,
+-	&pcie_gadget_target_vendor_id.attr,
+-	&pcie_gadget_target_device_id.attr,
+-	&pcie_gadget_target_bar0_size.attr,
+-	&pcie_gadget_target_bar0_address.attr,
+-	&pcie_gadget_target_bar0_rw_offset.attr,
+-	&pcie_gadget_target_bar0_data.attr,
++	&pcie_gadget_attr_link,
++	&pcie_gadget_attr_int_type,
++	&pcie_gadget_attr_no_of_msi,
++	&pcie_gadget_attr_inta,
++	&pcie_gadget_attr_send_msi,
++	&pcie_gadget_attr_vendor_id,
++	&pcie_gadget_attr_device_id,
++	&pcie_gadget_attr_bar0_size,
++	&pcie_gadget_attr_bar0_address,
++	&pcie_gadget_attr_bar0_rw_offset,
++	&pcie_gadget_attr_bar0_data,
  	NULL,
  };
  
-@@ -224,83 +196,11 @@ enum {
- 	COMM_ATTR_ADDR_LIST,
- };
- 
--struct comm_attribute {
--	struct configfs_attribute attr;
--	ssize_t (*show)(struct dlm_comm *, char *);
--	ssize_t (*store)(struct dlm_comm *, const char *, size_t);
--};
--
--static struct comm_attribute comm_attr_nodeid = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "nodeid",
--                    .ca_mode = S_IRUGO | S_IWUSR },
--	.show   = comm_nodeid_read,
--	.store  = comm_nodeid_write,
--};
--
--static struct comm_attribute comm_attr_local = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "local",
--                    .ca_mode = S_IRUGO | S_IWUSR },
--	.show   = comm_local_read,
--	.store  = comm_local_write,
--};
--
--static struct comm_attribute comm_attr_addr = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "addr",
--                    .ca_mode = S_IWUSR },
--	.store  = comm_addr_write,
--};
--
--static struct comm_attribute comm_attr_addr_list = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "addr_list",
--                    .ca_mode = S_IRUGO },
--	.show   = comm_addr_list_read,
--};
--
--static struct configfs_attribute *comm_attrs[] = {
--	[COMM_ATTR_NODEID] = &comm_attr_nodeid.attr,
--	[COMM_ATTR_LOCAL] = &comm_attr_local.attr,
--	[COMM_ATTR_ADDR] = &comm_attr_addr.attr,
--	[COMM_ATTR_ADDR_LIST] = &comm_attr_addr_list.attr,
--	NULL,
--};
--
- enum {
- 	NODE_ATTR_NODEID = 0,
- 	NODE_ATTR_WEIGHT,
- };
- 
--struct node_attribute {
--	struct configfs_attribute attr;
--	ssize_t (*show)(struct dlm_node *, char *);
--	ssize_t (*store)(struct dlm_node *, const char *, size_t);
--};
--
--static struct node_attribute node_attr_nodeid = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "nodeid",
--                    .ca_mode = S_IRUGO | S_IWUSR },
--	.show   = node_nodeid_read,
--	.store  = node_nodeid_write,
--};
--
--static struct node_attribute node_attr_weight = {
--	.attr   = { .ca_owner = THIS_MODULE,
--                    .ca_name = "weight",
--                    .ca_mode = S_IRUGO | S_IWUSR },
--	.show   = node_weight_read,
--	.store  = node_weight_write,
--};
--
--static struct configfs_attribute *node_attrs[] = {
--	[NODE_ATTR_NODEID] = &node_attr_nodeid.attr,
--	[NODE_ATTR_WEIGHT] = &node_attr_weight.attr,
--	NULL,
--};
--
- struct dlm_clusters {
- 	struct configfs_subsystem subsys;
- };
-@@ -349,8 +249,6 @@ static struct configfs_group_operations clusters_ops = {
- 
- static struct configfs_item_operations cluster_ops = {
- 	.release = release_cluster,
--	.show_attribute = show_cluster,
--	.store_attribute = store_cluster,
- };
- 
- static struct configfs_group_operations spaces_ops = {
-@@ -369,8 +267,6 @@ static struct configfs_group_operations comms_ops = {
- 
- static struct configfs_item_operations comm_ops = {
- 	.release = release_comm,
--	.show_attribute = show_comm,
--	.store_attribute = store_comm,
- };
- 
- static struct configfs_group_operations nodes_ops = {
-@@ -380,8 +276,6 @@ static struct configfs_group_operations nodes_ops = {
- 
- static struct configfs_item_operations node_ops = {
- 	.release = release_node,
--	.show_attribute = show_node,
--	.store_attribute = store_node,
- };
- 
- static struct config_item_type clusters_type = {
-@@ -427,12 +321,6 @@ static struct config_item_type node_type = {
- 	.ct_owner = THIS_MODULE,
- };
- 
--static struct dlm_cluster *config_item_to_cluster(struct config_item *i)
+-static struct pcie_gadget_target *to_target(struct config_item *item)
 -{
--	return i ? container_of(to_config_group(i), struct dlm_cluster, group) :
--		   NULL;
+-	return item ?
+-		container_of(to_configfs_subsystem(to_config_group(item)),
+-				struct pcie_gadget_target, subsys) : NULL;
 -}
 -
- static struct dlm_space *config_item_to_space(struct config_item *i)
- {
- 	return i ? container_of(to_config_group(i), struct dlm_space, group) :
-@@ -687,66 +575,30 @@ void dlm_config_exit(void)
-  * Functions for user space to read/write attributes
-  */
- 
--static ssize_t show_cluster(struct config_item *i, struct configfs_attribute *a,
--			    char *buf)
+-/*
+- * Item operations and type for pcie_gadget_target.
+- */
+-
+-static ssize_t pcie_gadget_target_attr_show(struct config_item *item,
+-					   struct configfs_attribute *attr,
+-					   char *buf)
 -{
--	struct dlm_cluster *cl = config_item_to_cluster(i);
--	struct cluster_attribute *cla =
--			container_of(a, struct cluster_attribute, attr);
--	return cla->show ? cla->show(cl, buf) : 0;
+-	ssize_t ret = -EINVAL;
+-	struct pcie_gadget_target *target = to_target(item);
+-	struct pcie_gadget_target_attr *t_attr =
+-		container_of(attr, struct pcie_gadget_target_attr, attr);
+-
+-	if (t_attr->show)
+-		ret = t_attr->show(&target->config, buf);
+-	return ret;
 -}
 -
--static ssize_t store_cluster(struct config_item *i,
--			     struct configfs_attribute *a,
--			     const char *buf, size_t len)
-+static ssize_t comm_nodeid_show(struct config_item *item, char *buf)
- {
--	struct dlm_cluster *cl = config_item_to_cluster(i);
--	struct cluster_attribute *cla =
--		container_of(a, struct cluster_attribute, attr);
--	return cla->store ? cla->store(cl, buf, len) : -EINVAL;
+-static ssize_t pcie_gadget_target_attr_store(struct config_item *item,
+-					struct configfs_attribute *attr,
+-					const char *buf,
+-					size_t count)
+-{
+-	ssize_t ret = -EINVAL;
+-	struct pcie_gadget_target *target = to_target(item);
+-	struct pcie_gadget_target_attr *t_attr =
+-		container_of(attr, struct pcie_gadget_target_attr, attr);
+-
+-	if (t_attr->store)
+-		ret = t_attr->store(&target->config, buf, count);
+-	return ret;
 -}
 -
--static ssize_t show_comm(struct config_item *i, struct configfs_attribute *a,
--			 char *buf)
--{
--	struct dlm_comm *cm = config_item_to_comm(i);
--	struct comm_attribute *cma =
--			container_of(a, struct comm_attribute, attr);
--	return cma->show ? cma->show(cm, buf) : 0;
--}
+-static struct configfs_item_operations pcie_gadget_target_item_ops = {
+-	.show_attribute		= pcie_gadget_target_attr_show,
+-	.store_attribute	= pcie_gadget_target_attr_store,
+-};
 -
--static ssize_t store_comm(struct config_item *i, struct configfs_attribute *a,
--			  const char *buf, size_t len)
--{
--	struct dlm_comm *cm = config_item_to_comm(i);
--	struct comm_attribute *cma =
--		container_of(a, struct comm_attribute, attr);
--	return cma->store ? cma->store(cm, buf, len) : -EINVAL;
-+	return sprintf(buf, "%d\n", config_item_to_comm(item)->nodeid);
- }
+ static struct config_item_type pcie_gadget_target_type = {
+ 	.ct_attrs		= pcie_gadget_target_attrs,
+-	.ct_item_ops		= &pcie_gadget_target_item_ops,
+ 	.ct_owner		= THIS_MODULE,
+ };
  
--static ssize_t comm_nodeid_read(struct dlm_comm *cm, char *buf)
--{
--	return sprintf(buf, "%d\n", cm->nodeid);
--}
--
--static ssize_t comm_nodeid_write(struct dlm_comm *cm, const char *buf,
-+static ssize_t comm_nodeid_store(struct config_item *item, const char *buf,
- 				 size_t len)
- {
--	int rc = kstrtoint(buf, 0, &cm->nodeid);
-+	int rc = kstrtoint(buf, 0, &config_item_to_comm(item)->nodeid);
- 
- 	if (rc)
- 		return rc;
- 	return len;
- }
- 
--static ssize_t comm_local_read(struct dlm_comm *cm, char *buf)
-+static ssize_t comm_local_show(struct config_item *item, char *buf)
- {
--	return sprintf(buf, "%d\n", cm->local);
-+	return sprintf(buf, "%d\n", config_item_to_comm(item)->local);
- }
- 
--static ssize_t comm_local_write(struct dlm_comm *cm, const char *buf,
-+static ssize_t comm_local_store(struct config_item *item, const char *buf,
- 				size_t len)
- {
-+	struct dlm_comm *cm = config_item_to_comm(item);
- 	int rc = kstrtoint(buf, 0, &cm->local);
- 
- 	if (rc)
-@@ -756,8 +608,10 @@ static ssize_t comm_local_write(struct dlm_comm *cm, const char *buf,
- 	return len;
- }
- 
--static ssize_t comm_addr_write(struct dlm_comm *cm, const char *buf, size_t len)
-+static ssize_t comm_addr_store(struct config_item *item, const char *buf,
-+		size_t len)
- {
-+	struct dlm_comm *cm = config_item_to_comm(item);
- 	struct sockaddr_storage *addr;
- 	int rv;
- 
-@@ -783,8 +637,9 @@ static ssize_t comm_addr_write(struct dlm_comm *cm, const char *buf, size_t len)
- 	return len;
- }
- 
--static ssize_t comm_addr_list_read(struct dlm_comm *cm, char *buf)
-+static ssize_t comm_addr_list_show(struct config_item *item, char *buf)
- {
-+	struct dlm_comm *cm = config_item_to_comm(item);
- 	ssize_t s;
- 	ssize_t allowance;
- 	int i;
-@@ -827,32 +682,28 @@ static ssize_t comm_addr_list_read(struct dlm_comm *cm, char *buf)
- 	return 4096 - allowance;
- }
- 
--static ssize_t show_node(struct config_item *i, struct configfs_attribute *a,
--			 char *buf)
--{
--	struct dlm_node *nd = config_item_to_node(i);
--	struct node_attribute *nda =
--			container_of(a, struct node_attribute, attr);
--	return nda->show ? nda->show(nd, buf) : 0;
--}
-+CONFIGFS_ATTR(comm_, nodeid);
-+CONFIGFS_ATTR(comm_, local);
-+CONFIGFS_ATTR_WO(comm_, addr);
-+CONFIGFS_ATTR_RO(comm_, addr_list);
- 
--static ssize_t store_node(struct config_item *i, struct configfs_attribute *a,
--			  const char *buf, size_t len)
--{
--	struct dlm_node *nd = config_item_to_node(i);
--	struct node_attribute *nda =
--		container_of(a, struct node_attribute, attr);
--	return nda->store ? nda->store(nd, buf, len) : -EINVAL;
--}
-+static struct configfs_attribute *comm_attrs[] = {
-+	[COMM_ATTR_NODEID] = &comm_attr_nodeid,
-+	[COMM_ATTR_LOCAL] = &comm_attr_local,
-+	[COMM_ATTR_ADDR] = &comm_attr_addr,
-+	[COMM_ATTR_ADDR_LIST] = &comm_attr_addr_list,
-+	NULL,
-+};
- 
--static ssize_t node_nodeid_read(struct dlm_node *nd, char *buf)
-+static ssize_t node_nodeid_show(struct config_item *item, char *buf)
- {
--	return sprintf(buf, "%d\n", nd->nodeid);
-+	return sprintf(buf, "%d\n", config_item_to_node(item)->nodeid);
- }
- 
--static ssize_t node_nodeid_write(struct dlm_node *nd, const char *buf,
-+static ssize_t node_nodeid_store(struct config_item *item, const char *buf,
- 				 size_t len)
- {
-+	struct dlm_node *nd = config_item_to_node(item);
- 	uint32_t seq = 0;
- 	int rc = kstrtoint(buf, 0, &nd->nodeid);
- 
-@@ -863,21 +714,30 @@ static ssize_t node_nodeid_write(struct dlm_node *nd, const char *buf,
- 	return len;
- }
- 
--static ssize_t node_weight_read(struct dlm_node *nd, char *buf)
-+static ssize_t node_weight_show(struct config_item *item, char *buf)
- {
--	return sprintf(buf, "%d\n", nd->weight);
-+	return sprintf(buf, "%d\n", config_item_to_node(item)->weight);
- }
- 
--static ssize_t node_weight_write(struct dlm_node *nd, const char *buf,
-+static ssize_t node_weight_store(struct config_item *item, const char *buf,
- 				 size_t len)
- {
--	int rc = kstrtoint(buf, 0, &nd->weight);
-+	int rc = kstrtoint(buf, 0, &config_item_to_node(item)->weight);
- 
- 	if (rc)
- 		return rc;
- 	return len;
- }
- 
-+CONFIGFS_ATTR(node_, nodeid);
-+CONFIGFS_ATTR(node_, weight);
-+
-+static struct configfs_attribute *node_attrs[] = {
-+	[NODE_ATTR_NODEID] = &node_attr_nodeid,
-+	[NODE_ATTR_WEIGHT] = &node_attr_weight,
-+	NULL,
-+};
-+
- /*
-  * Functions for the dlm to get the info that's been configured
-  */
 -- 
 1.9.1
