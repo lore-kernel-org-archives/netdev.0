@@ -1,26 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] BPF updates
-Date: Sat, 03 Oct 2015 05:03:27 -0700 (PDT)
-Message-ID: <20151003.050327.562976107232785384.davem@davemloft.net>
-References: <cover.1443567433.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/4] ravb: Add support for r8a7795 SoC
+Date: Sat, 03 Oct 2015 05:05:58 -0700 (PDT)
+Message-ID: <20151003.050558.78621760602371241.davem@davemloft.net>
+References: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55791 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbbJCLrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 07:47:53 -0400
-In-Reply-To: <cover.1443567433.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	f.fainelli@gmail.com, geert@linux-m68k.org, magnus.damm@gmail.com
+To: horms+renesas@verge.net.au
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1443593755-20991-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 30 Sep 2015 01:41:49 +0200
+From: Simon Horman <horms+renesas@verge.net.au>
+Date: Wed, 30 Sep 2015 15:15:51 +0900
 
-> Some minor updates to {cls,act}_bpf to retrieve routing realms
-> and to make skb->priority writable.
+> please consider this series for net-next.
+> It enhances the ravb driver to support the r8a7795 SoC.
 
-Series applied.
+Series applied, thanks Simon.
