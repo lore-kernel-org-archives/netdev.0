@@ -1,104 +1,114 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] i40e/i40evf: set AQ count after memory allocation
-Date: Sat,  3 Oct 2015 17:13:05 -0700
-Message-ID: <1443917585-37687-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Slow ramp-up for single-stream TCP throughput on 4.2 kernel.
+Date: Sat, 3 Oct 2015 21:20:38 -0400
+Message-ID: <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>
+References: <560F1672.5000602@candelatech.com>
+	<560F1F74.9010207@candelatech.com>
+	<CADVnQym4U_dVVRdOVhORvVabwFjSHTQJ_LbbbYtzWVu0=mAp_A@mail.gmail.com>
+	<56105AD2.7070906@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	ath10k <ath10k@lists.infradead.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:1250 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbbJDANI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Oct 2015 20:13:08 -0400
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:35171 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750843AbbJDBUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2015 21:20:39 -0400
+Received: by obbzf10 with SMTP id zf10so106607881obb.2
+        for <netdev@vger.kernel.org>; Sat, 03 Oct 2015 18:20:39 -0700 (PDT)
+In-Reply-To: <56105AD2.7070906@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On Sat, Oct 3, 2015 at 6:46 PM, Ben Greear <greearb@candelatech.com> wrote:
+>
+>
+> On 10/03/2015 09:29 AM, Neal Cardwell wrote:
+>>
+>> On Fri, Oct 2, 2015 at 8:21 PM, Ben Greear <greearb@candelatech.com>
+>> wrote:
+>>>
+>>> Gah, seems 'cubic' related.  That is the default tcp cong ctrl
+>>> I was using (same in 3.17, for that matter).
+>>
+>>
+>> There have been recent changes to CUBIC that may account for this. If
+>> you could repeat your test with more instrumentation, eg "nstat", that
+>> would be very helpful.
+>>
+>> nstat > /dev/null
+>> # run one test
+>> nstat
+>>
+>> Also, if you could take a sender-side tcpdump trace of the test, that
+>> would be very useful (default capture length, grabbing just headers,
+>> is fine).
+>
+>
+> Here is nstat output:
+>
+> [root@ben-ota-1 ~]# nstat
+> #kernel
+> IpInReceives                    14507              0.0
+> IpInDelivers                    14507              0.0
+> IpOutRequests                   49531              0.0
+> TcpActiveOpens                  3                  0.0
+> TcpPassiveOpens                 2                  0.0
+> TcpInSegs                       14498              0.0
+> TcpOutSegs                      50269              0.0
+> UdpInDatagrams                  9                  0.0
+> UdpOutDatagrams                 1                  0.0
+> TcpExtDelayedACKs               43                 0.0
+> TcpExtDelayedACKLost            5                  0.0
+> TcpExtTCPHPHits                 483                0.0
+> TcpExtTCPPureAcks               918                0.0
+> TcpExtTCPHPAcks                 12758              0.0
+> TcpExtTCPDSACKOldSent           5                  0.0
+> TcpExtTCPRcvCoalesce            49                 0.0
+> TcpExtTCPAutoCorking            3                  0.0
+> TcpExtTCPOrigDataSent           49776              0.0
+> TcpExtTCPHystartTrainDetect     1                  0.0
+> TcpExtTCPHystartTrainCwnd       16                 0.0
+> IpExtInBcastPkts                8                  0.0
+> IpExtInOctets                   2934274            0.0
+> IpExtOutOctets                  74817312           0.0
+> IpExtInBcastOctets              640                0.0
+> IpExtInNoECTPkts                14911              0.0
+> [root@ben-ota-1 ~]#
+>
+>
+> And, you can find the pcap here:
+>
+> http://www.candelatech.com/downloads/cubic.pcap.bz2
+>
+> Let me know if you need anything else.
 
-The standard way to check if the AQ is enabled is to look at the
-count field. So we should only set this field after we have
-successfully allocated memory. To do otherwise is to incite
-panic among the populace.
+Thanks! This is very useful. It looks like the sender is sending 3
+(and later 4) packets every ~1.5ms for the entirety of the trace. 3
+packets per burst is usually a hint that this may be related to TSQ.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+This slow-and-steady behavior triggers CUBIC's Hystart Train Detection
+to enter congestion avoidance at a cwnd of 16, which probably in turn
+leads to slow cwnd growth, since the sending is not cwnd-limited, but
+probably TSQ-limited, so cwnd does not grow in congestion avoidance
+mode. Probably most of the other congestion control modules do better
+because they stay in slow-start, which has a more aggressive criterion
+for growing cwnd.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 62488a6..c0e943a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -386,7 +386,6 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 
- 	hw->aq.asq.next_to_use = 0;
- 	hw->aq.asq.next_to_clean = 0;
--	hw->aq.asq.count = hw->aq.num_asq_entries;
- 
- 	/* allocate the ring memory */
- 	ret_code = i40e_alloc_adminq_asq_ring(hw);
-@@ -404,6 +403,7 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* success! */
-+	hw->aq.asq.count = hw->aq.num_asq_entries;
- 	goto init_adminq_exit;
- 
- init_adminq_free_rings:
-@@ -445,7 +445,6 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 
- 	hw->aq.arq.next_to_use = 0;
- 	hw->aq.arq.next_to_clean = 0;
--	hw->aq.arq.count = hw->aq.num_arq_entries;
- 
- 	/* allocate the ring memory */
- 	ret_code = i40e_alloc_adminq_arq_ring(hw);
-@@ -463,6 +462,7 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* success! */
-+	hw->aq.arq.count = hw->aq.num_arq_entries;
- 	goto init_adminq_exit;
- 
- init_adminq_free_rings:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 929d471..a23ebfd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -373,7 +373,6 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 
- 	hw->aq.asq.next_to_use = 0;
- 	hw->aq.asq.next_to_clean = 0;
--	hw->aq.asq.count = hw->aq.num_asq_entries;
- 
- 	/* allocate the ring memory */
- 	ret_code = i40e_alloc_adminq_asq_ring(hw);
-@@ -391,6 +390,7 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* success! */
-+	hw->aq.asq.count = hw->aq.num_asq_entries;
- 	goto init_adminq_exit;
- 
- init_adminq_free_rings:
-@@ -432,7 +432,6 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 
- 	hw->aq.arq.next_to_use = 0;
- 	hw->aq.arq.next_to_clean = 0;
--	hw->aq.arq.count = hw->aq.num_arq_entries;
- 
- 	/* allocate the ring memory */
- 	ret_code = i40e_alloc_adminq_arq_ring(hw);
-@@ -450,6 +449,7 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* success! */
-+	hw->aq.arq.count = hw->aq.num_arq_entries;
- 	goto init_adminq_exit;
- 
- init_adminq_free_rings:
--- 
-2.4.3
+So this is probably at root due to the known issue with an interaction
+between the ath10k driver and the following change in 3.19:
+
+  605ad7f tcp: refine TSO autosizing
+
+There has been a lot of discussion about how to address the
+TSQ-related issues with this driver. For example, you might consider:
+
+  https://patchwork.ozlabs.org/patch/438322/
+
+But I am not sure of the latest status of that effort. Perhaps someone
+on the ath10k list will know.
+
+neal
