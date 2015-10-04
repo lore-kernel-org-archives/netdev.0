@@ -1,48 +1,53 @@
-From: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH] cfg80211: drop unlikely behind WARN_ON()
-Date: Sun,  4 Oct 2015 15:09:27 +0800
-Message-ID: <88184946efc981b4cba84cf21418954423ca11a4.1443942486.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx4_core: Test interrupts fail if not all
+ comp vectors called request_irq
+Date: Sun, 4 Oct 2015 11:03:18 +0300
+Message-ID: <5610DD46.204@mellanox.com>
+References: <1443551891-17971-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <brking@linux.vnet.ibm.com>,
+	<amirv@mellanox.com>
+To: <clsoto@linux.vnet.ibm.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0091.outbound.protection.outlook.com ([157.55.234.91]:29440
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751072AbbJDITK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Oct 2015 04:19:10 -0400
+In-Reply-To: <1443551891-17971-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WARN_ON() already contain an unlikely compiler flag. Drop it.
+On 9/29/2015 9:38 PM, clsoto@linux.vnet.ibm.com wrote:
+> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>
+> Test interrupts fails if not all completion vectors called
+> request_irq. This case can happen if only mlx4_en loads and
+> we have more completion vectors than rx rings.
 
-Signed-off-by: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
----
- drivers/net/wireless/ath/ath6kl/cfg80211.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index a511ef3..fe38fc4 100644
---- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
-+++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -2217,7 +2217,7 @@ static int ath6kl_wow_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
- 
- 	/* enter / leave wow suspend on first vif always */
- 	first_vif = ath6kl_vif_first(ar);
--	if (WARN_ON(unlikely(!first_vif)) ||
-+	if (WARN_ON(!first_vif) ||
- 	    !ath6kl_cfg80211_ready(first_vif))
- 		return -EIO;
- 
-@@ -2297,7 +2297,7 @@ static int ath6kl_wow_resume(struct ath6kl *ar)
- 	int ret;
- 
- 	vif = ath6kl_vif_first(ar);
--	if (WARN_ON(unlikely(!vif)) ||
-+	if (WARN_ON(!vif) ||
- 	    !ath6kl_cfg80211_ready(vif))
- 		return -EIO;
- 
--- 
-2.5.0
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+good catch! is this a bug since the driver 0-day or was introduced by
+some recent commit? in the latercase, please add a Fixes: tag before 
+your S.O.B note.
+>
+> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/eq.c | 4 ++++
+>   1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+> index 8e81e53..c344884 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+> @@ -1364,6 +1364,10 @@ int mlx4_test_interrupts(struct mlx4_dev *dev)
+>   	 * and performing a NOP command
+>   	 */
+>   	for(i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
+> +		/* Make sure request_irq was called */
+> +		if (!priv->eq_table.eq[i].have_irq)
+> +			continue;
+> +
+>   		/* Temporary use polling for command completions */
+>   		mlx4_cmd_use_polling(dev);
+>   
