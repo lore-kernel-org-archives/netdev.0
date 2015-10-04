@@ -1,60 +1,39 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] brcm80211:Fix locking region in the function  brcmf_sdio_sendfromq
-Date: Sun, 4 Oct 2015 22:54:37 +0200
-Message-ID: <5611920D.60500@broadcom.com>
-References: <1443889148-22678-1-git-send-email-xerofoify@gmail.com>
+From: =?utf-8?Q?Aspire_Money_Loan=C2=AE?= <jlpaula2@uem.br>
+Subject: groeten,
+Date: Sun, 4 Oct 2015 17:12:00 -0300 (BRT)
+Message-ID: <17445798.88011443989520893.JavaMail.root@Sakhir.uem.br>
+Reply-To: =?utf-8?Q?Aspire_Money_Loan=C2=AE?=
+	  <aspire.offers1986@outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	<kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1443889148-22678-1-git-send-email-xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Barcelona.uem.br ([186.233.154.14]:40231 "EHLO barcelona.uem.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751801AbbJDVG6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:06:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2015 06:19 PM, Nicholas Krause wrote:
-> This fixes the locking region in the function brcmf_sdio_sendfromq
-> to properly lock around the call to the function brcmrf_sdio_txpkt
-> in order to avoid concurrent access issues when calling this
-> function as stated in the function's comments about the caller
-> being required to lock around the call to this particular function.
->
-> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> index f990e3d..da59683 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> @@ -2388,11 +2388,11 @@ static uint brcmf_sdio_sendfromq(struct brcmf_sdio *bus, uint maxframes)
->   				break;
->   			__skb_queue_tail(&pktq, pkt);
->   		}
-> -		spin_unlock_bh(&bus->txq_lock);
->   		if (i == 0)
->   			break;
 
-So what if we break here. Seems you need to do unlock if i == 0 here.
 
-Regards,
-Arend
+groeten,
+          Ik ben mevrouw Annie Ethan uit een particuliere kredietverlen=
+ing bedrijf dat bekend staat als Aspire Money Loan=C2=AE. Wij bieden al=
+le soorten lening tegen 3% rente. Als u behoefte van de lening zo vrien=
+delijk contact met ons op met de onderstaande informatie.
+Volledige naam:
+Geslacht:
+land:
+adres:
+Leenbedrag:
+duur:
+tel:
+Wij wachten uw reactie als je ge=C3=AFnteresseerd bent
+Dankjewel,
+Annie Ethan
 
->
->   		ret = brcmf_sdio_txpkt(bus, &pktq, SDPCM_DATA_CHANNEL);
-> +		spin_unlock_bh(&bus->txq_lock);
->
->   		cnt += i;
->
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Esta mensagem foi verificada pelo sistema de antivirus e
+ acredita-se estar livre de perigo.
