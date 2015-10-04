@@ -1,43 +1,35 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] netfilter: remove the nh_scope test in
- rpfilter_lookup_reverse of ipt_rpfilter
-Date: Sun, 4 Oct 2015 23:48:02 +0200
-Message-ID: <20151004214802.GB6032@breakpoint.cc>
-References: <c7a265fa26e9558115abb58869caa6012924355b.1443970560.git.lucien.xin@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] bridge: vlan: cleanups & fixes
+	(part 2)
+Date: Sun, 04 Oct 2015 16:44:53 -0700 (PDT)
+Message-ID: <20151004.164453.1855839450779309177.davem@davemloft.net>
+References: <1443791113-12738-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, fw@strlen.de
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53589 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751800AbbJDVsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:48:05 -0400
-Content-Disposition: inline
-In-Reply-To: <c7a265fa26e9558115abb58869caa6012924355b.1443970560.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	vyasevich@gmail.com
+To: razor@blackwall.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1443791113-12738-1-git-send-email-razor@blackwall.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Xin Long <lucien.xin@gmail.com> wrote:
-> it seems the test is bogus and can be removed to fix this issue.
-> 
-> 	if (dev_match || flags & XT_RPFILTER_LOOSE)
-> 		return FIB_RES_NH(res).nh_scope <= RT_SCOPE_HOST;
-> 
-> ipv6 does not have this issue.
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Fri,  2 Oct 2015 15:05:09 +0200
 
-netfilter patches should be sent to netfilter-devel@vger.kernel.org
+> This is the second follow-up set with one fix (patch 01) and more cleanups
+> (patches 02,03 and 04). These are minor compared to the previous ones and
+> should be the last before taking on the optimization changes on the
+> fast-path.
 
->  #endif
-> -	if (dev_match || flags & XT_RPFILTER_LOOSE)
-> -		return FIB_RES_NH(res).nh_scope <= RT_SCOPE_HOST;
->  	return dev_match;
->  }
-
-This breaks --loose option, no?
-
-Thats why I earlier suggested to change this to
-
-> -	if (dev_match || flags & XT_RPFILTER_LOOSE)
-> -		return FIB_RES_NH(res).nh_scope <= RT_SCOPE_HOST;
-+	return dev_match || flags & XT_RPFILTER_LOOSE;
+Series applied, thanks.
