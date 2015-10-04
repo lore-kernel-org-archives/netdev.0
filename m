@@ -1,73 +1,101 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/14] rocker: set default world on port probe and clean world on remove
-Date: Sun,  4 Oct 2015 23:25:43 +0200
-Message-ID: <1443993949-3915-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 07/14] rocker: introduce OF-DPA world skeleton
+Date: Sun,  4 Oct 2015 23:25:42 +0200
+Message-ID: <1443993949-3915-8-git-send-email-jiri@resnulli.us>
 References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:35802 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942AbbJDV0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:26:03 -0400
-Received: by wicge5 with SMTP id ge5so95546231wic.0
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:26:01 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:32784 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914AbbJDV0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:26:01 -0400
+Received: by wiclk2 with SMTP id lk2so95331407wic.0
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:26:00 -0700 (PDT)
 In-Reply-To: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Currently, there is only OF-DPA world supported in HW. So make this
-would the default one for newly created rocker ports.
+Introduce basis for OF-DPA world file. This is the place where all
+OF-DPA related code is going to be moved.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker_main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/rocker/Makefile       |  2 +-
+ drivers/net/ethernet/rocker/rocker.h       |  2 ++
+ drivers/net/ethernet/rocker/rocker_main.c  |  1 +
+ drivers/net/ethernet/rocker/rocker_ofdpa.c | 27 +++++++++++++++++++++++++++
+ 4 files changed, 31 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/rocker/rocker_ofdpa.c
 
+diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
+index 47f3492..faa36ac 100644
+--- a/drivers/net/ethernet/rocker/Makefile
++++ b/drivers/net/ethernet/rocker/Makefile
+@@ -3,4 +3,4 @@
+ #
+ 
+ obj-$(CONFIG_ROCKER) += rocker.o
+-rocker-y := rocker_main.o rocker_tlv.o
++rocker-y := rocker_main.o rocker_tlv.o rocker_ofdpa.o
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index d49bc5d..496fe8f 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -80,4 +80,6 @@ struct rocker_world_ops {
+ 				     __be16 vlan_id);
+ };
+ 
++extern struct rocker_world_ops rocker_ofdpa_ops;
++
+ #endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index e00c831..2dda7f9 100644
+index b9b3c9d..e00c831 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2175,6 +2175,7 @@ static struct rocker_world_ops *rocker_world_ops[] = {
+@@ -2171,6 +2171,7 @@ static int rocker_cmd_group_tbl_del(const struct rocker_port *rocker_port,
+  **********************/
+ 
+ static struct rocker_world_ops *rocker_world_ops[] = {
++	&rocker_ofdpa_ops,
  };
  
  #define ROCKER_WORLD_OPS_LEN ARRAY_SIZE(rocker_world_ops)
-+#define ROCKER_DEFAULT_WORLD_OPS rocker_world_ops[0]
- 
- static const struct rocker_world_ops *__rocker_world_ops_find(const char *kind)
- {
-@@ -5242,6 +5243,7 @@ static void rocker_remove_ports(const struct rocker *rocker)
- 			continue;
- 		rocker_port_ig_tbl(rocker_port, NULL, ROCKER_OP_FLAG_REMOVE);
- 		unregister_netdev(rocker_port->dev);
-+		__rocker_port_change_world(rocker_port, NULL);
- 		free_netdev(rocker_port->dev);
- 	}
- 	kfree(rocker->ports);
-@@ -5292,6 +5294,12 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 
- 	dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_SG;
- 
-+	err = __rocker_port_change_world(rocker_port, ROCKER_DEFAULT_WORLD_OPS);
-+	if (err) {
-+		dev_err(&pdev->dev, "failed to set default world\n");
-+		goto err_port_change_world;
-+	}
+diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+new file mode 100644
+index 0000000..e048b8b
+--- /dev/null
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@ -0,0 +1,27 @@
++/*
++ * drivers/net/ethernet/rocker/rocker_ofdpa.c - Rocker switch OF-DPA-like
++ *					        implementation
++ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
++ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
 +
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "register_netdev failed\n");
-@@ -5326,6 +5334,8 @@ err_port_ig_tbl:
- 	rocker->ports[port_number] = NULL;
- 	unregister_netdev(dev);
- err_register_netdev:
-+	__rocker_port_change_world(rocker_port, NULL);
-+err_port_change_world:
- 	free_netdev(dev);
- 	return err;
- }
++#include <linux/kernel.h>
++#include "rocker.h"
++
++struct ofdpa {
++};
++
++struct ofdpa_port {
++};
++
++struct rocker_world_ops rocker_ofdpa_ops = {
++	.kind = "ofdpa",
++	.priv_size = sizeof(struct ofdpa),
++	.port_priv_size = sizeof(struct ofdpa_port),
++	.mode = ROCKER_PORT_MODE_OF_DPA,
++};
 -- 
 1.9.3
