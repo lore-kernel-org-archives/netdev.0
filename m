@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 17/20] bridge: netlink: add support for multicast_startup_query_count
-Date: Sun,  4 Oct 2015 14:23:44 +0200
-Message-ID: <1443961427-15085-18-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 19/20] bridge: netlink: add support for netfilter tables config
+Date: Sun,  4 Oct 2015 14:23:46 +0200
+Message-ID: <1443961427-15085-20-git-send-email-razor@blackwall.org>
 References: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
@@ -9,100 +9,117 @@ Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:36167 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbbJDMYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 08:24:25 -0400
-Received: by wicgb1 with SMTP id gb1so85081287wic.1
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 05:24:24 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:34353 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751454AbbJDMY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 08:24:27 -0400
+Received: by wicfx3 with SMTP id fx3so85297354wic.1
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 05:24:25 -0700 (PDT)
 In-Reply-To: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Add IFLA_BR_MCAST_STARTUP_QUERY_CNT to allow setting/getting
-br->multicast_startup_query_count via netlink. Also align the ifla
-comments.
+Add support to allow getting/setting netfilter tables settings.
+Currently these are IFLA_BR_NF_CALL_IPTABLES, IFLA_BR_NF_CALL_IP6TABLES
+and IFLA_BR_NF_CALL_ARPTABLES.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h |  1 +
- net/bridge/br_netlink.c      | 22 ++++++++++++++++------
- 2 files changed, 17 insertions(+), 6 deletions(-)
+ include/uapi/linux/if_link.h |  3 +++
+ net/bridge/br_netlink.c      | 37 ++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 39 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 5409a461e47e..fd841b5269c1 100644
+index b8c88aa19fef..0200bed6e5d6 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -252,6 +252,7 @@ enum {
- 	IFLA_BR_MCAST_HASH_ELASTICITY,
- 	IFLA_BR_MCAST_HASH_MAX,
- 	IFLA_BR_MCAST_LAST_MEMBER_CNT,
-+	IFLA_BR_MCAST_STARTUP_QUERY_CNT,
+@@ -259,6 +259,9 @@ enum {
+ 	IFLA_BR_MCAST_QUERY_INTVL,
+ 	IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+ 	IFLA_BR_MCAST_STARTUP_QUERY_INTVL,
++	IFLA_BR_NF_CALL_IPTABLES,
++	IFLA_BR_NF_CALL_IP6TABLES,
++	IFLA_BR_NF_CALL_ARPTABLES,
  	__IFLA_BR_MAX,
  };
  
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index cf6ccaea8180..6744e30120af 100644
+index 30def4fb5901..fd37caf02b51 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -774,6 +774,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
- 	[IFLA_BR_MCAST_HASH_ELASTICITY] = { .type = NLA_U32 },
- 	[IFLA_BR_MCAST_HASH_MAX] = { .type = NLA_U32 },
- 	[IFLA_BR_MCAST_LAST_MEMBER_CNT] = { .type = NLA_U32 },
-+	[IFLA_BR_MCAST_STARTUP_QUERY_CNT] = { .type = NLA_U32 },
+@@ -781,6 +781,9 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_MCAST_QUERY_INTVL] = { .type = NLA_U64 },
+ 	[IFLA_BR_MCAST_QUERY_RESPONSE_INTVL] = { .type = NLA_U64 },
+ 	[IFLA_BR_MCAST_STARTUP_QUERY_INTVL] = { .type = NLA_U64 },
++	[IFLA_BR_NF_CALL_IPTABLES] = { .type = NLA_U8 },
++	[IFLA_BR_NF_CALL_IP6TABLES] = { .type = NLA_U8 },
++	[IFLA_BR_NF_CALL_ARPTABLES] = { .type = NLA_U8 },
  };
  
  static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
-@@ -920,6 +921,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
- 
- 		br->multicast_last_member_count = val;
+@@ -970,6 +973,25 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 		br->multicast_startup_query_interval = clock_t_to_jiffies(val);
  	}
-+
-+	if (data[IFLA_BR_MCAST_STARTUP_QUERY_CNT]) {
-+		u32 val = nla_get_u32(data[IFLA_BR_MCAST_STARTUP_QUERY_CNT]);
-+
-+		br->multicast_startup_query_count = val;
-+	}
  #endif
++#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
++	if (data[IFLA_BR_NF_CALL_IPTABLES]) {
++		u8 val = nla_get_u8(data[IFLA_BR_NF_CALL_IPTABLES]);
++
++		br->nf_call_iptables = val ? true : false;
++	}
++
++	if (data[IFLA_BR_NF_CALL_IP6TABLES]) {
++		u8 val = nla_get_u8(data[IFLA_BR_NF_CALL_IP6TABLES]);
++
++		br->nf_call_ip6tables = val ? true : false;
++	}
++
++	if (data[IFLA_BR_NF_CALL_ARPTABLES]) {
++		u8 val = nla_get_u8(data[IFLA_BR_NF_CALL_ARPTABLES]);
++
++		br->nf_call_arptables = val ? true : false;
++	}
++#endif
  
  	return 0;
-@@ -942,8 +949,8 @@ static size_t br_get_size(const struct net_device *brdev)
- 	       nla_total_size(sizeof(struct ifla_bridge_id)) +   /* IFLA_BR_BRIDGE_ID */
- 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_ROOT_PORT */
- 	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_ROOT_PATH_COST */
--	       nla_total_size(sizeof(u8)) +    /* IFLA_BR_TOPOLOGY_CHANGE */
--	       nla_total_size(sizeof(u8)) +    /* IFLA_BR_TOPOLOGY_CHANGE_DETECTED */
-+	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_TOPOLOGY_CHANGE */
-+	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_TOPOLOGY_CHANGE_DETECTED */
- 	       nla_total_size(sizeof(u64)) +    /* IFLA_BR_HELLO_TIMER */
- 	       nla_total_size(sizeof(u64)) +    /* IFLA_BR_TCN_TIMER */
- 	       nla_total_size(sizeof(u64)) +    /* IFLA_BR_TOPOLOGY_CHANGE_TIMER */
-@@ -954,9 +961,10 @@ static size_t br_get_size(const struct net_device *brdev)
- 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_MCAST_SNOOPING */
- 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_MCAST_QUERY_USE_IFADDR */
- 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_MCAST_QUERIER */
--	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_HASH_ELASTICITY */
--	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_HASH_MAX */
--	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_LAST_MEMBER_CNT */
-+	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_MCAST_HASH_ELASTICITY */
-+	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_MCAST_HASH_MAX */
-+	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_MCAST_LAST_MEMBER_CNT */
-+	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_MCAST_STARTUP_QUERY_CNT */
+ }
+@@ -1014,6 +1036,11 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	       nla_total_size(sizeof(u64)) +    /* IFLA_BR_MCAST_QUERY_RESPONSE_INTVL */
+ 	       nla_total_size(sizeof(u64)) +    /* IFLA_BR_MCAST_STARTUP_QUERY_INTVL */
  #endif
++#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
++	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_NF_CALL_IPTABLES */
++	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_NF_CALL_IP6TABLES */
++	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_NF_CALL_ARPTABLES */
++#endif
  	       0;
  }
-@@ -1024,7 +1032,9 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 			br->hash_elasticity) ||
- 	    nla_put_u32(skb, IFLA_BR_MCAST_HASH_MAX, br->hash_max) ||
- 	    nla_put_u32(skb, IFLA_BR_MCAST_LAST_MEMBER_CNT,
--			br->multicast_last_member_count))
-+			br->multicast_last_member_count) ||
-+	    nla_put_u32(skb, IFLA_BR_MCAST_STARTUP_QUERY_CNT,
-+			br->multicast_startup_query_count))
+ 
+@@ -1070,7 +1097,6 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	if (nla_put_be16(skb, IFLA_BR_VLAN_PROTOCOL, br->vlan_proto))
  		return -EMSGSIZE;
  #endif
+-
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	if (nla_put_u8(skb, IFLA_BR_MCAST_ROUTER, br->multicast_router) ||
+ 	    nla_put_u8(skb, IFLA_BR_MCAST_SNOOPING, !br->multicast_disabled) ||
+@@ -1105,6 +1131,15 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	if (nla_put_u64(skb, IFLA_BR_MCAST_STARTUP_QUERY_INTVL, clockval))
+ 		return -EMSGSIZE;
+ #endif
++#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
++	if (nla_put_u8(skb, IFLA_BR_NF_CALL_IPTABLES,
++		       br->nf_call_iptables ? 1 : 0) ||
++	    nla_put_u8(skb, IFLA_BR_NF_CALL_IP6TABLES,
++		       br->nf_call_ip6tables ? 1 : 0) ||
++	    nla_put_u8(skb, IFLA_BR_NF_CALL_ARPTABLES,
++		       br->nf_call_arptables ? 1 : 0))
++		return -EMSGSIZE;
++#endif
  
+ 	return 0;
+ }
 -- 
 2.4.3
