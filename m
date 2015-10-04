@@ -1,101 +1,80 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/14] rocker: introduce OF-DPA world skeleton
-Date: Sun,  4 Oct 2015 23:25:42 +0200
-Message-ID: <1443993949-3915-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 05/14] rocker: implement set settings mode command
+Date: Sun,  4 Oct 2015 23:25:40 +0200
+Message-ID: <1443993949-3915-6-git-send-email-jiri@resnulli.us>
 References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:32784 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914AbbJDV0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:26:01 -0400
-Received: by wiclk2 with SMTP id lk2so95331407wic.0
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:26:00 -0700 (PDT)
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:37678 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbbJDVZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:25:59 -0400
+Received: by wicfx3 with SMTP id fx3so90190262wic.0
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:25:58 -0700 (PDT)
 In-Reply-To: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce basis for OF-DPA world file. This is the place where all
-OF-DPA related code is going to be moved.
+Introduce a helper to ask HW for change of the port mode (world).
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/Makefile       |  2 +-
- drivers/net/ethernet/rocker/rocker.h       |  2 ++
- drivers/net/ethernet/rocker/rocker_main.c  |  1 +
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 27 +++++++++++++++++++++++++++
- 4 files changed, 31 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/rocker/rocker_ofdpa.c
+ drivers/net/ethernet/rocker/rocker_main.c | 32 +++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
 
-diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
-index 47f3492..faa36ac 100644
---- a/drivers/net/ethernet/rocker/Makefile
-+++ b/drivers/net/ethernet/rocker/Makefile
-@@ -3,4 +3,4 @@
- #
- 
- obj-$(CONFIG_ROCKER) += rocker.o
--rocker-y := rocker_main.o rocker_tlv.o
-+rocker-y := rocker_main.o rocker_tlv.o rocker_ofdpa.o
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index d49bc5d..496fe8f 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -80,4 +80,6 @@ struct rocker_world_ops {
- 				     __be16 vlan_id);
- };
- 
-+extern struct rocker_world_ops rocker_ofdpa_ops;
-+
- #endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index b9b3c9d..e00c831 100644
+index c698653..54d2f46 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2171,6 +2171,7 @@ static int rocker_cmd_group_tbl_del(const struct rocker_port *rocker_port,
-  **********************/
+@@ -1641,6 +1641,30 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+ 	return 0;
+ }
  
- static struct rocker_world_ops *rocker_world_ops[] = {
-+	&rocker_ofdpa_ops,
- };
++static int
++rocker_cmd_set_port_settings_mode_prep(const struct rocker_port *rocker_port,
++				       struct rocker_desc_info *desc_info,
++				       void *priv)
++{
++	int mode = *(int *)priv;
++	struct rocker_tlv *cmd_info;
++
++	if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_CMD_TYPE,
++			       ROCKER_TLV_CMD_TYPE_SET_PORT_SETTINGS))
++		return -EMSGSIZE;
++	cmd_info = rocker_tlv_nest_start(desc_info, ROCKER_TLV_CMD_INFO);
++	if (!cmd_info)
++		return -EMSGSIZE;
++	if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_CMD_PORT_SETTINGS_PPORT,
++			       rocker_port->pport))
++		return -EMSGSIZE;
++	if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_CMD_PORT_SETTINGS_MODE,
++			       mode))
++		return -EMSGSIZE;
++	rocker_tlv_nest_end(desc_info, cmd_info);
++	return 0;
++}
++
+ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+@@ -1691,6 +1715,14 @@ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+ 			       NULL, NULL, NULL);
+ }
  
- #define ROCKER_WORLD_OPS_LEN ARRAY_SIZE(rocker_world_ops)
-diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-new file mode 100644
-index 0000000..e048b8b
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -0,0 +1,27 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_ofdpa.c - Rocker switch OF-DPA-like
-+ *					        implementation
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++static int rocker_cmd_set_port_settings_mode(struct rocker_port *rocker_port,
++					     u8 mode)
++{
++	return rocker_cmd_exec(rocker_port, NULL, 0,
++			       rocker_cmd_set_port_settings_mode_prep,
++			       &mode, NULL, NULL);
++}
 +
-+#include <linux/kernel.h>
-+#include "rocker.h"
-+
-+struct ofdpa {
-+};
-+
-+struct ofdpa_port {
-+};
-+
-+struct rocker_world_ops rocker_ofdpa_ops = {
-+	.kind = "ofdpa",
-+	.priv_size = sizeof(struct ofdpa),
-+	.port_priv_size = sizeof(struct ofdpa_port),
-+	.mode = ROCKER_PORT_MODE_OF_DPA,
-+};
+ static int
+ rocker_cmd_flow_tbl_add_ig_port(struct rocker_desc_info *desc_info,
+ 				const struct rocker_flow_tbl_entry *entry)
 -- 
 1.9.3
