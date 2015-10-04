@@ -1,56 +1,60 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Slow ramp-up for single-stream TCP throughput on 4.2 kernel.
-Date: Sun, 4 Oct 2015 12:33:04 -0700
-Message-ID: <CAK6E8=fjq-zFBeAE+XRskEf0uRuLk+AU25fOOK8PkOgXK9EaQQ@mail.gmail.com>
-References: <560F1672.5000602@candelatech.com> <560F1F74.9010207@candelatech.com>
- <CADVnQym4U_dVVRdOVhORvVabwFjSHTQJ_LbbbYtzWVu0=mAp_A@mail.gmail.com>
- <56105AD2.7070906@candelatech.com> <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>
- <56115C68.1080803@candelatech.com> <1443979705.32531.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcm80211:Fix locking region in the function  brcmf_sdio_sendfromq
+Date: Sun, 4 Oct 2015 22:54:37 +0200
+Message-ID: <5611920D.60500@broadcom.com>
+References: <1443889148-22678-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Greear <greearb@candelatech.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	ath10k <ath10k@lists.infradead.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:35520 "EHLO
-	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617AbbJDTdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 15:33:44 -0400
-Received: by vkao3 with SMTP id o3so85219133vka.2
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 12:33:43 -0700 (PDT)
-In-Reply-To: <1443979705.32531.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443889148-22678-1-git-send-email-xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 4, 2015 at 10:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2015-10-04 at 10:05 -0700, Ben Greear wrote:
+On 10/03/2015 06:19 PM, Nicholas Krause wrote:
+> This fixes the locking region in the function brcmf_sdio_sendfromq
+> to properly lock around the call to the function brcmrf_sdio_txpkt
+> in order to avoid concurrent access issues when calling this
+> function as stated in the function's comments about the caller
+> being required to lock around the call to this particular function.
 >
->> I guess I'll just stop using Cubic.  Any suggestions for another
->> congestion algorithm to use?  I'd prefer something that worked well
->> in pretty much any network condition, of course, and it has to work with
->> ath10k.
->>
->> We can also run some tests with 1G, 10G, ath10k, ath9k, and in conjunction
->> with network emulators and various congestion control algorithms.
+> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> You could use cubic , but disable or tune HyStart, which is known to be
-> problematic anyway.
->
-> echo  0 >/sys/module/tcp_cubic/parameters/hystart_detect
->
-> Or try
->
-> echo 40 >/sys/module/tcp_cubic/parameters/hystart_low_window
-Or if you truly don't want to use cubic, Reno would be my choice b/c
-1) Cubic in mid-low BDP behaves like Reno (tcp friendly mode)
-2) Reno has several recent stretched-ack fixes which may be useful in wireless
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> index f990e3d..da59683 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> @@ -2388,11 +2388,11 @@ static uint brcmf_sdio_sendfromq(struct brcmf_sdio *bus, uint maxframes)
+>   				break;
+>   			__skb_queue_tail(&pktq, pkt);
+>   		}
+> -		spin_unlock_bh(&bus->txq_lock);
+>   		if (i == 0)
+>   			break;
+
+So what if we break here. Seems you need to do unlock if i == 0 here.
+
+Regards,
+Arend
 
 >
+>   		ret = brcmf_sdio_txpkt(bus, &pktq, SDPCM_DATA_CHANNEL);
+> +		spin_unlock_bh(&bus->txq_lock);
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   		cnt += i;
+>
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
