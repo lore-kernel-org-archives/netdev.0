@@ -1,18 +1,17 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] bridge: vlan: cleanups & fixes
-	(part 2)
-Date: Sun, 04 Oct 2015 16:44:53 -0700 (PDT)
-Message-ID: <20151004.164453.1855839450779309177.davem@davemloft.net>
-References: <1443791113-12738-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net-next 00/20] bridge: complete netlink support
+Date: Sun, 04 Oct 2015 16:47:08 -0700 (PDT)
+Message-ID: <20151004.164708.1245786027485004311.davem@davemloft.net>
+References: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	vyasevich@gmail.com
+Cc: shm@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org
 To: razor@blackwall.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1443791113-12738-1-git-send-email-razor@blackwall.org>
+In-Reply-To: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -25,11 +24,19 @@ Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Fri,  2 Oct 2015 15:05:09 +0200
+Date: Sun,  4 Oct 2015 14:23:27 +0200
 
-> This is the second follow-up set with one fix (patch 01) and more cleanups
-> (patches 02,03 and 04). These are minor compared to the previous ones and
-> should be the last before taking on the optimization changes on the
-> fast-path.
+> This set completes the bridge device's netlink support and makes it
+> possible to view and configure everything that can be configured via
+> sysfs. I have tested all of these (setting and getting). There're a few
+> longer line warnings about the br_get_size() ifla comments but I think we
+> should have them to know what has been accounted for. I have used the sysfs
+> interface as a guide of what and how to set. As usual I'll send the
+> corresponding iproute2 patches later.
+> The bridge port's netlink interface will be completed after this set gets
+> applied in some form.
+> 
+> This patch-set is on top of my last vlan cleanups set:
+> http://www.spinics.net/lists/netdev/msg346005.html
 
 Series applied, thanks.
