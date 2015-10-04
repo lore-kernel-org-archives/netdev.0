@@ -1,91 +1,90 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 02/20] bridge: netlink: export root id
-Date: Sun,  4 Oct 2015 14:23:29 +0200
-Message-ID: <1443961427-15085-3-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 16/20] bridge: netlink: add support for multicast_last_member_count
+Date: Sun,  4 Oct 2015 14:23:43 +0200
+Message-ID: <1443961427-15085-17-git-send-email-razor@blackwall.org>
 References: <1443961427-15085-1-git-send-email-razor@blackwall.org>
-Cc: bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, shm@cumulusnetworks.com, davem@davemloft.net
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	shm@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33135 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751626AbbJDMYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 08:24:24 -0400
+Received: by wiclk2 with SMTP id lk2so85748446wic.0
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 05:24:23 -0700 (PDT)
 In-Reply-To: <1443961427-15085-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Add IFLA_BR_ROOT_ID and export br->designated_root via netlink. For this
-purpose add struct ifla_bridge_id that would represent struct bridge_id.
+Add IFLA_BR_MCAST_LAST_MEMBER_CNT to allow setting/getting
+br->multicast_last_member_count via netlink.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h | 6 ++++++
- net/bridge/br_netlink.c      | 9 ++++++++-
- 2 files changed, 14 insertions(+), 1 deletion(-)
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_netlink.c      | 12 +++++++++++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index f7f480613555..03814371df44 100644
+index 10a44a735512..5409a461e47e 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -233,11 +233,17 @@ enum {
- 	IFLA_BR_VLAN_FILTERING,
- 	IFLA_BR_VLAN_PROTOCOL,
- 	IFLA_BR_GROUP_FWD_MASK,
-+	IFLA_BR_ROOT_ID,
+@@ -251,6 +251,7 @@ enum {
+ 	IFLA_BR_MCAST_QUERIER,
+ 	IFLA_BR_MCAST_HASH_ELASTICITY,
+ 	IFLA_BR_MCAST_HASH_MAX,
++	IFLA_BR_MCAST_LAST_MEMBER_CNT,
  	__IFLA_BR_MAX,
  };
  
- #define IFLA_BR_MAX	(__IFLA_BR_MAX - 1)
- 
-+struct ifla_bridge_id {
-+	__u8	prio[2];
-+	__u8	addr[6]; /* ETH_ALEN */
-+};
-+
- enum {
- 	BRIDGE_MODE_UNSPEC,
- 	BRIDGE_MODE_HAIRPIN,
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 39b201a2bc12..7a3692469db6 100644
+index d6b61b0eeada..cf6ccaea8180 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -854,6 +854,7 @@ static size_t br_get_size(const struct net_device *brdev)
- 	       nla_total_size(sizeof(__be16)) +	/* IFLA_BR_VLAN_PROTOCOL */
+@@ -773,6 +773,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_MCAST_QUERIER] = { .type = NLA_U8 },
+ 	[IFLA_BR_MCAST_HASH_ELASTICITY] = { .type = NLA_U32 },
+ 	[IFLA_BR_MCAST_HASH_MAX] = { .type = NLA_U32 },
++	[IFLA_BR_MCAST_LAST_MEMBER_CNT] = { .type = NLA_U32 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -913,6 +914,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 		if (err)
+ 			return err;
+ 	}
++
++	if (data[IFLA_BR_MCAST_LAST_MEMBER_CNT]) {
++		u32 val = nla_get_u32(data[IFLA_BR_MCAST_LAST_MEMBER_CNT]);
++
++		br->multicast_last_member_count = val;
++	}
  #endif
- 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_GROUP_FWD_MASK */
-+	       nla_total_size(sizeof(struct ifla_bridge_id)) +   /* IFLA_BR_ROOT_ID */
+ 
+ 	return 0;
+@@ -949,6 +956,7 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_MCAST_QUERIER */
+ 	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_HASH_ELASTICITY */
+ 	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_HASH_MAX */
++	       nla_total_size(sizeof(u32)) +     /* IFLA_BR_MCAST_LAST_MEMBER_CNT */
+ #endif
  	       0;
  }
- 
-@@ -868,6 +869,11 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	u16 priority = (br->bridge_id.prio[0] << 8) | br->bridge_id.prio[1];
- 	u16 group_fwd_mask = br->group_fwd_mask;
- 	u8 vlan_enabled = br_vlan_enabled(br);
-+	struct ifla_bridge_id root_id;
-+
-+	memset(&root_id, 0, sizeof(root_id));
-+	memcpy(root_id.prio, br->designated_root.prio, sizeof(root_id.prio));
-+	memcpy(root_id.addr, br->designated_root.addr, sizeof(root_id.addr));
- 
- 	if (nla_put_u32(skb, IFLA_BR_FORWARD_DELAY, forward_delay) ||
- 	    nla_put_u32(skb, IFLA_BR_HELLO_TIME, hello_time) ||
-@@ -876,7 +882,8 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	    nla_put_u32(skb, IFLA_BR_STP_STATE, stp_enabled) ||
- 	    nla_put_u16(skb, IFLA_BR_PRIORITY, priority) ||
- 	    nla_put_u8(skb, IFLA_BR_VLAN_FILTERING, vlan_enabled) ||
--	    nla_put_u16(skb, IFLA_BR_GROUP_FWD_MASK, group_fwd_mask))
-+	    nla_put_u16(skb, IFLA_BR_GROUP_FWD_MASK, group_fwd_mask) ||
-+	    nla_put(skb, IFLA_BR_ROOT_ID, sizeof(root_id), &root_id))
+@@ -1014,7 +1022,9 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	    nla_put_u8(skb, IFLA_BR_MCAST_QUERIER, br->multicast_querier) ||
+ 	    nla_put_u32(skb, IFLA_BR_MCAST_HASH_ELASTICITY,
+ 			br->hash_elasticity) ||
+-	    nla_put_u32(skb, IFLA_BR_MCAST_HASH_MAX, br->hash_max))
++	    nla_put_u32(skb, IFLA_BR_MCAST_HASH_MAX, br->hash_max) ||
++	    nla_put_u32(skb, IFLA_BR_MCAST_LAST_MEMBER_CNT,
++			br->multicast_last_member_count))
  		return -EMSGSIZE;
+ #endif
  
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
 -- 
 2.4.3
