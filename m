@@ -1,34 +1,30 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 15/15] dma: remove external references to dma_supported
-Date: Sun, 4 Oct 2015 10:57:34 +0100
-Message-ID: <20151004095734.GB29706@kroah.com>
-References: <1443885579-7094-1-git-send-email-hch@lst.de>
- <1443885579-7094-16-git-send-email-hch@lst.de>
+From: Qatar@vger.kernel.org, Foundation@vger.kernel.org
+Subject: For Your Kind Notice
+Date: Sun, 4 Oct 2015 12:23:45 +0100
+Message-ID: <CY1PR13MB0779156682C3F77A16371F32B8490@CY1PR13MB0779.namprd13.prod.outlook.com>
+Reply-To: <oesq0909@foxmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Don Fry <pcnet32@frontier.com>,
-	Oliver Neukum <oneukum@suse.com>,
-	linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
-	linux-media@vger.kernel.org, netdev@vger.kernel.org,
-	linux-parisc@vger.kernel.org, linux-serial@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1443885579-7094-16-git-send-email-hch@lst.de>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: ME@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bhn0251.outbound.protection.outlook.com ([157.56.111.251]:32615
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751352AbbJDLYy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 07:24:54 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 03, 2015 at 05:19:39PM +0200, Christoph Hellwig wrote:
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  Documentation/DMA-API.txt       | 13 -------------
->  drivers/usb/host/ehci-hcd.c     |  2 +-
->  drivers/usb/host/fotg210-hcd.c  |  2 +-
->  drivers/usb/host/fusbh200-hcd.c |  2 +-
->  drivers/usb/host/oxu210hp-hcd.c |  2 +-
->  5 files changed, 4 insertions(+), 17 deletions(-)
+You have been selected to receive ($950,000.00 USD) as Charity Donations/Aid from (Qatar 
+Foundation) provide the below information ASAP.
 
+1:Full Names:
+2:Complete Address:
+3:Direct Telephone numbers
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Sincerely,
+Dr.Allan Faroze Mohammed.
+Email: poesq0909@foxmail.com
+Tel:+44 70457 96790
