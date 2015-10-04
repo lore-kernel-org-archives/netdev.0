@@ -1,47 +1,173 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Slow ramp-up for single-stream TCP throughput on 4.2 kernel.
-Date: Sun, 04 Oct 2015 10:28:25 -0700
-Message-ID: <1443979705.32531.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <560F1672.5000602@candelatech.com>
-		<560F1F74.9010207@candelatech.com>
-		<CADVnQym4U_dVVRdOVhORvVabwFjSHTQJ_LbbbYtzWVu0=mAp_A@mail.gmail.com>
-		<56105AD2.7070906@candelatech.com>
-	 <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>
-	 <56115C68.1080803@candelatech.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
+Date: Sun, 04 Oct 2015 18:41:56 +0100
+Message-ID: <87bncejztn.fsf@doppelsaurus.mobileactivedefense.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+	<CA+rthh9FMUHfaMcMXxJrsu+47xtQhG4ajmL_6rbJsAM1SRxGYw@mail.gmail.com>
+	<87twq7ans7.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	ath10k <ath10k@lists.infradead.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34686 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbbJDR21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 13:28:27 -0400
-Received: by padhy16 with SMTP id hy16so12655263pad.1
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 10:28:27 -0700 (PDT)
-In-Reply-To: <56115C68.1080803@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mathias Krause <minipli@googlemail.com>,
+	Jason Baron <jbaron@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Eric Wong <normalperson@yhbt.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Davidlohr Bueso <dave@stgolabs.net>,
+	Olivier Mauras <olivier@mauras.ch>,
+	PaX Team <pageexec@freemail.hu>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87twq7ans7.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Sat, 03 Oct 2015 18:02:16 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-10-04 at 10:05 -0700, Ben Greear wrote:
+Rainer Weikusat <rweikusat@mobileactivedefense.com> writes:
 
-> I guess I'll just stop using Cubic.  Any suggestions for another
-> congestion algorithm to use?  I'd prefer something that worked well
-> in pretty much any network condition, of course, and it has to work with
-> ath10k.
-> 
-> We can also run some tests with 1G, 10G, ath10k, ath9k, and in conjunction
-> with network emulators and various congestion control algorithms.
+> Mathias Krause <minipli@googlemail.com> writes:
+>> On 2 October 2015 at 22:43, Jason Baron <jbaron@akamai.com> wrote:
+>>> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
+>>> queue associated with the socket s that we are poll'ing against, but also calls
+>
+> [useless full-quote removed]
+>
+>> My reproducer runs on this patch for more than 3 days now without
+>> triggering anything anymore.
+>
+> Since the behaviour of your program is random, using it to "test"
+> anything doesn't really provide any insight: It could have been
+> executing the same codepath which doesn't happen to trigger any problems
+> for all of these three days. Nobody can tell.
 
-You could use cubic , but disable or tune HyStart, which is known to be
-problematic anyway.
+Since this "strangely" seems to have been lost in the thread: Here's the
+test program showing that the reconnect while in epoll actually causes a
+problem (at least I think so):
 
-echo  0 >/sys/module/tcp_cubic/parameters/hystart_detect
+--------
+#include <fcntl.h>
+#include <pthread.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/epoll.h>
+#include <signal.h>
+#include <unistd.h>
 
-Or try
+static int sk, tg0, tg1;
 
-echo 40 >/sys/module/tcp_cubic/parameters/hystart_low_window
+static void *epoller(void *unused)
+{
+    struct epoll_event epev;
+    int epfd;
+    
+    epfd = epoll_create(1);
+    if (epfd == -1) exit(0);
+
+    epev.events = EPOLLOUT;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, sk, &epev);
+    epoll_wait(epfd, &epev, 1, 5000);
+
+    close(sk);
+
+    execl("./a.out", "./a.out", (void *)0);
+
+    return NULL;
+}
+
+int main(void)
+{
+    struct sockaddr_un sun;
+    pthread_t tid;
+    int rc;
+
+    sun.sun_family = AF_UNIX;
+    
+    tg0 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    strncpy(sun.sun_path, "/tmp/tg0", sizeof(sun.sun_path));
+    unlink(sun.sun_path);
+    bind(tg0, (struct sockaddr *)&sun, sizeof(sun));
+    
+    tg1 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    strncpy(sun.sun_path, "/tmp/tg1", sizeof(sun.sun_path));
+    unlink(sun.sun_path);
+    bind(tg1, (struct sockaddr *)&sun, sizeof(sun));
+
+    sk = socket(AF_UNIX, SOCK_DGRAM, 0);
+    connect(sk, (struct sockaddr *)&sun, sizeof(sun));
+
+    fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_NONBLOCK);
+    
+    while ((rc = write(sk, "bla", 3)) != -1);
+
+    pthread_create(&tid, NULL, epoller, NULL);
+
+    usleep(5);
+
+    strncpy(sun.sun_path, "/tmp/tg0", sizeof(sun.sun_path));
+    connect(sk, (struct sockaddr *)&sun, sizeof(sun));
+    close(tg1);
+    
+    pause();
+
+    return 0;
+}
+----------
+
+And here the other demonstrating the poller not being woken up despite
+it could write something:
+
+----------
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/poll.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+int main(void)
+{
+    struct sockaddr_un sun;
+    struct pollfd pfd;
+    int tg, sk0, sk1, rc;
+    char buf[16];
+
+    sun.sun_family = AF_UNIX;
+    
+    tg = socket(AF_UNIX, SOCK_DGRAM, 0);
+    strncpy(sun.sun_path, "/tmp/tg", sizeof(sun.sun_path));
+    unlink(sun.sun_path);
+    bind(tg, (struct sockaddr *)&sun, sizeof(sun));
+    
+    sk0 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    connect(sk0, (struct sockaddr *)&sun, sizeof(sun));
+    
+    sk1 = socket(AF_UNIX, SOCK_DGRAM, 0);
+    connect(sk1, (struct sockaddr *)&sun, sizeof(sun));
+
+    fcntl(sk0, F_SETFL, fcntl(sk0, F_GETFL) | O_NONBLOCK);
+    fcntl(sk1, F_SETFL, fcntl(sk1, F_GETFL) | O_NONBLOCK);
+    
+    while (write(sk0, "bla", 3) != -1);
+
+    if (fork() == 0) {
+	pfd.fd = sk1;
+	pfd.events = POLLOUT;
+	rc = poll(&pfd, 1, -1);
+
+	_exit(0);
+    }
+    
+    sleep(3);
+    read(tg, buf, sizeof(buf));
+    wait(&rc);
+
+    return 0;
+}
+-----------
