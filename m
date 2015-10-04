@@ -1,595 +1,198 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/14] rocker: push tlv processing into separate files
-Date: Sun,  4 Oct 2015 23:25:39 +0200
-Message-ID: <1443993949-3915-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 11/14] rocker: pre-allocate wait structures during cmd ring init
+Date: Sun,  4 Oct 2015 23:25:46 +0200
+Message-ID: <1443993949-3915-12-git-send-email-jiri@resnulli.us>
 References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34493 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbbJDVZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:25:58 -0400
-Received: by wicfx3 with SMTP id fx3so94828333wic.1
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:25:57 -0700 (PDT)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:38576 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752000AbbJDV0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 17:26:06 -0400
+Received: by wiclk2 with SMTP id lk2so90441043wic.1
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 14:26:04 -0700 (PDT)
 In-Reply-To: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Carve out TLV processing helpers into separate files.
+This avoids need to alloc/free wait structure for every command call.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/Makefile      |   2 +-
- drivers/net/ethernet/rocker/rocker.h      |  27 ++++
- drivers/net/ethernet/rocker/rocker_main.c | 222 +-----------------------------
- drivers/net/ethernet/rocker/rocker_tlv.c  |  54 ++++++++
- drivers/net/ethernet/rocker/rocker_tlv.h  | 202 +++++++++++++++++++++++++++
- 5 files changed, 286 insertions(+), 221 deletions(-)
- create mode 100644 drivers/net/ethernet/rocker/rocker.h
- create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.c
- create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.h
+ drivers/net/ethernet/rocker/rocker_main.c | 87 +++++++++++++++++++++++--------
+ 1 file changed, 66 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
-index 2bed423..47f3492 100644
---- a/drivers/net/ethernet/rocker/Makefile
-+++ b/drivers/net/ethernet/rocker/Makefile
-@@ -3,4 +3,4 @@
- #
- 
- obj-$(CONFIG_ROCKER) += rocker.o
--rocker-y := rocker_main.o
-+rocker-y := rocker_main.o rocker_tlv.o
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-new file mode 100644
-index 0000000..650caa0
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -0,0 +1,27 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker.h - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _ROCKER_H
-+#define _ROCKER_H
-+
-+#include <linux/types.h>
-+
-+#include "rocker_hw.h"
-+
-+struct rocker_desc_info {
-+	char *data; /* mapped */
-+	size_t data_size;
-+	size_t tlv_size;
-+	struct rocker_desc *desc;
-+	dma_addr_t mapaddr;
-+};
-+
-+#endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index b555926..c698653 100644
+index d9329a7..9dd15d7 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -40,6 +40,8 @@
- #include <generated/utsrelease.h>
- 
- #include "rocker_hw.h"
-+#include "rocker.h"
-+#include "rocker_tlv.h"
- 
- static const char rocker_driver_name[] = "rocker";
- 
-@@ -177,14 +179,6 @@ struct rocker_neigh_tbl_entry {
- 	bool ttl_check;
- };
- 
--struct rocker_desc_info {
--	char *data; /* mapped */
--	size_t data_size;
--	size_t tlv_size;
--	struct rocker_desc *desc;
--	dma_addr_t mapaddr;
--};
--
- struct rocker_dma_ring_info {
- 	size_t size;
- 	u32 head;
-@@ -661,218 +655,6 @@ free_irq:
- 	return err;
+@@ -414,23 +414,19 @@ static void rocker_wait_init(struct rocker_wait *wait)
+ 	rocker_wait_reset(wait);
  }
  
--/******
-- * TLV
-- ******/
--
--#define ROCKER_TLV_ALIGNTO 8U
--#define ROCKER_TLV_ALIGN(len) \
--	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
--#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
--
--/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
-- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-- * |             Header          | Pad |           Payload           | Pad |
-- * |      (struct rocker_tlv)    | ing |                             | ing |
-- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-- *  <--------------------------- tlv->len -------------------------->
-- */
--
--static struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
--					  int *remaining)
--{
--	int totlen = ROCKER_TLV_ALIGN(tlv->len);
--
--	*remaining -= totlen;
--	return (struct rocker_tlv *) ((char *) tlv + totlen);
--}
--
--static int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
--{
--	return remaining >= (int) ROCKER_TLV_HDRLEN &&
--	       tlv->len >= ROCKER_TLV_HDRLEN &&
--	       tlv->len <= remaining;
--}
--
--#define rocker_tlv_for_each(pos, head, len, rem)	\
--	for (pos = head, rem = len;			\
--	     rocker_tlv_ok(pos, rem);			\
--	     pos = rocker_tlv_next(pos, &(rem)))
--
--#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
--	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
--			    rocker_tlv_len(tlv), rem)
--
--static int rocker_tlv_attr_size(int payload)
--{
--	return ROCKER_TLV_HDRLEN + payload;
--}
--
--static int rocker_tlv_total_size(int payload)
--{
--	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
--}
--
--static int rocker_tlv_padlen(int payload)
--{
--	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
--}
--
--static int rocker_tlv_type(const struct rocker_tlv *tlv)
--{
--	return tlv->type;
--}
--
--static void *rocker_tlv_data(const struct rocker_tlv *tlv)
--{
--	return (char *) tlv + ROCKER_TLV_HDRLEN;
--}
--
--static int rocker_tlv_len(const struct rocker_tlv *tlv)
--{
--	return tlv->len - ROCKER_TLV_HDRLEN;
--}
--
--static u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
--{
--	return *(u8 *) rocker_tlv_data(tlv);
--}
--
--static u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
--{
--	return *(u16 *) rocker_tlv_data(tlv);
--}
--
--static __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
--{
--	return *(__be16 *) rocker_tlv_data(tlv);
--}
--
--static u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
--{
--	return *(u32 *) rocker_tlv_data(tlv);
--}
--
--static u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
--{
--	return *(u64 *) rocker_tlv_data(tlv);
--}
--
--static void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
--			     const char *buf, int buf_len)
--{
--	const struct rocker_tlv *tlv;
--	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
--	int rem;
--
--	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
--
--	rocker_tlv_for_each(tlv, head, buf_len, rem) {
--		u32 type = rocker_tlv_type(tlv);
--
--		if (type > 0 && type <= maxtype)
--			tb[type] = tlv;
--	}
--}
--
--static void rocker_tlv_parse_nested(const struct rocker_tlv **tb, int maxtype,
--				    const struct rocker_tlv *tlv)
--{
--	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
--			 rocker_tlv_len(tlv));
--}
--
--static void rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
--				  const struct rocker_desc_info *desc_info)
--{
--	rocker_tlv_parse(tb, maxtype, desc_info->data,
--			 desc_info->desc->tlv_size);
--}
--
--static struct rocker_tlv *rocker_tlv_start(struct rocker_desc_info *desc_info)
--{
--	return (struct rocker_tlv *) ((char *) desc_info->data +
--					       desc_info->tlv_size);
--}
--
--static int rocker_tlv_put(struct rocker_desc_info *desc_info,
--			  int attrtype, int attrlen, const void *data)
--{
--	int tail_room = desc_info->data_size - desc_info->tlv_size;
--	int total_size = rocker_tlv_total_size(attrlen);
--	struct rocker_tlv *tlv;
--
--	if (unlikely(tail_room < total_size))
--		return -EMSGSIZE;
--
--	tlv = rocker_tlv_start(desc_info);
--	desc_info->tlv_size += total_size;
--	tlv->type = attrtype;
--	tlv->len = rocker_tlv_attr_size(attrlen);
--	memcpy(rocker_tlv_data(tlv), data, attrlen);
--	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
--	return 0;
--}
--
--static int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
--			     int attrtype, u8 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
--}
--
--static int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
--			      int attrtype, u16 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
--}
--
--static int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
--			       int attrtype, __be16 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
--}
--
--static int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
--			      int attrtype, u32 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
--}
--
--static int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
--			       int attrtype, __be32 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
--}
--
--static int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
--			      int attrtype, u64 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
--}
--
--static struct rocker_tlv *
--rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
--{
--	struct rocker_tlv *start = rocker_tlv_start(desc_info);
--
--	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
--		return NULL;
--
--	return start;
--}
--
--static void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
--				struct rocker_tlv *start)
--{
--	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
--}
--
--static void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
--				   const struct rocker_tlv *start)
--{
--	desc_info->tlv_size = (const char *) start - desc_info->data;
--}
--
- /******************************************
-  * DMA rings and descriptors manipulations
-  ******************************************/
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.c b/drivers/net/ethernet/rocker/rocker_tlv.c
-new file mode 100644
-index 0000000..5b94d93
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.c
-@@ -0,0 +1,54 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_tvl.c - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+
-+#include "rocker_hw.h"
-+#include "rocker_tlv.h"
-+
-+void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
-+		      const char *buf, int buf_len)
+-static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
+-					      struct switchdev_trans *trans,
+-					      int flags)
++static struct rocker_wait *rocker_wait_create(void)
+ {
+ 	struct rocker_wait *wait;
+ 
+-	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
++	wait = kzalloc(sizeof(*wait), GFP_KERNEL);
+ 	if (!wait)
+ 		return NULL;
+-	rocker_wait_init(wait);
+ 	return wait;
+ }
+ 
+-static void rocker_wait_destroy(struct switchdev_trans *trans,
+-				struct rocker_wait *wait)
++static void rocker_wait_destroy(struct rocker_wait *wait)
+ {
+-	rocker_kfree(trans, wait);
++	kfree(wait);
+ }
+ 
+ static bool rocker_wait_event_timeout(struct rocker_wait *wait,
+@@ -906,6 +902,53 @@ static void rocker_dma_ring_bufs_free(const struct rocker *rocker,
+ 	}
+ }
+ 
++static int rocker_dma_cmd_ring_wait_alloc(struct rocker_desc_info *desc_info)
 +{
-+	const struct rocker_tlv *tlv;
-+	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
-+	int rem;
++	struct rocker_wait *wait;
 +
-+	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
-+
-+	rocker_tlv_for_each(tlv, head, buf_len, rem) {
-+		u32 type = rocker_tlv_type(tlv);
-+
-+		if (type > 0 && type <= maxtype)
-+			tb[type] = tlv;
-+	}
-+}
-+
-+int rocker_tlv_put(struct rocker_desc_info *desc_info,
-+		   int attrtype, int attrlen, const void *data)
-+{
-+	int tail_room = desc_info->data_size - desc_info->tlv_size;
-+	int total_size = rocker_tlv_total_size(attrlen);
-+	struct rocker_tlv *tlv;
-+
-+	if (unlikely(tail_room < total_size))
-+		return -EMSGSIZE;
-+
-+	tlv = rocker_tlv_start(desc_info);
-+	desc_info->tlv_size += total_size;
-+	tlv->type = attrtype;
-+	tlv->len = rocker_tlv_attr_size(attrlen);
-+	memcpy(rocker_tlv_data(tlv), data, attrlen);
-+	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
++	wait = rocker_wait_create();
++	if (!wait)
++		return -ENOMEM;
++	rocker_desc_cookie_ptr_set(desc_info, wait);
 +	return 0;
 +}
 +
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
-new file mode 100644
-index 0000000..a161b6e
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.h
-@@ -0,0 +1,202 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_tlv.h - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _ROCKER_TLV_H
-+#define _ROCKER_TLV_H
-+
-+#include <linux/types.h>
-+
-+#include "rocker_hw.h"
-+#include "rocker.h"
-+
-+
-+#define ROCKER_TLV_ALIGNTO 8U
-+#define ROCKER_TLV_ALIGN(len) \
-+	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
-+#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
-+
-+/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
-+ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-+ * |             Header          | Pad |           Payload           | Pad |
-+ * |      (struct rocker_tlv)    | ing |                             | ing |
-+ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-+ *  <--------------------------- tlv->len -------------------------->
-+ */
-+
-+static inline struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
-+						 int *remaining)
++static void
++rocker_dma_cmd_ring_wait_free(const struct rocker_desc_info *desc_info)
 +{
-+	int totlen = ROCKER_TLV_ALIGN(tlv->len);
++	struct rocker_wait *wait = rocker_desc_cookie_ptr_get(desc_info);
 +
-+	*remaining -= totlen;
-+	return (struct rocker_tlv *) ((char *) tlv + totlen);
++	rocker_wait_destroy(wait);
 +}
 +
-+static inline int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
++static int rocker_dma_cmd_ring_waits_alloc(const struct rocker *rocker)
 +{
-+	return remaining >= (int) ROCKER_TLV_HDRLEN &&
-+	       tlv->len >= ROCKER_TLV_HDRLEN &&
-+	       tlv->len <= remaining;
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++	int err;
++
++	for (i = 0; i < cmd_ring->size; i++) {
++		err = rocker_dma_cmd_ring_wait_alloc(&cmd_ring->desc_info[i]);
++		if (err)
++			goto rollback;
++	}
++	return 0;
++
++rollback:
++	for (i--; i >= 0; i--)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
++	return err;
 +}
 +
-+#define rocker_tlv_for_each(pos, head, len, rem)	\
-+	for (pos = head, rem = len;			\
-+	     rocker_tlv_ok(pos, rem);			\
-+	     pos = rocker_tlv_next(pos, &(rem)))
-+
-+#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
-+	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
-+			    rocker_tlv_len(tlv), rem)
-+
-+static inline int rocker_tlv_attr_size(int payload)
++static void rocker_dma_cmd_ring_waits_free(const struct rocker *rocker)
 +{
-+	return ROCKER_TLV_HDRLEN + payload;
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++
++	for (i = 0; i < cmd_ring->size; i++)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
 +}
 +
-+static inline int rocker_tlv_total_size(int payload)
-+{
-+	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
-+}
+ static int rocker_dma_rings_init(struct rocker *rocker)
+ {
+ 	const struct pci_dev *pdev = rocker->pdev;
+@@ -928,6 +971,12 @@ static int rocker_dma_rings_init(struct rocker *rocker)
+ 		goto err_dma_cmd_ring_bufs_alloc;
+ 	}
+ 
++	err = rocker_dma_cmd_ring_waits_alloc(rocker);
++	if (err) {
++		dev_err(&pdev->dev, "failed to alloc command dma ring waits\n");
++		goto err_dma_cmd_ring_waits_alloc;
++	}
 +
-+static inline int rocker_tlv_padlen(int payload)
-+{
-+	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
-+}
+ 	err = rocker_dma_ring_create(rocker, ROCKER_DMA_EVENT,
+ 				     ROCKER_DMA_EVENT_DEFAULT_SIZE,
+ 				     &rocker->event_ring);
+@@ -950,6 +999,8 @@ err_dma_event_ring_bufs_alloc:
+ err_dma_event_ring_create:
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
++err_dma_cmd_ring_waits_alloc:
++	rocker_dma_cmd_ring_waits_free(rocker);
+ err_dma_cmd_ring_bufs_alloc:
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+ 	return err;
+@@ -960,6 +1011,7 @@ static void rocker_dma_rings_fini(struct rocker *rocker)
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->event_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->event_ring);
++	rocker_dma_cmd_ring_waits_free(rocker);
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+@@ -1181,7 +1233,6 @@ static irqreturn_t rocker_cmd_irq_handler(int irq, void *dev_id)
+ 		wait = rocker_desc_cookie_ptr_get(desc_info);
+ 		if (wait->nowait) {
+ 			rocker_desc_gen_clear(desc_info);
+-			rocker_wait_destroy(NULL, wait);
+ 		} else {
+ 			rocker_wait_wake_up(wait);
+ 		}
+@@ -1373,28 +1424,24 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 	unsigned long lock_flags;
+ 	int err;
+ 
+-	wait = rocker_wait_create(rocker_port, trans, flags);
+-	if (!wait)
+-		return -ENOMEM;
+-	wait->nowait = nowait;
+-
+ 	spin_lock_irqsave(&rocker->cmd_ring_lock, lock_flags);
+ 
+ 	desc_info = rocker_desc_head_get(&rocker->cmd_ring);
+ 	if (!desc_info) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		err = -EAGAIN;
+-		goto out;
++		return -EAGAIN;
+ 	}
+ 
++	wait = rocker_desc_cookie_ptr_get(desc_info);
++	rocker_wait_init(wait);
++	wait->nowait = nowait;
 +
-+static inline int rocker_tlv_type(const struct rocker_tlv *tlv)
-+{
-+	return tlv->type;
-+}
-+
-+static inline void *rocker_tlv_data(const struct rocker_tlv *tlv)
-+{
-+	return (char *) tlv + ROCKER_TLV_HDRLEN;
-+}
-+
-+static inline int rocker_tlv_len(const struct rocker_tlv *tlv)
-+{
-+	return tlv->len - ROCKER_TLV_HDRLEN;
-+}
-+
-+static inline u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
-+{
-+	return *(u8 *) rocker_tlv_data(tlv);
-+}
-+
-+static inline u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
-+{
-+	return *(u16 *) rocker_tlv_data(tlv);
-+}
-+
-+static inline __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
-+{
-+	return *(__be16 *) rocker_tlv_data(tlv);
-+}
-+
-+static inline u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
-+{
-+	return *(u32 *) rocker_tlv_data(tlv);
-+}
-+
-+static inline u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
-+{
-+	return *(u64 *) rocker_tlv_data(tlv);
-+}
-+
-+void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
-+		      const char *buf, int buf_len);
-+
-+static inline void rocker_tlv_parse_nested(const struct rocker_tlv **tb,
-+					   int maxtype,
-+					   const struct rocker_tlv *tlv)
-+{
-+	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
-+			 rocker_tlv_len(tlv));
-+}
-+
-+static inline void
-+rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
-+		      const struct rocker_desc_info *desc_info)
-+{
-+	rocker_tlv_parse(tb, maxtype, desc_info->data,
-+			 desc_info->desc->tlv_size);
-+}
-+
-+static inline struct rocker_tlv *
-+rocker_tlv_start(struct rocker_desc_info *desc_info)
-+{
-+	return (struct rocker_tlv *) ((char *) desc_info->data +
-+					       desc_info->tlv_size);
-+}
-+
-+int rocker_tlv_put(struct rocker_desc_info *desc_info,
-+		   int attrtype, int attrlen, const void *data);
-+
-+static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
-+				    int attrtype, u8 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
-+}
-+
-+static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
-+				     int attrtype, u16 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
-+}
-+
-+static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
-+				      int attrtype, __be16 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
-+}
-+
-+static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
-+				     int attrtype, u32 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
-+}
-+
-+static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
-+				      int attrtype, __be32 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
-+}
-+
-+static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
-+				     int attrtype, u64 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
-+}
-+
-+static inline struct rocker_tlv *
-+rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
-+{
-+	struct rocker_tlv *start = rocker_tlv_start(desc_info);
-+
-+	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
-+		return NULL;
-+
-+	return start;
-+}
-+
-+static inline void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
-+				       struct rocker_tlv *start)
-+{
-+	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
-+}
-+
-+static inline void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
-+					  const struct rocker_tlv *start)
-+{
-+	desc_info->tlv_size = (const char *) start - desc_info->data;
-+}
-+
-+#endif
+ 	err = prepare(rocker_port, desc_info, prepare_priv);
+ 	if (err) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		goto out;
++		return err;
+ 	}
+ 
+-	rocker_desc_cookie_ptr_set(desc_info, wait);
+-
+ 	if (!switchdev_trans_ph_prepare(trans))
+ 		rocker_desc_head_set(rocker, &rocker->cmd_ring, desc_info);
+ 
+@@ -1415,8 +1462,6 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 		err = process(rocker_port, desc_info, process_priv);
+ 
+ 	rocker_desc_gen_clear(desc_info);
+-out:
+-	rocker_wait_destroy(trans, wait);
+ 	return err;
+ }
+ 
 -- 
 1.9.3
