@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 05/20] bridge: netlink: export root path cost
-Date: Sun,  4 Oct 2015 14:23:32 +0200
-Message-ID: <1443961427-15085-6-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 09/20] bridge: netlink: add fdb flush
+Date: Sun,  4 Oct 2015 14:23:36 +0200
+Message-ID: <1443961427-15085-10-git-send-email-razor@blackwall.org>
 References: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
@@ -9,59 +9,51 @@ Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:34261 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbbJDMYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 08:24:15 -0400
-Received: by wicfx3 with SMTP id fx3so85294239wic.1
-        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 05:24:14 -0700 (PDT)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:33090 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751530AbbJDMYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 08:24:18 -0400
+Received: by wiclk2 with SMTP id lk2so85746897wic.0
+        for <netdev@vger.kernel.org>; Sun, 04 Oct 2015 05:24:17 -0700 (PDT)
 In-Reply-To: <1443961427-15085-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Add IFLA_BR_ROOT_PATH_COST and export it via netlink.
+Simple attribute that flushes the bridge's fdb.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
  include/uapi/linux/if_link.h | 1 +
- net/bridge/br_netlink.c      | 4 +++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ net/bridge/br_netlink.c      | 3 +++
+ 2 files changed, 4 insertions(+)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 172268a5767d..7d7236d143fb 100644
+index eaeaac17dfdd..9ca9bf8bfe04 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -236,6 +236,7 @@ enum {
- 	IFLA_BR_ROOT_ID,
- 	IFLA_BR_BRIDGE_ID,
- 	IFLA_BR_ROOT_PORT,
-+	IFLA_BR_ROOT_PATH_COST,
+@@ -244,6 +244,7 @@ enum {
+ 	IFLA_BR_TOPOLOGY_CHANGE_TIMER,
+ 	IFLA_BR_GC_TIMER,
+ 	IFLA_BR_GROUP_ADDR,
++	IFLA_BR_FDB_FLUSH,
  	__IFLA_BR_MAX,
  };
  
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 652db1ca0acc..cd0488b689d4 100644
+index a05a4306d42d..5853c5737006 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -857,6 +857,7 @@ static size_t br_get_size(const struct net_device *brdev)
- 	       nla_total_size(sizeof(struct ifla_bridge_id)) +   /* IFLA_BR_ROOT_ID */
- 	       nla_total_size(sizeof(struct ifla_bridge_id)) +   /* IFLA_BR_BRIDGE_ID */
- 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_ROOT_PORT */
-+	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_ROOT_PATH_COST */
- 	       0;
+@@ -859,6 +859,9 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 		br_recalculate_fwd_mask(br);
+ 	}
+ 
++	if (data[IFLA_BR_FDB_FLUSH])
++		br_fdb_flush(br);
++
+ 	return 0;
  }
  
-@@ -890,7 +891,8 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	    nla_put_u16(skb, IFLA_BR_GROUP_FWD_MASK, group_fwd_mask) ||
- 	    nla_put(skb, IFLA_BR_ROOT_ID, sizeof(root_id), &root_id) ||
- 	    nla_put(skb, IFLA_BR_BRIDGE_ID, sizeof(bridge_id), &bridge_id) ||
--	    nla_put_u16(skb, IFLA_BR_ROOT_PORT, br->root_port))
-+	    nla_put_u16(skb, IFLA_BR_ROOT_PORT, br->root_port) ||
-+	    nla_put_u32(skb, IFLA_BR_ROOT_PATH_COST, br->root_path_cost))
- 		return -EMSGSIZE;
- 
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
 -- 
 2.4.3
