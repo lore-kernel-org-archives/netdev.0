@@ -1,166 +1,129 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [RFC PATCH] net: mvneta: add ethtool statistics
-Date: Sun, 04 Oct 2015 17:58:54 +0100
-Message-ID: <E1Zimcg-0008HA-0y@rmk-PC.arm.linux.org.uk>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Slow ramp-up for single-stream TCP throughput on 4.2 kernel.
+Date: Sun, 04 Oct 2015 10:05:44 -0700
+Message-ID: <56115C68.1080803@candelatech.com>
+References: <560F1672.5000602@candelatech.com>	<560F1F74.9010207@candelatech.com>	<CADVnQym4U_dVVRdOVhORvVabwFjSHTQJ_LbbbYtzWVu0=mAp_A@mail.gmail.com>	<56105AD2.7070906@candelatech.com> <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	ath10k <ath10k@lists.infradead.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:38517 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbbJDQ66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 12:58:58 -0400
-Content-Disposition: inline
+Received: from mail2.candelatech.com ([208.74.158.173]:55543 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557AbbJDRFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 13:05:46 -0400
+In-Reply-To: <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the ethtool statistic interface, returning the full set
-of statistics which both the Armada 370 and Armada XP can support.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
-Is there any standard terminology for the ethtool statistics?  Are the
-names given here satisfactory?
 
-This patch is against net-next.git.
+On 10/03/2015 06:20 PM, Neal Cardwell wrote:
+> On Sat, Oct 3, 2015 at 6:46 PM, Ben Greear <greearb@candelatech.com> wrote:
+>>
+>>
+>> On 10/03/2015 09:29 AM, Neal Cardwell wrote:
+>>>
+>>> On Fri, Oct 2, 2015 at 8:21 PM, Ben Greear <greearb@candelatech.com>
+>>> wrote:
+>>>>
+>>>> Gah, seems 'cubic' related.  That is the default tcp cong ctrl
+>>>> I was using (same in 3.17, for that matter).
+>>>
+>>>
+>>> There have been recent changes to CUBIC that may account for this. If
+>>> you could repeat your test with more instrumentation, eg "nstat", that
+>>> would be very helpful.
+>>>
+>>> nstat > /dev/null
+>>> # run one test
+>>> nstat
+>>>
+>>> Also, if you could take a sender-side tcpdump trace of the test, that
+>>> would be very useful (default capture length, grabbing just headers,
+>>> is fine).
+>>
+>>
+>> Here is nstat output:
+>>
+>> [root@ben-ota-1 ~]# nstat
+>> #kernel
+>> IpInReceives                    14507              0.0
+>> IpInDelivers                    14507              0.0
+>> IpOutRequests                   49531              0.0
+>> TcpActiveOpens                  3                  0.0
+>> TcpPassiveOpens                 2                  0.0
+>> TcpInSegs                       14498              0.0
+>> TcpOutSegs                      50269              0.0
+>> UdpInDatagrams                  9                  0.0
+>> UdpOutDatagrams                 1                  0.0
+>> TcpExtDelayedACKs               43                 0.0
+>> TcpExtDelayedACKLost            5                  0.0
+>> TcpExtTCPHPHits                 483                0.0
+>> TcpExtTCPPureAcks               918                0.0
+>> TcpExtTCPHPAcks                 12758              0.0
+>> TcpExtTCPDSACKOldSent           5                  0.0
+>> TcpExtTCPRcvCoalesce            49                 0.0
+>> TcpExtTCPAutoCorking            3                  0.0
+>> TcpExtTCPOrigDataSent           49776              0.0
+>> TcpExtTCPHystartTrainDetect     1                  0.0
+>> TcpExtTCPHystartTrainCwnd       16                 0.0
+>> IpExtInBcastPkts                8                  0.0
+>> IpExtInOctets                   2934274            0.0
+>> IpExtOutOctets                  74817312           0.0
+>> IpExtInBcastOctets              640                0.0
+>> IpExtInNoECTPkts                14911              0.0
+>> [root@ben-ota-1 ~]#
+>>
+>>
+>> And, you can find the pcap here:
+>>
+>> http://www.candelatech.com/downloads/cubic.pcap.bz2
+>>
+>> Let me know if you need anything else.
+>
+> Thanks! This is very useful. It looks like the sender is sending 3
+> (and later 4) packets every ~1.5ms for the entirety of the trace. 3
+> packets per burst is usually a hint that this may be related to TSQ.
+>
+> This slow-and-steady behavior triggers CUBIC's Hystart Train Detection
+> to enter congestion avoidance at a cwnd of 16, which probably in turn
+> leads to slow cwnd growth, since the sending is not cwnd-limited, but
+> probably TSQ-limited, so cwnd does not grow in congestion avoidance
+> mode. Probably most of the other congestion control modules do better
+> because they stay in slow-start, which has a more aggressive criterion
+> for growing cwnd.
+>
+> So this is probably at root due to the known issue with an interaction
+> between the ath10k driver and the following change in 3.19:
+>
+>    605ad7f tcp: refine TSO autosizing
+>
+> There has been a lot of discussion about how to address the
+> TSQ-related issues with this driver. For example, you might consider:
+>
+>    https://patchwork.ozlabs.org/patch/438322/
+>
+> But I am not sure of the latest status of that effort. Perhaps someone
+> on the ath10k list will know.
 
- drivers/net/ethernet/marvell/mvneta.c | 100 ++++++++++++++++++++++++++++++++++
- 1 file changed, 100 insertions(+)
+If the guys in that thread cannot get a patch upstream, then there is
+little chance I'd be able to make a difference.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 514df76fc70f..2019fa6b52e0 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -278,6 +278,51 @@ struct mvneta_pcpu_stats {
- 
- #define MVNETA_RX_BUF_SIZE(pkt_size)   ((pkt_size) + NET_SKB_PAD)
- 
-+struct mvneta_statistic {
-+	unsigned short offset;
-+	unsigned short type;
-+	const char name[ETH_GSTRING_LEN];
-+};
-+
-+#define T_REG_32	32
-+#define T_REG_64	64
-+#define T_SW		1
-+
-+static const struct mvneta_statistic mvneta_statistics[] = {
-+	{ 0x3000, T_REG_64, "rx_good_bytes", },
-+	{ 0x3010, T_REG_32, "rx_good_packets", },
-+	{ 0x3008, T_REG_32, "rx_bad_bytes", },
-+	{ 0x3014, T_REG_32, "rx_bad_packets", },
-+	{ 0x3018, T_REG_32, "rx_broadcast_packets", },
-+	{ 0x301c, T_REG_32, "rx_multicast_packets", },
-+	{ 0x3050, T_REG_32, "rx_unrecog_mac_ctl", },
-+	{ 0x3054, T_REG_32, "rx_good_fc_packets", },
-+	{ 0x3058, T_REG_32, "rx_bad_fc_packets", },
-+	{ 0x305c, T_REG_32, "rx_undersize_packets", },
-+	{ 0x3064, T_REG_32, "rx_fragments", },
-+	{ 0x3068, T_REG_32, "rx_oversize_packets", },
-+	{ 0x306c, T_REG_32, "rx_jabber_packets", },
-+	{ 0x3070, T_REG_32, "rx_mac_errors", },
-+	{ 0x3074, T_REG_32, "rx_bad_crc", },
-+	{ 0x3078, T_REG_32, "rx_collision_events", },
-+	{ 0x307c, T_REG_32, "rx_late_collision_events", },
-+	{ 0x2484, T_REG_32, "rx_discard_packets", },
-+	{ 0x2488, T_REG_32, "rx_overrun_packets", },
-+	{ 0x3020, T_REG_32, "packets_64bytes", },
-+	{ 0x3024, T_REG_32, "packets_65to127bytes", },
-+	{ 0x3028, T_REG_32, "packets_128to255bytes", },
-+	{ 0x302c, T_REG_32, "packets_256to511bytes", },
-+	{ 0x3030, T_REG_32, "packets_512to1023bytes", },
-+	{ 0x3034, T_REG_32, "packets_1024tomaxbytes", },
-+	{ 0x3038, T_REG_64, "tx_good_bytes", },
-+	{ 0x3040, T_REG_32, "tx_good_packets", },
-+	{ 0x3044, T_REG_32, "tx_excessive_collision", },
-+	{ 0x3048, T_REG_32, "tx_multicast_packets", },
-+	{ 0x304c, T_REG_32, "tx_broadcast_packets", },
-+	{ 0x3060, T_REG_32, "tx_fc", },
-+	{ 0x300c, T_REG_32, "tx_mac_error", },
-+};
-+
- struct mvneta_pcpu_stats {
- 	struct	u64_stats_sync syncp;
- 	u64	rx_packets;
-@@ -324,6 +369,8 @@ struct mvneta_port {
- 	unsigned int speed;
- 	unsigned int tx_csum_limit;
- 	int use_inband_status:1;
-+
-+	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -2982,6 +3029,56 @@ static int mvneta_ethtool_set_ringparam(struct net_device *dev,
- 	return 0;
- }
- 
-+static void mvneta_ethtool_get_strings(struct net_device *netdev, u32 sset,
-+				       u8 *data)
-+{
-+	if (sset == ETH_SS_STATS) {
-+		int i;
-+
-+		for (i = 0; i < ARRAY_SIZE(mvneta_statistics); i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       mvneta_statistics[i].name, ETH_GSTRING_LEN);
-+	}
-+}
-+
-+static void mvneta_ethtool_get_stats(struct net_device *dev,
-+				     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
-+	const struct mvneta_statistic *s;
-+	void __iomem *base = pp->base;
-+	u32 high, low, val;
-+	int i;
-+
-+	for (i = 0, s = mvneta_statistics;
-+	     s < mvneta_statistics + ARRAY_SIZE(mvneta_statistics);
-+	     s++, i++) {
-+		val = 0;
-+
-+		switch (s->type) {
-+		case T_REG_32:
-+			val = readl_relaxed(base + s->offset);
-+			break;
-+		case T_REG_64:
-+			/* Docs say to read low 32-bit then high */
-+			low = readl_relaxed(base + s->offset);
-+			high = readl_relaxed(base + s->offset + 4);
-+			val = (u64)high << 32 | low;
-+			break;
-+		}
-+
-+		pp->ethtool_stats[i] += val;
-+		*data++ = pp->ethtool_stats[i];
-+	}
-+}
-+
-+static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
-+{
-+	if (sset == ETH_SS_STATS)
-+		return ARRAY_SIZE(mvneta_statistics);
-+	return -EOPNOTSUPP;
-+}
-+
- static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_open            = mvneta_open,
- 	.ndo_stop            = mvneta_stop,
-@@ -3003,6 +3100,9 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
- 	.get_drvinfo    = mvneta_ethtool_get_drvinfo,
- 	.get_ringparam  = mvneta_ethtool_get_ringparam,
- 	.set_ringparam	= mvneta_ethtool_set_ringparam,
-+	.get_strings	= mvneta_ethtool_get_strings,
-+	.get_ethtool_stats = mvneta_ethtool_get_stats,
-+	.get_sset_count	= mvneta_ethtool_get_sset_count,
- };
- 
- /* Initialize hw */
+I guess I'll just stop using Cubic.  Any suggestions for another
+congestion algorithm to use?  I'd prefer something that worked well
+in pretty much any network condition, of course, and it has to work with
+ath10k.
+
+We can also run some tests with 1G, 10G, ath10k, ath9k, and in conjunction
+with network emulators and various congestion control algorithms.
+
+Thanks,
+Ben
+
 -- 
-2.1.0
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
