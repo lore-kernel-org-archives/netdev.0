@@ -1,30 +1,69 @@
-From: Qatar@vger.kernel.org, Foundation@vger.kernel.org
-Subject: For Your Kind Notice
-Date: Sun, 4 Oct 2015 12:23:45 +0100
-Message-ID: <CY1PR13MB0779156682C3F77A16371F32B8490@CY1PR13MB0779.namprd13.prod.outlook.com>
-Reply-To: <oesq0909@foxmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: ME@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bhn0251.outbound.protection.outlook.com ([157.56.111.251]:32615
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751352AbbJDLYy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2015 07:24:54 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 00/20] bridge: complete netlink support
+Date: Sun,  4 Oct 2015 14:23:27 +0200
+Message-ID: <1443961427-15085-1-git-send-email-razor@blackwall.org>
+Cc: bridge@lists.linux-foundation.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	roopa@cumulusnetworks.com, shm@cumulusnetworks.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-You have been selected to receive ($950,000.00 USD) as Charity Donations/Aid from (Qatar 
-Foundation) provide the below information ASAP.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-1:Full Names:
-2:Complete Address:
-3:Direct Telephone numbers
+Hi,
+This set completes the bridge device's netlink support and makes it
+possible to view and configure everything that can be configured via
+sysfs. I have tested all of these (setting and getting). There're a few
+longer line warnings about the br_get_size() ifla comments but I think we
+should have them to know what has been accounted for. I have used the sysfs
+interface as a guide of what and how to set. As usual I'll send the
+corresponding iproute2 patches later.
+The bridge port's netlink interface will be completed after this set gets
+applied in some form.
 
-Sincerely,
-Dr.Allan Faroze Mohammed.
-Email: poesq0909@foxmail.com
-Tel:+44 70457 96790
+This patch-set is on top of my last vlan cleanups set:
+http://www.spinics.net/lists/netdev/msg346005.html
+
+Cheers,
+ Nik
+
+Nikolay Aleksandrov (20):
+  bridge: netlink: add group_fwd_mask support
+  bridge: netlink: export root id
+  bridge: netlink: export bridge id
+  bridge: netlink: export root port
+  bridge: netlink: export root path cost
+  bridge: netlink: export topology_change and topology_change_detected
+  bridge: netlink: export all timers
+  bridge: netlink: add group_addr support
+  bridge: netlink: add fdb flush
+  bridge: netlink: add support for multicast_router
+  bridge: netlink: add support for multicast_snooping
+  bridge: netlink: add support for multicast_query_use_ifaddr
+  bridge: netlink: add support for multicast_querier
+  bridge: netlink: add support for igmp's hash_elasticity
+  bridge: netlink: add support for igmp's hash_max
+  bridge: netlink: add support for multicast_last_member_count
+  bridge: netlink: add support for multicast_startup_query_count
+  bridge: netlink: add support for igmp's intervals
+  bridge: netlink: add support for netfilter tables config
+  bridge: netlink: add support for default_pvid
+
+ include/uapi/linux/if_link.h |  36 ++++++
+ net/bridge/br_netlink.c      | 284 ++++++++++++++++++++++++++++++++++++++++++-
+ net/bridge/br_private.h      |   1 +
+ net/bridge/br_vlan.c         |  14 +--
+ 4 files changed, 326 insertions(+), 9 deletions(-)
+
+-- 
+2.4.3
