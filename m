@@ -1,54 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode
- [gs]etting
-Date: Mon, 5 Oct 2015 19:24:07 +0200
-Message-ID: <20151005172407.GS2278@nanopsycho.orion>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
- <1443993949-3915-10-git-send-email-jiri@resnulli.us>
- <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
- <56129CD0.50301@gmail.com>
- <20151005163738.GP2278@nanopsycho.orion>
- <5612AE52.9040809@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:34209 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbbJERYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:24:10 -0400
-Received: by wicfx3 with SMTP id fx3so130658782wic.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:24:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5612AE52.9040809@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <roland@kernel.org>
+Subject: [PATCH 3.19 and earlier] fib_rules: Fix dump_rules() not to exit early
+Date: Mon,  5 Oct 2015 10:29:28 -0700
+Message-ID: <1444066168-5566-1-git-send-email-roland@kernel.org>
+Cc: Roland Dreier <roland@purestorage.com>
+To: netdev@vger.kernel.org, stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 05, 2015 at 07:07:30PM CEST, john.fastabend@gmail.com wrote:
+From: Roland Dreier <roland@purestorage.com>
 
-<snip>
+Backports of 41fc014332d9 ("fib_rules: fix fib rule dumps across
+multiple skbs") introduced a regression in "ip rule show" - it ends up
+dumping the first rule over and over and never exiting, because 3.19
+and earlier are missing commit 053c095a82cf ("netlink: make
+nlmsg_end() and genlmsg_end() void"), so fib_nl_fill_rule() ends up
+returning skb->len (i.e. > 0) in the success case.
 
->> 
->> Again, to make this clear, worlds are not just a rehash of tables.
->> 
->
->what are they then? Lets model those bits and let users configure them
->at runtime.
->
->So far I've had really good results modelling hardware as a 'parser',
->a set of tables, and a set of modify blocks. Now this breaks when you
->start to add black boxes in there for other functions such as encryption
->but I don't think your getting at that. Do you see something that
->couldn't be configured/modelled with those blocks?
+Fix this by checking the return code for < 0 instead of != 0.
 
-How about an arbitrary BPF program? I can implement world that bases
-mangling/forwarding packets on intensity of gravitational field.
-Rocker hw is very free in that and cannot be pushed down to "table boxes".
+Signed-off-by: Roland Dreier <roland@purestorage.com>
+---
+Hi, this is needed for all stable trees earlier than 4.0 that have
+picked up 41fc014332d9; so far looks like at least 3.10.y and 3.14.y
+have made such releases.
 
-That is making it a wild animal and challenges us to wrap it up in
-kernel, somehow.
+ net/core/fib_rules.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 627e517077e4..84340a2605ed 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -606,7 +606,7 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
+ 		err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
+ 				       cb->nlh->nlmsg_seq, RTM_NEWRULE,
+ 				       NLM_F_MULTI, ops);
+-		if (err)
++		if (err < 0)
+ 			break;
+ skip:
+ 		idx++;
+-- 
+2.5.0
