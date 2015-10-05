@@ -1,101 +1,84 @@
-From: Scott Feldman <sfeldma@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode [gs]etting
-Date: Mon, 5 Oct 2015 10:00:06 -0700
-Message-ID: <CAE4R7bCScLWpT9g3-LX31jd3Rap1+p3YU8WstxKECThcpqh3qg@mail.gmail.com>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
- <1443993949-3915-10-git-send-email-jiri@resnulli.us> <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
- <20151005155320.GN2278@nanopsycho.orion> <CAE4R7bD=SFKgifw=xPudoFfHMcFAdGbVToQdvA9HrnFs3pjRYg@mail.gmail.com>
- <20151005165004.GQ2278@nanopsycho.orion>
+Date: Mon, 05 Oct 2015 10:07:30 -0700
+Message-ID: <5612AE52.9040809@gmail.com>
+References: <1443993949-3915-1-git-send-email-jiri@resnulli.us> <1443993949-3915-10-git-send-email-jiri@resnulli.us> <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com> <56129CD0.50301@gmail.com> <20151005163738.GP2278@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
 	Thomas Graf <tgraf@suug.ch>,
 	Alexei Starovoitov <ast@plumgrid.com>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33595 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbbJERA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:00:26 -0400
-Received: by oixx17 with SMTP id x17so94255734oix.0
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:00:25 -0700 (PDT)
-In-Reply-To: <20151005165004.GQ2278@nanopsycho.orion>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36750 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752903AbbJERHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:07:44 -0400
+Received: by pablk4 with SMTP id lk4so181310633pab.3
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:07:44 -0700 (PDT)
+In-Reply-To: <20151005163738.GP2278@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 5, 2015 at 9:50 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Oct 05, 2015 at 06:37:20PM CEST, sfeldma@gmail.com wrote:
->>On Mon, Oct 5, 2015 at 8:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Mon, Oct 05, 2015 at 05:41:29PM CEST, sfeldma@gmail.com wrote:
->>>>On Sun, Oct 4, 2015 at 2:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>>
->>>>> Introduce a stub for allowing user to change rocker port world/mode.
->>>>> This is implemented using rtnl changelink op.
->>>>>
->>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>>[cut]
->>>>
->>>>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->>>>> index 3a5f263..7da768e 100644
->>>>> --- a/include/uapi/linux/if_link.h
->>>>> +++ b/include/uapi/linux/if_link.h
->>>>> @@ -416,6 +416,17 @@ enum {
->>>>>  };
->>>>>  #define IFLA_GENEVE_MAX        (__IFLA_GENEVE_MAX - 1)
->>>>>
->>>>> +/* Rocker section */
->>>>> +enum {
->>>>> +       IFLA_ROCKER_UNSPEC,
->>>>> +       IFLA_ROCKER_MODE,
->>>>> +       __IFLA_ROCKER_MAX,
->>>>> +};
->>>>> +
->>>>> +#define IFLA_ROCKER_MAX        (__IFLA_ROCKER_MAX - 1)
->>>>> +
->>>>> +#define ROCKER_MODE_MAX 16
->>>>
->>>>Does this mean there is going to be a "ip link set dev DEV type rocker
->>>>mode MODE" command option?
->>>>
->>>>It doesn't seem right to be adding driver-specific IFLA_'s here.  I
->>>>think this sets bad precedence for other drivers to add their own
->>>>knobs without thinking about a generic shared mechanism.
+[...]
+
+>>> Does this mean there is going to be a "ip link set dev DEV type rocker
+>>> mode MODE" command option?
 >>>
->>> I understand you point. I somehow share it as well. But on the other
->>> hand, That is neat way to set mode of the port, and I cannot find other
->>> this nice.
+>>> It doesn't seem right to be adding driver-specific IFLA_'s here.  I
+>>> think this sets bad precedence for other drivers to add their own
+>>> knobs without thinking about a generic shared mechanism.
 >>>
+>>> Actually, I don't see the point of letting the user dynamically change
+>>> the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
+>>> the port mode be specified on device creation.
 >>>
->>>>
->>>>Actually, I don't see the point of letting the user dynamically change
->>>>the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
->>>>the port mode be specified on device creation.
->>>
->>> Hmm, interesting, why? I find it great for user to be able to switch the
->>> port mode easily on the running system. It is a setting of a port.
->>> I don't see why this should be a hard-coded hw setting. We just have
->>> to find a way to expose this to user.
 >>
->>You could just as easy restart the qemu session with different port
->>mode.  Even if rocker was a real device, I don't see (real) users
->>wanting to change the port mode at run-time.  It just doesn't seem
->>like a real-world scenario.   I know it's convenient for developers,
->
-> We the hw-iface is already designed for on-fly changes.
-> I'm convinced that this is one of the situation where we should not do
-> stuff in HW just because we can. (Or we should do both).
+>> I agree until we have the infrastructure to "understand" what these
+>> knobs are fundamentally doing I would prefer it to stay in qemu/rocker.
+> 
+> Why? If it is possible to set it from driver, why not to expose this to
+> user? I don't see a point.
 
-I've used that argument myself for other things, such as the ageing
-timer in rocker driver, so I agree with you on that point.
 
-> We should develop in-kernel solution in order to wrap up HW functionality.
-> Even if not easy. That is the purpose of rocker from day 1, and that is
-> why we love it :)
+> 
+> Let's find an interface and do it. Note that this is far from the first
+> thing that could be set from userspace and is not possible, just because
+> there is no suitable interface. Vendors then come up with some arbitrary
+> blob-based solution to do it. Far from nice :/
 
-Well then you need to define a generic interface for this concept of
-changing port mode that's not rocker-specific.  What you have in
-if_link.h is easy.  What's the not-easy solution?
+
+I think I've been one of the folks pushing for exposing the hardware :)
+
+My issue with this is its very close to pushing the blob itself. Its
+basically an opaque reference to the binary blob itself with no way
+to understand what the blob is doing. And no way to standardize the
+blobs across hardware.
+
+> 
+> 
+>>
+>> I would rather see commands like "add a table", "remove a table", "add
+>> header x to parser" where the operations are well defined. This lends
+>> itself well to flexible devices that can be configured at runtime. At
+>> least this fits more into my mental model of how we have been managing
+>> these devices today. This would allow users to push the "worlds" into
+>> the device to match their use cases e.g. add more l3 ipv4 rules vs l3
+>> ipv6 rules etc.
+> 
+> Again, to make this clear, worlds are not just a rehash of tables.
+> 
+
+what are they then? Lets model those bits and let users configure them
+at runtime.
+
+So far I've had really good results modelling hardware as a 'parser',
+a set of tables, and a set of modify blocks. Now this breaks when you
+start to add black boxes in there for other functions such as encryption
+but I don't think your getting at that. Do you see something that
+couldn't be configured/modelled with those blocks?
+
+.John
