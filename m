@@ -1,103 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode
- [gs]etting
-Date: Mon, 5 Oct 2015 18:50:04 +0200
-Message-ID: <20151005165004.GQ2278@nanopsycho.orion>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
- <1443993949-3915-10-git-send-email-jiri@resnulli.us>
- <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
- <20151005155320.GN2278@nanopsycho.orion>
- <CAE4R7bD=SFKgifw=xPudoFfHMcFAdGbVToQdvA9HrnFs3pjRYg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
+Date: Mon, 05 Oct 2015 09:54:34 -0700
+Message-ID: <1444064074.9555.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+	 <f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+	 <87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37237 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbJEQuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 12:50:07 -0400
-Received: by wicfx3 with SMTP id fx3so123354142wic.0
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 09:50:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bD=SFKgifw=xPudoFfHMcFAdGbVToQdvA9HrnFs3pjRYg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 05, 2015 at 06:37:20PM CEST, sfeldma@gmail.com wrote:
->On Mon, Oct 5, 2015 at 8:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Mon, Oct 05, 2015 at 05:41:29PM CEST, sfeldma@gmail.com wrote:
->>>On Sun, Oct 4, 2015 at 2:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> Introduce a stub for allowing user to change rocker port world/mode.
->>>> This is implemented using rtnl changelink op.
->>>>
->>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>
->>>[cut]
->>>
->>>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->>>> index 3a5f263..7da768e 100644
->>>> --- a/include/uapi/linux/if_link.h
->>>> +++ b/include/uapi/linux/if_link.h
->>>> @@ -416,6 +416,17 @@ enum {
->>>>  };
->>>>  #define IFLA_GENEVE_MAX        (__IFLA_GENEVE_MAX - 1)
->>>>
->>>> +/* Rocker section */
->>>> +enum {
->>>> +       IFLA_ROCKER_UNSPEC,
->>>> +       IFLA_ROCKER_MODE,
->>>> +       __IFLA_ROCKER_MAX,
->>>> +};
->>>> +
->>>> +#define IFLA_ROCKER_MAX        (__IFLA_ROCKER_MAX - 1)
->>>> +
->>>> +#define ROCKER_MODE_MAX 16
->>>
->>>Does this mean there is going to be a "ip link set dev DEV type rocker
->>>mode MODE" command option?
->>>
->>>It doesn't seem right to be adding driver-specific IFLA_'s here.  I
->>>think this sets bad precedence for other drivers to add their own
->>>knobs without thinking about a generic shared mechanism.
->>
->> I understand you point. I somehow share it as well. But on the other
->> hand, That is neat way to set mode of the port, and I cannot find other
->> this nice.
->>
->>
->>>
->>>Actually, I don't see the point of letting the user dynamically change
->>>the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
->>>the port mode be specified on device creation.
->>
->> Hmm, interesting, why? I find it great for user to be able to switch the
->> port mode easily on the running system. It is a setting of a port.
->> I don't see why this should be a hard-coded hw setting. We just have
->> to find a way to expose this to user.
->
->You could just as easy restart the qemu session with different port
->mode.  Even if rocker was a real device, I don't see (real) users
->wanting to change the port mode at run-time.  It just doesn't seem
->like a real-world scenario.   I know it's convenient for developers,
+On Mon, 2015-10-05 at 17:31 +0100, Rainer Weikusat wrote:
 
-We the hw-iface is already designed for on-fly changes.
-I'm convinced that this is one of the situation where we should not do
-stuff in HW just because we can. (Or we should do both).
-
-We should develop in-kernel solution in order to wrap up HW functionality.
-Even if not easy. That is the purpose of rocker from day 1, and that is
-why we love it :)
+>  	atomic_long_set(&u->inflight, 0);
+>  	INIT_LIST_HEAD(&u->link);
+> @@ -2135,8 +2139,16 @@ static unsigned int unix_poll(struct fil
+>  static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+>  				    poll_table *wait)
+>  {
+> -	struct sock *sk = sock->sk, *other;
+> -	unsigned int mask, writable;
+> +	struct sock *sk = sock->sk, *other, *pp;
+> +	struct unix_sock *u;
+> +	unsigned int mask, writable, dead;
+> +
+> +	u = unix_sk(sk);
+> +	pp = u->poll_peer;
+> +	if (pp) {
+> +		u->poll_peer = NULL;
+> +		sock_put(pp);
+> +	}
 
 
->but a qemu knob is just as convenient.  Doing this in qemu will keep
->the rocker driver less complicated, cleaner.
-
-I'm very sure that in driver, there would be very minimal changes
-between those two solutions. Couple lines. No problem there.
+This looks racy.
+Multiple threads could use poll() at the same time,
+and you would have too many sock_put()
