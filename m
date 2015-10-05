@@ -1,60 +1,51 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] ovs: do not allocate memory from offline numa node
-Date: Mon, 5 Oct 2015 13:25:44 -0700
-Message-ID: <5612DCC8.4040605@gmail.com>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 22:40:56 +0200
+Message-ID: <20151005204056.GA3528@nanopsycho.orion>
+References: <20150930135141.GF2098@nanopsycho.orion>
+ <20151005183233.GD4890@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
-To: Vlastimil Babka <vbabka@suse.cz>,
- Konstantin Khlebnikov <khlebnikov@yandex-team.ru>, dev@openvswitch.org,
- Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <56128238.8010305@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eladr@mellanox.com,
+	idosch@mellanox.com
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:34209 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbbJEUlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 16:41:01 -0400
+Received: by wicfx3 with SMTP id fx3so137780197wic.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 13:40:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20151005183233.GD4890@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
-> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->> When openvswitch tries allocate memory from offline numa node 0:
->> stats = kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | 
->> __GFP_ZERO, 0)
->> It catches VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || 
->> !node_online(nid))
->> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
->> This patch disables numa affinity in this case.
->>
->> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Mon, Oct 05, 2015 at 08:32:33PM CEST, marcelo.leitner@gmail.com wrote:
+>On Wed, Sep 30, 2015 at 03:51:41PM +0200, Jiri Pirko wrote:
+>> Hi Dave/all.
+>> 
+>> There is quite common for drivers to speak with HW using "packet-like"
+>> messages. In our case, we put message into skb and push that out as
+>> an ordinary packet. HW then sends us reply in a packet, similar to other
+>> rx-ed packets.
 >
-> ...
+>Better sure than sorry so I'll ask. It's not possible for an application
+>to inject such skbs somehow, right?  Like, a guest, tied to a bridge,
+>tied to a port which ends up understanding these skbs.
+
+No, it's purely for monitoring of communication with HW.
+
+
 >
->> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
->> index f2ea83ba4763..c7f74aab34b9 100644
->> --- a/net/openvswitch/flow_table.c
->> +++ b/net/openvswitch/flow_table.c
->> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->>
->>       /* Initialize the default stat node. */
->>       stats = kmem_cache_alloc_node(flow_stats_cache,
->> -                      GFP_KERNEL | __GFP_ZERO, 0);
->> +                      GFP_KERNEL | __GFP_ZERO,
->> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>...
+>> 2) generic Netlink (genl) interface. Easy to put metadata in, including the
+>> device identificator (pci address). User then can use nlmon in order to
+>> be able to use wireshark to see the netlink messages.
+>> 
+>> Looks like 2) might be viable, well-defined, generic interface to carry
+>> this info. What do you think? Does this make sense?
 >
-> Stupid question: can node 0 become offline between this check, and the 
-> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
-
-Another question to ask would be is it possible for node 0 to be online, 
-but be a memoryless node?
-
-I would say you are better off just making this call kmem_cache_alloc.  
-I don't see anything that indicates the memory has to come from node 0, 
-so adding the extra overhead doesn't provide any value.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>2 seems very interesting, fwiw
+>
+>  Marcelo
