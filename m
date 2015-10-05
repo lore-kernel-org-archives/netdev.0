@@ -1,45 +1,56 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Fix vti use case with oif in dst lookups for IPv6
-Date: Mon,  5 Oct 2015 08:32:51 -0600
-Message-ID: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: steffen.klassert@secunet.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH 2/3][RESEND] powerpc: dts: p1022si: Add fsl,wake-on-filer for eTSEC
+Date: Mon, 5 Oct 2015 17:19:58 +0300
+Message-ID: <1444054799-17876-2-git-send-email-claudiu.manoil@freescale.com>
+References: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Li Yang <leoli@freescale.com>,
+	Zhao Chenhui <chenhui.zhao@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33535 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbbJEOdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 10:33:16 -0400
-Received: by pacex6 with SMTP id ex6so178983429pac.0
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 07:33:15 -0700 (PDT)
+Received: from mail-bl2on0128.outbound.protection.outlook.com ([65.55.169.128]:16105
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751351AbbJEOjz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Oct 2015 10:39:55 -0400
+In-Reply-To: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It occurred to me yesterday that 741a11d9e4103 ("net: ipv6: Add
-RT6_LOOKUP_F_IFACE flag if oif is set") means that xfrm6_dst_lookup
-needs the FLOWI_FLAG_SKIP_NH_OIF flag set. This latest commit causes
-the oif to be considered in lookups which is known to break vti. This
-explains why 58189ca7b274 did not the IPv6 change at the time it was
-submitted.
+Enable the "wake-on-filer" (aka. wake on user defined packet)
+wake on lan capability for the eTSEC ethernet nodes.
 
-Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Cc: Li Yang <leoli@freescale.com>
+Cc: Zhao Chenhui <chenhui.zhao@freescale.com>
+
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
-This is needed in 4.3.
+Patch initially sent to the ppc-devel list,
+resend it to the netdev list:
+http://patchwork.ozlabs.org/patch/524904/
 
- net/ipv6/xfrm6_policy.c | 1 +
- 1 file changed, 1 insertion(+)
+ arch/powerpc/boot/dts/fsl/p1022si-post.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 30caa289c5db..5cedfda4b241 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
+diff --git a/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi b/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
+index 426bf41..5f51b7b 100644
+--- a/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
++++ b/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
+@@ -224,10 +224,12 @@
  
- 	memset(&fl6, 0, sizeof(fl6));
- 	fl6.flowi6_oif = oif;
-+	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
- 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
- 	if (saddr)
- 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
+ /include/ "pq3-etsec2-0.dtsi"
+ 	enet0: enet0_grp2: ethernet@b0000 {
++		fsl,wake-on-filer;
+ 	};
+ 
+ /include/ "pq3-etsec2-1.dtsi"
+ 	enet1: enet1_grp2: ethernet@b1000 {
++		fsl,wake-on-filer;
+ 	};
+ 
+ 	global-utilities@e0000 {
 -- 
-1.9.1
+1.7.11.7
