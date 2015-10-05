@@ -1,40 +1,148 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH] amd-xgbe: Check for successful buffer allocation before use
-Date: Mon, 5 Oct 2015 10:51:03 -0500
-Message-ID: <20151005155103.10841.38132.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 2/5] net: Add netif_is_l3_slave
+Date: Mon,  5 Oct 2015 08:51:24 -0700
+Message-ID: <1444060287-11024-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0090.outbound.protection.outlook.com ([157.56.111.90]:45632
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751055AbbJEPvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Oct 2015 11:51:11 -0400
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35716 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913AbbJEPvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:51:37 -0400
+Received: by pacfv12 with SMTP id fv12so184117760pac.2
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:51:37 -0700 (PDT)
+In-Reply-To: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kasprintf function can return NULL if the allocation fails. Check for
-successful allocation before attempting to use the returned buffer.
+IPv6 addrconf keys off of IFF_SLAVE so can not use it for L3 slave.
+Add a new private flag and add netif_is_l3_slave function for checking
+it.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/vrf.c         | 10 ++++------
+ include/linux/netdevice.h |  7 +++++++
+ net/l3mdev/l3mdev.c       |  8 ++++----
+ 3 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
-index 66137ff..96f485a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
-@@ -327,6 +327,9 @@ void xgbe_debugfs_init(struct xgbe_prv_data *pdata)
- 	pdata->debugfs_xpcs_reg = 0;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 4fd5af1acff0..8713317eed86 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -39,8 +39,6 @@
+ #define DRV_NAME	"vrf"
+ #define DRV_VERSION	"1.0"
  
- 	buf = kasprintf(GFP_KERNEL, "amd-xgbe-%s", pdata->netdev->name);
-+	if (!buf)
-+		return;
+-#define vrf_is_slave(dev)   ((dev)->flags & IFF_SLAVE)
+-
+ #define vrf_master_get_rcu(dev) \
+ 	((struct net_device *)rcu_dereference(dev->rx_handler_data))
+ 
+@@ -433,7 +431,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 	if (ret < 0)
+ 		goto out_unregister;
+ 
+-	port_dev->flags |= IFF_SLAVE;
++	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
+ 	__vrf_insert_slave(queue, slave);
+ 	cycle_netdev(port_dev);
+ 
+@@ -448,7 +446,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 
+ static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ {
+-	if (netif_is_l3_master(port_dev) || vrf_is_slave(port_dev))
++	if (netif_is_l3_master(port_dev) || netif_is_l3_slave(port_dev))
+ 		return -EINVAL;
+ 
+ 	return do_vrf_add_slave(dev, port_dev);
+@@ -462,7 +460,7 @@ static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
+ 	struct slave *slave;
+ 
+ 	netdev_upper_dev_unlink(port_dev, dev);
+-	port_dev->flags &= ~IFF_SLAVE;
++	port_dev->priv_flags &= ~IFF_L3MDEV_SLAVE;
+ 
+ 	netdev_rx_handler_unregister(port_dev);
+ 
+@@ -672,7 +670,7 @@ static int vrf_device_event(struct notifier_block *unused,
+ 	if (event == NETDEV_UNREGISTER) {
+ 		struct net_device *vrf_dev;
+ 
+-		if (!vrf_is_slave(dev) || netif_is_l3_master(dev))
++		if (!netif_is_l3_slave(dev))
+ 			goto out;
+ 
+ 		vrf_dev = netdev_master_upper_dev_get(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b9450784ae06..b3374402c1ea 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1261,6 +1261,7 @@ struct net_device_ops {
+  * @IFF_L3MDEV_MASTER: device is an L3 master device
+  * @IFF_NO_QUEUE: device can run without qdisc attached
+  * @IFF_OPENVSWITCH: device is a Open vSwitch master
++ * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1286,6 +1287,7 @@ enum netdev_priv_flags {
+ 	IFF_L3MDEV_MASTER		= 1<<20,
+ 	IFF_NO_QUEUE			= 1<<21,
+ 	IFF_OPENVSWITCH			= 1<<22,
++	IFF_L3MDEV_SLAVE		= 1<<23,
+ };
+ 
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -3830,6 +3832,11 @@ static inline bool netif_is_l3_master(const struct net_device *dev)
+ 	return dev->priv_flags & IFF_L3MDEV_MASTER;
+ }
+ 
++static inline bool netif_is_l3_slave(const struct net_device *dev)
++{
++	return dev->priv_flags & IFF_L3MDEV_SLAVE;
++}
 +
- 	pdata->xgbe_debugfs = debugfs_create_dir(buf, NULL);
- 	if (!pdata->xgbe_debugfs) {
- 		netdev_err(pdata->netdev, "debugfs_create_dir failed\n");
+ static inline bool netif_is_bridge_master(const struct net_device *dev)
+ {
+ 	return dev->priv_flags & IFF_EBRIDGE;
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index ddf75ad41713..8e5ead366e7f 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -26,11 +26,11 @@ int l3mdev_master_ifindex_rcu(struct net_device *dev)
+ 
+ 	if (netif_is_l3_master(dev)) {
+ 		ifindex = dev->ifindex;
+-	} else if (dev->flags & IFF_SLAVE) {
++	} else if (netif_is_l3_slave(dev)) {
+ 		struct net_device *master;
+ 
+ 		master = netdev_master_upper_dev_get_rcu(dev);
+-		if (master && netif_is_l3_master(master))
++		if (master)
+ 			ifindex = master->ifindex;
+ 	}
+ 
+@@ -54,7 +54,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
+ 	if (netif_is_l3_master(dev)) {
+ 		if (dev->l3mdev_ops->l3mdev_fib_table)
+ 			tb_id = dev->l3mdev_ops->l3mdev_fib_table(dev);
+-	} else if (dev->flags & IFF_SLAVE) {
++	} else if (netif_is_l3_slave(dev)) {
+ 		/* Users of netdev_master_upper_dev_get_rcu need non-const,
+ 		 * but current inet_*type functions take a const
+ 		 */
+@@ -62,7 +62,7 @@ u32 l3mdev_fib_table_rcu(const struct net_device *dev)
+ 		const struct net_device *master;
+ 
+ 		master = netdev_master_upper_dev_get_rcu(_dev);
+-		if (master && netif_is_l3_master(master) &&
++		if (master &&
+ 		    master->l3mdev_ops->l3mdev_fib_table)
+ 			tb_id = master->l3mdev_ops->l3mdev_fib_table(master);
+ 	}
+-- 
+1.9.1
