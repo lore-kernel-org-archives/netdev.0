@@ -1,29 +1,43 @@
-From: Fidelity@vger.kernel.org, Funding@vger.kernel.org
-Subject: Credit Offer.
-Date: Mon, 5 Oct 2015 20:48:35 -0700
-Message-ID: <BLUPR12MB0675832997A66A2BC8E37F4EB8480@BLUPR12MB0675.namprd12.prod.outlook.com>
-Reply-To: <fidelityfundinggroupllc@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients@vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next 0/2] sock_diag: introducing udp_info
+Date: Mon,  5 Oct 2015 15:55:25 -0400
+Message-ID: <1444074927-27098-1-git-send-email-kraigatgoog@gmail.com>
+Cc: kraigatgoog@gmail.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2un0252.outbound.protection.outlook.com ([65.55.169.252]:59969
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753357AbbJETs7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 15:48:59 -0400
-Content-Description: Mail message body
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:35574 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbbJETza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 15:55:30 -0400
+Received: by qgt47 with SMTP id 47so159781832qgt.2
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 12:55:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do you need easy qualifying personal or Business start-up loans ranging=
- from $10,000 - $50,000,000? Bad credit or Good credit, makes no differ=
-ence with us. 80% of applications are approved within 4 business days. =
-To apply, get in touch with us via E-mail: fidelityfundinggroupllc@gmai=
-l.com
+From: Craig Gallek <kraig@google.com>
 
-Sincerely,
-Patricia Howes.
-Publicity Secretary.
-=46idelity Funding Group LLC=AE
+These patches introduce a structure for reporting udp statistics
+through netlink.  Simple datagram and byte counters are included.
+
+Craig Gallek (2):
+  sock_diag: create udp_info for udp socket stats
+  sock_diag: initial udp_info metrics
+
+ include/linux/inet_diag.h      |  1 +
+ include/linux/udp.h            |  7 +++++++
+ include/net/udp.h              |  2 ++
+ include/uapi/linux/inet_diag.h |  3 ++-
+ include/uapi/linux/udp.h       |  7 +++++++
+ net/dccp/diag.c                |  1 +
+ net/ipv4/inet_diag.c           | 25 ++++++++++++-------------
+ net/ipv4/tcp_diag.c            |  1 +
+ net/ipv4/udp.c                 | 26 ++++++++++++++++++++++++--
+ net/ipv4/udp_diag.c            | 18 ++++++++++++++++--
+ net/ipv6/udp.c                 | 14 +++++++++++++-
+ 11 files changed, 86 insertions(+), 19 deletions(-)
+
+-- 
+2.6.0.rc2.230.g3dd15c0
