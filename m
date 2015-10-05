@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp/dccp: fix old style declarations
-Date: Mon, 05 Oct 2015 04:03:28 -0700 (PDT)
-Message-ID: <20151005.040328.273246790497153376.davem@davemloft.net>
-References: <1443700133.32531.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] inet: fix race in reqsk_queue_unlink()
+Date: Mon, 05 Oct 2015 04:05:43 -0700 (PDT)
+Message-ID: <20151005.040543.1114187809443016020.davem@davemloft.net>
+References: <1443703166.32531.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raanan.avargil@intel.com
+Cc: netdev@vger.kernel.org, ycheng@google.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39160 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39167 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750761AbbJEKrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 06:47:49 -0400
-In-Reply-To: <1443700133.32531.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750833AbbJEKuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 06:50:04 -0400
+In-Reply-To: <1443703166.32531.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Oct 2015 04:48:53 -0700
+Date: Thu, 01 Oct 2015 05:39:26 -0700
 
-> From: Raanan Avargil <raanan.avargil@intel.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> I’m using the compilation flag -Werror=old-style-declaration, which
-> requires that the “inline” word would come at the beginning of the code
-> line.
->  
-> $ make drivers/net/ethernet/intel/e1000e/e1000e.ko
- ...
-> Fixes: ed2e92394589 ("tcp/dccp: fix timewait races in timer handling")
-> Signed-off-by: Raanan Avargil <raanan.avargil@intel.com>
+> reqsk_timer_handler() tests if icsk_accept_queue.listen_opt
+> is NULL at its beginning.
+> 
+> By the time it calls inet_csk_reqsk_queue_drop() and
+> reqsk_queue_unlink(), listener might have been closed and
+> inet_csk_listen_stop() had called reqsk_queue_yank_acceptq()
+> which sets icsk_accept_queue.listen_opt to NULL
+> 
+> We therefore need to correctly check listen_opt being NULL
+> after holding syn_wait_lock for proper synchronization.
+> 
+> Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
+> Fixes: b357a364c57c ("inet: fix possible panic in reqsk_queue_unlink()")
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied and queued up for -stable.
