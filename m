@@ -1,128 +1,85 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv3 net 6/6] openvswitch: Change CT_ATTR_FLAGS to CT_ATTR_COMMIT
-Date: Mon,  5 Oct 2015 15:23:19 -0700
-Message-ID: <1444083799-57090-7-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv3 net 4/6] openvswitch: Reject ct_state unsupported bits
+Date: Mon,  5 Oct 2015 15:23:17 -0700
+Message-ID: <1444083799-57090-5-git-send-email-joestringer@nicira.com>
 References: <1444083799-57090-1-git-send-email-joestringer@nicira.com>
 Cc: davem@davemloft.net, pshelar@nicira.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35669 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbbJEWXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 18:23:31 -0400
-Received: by pacfv12 with SMTP id fv12so192458356pac.2
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 15:23:31 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34253 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752147AbbJEWXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 18:23:30 -0400
+Received: by padhy16 with SMTP id hy16so48484574pad.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 15:23:29 -0700 (PDT)
 In-Reply-To: <1444083799-57090-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously, the CT_ATTR_FLAGS attribute, when nested under the
-OVS_ACTION_ATTR_CT, encoded a 32-bit bitmask of flags that modify the
-semantics of the ct action. It's more extensible to just represent each
-flag as a nested attribute, and this requires no additional error
-checking to reject flags that aren't currently supported.
+Previously, if userspace specified ct_state bits in the flow key which
+are currently undefined (and therefore unsupported), then they would be
+ignored. This could cause unexpected behaviour in future if userspace is
+extended to support additional bits but attempts to communicate with the
+current version of the kernel. This patch rectifies the situation by
+rejecting such ct_state bits.
 
-Suggested-by: Ben Pfaff <blp@nicira.com>
+Fixes: 7f8a436 "openvswitch: Add conntrack action"
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
-v3: Acked.
-v2: Use bitmask for internal representation of COMMIT.
+v3: No change.
+v2: Acked.
 ---
- include/uapi/linux/openvswitch.h | 14 ++++----------
- net/openvswitch/conntrack.c      | 13 ++++++-------
- 2 files changed, 10 insertions(+), 17 deletions(-)
+ net/openvswitch/conntrack.h    | 12 ++++++++++++
+ net/openvswitch/flow_netlink.c |  6 ++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index c861a4cf5fec..036f73bc54cd 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -618,7 +618,9 @@ struct ovs_action_hash {
+diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
+index 6bd603c6a031..d6eca8394254 100644
+--- a/net/openvswitch/conntrack.h
++++ b/net/openvswitch/conntrack.h
+@@ -34,6 +34,13 @@ int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
+ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
+ int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
+ void ovs_ct_free_action(const struct nlattr *a);
++
++static inline bool ovs_ct_state_supported(u8 state)
++{
++	return !(state & ~(OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED |
++			 OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR |
++			 OVS_CS_F_INVALID | OVS_CS_F_TRACKED));
++}
+ #else
+ #include <linux/errno.h>
  
- /**
-  * enum ovs_ct_attr - Attributes for %OVS_ACTION_ATTR_CT action.
-- * @OVS_CT_ATTR_FLAGS: u32 connection tracking flags.
-+ * @OVS_CT_ATTR_COMMIT: If present, commits the connection to the conntrack
-+ * table. This allows future packets for the same connection to be identified
-+ * as 'established' or 'related'.
-  * @OVS_CT_ATTR_ZONE: u16 connection tracking zone.
-  * @OVS_CT_ATTR_MARK: u32 value followed by u32 mask. For each bit set in the
-  * mask, the corresponding bit in the value is copied to the connection
-@@ -630,7 +632,7 @@ struct ovs_action_hash {
-  */
- enum ovs_ct_attr {
- 	OVS_CT_ATTR_UNSPEC,
--	OVS_CT_ATTR_FLAGS,      /* u32 bitmask of OVS_CT_F_*. */
-+	OVS_CT_ATTR_COMMIT,     /* No argument, commits connection. */
- 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
- 	OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
- 	OVS_CT_ATTR_LABELS,     /* labels to associate with this connection. */
-@@ -641,14 +643,6 @@ enum ovs_ct_attr {
- 
- #define OVS_CT_ATTR_MAX (__OVS_CT_ATTR_MAX - 1)
- 
--/*
-- * OVS_CT_ATTR_FLAGS flags - bitmask of %OVS_CT_F_*
-- * @OVS_CT_F_COMMIT: Commits the flow to the conntrack table. This allows
-- * future packets for the same connection to be identified as 'established'
-- * or 'related'.
-- */
--#define OVS_CT_F_COMMIT		0x01
--
- /**
-  * enum ovs_action_attr - Action types.
-  *
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 466d5576fe3f..80bf702715bb 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -47,7 +47,7 @@ struct ovs_conntrack_info {
- 	struct nf_conntrack_helper *helper;
- 	struct nf_conntrack_zone zone;
- 	struct nf_conn *ct;
--	u32 flags;
-+	u8 commit : 1;
- 	u16 family;
- 	struct md_mark mark;
- 	struct md_labels labels;
-@@ -493,7 +493,7 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
- 			return err;
- 	}
- 
--	if (info->flags & OVS_CT_F_COMMIT)
-+	if (info->commit)
- 		err = ovs_ct_commit(net, key, info, skb);
- 	else
- 		err = ovs_ct_lookup(net, key, info, skb);
-@@ -539,8 +539,7 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+@@ -46,6 +53,11 @@ static inline bool ovs_ct_verify(struct net *net, int attr)
+ 	return false;
  }
  
- static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
--	[OVS_CT_ATTR_FLAGS]	= { .minlen = sizeof(u32),
--				    .maxlen = sizeof(u32) },
-+	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0, .maxlen = 0 },
- 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
- 				    .maxlen = sizeof(u16) },
- 	[OVS_CT_ATTR_MARK]	= { .minlen = sizeof(struct md_mark),
-@@ -576,8 +575,8 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
- 		}
++static inline bool ovs_ct_state_supported(u8 state)
++{
++	return false;
++}
++
+ static inline int ovs_ct_copy_action(struct net *net, const struct nlattr *nla,
+ 				     const struct sw_flow_key *key,
+ 				     struct sw_flow_actions **acts, bool log)
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index a60e3b7684bc..d47b5c5c640e 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -816,6 +816,12 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
+ 	    ovs_ct_verify(net, OVS_KEY_ATTR_CT_STATE)) {
+ 		u8 ct_state = nla_get_u8(a[OVS_KEY_ATTR_CT_STATE]);
  
- 		switch (type) {
--		case OVS_CT_ATTR_FLAGS:
--			info->flags = nla_get_u32(a);
-+		case OVS_CT_ATTR_COMMIT:
-+			info->commit = true;
- 			break;
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 		case OVS_CT_ATTR_ZONE:
-@@ -701,7 +700,7 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
- 	if (!start)
- 		return -EMSGSIZE;
- 
--	if (nla_put_u32(skb, OVS_CT_ATTR_FLAGS, ct_info->flags))
-+	if (ct_info->commit && nla_put_flag(skb, OVS_CT_ATTR_COMMIT))
- 		return -EMSGSIZE;
- 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
- 	    nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone.id))
++		if (!is_mask && !ovs_ct_state_supported(ct_state)) {
++			OVS_NLERR(log, "ct_state flags %02x unsupported",
++				  ct_state);
++			return -EINVAL;
++		}
++
+ 		SW_FLOW_KEY_PUT(match, ct.state, ct_state, is_mask);
+ 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_STATE);
+ 	}
 -- 
 2.1.4
