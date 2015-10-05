@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v3 06/14] RDS: use rds_send_xmit() state instead of RDS_LL_SEND_FULL
-Date: Mon,  5 Oct 2015 10:56:29 -0700
-Message-ID: <1444067797-14101-7-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v3 03/14] RDS: fix rds_sock reference bug while doing bind
+Date: Mon,  5 Oct 2015 10:56:26 -0700
+Message-ID: <1444067797-14101-4-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,64 +12,65 @@ In-Reply-To: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In Transport indepedent rds_sendmsg(), we shouldn't make decisions based
-on RDS_LL_SEND_FULL which is used to manage the ring for RDMA based
-transports. We can safely issue rds_send_xmit() and the using its
-return value take decision on deferred work. This will also fix
-the scenario where at times we are seeing connections stuck with
-the LL_SEND_FULL bit getting set and never cleared.
-
-We kick krdsd after any time we see -ENOMEM or -EAGAIN from the
-ring allocation code.
+One need to take rds socket reference while using it and release it
+once done with it. rds_add_bind() code path does not do that so
+lets fix it.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c    | 10 ++++++----
- net/rds/threads.c |  2 ++
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ net/rds/bind.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index b3406da..81ac604 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -1122,8 +1122,9 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 	 */
- 	rds_stats_inc(s_send_queued);
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index 01989e2..166c605 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -61,8 +61,10 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+ 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+ 		      be16_to_cpu(rs->rs_bound_port);
  
--	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
--		rds_send_xmit(conn);
-+	ret = rds_send_xmit(conn);
-+	if (ret == -ENOMEM || ret == -EAGAIN)
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
+-		if (cmp == needle)
++		if (cmp == needle) {
++			rds_sock_addref(rs);
+ 			return rs;
++		}
+ 	}
  
- 	rds_message_put(rm);
- 	return payload_len;
-@@ -1179,8 +1180,9 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
- 	rds_stats_inc(s_send_queued);
- 	rds_stats_inc(s_send_pong);
+ 	if (insert) {
+@@ -94,10 +96,10 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ 	rs = rds_bind_lookup(addr, port, NULL);
+ 	read_unlock_irqrestore(&rds_bind_lock, flags);
  
--	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
--		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-+	ret = rds_send_xmit(conn);
-+	if (ret == -ENOMEM || ret == -EAGAIN)
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
+-	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
+-		rds_sock_addref(rs);
+-	else
++	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
++		rds_sock_put(rs);
+ 		rs = NULL;
++	}
  
- 	rds_message_put(rm);
- 	return 0;
-diff --git a/net/rds/threads.c b/net/rds/threads.c
-index dc2402e..454aa6d 100644
---- a/net/rds/threads.c
-+++ b/net/rds/threads.c
-@@ -162,7 +162,9 @@ void rds_send_worker(struct work_struct *work)
- 	int ret;
+ 	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
+ 		ntohs(port));
+@@ -123,14 +125,18 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	write_lock_irqsave(&rds_bind_lock, flags);
  
- 	if (rds_conn_state(conn) == RDS_CONN_UP) {
-+		clear_bit(RDS_LL_SEND_FULL, &conn->c_flags);
- 		ret = rds_send_xmit(conn);
-+		cond_resched();
- 		rdsdebug("conn %p ret %d\n", conn, ret);
- 		switch (ret) {
- 		case -EAGAIN:
+ 	do {
++		struct rds_sock *rrs;
+ 		if (rover == 0)
+ 			rover++;
+-		if (!rds_bind_lookup(addr, cpu_to_be16(rover), rs)) {
++		rrs = rds_bind_lookup(addr, cpu_to_be16(rover), rs);
++		if (!rrs) {
+ 			*port = rs->rs_bound_port;
+ 			ret = 0;
+ 			rdsdebug("rs %p binding to %pI4:%d\n",
+ 			  rs, &addr, (int)ntohs(*port));
+ 			break;
++		} else {
++			rds_sock_put(rrs);
+ 		}
+ 	} while (rover++ != last);
+ 
 -- 
 1.9.1
