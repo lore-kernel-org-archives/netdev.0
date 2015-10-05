@@ -1,61 +1,54 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
-Date: Mon, 05 Oct 2015 18:20:45 +0100
-Message-ID: <8737xpxmdu.fsf@doppelsaurus.mobileactivedefense.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
-	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
-	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
-	<1444064074.9555.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode
+ [gs]etting
+Date: Mon, 5 Oct 2015 19:24:07 +0200
+Message-ID: <20151005172407.GS2278@nanopsycho.orion>
+References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
+ <1443993949-3915-10-git-send-email-jiri@resnulli.us>
+ <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
+ <56129CD0.50301@gmail.com>
+ <20151005163738.GP2278@nanopsycho.orion>
+ <5612AE52.9040809@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:34918 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751713AbbJERWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:22:14 -0400
-In-Reply-To: <1444064074.9555.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Mon, 05 Oct 2015 09:54:34 -0700")
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34209 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbJERYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:24:10 -0400
+Received: by wicfx3 with SMTP id fx3so130658782wic.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:24:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5612AE52.9040809@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> On Mon, 2015-10-05 at 17:31 +0100, Rainer Weikusat wrote:
->
->>  	atomic_long_set(&u->inflight, 0);
->>  	INIT_LIST_HEAD(&u->link);
->> @@ -2135,8 +2139,16 @@ static unsigned int unix_poll(struct fil
->>  static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
->>  				    poll_table *wait)
->>  {
->> -	struct sock *sk = sock->sk, *other;
->> -	unsigned int mask, writable;
->> +	struct sock *sk = sock->sk, *other, *pp;
->> +	struct unix_sock *u;
->> +	unsigned int mask, writable, dead;
->> +
->> +	u = unix_sk(sk);
->> +	pp = u->poll_peer;
->> +	if (pp) {
->> +		u->poll_peer = NULL;
->> +		sock_put(pp);
->> +	}
->
->
-> This looks racy.
-> Multiple threads could use poll() at the same time,
-> and you would have too many sock_put()
+Mon, Oct 05, 2015 at 07:07:30PM CEST, john.fastabend@gmail.com wrote:
 
-That's one of the reasons why I wrote "might work": The use of a single
-structure member without any locking for the sock_poll_wait suggests
-that this is taken care of in some other way, as does the absence of any
-comment about that in the 'public' LDDs ("Linux Device Drivers"),
-however, I don't really know if this is true. If not, this simple idea
-can't work.
+<snip>
+
+>> 
+>> Again, to make this clear, worlds are not just a rehash of tables.
+>> 
+>
+>what are they then? Lets model those bits and let users configure them
+>at runtime.
+>
+>So far I've had really good results modelling hardware as a 'parser',
+>a set of tables, and a set of modify blocks. Now this breaks when you
+>start to add black boxes in there for other functions such as encryption
+>but I don't think your getting at that. Do you see something that
+>couldn't be configured/modelled with those blocks?
+
+How about an arbitrary BPF program? I can implement world that bases
+mangling/forwarding packets on intensity of gravitational field.
+Rocker hw is very free in that and cannot be pushed down to "table boxes".
+
+That is making it a wild animal and challenges us to wrap it up in
+kernel, somehow.
