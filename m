@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v3 13/14] RDS: IB: use max_mr from HCA caps than max_fmr
-Date: Mon,  5 Oct 2015 10:56:36 -0700
-Message-ID: <1444067797-14101-14-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v3 11/14] RDS: IB: use already available pool handle from ibmr
+Date: Mon,  5 Oct 2015 10:56:34 -0700
+Message-ID: <1444067797-14101-12-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,31 +12,41 @@ In-Reply-To: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All HCA drivers seems to popullate max_mr caps and few of
-them do both max_mr and max_fmr.
+rds_ib_mr already keeps the pool handle which it associates
+with. Lets use that instead of round about way of fetching
+it from rds_ib_device.
 
-Hence update RDS code to make use of max_mr.
+No functional change.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/rds/ib_rdma.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index 2d3f2ab..883813a 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -148,8 +148,8 @@ static void rds_ib_add_one(struct ib_device *device)
- 	rds_ibdev->max_sge = min(dev_attr->max_sge, RDS_IB_MAX_SGE);
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index b6644fa..52d889a 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -522,8 +522,7 @@ static void rds_ib_teardown_mr(struct rds_ib_mr *ibmr)
  
- 	rds_ibdev->fmr_max_remaps = dev_attr->max_map_per_fmr?: 32;
--	rds_ibdev->max_fmrs = dev_attr->max_fmr ?
--			min_t(unsigned int, dev_attr->max_fmr, fmr_pool_size) :
-+	rds_ibdev->max_fmrs = dev_attr->max_mr ?
-+			min_t(unsigned int, dev_attr->max_mr, fmr_pool_size) :
- 			fmr_pool_size;
+ 	__rds_ib_teardown_mr(ibmr);
+ 	if (pinned) {
+-		struct rds_ib_device *rds_ibdev = ibmr->device;
+-		struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
++		struct rds_ib_mr_pool *pool = ibmr->pool;
  
- 	rds_ibdev->max_initiator_depth = dev_attr->max_qp_init_rd_atom;
+ 		atomic_sub(pinned, &pool->free_pinned);
+ 	}
+@@ -717,8 +716,8 @@ static void rds_ib_mr_pool_flush_worker(struct work_struct *work)
+ void rds_ib_free_mr(void *trans_private, int invalidate)
+ {
+ 	struct rds_ib_mr *ibmr = trans_private;
++	struct rds_ib_mr_pool *pool = ibmr->pool;
+ 	struct rds_ib_device *rds_ibdev = ibmr->device;
+-	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
+ 
+ 	rdsdebug("RDS/IB: free_mr nents %u\n", ibmr->sg_len);
+ 
 -- 
 1.9.1
