@@ -1,55 +1,65 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg is
- marked volatile
-Date: Mon, 5 Oct 2015 15:57:22 +0100
-Message-ID: <20151005145722.GT12635@sirena.org.uk>
-References: <1444051772-20270-1-git-send-email-jon@ringle.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode [gs]etting
+Date: Mon, 5 Oct 2015 08:41:29 -0700
+Message-ID: <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
+References: <1443993949-3915-1-git-send-email-jiri@resnulli.us> <1443993949-3915-10-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="DnHvQagWhP6kG70s"
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Jon Ringle <jringle@gridpoint.com>
-To: jon@ringle.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444051772-20270-1-git-send-email-jon@ringle.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:35316 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbbJEPlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:41:49 -0400
+Received: by obbzf10 with SMTP id zf10so131621668obb.2
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:41:48 -0700 (PDT)
+In-Reply-To: <1443993949-3915-10-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Oct 4, 2015 at 2:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> Introduce a stub for allowing user to change rocker port world/mode.
+> This is implemented using rtnl changelink op.
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
---DnHvQagWhP6kG70s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+[cut]
 
-On Mon, Oct 05, 2015 at 09:29:31AM -0400, jon@ringle.org wrote:
-> From: Jon Ringle <jringle@gridpoint.com>
->=20
-> The only time that it makes sense to call a custom provided reg_update_bi=
-ts
-> function, is the register being updated is one that has volatile bits.
-> Otherwise, the normal read/modify/write cycle (where the read is likely to
-> be free from the cache) will do just fine. This should keep the reg cache
-> intact, since volatile registers won't get cached anyway.
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 3a5f263..7da768e 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -416,6 +416,17 @@ enum {
+>  };
+>  #define IFLA_GENEVE_MAX        (__IFLA_GENEVE_MAX - 1)
+>
+> +/* Rocker section */
+> +enum {
+> +       IFLA_ROCKER_UNSPEC,
+> +       IFLA_ROCKER_MODE,
+> +       __IFLA_ROCKER_MAX,
+> +};
+> +
+> +#define IFLA_ROCKER_MAX        (__IFLA_ROCKER_MAX - 1)
+> +
+> +#define ROCKER_MODE_MAX 16
 
-Dave, to be clear please do *not* apply this patch at least for the time
-being - I've not reviewed it or the one from Thursday that you applied
-this morning.
+Does this mean there is going to be a "ip link set dev DEV type rocker
+mode MODE" command option?
 
---DnHvQagWhP6kG70s
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+It doesn't seem right to be adding driver-specific IFLA_'s here.  I
+think this sets bad precedence for other drivers to add their own
+knobs without thinking about a generic shared mechanism.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Actually, I don't see the point of letting the user dynamically change
+the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
+the port mode be specified on device creation.
 
-iQEcBAEBCAAGBQJWEo/MAAoJECTWi3JdVIfQiBcH/1LyHRkVmLO9m9OxnbYg5feW
-LTWqlSekmJELp6HoWtb6tQdw9ZCqcqbQAHXbyPT5/bj/eK8d7ikkHX8t9sK8u/nr
-5vWw8IkEm/7qhh/AxmYy+1wRWDB0RoxLtZA8xypVI5ZKnAV56plBylBFZDG5nExc
-uPuu7ZmDWjC7mJN6uSYiDKM0IX+E8NCudkEwT924Kslf1AJgfJ+hIAflEiMVCyMy
-U3TqljoOaHkehqBVb7Z5kD//uwK1YLmqpu0AbFdIK7b0kjKdUNY92Lqo+fdMFuvI
-EDPsf0aiu4q7RUY79GNlRYVbk+IZtC7EN+WeZOWts4uk93nrM7o1GMk+beYbTYg=
-=plO5
------END PGP SIGNATURE-----
-
---DnHvQagWhP6kG70s--
+-scott
