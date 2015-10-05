@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: Pass net through ip fragmention
-Date: Mon, 05 Oct 2015 03:40:07 -0700 (PDT)
-Message-ID: <20151005.034007.1804140165683943141.davem@davemloft.net>
-References: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
-	<87si62gteh.fsf_-_@x220.int.ebiederm.org>
-	<877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH] net: lpc_eth: fix warnings caused by enabling
+ unprepared clock
+Date: Mon, 05 Oct 2015 03:42:01 -0700 (PDT)
+Message-ID: <20151005.034201.2094658113776123883.davem@davemloft.net>
+References: <1443649063-10817-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	nicolas.dichtel@6wind.com, pablo@netfilter.org
-To: ebiederm@xmission.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: vz@mleia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38936 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbbJEK0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 06:26:22 -0400
+In-Reply-To: <1443649063-10817-1-git-send-email-vz@mleia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 30 Sep 2015 16:24:40 -0500
+From: Vladimir Zapolskiy <vz@mleia.com>
+Date: Thu,  1 Oct 2015 00:37:43 +0300
 
-> 
-> This is the next installment of my work to pass struct net through the
-> output path so the code does not need to guess how to figure out which
-> network namespace it is in, and ultimately routes can have output
-> devices in another network namespace.
-> 
-> This round focuses on passing net through ip fragmentation which we seem
-> to call from about everywhere.  That is the main ip output paths, the
-> bridge netfilter code, and openvswitch.  This has to happend at once
-> accross the tree as function pointers are involved.
-> 
-> First some prep work is done, then ipv4 and ipv6 are converted and then
-> temporary helper functions are removed.
-> 
-> The changes are also available against nf-next at:
-> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
+> If common clock framework is configured, the driver generates warnings,
+> which are fixed by this change:
+ ...
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
 
-Pulled, thanks Eric.
+Applied, thanks.
