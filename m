@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v3 08/14] RDS: IB: split send completion handling and do batch ack
-Date: Mon,  5 Oct 2015 10:56:31 -0700
-Message-ID: <1444067797-14101-9-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v3 04/14] RDS: Use per-bucket rw lock for bind hash-table
+Date: Mon,  5 Oct 2015 10:56:27 -0700
+Message-ID: <1444067797-14101-5-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,321 +12,172 @@ In-Reply-To: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Similar to what we did with receive CQ completion handling, we split
-the transmit completion handler so that it lets us implement batched
-work completion handling.
+One global lock protecting hash-tables with 1024 buckets isn't
+efficient and it shows up in a massive systems with truck
+loads of RDS sockets serving multiple databases. The
+perf data clearly highlights the contention on the rw
+lock in these massive workloads.
 
-We re-use the cq_poll routine and makes use of RDS_IB_SEND_OP to
-identify the send vs receive completion event handler invocation.
+When the contention gets worse, the code gets into a state where
+it decides to back off on the lock. So while it has disabled interrupts,
+it sits and backs off on this lock get. This causes the system to
+become sluggish and eventually all sorts of bad things happen.
+
+The simple fix is to move the lock into the hash bucket and
+use per-bucket lock to improve the scalability.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h       |   6 ++-
- net/rds/ib_cm.c    |  45 ++++++++++++++++++++--
- net/rds/ib_send.c  | 110 +++++++++++++++++++++++++----------------------------
- net/rds/ib_stats.c |   1 -
- net/rds/send.c     |   1 +
- 5 files changed, 98 insertions(+), 65 deletions(-)
+ net/rds/af_rds.c |  2 ++
+ net/rds/bind.c   | 47 ++++++++++++++++++++++++++++++++---------------
+ net/rds/rds.h    |  1 +
+ 3 files changed, 35 insertions(+), 15 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 727759b..3a8cd31 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -25,6 +25,7 @@
- #define RDS_IB_RECYCLE_BATCH_COUNT	32
- 
- #define RDS_IB_WC_MAX			32
-+#define RDS_IB_SEND_OP			BIT_ULL(63)
- 
- extern struct rw_semaphore rds_ib_devices_lock;
- extern struct list_head rds_ib_devices;
-@@ -118,9 +119,11 @@ struct rds_ib_connection {
- 	struct ib_pd		*i_pd;
- 	struct ib_cq		*i_send_cq;
- 	struct ib_cq		*i_recv_cq;
-+	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
- 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
- 
- 	/* interrupt handling */
-+	struct tasklet_struct	i_send_tasklet;
- 	struct tasklet_struct	i_recv_tasklet;
- 
- 	/* tx */
-@@ -217,7 +220,6 @@ struct rds_ib_device {
- struct rds_ib_statistics {
- 	uint64_t	s_ib_connect_raced;
- 	uint64_t	s_ib_listen_closed_stale;
--	uint64_t	s_ib_tx_cq_call;
- 	uint64_t	s_ib_evt_handler_call;
- 	uint64_t	s_ib_tasklet_call;
- 	uint64_t	s_ib_tx_cq_event;
-@@ -371,7 +373,7 @@ extern wait_queue_head_t rds_ib_ring_empty_wait;
- void rds_ib_xmit_complete(struct rds_connection *conn);
- int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
- 		unsigned int hdr_off, unsigned int sg, unsigned int off);
--void rds_ib_send_cq_comp_handler(struct ib_cq *cq, void *context);
-+void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc);
- void rds_ib_send_init_ring(struct rds_ib_connection *ic);
- void rds_ib_send_clear_ring(struct rds_ib_connection *ic);
- int rds_ib_xmit_rdma(struct rds_connection *conn, struct rm_rdma_op *op);
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 28e0979..8f51d0d 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -250,11 +250,34 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
- 			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
- 				 (unsigned long long)wc->wr_id, wc->status,
- 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
--			rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+
-+			if (wc->wr_id & RDS_IB_SEND_OP)
-+				rds_ib_send_cqe_handler(ic, wc);
-+			else
-+				rds_ib_recv_cqe_handler(ic, wc, ack_state);
- 		}
- 	}
- }
- 
-+static void rds_ib_tasklet_fn_send(unsigned long data)
-+{
-+	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
-+	struct rds_connection *conn = ic->conn;
-+	struct rds_ib_ack_state state;
-+
-+	rds_ib_stats_inc(s_ib_tasklet_call);
-+
-+	memset(&state, 0, sizeof(state));
-+	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
-+	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+
-+	if (rds_conn_up(conn) &&
-+	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
-+	    test_bit(0, &conn->c_map_queued)))
-+		rds_send_xmit(ic->conn);
-+}
-+
- static void rds_ib_tasklet_fn_recv(unsigned long data)
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index dc08766..384ea1e 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -582,6 +582,8 @@ static int rds_init(void)
  {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
-@@ -304,6 +327,18 @@ static void rds_ib_qp_event_handler(struct ib_event *event, void *data)
- 	}
- }
+ 	int ret;
  
-+static void rds_ib_cq_comp_handler_send(struct ib_cq *cq, void *context)
-+{
-+	struct rds_connection *conn = context;
-+	struct rds_ib_connection *ic = conn->c_transport_data;
++	rds_bind_lock_init();
 +
-+	rdsdebug("conn %p cq %p\n", conn, cq);
+ 	ret = rds_conn_init();
+ 	if (ret)
+ 		goto out;
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index 166c605..bc6b93e 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -38,22 +38,27 @@
+ #include <linux/ratelimit.h>
+ #include "rds.h"
+ 
++struct bind_bucket {
++	rwlock_t                lock;
++	struct hlist_head	head;
++};
 +
-+	rds_ib_stats_inc(s_ib_evt_handler_call);
-+
-+	tasklet_schedule(&ic->i_send_tasklet);
-+}
-+
- /*
-  * This needs to be very careful to not leave IS_ERR pointers around for
-  * cleanup to trip over.
-@@ -337,7 +372,8 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	ic->i_pd = rds_ibdev->pd;
+ #define BIND_HASH_SIZE 1024
+-static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
+-static DEFINE_RWLOCK(rds_bind_lock);
++static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
  
- 	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
--	ic->i_send_cq = ib_create_cq(dev, rds_ib_send_cq_comp_handler,
-+
-+	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
- 				     rds_ib_cq_event_handler, conn,
- 				     &cq_attr);
- 	if (IS_ERR(ic->i_send_cq)) {
-@@ -703,6 +739,7 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 		wait_event(rds_ib_ring_empty_wait,
- 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
- 			   (atomic_read(&ic->i_signaled_sends) == 0));
-+		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
- 
- 		/* first destroy the ib state that generates callbacks */
-@@ -809,8 +846,10 @@ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 	}
- 
- 	INIT_LIST_HEAD(&ic->ib_node);
-+	tasklet_init(&ic->i_send_tasklet, rds_ib_tasklet_fn_send,
-+		     (unsigned long)ic);
- 	tasklet_init(&ic->i_recv_tasklet, rds_ib_tasklet_fn_recv,
--		     (unsigned long) ic);
-+		     (unsigned long)ic);
- 	mutex_init(&ic->i_recv_mutex);
- #ifndef KERNEL_HAS_ATOMIC64
- 	spin_lock_init(&ic->i_ack_lock);
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index 4e88047..670882c 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
- 
- 		send->s_op = NULL;
- 
--		send->s_wr.wr_id = i;
-+		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
- 		send->s_wr.sg_list = send->s_sge;
- 		send->s_wr.ex.imm_data = 0;
- 
-@@ -237,81 +237,73 @@ static void rds_ib_sub_signaled(struct rds_ib_connection *ic, int nr)
-  * unallocs the next free entry in the ring it doesn't alter which is
-  * the next to be freed, which is what this is concerned with.
-  */
--void rds_ib_send_cq_comp_handler(struct ib_cq *cq, void *context)
-+void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+-static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
++static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
  {
--	struct rds_connection *conn = context;
--	struct rds_ib_connection *ic = conn->c_transport_data;
- 	struct rds_message *rm = NULL;
--	struct ib_wc wc;
-+	struct rds_connection *conn = ic->conn;
- 	struct rds_ib_send_work *send;
- 	u32 completed;
- 	u32 oldest;
- 	u32 i = 0;
--	int ret;
- 	int nr_sig = 0;
- 
--	rdsdebug("cq %p conn %p\n", cq, conn);
--	rds_ib_stats_inc(s_ib_tx_cq_call);
--	ret = ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
--	if (ret)
--		rdsdebug("ib_req_notify_cq send failed: %d\n", ret);
--
--	while (ib_poll_cq(cq, 1, &wc) > 0) {
--		rdsdebug("wc wr_id 0x%llx status %u (%s) byte_len %u imm_data %u\n",
--			 (unsigned long long)wc.wr_id, wc.status,
--			 ib_wc_status_msg(wc.status), wc.byte_len,
--			 be32_to_cpu(wc.ex.imm_data));
--		rds_ib_stats_inc(s_ib_tx_cq_event);
--
--		if (wc.wr_id == RDS_IB_ACK_WR_ID) {
--			if (time_after(jiffies, ic->i_ack_queued + HZ/2))
--				rds_ib_stats_inc(s_ib_tx_stalled);
--			rds_ib_ack_send_complete(ic);
--			continue;
--		}
- 
--		oldest = rds_ib_ring_oldest(&ic->i_send_ring);
-+	rdsdebug("wc wr_id 0x%llx status %u (%s) byte_len %u imm_data %u\n",
-+		 (unsigned long long)wc->wr_id, wc->status,
-+		 ib_wc_status_msg(wc->status), wc->byte_len,
-+		 be32_to_cpu(wc->ex.imm_data));
-+	rds_ib_stats_inc(s_ib_tx_cq_event);
- 
--		completed = rds_ib_ring_completed(&ic->i_send_ring, wc.wr_id, oldest);
-+	if (wc->wr_id == RDS_IB_ACK_WR_ID) {
-+		if (time_after(jiffies, ic->i_ack_queued + HZ / 2))
-+			rds_ib_stats_inc(s_ib_tx_stalled);
-+		rds_ib_ack_send_complete(ic);
-+		return;
-+	}
- 
--		for (i = 0; i < completed; i++) {
--			send = &ic->i_sends[oldest];
--			if (send->s_wr.send_flags & IB_SEND_SIGNALED)
--				nr_sig++;
-+	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
- 
--			rm = rds_ib_send_unmap_op(ic, send, wc.status);
-+	completed = rds_ib_ring_completed(&ic->i_send_ring,
-+					  (wc->wr_id & ~RDS_IB_SEND_OP),
-+					  oldest);
- 
--			if (time_after(jiffies, send->s_queued + HZ/2))
--				rds_ib_stats_inc(s_ib_tx_stalled);
-+	for (i = 0; i < completed; i++) {
-+		send = &ic->i_sends[oldest];
-+		if (send->s_wr.send_flags & IB_SEND_SIGNALED)
-+			nr_sig++;
- 
--			if (send->s_op) {
--				if (send->s_op == rm->m_final_op) {
--					/* If anyone waited for this message to get flushed out, wake
--					 * them up now */
--					rds_message_unmapped(rm);
--				}
--				rds_message_put(rm);
--				send->s_op = NULL;
--			}
-+		rm = rds_ib_send_unmap_op(ic, send, wc->status);
- 
--			oldest = (oldest + 1) % ic->i_send_ring.w_nr;
--		}
-+		if (time_after(jiffies, send->s_queued + HZ / 2))
-+			rds_ib_stats_inc(s_ib_tx_stalled);
- 
--		rds_ib_ring_free(&ic->i_send_ring, completed);
--		rds_ib_sub_signaled(ic, nr_sig);
--		nr_sig = 0;
--
--		if (test_and_clear_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
--		    test_bit(0, &conn->c_map_queued))
--			queue_delayed_work(rds_wq, &conn->c_send_w, 0);
--
--		/* We expect errors as the qp is drained during shutdown */
--		if (wc.status != IB_WC_SUCCESS && rds_conn_up(conn)) {
--			rds_ib_conn_error(conn, "send completion on %pI4 had status "
--					  "%u (%s), disconnecting and reconnecting\n",
--					  &conn->c_faddr, wc.status,
--					  ib_wc_status_msg(wc.status));
-+		if (send->s_op) {
-+			if (send->s_op == rm->m_final_op) {
-+				/* If anyone waited for this message to get
-+				 * flushed out, wake them up now
-+				 */
-+				rds_message_unmapped(rm);
-+			}
-+			rds_message_put(rm);
-+			send->s_op = NULL;
- 		}
-+
-+		oldest = (oldest + 1) % ic->i_send_ring.w_nr;
-+	}
-+
-+	rds_ib_ring_free(&ic->i_send_ring, completed);
-+	rds_ib_sub_signaled(ic, nr_sig);
-+	nr_sig = 0;
-+
-+	if (test_and_clear_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
-+	    test_bit(0, &conn->c_map_queued))
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-+
-+	/* We expect errors as the qp is drained during shutdown */
-+	if (wc->status != IB_WC_SUCCESS && rds_conn_up(conn)) {
-+		rds_ib_conn_error(conn, "send completion on %pI4 had status %u (%s), disconnecting and reconnecting\n",
-+				  &conn->c_faddr, wc->status,
-+				  ib_wc_status_msg(wc->status));
- 	}
+ 	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+ 				  (BIND_HASH_SIZE - 1));
  }
  
-diff --git a/net/rds/ib_stats.c b/net/rds/ib_stats.c
-index bdf6115..8c8b84f 100644
---- a/net/rds/ib_stats.c
-+++ b/net/rds/ib_stats.c
-@@ -43,7 +43,6 @@ static const char *const rds_ib_stat_names[] = {
- 	"ib_connect_raced",
- 	"ib_listen_closed_stale",
- 	"s_ib_evt_handler_call",
--	"ib_tx_cq_call",
- 	"ib_tasklet_call",
- 	"ib_tx_cq_event",
- 	"ib_tx_ring_full",
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 81ac604..ce98b74 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -431,6 +431,7 @@ over_batch:
- out:
+ /* must hold either read or write lock (write lock for insert != NULL) */
+-static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
++static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
++					__be32 addr, __be16 port,
+ 					struct rds_sock *insert)
+ {
+ 	struct rds_sock *rs;
+-	struct hlist_head *head = hash_to_bucket(addr, port);
++	struct hlist_head *head = &bucket->head;
+ 	u64 cmp;
+ 	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
+ 
+@@ -91,10 +96,11 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ {
+ 	struct rds_sock *rs;
+ 	unsigned long flags;
++	struct bind_bucket *bucket = hash_to_bucket(addr, port);
+ 
+-	read_lock_irqsave(&rds_bind_lock, flags);
+-	rs = rds_bind_lookup(addr, port, NULL);
+-	read_unlock_irqrestore(&rds_bind_lock, flags);
++	read_lock_irqsave(&bucket->lock, flags);
++	rs = rds_bind_lookup(bucket, addr, port, NULL);
++	read_unlock_irqrestore(&bucket->lock, flags);
+ 
+ 	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
+ 		rds_sock_put(rs);
+@@ -113,6 +119,7 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	unsigned long flags;
+ 	int ret = -EADDRINUSE;
+ 	u16 rover, last;
++	struct bind_bucket *bucket;
+ 
+ 	if (*port != 0) {
+ 		rover = be16_to_cpu(*port);
+@@ -122,13 +129,15 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 		last = rover - 1;
+ 	}
+ 
+-	write_lock_irqsave(&rds_bind_lock, flags);
+-
+ 	do {
+ 		struct rds_sock *rrs;
+ 		if (rover == 0)
+ 			rover++;
+-		rrs = rds_bind_lookup(addr, cpu_to_be16(rover), rs);
++
++		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
++		write_lock_irqsave(&bucket->lock, flags);
++		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
++		write_unlock_irqrestore(&bucket->lock, flags);
+ 		if (!rrs) {
+ 			*port = rs->rs_bound_port;
+ 			ret = 0;
+@@ -140,16 +149,16 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 		}
+ 	} while (rover++ != last);
+ 
+-	write_unlock_irqrestore(&rds_bind_lock, flags);
+-
  	return ret;
  }
-+EXPORT_SYMBOL_GPL(rds_send_xmit);
  
- static void rds_send_sndbuf_remove(struct rds_sock *rs, struct rds_message *rm)
+ void rds_remove_bound(struct rds_sock *rs)
  {
+ 	unsigned long flags;
++	struct bind_bucket *bucket =
++		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
+ 
+-	write_lock_irqsave(&rds_bind_lock, flags);
++	write_lock_irqsave(&bucket->lock, flags);
+ 
+ 	if (rs->rs_bound_addr) {
+ 		rdsdebug("rs %p unbinding from %pI4:%d\n",
+@@ -161,7 +170,7 @@ void rds_remove_bound(struct rds_sock *rs)
+ 		rs->rs_bound_addr = 0;
+ 	}
+ 
+-	write_unlock_irqrestore(&rds_bind_lock, flags);
++	write_unlock_irqrestore(&bucket->lock, flags);
+ }
+ 
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -207,3 +216,11 @@ out:
+ 	release_sock(sk);
+ 	return ret;
+ }
++
++void rds_bind_lock_init(void)
++{
++	int i;
++
++	for (i = 0; i < BIND_HASH_SIZE; i++)
++		rwlock_init(&bind_hash_table[i].lock);
++}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index afb4048..121fb81 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -603,6 +603,7 @@ extern wait_queue_head_t rds_poll_waitq;
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
+ void rds_remove_bound(struct rds_sock *rs);
+ struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
++void rds_bind_lock_init(void);
+ 
+ /* cong.c */
+ int rds_cong_get_maps(struct rds_connection *conn);
 -- 
 1.9.1
