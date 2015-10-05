@@ -1,30 +1,38 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [net-next:master 647/682] fib_semantics.c:undefined reference to
- `__divdi3'
-Date: Mon, 5 Oct 2015 23:35:20 +0200
-Message-ID: <20151005213520.GA12921@breakpoint.cc>
-References: <201510051816.pL2fiACx%fengguang.wu@intel.com>
- <20151005.042638.1280563834697071426.davem@davemloft.net>
- <20151005233158.2c09adce@tyr>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: simplify configfs attributes V2
+Date: Mon, 5 Oct 2015 14:37:05 -0700
+Message-ID: <20151005143705.bdcfa7d7b8211506c5dbc12e@linux-foundation.org>
+References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Peter =?iso-8859-15?Q?N=F8rlund?= <pch@ordbogen.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:55854 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751220AbbJEVfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 17:35:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20151005233158.2c09adce@tyr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Joel Becker <jlbec@evilplan.org>,
+	Nicholas Bellinger <nab@linux-iscsi.org>,
+	Felipe Balbi <balbi@ti.com>,
+	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Pratyush Anand <pratyush.anand@gmail.com>,
+	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Peter N=F8rlund <pch@ordbogen.com> wrote:
-> What is the proper way to supply fixes for this kind of errors? Shoul=
-d
-> I submit the original patches again with the bug fixed, or should I
-> submit a patch fixing this particular problem?
+On Sat,  3 Oct 2015 15:32:36 +0200 Christoph Hellwig <hch@lst.de> wrote:
 
-The latter, relative fix, with 'Fixes: <sha1> ("name of commit") tag'.
+> This series consolidates the code to implement configfs attributes
+> by providing the ->show and ->store method in common code and using
+> container_of in the methods to access the containing structure.
+> 
+> This reduces source and binary size of configfs consumers a lot.
+
+There's a version of this patch series (I assume V1) in linux-next via
+Nicholas's tree so my hands are tied.  I trust that Nicholas will
+update things.
+
+Or maybe it was a slipup - modifying usb, ocfs2 etc from the iscsi tree
+is innovative ;)
