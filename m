@@ -1,33 +1,38 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net] act_mirred: always release tcf hash
-Date: Mon, 5 Oct 2015 08:14:27 -0400
-Message-ID: <561269A3.7050103@mojatatu.com>
-References: <1443724663-27158-1-git-send-email-xiyou.wangcong@gmail.com>
- <1443724663-27158-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/2] openvswitch: add tunnel
+ protocol to sw_flow_key
+Date: Mon, 5 Oct 2015 14:23:17 +0200
+Message-ID: <20151005122317.GB5490@pox.localdomain>
+References: <cover.1444041801.git.jbenc@redhat.com>
+ <a8a99b9e11a824ca078f92f8e13aef5955b2a6d4.1444041801.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:35885 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbbJEMOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 08:14:31 -0400
-Received: by ioii196 with SMTP id i196so182344532ioi.3
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 05:14:30 -0700 (PDT)
-In-Reply-To: <1443724663-27158-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <a8a99b9e11a824ca078f92f8e13aef5955b2a6d4.1444041801.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 10/01/15 14:37, Cong Wang wrote:
-> Align with other tc actions.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+T24gMTAvMDUvMTUgYXQgMDE6MDlwbSwgSmlyaSBCZW5jIHdyb3RlOgo+IFN0b3JlIHR1bm5lbCBw
+cm90b2NvbCAoQUZfSU5FVCBvciBBRl9JTkVUNikgaW4gc3dfZmxvd19rZXkuIFRoaXMgZmllbGQg
+bm93Cj4gYWxzbyBhY3RzIGFzIGFuIGluZGljYXRvciB3aGV0aGVyIHRoZSBmbG93IGNvbnRhaW5z
+IHR1bm5lbCBkYXRhICh0aGlzIHdhcwo+IHByZXZpb3VzbHkgaW5kaWNhdGVkIGJ5IHR1bl9rZXku
+dS5pcHY0LmRzdCBiZWluZyBzZXQgYnV0IHdpdGggSVB2NiBhZGRyZXNzZXMKPiBpbiBhbiB1bmlv
+biB3aXRoIElQdjQgb25lcyB0aGlzIHdvbid0IHdvcmsgYW55bW9yZSkuCj4gCj4gVGhlIG5ldyBm
+aWVsZCB3YXMgYWRkZWQgdG8gYSBob2xlIGluIHN3X2Zsb3dfa2V5Lgo+IAo+IFNpZ25lZC1vZmYt
+Ynk6IEppcmkgQmVuYyA8amJlbmNAcmVkaGF0LmNvbT4KPiBBY2tlZC1ieTogUHJhdmluIEIgU2hl
+bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+CgpBY2tlZC1ieTogVGhvbWFzIEdyYWYgPHRncmFmQHN1
+dWcuY2g+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRl
+diBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3Jn
+L21haWxtYW4vbGlzdGluZm8vZGV2Cg==
