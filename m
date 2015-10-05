@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf, seccomp: prepare for upcoming criu
- support
-Date: Mon, 05 Oct 2015 06:53:30 -0700 (PDT)
-Message-ID: <20151005.065330.932479433879939477.davem@davemloft.net>
-References: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/5] Improve ASIX RX memory allocation error handling
+Date: Mon, 05 Oct 2015 06:59:20 -0700 (PDT)
+Message-ID: <20151005.065920.245210984562951592.davem@davemloft.net>
+References: <1443792548-2025-1-git-send-email-Dean_Jenkins@mentor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tycho.andersen@canonical.com,
-	xemul@parallels.com, keescook@chromium.org, luto@amacapital.net,
-	ast@plumgrid.com
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40118 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbbJENhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 09:37:52 -0400
-In-Reply-To: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	linux-AegXhGwVzVhoAEGGzP886w@public.gmane.org, Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org
+To: Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1443792548-2025-1-git-send-email-Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri,  2 Oct 2015 15:17:33 +0200
+From: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Date: Fri, 2 Oct 2015 14:29:03 +0100
 
-> The current ongoing effort to dump existing cBPF seccomp filters back
-> to user space requires to hold the pre-transformed instructions like
-> we do in case of socket filters from sk_attach_filter() side, so they
-> can be reloaded in original form at a later point in time by utilities
-> such as criu.
+> The ASIX RX handler algorithm is weak on error handling.
+> There is a design flaw in the ASIX RX handler algorithm because the
+> implementation for handling RX Ethernet frames for the DUB-E100 C1 can
+> have Ethernet frames spanning multiple URBs. This means that payload data
+> from more than 1 URB is sometimes needed to fill the socket buffer with a
+> complete Ethernet frame. When the URB with the start of an Ethernet frame
+> is received then an attempt is made to allocate a socket buffer. If the
+> memory allocation fails then the algorithm sets the buffer pointer member
+> to NULL and the function exits (no crash yet). Subsequently, the RX hander
+> is called again to process the next URB which assumes there is a socket
+> buffer available and the kernel crashes when there is no buffer.
 > 
-> To prepare for this, simply extend the bpf_prog_create_from_user()
-> API to hold a flag that tells whether we should store the original
-> or not. Also, fanout filters could make use of that in future for
-> things like diag. While fanout filters already use bpf_prog_destroy(),
-> move seccomp over to them as well to handle original programs when
-> present.
+> This patchset implements an improvement to the RX handling algorithm to
+> avoid a crash when no memory is available for the socket buffer.
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> The patchset will apply cleanly to the net-next master branch but the
+> created kernel has not been tested. The driver was tested on ARM kernels
+> v3.8 and v3.14 for a commercial product.
 
-Applied, thanks Daniel.
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
