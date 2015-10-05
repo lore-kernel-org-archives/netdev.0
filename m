@@ -1,80 +1,61 @@
-From: Hante Meuleman <meuleman@broadcom.com>
-Subject: RE: [PATCHv2] brcm80211:Fix locking region in the function
- brcmf_sdio_sendfromq
-Date: Mon, 5 Oct 2015 08:01:45 +0000
-Message-ID: <F51492713EF10846800D8C0ED37A7DCE01995CBF@SJEXCHMB15.corp.ad.broadcom.com>
-References: <1444000277-25694-1-git-send-email-xerofoify@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 10:54:06 +0200
+Message-ID: <20151005085406.GC2278@nanopsycho.orion>
+References: <20150930135141.GF2098@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Arend Van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	brcm80211-dev-list <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>,
-	Brett Rudley <brudley@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444000277-25694-1-git-send-email-xerofoify@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eladr@mellanox.com, idosch@mellanox.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37393 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbbJEIyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 04:54:09 -0400
+Received: by wicfx3 with SMTP id fx3so103971176wic.0
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 01:54:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150930135141.GF2098@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Nicholas, 
+Wed, Sep 30, 2015 at 03:51:41PM CEST, jiri@resnulli.us wrote:
+>Hi Dave/all.
+>
+>There is quite common for drivers to speak with HW using "packet-like"
+>messages. In our case, we put message into skb and push that out as
+>an ordinary packet. HW then sends us reply in a packet, similar to other
+>rx-ed packets.
+>
+>It makes sense to monitor this communication. Not only for debugging
+>during development, but mainly for collecting data for error reports
+>from users.
+>
+>Very cool usecase is to teach wireshark to parse this communication so
+>one can actually see online what is going on.
+>
+>Now the question is, what is the correct way to expose this
+>communication to userspace. Naturally, this interface should be read-only.
+>Also, the interface should be generic enough so it can be used for all
+>drivers, including non-net drivers.
+>
+>1) Special monitoring netdev.
+>Might make sense to use a separate netdev. Is is easy to tap the
+>communication. Driver would just create new netdev and push incoming and
+>outgoing messages there. Downside is that there would be needed to wrap the
+>messages with some metadata header, which seems quite odd.
+>
+>2) generic Netlink (genl) interface. Easy to put metadata in, including the
+>device identificator (pci address). User then can use nlmon in order to
+>be able to use wireshark to see the netlink messages.
+>
+>Looks like 2) might be viable, well-defined, generic interface to carry
+>this info. What do you think? Does this make sense?
+>
+>Thanks!
+>
+>Jiri
 
-I can understand that if you read the comment that there is supposed to be a lock taken, but why would you assume that it is the txq_lock? Two things:
+Any ideas, anyone, Dave, please?
 
-1) The comment that a look should have been taken is wrong. Once upon a time a packet could be transmitted/handled from two paths. To protect for concurrency the callee of brcmf_sdio_txpkt was assumed to have take some sort of lock to protect against this. 
-2) Nowadays all frames are put on the txq and then pulled from that queue in the DPC. This queue is protected with a lock and therefor a lock is taken around the dequeueing of txq in dpc. Also the reason for the chosen var name txq_lock. This lock protects for concurrent access to the txq and the lock should be taken as short as possible, and therefor this patch could possible result in throughput degradation and does not solve anything.
-
-Please do not submit this patch, if anything then remove the comment from the function brcmf_sdio_txpkt.
-
-Regards,
-Hante
-
------Original Message-----
-From: Nicholas Krause [mailto:xerofoify@gmail.com] 
-Sent: Monday, October 05, 2015 1:11 AM
-To: Brett Rudley
-Cc: Arend Van Spriel; Franky (Zhenhui) Lin; Hante Meuleman; kvalo@codeaurora.org; Pieter-Paul Giesberts; linux-wireless@vger.kernel.org; brcm80211-dev-list; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: [PATCHv2] brcm80211:Fix locking region in the function brcmf_sdio_sendfromq
-
-This fixes the locking region in the function brcmf_sdio_sendfromq
-to properly lock around the call to the function brcmrf_sdio_txpkt
-in order to avoid concurrent access issues when calling this
-function as stated in the function's comments about the caller
-being required to lock around the call to this particular function.
-
-Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
----
-v2
-Fix issue with deadlock occurrence due to not unlocking before
-break in for loop if the variable i is equal to zero
- drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-index f990e3d..260f063 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-@@ -2388,11 +2388,13 @@ static uint brcmf_sdio_sendfromq(struct brcmf_sdio *bus, uint maxframes)
- 				break;
- 			__skb_queue_tail(&pktq, pkt);
- 		}
--		spin_unlock_bh(&bus->txq_lock);
--		if (i == 0)
-+		if (i == 0) {
-+			spin_unlock_bh(&bus->txq_lock);
- 			break;
-+		}
- 
- 		ret = brcmf_sdio_txpkt(bus, &pktq, SDPCM_DATA_CHANNEL);
-+		spin_unlock_bh(&bus->txq_lock);
- 
- 		cnt += i;
- 
--- 
-2.1.4
+Thanks!
