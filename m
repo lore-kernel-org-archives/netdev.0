@@ -1,56 +1,29 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH 2/3][RESEND] powerpc: dts: p1022si: Add fsl,wake-on-filer for eTSEC
-Date: Mon, 5 Oct 2015 17:19:58 +0300
-Message-ID: <1444054799-17876-2-git-send-email-claudiu.manoil@freescale.com>
-References: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/5] net: Add netif_is_l3_slave
+Date: Mon, 5 Oct 2015 08:44:31 -0600
+Message-ID: <56128CCF.3080209@cumulusnetworks.com>
+References: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
+ <1443713247-11230-3-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Li Yang <leoli@freescale.com>,
-	Zhao Chenhui <chenhui.zhao@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0128.outbound.protection.outlook.com ([65.55.169.128]:16105
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751351AbbJEOjz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Oct 2015 10:39:55 -0400
-In-Reply-To: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34463 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752538AbbJEOod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 10:44:33 -0400
+Received: by padhy16 with SMTP id hy16so38845490pad.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 07:44:33 -0700 (PDT)
+In-Reply-To: <1443713247-11230-3-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the "wake-on-filer" (aka. wake on user defined packet)
-wake on lan capability for the eTSEC ethernet nodes.
+On 10/1/15 9:27 AM, David Ahern wrote:
+> IPv6 addrconf keys off of IFF_SLAVE so can not use it for L3 slave.
+> Add a new private flag and add netif_is_l3_slave function for checking
+> it.
 
-Cc: Li Yang <leoli@freescale.com>
-Cc: Zhao Chenhui <chenhui.zhao@freescale.com>
-
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
-Patch initially sent to the ppc-devel list,
-resend it to the netdev list:
-http://patchwork.ozlabs.org/patch/524904/
-
- arch/powerpc/boot/dts/fsl/p1022si-post.dtsi | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi b/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
-index 426bf41..5f51b7b 100644
---- a/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
-+++ b/arch/powerpc/boot/dts/fsl/p1022si-post.dtsi
-@@ -224,10 +224,12 @@
- 
- /include/ "pq3-etsec2-0.dtsi"
- 	enet0: enet0_grp2: ethernet@b0000 {
-+		fsl,wake-on-filer;
- 	};
- 
- /include/ "pq3-etsec2-1.dtsi"
- 	enet1: enet1_grp2: ethernet@b1000 {
-+		fsl,wake-on-filer;
- 	};
- 
- 	global-utilities@e0000 {
--- 
-1.7.11.7
+After pulling in Cong's patch to address the warning on device remove I 
+need to respin this one.
