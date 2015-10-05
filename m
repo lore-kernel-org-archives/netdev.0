@@ -1,40 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
- pppoe_flush_dev()
-Date: Mon, 05 Oct 2015 03:05:00 -0700 (PDT)
-Message-ID: <20151005.030500.1845779775642013934.davem@davemloft.net>
-References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH] amd-xgbe: fix potential memory leak in xgbe-debugfs
+Date: Mon, 05 Oct 2015 03:06:26 -0700 (PDT)
+Message-ID: <20151005.030626.952511811755440522.davem@davemloft.net>
+References: <636eed156113df40f9dd5e696f0486f428aff590.1443638366.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org, core@irc.lg.ua,
-	nuclearcat@nuclearcat.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38698 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbbJEJtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:49:21 -0400
-In-Reply-To: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geliangtang@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <636eed156113df40f9dd5e696f0486f428aff590.1443638366.git.geliangtang@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Wed, 30 Sep 2015 11:45:33 +0200
+From: Geliang Tang <geliangtang@163.com>
+Date: Wed, 30 Sep 2015 03:48:50 -0700
 
-> Since commit 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release"),
-> pppoe_release() calls dev_put(po->pppoe_dev) if sk is in the
-> PPPOX_ZOMBIE state. But pppoe_flush_dev() can set sk->sk_state to
-> PPPOX_ZOMBIE _and_ reset po->pppoe_dev to NULL. This leads to the
-> following oops:
- ...
-> pppoe_flush_dev() has no reason to override sk->sk_state with
-> PPPOX_ZOMBIE. pppox_unbind_sock() already sets sk->sk_state to
-> PPPOX_DEAD, which is the correct state given that sk is unbound and
-> po->pppoe_dev is NULL.
+> Added kfree() to avoid the memory leak when debugfs_create_dir() fails.
 > 
-> Fixes: 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release")
-> Tested-by: Oleksii Berezhniak <core@irc.lg.ua>
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
