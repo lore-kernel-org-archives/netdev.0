@@ -1,120 +1,97 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next 00/14] rocker: add support for multiple worlds
-Date: Mon, 05 Oct 2015 10:56:26 -0700
-Message-ID: <5612B9CA.2010101@gmail.com>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us> <56129A32.1010201@gmail.com> <20151005163012.GO2278@nanopsycho.orion> <5612AC1E.1050504@gmail.com> <20151005173951.GT2278@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
-	idosch@mellanox.com, eladr@mellanox.com, tgraf@suug.ch,
-	ast@plumgrid.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34739 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750953AbbJER4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:56:42 -0400
-Received: by padhy16 with SMTP id hy16so43035717pad.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:56:41 -0700 (PDT)
-In-Reply-To: <20151005173951.GT2278@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH v3 00/14] RDS: connection scalability and performance improvements
+Date: Mon,  5 Oct 2015 10:56:23 -0700
+Message-ID: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
+[v3]
+Updated patch "[PATCH v2 05/14] RDS: defer the over_batch work to
+send worker" as per David Miller's comment [4] to avoid the magic
+value usage. Patch now makes use of already available but unused
+send_batch_count module parameter. Rest of the patches are same as
+earlier version v2 [3]
 
->> I think your underestimating the flexibility of hardware. And
->> completely missing the hardware that is based on FPGAs and/or cell
->> architectures. This hardware is available today and could support
->> topology changes like this. But even less exotic hardware can/will
->> support parser updates which makes the device behave differently.
-> 
-> Sure, I'm just trying to explain that woulds and your "profiles" are
-> something completely different. I feel like we are running in circles.
-> 
+[v2]:
+Dropped "[PATCH 05/15] RDS: increase size of hash-table to 8K" from
+earlier version [1]. I plan to address the hash table scalability using
+re-sizable hash tables as suggested by David Laight and David Miller [2]
 
-Must be going in circles because I don't see the difference.
+This series addresses RDS connection bottlenecks on massive workloads and
+improve the RDMA performance almost by 3X. RDS TCP also gets a small gain
+of about 12%.
 
-> 
->>
->> Other hardware can reconfigure the topology within some constraints,
->> the fm10k device supports this model. An extreme example would put
->> an ebpf interpreter in a fpga on the nic and expose it via a driver.
->>
->> If its just for rocker purposes I'm not really excited about adding
->> it to the kernel to support a qemu device. If we allow it for one
-> 
-> What exactly are you against? Multi-world support as it is of the
-> userspace iface to change worlds? If the second, I understand, kind of.
-> 
+RDS is being used in massive systems with high scalability where several
+hundred thousand end points and tens of thousands of local processes
+are operating in tens of thousand sockets. Being RC(reliable connection),
+socket bind and release happens very often and any inefficiencies in
+bind hash look ups hurts the overall system performance. RDS bin hash-table
+uses global spin-lock which is the biggest bottleneck. To make matter worst,
+it uses rcu inside global lock for hash buckets.
+This is being addressed by simply using per bucket rw lock which makes the
+locking simple and very efficient. The hash table size is still an issue and
+I plan to address it by using re-sizable hash tables as suggested on the list.
 
-Just the userspace interface. I have hardware that can support
-multiple worlds (although I'm fuzzy what you mean by worlds) today and
-want to expose that as well. I guess my main objection is I wanted to
-get away from out of band firmware/microcode updates and this doesn't
-really look much better to me as I currently understand it. I'll have
-a bank of microcode images and depending on the string load one of them.
+For RDS RDMA improvement, the completion handling is revamped so that we
+can do batch completions. Both send and receive completion handlers are
+split logically to achieve the same. RDS 8K messages being one of the
+key usecase, mr pool is adapted to have the 8K mrs along with default 1M
+mrs. And while doing this, few fixes and couple of bottlenecks seen with
+rds_sendmsg() are addressed.
 
-I agree we need some way to support configurable hardware.
+Series applies against 4.3-rc1 as well net-next. Its tested on Oracle
+hardware with IB fabric for both bcopy as well as RDMA mode. RDS TCP is
+tested with iXGB NIC. Like last time, iWARP transport is untested with
+these changes. The patchset is also available at below git repo:
 
-> 
->> driver I don't see how/why we should block it for "real" devices.
->>From the kernels point of view these are all real drivers. I could
->> build a qemu model that maps 1:1 with real hardware and do a drop
->> in replacement.
->>
->>>
->>> Rocker has a notion of "worlds". When a port is set to be in a certain
->>> world, it behaves in completely different way. Now we have just OF-DPA
->>> world. I will be adding BPF world shortly.
->>>
->>> This has nothing to do with profiles as you describe it, this is
->>> something completely different!
->>>
->>>
->>
->> I'm missing why its different.
->>
->> Would you object to me adding multiple worlds to fm10k
->> using opaque strings? I'll create a world with a topology that maps
->> well to ipv4 networks, a world for ipv6 networks, a world for l2 flat
->> networks, etc. Each world in this example will have a specific table
-> 
-> Not worlds in rocker terminology. This is what you call profiles.
-> 
-> 
->> topology and parser to support it. In this sense the ports will behave
->> in completely different ways i.e. packets will be processed by
->> different pipelines. Are you suggesting we do this?
-> 
-> No, I definitelly do not suggest this. Again, this is what you call "profile".
-> I don't care about those, not in the scope of this patchset.
-> 
+git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git net/rds/4.3-v3
 
-hmm maybe you can explain to me what makes a change large enough
-to be called a "world" and where it is a "profile"?
+As a side note, the IB HCA driver I used for testing misses at least 3
+important patches in upstream to see the full blown IB performance and
+am hoping to get that in mainline with help of them.
 
-[...]
+Santosh Shilimkar (14):
+  RDS: use kfree_rcu in rds_ib_remove_ipaddr
+  RDS: make socket bind/release locking scheme simple and more efficient
+  RDS: fix rds_sock reference bug while doing bind
+  RDS: Use per-bucket rw lock for bind hash-table
+  RDS: defer the over_batch work to send worker
+  RDS: use rds_send_xmit() state instead of RDS_LL_SEND_FULL
+  RDS: IB: ack more receive completions to improve performance
+  RDS: IB: split send completion handling and do batch ack
+  RDS: IB: handle rds_ibdev release case instead of crashing the kernel
+  RDS: IB: fix the rds_ib_fmr_wq kick call
+  RDS: IB: use already available pool handle from ibmr
+  RDS: IB: mark rds_ib_fmr_wq static
+  RDS: IB: use max_mr from HCA caps than max_fmr
+  RDS: IB: split mr pool to improve 8K messages performance
 
-skipped a few comments because I think they were interesting but not
-the point I was trying to ask.
+ net/rds/af_rds.c   |   8 +---
+ net/rds/bind.c     |  76 ++++++++++++++++++------------
+ net/rds/ib.c       |  47 ++++++++++++------
+ net/rds/ib.h       |  78 +++++++++++++++++++++++-------
+ net/rds/ib_cm.c    | 114 ++++++++++++++++++++++++++++++++++++++++++--
+ net/rds/ib_rdma.c  | 116 ++++++++++++++++++++++++++++++---------------
+ net/rds/ib_recv.c  | 136 +++++++++++++++--------------------------------------
+ net/rds/ib_send.c  | 110 ++++++++++++++++++++-----------------------
+ net/rds/ib_stats.c |  22 +++++----
+ net/rds/rds.h      |   1 +
+ net/rds/send.c     |  19 +++++---
+ net/rds/threads.c  |   2 +
+ 12 files changed, 447 insertions(+), 282 deletions(-)
 
->> Its related in that if you expose your device model you do not need
->> opaque strings to do wholesale reconfiguration of the device. Instead
->> if the parts of the device that are configurable are exposed to the
->> user they can build the "world" they want.
-> 
-> No, this is not about building. This is about choosing from fixed-sized
-> pre-defined list of choices. Again, no "profiles".
-> 
+-- 
+1.9.1
 
-But I can just expose a list of pre-defined choices that map to what
-I call "profiles". Must be missing the point help me understand what
-a world is vs profile?
+Regards,
+Santosh
 
-Maybe our goals are not actually conflicting. Do you have any objection
-to pushing configuration code to create tables, insert a new parser,
-and change the table topology, and then bind the tables to software
-subsystems like fdb, l3, tc, nft, bpf, etc.
-
-.John
+[1] https://lkml.org/lkml/2015/9/19/384
+[2] https://lkml.org/lkml/2015/9/21/828
+[3] https://lkml.org/lkml/2015/9/30/846
+[4] https://lkml.org/lkml/2015/10/5/412
