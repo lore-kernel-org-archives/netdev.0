@@ -1,47 +1,45 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH v2] ath6kl: drop unlikely behind WARN_ON()
-Date: Mon,  5 Oct 2015 20:46:12 +0800
-Message-ID: <61de1b17c432479ccded41edfb553e2d20ebf8ae.1444048783.git.geliangtang@163.com>
-References: <87si5p4l09.fsf@kamboji.qca.qualcomm.com>
-Cc: Geliang Tang <geliangtang@163.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] regmap: Allow installing custom
+ reg_update_bits function
+Date: Mon, 05 Oct 2015 06:16:09 -0700 (PDT)
+Message-ID: <20151005.061609.75433802286337666.davem@davemloft.net>
+References: <1443699801-8888-1-git-send-email-jon@ringle.org>
+	<20151005.035443.992186445847147964.davem@davemloft.net>
+	<alpine.DEB.2.10.1510050755120.27553@jring-w510-7m3g.gridpoint.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jon@ringle.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87si5p4l09.fsf@kamboji.qca.qualcomm.com>
+In-Reply-To: <alpine.DEB.2.10.1510050755120.27553@jring-w510-7m3g.gridpoint.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-WARN_ON() already contain an unlikely compiler flag. Drop it.
+From: Jon Ringle <jon@ringle.org>
+Date: Mon, 5 Oct 2015 07:57:00 -0400 (EDT)
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
-Changes in v2:
- - change subject prefix to ath6kl.
----
- drivers/net/wireless/ath/ath6kl/cfg80211.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> 
+> On Mon, 5 Oct 2015, David Miller wrote:
+> 
+>> From: jon@ringle.org
+>> Date: Thu,  1 Oct 2015 07:43:20 -0400
+>> 
+>> > From: Jon Ringle <jringle@gridpoint.com>
+>> > 
+>> > This commit allows installing a custom reg_update_bits function for cases where
+>> > the hardware provides a mechanism to set or clear register bits without a
+>> > read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
+>> > 
+>> > Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+>> 
+>> Applied.
+> 
+> Thanks David. However, I've sent a v3 patch, and also expecting feedback 
+> from Mark Brown on the regmap portion of it.
 
-diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index a511ef3..fe38fc4 100644
---- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
-+++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -2217,7 +2217,7 @@ static int ath6kl_wow_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
- 
- 	/* enter / leave wow suspend on first vif always */
- 	first_vif = ath6kl_vif_first(ar);
--	if (WARN_ON(unlikely(!first_vif)) ||
-+	if (WARN_ON(!first_vif) ||
- 	    !ath6kl_cfg80211_ready(first_vif))
- 		return -EIO;
- 
-@@ -2297,7 +2297,7 @@ static int ath6kl_wow_resume(struct ath6kl *ar)
- 	int ret;
- 
- 	vif = ath6kl_vif_first(ar);
--	if (WARN_ON(unlikely(!vif)) ||
-+	if (WARN_ON(!vif) ||
- 	    !ath6kl_cfg80211_ready(vif))
- 		return -EIO;
- 
--- 
-2.5.0
+Please send me relative changes from v2 to v3, thanks.
+
+Sorry about that.
