@@ -1,64 +1,52 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: HW communication debugging interface - ideas?
-Date: Mon, 05 Oct 2015 08:29:09 -0700
-Message-ID: <56129745.1020805@gmail.com>
-References: <20150930135141.GF2098@nanopsycho.orion> <9B0331B6EBBD0E4684FBFAEDA55776F91944E43E@HASMSX110.ger.corp.intel.com> <20151005095633.GE2278@nanopsycho.orion> <20151005144941.GC8673@lunn.ch> <20151005145542.GJ2278@nanopsycho.orion> <20151005145842.GD8673@lunn.ch> <20151005151821.GK2278@nanopsycho.orion>
+From: santosh shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 05/14] RDS: defer the over_batch work to send worker
+Date: Mon, 5 Oct 2015 08:31:00 -0700
+Message-ID: <561297B4.8000403@oracle.com>
+References: <1443633873-13359-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1443633873-13359-6-git-send-email-santosh.shilimkar@oracle.com>
+ <20151005.033024.2236659260552514725.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Rosen, Rami" <rami.rosen@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"idosch@mellanox.com" <idosch@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35386 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180AbbJEP31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:29:27 -0400
-Received: by pacfv12 with SMTP id fv12so183624908pac.2
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:29:26 -0700 (PDT)
-In-Reply-To: <20151005151821.GK2278@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151005.033024.2236659260552514725.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 15-10-05 08:18 AM, Jiri Pirko wrote:
-> Mon, Oct 05, 2015 at 04:58:42PM CEST, andrew@lunn.ch wrote:
->> On Mon, Oct 05, 2015 at 04:55:42PM +0200, Jiri Pirko wrote:
->>> Mon, Oct 05, 2015 at 04:49:41PM CEST, andrew@lunn.ch wrote:
->>>>>> Are you referring here to messages of the EMAD protocol ?
->>>>
->>>> I know nothing about this protocol.....
->>>>
->>>> Does it at least use standard Ethernet framing? Source and Destination
->>>> header and an EtherType which mean EMAD?
->>>
->>> Yep, but that does not really matter. I believe we should find debugging
->>> interface which is protocol agnostic. Just arbitrary messages
->>> monitoring.
->>
->> Hi Jiri
->>
->> O.K, it is just that you mentioned wireshark. Passing the frames to
->> network interface taps would make this trivial.
-> 
-> That is true. But using netlink+nlmon would do the same.
+On 10/5/2015 3:30 AM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Date: Wed, 30 Sep 2015 13:24:24 -0400
+>
+>> @@ -423,7 +423,9 @@ over_batch:
+>>   		     !list_empty(&conn->c_send_queue)) &&
+>>   		    send_gen == conn->c_send_gen) {
+>>   			rds_stats_inc(s_send_lock_queue_raced);
+>> -			goto restart;
+>> +			if (batch_count < 1024)
+>> +				goto restart;
+>> +			queue_delayed_work(rds_wq, &conn->c_send_w, 1);
+>
+> Sorry, you can't just use a magic number like this.
+>
+> You have to describe, in detail, exactly how this value was
+> choosen, derived, and tested to be effeective and in exactly
+> what environment those tests were done.
+>
+> You must also use a mnenomic for this value rather than a
+> raw magic constant.
+>
+Right. Infact If I look at it now again, there is already a batch
+count parameter which is module parameter. I will use that in
+this hunk as well as the other couple places and send an update.
 
-Also I guess if you go this direction you want to make it generic
-enough for any drivers to use it to snoop software/firmware msgs. This
-is common across many devices.
+Thanks for review !!
 
-In the past though I've just used ethtool dump commands and some
-"scripts" on top of this to debug devices. And when it got really
-bad wrote some throw away code to debug my issue. I guess it might
-be nice to have something in the kernel to improve this but have
-you considered using the tracing features that already exist?
-
-.John
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Regards,
+Santosh
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
