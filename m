@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: asix: Fix crash on skb alloc failure
-Date: Mon, 05 Oct 2015 03:31:55 -0700 (PDT)
-Message-ID: <20151005.033155.2121849340240343993.davem@davemloft.net>
-References: <1443644404-6452-1-git-send-email-linux@davidrobins.net>
+Subject: Re: [PATCH v2 net-next 0/3] RDS: RDS-TCP perf enhancements
+Date: Mon, 05 Oct 2015 03:35:47 -0700 (PDT)
+Message-ID: <20151005.033547.905125073688788587.davem@davemloft.net>
+References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux@davidrobins.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
+	igor.maximov@oracle.com, santosh.shilimkar@oracle.com,
+	sergei.shtylyov@cogentembedded.com
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443644404-6452-1-git-send-email-linux@davidrobins.net>
+In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "David B. Robins" <linux@davidrobins.net>
-Date: Wed, 30 Sep 2015 16:20:04 -0400
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 30 Sep 2015 16:54:06 -0400
 
-> If asix_rx_fixup_internal() fails to allocate rx->ax_skb, it will return
-> but not clear rx->size. rx points to driver private data. A later call
-> assumes that nonzero size means ax_skb was allocated and passes a null
-> ax_skb to skb_put. Changed allocation failure return to clear size first.
+> A 3-part patchset that (a) improves current RDS-TCP perf
+> by 2X-3X and (b) refactors earlier robustness code for
+> better observability/scaling.
 > 
-> Found testing board with AX88772B devices.
+> Patch 1 is an enhancment of earlier robustness fixes 
+> that had used separate sockets for client and server endpoints to
+> resolve race conditions. It is possible to have an equivalent
+> solution that does not use 2 sockets. The benefit of a
+> single socket solution is that it results in more predictable
+> and observable behavior for the underlying TCP pipe of an 
+> RDS connection
 > 
-> Signed-off-by: David B. Robins <linux@davidrobins.net>
+> Patches 2 and 3 are simple, straightforward perf bug fixes
+> that align the RDS TCP socket with other parts of the kernel stack.
+> 
+> v2: fix kbuild-test-robot warnings, comments from  Sergei Shtylov
+>     and Santosh Shilimkar. 
 
-Applied, thanks.
+Series applied to net-next, thanks.
