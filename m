@@ -1,59 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next 10/14] rocker: pass "learning" value as a
- parameter to rocker_port_set_learning
-Date: Mon, 5 Oct 2015 15:16:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBAC9ED@AcuExch.aculab.com>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
- <1443993949-3915-11-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 17:18:21 +0200
+Message-ID: <20151005151821.GK2278@nanopsycho.orion>
+References: <20150930135141.GF2098@nanopsycho.orion>
+ <9B0331B6EBBD0E4684FBFAEDA55776F91944E43E@HASMSX110.ger.corp.intel.com>
+ <20151005095633.GE2278@nanopsycho.orion>
+ <20151005144941.GC8673@lunn.ch>
+ <20151005145542.GJ2278@nanopsycho.orion>
+ <20151005145842.GD8673@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rosen, Rami" <rami.rosen@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"ast@plumgrid.com" <ast@plumgrid.com>
-To: 'Jiri Pirko' <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	"idosch@mellanox.com" <idosch@mellanox.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:62883 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022AbbJEPRS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:17:18 -0400
-In-Reply-To: <1443993949-3915-11-git-send-email-jiri@resnulli.us>
-Content-Language: en-US
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37707 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409AbbJEPSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:18:25 -0400
+Received: by wicfx3 with SMTP id fx3so119481682wic.0
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:18:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20151005145842.GD8673@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko
-> Sent: 04 October 2015 22:26
-> Be consistent with the rest of the setting functions, and pass
-> "learning" as a bool function parameter.
-...
-> diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-> index fb7e8c2..d9329a7 100644
-> --- a/drivers/net/ethernet/rocker/rocker_main.c
-> +++ b/drivers/net/ethernet/rocker/rocker_main.c
-> @@ -1634,6 +1634,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
->  				  struct rocker_desc_info *desc_info,
->  				  void *priv)
->  {
-> +	bool learning = *(int *)priv;
-...
-> static int rocker_port_set_learning(struct rocker_port *rocker_port,
-> -				    struct switchdev_trans *trans)
-> +				    struct switchdev_trans *trans,
-> +				    bool learning)
-> {
->  	return rocker_cmd_exec(rocker_port, trans, 0,
->  			       rocker_cmd_set_port_learning_prep,
-> -			       NULL, NULL, NULL);
-> +			       &learning, NULL, NULL);
+Mon, Oct 05, 2015 at 04:58:42PM CEST, andrew@lunn.ch wrote:
+>On Mon, Oct 05, 2015 at 04:55:42PM +0200, Jiri Pirko wrote:
+>> Mon, Oct 05, 2015 at 04:49:41PM CEST, andrew@lunn.ch wrote:
+>> >> >Are you referring here to messages of the EMAD protocol ?
+>> >
+>> >I know nothing about this protocol.....
+>> >
+>> >Does it at least use standard Ethernet framing? Source and Destination
+>> >header and an EtherType which mean EMAD?
+>> 
+>> Yep, but that does not really matter. I believe we should find debugging
+>> interface which is protocol agnostic. Just arbitrary messages
+>> monitoring.
+>
+>Hi Jiri
+>
+>O.K, it is just that you mentioned wireshark. Passing the frames to
+>network interface taps would make this trivial.
 
-This hit my 'casting between integer pointer types' bell.
-It is clearly wrong if 'sizeof (bool) != sizeof (int)'.
-
-It is much safer to only ever cast structure types to/from 'void *'.
-
-	David
+That is true. But using netlink+nlmon would do the same.
