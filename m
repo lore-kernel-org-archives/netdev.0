@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/3] RDS: RDS-TCP perf enhancements
-Date: Mon, 05 Oct 2015 03:35:47 -0700 (PDT)
-Message-ID: <20151005.033547.905125073688788587.davem@davemloft.net>
-References: <cover.1443636587.git.sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next 0/6] net: Pass net through ip fragmention
+Date: Mon, 05 Oct 2015 03:40:07 -0700 (PDT)
+Message-ID: <20151005.034007.1804140165683943141.davem@davemloft.net>
+References: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
+	<87si62gteh.fsf_-_@x220.int.ebiederm.org>
+	<877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
-	igor.maximov@oracle.com, santosh.shilimkar@oracle.com,
-	sergei.shtylyov@cogentembedded.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1443636587.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	nicolas.dichtel@6wind.com, pablo@netfilter.org
+To: ebiederm@xmission.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed, 30 Sep 2015 16:54:06 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 30 Sep 2015 16:24:40 -0500
 
-> A 3-part patchset that (a) improves current RDS-TCP perf
-> by 2X-3X and (b) refactors earlier robustness code for
-> better observability/scaling.
 > 
-> Patch 1 is an enhancment of earlier robustness fixes 
-> that had used separate sockets for client and server endpoints to
-> resolve race conditions. It is possible to have an equivalent
-> solution that does not use 2 sockets. The benefit of a
-> single socket solution is that it results in more predictable
-> and observable behavior for the underlying TCP pipe of an 
-> RDS connection
+> This is the next installment of my work to pass struct net through the
+> output path so the code does not need to guess how to figure out which
+> network namespace it is in, and ultimately routes can have output
+> devices in another network namespace.
 > 
-> Patches 2 and 3 are simple, straightforward perf bug fixes
-> that align the RDS TCP socket with other parts of the kernel stack.
+> This round focuses on passing net through ip fragmentation which we seem
+> to call from about everywhere.  That is the main ip output paths, the
+> bridge netfilter code, and openvswitch.  This has to happend at once
+> accross the tree as function pointers are involved.
 > 
-> v2: fix kbuild-test-robot warnings, comments from  Sergei Shtylov
->     and Santosh Shilimkar. 
+> First some prep work is done, then ipv4 and ipv6 are converted and then
+> temporary helper functions are removed.
+> 
+> The changes are also available against nf-next at:
+> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
 
-Series applied to net-next, thanks.
+Pulled, thanks Eric.
