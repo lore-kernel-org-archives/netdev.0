@@ -1,55 +1,74 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH 3.19 and earlier] fib_rules: Fix dump_rules() not to exit
- early
-Date: Mon, 5 Oct 2015 23:50:50 +0200
-Message-ID: <5612F0BA.40208@suse.cz>
-References: <1444066168-5566-1-git-send-email-roland@kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Mon, 5 Oct 2015 15:02:57 -0700
+Message-ID: <CAGXu5jKTDzMXXYJdWdP=b4fABu_b5ifjv88RVMgBkiR=_JUAog@mail.gmail.com>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
+	<1444078101-29060-2-git-send-email-ast@plumgrid.com>
+	<CAGXu5j+s+3Z6=WKKNGouNijNKcrq5o_n9-BD85Nabd-_GtL+ag@mail.gmail.com>
+	<5612E7C4.1010306@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@purestorage.com>
-To: Roland Dreier <roland@kernel.org>, netdev@vger.kernel.org,
-	stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1444066168-5566-1-git-send-email-roland@kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5612E7C4.1010306@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/05/2015, 07:29 PM, Roland Dreier wrote:
-> From: Roland Dreier <roland@purestorage.com>
-> 
-> Backports of 41fc014332d9 ("fib_rules: fix fib rule dumps across
-> multiple skbs") introduced a regression in "ip rule show" - it ends up
-> dumping the first rule over and over and never exiting, because 3.19
-> and earlier are missing commit 053c095a82cf ("netlink: make
-> nlmsg_end() and genlmsg_end() void"), so fib_nl_fill_rule() ends up
-> returning skb->len (i.e. > 0) in the success case.
-> 
-> Fix this by checking the return code for < 0 instead of != 0.
-> 
-> Signed-off-by: Roland Dreier <roland@purestorage.com>
-> ---
-> Hi, this is needed for all stable trees earlier than 4.0 that have
-> picked up 41fc014332d9; so far looks like at least 3.10.y and 3.14.y
-> have made such releases.
-> 
->  net/core/fib_rules.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-> index 627e517077e4..84340a2605ed 100644
-> --- a/net/core/fib_rules.c
-> +++ b/net/core/fib_rules.c
-> @@ -606,7 +606,7 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
->  		err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
->  				       cb->nlh->nlmsg_seq, RTM_NEWRULE,
->  				       NLM_F_MULTI, ops);
-> -		if (err)
-> +		if (err < 0)
+On Mon, Oct 5, 2015 at 2:12 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 10/5/15 2:00 PM, Kees Cook wrote:
+>>
+>> On Mon, Oct 5, 2015 at 1:48 PM, Alexei Starovoitov<ast@plumgrid.com>
+>> wrote:
+>>>
+>>> >In order to let unprivileged users load and execute eBPF programs
+>>> >teach verifier to prevent pointer leaks.
+>>> >Verifier will prevent
+>>> >- any arithmetic on pointers
+>>> >   (except R10+Imm which is used to compute stack addresses)
+>>> >- comparison of pointers
+>>> >- passing pointers to helper functions
+>>> >- indirectly passing pointers in stack to helper functions
+>>> >- returning pointer from bpf program
+>>> >- storing pointers into ctx or maps
+>>
+>> Does the arithmetic restriction include using a pointer as an index to
+>> a maps-based tail call? I'm still worried about pointer-based
+>> side-effects.
+>
+>
+> the array maps that hold FDs (BPF_MAP_TYPE_PROG_ARRAY and
+> BPF_MAP_TYPE_PERF_EVENT_ARRAY) don't have lookup/update accessors
+> from the program side, so programs cannot see or manipulate
+> those pointers.
+> For the former only bpf_tail_call() is allowed that takes integer
+> index and jumps to it. And the latter map accessed with
 
-I integrated the fix into the backport of 41fc014332d9 in 3.12 and made
-a note in there. Thanks!
+Okay, so I can't take a pointer, put it on the stack, take it back any
+part of it as an integer and use it for a tail call?
+
+Sounds like this is shaping up nicely! Thanks for adding all these checks.
+
+-Kees
+
+> bpf_perf_event_read() that also takes index only (this helper
+> is not available to socket filters anyway).
+> Also bpf_tail_call() can only jump to the program of the same type.
+> So I'm quite certain it's safe.
+>
+> Yes, please ask questions and try to poke holes. Now it is time.
+>
+
+
 
 -- 
-js
-suse labs
+Kees Cook
+Chrome OS Security
