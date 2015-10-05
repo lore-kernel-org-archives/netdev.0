@@ -1,25 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2015-09-30
-Date: Mon, 05 Oct 2015 03:08:01 -0700 (PDT)
-Message-ID: <20151005.030801.1368188560048601003.davem@davemloft.net>
-References: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 09:54:38 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F91944E43E@HASMSX110.ger.corp.intel.com>
+References: <20150930135141.GF2098@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1443611564-1299-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"idosch@mellanox.com" <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:21376 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752503AbbJEJyk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:54:40 -0400
+In-Reply-To: <20150930135141.GF2098@nanopsycho.orion>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 30 Sep 2015 13:12:43 +0200
+Hi, Jiri,
 
-> this is a pull request of a single patch for 4.3.
-> 
-> The patch is by Stephane Grosjean and add support for the peak OEM PCI card to
-> the peak_pci driver by adding its device ID.
+>In our case, we put message into skb and  ...
 
-Pulled, thanks Marc.
+Just to be sure we are on the same page:
+
+By "In our case" - I assume you are referring to the mlxsw Ethernet switch driver, right ? 
+
+>we put message into skb and push that out as an ordinary packet. >HW then > sends us reply in a packet, similar to other rx-ed packets.
+
+Are you referring here to messages of the EMAD protocol ?
+
+Rami Rosen
+Intel Corporation
