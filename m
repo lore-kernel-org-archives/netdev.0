@@ -1,114 +1,169 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode
- [gs]etting
-Date: Mon, 5 Oct 2015 19:12:20 +0200
-Message-ID: <20151005171219.GR2278@nanopsycho.orion>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
- <1443993949-3915-10-git-send-email-jiri@resnulli.us>
- <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
- <20151005155320.GN2278@nanopsycho.orion>
- <CAE4R7bD=SFKgifw=xPudoFfHMcFAdGbVToQdvA9HrnFs3pjRYg@mail.gmail.com>
- <20151005165004.GQ2278@nanopsycho.orion>
- <CAE4R7bCScLWpT9g3-LX31jd3Rap1+p3YU8WstxKECThcpqh3qg@mail.gmail.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH v2 3/3] af_unix: optimize the unix_dgram_recvmsg()
+Date: Mon, 05 Oct 2015 13:13:43 -0400
+Message-ID: <5612AFC7.5090900@akamai.com>
+References: <cover.1443817522.git.jbaron@akamai.com> <ba2b4c5c1d6fd3d99cd4b1286edace56c0f84a0d.1443817522.git.jbaron@akamai.com> <20151005074151.GD2903@worktop.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36475 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443AbbJERMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:12:23 -0400
-Received: by wicgb1 with SMTP id gb1so129192706wic.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:12:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bCScLWpT9g3-LX31jd3Rap1+p3YU8WstxKECThcpqh3qg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	rweikusat@mobileactivedefense.com, viro@zeniv.linux.org.uk,
+	davidel@xmailserver.org, dave@stgolabs.net, olivier@mauras.ch,
+	pageexec@freemail.hu, torvalds@linux-foundation.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151005074151.GD2903@worktop.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 05, 2015 at 07:00:06PM CEST, sfeldma@gmail.com wrote:
->On Mon, Oct 5, 2015 at 9:50 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Mon, Oct 05, 2015 at 06:37:20PM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Oct 5, 2015 at 8:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Mon, Oct 05, 2015 at 05:41:29PM CEST, sfeldma@gmail.com wrote:
->>>>>On Sun, Oct 4, 2015 at 2:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>>>
->>>>>> Introduce a stub for allowing user to change rocker port world/mode.
->>>>>> This is implemented using rtnl changelink op.
->>>>>>
->>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>>
->>>>>[cut]
->>>>>
->>>>>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->>>>>> index 3a5f263..7da768e 100644
->>>>>> --- a/include/uapi/linux/if_link.h
->>>>>> +++ b/include/uapi/linux/if_link.h
->>>>>> @@ -416,6 +416,17 @@ enum {
->>>>>>  };
->>>>>>  #define IFLA_GENEVE_MAX        (__IFLA_GENEVE_MAX - 1)
->>>>>>
->>>>>> +/* Rocker section */
->>>>>> +enum {
->>>>>> +       IFLA_ROCKER_UNSPEC,
->>>>>> +       IFLA_ROCKER_MODE,
->>>>>> +       __IFLA_ROCKER_MAX,
->>>>>> +};
->>>>>> +
->>>>>> +#define IFLA_ROCKER_MAX        (__IFLA_ROCKER_MAX - 1)
->>>>>> +
->>>>>> +#define ROCKER_MODE_MAX 16
->>>>>
->>>>>Does this mean there is going to be a "ip link set dev DEV type rocker
->>>>>mode MODE" command option?
->>>>>
->>>>>It doesn't seem right to be adding driver-specific IFLA_'s here.  I
->>>>>think this sets bad precedence for other drivers to add their own
->>>>>knobs without thinking about a generic shared mechanism.
->>>>
->>>> I understand you point. I somehow share it as well. But on the other
->>>> hand, That is neat way to set mode of the port, and I cannot find other
->>>> this nice.
->>>>
->>>>
->>>>>
->>>>>Actually, I don't see the point of letting the user dynamically change
->>>>>the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
->>>>>the port mode be specified on device creation.
->>>>
->>>> Hmm, interesting, why? I find it great for user to be able to switch the
->>>> port mode easily on the running system. It is a setting of a port.
->>>> I don't see why this should be a hard-coded hw setting. We just have
->>>> to find a way to expose this to user.
->>>
->>>You could just as easy restart the qemu session with different port
->>>mode.  Even if rocker was a real device, I don't see (real) users
->>>wanting to change the port mode at run-time.  It just doesn't seem
->>>like a real-world scenario.   I know it's convenient for developers,
->>
->> We the hw-iface is already designed for on-fly changes.
->> I'm convinced that this is one of the situation where we should not do
->> stuff in HW just because we can. (Or we should do both).
->
->I've used that argument myself for other things, such as the ageing
->timer in rocker driver, so I agree with you on that point.
->
->> We should develop in-kernel solution in order to wrap up HW functionality.
->> Even if not easy. That is the purpose of rocker from day 1, and that is
->> why we love it :)
->
->Well then you need to define a generic interface for this concept of
->changing port mode that's not rocker-specific.  What you have in
->if_link.h is easy.  What's the not-easy solution?
+On 10/05/2015 03:41 AM, Peter Zijlstra wrote:
+> On Fri, Oct 02, 2015 at 08:44:02PM +0000, Jason Baron wrote:
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index f789423..b8ed1bc 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+> 
+>> @@ -1079,6 +1079,9 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+>>  
+>>  	prepare_to_wait_exclusive(&u->peer_wait, &wait, TASK_INTERRUPTIBLE);
+>>  
+>> +	set_bit(UNIX_NOSPACE, &u->flags);
+>> +	/* pairs with mb in unix_dgram_recv */
+>> +	smp_mb__after_atomic();
+>>  	sched = !sock_flag(other, SOCK_DEAD) &&
+>>  		!(other->sk_shutdown & RCV_SHUTDOWN) &&
+>>  		unix_recvq_full(other);
+>> @@ -1623,17 +1626,22 @@ restart:
+>>  
+>>  	if (unix_peer(other) != sk && unix_recvq_full(other)) {
+>>  		if (!timeo) {
+>> +			set_bit(UNIX_NOSPACE, &unix_sk(other)->flags);
+>> +			/* pairs with mb in unix_dgram_recv */
+>> +			smp_mb__after_atomic();
+>> +			if (unix_recvq_full(other)) {
+>> +				err = -EAGAIN;
+>> +				goto out_unlock;
+>> +			}
+>> +		} else {
+> 
+>> @@ -1939,8 +1947,14 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
+>>  		goto out_unlock;
+>>  	}
+>>  
+>> +	/* pairs with unix_dgram_poll() and wait_for_peer() */
+>> +	smp_mb();
+>> +	if (test_bit(UNIX_NOSPACE, &u->flags)) {
+>> +		clear_bit(UNIX_NOSPACE, &u->flags);
+>> +		wake_up_interruptible_sync_poll(&u->peer_wait,
+>> +						POLLOUT | POLLWRNORM |
+>> +						POLLWRBAND);
+>> +	}
+>>  
+>>  	if (msg->msg_name)
+>>  		unix_copy_addr(msg, skb->sk);
+>> @@ -2468,20 +2493,19 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+>>  	if (!(poll_requested_events(wait) & (POLLWRBAND|POLLWRNORM|POLLOUT)))
+>>  		return mask;
+>>  
+>>  	other = unix_peer_get(sk);
+>> +	if (unix_dgram_writable(sk, other)) {
+>>  		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
+>> +	} else {
+>>  		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+>> +		set_bit(UNIX_NOSPACE, &unix_sk(other)->flags);
+>> +		/* pairs with mb in unix_dgram_recv */
+>> +		smp_mb__after_atomic();
+>> +		if (unix_dgram_writable(sk, other))
+>> +			mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
+>> +	}
+>> +	if (other)
+>> +		sock_put(other);
+>>  
+>>  	return mask;
+>>  }
+> 
+> 
+> So I must object to these barrier comments; stating which other barrier
+> they pair with is indeed good and required, but its not sufficient.
+> 
+> A barrier comment should also explain the data ordering -- the most
+> important part.
+> 
+> As it stands its not clear to me these barriers are required at all, but
+> this is not code I understand so I might well miss something obvious.
+> 
 
-I went the easy way as it kind-of looked correct to me. But I guess we
-need to find a different interface. Thing is, settings like this will
-always be HW-specific, because they are HW-specific :)
+So in patch 1/3 I've added sockets that call connect() onto the 'peer_wait'
+queue of the server. The reason being that when the server reads from its
+socket (unix_dgram_recvmsg()) it can wake up n clients that may be waiting
+for the receive queue of the server to empty. This was previously
+accomplished in unix_dgram_poll() via the:
 
-I will leave the userspace expose out of the patchset and re-post. I'll
-handle that later-on.
+sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
+
+which I've removed. The issue with that approach is that the 'other' socket
+or server socket can close() and go away out from under the poll() call.
+Thus, I've converted back unix_dgram_poll(), to simply wait on its
+own socket's wait queue, which is the semantics that poll()/select()/
+epoll() expect. However, I still needed a way to signal the client socket,
+and thus I've added the callback on connect() in patch 1/3.
+
+However, now that the client sockets are added during connect(), and
+not poll() as was previously done, this means that any calls to
+unix_dgram_recvmsg() have to walk the entire wakeup list, even if nobody
+is sitting in poll().
+
+Thus, I've introduced the UNIX_SOCK flag to signal that we are in poll()
+to the server side, such that it doesn't have to potentially walk a long
+list of wakeups for no reason. This makes a difference on this test
+case:
+
+http://www.spinics.net/lists/netdev/msg145533.html
+
+which I found while working on this issue. And this patch restores the
+performance for that test case.
+
+So what we need to guarantee is that we either see that the socket
+as writable in unix_dgram_poll(), *or* that we perform the proper
+wakeup in unix_dgram_recvmsg().
+
+So unix_dgram_poll() does:
+
+...
+
+set_bit(UNIX_NOSPACE, &unix_sk(other)->flags);
+smp_mb__after_atomic();
+if (unix_dgram_writable(sk, other))
+	mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
+
+
+and the wakeup side in unix_dgram_recvmsg():
+
+skb = __skb_recv_datagram(sk, flags, &peeked, &skip, &err);
+if (!skb) {
+ ....
+}
+smp_mb();
+if (test_bit(UNIX_NOSPACE, &u->flags)) {
+       clear_bit(UNIX_NOSPACE, &u->flags);
+       wake_up_interruptible_sync_poll(&u->peer_wait,
+                                       POLLOUT | POLLWRNORM |
+                                       POLLWRBAND);
+}
+
+the '__skb_recv_datagram()' there potentially sets the wakeup
+condition that we are interested in.
+
+The barrier in unix_wait_for_peer() is for the same thing - either we
+see the condition there and don't go to sleep or we get a proper wakeup.
+
+Finally, I needed a barrier in unix_dgram_sendmsg() in the -EAGAIN
+case b/c epoll edge trigger needs to guarantee a wakeup happens there
+as well (it can't rely on UNIX_NOSPACE being set from
+unix_dgram_recvmsg()). 
+
+Thanks,
+
+-Jason
