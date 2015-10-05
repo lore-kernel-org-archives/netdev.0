@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v3 01/14] RDS: use kfree_rcu in rds_ib_remove_ipaddr
-Date: Mon,  5 Oct 2015 10:56:24 -0700
-Message-ID: <1444067797-14101-2-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v3 09/14] RDS: IB: handle rds_ibdev release case instead of crashing the kernel
+Date: Mon,  5 Oct 2015 10:56:32 -0700
+Message-ID: <1444067797-14101-10-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,47 +12,28 @@ In-Reply-To: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-synchronize_rcu() slowing down un-necessarily the socket shutdown
-path. It is used just kfree() the ip addresses in rds_ib_remove_ipaddr()
-which is perfect usecase for kfree_rcu();
-
-So lets use that to gain some speedup.
+Just in case we are still handling the QP receive completion while the
+rds_ibdev is released, drop the connection instead of crashing the kernel.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h      | 1 +
- net/rds/ib_rdma.c | 6 ++----
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ net/rds/ib_cm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index aae60fd..f1fd5ff 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -164,6 +164,7 @@ struct rds_ib_connection {
- struct rds_ib_ipaddr {
- 	struct list_head	list;
- 	__be32			ipaddr;
-+	struct rcu_head		rcu;
- };
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 8f51d0d..2b2370e 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -285,7 +285,8 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ 	struct rds_ib_device *rds_ibdev = ic->rds_ibdev;
+ 	struct rds_ib_ack_state state;
  
- struct rds_ib_device {
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 251d1ce..872f523 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -159,10 +159,8 @@ static void rds_ib_remove_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
- 	}
- 	spin_unlock_irq(&rds_ibdev->spinlock);
+-	BUG_ON(!rds_ibdev);
++	if (!rds_ibdev)
++		rds_conn_drop(conn);
  
--	if (to_free) {
--		synchronize_rcu();
--		kfree(to_free);
--	}
-+	if (to_free)
-+		kfree_rcu(to_free, rcu);
- }
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
  
- int rds_ib_update_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
 -- 
 1.9.1
