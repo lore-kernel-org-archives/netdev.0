@@ -1,37 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/2] ipv4: Hash-based multipath routing
-Date: Mon, 05 Oct 2015 03:00:57 -0700 (PDT)
-Message-ID: <20151005.030057.387050453519294345.davem@davemloft.net>
-References: <1443600742-20516-1-git-send-email-pch@ordbogen.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 11:45:56 +0200
+Message-ID: <20151005094556.GD2278@nanopsycho.orion>
+References: <20150930135141.GF2098@nanopsycho.orion>
+ <20151005085406.GC2278@nanopsycho.orion>
+ <20151005.023853.498040914653747280.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: pch@ordbogen.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eladr@mellanox.com, idosch@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38667 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbbJEJpS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:45:18 -0400
-In-Reply-To: <1443600742-20516-1-git-send-email-pch@ordbogen.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38209 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752563AbbJEJp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:45:59 -0400
+Received: by wiclk2 with SMTP id lk2so106158280wic.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 02:45:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20151005.023853.498040914653747280.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Peter N=F8rlund <pch@ordbogen.com>
-Date: Wed, 30 Sep 2015 10:12:20 +0200
+Mon, Oct 05, 2015 at 11:38:53AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 5 Oct 2015 10:54:06 +0200
+>
+>> Any ideas, anyone, Dave, please?
+>
+>I am very busy over the next few weeks and therefore it will take
+>me some time to look into this very deeply.
 
-> When the routing cache was removed in 3.6, the IPv4 multipath algorit=
-hm changed
-> from more or less being destination-based into being quasi-random per=
--packet
-> scheduling. This increases the risk of out-of-order packets and makes=
- it
-> impossible to use multipath together with anycast services.
->=20
-> This patch series replaces the old implementation with flow-based loa=
-d
-> balancing based on a hash over the source and destination addresses.
- ...
+If you could spend like 5-10 minutes on this, that would be great. We would
+like to start to implement this, but we are not sure which direction to
+take. I'll owe you a beer then :)
 
-Series applied, thank you.
+Thanks!
