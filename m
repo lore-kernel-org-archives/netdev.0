@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] tcp: lockless listener fixes and
- improvement
-Date: Mon, 05 Oct 2015 02:46:58 -0700 (PDT)
-Message-ID: <20151005.024658.1312815855818451072.davem@davemloft.net>
-References: <1444018091-21987-1-git-send-email-edumazet@google.com>
+Subject: Re: [net-next:master 630/633] net/bridge/br_netlink.c:1110:1:
+ warning: the frame size of 2160 bytes is larger than 2048 bytes
+Date: Mon, 05 Oct 2015 02:47:17 -0700 (PDT)
+Message-ID: <20151005.024717.1982719584385972843.davem@davemloft.net>
+References: <201510051053.L0S9UKIW%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: nikolay@cumulusnetworks.com, kbuild-all@01.org,
+	netdev@vger.kernel.org
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38607 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38619 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbbJEJb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:31:27 -0400
-In-Reply-To: <1444018091-21987-1-git-send-email-edumazet@google.com>
+	with ESMTP id S1752275AbbJEJbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 05:31:42 -0400
+In-Reply-To: <201510051053.L0S9UKIW%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Sun,  4 Oct 2015 21:08:06 -0700
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Mon, 5 Oct 2015 10:42:54 +0800
 
-> This fixes issues with TCP FastOpen vs lockless listeners,
-> and SYNACK being attached to request sockets.
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   3e087caa23ef36370bfb925d3bbca78e8302d3ce
+> commit: 7e4df51eb35deedd3ba8d4db92a6c36fb7eff90a [630/633] bridge: netlink: add support for igmp's intervals
+> config: x86_64-randconfig-s0-10051005 (attached as .config)
+> reproduce:
+>         git checkout 7e4df51eb35deedd3ba8d4db92a6c36fb7eff90a
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
 > 
-> Then, last patch brings performance improvement for
-> syncookies generation and validation.
+> All warnings (new ones prefixed by >>):
 > 
-> Tested under a 4.3 Mpps SYNFLOOD attack, new perf profile looks
-> like :
->     12.11%  [kernel]  [k] sha_transform
->      5.83%  [kernel]  [k] tcp_conn_request
->      4.59%  [kernel]  [k] __inet_lookup_listener
->      4.11%  [kernel]  [k] ipt_do_table
->      3.91%  [kernel]  [k] tcp_make_synack
->      3.05%  [kernel]  [k] fib_table_lookup
->      2.74%  [kernel]  [k] sock_wfree
->      2.66%  [kernel]  [k] memcpy_erms
->      2.12%  [kernel]  [k] tcp_v4_rcv
+>    net/bridge/br_netlink.c: In function 'br_fill_info':
+>>> net/bridge/br_netlink.c:1110:1: warning: the frame size of 2160 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+>     }
 
-Series applied, thanks Eric.
+Nikolay, please look into this.
