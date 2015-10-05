@@ -1,52 +1,73 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/5 v2] net: Add saddr op to l3mdev and vrf
-Date: Mon,  5 Oct 2015 08:51:22 -0700
-Message-ID: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 5/5] net: Add l3mdev saddr lookup to raw_sendmsg
+Date: Mon,  5 Oct 2015 08:51:27 -0700
+Message-ID: <1444060287-11024-6-git-send-email-dsa@cumulusnetworks.com>
+References: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33737 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbbJEPve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:51:34 -0400
-Received: by pacex6 with SMTP id ex6so180678559pac.0
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:51:34 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34661 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172AbbJEPvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:51:42 -0400
+Received: by padhy16 with SMTP id hy16so40311176pad.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:51:42 -0700 (PDT)
+In-Reply-To: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First 2 patches are re-sends of patches that got lost in the ethosphere
-Tuesday; they were part of the first round of l3mdev conversions.
-Next 3 handle the source address lookup for raw and datagram sockets
-bound to a VRF device.
+ping originated on box through a VRF device is showing up in tcpdump
+without a source address:
+    $ tcpdump -n -i vrf-blue
+    08:58:33.311303 IP 0.0.0.0 > 10.2.2.254: ICMP echo request, id 2834, seq 1, length 64
+    08:58:33.311562 IP 10.2.2.254 > 10.2.2.2: ICMP echo reply, id 2834, seq 1, length 64
 
-The conversion to the get_saddr op also fixes locally originated TCP
-packets showing up at the VRF device. The use of the FLOWI_FLAG_L3MDEV_SRC
-flag in ip_route_connect_init was causing locally generated packets
-to skip the VRF device.
+Add the call to l3mdev_get_saddr to raw_sendmsg.
 
-v2
-- rebased to top of net-next per device delete fix and hash based
-  multipath patches
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/raw.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-David Ahern (5):
-  net: Rename FLOWI_FLAG_VRFSRC to FLOWI_FLAG_L3MDEV_SRC
-  net: Add netif_is_l3_slave
-  net: Refactor path selection in __ip_route_output_key_hash
-  net: Add source address lookup op for VRF
-  net: Add l3mdev saddr lookup to raw_sendmsg
-
- drivers/net/vrf.c         | 49 +++++++++++++++++++++++++++++++++++++++--------
- include/linux/netdevice.h |  7 +++++++
- include/net/flow.h        |  2 +-
- include/net/ip_fib.h      |  2 ++
- include/net/l3mdev.h      | 27 ++++++++++++++++++++++++++
- include/net/route.h       |  7 ++++---
- net/ipv4/fib_semantics.c  | 21 ++++++++++++++++++++
- net/ipv4/raw.c            |  8 ++++++--
- net/ipv4/route.c          | 16 +---------------
- net/ipv4/udp.c            | 22 +++------------------
- net/l3mdev/l3mdev.c       |  8 ++++----
- 11 files changed, 117 insertions(+), 52 deletions(-)
-
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 28ef8a913130..09a07e8b2f35 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -484,6 +484,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
+ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
++	struct net *net = sock_net(sk);
+ 	struct ipcm_cookie ipc;
+ 	struct rtable *rt = NULL;
+ 	struct flowi4 fl4;
+@@ -543,7 +544,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	ipc.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
++		err = ip_cmsg_send(net, msg, &ipc, false);
+ 		if (err)
+ 			goto out;
+ 		if (ipc.opt)
+@@ -598,6 +599,9 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 			    (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0),
+ 			   daddr, saddr, 0, 0);
+ 
++	if (!saddr && ipc.oif)
++		l3mdev_get_saddr(net, ipc.oif, &fl4);
++
+ 	if (!inet->hdrincl) {
+ 		rfv.msg = msg;
+ 		rfv.hlen = 0;
+@@ -608,7 +612,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	}
+ 
+ 	security_sk_classify_flow(sk, flowi4_to_flowi(&fl4));
+-	rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
++	rt = ip_route_output_flow(net, &fl4, sk);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		rt = NULL;
 -- 
 1.9.1
