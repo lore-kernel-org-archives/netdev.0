@@ -1,69 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Slow ramp-up for single-stream TCP throughput on 4.2 kernel.
-Date: Mon, 05 Oct 2015 06:35:53 -0700
-Message-ID: <56127CB9.1020100@candelatech.com>
-References: <560F1672.5000602@candelatech.com>		<560F1F74.9010207@candelatech.com>		<CADVnQym4U_dVVRdOVhORvVabwFjSHTQJ_LbbbYtzWVu0=mAp_A@mail.gmail.com>		<56105AD2.7070906@candelatech.com>	 <CADVnQynKmhrpD63sF5aWPYo9f8L3wOMuEyACBnTdkzQQ=D1_uA@mail.gmail.com>	 <56115C68.1080803@candelatech.com> <1443979705.32531.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf, seccomp: prepare for upcoming criu
+ support
+Date: Mon, 05 Oct 2015 06:53:30 -0700 (PDT)
+Message-ID: <20151005.065330.932479433879939477.davem@davemloft.net>
+References: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	ath10k <ath10k@lists.infradead.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, tycho.andersen@canonical.com,
+	xemul@parallels.com, keescook@chromium.org, luto@amacapital.net,
+	ast@plumgrid.com
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:36117 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbbJENfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 09:35:55 -0400
-In-Reply-To: <1443979705.32531.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752207AbbJENhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 09:37:52 -0400
+In-Reply-To: <65c43ff26bd4f37c268d2aad7b8d368edfd42200.1443789826.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri,  2 Oct 2015 15:17:33 +0200
 
+> The current ongoing effort to dump existing cBPF seccomp filters back
+> to user space requires to hold the pre-transformed instructions like
+> we do in case of socket filters from sk_attach_filter() side, so they
+> can be reloaded in original form at a later point in time by utilities
+> such as criu.
+> 
+> To prepare for this, simply extend the bpf_prog_create_from_user()
+> API to hold a flag that tells whether we should store the original
+> or not. Also, fanout filters could make use of that in future for
+> things like diag. While fanout filters already use bpf_prog_destroy(),
+> move seccomp over to them as well to handle original programs when
+> present.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-On 10/04/2015 10:28 AM, Eric Dumazet wrote:
-> On Sun, 2015-10-04 at 10:05 -0700, Ben Greear wrote:
->
->> I guess I'll just stop using Cubic.  Any suggestions for another
->> congestion algorithm to use?  I'd prefer something that worked well
->> in pretty much any network condition, of course, and it has to work with
->> ath10k.
->>
->> We can also run some tests with 1G, 10G, ath10k, ath9k, and in conjunction
->> with network emulators and various congestion control algorithms.
->
-> You could use cubic , but disable or tune HyStart, which is known to be
-> problematic anyway.
->
-> echo  0 >/sys/module/tcp_cubic/parameters/hystart_detect
-
-I ran some more tests this morning.  The first bump in the graph
-has the setting above.  Seems to work pretty good.
-
-The second is using RENO.  Also good, and a small bit of higher over-all
-throughput (about 555-560Mbps of RX throughput).
-
-Third is 'highspeed'.  It ramps up quickly, but seems a bit more jagged, and
-not quite as fast as RENO.
-
->
-> Or try
->
-> echo 40 >/sys/module/tcp_cubic/parameters/hystart_low_window
-
-The last graph is this setting (with hystart_detect set back to 3,
-which was the default on my system).
-
-This is better than stock cubic, but it still is awful compared
-to the others.
-
-http://www.candelatech.com/downloads/tcp_cong_ath10k_2.pdf
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Applied, thanks Daniel.
