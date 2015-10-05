@@ -1,72 +1,62 @@
-From: Carol Soto <clsoto@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] net/mlx4_core: Test interrupts fail if not all
- comp vectors called request_irq
-Date: Mon, 5 Oct 2015 10:24:19 -0500
-Message-ID: <56129623.3060800@linux.vnet.ibm.com>
-References: <1443551891-17971-1-git-send-email-clsoto@linux.vnet.ibm.com>
- <5610DD46.204@mellanox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 10/14] rocker: pass "learning" value as a
+ parameter to rocker_port_set_learning
+Date: Mon, 5 Oct 2015 17:24:51 +0200
+Message-ID: <20151005152451.GL2278@nanopsycho.orion>
+References: <1443993949-3915-1-git-send-email-jiri@resnulli.us>
+ <1443993949-3915-11-git-send-email-jiri@resnulli.us>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBAC9ED@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
-	amirv@mellanox.com
-To: Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"idosch@mellanox.com" <idosch@mellanox.com>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"ast@plumgrid.com" <ast@plumgrid.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e18.ny.us.ibm.com ([129.33.205.208]:34023 "EHLO
-	e18.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbbJEPYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:24:23 -0400
-Received: from localhost
-	by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
-	Mon, 5 Oct 2015 11:24:22 -0400
-Received: from b01cxnp22036.gho.pok.ibm.com (b01cxnp22036.gho.pok.ibm.com [9.57.198.26])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 422A9C90048
-	for <netdev@vger.kernel.org>; Mon,  5 Oct 2015 11:12:31 -0400 (EDT)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by b01cxnp22036.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t95FOJG938928614
-	for <netdev@vger.kernel.org>; Mon, 5 Oct 2015 15:24:19 GMT
-Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t95FOI6h031968
-	for <netdev@vger.kernel.org>; Mon, 5 Oct 2015 11:24:19 -0400
-In-Reply-To: <5610DD46.204@mellanox.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:36282 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbbJEPYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:24:54 -0400
+Received: by wicgb1 with SMTP id gb1so124758692wic.1
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:24:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBAC9ED@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Mon, Oct 05, 2015 at 05:16:31PM CEST, David.Laight@ACULAB.COM wrote:
+>From: Jiri Pirko
+>> Sent: 04 October 2015 22:26
+>> Be consistent with the rest of the setting functions, and pass
+>> "learning" as a bool function parameter.
+>...
+>> diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+>> index fb7e8c2..d9329a7 100644
+>> --- a/drivers/net/ethernet/rocker/rocker_main.c
+>> +++ b/drivers/net/ethernet/rocker/rocker_main.c
+>> @@ -1634,6 +1634,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+>>  				  struct rocker_desc_info *desc_info,
+>>  				  void *priv)
+>>  {
+>> +	bool learning = *(int *)priv;
+>...
+>> static int rocker_port_set_learning(struct rocker_port *rocker_port,
+>> -				    struct switchdev_trans *trans)
+>> +				    struct switchdev_trans *trans,
+>> +				    bool learning)
+>> {
+>>  	return rocker_cmd_exec(rocker_port, trans, 0,
+>>  			       rocker_cmd_set_port_learning_prep,
+>> -			       NULL, NULL, NULL);
+>> +			       &learning, NULL, NULL);
+>
+>This hit my 'casting between integer pointer types' bell.
+>It is clearly wrong if 'sizeof (bool) != sizeof (int)'.
 
 
-On 10/4/2015 3:03 AM, Or Gerlitz wrote:
-> On 9/29/2015 9:38 PM, clsoto@linux.vnet.ibm.com wrote:
->> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->>
->> Test interrupts fails if not all completion vectors called
->> request_irq. This case can happen if only mlx4_en loads and
->> we have more completion vectors than rx rings.
->
-> good catch! is this a bug since the driver 0-day or was introduced by
-> some recent commit? in the latercase, please add a Fixes: tag before 
-> your S.O.B note.
-Probably the issue was introduced by this one
-Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
->>
->> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/eq.c | 4 ++++
->>   1 file changed, 4 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c 
->> b/drivers/net/ethernet/mellanox/mlx4/eq.c
->> index 8e81e53..c344884 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
->> @@ -1364,6 +1364,10 @@ int mlx4_test_interrupts(struct mlx4_dev *dev)
->>        * and performing a NOP command
->>        */
->>       for(i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
->> +        /* Make sure request_irq was called */
->> +        if (!priv->eq_table.eq[i].have_irq)
->> +            continue;
->> +
->>           /* Temporary use polling for command completions */
->>           mlx4_cmd_use_polling(dev);
->
+Oh, I c&p error - I'll fix "bool learning = *(int *)priv;" to:
+"bool learning = *(bool *)priv;"
