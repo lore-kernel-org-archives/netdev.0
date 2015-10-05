@@ -1,350 +1,995 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/13] rocker: remove unused rocker_port param from alloc funcs and shorten their names
-Date: Mon,  5 Oct 2015 19:43:54 +0200
-Message-ID: <1444067046-27825-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 02/13] rocker: rename rocker.h to rocker_hw.h
+Date: Mon,  5 Oct 2015 19:43:55 +0200
+Message-ID: <1444067046-27825-3-git-send-email-jiri@resnulli.us>
 References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36257 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbbJERoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:44:09 -0400
-Received: by wicgb1 with SMTP id gb1so130421683wic.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:44:08 -0700 (PDT)
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:37549 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751377AbbJERoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 13:44:11 -0400
+Received: by wicfx3 with SMTP id fx3so125382089wic.0
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 10:44:10 -0700 (PDT)
 In-Reply-To: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-No need to pass rocker_port around to alloc/free rocker functions,
-since they now use switchdev_trans for memory management storage.
-With the param removal, shorten the name of the functions since they now
-has nothing to do with rocker port.
+Since "rocker.h" file is going to be used for different purpose,
+rename the hardware-specific header to "rocker_hw.h".
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 87 +++++++++++++++++-------------------
- 1 file changed, 42 insertions(+), 45 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c    |   2 +-
+ drivers/net/ethernet/rocker/rocker.h    | 467 --------------------------------
+ drivers/net/ethernet/rocker/rocker_hw.h | 467 ++++++++++++++++++++++++++++++++
+ 3 files changed, 468 insertions(+), 468 deletions(-)
+ delete mode 100644 drivers/net/ethernet/rocker/rocker.h
+ create mode 100644 drivers/net/ethernet/rocker/rocker_hw.h
 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index cf91ffc..23c8d1e 100644
+index 23c8d1e..af70084 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -341,9 +341,8 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
- #define ROCKER_OP_FLAG_LEARNED		BIT(2)
- #define ROCKER_OP_FLAG_REFRESH		BIT(3)
+@@ -39,7 +39,7 @@
+ #include <asm-generic/io-64-nonatomic-lo-hi.h>
+ #include <generated/utsrelease.h>
  
--static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
--				     struct switchdev_trans *trans, int flags,
--				     size_t size)
-+static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
-+				size_t size)
- {
- 	struct switchdev_trans_item *elem = NULL;
- 	gfp_t gfp_flags = (flags & ROCKER_OP_FLAG_NOWAIT) ?
-@@ -372,21 +371,19 @@ static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
- 	return elem ? elem + 1 : NULL;
- }
+-#include "rocker.h"
++#include "rocker_hw.h"
  
--static void *rocker_port_kzalloc(struct rocker_port *rocker_port,
--				 struct switchdev_trans *trans, int flags,
--				 size_t size)
-+static void *rocker_kzalloc(struct switchdev_trans *trans, int flags,
-+			    size_t size)
- {
--	return __rocker_port_mem_alloc(rocker_port, trans, flags, size);
-+	return __rocker_mem_alloc(trans, flags, size);
- }
+ static const char rocker_driver_name[] = "rocker";
  
--static void *rocker_port_kcalloc(struct rocker_port *rocker_port,
--				 struct switchdev_trans *trans, int flags,
--				 size_t n, size_t size)
-+static void *rocker_kcalloc(struct switchdev_trans *trans, int flags,
-+			    size_t n, size_t size)
- {
--	return __rocker_port_mem_alloc(rocker_port, trans, flags, n * size);
-+	return __rocker_mem_alloc(trans, flags, n * size);
- }
- 
--static void rocker_port_kfree(struct switchdev_trans *trans, const void *mem)
-+static void rocker_kfree(struct switchdev_trans *trans, const void *mem)
- {
- 	struct switchdev_trans_item *elem;
- 
-@@ -426,7 +423,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
- {
- 	struct rocker_wait *wait;
- 
--	wait = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*wait));
-+	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
- 	if (!wait)
- 		return NULL;
- 	rocker_wait_init(wait);
-@@ -436,7 +433,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
- static void rocker_wait_destroy(struct switchdev_trans *trans,
- 				struct rocker_wait *wait)
- {
--	rocker_port_kfree(trans, wait);
-+	rocker_kfree(trans, wait);
- }
- 
- static bool rocker_wait_event_timeout(struct rocker_wait *wait,
-@@ -2441,7 +2438,7 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
- 		match->cookie = found->cookie;
- 		if (!switchdev_trans_ph_prepare(trans))
- 			hash_del(&found->entry);
--		rocker_port_kfree(trans, found);
-+		rocker_kfree(trans, found);
- 		found = match;
- 		found->cmd = ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_MOD;
- 	} else {
-@@ -2483,13 +2480,13 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
- 
- 	spin_unlock_irqrestore(&rocker->flow_tbl_lock, lock_flags);
- 
--	rocker_port_kfree(trans, match);
-+	rocker_kfree(trans, match);
- 
- 	if (found) {
- 		err = rocker_cmd_exec(rocker_port, trans, flags,
- 				      rocker_cmd_flow_tbl_del,
- 				      found, NULL, NULL);
--		rocker_port_kfree(trans, found);
-+		rocker_kfree(trans, found);
- 	}
- 
- 	return err;
-@@ -2512,7 +2509,7 @@ static int rocker_flow_tbl_ig_port(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2534,7 +2531,7 @@ static int rocker_flow_tbl_vlan(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2561,7 +2558,7 @@ static int rocker_flow_tbl_term_mac(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2601,7 +2598,7 @@ static int rocker_flow_tbl_bridge(struct rocker_port *rocker_port,
- 	bool dflt = !eth_dst || (eth_dst && eth_dst_mask);
- 	bool wild = false;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2651,7 +2648,7 @@ static int rocker_flow_tbl_ucast4_routing(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2681,7 +2678,7 @@ static int rocker_flow_tbl_acl(struct rocker_port *rocker_port,
- 	u32 priority;
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2740,12 +2737,12 @@ static void rocker_group_tbl_entry_free(struct switchdev_trans *trans,
- 	switch (ROCKER_GROUP_TYPE_GET(entry->group_id)) {
- 	case ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD:
- 	case ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST:
--		rocker_port_kfree(trans, entry->group_ids);
-+		rocker_kfree(trans, entry->group_ids);
- 		break;
- 	default:
- 		break;
- 	}
--	rocker_port_kfree(trans, entry);
-+	rocker_kfree(trans, entry);
- }
- 
- static int rocker_group_tbl_add(struct rocker_port *rocker_port,
-@@ -2830,7 +2827,7 @@ static int rocker_group_l2_interface(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2847,17 +2844,17 @@ static int rocker_group_l2_fan_out(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
- 	entry->group_id = group_id;
- 	entry->group_count = group_count;
- 
--	entry->group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
--					       group_count, sizeof(u32));
-+	entry->group_ids = rocker_kcalloc(trans, flags,
-+					  group_count, sizeof(u32));
- 	if (!entry->group_ids) {
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 		return -ENOMEM;
- 	}
- 	memcpy(entry->group_ids, group_ids, group_count * sizeof(u32));
-@@ -2882,7 +2879,7 @@ static int rocker_group_l3_unicast(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2931,7 +2928,7 @@ static void _rocker_neigh_del(struct switchdev_trans *trans,
- 		return;
- 	if (--entry->ref_count == 0) {
- 		hash_del(&entry->entry);
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 	}
- }
- 
-@@ -2965,7 +2962,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
- 	bool removing;
- 	int err = 0;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -3034,7 +3031,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
- 
- err_out:
- 	if (!adding)
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 
- 	return err;
- }
-@@ -3082,7 +3079,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
- 	bool resolved = true;
- 	int err = 0;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -3114,7 +3111,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
- 	spin_unlock_irqrestore(&rocker->neigh_tbl_lock, lock_flags);
- 
- 	if (!adding)
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 
- 	if (err)
- 		return err;
-@@ -3139,8 +3136,8 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
- 	int err = 0;
- 	int i;
- 
--	group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
--					rocker->port_count, sizeof(u32));
-+	group_ids = rocker_kcalloc(trans, flags,
-+				   rocker->port_count, sizeof(u32));
- 	if (!group_ids)
- 		return -ENOMEM;
- 
-@@ -3172,7 +3169,7 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
- 			   "Error (%d) port VLAN l2 flood group\n", err);
- 
- no_ports_in_vlan:
--	rocker_port_kfree(trans, group_ids);
-+	rocker_kfree(trans, group_ids);
- 	return err;
- }
- 
-@@ -3538,7 +3535,7 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 		call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
- 					 lw->rocker_port->dev, &info.info);
- 
--	rocker_port_kfree(lw->trans, work);
-+	rocker_kfree(lw->trans, work);
- }
- 
- static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
-@@ -3572,7 +3569,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
- 	if (!rocker_port_is_bridged(rocker_port))
- 		return 0;
- 
--	lw = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*lw));
-+	lw = rocker_kzalloc(trans, flags, sizeof(*lw));
- 	if (!lw)
- 		return -ENOMEM;
- 
-@@ -3585,7 +3582,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
- 	lw->vid = rocker_port_vlan_to_vid(rocker_port, vlan_id);
- 
- 	if (switchdev_trans_ph_prepare(trans))
--		rocker_port_kfree(trans, lw);
-+		rocker_kfree(trans, lw);
- 	else
- 		schedule_work(&lw->work);
- 
-@@ -3616,7 +3613,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 	bool removing = (flags & ROCKER_OP_FLAG_REMOVE);
- 	unsigned long lock_flags;
- 
--	fdb = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*fdb));
-+	fdb = rocker_kzalloc(trans, flags, sizeof(*fdb));
- 	if (!fdb)
- 		return -ENOMEM;
- 
-@@ -3634,7 +3631,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 	if (found) {
- 		found->touched = jiffies;
- 		if (removing) {
--			rocker_port_kfree(trans, fdb);
-+			rocker_kfree(trans, fdb);
- 			if (!switchdev_trans_ph_prepare(trans))
- 				hash_del(&found->entry);
- 		}
-@@ -3648,7 +3645,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 
- 	/* Check if adding and already exists, or removing and can't find */
- 	if (!found != !removing) {
--		rocker_port_kfree(trans, fdb);
-+		rocker_kfree(trans, fdb);
- 		if (!found && removing)
- 			return 0;
- 		/* Refreshing existing to update aging timers */
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+deleted file mode 100644
+index 12490b2..0000000
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ /dev/null
+@@ -1,467 +0,0 @@
+-/*
+- * drivers/net/ethernet/rocker/rocker.h - Rocker switch device driver
+- * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
+- * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- */
+-
+-#ifndef _ROCKER_H
+-#define _ROCKER_H
+-
+-#include <linux/types.h>
+-
+-/* Return codes */
+-enum {
+-	ROCKER_OK = 0,
+-	ROCKER_ENOENT = 2,
+-	ROCKER_ENXIO = 6,
+-	ROCKER_ENOMEM = 12,
+-	ROCKER_EEXIST = 17,
+-	ROCKER_EINVAL = 22,
+-	ROCKER_EMSGSIZE = 90,
+-	ROCKER_ENOTSUP = 95,
+-	ROCKER_ENOBUFS = 105,
+-};
+-
+-#define ROCKER_FP_PORTS_MAX 62
+-
+-#define PCI_VENDOR_ID_REDHAT		0x1b36
+-#define PCI_DEVICE_ID_REDHAT_ROCKER	0x0006
+-
+-#define ROCKER_PCI_BAR0_SIZE		0x2000
+-
+-/* MSI-X vectors */
+-enum {
+-	ROCKER_MSIX_VEC_CMD,
+-	ROCKER_MSIX_VEC_EVENT,
+-	ROCKER_MSIX_VEC_TEST,
+-	ROCKER_MSIX_VEC_RESERVED0,
+-	__ROCKER_MSIX_VEC_TX,
+-	__ROCKER_MSIX_VEC_RX,
+-#define ROCKER_MSIX_VEC_TX(port) \
+-	(__ROCKER_MSIX_VEC_TX + ((port) * 2))
+-#define ROCKER_MSIX_VEC_RX(port) \
+-	(__ROCKER_MSIX_VEC_RX + ((port) * 2))
+-#define ROCKER_MSIX_VEC_COUNT(portcnt) \
+-	(ROCKER_MSIX_VEC_RX((portcnt - 1)) + 1)
+-};
+-
+-/* Rocker bogus registers */
+-#define ROCKER_BOGUS_REG0		0x0000
+-#define ROCKER_BOGUS_REG1		0x0004
+-#define ROCKER_BOGUS_REG2		0x0008
+-#define ROCKER_BOGUS_REG3		0x000c
+-
+-/* Rocker test registers */
+-#define ROCKER_TEST_REG			0x0010
+-#define ROCKER_TEST_REG64		0x0018  /* 8-byte */
+-#define ROCKER_TEST_IRQ			0x0020
+-#define ROCKER_TEST_DMA_ADDR		0x0028  /* 8-byte */
+-#define ROCKER_TEST_DMA_SIZE		0x0030
+-#define ROCKER_TEST_DMA_CTRL		0x0034
+-
+-/* Rocker test register ctrl */
+-#define ROCKER_TEST_DMA_CTRL_CLEAR	BIT(0)
+-#define ROCKER_TEST_DMA_CTRL_FILL	BIT(1)
+-#define ROCKER_TEST_DMA_CTRL_INVERT	BIT(2)
+-
+-/* Rocker DMA ring register offsets */
+-#define ROCKER_DMA_DESC_ADDR(x)		(0x1000 + (x) * 32)  /* 8-byte */
+-#define ROCKER_DMA_DESC_SIZE(x)		(0x1008 + (x) * 32)
+-#define ROCKER_DMA_DESC_HEAD(x)		(0x100c + (x) * 32)
+-#define ROCKER_DMA_DESC_TAIL(x)		(0x1010 + (x) * 32)
+-#define ROCKER_DMA_DESC_CTRL(x)		(0x1014 + (x) * 32)
+-#define ROCKER_DMA_DESC_CREDITS(x)	(0x1018 + (x) * 32)
+-#define ROCKER_DMA_DESC_RES1(x)		(0x101c + (x) * 32)
+-
+-/* Rocker dma ctrl register bits */
+-#define ROCKER_DMA_DESC_CTRL_RESET	BIT(0)
+-
+-/* Rocker DMA ring types */
+-enum rocker_dma_type {
+-	ROCKER_DMA_CMD,
+-	ROCKER_DMA_EVENT,
+-	__ROCKER_DMA_TX,
+-	__ROCKER_DMA_RX,
+-#define ROCKER_DMA_TX(port) (__ROCKER_DMA_TX + (port) * 2)
+-#define ROCKER_DMA_RX(port) (__ROCKER_DMA_RX + (port) * 2)
+-};
+-
+-/* Rocker DMA ring size limits and default sizes */
+-#define ROCKER_DMA_SIZE_MIN		2ul
+-#define ROCKER_DMA_SIZE_MAX		65536ul
+-#define ROCKER_DMA_CMD_DEFAULT_SIZE	32ul
+-#define ROCKER_DMA_EVENT_DEFAULT_SIZE	32ul
+-#define ROCKER_DMA_TX_DEFAULT_SIZE	64ul
+-#define ROCKER_DMA_TX_DESC_SIZE		256
+-#define ROCKER_DMA_RX_DEFAULT_SIZE	64ul
+-#define ROCKER_DMA_RX_DESC_SIZE		256
+-
+-/* Rocker DMA descriptor struct */
+-struct rocker_desc {
+-	u64 buf_addr;
+-	u64 cookie;
+-	u16 buf_size;
+-	u16 tlv_size;
+-	u16 resv[5];
+-	u16 comp_err;
+-};
+-
+-#define ROCKER_DMA_DESC_COMP_ERR_GEN	BIT(15)
+-
+-/* Rocker DMA TLV struct */
+-struct rocker_tlv {
+-	u32 type;
+-	u16 len;
+-};
+-
+-/* TLVs */
+-enum {
+-	ROCKER_TLV_CMD_UNSPEC,
+-	ROCKER_TLV_CMD_TYPE,	/* u16 */
+-	ROCKER_TLV_CMD_INFO,	/* nest */
+-
+-	__ROCKER_TLV_CMD_MAX,
+-	ROCKER_TLV_CMD_MAX = __ROCKER_TLV_CMD_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_CMD_TYPE_UNSPEC,
+-	ROCKER_TLV_CMD_TYPE_GET_PORT_SETTINGS,
+-	ROCKER_TLV_CMD_TYPE_SET_PORT_SETTINGS,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_ADD,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_MOD,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_DEL,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_GET_STATS,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_ADD,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_MOD,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_DEL,
+-	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_GET_STATS,
+-
+-	ROCKER_TLV_CMD_TYPE_CLEAR_PORT_STATS,
+-	ROCKER_TLV_CMD_TYPE_GET_PORT_STATS,
+-
+-	__ROCKER_TLV_CMD_TYPE_MAX,
+-	ROCKER_TLV_CMD_TYPE_MAX = __ROCKER_TLV_CMD_TYPE_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_CMD_PORT_SETTINGS_UNSPEC,
+-	ROCKER_TLV_CMD_PORT_SETTINGS_PPORT,		/* u32 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_SPEED,		/* u32 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_DUPLEX,		/* u8 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG,		/* u8 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_MACADDR,		/* binary */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_MODE,		/* u8 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,		/* u8 */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_PHYS_NAME,		/* binary */
+-	ROCKER_TLV_CMD_PORT_SETTINGS_MTU,		/* u16 */
+-
+-	__ROCKER_TLV_CMD_PORT_SETTINGS_MAX,
+-	ROCKER_TLV_CMD_PORT_SETTINGS_MAX =
+-			__ROCKER_TLV_CMD_PORT_SETTINGS_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_CMD_PORT_STATS_UNSPEC,
+-	ROCKER_TLV_CMD_PORT_STATS_PPORT,            /* u32 */
+-
+-	ROCKER_TLV_CMD_PORT_STATS_RX_PKTS,          /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_RX_BYTES,         /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_RX_DROPPED,       /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_RX_ERRORS,        /* u64 */
+-
+-	ROCKER_TLV_CMD_PORT_STATS_TX_PKTS,          /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_TX_BYTES,         /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_TX_DROPPED,       /* u64 */
+-	ROCKER_TLV_CMD_PORT_STATS_TX_ERRORS,        /* u64 */
+-
+-	__ROCKER_TLV_CMD_PORT_STATS_MAX,
+-	ROCKER_TLV_CMD_PORT_STATS_MAX = __ROCKER_TLV_CMD_PORT_STATS_MAX - 1,
+-};
+-
+-enum rocker_port_mode {
+-	ROCKER_PORT_MODE_OF_DPA,
+-};
+-
+-enum {
+-	ROCKER_TLV_EVENT_UNSPEC,
+-	ROCKER_TLV_EVENT_TYPE,	/* u16 */
+-	ROCKER_TLV_EVENT_INFO,	/* nest */
+-
+-	__ROCKER_TLV_EVENT_MAX,
+-	ROCKER_TLV_EVENT_MAX = __ROCKER_TLV_EVENT_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_EVENT_TYPE_UNSPEC,
+-	ROCKER_TLV_EVENT_TYPE_LINK_CHANGED,
+-	ROCKER_TLV_EVENT_TYPE_MAC_VLAN_SEEN,
+-
+-	__ROCKER_TLV_EVENT_TYPE_MAX,
+-	ROCKER_TLV_EVENT_TYPE_MAX = __ROCKER_TLV_EVENT_TYPE_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_EVENT_LINK_CHANGED_UNSPEC,
+-	ROCKER_TLV_EVENT_LINK_CHANGED_PPORT,	/* u32 */
+-	ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP,	/* u8 */
+-
+-	__ROCKER_TLV_EVENT_LINK_CHANGED_MAX,
+-	ROCKER_TLV_EVENT_LINK_CHANGED_MAX =
+-			__ROCKER_TLV_EVENT_LINK_CHANGED_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_EVENT_MAC_VLAN_UNSPEC,
+-	ROCKER_TLV_EVENT_MAC_VLAN_PPORT,	/* u32 */
+-	ROCKER_TLV_EVENT_MAC_VLAN_MAC,		/* binary */
+-	ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID,	/* __be16 */
+-
+-	__ROCKER_TLV_EVENT_MAC_VLAN_MAX,
+-	ROCKER_TLV_EVENT_MAC_VLAN_MAX = __ROCKER_TLV_EVENT_MAC_VLAN_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_RX_UNSPEC,
+-	ROCKER_TLV_RX_FLAGS,		/* u16, see ROCKER_RX_FLAGS_ */
+-	ROCKER_TLV_RX_CSUM,		/* u16 */
+-	ROCKER_TLV_RX_FRAG_ADDR,	/* u64 */
+-	ROCKER_TLV_RX_FRAG_MAX_LEN,	/* u16 */
+-	ROCKER_TLV_RX_FRAG_LEN,		/* u16 */
+-
+-	__ROCKER_TLV_RX_MAX,
+-	ROCKER_TLV_RX_MAX = __ROCKER_TLV_RX_MAX - 1,
+-};
+-
+-#define ROCKER_RX_FLAGS_IPV4			BIT(0)
+-#define ROCKER_RX_FLAGS_IPV6			BIT(1)
+-#define ROCKER_RX_FLAGS_CSUM_CALC		BIT(2)
+-#define ROCKER_RX_FLAGS_IPV4_CSUM_GOOD		BIT(3)
+-#define ROCKER_RX_FLAGS_IP_FRAG			BIT(4)
+-#define ROCKER_RX_FLAGS_TCP			BIT(5)
+-#define ROCKER_RX_FLAGS_UDP			BIT(6)
+-#define ROCKER_RX_FLAGS_TCP_UDP_CSUM_GOOD	BIT(7)
+-#define ROCKER_RX_FLAGS_FWD_OFFLOAD		BIT(8)
+-
+-enum {
+-	ROCKER_TLV_TX_UNSPEC,
+-	ROCKER_TLV_TX_OFFLOAD,		/* u8, see ROCKER_TX_OFFLOAD_ */
+-	ROCKER_TLV_TX_L3_CSUM_OFF,	/* u16 */
+-	ROCKER_TLV_TX_TSO_MSS,		/* u16 */
+-	ROCKER_TLV_TX_TSO_HDR_LEN,	/* u16 */
+-	ROCKER_TLV_TX_FRAGS,		/* array */
+-
+-	__ROCKER_TLV_TX_MAX,
+-	ROCKER_TLV_TX_MAX = __ROCKER_TLV_TX_MAX - 1,
+-};
+-
+-#define ROCKER_TX_OFFLOAD_NONE		0
+-#define ROCKER_TX_OFFLOAD_IP_CSUM	1
+-#define ROCKER_TX_OFFLOAD_TCP_UDP_CSUM	2
+-#define ROCKER_TX_OFFLOAD_L3_CSUM	3
+-#define ROCKER_TX_OFFLOAD_TSO		4
+-
+-#define ROCKER_TX_FRAGS_MAX		16
+-
+-enum {
+-	ROCKER_TLV_TX_FRAG_UNSPEC,
+-	ROCKER_TLV_TX_FRAG,		/* nest */
+-
+-	__ROCKER_TLV_TX_FRAG_MAX,
+-	ROCKER_TLV_TX_FRAG_MAX = __ROCKER_TLV_TX_FRAG_MAX - 1,
+-};
+-
+-enum {
+-	ROCKER_TLV_TX_FRAG_ATTR_UNSPEC,
+-	ROCKER_TLV_TX_FRAG_ATTR_ADDR,	/* u64 */
+-	ROCKER_TLV_TX_FRAG_ATTR_LEN,	/* u16 */
+-
+-	__ROCKER_TLV_TX_FRAG_ATTR_MAX,
+-	ROCKER_TLV_TX_FRAG_ATTR_MAX = __ROCKER_TLV_TX_FRAG_ATTR_MAX - 1,
+-};
+-
+-/* cmd info nested for OF-DPA msgs */
+-enum {
+-	ROCKER_TLV_OF_DPA_UNSPEC,
+-	ROCKER_TLV_OF_DPA_TABLE_ID,		/* u16 */
+-	ROCKER_TLV_OF_DPA_PRIORITY,		/* u32 */
+-	ROCKER_TLV_OF_DPA_HARDTIME,		/* u32 */
+-	ROCKER_TLV_OF_DPA_IDLETIME,		/* u32 */
+-	ROCKER_TLV_OF_DPA_COOKIE,		/* u64 */
+-	ROCKER_TLV_OF_DPA_IN_PPORT,		/* u32 */
+-	ROCKER_TLV_OF_DPA_IN_PPORT_MASK,	/* u32 */
+-	ROCKER_TLV_OF_DPA_OUT_PPORT,		/* u32 */
+-	ROCKER_TLV_OF_DPA_GOTO_TABLE_ID,	/* u16 */
+-	ROCKER_TLV_OF_DPA_GROUP_ID,		/* u32 */
+-	ROCKER_TLV_OF_DPA_GROUP_ID_LOWER,	/* u32 */
+-	ROCKER_TLV_OF_DPA_GROUP_COUNT,		/* u16 */
+-	ROCKER_TLV_OF_DPA_GROUP_IDS,		/* u32 array */
+-	ROCKER_TLV_OF_DPA_VLAN_ID,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_VLAN_ID_MASK,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_VLAN_PCP,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_VLAN_PCP_MASK,	/* __be16 */
+-	ROCKER_TLV_OF_DPA_VLAN_PCP_ACTION,	/* u8 */
+-	ROCKER_TLV_OF_DPA_NEW_VLAN_ID,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_NEW_VLAN_PCP,		/* u8 */
+-	ROCKER_TLV_OF_DPA_TUNNEL_ID,		/* u32 */
+-	ROCKER_TLV_OF_DPA_TUNNEL_LPORT,		/* u32 */
+-	ROCKER_TLV_OF_DPA_ETHERTYPE,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_DST_MAC,		/* binary */
+-	ROCKER_TLV_OF_DPA_DST_MAC_MASK,		/* binary */
+-	ROCKER_TLV_OF_DPA_SRC_MAC,		/* binary */
+-	ROCKER_TLV_OF_DPA_SRC_MAC_MASK,		/* binary */
+-	ROCKER_TLV_OF_DPA_IP_PROTO,		/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_PROTO_MASK,	/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_DSCP,		/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_DSCP_MASK,		/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_DSCP_ACTION,	/* u8 */
+-	ROCKER_TLV_OF_DPA_NEW_IP_DSCP,		/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_ECN,		/* u8 */
+-	ROCKER_TLV_OF_DPA_IP_ECN_MASK,		/* u8 */
+-	ROCKER_TLV_OF_DPA_DST_IP,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_DST_IP_MASK,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_SRC_IP,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_SRC_IP_MASK,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_DST_IPV6,		/* binary */
+-	ROCKER_TLV_OF_DPA_DST_IPV6_MASK,	/* binary */
+-	ROCKER_TLV_OF_DPA_SRC_IPV6,		/* binary */
+-	ROCKER_TLV_OF_DPA_SRC_IPV6_MASK,	/* binary */
+-	ROCKER_TLV_OF_DPA_SRC_ARP_IP,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_SRC_ARP_IP_MASK,	/* __be32 */
+-	ROCKER_TLV_OF_DPA_L4_DST_PORT,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_L4_DST_PORT_MASK,	/* __be16 */
+-	ROCKER_TLV_OF_DPA_L4_SRC_PORT,		/* __be16 */
+-	ROCKER_TLV_OF_DPA_L4_SRC_PORT_MASK,	/* __be16 */
+-	ROCKER_TLV_OF_DPA_ICMP_TYPE,		/* u8 */
+-	ROCKER_TLV_OF_DPA_ICMP_TYPE_MASK,	/* u8 */
+-	ROCKER_TLV_OF_DPA_ICMP_CODE,		/* u8 */
+-	ROCKER_TLV_OF_DPA_ICMP_CODE_MASK,	/* u8 */
+-	ROCKER_TLV_OF_DPA_IPV6_LABEL,		/* __be32 */
+-	ROCKER_TLV_OF_DPA_IPV6_LABEL_MASK,	/* __be32 */
+-	ROCKER_TLV_OF_DPA_QUEUE_ID_ACTION,	/* u8 */
+-	ROCKER_TLV_OF_DPA_NEW_QUEUE_ID,		/* u8 */
+-	ROCKER_TLV_OF_DPA_CLEAR_ACTIONS,	/* u32 */
+-	ROCKER_TLV_OF_DPA_POP_VLAN,		/* u8 */
+-	ROCKER_TLV_OF_DPA_TTL_CHECK,		/* u8 */
+-	ROCKER_TLV_OF_DPA_COPY_CPU_ACTION,	/* u8 */
+-
+-	__ROCKER_TLV_OF_DPA_MAX,
+-	ROCKER_TLV_OF_DPA_MAX = __ROCKER_TLV_OF_DPA_MAX - 1,
+-};
+-
+-/* OF-DPA table IDs */
+-
+-enum rocker_of_dpa_table_id {
+-	ROCKER_OF_DPA_TABLE_ID_INGRESS_PORT = 0,
+-	ROCKER_OF_DPA_TABLE_ID_VLAN = 10,
+-	ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC = 20,
+-	ROCKER_OF_DPA_TABLE_ID_UNICAST_ROUTING = 30,
+-	ROCKER_OF_DPA_TABLE_ID_MULTICAST_ROUTING = 40,
+-	ROCKER_OF_DPA_TABLE_ID_BRIDGING = 50,
+-	ROCKER_OF_DPA_TABLE_ID_ACL_POLICY = 60,
+-};
+-
+-/* OF-DPA flow stats */
+-enum {
+-	ROCKER_TLV_OF_DPA_FLOW_STAT_UNSPEC,
+-	ROCKER_TLV_OF_DPA_FLOW_STAT_DURATION,	/* u32 */
+-	ROCKER_TLV_OF_DPA_FLOW_STAT_RX_PKTS,	/* u64 */
+-	ROCKER_TLV_OF_DPA_FLOW_STAT_TX_PKTS,	/* u64 */
+-
+-	__ROCKER_TLV_OF_DPA_FLOW_STAT_MAX,
+-	ROCKER_TLV_OF_DPA_FLOW_STAT_MAX = __ROCKER_TLV_OF_DPA_FLOW_STAT_MAX - 1,
+-};
+-
+-/* OF-DPA group types */
+-enum rocker_of_dpa_group_type {
+-	ROCKER_OF_DPA_GROUP_TYPE_L2_INTERFACE = 0,
+-	ROCKER_OF_DPA_GROUP_TYPE_L2_REWRITE,
+-	ROCKER_OF_DPA_GROUP_TYPE_L3_UCAST,
+-	ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST,
+-	ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD,
+-	ROCKER_OF_DPA_GROUP_TYPE_L3_INTERFACE,
+-	ROCKER_OF_DPA_GROUP_TYPE_L3_MCAST,
+-	ROCKER_OF_DPA_GROUP_TYPE_L3_ECMP,
+-	ROCKER_OF_DPA_GROUP_TYPE_L2_OVERLAY,
+-};
+-
+-/* OF-DPA group L2 overlay types */
+-enum rocker_of_dpa_overlay_type {
+-	ROCKER_OF_DPA_OVERLAY_TYPE_FLOOD_UCAST = 0,
+-	ROCKER_OF_DPA_OVERLAY_TYPE_FLOOD_MCAST,
+-	ROCKER_OF_DPA_OVERLAY_TYPE_MCAST_UCAST,
+-	ROCKER_OF_DPA_OVERLAY_TYPE_MCAST_MCAST,
+-};
+-
+-/* OF-DPA group ID encoding */
+-#define ROCKER_GROUP_TYPE_SHIFT 28
+-#define ROCKER_GROUP_TYPE_MASK 0xf0000000
+-#define ROCKER_GROUP_VLAN_SHIFT 16
+-#define ROCKER_GROUP_VLAN_MASK 0x0fff0000
+-#define ROCKER_GROUP_PORT_SHIFT 0
+-#define ROCKER_GROUP_PORT_MASK 0x0000ffff
+-#define ROCKER_GROUP_TUNNEL_ID_SHIFT 12
+-#define ROCKER_GROUP_TUNNEL_ID_MASK 0x0ffff000
+-#define ROCKER_GROUP_SUBTYPE_SHIFT 10
+-#define ROCKER_GROUP_SUBTYPE_MASK 0x00000c00
+-#define ROCKER_GROUP_INDEX_SHIFT 0
+-#define ROCKER_GROUP_INDEX_MASK 0x0000ffff
+-#define ROCKER_GROUP_INDEX_LONG_SHIFT 0
+-#define ROCKER_GROUP_INDEX_LONG_MASK 0x0fffffff
+-
+-#define ROCKER_GROUP_TYPE_GET(group_id) \
+-	(((group_id) & ROCKER_GROUP_TYPE_MASK) >> ROCKER_GROUP_TYPE_SHIFT)
+-#define ROCKER_GROUP_TYPE_SET(type) \
+-	(((type) << ROCKER_GROUP_TYPE_SHIFT) & ROCKER_GROUP_TYPE_MASK)
+-#define ROCKER_GROUP_VLAN_GET(group_id) \
+-	(((group_id) & ROCKER_GROUP_VLAN_ID_MASK) >> ROCKER_GROUP_VLAN_ID_SHIFT)
+-#define ROCKER_GROUP_VLAN_SET(vlan_id) \
+-	(((vlan_id) << ROCKER_GROUP_VLAN_SHIFT) & ROCKER_GROUP_VLAN_MASK)
+-#define ROCKER_GROUP_PORT_GET(group_id) \
+-	(((group_id) & ROCKER_GROUP_PORT_MASK) >> ROCKER_GROUP_PORT_SHIFT)
+-#define ROCKER_GROUP_PORT_SET(port) \
+-	(((port) << ROCKER_GROUP_PORT_SHIFT) & ROCKER_GROUP_PORT_MASK)
+-#define ROCKER_GROUP_INDEX_GET(group_id) \
+-	(((group_id) & ROCKER_GROUP_INDEX_MASK) >> ROCKER_GROUP_INDEX_SHIFT)
+-#define ROCKER_GROUP_INDEX_SET(index) \
+-	(((index) << ROCKER_GROUP_INDEX_SHIFT) & ROCKER_GROUP_INDEX_MASK)
+-#define ROCKER_GROUP_INDEX_LONG_GET(group_id) \
+-	(((group_id) & ROCKER_GROUP_INDEX_LONG_MASK) >> \
+-	 ROCKER_GROUP_INDEX_LONG_SHIFT)
+-#define ROCKER_GROUP_INDEX_LONG_SET(index) \
+-	(((index) << ROCKER_GROUP_INDEX_LONG_SHIFT) & \
+-	 ROCKER_GROUP_INDEX_LONG_MASK)
+-
+-#define ROCKER_GROUP_NONE 0
+-#define ROCKER_GROUP_L2_INTERFACE(vlan_id, port) \
+-	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_INTERFACE) |\
+-	 ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_PORT_SET(port))
+-#define ROCKER_GROUP_L2_REWRITE(index) \
+-	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_REWRITE) |\
+-	 ROCKER_GROUP_INDEX_LONG_SET(index))
+-#define ROCKER_GROUP_L2_MCAST(vlan_id, index) \
+-	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST) |\
+-	 ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_INDEX_SET(index))
+-#define ROCKER_GROUP_L2_FLOOD(vlan_id, index) \
+-	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD) |\
+-	ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_INDEX_SET(index))
+-#define ROCKER_GROUP_L3_UNICAST(index) \
+-	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L3_UCAST) |\
+-	 ROCKER_GROUP_INDEX_LONG_SET(index))
+-
+-/* Rocker general purpose registers */
+-#define ROCKER_CONTROL			0x0300
+-#define ROCKER_PORT_PHYS_COUNT		0x0304
+-#define ROCKER_PORT_PHYS_LINK_STATUS	0x0310 /* 8-byte */
+-#define ROCKER_PORT_PHYS_ENABLE		0x0318 /* 8-byte */
+-#define ROCKER_SWITCH_ID		0x0320 /* 8-byte */
+-
+-/* Rocker control bits */
+-#define ROCKER_CONTROL_RESET		BIT(0)
+-
+-#endif
+diff --git a/drivers/net/ethernet/rocker/rocker_hw.h b/drivers/net/ethernet/rocker/rocker_hw.h
+new file mode 100644
+index 0000000..018d6b4
+--- /dev/null
++++ b/drivers/net/ethernet/rocker/rocker_hw.h
+@@ -0,0 +1,467 @@
++/*
++ * drivers/net/ethernet/rocker/rocker_hw.h - Rocker switch device driver
++ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
++ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _ROCKER_HW_H
++#define _ROCKER_HW_H
++
++#include <linux/types.h>
++
++/* Return codes */
++enum {
++	ROCKER_OK = 0,
++	ROCKER_ENOENT = 2,
++	ROCKER_ENXIO = 6,
++	ROCKER_ENOMEM = 12,
++	ROCKER_EEXIST = 17,
++	ROCKER_EINVAL = 22,
++	ROCKER_EMSGSIZE = 90,
++	ROCKER_ENOTSUP = 95,
++	ROCKER_ENOBUFS = 105,
++};
++
++#define ROCKER_FP_PORTS_MAX 62
++
++#define PCI_VENDOR_ID_REDHAT		0x1b36
++#define PCI_DEVICE_ID_REDHAT_ROCKER	0x0006
++
++#define ROCKER_PCI_BAR0_SIZE		0x2000
++
++/* MSI-X vectors */
++enum {
++	ROCKER_MSIX_VEC_CMD,
++	ROCKER_MSIX_VEC_EVENT,
++	ROCKER_MSIX_VEC_TEST,
++	ROCKER_MSIX_VEC_RESERVED0,
++	__ROCKER_MSIX_VEC_TX,
++	__ROCKER_MSIX_VEC_RX,
++#define ROCKER_MSIX_VEC_TX(port) \
++	(__ROCKER_MSIX_VEC_TX + ((port) * 2))
++#define ROCKER_MSIX_VEC_RX(port) \
++	(__ROCKER_MSIX_VEC_RX + ((port) * 2))
++#define ROCKER_MSIX_VEC_COUNT(portcnt) \
++	(ROCKER_MSIX_VEC_RX((portcnt - 1)) + 1)
++};
++
++/* Rocker bogus registers */
++#define ROCKER_BOGUS_REG0		0x0000
++#define ROCKER_BOGUS_REG1		0x0004
++#define ROCKER_BOGUS_REG2		0x0008
++#define ROCKER_BOGUS_REG3		0x000c
++
++/* Rocker test registers */
++#define ROCKER_TEST_REG			0x0010
++#define ROCKER_TEST_REG64		0x0018  /* 8-byte */
++#define ROCKER_TEST_IRQ			0x0020
++#define ROCKER_TEST_DMA_ADDR		0x0028  /* 8-byte */
++#define ROCKER_TEST_DMA_SIZE		0x0030
++#define ROCKER_TEST_DMA_CTRL		0x0034
++
++/* Rocker test register ctrl */
++#define ROCKER_TEST_DMA_CTRL_CLEAR	BIT(0)
++#define ROCKER_TEST_DMA_CTRL_FILL	BIT(1)
++#define ROCKER_TEST_DMA_CTRL_INVERT	BIT(2)
++
++/* Rocker DMA ring register offsets */
++#define ROCKER_DMA_DESC_ADDR(x)		(0x1000 + (x) * 32)  /* 8-byte */
++#define ROCKER_DMA_DESC_SIZE(x)		(0x1008 + (x) * 32)
++#define ROCKER_DMA_DESC_HEAD(x)		(0x100c + (x) * 32)
++#define ROCKER_DMA_DESC_TAIL(x)		(0x1010 + (x) * 32)
++#define ROCKER_DMA_DESC_CTRL(x)		(0x1014 + (x) * 32)
++#define ROCKER_DMA_DESC_CREDITS(x)	(0x1018 + (x) * 32)
++#define ROCKER_DMA_DESC_RES1(x)		(0x101c + (x) * 32)
++
++/* Rocker dma ctrl register bits */
++#define ROCKER_DMA_DESC_CTRL_RESET	BIT(0)
++
++/* Rocker DMA ring types */
++enum rocker_dma_type {
++	ROCKER_DMA_CMD,
++	ROCKER_DMA_EVENT,
++	__ROCKER_DMA_TX,
++	__ROCKER_DMA_RX,
++#define ROCKER_DMA_TX(port) (__ROCKER_DMA_TX + (port) * 2)
++#define ROCKER_DMA_RX(port) (__ROCKER_DMA_RX + (port) * 2)
++};
++
++/* Rocker DMA ring size limits and default sizes */
++#define ROCKER_DMA_SIZE_MIN		2ul
++#define ROCKER_DMA_SIZE_MAX		65536ul
++#define ROCKER_DMA_CMD_DEFAULT_SIZE	32ul
++#define ROCKER_DMA_EVENT_DEFAULT_SIZE	32ul
++#define ROCKER_DMA_TX_DEFAULT_SIZE	64ul
++#define ROCKER_DMA_TX_DESC_SIZE		256
++#define ROCKER_DMA_RX_DEFAULT_SIZE	64ul
++#define ROCKER_DMA_RX_DESC_SIZE		256
++
++/* Rocker DMA descriptor struct */
++struct rocker_desc {
++	u64 buf_addr;
++	u64 cookie;
++	u16 buf_size;
++	u16 tlv_size;
++	u16 resv[5];
++	u16 comp_err;
++};
++
++#define ROCKER_DMA_DESC_COMP_ERR_GEN	BIT(15)
++
++/* Rocker DMA TLV struct */
++struct rocker_tlv {
++	u32 type;
++	u16 len;
++};
++
++/* TLVs */
++enum {
++	ROCKER_TLV_CMD_UNSPEC,
++	ROCKER_TLV_CMD_TYPE,	/* u16 */
++	ROCKER_TLV_CMD_INFO,	/* nest */
++
++	__ROCKER_TLV_CMD_MAX,
++	ROCKER_TLV_CMD_MAX = __ROCKER_TLV_CMD_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_CMD_TYPE_UNSPEC,
++	ROCKER_TLV_CMD_TYPE_GET_PORT_SETTINGS,
++	ROCKER_TLV_CMD_TYPE_SET_PORT_SETTINGS,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_ADD,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_MOD,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_DEL,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_GET_STATS,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_ADD,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_MOD,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_DEL,
++	ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_GET_STATS,
++
++	ROCKER_TLV_CMD_TYPE_CLEAR_PORT_STATS,
++	ROCKER_TLV_CMD_TYPE_GET_PORT_STATS,
++
++	__ROCKER_TLV_CMD_TYPE_MAX,
++	ROCKER_TLV_CMD_TYPE_MAX = __ROCKER_TLV_CMD_TYPE_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_CMD_PORT_SETTINGS_UNSPEC,
++	ROCKER_TLV_CMD_PORT_SETTINGS_PPORT,		/* u32 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_SPEED,		/* u32 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_DUPLEX,		/* u8 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG,		/* u8 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_MACADDR,		/* binary */
++	ROCKER_TLV_CMD_PORT_SETTINGS_MODE,		/* u8 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,		/* u8 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_PHYS_NAME,		/* binary */
++	ROCKER_TLV_CMD_PORT_SETTINGS_MTU,		/* u16 */
++
++	__ROCKER_TLV_CMD_PORT_SETTINGS_MAX,
++	ROCKER_TLV_CMD_PORT_SETTINGS_MAX =
++			__ROCKER_TLV_CMD_PORT_SETTINGS_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_CMD_PORT_STATS_UNSPEC,
++	ROCKER_TLV_CMD_PORT_STATS_PPORT,            /* u32 */
++
++	ROCKER_TLV_CMD_PORT_STATS_RX_PKTS,          /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_RX_BYTES,         /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_RX_DROPPED,       /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_RX_ERRORS,        /* u64 */
++
++	ROCKER_TLV_CMD_PORT_STATS_TX_PKTS,          /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_TX_BYTES,         /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_TX_DROPPED,       /* u64 */
++	ROCKER_TLV_CMD_PORT_STATS_TX_ERRORS,        /* u64 */
++
++	__ROCKER_TLV_CMD_PORT_STATS_MAX,
++	ROCKER_TLV_CMD_PORT_STATS_MAX = __ROCKER_TLV_CMD_PORT_STATS_MAX - 1,
++};
++
++enum rocker_port_mode {
++	ROCKER_PORT_MODE_OF_DPA,
++};
++
++enum {
++	ROCKER_TLV_EVENT_UNSPEC,
++	ROCKER_TLV_EVENT_TYPE,	/* u16 */
++	ROCKER_TLV_EVENT_INFO,	/* nest */
++
++	__ROCKER_TLV_EVENT_MAX,
++	ROCKER_TLV_EVENT_MAX = __ROCKER_TLV_EVENT_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_EVENT_TYPE_UNSPEC,
++	ROCKER_TLV_EVENT_TYPE_LINK_CHANGED,
++	ROCKER_TLV_EVENT_TYPE_MAC_VLAN_SEEN,
++
++	__ROCKER_TLV_EVENT_TYPE_MAX,
++	ROCKER_TLV_EVENT_TYPE_MAX = __ROCKER_TLV_EVENT_TYPE_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_EVENT_LINK_CHANGED_UNSPEC,
++	ROCKER_TLV_EVENT_LINK_CHANGED_PPORT,	/* u32 */
++	ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP,	/* u8 */
++
++	__ROCKER_TLV_EVENT_LINK_CHANGED_MAX,
++	ROCKER_TLV_EVENT_LINK_CHANGED_MAX =
++			__ROCKER_TLV_EVENT_LINK_CHANGED_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_EVENT_MAC_VLAN_UNSPEC,
++	ROCKER_TLV_EVENT_MAC_VLAN_PPORT,	/* u32 */
++	ROCKER_TLV_EVENT_MAC_VLAN_MAC,		/* binary */
++	ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID,	/* __be16 */
++
++	__ROCKER_TLV_EVENT_MAC_VLAN_MAX,
++	ROCKER_TLV_EVENT_MAC_VLAN_MAX = __ROCKER_TLV_EVENT_MAC_VLAN_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_RX_UNSPEC,
++	ROCKER_TLV_RX_FLAGS,		/* u16, see ROCKER_RX_FLAGS_ */
++	ROCKER_TLV_RX_CSUM,		/* u16 */
++	ROCKER_TLV_RX_FRAG_ADDR,	/* u64 */
++	ROCKER_TLV_RX_FRAG_MAX_LEN,	/* u16 */
++	ROCKER_TLV_RX_FRAG_LEN,		/* u16 */
++
++	__ROCKER_TLV_RX_MAX,
++	ROCKER_TLV_RX_MAX = __ROCKER_TLV_RX_MAX - 1,
++};
++
++#define ROCKER_RX_FLAGS_IPV4			BIT(0)
++#define ROCKER_RX_FLAGS_IPV6			BIT(1)
++#define ROCKER_RX_FLAGS_CSUM_CALC		BIT(2)
++#define ROCKER_RX_FLAGS_IPV4_CSUM_GOOD		BIT(3)
++#define ROCKER_RX_FLAGS_IP_FRAG			BIT(4)
++#define ROCKER_RX_FLAGS_TCP			BIT(5)
++#define ROCKER_RX_FLAGS_UDP			BIT(6)
++#define ROCKER_RX_FLAGS_TCP_UDP_CSUM_GOOD	BIT(7)
++#define ROCKER_RX_FLAGS_FWD_OFFLOAD		BIT(8)
++
++enum {
++	ROCKER_TLV_TX_UNSPEC,
++	ROCKER_TLV_TX_OFFLOAD,		/* u8, see ROCKER_TX_OFFLOAD_ */
++	ROCKER_TLV_TX_L3_CSUM_OFF,	/* u16 */
++	ROCKER_TLV_TX_TSO_MSS,		/* u16 */
++	ROCKER_TLV_TX_TSO_HDR_LEN,	/* u16 */
++	ROCKER_TLV_TX_FRAGS,		/* array */
++
++	__ROCKER_TLV_TX_MAX,
++	ROCKER_TLV_TX_MAX = __ROCKER_TLV_TX_MAX - 1,
++};
++
++#define ROCKER_TX_OFFLOAD_NONE		0
++#define ROCKER_TX_OFFLOAD_IP_CSUM	1
++#define ROCKER_TX_OFFLOAD_TCP_UDP_CSUM	2
++#define ROCKER_TX_OFFLOAD_L3_CSUM	3
++#define ROCKER_TX_OFFLOAD_TSO		4
++
++#define ROCKER_TX_FRAGS_MAX		16
++
++enum {
++	ROCKER_TLV_TX_FRAG_UNSPEC,
++	ROCKER_TLV_TX_FRAG,		/* nest */
++
++	__ROCKER_TLV_TX_FRAG_MAX,
++	ROCKER_TLV_TX_FRAG_MAX = __ROCKER_TLV_TX_FRAG_MAX - 1,
++};
++
++enum {
++	ROCKER_TLV_TX_FRAG_ATTR_UNSPEC,
++	ROCKER_TLV_TX_FRAG_ATTR_ADDR,	/* u64 */
++	ROCKER_TLV_TX_FRAG_ATTR_LEN,	/* u16 */
++
++	__ROCKER_TLV_TX_FRAG_ATTR_MAX,
++	ROCKER_TLV_TX_FRAG_ATTR_MAX = __ROCKER_TLV_TX_FRAG_ATTR_MAX - 1,
++};
++
++/* cmd info nested for OF-DPA msgs */
++enum {
++	ROCKER_TLV_OF_DPA_UNSPEC,
++	ROCKER_TLV_OF_DPA_TABLE_ID,		/* u16 */
++	ROCKER_TLV_OF_DPA_PRIORITY,		/* u32 */
++	ROCKER_TLV_OF_DPA_HARDTIME,		/* u32 */
++	ROCKER_TLV_OF_DPA_IDLETIME,		/* u32 */
++	ROCKER_TLV_OF_DPA_COOKIE,		/* u64 */
++	ROCKER_TLV_OF_DPA_IN_PPORT,		/* u32 */
++	ROCKER_TLV_OF_DPA_IN_PPORT_MASK,	/* u32 */
++	ROCKER_TLV_OF_DPA_OUT_PPORT,		/* u32 */
++	ROCKER_TLV_OF_DPA_GOTO_TABLE_ID,	/* u16 */
++	ROCKER_TLV_OF_DPA_GROUP_ID,		/* u32 */
++	ROCKER_TLV_OF_DPA_GROUP_ID_LOWER,	/* u32 */
++	ROCKER_TLV_OF_DPA_GROUP_COUNT,		/* u16 */
++	ROCKER_TLV_OF_DPA_GROUP_IDS,		/* u32 array */
++	ROCKER_TLV_OF_DPA_VLAN_ID,		/* __be16 */
++	ROCKER_TLV_OF_DPA_VLAN_ID_MASK,		/* __be16 */
++	ROCKER_TLV_OF_DPA_VLAN_PCP,		/* __be16 */
++	ROCKER_TLV_OF_DPA_VLAN_PCP_MASK,	/* __be16 */
++	ROCKER_TLV_OF_DPA_VLAN_PCP_ACTION,	/* u8 */
++	ROCKER_TLV_OF_DPA_NEW_VLAN_ID,		/* __be16 */
++	ROCKER_TLV_OF_DPA_NEW_VLAN_PCP,		/* u8 */
++	ROCKER_TLV_OF_DPA_TUNNEL_ID,		/* u32 */
++	ROCKER_TLV_OF_DPA_TUNNEL_LPORT,		/* u32 */
++	ROCKER_TLV_OF_DPA_ETHERTYPE,		/* __be16 */
++	ROCKER_TLV_OF_DPA_DST_MAC,		/* binary */
++	ROCKER_TLV_OF_DPA_DST_MAC_MASK,		/* binary */
++	ROCKER_TLV_OF_DPA_SRC_MAC,		/* binary */
++	ROCKER_TLV_OF_DPA_SRC_MAC_MASK,		/* binary */
++	ROCKER_TLV_OF_DPA_IP_PROTO,		/* u8 */
++	ROCKER_TLV_OF_DPA_IP_PROTO_MASK,	/* u8 */
++	ROCKER_TLV_OF_DPA_IP_DSCP,		/* u8 */
++	ROCKER_TLV_OF_DPA_IP_DSCP_MASK,		/* u8 */
++	ROCKER_TLV_OF_DPA_IP_DSCP_ACTION,	/* u8 */
++	ROCKER_TLV_OF_DPA_NEW_IP_DSCP,		/* u8 */
++	ROCKER_TLV_OF_DPA_IP_ECN,		/* u8 */
++	ROCKER_TLV_OF_DPA_IP_ECN_MASK,		/* u8 */
++	ROCKER_TLV_OF_DPA_DST_IP,		/* __be32 */
++	ROCKER_TLV_OF_DPA_DST_IP_MASK,		/* __be32 */
++	ROCKER_TLV_OF_DPA_SRC_IP,		/* __be32 */
++	ROCKER_TLV_OF_DPA_SRC_IP_MASK,		/* __be32 */
++	ROCKER_TLV_OF_DPA_DST_IPV6,		/* binary */
++	ROCKER_TLV_OF_DPA_DST_IPV6_MASK,	/* binary */
++	ROCKER_TLV_OF_DPA_SRC_IPV6,		/* binary */
++	ROCKER_TLV_OF_DPA_SRC_IPV6_MASK,	/* binary */
++	ROCKER_TLV_OF_DPA_SRC_ARP_IP,		/* __be32 */
++	ROCKER_TLV_OF_DPA_SRC_ARP_IP_MASK,	/* __be32 */
++	ROCKER_TLV_OF_DPA_L4_DST_PORT,		/* __be16 */
++	ROCKER_TLV_OF_DPA_L4_DST_PORT_MASK,	/* __be16 */
++	ROCKER_TLV_OF_DPA_L4_SRC_PORT,		/* __be16 */
++	ROCKER_TLV_OF_DPA_L4_SRC_PORT_MASK,	/* __be16 */
++	ROCKER_TLV_OF_DPA_ICMP_TYPE,		/* u8 */
++	ROCKER_TLV_OF_DPA_ICMP_TYPE_MASK,	/* u8 */
++	ROCKER_TLV_OF_DPA_ICMP_CODE,		/* u8 */
++	ROCKER_TLV_OF_DPA_ICMP_CODE_MASK,	/* u8 */
++	ROCKER_TLV_OF_DPA_IPV6_LABEL,		/* __be32 */
++	ROCKER_TLV_OF_DPA_IPV6_LABEL_MASK,	/* __be32 */
++	ROCKER_TLV_OF_DPA_QUEUE_ID_ACTION,	/* u8 */
++	ROCKER_TLV_OF_DPA_NEW_QUEUE_ID,		/* u8 */
++	ROCKER_TLV_OF_DPA_CLEAR_ACTIONS,	/* u32 */
++	ROCKER_TLV_OF_DPA_POP_VLAN,		/* u8 */
++	ROCKER_TLV_OF_DPA_TTL_CHECK,		/* u8 */
++	ROCKER_TLV_OF_DPA_COPY_CPU_ACTION,	/* u8 */
++
++	__ROCKER_TLV_OF_DPA_MAX,
++	ROCKER_TLV_OF_DPA_MAX = __ROCKER_TLV_OF_DPA_MAX - 1,
++};
++
++/* OF-DPA table IDs */
++
++enum rocker_of_dpa_table_id {
++	ROCKER_OF_DPA_TABLE_ID_INGRESS_PORT = 0,
++	ROCKER_OF_DPA_TABLE_ID_VLAN = 10,
++	ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC = 20,
++	ROCKER_OF_DPA_TABLE_ID_UNICAST_ROUTING = 30,
++	ROCKER_OF_DPA_TABLE_ID_MULTICAST_ROUTING = 40,
++	ROCKER_OF_DPA_TABLE_ID_BRIDGING = 50,
++	ROCKER_OF_DPA_TABLE_ID_ACL_POLICY = 60,
++};
++
++/* OF-DPA flow stats */
++enum {
++	ROCKER_TLV_OF_DPA_FLOW_STAT_UNSPEC,
++	ROCKER_TLV_OF_DPA_FLOW_STAT_DURATION,	/* u32 */
++	ROCKER_TLV_OF_DPA_FLOW_STAT_RX_PKTS,	/* u64 */
++	ROCKER_TLV_OF_DPA_FLOW_STAT_TX_PKTS,	/* u64 */
++
++	__ROCKER_TLV_OF_DPA_FLOW_STAT_MAX,
++	ROCKER_TLV_OF_DPA_FLOW_STAT_MAX = __ROCKER_TLV_OF_DPA_FLOW_STAT_MAX - 1,
++};
++
++/* OF-DPA group types */
++enum rocker_of_dpa_group_type {
++	ROCKER_OF_DPA_GROUP_TYPE_L2_INTERFACE = 0,
++	ROCKER_OF_DPA_GROUP_TYPE_L2_REWRITE,
++	ROCKER_OF_DPA_GROUP_TYPE_L3_UCAST,
++	ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST,
++	ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD,
++	ROCKER_OF_DPA_GROUP_TYPE_L3_INTERFACE,
++	ROCKER_OF_DPA_GROUP_TYPE_L3_MCAST,
++	ROCKER_OF_DPA_GROUP_TYPE_L3_ECMP,
++	ROCKER_OF_DPA_GROUP_TYPE_L2_OVERLAY,
++};
++
++/* OF-DPA group L2 overlay types */
++enum rocker_of_dpa_overlay_type {
++	ROCKER_OF_DPA_OVERLAY_TYPE_FLOOD_UCAST = 0,
++	ROCKER_OF_DPA_OVERLAY_TYPE_FLOOD_MCAST,
++	ROCKER_OF_DPA_OVERLAY_TYPE_MCAST_UCAST,
++	ROCKER_OF_DPA_OVERLAY_TYPE_MCAST_MCAST,
++};
++
++/* OF-DPA group ID encoding */
++#define ROCKER_GROUP_TYPE_SHIFT 28
++#define ROCKER_GROUP_TYPE_MASK 0xf0000000
++#define ROCKER_GROUP_VLAN_SHIFT 16
++#define ROCKER_GROUP_VLAN_MASK 0x0fff0000
++#define ROCKER_GROUP_PORT_SHIFT 0
++#define ROCKER_GROUP_PORT_MASK 0x0000ffff
++#define ROCKER_GROUP_TUNNEL_ID_SHIFT 12
++#define ROCKER_GROUP_TUNNEL_ID_MASK 0x0ffff000
++#define ROCKER_GROUP_SUBTYPE_SHIFT 10
++#define ROCKER_GROUP_SUBTYPE_MASK 0x00000c00
++#define ROCKER_GROUP_INDEX_SHIFT 0
++#define ROCKER_GROUP_INDEX_MASK 0x0000ffff
++#define ROCKER_GROUP_INDEX_LONG_SHIFT 0
++#define ROCKER_GROUP_INDEX_LONG_MASK 0x0fffffff
++
++#define ROCKER_GROUP_TYPE_GET(group_id) \
++	(((group_id) & ROCKER_GROUP_TYPE_MASK) >> ROCKER_GROUP_TYPE_SHIFT)
++#define ROCKER_GROUP_TYPE_SET(type) \
++	(((type) << ROCKER_GROUP_TYPE_SHIFT) & ROCKER_GROUP_TYPE_MASK)
++#define ROCKER_GROUP_VLAN_GET(group_id) \
++	(((group_id) & ROCKER_GROUP_VLAN_ID_MASK) >> ROCKER_GROUP_VLAN_ID_SHIFT)
++#define ROCKER_GROUP_VLAN_SET(vlan_id) \
++	(((vlan_id) << ROCKER_GROUP_VLAN_SHIFT) & ROCKER_GROUP_VLAN_MASK)
++#define ROCKER_GROUP_PORT_GET(group_id) \
++	(((group_id) & ROCKER_GROUP_PORT_MASK) >> ROCKER_GROUP_PORT_SHIFT)
++#define ROCKER_GROUP_PORT_SET(port) \
++	(((port) << ROCKER_GROUP_PORT_SHIFT) & ROCKER_GROUP_PORT_MASK)
++#define ROCKER_GROUP_INDEX_GET(group_id) \
++	(((group_id) & ROCKER_GROUP_INDEX_MASK) >> ROCKER_GROUP_INDEX_SHIFT)
++#define ROCKER_GROUP_INDEX_SET(index) \
++	(((index) << ROCKER_GROUP_INDEX_SHIFT) & ROCKER_GROUP_INDEX_MASK)
++#define ROCKER_GROUP_INDEX_LONG_GET(group_id) \
++	(((group_id) & ROCKER_GROUP_INDEX_LONG_MASK) >> \
++	 ROCKER_GROUP_INDEX_LONG_SHIFT)
++#define ROCKER_GROUP_INDEX_LONG_SET(index) \
++	(((index) << ROCKER_GROUP_INDEX_LONG_SHIFT) & \
++	 ROCKER_GROUP_INDEX_LONG_MASK)
++
++#define ROCKER_GROUP_NONE 0
++#define ROCKER_GROUP_L2_INTERFACE(vlan_id, port) \
++	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_INTERFACE) |\
++	 ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_PORT_SET(port))
++#define ROCKER_GROUP_L2_REWRITE(index) \
++	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_REWRITE) |\
++	 ROCKER_GROUP_INDEX_LONG_SET(index))
++#define ROCKER_GROUP_L2_MCAST(vlan_id, index) \
++	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST) |\
++	 ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_INDEX_SET(index))
++#define ROCKER_GROUP_L2_FLOOD(vlan_id, index) \
++	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD) |\
++	ROCKER_GROUP_VLAN_SET(ntohs(vlan_id)) | ROCKER_GROUP_INDEX_SET(index))
++#define ROCKER_GROUP_L3_UNICAST(index) \
++	(ROCKER_GROUP_TYPE_SET(ROCKER_OF_DPA_GROUP_TYPE_L3_UCAST) |\
++	 ROCKER_GROUP_INDEX_LONG_SET(index))
++
++/* Rocker general purpose registers */
++#define ROCKER_CONTROL			0x0300
++#define ROCKER_PORT_PHYS_COUNT		0x0304
++#define ROCKER_PORT_PHYS_LINK_STATUS	0x0310 /* 8-byte */
++#define ROCKER_PORT_PHYS_ENABLE		0x0318 /* 8-byte */
++#define ROCKER_SWITCH_ID		0x0320 /* 8-byte */
++
++/* Rocker control bits */
++#define ROCKER_CONTROL_RESET		BIT(0)
++
++#endif
 -- 
 1.9.3
