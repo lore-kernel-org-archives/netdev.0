@@ -1,89 +1,84 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 1/5] net: Rename FLOWI_FLAG_VRFSRC to FLOWI_FLAG_L3MDEV_SRC
-Date: Mon,  5 Oct 2015 08:51:23 -0700
-Message-ID: <1444060287-11024-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dsahern@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next 09/14] rocker: add rtnl ops for port mode [gs]etting
+Date: Mon, 05 Oct 2015 08:52:48 -0700
+Message-ID: <56129CD0.50301@gmail.com>
+References: <1443993949-3915-1-git-send-email-jiri@resnulli.us> <1443993949-3915-10-git-send-email-jiri@resnulli.us> <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34558 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbbJEPvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:51:36 -0400
-Received: by padhy16 with SMTP id hy16so40308621pad.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:51:35 -0700 (PDT)
-In-Reply-To: <1444060287-11024-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33098 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761AbbJEPxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 11:53:03 -0400
+Received: by pacex6 with SMTP id ex6so180712826pac.0
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 08:53:03 -0700 (PDT)
+In-Reply-To: <CAE4R7bA6+_WUQ5BXD54zQK7DM64P3FS5D+TdUc1gcpbjd1+oZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c   | 4 ++--
- include/net/flow.h  | 2 +-
- include/net/route.h | 2 +-
- net/ipv4/udp.c      | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+On 15-10-05 08:41 AM, Scott Feldman wrote:
+> On Sun, Oct 4, 2015 at 2:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Introduce a stub for allowing user to change rocker port world/mode.
+>> This is implemented using rtnl changelink op.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> 
+> [cut]
+> 
+>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>> index 3a5f263..7da768e 100644
+>> --- a/include/uapi/linux/if_link.h
+>> +++ b/include/uapi/linux/if_link.h
+>> @@ -416,6 +416,17 @@ enum {
+>>  };
+>>  #define IFLA_GENEVE_MAX        (__IFLA_GENEVE_MAX - 1)
+>>
+>> +/* Rocker section */
+>> +enum {
+>> +       IFLA_ROCKER_UNSPEC,
+>> +       IFLA_ROCKER_MODE,
+>> +       __IFLA_ROCKER_MAX,
+>> +};
+>> +
+>> +#define IFLA_ROCKER_MAX        (__IFLA_ROCKER_MAX - 1)
+>> +
+>> +#define ROCKER_MODE_MAX 16
+> 
+> Does this mean there is going to be a "ip link set dev DEV type rocker
+> mode MODE" command option?
+> 
+> It doesn't seem right to be adding driver-specific IFLA_'s here.  I
+> think this sets bad precedence for other drivers to add their own
+> knobs without thinking about a generic shared mechanism.
+> 
+> Actually, I don't see the point of letting the user dynamically change
+> the port mode.  I would prefer this knob be moved to qemu/rocker.  Let
+> the port mode be specified on device creation.
+> 
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 474396353e7f..4fd5af1acff0 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -208,7 +208,7 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
- 		.flowi4_oif = vrf_dev->ifindex,
- 		.flowi4_iif = LOOPBACK_IFINDEX,
- 		.flowi4_tos = RT_TOS(ip4h->tos),
--		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC |
-+		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_L3MDEV_SRC |
- 				FLOWI_FLAG_SKIP_NH_OIF,
- 		.daddr = ip4h->daddr,
- 	};
-@@ -545,7 +545,7 @@ static struct rtable *vrf_get_rtable(const struct net_device *dev,
- {
- 	struct rtable *rth = NULL;
- 
--	if (!(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-+	if (!(fl4->flowi4_flags & FLOWI_FLAG_L3MDEV_SRC)) {
- 		struct net_vrf *vrf = netdev_priv(dev);
- 
- 		rth = vrf->rth;
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 9b85db85f13c..83969eebebf3 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -34,7 +34,7 @@ struct flowi_common {
- 	__u8	flowic_flags;
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_KNOWN_NH		0x02
--#define FLOWI_FLAG_VRFSRC		0x04
-+#define FLOWI_FLAG_L3MDEV_SRC		0x04
- #define FLOWI_FLAG_SKIP_NH_OIF		0x08
- 	__u32	flowic_secid;
- 	struct flowi_tunnel flowic_tun_key;
-diff --git a/include/net/route.h b/include/net/route.h
-index d32cb76f5302..3e18d90b3f4e 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -267,7 +267,7 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
- 		flow_flags |= FLOWI_FLAG_ANYSRC;
- 
- 	if (netif_index_is_l3_master(sock_net(sk), oif))
--		flow_flags |= FLOWI_FLAG_VRFSRC | FLOWI_FLAG_SKIP_NH_OIF;
-+		flow_flags |= FLOWI_FLAG_L3MDEV_SRC | FLOWI_FLAG_SKIP_NH_OIF;
- 
- 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
- 			   protocol, flow_flags, dst, src, dport, sport);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 156ba75b6000..b2882cfd3136 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1024,7 +1024,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		if (netif_index_is_l3_master(net, ipc.oif)) {
- 			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
- 					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
--					   (flow_flags | FLOWI_FLAG_VRFSRC |
-+					   (flow_flags | FLOWI_FLAG_L3MDEV_SRC |
- 					    FLOWI_FLAG_SKIP_NH_OIF),
- 					   faddr, saddr, dport,
- 					   inet->inet_sport);
--- 
-1.9.1
+I agree until we have the infrastructure to "understand" what these
+knobs are fundamentally doing I would prefer it to stay in qemu/rocker.
+
+I would rather see commands like "add a table", "remove a table", "add
+header x to parser" where the operations are well defined. This lends
+itself well to flexible devices that can be configured at runtime. At
+least this fits more into my mental model of how we have been managing
+these devices today. This would allow users to push the "worlds" into
+the device to match their use cases e.g. add more l3 ipv4 rules vs l3
+ipv6 rules etc.
+
+> -scott
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
