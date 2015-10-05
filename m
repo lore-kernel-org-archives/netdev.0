@@ -1,34 +1,131 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ovs: do not allocate memory from offline numa node
-Date: Mon, 05 Oct 2015 06:44:51 -0700 (PDT)
-Message-ID: <20151005.064451.2162263446408087981.davem@davemloft.net>
-References: <20151002101822.12499.27658.stgit@buzz>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dev@openvswitch.org, pshelar@nicira.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, vbabka@suse.cz, linux-mm@kvack.org
-To: khlebnikov@yandex-team.ru
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151002101822.12499.27658.stgit@buzz>
-Sender: owner-linux-mm@kvack.org
+From: jon@ringle.org
+Subject: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg is marked volatile
+Date: Mon,  5 Oct 2015 09:29:31 -0400
+Message-ID: <1444051772-20270-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Date: Fri, 02 Oct 2015 13:18:22 +0300
+From: Jon Ringle <jringle@gridpoint.com>
 
-> When openvswitch tries allocate memory from offline numa node 0:
-> stats = kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO, 0)
-> It catches VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || !node_online(nid))
-> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
-> This patch disables numa affinity in this case.
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+The only time that it makes sense to call a custom provided reg_update_bits
+function, is the register being updated is one that has volatile bits.
+Otherwise, the normal read/modify/write cycle (where the read is likely to
+be free from the cache) will do just fine. This should keep the reg cache
+intact, since volatile registers won't get cached anyway.
 
-Applied, but this should probably use NUMA_NO_NODE unconditionally.
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This patch is being submitted because
+"[PATCH net-next v2 1/2] regmap: Allow installing custom reg_update_bits function"
+was applied to net-next prematurely (there was a v3 patch out for review).
+
+This is a diff between the v2 and v3.
+
+Thanks,
+
+Jon
+
+ drivers/base/regmap/internal.h |  3 +--
+ drivers/base/regmap/regmap.c   | 48 +++++++++++++-----------------------------
+ include/linux/regmap.h         |  3 +--
+ 3 files changed, 17 insertions(+), 37 deletions(-)
+
+diff --git a/drivers/base/regmap/internal.h b/drivers/base/regmap/internal.h
+index 4036d7a..628ad7a 100644
+--- a/drivers/base/regmap/internal.h
++++ b/drivers/base/regmap/internal.h
+@@ -99,8 +99,7 @@ struct regmap {
+ 	int (*reg_read)(void *context, unsigned int reg, unsigned int *val);
+ 	int (*reg_write)(void *context, unsigned int reg, unsigned int val);
+ 	int (*reg_update_bits)(void *context, unsigned int reg,
+-			       unsigned int mask, unsigned int val,
+-			       bool *change, bool force_write);
++			       unsigned int mask, unsigned int val);
+ 
+ 	bool defer_caching;
+ 
+diff --git a/drivers/base/regmap/regmap.c b/drivers/base/regmap/regmap.c
+index 70387c9..8cd155a 100644
+--- a/drivers/base/regmap/regmap.c
++++ b/drivers/base/regmap/regmap.c
+@@ -2510,44 +2510,26 @@ static int _regmap_update_bits(struct regmap *map, unsigned int reg,
+ 	int ret;
+ 	unsigned int tmp, orig;
+ 
+-	if (map->reg_update_bits) {
+-		ret = map->reg_update_bits(map->bus_context, reg, mask, val,
+-					   change, force_write);
++	if (change)
++		*change = false;
++
++	if (regmap_volatile(map, reg) && map->reg_update_bits) {
++		ret = map->reg_update_bits(map->bus_context, reg, mask, val);
++		if (ret == 0 && change)
++			*change = true;
++	} else {
++		ret = _regmap_read(map, reg, &orig);
+ 		if (ret != 0)
+ 			return ret;
+ 
+-		/* Fix up the cache by read/modify/write */
+-		if (!map->cache_bypass && !map->defer_caching) {
+-			ret = regcache_read(map, reg, &orig);
+-			if (ret != 0)
+-				return ret;
++		tmp = orig & ~mask;
++		tmp |= val & mask;
+ 
+-			tmp = orig & ~mask;
+-			tmp |= val & mask;
+-
+-			ret = regcache_write(map, reg, tmp);
+-			if (ret != 0)
+-				return ret;
+-			if (map->cache_only)
+-				map->cache_dirty = true;
++		if (force_write || (tmp != orig)) {
++			ret = _regmap_write(map, reg, tmp);
++			if (ret == 0 && change)
++				*change = true;
+ 		}
+-		return ret;
+-	}
+-
+-	ret = _regmap_read(map, reg, &orig);
+-	if (ret != 0)
+-		return ret;
+-
+-	tmp = orig & ~mask;
+-	tmp |= val & mask;
+-
+-	if (force_write || (tmp != orig)) {
+-		ret = _regmap_write(map, reg, tmp);
+-		if (change)
+-			*change = true;
+-	} else {
+-		if (change)
+-			*change = false;
+ 	}
+ 
+ 	return ret;
+diff --git a/include/linux/regmap.h b/include/linux/regmap.h
+index 4d3a3b1..b49d413 100644
+--- a/include/linux/regmap.h
++++ b/include/linux/regmap.h
+@@ -297,8 +297,7 @@ typedef int (*regmap_hw_reg_read)(void *context, unsigned int reg,
+ typedef int (*regmap_hw_reg_write)(void *context, unsigned int reg,
+ 				   unsigned int val);
+ typedef int (*regmap_hw_reg_update_bits)(void *context, unsigned int reg,
+-					 unsigned int mask, unsigned int val,
+-					 bool *change, bool force_write);
++					 unsigned int mask, unsigned int val);
+ typedef struct regmap_async *(*regmap_hw_async_alloc)(void);
+ typedef void (*regmap_hw_free_context)(void *context);
+ 
+-- 
+2.4.1
