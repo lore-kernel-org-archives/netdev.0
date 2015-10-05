@@ -1,26 +1,37 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] cfg80211: drop unlikely behind WARN_ON()
-Date: Mon, 5 Oct 2015 14:23:18 +0300
-Message-ID: <87si5p4l09.fsf@kamboji.qca.qualcomm.com>
-References: <88184946efc981b4cba84cf21418954423ca11a4.1443942486.git.geliangtang@163.com>
-	<1444027933.1875.0.camel@sipsolutions.net>
+From: Jon Ringle <jon@ringle.org>
+Subject: Re: [PATCH net-next v2 1/2] regmap: Allow installing custom
+ reg_update_bits function
+Date: Mon, 5 Oct 2015 07:57:00 -0400 (EDT)
+Message-ID: <alpine.DEB.2.10.1510050755120.27553@jring-w510-7m3g.gridpoint.com>
+References: <1443699801-8888-1-git-send-email-jon@ringle.org> <20151005.035443.992186445847147964.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Geliang Tang <geliangtang@163.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jon@ringle.org, broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444027933.1875.0.camel@sipsolutions.net> (Johannes Berg's
-	message of "Mon, 5 Oct 2015 08:52:13 +0200")
+In-Reply-To: <20151005.035443.992186445847147964.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
 
-> The subject is entirely wrong - this is not a cfg80211 patch.
 
-Yes, please use prefix "ath6kl: ".
+On Mon, 5 Oct 2015, David Miller wrote:
 
--- 
-Kalle Valo
+> From: jon@ringle.org
+> Date: Thu,  1 Oct 2015 07:43:20 -0400
+> 
+> > From: Jon Ringle <jringle@gridpoint.com>
+> > 
+> > This commit allows installing a custom reg_update_bits function for cases where
+> > the hardware provides a mechanism to set or clear register bits without a
+> > read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
+> > 
+> > Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+> 
+> Applied.
+
+Thanks David. However, I've sent a v3 patch, and also expecting feedback 
+from Mark Brown on the regmap portion of it.
+
+-Jon
