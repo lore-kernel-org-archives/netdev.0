@@ -1,38 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: simplify configfs attributes V2
-Date: Mon, 5 Oct 2015 14:37:05 -0700
-Message-ID: <20151005143705.bdcfa7d7b8211506c5dbc12e@linux-foundation.org>
-References: <1443879179-22280-1-git-send-email-hch@lst.de>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH 3.19 and earlier] fib_rules: Fix dump_rules() not to exit
+ early
+Date: Mon, 5 Oct 2015 23:50:50 +0200
+Message-ID: <5612F0BA.40208@suse.cz>
+References: <1444066168-5566-1-git-send-email-roland@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: Joel Becker <jlbec@evilplan.org>,
-	Nicholas Bellinger <nab@linux-iscsi.org>,
-	Felipe Balbi <balbi@ti.com>,
-	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
-	Tejun Heo <tj@kernel.org>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
-	target-devel@vger.kernel.org, cluster-devel@redhat.com,
-	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
+Cc: Roland Dreier <roland@purestorage.com>
+To: Roland Dreier <roland@kernel.org>, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1444066168-5566-1-git-send-email-roland@kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat,  3 Oct 2015 15:32:36 +0200 Christoph Hellwig <hch@lst.de> wrote:
-
-> This series consolidates the code to implement configfs attributes
-> by providing the ->show and ->store method in common code and using
-> container_of in the methods to access the containing structure.
+On 10/05/2015, 07:29 PM, Roland Dreier wrote:
+> From: Roland Dreier <roland@purestorage.com>
 > 
-> This reduces source and binary size of configfs consumers a lot.
+> Backports of 41fc014332d9 ("fib_rules: fix fib rule dumps across
+> multiple skbs") introduced a regression in "ip rule show" - it ends up
+> dumping the first rule over and over and never exiting, because 3.19
+> and earlier are missing commit 053c095a82cf ("netlink: make
+> nlmsg_end() and genlmsg_end() void"), so fib_nl_fill_rule() ends up
+> returning skb->len (i.e. > 0) in the success case.
+> 
+> Fix this by checking the return code for < 0 instead of != 0.
+> 
+> Signed-off-by: Roland Dreier <roland@purestorage.com>
+> ---
+> Hi, this is needed for all stable trees earlier than 4.0 that have
+> picked up 41fc014332d9; so far looks like at least 3.10.y and 3.14.y
+> have made such releases.
+> 
+>  net/core/fib_rules.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+> index 627e517077e4..84340a2605ed 100644
+> --- a/net/core/fib_rules.c
+> +++ b/net/core/fib_rules.c
+> @@ -606,7 +606,7 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
+>  		err = fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).portid,
+>  				       cb->nlh->nlmsg_seq, RTM_NEWRULE,
+>  				       NLM_F_MULTI, ops);
+> -		if (err)
+> +		if (err < 0)
 
-There's a version of this patch series (I assume V1) in linux-next via
-Nicholas's tree so my hands are tied.  I trust that Nicholas will
-update things.
+I integrated the fix into the backport of 41fc014332d9 in 3.12 and made
+a note in there. Thanks!
 
-Or maybe it was a slipup - modifying usb, ocfs2 etc from the iscsi tree
-is innovative ;)
+-- 
+js
+suse labs
