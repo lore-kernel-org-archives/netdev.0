@@ -1,29 +1,38 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/5] net: Add netif_is_l3_slave
-Date: Mon, 5 Oct 2015 08:44:31 -0600
-Message-ID: <56128CCF.3080209@cumulusnetworks.com>
-References: <1443713247-11230-1-git-send-email-dsa@cumulusnetworks.com>
- <1443713247-11230-3-git-send-email-dsa@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: HW communication debugging interface - ideas?
+Date: Mon, 5 Oct 2015 16:49:41 +0200
+Message-ID: <20151005144941.GC8673@lunn.ch>
+References: <20150930135141.GF2098@nanopsycho.orion>
+ <9B0331B6EBBD0E4684FBFAEDA55776F91944E43E@HASMSX110.ger.corp.intel.com>
+ <20151005095633.GE2278@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rosen, Rami" <rami.rosen@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"idosch@mellanox.com" <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34463 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752538AbbJEOod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 10:44:33 -0400
-Received: by padhy16 with SMTP id hy16so38845490pad.1
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 07:44:33 -0700 (PDT)
-In-Reply-To: <1443713247-11230-3-git-send-email-dsa@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:35784 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752030AbbJEOts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Oct 2015 10:49:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20151005095633.GE2278@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/1/15 9:27 AM, David Ahern wrote:
-> IPv6 addrconf keys off of IFF_SLAVE so can not use it for L3 slave.
-> Add a new private flag and add netif_is_l3_slave function for checking
-> it.
+> >Are you referring here to messages of the EMAD protocol ?
 
-After pulling in Cong's patch to address the warning on device remove I 
-need to respin this one.
+I know nothing about this protocol.....
+
+Does it at least use standard Ethernet framing? Source and Destination
+header and an EtherType which mean EMAD?
+
+Marvell has a way to access registers of their switches using Ethernet
+Frames, and they are valid frames with a specific EtherType. Linux
+does not use them, but if it did, i would of thought passing them
+along using the normal pcap interface would be trivial.
+
+      Andrew
