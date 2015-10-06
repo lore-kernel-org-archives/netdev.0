@@ -1,69 +1,69 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 2/8] bridge: netlink: export port's bridge
-	id
-Date: Tue,  6 Oct 2015 14:11:56 +0200
-Message-ID: <1444133522-16907-3-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 4/8] bridge: netlink: export port's id and number
+Date: Tue,  6 Oct 2015 14:11:58 +0200
+Message-ID: <1444133522-16907-5-git-send-email-razor@blackwall.org>
 References: <1444133522-16907-1-git-send-email-razor@blackwall.org>
-Cc: bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, shm@cumulusnetworks.com, davem@davemloft.net
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	shm@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33501 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568AbbJFMM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 08:12:27 -0400
+Received: by wiclk2 with SMTP id lk2so163786767wic.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 05:12:26 -0700 (PDT)
 In-Reply-To: <1444133522-16907-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Add IFLA_BRPORT_BRIDGE_ID to allow getting the designated bridge id via
-netlink.
+Add IFLA_BRPORT_(ID|NO) to allow getting port's port_id and port_no
+respectively via netlink.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/uapi/linux/if_link.h | 1 +
- net/bridge/br_netlink.c      | 5 ++++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
+ include/uapi/linux/if_link.h | 2 ++
+ net/bridge/br_netlink.c      | 6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index c45c1d7894e7..e891c32c9993 100644
+index 837caf940135..6857563eb27c 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -293,6 +293,7 @@ enum {
- 	IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
- 	IFLA_BRPORT_PROXYARP_WIFI, /* proxy ARP for Wi-Fi */
- 	IFLA_BRPORT_ROOT_ID,	/* designated root */
-+	IFLA_BRPORT_BRIDGE_ID,	/* designated bridge */
+@@ -296,6 +296,8 @@ enum {
+ 	IFLA_BRPORT_BRIDGE_ID,	/* designated bridge */
+ 	IFLA_BRPORT_DESIGNATED_PORT,
+ 	IFLA_BRPORT_DESIGNATED_COST,
++	IFLA_BRPORT_ID,
++	IFLA_BRPORT_NO,
  	__IFLA_BRPORT_MAX
  };
  #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index cad4050310ee..c3e0b73d660d 100644
+index 678d22747044..e51332792c3c 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -128,6 +128,7 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP_WIFI */
- 		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_ROOT_ID */
-+		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_BRIDGE_ID */
+@@ -131,6 +131,8 @@ static inline size_t br_port_info_size(void)
+ 		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_BRIDGE_ID */
+ 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_PORT */
+ 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_COST */
++		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_ID */
++		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_NO */
  		+ 0;
  }
  
-@@ -163,7 +164,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	    nla_put_u8(skb, IFLA_BRPORT_PROXYARP_WIFI,
- 		       !!(p->flags & BR_PROXYARP_WIFI)) ||
- 	    nla_put(skb, IFLA_BRPORT_ROOT_ID, sizeof(struct ifla_bridge_id),
--		    &p->designated_root))
-+		    &p->designated_root) ||
-+	    nla_put(skb, IFLA_BRPORT_BRIDGE_ID, sizeof(struct ifla_bridge_id),
-+		    &p->designated_bridge))
+@@ -170,7 +172,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+ 	    nla_put(skb, IFLA_BRPORT_BRIDGE_ID, sizeof(struct ifla_bridge_id),
+ 		    &p->designated_bridge) ||
+ 	    nla_put_u16(skb, IFLA_BRPORT_DESIGNATED_PORT, p->designated_port) ||
+-	    nla_put_u16(skb, IFLA_BRPORT_DESIGNATED_COST, p->designated_cost))
++	    nla_put_u16(skb, IFLA_BRPORT_DESIGNATED_COST, p->designated_cost) ||
++	    nla_put_u16(skb, IFLA_BRPORT_ID, p->port_id) ||
++	    nla_put_u16(skb, IFLA_BRPORT_NO, p->port_no))
  		return -EMSGSIZE;
  
  	return 0;
