@@ -1,139 +1,129 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv4 net 5/6] openvswitch: Extend ct_state match field to 32 bits
-Date: Tue,  6 Oct 2015 11:00:00 -0700
-Message-ID: <1444154401-18029-6-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv4 net 6/6] openvswitch: Change CT_ATTR_FLAGS to CT_ATTR_COMMIT
+Date: Tue,  6 Oct 2015 11:00:01 -0700
+Message-ID: <1444154401-18029-7-git-send-email-joestringer@nicira.com>
 References: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
 Cc: davem@davemloft.net, pshelar@nicira.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35773 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752812AbbJFSAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:00:32 -0400
-Received: by pacfv12 with SMTP id fv12so221216613pac.2
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:00:32 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33486 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567AbbJFSAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:00:33 -0400
+Received: by pacex6 with SMTP id ex6so217077116pac.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:00:33 -0700 (PDT)
 In-Reply-To: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ct_state field was initially added as an 8-bit field, however six of
-the bits are already being used and use cases are already starting to
-appear that may push the limits of this field. This patch extends the
-field to 32 bits while retaining the internal representation of 8 bits.
-This should cover forward compatibility of the ABI for the foreseeable
-future.
+Previously, the CT_ATTR_FLAGS attribute, when nested under the
+OVS_ACTION_ATTR_CT, encoded a 32-bit bitmask of flags that modify the
+semantics of the ct action. It's more extensible to just represent each
+flag as a nested attribute, and this requires no additional error
+checking to reject flags that aren't currently supported.
 
-This patch also reorders the OVS_CS_F_* bits to be sequential.
-
-Suggested-by: Jarno Rajahalme <jrajahalme@nicira.com>
+Suggested-by: Ben Pfaff <blp@nicira.com>
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
 v4: No change.
-v3: No change.
-v2: Acked.
+v3: Acked.
+v2: Use bitmask for internal representation of COMMIT.
 ---
- include/uapi/linux/openvswitch.h | 8 ++++----
- net/openvswitch/conntrack.c      | 2 +-
- net/openvswitch/conntrack.h      | 4 ++--
- net/openvswitch/flow_netlink.c   | 8 ++++----
- 4 files changed, 11 insertions(+), 11 deletions(-)
+ include/uapi/linux/openvswitch.h | 14 ++++----------
+ net/openvswitch/conntrack.c      | 13 ++++++-------
+ 2 files changed, 10 insertions(+), 17 deletions(-)
 
 diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index a9a4a59912e9..c861a4cf5fec 100644
+index c861a4cf5fec..036f73bc54cd 100644
 --- a/include/uapi/linux/openvswitch.h
 +++ b/include/uapi/linux/openvswitch.h
-@@ -323,7 +323,7 @@ enum ovs_key_attr {
- 	OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
- 				 * The implementation may restrict
- 				 * the accepted length of the array. */
--	OVS_KEY_ATTR_CT_STATE,	/* u8 bitmask of OVS_CS_F_* */
-+	OVS_KEY_ATTR_CT_STATE,	/* u32 bitmask of OVS_CS_F_* */
- 	OVS_KEY_ATTR_CT_ZONE,	/* u16 connection tracking zone. */
- 	OVS_KEY_ATTR_CT_MARK,	/* u32 connection tracking mark */
- 	OVS_KEY_ATTR_CT_LABELS,	/* 16-octet connection tracking label */
-@@ -449,9 +449,9 @@ struct ovs_key_ct_labels {
- #define OVS_CS_F_ESTABLISHED       0x02 /* Part of an existing connection. */
- #define OVS_CS_F_RELATED           0x04 /* Related to an established
- 					 * connection. */
--#define OVS_CS_F_INVALID           0x20 /* Could not track connection. */
--#define OVS_CS_F_REPLY_DIR         0x40 /* Flow is in the reply direction. */
--#define OVS_CS_F_TRACKED           0x80 /* Conntrack has occurred. */
-+#define OVS_CS_F_REPLY_DIR         0x08 /* Flow is in the reply direction. */
-+#define OVS_CS_F_INVALID           0x10 /* Could not track connection. */
-+#define OVS_CS_F_TRACKED           0x20 /* Conntrack has occurred. */
+@@ -618,7 +618,9 @@ struct ovs_action_hash {
  
  /**
-  * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
+  * enum ovs_ct_attr - Attributes for %OVS_ACTION_ATTR_CT action.
+- * @OVS_CT_ATTR_FLAGS: u32 connection tracking flags.
++ * @OVS_CT_ATTR_COMMIT: If present, commits the connection to the conntrack
++ * table. This allows future packets for the same connection to be identified
++ * as 'established' or 'related'.
+  * @OVS_CT_ATTR_ZONE: u16 connection tracking zone.
+  * @OVS_CT_ATTR_MARK: u32 value followed by u32 mask. For each bit set in the
+  * mask, the corresponding bit in the value is copied to the connection
+@@ -630,7 +632,7 @@ struct ovs_action_hash {
+  */
+ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_UNSPEC,
+-	OVS_CT_ATTR_FLAGS,      /* u32 bitmask of OVS_CT_F_*. */
++	OVS_CT_ATTR_COMMIT,     /* No argument, commits connection. */
+ 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
+ 	OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
+ 	OVS_CT_ATTR_LABELS,     /* labels to associate with this connection. */
+@@ -641,14 +643,6 @@ enum ovs_ct_attr {
+ 
+ #define OVS_CT_ATTR_MAX (__OVS_CT_ATTR_MAX - 1)
+ 
+-/*
+- * OVS_CT_ATTR_FLAGS flags - bitmask of %OVS_CT_F_*
+- * @OVS_CT_F_COMMIT: Commits the flow to the conntrack table. This allows
+- * future packets for the same connection to be identified as 'established'
+- * or 'related'.
+- */
+-#define OVS_CT_F_COMMIT		0x01
+-
+ /**
+  * enum ovs_action_attr - Action types.
+  *
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 7d80acfb80d0..466d5576fe3f 100644
+index 466d5576fe3f..80bf702715bb 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -167,7 +167,7 @@ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
+@@ -47,7 +47,7 @@ struct ovs_conntrack_info {
+ 	struct nf_conntrack_helper *helper;
+ 	struct nf_conntrack_zone zone;
+ 	struct nf_conn *ct;
+-	u32 flags;
++	u8 commit : 1;
+ 	u16 family;
+ 	struct md_mark mark;
+ 	struct md_labels labels;
+@@ -493,7 +493,7 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
+ 			return err;
+ 	}
  
- int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb)
- {
--	if (nla_put_u8(skb, OVS_KEY_ATTR_CT_STATE, key->ct.state))
-+	if (nla_put_u32(skb, OVS_KEY_ATTR_CT_STATE, key->ct.state))
+-	if (info->flags & OVS_CT_F_COMMIT)
++	if (info->commit)
+ 		err = ovs_ct_commit(net, key, info, skb);
+ 	else
+ 		err = ovs_ct_lookup(net, key, info, skb);
+@@ -539,8 +539,7 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+ }
+ 
+ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+-	[OVS_CT_ATTR_FLAGS]	= { .minlen = sizeof(u32),
+-				    .maxlen = sizeof(u32) },
++	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0, .maxlen = 0 },
+ 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
+ 				    .maxlen = sizeof(u16) },
+ 	[OVS_CT_ATTR_MARK]	= { .minlen = sizeof(struct md_mark),
+@@ -576,8 +575,8 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+ 		}
+ 
+ 		switch (type) {
+-		case OVS_CT_ATTR_FLAGS:
+-			info->flags = nla_get_u32(a);
++		case OVS_CT_ATTR_COMMIT:
++			info->commit = true;
+ 			break;
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ 		case OVS_CT_ATTR_ZONE:
+@@ -701,7 +700,7 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+ 	if (!start)
  		return -EMSGSIZE;
  
+-	if (nla_put_u32(skb, OVS_CT_ATTR_FLAGS, ct_info->flags))
++	if (ct_info->commit && nla_put_flag(skb, OVS_CT_ATTR_COMMIT))
+ 		return -EMSGSIZE;
  	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
-diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
-index d6eca8394254..da8714942c95 100644
---- a/net/openvswitch/conntrack.h
-+++ b/net/openvswitch/conntrack.h
-@@ -35,7 +35,7 @@ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
- int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
- void ovs_ct_free_action(const struct nlattr *a);
- 
--static inline bool ovs_ct_state_supported(u8 state)
-+static inline bool ovs_ct_state_supported(u32 state)
- {
- 	return !(state & ~(OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED |
- 			 OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR |
-@@ -53,7 +53,7 @@ static inline bool ovs_ct_verify(struct net *net, int attr)
- 	return false;
- }
- 
--static inline bool ovs_ct_state_supported(u8 state)
-+static inline bool ovs_ct_state_supported(u32 state)
- {
- 	return false;
- }
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index d47b5c5c640e..171a691f1c32 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -291,7 +291,7 @@ size_t ovs_key_attr_size(void)
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
--		+ nla_total_size(1)   /* OVS_KEY_ATTR_CT_STATE */
-+		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_STATE */
- 		+ nla_total_size(2)   /* OVS_KEY_ATTR_CT_ZONE */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
- 		+ nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABELS */
-@@ -349,7 +349,7 @@ static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 	[OVS_KEY_ATTR_TUNNEL]	 = { .len = OVS_ATTR_NESTED,
- 				     .next = ovs_tunnel_key_lens, },
- 	[OVS_KEY_ATTR_MPLS]	 = { .len = sizeof(struct ovs_key_mpls) },
--	[OVS_KEY_ATTR_CT_STATE]	 = { .len = sizeof(u8) },
-+	[OVS_KEY_ATTR_CT_STATE]	 = { .len = sizeof(u32) },
- 	[OVS_KEY_ATTR_CT_ZONE]	 = { .len = sizeof(u16) },
- 	[OVS_KEY_ATTR_CT_MARK]	 = { .len = sizeof(u32) },
- 	[OVS_KEY_ATTR_CT_LABELS] = { .len = sizeof(struct ovs_key_ct_labels) },
-@@ -814,10 +814,10 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 
- 	if (*attrs & (1 << OVS_KEY_ATTR_CT_STATE) &&
- 	    ovs_ct_verify(net, OVS_KEY_ATTR_CT_STATE)) {
--		u8 ct_state = nla_get_u8(a[OVS_KEY_ATTR_CT_STATE]);
-+		u32 ct_state = nla_get_u32(a[OVS_KEY_ATTR_CT_STATE]);
- 
- 		if (!is_mask && !ovs_ct_state_supported(ct_state)) {
--			OVS_NLERR(log, "ct_state flags %02x unsupported",
-+			OVS_NLERR(log, "ct_state flags %08x unsupported",
- 				  ct_state);
- 			return -EINVAL;
- 		}
+ 	    nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone.id))
 -- 
 2.1.4
