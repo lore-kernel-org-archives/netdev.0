@@ -1,86 +1,60 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Tue, 06 Oct 2015 14:25:36 -0700
-Message-ID: <56143C50.2050604@gmail.com>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com> <5613F482.2010200@gmail.com> <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: clsoto@linux.vnet.ibm.com
+Subject: [PATCH 1/2 net] net/mlx4_core: Test interrupts fail if not all comp vectors called request_irq
+Date: Tue,  6 Oct 2015 17:27:08 -0400
+Message-ID: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	brking@linux.vnet.ibm.com, Carol L Soto <clsoto@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33405 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752770AbbJFVZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 17:25:53 -0400
-Received: by pacex6 with SMTP id ex6so221303096pac.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 14:25:52 -0700 (PDT)
-In-Reply-To: <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:58867 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbbJFV1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 17:27:32 -0400
+Received: from /spool/local
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
+	Tue, 6 Oct 2015 18:27:30 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id 4092B1DC006F
+	for <netdev@vger.kernel.org>; Tue,  6 Oct 2015 17:26:25 -0400 (EDT)
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
+	by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t96LRt0E4333656
+	for <netdev@vger.kernel.org>; Tue, 6 Oct 2015 18:27:55 -0300
+Received: from d24av02.br.ibm.com (localhost [127.0.0.1])
+	by d24av02.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t96LRQcs017282
+	for <netdev@vger.kernel.org>; Tue, 6 Oct 2015 18:27:27 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
+From: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
->>>
->>> Using void * in these ops is unacceptable, I can't agree to this patch.
->>>
->>> There is a much cleaner way to architect this.  If you look at the ops
->>> defined, they're mostly duplicates of the already defined
->>> switchdev_ops.  It would be much cleaner to:
->>>
->>> 0) set port mode on qemu/rocker (the device)
->>> 1) get the port mode on port probe
->>> 2) based on port mode, set the switchdev_ops to point to the port mode
->>> world switchdev_ops
->>> 3) sub-class rocker_port, like I mentioned in before, to store
->>> world-specific stuff in rocker_port
->>>
->>> I don't buy the argument that we need to change port mode dynamically
->>> from the driver.  Set it at the device and be done.
->>>
->>
->> Maybe as a reference this strikes me as similar to how we do multiple
->> device support in a single driver like ixgbe or fm10k (the two I'm most
->> familiar with). At probe time we read the device id and then stub in
->> the specific callbacks for that device.
-> 
-> Exactly
-> 
->> Sorry I'm still hung up on the multiple worlds thing, is it really
->> trying to model different devices under a single driver? In which case
->> maybe rather than port mode expose it as its own device id. Just a
->> thought.
-> 
-> Yes, different devices under single driver.  New device ID or
-> sub-device ID will not work in this case as we're trying to slice it
-> at the port level, not the device level.
-> 
+Test interrupts fails if not all completion vectors called
+request_irq. This case can happen if only mlx4_en loads and
+we have more completion vectors than rx rings. 
 
-OK uncovered my next level of suspicion/confusion.
+Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
+Acked-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-Do you actually have or seen hardware that has completely different
-programming interface per port? And completely different pipelines?
+---
+ drivers/net/ethernet/mellanox/mlx4/eq.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-This seems really strange to me and perhaps just an artifact of
-the qemu implementation? Typically or at least what I expect is you
-have a switch pipeline with a set of data structures, tcams, hash
-tables, etc all connected together in some (possibly configurable)
-topology. Ports feed packets into this pipeline and packets egress
-out ports. In my logical view of a "switch" device the pipeline
-is a shared resource you can partition it so that ports are isolated
-in some sense but you can't use fundamentally different underlying
-resources per ports. Its not a per port attribute/mode like this
-series sort of hints at.
-
-Also I wonder how this works when a pkt ingresses a port in mode A and
-egresses a port in mode B? What fib/fdb tables does it cross when this
-happens? It seems easier to just have two switch devices not a
-hybrid. If this per port implementation maps to some hardware that
-would be really interesting though.
-
-.John
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 8e81e53..c344884 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -1364,6 +1364,10 @@ int mlx4_test_interrupts(struct mlx4_dev *dev)
+ 	 * and performing a NOP command
+ 	 */
+ 	for(i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
++		/* Make sure request_irq was called */
++		if (!priv->eq_table.eq[i].have_irq)
++			continue;
++
+ 		/* Temporary use polling for command completions */
+ 		mlx4_cmd_use_polling(dev);
+ 
+-- 
+Can we push this patch to 4.2-stable as the bug was introduced in 4.2-rc1 
+1.8.3.1
