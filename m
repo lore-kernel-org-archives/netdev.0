@@ -1,42 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: HW communication debugging interface - ideas?
-Date: Tue, 6 Oct 2015 17:02:34 +0200
-Message-ID: <20151006150234.GD32615@lunn.ch>
-References: <20151005095633.GE2278@nanopsycho.orion>
- <20151005144941.GC8673@lunn.ch>
- <20151005145542.GJ2278@nanopsycho.orion>
- <20151005145842.GD8673@lunn.ch>
- <20151005151821.GK2278@nanopsycho.orion>
- <56129745.1020805@gmail.com>
- <20151005153554.GM2278@nanopsycho.orion>
- <56129B7D.4040402@gmail.com>
- <20151006081457.GD2165@nanopsycho.orion>
- <5613E091.6000001@gmail.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH net-next v2 1/2] regmap: Allow installing custom
+ reg_update_bits function
+Date: Tue, 6 Oct 2015 16:07:07 +0100
+Message-ID: <20151006150707.GT12635@sirena.org.uk>
+References: <20151005142531.GS12635@sirena.org.uk>
+ <20151005.232148.28609721470208031.davem@davemloft.net>
+ <20151006095715.GF12635@sirena.org.uk>
+ <20151006.062208.1154490262564827766.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	"Rosen, Rami" <rami.rosen@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"idosch@mellanox.com" <idosch@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36641 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752764AbbJFPCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 11:02:42 -0400
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="eeQ5RemdMfmXqpfW"
+Cc: jon@ringle.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5613E091.6000001@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151006.062208.1154490262564827766.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Sure just throwing out an idea. I suspect whatever interface you have
-> will include the vendor-id or some other identifier and a set of
-> parsers in user space to pretty print the msg.
 
-If you are going to use wireshark, in this case, all you need to do is
-make the stream as being Ethernet frames. The destination and
-Ethertype tell you all you need to know to identify the protocol.
+--eeQ5RemdMfmXqpfW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-	  Andrew
+On Tue, Oct 06, 2015 at 06:22:08AM -0700, David Miller wrote:
+> Date: Tue, 6 Oct 2015 10:57:15 +0100
+
+> > I obviously can't just merge in net-next.
+
+> People do this all the time, when needed.  My history never changes,
+> and the networking tree is one of the first trees pulled into
+> linux-next, so this is always safe.
+
+Which would then make working with my tree annoying (I get net stuff
+showing up in my diffs and logs) and gets in the way for sending pull
+requests before Linus starts merging stuff which I tend to do.
+
+--eeQ5RemdMfmXqpfW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWE+OXAAoJECTWi3JdVIfQV18H/jpco0v0uPN3+gETdCHpRNAM
+nzhJaLBg85dNsD9+DP2FWqv3tYDs3uhJQy7ltxWUMEItpYe1/0dCWx12CbH3Qbev
+GI5YP0vdMI1f7f/NgHqNZNBKcFocwhiuGqguq3lV5ZarC46ZFa7TIg631isPkOsp
+uSGqZreyGhI3ysMX2ISifTjFFtCpwHPCMOTAjFjIUd44pibS4N4v0B76iS1VDFPm
+naQfNlW9O3QIrqer8+eMf0IEdY/k48ZJDaCdGmXK0oeLLKDmTD9zwcOmR+6fa3Pn
+S8+ypY5+ps/6lUAwL10Bks6Dfm+HqswiN82trmSpARfQmPQlVQ2oW7I5FPgXtto=
+=6mJg
+-----END PGP SIGNATURE-----
+
+--eeQ5RemdMfmXqpfW--
