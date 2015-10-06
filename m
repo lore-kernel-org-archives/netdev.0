@@ -1,51 +1,51 @@
-From: Arun Parameswaran <aparames-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 4/5] net: phy: Broadcom Cygnus internal Etherent PHY
- driver
-Date: Tue, 6 Oct 2015 11:56:06 -0700
-Message-ID: <56141946.4090801@broadcom.com>
-References: <201510011203.PcAeqiTE%fengguang.wu@intel.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Tue, 6 Oct 2015 11:55:35 -0700
+Message-ID: <CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "kbuild-all-JC7UmRfGjtg@public.gmane.org" <kbuild-all-JC7UmRfGjtg@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201510011203.PcAeqiTE%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:36934 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988AbbJFSzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:55:36 -0400
+Received: by igcpe7 with SMTP id pe7so31414563igc.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:55:35 -0700 (PDT)
+In-Reply-To: <20151006204558.5f2f56fc@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 15-09-30 09:04 PM, kbuild test robot wrote:
-> Hi Arun,
+On Tue, Oct 6, 2015 at 11:45 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 6 Oct 2015 11:28:08 -0700, Pravin Shelar wrote:
+>> What do you have in mind? I do not see way to fix this issue in vport-*.c.
 >
-> [auto build test results on v4.3-rc3 -- if it's inappropriate base, please ignore]
+> It seems to me that e.g. the code you have in vxlan_egress_tun_info in
+> drivers/net/vxlan.c can be put into vxlan_get_egress_tun_info in
+> net/openvswitch/vport-vxlan.c. vport->dev is guaranteed to be vxlan,
+> and the current code accesses netdev_priv(dev) as struct vxlan_dev
+> anyway.
 >
-> config: um-allyesconfig (attached as .config)
-> reproduce:
->         git checkout 0560b94805aa3bb38439b4f72b776d85d2aac394
->         # save the attached .config to linux build tree
->         make ARCH=um 
+> This would of course not work if we created lwtunnel interface from the
+> ovs user space. But that's not going to happen with kernel 4.3, we'll
+> need a way to query datapath for features it supports for this to work
+
+This issue exist for lwtunnel based devices, for vport based tunnels
+there is no bug.
+
+> - there's currently no useful way to determine whether the kernel
+> supports metadata based vxlan or not. I'm working on a patch to query
+> the datapath for the supported features but that's for net-next. Thus
+> I think we're safe.
 >
-> All warnings (new ones prefixed by >>):
->
-> warning: (BCM_CYGNUS_PHY) selects MDIO_BCM_IPROC which has unmet direct dependencies (NETDEVICES && PHYLIB && (ARCH_BCM_IPROC || COMPILE_TEST) && HAS_IOMEM && OF_MDIO)
-
-Fixing this warning.
-Changing from 'select MDIO_BCM_IPROC' to using 'depends on MDIO_BCM_IPROC' in the Cygnus PHY driver.
-
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We should be able to use lwtunnel devices on 4.3. How about using
+tunnel device parameters to detect lwtunnel support. For example in
+case of vxlan tunnel IFLA_VXLAN_COLLECT_METADATA flags can confirm
+lwtunnel support.
