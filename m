@@ -1,74 +1,41 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
- pppoe_flush_dev()
-Date: Tue, 6 Oct 2015 00:26:20 +0000
-Message-ID: <1444091180.1468.17.camel@mattb-dl>
-References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
-	 <7045c1dad4647944f61c958511d45fcd@visp.net.lb>
-	 <20151002175426.GE2911@alphalink.fr>
-	 <356ca8b8094bb2460c0182c00e120378@visp.net.lb>
-	 <1444018131.14634.6.camel@mattb-dl> <20151005122459.GG2911@alphalink.fr>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Mon, 5 Oct 2015 17:51:43 -0700
+Message-ID: <56131B1F.80002@plumgrid.com>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
+ <1444078101-29060-2-git-send-email-ast@plumgrid.com>
+ <5612F639.2050305@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "core@irc.lg.ua" <core@irc.lg.ua>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"paulus@samba.org" <paulus@samba.org>,
-	"nuclearcat@nuclearcat.com" <nuclearcat@nuclearcat.com>
-To: "g.nault@alphalink.fr" <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:37274 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbbJFA01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 20:26:27 -0400
-In-Reply-To: <20151005122459.GG2911@alphalink.fr>
-Content-Language: en-US
-Content-ID: <B706C2AA077081438259D68482667D98@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5612F639.2050305-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE1LTEwLTA1IGF0IDE0OjI0ICswMjAwLCBHdWlsbGF1bWUgTmF1bHQgd3JvdGU6
-DQo+IE9uIE1vbiwgT2N0IDA1LCAyMDE1IGF0IDA0OjA4OjUxQU0gKzAwMDAsIE1hdHQgQmVubmV0
-dCB3cm90ZToNCj4gPiBIaSwgSSBhbSBzZWVpbmcgdGhpcyBwYW5pYyBvY2N1ciBvY2Nhc2lvbmFs
-bHkgaG93ZXZlciBJIGFtIHVuc3VyZSBob3cgdG8NCj4gPiBnbyBhYm91dCByZXByb2R1Y2luZyBp
-dC4gSXMgaXQgZW5vdWdoIHRvIHNpbXBseSBrZWVwIGNyZWF0aW5nIGFuZA0KPiA+IHRlYXJpbmcg
-ZG93biB0aGUgUFBQIGludGVyZmFjZT8gSSBjYW4gYWxzbyB0ZXN0IGFuZC9vciBpbnZlc3RpZ2F0
-ZSB0aGlzDQo+ID4gaXNzdWUgaWYgYSBzdWl0YWJsZSByZXByb2R1Y3Rpb24gbWV0aG9kIGlzIGF2
-YWlsYWJsZS4NCj4gPiANCj4gVGhlcmUgYXJlIGF0IGxlYXN0IHR3byBpc3N1ZXMgcmVzdWx0aW5n
-IGluIHNpbWlsYXIgT29wcy4NCj4gDQo+IFRoZSBmaXJzdCBvbmUgZ29lcyB3aXRoIE1UVS9hZGRy
-ZXNzL2xpbmsgc3RhdGUgdXBkYXRlcyBvbiB0aGUNCj4gdW5kZXJseWluZyBpbnRlcmZhY2U6IGFu
-eSBzdWNoIHVwZGF0ZSBvbiBhbiBpbnRlcmZhY2UgdXNlZCBieSBhDQo+IFBQUG9FIGNvbm5lY3Rp
-b24gd2lsbCBnZW5lcmFsbHkgcmVzdWx0IGluIGFuIE9vcHMgd2hlbiByZWxlYXNpbmcgdGhlDQo+
-IFBQUG9FIGNvbm5lY3Rpb24uIFRoaXMgaXMgZml4ZWQgYnkgZTY3NDAxNjViOGY3ICgicHBwOiBk
-b24ndCBvdmVycmlkZQ0KPiBzay0+c2tfc3RhdGUgaW4gcHBwb2VfZmx1c2hfZGV2KCkiKS4NCg0K
-V2l0aG91dCB5b3VyIHBhdGNoICgicHBwOiBkb24ndCBvdmVycmlkZSBzay0+c2tfc3RhdGUgaW4N
-CnBwcG9lX2ZsdXNoX2RldigpIikgSSBjYW4gc2VlIHRoZSBmb2xsb3dpbmcgZnVuY3Rpb24gY2Fs
-bHMgYmVpbmcgbWFkZQ0Kd2hlbiBjaGFuZ2luZyB0aGUgbXR1IG9uIHRoZSB1bmRlcmx5aW5nIGV0
-aGVybmV0IGludGVyZmFjZSBmb3IgdGhlIFBQUG9FDQpjb25uZWN0aW9uOg0KDQoxLiBwcHBvZV9m
-bHVzaF9kZXYoKSAtIHNldHRpbmcgUFBQT1hfWk9NQklFDQoNCjIuIHBwcG9lX2Nvbm5lY3QgLSBz
-ZXR0aW5nIFBQUE9YX05PTkUgKHNob3duIGJlbG93KQ0KDQovKiBEZWxldGUgdGhlIG9sZCBiaW5k
-aW5nICovDQoJaWYgKHN0YWdlX3Nlc3Npb24ocG8tPnBwcG9lX3BhLnNpZCkpIHsNCgkJcHBwb3hf
-dW5iaW5kX3NvY2soc2spOw0KCQlwbiA9IHBwcG9lX3Blcm5ldChzb2NrX25ldChzaykpOw0KCQlk
-ZWxldGVfaXRlbShwbiwgcG8tPnBwcG9lX3BhLnNpZCwNCgkJCSAgICBwby0+cHBwb2VfcGEucmVt
-b3RlLCBwby0+cHBwb2VfaWZpbmRleCk7DQoJCWlmIChwby0+cHBwb2VfZGV2KSB7DQoJCQlkZXZf
-cHV0KHBvLT5wcHBvZV9kZXYpOw0KCQkJcG8tPnBwcG9lX2RldiA9IE5VTEw7DQoJCX0NCg0KCQlt
-ZW1zZXQoc2tfcHBwb3gocG8pICsgMSwgMCwNCgkJICAgICAgIHNpemVvZihzdHJ1Y3QgcHBwb3hf
-c29jaykgLSBzaXplb2Yoc3RydWN0IHNvY2spKTsNCgkJc2stPnNrX3N0YXRlID0gUFBQT1hfTk9O
-RTsNCgl9DQoNCjMuIHBwcG9lX3JlbGVhc2UgLSBObyBvb3BzIChzaW5jZSBzay0+c2tfc3RhdGUg
-aXMgbm8gbG9uZ2VyIGluDQp7UFBQT1hfQ09OTkVDVEVELFBQUE9YX0JPVU5ELFBQUE9YX1pPTUJJ
-RX0pDQoNCkl0IGRvZXNuJ3QgbG9vayB0byBtZSBsaWtlIHRoZSBhYm92ZSBmdW5jdGlvbnMgY2Fu
-IGV4ZWN1dGUNCmFzeW5jaHJvbm91c2x5IGJ1dCBJJ2QgaGF2ZSB0byBsb29rIGhhcmRlci4gSSBh
-bSB1c2luZyAzLjE2IGJ5IHRoZSB3YXkuDQoNCj4gDQo+IFRoZSBzZWNvbmQgb25lIHNlZW1zIHRv
-IGJlIHRyaWNraWVyLiBJdCBsb29rcyBsaWtlIGEgcmFjZSB3cnQuIFBBRFQNCj4gbWVzc2FnZSBy
-ZWNlcHRpb24uIFJlcHJvZHVjaW5nIHRoZSBidWcgd2lsbCBwcm9iYWJseSByZXF1aXJlIHRvDQo+
-IGdlbmVyYXRlIHNvbWUgUEFEVCBmbG9vZGluZyB0byBhIGhvc3QgdGhhdCBjcmVhdGVzIGFuZCBy
-ZWxlYXNlcyBQUFBvRQ0KPiBjb25uZWN0aW9ucy4NCg0KSSB3aWxsIGludmVzdGlnYXRlIHRoZSBQ
-QURUIG1lc3NhZ2UgcmVjZXB0aW9uIGhvd2V2ZXIgc2luY2UgSSBhbSBvbiAzLjE2DQpJIGRvbid0
-IGhhdmUgdGhlIGNvbW1pdHMgZm9yICJwcHBvZTogVXNlIHdvcmtxdWV1ZSB0byBkaWUgcHJvcGVy
-bHkgd2hlbg0KYSBQQURUIGlzIHJlY2VpdmVkIiBhbmQgInBwcG9lOiBkcm9wIHBwcG9lIGRldmlj
-ZSBpbg0KcHBwb2VfdW5iaW5kX3NvY2tfd29yayIuIA0KDQpNYXR0DQo+IC0tDQo+IFRvIHVuc3Vi
-c2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYi
-IGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3Jn
-DQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jk
-b21vLWluZm8uaHRtbA0KDQo=
+On 10/5/15 3:14 PM, Daniel Borkmann wrote:
+> One scenario that comes to mind ... what happens when there are kernel
+> pointers stored in skb->cb[] (either from the current layer or an old
+> one from a different layer that the skb went through previously, but
+> which did not get overwritten)?
+>
+> Socket filters could read a portion of skb->cb[] also when unprived and
+> leak that out through maps. I think the verifier doesn't catch that,
+> right?
+
+grrr. indeed. previous layer before sk_filter() can leave junk in there.
+Would need to disable cb[0-5] for unpriv, but that will make tail_call
+much harder to use, since cb[0-5] is a way to pass arguments from
+one prog to another and clearing them is not an option, since it's
+too expensive. Like samples/bpf/sockex3_kern.c usage of cb[0]
+won't work anymore. I guess that's the price of unpriv.
+Will fix this, add few tail_call specific tests and respin.
+Please keep poking.
