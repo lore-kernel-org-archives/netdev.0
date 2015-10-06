@@ -1,114 +1,264 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bridge/netfilter: avoid unused label warning
-Date: Tue, 06 Oct 2015 21:22:12 +0200
-Message-ID: <7985748.1v9Gzszd4T@wuerfel>
+From: Arun Parameswaran <arunp@broadcom.com>
+Subject: [PATCH v3 4/5] net: phy: Broadcom Cygnus internal Etherent PHY driver
+Date: Tue, 6 Oct 2015 12:25:49 -0700
+Message-ID: <1444159550-3432-5-git-send-email-arunp@broadcom.com>
+References: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<bcm-kernel-feedback-list@broadcom.com>,
+	Arun Parameswaran <arunp@broadcom.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the ARM mini2440_defconfig, the bridge netfilter code gets
-built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
-disabled, which leads to a harmless gcc warning:
+Add support for the Broadcom Cygnus SoCs internal PHY's.
+The PHYs are 1000M/100M/10M capable with support for 'EEE'
+and 'APD' (Auto Power Down).
 
-net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
-net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
+This driver supports the following Broadcom Cygnus SoCs:
+ - BCM583XX (BCM58300, BCM58302, BCM58303, BCM58305)
+ - BCM113XX (BCM11300, BCM11320, BCM11350, BCM11360)
 
-This gets rid of the warning by cleaning up the code to avoid
-the respective #ifdefs causing this problem, and replacing them
-with if(IS_ENABLED()) checks. I have verified that the resulting
-object code is unchanged, and an additional advantage is that
-we now get compile coverage of the unused functions in more
-configurations.
+The PHY's on these SoC's require some workarounds for
+stable operation, both during configuration time and
+during suspend/resume. This driver handles the
+application of the workarounds.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
+---
+ drivers/net/phy/Kconfig      |  13 ++++
+ drivers/net/phy/Makefile     |   1 +
+ drivers/net/phy/bcm-cygnus.c | 158 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/brcmphy.h      |   7 ++
+ 4 files changed, 179 insertions(+)
+ create mode 100644 drivers/net/phy/bcm-cygnus.c
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 370aa4d4cf4d..5c679ac5cdef 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -111,7 +111,6 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
- /* largest possible L2 header, see br_nf_dev_queue_xmit() */
- #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 606fdc9..9d097ae 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -79,6 +79,19 @@ config BROADCOM_PHY
+ 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
+ 	  BCM5481 and BCM5482 PHYs.
  
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
- struct brnf_frag_data {
- 	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
- 	u8 encap_size;
-@@ -121,7 +120,6 @@ struct brnf_frag_data {
- };
++config BCM_CYGNUS_PHY
++	tristate "Drivers for Broadcom Cygnus SoC internal PHY"
++	depends on ARCH_BCM_CYGNUS || COMPILE_TEST
++	depends on MDIO_BCM_IPROC
++	select BCM_NET_PHYLIB
++	---help---
++	  This PHY driver is for the 1G internal PHYs of the Broadcom
++	  Cygnus Family SoC.
++
++	  Currently supports internal PHY's used in the BCM11300,
++	  BCM11320, BCM11350, BCM11360, BCM58300, BCM58302,
++	  BCM58303 & BCM58305 Broadcom Cygnus SoCs.
++
+ config BCM63XX_PHY
+ 	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
+ 	depends on BCM63XX
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 6932475..7655d47 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -17,6 +17,7 @@ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
+ obj-$(CONFIG_BCM7XXX_PHY)	+= bcm7xxx.o
+ obj-$(CONFIG_BCM87XX_PHY)	+= bcm87xx.o
++obj-$(CONFIG_BCM_CYGNUS_PHY)	+= bcm-cygnus.o
+ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_LSI_ET1011C_PHY)	+= et1011c.o
+diff --git a/drivers/net/phy/bcm-cygnus.c b/drivers/net/phy/bcm-cygnus.c
+new file mode 100644
+index 0000000..49bbc68
+--- /dev/null
++++ b/drivers/net/phy/bcm-cygnus.c
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (C) 2015 Broadcom Corporation
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ */
++
++/* Broadcom Cygnus SoC internal transceivers support. */
++#include "bcm-phy-lib.h"
++#include <linux/brcmphy.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/phy.h>
++
++/* Broadcom Cygnus Phy specific registers */
++#define MII_BCM_CYGNUS_AFE_VDAC_ICTRL_0  0x91E5 /* VDAL Control register */
++
++static int bcm_cygnus_afe_config(struct phy_device *phydev)
++{
++	int rc;
++
++	/* ensure smdspclk is enabled */
++	rc = phy_write(phydev, MII_BCM54XX_AUX_CTL, 0x0c30);
++	if (rc < 0)
++		return rc;
++
++	/* AFE_VDAC_ICTRL_0 bit 7:4 Iq=1100 for 1g 10bt, normal modes */
++	rc = bcm_phy_write_misc(phydev, 0x39, 0x01, 0xA7C8);
++	if (rc < 0)
++		return rc;
++
++	/* AFE_HPF_TRIM_OTHERS bit11=1, short cascode enable for all modes*/
++	rc = bcm_phy_write_misc(phydev, 0x3A, 0x00, 0x0803);
++	if (rc < 0)
++		return rc;
++
++	/* AFE_TX_CONFIG_1 bit 7:4 Iq=1100 for test modes */
++	rc = bcm_phy_write_misc(phydev, 0x3A, 0x01, 0xA740);
++	if (rc < 0)
++		return rc;
++
++	/* AFE TEMPSEN_OTHERS rcal_HT, rcal_LT 10000 */
++	rc = bcm_phy_write_misc(phydev, 0x3A, 0x03, 0x8400);
++	if (rc < 0)
++		return rc;
++
++	/* AFE_FUTURE_RSV bit 2:0 rccal <2:0>=100 */
++	rc = bcm_phy_write_misc(phydev, 0x3B, 0x00, 0x0004);
++	if (rc < 0)
++		return rc;
++
++	/* Adjust bias current trim to overcome digital offSet */
++	rc = phy_write(phydev, MII_BRCM_CORE_BASE1E, 0x02);
++	if (rc < 0)
++		return rc;
++
++	/* make rcal=100, since rdb default is 000 */
++	rc = bcm_phy_write_exp(phydev, MII_BRCM_CORE_EXPB1, 0x10);
++	if (rc < 0)
++		return rc;
++
++	/* CORE_EXPB0, Reset R_CAL/RC_CAL Engine */
++	rc = bcm_phy_write_exp(phydev, MII_BRCM_CORE_EXPB0, 0x10);
++	if (rc < 0)
++		return rc;
++
++	/* CORE_EXPB0, Disable Reset R_CAL/RC_CAL Engine */
++	rc = bcm_phy_write_exp(phydev, MII_BRCM_CORE_EXPB0, 0x00);
++
++	return 0;
++}
++
++static int bcm_cygnus_config_init(struct phy_device *phydev)
++{
++	int reg, rc;
++
++	reg = phy_read(phydev, MII_BCM54XX_ECR);
++	if (reg < 0)
++		return reg;
++
++	/* Mask interrupts globally. */
++	reg |= MII_BCM54XX_ECR_IM;
++	rc = phy_write(phydev, MII_BCM54XX_ECR, reg);
++	if (rc)
++		return rc;
++
++	/* Unmask events of interest */
++	reg = ~(MII_BCM54XX_INT_DUPLEX |
++		MII_BCM54XX_INT_SPEED |
++		MII_BCM54XX_INT_LINK);
++	rc = phy_write(phydev, MII_BCM54XX_IMR, reg);
++	if (rc)
++		return rc;
++
++	/* Apply AFE settings for the PHY */
++	rc = bcm_cygnus_afe_config(phydev);
++	if (rc)
++		return rc;
++
++	/* Advertise EEE */
++	rc = bcm_phy_enable_eee(phydev);
++	if (rc)
++		return rc;
++
++	/* Enable APD */
++	return bcm_phy_enable_apd(phydev, false);
++}
++
++static int bcm_cygnus_resume(struct phy_device *phydev)
++{
++	int rc;
++
++	genphy_resume(phydev);
++
++	/* Re-initialize the PHY to apply AFE work-arounds and
++	 * configurations when coming out of suspend.
++	 */
++	rc = bcm_cygnus_config_init(phydev);
++	if (rc)
++		return rc;
++
++	/* restart auto negotiation with the new settings */
++	return genphy_config_aneg(phydev);
++}
++
++static struct phy_driver bcm_cygnus_phy_driver[] = {
++{
++	.phy_id        = PHY_ID_BCM_CYGNUS,
++	.phy_id_mask   = 0xfffffff0,
++	.name          = "Broadcom Cygnus PHY",
++	.features      = PHY_GBIT_FEATURES |
++			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.config_init   = bcm_cygnus_config_init,
++	.config_aneg   = genphy_config_aneg,
++	.read_status   = genphy_read_status,
++	.ack_interrupt = bcm_phy_ack_intr,
++	.config_intr   = bcm_phy_config_intr,
++	.suspend       = genphy_suspend,
++	.resume        = bcm_cygnus_resume,
++} };
++
++static struct mdio_device_id __maybe_unused bcm_cygnus_phy_tbl[] = {
++	{ PHY_ID_BCM_CYGNUS, 0xfffffff0, },
++	{ }
++};
++MODULE_DEVICE_TABLE(mdio, bcm_cygnus_phy_tbl);
++
++module_phy_driver(bcm_cygnus_phy_driver);
++
++MODULE_DESCRIPTION("Broadcom Cygnus internal PHY driver");
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Broadcom Corporation");
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 6a53ab9..59f4a73 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -30,6 +30,8 @@
+ #define PHY_ID_BCM7439_2		0xae025080
+ #define PHY_ID_BCM7445			0x600d8510
  
- static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
--#endif
++#define PHY_ID_BCM_CYGNUS		0xae025200
++
+ #define PHY_BCM_OUI_MASK		0xfffffc00
+ #define PHY_BCM_OUI_1			0x00206000
+ #define PHY_BCM_OUI_2			0x0143bc00
+@@ -216,4 +218,9 @@
+ #define LPI_FEATURE_EN			0x8000
+ #define LPI_FEATURE_EN_DIG1000X		0x4000
  
- static void nf_bridge_info_free(struct sk_buff *skb)
- {
-@@ -666,7 +664,6 @@ static unsigned int br_nf_forward_arp(void *priv,
- 	return NF_STOLEN;
- }
- 
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
- static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	struct brnf_frag_data *data;
-@@ -691,9 +688,7 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
- 	nf_bridge_info_free(skb);
- 	return br_dev_queue_push_xmit(net, sk, skb);
- }
--#endif
- 
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
- static int
- br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 		  int (*output)(struct net *, struct sock *, struct sk_buff *))
-@@ -711,7 +706,6 @@ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 
- 	return ip_do_fragment(net, sk, skb, output);
- }
--#endif
- 
- static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- {
-@@ -734,11 +728,11 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
- 
- 	nf_bridge = nf_bridge_info_get(skb);
- 
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
- 	/* This is wrong! We should preserve the original fragment
- 	 * boundaries by preserving frag_list rather than refragmenting.
- 	 */
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) &&
-+	    skb->protocol == htons(ETH_P_IP)) {
- 		struct brnf_frag_data *data;
- 
- 		if (br_validate_ipv4(net, skb))
-@@ -760,9 +754,8 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
- 
- 		return br_nf_ip_fragment(net, sk, skb, br_nf_push_frag_xmit);
- 	}
--#endif
--#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
--	if (skb->protocol == htons(ETH_P_IPV6)) {
-+	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV6) &&
-+	    skb->protocol == htons(ETH_P_IPV6)) {
- 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
- 		struct brnf_frag_data *data;
- 
-@@ -786,7 +779,6 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
- 		kfree_skb(skb);
- 		return -EMSGSIZE;
- 	}
--#endif
- 	nf_bridge_info_free(skb);
- 	return br_dev_queue_push_xmit(net, sk, skb);
-  drop:
++/* Core register definitions*/
++#define MII_BRCM_CORE_BASE1E	0x1E
++#define MII_BRCM_CORE_EXPB0	0xB0
++#define MII_BRCM_CORE_EXPB1	0xB1
++
+ #endif /* _LINUX_BRCMPHY_H */
+-- 
+2.5.2
