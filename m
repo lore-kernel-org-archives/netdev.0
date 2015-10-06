@@ -1,34 +1,31 @@
-From: Jiri Pirko <jiri@resnulli.us>
+From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Tue, 6 Oct 2015 18:15:41 +0200
-Message-ID: <20151006161540.GK2165@nanopsycho.orion>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
- <1444117913-10386-7-git-send-email-jiri@resnulli.us>
- <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
+Date: Tue, 06 Oct 2015 09:19:14 -0700
+Message-ID: <5613F482.2010200@gmail.com>
+References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
 	Thomas Graf <tgraf@suug.ch>,
 	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+	David Laight <David.Laight@aculab.com>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:36458 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752205AbbJFQPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:15:44 -0400
-Received: by wicgb1 with SMTP id gb1so172913294wic.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:15:42 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34998 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760AbbJFQT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:19:29 -0400
+Received: by pacfv12 with SMTP id fv12so218951118pac.2
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:19:28 -0700 (PDT)
 In-Reply-To: <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 06, 2015 at 06:06:45PM CEST, sfeldma@gmail.com wrote:
->On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+On 15-10-06 09:06 AM, Scott Feldman wrote:
+> On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 >> From: Jiri Pirko <jiri@mellanox.com>
 >>
 >> This is another step on the way to per-world clean cut. Introduce world
@@ -119,34 +116,36 @@ Tue, Oct 06, 2015 at 06:06:45PM CEST, sfeldma@gmail.com wrote:
 >> +                                    const unsigned char *addr,
 >> +                                    __be16 vlan_id);
 >> +};
->
->Using void * in these ops is unacceptable, I can't agree to this patch.
+> 
+> Using void * in these ops is unacceptable, I can't agree to this patch.
+> 
+> There is a much cleaner way to architect this.  If you look at the ops
+> defined, they're mostly duplicates of the already defined
+> switchdev_ops.  It would be much cleaner to:
+> 
+> 0) set port mode on qemu/rocker (the device)
+> 1) get the port mode on port probe
+> 2) based on port mode, set the switchdev_ops to point to the port mode
+> world switchdev_ops
+> 3) sub-class rocker_port, like I mentioned in before, to store
+> world-specific stuff in rocker_port
+> 
+> I don't buy the argument that we need to change port mode dynamically
+> from the driver.  Set it at the device and be done.
+> 
 
-Could you please elaborate more why is it unacceptable. I don't see any
-problem in that.
+Maybe as a reference this strikes me as similar to how we do multiple
+device support in a single driver like ixgbe or fm10k (the two I'm most
+familiar with). At probe time we read the device id and then stub in
+the specific callbacks for that device.
 
+Sorry I'm still hung up on the multiple worlds thing, is it really
+trying to model different devices under a single driver? In which case
+maybe rather than port mode expose it as its own device id. Just a
+thought.
 
->
->There is a much cleaner way to architect this.  If you look at the ops
->defined, they're mostly duplicates of the already defined
->switchdev_ops.  It would be much cleaner to:
->
->0) set port mode on qemu/rocker (the device)
->1) get the port mode on port probe
->2) based on port mode, set the switchdev_ops to point to the port mode
->world switchdev_ops
+Also I wonder if some of these routines can be broken out more? I'm
+missing how opening a port is so different across these worlds. Probably
+need to poke at the qemu model a bit more.
 
-That will end up with 2 structs instead of one, not all of those
-callbacks are switchdev. Also, common part nicely picks cb by att/obj
-type. I'm finding this very nice. Not sure why you want to do it
-differently.
-
-
->3) sub-class rocker_port, like I mentioned in before, to store
->world-specific stuff in rocker_port
->
->I don't buy the argument that we need to change port mode dynamically
->from the driver.  Set it at the device and be done.
-
-But why? just because of removal of completely legit use of "void *"?
-I don't understand, sorry.
+.John
