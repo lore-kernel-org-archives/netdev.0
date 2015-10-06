@@ -1,42 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Tue, 06 Oct 2015 10:56:00 -0700
-Message-ID: <1444154160.9555.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
-	 <1444078101-29060-2-git-send-email-ast@plumgrid.com>
-	 <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com>
-	 <20151006071347.GB14093@gmail.com> <561380BB.4040506@iogearbox.net>
-	 <20151006082048.GA18287@gmail.com> <561388D1.30406@iogearbox.net>
-	 <561409EC.5050005@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561409EC.5050005@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv4 net 0/6] OVS conntrack fixes for net
+Date: Tue,  6 Oct 2015 10:59:55 -0700
+Message-ID: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
+Cc: davem@davemloft.net, pshelar@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34627 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbbJFSA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:00:28 -0400
+Received: by padhy16 with SMTP id hy16so76641333pad.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:00:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-10-06 at 10:50 -0700, Alexei Starovoitov wrote:
+The userspace side of the Open vSwitch conntrack changes is currently
+undergoing review, which has highlighted some minor bugs in the existing
+conntrack implementation in the kernel, as well as pointing out some
+future-proofing that can be done on the interface to reduce the need for
+additional compatibility code in future.
 
-> was also thinking that we can do it only in paths that actually
-> have multiple protocol layers, since today bpf is mainly used with
-> tcpdump(raw_socket) and new af_packet fanout both have cb cleared
-> on RX, because it just came out of alloc_skb and no layers were called,
-> and on TX we can clear 20 bytes in dev_queue_xmit_nit().
-> af_unix/netlink also have clean skb. Need to analyze tun and sctp...
-> but it feels overly fragile to save a branch in sk_filter,
-> so planning to go with
-> if(unlikely(prog->cb_access)) memset in sk_filter().
-> 
+The biggest changes here are to the userspace API for the ct_state match
+field and the CT action. This series proposes to firstly extend the ct_state
+match field to 32 bits, ensuring to reject any currently unsupported bits.
+Secondly, rather than representing CT action flags within a 32-bit field,
+simply use a netlink attribute as presence of the single flag that is
+defined today. This also serves to reject unsupported ct action flag bits.
 
-This will break TCP use of sk_filter().
-skb->cb[] contains useful data in TCP layer.
+v4: Use 12-character abbreviated hashes in commit messages.
+v3: Fully acked.
+v2: Address minor style feedback, add acks.
+v1: Initial post.
+
+Joe Stringer (6):
+  openvswitch: Fix typos in CT headers
+  openvswitch: Fix skb leak in ovs_fragment()
+  openvswitch: Ensure flow is valid before executing ct
+  openvswitch: Reject ct_state unsupported bits
+  openvswitch: Extend ct_state match field to 32 bits
+  openvswitch: Change CT_ATTR_FLAGS to CT_ATTR_COMMIT
+
+ include/uapi/linux/openvswitch.h | 24 +++++++++---------------
+ net/openvswitch/actions.c        | 17 +++++++++++++----
+ net/openvswitch/conntrack.c      | 15 +++++++--------
+ net/openvswitch/conntrack.h      | 12 ++++++++++++
+ net/openvswitch/flow_netlink.c   | 12 +++++++++---
+ 5 files changed, 50 insertions(+), 30 deletions(-)
+
+-- 
+2.1.4
