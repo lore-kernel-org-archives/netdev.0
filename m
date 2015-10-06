@@ -1,77 +1,54 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
-Date: Tue, 6 Oct 2015 10:14:39 -0700
-Message-ID: <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
-References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com> <20151006073018.GA2165@nanopsycho.orion>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Tue, 6 Oct 2015 10:50:36 -0700
+Message-ID: <561409EC.5050005@plumgrid.com>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
+ <1444078101-29060-2-git-send-email-ast@plumgrid.com>
+ <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com>
+ <20151006071347.GB14093@gmail.com> <561380BB.4040506@iogearbox.net>
+ <20151006082048.GA18287@gmail.com> <561388D1.30406@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:35661 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752738AbbJFRPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 13:15:00 -0400
-Received: by oiww128 with SMTP id w128so112567857oiw.2
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 10:14:59 -0700 (PDT)
-In-Reply-To: <20151006073018.GA2165@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <561388D1.30406-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 6, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 06, 2015 at 05:56:12AM CEST, sfeldma@gmail.com wrote:
->>On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> This patchset allows new rocker worlds to be easily added in future (like eBPF
->>> based one I have been working on). The main part of the patchset is the OF-DPA
->>> carve-out. It resuts in OF-DPA specific file. Clean cut.
->>>
->>> v1->v2:
->>>  - rtnl rocker mode change userspace expose patch was removed
->>>
->>> Jiri Pirko (13):
->>>   rocker: remove unused rocker_port param from alloc funcs and shorten
->>>     their names
->>>   rocker: rename rocker.h to rocker_hw.h
->>>   rocker: rename rocker.c to rocker_main.c
->>>   rocker: push tlv processing into separate files
->>>   rocker: implement set settings mode command
->>>   rocker: introduce worlds infrastructure
->>>   rocker: introduce OF-DPA world skeleton
->>>   rocker: set default world on port probe and clean world on remove
->>>   rocker: pass "learning" value as a parameter to
->>>     rocker_port_set_learning
->>>   rocker: pre-allocate wait structures during cmd ring init
->>>   rocker: remove trans parameter to rocker_cmd_exec function
->>>   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
->>>     flags
->>>   rocker: move OF-DPA stuff into separate file
+On 10/6/15 1:39 AM, Daniel Borkmann wrote:
+>>> [...] Also classic BPF would then need to test for it, since a socket
+>>> filter
+>>> doesn't really know whether native eBPF is loaded there or a
+>>> classic-to-eBPF
+>>> transformed one, and classic never makes use of this. Anyway, it
+>>> could be done
+>>> by adding a bit flag cb_access:1 to the bpf_prog, set it during eBPF
+>>> verification phase, and test it inside sk_filter() if I see it
+>>> correctly.
 >>
->>A couple of my tests are failing with this patchset.  A simple port
->>test is failing and IPv4 routing test is failing.
->>
->>The port test is simple: just connect a port on DUT to a port on
->>another system and assign an IP address to each port and verify IP
->>connectivity.  I have this:
->>
->>   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
->>
->>The IPv4 routing tests is a bit more complicated to setup.  I'm using
->>OSPF, but I'm not seeing full routes formed in the topology, so I
->>suspect OSPF hellos aren't getting thru.
->>
->>Please fix find/fix these issues and send v3.  I don't want any git
->>bisect issues when running tests.  Thanks.
+>> That could also be done in an unlikely() branch, to keep the cost to
+>> the non-eBPF
+>> case near zero.
 >
-> I fixed that. Sending v3 in a sec. Thanks.
+> Yes, agreed. For the time being, the majority of users are coming from the
+> classic BPF side anyway and the unlikely() could still be changed later on
+> if it should not be the case anymore. The flag and bpf_func would share the
+> same cacheline as well.
 
-Sorry, both tests are still broken.  Would you send me your tests
-scripts so I can see why your tests are passing?
+was also thinking that we can do it only in paths that actually
+have multiple protocol layers, since today bpf is mainly used with
+tcpdump(raw_socket) and new af_packet fanout both have cb cleared
+on RX, because it just came out of alloc_skb and no layers were called,
+and on TX we can clear 20 bytes in dev_queue_xmit_nit().
+af_unix/netlink also have clean skb. Need to analyze tun and sctp...
+but it feels overly fragile to save a branch in sk_filter,
+so planning to go with
+if(unlikely(prog->cb_access)) memset in sk_filter().
