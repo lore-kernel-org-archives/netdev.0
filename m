@@ -1,38 +1,59 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv3 net 2/6] openvswitch: Fix skb leak in ovs_fragment()
-Date: Tue, 6 Oct 2015 11:01:06 -0700
-Message-ID: <CANr6G5zbAG5z4ReW50X48r7Lry3HnJ=AtRV4Y_yiZobQ1jm69w@mail.gmail.com>
-References: <1444083799-57090-1-git-send-email-joestringer@nicira.com>
- <1444083799-57090-3-git-send-email-joestringer@nicira.com> <5613D6B8.2080006@cogentembedded.com>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Tue, 06 Oct 2015 20:03:55 +0200
+Message-ID: <56140D0B.2040504@iogearbox.net>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com> <1444078101-29060-2-git-send-email-ast@plumgrid.com> <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com> <20151006071347.GB14093@gmail.com> <561380BB.4040506@iogearbox.net> <20151006082048.GA18287@gmail.com> <561388D1.30406@iogearbox.net> <561409EC.5050005@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:33108 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752456AbbJFSB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:01:26 -0400
-Received: by ykft14 with SMTP id t14so211396865ykf.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:01:25 -0700 (PDT)
-In-Reply-To: <5613D6B8.2080006@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <561409EC.5050005-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 6 October 2015 at 07:12, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 10/6/2015 1:23 AM, Joe Stringer wrote:
->
->> If ovs_fragment() was unable to fragment the skb due to an L2 header
->> that exceeds the supported length, skbs would be leaked. Fix the bug.
+On 10/06/2015 07:50 PM, Alexei Starovoitov wrote:
+> On 10/6/15 1:39 AM, Daniel Borkmann wrote:
+>>>> [...] Also classic BPF would then need to test for it, since a socket
+>>>> filter
+>>>> doesn't really know whether native eBPF is loaded there or a
+>>>> classic-to-eBPF
+>>>> transformed one, and classic never makes use of this. Anyway, it
+>>>> could be done
+>>>> by adding a bit flag cb_access:1 to the bpf_prog, set it during eBPF
+>>>> verification phase, and test it inside sk_filter() if I see it
+>>>> correctly.
+>>>
+>>> That could also be done in an unlikely() branch, to keep the cost to
+>>> the non-eBPF
+>>> case near zero.
 >>
->> Fixes: 7f8a436 "openvswitch: Add conntrack action"
+>> Yes, agreed. For the time being, the majority of users are coming from the
+>> classic BPF side anyway and the unlikely() could still be changed later on
+>> if it should not be the case anymore. The flag and bpf_func would share the
+>> same cacheline as well.
 >
->
->    12-digit SHA1 needed here. And parens along with double quotes as well.
+> was also thinking that we can do it only in paths that actually
+> have multiple protocol layers, since today bpf is mainly used with
+> tcpdump(raw_socket) and new af_packet fanout both have cb cleared
+> on RX, because it just came out of alloc_skb and no layers were called,
+> and on TX we can clear 20 bytes in dev_queue_xmit_nit().
+> af_unix/netlink also have clean skb. Need to analyze tun and sctp...
+> but it feels overly fragile to save a branch in sk_filter,
+> so planning to go with
+> if(unlikely(prog->cb_access)) memset in sk_filter().
 
-OK, I sent a fresh series with all of the SHA1s updated.
+I was also thinking that for dev_queue_xmit_nit(), since we do the skb_clone()
+there, to have a clone version (w/o affecting performance of the current one)
+that instead of copying cb[] over, it would just do a memset(). But that would
+just be limited to AF_PACKET, and doesn't catch all sk_filter() users.
+
+Thanks,
+Daniel
