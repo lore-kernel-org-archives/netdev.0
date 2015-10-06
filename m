@@ -1,34 +1,33 @@
 From: Scott Feldman <sfeldma@gmail.com>
 Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Tue, 6 Oct 2015 10:03:49 -0700
-Message-ID: <CAE4R7bCbqVn2oUoxnCb3G6dFJrfV0JC+8Nce9CFAnwDsxsX1bg@mail.gmail.com>
+Date: Tue, 6 Oct 2015 10:08:26 -0700
+Message-ID: <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
  <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
- <20151006161540.GK2165@nanopsycho.orion>
+ <5613F482.2010200@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
 	Thomas Graf <tgraf@suug.ch>,
 	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+	David Laight <David.Laight@aculab.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:33689 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbbJFREJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 13:04:09 -0400
-Received: by obbbh8 with SMTP id bh8so159149310obb.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 10:04:09 -0700 (PDT)
-In-Reply-To: <20151006161540.GK2165@nanopsycho.orion>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:34604 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752415AbbJFRIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 13:08:46 -0400
+Received: by obbda8 with SMTP id da8so159507919obb.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 10:08:45 -0700 (PDT)
+In-Reply-To: <5613F482.2010200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 6, 2015 at 9:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 06, 2015 at 06:06:45PM CEST, sfeldma@gmail.com wrote:
->>On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+On Tue, Oct 6, 2015 at 9:19 AM, John Fastabend <john.fastabend@gmail.com> wrote:
+> On 15-10-06 09:06 AM, Scott Feldman wrote:
+>> On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 >>> From: Jiri Pirko <jiri@mellanox.com>
 >>>
 >>> This is another step on the way to per-world clean cut. Introduce world
@@ -120,48 +119,35 @@ On Tue, Oct 6, 2015 at 9:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 >>> +                                    __be16 vlan_id);
 >>> +};
 >>
->>Using void * in these ops is unacceptable, I can't agree to this patch.
->
-> Could you please elaborate more why is it unacceptable. I don't see any
-> problem in that.
-
-void * is OK if you're passing around un-typed, TBD-sized objects.
-
-Wait, this conversation doesn't even seem real.  You're really
-advocating, publicly, the use of void * in ops callbacks, when the
-pointer passed could be a well-typed pointer?
-
-How could define a new API internal to the driver with void * as the main arg?
-
->>There is a much cleaner way to architect this.  If you look at the ops
->>defined, they're mostly duplicates of the already defined
->>switchdev_ops.  It would be much cleaner to:
+>> Using void * in these ops is unacceptable, I can't agree to this patch.
 >>
->>0) set port mode on qemu/rocker (the device)
->>1) get the port mode on port probe
->>2) based on port mode, set the switchdev_ops to point to the port mode
->>world switchdev_ops
->
-> That will end up with 2 structs instead of one, not all of those
-> callbacks are switchdev. Also, common part nicely picks cb by att/obj
-> type. I'm finding this very nice. Not sure why you want to do it
-> differently.
-
-I'm suggesting a simpler path, that's why.  It's not necessary to add
-all these new world ops for the port when they already exist with
-switchdev_ops.  The none switchdev_ops cbs can hang off of
-rocker_portand set on port probe once mode is known.
-
->>3) sub-class rocker_port, like I mentioned in before, to store
->>world-specific stuff in rocker_port
+>> There is a much cleaner way to architect this.  If you look at the ops
+>> defined, they're mostly duplicates of the already defined
+>> switchdev_ops.  It would be much cleaner to:
 >>
->>I don't buy the argument that we need to change port mode dynamically
->>from the driver.  Set it at the device and be done.
+>> 0) set port mode on qemu/rocker (the device)
+>> 1) get the port mode on port probe
+>> 2) based on port mode, set the switchdev_ops to point to the port mode
+>> world switchdev_ops
+>> 3) sub-class rocker_port, like I mentioned in before, to store
+>> world-specific stuff in rocker_port
+>>
+>> I don't buy the argument that we need to change port mode dynamically
+>> from the driver.  Set it at the device and be done.
+>>
 >
-> But why? just because of removal of completely legit use of "void *"?
-> I don't understand, sorry.
+> Maybe as a reference this strikes me as similar to how we do multiple
+> device support in a single driver like ixgbe or fm10k (the two I'm most
+> familiar with). At probe time we read the device id and then stub in
+> the specific callbacks for that device.
 
-I'll repeat: 1) because port mode can be set at the device during
-device init; 2) there is no user benefit to setting it from the host,
-3) setting it from the host dynamically creates all this unnecessary
-work and indirection in the driver, which should be avoided.
+Exactly
+
+> Sorry I'm still hung up on the multiple worlds thing, is it really
+> trying to model different devices under a single driver? In which case
+> maybe rather than port mode expose it as its own device id. Just a
+> thought.
+
+Yes, different devices under single driver.  New device ID or
+sub-device ID will not work in this case as we're trying to slice it
+at the port level, not the device level.
