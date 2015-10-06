@@ -1,244 +1,133 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] bridge: allow adding of fdb entries
-	pointing to the bridge device
-Date: Tue,  6 Oct 2015 09:06:29 -0700
-Message-ID: <1444147589-11153-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: nikolay@cumulusnetworks.com, bridge@lists.linux-foundation.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
+Date: Tue, 6 Oct 2015 09:06:45 -0700
+Message-ID: <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
+References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Laight <David.Laight@aculab.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:34855 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727AbbJFQHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:07:05 -0400
+Received: by obbzf10 with SMTP id zf10so157791426obb.2
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:07:05 -0700 (PDT)
+In-Reply-To: <1444117913-10386-7-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> This is another step on the way to per-world clean cut. Introduce world
+> ops hooks which each world can implement in world-specific way.
+> Also introduce world infrastructure including function for port worlds
+> change.
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1->v2:
+>  - removed functions to change worlds based on name, as rtnl mode
+>    set patch is removed from patchset.
+> v2->v3:
+>  - fix checks in rocker_world_port_open and rocker_world_port_stop
+> ---
+>  drivers/net/ethernet/rocker/rocker.h      |  56 ++++
+>  drivers/net/ethernet/rocker/rocker_main.c | 464 +++++++++++++++++++++++++++++-
+>  2 files changed, 519 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+> index 650caa0..d49bc5d 100644
+> --- a/drivers/net/ethernet/rocker/rocker.h
+> +++ b/drivers/net/ethernet/rocker/rocker.h
+> @@ -12,7 +12,11 @@
+>  #ifndef _ROCKER_H
+>  #define _ROCKER_H
+>
+> +#include <linux/kernel.h>
+>  #include <linux/types.h>
+> +#include <linux/netdevice.h>
+> +#include <net/neighbour.h>
+> +#include <net/switchdev.h>
+>
+>  #include "rocker_hw.h"
+>
+> @@ -24,4 +28,56 @@ struct rocker_desc_info {
+>         dma_addr_t mapaddr;
+>  };
+>
+> +struct rocker;
+> +struct rocker_port;
+> +
+> +struct rocker_world_ops {
+> +       const char *kind;
+> +       size_t priv_size;
+> +       size_t port_priv_size;
+> +       u8 mode;
+> +       int (*init)(struct rocker *rocker, void *priv);
+> +       void (*fini)(void *priv);
+> +       int (*port_init)(struct rocker_port *rocker_port, void *priv,
+> +                        void *port_priv);
+> +       void (*port_fini)(void *port_priv);
+> +       int (*port_open)(void *port_priv);
+> +       void (*port_stop)(void *port_priv);
+> +       int (*port_attr_stp_state_set)(void *port_priv, u8 state,
+> +                                      struct switchdev_trans *trans);
+> +       int (*port_attr_bridge_flags_set)(void *port_priv,
+> +                                         unsigned long brport_flags,
+> +                                         struct switchdev_trans *trans);
+> +       int (*port_attr_bridge_flags_get)(void *port_priv,
+> +                                         unsigned long *p_brport_flags);
+> +       int (*port_obj_vlan_add)(void *port_priv,
+> +                                const struct switchdev_obj_port_vlan *vlan,
+> +                                struct switchdev_trans *trans);
+> +       int (*port_obj_vlan_del)(void *port_priv,
+> +                                const struct switchdev_obj_port_vlan *vlan);
+> +       int (*port_obj_vlan_dump)(void *port_priv,
+> +                                 struct switchdev_obj_port_vlan *vlan,
+> +                                 switchdev_obj_dump_cb_t *cb);
+> +       int (*port_obj_fib4_add)(void *port_priv,
+> +                                const struct switchdev_obj_ipv4_fib *fib4,
+> +                                struct switchdev_trans *trans);
+> +       int (*port_obj_fib4_del)(void *port_priv,
+> +                                const struct switchdev_obj_ipv4_fib *fib4);
+> +       int (*port_obj_fdb_add)(void *port_priv,
+> +                               const struct switchdev_obj_port_fdb *fdb,
+> +                               struct switchdev_trans *trans);
+> +       int (*port_obj_fdb_del)(void *port_priv,
+> +                               const struct switchdev_obj_port_fdb *fdb);
+> +       int (*port_obj_fdb_dump)(void *port_priv,
+> +                                struct switchdev_obj_port_fdb *fdb,
+> +                                switchdev_obj_dump_cb_t *cb);
+> +       int (*port_master_linked)(void *port_priv, struct net_device *master);
+> +       int (*port_master_unlinked)(void *port_priv, struct net_device *master);
+> +       int (*port_neigh_update)(void *port_priv, struct neighbour *n);
+> +       int (*port_neigh_destroy)(void *port_priv, struct neighbour *n);
+> +       int (*port_ev_mac_vlan_seen)(void *port_priv,
+> +                                    const unsigned char *addr,
+> +                                    __be16 vlan_id);
+> +};
 
-This patch enables adding of fdb entries pointing to the bridge device.
-This can be used to propagate mac address of vlan interfaces
-configured on top of the vlan filtering bridge.
+Using void * in these ops is unacceptable, I can't agree to this patch.
 
-Before:
-$bridge fdb add 44:38:39:00:27:9f dev bridge
-RTNETLINK answers: Invalid argument
+There is a much cleaner way to architect this.  If you look at the ops
+defined, they're mostly duplicates of the already defined
+switchdev_ops.  It would be much cleaner to:
 
-After:
-$bridge fdb add 44:38:39:00:27:9f dev bridge
+0) set port mode on qemu/rocker (the device)
+1) get the port mode on port probe
+2) based on port mode, set the switchdev_ops to point to the port mode
+world switchdev_ops
+3) sub-class rocker_port, like I mentioned in before, to store
+world-specific stuff in rocker_port
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_fdb.c | 110 ++++++++++++++++++++++++++++++++++++++++------------
- 1 file changed, 85 insertions(+), 25 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 7f7d551..2f8858a 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -608,13 +608,14 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 	}
- }
- 
--static int fdb_to_nud(const struct net_bridge_fdb_entry *fdb)
-+static int fdb_to_nud(const struct net_bridge *br,
-+		      const struct net_bridge_fdb_entry *fdb)
- {
- 	if (fdb->is_local)
- 		return NUD_PERMANENT;
- 	else if (fdb->is_static)
- 		return NUD_NOARP;
--	else if (has_expired(fdb->dst->br, fdb))
-+	else if (has_expired(br, fdb))
- 		return NUD_STALE;
- 	else
- 		return NUD_REACHABLE;
-@@ -640,7 +641,7 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 	ndm->ndm_flags	 = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
- 	ndm->ndm_type	 = 0;
- 	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
--	ndm->ndm_state   = fdb_to_nud(fdb);
-+	ndm->ndm_state   = fdb_to_nud(br, fdb);
- 
- 	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr))
- 		goto nla_put_failure;
-@@ -785,7 +786,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 		}
- 	}
- 
--	if (fdb_to_nud(fdb) != state) {
-+	if (fdb_to_nud(br, fdb) != state) {
- 		if (state & NUD_PERMANENT) {
- 			fdb->is_local = 1;
- 			if (!fdb->is_static) {
-@@ -846,8 +847,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	       const unsigned char *addr, u16 vid, u16 nlh_flags)
- {
- 	struct net_bridge_vlan_group *vg;
--	struct net_bridge_port *p;
-+	struct net_bridge_port *p = NULL;
- 	struct net_bridge_vlan *v;
-+	struct net_bridge *br = NULL;
- 	int err = 0;
- 
- 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
-@@ -860,14 +862,19 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		return -EINVAL;
- 	}
- 
--	p = br_port_get_rtnl(dev);
--	if (p == NULL) {
--		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
--			dev->name);
--		return -EINVAL;
-+	if (dev->priv_flags & IFF_EBRIDGE) {
-+		br = netdev_priv(dev);
-+		vg = br_vlan_group(br);
-+	} else {
-+		p = br_port_get_rtnl(dev);
-+		if (!p) {
-+			pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
-+				dev->name);
-+			return -EINVAL;
-+		}
-+		vg = nbp_vlan_group(p);
- 	}
- 
--	vg = nbp_vlan_group(p);
- 	if (vid) {
- 		v = br_vlan_find(vg, vid);
- 		if (!v) {
-@@ -877,9 +884,15 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		}
- 
- 		/* VID was specified, so use it. */
--		err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
-+		if (dev->priv_flags & IFF_EBRIDGE)
-+			err = br_fdb_insert(br, NULL, addr, vid);
-+		else
-+			err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
- 	} else {
--		err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
-+		if (dev->priv_flags & IFF_EBRIDGE)
-+			err = br_fdb_insert(br, NULL, addr, 0);
-+		else
-+			err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
- 		if (err || !vg || !vg->num_vlans)
- 			goto out;
- 
-@@ -888,7 +901,11 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		 * vlan on this port.
- 		 */
- 		list_for_each_entry(v, &vg->vlan_list, vlist) {
--			err = __br_fdb_add(ndm, p, addr, nlh_flags, v->vid);
-+			if (dev->priv_flags & IFF_EBRIDGE)
-+				err = br_fdb_insert(br, NULL, addr, v->vid);
-+			else
-+				err = __br_fdb_add(ndm, p, addr, nlh_flags,
-+						   v->vid);
- 			if (err)
- 				goto out;
- 		}
-@@ -898,6 +915,32 @@ out:
- 	return err;
- }
- 
-+static int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr,
-+			      u16 vid)
-+{
-+	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
-+	struct net_bridge_fdb_entry *fdb;
-+
-+	fdb = fdb_find(head, addr, vid);
-+	if (!fdb)
-+		return -ENOENT;
-+
-+	fdb_delete(br, fdb);
-+	return 0;
-+}
-+
-+static int __br_fdb_delete_by_addr(struct net_bridge *br,
-+				   const unsigned char *addr, u16 vid)
-+{
-+	int err;
-+
-+	spin_lock_bh(&br->hash_lock);
-+	err = fdb_delete_by_addr(br, addr, vid);
-+	spin_unlock_bh(&br->hash_lock);
-+
-+	return err;
-+}
-+
- static int fdb_delete_by_addr_and_port(struct net_bridge_port *p,
- 				       const u8 *addr, u16 vlan)
- {
-@@ -931,18 +974,24 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- 		  const unsigned char *addr, u16 vid)
- {
- 	struct net_bridge_vlan_group *vg;
--	struct net_bridge_port *p;
-+	struct net_bridge_port *p = NULL;
- 	struct net_bridge_vlan *v;
-+	struct net_bridge *br = NULL;
- 	int err;
- 
--	p = br_port_get_rtnl(dev);
--	if (p == NULL) {
--		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
--			dev->name);
--		return -EINVAL;
-+	if (dev->priv_flags & IFF_EBRIDGE) {
-+		br = netdev_priv(dev);
-+		vg = br_vlan_group(br);
-+	} else {
-+		p = br_port_get_rtnl(dev);
-+		if (!p) {
-+			pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
-+				dev->name);
-+			return -EINVAL;
-+		}
-+		vg = nbp_vlan_group(p);
- 	}
- 
--	vg = nbp_vlan_group(p);
- 	if (vid) {
- 		v = br_vlan_find(vg, vid);
- 		if (!v) {
-@@ -951,15 +1000,26 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- 			return -EINVAL;
- 		}
- 
--		err = __br_fdb_delete(p, addr, vid);
-+		if (dev->priv_flags & IFF_EBRIDGE)
-+			err = __br_fdb_delete_by_addr(br, addr, vid);
-+		else
-+			err = __br_fdb_delete(p, addr, vid);
- 	} else {
- 		err = -ENOENT;
--		err &= __br_fdb_delete(p, addr, 0);
-+		if (dev->priv_flags & IFF_EBRIDGE)
-+			err = __br_fdb_delete_by_addr(br, addr, 0);
-+		else
-+			err &= __br_fdb_delete(p, addr, 0);
-+
- 		if (!vg || !vg->num_vlans)
- 			goto out;
- 
--		list_for_each_entry(v, &vg->vlan_list, vlist)
--			err &= __br_fdb_delete(p, addr, v->vid);
-+		list_for_each_entry(v, &vg->vlan_list, vlist) {
-+			if (dev->priv_flags & IFF_EBRIDGE)
-+				err = __br_fdb_delete_by_addr(br, addr, v->vid);
-+			else
-+				err &= __br_fdb_delete(p, addr, v->vid);
-+		}
- 	}
- out:
- 	return err;
--- 
-1.9.1
+I don't buy the argument that we need to change port mode dynamically
+from the driver.  Set it at the device and be done.
