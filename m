@@ -1,57 +1,46 @@
 From: Pravin Shelar <pshelar@nicira.com>
 Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Tue, 6 Oct 2015 12:11:05 -0700
-Message-ID: <CALnjE+qLPeJN1h1qFnYuiipbJH06Gtx_7vJGzjocVoH40fNUcQ@mail.gmail.com>
+Date: Tue, 6 Oct 2015 12:21:24 -0700
+Message-ID: <CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
 References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
-	<20151006174205.799ac484@griffin>
-	<CALnjE+qSdDnmbbHV0O6Pa9z=T=8jFSL2bw5k_m_DwgtchZaCOg@mail.gmail.com>
-	<20151006205553.6975a147@griffin>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>
 To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:38193 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752420AbbJFTLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 15:11:06 -0400
-Received: by igxx6 with SMTP id x6so87852640igx.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 12:11:05 -0700 (PDT)
-In-Reply-To: <20151006205553.6975a147@griffin>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37742 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbbJFTVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 15:21:25 -0400
+Received: by igcpe7 with SMTP id pe7so31942175igc.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 12:21:24 -0700 (PDT)
+In-Reply-To: <20151006210358.65750aeb@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 6, 2015 at 11:55 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Tue, 6 Oct 2015 11:26:31 -0700, Pravin Shelar wrote:
->> I do not see need to drop and reallocate dst in this operation. I just
->> need to set source IP address and source and dst port in the metadata
->> dst already set in skb.
+On Tue, Oct 6, 2015 at 12:03 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 6 Oct 2015 11:55:35 -0700, Pravin Shelar wrote:
+>> We should be able to use lwtunnel devices on 4.3. How about using
+>> tunnel device parameters to detect lwtunnel support. For example in
+>> case of vxlan tunnel IFLA_VXLAN_COLLECT_METADATA flags can confirm
+>> lwtunnel support.
 >
-> If I'm looking at the code correctly, metadata_dst is stored in the
-> action and each skb gets only a reference to it. Modifying it would
-> modify the shared metadata_dst (see execute_set_action).
+> You would have to create the interface first using that flag and then
+> check whether the created interface has the flag set or not. If not,
+> delete the interface.
 >
-right, I was thinking about updating just the source IPv4 address
-which should be same for given tunnel metadata. But that can get
-complicated for updates to ipv6 address.
-
->> This fill_metadata function is not called for every packet so
->> ndo_start_xmit() still needs to do route lookup.
->
-> Yes. I meant that in those cases where the fill_metadata function was
-> called, we may skip the lookup. Just an optimization and not an
-> important one. I'm not even sure it can currently happen as the skb is
-> cloned for each action.
->
-The function is called for sampling which is rare operation. So I do
-not want to complicate code to optimize such case.
-
->> egress_tun_info in dp_upcall_info is required to check for failure. It
->> would be only set on successful fill_metadata operation.
->
-> Or you can just set dst to NULL on failure.
+> Unfortunately, old kernels will just ignore the flag when creating the
+> interface. That's why I wrote there's no useful way to check it.
 >
 
-In that case we would need to extra logic to update error stats
-correctly device xmit operation. For example geneve_xmit() updates
-different error stats for route lookup.
+It should report the flag when device parameters are requested by
+userspace if there is support for lwtunnel. So check for the flag
+should be good enough test for lwtunnel support. Why is that not
+reliable check?
