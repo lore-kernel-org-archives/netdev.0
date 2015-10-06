@@ -1,101 +1,24 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH] netfilter: fix bad checksum on IPv6 when NAT is performed
-Date: Tue, 06 Oct 2015 16:23:45 +0200
-Message-ID: <1444141425.14655.341.camel@sakura.staff.proxad.net>
-Reply-To: mbizon@freebox.fr
+From: Sheree@vger.kernel.org, Gholson@vger.kernel.org
+Subject: Xmas Loan Offer@2%
+Date: Tue, 6 Oct 2015 17:29:33 +0100
+Message-ID: <DB3PR08MB0044FA0D00CD68FE925A23A7B8370@DB3PR08MB0044.eurprd08.prod.outlook.com>
+Reply-To: <shereegholson@foxmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem <davem@davemloft.net>, kaber <kaber@trash.net>,
-	pablo@netfilter.org,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3hn0251.outbound.protection.outlook.com ([157.55.234.251]:33777
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753203AbbJFObD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 10:31:03 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Do you need an Xmas loan to pay of your bills kindly contact us for more info: shereegholson@foxmail.com
 
-With this setup:
-
-* non IPv6 checksumming capable network hardware
-* GRO off
-* IPv6 SNAT
-
-I get this when I receive an UDPv6 reply: "<unknown>: hw csum failure"
-
-Call trace:
-
-* nf_ip6_checksum() calls __skb_checksum_complete()
-* nf_nat_ipv6_csum_update() & nf_nat_ipv6_manip_pkt()
-* __udp6_lib_rcv() => udp6_csum_init()
-* __skb_checksum_validate_complete() "fastpath" fails because
-  skb->csum is incorrect.
-* udpv6_recvmsg() => skb_copy_and_csum_datagram_msg()
-
-The last call computes a valid checksum despite CHECKSUM_COMPLETE and
-triggers the warning.
-
-When we perform NAT on IPv4, we also update the IPv4 checksum, so
-there is no side effect on skb->csum (since the csum over a valid IPv4
-header area is zero).
-
-But IPv6 doesn't have such header checksum, so when performing NAT we need to
-update skb->csum.
-
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
 ---
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 23 +++++++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-index 70fbaed..e9917d74 100644
---- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-@@ -81,6 +81,8 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
- 				  enum nf_nat_manip_type maniptype)
- {
- 	struct ipv6hdr *ipv6h;
-+	const __be32 *to;
-+	__be32 *from;
- 	__be16 frag_off;
- 	int hdroff;
- 	u8 nexthdr;
-@@ -100,11 +102,24 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
- 				target, maniptype))
- 		return false;
- manip_addr:
--	if (maniptype == NF_NAT_MANIP_SRC)
--		ipv6h->saddr = target->src.u3.in6;
--	else
--		ipv6h->daddr = target->dst.u3.in6;
-+	if (maniptype == NF_NAT_MANIP_SRC) {
-+		from = ipv6h->saddr.s6_addr32;
-+		to = target->src.u3.in6.s6_addr32;
-+	} else {
-+		from = ipv6h->daddr.s6_addr32;
-+		to = target->src.u3.in6.s6_addr32;
-+	}
-+
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		__be32 diff[] = {
-+			~from[0], ~from[1], ~from[2], ~from[3],
-+			to[0], to[1], to[2], to[3],
-+		};
-+
-+		skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
-+	}
- 
-+	memcpy(from, to, sizeof (struct in6_addr));
- 	return true;
- }
- 
--- 
-1.9.1
-
-
-
-
--- 
-Maxime
-
-
+This email is free from viruses and malware because avast! Antivirus protection is active.
+https://www.avast.com/antivirus
