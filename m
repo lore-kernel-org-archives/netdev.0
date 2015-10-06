@@ -1,597 +1,772 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 04/14] rocker: push tlv processing into separate files
-Date: Tue,  6 Oct 2015 09:51:43 +0200
-Message-ID: <1444117913-10386-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
+Date: Tue,  6 Oct 2015 09:51:45 +0200
+Message-ID: <1444117913-10386-7-git-send-email-jiri@resnulli.us>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:35038 "EHLO
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36397 "EHLO
 	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbbJFHwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:03 -0400
-Received: by wicge5 with SMTP id ge5so153906003wic.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:02 -0700 (PDT)
+	with ESMTP id S1751987AbbJFHwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:06 -0400
+Received: by wicgb1 with SMTP id gb1so152518044wic.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:04 -0700 (PDT)
 In-Reply-To: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Carve out TLV processing helpers into separate files.
+This is another step on the way to per-world clean cut. Introduce world
+ops hooks which each world can implement in world-specific way.
+Also introduce world infrastructure including function for port worlds
+change.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/Makefile      |   2 +-
- drivers/net/ethernet/rocker/rocker.h      |  27 ++++
- drivers/net/ethernet/rocker/rocker_main.c | 222 +-----------------------------
- drivers/net/ethernet/rocker/rocker_tlv.c  |  54 ++++++++
- drivers/net/ethernet/rocker/rocker_tlv.h  | 202 +++++++++++++++++++++++++++
- 5 files changed, 286 insertions(+), 221 deletions(-)
- create mode 100644 drivers/net/ethernet/rocker/rocker.h
- create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.c
- create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.h
+v1->v2:
+ - removed functions to change worlds based on name, as rtnl mode
+   set patch is removed from patchset.
+v2->v3:
+ - fix checks in rocker_world_port_open and rocker_world_port_stop
+---
+ drivers/net/ethernet/rocker/rocker.h      |  56 ++++
+ drivers/net/ethernet/rocker/rocker_main.c | 464 +++++++++++++++++++++++++++++-
+ 2 files changed, 519 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
-index 2bed423..47f3492 100644
---- a/drivers/net/ethernet/rocker/Makefile
-+++ b/drivers/net/ethernet/rocker/Makefile
-@@ -3,4 +3,4 @@
- #
- 
- obj-$(CONFIG_ROCKER) += rocker.o
--rocker-y := rocker_main.o
-+rocker-y := rocker_main.o rocker_tlv.o
 diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-new file mode 100644
-index 0000000..650caa0
---- /dev/null
+index 650caa0..d49bc5d 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
 +++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -0,0 +1,27 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker.h - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _ROCKER_H
-+#define _ROCKER_H
-+
-+#include <linux/types.h>
-+
-+#include "rocker_hw.h"
-+
-+struct rocker_desc_info {
-+	char *data; /* mapped */
-+	size_t data_size;
-+	size_t tlv_size;
-+	struct rocker_desc *desc;
-+	dma_addr_t mapaddr;
-+};
-+
-+#endif
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index b555926..c698653 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -40,6 +40,8 @@
- #include <generated/utsrelease.h>
+@@ -12,7 +12,11 @@
+ #ifndef _ROCKER_H
+ #define _ROCKER_H
+ 
++#include <linux/kernel.h>
+ #include <linux/types.h>
++#include <linux/netdevice.h>
++#include <net/neighbour.h>
++#include <net/switchdev.h>
  
  #include "rocker_hw.h"
-+#include "rocker.h"
-+#include "rocker_tlv.h"
  
- static const char rocker_driver_name[] = "rocker";
- 
-@@ -177,14 +179,6 @@ struct rocker_neigh_tbl_entry {
- 	bool ttl_check;
+@@ -24,4 +28,56 @@ struct rocker_desc_info {
+ 	dma_addr_t mapaddr;
  };
  
--struct rocker_desc_info {
--	char *data; /* mapped */
--	size_t data_size;
--	size_t tlv_size;
--	struct rocker_desc *desc;
--	dma_addr_t mapaddr;
--};
--
- struct rocker_dma_ring_info {
- 	size_t size;
- 	u32 head;
-@@ -661,218 +655,6 @@ free_irq:
- 	return err;
++struct rocker;
++struct rocker_port;
++
++struct rocker_world_ops {
++	const char *kind;
++	size_t priv_size;
++	size_t port_priv_size;
++	u8 mode;
++	int (*init)(struct rocker *rocker, void *priv);
++	void (*fini)(void *priv);
++	int (*port_init)(struct rocker_port *rocker_port, void *priv,
++			 void *port_priv);
++	void (*port_fini)(void *port_priv);
++	int (*port_open)(void *port_priv);
++	void (*port_stop)(void *port_priv);
++	int (*port_attr_stp_state_set)(void *port_priv, u8 state,
++				       struct switchdev_trans *trans);
++	int (*port_attr_bridge_flags_set)(void *port_priv,
++					  unsigned long brport_flags,
++					  struct switchdev_trans *trans);
++	int (*port_attr_bridge_flags_get)(void *port_priv,
++					  unsigned long *p_brport_flags);
++	int (*port_obj_vlan_add)(void *port_priv,
++				 const struct switchdev_obj_port_vlan *vlan,
++				 struct switchdev_trans *trans);
++	int (*port_obj_vlan_del)(void *port_priv,
++				 const struct switchdev_obj_port_vlan *vlan);
++	int (*port_obj_vlan_dump)(void *port_priv,
++				  struct switchdev_obj_port_vlan *vlan,
++				  switchdev_obj_dump_cb_t *cb);
++	int (*port_obj_fib4_add)(void *port_priv,
++				 const struct switchdev_obj_ipv4_fib *fib4,
++				 struct switchdev_trans *trans);
++	int (*port_obj_fib4_del)(void *port_priv,
++				 const struct switchdev_obj_ipv4_fib *fib4);
++	int (*port_obj_fdb_add)(void *port_priv,
++				const struct switchdev_obj_port_fdb *fdb,
++				struct switchdev_trans *trans);
++	int (*port_obj_fdb_del)(void *port_priv,
++				const struct switchdev_obj_port_fdb *fdb);
++	int (*port_obj_fdb_dump)(void *port_priv,
++				 struct switchdev_obj_port_fdb *fdb,
++				 switchdev_obj_dump_cb_t *cb);
++	int (*port_master_linked)(void *port_priv, struct net_device *master);
++	int (*port_master_unlinked)(void *port_priv, struct net_device *master);
++	int (*port_neigh_update)(void *port_priv, struct neighbour *n);
++	int (*port_neigh_destroy)(void *port_priv, struct neighbour *n);
++	int (*port_ev_mac_vlan_seen)(void *port_priv,
++				     const unsigned char *addr,
++				     __be16 vlan_id);
++};
++
+ #endif
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 54d2f46..95cd456 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -210,6 +210,8 @@ struct rocker_port {
+ 	struct net_device *dev;
+ 	struct net_device *bridge_dev;
+ 	struct rocker *rocker;
++	struct rocker_world *world;
++	void *world_port_priv;
+ 	unsigned int port_number;
+ 	u32 pport;
+ 	__be16 internal_vlan_id;
+@@ -236,6 +238,7 @@ struct rocker {
+ 	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
+ 	struct rocker_dma_ring_info cmd_ring;
+ 	struct rocker_dma_ring_info event_ring;
++	struct list_head worlds;
+ 	DECLARE_HASHTABLE(flow_tbl, 16);
+ 	spinlock_t flow_tbl_lock;		/* for flow tbl accesses */
+ 	u64 flow_tbl_next_cookie;
+@@ -1236,6 +1239,9 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
+ 			   struct switchdev_trans *trans,
+ 			   const unsigned char *addr,
+ 			   __be16 vlan_id, int flags);
++static int rocker_world_port_ev_mac_vlan_seen(struct rocker_port *rocker_port,
++					      const unsigned char *addr,
++					      __be16 vlan_id);
+ 
+ static int rocker_event_mac_vlan_seen(const struct rocker *rocker,
+ 				      const struct rocker_tlv *info)
+@@ -1246,6 +1252,7 @@ static int rocker_event_mac_vlan_seen(const struct rocker *rocker,
+ 	const unsigned char *addr;
+ 	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_LEARNED;
+ 	__be16 vlan_id;
++	int err;
+ 
+ 	rocker_tlv_parse_nested(attrs, ROCKER_TLV_EVENT_MAC_VLAN_MAX, info);
+ 	if (!attrs[ROCKER_TLV_EVENT_MAC_VLAN_PPORT] ||
+@@ -1262,6 +1269,10 @@ static int rocker_event_mac_vlan_seen(const struct rocker *rocker,
+ 
+ 	rocker_port = rocker->ports[port_number];
+ 
++	err = rocker_world_port_ev_mac_vlan_seen(rocker_port, addr, vlan_id);
++	if (err)
++		return err;
++
+ 	if (rocker_port->stp_state != BR_STATE_LEARNING &&
+ 	    rocker_port->stp_state != BR_STATE_FORWARDING)
+ 		return 0;
+@@ -2155,6 +2166,372 @@ static int rocker_cmd_group_tbl_del(const struct rocker_port *rocker_port,
+ 	return 0;
  }
  
--/******
-- * TLV
-- ******/
--
--#define ROCKER_TLV_ALIGNTO 8U
--#define ROCKER_TLV_ALIGN(len) \
--	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
--#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
--
--/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
-- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-- * |             Header          | Pad |           Payload           | Pad |
-- * |      (struct rocker_tlv)    | ing |                             | ing |
-- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-- *  <--------------------------- tlv->len -------------------------->
-- */
--
--static struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
--					  int *remaining)
--{
--	int totlen = ROCKER_TLV_ALIGN(tlv->len);
--
--	*remaining -= totlen;
--	return (struct rocker_tlv *) ((char *) tlv + totlen);
--}
--
--static int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
--{
--	return remaining >= (int) ROCKER_TLV_HDRLEN &&
--	       tlv->len >= ROCKER_TLV_HDRLEN &&
--	       tlv->len <= remaining;
--}
--
--#define rocker_tlv_for_each(pos, head, len, rem)	\
--	for (pos = head, rem = len;			\
--	     rocker_tlv_ok(pos, rem);			\
--	     pos = rocker_tlv_next(pos, &(rem)))
--
--#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
--	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
--			    rocker_tlv_len(tlv), rem)
--
--static int rocker_tlv_attr_size(int payload)
--{
--	return ROCKER_TLV_HDRLEN + payload;
--}
--
--static int rocker_tlv_total_size(int payload)
--{
--	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
--}
--
--static int rocker_tlv_padlen(int payload)
--{
--	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
--}
--
--static int rocker_tlv_type(const struct rocker_tlv *tlv)
--{
--	return tlv->type;
--}
--
--static void *rocker_tlv_data(const struct rocker_tlv *tlv)
--{
--	return (char *) tlv + ROCKER_TLV_HDRLEN;
--}
--
--static int rocker_tlv_len(const struct rocker_tlv *tlv)
--{
--	return tlv->len - ROCKER_TLV_HDRLEN;
--}
--
--static u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
--{
--	return *(u8 *) rocker_tlv_data(tlv);
--}
--
--static u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
--{
--	return *(u16 *) rocker_tlv_data(tlv);
--}
--
--static __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
--{
--	return *(__be16 *) rocker_tlv_data(tlv);
--}
--
--static u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
--{
--	return *(u32 *) rocker_tlv_data(tlv);
--}
--
--static u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
--{
--	return *(u64 *) rocker_tlv_data(tlv);
--}
--
--static void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
--			     const char *buf, int buf_len)
--{
--	const struct rocker_tlv *tlv;
--	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
--	int rem;
--
--	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
--
--	rocker_tlv_for_each(tlv, head, buf_len, rem) {
--		u32 type = rocker_tlv_type(tlv);
--
--		if (type > 0 && type <= maxtype)
--			tb[type] = tlv;
--	}
--}
--
--static void rocker_tlv_parse_nested(const struct rocker_tlv **tb, int maxtype,
--				    const struct rocker_tlv *tlv)
--{
--	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
--			 rocker_tlv_len(tlv));
--}
--
--static void rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
--				  const struct rocker_desc_info *desc_info)
--{
--	rocker_tlv_parse(tb, maxtype, desc_info->data,
--			 desc_info->desc->tlv_size);
--}
--
--static struct rocker_tlv *rocker_tlv_start(struct rocker_desc_info *desc_info)
--{
--	return (struct rocker_tlv *) ((char *) desc_info->data +
--					       desc_info->tlv_size);
--}
--
--static int rocker_tlv_put(struct rocker_desc_info *desc_info,
--			  int attrtype, int attrlen, const void *data)
--{
--	int tail_room = desc_info->data_size - desc_info->tlv_size;
--	int total_size = rocker_tlv_total_size(attrlen);
--	struct rocker_tlv *tlv;
--
--	if (unlikely(tail_room < total_size))
--		return -EMSGSIZE;
--
--	tlv = rocker_tlv_start(desc_info);
--	desc_info->tlv_size += total_size;
--	tlv->type = attrtype;
--	tlv->len = rocker_tlv_attr_size(attrlen);
--	memcpy(rocker_tlv_data(tlv), data, attrlen);
--	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
--	return 0;
--}
--
--static int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
--			     int attrtype, u8 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
--}
--
--static int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
--			      int attrtype, u16 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
--}
--
--static int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
--			       int attrtype, __be16 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
--}
--
--static int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
--			      int attrtype, u32 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
--}
--
--static int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
--			       int attrtype, __be32 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
--}
--
--static int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
--			      int attrtype, u64 value)
--{
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
--}
--
--static struct rocker_tlv *
--rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
--{
--	struct rocker_tlv *start = rocker_tlv_start(desc_info);
--
--	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
--		return NULL;
--
--	return start;
--}
--
--static void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
--				struct rocker_tlv *start)
--{
--	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
--}
--
--static void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
--				   const struct rocker_tlv *start)
--{
--	desc_info->tlv_size = (const char *) start - desc_info->data;
--}
--
- /******************************************
-  * DMA rings and descriptors manipulations
-  ******************************************/
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.c b/drivers/net/ethernet/rocker/rocker_tlv.c
-new file mode 100644
-index 0000000..5b94d93
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.c
-@@ -0,0 +1,54 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_tvl.c - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++/**********************
++ * Worlds manipulation
++ **********************/
 +
-+#include <linux/types.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
++static struct rocker_world_ops *rocker_world_ops[] = {
++};
 +
-+#include "rocker_hw.h"
-+#include "rocker_tlv.h"
++#define ROCKER_WORLD_OPS_LEN ARRAY_SIZE(rocker_world_ops)
 +
-+void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
-+		      const char *buf, int buf_len)
++struct rocker_world {
++	struct list_head list;
++	const struct rocker_world_ops *ops;
++	unsigned int ref;
++	unsigned long priv[0];
++};
++
++static struct rocker_world *__rocker_world_find(struct rocker *rocker,
++						const struct rocker_world_ops *ops)
 +{
-+	const struct rocker_tlv *tlv;
-+	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
-+	int rem;
++	struct rocker_world *world;
 +
-+	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
-+
-+	rocker_tlv_for_each(tlv, head, buf_len, rem) {
-+		u32 type = rocker_tlv_type(tlv);
-+
-+		if (type > 0 && type <= maxtype)
-+			tb[type] = tlv;
++	list_for_each_entry(world, &rocker->worlds, list) {
++		if (world->ops == ops)
++			return world;
 +	}
++	return NULL;
 +}
 +
-+int rocker_tlv_put(struct rocker_desc_info *desc_info,
-+		   int attrtype, int attrlen, const void *data)
++static int rocker_world_init(struct rocker *rocker, struct rocker_world *world)
 +{
-+	int tail_room = desc_info->data_size - desc_info->tlv_size;
-+	int total_size = rocker_tlv_total_size(attrlen);
-+	struct rocker_tlv *tlv;
++	if (!world->ops->init)
++		return 0;
++	return world->ops->init(rocker, world->priv);
++}
 +
-+	if (unlikely(tail_room < total_size))
-+		return -EMSGSIZE;
++static void rocker_world_fini(struct rocker *rocker, struct rocker_world *world)
++{
++	if (!world->ops->fini)
++		return;
++	return world->ops->fini(world->priv);
++}
 +
-+	tlv = rocker_tlv_start(desc_info);
-+	desc_info->tlv_size += total_size;
-+	tlv->type = attrtype;
-+	tlv->len = rocker_tlv_attr_size(attrlen);
-+	memcpy(rocker_tlv_data(tlv), data, attrlen);
-+	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
++static int rocker_world_get(struct rocker_port *rocker_port,
++			    const struct rocker_world_ops *ops)
++{
++	struct rocker *rocker = rocker_port->rocker;
++	struct rocker_world *world = __rocker_world_find(rocker, ops);
++	int err;
++
++	if (world)
++		goto ref_inc;
++	world = kzalloc(sizeof(*world) + ops->priv_size, GFP_KERNEL);
++	if (!world)
++		return -ENOMEM;
++	world->ops = ops;
++
++	err = rocker_world_init(rocker, world);
++	if (err)
++		goto err_world_init;
++
++	list_add_tail(&world->list, &rocker->worlds);
++ref_inc:
++	world->ref++;
++	rocker_port->world = world;
++	return 0;
++
++err_world_init:
++	kfree(world);
++	return err;
++}
++
++static void rocker_world_put(struct rocker_port *rocker_port)
++{
++	struct rocker_world *world = rocker_port->world;
++	struct rocker *rocker = rocker_port->rocker;
++
++	world->ref--;
++	if (world->ref)
++		return;
++	list_del(&world->list);
++	rocker_world_fini(rocker, world);
++	kfree(world);
++	rocker_port->world = NULL;
++}
++
++static int rocker_world_port_init(struct rocker_port *rocker_port)
++{
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_init)
++		return 0;
++	return world->ops->port_init(rocker_port, world->priv,
++				     rocker_port->world_port_priv);
++}
++
++static void rocker_world_port_fini(struct rocker_port *rocker_port)
++{
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_fini)
++		return;
++	world->ops->port_fini(rocker_port->world_port_priv);
++}
++
++static int rocker_world_port_join(struct rocker_port *rocker_port,
++				  const struct rocker_world_ops *ops)
++{
++	int err;
++
++	err = rocker_world_get(rocker_port, ops);
++	if (err)
++		return err;
++	rocker_port->world_port_priv = kzalloc(ops->port_priv_size, GFP_KERNEL);
++	if (!rocker_port->world_port_priv) {
++		err = -ENOMEM;
++		goto err_alloc_port_priv;
++	}
++	err = rocker_cmd_set_port_settings_mode(rocker_port, ops->mode);
++	if (err)
++		goto err_set_mode;
++	err = rocker_world_port_init(rocker_port);
++	if (err)
++		goto err_port_init;
++	return 0;
++
++err_port_init:
++err_set_mode:
++	kfree(rocker_port->world_port_priv);
++err_alloc_port_priv:
++	rocker_world_put(rocker_port);
++	return err;
++}
++
++static void rocker_world_port_leave(struct rocker_port *rocker_port)
++{
++	rocker_world_port_fini(rocker_port);
++	kfree(rocker_port->world_port_priv);
++	rocker_world_put(rocker_port);
++}
++
++static int rocker_port_change_world(struct rocker_port *rocker_port,
++				    const struct rocker_world_ops *ops)
++{
++	int err;
++
++	/* Check if mode was previously set and do cleanup if so */
++	if (rocker_port->world)
++		rocker_world_port_leave(rocker_port);
++	if (ops) {
++		err = rocker_world_port_join(rocker_port, ops);
++		if (err)
++			return err;
++	}
 +	return 0;
 +}
 +
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
-new file mode 100644
-index 0000000..a161b6e
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.h
-@@ -0,0 +1,202 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_tlv.h - Rocker switch device driver
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _ROCKER_TLV_H
-+#define _ROCKER_TLV_H
-+
-+#include <linux/types.h>
-+
-+#include "rocker_hw.h"
-+#include "rocker.h"
-+
-+
-+#define ROCKER_TLV_ALIGNTO 8U
-+#define ROCKER_TLV_ALIGN(len) \
-+	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
-+#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
-+
-+/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
-+ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-+ * |             Header          | Pad |           Payload           | Pad |
-+ * |      (struct rocker_tlv)    | ing |                             | ing |
-+ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
-+ *  <--------------------------- tlv->len -------------------------->
-+ */
-+
-+static inline struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
-+						 int *remaining)
++static int rocker_world_port_open(struct rocker_port *rocker_port)
 +{
-+	int totlen = ROCKER_TLV_ALIGN(tlv->len);
++	struct rocker_world *world = rocker_port->world;
 +
-+	*remaining -= totlen;
-+	return (struct rocker_tlv *) ((char *) tlv + totlen);
++	if (!world->ops->port_open)
++		return 0;
++	return world->ops->port_open(rocker_port->world_port_priv);
 +}
 +
-+static inline int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
++static void rocker_world_port_stop(struct rocker_port *rocker_port)
 +{
-+	return remaining >= (int) ROCKER_TLV_HDRLEN &&
-+	       tlv->len >= ROCKER_TLV_HDRLEN &&
-+	       tlv->len <= remaining;
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_stop)
++		return;
++	world->ops->port_stop(rocker_port->world_port_priv);
 +}
 +
-+#define rocker_tlv_for_each(pos, head, len, rem)	\
-+	for (pos = head, rem = len;			\
-+	     rocker_tlv_ok(pos, rem);			\
-+	     pos = rocker_tlv_next(pos, &(rem)))
-+
-+#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
-+	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
-+			    rocker_tlv_len(tlv), rem)
-+
-+static inline int rocker_tlv_attr_size(int payload)
++static int rocker_world_port_attr_stp_state_set(struct rocker_port *rocker_port,
++						u8 state,
++						struct switchdev_trans *trans)
 +{
-+	return ROCKER_TLV_HDRLEN + payload;
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_attr_stp_state_set)
++		return 0;
++	return world->ops->port_attr_stp_state_set(rocker_port->world_port_priv,
++						   state, trans);
 +}
 +
-+static inline int rocker_tlv_total_size(int payload)
++static int
++rocker_world_port_attr_bridge_flags_set(struct rocker_port *rocker_port,
++					unsigned long brport_flags,
++					struct switchdev_trans *trans)
 +{
-+	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_attr_bridge_flags_set)
++		return 0;
++	return world->ops->port_attr_bridge_flags_set(rocker_port->world_port_priv,
++						      brport_flags, trans);
 +}
 +
-+static inline int rocker_tlv_padlen(int payload)
++static int
++rocker_world_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
++					unsigned long *p_brport_flags)
 +{
-+	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_attr_bridge_flags_get)
++		return 0;
++	return world->ops->port_attr_bridge_flags_get(rocker_port->world_port_priv,
++						      p_brport_flags);
 +}
 +
-+static inline int rocker_tlv_type(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_vlan_add(struct rocker_port *rocker_port,
++			       const struct switchdev_obj_port_vlan *vlan,
++			       struct switchdev_trans *trans)
 +{
-+	return tlv->type;
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_vlan_add)
++		return 0;
++	return world->ops->port_obj_vlan_add(rocker_port->world_port_priv,
++					     vlan, trans);
 +}
 +
-+static inline void *rocker_tlv_data(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
++			       const struct switchdev_obj_port_vlan *vlan)
 +{
-+	return (char *) tlv + ROCKER_TLV_HDRLEN;
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_vlan_del)
++		return 0;
++	return world->ops->port_obj_vlan_del(rocker_port->world_port_priv,
++					     vlan);
 +}
 +
-+static inline int rocker_tlv_len(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_vlan_dump(const struct rocker_port *rocker_port,
++				struct switchdev_obj_port_vlan *vlan,
++				switchdev_obj_dump_cb_t *cb)
 +{
-+	return tlv->len - ROCKER_TLV_HDRLEN;
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_vlan_dump)
++		return 0;
++	return world->ops->port_obj_vlan_dump(rocker_port->world_port_priv,
++					      vlan, cb);
 +}
 +
-+static inline u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_fib4_add(struct rocker_port *rocker_port,
++			       const struct switchdev_obj_ipv4_fib *fib4,
++			       struct switchdev_trans *trans)
 +{
-+	return *(u8 *) rocker_tlv_data(tlv);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_fib4_add)
++		return 0;
++	return world->ops->port_obj_fib4_add(rocker_port->world_port_priv,
++					     fib4, trans);
 +}
 +
-+static inline u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_fib4_del(struct rocker_port *rocker_port,
++			       const struct switchdev_obj_ipv4_fib *fib4)
 +{
-+	return *(u16 *) rocker_tlv_data(tlv);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_fib4_del)
++		return 0;
++	return world->ops->port_obj_fib4_del(rocker_port->world_port_priv,
++					     fib4);
 +}
 +
-+static inline __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
++			      const struct switchdev_obj_port_fdb *fdb,
++			      struct switchdev_trans *trans)
 +{
-+	return *(__be16 *) rocker_tlv_data(tlv);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_fdb_add)
++		return 0;
++	return world->ops->port_obj_fdb_add(rocker_port->world_port_priv,
++					    fdb, trans);
 +}
 +
-+static inline u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
++			      const struct switchdev_obj_port_fdb *fdb)
 +{
-+	return *(u32 *) rocker_tlv_data(tlv);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_fdb_del)
++		return 0;
++	return world->ops->port_obj_fdb_del(rocker_port->world_port_priv,
++					    fdb);
 +}
 +
-+static inline u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
++static int
++rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
++			       struct switchdev_obj_port_fdb *fdb,
++			       switchdev_obj_dump_cb_t *cb)
 +{
-+	return *(u64 *) rocker_tlv_data(tlv);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_obj_fdb_dump)
++		return 0;
++	return world->ops->port_obj_fdb_dump(rocker_port->world_port_priv,
++					     fdb, cb);
 +}
 +
-+void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
-+		      const char *buf, int buf_len);
-+
-+static inline void rocker_tlv_parse_nested(const struct rocker_tlv **tb,
-+					   int maxtype,
-+					   const struct rocker_tlv *tlv)
++static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
++					   struct net_device *master)
 +{
-+	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
-+			 rocker_tlv_len(tlv));
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_master_linked)
++		return 0;
++	return world->ops->port_master_linked(rocker_port->world_port_priv,
++					      master);
 +}
 +
-+static inline void
-+rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
-+		      const struct rocker_desc_info *desc_info)
++static int rocker_world_port_master_unlinked(struct rocker_port *rocker_port,
++					     struct net_device *master)
 +{
-+	rocker_tlv_parse(tb, maxtype, desc_info->data,
-+			 desc_info->desc->tlv_size);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_master_unlinked)
++		return 0;
++	return world->ops->port_master_unlinked(rocker_port->world_port_priv,
++						master);
 +}
 +
-+static inline struct rocker_tlv *
-+rocker_tlv_start(struct rocker_desc_info *desc_info)
++static int rocker_world_port_neigh_update(struct rocker_port *rocker_port,
++					  struct neighbour *n)
 +{
-+	return (struct rocker_tlv *) ((char *) desc_info->data +
-+					       desc_info->tlv_size);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_neigh_update)
++		return 0;
++	return world->ops->port_neigh_update(rocker_port->world_port_priv, n);
 +}
 +
-+int rocker_tlv_put(struct rocker_desc_info *desc_info,
-+		   int attrtype, int attrlen, const void *data);
-+
-+static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
-+				    int attrtype, u8 value)
++static int rocker_world_port_neigh_destroy(struct rocker_port *rocker_port,
++					   struct neighbour *n)
 +{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_neigh_destroy)
++		return 0;
++	return world->ops->port_neigh_destroy(rocker_port->world_port_priv, n);
 +}
 +
-+static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
-+				     int attrtype, u16 value)
++static int rocker_world_port_ev_mac_vlan_seen(struct rocker_port *rocker_port,
++					      const unsigned char *addr,
++					      __be16 vlan_id)
 +{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
++	struct rocker_world *world = rocker_port->world;
++
++	if (!world->ops->port_ev_mac_vlan_seen)
++		return 0;
++	return world->ops->port_ev_mac_vlan_seen(rocker_port->world_port_priv,
++						 addr, vlan_id);
 +}
 +
-+static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
-+				      int attrtype, __be16 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
-+}
+ /***************************************************
+  * Flow, group, FDB, internal VLAN and neigh tables
+  ***************************************************/
+@@ -3849,6 +4226,11 @@ static int rocker_port_open(struct net_device *dev)
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	int err;
+ 
++	if (!rocker_port->world) {
++		netdev_err(rocker_port->dev, "World not set\n");
++		return -EINVAL;
++	}
 +
-+static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
-+				     int attrtype, u32 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
-+}
+ 	err = rocker_port_dma_rings_init(rocker_port);
+ 	if (err)
+ 		return err;
+@@ -3869,6 +4251,12 @@ static int rocker_port_open(struct net_device *dev)
+ 		goto err_request_rx_irq;
+ 	}
+ 
++	err = rocker_world_port_open(rocker_port);
++	if (err) {
++		netdev_err(rocker_port->dev, "cannot open port in world\n");
++		goto err_world_port_open;
++	}
 +
-+static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
-+				      int attrtype, __be32 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
-+}
-+
-+static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
-+				     int attrtype, u64 value)
-+{
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
-+}
-+
-+static inline struct rocker_tlv *
-+rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
-+{
-+	struct rocker_tlv *start = rocker_tlv_start(desc_info);
-+
-+	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
-+		return NULL;
-+
-+	return start;
-+}
-+
-+static inline void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
-+				       struct rocker_tlv *start)
-+{
-+	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
-+}
-+
-+static inline void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
-+					  const struct rocker_tlv *start)
-+{
-+	desc_info->tlv_size = (const char *) start - desc_info->data;
-+}
-+
-+#endif
+ 	err = rocker_port_fwd_enable(rocker_port, NULL, 0);
+ 	if (err)
+ 		goto err_fwd_enable;
+@@ -3881,6 +4269,7 @@ static int rocker_port_open(struct net_device *dev)
+ 	return 0;
+ 
+ err_fwd_enable:
++err_world_port_open:
+ 	free_irq(rocker_msix_rx_vector(rocker_port), rocker_port);
+ err_request_rx_irq:
+ 	free_irq(rocker_msix_tx_vector(rocker_port), rocker_port);
+@@ -3897,6 +4286,7 @@ static int rocker_port_stop(struct net_device *dev)
+ 	rocker_port_set_enable(rocker_port, false);
+ 	napi_disable(&rocker_port->napi_rx);
+ 	napi_disable(&rocker_port->napi_tx);
++	rocker_world_port_stop(rocker_port);
+ 	rocker_port_fwd_disable(rocker_port, NULL,
+ 				ROCKER_OP_FLAG_NOWAIT);
+ 	free_irq(rocker_msix_rx_vector(rocker_port), rocker_port);
+@@ -4107,9 +4497,14 @@ static void rocker_port_neigh_destroy(struct neighbour *n)
+ 	struct rocker_port *rocker_port = netdev_priv(n->dev);
+ 	int flags = ROCKER_OP_FLAG_REMOVE | ROCKER_OP_FLAG_NOWAIT;
+ 	__be32 ip_addr = *(__be32 *)n->primary_key;
++	int err;
+ 
+ 	rocker_port_ipv4_neigh(rocker_port, NULL,
+ 			       flags, ip_addr, n->ha);
++	err = rocker_world_port_neigh_destroy(rocker_port, n);
++	if (err)
++		netdev_warn(rocker_port->dev, "failed to handle neigh destroy (err %d)\n",
++			    err);
+ }
+ 
+ static const struct net_device_ops rocker_port_netdev_ops = {
+@@ -4138,6 +4533,7 @@ static int rocker_port_attr_get(struct net_device *dev,
+ {
+ 	const struct rocker_port *rocker_port = netdev_priv(dev);
+ 	const struct rocker *rocker = rocker_port->rocker;
++	int err = 0;
+ 
+ 	switch (attr->id) {
+ 	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID:
+@@ -4146,12 +4542,14 @@ static int rocker_port_attr_get(struct net_device *dev,
+ 		break;
+ 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
+ 		attr->u.brport_flags = rocker_port->brport_flags;
++		err = rocker_world_port_attr_bridge_flags_get(rocker_port,
++							      &attr->u.brport_flags);
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int rocker_port_brport_flags_set(struct rocker_port *rocker_port,
+@@ -4184,10 +4582,20 @@ static int rocker_port_attr_set(struct net_device *dev,
+ 		err = rocker_port_stp_update(rocker_port, trans,
+ 					     ROCKER_OP_FLAG_NOWAIT,
+ 					     attr->u.stp_state);
++		if (err)
++			break;
++		err = rocker_world_port_attr_stp_state_set(rocker_port,
++							   attr->u.stp_state,
++							   trans);
+ 		break;
+ 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
+ 		err = rocker_port_brport_flags_set(rocker_port, trans,
+ 						   attr->u.brport_flags);
++		if (err)
++			break;
++		err = rocker_world_port_attr_bridge_flags_set(rocker_port,
++							      attr->u.brport_flags,
++							      trans);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -4259,16 +4667,31 @@ static int rocker_port_obj_add(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+ 		err = rocker_port_vlans_add(rocker_port, trans,
+ 					    SWITCHDEV_OBJ_PORT_VLAN(obj));
++		if (err)
++			break;
++		err = rocker_world_port_obj_vlan_add(rocker_port,
++						     SWITCHDEV_OBJ_PORT_VLAN(obj),
++						     trans);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_IPV4_FIB:
+ 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
+ 		err = rocker_port_fib_ipv4(rocker_port, trans,
+ 					   htonl(fib4->dst), fib4->dst_len,
+ 					   fib4->fi, fib4->tb_id, 0);
++		if (err)
++			break;
++		err = rocker_world_port_obj_fib4_add(rocker_port,
++						     SWITCHDEV_OBJ_IPV4_FIB(obj),
++						     trans);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = rocker_port_fdb_add(rocker_port, trans,
+ 					  SWITCHDEV_OBJ_PORT_FDB(obj));
++		if (err)
++			break;
++		err = rocker_world_port_obj_fdb_add(rocker_port,
++						    SWITCHDEV_OBJ_PORT_FDB(obj),
++						    trans);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -4331,6 +4754,10 @@ static int rocker_port_obj_del(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+ 		err = rocker_port_vlans_del(rocker_port,
+ 					    SWITCHDEV_OBJ_PORT_VLAN(obj));
++		if (err)
++			break;
++		err = rocker_world_port_obj_vlan_del(rocker_port,
++						     SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_IPV4_FIB:
+ 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
+@@ -4338,10 +4765,18 @@ static int rocker_port_obj_del(struct net_device *dev,
+ 					   htonl(fib4->dst), fib4->dst_len,
+ 					   fib4->fi, fib4->tb_id,
+ 					   ROCKER_OP_FLAG_REMOVE);
++		if (err)
++			break;
++		err = rocker_world_port_obj_fib4_del(rocker_port,
++						     SWITCHDEV_OBJ_IPV4_FIB(obj));
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = rocker_port_fdb_del(rocker_port, NULL,
+ 					  SWITCHDEV_OBJ_PORT_FDB(obj));
++		if (err)
++			break;
++		err = rocker_world_port_obj_fdb_del(rocker_port,
++						    SWITCHDEV_OBJ_PORT_FDB(obj));
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -4412,10 +4847,20 @@ static int rocker_port_obj_dump(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = rocker_port_fdb_dump(rocker_port,
+ 					   SWITCHDEV_OBJ_PORT_FDB(obj), cb);
++		if (err)
++			break;
++		err = rocker_world_port_obj_fdb_dump(rocker_port,
++						     SWITCHDEV_OBJ_PORT_FDB(obj),
++						     cb);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+ 		err = rocker_port_vlan_dump(rocker_port,
+ 					    SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
++		if (err)
++			break;
++		err = rocker_world_port_obj_vlan_dump(rocker_port,
++						      SWITCHDEV_OBJ_PORT_VLAN(obj),
++						      cb);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -4910,6 +5355,7 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	rocker = kzalloc(sizeof(*rocker), GFP_KERNEL);
+ 	if (!rocker)
+ 		return -ENOMEM;
++	INIT_LIST_HEAD(&rocker->worlds);
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -5187,12 +5633,22 @@ static int rocker_netdevice_event(struct notifier_block *unused,
+ 			goto out;
+ 		rocker_port = netdev_priv(dev);
+ 		if (info->linking) {
++			err = rocker_world_port_master_linked(rocker_port,
++							      info->upper_dev);
++			if (err)
++				netdev_warn(dev, "failed to reflect master linked (err %d)\n",
++					    err);
+ 			err = rocker_port_master_linked(rocker_port,
+ 							info->upper_dev);
+ 			if (err)
+ 				netdev_warn(dev, "failed to reflect master linked (err %d)\n",
+ 					    err);
+ 		} else {
++			err = rocker_world_port_master_unlinked(rocker_port,
++								info->upper_dev);
++			if (err)
++				netdev_warn(dev, "failed to reflect master unlinked (err %d)\n",
++					    err);
+ 			err = rocker_port_master_unlinked(rocker_port);
+ 			if (err)
+ 				netdev_warn(dev, "failed to reflect master unlinked (err %d)\n",
+@@ -5225,6 +5681,7 @@ static int rocker_neigh_update(struct net_device *dev, struct neighbour *n)
+ static int rocker_netevent_event(struct notifier_block *unused,
+ 				 unsigned long event, void *ptr)
+ {
++	struct rocker_port *rocker_port;
+ 	struct net_device *dev;
+ 	struct neighbour *n = ptr;
+ 	int err;
+@@ -5236,6 +5693,11 @@ static int rocker_netevent_event(struct notifier_block *unused,
+ 		dev = n->dev;
+ 		if (!rocker_port_dev_check(dev))
+ 			return NOTIFY_DONE;
++		rocker_port = netdev_priv(dev);
++		err = rocker_world_port_neigh_update(rocker_port, n);
++		if (err)
++			netdev_warn(dev, "failed to handle neigh update (err %d)\n",
++				    err);
+ 		err = rocker_neigh_update(dev, n);
+ 		if (err)
+ 			netdev_warn(dev,
 -- 
 1.9.3
