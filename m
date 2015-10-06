@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg
- is marked volatile
-Date: Mon, 05 Oct 2015 23:29:56 -0700 (PDT)
-Message-ID: <20151005.232956.105884641412802470.davem@davemloft.net>
-References: <1444051772-20270-1-git-send-email-jon@ringle.org>
-	<20151005145722.GT12635@sirena.org.uk>
+Subject: Re: [PATCH] amd-xgbe: Check for successful buffer allocation
+ before use
+Date: Mon, 05 Oct 2015 23:31:13 -0700 (PDT)
+Message-ID: <20151005.233113.840751866053468766.davem@davemloft.net>
+References: <20151005155103.10841.38132.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon@ringle.org, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jringle@gridpoint.com
-To: broonie@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151005145722.GT12635@sirena.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44717 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbbJFGPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 02:15:31 -0400
+In-Reply-To: <20151005155103.10841.38132.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mark Brown <broonie@kernel.org>
-Date: Mon, 5 Oct 2015 15:57:22 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Mon, 5 Oct 2015 10:51:03 -0500
 
-> On Mon, Oct 05, 2015 at 09:29:31AM -0400, jon@ringle.org wrote:
->> From: Jon Ringle <jringle@gridpoint.com>
->> 
->> The only time that it makes sense to call a custom provided reg_update_bits
->> function, is the register being updated is one that has volatile bits.
->> Otherwise, the normal read/modify/write cycle (where the read is likely to
->> be free from the cache) will do just fine. This should keep the reg cache
->> intact, since volatile registers won't get cached anyway.
+> The kasprintf function can return NULL if the allocation fails. Check for
+> successful allocation before attempting to use the returned buffer.
 > 
-> Dave, to be clear please do *not* apply this patch at least for the time
-> being - I've not reviewed it or the one from Thursday that you applied
-> this morning.
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-It's applied, it's pushed out to my tree, and therefore this will need to
-be fixed up with a relative patch of some sort.
-
-What you don't seem to understand is that my GIT tree is never rebased
-or mangled because many people depend upon it.  So once a patch is
-applied, that commit lives on forever.
+Applied, thanks.
