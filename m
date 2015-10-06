@@ -1,151 +1,106 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Tue, 06 Oct 2015 09:19:14 -0700
-Message-ID: <5613F482.2010200@gmail.com>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC 3/3] mlx4: Call skb_csum_offload_check to check offloadability
+Date: Tue, 6 Oct 2015 09:22:27 -0700
+Message-ID: <CALx6S35XHzp=1b=XpiG2Vrc4ZRUiMyfbLCb5Q840ZWuK-PRVyQ@mail.gmail.com>
+References: <1444088364-2839440-1-git-send-email-tom@herbertland.com>
+	<1444088364-2839440-4-git-send-email-tom@herbertland.com>
+	<56134812.3000303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34998 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760AbbJFQT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:19:29 -0400
-Received: by pacfv12 with SMTP id fv12so218951118pac.2
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:19:28 -0700 (PDT)
-In-Reply-To: <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:35232 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752785AbbJFQW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:22:28 -0400
+Received: by igbkq10 with SMTP id kq10so88540578igb.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:22:27 -0700 (PDT)
+In-Reply-To: <56134812.3000303@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-10-06 09:06 AM, Scott Feldman wrote:
-> On Tue, Oct 6, 2015 at 12:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
+On Mon, Oct 5, 2015 at 9:03 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 10/05/2015 04:39 PM, Tom Herbert wrote:
 >>
->> This is another step on the way to per-world clean cut. Introduce world
->> ops hooks which each world can implement in world-specific way.
->> Also introduce world infrastructure including function for port worlds
->> change.
+>> This provides an example of a driver calling the skb_csum_offload_check.
 >>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
 >> ---
->> v1->v2:
->>  - removed functions to change worlds based on name, as rtnl mode
->>    set patch is removed from patchset.
->> v2->v3:
->>  - fix checks in rocker_world_port_open and rocker_world_port_stop
->> ---
->>  drivers/net/ethernet/rocker/rocker.h      |  56 ++++
->>  drivers/net/ethernet/rocker/rocker_main.c | 464 +++++++++++++++++++++++++++++-
->>  2 files changed, 519 insertions(+), 1 deletion(-)
+>>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  6 +++---
+>>   drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 20 +++++++++++++++-----
+>>   2 files changed, 18 insertions(+), 8 deletions(-)
 >>
->> diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
->> index 650caa0..d49bc5d 100644
->> --- a/drivers/net/ethernet/rocker/rocker.h
->> +++ b/drivers/net/ethernet/rocker/rocker.h
->> @@ -12,7 +12,11 @@
->>  #ifndef _ROCKER_H
->>  #define _ROCKER_H
->>
->> +#include <linux/kernel.h>
->>  #include <linux/types.h>
->> +#include <linux/netdevice.h>
->> +#include <net/neighbour.h>
->> +#include <net/switchdev.h>
->>
->>  #include "rocker_hw.h"
->>
->> @@ -24,4 +28,56 @@ struct rocker_desc_info {
->>         dma_addr_t mapaddr;
->>  };
->>
->> +struct rocker;
->> +struct rocker_port;
->> +
->> +struct rocker_world_ops {
->> +       const char *kind;
->> +       size_t priv_size;
->> +       size_t port_priv_size;
->> +       u8 mode;
->> +       int (*init)(struct rocker *rocker, void *priv);
->> +       void (*fini)(void *priv);
->> +       int (*port_init)(struct rocker_port *rocker_port, void *priv,
->> +                        void *port_priv);
->> +       void (*port_fini)(void *port_priv);
->> +       int (*port_open)(void *port_priv);
->> +       void (*port_stop)(void *port_priv);
->> +       int (*port_attr_stp_state_set)(void *port_priv, u8 state,
->> +                                      struct switchdev_trans *trans);
->> +       int (*port_attr_bridge_flags_set)(void *port_priv,
->> +                                         unsigned long brport_flags,
->> +                                         struct switchdev_trans *trans);
->> +       int (*port_attr_bridge_flags_get)(void *port_priv,
->> +                                         unsigned long *p_brport_flags);
->> +       int (*port_obj_vlan_add)(void *port_priv,
->> +                                const struct switchdev_obj_port_vlan *vlan,
->> +                                struct switchdev_trans *trans);
->> +       int (*port_obj_vlan_del)(void *port_priv,
->> +                                const struct switchdev_obj_port_vlan *vlan);
->> +       int (*port_obj_vlan_dump)(void *port_priv,
->> +                                 struct switchdev_obj_port_vlan *vlan,
->> +                                 switchdev_obj_dump_cb_t *cb);
->> +       int (*port_obj_fib4_add)(void *port_priv,
->> +                                const struct switchdev_obj_ipv4_fib *fib4,
->> +                                struct switchdev_trans *trans);
->> +       int (*port_obj_fib4_del)(void *port_priv,
->> +                                const struct switchdev_obj_ipv4_fib *fib4);
->> +       int (*port_obj_fdb_add)(void *port_priv,
->> +                               const struct switchdev_obj_port_fdb *fdb,
->> +                               struct switchdev_trans *trans);
->> +       int (*port_obj_fdb_del)(void *port_priv,
->> +                               const struct switchdev_obj_port_fdb *fdb);
->> +       int (*port_obj_fdb_dump)(void *port_priv,
->> +                                struct switchdev_obj_port_fdb *fdb,
->> +                                switchdev_obj_dump_cb_t *cb);
->> +       int (*port_master_linked)(void *port_priv, struct net_device *master);
->> +       int (*port_master_unlinked)(void *port_priv, struct net_device *master);
->> +       int (*port_neigh_update)(void *port_priv, struct neighbour *n);
->> +       int (*port_neigh_destroy)(void *port_priv, struct neighbour *n);
->> +       int (*port_ev_mac_vlan_seen)(void *port_priv,
->> +                                    const unsigned char *addr,
->> +                                    __be16 vlan_id);
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index 4726122..f2ed8d0 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -2360,7 +2360,7 @@ out:
+>>         }
+>>         /* set offloads */
+>> -       priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+>> +       priv->dev->hw_enc_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
+>>                                       NETIF_F_TSO |
+>> NETIF_F_GSO_UDP_TUNNEL;
+>>         priv->dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+>>         priv->dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
+>> @@ -2372,7 +2372,7 @@ static void mlx4_en_del_vxlan_offloads(struct
+>> work_struct *work)
+>>         struct mlx4_en_priv *priv = container_of(work, struct
+>> mlx4_en_priv,
+>>                                                  vxlan_del_task);
+>>         /* unset offloads */
+>> -       priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+>> +       priv->dev->hw_enc_features &= ~(NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
+>>                                       NETIF_F_TSO |
+>> NETIF_F_GSO_UDP_TUNNEL);
+>>         priv->dev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+>>         priv->dev->features    &= ~NETIF_F_GSO_UDP_TUNNEL;
+>> @@ -2943,7 +2943,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev,
+>> int port,
+>>         /*
+>>          * Set driver features
+>>          */
+>> -       dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+>> NETIF_F_IPV6_CSUM;
+>> +       dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
+>>         if (mdev->LSO_support)
+>>                 dev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
+>>   diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> index 494e776..f364ffd 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> @@ -702,6 +702,14 @@ static void mlx4_bf_copy(void __iomem *dst, const
+>> void *src,
+>>         __iowrite64_copy(dst, src, bytecnt / 8);
+>>   }
+>>   +static const struct skb_csum_offl_spec csum_offl_spec = {
+>> +       .ipv4_okay = 1,
+>> +       .ipv6_okay = 1,
+>> +       .encap_okay = 1,
+>> +       .tcp_okay = 1,
+>> +       .udp_okay = 1,
 >> +};
-> 
-> Using void * in these ops is unacceptable, I can't agree to this patch.
-> 
-> There is a much cleaner way to architect this.  If you look at the ops
-> defined, they're mostly duplicates of the already defined
-> switchdev_ops.  It would be much cleaner to:
-> 
-> 0) set port mode on qemu/rocker (the device)
-> 1) get the port mode on port probe
-> 2) based on port mode, set the switchdev_ops to point to the port mode
-> world switchdev_ops
-> 3) sub-class rocker_port, like I mentioned in before, to store
-> world-specific stuff in rocker_port
-> 
-> I don't buy the argument that we need to change port mode dynamically
-> from the driver.  Set it at the device and be done.
-> 
+>> +
+>
+>
+> The question I would have is if inner IPv6 checksum is supported by this
+> driver.  The code before didn't seem to indicate it was, and after the
+> csum_offl_spec would seem to indicate it is.  One of my concerns about a
+> change like this is that it is likely prone to introduce regressions as
+> features are going to be toggling due to interpretations of flags and
+> assumptions about what is good for the outer headers is good for the inner
+> ones.
 
-Maybe as a reference this strikes me as similar to how we do multiple
-device support in a single driver like ixgbe or fm10k (the two I'm most
-familiar with). At probe time we read the device id and then stub in
-the specific callbacks for that device.
+Do you mean to say that there could be a device that supports an inner
+and outer checksum for IPv4, but only an outer checksum for IPv6 and
+not inner checksum?
 
-Sorry I'm still hung up on the multiple worlds thing, is it really
-trying to model different devices under a single driver? In which case
-maybe rather than port mode expose it as its own device id. Just a
-thought.
-
-Also I wonder if some of these routines can be broken out more? I'm
-missing how opening a port is so different across these worlds. Probably
-need to poke at the qemu model a bit more.
-
-.John
+Tom
