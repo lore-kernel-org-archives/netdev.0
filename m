@@ -1,164 +1,80 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Tue, 6 Oct 2015 17:42:05 +0200
-Message-ID: <20151006174205.799ac484@griffin>
-References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: allow adding of fdb entries pointing
+ to the bridge device
+Date: Tue, 06 Oct 2015 08:55:55 -0700
+Message-ID: <5613EF0B.8070901@cumulusnetworks.com>
+References: <201510062313.0dtpdZ0k%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
+	nikolay@cumulusnetworks.com, stephen@networkplumber.org,
+	bridge@lists.linux-foundation.org
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37330 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752764AbbJFPmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 11:42:09 -0400
-In-Reply-To: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34252 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460AbbJFPz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 11:55:57 -0400
+Received: by padhy16 with SMTP id hy16so73870016pad.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 08:55:56 -0700 (PDT)
+In-Reply-To: <201510062313.0dtpdZ0k%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some more feedback after doing a deeper review.
+On 10/6/15, 8:29 AM, kbuild test robot wrote:
+> Hi Roopa,
+>
+> [auto build test WARNING on next-20151006 -- if it's inappropriate base, please ignore]
+>
+> config: sh-titan_defconfig (attached as .config)
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=sh 
+>
+> Note: it may well be a FALSE warning. FWIW you are at least aware of it now.
+> http://gcc.gnu.org/wiki/Better_Uninitialized_Warnings
+>
+> All warnings (new ones prefixed by >>):
+>
+>    net/bridge/br_fdb.c: In function 'br_fdb_add':
+>>> net/bridge/br_fdb.c:784:13: warning: 'p' may be used uninitialized in this function [-Wuninitialized]
+>    net/bridge/br_fdb.c:850:26: note: 'p' was declared here
+>    net/bridge/br_fdb.c: In function 'br_fdb_delete':
+>    net/bridge/br_fdb.c:952:11: warning: 'p' may be used uninitialized in this function [-Wuninitialized]
+>    net/bridge/br_fdb.c:977:26: note: 'p' was declared here
+>
+> vim +/p +784 net/bridge/br_fdb.c
+>
+> eb8d7baa Wilson Kok        2015-05-25  768  
+> 2ba071ec Vlad Yasevich     2013-02-13  769  	fdb = fdb_find(head, addr, vid);
+> 64af1bac stephen hemminger 2011-09-30  770  	if (fdb == NULL) {
+> 64af1bac stephen hemminger 2011-09-30  771  		if (!(flags & NLM_F_CREATE))
+> 64af1bac stephen hemminger 2011-09-30  772  			return -ENOENT;
+> 36fd2b63 stephen hemminger 2011-04-04  773  
+> 2ba071ec Vlad Yasevich     2013-02-13  774  		fdb = fdb_create(head, source, addr, vid);
+> 36fd2b63 stephen hemminger 2011-04-04  775  		if (!fdb)
+> 36fd2b63 stephen hemminger 2011-04-04  776  			return -ENOMEM;
+> b0a397fb roopa             2013-04-22  777  
+> b0a397fb roopa             2013-04-22  778  		modified = true;
+> 64af1bac stephen hemminger 2011-09-30  779  	} else {
+> 64af1bac stephen hemminger 2011-09-30  780  		if (flags & NLM_F_EXCL)
+> 64af1bac stephen hemminger 2011-09-30  781  			return -EEXIST;
+> b0a397fb roopa             2013-04-22  782  
+> b0a397fb roopa             2013-04-22  783  		if (fdb->dst != source) {
+> b0a397fb roopa             2013-04-22 @784  			fdb->dst = source;
+> b0a397fb roopa             2013-04-22  785  			modified = true;
+> b0a397fb roopa             2013-04-22  786  		}
+> 64af1bac stephen hemminger 2011-09-30  787  	}
+> 36fd2b63 stephen hemminger 2011-04-04  788  
+> 0e29720e Roopa Prabhu      2015-10-06  789  	if (fdb_to_nud(br, fdb) != state) {
+> 145beee8 Vlad Yasevich     2014-05-16  790  		if (state & NUD_PERMANENT) {
+> 145beee8 Vlad Yasevich     2014-05-16  791  			fdb->is_local = 1;
+> 145beee8 Vlad Yasevich     2014-05-16  792  			if (!fdb->is_static) {
+>
+>
+It is not used when it is not initialized. But I will resubmit the patch by initializing it to NULL (thanks nikolay for the suggestion).
 
-On Mon,  5 Oct 2015 10:58:17 -0700, Pravin B Shelar wrote:
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -703,6 +703,32 @@ err:
->  	return NETDEV_TX_OK;
->  }
->  
-> +static int geneve_egress_tun_info(struct net_device *dev, struct sk_buff *skb,
-> +				  struct ip_tunnel_info *egress_tun_info,
-> +				  const void **egress_tun_opts)
-> +{
-> +	struct geneve_dev *geneve = netdev_priv(dev);
-> +	struct ip_tunnel_info *info;
-> +	struct rtable *rt;
-> +	struct flowi4 fl4;
-> +	__be16 sport;
-> +
-> +	info = skb_tunnel_info(skb);
-> +	if (ip_tunnel_info_af(info) != AF_INET)
-> +		return -EINVAL;
-> +
-> +	rt = geneve_get_rt(skb, dev, &fl4, info);
-
-This will increase dev tx error stats in case the lookup fails which is
-probably something we don't want.
-
-[...]
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -60,6 +60,7 @@ struct wireless_dev;
->  /* 802.15.4 specific */
->  struct wpan_dev;
->  struct mpls_dev;
-> +struct ip_tunnel_info;
->  
->  void netdev_set_default_ethtool_ops(struct net_device *dev,
->  				    const struct ethtool_ops *ops);
-> @@ -1054,6 +1055,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->   *	This function is used to pass protocol port error state information
->   *	to the switch driver. The switch driver can react to the proto_down
->   *      by doing a phys down on the associated switch port.
-> + * int (*ndo_get_egress_info)(struct net_device *dev, struct sk_buff *skb,
-> + *			      __be32 *saddr, __be16 *sport, __be16 *dport);
-> + *	This function is used to get egress tunnel information for given skb.
-> + *	This is useful for retrieving outer tunnel header parameters while
-> + *	sampling packet.
->   *
->   */
->  struct net_device_ops {
-> @@ -1227,6 +1233,10 @@ struct net_device_ops {
->  	int			(*ndo_get_iflink)(const struct net_device *dev);
->  	int			(*ndo_change_proto_down)(struct net_device *dev,
->  							 bool proto_down);
-> +	int			(*ndo_get_egress_info)(struct net_device *dev,
-> +						       struct sk_buff *skb,
-> +						       struct ip_tunnel_info *egress_tun_info,
-> +						       const void **egress_tun_opts);
-
-This should have at least a better name to reflect it is about IP
-tunnels.
-
-But I don't like having an IP tunnel specific ndo, that doesn't sound
-right. The real thing that is wanted here is to complete the dst
-metadata. What about:
-
-int (*ndo_fill_metadata_dst)(struct net_device *dev, struct sk_buff *skb);
-
-The function will use skb_tunnel_info to get the template info, then
-skb_dst_drop and allocate and attach a fully populated metadata_dst.
-The egress_tun_info in struct dp_upcall_info then can be completely
-dropped, as all the necessary tunnel information will be available
-through skb_tunnel_info(skb). Also, when implemented correctly, such
-skb will be just sent out without route lookups etc. if afterwards
-handed to ndo_start_xmit.
-
-[...]
-> --- a/include/net/ip_tunnels.h
-> +++ b/include/net/ip_tunnels.h
-> @@ -337,6 +337,11 @@ void __init ip_tunnel_core_init(void);
->  void ip_tunnel_need_metadata(void);
->  void ip_tunnel_unneed_metadata(void);
->  
-> +void ipv4_egress_info_init(struct ip_tunnel_info *egress_tun_info,
-> +			   const void **egress_tun_opts,
-> +			   struct ip_tunnel_info *info, __be32 saddr,
-> +			   __be16 sport, __be16 dport);
-
-Please use the ip_tunnel prefix as the rest of the functions, this is
-not ipv4 egress info but ip *tunnel* egress info.
-
-Also, it's not clear what the difference between "egress_tun_info" and
-"info" is. I'd suggest to use "dst_info" and "src_info" or something
-similar.
-
-[...]
-> --- a/net/ipv4/ip_tunnel_core.c
-> +++ b/net/ipv4/ip_tunnel_core.c
-> @@ -424,3 +424,40 @@ void ip_tunnel_unneed_metadata(void)
->  	static_key_slow_dec(&ip_tunnel_metadata_cnt);
->  }
->  EXPORT_SYMBOL_GPL(ip_tunnel_unneed_metadata);
-> +
-> +static void tnl_egress_opts_init(struct ip_tunnel_info *egress_tun_info,
-> +				 const void **egress_tun_opts,
-> +				 struct ip_tunnel_info *info)
-> +{
-> +	egress_tun_info->options_len = info->options_len;
-> +	egress_tun_info->mode = info->mode;
-> +
-> +	/* Tunnel options. */
-> +	if (info->options_len)
-> +		*egress_tun_opts = ip_tunnel_info_opts(info);
-> +	else
-> +		*egress_tun_opts = NULL;
-> +}
-> +
-> +void ipv4_egress_info_init(struct ip_tunnel_info *egress_tun_info,
-> +			   const void **egress_tun_opts,
-> +			   struct ip_tunnel_info *info, __be32 saddr,
-> +			   __be16 sport, __be16 dport)
-> +{
-> +	const struct ip_tunnel_key *tun_key;
-> +
-> +	/* Generate egress_tun_info based on tun_info,
-> +	 * saddr, tp_src and tp_dst
-> +	 */
-> +	tun_key = &egress_tun_info->key;
-> +	ip_tunnel_key_init(&egress_tun_info->key,
-
-Just pass tun_key as the first parameter, it will be clearer what's
-going on. (I believe the assignments that have no effect will be
-optimized out by the compiler, since ip_tunnel_key_init is an inline
-function.)
-
-> +			   saddr, tun_key->u.ipv4.dst,
-> +			   tun_key->tos,
-> +			   tun_key->ttl,
-> +			   sport, dport,
-> +			   tun_key->tun_id,
-> +			   tun_key->tun_flags);
-
--- 
-Jiri Benc
+Thanks.
