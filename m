@@ -1,136 +1,69 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: "ss -p" segfaults (updated to 4.2)
-Date: Tue, 6 Oct 2015 12:09:33 +0200
-Message-ID: <20151006100933.GA2702@1wt.eu>
-References: <55AE15FE.6020802@openmailbox.org> <55AE16BD.40607@openmailbox.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg is
+ marked volatile
+Date: Tue, 6 Oct 2015 11:13:05 +0100
+Message-ID: <20151006101305.GG12635@sirena.org.uk>
+References: <1444051772-20270-1-git-send-email-jon@ringle.org>
+ <20151005145722.GT12635@sirena.org.uk>
+ <20151005.232956.105884641412802470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="SUOF0GtieIMvvwua"
-Cc: netdev@vger.kernel.org, schwab@linux-m68k.org
-To: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="+BArgJ+dbJ88VxBZ"
+Cc: jon@ringle.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jringle@gridpoint.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:46182 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752100AbbJFKJo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 06:09:44 -0400
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:46763 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751438AbbJFKNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 06:13:53 -0400
 Content-Disposition: inline
-In-Reply-To: <55AE16BD.40607@openmailbox.org>
+In-Reply-To: <20151005.232956.105884641412802470.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---SUOF0GtieIMvvwua
+--+BArgJ+dbJ88VxBZ
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi guys,
+On Mon, Oct 05, 2015 at 11:29:56PM -0700, David Miller wrote:
+> From: Mark Brown <broonie@kernel.org>
 
-I've updated Jose's patch to make it slightly simpler (eg: calloc instead
-of malloc+memset), and ported it to 4.2.0 which requires it as well, and
-attached it to this e-mail.
+> > Dave, to be clear please do *not* apply this patch at least for the time
+> > being - I've not reviewed it or the one from Thursday that you applied
+> > this morning.
 
-I can confirm that with this patch 4.1.1 doesn't segfault on me anymore.
-The commit message should be reworked I guess though everything's in it
-and I didn't want to modify his description.
+> It's applied, it's pushed out to my tree, and therefore this will need to
+> be fixed up with a relative patch of some sort.
 
-Can it be merged as-is or should I reword the commit message and reference
-Jose as the fix reporter ? We should not let this bug live forever.
+This appears to be an incremental change, not the initial commit which
+you already applied.  I'm asking you to stop applying changes to regmap
+which have not been reviewed.
 
-Thanks,
-Willy
+> What you don't seem to understand is that my GIT tree is never rebased
+> or mangled because many people depend upon it.  So once a patch is
+> applied, that commit lives on forever.
 
+I'm not *so* concerned if the patch lives in history, I'm concerned with
+having something I can sensibly review and ideally getting the code into
+my tree.
 
---SUOF0GtieIMvvwua
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0001-ss-p-segfaults.patch"
+--+BArgJ+dbJ88VxBZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
->From 618028d6c5bfa4fb9898f2ec1ab5483e6f5392d4 Mon Sep 17 00:00:00 2001
-From: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
-Date: Tue, 21 Jul 2015 10:54:05 +0100
-Subject: "ss -p" segfaults
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Patch for 4.2.0
+iQEcBAEBCAAGBQJWE56sAAoJECTWi3JdVIfQNssH/1vCR/CISeiC8/ot1cp3SFjO
+HvhpqyHW2Sg/0cRmKIVQOlUzF+XcdXWtBrEhZ5LiBs7RF0bIpvVgFiX37rv1xLZw
+U3b2nVh0GWyQuV/UxTCHadCeWQdkg4p+quIpxpucdhaNR6wSkPMHwxil3diE82tq
+w44F228+oWCnbcSgigAcnzDW9ruDsnREJqGscRK4ZADL9+JBcCEXd/0fSy+hnTfR
+wHrxLGQcE8Ma6RES06nWsrTzPYE4fL+QIJ3GEl9MI918nQuUu+ew352ZoEQBc/n/
+kvymf89AD59LImSqGh2KK+sFTHG0KZuLOWb2+OvnQ3Myf2126Vdak2ajea59bEo=
+=9Xnz
+-----END PGP SIGNATURE-----
 
-Essentially all that is needed to get rid of this issue is the
-addition of:
-
-    memset(u, 0, sizeof(*u));
-
-after:
-
-    if (!(u = malloc(sizeof(*u))))
-            break;
-
-Also patched some other situations (strcpy and sprintf uses) that
-potentially produce the same results.
-
-Signed-off-by: Jose P Santos <j.ps@openmailbox.org>
-
-[ wt: made Jose's patch slightly simpler, all credits to him for the diag ]
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
- misc/ss.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 2f34962..8b0d606 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -457,7 +457,9 @@ static void user_ent_hash_build(void)
- 
- 	user_ent_hash_build_init = 1;
- 
--	strcpy(name, root);
-+	strncpy(name, root, sizeof(name)-1);
-+	name[sizeof(name)-1] = 0;
-+
- 	if (strlen(name) == 0 || name[strlen(name)-1] != '/')
- 		strcat(name, "/");
- 
-@@ -481,7 +483,7 @@ static void user_ent_hash_build(void)
- 		if (getpidcon(pid, &pid_context) != 0)
- 			pid_context = strdup(no_ctx);
- 
--		sprintf(name + nameoff, "%d/fd/", pid);
-+		snprintf(name + nameoff, sizeof(name) - nameoff, "%d/fd/", pid);
- 		pos = strlen(name);
- 		if ((dir1 = opendir(name)) == NULL) {
- 			free(pid_context);
-@@ -502,7 +504,7 @@ static void user_ent_hash_build(void)
- 			if (sscanf(d1->d_name, "%d%c", &fd, &crap) != 1)
- 				continue;
- 
--			sprintf(name+pos, "%d", fd);
-+			snprintf(name+pos, sizeof(name) - pos, "%d", fd);
- 
- 			link_len = readlink(name, lnk, sizeof(lnk)-1);
- 			if (link_len == -1)
-@@ -2736,7 +2738,7 @@ static int unix_show(struct filter *f)
- 		struct sockstat *u, **insp;
- 		int flags;
- 
--		if (!(u = malloc(sizeof(*u))))
-+		if (!(u = calloc(1, sizeof(*u))))
- 			break;
- 		u->name = NULL;
- 		u->peer_name = NULL;
-@@ -3086,11 +3088,13 @@ static int netlink_show_one(struct filter *f,
- 			strncpy(procname, "kernel", 6);
- 		} else if (pid > 0) {
- 			FILE *fp;
--			sprintf(procname, "%s/%d/stat",
-+			snprintf(procname, sizeof(procname), "%s/%d/stat",
- 				getenv("PROC_ROOT") ? : "/proc", pid);
- 			if ((fp = fopen(procname, "r")) != NULL) {
- 				if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
--					sprintf(procname+strlen(procname), "/%d", pid);
-+					snprintf(procname+strlen(procname),
-+						sizeof(procname)-strlen(procname),
-+						"/%d", pid);
- 					done = 1;
- 				}
- 				fclose(fp);
--- 
-1.7.12.1
-
-
---SUOF0GtieIMvvwua--
+--+BArgJ+dbJ88VxBZ--
