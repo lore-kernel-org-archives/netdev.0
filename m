@@ -1,90 +1,54 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH v3 3/5] net: dsa: complete dsa_switch_destroy
-Date: Tue, 6 Oct 2015 15:40:32 +0100
-Message-ID: <5613DD60.3010900@baylibre.com>
+From: Hans-Peter Nilsson <hans-peter.nilsson@axis.com>
+Subject: Re: linux-next: Tree for Oct 6
+Date: Tue, 6 Oct 2015 16:46:53 +0200
+Message-ID: <201510061446.t96EkrVV012371@ignucius.se.axis.com>
+References: <20151006123346.GA5040@sudip-pc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nbd@openwrt.org,
-	sergei.shtylyov@cogentembedded.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: sfr@canb.auug.org.au, starvik@axis.com, jespern@axis.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, linux-cris-kernel@axis.com,
+	jhs@mojatatu.com
+To: sudipm.mukherjee@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20151006123346.GA5040@sudip-pc> (message from Sudip Mukherjee on
+	Tue, 6 Oct 2015 14:33:46 +0200)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When unbinding dsa, complete the dsa_switch_destroy to unregister the
-fixed link phy then cleanly unregister and destroy the net devices.
+> From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+> Date: Tue, 6 Oct 2015 14:33:46 +0200
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
----
- net/dsa/dsa.c | 37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+> On Tue, Oct 06, 2015 at 06:25:22PM +1100, Stephen Rothwell wrote:
+> > Hi all,
+> > 
+> > Changes since 20151002:
+> 
+> The build for cris allmodconfig is failing with the error:
+> 
+> net/sched/sch_dsmark.c: In function 'dsmark_dequeue':
+> net/sched/sch_dsmark.c:316:1: error: unrecognizable insn:
+> (insn 245 244 119 15 (set (reg:QI 11 r11 [179])
+>         (and:QI (mem/s/j:QI (reg/f:SI 2 r2 [orig:48 D.44939 ] [48]) [0 D.44939_34->mask+0 S1 A8])
+>             (reg:QI 11 r11 [179]))) include/net/dsfield.h:33 -1
+>      (nil))
+> net/sched/sch_dsmark.c:316:1: internal compiler error: in extract_insn, at recog.c:2109
+> Please submit a full bug report,
+> with preprocessed source if appropriate.
+> See <http://gcc.gnu.org/bugs.html> for instructions.
+> make[2]: *** [net/sched/sch_dsmark.o] Error 1
+> make[1]: *** [net/sched] Error 2
+> make[1]: *** Waiting for unfinished jobs....
+> 
+> It says compiler error, but with 4.3-rc4 it compiled properly.
+> Build log of v4.3-rc4 is at
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/83633972
+> 
+> Build log of linux-next is at:
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/83839470
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 14fac4e..6155923 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -22,6 +22,7 @@
- #include <linux/of_platform.h>
- #include <linux/of_net.h>
- #include <linux/sysfs.h>
-+#include <linux/phy_fixed.h>
- #include "dsa_priv.h"
+Thanks for the heads-up, but any chance of a bug report as per
+the instructions in the message?  It'll only speed up matters.
 
- char dsa_driver_version[] = "0.1";
-@@ -420,10 +421,46 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
-
- static void dsa_switch_destroy(struct dsa_switch *ds)
- {
-+	struct device_node *port_dn;
-+	struct phy_device *phydev;
-+	struct dsa_chip_data *cd = ds->pd;
-+	int port;
-+
- #ifdef CONFIG_NET_DSA_HWMON
- 	if (ds->hwmon_dev)
- 		hwmon_device_unregister(ds->hwmon_dev);
- #endif
-+
-+	/* Disable configuration of the CPU and DSA ports */
-+	for (port = 0; port < DSA_MAX_PORTS; port++) {
-+		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
-+			continue;
-+
-+		port_dn = cd->port_dn[port];
-+		if (of_phy_is_fixed_link(port_dn)) {
-+			phydev = of_phy_find_device(port_dn);
-+			if (phydev) {
-+				int addr = phydev->addr;
-+
-+				phy_device_free(phydev);
-+				of_node_put(port_dn);
-+				fixed_phy_del(addr);
-+			}
-+		}
-+	}
-+
-+	/* Destroy network devices for physical switch ports. */
-+	for (port = 0; port < DSA_MAX_PORTS; port++) {
-+		if (!(ds->phys_port_mask & (1 << port)))
-+			continue;
-+
-+		if (!ds->ports[port])
-+			continue;
-+
-+		unregister_netdev(ds->ports[port]);
-+		free_netdev(ds->ports[port]);
-+	}
-+
- 	mdiobus_unregister(ds->slave_mii_bus);
- 	mdiobus_free(ds->slave_mii_bus);
- }
--- 
-1.9.1
+brgds, H-P
