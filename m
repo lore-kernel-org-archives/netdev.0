@@ -1,176 +1,185 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 14/14] rocker: return -EOPNOTSUPP for undefined world ops
-Date: Tue,  6 Oct 2015 09:51:53 +0200
-Message-ID: <1444117913-10386-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 12/14] rocker: call rocker_cmd_exec function with "nowait" boolean instead of flags
+Date: Tue,  6 Oct 2015 09:51:51 +0200
+Message-ID: <1444117913-10386-13-git-send-email-jiri@resnulli.us>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:38711 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbbJFHwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:16 -0400
-Received: by wiclk2 with SMTP id lk2so146694896wic.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:15 -0700 (PDT)
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:38633 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752153AbbJFHwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:12 -0400
+Received: by wiclk2 with SMTP id lk2so146692942wic.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:11 -0700 (PDT)
 In-Reply-To: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suggested-by: Scott Feldman <sfeldma@gmail.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+From: Jiri Pirko <jiri@mellanox.com>
+
+No need to push down rocker flags just to check if this is nowait or
+not. Let the caller handle that.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker_main.c | 32 +++++++++++++++----------------
- 1 file changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 38 +++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index a2fd7a6..451964b 100644
+index 67b31e8..a1ad954 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -1649,7 +1649,7 @@ static int rocker_world_port_attr_stp_state_set(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+@@ -338,6 +338,11 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
+ #define ROCKER_OP_FLAG_LEARNED		BIT(2)
+ #define ROCKER_OP_FLAG_REFRESH		BIT(3)
  
- 	if (!world->ops->port_attr_stp_state_set)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_attr_stp_state_set(rocker_port->world_port_priv,
- 						   state, trans);
++static bool rocker_flags_nowait(int flags)
++{
++	return flags & ROCKER_OP_FLAG_NOWAIT;
++}
++
+ static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
+ 				size_t size)
+ {
+@@ -1412,14 +1417,13 @@ typedef int (*rocker_cmd_proc_cb_t)(const struct rocker_port *rocker_port,
+ 				    const struct rocker_desc_info *desc_info,
+ 				    void *priv);
+ 
+-static int rocker_cmd_exec(struct rocker_port *rocker_port, int flags,
++static int rocker_cmd_exec(struct rocker_port *rocker_port, bool nowait,
+ 			   rocker_cmd_prep_cb_t prepare, void *prepare_priv,
+ 			   rocker_cmd_proc_cb_t process, void *process_priv)
+ {
+ 	struct rocker *rocker = rocker_port->rocker;
+ 	struct rocker_desc_info *desc_info;
+ 	struct rocker_wait *wait;
+-	bool nowait = !!(flags & ROCKER_OP_FLAG_NOWAIT);
+ 	unsigned long lock_flags;
+ 	int err;
+ 
+@@ -1722,7 +1726,7 @@ rocker_cmd_set_port_settings_mode_prep(const struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_ethtool_proc,
+ 			       ecmd);
+@@ -1731,7 +1735,7 @@ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_macaddr_proc,
+ 			       macaddr);
+@@ -1740,7 +1744,7 @@ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_ethtool_prep,
+ 			       ecmd, NULL, NULL);
  }
-@@ -1662,7 +1662,7 @@ rocker_world_port_attr_bridge_flags_set(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_attr_bridge_flags_set)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_attr_bridge_flags_set(rocker_port->world_port_priv,
- 						      brport_flags, trans);
+@@ -1748,7 +1752,7 @@ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_macaddr_prep,
+ 			       macaddr, NULL, NULL);
  }
-@@ -1674,7 +1674,7 @@ rocker_world_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_attr_bridge_flags_get)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_attr_bridge_flags_get(rocker_port->world_port_priv,
- 						      p_brport_flags);
+@@ -1756,7 +1760,7 @@ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
+ 					    int mtu)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_mtu_prep,
+ 			       &mtu, NULL, NULL);
  }
-@@ -1687,7 +1687,7 @@ rocker_world_port_obj_vlan_add(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_obj_vlan_add)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_vlan_add(rocker_port->world_port_priv,
- 					     vlan, trans);
+@@ -1764,7 +1768,7 @@ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
+ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+ 				    bool learning)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_learning_prep,
+ 			       &learning, NULL, NULL);
  }
-@@ -1699,7 +1699,7 @@ rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_obj_vlan_del)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_vlan_del(rocker_port->world_port_priv,
- 					     vlan);
+@@ -1772,7 +1776,7 @@ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_mode(struct rocker_port *rocker_port,
+ 					     u8 mode)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_mode_prep,
+ 			       &mode, NULL, NULL);
  }
-@@ -1712,7 +1712,7 @@ rocker_world_port_obj_vlan_dump(const struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+@@ -2689,7 +2693,8 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
+ 	spin_unlock_irqrestore(&rocker->flow_tbl_lock, lock_flags);
  
- 	if (!world->ops->port_obj_vlan_dump)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_vlan_dump(rocker_port->world_port_priv,
- 					      vlan, cb);
- }
-@@ -1725,7 +1725,7 @@ rocker_world_port_obj_fib4_add(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+ 	if (!switchdev_trans_ph_prepare(trans))
+-		return rocker_cmd_exec(rocker_port, flags,
++		return rocker_cmd_exec(rocker_port,
++				       rocker_flags_nowait(flags),
+ 				       rocker_cmd_flow_tbl_add,
+ 				       found, NULL, NULL);
+ 	return 0;
+@@ -2723,7 +2728,8 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
  
- 	if (!world->ops->port_obj_fib4_add)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_fib4_add(rocker_port->world_port_priv,
- 					     fib4, trans);
- }
-@@ -1737,7 +1737,7 @@ rocker_world_port_obj_fib4_del(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+ 	if (found) {
+ 		if (!switchdev_trans_ph_prepare(trans))
+-			err = rocker_cmd_exec(rocker_port, flags,
++			err = rocker_cmd_exec(rocker_port,
++					      rocker_flags_nowait(flags),
+ 					      rocker_cmd_flow_tbl_del,
+ 					      found, NULL, NULL);
+ 		rocker_kfree(trans, found);
+@@ -3014,7 +3020,8 @@ static int rocker_group_tbl_add(struct rocker_port *rocker_port,
+ 	spin_unlock_irqrestore(&rocker->group_tbl_lock, lock_flags);
  
- 	if (!world->ops->port_obj_fib4_del)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_fib4_del(rocker_port->world_port_priv,
- 					     fib4);
- }
-@@ -1750,7 +1750,7 @@ rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+ 	if (!switchdev_trans_ph_prepare(trans))
+-		return rocker_cmd_exec(rocker_port, flags,
++		return rocker_cmd_exec(rocker_port,
++				       rocker_flags_nowait(flags),
+ 				       rocker_cmd_group_tbl_add,
+ 				       found, NULL, NULL);
+ 	return 0;
+@@ -3045,7 +3052,8 @@ static int rocker_group_tbl_del(struct rocker_port *rocker_port,
  
- 	if (!world->ops->port_obj_fdb_add)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_fdb_add(rocker_port->world_port_priv,
- 					    fdb, trans);
- }
-@@ -1762,7 +1762,7 @@ rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
+ 	if (found) {
+ 		if (!switchdev_trans_ph_prepare(trans))
+-			err = rocker_cmd_exec(rocker_port, flags,
++			err = rocker_cmd_exec(rocker_port,
++					      rocker_flags_nowait(flags),
+ 					      rocker_cmd_group_tbl_del,
+ 					      found, NULL, NULL);
+ 		rocker_group_tbl_entry_free(trans, found);
+@@ -4526,7 +4534,7 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 	struct port_name name = { .buf = buf, .len = len };
+ 	int err;
  
- 	if (!world->ops->port_obj_fdb_del)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_fdb_del(rocker_port->world_port_priv,
- 					    fdb);
- }
-@@ -1775,7 +1775,7 @@ rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_obj_fdb_dump)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_obj_fdb_dump(rocker_port->world_port_priv,
- 					     fdb, cb);
- }
-@@ -1786,7 +1786,7 @@ static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_master_linked)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_master_linked(rocker_port->world_port_priv,
- 					      master);
- }
-@@ -1797,7 +1797,7 @@ static int rocker_world_port_master_unlinked(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_master_unlinked)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_master_unlinked(rocker_port->world_port_priv,
- 						master);
- }
-@@ -1808,7 +1808,7 @@ static int rocker_world_port_neigh_update(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_neigh_update)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_neigh_update(rocker_port->world_port_priv, n);
- }
- 
-@@ -1818,7 +1818,7 @@ static int rocker_world_port_neigh_destroy(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_neigh_destroy)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_neigh_destroy(rocker_port->world_port_priv, n);
- }
- 
-@@ -1829,7 +1829,7 @@ static int rocker_world_port_ev_mac_vlan_seen(struct rocker_port *rocker_port,
- 	struct rocker_world *world = rocker_port->world;
- 
- 	if (!world->ops->port_ev_mac_vlan_seen)
--		return 0;
-+		return -EOPNOTSUPP;
- 	return world->ops->port_ev_mac_vlan_seen(rocker_port->world_port_priv,
- 						 addr, vlan_id);
- }
+-	err = rocker_cmd_exec(rocker_port, 0,
++	err = rocker_cmd_exec(rocker_port, false,
+ 			      rocker_cmd_get_port_settings_prep, NULL,
+ 			      rocker_cmd_get_port_settings_phys_name_proc,
+ 			      &name);
+@@ -5058,7 +5066,7 @@ rocker_cmd_get_port_stats_ethtool_proc(const struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_stats_ethtool(struct rocker_port *rocker_port,
+ 					     void *priv)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_stats_prep, NULL,
+ 			       rocker_cmd_get_port_stats_ethtool_proc,
+ 			       priv);
 -- 
 1.9.3
