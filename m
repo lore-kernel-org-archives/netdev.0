@@ -1,51 +1,30 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: Remove unused net variable from ip_vs_out
-Date: Tue, 6 Oct 2015 09:35:29 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1510060934320.2233@ja.home.ssi.bg>
-References: <1443746619-3503-1-git-send-email-horms@verge.net.au>
+From: Pratyush Anand <pratyush.anand@gmail.com>
+Subject: Re: [PATCH 18/23] spear13xx_pcie_gadget: use per-attribute show and
+ store methods
+Date: Tue, 6 Oct 2015 12:31:56 +0530
+Message-ID: <CAHM4w1=ySCiVR3g=oYx5JPK2XxRCYxP7MQNrF_VLJaRrT5g-Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=UTF-8
+Cc: Joel Becker <jlbec@evilplan.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicholas Bellinger <nab@linux-iscsi.org>,
+	Felipe Balbi <balbi@ti.com>,
+	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, USB list <linux-usb@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:41393 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751388AbbJFGfy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 02:35:54 -0400
-In-Reply-To: <1443746619-3503-1-git-send-email-horms@verge.net.au>
+Received: from mail-vk0-f68.google.com ([209.85.213.68]:35836 "EHLO
+	mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136AbbJFHB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:01:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Oct 3, 2015 at 7:02 PM, Christoph Hellwig <hch@lst.de> wrote:
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-	Hello,
-
-On Fri, 2 Oct 2015, Simon Horman wrote:
-
-> Since 6f2bcea9917d ("ipvs: Pass ipvs into ip_vs_in_icmp and ip_vs_in_icmp_v6")
-> the net net variable in ip_vs_out() appears to be unused so remove it.
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  net/netfilter/ipvs/ip_vs_core.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index d08df435c2aa..72b6a44ea9de 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1172,7 +1172,6 @@ drop:
->  static unsigned int
->  ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int af)
->  {
-> -	struct net *net = ipvs->net;
-
-	So, this line should be moved into the block
-where the var is used?
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Acked-by: Pratyush Anand <pratyush.anand@gmail.com>
