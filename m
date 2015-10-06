@@ -1,49 +1,74 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Mon, 5 Oct 2015 17:28:04 -0700
-Message-ID: <56131594.6080801@plumgrid.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
- <CAGXu5j+s+3Z6=WKKNGouNijNKcrq5o_n9-BD85Nabd-_GtL+ag@mail.gmail.com>
- <5612E7C4.1010306@plumgrid.com>
- <CAGXu5jKTDzMXXYJdWdP=b4fABu_b5ifjv88RVMgBkiR=_JUAog@mail.gmail.com>
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
+ pppoe_flush_dev()
+Date: Tue, 6 Oct 2015 00:26:20 +0000
+Message-ID: <1444091180.1468.17.camel@mattb-dl>
+References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
+	 <7045c1dad4647944f61c958511d45fcd@visp.net.lb>
+	 <20151002175426.GE2911@alphalink.fr>
+	 <356ca8b8094bb2460c0182c00e120378@visp.net.lb>
+	 <1444018131.14634.6.camel@mattb-dl> <20151005122459.GG2911@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jKTDzMXXYJdWdP=b4fABu_b5ifjv88RVMgBkiR=_JUAog@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "core@irc.lg.ua" <core@irc.lg.ua>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"paulus@samba.org" <paulus@samba.org>,
+	"nuclearcat@nuclearcat.com" <nuclearcat@nuclearcat.com>
+To: "g.nault@alphalink.fr" <g.nault@alphalink.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:37274 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbbJFA01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 20:26:27 -0400
+In-Reply-To: <20151005122459.GG2911@alphalink.fr>
+Content-Language: en-US
+Content-ID: <B706C2AA077081438259D68482667D98@atlnz.lc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/5/15 3:02 PM, Kees Cook wrote:
->> the array maps that hold FDs (BPF_MAP_TYPE_PROG_ARRAY and
->> >BPF_MAP_TYPE_PERF_EVENT_ARRAY) don't have lookup/update accessors
->> >from the program side, so programs cannot see or manipulate
->> >those pointers.
->> >For the former only bpf_tail_call() is allowed that takes integer
->> >index and jumps to it. And the latter map accessed with
-> Okay, so I can't take a pointer, put it on the stack, take it back any
-> part of it as an integer and use it for a tail call?
-
-not quite.
-you can store a pointer to stack and read it as 8 byte load back into
-another register, but reading <8 byte of it will be rejected.
-That's the test:
-unpriv: read pointer from stack in small chunks
-we obviously want to avoid hiding pointer in integers.
-After reading it back from stack as a pointer you cannnot use
-this register to pass as index into bpf_tail_call().
-That's the test:
-unpriv: pass pointer to helper function
-
-please keep shooting everything that comes to mind.
+T24gTW9uLCAyMDE1LTEwLTA1IGF0IDE0OjI0ICswMjAwLCBHdWlsbGF1bWUgTmF1bHQgd3JvdGU6
+DQo+IE9uIE1vbiwgT2N0IDA1LCAyMDE1IGF0IDA0OjA4OjUxQU0gKzAwMDAsIE1hdHQgQmVubmV0
+dCB3cm90ZToNCj4gPiBIaSwgSSBhbSBzZWVpbmcgdGhpcyBwYW5pYyBvY2N1ciBvY2Nhc2lvbmFs
+bHkgaG93ZXZlciBJIGFtIHVuc3VyZSBob3cgdG8NCj4gPiBnbyBhYm91dCByZXByb2R1Y2luZyBp
+dC4gSXMgaXQgZW5vdWdoIHRvIHNpbXBseSBrZWVwIGNyZWF0aW5nIGFuZA0KPiA+IHRlYXJpbmcg
+ZG93biB0aGUgUFBQIGludGVyZmFjZT8gSSBjYW4gYWxzbyB0ZXN0IGFuZC9vciBpbnZlc3RpZ2F0
+ZSB0aGlzDQo+ID4gaXNzdWUgaWYgYSBzdWl0YWJsZSByZXByb2R1Y3Rpb24gbWV0aG9kIGlzIGF2
+YWlsYWJsZS4NCj4gPiANCj4gVGhlcmUgYXJlIGF0IGxlYXN0IHR3byBpc3N1ZXMgcmVzdWx0aW5n
+IGluIHNpbWlsYXIgT29wcy4NCj4gDQo+IFRoZSBmaXJzdCBvbmUgZ29lcyB3aXRoIE1UVS9hZGRy
+ZXNzL2xpbmsgc3RhdGUgdXBkYXRlcyBvbiB0aGUNCj4gdW5kZXJseWluZyBpbnRlcmZhY2U6IGFu
+eSBzdWNoIHVwZGF0ZSBvbiBhbiBpbnRlcmZhY2UgdXNlZCBieSBhDQo+IFBQUG9FIGNvbm5lY3Rp
+b24gd2lsbCBnZW5lcmFsbHkgcmVzdWx0IGluIGFuIE9vcHMgd2hlbiByZWxlYXNpbmcgdGhlDQo+
+IFBQUG9FIGNvbm5lY3Rpb24uIFRoaXMgaXMgZml4ZWQgYnkgZTY3NDAxNjViOGY3ICgicHBwOiBk
+b24ndCBvdmVycmlkZQ0KPiBzay0+c2tfc3RhdGUgaW4gcHBwb2VfZmx1c2hfZGV2KCkiKS4NCg0K
+V2l0aG91dCB5b3VyIHBhdGNoICgicHBwOiBkb24ndCBvdmVycmlkZSBzay0+c2tfc3RhdGUgaW4N
+CnBwcG9lX2ZsdXNoX2RldigpIikgSSBjYW4gc2VlIHRoZSBmb2xsb3dpbmcgZnVuY3Rpb24gY2Fs
+bHMgYmVpbmcgbWFkZQ0Kd2hlbiBjaGFuZ2luZyB0aGUgbXR1IG9uIHRoZSB1bmRlcmx5aW5nIGV0
+aGVybmV0IGludGVyZmFjZSBmb3IgdGhlIFBQUG9FDQpjb25uZWN0aW9uOg0KDQoxLiBwcHBvZV9m
+bHVzaF9kZXYoKSAtIHNldHRpbmcgUFBQT1hfWk9NQklFDQoNCjIuIHBwcG9lX2Nvbm5lY3QgLSBz
+ZXR0aW5nIFBQUE9YX05PTkUgKHNob3duIGJlbG93KQ0KDQovKiBEZWxldGUgdGhlIG9sZCBiaW5k
+aW5nICovDQoJaWYgKHN0YWdlX3Nlc3Npb24ocG8tPnBwcG9lX3BhLnNpZCkpIHsNCgkJcHBwb3hf
+dW5iaW5kX3NvY2soc2spOw0KCQlwbiA9IHBwcG9lX3Blcm5ldChzb2NrX25ldChzaykpOw0KCQlk
+ZWxldGVfaXRlbShwbiwgcG8tPnBwcG9lX3BhLnNpZCwNCgkJCSAgICBwby0+cHBwb2VfcGEucmVt
+b3RlLCBwby0+cHBwb2VfaWZpbmRleCk7DQoJCWlmIChwby0+cHBwb2VfZGV2KSB7DQoJCQlkZXZf
+cHV0KHBvLT5wcHBvZV9kZXYpOw0KCQkJcG8tPnBwcG9lX2RldiA9IE5VTEw7DQoJCX0NCg0KCQlt
+ZW1zZXQoc2tfcHBwb3gocG8pICsgMSwgMCwNCgkJICAgICAgIHNpemVvZihzdHJ1Y3QgcHBwb3hf
+c29jaykgLSBzaXplb2Yoc3RydWN0IHNvY2spKTsNCgkJc2stPnNrX3N0YXRlID0gUFBQT1hfTk9O
+RTsNCgl9DQoNCjMuIHBwcG9lX3JlbGVhc2UgLSBObyBvb3BzIChzaW5jZSBzay0+c2tfc3RhdGUg
+aXMgbm8gbG9uZ2VyIGluDQp7UFBQT1hfQ09OTkVDVEVELFBQUE9YX0JPVU5ELFBQUE9YX1pPTUJJ
+RX0pDQoNCkl0IGRvZXNuJ3QgbG9vayB0byBtZSBsaWtlIHRoZSBhYm92ZSBmdW5jdGlvbnMgY2Fu
+IGV4ZWN1dGUNCmFzeW5jaHJvbm91c2x5IGJ1dCBJJ2QgaGF2ZSB0byBsb29rIGhhcmRlci4gSSBh
+bSB1c2luZyAzLjE2IGJ5IHRoZSB3YXkuDQoNCj4gDQo+IFRoZSBzZWNvbmQgb25lIHNlZW1zIHRv
+IGJlIHRyaWNraWVyLiBJdCBsb29rcyBsaWtlIGEgcmFjZSB3cnQuIFBBRFQNCj4gbWVzc2FnZSBy
+ZWNlcHRpb24uIFJlcHJvZHVjaW5nIHRoZSBidWcgd2lsbCBwcm9iYWJseSByZXF1aXJlIHRvDQo+
+IGdlbmVyYXRlIHNvbWUgUEFEVCBmbG9vZGluZyB0byBhIGhvc3QgdGhhdCBjcmVhdGVzIGFuZCBy
+ZWxlYXNlcyBQUFBvRQ0KPiBjb25uZWN0aW9ucy4NCg0KSSB3aWxsIGludmVzdGlnYXRlIHRoZSBQ
+QURUIG1lc3NhZ2UgcmVjZXB0aW9uIGhvd2V2ZXIgc2luY2UgSSBhbSBvbiAzLjE2DQpJIGRvbid0
+IGhhdmUgdGhlIGNvbW1pdHMgZm9yICJwcHBvZTogVXNlIHdvcmtxdWV1ZSB0byBkaWUgcHJvcGVy
+bHkgd2hlbg0KYSBQQURUIGlzIHJlY2VpdmVkIiBhbmQgInBwcG9lOiBkcm9wIHBwcG9lIGRldmlj
+ZSBpbg0KcHBwb2VfdW5iaW5kX3NvY2tfd29yayIuIA0KDQpNYXR0DQo+IC0tDQo+IFRvIHVuc3Vi
+c2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYi
+IGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3Jn
+DQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jk
+b21vLWluZm8uaHRtbA0KDQo=
