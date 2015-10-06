@@ -1,88 +1,93 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH RFC 0/3] net: Add driver helper function to determine if
- checksum is offloadable
-Date: Tue, 06 Oct 2015 11:51:35 +0100
-Message-ID: <1444128695.4674.226.camel@infradead.org>
-References: <1444088364-2839440-1-git-send-email-tom@herbertland.com>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Tue, 06 Oct 2015 12:08:43 +0100
+Message-ID: <1444129723.4674.236.camel@infradead.org>
+References: <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+	 <1443033714.74600.18.camel@infradead.org> <560310EA.2070805@intel.com>
+	 <1443042212.74600.30.camel@infradead.org> <56033C10.2040708@linaro.org>
+	 <1443082579.74600.48.camel@infradead.org>
+	 <20150924103152.GG13823@e104818-lin.cambridge.arm.com>
+	 <1443095558.74600.84.camel@infradead.org>
+	 <20150924151546.GJ13823@e104818-lin.cambridge.arm.com>
+	 <1443118238.74600.117.camel@infradead.org>
+	 <20150925152848.GQ13823@e104818-lin.cambridge.arm.com>
+	 <560C993D.8090308@redhat.com> <D23813FF.33566%charles.garcia-tobin@arm.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-BsYDdZsADGrxltzd3VxK"
-Cc: kernel-team@fb.com, ogerlitz@mellanox.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+	boundary="=-qHrosZRUVyWVLbGw4R/s"
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	Jeremy Linton <Jeremy.Linton@arm.com>,
+	"hanjun.guo@linaro.org" <hanjun.guo@linaro.org>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Charles Garcia-Tobin <charles.garcia-tobin@arm.com>,
+	"ahs3@redhat.com" <ahs3@redhat.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:52516 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:40320 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451AbbJFKvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 06:51:39 -0400
-In-Reply-To: <1444088364-2839440-1-git-send-email-tom@herbertland.com>
+	with ESMTP id S1751573AbbJFLI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 07:08:58 -0400
+In-Reply-To: <D23813FF.33566%charles.garcia-tobin@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-BsYDdZsADGrxltzd3VxK
+--=-qHrosZRUVyWVLbGw4R/s
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2015-10-05 at 16:39 -0700, Tom Herbert wrote:
-> When drivers have support for offloading transport IP checksums, they
-> will indicate this in the features for the device. As described in
-> skbuff.h, a driver will usually advertise NETIF_F_HW_CSUM,
-> NETIF_F_IP_CSUM, and/or NETIF_F_IPV6_CSUM. The first of these
-> (NETIF_F_HW_CSUM) is the preferred method since this implies that the
-> device has implemented a generic checksum offload feature that should
-> work under arbitrary scenarios (e.g. for different protocols, with or
-> without encapsulation).
->=20
-> For narrow features support (NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM
-> for offload of TCP/UDP), the features flags may not be sufficient to
-> deduce whether a packet may be offloaded. Some devices will not be able
-> to offload encapsulated checksums, some cannot offload transport
-> checksums in packet with IPv6 extension headers, etc. In these cases
-> a driver will need to perform additional packet inspection to determine
-> if a packet's checksum can be offloaded to a device.
->=20
-> This patch defines a helper function that drivers can call to check if
-> it is able to offload the checksum for a particular packet. In an
-> argument to the function, the driver specifies what type of packets it
-> is able to offload to a device. The function is intended to check for
-> the most common restrictions of devices (like by IP version, transport
-> protocol, encapsulation, extension headers). Since the function includes
-> checks for IP version and transport protocol, the driver is able
-> to advertise NETIF_F_HW_CSUM instead of protocol specific support.
-> This should put us on a path to deprecate NETIF_F_IP_CSUM and
-> NETIF_F_IPV6_CSUM.
->=20
-> The helper function may be called from ndo_features_check or the xmit
-> routine of the driver. The csum_help argument does not need to be set
-> when the function is called from ndo_features_check.
+On Mon, 2015-10-05 at 17:20 -0700, Charles Garcia-Tobin wrote:
+> it in ACPI circles
+> unless we had wider agreement among OSs to use it. AFAIK PRP00001 has not
+> actually been approved yet in the specification forum, and that it in
+> itself is more of a concern for me,as the code has been pushed upstream.
 
-Looks good in general; thanks.
+Why would that be a concern? In that context it's just one device ID.
+Individual devices don't *need* to be approved. OK, the 'PRP' vendor
+prefix is not officially assigned but that's really a trivial piece of
+bureaucracy.
 
-I do strongly believe we want to encourage your helper to be called
-from .ndo_features_check(). Because if you can't do the checksum, then
-you can't do TSO. And if you can't do TSO, you *really* want your
-hard_start_xmit() function to be handed one skb at a time and not have
-to call skb_gso_segment() for itself when it might not have enough room
-in its descriptor ring for *all* the resulting segments.
+> I guess it=C2=B9s up to Catalin, but disabling for ARM seems like a good =
+idea
+> right now, another option is to add tests to FWTS.
 
-Also, is your skb_csum_offload_chk() going to do the right thing for
-SCTP packets? Looks like it doesn't do crc32...
+I understand the motivation to avoid embracing a whole bunch of crappy
+bindings. But I think that eschewing PRP0001 is the wrong technical
+approach to achieving that.
 
-And how accurate is the check we have, on the various IP output
-routines, for rt->dst.dev->features & NETIF_F_xx_CSUM? Could we
-consider just ditching that check and always using CHECKSUM_PARTIAL, in
-the knowledge that we check it before it hits a non-capable driver
-anyway? Or do we benefit from doing the software checksum early, due to
-improved cache locality when we've probably just copied the data from
-userspace in many cases?
+It has false negatives =E2=80=94 as soon as you have a *single* existing DT
+binding, perhaps something as simple as the serial port bindings from
+the CHRP days, you'll be in a situation where you can't use that.
+I've *got* hardware where I need to advertise a serial port with a
+clock-frequency property because it *isn't* compatible with PNP0501.
+
+And it has false positives =E2=80=94 there's nothing to prevent people from
+doing ACPI-style bindings with crappy device bindings which also aren't
+approved.
+
+I think it's utterly na=C3=AFve to believe that simply avoiding the use of
+PRP0001 + compatible for matching is going to have *any* significant
+beneficial effect whatsoever. It only makes life harder for all
+concerned.
+
+Perhaps a better approach would be to introduce something like
+CONFIG_UNAPPROVED_BINDINGS (which can't be set on ARM64), and those
+drivers which use bindings that *aren't* approved by Catalin's crack
+team of reviewers need to depend on !UNAPPROVED_BINDINGS. To be honest,
+I still think even *that* is somewhat na=C3=AFve, but it's still a better
+way of implementing what you're actually trying to achieve, however
+optimistic you have to be to think it'll ever work in practice.
 
 --=20
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+dwmw2
 
 
---=-BsYDdZsADGrxltzd3VxK
+--=-qHrosZRUVyWVLbGw4R/s
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -175,18 +180,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUxMDA2MTA1MTM1WjAjBgkqhkiG9w0BCQQxFgQULW4Tur7oSSnXE8vhk6xmGW7T2iMw
+CQUxDxcNMTUxMDA2MTEwODQzWjAjBgkqhkiG9w0BCQQxFgQUKZnw8CD4WepvEfQUikpziyvI5nYw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQBjyYAd2pa88tsWDhu/CS9MYrLL51cKBuUUx0YloRj+NdooBa6sWBCPl7uP
-1o54t2NTZart7Ll0znSxP6oz4TMMSzB/kv14WHFOV5fjqe+RsU37M1I1qxFLBO4CQR3Trndxz0y3
-TC2jlTSIBFFCTk1KJirTrWJw0dIKtEq379SGA7xgSAeW27QsrkmuumK75Xqq4ot/dCkECjyeQjNf
-yDXagMRjRHzI6rGgfau6ABGv3zaboHpb7j0vtJsa1ZeqDAHy5tzGi2oL1WlUmfFwSLat6ZvRnavE
-E6GHfrHbYtfRxqDx6ojeFpKMrvmJ/wthMFKK6DyB3zrSxqRu7NSBC6FUAAAAAAAA
+hkiG9w0BAQEFAASCAQCY1vv2HF9ZE6f9W6rO7Bga0OUD2/m6yUKUqvsOOgSZCWFWT6FMa6ABAOLD
+i7cxQWNk2Xq0p39yt7btbH1llqB7MNiVDce/vmJO7SwRSbAFIU8HloIIWkoG+6vkSh3ApndsITvn
+dCxnRr/i6HYLIbxWmpXAP3juxZgtwblIG67ZMoDAFMb4fiPKRenfX+JQi7fCA/3uA9Q3FJrOfZaU
+WeJyS2mCocjRPnrN5VTuMxuzJnR+e95t00sTXdPCVKVl+woRPIohvTuxBiNq5AKJiK68m5xDCAzl
+CSy03vdDpEfKzKfJMAPKWi2u9XkoXpn35Siu2+XrYI7TbbKrkugWTo1IAAAAAAAA
 
 
---=-BsYDdZsADGrxltzd3VxK--
+--=-qHrosZRUVyWVLbGw4R/s--
