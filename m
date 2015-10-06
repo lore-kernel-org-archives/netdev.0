@@ -1,33 +1,50 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH] ethtool: fix typo in man page
-Date: Tue,  6 Oct 2015 10:07:36 +0200
-Message-ID: <1444118856-6211-1-git-send-email-ivecera@redhat.com>
-To: bwh@kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47232 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751983AbbJFIHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 04:07:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] ipvs: Remove possibly unused variables from ip_vs_conn_net_{init,cleanup}
+Date: Tue,  6 Oct 2015 17:14:30 +0900
+Message-ID: <1444119270-5499-1-git-send-email-horms@verge.net.au>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+If CONFIG_PROC_FS is undefined then the arguments of proc_create()
+and remove_proc_entry() are unused. As a result the net variables of
+ip_vs_conn_net_{init,cleanup} are unused.
+
+Resolve this by dereferencing net as needed rather than storing it
+in a variable.
+
+Fixes: 3d99376689ee ("ipvs: Pass ipvs not net into ip_vs_control_net_(init|cleanup)")
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- ethtool.8.in | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/ipvs/ip_vs_conn.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index ae56293..eeffa70 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -872,7 +872,7 @@ Enables/disables the device support of EEE.
- Determines whether the device should assert its Tx LPI.
- .TP
- .BI advertise \ N
--Sets the speeds for which the device should advertise EEE capabiliities.
-+Sets the speeds for which the device should advertise EEE capabilities.
- Values are as for
- .B \-\-change advertise
- .TP
--- 
-2.4.9
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index d1d168c7fc68..85ca189bdc3d 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -1347,23 +1347,20 @@ flush_again:
+  */
+ int __net_init ip_vs_conn_net_init(struct netns_ipvs *ipvs)
+ {
+-	struct net *net = ipvs->net;
+-
+ 	atomic_set(&ipvs->conn_count, 0);
+ 
+-	proc_create("ip_vs_conn", 0, net->proc_net, &ip_vs_conn_fops);
+-	proc_create("ip_vs_conn_sync", 0, net->proc_net, &ip_vs_conn_sync_fops);
++	proc_create("ip_vs_conn", 0, ipvs->net->proc_net, &ip_vs_conn_fops);
++	proc_create("ip_vs_conn_sync", 0, ipvs->net->proc_net,
++		    &ip_vs_conn_sync_fops);
+ 	return 0;
+ }
+ 
+ void __net_exit ip_vs_conn_net_cleanup(struct netns_ipvs *ipvs)
+ {
+-	struct net *net = ipvs->net;
