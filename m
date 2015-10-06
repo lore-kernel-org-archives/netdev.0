@@ -1,71 +1,87 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
-Date: Mon, 5 Oct 2015 20:56:12 -0700
-Message-ID: <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
-References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: [PATCH RFC v1 0/7] NCSI Support
+Date: Tue,  6 Oct 2015 14:09:42 +1100
+Message-ID: <1444100989-3437-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Cc: benh@kernel.crashing.org, davem@davemloft.net,
+	Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:33695 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467AbbJFD4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 23:56:32 -0400
-Received: by obbbh8 with SMTP id bh8so144814919obb.0
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2015 20:56:32 -0700 (PDT)
-In-Reply-To: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
+Received: from e23smtp01.au.ibm.com ([202.81.31.143]:54344 "EHLO
+	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbbJFD6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2015 23:58:13 -0400
+Received: from /spool/local
+	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Tue, 6 Oct 2015 13:58:11 +1000
+Received: from d23relay06.au.ibm.com (d23relay06.au.ibm.com [9.185.63.219])
+	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 22DDA2CE8055
+	for <netdev@vger.kernel.org>; Tue,  6 Oct 2015 14:58:10 +1100 (EST)
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+	by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t963vvZ238862950
+	for <netdev@vger.kernel.org>; Tue, 6 Oct 2015 14:58:05 +1100
+Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
+	by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t963vblv007947
+	for <netdev@vger.kernel.org>; Tue, 6 Oct 2015 14:57:37 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> This patchset allows new rocker worlds to be easily added in future (like eBPF
-> based one I have been working on). The main part of the patchset is the OF-DPA
-> carve-out. It resuts in OF-DPA specific file. Clean cut.
->
-> v1->v2:
->  - rtnl rocker mode change userspace expose patch was removed
->
-> Jiri Pirko (13):
->   rocker: remove unused rocker_port param from alloc funcs and shorten
->     their names
->   rocker: rename rocker.h to rocker_hw.h
->   rocker: rename rocker.c to rocker_main.c
->   rocker: push tlv processing into separate files
->   rocker: implement set settings mode command
->   rocker: introduce worlds infrastructure
->   rocker: introduce OF-DPA world skeleton
->   rocker: set default world on port probe and clean world on remove
->   rocker: pass "learning" value as a parameter to
->     rocker_port_set_learning
->   rocker: pre-allocate wait structures during cmd ring init
->   rocker: remove trans parameter to rocker_cmd_exec function
->   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
->     flags
->   rocker: move OF-DPA stuff into separate file
+This patchset is prototype requesting for comments.
 
-A couple of my tests are failing with this patchset.  A simple port
-test is failing and IPv4 routing test is failing.
+This series of patches intends to support NCSI stack, which is specified by
+DSP0222. One NCSI enabled interface potentially connects to multiple packages
+and channels, but there is one active channel at once when hardware arbitration
+is disabled. No hardware arbitration isn't supported by this patchset:
 
-The port test is simple: just connect a port on DUT to a port on
-another system and assign an IP address to each port and verify IP
-connectivity.  I have this:
+   * NIC driver registers NCSI device when the network device is registered. The
+     NCSI device should be started when bringing up the interface so that the
+     active channel can be choosed from the available channels and starts to provide
+     service.
+   * When NCSI AEN packet is received from currently active channel for sake of
+     failure, another active channel is tried to choosed to accomplish the failover.
+   * Reserved netlink interface for NCSI is supported so that userland can retrieve
+     NCSI information or configure from/to NCSI channels.
+   * The first user of NCSI stack is faraday driver (ftgmac100.c).
 
-   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
+Gavin Shan (7):
+  net/ncsi: Resource management
+  net/ncsi: Packet handler
+  net/ncsi: Manage NCSI device
+  net/ncsi: Netlink support
+  net/faraday: Replace use_nc_si with use_ncsi
+  net/faraday: Enable NCSI interface
+  net/faraday: Enable offload checksum according to device-tree
 
-The IPv4 routing tests is a bit more complicated to setup.  I'm using
-OSPF, but I'm not seeing full routes formed in the topology, so I
-suspect OSPF hellos aren't getting thru.
+ drivers/net/ethernet/faraday/ftgmac100.c |  109 ++-
+ include/net/ncsi.h                       |   59 ++
+ include/uapi/linux/if_ether.h            |    1 +
+ include/uapi/linux/ncsi.h                |  200 +++++
+ include/uapi/linux/netlink.h             |    1 +
+ net/Kconfig                              |    1 +
+ net/Makefile                             |    1 +
+ net/ncsi/Kconfig                         |   10 +
+ net/ncsi/Makefile                        |    5 +
+ net/ncsi/internal.h                      |  165 +++++
+ net/ncsi/ncsi-aen.c                      |  197 +++++
+ net/ncsi/ncsi-cmd.c                      |  380 ++++++++++
+ net/ncsi/ncsi-manage.c                   |  914 +++++++++++++++++++++++
+ net/ncsi/ncsi-netlink.c                  | 1042 ++++++++++++++++++++++++++
+ net/ncsi/ncsi-pkt.h                      |  391 ++++++++++
+ net/ncsi/ncsi-rsp.c                      | 1167 ++++++++++++++++++++++++++++++
+ net/ncsi/ncsi.c                          |   49 ++
+ 17 files changed, 4661 insertions(+), 31 deletions(-)
+ create mode 100644 include/net/ncsi.h
+ create mode 100644 include/uapi/linux/ncsi.h
+ create mode 100644 net/ncsi/Kconfig
+ create mode 100644 net/ncsi/Makefile
+ create mode 100644 net/ncsi/internal.h
+ create mode 100644 net/ncsi/ncsi-aen.c
+ create mode 100644 net/ncsi/ncsi-cmd.c
+ create mode 100644 net/ncsi/ncsi-manage.c
+ create mode 100644 net/ncsi/ncsi-netlink.c
+ create mode 100644 net/ncsi/ncsi-pkt.h
+ create mode 100644 net/ncsi/ncsi-rsp.c
+ create mode 100644 net/ncsi/ncsi.c
 
-Please fix find/fix these issues and send v3.  I don't want any git
-bisect issues when running tests.  Thanks.
-
--scott
+-- 
+2.1.0
