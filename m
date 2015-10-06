@@ -1,51 +1,47 @@
-From: Pravin Shelar <pshelar@nicira.com>
+From: Jiri Benc <jbenc@redhat.com>
 Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Tue, 6 Oct 2015 11:55:35 -0700
-Message-ID: <CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+Date: Tue, 6 Oct 2015 20:55:53 +0200
+Message-ID: <20151006205553.6975a147@griffin>
 References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
-	<20151005204020.56f50496@griffin>
-	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
-	<20151006175634.200d69a0@griffin>
-	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
-	<20151006204558.5f2f56fc@griffin>
+	<20151006174205.799ac484@griffin>
+	<CALnjE+qSdDnmbbHV0O6Pa9z=T=8jFSL2bw5k_m_DwgtchZaCOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:36934 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988AbbJFSzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:55:36 -0400
-Received: by igcpe7 with SMTP id pe7so31414563igc.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:55:35 -0700 (PDT)
-In-Reply-To: <20151006204558.5f2f56fc@griffin>
+Received: from mx1.redhat.com ([209.132.183.28]:40022 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752785AbbJFSz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 14:55:56 -0400
+In-Reply-To: <CALnjE+qSdDnmbbHV0O6Pa9z=T=8jFSL2bw5k_m_DwgtchZaCOg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 6, 2015 at 11:45 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Tue, 6 Oct 2015 11:28:08 -0700, Pravin Shelar wrote:
->> What do you have in mind? I do not see way to fix this issue in vport-*.c.
->
-> It seems to me that e.g. the code you have in vxlan_egress_tun_info in
-> drivers/net/vxlan.c can be put into vxlan_get_egress_tun_info in
-> net/openvswitch/vport-vxlan.c. vport->dev is guaranteed to be vxlan,
-> and the current code accesses netdev_priv(dev) as struct vxlan_dev
-> anyway.
->
-> This would of course not work if we created lwtunnel interface from the
-> ovs user space. But that's not going to happen with kernel 4.3, we'll
-> need a way to query datapath for features it supports for this to work
+On Tue, 6 Oct 2015 11:26:31 -0700, Pravin Shelar wrote:
+> I do not see need to drop and reallocate dst in this operation. I just
+> need to set source IP address and source and dst port in the metadata
+> dst already set in skb.
 
-This issue exist for lwtunnel based devices, for vport based tunnels
-there is no bug.
+If I'm looking at the code correctly, metadata_dst is stored in the
+action and each skb gets only a reference to it. Modifying it would
+modify the shared metadata_dst (see execute_set_action).
 
-> - there's currently no useful way to determine whether the kernel
-> supports metadata based vxlan or not. I'm working on a patch to query
-> the datapath for the supported features but that's for net-next. Thus
-> I think we're safe.
->
-We should be able to use lwtunnel devices on 4.3. How about using
-tunnel device parameters to detect lwtunnel support. For example in
-case of vxlan tunnel IFLA_VXLAN_COLLECT_METADATA flags can confirm
-lwtunnel support.
+> This fill_metadata function is not called for every packet so
+> ndo_start_xmit() still needs to do route lookup.
+
+Yes. I meant that in those cases where the fill_metadata function was
+called, we may skip the lookup. Just an optimization and not an
+important one. I'm not even sure it can currently happen as the skb is
+cloned for each action.
+
+> egress_tun_info in dp_upcall_info is required to check for failure. It
+> would be only set on successful fill_metadata operation.
+
+Or you can just set dst to NULL on failure.
+
+ Jiri
+
+-- 
+Jiri Benc
