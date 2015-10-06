@@ -1,72 +1,73 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 1/5] net: dsa: add missing kfree on remove
-Date: Tue, 6 Oct 2015 14:15:52 +0300
-Message-ID: <5613AD68.1020600@cogentembedded.com>
-References: <560FE575.7000003@baylibre.com>
- <560FE731.6050600@cogentembedded.com> <560FF239.2060903@baylibre.com>
- <56104E99.5020105@cogentembedded.com> <5613776D.8060103@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Neil Armstrong <narmstrong@baylibre.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
-	Fabian Frederick <fabf@skynet.be>,
-	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nbd@openwrt.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5613776D.8060103@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next 5/8] bridge: netlink: export port's topology_change_ack and config_pending
+Date: Tue,  6 Oct 2015 14:11:59 +0200
+Message-ID: <1444133522-16907-6-git-send-email-razor@blackwall.org>
+References: <1444133522-16907-1-git-send-email-razor@blackwall.org>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	shm@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34896 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752282AbbJFMM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 08:12:29 -0400
+Received: by wicge5 with SMTP id ge5so163825003wic.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 05:12:28 -0700 (PDT)
+In-Reply-To: <1444133522-16907-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-On 10/6/2015 10:25 AM, Neil Armstrong wrote:
+Add IFLA_BRPORT_TOPOLOGY_CHANGE_ACK and IFLA_BRPORT_CONFIG_PENDING to
+allow getting port's topology_change_ack and config_pending respectively
+via netlink.
 
->>>>> To prevent memory leakage on unbinding, add missing kfree calls.
->>>>>
->>>>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
->>>>> ---
->>>>>     net/dsa/dsa.c | 5 ++++-
->>>>>     1 file changed, 4 insertions(+), 1 deletion(-)
->>>>>
->>>>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
->>>>> index c59fa5d..12cec40 100644
->>>>> --- a/net/dsa/dsa.c
->>>>> +++ b/net/dsa/dsa.c
->>>>> @@ -914,8 +914,10 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
->>>>>         for (i = 0; i < dst->pd->nr_chips; i++) {
->>>>>             struct dsa_switch *ds = dst->ds[i];
->>>>>
->>>>> -        if (ds != NULL)
->>>>> +        if (ds != NULL) {
->>>>
->>>>      Didn;t scripts/checkpatch.pl complain here? just if (ds) is preferred in the networking code.
->>>>
->>>> MBR, Sergei
->>>>
->>> Yes,
->>>
->>> But I considered the cosmetic changes are not the subject of this serie.
->>
->>     Formally, all the patches should be checkpatch-clean...
->>
->>> Neil
->>
->> MBR, Sergei
->>
-> Sure,
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ include/uapi/linux/if_link.h | 2 ++
+ net/bridge/br_netlink.c      | 7 ++++++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
-> How should I handle this case ?
-> A separate patch with the cosmetic change before the kfree addition ?
-
-    No, that would classify as a cleanup, and cleanups shouldn't be queued 
-before fixes (should be the other way around). Just do this in this same 
-patch, possibly mentioning in the change log.
-
-> Neil
-
-MBR, Sergei
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 6857563eb27c..1d6aeb1bbe95 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -298,6 +298,8 @@ enum {
+ 	IFLA_BRPORT_DESIGNATED_COST,
+ 	IFLA_BRPORT_ID,
+ 	IFLA_BRPORT_NO,
++	IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
++	IFLA_BRPORT_CONFIG_PENDING,
+ 	__IFLA_BRPORT_MAX
+ };
+ #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index e51332792c3c..433d632ad7d0 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -133,6 +133,8 @@ static inline size_t br_port_info_size(void)
+ 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_COST */
+ 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_ID */
+ 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_NO */
++		+ nla_total_size(sizeof(u8))	/* IFLA_BRPORT_TOPOLOGY_CHANGE_ACK */
++		+ nla_total_size(sizeof(u8))	/* IFLA_BRPORT_CONFIG_PENDING */
+ 		+ 0;
+ }
+ 
+@@ -174,7 +176,10 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+ 	    nla_put_u16(skb, IFLA_BRPORT_DESIGNATED_PORT, p->designated_port) ||
+ 	    nla_put_u16(skb, IFLA_BRPORT_DESIGNATED_COST, p->designated_cost) ||
+ 	    nla_put_u16(skb, IFLA_BRPORT_ID, p->port_id) ||
+-	    nla_put_u16(skb, IFLA_BRPORT_NO, p->port_no))
++	    nla_put_u16(skb, IFLA_BRPORT_NO, p->port_no) ||
++	    nla_put_u8(skb, IFLA_BRPORT_TOPOLOGY_CHANGE_ACK,
++		       p->topology_change_ack) ||
++	    nla_put_u8(skb, IFLA_BRPORT_CONFIG_PENDING, p->config_pending))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+-- 
+2.4.3
