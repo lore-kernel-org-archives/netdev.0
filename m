@@ -1,46 +1,114 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Tue, 6 Oct 2015 12:21:24 -0700
-Message-ID: <CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
-References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
-	<20151005204020.56f50496@griffin>
-	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
-	<20151006175634.200d69a0@griffin>
-	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
-	<20151006204558.5f2f56fc@griffin>
-	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
-	<20151006210358.65750aeb@griffin>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] bridge/netfilter: avoid unused label warning
+Date: Tue, 06 Oct 2015 21:22:12 +0200
+Message-ID: <7985748.1v9Gzszd4T@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37742 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829AbbJFTVZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 15:21:25 -0400
-Received: by igcpe7 with SMTP id pe7so31942175igc.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 12:21:24 -0700 (PDT)
-In-Reply-To: <20151006210358.65750aeb@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 6, 2015 at 12:03 PM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Tue, 6 Oct 2015 11:55:35 -0700, Pravin Shelar wrote:
->> We should be able to use lwtunnel devices on 4.3. How about using
->> tunnel device parameters to detect lwtunnel support. For example in
->> case of vxlan tunnel IFLA_VXLAN_COLLECT_METADATA flags can confirm
->> lwtunnel support.
->
-> You would have to create the interface first using that flag and then
-> check whether the created interface has the flag set or not. If not,
-> delete the interface.
->
-> Unfortunately, old kernels will just ignore the flag when creating the
-> interface. That's why I wrote there's no useful way to check it.
->
+With the ARM mini2440_defconfig, the bridge netfilter code gets
+built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
+disabled, which leads to a harmless gcc warning:
 
-It should report the flag when device parameters are requested by
-userspace if there is support for lwtunnel. So check for the flag
-should be good enough test for lwtunnel support. Why is that not
-reliable check?
+net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
+net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
+
+This gets rid of the warning by cleaning up the code to avoid
+the respective #ifdefs causing this problem, and replacing them
+with if(IS_ENABLED()) checks. I have verified that the resulting
+object code is unchanged, and an additional advantage is that
+we now get compile coverage of the unused functions in more
+configurations.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 370aa4d4cf4d..5c679ac5cdef 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -111,7 +111,6 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ /* largest possible L2 header, see br_nf_dev_queue_xmit() */
+ #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ struct brnf_frag_data {
+ 	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
+ 	u8 encap_size;
+@@ -121,7 +120,6 @@ struct brnf_frag_data {
+ };
+ 
+ static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
+-#endif
+ 
+ static void nf_bridge_info_free(struct sk_buff *skb)
+ {
+@@ -666,7 +664,6 @@ static unsigned int br_nf_forward_arp(void *priv,
+ 	return NF_STOLEN;
+ }
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct brnf_frag_data *data;
+@@ -691,9 +688,7 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 	nf_bridge_info_free(skb);
+ 	return br_dev_queue_push_xmit(net, sk, skb);
+ }
+-#endif
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+ static int
+ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 		  int (*output)(struct net *, struct sock *, struct sk_buff *))
+@@ -711,7 +706,6 @@ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 
+ 	return ip_do_fragment(net, sk, skb, output);
+ }
+-#endif
+ 
+ static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
+ {
+@@ -734,11 +728,11 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 	nf_bridge = nf_bridge_info_get(skb);
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+ 	/* This is wrong! We should preserve the original fragment
+ 	 * boundaries by preserving frag_list rather than refragmenting.
+ 	 */
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) &&
++	    skb->protocol == htons(ETH_P_IP)) {
+ 		struct brnf_frag_data *data;
+ 
+ 		if (br_validate_ipv4(net, skb))
+@@ -760,9 +754,8 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 		return br_nf_ip_fragment(net, sk, skb, br_nf_push_frag_xmit);
+ 	}
+-#endif
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+-	if (skb->protocol == htons(ETH_P_IPV6)) {
++	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV6) &&
++	    skb->protocol == htons(ETH_P_IPV6)) {
+ 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+ 		struct brnf_frag_data *data;
+ 
+@@ -786,7 +779,6 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 		kfree_skb(skb);
+ 		return -EMSGSIZE;
+ 	}
+-#endif
+ 	nf_bridge_info_free(skb);
+ 	return br_dev_queue_push_xmit(net, sk, skb);
+  drop:
