@@ -1,61 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the ipsec tree
-Date: Tue, 6 Oct 2015 11:24:55 +1100
-Message-ID: <20151006112455.584daaf0@canb.auug.org.au>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Mon, 5 Oct 2015 17:28:04 -0700
+Message-ID: <56131594.6080801@plumgrid.com>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
+ <1444078101-29060-2-git-send-email-ast@plumgrid.com>
+ <CAGXu5j+s+3Z6=WKKNGouNijNKcrq5o_n9-BD85Nabd-_GtL+ag@mail.gmail.com>
+ <5612E7C4.1010306@plumgrid.com>
+ <CAGXu5jKTDzMXXYJdWdP=b4fABu_b5ifjv88RVMgBkiR=_JUAog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jKTDzMXXYJdWdP=b4fABu_b5ifjv88RVMgBkiR=_JUAog@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 10/5/15 3:02 PM, Kees Cook wrote:
+>> the array maps that hold FDs (BPF_MAP_TYPE_PROG_ARRAY and
+>> >BPF_MAP_TYPE_PERF_EVENT_ARRAY) don't have lookup/update accessors
+>> >from the program side, so programs cannot see or manipulate
+>> >those pointers.
+>> >For the former only bpf_tail_call() is allowed that takes integer
+>> >index and jumps to it. And the latter map accessed with
+> Okay, so I can't take a pointer, put it on the stack, take it back any
+> part of it as an integer and use it for a tail call?
 
-Today's linux-next merge of the net-next tree got a conflict in:
+not quite.
+you can store a pointer to stack and read it as 8 byte load back into
+another register, but reading <8 byte of it will be rejected.
+That's the test:
+unpriv: read pointer from stack in small chunks
+we obviously want to avoid hiding pointer in integers.
+After reading it back from stack as a pointer you cannnot use
+this register to pass as index into bpf_tail_call().
+That's the test:
+unpriv: pass pointer to helper function
 
-  net/ipv6/xfrm6_output.c
-
-between commit:
-
-  93efac3f2e03 ("ipv6: Fix IPsec pre-encap fragmentation check")
-
-from the ipsec tree and commit:
-
-  7d8c6e391575 ("ipv6: Pass struct net through ip6_fragment")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/ipv6/xfrm6_output.c
-index be033f22a3f3,4cefda009f53..000000000000
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@@ -163,11 -164,12 +170,11 @@@ static int __xfrm6_output(struct net *n
-  		return -EMSGSIZE;
-  	}
-  
- -	if (x->props.mode == XFRM_MODE_TUNNEL &&
- -	    ((skb->len > mtu && !skb_is_gso(skb)) ||
- -		dst_allfrag(skb_dst(skb)))) {
- +	if (toobig || dst_allfrag(skb_dst(skb)))
-- 		return ip6_fragment(sk, skb,
-- 				    x->outer_mode->afinfo->output_finish);
-+ 		return ip6_fragment(net, sk, skb,
-+ 				    __xfrm6_output_finish);
- -	}
- +
- +skip_frag:
-  	return x->outer_mode->afinfo->output_finish(sk, skb);
-  }
-  
+please keep shooting everything that comes to mind.
