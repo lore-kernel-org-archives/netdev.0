@@ -1,51 +1,38 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv4 net 3/6] openvswitch: Ensure flow is valid before executing ct
-Date: Tue,  6 Oct 2015 10:59:58 -0700
-Message-ID: <1444154401-18029-4-git-send-email-joestringer@nicira.com>
-References: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
-Cc: davem@davemloft.net, pshelar@nicira.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCHv3 net 2/6] openvswitch: Fix skb leak in ovs_fragment()
+Date: Tue, 6 Oct 2015 11:01:06 -0700
+Message-ID: <CANr6G5zbAG5z4ReW50X48r7Lry3HnJ=AtRV4Y_yiZobQ1jm69w@mail.gmail.com>
+References: <1444083799-57090-1-git-send-email-joestringer@nicira.com>
+ <1444083799-57090-3-git-send-email-joestringer@nicira.com> <5613D6B8.2080006@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34673 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829AbbJFSAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:00:31 -0400
-Received: by padhy16 with SMTP id hy16so76642448pad.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:00:30 -0700 (PDT)
-In-Reply-To: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:33108 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456AbbJFSB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:01:26 -0400
+Received: by ykft14 with SMTP id t14so211396865ykf.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:01:25 -0700 (PDT)
+In-Reply-To: <5613D6B8.2080006@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ct action uses parts of the flow key, so we need to ensure that it
-is valid before executing that action.
+On 6 October 2015 at 07:12, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 10/6/2015 1:23 AM, Joe Stringer wrote:
+>
+>> If ovs_fragment() was unable to fragment the skb due to an L2 header
+>> that exceeds the supported length, skbs would be leaked. Fix the bug.
+>>
+>> Fixes: 7f8a436 "openvswitch: Add conntrack action"
+>
+>
+>    12-digit SHA1 needed here. And parens along with double quotes as well.
 
-Fixes: 7f8a436eaa2c "openvswitch: Add conntrack action"
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
----
-v4: Extend "fixes" hash in commit message.
-v3: No change.
-v2: Acked.
----
- net/openvswitch/actions.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 4cb93f92d6be..c6a39bf2c3b9 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -1102,6 +1102,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 
- 		case OVS_ACTION_ATTR_CT:
-+			if (!is_flow_key_valid(key)) {
-+				err = ovs_flow_key_update(skb, key);
-+				if (err)
-+					return err;
-+			}
-+
- 			err = ovs_ct_execute(ovs_dp_get_net(dp), skb, key,
- 					     nla_data(a));
- 
--- 
-2.1.4
+OK, I sent a fresh series with all of the SHA1s updated.
