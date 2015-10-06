@@ -1,38 +1,85 @@
-From: "John D Allen, Leveridge Systems INC"
-	<john.allen@leveridgesystems.com>
-Subject: Re: [Linux Kernel Dev- OSI lvls 2-3 Networking modules]  assistance needed in Pacific Northwest US.
-Date: Tue, 6 Oct 2015 11:25:23 -0500
-Message-ID: <37DD77D6-2E03-432A-A398-19A38D4F714F@leveridgesystems.com>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH net-next v3 1/2] regmap: Allow installing custom
+ reg_update_bits function
+Date: Tue, 6 Oct 2015 17:30:11 +0100
+Message-ID: <20151006163011.GU12635@sirena.org.uk>
+References: <1443717488-16533-1-git-send-email-jon@ringle.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="FmzkFdx4KZToyoR7"
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jon Ringle <jringle@gridpoint.com>
+To: jon@ringle.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1443717488-16533-1-git-send-email-jon@ringle.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--FmzkFdx4KZToyoR7
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:32822 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbbJFQZ3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 12:25:29 -0400
-Received: by pacex6 with SMTP id ex6so214991032pac.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 09:25:29 -0700 (PDT)
-Received: from [192.168.1.66] (104-49-47-122.lightspeed.spfdmo.sbcglobal.net. [104.49.47.122])
-        by smtp.gmail.com with ESMTPSA id fa14sm34564172pac.8.2015.10.06.09.25.27
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Tue, 06 Oct 2015 09:25:28 -0700 (PDT)
-In-Reply-To: <1444117913-10386-7-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Re: [Linux Kernel Dev- OSI lvls 2-3 Networking modules]  assistance needed in Pacific Northwest US.
+On Thu, Oct 01, 2015 at 12:38:07PM -0400, jon@ringle.org wrote:
+> From: Jon Ringle <jringle@gridpoint.com>
+>=20
+> This commit allows installing a custom reg_update_bits function for cases=
+ where
+> the hardware provides a mechanism to set or clear register bits without a
+> read/modify/write cycle. Such is the case with the Microchip ENCX24J600.
 
-Thanks in advance if anyone may know of contacts in the US NorthWest region whom is familiar with Kernel level development on th eNetworking module side of matters.
+Thanks, I've applied this.  I'll extend it so that individual devices
+can do this as well - I've not looked at your driver but it might be
+that this is a better option than regmap_bus for your driver (but both
+are supported so meh).  Dave, I've tagged the commit and there's a pull
+request for this below:
 
-Regards, John.
+The following changes since commit 6ff33f3902c3b1c5d0db6b1e2c70b6d76fba357f:
 
+  Linux 4.3-rc1 (2015-09-12 16:35:56 -0700)
 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/broonie/regmap.git tags/reg=
+map-offload-update-bits
+
+for you to fetch changes up to 77792b11409c9270d98e604b4314b85ce886ac7d:
+
+  regmap: Allow installing custom reg_update_bits function (2015-10-06 16:1=
+2:34 +0100)
+
+----------------------------------------------------------------
+regmap: Allow buses to provide a custom update_bits() operation
+
+Some buses provide a native _update_bits() operation which for uncached
+registers is faster than doing a read/modify/write cycle as it is a
+single bus transaction.  Add support for implementing this to regmap.
+
+----------------------------------------------------------------
+Jon Ringle (1):
+      regmap: Allow installing custom reg_update_bits function
+
+ drivers/base/regmap/internal.h |  2 ++
+ drivers/base/regmap/regmap.c   | 29 ++++++++++++++++++-----------
+ include/linux/regmap.h         |  3 +++
+ 3 files changed, 23 insertions(+), 11 deletions(-)
+
+--FmzkFdx4KZToyoR7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWE/cSAAoJECTWi3JdVIfQ2V4H/3C+XvYGyYPe/tre64UUajx3
+gmt+xZHovb6E1FgBS763x6qSLZvCUxaelAdIJfB9+5F/XH/IFHaWSySx08L9nP6+
+dNwPrxjpNzXL/oa20PEgO3gh/IGycMayMVsGTbkgtvqz80KGmFZRYmBw3lP2oEdm
+tbcLVn5hje2LDS+pRIP7lKuRWRZ71BuVgklU624CvS3HyiTnIE64bIWewrkDCXNV
+uIzFq53XvTe37IMXyEf/nz/U3rzDUR43CrMBlwRg72dOrpQ1d4P1dCR/Kug2BF60
+mFackJKw4Ieh05y31k62Mkg2wiZPQ4EbJsyS8vyIahkLoAGnquAApjFoklYZhT8=
+=uaMd
+-----END PGP SIGNATURE-----
+
+--FmzkFdx4KZToyoR7--
