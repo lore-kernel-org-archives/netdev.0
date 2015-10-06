@@ -1,44 +1,66 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Tue, 6 Oct 2015 20:45:58 +0200
-Message-ID: <20151006204558.5f2f56fc@griffin>
-References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
-	<20151005204020.56f50496@griffin>
-	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
-	<20151006175634.200d69a0@griffin>
-	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/2] mpls: multipath support
+Date: Tue,  6 Oct 2015 11:46:47 -0700
+Message-ID: <1444157209-12518-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, rshearma@brocade.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59461 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752266AbbJFSqC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2015 14:46:02 -0400
-In-Reply-To: <CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34194 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443AbbJFSqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 14:46:54 -0400
+Received: by padhy16 with SMTP id hy16so77619028pad.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 11:46:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 Oct 2015 11:28:08 -0700, Pravin Shelar wrote:
-> What do you have in mind? I do not see way to fix this issue in vport-*.c.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-It seems to me that e.g. the code you have in vxlan_egress_tun_info in
-drivers/net/vxlan.c can be put into vxlan_get_egress_tun_info in
-net/openvswitch/vport-vxlan.c. vport->dev is guaranteed to be vxlan,
-and the current code accesses netdev_priv(dev) as struct vxlan_dev
-anyway.
+This patch adds support for MPLS multipath routes.
 
-This would of course not work if we created lwtunnel interface from the
-ovs user space. But that's not going to happen with kernel 4.3, we'll
-need a way to query datapath for features it supports for this to work
-- there's currently no useful way to determine whether the kernel
-supports metadata based vxlan or not. I'm working on a patch to query
-the datapath for the supported features but that's for net-next. Thus
-I think we're safe.
+Includes following changes to support multipath:
+- splits struct mpls_route into 'struct mpls_route + struct mpls_nh'.
 
- Jiri
+- struct mpls_nh represents a mpls nexthop label forwarding entry
+
+- Adds support to parse/fill RTA_MULTIPATH netlink attribute for
+multipath routes similar to ipv4/v6 fib
+
+- In this series the multipath route nexthop selection
+algorithm starts with a simple round robin and is replaced by a hash
+based algorithm from Robert Shearman in the last patch
+
+- In the process of restructuring, this patch also consistently changes all
+labels to u8
+
+$ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
+		nexthop as 700 via inet 10.1.1.6 dev swp2 \
+		nexthop as 800 via inet 40.1.1.2 dev swp3
+
+$ip  -f mpls route show
+100 
+	nexthop as to 200 via inet 10.1.1.2  dev swp1
+	nexthop as to 700 via inet 10.1.1.6  dev swp2
+	nexthop as to 800 via inet 40.1.1.2  dev swp3
+
+Roopa Prabhu (2):
+  mpls: multipath support
+  mpls: flow-based multipath selection
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+----
+Changes since v1:
+	- Incorporate some feedback from Robert:
+		use dynamic allocation (list) instead of static allocation
+		for nexthops
+	- include flow hash based multipath selection from Robert
+		
+
+ include/net/mpls_iptunnel.h |   2 +-
+ net/mpls/af_mpls.c          | 668 ++++++++++++++++++++++++++++++++++----------
+ net/mpls/internal.h         |  57 +++-
+ 3 files changed, 572 insertions(+), 155 deletions(-)
 
 -- 
-Jiri Benc
+1.9.1
