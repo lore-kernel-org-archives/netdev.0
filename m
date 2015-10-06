@@ -1,29 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg
- is marked volatile
-Date: Tue, 06 Oct 2015 06:26:08 -0700 (PDT)
-Message-ID: <20151006.062608.1641286536180909103.davem@davemloft.net>
-References: <20151005.232956.105884641412802470.davem@davemloft.net>
-	<20151006101305.GG12635@sirena.org.uk>
-	<ABC562FD-5DE5-452E-8DE6-1C436E37E8BE@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: broonie@kernel.org, jon@ringle.org, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jringle@gridpoint.com
-To: jonringle@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ABC562FD-5DE5-452E-8DE6-1C436E37E8BE@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 3/3] s390/qdio: fix WARN_ON_ONCE condition
+Date: Tue,  6 Oct 2015 15:12:29 +0200
+Message-ID: <1444137149-919-4-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1444137149-919-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com,
+	Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:48330 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300AbbJFNMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 09:12:45 -0400
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Tue, 6 Oct 2015 14:12:43 +0100
+In-Reply-To: <1444137149-919-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Ringle <jonringle@gmail.com>
-Date: Tue, 6 Oct 2015 08:50:43 -0400
+From: Eugene Crosser <Eugene.Crosser@ru.ibm.com
 
-> 1) David, revert the following from net-next:
-> $ git revert 9886ce2b9d4e5a8bb3d78d0f7eff3c0f1ed58d67
-> $ git revert 04fbfce7a222327b97ca165294ef19f0faa45960
-> $ git revert 7741c373cf3ea1f5383fa97fb7a640a429d3dd7c
+If HiperSockets Completion Queueing is enabled, qdio always
+issues a warning, since the condition is always met.
+This patch fixes the condition in WARN_ON_ONCE that was always
+true.
 
-Applied, thanks.
+Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
+ drivers/s390/cio/qdio_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/s390/cio/qdio_main.c b/drivers/s390/cio/qdio_main.c
+index 848e3b6..4bb5262 100644
+--- a/drivers/s390/cio/qdio_main.c
++++ b/drivers/s390/cio/qdio_main.c
+@@ -319,6 +319,8 @@ static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit,
+ 	int retries = 0, cc;
+ 	unsigned long laob = 0;
+ 
++	WARN_ON_ONCE(aob && ((queue_type(q) != QDIO_IQDIO_QFMT) ||
++			     !q->u.out.use_cq));
+ 	if (q->u.out.use_cq && aob != 0) {
+ 		fc = QDIO_SIGA_WRITEQ;
+ 		laob = aob;
+@@ -329,8 +331,6 @@ static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit,
+ 		fc |= QDIO_SIGA_QEBSM_FLAG;
+ 	}
+ again:
+-	WARN_ON_ONCE((aob && queue_type(q) != QDIO_IQDIO_QFMT) ||
+-		(aob && fc != QDIO_SIGA_WRITEQ));
+ 	cc = do_siga_output(schid, q->mask, busy_bit, fc, laob);
+ 
+ 	/* hipersocket busy condition */
+-- 
+2.3.9
