@@ -1,57 +1,49 @@
-From: Arun Parameswaran <arunp@broadcom.com>
-Subject: [PATCH v3 1/5] dt-bindings: net: Broadcom iProc MDIO bus driver device tree binding
-Date: Tue, 6 Oct 2015 12:25:46 -0700
-Message-ID: <1444159550-3432-2-git-send-email-arunp@broadcom.com>
-References: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] bridge/netfilter: avoid unused label warning
+Date: Tue, 6 Oct 2015 21:28:29 +0200
+Message-ID: <561420DD.70009@cumulusnetworks.com>
+References: <7985748.1v9Gzszd4T@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<bcm-kernel-feedback-list@broadcom.com>,
-	Arun Parameswaran <arunp@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
+In-Reply-To: <7985748.1v9Gzszd4T@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add device tree binding documentation for the Broadcom iProc MDIO
-bus driver.
+On 10/06/2015 09:22 PM, Arnd Bergmann wrote:
+> With the ARM mini2440_defconfig, the bridge netfilter code gets
+> built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
+> disabled, which leads to a harmless gcc warning:
+> 
+> net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
+> net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
+> 
+> This gets rid of the warning by cleaning up the code to avoid
+> the respective #ifdefs causing this problem, and replacing them
+> with if(IS_ENABLED()) checks. I have verified that the resulting
+> object code is unchanged, and an additional advantage is that
+> we now get compile coverage of the unused functions in more
+> configurations.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+> 
 
-Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
----
- .../devicetree/bindings/net/brcm,iproc-mdio.txt    | 23 ++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
+I posted a fix for this a couple of days ago, but I like your approach better.
+Since mine is not yet applied (I sent it to netfilter-devel only, wasn't sure which
+jurisdiction this falls into exactly) we can drop it.
+Just for reference my patch is here:
+http://patchwork.ozlabs.org/patch/526417/
+Pablo, could you please drop it ?
 
-diff --git a/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt b/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
-new file mode 100644
-index 0000000..8ba9ed1
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/brcm,iproc-mdio.txt
-@@ -0,0 +1,23 @@
-+* Broadcom iProc MDIO bus controller
-+
-+Required properties:
-+- compatible: should be "brcm,iproc-mdio"
-+- reg: address and length of the register set for the MDIO interface
-+- #size-cells: must be 1
-+- #address-cells: must be 0
-+
-+Child nodes of this MDIO bus controller node are standard Ethernet PHY device
-+nodes as described in Documentation/devicetree/bindings/net/phy.txt
-+
-+Example:
-+
-+mdio@18002000 {
-+	compatible = "brcm,iproc-mdio";
-+	reg = <0x18002000 0x8>;
-+	#size-cells = <1>;
-+	#address-cells = <0>;
-+
-+	enet-gphy@0 {
-+		reg = <0>;
-+	};
-+};
--- 
-2.5.2
+By the way this takes care of another warning about unused variable (nf_bridge), too.
+So,
+
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
