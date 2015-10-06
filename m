@@ -1,76 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 00/14] rocker: add support for multiple worlds
-Date: Tue, 6 Oct 2015 10:02:34 +0200
-Message-ID: <20151006080234.GC2165@nanopsycho.orion>
-References: <1444118483-10547-1-git-send-email-jiri@resnulli.us>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Tue, 06 Oct 2015 10:05:15 +0200
+Message-ID: <561380BB.4040506@iogearbox.net>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com> <1444078101-29060-2-git-send-email-ast@plumgrid.com> <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com> <20151006071347.GB14093@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
-	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
-	David.Laight@ACULAB.COM, john.fastabend@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:37539 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751612AbbJFICg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 04:02:36 -0400
-Received: by wicfx3 with SMTP id fx3so146733280wic.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 01:02:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1444118483-10547-1-git-send-email-jiri@resnulli.us>
+Received: from www62.your-server.de ([213.133.104.62]:55845 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbbJFIFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 04:05:24 -0400
+In-Reply-To: <20151006071347.GB14093@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mistake thread, please ignore.
+On 10/06/2015 09:13 AM, Ingo Molnar wrote:
+>
+> * Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> On 10/5/15 3:14 PM, Daniel Borkmann wrote:
+>>> One scenario that comes to mind ... what happens when there are kernel
+>>> pointers stored in skb->cb[] (either from the current layer or an old
+>>> one from a different layer that the skb went through previously, but
+>>> which did not get overwritten)?
+>>>
+>>> Socket filters could read a portion of skb->cb[] also when unprived and
+>>> leak that out through maps. I think the verifier doesn't catch that,
+>>> right?
+>>
+>> grrr. indeed. previous layer before sk_filter() can leave junk in there.
+>
+> Could this be solved by activating zeroing/sanitizing of this data if there's an
+> active BPF function around that can access that socket?
 
-Tue, Oct 06, 2015 at 10:01:09AM CEST, jiri@resnulli.us wrote:
->From: Jiri Pirko <jiri@mellanox.com>
->
->This patchset allows new rocker worlds to be easily added in future (like eBPF
->based one I have been working on). The main part of the patchset is the OF-DPA
->carve-out. It resuts in OF-DPA specific file. Clean cut.
->
->patches added/removed:
->v1->v2:
-> - rtnl rocker mode change userspace expose patch was removed
->v2->v3:
-> - added the last patch (handling undefined world ops)
->
->Jiri Pirko (14):
->  rocker: remove unused rocker_port param from alloc funcs and shorten
->    their names
->  rocker: rename rocker.h to rocker_hw.h
->  rocker: rename rocker.c to rocker_main.c
->  rocker: push tlv processing into separate files
->  rocker: implement set settings mode command
->  rocker: introduce worlds infrastructure
->  rocker: introduce OF-DPA world skeleton
->  rocker: set default world on port probe and clean world on remove
->  rocker: pass "learning" value as a parameter to
->    rocker_port_set_learning
->  rocker: pre-allocate wait structures during cmd ring init
->  rocker: remove trans parameter to rocker_cmd_exec function
->  rocker: call rocker_cmd_exec function with "nowait" boolean instead of
->    flags
->  rocker: move OF-DPA stuff into separate file
->  rocker: return -EOPNOTSUPP for undefined world ops
->
-> drivers/net/ethernet/rocker/Makefile       |    1 +
-> drivers/net/ethernet/rocker/rocker.c       | 5478 ----------------------------
-> drivers/net/ethernet/rocker/rocker.h       |  543 +--
-> drivers/net/ethernet/rocker/rocker_hw.h    |  467 +++
-> drivers/net/ethernet/rocker/rocker_main.c  | 2993 +++++++++++++++
-> drivers/net/ethernet/rocker/rocker_ofdpa.c | 2927 +++++++++++++++
-> drivers/net/ethernet/rocker/rocker_tlv.c   |   54 +
-> drivers/net/ethernet/rocker/rocker_tlv.h   |  202 +
-> 8 files changed, 6736 insertions(+), 5929 deletions(-)
-> delete mode 100644 drivers/net/ethernet/rocker/rocker.c
-> create mode 100644 drivers/net/ethernet/rocker/rocker_hw.h
-> create mode 100644 drivers/net/ethernet/rocker/rocker_main.c
-> create mode 100644 drivers/net/ethernet/rocker/rocker_ofdpa.c
-> create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.c
-> create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.h
->
->-- 
->1.9.3
->
+I think this check could only be done in sk_filter() for testing these
+conditions (unprivileged user + access to cb area), so it would need to
+happen from outside a native eBPF program. :/ Also classic BPF would
+then need to test for it, since a socket filter doesn't really know
+whether native eBPF is loaded there or a classic-to-eBPF transformed one,
+and classic never makes use of this. Anyway, it could be done by adding
+a bit flag cb_access:1 to the bpf_prog, set it during eBPF verification
+phase, and test it inside sk_filter() if I see it correctly.
+
+The reason is that this sanitizing must only be done in the 'top-level'
+program that is run from sk_filter() _directly_, because a user at any
+time could decide to put an already loaded eBPF fd into a tail call map.
+And cb[] is then used to pass args/state around between two programs,
+thus it cannot be unconditionally cleared from within the program. The
+association to a socket filter (SO_ATTACH_BPF) happens at a later time
+after a native eBPF program has already been loaded via bpf(2).
+
+Thanks,
+Daniel
