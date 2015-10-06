@@ -1,40 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ipv4: Fix compilation errors in
- fib_rebalance
-Date: Mon, 05 Oct 2015 23:48:29 -0700 (PDT)
-Message-ID: <20151005.234829.1544569541989632199.davem@davemloft.net>
-References: <1444109087-30676-1-git-send-email-pch@ordbogen.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: Remove unused net variable from ip_vs_out
+Date: Tue, 6 Oct 2015 09:35:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1510060934320.2233@ja.home.ssi.bg>
+References: <1443746619-3503-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: pch@ordbogen.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbbJFGct convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 02:32:49 -0400
-In-Reply-To: <1444109087-30676-1-git-send-email-pch@ordbogen.com>
+Received: from ja.ssi.bg ([178.16.129.10]:41393 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751388AbbJFGfy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 02:35:54 -0400
+In-Reply-To: <1443746619-3503-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Peter N=F8rlund <pch@ordbogen.com>
-Date: Tue,  6 Oct 2015 07:24:47 +0200
 
-> This fixes
->=20
-> net/built-in.o: In function `fib_rebalance':
-> fib_semantics.c:(.text+0x9df14): undefined reference to `__divdi3'
->=20
-> and
->=20
-> net/built-in.o: In function `fib_rebalance':
-> net/ipv4/fib_semantics.c:572: undefined reference to `__aeabi_ldivmod=
-'
->=20
-> Fixes: 0e884c78ee19 ("ipv4: L3 hash-based multipath")
->=20
-> Signed-off-by: Peter N=F8rlund <pch@ordbogen.com>
+	Hello,
 
-Applied, thanks.
+On Fri, 2 Oct 2015, Simon Horman wrote:
+
+> Since 6f2bcea9917d ("ipvs: Pass ipvs into ip_vs_in_icmp and ip_vs_in_icmp_v6")
+> the net net variable in ip_vs_out() appears to be unused so remove it.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/ip_vs_core.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index d08df435c2aa..72b6a44ea9de 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -1172,7 +1172,6 @@ drop:
+>  static unsigned int
+>  ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int af)
+>  {
+> -	struct net *net = ipvs->net;
+
+	So, this line should be moved into the block
+where the var is used?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
