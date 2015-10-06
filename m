@@ -1,45 +1,68 @@
-From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Tue, 6 Oct 2015 09:13:47 +0200
-Message-ID: <20151006071347.GB14093@gmail.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
- <5612F639.2050305@iogearbox.net>
- <56131B1F.80002@plumgrid.com>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH v2 5/5] net: dsa: exit probe if no switch were found
+Date: Tue, 6 Oct 2015 08:20:32 +0100
+Message-ID: <56137640.8060108@baylibre.com>
+References: <560FE587.80307@baylibre.com> <56103A3B.4020102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56131B1F.80002-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:32953 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751931AbbJFHUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:20:34 -0400
+Received: by wiclk2 with SMTP id lk2so152859033wic.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:20:33 -0700 (PDT)
+In-Reply-To: <56103A3B.4020102@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/03/2015 09:27 PM, Florian Fainelli wrote:
+> Le 03/10/2015 07:26, Neil Armstrong a =C3=A9crit :
+>> If no switch were found in dsa_setup_dst, return -ENODEV and
+>> exit the dsa_probe cleanly.
+>>
+>> Tested-by: Andrew Lunn <andrew@lunn.ch>
+>> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>> ---
+>=20
+> [snip]
+>=20
+>>  static int dsa_probe(struct platform_device *pdev)
+>> @@ -926,9 +937,9 @@ static int dsa_probe(struct platform_device *pde=
+v)
+>>
+>>  	platform_set_drvdata(pdev, dst);
+>>
+>> -	dsa_setup_dst(dst, dev, &pdev->dev, pd);
+>> -
+>> -	return 0;
+>> +	ret =3D dsa_setup_dst(dst, dev, &pdev->dev, pd);
+>> +	if (!ret)
+>> +		return 0;
+>=20
+> That logic is a little weird, I would just go with something like thi=
+s:
+>=20
+> ret =3D dsa_setup_dst(ds, dev, &pdev->dev, pd);
+> if (ret)
+> 	goto out;
+>=20
+> return 0;
+>=20
+Yes you are right, the goto out is needed to clean up the of_probe reso=
+urces.
 
-* Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+I will send a v3 with this fixed.
 
-> On 10/5/15 3:14 PM, Daniel Borkmann wrote:
-> >One scenario that comes to mind ... what happens when there are kernel
-> >pointers stored in skb->cb[] (either from the current layer or an old
-> >one from a different layer that the skb went through previously, but
-> >which did not get overwritten)?
-> >
-> >Socket filters could read a portion of skb->cb[] also when unprived and
-> >leak that out through maps. I think the verifier doesn't catch that,
-> >right?
-> 
-> grrr. indeed. previous layer before sk_filter() can leave junk in there.
-
-Could this be solved by activating zeroing/sanitizing of this data if there's an 
-active BPF function around that can access that socket?
-
-Thanks,
-
-	Ingo
+Neil
