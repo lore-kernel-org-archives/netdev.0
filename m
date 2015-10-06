@@ -1,47 +1,40 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH net-next 09/15] ipv4: Cache net in iptunnel_xmit
-Date: Tue,  6 Oct 2015 13:53:09 -0500
-Message-ID: <1444157595-28816-9-git-send-email-ebiederm@xmission.com>
-References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
-Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] af_unix: constify the sock parameter in unix_sk()
+Date: Tue, 06 Oct 2015 15:03:53 -0400
+Message-ID: <20151006190353.7311.36864.stgit@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35707 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752456AbbJFTDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 15:03:54 -0400
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (Postfix) with ESMTPS id A625A8E70F
+	for <netdev@vger.kernel.org>; Tue,  6 Oct 2015 19:03:54 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Store net in a variable in ip_tunnel_xmit so it does not need
-to be recomputed when it is used again.
+Make unix_sk() just like inet[6]_sk() by constify'ing the sock
+parameter.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Paul Moore <pmoore@redhat.com>
 ---
- net/ipv4/ip_tunnel_core.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/net/af_unix.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 8d85ecd1ced5..caef8e2c281d 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -53,6 +53,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index cb1b9bb..b36d837 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -64,7 +64,7 @@ struct unix_sock {
+ 	struct socket_wq	peer_wq;
+ };
+ 
+-static inline struct unix_sock *unix_sk(struct sock *sk)
++static inline struct unix_sock *unix_sk(const struct sock *sk)
  {
- 	int pkt_len = skb->len - skb_inner_network_offset(skb);
-+	struct net *net = dev_net(rt->dst.dev);
- 	struct iphdr *iph;
- 	int err;
- 
-@@ -76,8 +77,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	iph->daddr	=	dst;
- 	iph->saddr	=	src;
- 	iph->ttl	=	ttl;
--	__ip_select_ident(dev_net(rt->dst.dev), iph,
--			  skb_shinfo(skb)->gso_segs ?: 1);
-+	__ip_select_ident(net, iph, skb_shinfo(skb)->gso_segs ?: 1);
- 
- 	err = ip_local_out(sk, skb);
- 	if (unlikely(net_xmit_eval(err)))
--- 
-2.2.1
-
+ 	return (struct unix_sock *)sk;
+ }
