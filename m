@@ -1,86 +1,91 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next 00/14] rocker: add support for multiple worlds
-Date: Tue, 06 Oct 2015 00:34:52 -0700
-Message-ID: <5613799C.1060400@gmail.com>
-References: <1443993949-3915-1-git-send-email-jiri@resnulli.us> <56129A32.1010201@gmail.com> <20151005163012.GO2278@nanopsycho.orion> <5612AC1E.1050504@gmail.com> <CAE4R7bAwu+NTa7mBHQSYpfhmGm=tL=6xfXrweNJhT1tD5eFeAQ@mail.gmail.com>
+From: Matan Barak <matanb@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx4_core: Test interrupts fail if not all
+ comp vectors called request_irq
+Date: Tue, 6 Oct 2015 10:28:03 +0300
+Message-ID: <56137803.4070308@mellanox.com>
+References: <CAJ3xEMjjDmezm2UV2_ZiUaOyAREoH3=-m6vzH7RUePR5Jc7MVg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	<brking@linux.vnet.ibm.com>, "Amir Vadai" <amirv@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	Carol Soto <clsoto@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34323 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692AbbJFHfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:35:06 -0400
-Received: by padhy16 with SMTP id hy16so62157237pad.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:35:05 -0700 (PDT)
-In-Reply-To: <CAE4R7bAwu+NTa7mBHQSYpfhmGm=tL=6xfXrweNJhT1tD5eFeAQ@mail.gmail.com>
+Received: from mail-db3on0077.outbound.protection.outlook.com ([157.55.234.77]:29696
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751552AbbJFHm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 03:42:26 -0400
+In-Reply-To: <CAJ3xEMjjDmezm2UV2_ZiUaOyAREoH3=-m6vzH7RUePR5Jc7MVg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
 
+
+On 10/5/2015 11:12 PM, Or Gerlitz wrote:
+> On Mon, Oct 5, 2015 at 6:24 PM, Carol Soto <clsoto@linux.vnet.ibm.com> wrote:
 >>
->> Its related in that if you expose your device model you do not need
->> opaque strings to do wholesale reconfiguration of the device. Instead
->> if the parts of the device that are configurable are exposed to the
->> user they can build the "world" they want.
-> 
-> The disconnect here, I believe, is offloading to hw the Linux
-> forwarding plane vs. offloading an arbitrary application's forwarding
-> plane.  Switchdev (and rocker) are about offloading the Linux
-> dataplane.  That means Linux _is_ the application (the NOS); hw
-> offloads what it can from the kernel to accelerate pkt forwarding.
-> But the user's experience is standard Linux tools (iproute2, netlink)
-> and building blocks (bridge, bond, etc) are used to construct a switch
-> (or router), and the fact that the data path is offloaded to hw is
-> transparent to the user.  We could define APIs for arbitrary
-> applications to program hardware, like John is suggesting. by giving
-> up raw access to hw resources, like tables, etc.  This approach moves
-> the "driver" to the application, and by-passes the Linux tools and
-> building blocks.  We're still TBD on these APIs, probably because of
-> the "by-pass" part.
+>>
+>> On 10/4/2015 3:03 AM, Or Gerlitz wrote:
+>>>
+>>> On 9/29/2015 9:38 PM, clsoto@linux.vnet.ibm.com wrote:
+>>>>
+>>>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>>
+>>>> Test interrupts fails if not all completion vectors called
+>>>> request_irq. This case can happen if only mlx4_en loads and
+>>>> we have more completion vectors than rx rings.
+>>>
+>>>
+>>> good catch! is this a bug since the driver 0-day or was introduced by
+>>> some recent commit? in the latercase, please add a Fixes: tag before your
+>>> S.O.B note.
+>>
+>> Probably the issue was introduced by this one
+>> Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
+>
+> Matan, agree to the fix and analysis? if yes, Carol, please add the
+> Fixes: tag to the change-log
+> and anyway respin/submit the patch against/for net not net-next
+>
 
-Thanks Scott I think this helps some.
+Yeah, we should (obviously) only check EQs which are assigned to
+interrupts, so skipping unassigned EQs is a good idea.
+Good catch and thanks for the fix.
 
-I don't view my approach as a by-pass though or even letting arbitrary
-applications have access to the hardware. Today I load arbitrary
-filters and bpf programs into the kernel to create a pipeline. Now I
-want to string a couple other tables in front of my pipeline to do
-some of the heavy lifting. Maybe the real difference is my _datapath_
-is not offloaded (by-passing?) the kernel. Most (all?) of my packets
-are meant for the host and I want to do partial offloading where some
-of the initial processing is done in the hardware and the rest is
-handled by software. The "driver" is not in the application it is
-still in the kernel.
+Matan
 
-I almost have something ready to kick out I meant to do this today
-might be another day or two though.
-
-> 
-> Jiri's patchset here is about moving things around so he can define
-> another hw mode in rocker.   The upper edge for rocker driver is still
-> switchdev, but with the new eBPF hw mode he's working on, he'll be
-> able to push down a dynamic pipeline rather than being stuck with the
-> OF-DPA pipeline we have today (in rocker).  I presume once he has this
-> new eBPF support, he'll program in a "Linux kernel" pipeline, and fill
-> out the corresponding swtichdev ops.  I imagine a P4 -> ePBF compiler,
-> and we take a linux.p4 and program hw.  Linux.p4 should be
-> generic...consumable by any hardware...it is a representation of the
-> Linux pipeline.  (Similar to P4's switch.p4).
-> 
-> But now, with eBPF mode in hw, an arbitrary.p4 could be written for
-> that arbitrary application and pushed down.  We still need APIs for
-> that application.
-> 
-
-My gripe here was flipping the hardware between modes with a string
-value. It seems it has been dropped from the latest version though so
-I have no problem with the patches.
-
-.John
+> Or.
+>
+>>
+>>>>
+>>>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>> ---
+>>>>    drivers/net/ethernet/mellanox/mlx4/eq.c | 4 ++++
+>>>>    1 file changed, 4 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c
+>>>> b/drivers/net/ethernet/mellanox/mlx4/eq.c
+>>>> index 8e81e53..c344884 100644
+>>>> --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+>>>> @@ -1364,6 +1364,10 @@ int mlx4_test_interrupts(struct mlx4_dev *dev)
+>>>>         * and performing a NOP command
+>>>>         */
+>>>>        for(i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
+>>>> +        /* Make sure request_irq was called */
+>>>> +        if (!priv->eq_table.eq[i].have_irq)
+>>>> +            continue;
+>>>> +
+>>>>            /* Temporary use polling for command completions */
+>>>>            mlx4_cmd_use_polling(dev);
+>>>
+>>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
