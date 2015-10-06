@@ -1,102 +1,176 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 07/14] rocker: introduce OF-DPA world skeleton
-Date: Tue,  6 Oct 2015 09:51:46 +0200
-Message-ID: <1444117913-10386-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 14/14] rocker: return -EOPNOTSUPP for undefined world ops
+Date: Tue,  6 Oct 2015 09:51:53 +0200
+Message-ID: <1444117913-10386-15-git-send-email-jiri@resnulli.us>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35128 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbbJFHwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:06 -0400
-Received: by wicge5 with SMTP id ge5so153908218wic.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:05 -0700 (PDT)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:38711 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbbJFHwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:16 -0400
+Received: by wiclk2 with SMTP id lk2so146694896wic.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:15 -0700 (PDT)
 In-Reply-To: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
-
-Introduce basis for OF-DPA world file. This is the place where all
-OF-DPA related code is going to be moved.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Suggested-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/rocker/Makefile       |  2 +-
- drivers/net/ethernet/rocker/rocker.h       |  2 ++
- drivers/net/ethernet/rocker/rocker_main.c  |  1 +
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 27 +++++++++++++++++++++++++++
- 4 files changed, 31 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/rocker/rocker_ofdpa.c
+ drivers/net/ethernet/rocker/rocker_main.c | 32 +++++++++++++++----------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
-index 47f3492..faa36ac 100644
---- a/drivers/net/ethernet/rocker/Makefile
-+++ b/drivers/net/ethernet/rocker/Makefile
-@@ -3,4 +3,4 @@
- #
- 
- obj-$(CONFIG_ROCKER) += rocker.o
--rocker-y := rocker_main.o rocker_tlv.o
-+rocker-y := rocker_main.o rocker_tlv.o rocker_ofdpa.o
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index d49bc5d..496fe8f 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -80,4 +80,6 @@ struct rocker_world_ops {
- 				     __be16 vlan_id);
- };
- 
-+extern struct rocker_world_ops rocker_ofdpa_ops;
-+
- #endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 95cd456..55e8ed6 100644
+index a2fd7a6..451964b 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2171,6 +2171,7 @@ static int rocker_cmd_group_tbl_del(const struct rocker_port *rocker_port,
-  **********************/
+@@ -1649,7 +1649,7 @@ static int rocker_world_port_attr_stp_state_set(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
  
- static struct rocker_world_ops *rocker_world_ops[] = {
-+	&rocker_ofdpa_ops,
- };
+ 	if (!world->ops->port_attr_stp_state_set)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_attr_stp_state_set(rocker_port->world_port_priv,
+ 						   state, trans);
+ }
+@@ -1662,7 +1662,7 @@ rocker_world_port_attr_bridge_flags_set(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
  
- #define ROCKER_WORLD_OPS_LEN ARRAY_SIZE(rocker_world_ops)
-diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-new file mode 100644
-index 0000000..e048b8b
---- /dev/null
-+++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -0,0 +1,27 @@
-+/*
-+ * drivers/net/ethernet/rocker/rocker_ofdpa.c - Rocker switch OF-DPA-like
-+ *					        implementation
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-+ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include "rocker.h"
-+
-+struct ofdpa {
-+};
-+
-+struct ofdpa_port {
-+};
-+
-+struct rocker_world_ops rocker_ofdpa_ops = {
-+	.kind = "ofdpa",
-+	.priv_size = sizeof(struct ofdpa),
-+	.port_priv_size = sizeof(struct ofdpa_port),
-+	.mode = ROCKER_PORT_MODE_OF_DPA,
-+};
+ 	if (!world->ops->port_attr_bridge_flags_set)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_attr_bridge_flags_set(rocker_port->world_port_priv,
+ 						      brport_flags, trans);
+ }
+@@ -1674,7 +1674,7 @@ rocker_world_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_attr_bridge_flags_get)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_attr_bridge_flags_get(rocker_port->world_port_priv,
+ 						      p_brport_flags);
+ }
+@@ -1687,7 +1687,7 @@ rocker_world_port_obj_vlan_add(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_vlan_add)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_vlan_add(rocker_port->world_port_priv,
+ 					     vlan, trans);
+ }
+@@ -1699,7 +1699,7 @@ rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_vlan_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_vlan_del(rocker_port->world_port_priv,
+ 					     vlan);
+ }
+@@ -1712,7 +1712,7 @@ rocker_world_port_obj_vlan_dump(const struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_vlan_dump)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_vlan_dump(rocker_port->world_port_priv,
+ 					      vlan, cb);
+ }
+@@ -1725,7 +1725,7 @@ rocker_world_port_obj_fib4_add(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_fib4_add)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_fib4_add(rocker_port->world_port_priv,
+ 					     fib4, trans);
+ }
+@@ -1737,7 +1737,7 @@ rocker_world_port_obj_fib4_del(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_fib4_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_fib4_del(rocker_port->world_port_priv,
+ 					     fib4);
+ }
+@@ -1750,7 +1750,7 @@ rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_fdb_add)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_fdb_add(rocker_port->world_port_priv,
+ 					    fdb, trans);
+ }
+@@ -1762,7 +1762,7 @@ rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_fdb_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_fdb_del(rocker_port->world_port_priv,
+ 					    fdb);
+ }
+@@ -1775,7 +1775,7 @@ rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_obj_fdb_dump)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_obj_fdb_dump(rocker_port->world_port_priv,
+ 					     fdb, cb);
+ }
+@@ -1786,7 +1786,7 @@ static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_master_linked)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_master_linked(rocker_port->world_port_priv,
+ 					      master);
+ }
+@@ -1797,7 +1797,7 @@ static int rocker_world_port_master_unlinked(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_master_unlinked)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_master_unlinked(rocker_port->world_port_priv,
+ 						master);
+ }
+@@ -1808,7 +1808,7 @@ static int rocker_world_port_neigh_update(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_neigh_update)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_neigh_update(rocker_port->world_port_priv, n);
+ }
+ 
+@@ -1818,7 +1818,7 @@ static int rocker_world_port_neigh_destroy(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_neigh_destroy)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_neigh_destroy(rocker_port->world_port_priv, n);
+ }
+ 
+@@ -1829,7 +1829,7 @@ static int rocker_world_port_ev_mac_vlan_seen(struct rocker_port *rocker_port,
+ 	struct rocker_world *world = rocker_port->world;
+ 
+ 	if (!world->ops->port_ev_mac_vlan_seen)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return world->ops->port_ev_mac_vlan_seen(rocker_port->world_port_priv,
+ 						 addr, vlan_id);
+ }
 -- 
 1.9.3
