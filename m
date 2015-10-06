@@ -1,32 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Tue, 6 Oct 2015 16:34:39 +1100
-Message-ID: <20151006163439.039784a0@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] regmap: Allow installing custom
+ reg_update_bits function
+Date: Mon, 05 Oct 2015 23:21:48 -0700 (PDT)
+Message-ID: <20151005.232148.28609721470208031.davem@davemloft.net>
+References: <alpine.DEB.2.10.1510050755120.27553@jring-w510-7m3g.gridpoint.com>
+	<20151005.061609.75433802286337666.davem@davemloft.net>
+	<20151005142531.GS12635@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: jon@ringle.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: broonie@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151005142531.GS12635@sirena.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Mark Brown <broonie@kernel.org>
+Date: Mon, 5 Oct 2015 15:25:31 +0100
 
-After merging the net-next tree, today's linux-next build (i386 defconfig)
-failed like this:
+> On Mon, Oct 05, 2015 at 06:16:09AM -0700, David Miller wrote:
+> 
+>> >> Applied.
+> 
+>> > Thanks David. However, I've sent a v3 patch, and also expecting feedback 
+>> > from Mark Brown on the regmap portion of it.
+> 
+>> Please send me relative changes from v2 to v3, thanks.
+> 
+>> Sorry about that.
+> 
+> Ugh, this is a mess :(  Can you please drop this patch instead?
 
-net/built-in.o: In function `fib_rebalance':
-fib_semantics.c:(.text+0x9d6d4): undefined reference to `__divdi3'
+I can't just "drop" changes.  Once a commit hits my tree it is part
+of the permanent record.
 
-Caused by commit
-
-  0e884c78ee19 ("ipv4: L3 hash-based multipath")
-
-I have reverted that commit (and the following commit since it may depend
-on the former) for today.
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+The easiest thing to do is to send a relative fix, and that's why
+I have asked for exactly that.
