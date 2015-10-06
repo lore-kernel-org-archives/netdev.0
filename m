@@ -1,49 +1,42 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] bridge/netfilter: avoid unused label warning
-Date: Tue, 6 Oct 2015 21:28:29 +0200
-Message-ID: <561420DD.70009@cumulusnetworks.com>
-References: <7985748.1v9Gzszd4T@wuerfel>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Tue, 6 Oct 2015 21:32:45 +0200
+Message-ID: <20151006213245.74810d81@griffin>
+References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
+	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7985748.1v9Gzszd4T@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35132 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752995AbbJFTct (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 15:32:49 -0400
+In-Reply-To: <CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2015 09:22 PM, Arnd Bergmann wrote:
-> With the ARM mini2440_defconfig, the bridge netfilter code gets
-> built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
-> disabled, which leads to a harmless gcc warning:
-> 
-> net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
-> net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
-> 
-> This gets rid of the warning by cleaning up the code to avoid
-> the respective #ifdefs causing this problem, and replacing them
-> with if(IS_ENABLED()) checks. I have verified that the resulting
-> object code is unchanged, and an additional advantage is that
-> we now get compile coverage of the unused functions in more
-> configurations.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
-> 
+On Tue, 6 Oct 2015 12:21:24 -0700, Pravin Shelar wrote:
+> It should report the flag when device parameters are requested by
+> userspace if there is support for lwtunnel. So check for the flag
+> should be good enough test for lwtunnel support. Why is that not
+> reliable check?
 
-I posted a fix for this a couple of days ago, but I like your approach better.
-Since mine is not yet applied (I sent it to netfilter-devel only, wasn't sure which
-jurisdiction this falls into exactly) we can drop it.
-Just for reference my patch is here:
-http://patchwork.ozlabs.org/patch/526417/
-Pablo, could you please drop it ?
+Which device? You'll need to create one before querying it. Which won't
+work so nicely for older kernels. Basically, what the user space would
+have to do is trying to create a vxlan interface and then deleting it
+and going the tunnel vport way. It can be quite confusing, I'm afraid.
 
-By the way this takes care of another warning about unused variable (nf_bridge), too.
-So,
+ Jiri
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+-- 
+Jiri Benc
