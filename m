@@ -1,231 +1,110 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] igb: improve handling of disconnected adapters
-Date: Tue, 6 Oct 2015 15:59:32 -0700
-Message-ID: <56145254.90405@gmail.com>
-References: <56144225.2010308@redhat.com>
- <1444168362-39101-1-git-send-email-jarod@redhat.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC v1 0/7] NCSI Support
+Date: Wed, 7 Oct 2015 10:03:50 +1100
+Message-ID: <20151006230350.GA13024@gwshan>
+References: <1444100989-3437-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rustad <mark.d.rustad@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444168362-39101-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, benh@kernel.crashing.org,
+	davem@davemloft.net
+To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp05.au.ibm.com ([202.81.31.147]:32847 "EHLO
+	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324AbbJFXE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 19:04:56 -0400
+Received: from /spool/local
+	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Wed, 7 Oct 2015 09:04:53 +1000
+Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
+	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 5A86C2CE8052
+	for <netdev@vger.kernel.org>; Wed,  7 Oct 2015 10:04:49 +1100 (EST)
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t96N4eEZ51642502
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 10:04:49 +1100
+Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
+	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t96N4F3b017170
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 10:04:16 +1100
+Content-Disposition: inline
+In-Reply-To: <1444100989-3437-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2015 02:52 PM, Jarod Wilson wrote:
-> Some pci changes upcoming in 4.3 seem to cause additional disconnects,
-> which can happen at unfortuitous times for igb, leading to issues such as
-> this:
+On Tue, Oct 06, 2015 at 02:09:42PM +1100, Gavin Shan wrote:
+>This patchset is prototype requesting for comments.
 >
-> [  414.440115] igb 0000:15:00.0: enabling device (0000 -> 0002)
-> [  414.474934] pps pps0: new PPS source ptp1
-> [  414.474937] igb 0000:15:00.0: added PHC on eth0
-> [  414.474938] igb 0000:15:00.0: Intel(R) Gigabit Ethernet Network Connection
-> [  414.474940] igb 0000:15:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-> [  414.475072] igb 0000:15:00.0: eth0: PBA No: 000200-000
-> [  414.475073] igb 0000:15:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-> [  414.478453] igb 0000:15:00.0 enp21s0: renamed from eth0
-> [  414.497747] IPv6: ADDRCONF(NETDEV_UP): enp21s0: link is not ready
-> [  414.536745] igb 0000:15:00.0 enp21s0: PCIe link lost, device now detached
-> [  414.854808] BUG: unable to handle kernel paging request at 0000000000003818
-> [  414.854827] IP: [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.854846] PGD 0
-> [  414.854849] Oops: 0002 [#1] SMP
-> [  414.854856] Modules linked in: firewire_ohci firewire_core crc_itu_t igb dca ctr ccm arc4 iwlmvm mac80211 fuse xt_CHECKSUM ipt_MASQUERADE nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 ipt_REJECT nf_reject_ipv4 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle iptable_security iptable_raw iptable_filter bnep dm_mirror dm_region_hash dm_log dm_mod snd_hda_codec_hdmi coretemp x86_pkg_temp_thermal intel_powerclamp kvm_intel iTCO_wdt ppdev kvm iTCO_vendor_support hp_wmi sparse_keymap crct10dif_pclmul crc32_pclmul ghash_
- clmulni_intel
-> [  414.855073]  drbg ansi_cprng snd_hda_codec_realtek snd_hda_codec_generic aesni_intel aes_x86_64 lrw gf128mul glue_helper ablk_helper cryptd snd_hda_intel snd_hda_codec microcode snd_hda_core snd_hwdep snd_seq snd_seq_device snd_pcm iwlwifi uvcvideo btusb cfg80211 videobuf2_vmalloc videobuf2_memops btrtl btbcm videobuf2_core btintel bluetooth v4l2_common snd_timer videodev snd parport_pc rtsx_pci_ms joydev pcspkr input_leds i2c_i801 media sg memstick rfkill soundcore lpc_ich 8250_fintek parport mei_me hp_accel ie31200_edac shpchp lis3lv02d mei edac_core input_polldev hp_wireless tpm_infineon sch_fq_codel nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c sr_mod sd_mod cdrom rtsx_pci_sdmmc mmc_core crc32c_intel serio_raw rtsx_pci nouveau mxm_wmi ahci hwmon libahci e1000
- e drm_kms_helper
-> [  414.855309]  ptp xhci_pci pps_core ttm xhci_hcd wmi video ipv6 autofs4
-> [  414.855331] CPU: 2 PID: 875 Comm: NetworkManager Not tainted 4.2.0-5.el7_UNSUPPORTED.x86_64 #1
-> [  414.855348] Hardware name: Hewlett-Packard HP ZBook 15 G2/2253, BIOS M70 Ver. 01.07 02/26/2015
-> [  414.855365] task: ffff880484698c00 ti: ffff88005859c000 task.ti: ffff88005859c000
-> [  414.855380] RIP: 0010:[<ffffffffa0b95a9c>]  [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.855401] RSP: 0018:ffff88005859f608  EFLAGS: 00010246
-> [  414.855410] RAX: 0000000000003818 RBX: 0000000000000000 RCX: 0000000000003818
-> [  414.855424] RDX: 0000000000000000 RSI: 0000000000000008 RDI: 00000000002a9fe6
-> [  414.855437] RBP: ffff88005859f638 R08: 0000000003030300 R09: 00000000ffffffe7
-> [  414.855451] R10: ffffffff81fa91b4 R11: 00000000000007e3 R12: 0000000000000000
-> [  414.855464] R13: ffff880471c98840 R14: ffff8804670a1180 R15: 0000000483cce000
-> [  414.855478] FS:  00007f389c6fb8c0(0000) GS:ffff88049dc80000(0000) knlGS:0000000000000000
-> [  414.855493] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  414.855504] CR2: 0000000000003818 CR3: 00000004875da000 CR4: 00000000001406e0
-> [  414.855518] Stack:
-> [  414.855520]  ffff88005859f638 ffff880471c98840 ffff880471c98df8 0000000000000001
-> [  414.855538]  ffff880471c98848 0000000000000001 ffff88005859f698 ffffffffa0b99cb0
-> [  414.855555]  ffff88005859f678 59ab02179a7fe4d0 f3ce6b27ad46225f f5454218094e72d1
-> [  414.855572] Call Trace:
-> [  414.855577]  [<ffffffffa0b99cb0>] igb_configure+0x240/0x400 [igb]
-> [  414.855590]  [<ffffffffa0b99f32>] __igb_open+0xc2/0x560 [igb]
-> [  414.855602]  [<ffffffff8108f43d>] ? notifier_call_chain+0x4d/0x80
-> [  414.855614]  [<ffffffffa0b9a540>] igb_open+0x10/0x20 [igb]
-> [  414.855625]  [<ffffffff81581b81>] __dev_open+0xb1/0x130
-> [  414.855636]  [<ffffffff81581e91>] __dev_change_flags+0xa1/0x160
-> [  414.855647]  [<ffffffff81581f79>] dev_change_flags+0x29/0x60
-> [  414.855658]  [<ffffffff8158efc3>] do_setlink+0x5d3/0xaa0
-> [  414.855679]  [<ffffffff81308073>] ? nla_parse+0xa3/0x100
-> [  414.855689]  [<ffffffff815905f0>] rtnl_newlink+0x4f0/0x880
-> [  414.855700]  [<ffffffff815901f3>] ? rtnl_newlink+0xf3/0x880
-> [  414.855721]  [<ffffffff815ae23e>] ? netlink_unicast+0x1ae/0x220
-> [  414.855734]  [<ffffffff81266648>] ? security_capable+0x48/0x60
-> [  414.855746]  [<ffffffff810796bd>] ? ns_capable+0x2d/0x60
-> [  414.855756]  [<ffffffff8158db35>] rtnetlink_rcv_msg+0x95/0x240
-> [  414.855768]  [<ffffffff8126adc0>] ? sock_has_perm+0x70/0x90
-> [  414.855779]  [<ffffffff8158daa0>] ? rtnetlink_rcv+0x40/0x40
-> [  414.855789]  [<ffffffff815ae7ff>] netlink_rcv_skb+0xaf/0xc0
-> [  414.855800]  [<ffffffff8158da8c>] rtnetlink_rcv+0x2c/0x40
-> [  414.855810]  [<ffffffff815ae1de>] netlink_unicast+0x14e/0x220
-> [  414.855821]  [<ffffffff815ae5ca>] netlink_sendmsg+0x31a/0x390
-> [  414.855833]  [<ffffffff81563208>] sock_sendmsg+0x38/0x50
-> [  414.855843]  [<ffffffff81563b4e>] ___sys_sendmsg+0x27e/0x2a0
-> [  414.855855]  [<ffffffff8123d82f>] ? sysctl_head_finish+0x3f/0x50
-> [  414.855866]  [<ffffffff81077c10>] ? proc_put_long+0xb0/0xb0
-> [  414.855877]  [<ffffffff8123d9d9>] ? proc_sys_call_handler+0x79/0xc0
-> [  414.855890]  [<ffffffff812ec2fc>] ? lockref_put_or_lock+0x4c/0x80
-> [  414.855902]  [<ffffffff81564432>] __sys_sendmsg+0x42/0x80
-> [  414.855913]  [<ffffffff81564482>] SyS_sendmsg+0x12/0x20
-> [  414.855924]  [<ffffffff8165042e>] entry_SYSCALL_64_fastpath+0x12/0x71
-> [  414.855935] Code: c1 49 89 4e 30 49 8b 85 c0 05 00 00 48 85 c0 0f 84 0e 01 00 00 81 c2 10 38 00 00 48 63 d2 48 01 d0 31 d2 89 10 49 8b 46 30 31 d2 <89> 10 41 8b 95 44 06 00 00 b8 14 01 10 02 83
-> fa 05 74 0b 83 fa
-> [  414.856037] RIP  [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.856052]  RSP <ffff88005859f608>
-> [  414.856057] CR2: 0000000000003818
-> [  414.872327] ---[ end trace e97522c0c584ea70 ]---
+>This series of patches intends to support NCSI stack, which is specified by
+>DSP0222. One NCSI enabled interface potentially connects to multiple packages
+>and channels, but there is one active channel at once when hardware arbitration
+>is disabled. No hardware arbitration isn't supported by this patchset:
 >
-> This can at least be reduced to a harmless disconnect if we do some
-> additional checking of device presence, similar to ixgbe, and use a saved
-> io_addr instead of hw_addr, which we may have made NULL.
+>   * NIC driver registers NCSI device when the network device is registered. The
+>     NCSI device should be started when bringing up the interface so that the
+>     active channel can be choosed from the available channels and starts to provide
+>     service.
+>   * When NCSI AEN packet is received from currently active channel for sake of
+>     failure, another active channel is tried to choosed to accomplish the failover.
+>   * Reserved netlink interface for NCSI is supported so that userland can retrieve
+>     NCSI information or configure from/to NCSI channels.
+>   * The first user of NCSI stack is faraday driver (ftgmac100.c).
 >
-> [ 8010.562550] igb 0000:15:00.0: enabling device (0000 -> 0002)
-> [ 8010.597402] pps pps0: new PPS source ptp1
-> [ 8010.597406] igb 0000:15:00.0: added PHC on eth0
-> [ 8010.597407] igb 0000:15:00.0: Intel(R) Gigabit Ethernet Network Connection
-> [ 8010.597409] igb 0000:15:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-> [ 8010.597543] igb 0000:15:00.0: eth0: PBA No: 000200-000
-> [ 8010.597545] igb 0000:15:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-> [ 8010.600468] igb 0000:15:00.0 enp21s0: renamed from eth0
-> [ 8010.619354] IPv6: ADDRCONF(NETDEV_UP): enp21s0: link is not ready
-> [ 8010.663999] igb 0000:15:00.0 enp21s0: PCIe link lost, device now detached
-> [ 8011.012427] igb 0000:15:00.0: Unable to allocate memory for vectors
+
+I received the suggestion to add short description about NCSI and put the link to
+the spec after the patches were sent. I'm fixing it as below:
+
+http://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.0.0.pdf
+
+The NCSI spec (DSP0222) defines the functionality and behavior of the Network Controller
+Sideband Interface (NCSI) responsible for connecting the network controller on host side
+to the network controller on BMC (Base Management Controller) from below aspects:
+
+  * behavior of the interface, which include its operational states as well as the states
+    of the associated components 
+  * the electrical characteristics of the interface
+  * the payloads and commands of the communicati on protocol supported over the interface 
+
+>Gavin Shan (7):
+>  net/ncsi: Resource management
+>  net/ncsi: Packet handler
+>  net/ncsi: Manage NCSI device
+>  net/ncsi: Netlink support
+>  net/faraday: Replace use_nc_si with use_ncsi
+>  net/faraday: Enable NCSI interface
+>  net/faraday: Enable offload checksum according to device-tree
 >
-> CC: Mark Rustad <mark.d.rustad@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Alexand Duyck <alexander.duyck@gmail.com>
-> CC: intel-wired-lan@lists.osuosl.org
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->   drivers/net/ethernet/intel/igb/e1000_regs.h |  7 +++----
->   drivers/net/ethernet/intel/igb/igb_main.c   | 14 +++++++-------
->   2 files changed, 10 insertions(+), 11 deletions(-)
+> drivers/net/ethernet/faraday/ftgmac100.c |  109 ++-
+> include/net/ncsi.h                       |   59 ++
+> include/uapi/linux/if_ether.h            |    1 +
+> include/uapi/linux/ncsi.h                |  200 +++++
+> include/uapi/linux/netlink.h             |    1 +
+> net/Kconfig                              |    1 +
+> net/Makefile                             |    1 +
+> net/ncsi/Kconfig                         |   10 +
+> net/ncsi/Makefile                        |    5 +
+> net/ncsi/internal.h                      |  165 +++++
+> net/ncsi/ncsi-aen.c                      |  197 +++++
+> net/ncsi/ncsi-cmd.c                      |  380 ++++++++++
+> net/ncsi/ncsi-manage.c                   |  914 +++++++++++++++++++++++
+> net/ncsi/ncsi-netlink.c                  | 1042 ++++++++++++++++++++++++++
+> net/ncsi/ncsi-pkt.h                      |  391 ++++++++++
+> net/ncsi/ncsi-rsp.c                      | 1167 ++++++++++++++++++++++++++++++
+> net/ncsi/ncsi.c                          |   49 ++
+> 17 files changed, 4661 insertions(+), 31 deletions(-)
+> create mode 100644 include/net/ncsi.h
+> create mode 100644 include/uapi/linux/ncsi.h
+> create mode 100644 net/ncsi/Kconfig
+> create mode 100644 net/ncsi/Makefile
+> create mode 100644 net/ncsi/internal.h
+> create mode 100644 net/ncsi/ncsi-aen.c
+> create mode 100644 net/ncsi/ncsi-cmd.c
+> create mode 100644 net/ncsi/ncsi-manage.c
+> create mode 100644 net/ncsi/ncsi-netlink.c
+> create mode 100644 net/ncsi/ncsi-pkt.h
+> create mode 100644 net/ncsi/ncsi-rsp.c
+> create mode 100644 net/ncsi/ncsi.c
 >
-> diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-> index 4af2870..0227f0b 100644
-> --- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-> +++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-> @@ -368,7 +368,7 @@
->   
->   struct e1000_hw;
->   
-> -u32 igb_rd32(struct e1000_hw *hw, u32 reg);
-> +u32 igb_rd32(struct e1000_hw *hw, u32 reg, u32 offset);
->   
 
-There is no need to modify igb_rd32.
-
->   /* write operations, indexed using DWORDS */
->   #define wr32(reg, val) \
-> @@ -378,15 +378,14 @@ do { \
->   		writel((val), &hw_addr[(reg)]); \
->   } while (0)
->   
-> -#define rd32(reg) (igb_rd32(hw, reg))
-> +#define rd32(reg) (igb_rd32(hw, reg, 0))
->   
->   #define wrfl() ((void)rd32(E1000_STATUS))
->   
->   #define array_wr32(reg, offset, value) \
->   	wr32((reg) + ((offset) << 2), (value))
->   
-> -#define array_rd32(reg, offset) \
-> -	(readl(hw->hw_addr + reg + ((offset) << 2)))
-> +#define array_rd32(reg, offset) (igb_rd32(hw, reg, offset << 2))
->   
-
-What you could do here is just call (igb_rd32(hw, reg + ((offset) << 
-2))).  It is important to keep offset wrapped in an extra set of 
-parenthesis because this is a macro so if there is some expression being 
-passed as the offset you want to make sure the result of the expression 
-is shifted instead of the last part of it.
-
->   /* DMA Coalescing registers */
->   #define E1000_PCIEMISC	0x05BB8 /* PCIE misc config register */
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index d645d65..3b21f85 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -743,7 +743,7 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
->   	}
->   }
->   
-> -u32 igb_rd32(struct e1000_hw *hw, u32 reg)
-> +u32 igb_rd32(struct e1000_hw *hw, u32 reg, u32 offset)
->   {
->   	struct igb_adapter *igb = container_of(hw, struct igb_adapter, hw);
->   	u8 __iomem *hw_addr = ACCESS_ONCE(hw->hw_addr);
-> @@ -752,10 +752,10 @@ u32 igb_rd32(struct e1000_hw *hw, u32 reg)
->   	if (E1000_REMOVED(hw_addr))
->   		return ~value;
->   
-> -	value = readl(&hw_addr[reg]);
-> +	value = readl(&hw_addr[reg + offset]);
->   
->   	/* reads should not return all F's */
-> -	if (!(~value) && (!reg || !(~readl(hw_addr)))) {
-> +	if (!(~value) && (!(reg + offset) || !(~readl(hw_addr)))) {
->   		struct net_device *netdev = igb->netdev;
->   		hw->hw_addr = NULL;
->   		netif_device_detach(netdev);
-
-These changes aren't necessary if you just pass reg + offset instead of 
-reg and offset as two separate variables.
-
-> @@ -959,7 +959,7 @@ static int igb_request_msix(struct igb_adapter *adapter)
->   
->   		vector++;
->   
-> -		q_vector->itr_register = hw->hw_addr + E1000_EITR(vector);
-> +		q_vector->itr_register = adapter->io_addr + E1000_EITR(vector);
->   
->   		if (q_vector->rx.ring && q_vector->tx.ring)
->   			sprintf(q_vector->name, "%s-TxRx-%u", netdev->name,
-> @@ -1230,7 +1230,7 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
->   	q_vector->tx.work_limit = adapter->tx_work_limit;
->   
->   	/* initialize ITR configuration */
-> -	q_vector->itr_register = adapter->hw.hw_addr + E1000_EITR(0);
-> +	q_vector->itr_register = adapter->io_addr + E1000_EITR(0);
->   	q_vector->itr_val = IGB_START_ITR;
->   
->   	/* initialize pointer to rings */
-> @@ -3284,7 +3284,7 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
->   	     tdba & 0x00000000ffffffffULL);
->   	wr32(E1000_TDBAH(reg_idx), tdba >> 32);
->   
-> -	ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
-> +	ring->tail = adapter->io_addr + E1000_TDT(reg_idx);
->   	wr32(E1000_TDH(reg_idx), 0);
->   	writel(0, ring->tail);
->   
-> @@ -3640,7 +3640,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
->   	     ring->count * sizeof(union e1000_adv_rx_desc));
->   
->   	/* initialize head and tail */
-> -	ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
-> +	ring->tail = adapter->io_addr + E1000_RDT(reg_idx);
->   	wr32(E1000_RDH(reg_idx), 0);
->   	writel(0, ring->tail);
->   
+Thanks,
+Gavin
