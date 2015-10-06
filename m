@@ -1,107 +1,48 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
- pppoe_flush_dev()
-Date: Tue, 6 Oct 2015 21:12:18 +0000
-Message-ID: <1444165938.1468.48.camel@mattb-dl>
-References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
-	 <7045c1dad4647944f61c958511d45fcd@visp.net.lb>
-	 <20151002175426.GE2911@alphalink.fr>
-	 <356ca8b8094bb2460c0182c00e120378@visp.net.lb>
-	 <1444018131.14634.6.camel@mattb-dl> <20151005122459.GG2911@alphalink.fr>
-	 <1444091180.1468.17.camel@mattb-dl> <1444106764.1468.33.camel@mattb-dl>
-	 <20151006094654.GD2882@alphalink.fr>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Tue, 6 Oct 2015 14:16:02 -0700
+Message-ID: <CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
+References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
+	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
+	<20151006213245.74810d81@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "core@irc.lg.ua" <core@irc.lg.ua>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"paulus@samba.org" <paulus@samba.org>,
-	"nuclearcat@nuclearcat.com" <nuclearcat@nuclearcat.com>
-To: "g.nault@alphalink.fr" <g.nault@alphalink.fr>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:40224 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701AbbJFVM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 17:12:28 -0400
-In-Reply-To: <20151006094654.GD2882@alphalink.fr>
-Content-Language: en-US
-Content-ID: <01AAF8F57B2F0149AB2BE452967A9B30@atlnz.lc>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:35936 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752736AbbJFVQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 17:16:04 -0400
+Received: by ioii196 with SMTP id i196so1168474ioi.3
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 14:16:03 -0700 (PDT)
+In-Reply-To: <20151006213245.74810d81@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE1LTEwLTA2IGF0IDExOjQ2ICswMjAwLCBHdWlsbGF1bWUgTmF1bHQgd3JvdGU6
-DQo+IE9uIFR1ZSwgT2N0IDA2LCAyMDE1IGF0IDA0OjQ2OjA0QU0gKzAwMDAsIE1hdHQgQmVubmV0
-dCB3cm90ZToNCj4gPiA+ID4gVGhlIHNlY29uZCBvbmUgc2VlbXMgdG8gYmUgdHJpY2tpZXIuIEl0
-IGxvb2tzIGxpa2UgYSByYWNlIHdydC4gUEFEVA0KPiA+ID4gPiBtZXNzYWdlIHJlY2VwdGlvbi4g
-UmVwcm9kdWNpbmcgdGhlIGJ1ZyB3aWxsIHByb2JhYmx5IHJlcXVpcmUgdG8NCj4gPiA+ID4gZ2Vu
-ZXJhdGUgc29tZSBQQURUIGZsb29kaW5nIHRvIGEgaG9zdCB0aGF0IGNyZWF0ZXMgYW5kIHJlbGVh
-c2VzIFBQUG9FDQo+ID4gPiA+IGNvbm5lY3Rpb25zLg0KPiA+IA0KPiA+IE9rIEkgdGhpbmsgSSBj
-YW4gc2VlIHRoZSBwb3RlbnRpYWwgcmFjZSBoZXJlLCBzcGVjaWZpY2FsbHkgdGhlIFBBRFQNCj4g
-PiBmcmFtZSBpcyByZWNlaXZlZCB3aGlsZSB0aGUgcHBwb2UgaW50ZXJmYWNlIGlzIGJlaW5nIGRl
-bGV0ZWQuIChJIHdpbGwNCj4gPiBoYXZlIGEgZ28gaW5kdWNpbmcgdGhpcyB3aXRoIG1zbGVlcCgp
-IGluIHRoZSBjb2RlIHRvbW9ycm93KQ0KPiA+IA0KPiA+IDEuIHBwcG9lX2ZsdXNoX2RldigpIC0g
-c2stPnNrX3N0YXRlID0gUFBQT1hfREVBRCwgcG8tPnBwcG9lX2RldiA9IE5VTEwNCj4gPiANCj4g
-PiAyLiBwcHBvZV9jb25uZWN0KCkgLSBzay0+c2tfc3RhdGUgPSBQUFBPWF9OT05FLCBwby0+cHBw
-b2VfZGV2ID0gTlVMTA0KPiA+IA0KPiA+IDMuIHBwcG9lX2Rpc2NfcmN2KCkgLSBzay0+c2tfc3Rh
-dGUgPSBQUFBPWF9aT01CSUUgcG8tPnBwcG9lX2RldiA9IE5VTEwNCj4gPiANCj4gPiA0LiBwcHBv
-ZV9yZWxlYXNlKCkgLSBkZXZfcHV0KHBvLT5wcHBvZV9kZXYpIC0tLS0+IE9vcHMNCj4gPiANCj4g
-QWdhaW4sIEkgZG9uJ3Qga25vdyB3aHkgeW91IGludHJvZHVjZSBwcHBvZV9jb25uZWN0KCkgaW50
-byB0aGUgbWl4Lg0KU29ycnksIEknbSBqdXN0IGdvaW5nIG9mZiB0aGUgZnVuY3Rpb24gY2FsbHMg
-SSBjYW4gc2VlIGhhcHBlbmluZyB3aXRoIG15DQprZXJuZWwgKDMuMTYpLg0KPiBCdXQgYW55d2F5
-LCB5b3UgZ290IHRoZSBwb2ludC4gTm90ZSB0aGF0IHBwcG9lX2ZsdXNoX2RldigpIGNvdWxkIGJl
-DQo+IHJlcGxhY2VkIGJ5IG90aGVyIGNhbGxzIHNpbmNlIHdlIGp1c3QgbmVlZCB0byByZXNldCBw
-by0+cHBwb2VfZGV2DQo+IChhbm90aGVyIHBwcG9lX3VuYmluZF9zb2NrX3dvcmsoKSBjYWxsLCBk
-dWUgdG8gZHVwbGljYXRlZCBQQURULCB3b3VsZA0KPiBhbHNvIHRyaWdnZXIgdGhlIGJ1ZykuIE5v
-dGUgYWxzbyB0aGF0IHBwcG9lX3JlbGVhc2UoKSBuZWVkcyB0byBiZSBydW4NCj4gYmVmb3JlIHBw
-cG9lX3VuYmluZF9zb2NrX3dvcmsoKSBnZXRzIHNjaGVkdWxlZCAob3IgYXQgbGVhc3QgYmVmb3Jl
-IGl0DQo+IGxvY2tzIHRoZSBzb2NrZXQpLg0KPiANCj4gPiBFaXRoZXIgaW4gcHBwb2VfZGlzY19y
-Y3YoKSB3ZSBhZGQgdGhlIGNvbmRpdGlvbjoNCj4gPiANCj4gPiBAQCAtNDk2LDcgKzQ5OSw4IEBA
-IHN0YXRpYyBpbnQgcHBwb2VfZGlzY19yY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gPiBzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIC8qIFdlJ3Jl
-IG5vIGxvbmdlciBjb25uZWN0IGF0IHRoZSBQUFBPRSBsYXllciwNCj4gPiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgKiBhbmQgbXVzdCB3YWl0IGZvciBwcHAgY2hhbm5lbCB0byBkaXNjb25uZWN0
-DQo+ID4gdXMuDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICovDQo+ID4gLSAgICAgICAg
-ICAgICAgICAgICAgICAgc2stPnNrX3N0YXRlID0gUFBQT1hfWk9NQklFOw0KPiA+ICsgICAgICAg
-ICAgICAgICAgICAgICAgIGlmIChzay0+c2tfc3RhdGUgJiBQUFBPWF9DT05ORUNURUQpDQo+ID4g
-KyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfc3RhdGUgPSBQUFBPWF9aT01C
-SUU7DQo+ID4gICAgICAgICAgICAgICAgIH0NCj4gPiANCj4gPiBPciBwZXJoYXBzIHdlIHJlbW92
-ZSB0aGUgYXNzdW1wdGlvbiB0aGF0IHRoZSBzdGF0ZSBQUFBPWF9aT01CSUUgaGFzIGENCj4gPiBu
-b24tbnVsbCBwcHBvZV9kZXYgb24gaXQuDQo+ID4gDQo+IEkgZG9uJ3QgdGhpbmsgYWRkaW5nIGNv
-bXBsZXhpdHkgaW4gdGhlIHNvY2tldCBzdGF0ZSBtYW5hZ2VtZW50IHdvdWxkIGJlDQo+IGEgZ29v
-ZCB0aGluay4gQWN0dWFsbHkgSSBldmVudCB0aGluayBhYm91dCBkcm9wcGluZyB0aGUgUFBQT1hf
-Wk9NQklFDQo+IHN0YXRlIGFsdG9nZXRoZXIuIEJ1dCB0aGF0J3MgcHJvYmFibHkgc29tZXRoaW5n
-IGZvciBuZXQtbmV4dC4NCj4gDQo+ID4gSSBkb24ndCBrbm93IHdoeSB0aGUgY29kZSBpc24ndCBs
-aWtlIHRoZSBmb2xsb3dpbmcgYW55d2F5Lg0KPiA+IA0KPiA+IC1pZiAoc2stPnNrX3N0YXRlICYg
-KFBQUE9YX0NPTk5FQ1RFRCB8IFBQUE9YX0JPVU5EIHwgUFBQT1hfWk9NQklFKSkgew0KPiA+ICtp
-ZiAocG8tPnBwcG9lX2Rldikgew0KPiA+IAlkZXZfcHV0KHBvLT5wcHBvZV9kZXYpOw0KPiA+IAlw
-by0+cHBwb2VfZGV2ID0gTlVMTDsNCj4gPiB9DQo+IEkgd2FzIHRoaW5raW5nIGFib3V0IHRoYXQg
-c2FtZSBhcHByb2FjaC4gcHBwb2VfcmVsZWFzZSgpIGlzIHRoZSBvbmx5DQo+IGZ1bmN0aW9uIG1h
-a2luZyB0aGF0IGFzc3VtcHRpb24uIE90aGVyIHBhcnRzIG9mIHRoZSBjb2RlIHNlZW0gdG8gb25s
-eQ0KPiByZXF1aXJlIHRoYXQgUFBQT1hfQ09OTkVDVEVEID0+IHBwcG9lX2RldiAhPSBOVUxMLg0K
-PiANCj4gQnV0IEkgdGhpbmsgdGhlIG9yaWdpbmFsIGNvbmRpdGlvbiB3YXMgdmFsaWQuIEFkZGlu
-ZyBQUFBPWF9aT01CSUUgaW50bw0KPiB0aGUgdGVzdCBhbmQgcmVzZXR0aW5nIHBwcG9lX2RldiB1
-cG9uIHJlY2VwdGlvbiBvZiBQQURUIGhhdmUgY2hhbmdlZCB0aGUNCj4gcmVsYXRpb25zaGlwIGJl
-dHdlZW4gc2tfc3RhdGUgYW5kIHBwcG9lX2Rldiwgd2hpY2ggaXMgd2hlcmUgdGhlIHByb2JsZW0N
-Cj4gc3RhbmRzLg0KWWVzIG9yaWdpbmFsbHkgdGhlIGNvbmRpdGlvbiB3YXMgdmFsaWQuIEJ1dCBJ
-IHRoaW5rIHRoZSBpc3N1ZSBpcyBwbGFpbg0KdG8gc2VlIHdoZW4geW91IGxvb2sgYXQgdGhlIGNv
-bW1lbnQgYmVzaWRlIFBQUE9YX1pPTUJJRSBkZWNsYXJlZCBpbiB0aGUNCmVudW0uDQoNCiBQUFBP
-WF9aT01CSUUJPSA4LCAgLyogZGVhZCwgYnV0IHN0aWxsIGJvdW5kIHRvIHBwcCBkZXZpY2UgKi8N
-Cg0KV2UgaGF2ZSBzZWVuIGluIHRoZSBzaXR1YXRpb24gd2UgaGF2ZSBkZXNjcmliZWQgcHJldmlv
-dXNseSB0aGF0IHdlIGNhbg0KYmUgaW4gdGhpcyBzdGF0ZSB3aXRob3V0IGJlaW5nIGJvdW5kIHRv
-IHRoZSBwcHAgZGV2aWNlLg0KDQpJbiBteSBvcGluaW9uIHRoZSBlbnRpcmUgbG9naWMgYXJvdW5k
-DQpwcHBvZV9kaXNjX3JjdigpL3BwcG9lX3VuYmluZF9zb2NrX3dvcmsoKSBsb29rcyB3cm9uZyBh
-bmQgSSBhZ3JlZSB3ZQ0Kc2hvdWxkIGRvIHdoYXQgeW91IHN1Z2dlc3RlZCBhIGZldyBlbWFpbHMg
-YmFjay4NCg0KaS5lIGluIHBwcG9lX2Rpc2NfcmN2KCk6DQoNCmlmIChwbykgew0KCQlzdHJ1Y3Qg
-c29jayAqc2sgPSBza19wcHBveChwbyk7DQoNCi0JCWJoX2xvY2tfc29jayhzayk7DQotDQotCQkv
-KiBJZiB0aGUgdXNlciBoYXMgbG9ja2VkIHRoZSBzb2NrZXQsIGp1c3QgaWdub3JlDQotCQkgKiB0
-aGUgcGFja2V0LiAgV2l0aCB0aGUgd2F5IHR3byByY3YgcHJvdG9jb2xzIGhvb2sgaW50bw0KLQkJ
-ICogb25lIHNvY2tldCBmYW1pbHkgdHlwZSwgd2UgY2Fubm90IChlYXNpbHkpIGRpc3Rpbmd1aXNo
-DQotCQkgKiB3aGF0IGtpbmQgb2YgU0tCIGl0IGlzIGR1cmluZyBiYWNrbG9nIHJjdi4NCi0JCSAq
-Lw0KLQkJaWYgKHNvY2tfb3duZWRfYnlfdXNlcihzaykgPT0gMCkgew0KLQkJCS8qIFdlJ3JlIG5v
-IGxvbmdlciBjb25uZWN0IGF0IHRoZSBQUFBPRSBsYXllciwNCi0JCQkgKiBhbmQgbXVzdCB3YWl0
-IGZvciBwcHAgY2hhbm5lbCB0byBkaXNjb25uZWN0IHVzLg0KLQkJCSAqLw0KLQkJCXNrLT5za19z
-dGF0ZSA9IFBQUE9YX1pPTUJJRTsNCi0JCX0NCi0NCi0JCWJoX3VubG9ja19zb2NrKHNrKTsNCgkJ
-aWYgKCFzY2hlZHVsZV93b3JrKCZwby0+cHJvdG8ucHBwb2UucGFkdF93b3JrKSkNCgkJCXNvY2tf
-cHV0KHNrKTsNCgl9DQoNClN1YnNlcXVlbnRseSB0aGUgUFBQT1hfWk9NQklFIHN0YXRlIGNhbiBi
-ZSBjb21wbGV0ZWx5IHJlbW92ZWQ/DQoNCk1hdHQNCg0KDQoNCg==
+On Tue, Oct 6, 2015 at 12:32 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 6 Oct 2015 12:21:24 -0700, Pravin Shelar wrote:
+>> It should report the flag when device parameters are requested by
+>> userspace if there is support for lwtunnel. So check for the flag
+>> should be good enough test for lwtunnel support. Why is that not
+>> reliable check?
+>
+> Which device? You'll need to create one before querying it. Which won't
+> work so nicely for older kernels. Basically, what the user space would
+> have to do is trying to create a vxlan interface and then deleting it
+> and going the tunnel vport way. It can be quite confusing, I'm afraid.
+>
+
+When OVS needs to add a vxlan tunnel device, OVS can create the vxlan
+device and check the parameters for the flag. If the flag does not
+exist then fallback to vport-create. This only needs to be done for
+very first tunnel device. Thats how most of features are supported in
+OVS.
+Sorry, but I do not see where is the confusion.
