@@ -1,73 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] af_unix: introduce unix_sk_const helper
-Date: Tue, 06 Oct 2015 22:52:46 +0200
-Message-ID: <10735490.HC94hyceBX@wuerfel>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] bridge/netfilter: avoid unused label warning
+Date: Tue, 6 Oct 2015 23:02:45 +0200
+Message-ID: <561436F5.70409@cumulusnetworks.com>
+References: <7985748.1v9Gzszd4T@wuerfel> <561420DD.70009@cumulusnetworks.com>
+ <5966552.c0Emgm27oa@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Aaron Conole <aconole@bytheb.org>,
-	Eric Dumazet <edumazet@google.com>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	linux-security-module@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5966552.c0Emgm27oa@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 124613012db1 ("af_unix: Convert the unix_sk macro to an inline
-function for type safety") was recently added to catch incorrect
-uses of the unix_sk helper using compiler warnings.
+On 10/06/2015 09:39 PM, Arnd Bergmann wrote:
+> On Tuesday 06 October 2015 21:28:29 Nikolay Aleksandrov wrote:
+>> I posted a fix for this a couple of days ago, but I like your approa=
+ch better.
+>> Since mine is not yet applied (I sent it to netfilter-devel only, wa=
+sn't sure which
+>> jurisdiction this falls into exactly) we can drop it.
+>> Just for reference my patch is here:
+>> http://patchwork.ozlabs.org/patch/526417/
+>> Pablo, could you please drop it ?
+>>
+>> By the way this takes care of another warning about unused variable =
+(nf_bridge), too.
+>=20
+> Hmm I did not get that one, at least not in 4.3-rc4.
+>=20
+You need to set W=3D1
+$ git describe --abbrev=3D0
+v4.3-rc4
 
-It has now caught one such case in lsm_audit.c. The code is technically
-correct, but as it converts a const pointer to a non-const pointer,
-the annotation got lost, which gcc now warns about.
+net/bridge//br_netfilter_hooks.c: In function =91br_nf_dev_queue_xmit=92=
+:
+net/bridge//br_netfilter_hooks.c:794:2: warning: label =91drop=92 defin=
+ed but not used [-Wunused-label]
+  drop:
+  ^
+net/bridge//br_netfilter_hooks.c:727:25: warning: variable =91nf_bridge=
+=92 set but not used [-Wunused-but-set-variable]
+  struct nf_bridge_info *nf_bridge;
 
-This patch avoids the warning by introducing an additional helper
-that has const input and output, which makes the lsm_audit code build
-cleanly again.
+Cheers,
+ Nik
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
-I'm not entirely happy with this workaround myself, but could not come
-up with a better one.
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index cb1b9bbda332..1871b6436ee9 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -69,6 +69,11 @@ static inline struct unix_sock *unix_sk(struct sock *sk)
- 	return (struct unix_sock *)sk;
- }
- 
-+static inline const struct unix_sock *unix_sk_const(const struct sock *sk)
-+{
-+	return (const struct unix_sock *)sk;
-+}
-+
- #define peer_wait peer_wq.wait
- 
- long unix_inq_len(struct sock *sk);
-diff --git a/security/lsm_audit.c b/security/lsm_audit.c
-index 2deace208db2..cb07f1318a27 100644
---- a/security/lsm_audit.c
-+++ b/security/lsm_audit.c
-@@ -307,7 +307,7 @@ static void dump_common_audit_data(struct audit_buffer *ab,
- 	case LSM_AUDIT_DATA_NET:
- 		if (a->u.net->sk) {
- 			const struct sock *sk = a->u.net->sk;
--			struct unix_sock *u;
-+			const struct unix_sock *u;
- 			int len = 0;
- 			char *p = NULL;
- 
-@@ -337,7 +337,7 @@ static void dump_common_audit_data(struct audit_buffer *ab,
- 			}
- #endif
- 			case AF_UNIX:
--				u = unix_sk(sk);
-+				u = unix_sk_const(sk);
- 				if (u->path.dentry) {
- 					audit_log_d_path(ab, " path=", &u->path);
- 					break;
+>> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>=20
+> Thanks and sorry for missing the Cc to the netfilter list on my patch=
+=2E
+>=20
+> 	Arnd
