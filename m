@@ -1,351 +1,597 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 01/14] rocker: remove unused rocker_port param from alloc funcs and shorten their names
-Date: Tue,  6 Oct 2015 09:51:40 +0200
-Message-ID: <1444117913-10386-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 04/14] rocker: push tlv processing into separate files
+Date: Tue,  6 Oct 2015 09:51:43 +0200
+Message-ID: <1444117913-10386-5-git-send-email-jiri@resnulli.us>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:33924 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751612AbbJFHv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:51:58 -0400
-Received: by wicfx3 with SMTP id fx3so153279512wic.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:51:57 -0700 (PDT)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:35038 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573AbbJFHwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:03 -0400
+Received: by wicge5 with SMTP id ge5so153906003wic.0
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:02 -0700 (PDT)
 In-Reply-To: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-No need to pass rocker_port around to alloc/free rocker functions,
-since they now use switchdev_trans for memory management storage.
-With the param removal, shorten the name of the functions since they now
-has nothing to do with rocker port.
+Carve out TLV processing helpers into separate files.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Acked-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 87 +++++++++++++++++-------------------
- 1 file changed, 42 insertions(+), 45 deletions(-)
+ drivers/net/ethernet/rocker/Makefile      |   2 +-
+ drivers/net/ethernet/rocker/rocker.h      |  27 ++++
+ drivers/net/ethernet/rocker/rocker_main.c | 222 +-----------------------------
+ drivers/net/ethernet/rocker/rocker_tlv.c  |  54 ++++++++
+ drivers/net/ethernet/rocker/rocker_tlv.h  | 202 +++++++++++++++++++++++++++
+ 5 files changed, 286 insertions(+), 221 deletions(-)
+ create mode 100644 drivers/net/ethernet/rocker/rocker.h
+ create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.h
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index cf91ffc..23c8d1e 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -341,9 +341,8 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
- #define ROCKER_OP_FLAG_LEARNED		BIT(2)
- #define ROCKER_OP_FLAG_REFRESH		BIT(3)
+diff --git a/drivers/net/ethernet/rocker/Makefile b/drivers/net/ethernet/rocker/Makefile
+index 2bed423..47f3492 100644
+--- a/drivers/net/ethernet/rocker/Makefile
++++ b/drivers/net/ethernet/rocker/Makefile
+@@ -3,4 +3,4 @@
+ #
  
--static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
--				     struct switchdev_trans *trans, int flags,
--				     size_t size)
-+static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
-+				size_t size)
- {
- 	struct switchdev_trans_item *elem = NULL;
- 	gfp_t gfp_flags = (flags & ROCKER_OP_FLAG_NOWAIT) ?
-@@ -372,21 +371,19 @@ static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
- 	return elem ? elem + 1 : NULL;
- }
+ obj-$(CONFIG_ROCKER) += rocker.o
+-rocker-y := rocker_main.o
++rocker-y := rocker_main.o rocker_tlv.o
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+new file mode 100644
+index 0000000..650caa0
+--- /dev/null
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -0,0 +1,27 @@
++/*
++ * drivers/net/ethernet/rocker/rocker.h - Rocker switch device driver
++ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
++ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _ROCKER_H
++#define _ROCKER_H
++
++#include <linux/types.h>
++
++#include "rocker_hw.h"
++
++struct rocker_desc_info {
++	char *data; /* mapped */
++	size_t data_size;
++	size_t tlv_size;
++	struct rocker_desc *desc;
++	dma_addr_t mapaddr;
++};
++
++#endif
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index b555926..c698653 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -40,6 +40,8 @@
+ #include <generated/utsrelease.h>
  
--static void *rocker_port_kzalloc(struct rocker_port *rocker_port,
--				 struct switchdev_trans *trans, int flags,
--				 size_t size)
-+static void *rocker_kzalloc(struct switchdev_trans *trans, int flags,
-+			    size_t size)
- {
--	return __rocker_port_mem_alloc(rocker_port, trans, flags, size);
-+	return __rocker_mem_alloc(trans, flags, size);
- }
+ #include "rocker_hw.h"
++#include "rocker.h"
++#include "rocker_tlv.h"
  
--static void *rocker_port_kcalloc(struct rocker_port *rocker_port,
--				 struct switchdev_trans *trans, int flags,
--				 size_t n, size_t size)
-+static void *rocker_kcalloc(struct switchdev_trans *trans, int flags,
-+			    size_t n, size_t size)
- {
--	return __rocker_port_mem_alloc(rocker_port, trans, flags, n * size);
-+	return __rocker_mem_alloc(trans, flags, n * size);
- }
+ static const char rocker_driver_name[] = "rocker";
  
--static void rocker_port_kfree(struct switchdev_trans *trans, const void *mem)
-+static void rocker_kfree(struct switchdev_trans *trans, const void *mem)
- {
- 	struct switchdev_trans_item *elem;
+@@ -177,14 +179,6 @@ struct rocker_neigh_tbl_entry {
+ 	bool ttl_check;
+ };
  
-@@ -426,7 +423,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
- {
- 	struct rocker_wait *wait;
- 
--	wait = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*wait));
-+	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
- 	if (!wait)
- 		return NULL;
- 	rocker_wait_init(wait);
-@@ -436,7 +433,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
- static void rocker_wait_destroy(struct switchdev_trans *trans,
- 				struct rocker_wait *wait)
- {
--	rocker_port_kfree(trans, wait);
-+	rocker_kfree(trans, wait);
- }
- 
- static bool rocker_wait_event_timeout(struct rocker_wait *wait,
-@@ -2441,7 +2438,7 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
- 		match->cookie = found->cookie;
- 		if (!switchdev_trans_ph_prepare(trans))
- 			hash_del(&found->entry);
--		rocker_port_kfree(trans, found);
-+		rocker_kfree(trans, found);
- 		found = match;
- 		found->cmd = ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_MOD;
- 	} else {
-@@ -2483,13 +2480,13 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
- 
- 	spin_unlock_irqrestore(&rocker->flow_tbl_lock, lock_flags);
- 
--	rocker_port_kfree(trans, match);
-+	rocker_kfree(trans, match);
- 
- 	if (found) {
- 		err = rocker_cmd_exec(rocker_port, trans, flags,
- 				      rocker_cmd_flow_tbl_del,
- 				      found, NULL, NULL);
--		rocker_port_kfree(trans, found);
-+		rocker_kfree(trans, found);
- 	}
- 
- 	return err;
-@@ -2512,7 +2509,7 @@ static int rocker_flow_tbl_ig_port(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2534,7 +2531,7 @@ static int rocker_flow_tbl_vlan(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2561,7 +2558,7 @@ static int rocker_flow_tbl_term_mac(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2601,7 +2598,7 @@ static int rocker_flow_tbl_bridge(struct rocker_port *rocker_port,
- 	bool dflt = !eth_dst || (eth_dst && eth_dst_mask);
- 	bool wild = false;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2651,7 +2648,7 @@ static int rocker_flow_tbl_ucast4_routing(struct rocker_port *rocker_port,
- {
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2681,7 +2678,7 @@ static int rocker_flow_tbl_acl(struct rocker_port *rocker_port,
- 	u32 priority;
- 	struct rocker_flow_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2740,12 +2737,12 @@ static void rocker_group_tbl_entry_free(struct switchdev_trans *trans,
- 	switch (ROCKER_GROUP_TYPE_GET(entry->group_id)) {
- 	case ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD:
- 	case ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST:
--		rocker_port_kfree(trans, entry->group_ids);
-+		rocker_kfree(trans, entry->group_ids);
- 		break;
- 	default:
- 		break;
- 	}
--	rocker_port_kfree(trans, entry);
-+	rocker_kfree(trans, entry);
- }
- 
- static int rocker_group_tbl_add(struct rocker_port *rocker_port,
-@@ -2830,7 +2827,7 @@ static int rocker_group_l2_interface(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2847,17 +2844,17 @@ static int rocker_group_l2_fan_out(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
- 	entry->group_id = group_id;
- 	entry->group_count = group_count;
- 
--	entry->group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
--					       group_count, sizeof(u32));
-+	entry->group_ids = rocker_kcalloc(trans, flags,
-+					  group_count, sizeof(u32));
- 	if (!entry->group_ids) {
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 		return -ENOMEM;
- 	}
- 	memcpy(entry->group_ids, group_ids, group_count * sizeof(u32));
-@@ -2882,7 +2879,7 @@ static int rocker_group_l3_unicast(struct rocker_port *rocker_port,
- {
- 	struct rocker_group_tbl_entry *entry;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -2931,7 +2928,7 @@ static void _rocker_neigh_del(struct switchdev_trans *trans,
- 		return;
- 	if (--entry->ref_count == 0) {
- 		hash_del(&entry->entry);
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 	}
- }
- 
-@@ -2965,7 +2962,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
- 	bool removing;
- 	int err = 0;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -3034,7 +3031,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
- 
- err_out:
- 	if (!adding)
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 
- 	return err;
- }
-@@ -3082,7 +3079,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
- 	bool resolved = true;
- 	int err = 0;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
-+	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
- 	if (!entry)
- 		return -ENOMEM;
- 
-@@ -3114,7 +3111,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
- 	spin_unlock_irqrestore(&rocker->neigh_tbl_lock, lock_flags);
- 
- 	if (!adding)
--		rocker_port_kfree(trans, entry);
-+		rocker_kfree(trans, entry);
- 
- 	if (err)
- 		return err;
-@@ -3139,8 +3136,8 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
- 	int err = 0;
- 	int i;
- 
--	group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
--					rocker->port_count, sizeof(u32));
-+	group_ids = rocker_kcalloc(trans, flags,
-+				   rocker->port_count, sizeof(u32));
- 	if (!group_ids)
- 		return -ENOMEM;
- 
-@@ -3172,7 +3169,7 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
- 			   "Error (%d) port VLAN l2 flood group\n", err);
- 
- no_ports_in_vlan:
--	rocker_port_kfree(trans, group_ids);
-+	rocker_kfree(trans, group_ids);
+-struct rocker_desc_info {
+-	char *data; /* mapped */
+-	size_t data_size;
+-	size_t tlv_size;
+-	struct rocker_desc *desc;
+-	dma_addr_t mapaddr;
+-};
+-
+ struct rocker_dma_ring_info {
+ 	size_t size;
+ 	u32 head;
+@@ -661,218 +655,6 @@ free_irq:
  	return err;
  }
  
-@@ -3538,7 +3535,7 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 		call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
- 					 lw->rocker_port->dev, &info.info);
- 
--	rocker_port_kfree(lw->trans, work);
-+	rocker_kfree(lw->trans, work);
- }
- 
- static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
-@@ -3572,7 +3569,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
- 	if (!rocker_port_is_bridged(rocker_port))
- 		return 0;
- 
--	lw = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*lw));
-+	lw = rocker_kzalloc(trans, flags, sizeof(*lw));
- 	if (!lw)
- 		return -ENOMEM;
- 
-@@ -3585,7 +3582,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
- 	lw->vid = rocker_port_vlan_to_vid(rocker_port, vlan_id);
- 
- 	if (switchdev_trans_ph_prepare(trans))
--		rocker_port_kfree(trans, lw);
-+		rocker_kfree(trans, lw);
- 	else
- 		schedule_work(&lw->work);
- 
-@@ -3616,7 +3613,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 	bool removing = (flags & ROCKER_OP_FLAG_REMOVE);
- 	unsigned long lock_flags;
- 
--	fdb = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*fdb));
-+	fdb = rocker_kzalloc(trans, flags, sizeof(*fdb));
- 	if (!fdb)
- 		return -ENOMEM;
- 
-@@ -3634,7 +3631,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 	if (found) {
- 		found->touched = jiffies;
- 		if (removing) {
--			rocker_port_kfree(trans, fdb);
-+			rocker_kfree(trans, fdb);
- 			if (!switchdev_trans_ph_prepare(trans))
- 				hash_del(&found->entry);
- 		}
-@@ -3648,7 +3645,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
- 
- 	/* Check if adding and already exists, or removing and can't find */
- 	if (!found != !removing) {
--		rocker_port_kfree(trans, fdb);
-+		rocker_kfree(trans, fdb);
- 		if (!found && removing)
- 			return 0;
- 		/* Refreshing existing to update aging timers */
+-/******
+- * TLV
+- ******/
+-
+-#define ROCKER_TLV_ALIGNTO 8U
+-#define ROCKER_TLV_ALIGN(len) \
+-	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
+-#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
+-
+-/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
+- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
+- * |             Header          | Pad |           Payload           | Pad |
+- * |      (struct rocker_tlv)    | ing |                             | ing |
+- * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
+- *  <--------------------------- tlv->len -------------------------->
+- */
+-
+-static struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
+-					  int *remaining)
+-{
+-	int totlen = ROCKER_TLV_ALIGN(tlv->len);
+-
+-	*remaining -= totlen;
+-	return (struct rocker_tlv *) ((char *) tlv + totlen);
+-}
+-
+-static int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
+-{
+-	return remaining >= (int) ROCKER_TLV_HDRLEN &&
+-	       tlv->len >= ROCKER_TLV_HDRLEN &&
+-	       tlv->len <= remaining;
+-}
+-
+-#define rocker_tlv_for_each(pos, head, len, rem)	\
+-	for (pos = head, rem = len;			\
+-	     rocker_tlv_ok(pos, rem);			\
+-	     pos = rocker_tlv_next(pos, &(rem)))
+-
+-#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
+-	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
+-			    rocker_tlv_len(tlv), rem)
+-
+-static int rocker_tlv_attr_size(int payload)
+-{
+-	return ROCKER_TLV_HDRLEN + payload;
+-}
+-
+-static int rocker_tlv_total_size(int payload)
+-{
+-	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
+-}
+-
+-static int rocker_tlv_padlen(int payload)
+-{
+-	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
+-}
+-
+-static int rocker_tlv_type(const struct rocker_tlv *tlv)
+-{
+-	return tlv->type;
+-}
+-
+-static void *rocker_tlv_data(const struct rocker_tlv *tlv)
+-{
+-	return (char *) tlv + ROCKER_TLV_HDRLEN;
+-}
+-
+-static int rocker_tlv_len(const struct rocker_tlv *tlv)
+-{
+-	return tlv->len - ROCKER_TLV_HDRLEN;
+-}
+-
+-static u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
+-{
+-	return *(u8 *) rocker_tlv_data(tlv);
+-}
+-
+-static u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
+-{
+-	return *(u16 *) rocker_tlv_data(tlv);
+-}
+-
+-static __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
+-{
+-	return *(__be16 *) rocker_tlv_data(tlv);
+-}
+-
+-static u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
+-{
+-	return *(u32 *) rocker_tlv_data(tlv);
+-}
+-
+-static u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
+-{
+-	return *(u64 *) rocker_tlv_data(tlv);
+-}
+-
+-static void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
+-			     const char *buf, int buf_len)
+-{
+-	const struct rocker_tlv *tlv;
+-	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
+-	int rem;
+-
+-	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
+-
+-	rocker_tlv_for_each(tlv, head, buf_len, rem) {
+-		u32 type = rocker_tlv_type(tlv);
+-
+-		if (type > 0 && type <= maxtype)
+-			tb[type] = tlv;
+-	}
+-}
+-
+-static void rocker_tlv_parse_nested(const struct rocker_tlv **tb, int maxtype,
+-				    const struct rocker_tlv *tlv)
+-{
+-	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
+-			 rocker_tlv_len(tlv));
+-}
+-
+-static void rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
+-				  const struct rocker_desc_info *desc_info)
+-{
+-	rocker_tlv_parse(tb, maxtype, desc_info->data,
+-			 desc_info->desc->tlv_size);
+-}
+-
+-static struct rocker_tlv *rocker_tlv_start(struct rocker_desc_info *desc_info)
+-{
+-	return (struct rocker_tlv *) ((char *) desc_info->data +
+-					       desc_info->tlv_size);
+-}
+-
+-static int rocker_tlv_put(struct rocker_desc_info *desc_info,
+-			  int attrtype, int attrlen, const void *data)
+-{
+-	int tail_room = desc_info->data_size - desc_info->tlv_size;
+-	int total_size = rocker_tlv_total_size(attrlen);
+-	struct rocker_tlv *tlv;
+-
+-	if (unlikely(tail_room < total_size))
+-		return -EMSGSIZE;
+-
+-	tlv = rocker_tlv_start(desc_info);
+-	desc_info->tlv_size += total_size;
+-	tlv->type = attrtype;
+-	tlv->len = rocker_tlv_attr_size(attrlen);
+-	memcpy(rocker_tlv_data(tlv), data, attrlen);
+-	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
+-	return 0;
+-}
+-
+-static int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
+-			     int attrtype, u8 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
+-}
+-
+-static int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
+-			      int attrtype, u16 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
+-}
+-
+-static int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
+-			       int attrtype, __be16 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
+-}
+-
+-static int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
+-			      int attrtype, u32 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
+-}
+-
+-static int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
+-			       int attrtype, __be32 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
+-}
+-
+-static int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
+-			      int attrtype, u64 value)
+-{
+-	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
+-}
+-
+-static struct rocker_tlv *
+-rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
+-{
+-	struct rocker_tlv *start = rocker_tlv_start(desc_info);
+-
+-	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
+-		return NULL;
+-
+-	return start;
+-}
+-
+-static void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
+-				struct rocker_tlv *start)
+-{
+-	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
+-}
+-
+-static void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
+-				   const struct rocker_tlv *start)
+-{
+-	desc_info->tlv_size = (const char *) start - desc_info->data;
+-}
+-
+ /******************************************
+  * DMA rings and descriptors manipulations
+  ******************************************/
+diff --git a/drivers/net/ethernet/rocker/rocker_tlv.c b/drivers/net/ethernet/rocker/rocker_tlv.c
+new file mode 100644
+index 0000000..5b94d93
+--- /dev/null
++++ b/drivers/net/ethernet/rocker/rocker_tlv.c
+@@ -0,0 +1,54 @@
++/*
++ * drivers/net/ethernet/rocker/rocker_tvl.c - Rocker switch device driver
++ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
++ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/types.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++
++#include "rocker_hw.h"
++#include "rocker_tlv.h"
++
++void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
++		      const char *buf, int buf_len)
++{
++	const struct rocker_tlv *tlv;
++	const struct rocker_tlv *head = (const struct rocker_tlv *) buf;
++	int rem;
++
++	memset(tb, 0, sizeof(struct rocker_tlv *) * (maxtype + 1));
++
++	rocker_tlv_for_each(tlv, head, buf_len, rem) {
++		u32 type = rocker_tlv_type(tlv);
++
++		if (type > 0 && type <= maxtype)
++			tb[type] = tlv;
++	}
++}
++
++int rocker_tlv_put(struct rocker_desc_info *desc_info,
++		   int attrtype, int attrlen, const void *data)
++{
++	int tail_room = desc_info->data_size - desc_info->tlv_size;
++	int total_size = rocker_tlv_total_size(attrlen);
++	struct rocker_tlv *tlv;
++
++	if (unlikely(tail_room < total_size))
++		return -EMSGSIZE;
++
++	tlv = rocker_tlv_start(desc_info);
++	desc_info->tlv_size += total_size;
++	tlv->type = attrtype;
++	tlv->len = rocker_tlv_attr_size(attrlen);
++	memcpy(rocker_tlv_data(tlv), data, attrlen);
++	memset((char *) tlv + tlv->len, 0, rocker_tlv_padlen(attrlen));
++	return 0;
++}
++
+diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
+new file mode 100644
+index 0000000..a161b6e
+--- /dev/null
++++ b/drivers/net/ethernet/rocker/rocker_tlv.h
+@@ -0,0 +1,202 @@
++/*
++ * drivers/net/ethernet/rocker/rocker_tlv.h - Rocker switch device driver
++ * Copyright (c) 2014-2015 Jiri Pirko <jiri@resnulli.us>
++ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _ROCKER_TLV_H
++#define _ROCKER_TLV_H
++
++#include <linux/types.h>
++
++#include "rocker_hw.h"
++#include "rocker.h"
++
++
++#define ROCKER_TLV_ALIGNTO 8U
++#define ROCKER_TLV_ALIGN(len) \
++	(((len) + ROCKER_TLV_ALIGNTO - 1) & ~(ROCKER_TLV_ALIGNTO - 1))
++#define ROCKER_TLV_HDRLEN ROCKER_TLV_ALIGN(sizeof(struct rocker_tlv))
++
++/*  <------- ROCKER_TLV_HDRLEN -------> <--- ROCKER_TLV_ALIGN(payload) --->
++ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
++ * |             Header          | Pad |           Payload           | Pad |
++ * |      (struct rocker_tlv)    | ing |                             | ing |
++ * +-----------------------------+- - -+- - - - - - - - - - - - - - -+- - -+
++ *  <--------------------------- tlv->len -------------------------->
++ */
++
++static inline struct rocker_tlv *rocker_tlv_next(const struct rocker_tlv *tlv,
++						 int *remaining)
++{
++	int totlen = ROCKER_TLV_ALIGN(tlv->len);
++
++	*remaining -= totlen;
++	return (struct rocker_tlv *) ((char *) tlv + totlen);
++}
++
++static inline int rocker_tlv_ok(const struct rocker_tlv *tlv, int remaining)
++{
++	return remaining >= (int) ROCKER_TLV_HDRLEN &&
++	       tlv->len >= ROCKER_TLV_HDRLEN &&
++	       tlv->len <= remaining;
++}
++
++#define rocker_tlv_for_each(pos, head, len, rem)	\
++	for (pos = head, rem = len;			\
++	     rocker_tlv_ok(pos, rem);			\
++	     pos = rocker_tlv_next(pos, &(rem)))
++
++#define rocker_tlv_for_each_nested(pos, tlv, rem)	\
++	rocker_tlv_for_each(pos, rocker_tlv_data(tlv),	\
++			    rocker_tlv_len(tlv), rem)
++
++static inline int rocker_tlv_attr_size(int payload)
++{
++	return ROCKER_TLV_HDRLEN + payload;
++}
++
++static inline int rocker_tlv_total_size(int payload)
++{
++	return ROCKER_TLV_ALIGN(rocker_tlv_attr_size(payload));
++}
++
++static inline int rocker_tlv_padlen(int payload)
++{
++	return rocker_tlv_total_size(payload) - rocker_tlv_attr_size(payload);
++}
++
++static inline int rocker_tlv_type(const struct rocker_tlv *tlv)
++{
++	return tlv->type;
++}
++
++static inline void *rocker_tlv_data(const struct rocker_tlv *tlv)
++{
++	return (char *) tlv + ROCKER_TLV_HDRLEN;
++}
++
++static inline int rocker_tlv_len(const struct rocker_tlv *tlv)
++{
++	return tlv->len - ROCKER_TLV_HDRLEN;
++}
++
++static inline u8 rocker_tlv_get_u8(const struct rocker_tlv *tlv)
++{
++	return *(u8 *) rocker_tlv_data(tlv);
++}
++
++static inline u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
++{
++	return *(u16 *) rocker_tlv_data(tlv);
++}
++
++static inline __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
++{
++	return *(__be16 *) rocker_tlv_data(tlv);
++}
++
++static inline u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
++{
++	return *(u32 *) rocker_tlv_data(tlv);
++}
++
++static inline u64 rocker_tlv_get_u64(const struct rocker_tlv *tlv)
++{
++	return *(u64 *) rocker_tlv_data(tlv);
++}
++
++void rocker_tlv_parse(const struct rocker_tlv **tb, int maxtype,
++		      const char *buf, int buf_len);
++
++static inline void rocker_tlv_parse_nested(const struct rocker_tlv **tb,
++					   int maxtype,
++					   const struct rocker_tlv *tlv)
++{
++	rocker_tlv_parse(tb, maxtype, rocker_tlv_data(tlv),
++			 rocker_tlv_len(tlv));
++}
++
++static inline void
++rocker_tlv_parse_desc(const struct rocker_tlv **tb, int maxtype,
++		      const struct rocker_desc_info *desc_info)
++{
++	rocker_tlv_parse(tb, maxtype, desc_info->data,
++			 desc_info->desc->tlv_size);
++}
++
++static inline struct rocker_tlv *
++rocker_tlv_start(struct rocker_desc_info *desc_info)
++{
++	return (struct rocker_tlv *) ((char *) desc_info->data +
++					       desc_info->tlv_size);
++}
++
++int rocker_tlv_put(struct rocker_desc_info *desc_info,
++		   int attrtype, int attrlen, const void *data);
++
++static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
++				    int attrtype, u8 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
++}
++
++static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
++				     int attrtype, u16 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
++}
++
++static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
++				      int attrtype, __be16 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
++}
++
++static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
++				     int attrtype, u32 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
++}
++
++static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
++				      int attrtype, __be32 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
++}
++
++static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
++				     int attrtype, u64 value)
++{
++	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
++}
++
++static inline struct rocker_tlv *
++rocker_tlv_nest_start(struct rocker_desc_info *desc_info, int attrtype)
++{
++	struct rocker_tlv *start = rocker_tlv_start(desc_info);
++
++	if (rocker_tlv_put(desc_info, attrtype, 0, NULL) < 0)
++		return NULL;
++
++	return start;
++}
++
++static inline void rocker_tlv_nest_end(struct rocker_desc_info *desc_info,
++				       struct rocker_tlv *start)
++{
++	start->len = (char *) rocker_tlv_start(desc_info) - (char *) start;
++}
++
++static inline void rocker_tlv_nest_cancel(struct rocker_desc_info *desc_info,
++					  const struct rocker_tlv *start)
++{
++	desc_info->tlv_size = (const char *) start - desc_info->data;
++}
++
++#endif
 -- 
 1.9.3
