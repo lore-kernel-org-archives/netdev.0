@@ -1,75 +1,101 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH 1/2] regmap: only call custom reg_update_bits() if reg is
- marked volatile
-Date: Tue, 6 Oct 2015 14:37:38 +0100
-Message-ID: <20151006133738.GQ12635@sirena.org.uk>
-References: <1444051772-20270-1-git-send-email-jon@ringle.org>
- <20151005145722.GT12635@sirena.org.uk>
- <20151005.232956.105884641412802470.davem@davemloft.net>
- <20151006101305.GG12635@sirena.org.uk>
- <ABC562FD-5DE5-452E-8DE6-1C436E37E8BE@gmail.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: [PATCH] netfilter: fix bad checksum on IPv6 when NAT is performed
+Date: Tue, 06 Oct 2015 16:10:52 +0200
+Message-ID: <1444140652.14655.340.camel@sakura.staff.proxad.net>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="xeZ3YA8+Vf61r4iB"
-Cc: David Miller <davem@davemloft.net>,
-	"jon@ringle.org" <jon@ringle.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jringle@gridpoint.com" <jringle@gridpoint.com>
-To: Jon Ringle <jonringle@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ABC562FD-5DE5-452E-8DE6-1C436E37E8BE@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem <davem@davemloft.net>, kaber <kaber@trash.net>,
+	pablo@netfilter.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.iliad.fr ([212.27.33.1]:46451 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752578AbbJFOKy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2015 10:10:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---xeZ3YA8+Vf61r4iB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+With this setup:
 
-On Tue, Oct 06, 2015 at 08:50:43AM -0400, Jon Ringle wrote:
+* non IPv6 checksumming capable network hardware
+* GRO off
+* IPv6 SNAT
 
-> 4) David should then merge the regmap for-next branch into net-next
+I get this when I receive an UDPv6 reply: "<unknown>: hw csum failure"
 
-What I generally do (and what's best practice in general for cross tree
-work) is apply patches on topic branches and then create a signed tag
-for anything that's being merged into another tree.  That both means
-we've got a signed tag for the chain of trust in the code and means that
-only the specific dependency gets pulled into other trees rather than
-everything that's queued.  Minimising what's pulled in makes pull
-requests look cleaner and avoids noise from in development code
-appearing in other trees (eg, any bugs in other code that's not quite
-ready won't get merged).
+Call trace:
 
-In my specific trees nobody should ever merge my for-FOO branches,
-they're rebuilt frequently - the topic branches are fast forward only
-and intended for that (though like I say a signed tag is best).  Linus
-complains about keeping the for-FOO branches fast forward
-only.
+* nf_ip6_checksum() calls __skb_checksum_complete()
+* nf_nat_ipv6_csum_update() & nf_nat_ipv6_manip_pkt()
+* __udp6_lib_rcv() => udp6_csum_init()
+* __skb_checksum_validate_complete() "fastpath" fails because
+  skb->csum is incorrect.
+* udpv6_recvmsg() => skb_copy_and_csum_datagram_msg()
 
-> 5) I will submit a new patch to net-next for the encx24j600 driver
-> that should build against the regmap changes
+The last call computes a valid checksum despite CHECKSUM_COMPLETE and
+triggers the warning.
 
-> Sound like a good plan?
+When we perform NAT on IPv4, we also update the IPv4 checksum, so
+there is no side effect on skb->csum (since the csum over a valid IPv4
+header area is zero).
 
-Makes sense to me modulo the signed tag thing above.
+But IPv6 doesn't have such header checksum, so when performing NAT we need to
+update skb->csum.
 
---xeZ3YA8+Vf61r4iB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+---
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 70fbaed..e9917d74 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -81,6 +81,8 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+ 				  enum nf_nat_manip_type maniptype)
+ {
+ 	struct ipv6hdr *ipv6h;
++	const __be32 *to;
++	__be32 *from;
+ 	__be16 frag_off;
+ 	int hdroff;
+ 	u8 nexthdr;
+@@ -100,11 +102,24 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+ 				target, maniptype))
+ 		return false;
+ manip_addr:
+-	if (maniptype == NF_NAT_MANIP_SRC)
+-		ipv6h->saddr = target->src.u3.in6;
+-	else
+-		ipv6h->daddr = target->dst.u3.in6;
++	if (maniptype == NF_NAT_MANIP_SRC) {
++		from = ipv6h->saddr.s6_addr32;
++		to = target->src.u3.in6.s6_addr32;
++	} else {
++		from = ipv6h->daddr.s6_addr32;
++		to = target->src.u3.in6.s6_addr32;
++	}
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		__be32 diff[] = {
++			~from[0], ~from[1], ~from[2], ~from[3],
++			to[0], to[1], to[2], to[3],
++		};
++
++		skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
++	}
+ 
++	memcpy(from, to, sizeof (struct in6_addr));
+ 	return true;
+ }
+ 
+-- 
+1.9.1
 
-iQEcBAEBCAAGBQJWE86dAAoJECTWi3JdVIfQ77AH/iDZtUFR4NykCw0zTSodoXMW
-vuAwG0hl3quO6t0bn53C6AIpSKewF+b4Ly3q+mEKqU/zUunST+sxnZOi7ue7ZK4I
-7yWTQV7whlN9CcB6/KGrC6wSO1QN6fxBho50KFvBulRa6+HhI0Y5lHJQ4knFK97u
-bQKAMt9r+xbar/XK7Pjms/0WLDrTfuO3GQWgek3bIC+9ySAfzo47v9VgyJA98zGo
-o1Tr6Pn2JMZaOz1N35nCCZ5nlN1to8l9Yl9FOUQM7X5IZeCduvVX8myko7jlW91l
-iKuCh+QvZT+qq+FxB5f5ImSc8QUhnfMTw086XlhkAHEWyKoKLa/2KT0SlorJNjA=
-=Ahnl
------END PGP SIGNATURE-----
 
---xeZ3YA8+Vf61r4iB--
+
+-- 
+Maxime
