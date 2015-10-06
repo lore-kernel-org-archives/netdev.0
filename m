@@ -1,103 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: HW communication debugging interface - ideas?
-Date: Tue, 6 Oct 2015 10:14:57 +0200
-Message-ID: <20151006081457.GD2165@nanopsycho.orion>
-References: <20150930135141.GF2098@nanopsycho.orion>
- <9B0331B6EBBD0E4684FBFAEDA55776F91944E43E@HASMSX110.ger.corp.intel.com>
- <20151005095633.GE2278@nanopsycho.orion>
- <20151005144941.GC8673@lunn.ch>
- <20151005145542.GJ2278@nanopsycho.orion>
- <20151005145842.GD8673@lunn.ch>
- <20151005151821.GK2278@nanopsycho.orion>
- <56129745.1020805@gmail.com>
- <20151005153554.GM2278@nanopsycho.orion>
- <56129B7D.4040402@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, "Rosen, Rami" <rami.rosen@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"idosch@mellanox.com" <idosch@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37664 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbbJFIO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 04:14:59 -0400
-Received: by wicfx3 with SMTP id fx3so147179936wic.0
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 01:14:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <56129B7D.4040402@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] ipvs: Remove possibly unused net variable from ip_vs_out
+Date: Tue,  6 Oct 2015 17:15:24 +0900
+Message-ID: <1444119324-5653-1-git-send-email-horms@verge.net.au>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 05, 2015 at 05:47:09PM CEST, john.fastabend@gmail.com wrote:
->On 15-10-05 08:35 AM, Jiri Pirko wrote:
->> Mon, Oct 05, 2015 at 05:29:09PM CEST, john.fastabend@gmail.com wrote:
->>> On 15-10-05 08:18 AM, Jiri Pirko wrote:
->>>> Mon, Oct 05, 2015 at 04:58:42PM CEST, andrew@lunn.ch wrote:
->>>>> On Mon, Oct 05, 2015 at 04:55:42PM +0200, Jiri Pirko wrote:
->>>>>> Mon, Oct 05, 2015 at 04:49:41PM CEST, andrew@lunn.ch wrote:
->>>>>>>>> Are you referring here to messages of the EMAD protocol ?
->>>>>>>
->>>>>>> I know nothing about this protocol.....
->>>>>>>
->>>>>>> Does it at least use standard Ethernet framing? Source and Destination
->>>>>>> header and an EtherType which mean EMAD?
->>>>>>
->>>>>> Yep, but that does not really matter. I believe we should find debugging
->>>>>> interface which is protocol agnostic. Just arbitrary messages
->>>>>> monitoring.
->>>>>
->>>>> Hi Jiri
->>>>>
->>>>> O.K, it is just that you mentioned wireshark. Passing the frames to
->>>>> network interface taps would make this trivial.
->>>>
->>>> That is true. But using netlink+nlmon would do the same.
->>>
->>> Also I guess if you go this direction you want to make it generic
->>> enough for any drivers to use it to snoop software/firmware msgs. This
->>> is common across many devices.
->> 
->> Yes, definitelly, this should be something generic to be usable for
->> every device type.
->> 
->> 
->>>
->>> In the past though I've just used ethtool dump commands and some
->>> "scripts" on top of this to debug devices. And when it got really
->>> bad wrote some throw away code to debug my issue. I guess it might
->>> be nice to have something in the kernel to improve this but have
->>> you considered using the tracing features that already exist?
->> 
->> Which ones do you have in mind?
->> 
->
->I was thinking something like kprobes+bpf to dump a trace and
->then a lua script in wireshark to parse the input and pretty
->print it for users. This might get you good-enough support without
->having to carry it around in the kernel just so we can debug
->the devices. We could build some libs/pkgs around it in userspace
->and get it published somewhere so we can all work on it together.
+Since 6f2bcea9917d ("ipvs: Pass ipvs into ip_vs_in_icmp and
+ip_vs_in_icmp_v6") the net variable in ip_vs_out() appears to be unused
+unless CONFIG_IP_VS_IPV6 is set. To resolve this remove the net variable
+and dereference net asneeded.
 
-Well, I was thinking rather about some standard interface, not dependent
-on actual kernel internals.
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_core.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index d08df435c2aa..3773154d9b71 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1172,7 +1172,6 @@ drop:
+ static unsigned int
+ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int af)
+ {
+-	struct net *net = ipvs->net;
+ 	struct ip_vs_iphdr iph;
+ 	struct ip_vs_protocol *pp;
+ 	struct ip_vs_proto_data *pd;
+@@ -1272,7 +1271,7 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
+ #ifdef CONFIG_IP_VS_IPV6
+ 				if (af == AF_INET6) {
+ 					if (!skb->dev)
+-						skb->dev = net->loopback_dev;
++						skb->dev = ipvs->net->loopback_dev;
+ 					icmpv6_send(skb,
+ 						    ICMPV6_DEST_UNREACH,
+ 						    ICMPV6_PORT_UNREACH,
+-- 
+2.1.4
 
->
->I suspect the primary users for this will be developers anyways
->and maybe some users who have a real nasty bug.
->
->> 
->>>
->>> .John
->>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>
->
