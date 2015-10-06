@@ -1,77 +1,199 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 08/14] rocker: set default world on port probe and clean world on remove
-Date: Tue,  6 Oct 2015 09:51:47 +0200
-Message-ID: <1444117913-10386-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 10/14] rocker: pre-allocate wait structures during cmd ring init
+Date: Tue,  6 Oct 2015 09:51:49 +0200
+Message-ID: <1444117913-10386-11-git-send-email-jiri@resnulli.us>
 References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, ast@plumgrid.com,
 	David.Laight@ACULAB.COM, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:34146 "EHLO
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:38582 "EHLO
 	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbbJFHwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:08 -0400
-Received: by wicfx3 with SMTP id fx3so153285196wic.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:07 -0700 (PDT)
+	with ESMTP id S1752067AbbJFHwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 03:52:10 -0400
+Received: by wiclk2 with SMTP id lk2so146691677wic.1
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 00:52:09 -0700 (PDT)
 In-Reply-To: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Currently, there is only OF-DPA world supported in HW. So make this
-would the default one for newly created rocker ports.
+This avoids need to alloc/free wait structure for every command call.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
- - s/__rocker_port_change_world/rocker_port_change_world/
----
- drivers/net/ethernet/rocker/rocker_main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/rocker/rocker_main.c | 87 +++++++++++++++++++++++--------
+ 1 file changed, 66 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 55e8ed6..10fa7df 100644
+index 4116a5b..c313b9e 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2175,6 +2175,7 @@ static struct rocker_world_ops *rocker_world_ops[] = {
- };
+@@ -414,23 +414,19 @@ static void rocker_wait_init(struct rocker_wait *wait)
+ 	rocker_wait_reset(wait);
+ }
  
- #define ROCKER_WORLD_OPS_LEN ARRAY_SIZE(rocker_world_ops)
-+#define ROCKER_DEFAULT_WORLD_OPS rocker_world_ops[0]
+-static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
+-					      struct switchdev_trans *trans,
+-					      int flags)
++static struct rocker_wait *rocker_wait_create(void)
+ {
+ 	struct rocker_wait *wait;
  
- struct rocker_world {
- 	struct list_head list;
-@@ -5198,6 +5199,7 @@ static void rocker_remove_ports(const struct rocker *rocker)
- 			continue;
- 		rocker_port_ig_tbl(rocker_port, NULL, ROCKER_OP_FLAG_REMOVE);
- 		unregister_netdev(rocker_port->dev);
-+		rocker_port_change_world(rocker_port, NULL);
- 		free_netdev(rocker_port->dev);
+-	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
++	wait = kzalloc(sizeof(*wait), GFP_KERNEL);
+ 	if (!wait)
+ 		return NULL;
+-	rocker_wait_init(wait);
+ 	return wait;
+ }
+ 
+-static void rocker_wait_destroy(struct switchdev_trans *trans,
+-				struct rocker_wait *wait)
++static void rocker_wait_destroy(struct rocker_wait *wait)
+ {
+-	rocker_kfree(trans, wait);
++	kfree(wait);
+ }
+ 
+ static bool rocker_wait_event_timeout(struct rocker_wait *wait,
+@@ -906,6 +902,53 @@ static void rocker_dma_ring_bufs_free(const struct rocker *rocker,
  	}
- 	kfree(rocker->ports);
-@@ -5248,6 +5250,12 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ }
  
- 	dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_SG;
++static int rocker_dma_cmd_ring_wait_alloc(struct rocker_desc_info *desc_info)
++{
++	struct rocker_wait *wait;
++
++	wait = rocker_wait_create();
++	if (!wait)
++		return -ENOMEM;
++	rocker_desc_cookie_ptr_set(desc_info, wait);
++	return 0;
++}
++
++static void
++rocker_dma_cmd_ring_wait_free(const struct rocker_desc_info *desc_info)
++{
++	struct rocker_wait *wait = rocker_desc_cookie_ptr_get(desc_info);
++
++	rocker_wait_destroy(wait);
++}
++
++static int rocker_dma_cmd_ring_waits_alloc(const struct rocker *rocker)
++{
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++	int err;
++
++	for (i = 0; i < cmd_ring->size; i++) {
++		err = rocker_dma_cmd_ring_wait_alloc(&cmd_ring->desc_info[i]);
++		if (err)
++			goto rollback;
++	}
++	return 0;
++
++rollback:
++	for (i--; i >= 0; i--)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
++	return err;
++}
++
++static void rocker_dma_cmd_ring_waits_free(const struct rocker *rocker)
++{
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++
++	for (i = 0; i < cmd_ring->size; i++)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
++}
++
+ static int rocker_dma_rings_init(struct rocker *rocker)
+ {
+ 	const struct pci_dev *pdev = rocker->pdev;
+@@ -928,6 +971,12 @@ static int rocker_dma_rings_init(struct rocker *rocker)
+ 		goto err_dma_cmd_ring_bufs_alloc;
+ 	}
  
-+	err = rocker_port_change_world(rocker_port, ROCKER_DEFAULT_WORLD_OPS);
++	err = rocker_dma_cmd_ring_waits_alloc(rocker);
 +	if (err) {
-+		dev_err(&pdev->dev, "failed to set default world\n");
-+		goto err_port_change_world;
++		dev_err(&pdev->dev, "failed to alloc command dma ring waits\n");
++		goto err_dma_cmd_ring_waits_alloc;
 +	}
 +
- 	err = register_netdev(dev);
+ 	err = rocker_dma_ring_create(rocker, ROCKER_DMA_EVENT,
+ 				     ROCKER_DMA_EVENT_DEFAULT_SIZE,
+ 				     &rocker->event_ring);
+@@ -950,6 +999,8 @@ err_dma_event_ring_bufs_alloc:
+ err_dma_event_ring_create:
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
++err_dma_cmd_ring_waits_alloc:
++	rocker_dma_cmd_ring_waits_free(rocker);
+ err_dma_cmd_ring_bufs_alloc:
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+ 	return err;
+@@ -960,6 +1011,7 @@ static void rocker_dma_rings_fini(struct rocker *rocker)
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->event_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->event_ring);
++	rocker_dma_cmd_ring_waits_free(rocker);
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+@@ -1181,7 +1233,6 @@ static irqreturn_t rocker_cmd_irq_handler(int irq, void *dev_id)
+ 		wait = rocker_desc_cookie_ptr_get(desc_info);
+ 		if (wait->nowait) {
+ 			rocker_desc_gen_clear(desc_info);
+-			rocker_wait_destroy(NULL, wait);
+ 		} else {
+ 			rocker_wait_wake_up(wait);
+ 		}
+@@ -1373,28 +1424,24 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 	unsigned long lock_flags;
+ 	int err;
+ 
+-	wait = rocker_wait_create(rocker_port, trans, flags);
+-	if (!wait)
+-		return -ENOMEM;
+-	wait->nowait = nowait;
+-
+ 	spin_lock_irqsave(&rocker->cmd_ring_lock, lock_flags);
+ 
+ 	desc_info = rocker_desc_head_get(&rocker->cmd_ring);
+ 	if (!desc_info) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		err = -EAGAIN;
+-		goto out;
++		return -EAGAIN;
+ 	}
+ 
++	wait = rocker_desc_cookie_ptr_get(desc_info);
++	rocker_wait_init(wait);
++	wait->nowait = nowait;
++
+ 	err = prepare(rocker_port, desc_info, prepare_priv);
  	if (err) {
- 		dev_err(&pdev->dev, "register_netdev failed\n");
-@@ -5282,6 +5290,8 @@ err_port_ig_tbl:
- 	rocker->ports[port_number] = NULL;
- 	unregister_netdev(dev);
- err_register_netdev:
-+	rocker_port_change_world(rocker_port, NULL);
-+err_port_change_world:
- 	free_netdev(dev);
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		goto out;
++		return err;
+ 	}
+ 
+-	rocker_desc_cookie_ptr_set(desc_info, wait);
+-
+ 	if (!switchdev_trans_ph_prepare(trans))
+ 		rocker_desc_head_set(rocker, &rocker->cmd_ring, desc_info);
+ 
+@@ -1415,8 +1462,6 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 		err = process(rocker_port, desc_info, process_priv);
+ 
+ 	rocker_desc_gen_clear(desc_info);
+-out:
+-	rocker_wait_destroy(trans, wait);
  	return err;
  }
+ 
 -- 
 1.9.3
