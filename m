@@ -1,139 +1,111 @@
-From: Vinson Lee <vlee@twopensource.com>
-Subject: Re: netpoll_send_skb_on_dev warning with bnx2
-Date: Wed, 7 Oct 2015 10:46:21 -0700
-Message-ID: <CAHTgTXX7UPs58UWQCHVf6LqWB8iWfdoJjRc1cPeLUBGbYm9B9g@mail.gmail.com>
-References: <CAHTgTXVCwhYKFKHPJHK19uLPX4na8+WJ7WMEv15BZMPocNQBwA@mail.gmail.com>
-	<20151002131027.GC10731@hmsreliant.think-freely.org>
-	<CAHTgTXW2HnJ2j=r3McsSm4q0XVQ4_NhjzwzFx9vmRFtt6rbVOQ@mail.gmail.com>
-	<20151007143827.GB26644@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Dept-HSGLinuxNICDev@qlogic.com, Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Neil Horman <nhorman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151007143827.GB26644@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
+Date: Wed, 7 Oct 2015 10:47:17 -0700
+Message-ID: <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz> <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+ Vlastimil Babka <vbabka@suse.cz>,
+ Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+ "dev@openvswitch.org" <dev@openvswitch.org>,
+ Pravin Shelar <pshelar@nicira.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ netdev <netdev@vger.kernel.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ linux-mm@kvack.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 7, 2015 at 7:38 AM, Neil Horman <nhorman@redhat.com> wrote:
-> On Tue, Oct 06, 2015 at 10:12:56PM -0700, Vinson Lee wrote:
->> On Fri, Oct 2, 2015 at 6:10 AM, Neil Horman <nhorman@redhat.com> wrote:
->> > On Thu, Oct 01, 2015 at 08:25:46PM -0700, Vinson Lee wrote:
->> >> Hi.
->> >>
->> >> I am seeing a netpoll_send_skb_on_dev warning with bnx2. It happens on
->> >> Linux 4.1 and I am able to reproduce the warning with Linux 4.3-rc3.
->> >>
->> >> ------------[ cut here ]------------
->> >> WARNING: CPU: 11 PID: 3110 at net/core/netpoll.c:368
->> >> netpoll_send_skb_on_dev+0x183/0x201()
->> >> netpoll_send_skb_on_dev(): eth0 enabled interrupts in poll
->> >> (bnx2_start_xmit+0x0/0x5d4 [bnx2])
->> >> Modules linked in: netconsole(+) configfs ipv6 ppdev parport_pc lp
->> >> parport tcp_diag inet_diag ipmi_devintf serio_raw iTCO_wdt
->> >> iTCO_vendor_support ipmi_si ipmi_msghandler hpilo hpwdt bnx2 coretemp
->> >> kvm_intel kvm crc32c_intel ghash_clmulni_intel microcode lpc_ich
->> >> mfd_core i7core_edac edac_core pcc_cpufreq acpi_cpufreq shpchp
->> >> sch_fq_codel hpsa radeon ttm drm_kms_helper drm fb_sys_fops sysimgblt
->> >> sysfillrect syscopyarea i2c_algo_bit i2c_core
->> >> CPU: 11 PID: 3110 Comm: modprobe Not tainted 4.3.0-rc3 #1
->> >>  0000000000000170 ffff88060be17a18 ffffffff812bc84c ffffffff818b1a78
->> >>  ffff88060be17a68 ffff88060be17a58 ffffffff81064712 000000000be17a68
->> >>  ffffffff814ec12e ffff88060bc10900 0000000000000000 ffff8800d941c000
->> >> Call Trace:
->> >>  [<ffffffff812bc84c>] dump_stack+0x48/0x5c
->> >>  [<ffffffff81064712>] warn_slowpath_common+0xa1/0xbb
->> >>  [<ffffffff814ec12e>] ? netpoll_send_skb_on_dev+0x183/0x201
->> >>  [<ffffffff810647cf>] warn_slowpath_fmt+0x46/0x48
->> >>  [<ffffffffa039a6b9>] ? bnx2_run_loopback+0x391/0x391 [bnx2]
->> >>  [<ffffffff814ec12e>] netpoll_send_skb_on_dev+0x183/0x201
->> >>  [<ffffffff814ec58b>] netpoll_send_udp+0x3df/0x3f1
->> >>  [<ffffffffa049324a>] write_msg+0xaf/0xe9 [netconsole]
->> >>  [<ffffffff810a6daa>] call_console_drivers.clone.2+0xd1/0xe9
->> >>  [<ffffffff810a70d0>] console_unlock+0x30e/0x3a5
->> >>  [<ffffffff810a757d>] register_console+0x2af/0x322
->> >>  [<ffffffffa04971b4>] init_netconsole+0x1b4/0x224 [netconsole]
->> >>  [<ffffffffa0497000>] ? 0xffffffffa0497000
->> >>  [<ffffffff810002bf>] do_one_initcall+0xf7/0x182
->> >>  [<ffffffff811764fe>] ? kmem_cache_alloc_trace+0xb6/0xf0
->> >>  [<ffffffff810cb8d8>] ? do_init_module+0x31/0x1e4
->> >>  [<ffffffff810cb910>] do_init_module+0x69/0x1e4
->> >>  [<ffffffff810ccedc>] load_module+0x1451/0x160b
->> >>  [<ffffffff810ca1a3>] ? mod_kobject_put+0x4d/0x4d
->> >>  [<ffffffff811606f3>] ? __vmalloc_node+0x3e/0x40
->> >>  [<ffffffff810cd2aa>] SyS_init_module+0x14f/0x155
->> >>  [<ffffffff815833d7>] entry_SYSCALL_64_fastpath+0x12/0x6a
->> >> ---[ end trace 878215466e581776 ]---
->> >>
->> >> Cheers,
->> >> Vinson
->> >
->> > Hmm, that would suggest that someone called local_irq_enable in either the xmit,
->> > poll_controller or napi poll paths (or one of its always-disable, bretheren),
->> > but I dont see where that might be happening.  Are you able to instrument the
->> > kernel (either by cloning that WARN_ON_ONCE call or via stap script), so we can
->> > further isolate which call path the problem is happening in?
->> >
->> > Neil
->> >
->>
->> I bisected the regression and it is introduced with this Linux 3.19-rc1 commit.
->>
->> e22b886a8a43b147e1994a9f970f678fc0df2033 is the first bad commit
->> commit e22b886a8a43b147e1994a9f970f678fc0df2033
->> Author: Peter Zijlstra <peterz@infradead.org>
->> Date:   Wed Sep 24 10:18:48 2014 +0200
->>
->>     sched/wait: Add might_sleep() checks
->>
->>     Add more might_sleep() checks, suppose someone put a wait_event() like
->>     thing in a wait loop..
->>
->>     Can't put might_sleep() in ___wait_event() because there's the locked
->>     primitives which call ___wait_event() with locks held.
->>
->>     Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
->>     Cc: tglx@linutronix.de
->>     Cc: ilya.dryomov@inktank.com
->>     Cc: umgwanakikbuti@gmail.com
->>     Cc: Oleg Nesterov <oleg@redhat.com>
->>     Cc: Linus Torvalds <torvalds@linux-foundation.org>
->>     Link: http://lkml.kernel.org/r/20140924082242.119255706@infradead.org
->>     Signed-off-by: Ingo Molnar <mingo@kernel.org>
->>
->> :040000 040000 1536c4cc3c706b4129452ce023c69733b46a23e4
->> 22c894c6ae02be75e5f772d39fde178f036e906f M    include
->>
->> Vinson
->
-> That doesn't make any sense.  That commitis just adding some warning messages,
-> it doesn't change any locking or irq enablement states.  That in turn suggests
-> that you are seeing something is transient and sensitive to timing.  What driver
-> is eth0 using?  Is it bnx2 or something else?
->
-> Neil
->
 
-eth0 is using bnx2.
+> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
+>=20
+> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>>>=20
+>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>>>>=20
+>>>> When openvswitch tries allocate memory from offline numa node 0:
+>>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | =
+__GFP_ZERO,
+>>>> 0)
+>>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || =
+!node_online(nid))
+>>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in =
+linux/gfp.h
+>>>> This patch disables numa affinity in this case.
+>>>>=20
+>>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>>>=20
+>>>=20
+>>> ...
+>>>=20
+>>>> diff --git a/net/openvswitch/flow_table.c =
+b/net/openvswitch/flow_table.c
+>>>> index f2ea83ba4763..c7f74aab34b9 100644
+>>>> --- a/net/openvswitch/flow_table.c
+>>>> +++ b/net/openvswitch/flow_table.c
+>>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>>>=20
+>>>>      /* Initialize the default stat node. */
+>>>>      stats =3D kmem_cache_alloc_node(flow_stats_cache,
+>>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
+>>>> +                      GFP_KERNEL | __GFP_ZERO,
+>>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>>>=20
+>>>=20
+>>> Stupid question: can node 0 become offline between this check, and =
+the
+>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>>=20
+>>=20
+>> Another question to ask would be is it possible for node 0 to be =
+online, but
+>> be a memoryless node?
+>>=20
+>> I would say you are better off just making this call =
+kmem_cache_alloc.  I
+>> don't see anything that indicates the memory has to come from node 0, =
+so
+>> adding the extra overhead doesn't provide any value.
+>=20
+> I agree that this at least makes me wonder, though I actually have
+> concerns in the opposite direction - I see assumptions about this
+> being on node 0 in net/openvswitch/flow.c.
+>=20
+> Jarno, since you original wrote this code, can you take a look to see
+> if everything still makes sense?
 
-$ ethtool -i eth0
-driver: bnx2
-version: 2.2.6
-firmware-version: bc 5.2.3 NCSI 2.0.12
-bus-info: 0000:03:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
+We keep the pre-allocated stats node at array index 0, which is =
+initially used by all CPUs, but if CPUs from multiple numa nodes start =
+updating the stats, we allocate additional stats nodes (up to one per =
+numa node), and the CPUs on node 0 keep using the preallocated entry. If =
+stats cannot be allocated from CPUs local node, then those CPUs keep =
+using the entry at index 0. Currently the code in net/openvswitch/flow.c =
+will try to allocate the local memory repeatedly, which may not be =
+optimal when there is no memory at the local node.
 
-I can add some WARN_ON_ONCE calls elsewhere in the kernel. Do you have
-suggestions where or can provide me an example patch?
+Allocating the memory for the index 0 from other than node 0, as =
+discussed here, just means that the CPUs on node 0 will keep on using =
+non-local memory for stats. In a scenario where there are CPUs on two =
+nodes (0, 1), but only the node 1 has memory, a shared flow entry will =
+still end up having separate memory allocated for both nodes, but both =
+of the nodes would be at node 1. However, there is still a high =
+likelihood that the memory allocations would not share a cache line, =
+which should prevent the nodes from invalidating each other=E2=80=99s =
+caches. Based on this I do not see a problem relaxing the memory =
+allocation for the default stats node. If node 0 has memory, however, it =
+would be better to allocate the memory from node 0.
 
-Vinson
+  Jarno
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
