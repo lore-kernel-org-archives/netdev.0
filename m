@@ -1,57 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/3] net: remove dsa.h from netdevice.h
-Date: Tue, 06 Oct 2015 17:42:28 -0700
-Message-ID: <56146A74.8050807@gmail.com>
-References: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
+Date: Tue, 6 Oct 2015 18:01:06 -0700
+Message-ID: <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz> <5612DCC8.4040605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlastimil Babka <vbabka@suse.cz>, Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	"dev@openvswitch.org" <dev@openvswitch.org>, Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
+To: Alexander Duyck <alexander.duyck@gmail.com>, Jarno Rajahalme <jrajahalme@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5612DCC8.4040605@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 06/10/15 14:54, Vivien Didelot wrote:
-> In order to push switchdev objects down to DSA drivers, I need to include
-> switchdev.h in dsa.h. But compilation fails because of a circular dependency
-> issue, since dsa.h is also included in linux/netdevice.h.
+On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>>
+>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>>>
+>>> When openvswitch tries allocate memory from offline numa node 0:
+>>> stats = kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO,
+>>> 0)
+>>> It catches VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || !node_online(nid))
+>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
+>>> This patch disables numa affinity in this case.
+>>>
+>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>>
+>>
+>> ...
+>>
+>>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+>>> index f2ea83ba4763..c7f74aab34b9 100644
+>>> --- a/net/openvswitch/flow_table.c
+>>> +++ b/net/openvswitch/flow_table.c
+>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>>
+>>>       /* Initialize the default stat node. */
+>>>       stats = kmem_cache_alloc_node(flow_stats_cache,
+>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
+>>> +                      GFP_KERNEL | __GFP_ZERO,
+>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>>
+>>
+>> Stupid question: can node 0 become offline between this check, and the
+>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>
+>
+> Another question to ask would be is it possible for node 0 to be online, but
+> be a memoryless node?
+>
+> I would say you are better off just making this call kmem_cache_alloc.  I
+> don't see anything that indicates the memory has to come from node 0, so
+> adding the extra overhead doesn't provide any value.
 
-Just for the record, what does this circular dependency looks like? Last
-I tried something in that front, I ended-up forward declaring the
-'switchdev_obj' structure, but that was weeks ago before the whole
-restructuring, so could be pointless now.
+I agree that this at least makes me wonder, though I actually have
+concerns in the opposite direction - I see assumptions about this
+being on node 0 in net/openvswitch/flow.c.
 
-> 
-> dsa.h is included for two purposes: to have the definition of struct
-> dsa_switch_tree; and to have access to dsa_uses_tagged_protocol(), used by
-> netdev_uses_dsa().
-> 
-> This patchset forward declares struct dsa_switch_tree; adds a new uses_hw_tag
-> boolean to struct net_device, which is more explicit than the DSA helper, and
-> finally get rid of the dsa.h include.
-> 
-> With this patchset, switchdev.h can safely be included in dsa.h.
-> 
-> Vivien Didelot (3):
->   net: dsa: add uses_hw_tag
->   net: dsa: include dsa.h in dsa_priv.h
->   net: remove dsa.h include from linux/netdevice.h
-> 
->  include/linux/netdevice.h | 9 ++++++---
->  include/net/dsa.h         | 5 -----
->  net/dsa/dsa.c             | 1 +
->  net/dsa/dsa_priv.h        | 1 +
->  4 files changed, 8 insertions(+), 8 deletions(-)
-> 
+Jarno, since you original wrote this code, can you take a look to see
+if everything still makes sense?
 
-
--- 
-Florian
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
