@@ -1,63 +1,112 @@
-From: Abylay Ospan <aospan@netup.ru>
-Subject: Re: [PATCH 08/15] netup_unidvb: use pci_set_dma_mask insted of pci_dma_supported
-Date: Wed, 7 Oct 2015 11:03:13 +0300
-Message-ID: <CAK3bHNXJp70C3DC8OPsKHmiTeLu-J70VKSfKwDgUd5F=uorEWw@mail.gmail.com>
-References: <1443885579-7094-1-git-send-email-hch@lst.de> <1443885579-7094-9-git-send-email-hch@lst.de>
+From: Matan Barak <matanb@mellanox.com>
+Subject: Re: [PATCH 2/2] Do not set shared_ports when nreq > MAX_MSIX
+Date: Wed, 7 Oct 2015 11:08:40 +0300
+Message-ID: <5614D308.4010106@mellanox.com>
+References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+ <1444166829-17638-2-git-send-email-clsoto@linux.vnet.ibm.com>
+ <CAJ3xEMjYtmSj3kBo24w+4Y3Nh60C9J=NHb_=YQw1QASJ1i_i1g@mail.gmail.com>
+ <5614411E.1070105@linux.vnet.ibm.com> <5614C8E5.8040607@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Don Fry <pcnet32@frontier.com>,
-	Oliver Neukum <oneukum@suse.com>,
-	linux-net-drivers@solarflare.com, dri-devel@lists.freedesktop.org,
-	linux-media <linux-media@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
-	linux-serial@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443885579-7094-9-git-send-email-hch@lst.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, <brking@linux.vnet.ibm.com>
+To: Carol Soto <clsoto@linux.vnet.ibm.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0084.outbound.protection.outlook.com ([157.55.234.84]:16675
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750947AbbJGIIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 04:08:48 -0400
+In-Reply-To: <5614C8E5.8040607@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-Acked-by: Abylay Ospan <aospan@netup.ru>
 
-thanks !
-
-2015-10-03 18:19 GMT+03:00 Christoph Hellwig <hch@lst.de>:
-> This ensures the dma mask that is supported by the driver is recorded
-> in the device structure.
+On 10/7/2015 10:25 AM, Matan Barak wrote:
 >
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  drivers/media/pci/netup_unidvb/netup_unidvb_core.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/media/pci/netup_unidvb/netup_unidvb_core.c b/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
-> index 6d8bf627..511144f 100644
-> --- a/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
-> +++ b/drivers/media/pci/netup_unidvb/netup_unidvb_core.c
-> @@ -809,7 +809,7 @@ static int netup_unidvb_initdev(struct pci_dev *pci_dev,
->                 "%s(): board vendor 0x%x, revision 0x%x\n",
->                 __func__, board_vendor, board_revision);
->         pci_set_master(pci_dev);
-> -       if (!pci_dma_supported(pci_dev, 0xffffffff)) {
-> +       if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
->                 dev_err(&pci_dev->dev,
->                         "%s(): 32bit PCI DMA is not supported\n", __func__);
->                 goto pci_detect_err;
-> --
-> 1.9.1
+> On 10/7/2015 12:46 AM, Carol Soto wrote:
+>>
+>>
+>> On 10/6/2015 4:39 PM, Or Gerlitz wrote:
+>>> On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote=
+:
+>>>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>>
+>>>> If we get MAX_MSIX interrupts would like to have each receive ring
+>>>> with his own msix interrupt line.
+>>> so 9293267a3e2a  was only partially correct? and/or not fully optim=
+al?
+>>> please elaborate more on that in your change log.
+>> just not fully optimal, with commit 9293267a3e2a if I have 64 MSIXs =
+and
+>> 2 ports I can get 8 rings for each port but then the rings will shar=
+e
+>> the interrupt lines. For 64 MSIXs we can have each ring with his own
+>> interrupt line.
+>>
+>>>> Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested
+>>>> MSIXs to MAX_MSIX')
+>>>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>> Carol, you didn't use net/mlx4: prefix as ask for mlx4 driver patch
+>>> titles, so please repost, but before that I'd like to see an ack fr=
+om
+>>> Matan for this patch as well.
+>> Sorry completely missed it. When Matan acks will resend it.
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-media" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The logic seems correct to me. When there are more nreqs than we coul=
+d
+> possibly support (or want to support), there=E2=80=99s no reason to s=
+hare the
+> EQs between the different ports.
+> Thanks for your fix.
+>
 
+Please also clean the shared_ports variable - we don't need this anymor=
+e.
 
-
--- 
-Abylay Ospan,
-NetUP Inc.
-http://www.netup.tv
+> Regards,
+> Matan
+>
+>>>
+>>> Or.
+>>>
+>>>> ---
+>>>>   drivers/net/ethernet/mellanox/mlx4/main.c | 4 +---
+>>>>   1 file changed, 1 insertion(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>> b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>> index 006757f..f03f513 100644
+>>>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>> @@ -2673,10 +2673,8 @@ static void mlx4_enable_msi_x(struct mlx4_d=
+ev
+>>>> *dev)
+>>>>
+>>>>                  nreq =3D min_t(int, dev->caps.num_eqs -
+>>>> dev->caps.reserved_eqs,
+>>>>                               nreq);
+>>>> -               if (nreq > MAX_MSIX) {
+>>>> +               if (nreq > MAX_MSIX)
+>>>>                          nreq =3D MAX_MSIX;
+>>>> -                       shared_ports =3D true;
+>>>> -               }
+>>>>
+>>>>                  entries =3D kcalloc(nreq, sizeof *entries, GFP_KE=
+RNEL);
+>>>>                  if (!entries)
+>>>> --
+>>>> 1.8.3.1
+>>>>
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe netdev" =
+in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
