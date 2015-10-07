@@ -1,46 +1,134 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Wed, 7 Oct 2015 08:12:16 -0600
-Message-ID: <56152840.6040701@cumulusnetworks.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <20151007.042525.1310561159530454910.davem@davemloft.net>
+From: Carol Soto <clsoto@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] Do not set shared_ports when nreq > MAX_MSIX
+Date: Wed, 7 Oct 2015 09:20:27 -0500
+Message-ID: <56152A2B.9020701@linux.vnet.ibm.com>
+References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+ <1444166829-17638-2-git-send-email-clsoto@linux.vnet.ibm.com>
+ <CAJ3xEMjYtmSj3kBo24w+4Y3Nh60C9J=NHb_=YQw1QASJ1i_i1g@mail.gmail.com>
+ <5614411E.1070105@linux.vnet.ibm.com> <5614C8E5.8040607@mellanox.com>
+ <5614D308.4010106@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com
+To: Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33167 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944AbbJGOMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 10:12:15 -0400
-Received: by pacex6 with SMTP id ex6so22851248pac.0
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 07:12:14 -0700 (PDT)
-In-Reply-To: <20151007.042525.1310561159530454910.davem@davemloft.net>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:39663 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753982AbbJGOUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 10:20:32 -0400
+Received: from localhost
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
+	Wed, 7 Oct 2015 08:20:31 -0600
+Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id C3F463E4003B
+	for <netdev@vger.kernel.org>; Wed,  7 Oct 2015 08:20:29 -0600 (MDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by b03cxnp08025.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t97EJDsd65798362
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 07:19:13 -0700
+Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t97EKRRb017072
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 08:20:29 -0600
+In-Reply-To: <5614D308.4010106@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 5:25 AM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Mon,  5 Oct 2015 08:32:51 -0600
+
+
+On 10/7/2015 3:08 AM, Matan Barak wrote:
 >
->> It occurred to me yesterday that 741a11d9e4103 ("net: ipv6: Add
->> RT6_LOOKUP_F_IFACE flag if oif is set") means that xfrm6_dst_lookup
->> needs the FLOWI_FLAG_SKIP_NH_OIF flag set. This latest commit causes
->> the oif to be considered in lookups which is known to break vti. This
->> explains why 58189ca7b274 did not the IPv6 change at the time it was
->> submitted.
+>
+> On 10/7/2015 10:25 AM, Matan Barak wrote:
 >>
->> Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>>
+>> On 10/7/2015 12:46 AM, Carol Soto wrote:
+>>>
+>>>
+>>> On 10/6/2015 4:39 PM, Or Gerlitz wrote:
+>>>> On Wed, Oct 7, 2015 at 12:27 AM, <clsoto@linux.vnet.ibm.com> wrote=
+:
+>>>>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>>>
+>>>>> If we get MAX_MSIX interrupts would like to have each receive rin=
+g
+>>>>> with his own msix interrupt line.
+>>>> so 9293267a3e2a  was only partially correct? and/or not fully opti=
+mal?
+>>>> please elaborate more on that in your change log.
+>>> just not fully optimal, with commit 9293267a3e2a if I have 64 MSIXs=
+ and
+>>> 2 ports I can get 8 rings for each port but then the rings will sha=
+re
+>>> the interrupt lines. For 64 MSIXs we can have each ring with his ow=
+n
+>>> interrupt line.
+>>>
+>>>>> Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested
+>>>>> MSIXs to MAX_MSIX')
+>>>>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>> Carol, you didn't use net/mlx4: prefix as ask for mlx4 driver patc=
+h
+>>>> titles, so please repost, but before that I'd like to see an ack f=
+rom
+>>>> Matan for this patch as well.
+>>> Sorry completely missed it. When Matan acks will resend it.
+>>
+>> The logic seems correct to me. When there are more nreqs than we cou=
+ld
+>> possibly support (or want to support), there=E2=80=99s no reason to =
+share the
+>> EQs between the different ports.
+>> Thanks for your fix.
+>>
 >
-> If this is needed in v4.3 why are you targetting net-next?
-
-default git setting. Missed removal before send.
-
+> Please also clean the shared_ports variable - we don't need this anym=
+ore.
 >
-> I applied it to both trees...
+Thanks for the feedback, will resend.
+Carol
+>> Regards,
+>> Matan
+>>
+>>>>
+>>>> Or.
+>>>>
+>>>>> ---
+>>>>>   drivers/net/ethernet/mellanox/mlx4/main.c | 4 +---
+>>>>>   1 file changed, 1 insertion(+), 3 deletions(-)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>>> b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>>> index 006757f..f03f513 100644
+>>>>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>>> @@ -2673,10 +2673,8 @@ static void mlx4_enable_msi_x(struct mlx4_=
+dev
+>>>>> *dev)
+>>>>>
+>>>>>                  nreq =3D min_t(int, dev->caps.num_eqs -
+>>>>> dev->caps.reserved_eqs,
+>>>>>                               nreq);
+>>>>> -               if (nreq > MAX_MSIX) {
+>>>>> +               if (nreq > MAX_MSIX)
+>>>>>                          nreq =3D MAX_MSIX;
+>>>>> -                       shared_ports =3D true;
+>>>>> -               }
+>>>>>
+>>>>>                  entries =3D kcalloc(nreq, sizeof *entries,=20
+>>>>> GFP_KERNEL);
+>>>>>                  if (!entries)
+>>>>> --=20
+>>>>> 1.8.3.1
+>>>>>
+>>>>> --=20
+>>>>> To unsubscribe from this list: send the line "unsubscribe netdev"=
+ in
+>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>>>
 >
-
-thank you.
