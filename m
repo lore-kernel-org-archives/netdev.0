@@ -1,63 +1,102 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: linux-next: Tree for Oct 6
-Date: Wed, 7 Oct 2015 12:40:46 +0530
-Message-ID: <20151007071046.GA21158@sudip-pc>
-References: <20151006123346.GA5040@sudip-pc>
- <201510061446.t96EkrVV012371@ignucius.se.axis.com>
+From: Matan Barak <matanb@mellanox.com>
+Subject: Re: [PATCH 2/2] Do not set shared_ports when nreq > MAX_MSIX
+Date: Wed, 7 Oct 2015 10:25:25 +0300
+Message-ID: <5614C8E5.8040607@mellanox.com>
+References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+ <1444166829-17638-2-git-send-email-clsoto@linux.vnet.ibm.com>
+ <CAJ3xEMjYtmSj3kBo24w+4Y3Nh60C9J=NHb_=YQw1QASJ1i_i1g@mail.gmail.com>
+ <5614411E.1070105@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, starvik@axis.com, jespern@axis.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, linux-cris-kernel@axis.com,
-	jhs@mojatatu.com
-To: Hans-Peter Nilsson <hans-peter.nilsson@axis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201510061446.t96EkrVV012371@ignucius.se.axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, <brking@linux.vnet.ibm.com>
+To: Carol Soto <clsoto@linux.vnet.ibm.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0084.outbound.protection.outlook.com ([157.55.234.84]:34689
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750986AbbJGHZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 03:25:41 -0400
+In-Reply-To: <5614411E.1070105@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 06, 2015 at 04:46:53PM +0200, Hans-Peter Nilsson wrote:
-> > From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-> > Date: Tue, 6 Oct 2015 14:33:46 +0200
-> 
-> > On Tue, Oct 06, 2015 at 06:25:22PM +1100, Stephen Rothwell wrote:
-> > > Hi all,
-> > > 
-> > > Changes since 20151002:
-> > 
-> > The build for cris allmodconfig is failing with the error:
-> > 
-> > net/sched/sch_dsmark.c: In function 'dsmark_dequeue':
-> > net/sched/sch_dsmark.c:316:1: error: unrecognizable insn:
-> > (insn 245 244 119 15 (set (reg:QI 11 r11 [179])
-> >         (and:QI (mem/s/j:QI (reg/f:SI 2 r2 [orig:48 D.44939 ] [48]) [0 D.44939_34->mask+0 S1 A8])
-> >             (reg:QI 11 r11 [179]))) include/net/dsfield.h:33 -1
-> >      (nil))
-> > net/sched/sch_dsmark.c:316:1: internal compiler error: in extract_insn, at recog.c:2109
-> > Please submit a full bug report,
-> > with preprocessed source if appropriate.
-> > See <http://gcc.gnu.org/bugs.html> for instructions.
-> > make[2]: *** [net/sched/sch_dsmark.o] Error 1
-> > make[1]: *** [net/sched] Error 2
-> > make[1]: *** Waiting for unfinished jobs....
-> > 
-> > It says compiler error, but with 4.3-rc4 it compiled properly.
-> > Build log of v4.3-rc4 is at
-> > https://travis-ci.org/sudipm-mukherjee/parport/jobs/83633972
-> > 
-> > Build log of linux-next is at:
-> > https://travis-ci.org/sudipm-mukherjee/parport/jobs/83839470
-> 
-> Thanks for the heads-up, but any chance of a bug report as per
-> the instructions in the message?  It'll only speed up matters.
-I can try, but since I am using 4.6.3 version I doubt if I will get the
-required response (Happened with another arch). And this is the latest
-cris cross-compiler available in
-https://www.kernel.org/pub/tools/crosstool/files/bin/x86_64/
 
-BTW, I did a bisect and if I revert 47bbbb30b433 ("sch_dsmark: improve memory locality")
-it again builds without any error.
 
-regards
-sudip
+On 10/7/2015 12:46 AM, Carol Soto wrote:
+>
+>
+> On 10/6/2015 4:39 PM, Or Gerlitz wrote:
+>> On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote:
+>>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>>
+>>> If we get MAX_MSIX interrupts would like to have each receive ring
+>>> with his own msix interrupt line.
+>> so 9293267a3e2a  was only partially correct? and/or not fully optima=
+l?
+>> please elaborate more on that in your change log.
+> just not fully optimal, with commit 9293267a3e2a if I have 64 MSIXs a=
+nd
+> 2 ports I can get 8 rings for each port but then the rings will share
+> the interrupt lines. For 64 MSIXs we can have each ring with his own
+> interrupt line.
+>
+>>> Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested
+>>> MSIXs to MAX_MSIX')
+>>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>> Carol, you didn't use net/mlx4: prefix as ask for mlx4 driver patch
+>> titles, so please repost, but before that I'd like to see an ack fro=
+m
+>> Matan for this patch as well.
+> Sorry completely missed it. When Matan acks will resend it.
+
+The logic seems correct to me. When there are more nreqs than we could=20
+possibly support (or want to support), there=E2=80=99s no reason to sha=
+re the=20
+EQs between the different ports.
+Thanks for your fix.
+
+Regards,
+Matan
+
+>>
+>> Or.
+>>
+>>> ---
+>>>   drivers/net/ethernet/mellanox/mlx4/main.c | 4 +---
+>>>   1 file changed, 1 insertion(+), 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>> b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>> index 006757f..f03f513 100644
+>>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>> @@ -2673,10 +2673,8 @@ static void mlx4_enable_msi_x(struct mlx4_de=
+v
+>>> *dev)
+>>>
+>>>                  nreq =3D min_t(int, dev->caps.num_eqs -
+>>> dev->caps.reserved_eqs,
+>>>                               nreq);
+>>> -               if (nreq > MAX_MSIX) {
+>>> +               if (nreq > MAX_MSIX)
+>>>                          nreq =3D MAX_MSIX;
+>>> -                       shared_ports =3D true;
+>>> -               }
+>>>
+>>>                  entries =3D kcalloc(nreq, sizeof *entries, GFP_KER=
+NEL);
+>>>                  if (!entries)
+>>> --
+>>> 1.8.3.1
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
