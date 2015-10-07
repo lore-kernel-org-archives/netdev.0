@@ -1,36 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv4 net 1/6] openvswitch: Fix typos in CT headers
-Date: Wed, 7 Oct 2015 16:33:15 +0300
-Message-ID: <56151F1B.6080207@cogentembedded.com>
-References: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
- <1444154401-18029-2-git-send-email-joestringer@nicira.com>
+From: Hans-Peter Nilsson <hans-peter.nilsson@axis.com>
+Subject: Re: linux-next: Tree for Oct 6
+Date: Wed, 7 Oct 2015 15:31:51 +0200
+Message-ID: <201510071331.t97DVpgB031864@ignucius.se.axis.com>
+References: <20151007071046.GA21158@sudip-pc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, pshelar@nicira.com
-To: Joe Stringer <joestringer@nicira.com>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: sfr@canb.auug.org.au, starvik@axis.com, jespern@axis.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, linux-cris-kernel@axis.com,
+	jhs@mojatatu.com
+To: sudipm.mukherjee@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:35927 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752153AbbJGNdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:33:18 -0400
-Received: by lbcao8 with SMTP id ao8so11312948lbc.3
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 06:33:17 -0700 (PDT)
-In-Reply-To: <1444154401-18029-2-git-send-email-joestringer@nicira.com>
+Received: from bes.se.axis.com ([195.60.68.10]:52336 "EHLO bes.se.axis.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751535AbbJGNb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 09:31:58 -0400
+In-reply-to: <20151007071046.GA21158@sudip-pc> (message from Sudip Mukherjee
+	on Wed, 7 Oct 2015 09:10:46 +0200)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/6/2015 8:59 PM, Joe Stringer wrote:
+> From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+> Date: Wed, 7 Oct 2015 09:10:46 +0200
 
-> These comments hadn't caught up to their implementations, fix them.
->
-> Fixes: 7f8a436eaa2c "openvswitch: Add conntrack action"
+> On Tue, Oct 06, 2015 at 04:46:53PM +0200, Hans-Peter Nilsson wrote:
+> > Thanks for the heads-up, but any chance of a bug report as per
+> > the instructions in the message?  It'll only speed up matters.
+> I can try, but since I am using 4.6.3 version I doubt if I will get the
+> required response (Happened with another arch).
 
-    Sigh. Please see Documentation/SubmittingPatches. It should be:
+Ow, way old.
 
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> And this is the latest
+> cris cross-compiler available in
+> https://www.kernel.org/pub/tools/crosstool/files/bin/x86_64/
 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
+I have nothing to do with that.
 
-MBR, Sergei
+> BTW, I did a bisect and if I revert 47bbbb30b433 ("sch_dsmark: improve memory locality")
+> it again builds without any error.
+
+Sorry, that's not really useful to me, neither are build logs.
+What I need to proceed with fixing is preprocessed code and the
+compiler options used, just as the bug-reporting instructions
+say.  Now that I hear that you get the ICE with a really old gcc
+version, I'm not inclined to look further, sorry.  Except, when
+you mention the version I vaguely remember; it reminds me of a
+bug fixed a long time ago.  Maybe it was PR53120?  Sorry, I
+don't remember anything else useful.  Still, thanks; it'll
+shorten the response time if other people tell me the same
+thing.
+
+brgds, H-P
