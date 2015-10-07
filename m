@@ -1,39 +1,39 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH v3 00/14] RDS: connection scalability and performance
- improvements
-Date: Wed, 7 Oct 2015 08:58:32 -0700
-Message-ID: <56154128.2010309@oracle.com>
-References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
- <20151007.021634.1127057852275250731.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: David Miller <davem@davemloft.net>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH v4 09/14] RDS: IB: handle rds_ibdev release case instead of crashing the kernel
+Date: Wed,  7 Oct 2015 08:53:43 -0700
+Message-ID: <1444233228-4481-10-git-send-email-santosh.shilimkar@oracle.com>
+References: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151007.021634.1127057852275250731.davem@davemloft.net>
+In-Reply-To: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/7/15 2:16 AM, David Miller wrote:
-> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> Date: Mon,  5 Oct 2015 10:56:23 -0700
->
->> [v3]
->> Updated patch "[PATCH v2 05/14] RDS: defer the over_batch work to
->> send worker" as per David Miller's comment [4] to avoid the magic
->> value usage. Patch now makes use of already available but unused
->> send_batch_count module parameter. Rest of the patches are same as
->> earlier version v2 [3]
->
-> Can you respin this again?  Your repost of patch 05/14 was severely whitespace
-> damaged.
->
-Sorry about that. I thought mailer won't eat tabs but it did. Just sent
-the series again. Bumped up the version to v4 from archives perspective.
+Just in case we are still handling the QP receive completion while the
+rds_ibdev is released, drop the connection instead of crashing the kernel.
 
-Thanks !!
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/ib_cm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Regards,
-Santosh
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 8f51d0d..2b2370e 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -285,7 +285,8 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ 	struct rds_ib_device *rds_ibdev = ic->rds_ibdev;
+ 	struct rds_ib_ack_state state;
+ 
+-	BUG_ON(!rds_ibdev);
++	if (!rds_ibdev)
++		rds_conn_drop(conn);
+ 
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 
+-- 
+1.9.1
