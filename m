@@ -1,90 +1,252 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Wed, 7 Oct 2015 19:51:34 +0200
-Message-ID: <20151007175134.GJ2152@nanopsycho.orion>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
- <1444117913-10386-7-git-send-email-jiri@resnulli.us>
- <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
- <5613F482.2010200@gmail.com>
- <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
- <56143C50.2050604@gmail.com>
- <CAE4R7bBzidcLVgP7TybtHDHhgmQv1FAY9toyDDmSa8Y5bhg-zw@mail.gmail.com>
- <20151007061409.GB2152@nanopsycho.orion>
- <CAE4R7bAFBBdhoAVx4s0Ljc-Kcpvn8F-bHG+N6-1oxntnearWZQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next] bpf: fix cb access in socket filter programs
+Date: Wed,  7 Oct 2015 10:55:41 -0700
+Message-ID: <1444240541-4665-1-git-send-email-ast@plumgrid.com>
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35515 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902AbbJGRvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:51:37 -0400
-Received: by wicge5 with SMTP id ge5so224204403wic.0
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:51:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bAFBBdhoAVx4s0Ljc-Kcpvn8F-bHG+N6-1oxntnearWZQ@mail.gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35114 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754331AbbJGRzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:55:51 -0400
+Received: by pacfv12 with SMTP id fv12so28274161pac.2
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:55:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 07, 2015 at 07:32:45PM CEST, sfeldma@gmail.com wrote:
->On Tue, Oct 6, 2015 at 11:14 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Oct 07, 2015 at 03:50:08AM CEST, sfeldma@gmail.com wrote:
->>
->> <snip>
->>
->>>
->>>> Also I wonder how this works when a pkt ingresses a port in mode A and
->>>> egresses a port in mode B? What fib/fdb tables does it cross when this
->>>> happens? It seems easier to just have two switch devices not a
->>>> hybrid. If this per port implementation maps to some hardware that
->>>> would be really interesting though.
->>>
->>>In retrospect, I regret adding the port mode feature to rocker.  I
->>>like the world idea, so we can have a device with different
->>>pipeline/resources, but we should have locked all ports on a switch to
->>>one mode, or even as you hinted at earlier, use a unique sub-device ID
->>>for a switch with all ports in a particular mode.  If you want to
->>>ports with different worlds, just instantiate a switch in each world.
->>>Instantiating new devices is easy.
->>>
->>>But, now Jiri has locked on to the dynamic port mode idea with pit
->>>bull zeal, to the point of being able to switch a port mode at any
->>>time from one mode to another from the host.  I just don't see that as
->>>a real-world use-case.  Life is too short and we need to be focusing
->>>on switchdev features, not refactoring or adding cool but useless
->>>features.
->>
->> Can can still change this if you want. We can make
->> ROCKER_TLV_CMD_PORT_SETTINGS_MODE read-only in hw (As it is in fact now
->> as we have only one world).
->>
->> Then we add another property:
->> static Property rocker_properties[] = {
->>             DEFINE_PROP_STRING("name", Rocker, name),
->>             DEFINE_PROP_STRING("world", Rocker, world),
->>                 ....
->>
->> and we use this value in pci_rocker_init instead of r->world_dflt
->>
->> Looks straightforward.
->
->Yes, perfect, I totally on-board with that change.  This puts all
->ports on the device in the same mode.  I you want ports in a different
->mode, instantiate another switch.
->
->Mixing port modes on a switch, either statically or dynamically, would
->have created another problem.  Switchdev uses the switch_id for each
->port to know when ports belong to the same switch, same switching
->domain, if you will.  Mixing port modes within a switch breaks this.
->For example, the check we added to avoid double forwarding of pkts by
->the bridge and the device depends on ports on the switch having the
->same switch_id.
+eBPF socket filter programs may see junk in 'u32 cb[5]' area,
+since it could have been used by protocol layers earlier.
 
-Ok. Will fix this in qemu as well.
+For socket filter programs used in af_packet we need to clean
+20 bytes of skb->cb area if it could be used by the program.
+For programs attached to TCP/UDP sockets we need to save/restore
+these 20 bytes, since it's used by protocol layers.
+
+Remove SK_RUN_FILTER macro, since it's no longer used.
+
+Long term we may move this bpf cb area to per-cpu scratch, but that
+requires addition of new 'per-cpu load/store' instructions,
+so not suitable as a short term fix.
+
+Fixes: d691f9e8d440 ("bpf: allow programs to write to certain skb fields")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+v1->v2:
+dropped extra conditional for clearing of cb for af_packet.
+
+Since eBPF is root only, the impact of the bug is low and
+the fix can stay in net-next.
+
+For those interested in assembler code: gcc 4.7 generates
+ugly code for this memcpy/memset, but gcc 4.9 looks great.
+Thankfuly both move unlikely paths out of the way.
+---
+ include/linux/bpf.h    |    6 +++---
+ include/linux/filter.h |   39 +++++++++++++++++++++++++++++++++++----
+ kernel/bpf/verifier.c  |    2 +-
+ net/core/filter.c      |   12 +++++++-----
+ net/packet/af_packet.c |   10 +++++-----
+ 5 files changed, 51 insertions(+), 18 deletions(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c915a6b54570..19b8a2081f88 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -100,6 +100,8 @@ enum bpf_access_type {
+ 	BPF_WRITE = 2
+ };
+ 
++struct bpf_prog;
++
+ struct bpf_verifier_ops {
+ 	/* return eBPF function prototype for verification */
+ 	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
+@@ -111,7 +113,7 @@ struct bpf_verifier_ops {
+ 
+ 	u32 (*convert_ctx_access)(enum bpf_access_type type, int dst_reg,
+ 				  int src_reg, int ctx_off,
+-				  struct bpf_insn *insn);
++				  struct bpf_insn *insn, struct bpf_prog *prog);
+ };
+ 
+ struct bpf_prog_type_list {
+@@ -120,8 +122,6 @@ struct bpf_prog_type_list {
+ 	enum bpf_prog_type type;
+ };
+ 
+-struct bpf_prog;
+-
+ struct bpf_prog_aux {
+ 	atomic_t refcnt;
+ 	u32 used_map_cnt;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 1bbce14bcf17..4165e9ac9e36 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -13,6 +13,7 @@
+ #include <linux/printk.h>
+ #include <linux/workqueue.h>
+ #include <linux/sched.h>
++#include <net/sch_generic.h>
+ 
+ #include <asm/cacheflush.h>
+ 
+@@ -302,10 +303,6 @@ struct bpf_prog_aux;
+ 	bpf_size;						\
+ })
+ 
+-/* Macro to invoke filter function. */
+-#define SK_RUN_FILTER(filter, ctx) \
+-	(*filter->prog->bpf_func)(ctx, filter->prog->insnsi)
+-
+ #ifdef CONFIG_COMPAT
+ /* A struct sock_filter is architecture independent. */
+ struct compat_sock_fprog {
+@@ -329,6 +326,7 @@ struct bpf_prog {
+ 	kmemcheck_bitfield_begin(meta);
+ 	u16			jited:1,	/* Is our filter JIT'ed? */
+ 				gpl_compatible:1, /* Is filter GPL compatible? */
++				cb_access:1,	/* Is control block accessed? */
+ 				dst_needed:1;	/* Do we need dst entry? */
+ 	kmemcheck_bitfield_end(meta);
+ 	u32			len;		/* Number of filter blocks */
+@@ -352,6 +350,39 @@ struct sk_filter {
+ 
+ #define BPF_PROG_RUN(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
+ 
++static inline u32 bpf_prog_run_save_cb(const struct bpf_prog *prog,
++				       struct sk_buff *skb)
++{
++	u8 *cb_data = qdisc_skb_cb(skb)->data;
++	u8 saved_cb[QDISC_CB_PRIV_LEN];
++	u32 res;
++
++	BUILD_BUG_ON(FIELD_SIZEOF(struct __sk_buff, cb) !=
++		     QDISC_CB_PRIV_LEN);
++
++	if (unlikely(prog->cb_access)) {
++		memcpy(saved_cb, cb_data, sizeof(saved_cb));
++		memset(cb_data, 0, sizeof(saved_cb));
++	}
++
++	res = BPF_PROG_RUN(prog, skb);
++
++	if (unlikely(prog->cb_access))
++		memcpy(cb_data, saved_cb, sizeof(saved_cb));
++
++	return res;
++}
++
++static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
++					struct sk_buff *skb)
++{
++	u8 *cb_data = qdisc_skb_cb(skb)->data;
++
++	if (unlikely(prog->cb_access))
++		memset(cb_data, 0, QDISC_CB_PRIV_LEN);
++	return BPF_PROG_RUN(prog, skb);
++}
++
+ static inline unsigned int bpf_prog_size(unsigned int proglen)
+ {
+ 	return max(sizeof(struct bpf_prog),
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index b074b23000d6..f8da034c2258 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2024,7 +2024,7 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 
+ 		cnt = env->prog->aux->ops->
+ 			convert_ctx_access(type, insn->dst_reg, insn->src_reg,
+-					   insn->off, insn_buf);
++					   insn->off, insn_buf, env->prog);
+ 		if (cnt == 0 || cnt >= ARRAY_SIZE(insn_buf)) {
+ 			verbose("bpf verifier is misconfigured\n");
+ 			return -EINVAL;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index da3e5357f138..cbaa23c3fb30 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -56,10 +56,10 @@
+  *	@sk: sock associated with &sk_buff
+  *	@skb: buffer to filter
+  *
+- * Run the filter code and then cut skb->data to correct size returned by
+- * SK_RUN_FILTER. If pkt_len is 0 we toss packet. If skb->len is smaller
++ * Run the eBPF program and then cut skb->data to correct size returned by
++ * the program. If pkt_len is 0 we toss packet. If skb->len is smaller
+  * than pkt_len we keep whole skb->data. This is the socket level
+- * wrapper to SK_RUN_FILTER. It returns 0 if the packet should
++ * wrapper to BPF_PROG_RUN. It returns 0 if the packet should
+  * be accepted or -EPERM if the packet should be tossed.
+  *
+  */
+@@ -83,7 +83,7 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
+ 	rcu_read_lock();
+ 	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter) {
+-		unsigned int pkt_len = SK_RUN_FILTER(filter, skb);
++		unsigned int pkt_len = bpf_prog_run_save_cb(filter->prog, skb);
+ 
+ 		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
+ 	}
+@@ -1740,7 +1740,8 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ 
+ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 				      int src_reg, int ctx_off,
+-				      struct bpf_insn *insn_buf)
++				      struct bpf_insn *insn_buf,
++				      struct bpf_prog *prog)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 
+@@ -1831,6 +1832,7 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 		offsetof(struct __sk_buff, cb[4]):
+ 		BUILD_BUG_ON(FIELD_SIZEOF(struct qdisc_skb_cb, data) < 20);
+ 
++		prog->cb_access = 1;
+ 		ctx_off -= offsetof(struct __sk_buff, cb[0]);
+ 		ctx_off += offsetof(struct sk_buff, cb);
+ 		ctx_off += offsetof(struct qdisc_skb_cb, data);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 81c900fbc4a4..104910f7d1fb 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1423,7 +1423,7 @@ static unsigned int fanout_demux_bpf(struct packet_fanout *f,
+ 	rcu_read_lock();
+ 	prog = rcu_dereference(f->bpf_prog);
+ 	if (prog)
+-		ret = BPF_PROG_RUN(prog, skb) % num;
++		ret = bpf_prog_run_clear_cb(prog, skb) % num;
+ 	rcu_read_unlock();
+ 
+ 	return ret;
+@@ -1939,16 +1939,16 @@ out_free:
+ 	return err;
+ }
+ 
+-static unsigned int run_filter(const struct sk_buff *skb,
+-				      const struct sock *sk,
+-				      unsigned int res)
++static unsigned int run_filter(struct sk_buff *skb,
++			       const struct sock *sk,
++			       unsigned int res)
+ {
+ 	struct sk_filter *filter;
+ 
+ 	rcu_read_lock();
+ 	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter != NULL)
+-		res = SK_RUN_FILTER(filter, skb);
++		res = bpf_prog_run_clear_cb(filter->prog, skb);
+ 	rcu_read_unlock();
+ 
+ 	return res;
+-- 
+1.7.9.5
