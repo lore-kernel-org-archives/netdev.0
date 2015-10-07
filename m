@@ -1,42 +1,97 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
-Date: Wed, 7 Oct 2015 11:53:25 +0200
-Message-ID: <20151007115325.60c077cc@griffin>
-References: <CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
-	<20151006175634.200d69a0@griffin>
-	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
-	<20151006204558.5f2f56fc@griffin>
-	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
-	<20151006210358.65750aeb@griffin>
-	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
-	<20151006213245.74810d81@griffin>
-	<CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
-	<20151007100955.3f13120e@griffin>
-	<20151007093401.GA28717@pox.localdomain>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: [iproute2 PATCH] iplink: Support VF Trust
+Date: Wed, 7 Oct 2015 10:06:32 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05F42A95@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>, netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33094 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751457AbbJGJx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2015 05:53:29 -0400
-In-Reply-To: <20151007093401.GA28717@pox.localdomain>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:47363 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448AbbJGKHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 06:07:40 -0400
+Received: from tyo202.gate.nec.co.jp ([10.7.69.202])
+	by tyo200.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id t97A7d7s011740
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 19:07:39 +0900 (JST)
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 Oct 2015 11:34:01 +0200, Thomas Graf wrote:
-> Extending ovs_dp_cmd_fill_info() to dump a new dp->kernel_features
-> via a new Netlink attribtue which signals these capabilities looks
-> like a straight forward way to solve this.
-> 
-> OVS just needs to set NLM_F_ECHO when creating the initial datapath.
-
-Agreed. That's exactly what I'm trying to implement just now.
-
- Jiri
-
--- 
-Jiri Benc
+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkFk
+ZCBJRkxBX1ZGX1RSVVNUIG1lc3NhZ2UgdG8gdHJ1c3QgdGhlIFZGLg0KUEYgY2FuIGFjY2VwdCBz
+b21lIHByaXZpbGVnZWQgb3BlcmF0aW9uIGZyb20gdGhlIHRydXN0ZWQgVkYuDQpGb3IgZXhhbXBs
+ZSwgaXhnYmUgUEYgZG9lc24ndCBhbGxvdyB0byBlbmFibGUgVkYgcHJvbWlzY3VvdXMgbW9kZSB1
+bnRpbA0KdGhlIFZGIGlzIHRydXN0ZWQgYmVjYXVzZSBpdCBtYXkgaHVydCBwZXJmb3JtYW5jZS4N
+Cg0KVG8gdHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9uDQoN
+ClRvIHVudHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9mZg0K
+DQpTaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVj
+LmNvbT4NCi0tLQ0KDQpUaGlzIHBhdGNoIGltcGxlbWVudHMgYSBmdW5jdGlvbmFsaXR5IGZvciB0
+cnVzdGluZyBhIFZGIGluIGlwIGNvbW1hbmQuDQoNClRoZSBrZXJuZWwgc2lkZSBpbXBsZW1lbnRh
+dGlvbiBvZiBpZl9saW5rIHdhcyBzdWJtaXR0ZWQgYXMgYmVsb3cuDQpodHRwOi8vbWFyYy5pbmZv
+Lz9sPWxpbnV4LW5ldGRldiZtPTE0NDA3NDUyMDgwMzE4NCZ3PTINCltQQVRDSCB2OCAxLzNdIGlm
+X2xpbms6IEFkZCBjb250cm9sIHRydXN0IFZGDQoNCi0tLQ0KIGluY2x1ZGUvbGludXgvaWZfbGlu
+ay5oIHwgIDYgKysrKysrDQogaXAvaXBsaW5rLmMgICAgICAgICAgICAgfCAxMyArKysrKysrKysr
+KysrDQogbWFuL21hbjgvaXAtbGluay44LmluICAgfCAgNyArKysrKystDQogMyBmaWxlcyBjaGFu
+Z2VkLCAyNSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQoNCmRpZmYgLS1naXQgYS9pbmNs
+dWRlL2xpbnV4L2lmX2xpbmsuaCBiL2luY2x1ZGUvbGludXgvaWZfbGluay5oDQppbmRleCAxOTM0
+NTY2Li5jYTlhNjgxIDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCisrKyBi
+L2luY2x1ZGUvbGludXgvaWZfbGluay5oDQpAQCAtNDk5LDYgKzQ5OSw3IEBAIGVudW0gew0KIAkJ
+CQkgKiBvbi9vZmYgc3dpdGNoDQogCQkJCSAqLw0KIAlJRkxBX1ZGX1NUQVRTLAkJLyogbmV0d29y
+ayBkZXZpY2Ugc3RhdGlzdGljcyAqLw0KKwlJRkxBX1ZGX1RSVVNULAkJLyogVHJ1c3QgVkYgKi8N
+CiAJX19JRkxBX1ZGX01BWCwNCiB9Ow0KIA0KQEAgLTU2MCw2ICs1NjEsMTEgQEAgZW51bSB7DQog
+DQogI2RlZmluZSBJRkxBX1ZGX1NUQVRTX01BWCAoX19JRkxBX1ZGX1NUQVRTX01BWCAtIDEpDQog
+DQorc3RydWN0IGlmbGFfdmZfdHJ1c3Qgew0KKwlfX3UzMiB2ZjsNCisJX191MzIgc2V0dGluZzsN
+Cit9Ow0KKw0KIC8qIFZGIHBvcnRzIG1hbmFnZW1lbnQgc2VjdGlvbg0KICAqDQogICoJTmVzdGVk
+IGxheW91dCBvZiBzZXQvZ2V0IG1zZyBpczoNCmRpZmYgLS1naXQgYS9pcC9pcGxpbmsuYyBiL2lw
+L2lwbGluay5jDQppbmRleCAxYzQ1MjA1Li4wNTM2ZjM0IDEwMDY0NA0KLS0tIGEvaXAvaXBsaW5r
+LmMNCisrKyBiL2lwL2lwbGluay5jDQpAQCAtODIsNiArODIsNyBAQCB2b2lkIGlwbGlua191c2Fn
+ZSh2b2lkKQ0KIAlmcHJpbnRmKHN0ZGVyciwgIgkJCQkgICBbIHNwb29mY2hrIHsgb24gfCBvZmZ9
+IF0gXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiCQkJCSAgIFsgcXVlcnlfcnNzIHsgb24gfCBv
+ZmZ9IF0gXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiCQkJCSAgIFsgc3RhdGUgeyBhdXRvIHwg
+ZW5hYmxlIHwgZGlzYWJsZX0gXSBdXG4iKTsNCisJZnByaW50ZihzdGRlcnIsICIJCQkJICAgWyB0
+cnVzdCB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVyciwgIgkJCSAgWyBtYXN0
+ZXIgREVWSUNFIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVyciwgIgkJCSAgWyBub21hc3RlciBdXG4i
+KTsNCiAJZnByaW50ZihzdGRlcnIsICIJCQkgIFsgYWRkcmdlbm1vZGUgeyBldWk2NCB8IG5vbmUg
+fSBdXG4iKTsNCkBAIC0zNTIsNiArMzUzLDE4IEBAIHN0YXRpYyBpbnQgaXBsaW5rX3BhcnNlX3Zm
+KGludCB2ZiwgaW50ICphcmdjcCwgY2hhciAqKiphcmd2cCwNCiAJCQlpdnMudmYgPSB2ZjsNCiAJ
+CQlhZGRhdHRyX2woJnJlcS0+biwgc2l6ZW9mKCpyZXEpLCBJRkxBX1ZGX1JTU19RVUVSWV9FTiwg
+Jml2cywgc2l6ZW9mKGl2cykpOw0KIA0KKwkJfSBlbHNlIGlmIChtYXRjaGVzKCphcmd2LCAidHJ1
+c3QiKSA9PSAwKSB7DQorCQkJc3RydWN0IGlmbGFfdmZfdHJ1c3QgaXZ0Ow0KKwkJCU5FWFRfQVJH
+KCk7DQorCQkJaWYgKG1hdGNoZXMoKmFyZ3YsICJvbiIpID09IDApDQorCQkJCWl2dC5zZXR0aW5n
+ID0gMTsNCisJCQllbHNlIGlmIChtYXRjaGVzKCphcmd2LCAib2ZmIikgPT0gMCkNCisJCQkJaXZ0
+LnNldHRpbmcgPSAwOw0KKwkJCWVsc2UNCisJCQkJaW52YXJnKCJJbnZhbGlkIFwidHJ1c3RcIiB2
+YWx1ZVxuIiwgKmFyZ3YpOw0KKwkJCWl2dC52ZiA9IHZmOw0KKwkJCWFkZGF0dHJfbCgmcmVxLT5u
+LCBzaXplb2YoKnJlcSksIElGTEFfVkZfVFJVU1QsICZpdnQsIHNpemVvZihpdnQpKTsNCisNCiAJ
+CX0gZWxzZSBpZiAobWF0Y2hlcygqYXJndiwgInN0YXRlIikgPT0gMCkgew0KIAkJCXN0cnVjdCBp
+ZmxhX3ZmX2xpbmtfc3RhdGUgaXZsOw0KIA0KZGlmZiAtLWdpdCBhL21hbi9tYW44L2lwLWxpbmsu
+OC5pbiBiL21hbi9tYW44L2lwLWxpbmsuOC5pbg0KaW5kZXggNDkyODI0OS4uNmEwYzg3NiAxMDA2
+NDQNCi0tLSBhL21hbi9tYW44L2lwLWxpbmsuOC5pbg0KKysrIGIvbWFuL21hbjgvaXAtbGluay44
+LmluDQpAQCAtMTQyLDcgKzE0Miw4IEBAIGlwLWxpbmsgXC0gbmV0d29yayBkZXZpY2UgY29uZmln
+dXJhdGlvbg0KIC5CIG1pbl90eF9yYXRlDQogLklSIFRYUkFURSAiIF0gWyINCiAuQiBzcG9vZmNo
+ayB7IG9uIHwgb2ZmIH0gXSBbDQotLkIgc3RhdGUgeyBhdXRvIHwgZW5hYmxlIHwgZGlzYWJsZX0N
+CisuQiBzdGF0ZSB7IGF1dG8gfCBlbmFibGUgfCBkaXNhYmxlfSBdIFsNCisuQiB0cnVzdCB7IG9u
+IHwgb2ZmIH0NCiBdIHwNCiAuYnINCiAuQiBtYXN0ZXINCkBAIC05NjgsNiArOTY5LDEwIEBAIHBh
+cmFtZXRlciBtdXN0IGJlIHNwZWNpZmllZC4NCiByZWZsZWN0aW9uIG9mIHRoZSBQRiBsaW5rIHN0
+YXRlLCBlbmFibGUgbGV0cyB0aGUgVkYgdG8gY29tbXVuaWNhdGUgd2l0aCBvdGhlciBWRnMgb24N
+CiB0aGlzIGhvc3QgZXZlbiBpZiB0aGUgUEYgbGluayBzdGF0ZSBpcyBkb3duLCBkaXNhYmxlIGNh
+dXNlcyB0aGUgSFcgdG8gZHJvcCBhbnkgcGFja2V0cw0KIHNlbnQgYnkgdGhlIFZGLg0KKy5zcA0K
+Ky5CSSB0cnVzdCAiIG9ufG9mZiINCistIHRydXN0IHRoZSBzcGVjaWZpZWQgVkYgdXNlci4gVGhp
+cyBlbmFibGVzIHRoYXQgVkYgdXNlciBjYW4gc2V0IGEgc3BlY2lmaWMgZmVhdHVyZQ0KK3doaWNo
+IG1heSBpbXBhY3Qgc2VjdXJpdHkgYW5kL29yIHBlcmZvbWFuY2UuIChlLmcuIFZGIG11bHRpY2Fz
+dCBwcm9taXNjdW91cyBtb2RlKQ0KIC5pbiAtOA0KIA0KIC5UUA0KLS0gDQoxLjguMy4xDQoNCg==
