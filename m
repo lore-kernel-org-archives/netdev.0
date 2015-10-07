@@ -1,191 +1,84 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 0/3] net: remove dsa.h from netdevice.h
-Date: Wed, 7 Oct 2015 12:27:10 -0400
-Message-ID: <20151007162710.GA11487@ketchup.mtl.sfl>
-References: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <56146A74.8050807@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56146A74.8050807@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: clsoto@linux.vnet.ibm.com
+Subject: [PATCH net] net/mlx4: Remove shared_ports variable at mlx4_enable_msi_x
+Date: Wed,  7 Oct 2015 12:31:46 -0400
+Message-ID: <1444235506-3099-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	brking@linux.vnet.ibm.com, matanb@mellanox.com,
+	Carol L Soto <clsoto@linux.vnet.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:58786 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753557AbbJGQb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:31:57 -0400
+Received: from /spool/local
+	by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
+	Wed, 7 Oct 2015 13:31:55 -0300
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id 177E71DC006A
+	for <netdev@vger.kernel.org>; Wed,  7 Oct 2015 12:30:50 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay03.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t97GU9Zw48759010
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 13:30:10 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t97GVpQq023768
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2015 12:31:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian, All,
+From: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-On Oct. Tuesday 06 (41) 05:42 PM, Florian Fainelli wrote:
-> On 06/10/15 14:54, Vivien Didelot wrote:
-> > In order to push switchdev objects down to DSA drivers, I need to i=
-nclude
-> > switchdev.h in dsa.h. But compilation fails because of a circular d=
-ependency
-> > issue, since dsa.h is also included in linux/netdevice.h.
->=20
-> Just for the record, what does this circular dependency looks like? L=
-ast
-> I tried something in that front, I ended-up forward declaring the
-> 'switchdev_obj' structure, but that was weeks ago before the whole
-> restructuring, so could be pointless now.
+If we get MAX_MSIX interrupts would like to have each receive ring
+with his own msix interrupt line. Do not need the shared_ports
+variable at mlx4_enable_msix
 
-My next work is to push the switchdev callback for FDB dump down to the
-DSA drivers. It works if I forward declare all these in net/dsa.h:
+Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested MSIXs to MAX_MSIX')
+Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+Acked-by: Matan Barak <matanb@mellanox.com>
 
- * struct switchdev_obj
- * struct switchdev_obj_port_fdb
- * typedef int switchdev_obj_dump_cb_t(struct switchdev_obj *obj);
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-Then will come the VLAN ops, etc. It doesn't feel like the way to go.
-
-Below is how these dependency errors look like. There are two issues
-this patchset fixes. First, here's what happens you just add:
-
-    #include <net/switchdev.h>
-
-in include/net/dsa.h:
-
-[...]
-
-In file included from include/net/dsa.h:22:0,
-                 from include/linux/netdevice.h:44,
-                 from include/linux/icmpv6.h:12,
-                 from include/linux/ipv6.h:71,
-                 from include/net/ipv6.h:16,
-                 from include/linux/sunrpc/clnt.h:27,
-                 from include/linux/nfs_fs.h:30,
-                 from init/do_mounts.c:32:
-include/net/switchdev.h:52:30: error: field =E2=80=98ppid=E2=80=99 has =
-incomplete type
-   struct netdev_phys_item_id ppid; /* PORT_PARENT_ID */
-                              ^
-include/net/switchdev.h:185:14: warning: =E2=80=98struct nlmsghdr=E2=80=
-=99 declared inside parameter list [enabled by default]
-       struct nlmsghdr *nlh, u16 flags);
-              ^
-include/net/switchdev.h:185:14: warning: its scope is only this definit=
-ion or declaration, which is probably not what you want [enabled by def=
-ault]
-include/net/switchdev.h:187:14: warning: =E2=80=98struct nlmsghdr=E2=80=
-=99 declared inside parameter list [enabled by default]
-       struct nlmsghdr *nlh, u16 flags);
-              ^
-include/net/switchdev.h:195:7: warning: =E2=80=98struct nlattr=E2=80=99=
- declared inside parameter list [enabled by default]
-       u16 vid, u16 nlm_flags);
-       ^
-include/net/switchdev.h:195:7: warning: =E2=80=98struct ndmsg=E2=80=99 =
-declared inside parameter list [enabled by default]
-include/net/switchdev.h:198:7: warning: =E2=80=98struct nlattr=E2=80=99=
- declared inside parameter list [enabled by default]
-       u16 vid);
-       ^
-include/net/switchdev.h:198:7: warning: =E2=80=98struct ndmsg=E2=80=99 =
-declared inside parameter list [enabled by default]
-include/net/switchdev.h:201:15: warning: =E2=80=98struct netlink_callba=
-ck=E2=80=99 declared inside parameter list [enabled by default]
-        struct net_device *filter_dev, int idx);
-               ^
-
-[...]
-
-Removing the dsa.h include from linux/netdevice.h gets rid of these
-warnings, but then, the DSA code complains with the following:
-
-[...]
-
-net/dsa/slave.c: In function =E2=80=98dsa_slave_phy_read=E2=80=99:
-net/dsa/slave.c:29:8: error: dereferencing pointer to incomplete type
-  if (ds->phys_mii_mask & (1 << addr))
-        ^
-
-[...]
-
-net/dsa/slave.c: In function =E2=80=98dsa_slave_set_mac_address=E2=80=99=
-:
-net/dsa/slave.c:178:39: error: dereferencing pointer to incomplete type
-  struct net_device *master =3D p->parent->dst->master_netdev;
-                                       ^
-In file included from include/linux/list.h:8:0,
-                 from net/dsa/slave.c:11:
-net/dsa/slave.c: In function =E2=80=98dsa_bridge_check_vlan_range=E2=80=
-=99:
-net/dsa/slave.c:209:26: error: =E2=80=98DSA_MAX_PORTS=E2=80=99 undeclar=
-ed (first use in this function)
-  DECLARE_BITMAP(members, DSA_MAX_PORTS);
-                          ^
-include/linux/kernel.h:67:30: note: in definition of macro =E2=80=98DIV=
-_ROUND_UP=E2=80=99
- #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
-                              ^
-include/linux/types.h:10:21: note: in expansion of macro =E2=80=98BITS_=
-TO_LONGS=E2=80=99
-  unsigned long name[BITS_TO_LONGS(bits)]
-                     ^
-net/dsa/slave.c:209:2: note: in expansion of macro =E2=80=98DECLARE_BIT=
-MAP=E2=80=99
-  DECLARE_BITMAP(members, DSA_MAX_PORTS);
-  ^
-net/dsa/slave.c:209:26: note: each undeclared identifier is reported on=
-ly once for each function it appears in
-  DECLARE_BITMAP(members, DSA_MAX_PORTS);
-                          ^
-include/linux/kernel.h:67:30: note: in definition of macro =E2=80=98DIV=
-_ROUND_UP=E2=80=99
- #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
-                              ^
-include/linux/types.h:10:21: note: in expansion of macro =E2=80=98BITS_=
-TO_LONGS=E2=80=99
-  unsigned long name[BITS_TO_LONGS(bits)]
-                     ^
-net/dsa/slave.c:209:2: note: in expansion of macro =E2=80=98DECLARE_BIT=
-MAP=E2=80=99
-  DECLARE_BITMAP(members, DSA_MAX_PORTS);
-  ^
-net/dsa/slave.c:214:9: error: dereferencing pointer to incomplete type
-  if (!ds->drv->vlan_getnext || !vid_begin)
-         ^
-
-[...]
-
-net/dsa/slave.c:1190:7: error: =E2=80=98DSA_TAG_PROTO_EDSA=E2=80=99 und=
-eclared (first use in this function)
-  case DSA_TAG_PROTO_EDSA:
-       ^
-net/dsa/slave.c:1219:4: error: dereferencing pointer to incomplete type
-  ds->ports[port] =3D slave_dev;
-    ^
-net/dsa/slave.c:1225:5: error: dereferencing pointer to incomplete type
-   ds->ports[port] =3D NULL;
-     ^
-net/dsa/slave.c: In function =E2=80=98dsa_slave_get_iflink=E2=80=99:
-net/dsa/slave.c:64:1: warning: control reaches end of non-void function=
- [-Wreturn-type]
- }
- ^
-cc1: some warnings being treated as errors
-scripts/Makefile.build:258: recipe for target 'net/dsa/slave.o' failed
-make[3]: *** [net/dsa/slave.o] Error 1
-scripts/Makefile.build:403: recipe for target 'net/dsa' failed
-make[2]: *** [net/dsa] Error 2
-
-[...]
-
-=46inally, adding:
-
-    #include <net/dsa.h>
-
-in net/dsa/dsa_priv.h fixes these errors.
-
-Does the patchset makes sense?
-
-Best,
--v
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 006757f..cc3a989 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2669,14 +2669,11 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 
+ 	if (msi_x) {
+ 		int nreq = dev->caps.num_ports * num_online_cpus() + 1;
+-		bool shared_ports = false;
+ 
+ 		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
+ 			     nreq);
+-		if (nreq > MAX_MSIX) {
++		if (nreq > MAX_MSIX)
+ 			nreq = MAX_MSIX;
+-			shared_ports = true;
+-		}
+ 
+ 		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
+ 		if (!entries)
+@@ -2699,9 +2696,6 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 		bitmap_zero(priv->eq_table.eq[MLX4_EQ_ASYNC].actv_ports.ports,
+ 			    dev->caps.num_ports);
+ 
+-		if (MLX4_IS_LEGACY_EQ_MODE(dev->caps))
+-			shared_ports = true;
+-
+ 		for (i = 0; i < dev->caps.num_comp_vectors + 1; i++) {
+ 			if (i == MLX4_EQ_ASYNC)
+ 				continue;
+@@ -2709,7 +2703,7 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 			priv->eq_table.eq[i].irq =
+ 				entries[i + 1 - !!(i > MLX4_EQ_ASYNC)].vector;
+ 
+-			if (shared_ports) {
++			if (MLX4_IS_LEGACY_EQ_MODE(dev->caps)) {
+ 				bitmap_fill(priv->eq_table.eq[i].actv_ports.ports,
+ 					    dev->caps.num_ports);
+ 				/* We don't set affinity hint when there
+-- 
+1.8.3.1
