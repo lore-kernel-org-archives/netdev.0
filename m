@@ -1,88 +1,84 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH-next v2 4/4] drivers/net/ethernet: make ti/cpsw-phy-sel.c explicitly non-modular
-Date: Wed, 7 Oct 2015 17:27:46 -0400
-Message-ID: <1444253266-22012-5-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH-next v2 1/4] net/core: make sock_diag.c explicitly non-modular
+Date: Wed, 7 Oct 2015 17:27:43 -0400
+Message-ID: <1444253266-22012-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Varka Bhadram <varkabhadram@gmail.com>
+	Eric Dumazet <edumazet@google.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Craig Gallek <kraig@google.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52792 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648AbbJGV2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 17:28:04 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:47786 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922AbbJGV2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 17:28:16 -0400
 In-Reply-To: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Kconfig currently controlling compilation of this code is:
+The Makefile currently controlling compilation of this code lists
+it under "obj-y" ...meaning that it currently is not being built as
+a module by anyone.
 
-drivers/net/ethernet/ti/Kconfig:config TI_CPSW_PHY_SEL
-drivers/net/ethernet/ti/Kconfig:        bool "TI CPSW Switch Phy sel Support"
+Lets remove the modular code that is essentially orphaned, so that
+when reading the driver there is no doubt it is builtin-only.
 
-...meaning that it currently is not being built as a module by anyone.
+Since module_init translates to device_initcall in the non-modular
+case, the init ordering remains unchanged with this commit.  We can
+change to one of the other priority initcalls (subsys?) at any later
+date, if desired.
 
-Lets remove the couple traces of modularity so that when reading the
-driver there is no doubt it is builtin-only.
+We can't remove module.h since the file uses other module related
+stuff even though it is not modular itself.
 
-Since module_platform_driver() uses the same init level priority as
-builtin_platform_driver() the init ordering remains unchanged with
-this commit.
-
-Also note that MODULE_DEVICE_TABLE is a no-op for non-modular code.
-
-We also delete the MODULE_LICENSE tag etc. since all that information
-was (or is now) contained at the top of the file in the comments.
+We move the information from the MODULE_LICENSE tag to the top of the
+file, since that information is not captured anywhere else.  The
+MODULE_ALIAS_NET_PF_PROTO becomes a no-op in the non modular case, so
+it is removed.
 
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Varka Bhadram <varkabhadram@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Craig Gallek <kraig@google.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/ethernet/ti/cpsw-phy-sel.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ net/core/sock_diag.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-index 0ea78326cc21..e9cc61e1ec74 100644
---- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
-+++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-@@ -2,6 +2,8 @@
-  *
-  * Copyright (C) 2013 Texas Instruments
-  *
-+ * Module Author: Mugunthan V N <mugunthanvnm@ti.com>
-+ *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of the GNU General Public License
-  * version 2 as published by the Free Software Foundation.
-@@ -13,7 +15,7 @@
-  */
- 
- #include <linux/platform_device.h>
--#include <linux/module.h>
-+#include <linux/init.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <linux/of.h>
-@@ -173,7 +175,6 @@ static const struct of_device_id cpsw_phy_sel_id_table[] = {
- 	},
- 	{}
- };
--MODULE_DEVICE_TABLE(of, cpsw_phy_sel_id_table);
- 
- static int cpsw_phy_sel_probe(struct platform_device *pdev)
- {
-@@ -214,7 +215,4 @@ static struct platform_driver cpsw_phy_sel_driver = {
- 		.of_match_table = cpsw_phy_sel_id_table,
- 	},
- };
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 817622f3dbb7..0c1d58d43f67 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -1,3 +1,5 @@
++/* License: GPL */
++
+ #include <linux/mutex.h>
+ #include <linux/socket.h>
+ #include <linux/skbuff.h>
+@@ -323,14 +325,4 @@ static int __init sock_diag_init(void)
+ 	BUG_ON(!broadcast_wq);
+ 	return register_pernet_subsys(&diag_net_ops);
+ }
 -
--module_platform_driver(cpsw_phy_sel_driver);
--MODULE_AUTHOR("Mugunthan V N <mugunthanvnm@ti.com>");
--MODULE_LICENSE("GPL v2");
-+builtin_platform_driver(cpsw_phy_sel_driver);
+-static void __exit sock_diag_exit(void)
+-{
+-	unregister_pernet_subsys(&diag_net_ops);
+-	destroy_workqueue(broadcast_wq);
+-}
+-
+-module_init(sock_diag_init);
+-module_exit(sock_diag_exit);
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_SOCK_DIAG);
++device_initcall(sock_diag_init);
 -- 
 2.6.0.rc3
