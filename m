@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v4 11/14] RDS: IB: use already available pool handle from ibmr
-Date: Wed,  7 Oct 2015 08:53:45 -0700
-Message-ID: <1444233228-4481-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v4 06/14] RDS: use rds_send_xmit() state instead of RDS_LL_SEND_FULL
+Date: Wed,  7 Oct 2015 08:53:40 -0700
+Message-ID: <1444233228-4481-7-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,41 +12,64 @@ In-Reply-To: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rds_ib_mr already keeps the pool handle which it associates
-with. Lets use that instead of round about way of fetching
-it from rds_ib_device.
+In Transport indepedent rds_sendmsg(), we shouldn't make decisions based
+on RDS_LL_SEND_FULL which is used to manage the ring for RDMA based
+transports. We can safely issue rds_send_xmit() and the using its
+return value take decision on deferred work. This will also fix
+the scenario where at times we are seeing connections stuck with
+the LL_SEND_FULL bit getting set and never cleared.
 
-No functional change.
+We kick krdsd after any time we see -ENOMEM or -EAGAIN from the
+ring allocation code.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_rdma.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/rds/send.c    | 10 ++++++----
+ net/rds/threads.c |  2 ++
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index b6644fa..52d889a 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -522,8 +522,7 @@ static void rds_ib_teardown_mr(struct rds_ib_mr *ibmr)
+diff --git a/net/rds/send.c b/net/rds/send.c
+index b0acd45..a081a64 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1123,8 +1123,9 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 	 */
+ 	rds_stats_inc(s_send_queued);
  
- 	__rds_ib_teardown_mr(ibmr);
- 	if (pinned) {
--		struct rds_ib_device *rds_ibdev = ibmr->device;
--		struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+		struct rds_ib_mr_pool *pool = ibmr->pool;
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		rds_send_xmit(conn);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
  
- 		atomic_sub(pinned, &pool->free_pinned);
- 	}
-@@ -717,8 +716,8 @@ static void rds_ib_mr_pool_flush_worker(struct work_struct *work)
- void rds_ib_free_mr(void *trans_private, int invalidate)
- {
- 	struct rds_ib_mr *ibmr = trans_private;
-+	struct rds_ib_mr_pool *pool = ibmr->pool;
- 	struct rds_ib_device *rds_ibdev = ibmr->device;
--	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
+ 	rds_message_put(rm);
+ 	return payload_len;
+@@ -1180,8 +1181,9 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 	rds_stats_inc(s_send_queued);
+ 	rds_stats_inc(s_send_pong);
  
- 	rdsdebug("RDS/IB: free_mr nents %u\n", ibmr->sg_len);
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
  
+ 	rds_message_put(rm);
+ 	return 0;
+diff --git a/net/rds/threads.c b/net/rds/threads.c
+index dc2402e..454aa6d 100644
+--- a/net/rds/threads.c
++++ b/net/rds/threads.c
+@@ -162,7 +162,9 @@ void rds_send_worker(struct work_struct *work)
+ 	int ret;
+ 
+ 	if (rds_conn_state(conn) == RDS_CONN_UP) {
++		clear_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+ 		ret = rds_send_xmit(conn);
++		cond_resched();
+ 		rdsdebug("conn %p ret %d\n", conn, ret);
+ 		switch (ret) {
+ 		case -EAGAIN:
 -- 
 1.9.1
