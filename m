@@ -1,40 +1,129 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 01/15] ipv4: Fix ip_local_out_sk by passing the
- sk into __ip_local_out_sk
-Date: Wed, 7 Oct 2015 16:37:03 +0300
-Message-ID: <56151FFF.90506@cogentembedded.com>
-References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
- <1444157595-28816-1-git-send-email-ebiederm@xmission.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
+ freelists
+Date: Wed, 7 Oct 2015 10:36:19 -0300
+Message-ID: <20151007133619.GR12682@redhat.com>
+References: <560ABE86.9050508@gmail.com>
+ <20150930114255.13505.2618.stgit@canyon>
+ <20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
+ <20151002114118.75aae2f9@redhat.com>
+ <20151002154039.69f82bdc@redhat.com>
+ <20151002145044.781c911ea98e3ea74ae5cf3b@linux-foundation.org>
+ <20151005212639.35932b6c@redhat.com>
+ <20151005212045.GG26924@tassilo.jf.intel.com>
+ <20151006010703.09e2f0ff@redhat.com>
+ <20151007143120.7068416d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1444157595-28816-1-git-send-email-ebiederm@xmission.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@linux.intel.com>, linux-mm@kvack.org,
+        netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151007143120.7068416d@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Em Wed, Oct 07, 2015 at 02:31:20PM +0200, Jesper Dangaard Brouer escreveu:
+> On Tue, 6 Oct 2015 01:07:03 +0200
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> > (trimmed Cc list a little)
+> > 
+> > On Mon, 5 Oct 2015 14:20:45 -0700 Andi Kleen <ak@linux.intel.com> wrote:
+> > 
+> > > > My only problem left, is I want a perf measurement that pinpoint these
+> > > > kind of spots.  The difference in L1-icache-load-misses were significant
+> > > > (1,278,276 vs 2,719,158).  I tried to somehow perf record this with
+> > > > different perf events without being able to pinpoint the location (even
+> > > > though I know the spot now).  Even tried Andi's ocperf.py... maybe he
+> > > > will know what event I should try?
+> > > 
+> > > Run pmu-tools toplev.py -l3 with --show-sample. It tells you what the
+> > > bottle neck is and what to sample for if there is a suitable event and
+> > > even prints the command line.
+> > > 
+> > > https://github.com/andikleen/pmu-tools/wiki/toplev-manual#sampling-with-toplev
+> > > 
+> > 
+> > My result from (IP-forward flow hitting CPU 0):
+> >  $ sudo ./toplev.py -I 1000 -l3 -a --show-sample --core C0
+> > 
+> > So, what does this tell me?:
+> >
+> >  C0    BAD     Bad_Speculation:                                 0.00 % [  5.50%]
+> >  C0    BE      Backend_Bound:                                 100.00 % [  5.50%]
+> >  C0    BE/Mem  Backend_Bound.Memory_Bound:                     53.06 % [  5.50%]
+> >  C0    BE/Core Backend_Bound.Core_Bound:                       46.94 % [  5.50%]
+> >  C0-T0 FE      Frontend_Bound.Frontend_Latency.Branch_Resteers: 5.42 % [  5.50%]
+> >  C0-T0 BE/Mem  Backend_Bound.Memory_Bound.L1_Bound:            54.51 % [  5.50%]
+> >  C0-T0 BE/Core Backend_Bound.Core_Bound.Ports_Utilization:     20.99 % [  5.60%]
+> >  C0-T0         CPU utilization: 1.00 CPUs   	[100.00%]
+> >  C0-T1 FE      Frontend_Bound.Frontend_Latency.Branch_Resteers: 6.04 % [  5.50%]
+> >  C0-T1         CPU utilization: 1.00 CPUs   	[100.00%]
+> 
+> Reading: https://github.com/andikleen/pmu-tools/wiki/toplev-manual
+> Helped me understand most of above.
+> 
+> My specific CPU (i7-4790K @ 4.00GHz) unfortunately seems to have
+> limited "Frontend" support. E.g. 
+> 
+>  # perf record -g -a -e stalled-cycles-frontend
+>  Error:
+>  The stalled-cycles-frontend event is not supported.
+> 
+> And AFAIK icache misses are part of "frontend".
+> 
+> 
+> > Unfortunately the perf command it gives me fails with:
+> >  "invalid or unsupported event".
+> > 
+> > Perf command:
+> > 
+> >  sudo ./ocperf.py record -g -e \
+>   cpu/event=0xc5,umask=0x0,name=Branch_Resteers_BR_MISP_RETIRED_ALL_BRANCHES:pp,period=400009/pp,\
+>   cpu/event=0xd,umask=0x3,cmask=1,name=Bad_Speculation_INT_MISC_RECOVERY_CYCLES,period=2000003/,\
+>   cpu/event=0xd1,umask=0x1,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_L1_HIT:pp,period=2000003/pp,\
+>   cpu/event=0xd1,umask=0x40,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_HIT_LFB:pp,period=100003/pp \
+>   -C 0,4 -a
+> 
+> I fixed the problem with this perf command by removing the ":pp" part.
+> Perhaps your tool need to fix that?
+> 
+> A working command line looks like this:
+> 
+>  sudo ./ocperf.py record -g -e \
+> cpu/event=0xc5,umask=0x0,name=Branch_Resteers_BR_MISP_RETIRED_ALL_BRANCHES,period=400009/pp,\
+> cpu/event=0xd,umask=0x3,cmask=1,name=Bad_Speculation_INT_MISC_RECOVERY_CYCLES,period=2000003/,\
+> cpu/event=0xd1,umask=0x1,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_L1_HIT,period=2000003/pp,\
+> cpu/event=0xd1,umask=0x40,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_HIT_LFB,period=100003/pp \
+>   -C 0,4 -a
 
-On 10/6/2015 9:53 PM, Eric W. Biederman wrote:
+There is a recent patch that may help here, see below, but maybe its
+just a matter of removing that :pp, as it ends with a /pp anyway, no
+need to state that twice :)
 
-> In the rare case where sk != skb->sk ip_local_out_sk arranges
-> to call dst->output differently if the skb is queued or not.
-> This is a bug.
->
-> Fix this bug by passing the sk parameter of ip_local_out_sk through
-> from ip_local_out_sk to __ip_local_out_sk (skipping __ip_local_out).
->
-> Fixes: 7026b1ddb6b8d4e6ee33dc2bd06c0ca8746fa7ab
+With the patch below all those /pp would be replaced with /P.
 
-    Please see Documentation/SubmittingPatches on how the Fixes tag should 
-look like.
+- Arnaldo
 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-MBR, Sergei
+https://git.kernel.org/cgit/linux/kernel/git/tip/tip.git/commit/tools/perf?id=7f94af7a489fada17d28cc60e8f4409ce216bd6d
 
+----------------------------------------------------------------------
+perf tools: Introduce 'P' modifier to request max precision
+The 'P' will cause the event to get maximum possible detected precise
+level.
+
+Following record:
+  $ perf record -e cycles:P ...
+
+will detect maximum precise level for 'cycles' event and use it.
+----------------------------------------------------------------------
+
+- Arnaldo
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
