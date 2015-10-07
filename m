@@ -1,37 +1,83 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Wed, 7 Oct 2015 08:44:56 -0700
-Message-ID: <20151007154456.GJ26924@tassilo.jf.intel.com>
-References: <20150930114255.13505.2618.stgit@canyon>
- <20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
- <20151002114118.75aae2f9@redhat.com>
- <20151002154039.69f82bdc@redhat.com>
- <20151002145044.781c911ea98e3ea74ae5cf3b@linux-foundation.org>
- <20151005212639.35932b6c@redhat.com>
- <20151005212045.GG26924@tassilo.jf.intel.com>
- <20151006010703.09e2f0ff@redhat.com>
- <20151007143120.7068416d@redhat.com>
- <20151007133619.GR12682@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
+Date: Wed, 07 Oct 2015 08:46:13 -0700
+Message-ID: <56153E45.2080807@gmail.com>
+References: <1444117913-10386-1-git-send-email-jiri@resnulli.us> <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com> <5613F482.2010200@gmail.com> <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com> <56143C50.2050604@gmail.com> <CAE4R7bBzidcLVgP7TybtHDHhgmQv1FAY9toyDDmSa8Y5bhg-zw@mail.gmail.com> <20151007061409.GB2152@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Laight <David.Laight@aculab.com>
+To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:13805 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753954AbbJGPpD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2015 11:45:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20151007133619.GR12682@redhat.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35194 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754410AbbJGPq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 11:46:29 -0400
+Received: by pacfv12 with SMTP id fv12so25354202pac.2
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 08:46:29 -0700 (PDT)
+In-Reply-To: <20151007061409.GB2152@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> There is a recent patch that may help here, see below, but maybe its
-> just a matter of removing that :pp, as it ends with a /pp anyway, no
-> need to state that twice :)
+On 15-10-06 11:14 PM, Jiri Pirko wrote:
+> Wed, Oct 07, 2015 at 03:50:08AM CEST, sfeldma@gmail.com wrote:
+> 
+> <snip>
+> 
+>>
+>>> Also I wonder how this works when a pkt ingresses a port in mode A and
+>>> egresses a port in mode B? What fib/fdb tables does it cross when this
+>>> happens? It seems easier to just have two switch devices not a
+>>> hybrid. If this per port implementation maps to some hardware that
+>>> would be really interesting though.
+>>
+>> In retrospect, I regret adding the port mode feature to rocker.  I
+>> like the world idea, so we can have a device with different
+>> pipeline/resources, but we should have locked all ports on a switch to
+>> one mode, or even as you hinted at earlier, use a unique sub-device ID
+>> for a switch with all ports in a particular mode.  If you want to
+>> ports with different worlds, just instantiate a switch in each world.
+>> Instantiating new devices is easy.
+>>
+>> But, now Jiri has locked on to the dynamic port mode idea with pit
+>> bull zeal, to the point of being able to switch a port mode at any
+>> time from one mode to another from the host.  I just don't see that as
+>> a real-world use-case.  Life is too short and we need to be focusing
+>> on switchdev features, not refactoring or adding cool but useless
+>> features.
+> 
+> Can can still change this if you want. We can make
+> ROCKER_TLV_CMD_PORT_SETTINGS_MODE read-only in hw (As it is in fact now
+> as we have only one world).
+> 
+> Then we add another property:
+> static Property rocker_properties[] = {
+> 	    DEFINE_PROP_STRING("name", Rocker, name),
+> 	    DEFINE_PROP_STRING("world", Rocker, world),
+> 		....
+> 
+> and we use this value in pci_rocker_init instead of r->world_dflt
+> 
+> Looks straightforward.
+> 
+> 
 
-Yes the extra :pp was a regression in toplev. I fixed it now. Thanks.
+I think that would map better to something real hardware would do. In
+this case it looks like you reprogrammed the device or pushed a
+microcode update at it and loaded a new world. Reporting the string
+in ethtool or something might be a nice touch as well.
 
--Andi
+Just a couple editorial comments, hopefully I'm not sounding critical
+of the multiworld stuff I really want to use this! And two we have
+devices that can change characteristics at runtime such as the parser,
+table type/sizes/layouts, even supported actions so I do want the
+sort of dynamic knobs originally proposed just not as strings. But I
+think that is our "worlds" vs "profiles" debate.
+
+Thanks!
+John
