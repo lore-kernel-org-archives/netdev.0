@@ -1,111 +1,90 @@
-From: Jarno Rajahalme <jrajahalme@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
-Date: Wed, 7 Oct 2015 10:47:17 -0700
-Message-ID: <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz> <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
- Vlastimil Babka <vbabka@suse.cz>,
- Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
- "dev@openvswitch.org" <dev@openvswitch.org>,
- Pravin Shelar <pshelar@nicira.com>,
- "David S. Miller" <davem@davemloft.net>,
- netdev <netdev@vger.kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- linux-mm@kvack.org
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
+Date: Wed, 7 Oct 2015 19:51:34 +0200
+Message-ID: <20151007175134.GJ2152@nanopsycho.orion>
+References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
+ <1444117913-10386-7-git-send-email-jiri@resnulli.us>
+ <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
+ <5613F482.2010200@gmail.com>
+ <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
+ <56143C50.2050604@gmail.com>
+ <CAE4R7bBzidcLVgP7TybtHDHhgmQv1FAY9toyDDmSa8Y5bhg-zw@mail.gmail.com>
+ <20151007061409.GB2152@nanopsycho.orion>
+ <CAE4R7bAFBBdhoAVx4s0Ljc-Kcpvn8F-bHG+N6-1oxntnearWZQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Laight <David.Laight@aculab.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:35515 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754902AbbJGRvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:51:37 -0400
+Received: by wicge5 with SMTP id ge5so224204403wic.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:51:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bAFBBdhoAVx4s0Ljc-Kcpvn8F-bHG+N6-1oxntnearWZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Wed, Oct 07, 2015 at 07:32:45PM CEST, sfeldma@gmail.com wrote:
+>On Tue, Oct 6, 2015 at 11:14 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Wed, Oct 07, 2015 at 03:50:08AM CEST, sfeldma@gmail.com wrote:
+>>
+>> <snip>
+>>
+>>>
+>>>> Also I wonder how this works when a pkt ingresses a port in mode A and
+>>>> egresses a port in mode B? What fib/fdb tables does it cross when this
+>>>> happens? It seems easier to just have two switch devices not a
+>>>> hybrid. If this per port implementation maps to some hardware that
+>>>> would be really interesting though.
+>>>
+>>>In retrospect, I regret adding the port mode feature to rocker.  I
+>>>like the world idea, so we can have a device with different
+>>>pipeline/resources, but we should have locked all ports on a switch to
+>>>one mode, or even as you hinted at earlier, use a unique sub-device ID
+>>>for a switch with all ports in a particular mode.  If you want to
+>>>ports with different worlds, just instantiate a switch in each world.
+>>>Instantiating new devices is easy.
+>>>
+>>>But, now Jiri has locked on to the dynamic port mode idea with pit
+>>>bull zeal, to the point of being able to switch a port mode at any
+>>>time from one mode to another from the host.  I just don't see that as
+>>>a real-world use-case.  Life is too short and we need to be focusing
+>>>on switchdev features, not refactoring or adding cool but useless
+>>>features.
+>>
+>> Can can still change this if you want. We can make
+>> ROCKER_TLV_CMD_PORT_SETTINGS_MODE read-only in hw (As it is in fact now
+>> as we have only one world).
+>>
+>> Then we add another property:
+>> static Property rocker_properties[] = {
+>>             DEFINE_PROP_STRING("name", Rocker, name),
+>>             DEFINE_PROP_STRING("world", Rocker, world),
+>>                 ....
+>>
+>> and we use this value in pci_rocker_init instead of r->world_dflt
+>>
+>> Looks straightforward.
+>
+>Yes, perfect, I totally on-board with that change.  This puts all
+>ports on the device in the same mode.  I you want ports in a different
+>mode, instantiate another switch.
+>
+>Mixing port modes on a switch, either statically or dynamically, would
+>have created another problem.  Switchdev uses the switch_id for each
+>port to know when ports belong to the same switch, same switching
+>domain, if you will.  Mixing port modes within a switch breaks this.
+>For example, the check we added to avoid double forwarding of pkts by
+>the bridge and the device depends on ports on the switch having the
+>same switch_id.
 
-> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
->=20
-> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
->>>=20
->>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->>>>=20
->>>> When openvswitch tries allocate memory from offline numa node 0:
->>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | =
-__GFP_ZERO,
->>>> 0)
->>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || =
-!node_online(nid))
->>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in =
-linux/gfp.h
->>>> This patch disables numa affinity in this case.
->>>>=20
->>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->>>=20
->>>=20
->>> ...
->>>=20
->>>> diff --git a/net/openvswitch/flow_table.c =
-b/net/openvswitch/flow_table.c
->>>> index f2ea83ba4763..c7f74aab34b9 100644
->>>> --- a/net/openvswitch/flow_table.c
->>>> +++ b/net/openvswitch/flow_table.c
->>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->>>>=20
->>>>      /* Initialize the default stat node. */
->>>>      stats =3D kmem_cache_alloc_node(flow_stats_cache,
->>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
->>>> +                      GFP_KERNEL | __GFP_ZERO,
->>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
->>>=20
->>>=20
->>> Stupid question: can node 0 become offline between this check, and =
-the
->>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
->>=20
->>=20
->> Another question to ask would be is it possible for node 0 to be =
-online, but
->> be a memoryless node?
->>=20
->> I would say you are better off just making this call =
-kmem_cache_alloc.  I
->> don't see anything that indicates the memory has to come from node 0, =
-so
->> adding the extra overhead doesn't provide any value.
->=20
-> I agree that this at least makes me wonder, though I actually have
-> concerns in the opposite direction - I see assumptions about this
-> being on node 0 in net/openvswitch/flow.c.
->=20
-> Jarno, since you original wrote this code, can you take a look to see
-> if everything still makes sense?
-
-We keep the pre-allocated stats node at array index 0, which is =
-initially used by all CPUs, but if CPUs from multiple numa nodes start =
-updating the stats, we allocate additional stats nodes (up to one per =
-numa node), and the CPUs on node 0 keep using the preallocated entry. If =
-stats cannot be allocated from CPUs local node, then those CPUs keep =
-using the entry at index 0. Currently the code in net/openvswitch/flow.c =
-will try to allocate the local memory repeatedly, which may not be =
-optimal when there is no memory at the local node.
-
-Allocating the memory for the index 0 from other than node 0, as =
-discussed here, just means that the CPUs on node 0 will keep on using =
-non-local memory for stats. In a scenario where there are CPUs on two =
-nodes (0, 1), but only the node 1 has memory, a shared flow entry will =
-still end up having separate memory allocated for both nodes, but both =
-of the nodes would be at node 1. However, there is still a high =
-likelihood that the memory allocations would not share a cache line, =
-which should prevent the nodes from invalidating each other=E2=80=99s =
-caches. Based on this I do not see a problem relaxing the memory =
-allocation for the default stats node. If node 0 has memory, however, it =
-would be better to allocate the memory from node 0.
-
-  Jarno
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ok. Will fix this in qemu as well.
