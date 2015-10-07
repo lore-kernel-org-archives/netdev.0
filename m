@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/5] net: dsa: complete and fix the dsa unbinding
-Date: Wed, 07 Oct 2015 04:56:33 -0700 (PDT)
-Message-ID: <20151007.045633.344434060767220177.davem@davemloft.net>
-References: <5613DD2E.1070209@baylibre.com>
+Subject: Re: [PATCH 1/1] net: ipv4: tcp.c Fixed an assignment coding style
+ issue
+Date: Wed, 07 Oct 2015 05:01:26 -0700 (PDT)
+Message-ID: <20151007.050126.1632919304647297705.davem@davemloft.net>
+References: <20151006180854.GA27181@ymariappan-mbp.jnpr.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	fabf@skynet.be, pavel.nakonechny@skitlab.ru, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nbd@openwrt.org, sergei.shtylyov@cogentembedded.com
-To: narmstrong@baylibre.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5613DD2E.1070209@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: ymariappan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53219 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbbJGLpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 07:45:41 -0400
+In-Reply-To: <20151006180854.GA27181@ymariappan-mbp.jnpr.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Armstrong <narmstrong@baylibre.com>
-Date: Tue, 6 Oct 2015 15:39:42 +0100
+From: Yuvaraja Mariappan <ymariappan@gmail.com>
+Date: Tue, 6 Oct 2015 11:08:54 -0700
 
-> In order to cleanly unbind the dsa core, either as a module removal,
-> or a platform device unbind, switch the allocation the their devm_
-> counterparts and complete the destroy functions.
+> From beecc68c2ec1fecda34d26fcbc3c821e617b7bcb Mon Sep 17 00:00:00 2001
+> From: Yuvaraja Mariappan <ymariappan@gmail.com>
+> Date: Tue, 6 Oct 2015 10:53:29 -0700
+> Subject: [PATCH 1/1] net: ipv4: tcp.c Fixed an assignment coding style issue
 > 
-> First, the missing kfree were added, the remove function were
-> completed then kfree were removed in favor to devm_ calls.
+> Fixed an assignment coding style issue
 > 
-> The last patch is an way to cleanly exit the probe when no
-> switch is found in the discover process.
-> 
-> The patches are based on the current net.
-> 
-> v3:
->  - make checkpatch happy with 1/5 & 5/5
->  - fix 5/5 exit path with a goto
+> Signed-off-by: Yuvaraja Mariappan <ymariappan@gmail.com>
 
-Series applied, thanks Neil.
+Applied to net-next, thanks.
