@@ -1,49 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/5][pull request] Intel Wired LAN Driver Updates
- 2015-10-03
-Date: Wed, 07 Oct 2015 03:02:11 -0700 (PDT)
-Message-ID: <20151007.030211.1337871252750783070.davem@davemloft.net>
-References: <1443927283-18456-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcm80211:Fix error handling in the function brcmf_sdio_htclk
+Date: Wed, 7 Oct 2015 11:49:48 +0200
+Message-ID: <5614EABC.9040404@broadcom.com>
+References: <1444099010-27210-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52525 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505AbbJGJq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 05:46:27 -0400
-In-Reply-To: <1443927283-18456-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <frankyl@broadcom.com>, <meuleman@broadcom.com>,
+	<kvalo@codeaurora.org>, <pieterpg@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>, <brudley@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444099010-27210-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat,  3 Oct 2015 19:54:38 -0700
+Hi Nick,
 
-> This series contains updates to i40e and i40evf, some of which are to
-> resolve more Red Hat bugzilla issues.
-> 
-> Jiang Liu updates the i40e and i40evf drivers to use numa_mem_id()
-> instead of numa_node_id() to get the nearest node with memory which
-> better supports memoryless nodes.
-> 
-> Anjali fixes an issue from Dan Carpenter <dan.carpenter@oracle.com>,
-> to resolve a memory leak in X722 RSS configuration path, where we should
-> free the memory allocated before exiting.
-> 
-> Shannon modifies the drivers to ensure we have the spinlocks before we
-> clear the ARQ and ASQ management registers.  In addition, we widen the
-> locked portion insert a sanity check to ensure we are working with safe
-> register values.
-> 
-> Mitch fixes an issue where under certain circumstances, we can get an
-> extra VF_RESOURCES message from the PF driver at runtime.  When this
-> occurs, we need to parse it because our VSI may have changed and that
-> will affect the relationship with the PF driver.  But this parsing also
-> blows away our current MAC address, so resolve the issue by restoring
-> the current MAC address from the netdev struct after we parse the
-> resource message.
+On 10/06/2015 04:36 AM, Nicholas Krause wrote:
+> This fixes error handling in the function brcmf_sdio_htclk to
+> properly check if the call to the function brcmf_sdio_regrb
+> fails in the else if condition where the clkstate is in the
+> CLK_PENDING state in order to avoid incorrect execution of
+> the function brcmf_sdio_htclk when the call to brcmf_sdio_htclk
+> fails by returning a error code here.
 
-Series applied, thanks Jeff.
+This commit message seems a bit overstating the change or I am missing 
+what you mean by incorrect execution here. These functions are pretty 
+low-level and failures are likely SDIO bus errors that are likely 
+persistent. For that reason not every individual call is checked for 
+errors as net result is that device will become inoperable.
+
+Regards,
+Arend
+
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 5 +++++
+>   1 file changed, 5 insertions(+)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> index f990e3d..030b50a 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> @@ -886,6 +886,11 @@ static int brcmf_sdio_htclk(struct brcmf_sdio *bus, bool on, bool pendok)
+>   			/* Cancel CA-only interrupt filter */
+>   			devctl = brcmf_sdiod_regrb(bus->sdiodev,
+>   						   SBSDIO_DEVICE_CTL, &err);
+> +			if (err) {
+> +				brcmf_err("Devctl error canceling CA: %d\n",
+> +					  err);
+> +				return -EBADE;
+> +			}
+>   			devctl &= ~SBSDIO_DEVCTL_CA_INT_ONLY;
+>   			brcmf_sdiod_regwb(bus->sdiodev, SBSDIO_DEVICE_CTL,
+>   					  devctl, &err);
+>
