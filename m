@@ -1,37 +1,63 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv4 net 1/6] openvswitch: Fix typos in CT headers
-Date: Wed, 7 Oct 2015 09:12:19 -0700
-Message-ID: <CANr6G5xEYOz9HuA-=frOcr=qaV7LtB65gdKy+jX+MwGUjdosDw@mail.gmail.com>
-References: <1444154401-18029-1-git-send-email-joestringer@nicira.com>
- <1444154401-18029-2-git-send-email-joestringer@nicira.com> <56151F1B.6080207@cogentembedded.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 2/5] once: make helper generic for calling
+ function once
+Date: Wed, 7 Oct 2015 09:16:49 -0700
+Message-ID: <56154571.7050900@plumgrid.com>
+References: <cover.1444224502.git.daniel@iogearbox.net>
+ <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f179.google.com ([209.85.160.179]:33098 "EHLO
-	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754833AbbJGQMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:12:39 -0400
-Received: by ykft14 with SMTP id t14so22165954ykf.0
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 09:12:38 -0700 (PDT)
-In-Reply-To: <56151F1B.6080207@cogentembedded.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34224 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751187AbbJGQQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:16:48 -0400
+Received: by padhy16 with SMTP id hy16so25598939pad.1
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 09:16:48 -0700 (PDT)
+In-Reply-To: <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7 October 2015 at 06:33, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 10/6/2015 8:59 PM, Joe Stringer wrote:
+On 10/7/15 6:43 AM, Daniel Borkmann wrote:
+> From: Hannes Frederic Sowa<hannes@stressinduktion.org>
 >
->> These comments hadn't caught up to their implementations, fix them.
->>
->> Fixes: 7f8a436eaa2c "openvswitch: Add conntrack action"
+> Make the get_random_once() helper generic enough, so that functions
+> in general would only be called once, where one user of this is then
+> net_get_random_once().
 >
+> The only implementation specific call is to get_random_bytes(), all
+> the rest of this *_once() facility would be duplicated among different
+> subsystems otherwise. The new do_once() helper will be used by prandom()
+> later on, but might also be useful for other scenarios as well where a
+> one-time initialization in often-called, possibly fast-path code could
+> occur.
 >
->    Sigh. Please see Documentation/SubmittingPatches. It should be:
->
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Hannes Frederic Sowa<hannes@stressinduktion.org>
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
+> ---
+>   include/linux/once.h | 25 ++++++++++++++++++-------
+>   lib/once.c           | 34 +++++++++++++++++++++-------------
+>   2 files changed, 39 insertions(+), 20 deletions(-)
 
-Sorry about that. I've amended my gitconfig to avoid this in future.
+looking at the patch 1 the once.c file name really looked out of place,
+but this patch makes it fit. Interesting helper, though
+get_random_once_kvec() and kvec are not pretty, since they take extra
+stack and being inited even when static_key is disabled.
+Instead is it possible to split do_once into two parts then
+your macro can have varags and kvec/extra_helper can be removed like:
+#define do_once(func, ...)                      \
+  ({                                             \
+         bool ___ret = false;                    \
+         static bool ___done = false;            \
+         static struct static_key ___once_key =  \
+                 STATIC_KEY_INIT_TRUE;           \
+         if (static_key_true(&___once_key)) {    \
+                 __do_once_lock(&___done);       \
+                 func(##__VA_ARGS__);            \
+                 __do_once_unlock(&_done, &___once_key);\
+         } \
+         ___ret;                                 \
+  })
