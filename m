@@ -1,46 +1,51 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 3/4] net: Add IPv6 support to VRF device
-Date: Wed, 7 Oct 2015 12:46:19 -0600
-Message-ID: <5615687B.4070405@cumulusnetworks.com>
-References: <1444236640-2410-1-git-send-email-dsa@cumulusnetworks.com>
- <1444236640-2410-4-git-send-email-dsa@cumulusnetworks.com>
- <CAHA+R7Pvt7ZiUMnseimJYV=PT2ArYu9VOpvp2qz00CDem_TM2Q@mail.gmail.com>
+From: Chad Dupuis <chad.dupuis@qlogic.com>
+Subject: Re: [PATCH] bnx2fc: reduce stack usage in __bnx2fc_enable
+Date: Wed, 7 Oct 2015 14:49:22 -0400
+Message-ID: <alpine.OSX.2.00.1510071441460.1714@dns1.prod.a4.vary.redhat.com>
+References: <5002023.QHmpbQ8s70@wuerfel> <56151E03.4050908@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset="US-ASCII"; format=flowed
+Cc: Arnd Bergmann <arnd@arndb.de>, <linux-scsi@vger.kernel.org>,
+	<QLogic-Storage-Upstream@qlogic.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Joe Carnuccio <joe.carnuccio@qlogic.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Maurizio Lombardi <mlombard@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36839 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730AbbJGSqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 14:46:17 -0400
-Received: by pablk4 with SMTP id lk4so28781874pab.3
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 11:46:17 -0700 (PDT)
-In-Reply-To: <CAHA+R7Pvt7ZiUMnseimJYV=PT2ArYu9VOpvp2qz00CDem_TM2Q@mail.gmail.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:36871 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752087AbbJGSuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 14:50:15 -0400
+In-Reply-To: <56151E03.4050908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 12:42 PM, Cong Wang wrote:
-> On Wed, Oct 7, 2015 at 9:50 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> Add support for IPv6 to VRF device driver. Implemenation parallels what
->> has been done for IPv4.
-> [...]
->> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->> index b9ebd0d18a52..c878a0bc2137 100644
->> --- a/drivers/net/Kconfig
->> +++ b/drivers/net/Kconfig
->> @@ -300,6 +300,7 @@ config NET_VRF
->>          tristate "Virtual Routing and Forwarding (Lite)"
->>          depends on IP_MULTIPLE_TABLES && IPV6_MULTIPLE_TABLES
->>          depends on NET_L3_MASTER_DEV
->> +       depends on IPV6
+
+
+On Wed, 7 Oct 2015, Maurizio Lombardi wrote:
+
+> Hi,
 >
-> So vrf will stop functioning without IPV6? This doesn't look correct...
+> On 10/07/2015 03:11 PM, Arnd Bergmann wrote:
+>> -	memset(&npiv_tbl, 0, sizeof(npiv_tbl));
+>> -	if (hba->cnic->get_fc_npiv_tbl(hba->cnic, &npiv_tbl))
+>> +	npiv_tbl = kzalloc(sizeof(struct cnic_fc_npiv_tbl), GFP_KERNEL);
+>> +	if (!npiv_tbl)
+>>  		goto done;
+>>
+>
+> If kzalloc() fails perhaps the function should return -ENOMEM, not zero.
 >
 
-The new functionality does. The inter-module/builtin dependencies are a 
-nightmare. I either make VRF device require IPV6 like the IPVLAN driver 
-does or I split the module into 2 -- 1 for IPv4 and 1 for IPv6.
+The enablement of the fcoe interface can still proceed if this particular 
+allocation fails so returning 0 would be appropriate here.
 
-David
+This patch looks good to me.
+
+>
+> Regards,
+> Maurizio Lombardi
+>
