@@ -1,83 +1,36 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next 12/15] ipvlan: Cache net in ipvlan_process_v4_outbound
- and ipvlan_process_v6_outbound
-Date: Tue, 6 Oct 2015 18:24:06 -0700
-Message-ID: <CAF2d9jjqF=MaZtN5znWqNOCmYocLzPV_g6i-PWYye3CcYy0g6Q@mail.gmail.com>
-References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org> <1444157595-28816-12-git-send-email-ebiederm@xmission.com>
- <CAF2d9ji4UNrYpnjrAPq3sGH_JBpT=HQTdBCHUV8n45a3HF_Chg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] act_mirred: clear sender cpu before sending to tx
+Date: Tue, 06 Oct 2015 18:27:25 -0700
+Message-ID: <1444181245.9555.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1444177427-5603-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
-	linux-netdev <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <CAF2d9ji4UNrYpnjrAPq3sGH_JBpT=HQTdBCHUV8n45a3HF_Chg@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34888 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753157AbbJGB11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 21:27:27 -0400
+Received: by pacfv12 with SMTP id fv12so3762349pac.2
+        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 18:27:27 -0700 (PDT)
+In-Reply-To: <1444177427-5603-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 6, 2015 at 6:19 PM, Mahesh Bandewar <maheshb@google.com> wrote:
-> On Tue, Oct 6, 2015 at 11:53 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> Compute net once in ipvlan_process_v4_outbound and ipvlan_process_v6_outbound
->> and store it in a variable so that net does not need to be recomputed next time
->> it is used.
->>
-> It's used exactly once at this moment so don't know what "next time"
-> is. Do you have any additional patch(es) planned?
->
-OK. Got it! I was little early in sending that and did not look at the
-entire patch-series.
+On Tue, 2015-10-06 at 17:23 -0700, Cong Wang wrote:
+> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
+> the skb->sender_cpu needs to be cleared when moving from Rx
+> Tx, otherwise kernel could crash.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->>  drivers/net/ipvlan/ipvlan_core.c | 6 ++++--
->>  1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
->> index 75dcf36c0366..976f30b291f6 100644
->> --- a/drivers/net/ipvlan/ipvlan_core.c
->> +++ b/drivers/net/ipvlan/ipvlan_core.c
->> @@ -344,6 +344,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
->>  {
->>         const struct iphdr *ip4h = ip_hdr(skb);
->>         struct net_device *dev = skb->dev;
->> +       struct net *net = dev_net(dev);
->>         struct rtable *rt;
->>         int err, ret = NET_XMIT_DROP;
->>         struct flowi4 fl4 = {
->> @@ -354,7 +355,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
->>                 .saddr = ip4h->saddr,
->>         };
->>
->> -       rt = ip_route_output_flow(dev_net(dev), &fl4, NULL);
->> +       rt = ip_route_output_flow(net, &fl4, NULL);
->>         if (IS_ERR(rt))
->>                 goto err;
->>
->> @@ -381,6 +382,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
->>  {
->>         const struct ipv6hdr *ip6h = ipv6_hdr(skb);
->>         struct net_device *dev = skb->dev;
->> +       struct net *net = dev_net(dev);
->>         struct dst_entry *dst;
->>         int err, ret = NET_XMIT_DROP;
->>         struct flowi6 fl6 = {
->> @@ -393,7 +395,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
->>                 .flowi6_proto = ip6h->nexthdr,
->>         };
->>
->> -       dst = ip6_route_output(dev_net(dev), NULL, &fl6);
->> +       dst = ip6_route_output(net, NULL, &fl6);
->>         if (dst->error) {
->>                 ret = dst->error;
->>                 dst_release(dst);
->> --
->> 2.2.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
+Acked-by: Eric Dumazet <edumazet@google.com>
