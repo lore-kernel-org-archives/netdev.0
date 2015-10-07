@@ -1,112 +1,68 @@
-From: Matan Barak <matanb@mellanox.com>
-Subject: Re: [PATCH 2/2] Do not set shared_ports when nreq > MAX_MSIX
-Date: Wed, 7 Oct 2015 11:08:40 +0300
-Message-ID: <5614D308.4010106@mellanox.com>
-References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
- <1444166829-17638-2-git-send-email-clsoto@linux.vnet.ibm.com>
- <CAJ3xEMjYtmSj3kBo24w+4Y3Nh60C9J=NHb_=YQw1QASJ1i_i1g@mail.gmail.com>
- <5614411E.1070105@linux.vnet.ibm.com> <5614C8E5.8040607@mellanox.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Wed, 7 Oct 2015 10:09:55 +0200
+Message-ID: <20151007100955.3f13120e@griffin>
+References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
+	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
+	<20151006213245.74810d81@griffin>
+	<CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <brking@linux.vnet.ibm.com>
-To: Carol Soto <clsoto@linux.vnet.ibm.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0084.outbound.protection.outlook.com ([157.55.234.84]:16675
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750947AbbJGIIs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2015 04:08:48 -0400
-In-Reply-To: <5614C8E5.8040607@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55741 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752000AbbJGIJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 04:09:59 -0400
+In-Reply-To: <CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 6 Oct 2015 14:16:02 -0700, Pravin Shelar wrote:
+> When OVS needs to add a vxlan tunnel device, OVS can create the vxlan
+> device and check the parameters for the flag. If the flag does not
+> exist then fallback to vport-create.
 
+You omitted the very important step, delete the device before falling
+back.
 
-On 10/7/2015 10:25 AM, Matan Barak wrote:
->
->
-> On 10/7/2015 12:46 AM, Carol Soto wrote:
->>
->>
->> On 10/6/2015 4:39 PM, Or Gerlitz wrote:
->>> On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote=
-:
->>>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->>>>
->>>> If we get MAX_MSIX interrupts would like to have each receive ring
->>>> with his own msix interrupt line.
->>> so 9293267a3e2a  was only partially correct? and/or not fully optim=
-al?
->>> please elaborate more on that in your change log.
->> just not fully optimal, with commit 9293267a3e2a if I have 64 MSIXs =
-and
->> 2 ports I can get 8 rings for each port but then the rings will shar=
-e
->> the interrupt lines. For 64 MSIXs we can have each ring with his own
->> interrupt line.
->>
->>>> Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested
->>>> MSIXs to MAX_MSIX')
->>>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
->>> Carol, you didn't use net/mlx4: prefix as ask for mlx4 driver patch
->>> titles, so please repost, but before that I'd like to see an ack fr=
-om
->>> Matan for this patch as well.
->> Sorry completely missed it. When Matan acks will resend it.
->
-> The logic seems correct to me. When there are more nreqs than we coul=
-d
-> possibly support (or want to support), there=E2=80=99s no reason to s=
-hare the
-> EQs between the different ports.
-> Thanks for your fix.
->
+This means that with older kernels, there will be an interface created
+and destroyed shortly after. With all netlink notifications sent, all
+tools listening for netlink events seeing the interface appear and go,
+with this being logged in various places, etc. Sounds very hacky and
+confusing to anyone watching their logs or output of such tools. That
+is the confusion I was talking about.
 
-Please also clean the shared_ports variable - we don't need this anymor=
-e.
+> This only needs to be done for
+> very first tunnel device. Thats how most of features are supported in
+> OVS.
 
-> Regards,
-> Matan
->
->>>
->>> Or.
->>>
->>>> ---
->>>>   drivers/net/ethernet/mellanox/mlx4/main.c | 4 +---
->>>>   1 file changed, 1 insertion(+), 3 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
->>>> b/drivers/net/ethernet/mellanox/mlx4/main.c
->>>> index 006757f..f03f513 100644
->>>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
->>>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->>>> @@ -2673,10 +2673,8 @@ static void mlx4_enable_msi_x(struct mlx4_d=
-ev
->>>> *dev)
->>>>
->>>>                  nreq =3D min_t(int, dev->caps.num_eqs -
->>>> dev->caps.reserved_eqs,
->>>>                               nreq);
->>>> -               if (nreq > MAX_MSIX) {
->>>> +               if (nreq > MAX_MSIX)
->>>>                          nreq =3D MAX_MSIX;
->>>> -                       shared_ports =3D true;
->>>> -               }
->>>>
->>>>                  entries =3D kcalloc(nreq, sizeof *entries, GFP_KE=
-RNEL);
->>>>                  if (!entries)
->>>> --
->>>> 1.8.3.1
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" =
-in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+The big difference to the other features is this cannot be detected
+until half way through the setup.
+
+What I'm proposing instead is to introduce a way to clearly and
+unambiguously detect whether lwtunnels are supported or not. We'll need
+this anyway: kernel 4.3 won't really support IPv6 tunneling with ovs,
+yet there's currently no way to determine whether it's supported or not
+(and, unlike with lwtunnel detection, there's not even a hacky way).
+Querying the datapath for the supported features is needed
+nevertheless; it's only logical to use it for the lwtunnel vs. old
+vport decision, too.
+
+I don't understand why you're opposed to this: it's much cleaner and
+there's no problem with lwtunnels not being used with the 4.3 kernel,
+everything should work just fine.
+
+ Jiri
+
+-- 
+Jiri Benc
