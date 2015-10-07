@@ -1,82 +1,95 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v3 06/14] rocker: introduce worlds infrastructure
-Date: Wed, 7 Oct 2015 10:32:45 -0700
-Message-ID: <CAE4R7bAFBBdhoAVx4s0Ljc-Kcpvn8F-bHG+N6-1oxntnearWZQ@mail.gmail.com>
-References: <1444117913-10386-1-git-send-email-jiri@resnulli.us>
- <1444117913-10386-7-git-send-email-jiri@resnulli.us> <CAE4R7bCdAQxLo3tKbXAqyGa_F3PhUTUkqrM5jTkYqcJJbCDmog@mail.gmail.com>
- <5613F482.2010200@gmail.com> <CAE4R7bAhc1HyrCxQfbfXUhQgME=UfjdVtF5PAyxy1Oe5g5EoTw@mail.gmail.com>
- <56143C50.2050604@gmail.com> <CAE4R7bBzidcLVgP7TybtHDHhgmQv1FAY9toyDDmSa8Y5bhg-zw@mail.gmail.com>
- <20151007061409.GB2152@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
+Date: Wed, 7 Oct 2015 19:39:56 +0200
+Message-ID: <20151007173956.GI2152@nanopsycho.orion>
+References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
+ <20151006073018.GA2165@nanopsycho.orion>
+ <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
+ <20151007060355.GA2152@nanopsycho.orion>
+ <CAE4R7bAHh-vc08Jfq8Q-OZoUCFQhfvOq2+STc_X0eM0q-8fzJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
 	Thomas Graf <tgraf@suug.ch>,
 	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>
-To: Jiri Pirko <jiri@resnulli.us>
+	David Laight <David.Laight@aculab.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:36331 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751864AbbJGRdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:33:06 -0400
-Received: by obcgx8 with SMTP id gx8so18931431obc.3
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:33:05 -0700 (PDT)
-In-Reply-To: <20151007061409.GB2152@nanopsycho.orion>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36709 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755203AbbJGRj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:39:59 -0400
+Received: by wicgb1 with SMTP id gb1so221943663wic.1
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:39:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bAHh-vc08Jfq8Q-OZoUCFQhfvOq2+STc_X0eM0q-8fzJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 6, 2015 at 11:14 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Oct 07, 2015 at 03:50:08AM CEST, sfeldma@gmail.com wrote:
->
-> <snip>
->
+Wed, Oct 07, 2015 at 06:53:22PM CEST, sfeldma@gmail.com wrote:
+>On Tue, Oct 6, 2015 at 11:03 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Tue, Oct 06, 2015 at 07:14:39PM CEST, sfeldma@gmail.com wrote:
+>>>On Tue, Oct 6, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Tue, Oct 06, 2015 at 05:56:12AM CEST, sfeldma@gmail.com wrote:
+>>>>>On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>>
+>>>>>> This patchset allows new rocker worlds to be easily added in future (like eBPF
+>>>>>> based one I have been working on). The main part of the patchset is the OF-DPA
+>>>>>> carve-out. It resuts in OF-DPA specific file. Clean cut.
+>>>>>>
+>>>>>> v1->v2:
+>>>>>>  - rtnl rocker mode change userspace expose patch was removed
+>>>>>>
+>>>>>> Jiri Pirko (13):
+>>>>>>   rocker: remove unused rocker_port param from alloc funcs and shorten
+>>>>>>     their names
+>>>>>>   rocker: rename rocker.h to rocker_hw.h
+>>>>>>   rocker: rename rocker.c to rocker_main.c
+>>>>>>   rocker: push tlv processing into separate files
+>>>>>>   rocker: implement set settings mode command
+>>>>>>   rocker: introduce worlds infrastructure
+>>>>>>   rocker: introduce OF-DPA world skeleton
+>>>>>>   rocker: set default world on port probe and clean world on remove
+>>>>>>   rocker: pass "learning" value as a parameter to
+>>>>>>     rocker_port_set_learning
+>>>>>>   rocker: pre-allocate wait structures during cmd ring init
+>>>>>>   rocker: remove trans parameter to rocker_cmd_exec function
+>>>>>>   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
+>>>>>>     flags
+>>>>>>   rocker: move OF-DPA stuff into separate file
+>>>>>
+>>>>>A couple of my tests are failing with this patchset.  A simple port
+>>>>>test is failing and IPv4 routing test is failing.
+>>>>>
+>>>>>The port test is simple: just connect a port on DUT to a port on
+>>>>>another system and assign an IP address to each port and verify IP
+>>>>>connectivity.  I have this:
+>>>>>
+>>>>>   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
+>>>>>
+>>>>>The IPv4 routing tests is a bit more complicated to setup.  I'm using
+>>>>>OSPF, but I'm not seeing full routes formed in the topology, so I
+>>>>>suspect OSPF hellos aren't getting thru.
+>>>>>
+>>>>>Please fix find/fix these issues and send v3.  I don't want any git
+>>>>>bisect issues when running tests.  Thanks.
+>>>>
+>>>> I fixed that. Sending v3 in a sec. Thanks.
+>>>
+>>>Sorry, both tests are still broken.  Would you send me your tests
+>>>scripts so I can see why your tests are passing?
 >>
->>> Also I wonder how this works when a pkt ingresses a port in mode A and
->>> egresses a port in mode B? What fib/fdb tables does it cross when this
->>> happens? It seems easier to just have two switch devices not a
->>> hybrid. If this per port implementation maps to some hardware that
->>> would be really interesting though.
->>
->>In retrospect, I regret adding the port mode feature to rocker.  I
->>like the world idea, so we can have a device with different
->>pipeline/resources, but we should have locked all ports on a switch to
->>one mode, or even as you hinted at earlier, use a unique sub-device ID
->>for a switch with all ports in a particular mode.  If you want to
->>ports with different worlds, just instantiate a switch in each world.
->>Instantiating new devices is easy.
->>
->>But, now Jiri has locked on to the dynamic port mode idea with pit
->>bull zeal, to the point of being able to switch a port mode at any
->>time from one mode to another from the host.  I just don't see that as
->>a real-world use-case.  Life is too short and we need to be focusing
->>on switchdev features, not refactoring or adding cool but useless
->>features.
+>> I'm trying some smoke tests including bridge setup and just ip-ip
+>> setup by hand. Meybe if you send me your scripts, I can run it locally.
 >
-> Can can still change this if you want. We can make
-> ROCKER_TLV_CMD_PORT_SETTINGS_MODE read-only in hw (As it is in fact now
-> as we have only one world).
->
-> Then we add another property:
-> static Property rocker_properties[] = {
->             DEFINE_PROP_STRING("name", Rocker, name),
->             DEFINE_PROP_STRING("world", Rocker, world),
->                 ....
->
-> and we use this value in pci_rocker_init instead of r->world_dflt
->
-> Looks straightforward.
+>My test scripts are already included in the qemu tree.
 
-Yes, perfect, I totally on-board with that change.  This puts all
-ports on the device in the same mode.  I you want ports in a different
-mode, instantiate another switch.
+Okay, will rework and use your scripts. Hope I will find some time
+during this weekend.
 
-Mixing port modes on a switch, either statically or dynamically, would
-have created another problem.  Switchdev uses the switch_id for each
-port to know when ports belong to the same switch, same switching
-domain, if you will.  Mixing port modes within a switch breaks this.
-For example, the check we added to avoid double forwarding of pkts by
-the bridge and the device depends on ports on the switch having the
-same switch_id.
+Thanks.
