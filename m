@@ -1,108 +1,63 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 3/5] random32: add prandom_seed_full_state helper
-Date: Thu,  8 Oct 2015 01:20:37 +0200
-Message-ID: <50d520dd9e123a893fcddfb76f7645ebc49ee4bd.1444258406.git.daniel@iogearbox.net>
-References: <cover.1444258405.git.daniel@iogearbox.net>
-Cc: hannes@stressinduktion.org, ast@plumgrid.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] sch_hhf: fix return value of hhf_drop()
+Date: Wed,  7 Oct 2015 16:47:32 -0700
+Message-ID: <1444261652-3177-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Terry Lam <vtlam@google.com>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37260 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752053AbbJGXUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 19:20:48 -0400
-In-Reply-To: <cover.1444258405.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1444258405.git.daniel@iogearbox.net>
-References: <cover.1444258405.git.daniel@iogearbox.net>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:32980 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751022AbbJGXrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 19:47:40 -0400
+Received: by pacex6 with SMTP id ex6so35090277pac.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 16:47:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out the full reseed handling code that populates the state
-through get_random_bytes() and runs prandom_warmup(). The resulting
-prandom_seed_full_state() will be used later on in more than the
-current __prandom_reseed() user. Fix also two minor whitespace
-issues along the way.
+Similar to commit c0afd9ce4d6a ("fq_codel: fix return value of fq_codel_drop()")
+->drop() is supposed to return the number of bytes it dropped,
+but hhf_drop () returns the id of the bucket where it drops
+a packet from.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Terry Lam <vtlam@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
 ---
- lib/random32.c | 37 +++++++++++++++++++++----------------
- 1 file changed, 21 insertions(+), 16 deletions(-)
+ net/sched/sch_hhf.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/lib/random32.c b/lib/random32.c
-index 0bee183..36c09fb 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -181,7 +181,7 @@ void prandom_seed(u32 entropy)
- 	 * No locking on the CPUs, but then somewhat random results are, well,
- 	 * expected.
- 	 */
--	for_each_possible_cpu (i) {
-+	for_each_possible_cpu(i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state, i);
- 
- 		state->s1 = __seed(state->s1 ^ entropy, 2U);
-@@ -201,7 +201,7 @@ static int __init prandom_init(void)
- 	prandom_state_selftest();
- 
- 	for_each_possible_cpu(i) {
--		struct rnd_state *state = &per_cpu(net_rand_state,i);
-+		struct rnd_state *state = &per_cpu(net_rand_state, i);
- 		u32 weak_seed = (i + jiffies) ^ random_get_entropy();
- 
- 		prandom_seed_early(state, weak_seed, true);
-@@ -238,13 +238,30 @@ static void __init __prandom_start_seed_timer(void)
- 	add_timer(&seed_timer);
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index 9d15cb6..86b04e3 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -368,6 +368,15 @@ static unsigned int hhf_drop(struct Qdisc *sch)
+ 	return bucket - q->buckets;
  }
  
-+static void prandom_seed_full_state(struct rnd_state __percpu *pcpu_state)
++static unsigned int hhf_qdisc_drop(struct Qdisc *sch)
 +{
-+	int i;
++	unsigned int prev_backlog;
 +
-+	for_each_possible_cpu(i) {
-+		struct rnd_state *state = per_cpu_ptr(pcpu_state, i);
-+		u32 seeds[4];
-+
-+		get_random_bytes(&seeds, sizeof(seeds));
-+		state->s1 = __seed(seeds[0],   2U);
-+		state->s2 = __seed(seeds[1],   8U);
-+		state->s3 = __seed(seeds[2],  16U);
-+		state->s4 = __seed(seeds[3], 128U);
-+
-+		prandom_warmup(state);
-+	}
++	prev_backlog = sch->qstats.backlog;
++	hhf_drop(sch);
++	return prev_backlog - sch->qstats.backlog;
 +}
 +
- /*
-  *	Generate better values after random number generator
-  *	is fully initialized.
-  */
- static void __prandom_reseed(bool late)
+ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  {
--	int i;
- 	unsigned long flags;
- 	static bool latch = false;
- 	static DEFINE_SPINLOCK(lock);
-@@ -266,19 +283,7 @@ static void __prandom_reseed(bool late)
- 		goto out;
- 
- 	latch = true;
--
--	for_each_possible_cpu(i) {
--		struct rnd_state *state = &per_cpu(net_rand_state,i);
--		u32 seeds[4];
--
--		get_random_bytes(&seeds, sizeof(seeds));
--		state->s1 = __seed(seeds[0],   2U);
--		state->s2 = __seed(seeds[1],   8U);
--		state->s3 = __seed(seeds[2],  16U);
--		state->s4 = __seed(seeds[3], 128U);
--
--		prandom_warmup(state);
--	}
-+	prandom_seed_full_state(&net_rand_state);
- out:
- 	spin_unlock_irqrestore(&lock, flags);
- }
+ 	struct hhf_sched_data *q = qdisc_priv(sch);
+@@ -696,7 +705,7 @@ static struct Qdisc_ops hhf_qdisc_ops __read_mostly = {
+ 	.enqueue	=	hhf_enqueue,
+ 	.dequeue	=	hhf_dequeue,
+ 	.peek		=	qdisc_peek_dequeued,
+-	.drop		=	hhf_drop,
++	.drop		=	hhf_qdisc_drop,
+ 	.init		=	hhf_init,
+ 	.reset		=	hhf_reset,
+ 	.destroy	=	hhf_destroy,
 -- 
-1.9.3
+1.8.3.1
