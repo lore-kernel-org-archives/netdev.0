@@ -1,43 +1,71 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] net: ipv6: Make address flushing on ifdown
- optional
-Date: Wed, 7 Oct 2015 11:01:53 -0600
-Message-ID: <56155001.3070207@cumulusnetworks.com>
-References: <1444231059-14830-1-git-send-email-dsa@cumulusnetworks.com>
- <CACP96tQtGecigUUHdF32w91qj=abqJLo+evzOL-9JakSJZ064A@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Wed, 7 Oct 2015 10:19:19 -0700
+Message-ID: <CALnjE+roryYx17ivfbJTN+QbLtt8pGDA3Evw71F1CzEmZ4Wmyw@mail.gmail.com>
+References: <1444067897-1951-1-git-send-email-pshelar@nicira.com>
+	<20151005204020.56f50496@griffin>
+	<CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
+	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
+	<20151006213245.74810d81@griffin>
+	<CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
+	<20151007100955.3f13120e@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, hannes@redhat.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Sowmini Varadhan <sowmini05@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34966 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753995AbbJGRBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:01:51 -0400
-Received: by pacfv12 with SMTP id fv12so27079877pac.2
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:01:51 -0700 (PDT)
-In-Reply-To: <CACP96tQtGecigUUHdF32w91qj=abqJLo+evzOL-9JakSJZ064A@mail.gmail.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36393 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753649AbbJGRTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:19:20 -0400
+Received: by ioii196 with SMTP id i196so29896205ioi.3
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:19:20 -0700 (PDT)
+In-Reply-To: <20151007100955.3f13120e@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 9:43 AM, Sowmini Varadhan wrote:
-> On Wed, Oct 7, 2015 at 11:17 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> Currently, all ipv6 addresses are flushed when the interface is configured
->> down, including global, static addresses:
->    :
->>
->> Add a new sysctl to make this behavior optional. The new setting defaults to
->> flush all addresses to maintain backwards compatibility. When the setting is
->> reset global addresses with no expire times are not flushed:
+On Wed, Oct 7, 2015 at 1:09 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 6 Oct 2015 14:16:02 -0700, Pravin Shelar wrote:
+>> When OVS needs to add a vxlan tunnel device, OVS can create the vxlan
+>> device and check the parameters for the flag. If the flag does not
+>> exist then fallback to vport-create.
 >
-> does src addr selection also need to be modified to know if/when it can/cannot
-> use this static address as a source addr? Or does the TENTATIVE flag
-> make it Do The Right Thing per rfc 3484?
+> You omitted the very important step, delete the device before falling
+> back.
+>
+> This means that with older kernels, there will be an interface created
+> and destroyed shortly after. With all netlink notifications sent, all
+> tools listening for netlink events seeing the interface appear and go,
+> with this being logged in various places, etc. Sounds very hacky and
+> confusing to anyone watching their logs or output of such tools. That
+> is the confusion I was talking about.
+>
+>> This only needs to be done for
+>> very first tunnel device. Thats how most of features are supported in
+>> OVS.
+>
+> The big difference to the other features is this cannot be detected
+> until half way through the setup.
+>
+> What I'm proposing instead is to introduce a way to clearly and
+> unambiguously detect whether lwtunnels are supported or not. We'll need
+> this anyway: kernel 4.3 won't really support IPv6 tunneling with ovs,
+> yet there's currently no way to determine whether it's supported or not
+> (and, unlike with lwtunnel detection, there's not even a hacky way).
+> Querying the datapath for the supported features is needed
+> nevertheless; it's only logical to use it for the lwtunnel vs. old
+> vport decision, too.
+>
+> I don't understand why you're opposed to this: it's much cleaner and
+> there's no problem with lwtunnels not being used with the 4.3 kernel,
+> everything should work just fine.
 >
 
-When the device is set 'down' (admin state) all routes (including cached 
-ones) for the device are cleared so there should not be any way to 
-select the source address that is saved. i.e, ipv6_dev_get_saddr() 
-should not get invoked for the device.
+I don't want to add more flags to OVS for features which can be
+derived from other APIs. But if creating and destroying single virtual
+device is such big deal then I am fine with the alternative approach.
