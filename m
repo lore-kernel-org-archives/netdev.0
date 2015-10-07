@@ -1,86 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
-Date: Wed, 7 Oct 2015 08:03:55 +0200
-Message-ID: <20151007060355.GA2152@nanopsycho.orion>
-References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
- <20151006073018.GA2165@nanopsycho.orion>
- <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Wed, 7 Oct 2015 08:05:29 +0200
+Message-ID: <20151007060529.GA6364@gmail.com>
+References: <1444078101-29060-2-git-send-email-ast@plumgrid.com>
+ <5612F639.2050305@iogearbox.net>
+ <56131B1F.80002@plumgrid.com>
+ <20151006071347.GB14093@gmail.com>
+ <561380BB.4040506@iogearbox.net>
+ <20151006082048.GA18287@gmail.com>
+ <561388D1.30406@iogearbox.net>
+ <561409EC.5050005@plumgrid.com>
+ <1444154160.9555.5.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALCETrXwYoVMnsPJZxFtgGaD5YXzKMBYG=EJAQTbwGdKwmdb5g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Thomas Graf <tgraf@suug.ch>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:36319 "EHLO
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35874 "EHLO
 	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006AbbJGGD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 02:03:58 -0400
-Received: by wicgb1 with SMTP id gb1so195015643wic.1
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 23:03:56 -0700 (PDT)
+	with ESMTP id S1751414AbbJGGFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 02:05:33 -0400
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
+In-Reply-To: <CALCETrXwYoVMnsPJZxFtgGaD5YXzKMBYG=EJAQTbwGdKwmdb5g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 06, 2015 at 07:14:39PM CEST, sfeldma@gmail.com wrote:
->On Tue, Oct 6, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Oct 06, 2015 at 05:56:12AM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> This patchset allows new rocker worlds to be easily added in future (like eBPF
->>>> based one I have been working on). The main part of the patchset is the OF-DPA
->>>> carve-out. It resuts in OF-DPA specific file. Clean cut.
->>>>
->>>> v1->v2:
->>>>  - rtnl rocker mode change userspace expose patch was removed
->>>>
->>>> Jiri Pirko (13):
->>>>   rocker: remove unused rocker_port param from alloc funcs and shorten
->>>>     their names
->>>>   rocker: rename rocker.h to rocker_hw.h
->>>>   rocker: rename rocker.c to rocker_main.c
->>>>   rocker: push tlv processing into separate files
->>>>   rocker: implement set settings mode command
->>>>   rocker: introduce worlds infrastructure
->>>>   rocker: introduce OF-DPA world skeleton
->>>>   rocker: set default world on port probe and clean world on remove
->>>>   rocker: pass "learning" value as a parameter to
->>>>     rocker_port_set_learning
->>>>   rocker: pre-allocate wait structures during cmd ring init
->>>>   rocker: remove trans parameter to rocker_cmd_exec function
->>>>   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
->>>>     flags
->>>>   rocker: move OF-DPA stuff into separate file
->>>
->>>A couple of my tests are failing with this patchset.  A simple port
->>>test is failing and IPv4 routing test is failing.
->>>
->>>The port test is simple: just connect a port on DUT to a port on
->>>another system and assign an IP address to each port and verify IP
->>>connectivity.  I have this:
->>>
->>>   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
->>>
->>>The IPv4 routing tests is a bit more complicated to setup.  I'm using
->>>OSPF, but I'm not seeing full routes formed in the topology, so I
->>>suspect OSPF hellos aren't getting thru.
->>>
->>>Please fix find/fix these issues and send v3.  I don't want any git
->>>bisect issues when running tests.  Thanks.
->>
->> I fixed that. Sending v3 in a sec. Thanks.
->
->Sorry, both tests are still broken.  Would you send me your tests
->scripts so I can see why your tests are passing?
 
-I'm trying some smoke tests including bridge setup and just ip-ip
-setup by hand. Meybe if you send me your scripts, I can run it locally.
+* Andy Lutomirski <luto@amacapital.net> wrote:
 
-Thanks.
+> On Tue, Oct 6, 2015 at 10:56 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-10-06 at 10:50 -0700, Alexei Starovoitov wrote:
+> >
+> >> was also thinking that we can do it only in paths that actually
+> >> have multiple protocol layers, since today bpf is mainly used with
+> >> tcpdump(raw_socket) and new af_packet fanout both have cb cleared
+> >> on RX, because it just came out of alloc_skb and no layers were called,
+> >> and on TX we can clear 20 bytes in dev_queue_xmit_nit().
+> >> af_unix/netlink also have clean skb. Need to analyze tun and sctp...
+> >> but it feels overly fragile to save a branch in sk_filter,
+> >> so planning to go with
+> >> if(unlikely(prog->cb_access)) memset in sk_filter().
+> >>
+> >
+> > This will break TCP use of sk_filter().
+> > skb->cb[] contains useful data in TCP layer.
+> >
+> >
+> 
+> Since I don't know too much about the networking details:
+> 
+> 1. Does "skb->cb" *ever* contain anything useful for an unprivileged user?
+> 
+> 2. Does sbk->cb form a stable ABI?
+> 
+> Unless both answers are solid yesses, then maybe the right solution is
+> to just deny access entirely to unprivileged users.
+
+So this kind of instrumentation data is not an ABI in a similar fashion as tracing 
+information is not an ABI either.
+
+I.e. tracepoints can (and sometimes do) change 'semantics' - in that the 
+interpretation of the implementational details behind that data changes as the 
+implementation changes. That's not something that can ever be an ABI, just like 
+the contents of /proc/kcore or /proc/slabinfo can not be an ABI.
+
+Thanks,
+
+	Ingo
