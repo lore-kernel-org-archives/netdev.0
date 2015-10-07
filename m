@@ -1,62 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH nf-next 1/2] ipvs: Remove possibly unused variable from
- ip_vs_out
-Date: Wed, 7 Oct 2015 16:58:47 +0300
-Message-ID: <56152517.6020807@cogentembedded.com>
-References: <1444195403-4288-1-git-send-email-horms@verge.net.au>
- <1444195403-4288-2-git-send-email-horms@verge.net.au>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
+ for IPv6
+Date: Wed, 7 Oct 2015 08:12:16 -0600
+Message-ID: <56152840.6040701@cumulusnetworks.com>
+References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
+ <20151007.042525.1310561159530454910.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:34276 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791AbbJGN6u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:58:50 -0400
-Received: by lbbwt4 with SMTP id wt4so12215709lbb.1
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 06:58:49 -0700 (PDT)
-In-Reply-To: <1444195403-4288-2-git-send-email-horms@verge.net.au>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33167 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbbJGOMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 10:12:15 -0400
+Received: by pacex6 with SMTP id ex6so22851248pac.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 07:12:14 -0700 (PDT)
+In-Reply-To: <20151007.042525.1310561159530454910.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/7/2015 8:23 AM, Simon Horman wrote:
-
+On 10/7/15 5:25 AM, David Miller wrote:
 > From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Mon,  5 Oct 2015 08:32:51 -0600
 >
-> Eric's net namespace changes in 1b75097dd7a26 leaves net unreferenced=
- if
-> CONFIG_IP_VS_IPV6 is not enabled:
+>> It occurred to me yesterday that 741a11d9e4103 ("net: ipv6: Add
+>> RT6_LOOKUP_F_IFACE flag if oif is set") means that xfrm6_dst_lookup
+>> needs the FLOWI_FLAG_SKIP_NH_OIF flag set. This latest commit causes
+>> the oif to be considered in lookups which is known to break vti. This
+>> explains why 58189ca7b274 did not the IPv6 change at the time it was
+>> submitted.
+>>
+>> Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 >
-> ../net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_out=E2=
-=80=99:
-> ../net/netfilter/ipvs/ip_vs_core.c:1177:14: warning: unused variable =
-=E2=80=98net=E2=80=99 [-Wunused-variable]
+> If this is needed in v4.3 why are you targetting net-next?
+
+default git setting. Missed removal before send.
+
 >
-> After the net refactoring there is only 1 user; push the reference to=
- the
-> 1 user. While the line length slightly exceeds 80 it seems to be the
-> best change.
+> I applied it to both trees...
 >
-> Fixes: 1b75097dd7a26("ipvs: Pass ipvs into ip_vs_out")
 
-    Minor nit: missing space before (. Could be probbably fixed while a=
-pplying...
-
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> [horms: updated subject]
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-
-[...]
-
-MBR, Sergei
+thank you.
