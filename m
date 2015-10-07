@@ -1,161 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/5] once: make helper generic for calling function once
-Date: Wed,  7 Oct 2015 15:43:53 +0200
-Message-ID: <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net>
-References: <cover.1444224502.git.daniel@iogearbox.net>
-Cc: hannes@stressinduktion.org, ast@plumgrid.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH nf-next 1/2] ipvs: Remove possibly unused variable from
+ ip_vs_out
+Date: Wed, 7 Oct 2015 16:58:47 +0300
+Message-ID: <56152517.6020807@cogentembedded.com>
+References: <1444195403-4288-1-git-send-email-horms@verge.net.au>
+ <1444195403-4288-2-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45113 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753932AbbJGNoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:44:01 -0400
-In-Reply-To: <cover.1444224502.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1444224502.git.daniel@iogearbox.net>
-References: <cover.1444224502.git.daniel@iogearbox.net>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:34276 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752791AbbJGN6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:58:50 -0400
+Received: by lbbwt4 with SMTP id wt4so12215709lbb.1
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 06:58:49 -0700 (PDT)
+In-Reply-To: <1444195403-4288-2-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Hello.
 
-Make the get_random_once() helper generic enough, so that functions
-in general would only be called once, where one user of this is then
-net_get_random_once().
+On 10/7/2015 8:23 AM, Simon Horman wrote:
 
-The only implementation specific call is to get_random_bytes(), all
-the rest of this *_once() facility would be duplicated among different
-subsystems otherwise. The new do_once() helper will be used by prandom()
-later on, but might also be useful for other scenarios as well where a
-one-time initialization in often-called, possibly fast-path code could
-occur.
+> From: David Ahern <dsa@cumulusnetworks.com>
+>
+> Eric's net namespace changes in 1b75097dd7a26 leaves net unreferenced=
+ if
+> CONFIG_IP_VS_IPV6 is not enabled:
+>
+> ../net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_out=E2=
+=80=99:
+> ../net/netfilter/ipvs/ip_vs_core.c:1177:14: warning: unused variable =
+=E2=80=98net=E2=80=99 [-Wunused-variable]
+>
+> After the net refactoring there is only 1 user; push the reference to=
+ the
+> 1 user. While the line length slightly exceeds 80 it seems to be the
+> best change.
+>
+> Fixes: 1b75097dd7a26("ipvs: Pass ipvs into ip_vs_out")
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/once.h | 25 ++++++++++++++++++-------
- lib/once.c           | 34 +++++++++++++++++++++-------------
- 2 files changed, 39 insertions(+), 20 deletions(-)
+    Minor nit: missing space before (. Could be probbably fixed while a=
+pplying...
 
-diff --git a/include/linux/once.h b/include/linux/once.h
-index 2a83b53..f7a51d5 100644
---- a/include/linux/once.h
-+++ b/include/linux/once.h
-@@ -3,22 +3,33 @@
- 
- #include <linux/types.h>
- #include <linux/jump_label.h>
-+#include <linux/uio.h>
- 
--bool __get_random_once(void *buf, int nbytes, bool *done,
--		       struct static_key *once_key);
-+bool __do_once(void (*func)(void *arg), void *arg, bool *done,
-+	       struct static_key *once_key);
- 
--#define get_random_once(buf, nbytes)					\
-+#define do_once(func, arg)						\
- 	({								\
- 		bool ___ret = false;					\
- 		static bool ___done = false;				\
- 		static struct static_key ___once_key =			\
- 			STATIC_KEY_INIT_TRUE;				\
- 		if (static_key_true(&___once_key))			\
--			___ret = __get_random_once((buf),		\
--						   (nbytes),		\
--						   &___done,		\
--						   &___once_key);	\
-+			___ret = __do_once((func), (arg),		\
-+					   &___done,			\
-+					   &___once_key);		\
- 		___ret;							\
- 	})
- 
-+void get_random_once_kvec(void *arg);
-+
-+#define get_random_once(buf, nbytes)					\
-+	({								\
-+		struct kvec __v = {					\
-+			.iov_base = (buf),				\
-+			.iov_len = (nbytes),				\
-+		};							\
-+		do_once(get_random_once_kvec, &__v);			\
-+	})
-+
- #endif /* _LINUX_ONCE_H */
-diff --git a/lib/once.c b/lib/once.c
-index 2d5a7de..1e62944 100644
---- a/lib/once.c
-+++ b/lib/once.c
-@@ -3,36 +3,36 @@
- #include <linux/once.h>
- #include <linux/random.h>
- 
--struct __random_once_work {
-+struct __once_work {
- 	struct work_struct work;
- 	struct static_key *key;
- };
- 
--static void __random_once_deferred(struct work_struct *w)
-+static void __once_deferred(struct work_struct *w)
- {
--	struct __random_once_work *work;
-+	struct __once_work *work;
- 
--	work = container_of(w, struct __random_once_work, work);
-+	work = container_of(w, struct __once_work, work);
- 	BUG_ON(!static_key_enabled(work->key));
- 	static_key_slow_dec(work->key);
- 	kfree(work);
- }
- 
--static void __random_once_disable_jump(struct static_key *key)
-+static void __once_disable_jump(struct static_key *key)
- {
--	struct __random_once_work *w;
-+	struct __once_work *w;
- 
- 	w = kmalloc(sizeof(*w), GFP_ATOMIC);
- 	if (!w)
- 		return;
- 
--	INIT_WORK(&w->work, __random_once_deferred);
-+	INIT_WORK(&w->work, __once_deferred);
- 	w->key = key;
- 	schedule_work(&w->work);
- }
- 
--bool __get_random_once(void *buf, int nbytes, bool *done,
--		       struct static_key *once_key)
-+bool __do_once(void (*func)(void *arg), void *arg, bool *done,
-+	       struct static_key *once_key)
- {
- 	static DEFINE_SPINLOCK(lock);
- 	unsigned long flags;
-@@ -43,12 +43,20 @@ bool __get_random_once(void *buf, int nbytes, bool *done,
- 		return false;
- 	}
- 
--	get_random_bytes(buf, nbytes);
-+	func(arg);
- 	*done = true;
- 	spin_unlock_irqrestore(&lock, flags);
- 
--	__random_once_disable_jump(once_key);
--
-+	__once_disable_jump(once_key);
- 	return true;
- }
--EXPORT_SYMBOL(__get_random_once);
-+EXPORT_SYMBOL(__do_once);
-+
-+/* Helper function for once users. */
-+void get_random_once_kvec(void *arg)
-+{
-+	struct kvec *v = arg;
-+
-+	get_random_bytes(v->iov_base, v->iov_len);
-+}
-+EXPORT_SYMBOL(get_random_once_kvec);
--- 
-1.9.3
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> [horms: updated subject]
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+
+[...]
+
+MBR, Sergei
