@@ -1,62 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 06/15] ipv4: Merge ip_local_out and ip_local_out_sk
-Date: Wed, 07 Oct 2015 15:39:52 -0500
-Message-ID: <877fmy5s6f.fsf@x220.int.ebiederm.org>
-References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
-	<1444157595-28816-6-git-send-email-ebiederm@xmission.com>
-	<561530DB.10309@6wind.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/5] once: make helper generic for calling function
+ once
+Date: Wed, 07 Oct 2015 23:00:39 +0200
+Message-ID: <561587F7.1000604@iogearbox.net>
+References: <cover.1444224502.git.daniel@iogearbox.net> <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net> <56154571.7050900@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <561530DB.10309@6wind.com> (Nicolas Dichtel's message of "Wed, 7
-	Oct 2015 16:48:59 +0200")
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:55790 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756263AbbJGVAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 17:00:46 -0400
+In-Reply-To: <56154571.7050900@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
-
-> Le 06/10/2015 20:53, Eric W. Biederman a =C3=A9crit :
->> It is confusing and silly hiding a paramater so modify all of
->> the callers to pass in the appropriate socket or skb->sk if
->> no socket is known.
+On 10/07/2015 06:16 PM, Alexei Starovoitov wrote:
+> On 10/7/15 6:43 AM, Daniel Borkmann wrote:
+>> From: Hannes Frederic Sowa<hannes@stressinduktion.org>
 >>
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Make the get_random_once() helper generic enough, so that functions
+>> in general would only be called once, where one user of this is then
+>> net_get_random_once().
+>>
+>> The only implementation specific call is to get_random_bytes(), all
+>> the rest of this *_once() facility would be duplicated among different
+>> subsystems otherwise. The new do_once() helper will be used by prandom()
+>> later on, but might also be useful for other scenarios as well where a
+>> one-time initialization in often-called, possibly fast-path code could
+>> occur.
+>>
+>> Signed-off-by: Hannes Frederic Sowa<hannes@stressinduktion.org>
+>> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
 >> ---
-> [snip]
->> @@ -456,7 +456,7 @@ packet_routed:
->>   	skb->priority =3D sk->sk_priority;
->>   	skb->mark =3D sk->sk_mark;
->>
->> -	res =3D ip_local_out(skb);
->> +	res =3D ip_local_out(sk, skb);
-> As stated in the comment at the top of this function (ip_queue_xmit()=
-), skb->sk
-> can be different from sk. See also commit b0270e91014d ("ipv4: add a =
-sock
-> pointer to ip_queue_xmit()").
-> Not sure if this change is right.
+>>   include/linux/once.h | 25 ++++++++++++++++++-------
+>>   lib/once.c           | 34 +++++++++++++++++++++-------------
+>>   2 files changed, 39 insertions(+), 20 deletions(-)
+>
+> looking at the patch 1 the once.c file name really looked out of place,
+> but this patch makes it fit. Interesting helper, though
+> get_random_once_kvec() and kvec are not pretty, since they take extra
+> stack and being inited even when static_key is disabled.
+> Instead is it possible to split do_once into two parts then
+> your macro can have varags and kvec/extra_helper can be removed like:
+> #define do_once(func, ...)                      \
+>   ({                                             \
+>          bool ___ret = false;                    \
+>          static bool ___done = false;            \
+>          static struct static_key ___once_key =  \
+>                  STATIC_KEY_INIT_TRUE;           \
+>          if (static_key_true(&___once_key)) {    \
+>                  __do_once_lock(&___done);       \
+>                  func(##__VA_ARGS__);            \
+>                  __do_once_unlock(&_done, &___once_key);\
+>          } \
+>          ___ret;                                 \
+>   })
 
-Good catch.  This change should not have been buried in this patch. It
-needs to be it's own separate bug fix.
+Thanks, good point, I do like it! After reworking this, the outcome of
+the new DO_ONCE() is a bit different than above. I'll send out v2 very
+soon to show the code result.
 
-As I read the code we actually do want to pass sk not skb->sk into
-ip_local_out.  For all of the reasons that sk is potentially different
-from skb->sk already.
-
-The way I understand this is we have pushed an sk parameter through the
-output path so that sk_mc_loop(sk) can be called with the tunnel's
-socket not whatever is on skb->sk.  This allows for looking to see if
-local multicast loopback is configured on the tunnels socket not on the
-originating socket of the packet.
-
-I am going to respin my series with that change made into a separate bu=
-g
-fix, that can potentially be backported.
-
-Eric
-
+Thanks,
+Daniel
