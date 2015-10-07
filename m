@@ -1,106 +1,62 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Wed, 7 Oct 2015 15:22:55 -0700
-Message-ID: <CAGXu5jLM5Wp_PjdcEcxUo-VoEmsSycF236MZaJd2wvLjbQx+eQ@mail.gmail.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
-	<1444078101-29060-2-git-send-email-ast@plumgrid.com>
-	<5612F639.2050305@iogearbox.net>
-	<56131B1F.80002@plumgrid.com>
-	<5613C261.4080302@iogearbox.net>
-	<56158CAF.9030209@plumgrid.com>
-	<561597A6.4000203@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/18] i40e: enable WoL operation if config bit show WoL capable
+Date: Wed,  7 Oct 2015 15:46:56 -0700
+Message-ID: <1444258032-41476-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1444258032-41476-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:34678 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbbJGWW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 18:22:56 -0400
-Received: by igcpb10 with SMTP id pb10so2244080igc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 15:22:55 -0700 (PDT)
-In-Reply-To: <561597A6.4000203@iogearbox.net>
+Received: from mga11.intel.com ([192.55.52.93]:8249 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752175AbbJGWrW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 18:47:22 -0400
+In-Reply-To: <1444258032-41476-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2015 at 3:07 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 10/07/2015 11:20 PM, Alexei Starovoitov wrote:
->>
->> On 10/6/15 5:45 AM, Daniel Borkmann wrote:
->>>
->>> Should instead something similar be adapted on bpf(2) as well? Or, would
->>> that even be more painful for application developers shipping their stuff
->>> through distros in the end (where they might then decide to just setup
->>> everything BPF-related and then drop privs)?
->>
->>
->> I think loading as root and then dropping privs won't work in many
->> cases, since apps still need to access maps even after dropping privs
->> and today it's not possible, since cap_sys_admin is tested for every
->> bpf syscall.
->
->
-> Yep, maps-only would then need to be made accessible in some way.
->
->>> I'm also wondering with regards to seccomp, which could adapt to eBPF at
->>> some point and be used by unprivileged programs. Perhaps then, a single
->>> paranoia alike setting might not suit to all eBPF subsystem users. Any
->>> ideas?
->>
->>
->> There is no such paranoid sysctl for cBPF, so there is no reason to
->> add one for eBPF other than fear.
->> Adding multiple sysctl knobs for seccomp, socket, tracing is only
->> reflection of even higher fear.
->> What sysadmins suppose to do with such sysctl when kernel is kinda
->> saying 'may be something unsafe here you're on your own' ?
->> Also the presence of this sysctl_bpf_enable_unprivileged or any other
->> one doesn't help with CVEs. Any bug with security implications will
->> be a CVE regardless, so I think the better course of action is to
->> avoid introducing this sysctl.
->
->
-> Yes, I agree with you that there would be a CVE regardless. I still
-> like the option of configurable access, not a big fan of the sysctl
-> either. Thinking out loudly, what about a Kconfig option? We started
-> out like this on bpf(2) itself (initially under expert settings, now
-> afaik not anymore), and depending on usage scenarios, a requirement
-> could be to have immutable cap_sys_admin-only, for other use-cases a
-> requirement on the kernel might instead be to have unprivileged users
-> as well.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-It'd be nice to have it just be a Kconfig, but this shoots
-distro-users in the foot if a distro decides to include unpriv bpf and
-the user doesn't want it. I think it's probably a good idea to keep
-the sysctl.
+The driver was disabling Wake-on-LAN by default and waiting for the user
+to expressly turn it on.  This patch has the driver turning on WoL from
+the start if enabled in the hardware config, which matches the behavior
+of our other drivers.
 
--Kees
+Change-ID: I43faedb907f8ba4d1a61b72a7c86072b97af12b1
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
->
->> We've discussed adding something like CAP_BPF to control it,
->> but then again, do we want this because of fear of bugs or because
->> it's actually needed. I think the design of all CAP_* is to give
->> unprivileged users permissions to do something beyond normal that
->> can potentially be harmful for other users or the whole system.
->> In this case it's not the case. One user can load eBPF programs
->> and maps up to its MEMLOCK limit and they cannot interfere with
->> other users or affect the host, so CAP_BPF is not necessary either.
->
->
-> Thanks,
-> Daniel
-
-
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5646ee8..7fc5e2c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9947,6 +9947,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct i40e_pf *pf;
+ 	struct i40e_hw *hw;
+ 	static u16 pfs_found;
++	u16 wol_nvm_bits;
+ 	u16 link_status;
+ 	int err = 0;
+ 	u32 len;
+@@ -10163,8 +10164,12 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	clear_bit(__I40E_SERVICE_SCHED, &pf->state);
+ 	pf->flags |= I40E_FLAG_NEED_LINK_UPDATE;
+ 
+-	/* WoL defaults to disabled */
+-	pf->wol_en = false;
++	/* NVM bit on means WoL disabled for the port */
++	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
++	if ((1 << hw->port) & wol_nvm_bits || hw->partition_id != 1)
++		pf->wol_en = false;
++	else
++		pf->wol_en = true;
+ 	device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
+ 
+ 	/* set up the main switch operations */
 -- 
-Kees Cook
-Chrome OS Security
+2.4.3
