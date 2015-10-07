@@ -1,61 +1,88 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Wed, 7 Oct 2015 14:20:47 -0700
-Message-ID: <56158CAF.9030209@plumgrid.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
- <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com>
- <5613C261.4080302@iogearbox.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH-next v2 4/4] drivers/net/ethernet: make ti/cpsw-phy-sel.c explicitly non-modular
+Date: Wed, 7 Oct 2015 17:27:46 -0400
+Message-ID: <1444253266-22012-5-git-send-email-paul.gortmaker@windriver.com>
+References: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5613C261.4080302@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Varka Bhadram <varkabhadram@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:52792 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbbJGV2E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 17:28:04 -0400
+In-Reply-To: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/6/15 5:45 AM, Daniel Borkmann wrote:
-> Should instead something similar be adapted on bpf(2) as well? Or, would
-> that even be more painful for application developers shipping their stuff
-> through distros in the end (where they might then decide to just setup
-> everything BPF-related and then drop privs)?
+The Kconfig currently controlling compilation of this code is:
 
-I think loading as root and then dropping privs won't work in many
-cases, since apps still need to access maps even after dropping privs
-and today it's not possible, since cap_sys_admin is tested for every
-bpf syscall.
+drivers/net/ethernet/ti/Kconfig:config TI_CPSW_PHY_SEL
+drivers/net/ethernet/ti/Kconfig:        bool "TI CPSW Switch Phy sel Support"
 
-> I'm also wondering with regards to seccomp, which could adapt to eBPF at
-> some point and be used by unprivileged programs. Perhaps then, a single
-> paranoia alike setting might not suit to all eBPF subsystem users. Any
-> ideas?
+...meaning that it currently is not being built as a module by anyone.
 
-There is no such paranoid sysctl for cBPF, so there is no reason to
-add one for eBPF other than fear.
-Adding multiple sysctl knobs for seccomp, socket, tracing is only
-reflection of even higher fear.
-What sysadmins suppose to do with such sysctl when kernel is kinda
-saying 'may be something unsafe here you're on your own' ?
-Also the presence of this sysctl_bpf_enable_unprivileged or any other
-one doesn't help with CVEs. Any bug with security implications will
-be a CVE regardless, so I think the better course of action is to
-avoid introducing this sysctl.
+Lets remove the couple traces of modularity so that when reading the
+driver there is no doubt it is builtin-only.
 
-We've discussed adding something like CAP_BPF to control it,
-but then again, do we want this because of fear of bugs or because
-it's actually needed. I think the design of all CAP_* is to give
-unprivileged users permissions to do something beyond normal that
-can potentially be harmful for other users or the whole system.
-In this case it's not the case. One user can load eBPF programs
-and maps up to its MEMLOCK limit and they cannot interfere with
-other users or affect the host, so CAP_BPF is not necessary either.
+Since module_platform_driver() uses the same init level priority as
+builtin_platform_driver() the init ordering remains unchanged with
+this commit.
 
-Thoughts?
+Also note that MODULE_DEVICE_TABLE is a no-op for non-modular code.
+
+We also delete the MODULE_LICENSE tag etc. since all that information
+was (or is now) contained at the top of the file in the comments.
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Varka Bhadram <varkabhadram@gmail.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/net/ethernet/ti/cpsw-phy-sel.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+index 0ea78326cc21..e9cc61e1ec74 100644
+--- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
++++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+@@ -2,6 +2,8 @@
+  *
+  * Copyright (C) 2013 Texas Instruments
+  *
++ * Module Author: Mugunthan V N <mugunthanvnm@ti.com>
++ *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+  * version 2 as published by the Free Software Foundation.
+@@ -13,7 +15,7 @@
+  */
+ 
+ #include <linux/platform_device.h>
+-#include <linux/module.h>
++#include <linux/init.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <linux/of.h>
+@@ -173,7 +175,6 @@ static const struct of_device_id cpsw_phy_sel_id_table[] = {
+ 	},
+ 	{}
+ };
+-MODULE_DEVICE_TABLE(of, cpsw_phy_sel_id_table);
+ 
+ static int cpsw_phy_sel_probe(struct platform_device *pdev)
+ {
+@@ -214,7 +215,4 @@ static struct platform_driver cpsw_phy_sel_driver = {
+ 		.of_match_table = cpsw_phy_sel_id_table,
+ 	},
+ };
+-
+-module_platform_driver(cpsw_phy_sel_driver);
+-MODULE_AUTHOR("Mugunthan V N <mugunthanvnm@ti.com>");
+-MODULE_LICENSE("GPL v2");
++builtin_platform_driver(cpsw_phy_sel_driver);
+-- 
+2.6.0.rc3
