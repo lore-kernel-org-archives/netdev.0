@@ -1,96 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: fix cb access in socket filter programs
-Date: Wed, 07 Oct 2015 15:09:11 +0200
-Message-ID: <56151977.10302@iogearbox.net>
-References: <1444184292-17500-1-git-send-email-ast@plumgrid.com> <5614E84E.2010806@iogearbox.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] bnx2fc: reduce stack usage in __bnx2fc_enable
+Date: Wed, 07 Oct 2015 15:11:04 +0200
+Message-ID: <5002023.QHmpbQ8s70@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41000 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157AbbJGNJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:09:24 -0400
-In-Reply-To: <5614E84E.2010806@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: QLogic-Storage-Upstream@qlogic.com,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Joe Carnuccio <joe.carnuccio@qlogic.com>,
+	Chad Dupuis <chad.dupuis@qlogic.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-scsi@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/07/2015 11:39 AM, Daniel Borkmann wrote:
-> On 10/07/2015 04:18 AM, Alexei Starovoitov wrote:
->> eBPF socket filter programs may see junk in 'u32 cb[5]' area,
->> since it could have been used by protocol layers earlier.
->>
->> On the receive path the af_packet sees clean skb->cb.
->> On the xmit the dev_queue_xmit_nit() delivers cloned skb, so we can
->> conditionally clean 20 bytes of skb->cb that could be used by the program.
->
-> Having slept over this one night, I think this assumption is not
-> always correct :/, more below ...
->
->> For programs attached to TCP/UDP sockets we need to save/restore
->> these 20 bytes, since it's used by protocol layers.
-> ...
->> +static inline u32 bpf_prog_run_save_cb(const struct bpf_prog *prog,
->> +                       struct sk_buff *skb)
->> +{
->> +    u8 *cb_data = qdisc_skb_cb(skb)->data;
->> +    u8 saved_cb[QDISC_CB_PRIV_LEN];
->> +    u32 res;
->> +
->> +    BUILD_BUG_ON(FIELD_SIZEOF(struct __sk_buff, cb) !=
->> +             QDISC_CB_PRIV_LEN);
->> +
->> +    if (unlikely(prog->cb_access)) {
->> +        memcpy(saved_cb, cb_data, sizeof(saved_cb));
->> +        memset(cb_data, 0, sizeof(saved_cb));
->> +    }
->> +
->> +    res = BPF_PROG_RUN(prog, skb);
->> +
->> +    if (unlikely(prog->cb_access))
->> +        memcpy(cb_data, saved_cb, sizeof(saved_cb));
->> +
->> +    return res;
->> +}
->> +
->> +static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
->> +                    struct sk_buff *skb)
->> +{
->> +    u8 *cb_data = qdisc_skb_cb(skb)->data;
->> +
->> +    if (unlikely(prog->cb_access) && skb->pkt_type == PACKET_OUTGOING)
->> +        memset(cb_data, 0, QDISC_CB_PRIV_LEN);
->> +    return BPF_PROG_RUN(prog, skb);
->> +}
->> +
->>   static inline unsigned int bpf_prog_size(unsigned int proglen)
->>   {
->>       return max(sizeof(struct bpf_prog),
->
-> bpf_prog_run_clear_cb() wouldn't work on dev_forward_skb() as
-> skb->pkt_type is then being scrubbed to PACKET_HOST, so on the
-> receive path, AF_PACKET might not always see clean skbs->cb[]
-> as assumed ... I think that the skb->pkt_type part needs to be
-> dropped, no?
+When the bnx2fc driver was changed to read the npiv table from
+nvram, the stack of the __bnx2fc_enable function gained an
+additional 1028 byte structure that gcc rightfully warns about:
 
-Thinking a bit more about this part, which only accounts for
-fanout_demux_bpf() and run_filter(), so AF_PACKET only, this
-logic still needs to be slightly different:
+drivers/scsi/bnx2fc/bnx2fc_fcoe.c: In function '__bnx2fc_enable':
+drivers/scsi/bnx2fc/bnx2fc_fcoe.c:2134:1: warning: the frame size of 1128 bytes is larger than 1024 bytes [-Wframe-larger-than=]
 
-You currently can have eBPF on packet fanout as a demux and behind
-that eBPF on the actual packet socket. So, for some reason, fanout
-could transfer some state to the socket along the way, which could
-break when cleared as-is via bpf_prog_run_clear_cb().
+In order to avoid a possible kernel stack overflow and to get rid
+of the warning, this changes the function to use a dynamic allocation
+of the structure using kzalloc.
 
-So we need to make sure to only clear this once, either in front
-of fanout, or when not present, in front of the socket filter.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 2971ff67bd3 ("bnx2fc: Read npiv table from nvram and create vports.")
+---
+The original patch was merged through netdev along with the respective
+ethernet driver changes, but this should probably go through the scsi
+tree, as no ethernet changes are involved.
 
-Thanks,
-Daniel
+diff --git a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+index d5cdc4776707..72ba0dfae3e0 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
++++ b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+@@ -2092,7 +2092,7 @@ static int __bnx2fc_enable(struct fcoe_ctlr *ctlr)
+ {
+ 	struct bnx2fc_interface *interface = fcoe_ctlr_priv(ctlr);
+ 	struct bnx2fc_hba *hba;
+-	struct cnic_fc_npiv_tbl npiv_tbl;
++	struct cnic_fc_npiv_tbl *npiv_tbl;
+ 	struct fc_lport *lport;
+ 
+ 	if (interface->enabled == false) {
+@@ -2124,11 +2124,16 @@ static int __bnx2fc_enable(struct fcoe_ctlr *ctlr)
+ 	if (!hba->cnic->get_fc_npiv_tbl)
+ 		goto done;
+ 
+-	memset(&npiv_tbl, 0, sizeof(npiv_tbl));
+-	if (hba->cnic->get_fc_npiv_tbl(hba->cnic, &npiv_tbl))
++	npiv_tbl = kzalloc(sizeof(struct cnic_fc_npiv_tbl), GFP_KERNEL);
++	if (!npiv_tbl)
+ 		goto done;
+ 
+-	bnx2fc_npiv_create_vports(lport, &npiv_tbl);
++	if (hba->cnic->get_fc_npiv_tbl(hba->cnic, npiv_tbl))
++		goto done_free;
++
++	bnx2fc_npiv_create_vports(lport, npiv_tbl);
++done_free:
++	kfree(npiv_tbl);
+ done:
+ 	return 0;
+ }
