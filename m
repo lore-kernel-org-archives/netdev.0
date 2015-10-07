@@ -1,55 +1,39 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] bridge: allow adding of fdb
- entries pointing to the bridge device
-Date: Wed, 7 Oct 2015 13:40:05 +0200
-Message-ID: <56150495.2070909@cumulusnetworks.com>
-References: <1444147589-11153-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/5] net: dsa: complete and fix the dsa unbinding
+Date: Wed, 07 Oct 2015 04:56:33 -0700 (PDT)
+Message-ID: <20151007.045633.344434060767220177.davem@davemloft.net>
+References: <5613DD2E.1070209@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1444147589-11153-1-git-send-email-roopa@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	fabf@skynet.be, pavel.nakonechny@skitlab.ru, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nbd@openwrt.org, sergei.shtylyov@cogentembedded.com
+To: narmstrong@baylibre.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5613DD2E.1070209@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/06/2015 06:06 PM, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch enables adding of fdb entries pointing to the bridge device.
-> This can be used to propagate mac address of vlan interfaces
-> configured on top of the vlan filtering bridge.
-> 
-> Before:
-> $bridge fdb add 44:38:39:00:27:9f dev bridge
-> RTNETLINK answers: Invalid argument
-> 
-> After:
-> $bridge fdb add 44:38:39:00:27:9f dev bridge
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
->  net/bridge/br_fdb.c | 110 ++++++++++++++++++++++++++++++++++++++++------------
->  1 file changed, 85 insertions(+), 25 deletions(-)
-> 
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Tue, 6 Oct 2015 15:39:42 +0100
 
-Ugh my bad, Dave please don't apply this version, there're still a few rough
-edges we need to take care of. Now that bridge's vlan_group can be used in these
-functions the vlans should be checked for context-only, i.e. br_vlan_should_use()
-and also when a port vlan is deleted its fdb entries are flushed, but that is not
-done for the bridge since it wasn't possible to add them like this. So v3 coming
-soon to your neighborhood! :-)
+> In order to cleanly unbind the dsa core, either as a module removal,
+> or a platform device unbind, switch the allocation the their devm_
+> counterparts and complete the destroy functions.
+> 
+> First, the missing kfree were added, the remove function were
+> completed then kfree were removed in favor to devm_ calls.
+> 
+> The last patch is an way to cleanly exit the probe when no
+> switch is found in the discover process.
+> 
+> The patches are based on the current net.
+> 
+> v3:
+>  - make checkpatch happy with 1/5 & 5/5
+>  - fix 5/5 exit path with a goto
 
-Thanks,
- Nik
+Series applied, thanks Neil.
