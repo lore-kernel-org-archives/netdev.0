@@ -1,89 +1,35 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH RFC 3/3] mlx4: Call skb_csum_offload_check to check
- offloadability
-Date: Wed, 7 Oct 2015 18:41:58 +0300
-Message-ID: <56153D46.2080606@mellanox.com>
-References: <1444088364-2839440-1-git-send-email-tom@herbertland.com>
- <1444088364-2839440-4-git-send-email-tom@herbertland.com>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: [PATCH net-next v4] net: ipv6: Make address flushing on ifdown optional
+Date: Wed, 7 Oct 2015 11:43:06 -0400
+Message-ID: <CACP96tQtGecigUUHdF32w91qj=abqJLo+evzOL-9JakSJZ064A@mail.gmail.com>
+References: <1444231059-14830-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>, <dwmw2@infradead.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, hannes@redhat.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0072.outbound.protection.outlook.com ([157.56.112.72]:13152
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753697AbbJGPmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2015 11:42:25 -0400
-In-Reply-To: <1444088364-2839440-4-git-send-email-tom@herbertland.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:33464 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036AbbJGPnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 11:43:08 -0400
+Received: by wiclk2 with SMTP id lk2so219849606wic.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 08:43:07 -0700 (PDT)
+In-Reply-To: <1444231059-14830-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/6/2015 2:39 AM, Tom Herbert wrote:
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 494e776..f364ffd 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -702,6 +702,14 @@ static void mlx4_bf_copy(void __iomem *dst, const void *src,
->   	__iowrite64_copy(dst, src, bytecnt / 8);
->   }
->   
-> +static const struct skb_csum_offl_spec csum_offl_spec = {
-> +	.ipv4_okay = 1,
-> +	.ipv6_okay = 1,
-> +	.encap_okay = 1,
-> +	.tcp_okay = 1,
-> +	.udp_okay = 1,
-> +};
-> +
->   netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   {
->   	struct skb_shared_info *shinfo = skb_shinfo(skb);
-> @@ -727,6 +735,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   	bool stop_queue;
->   	bool inline_ok;
->   	u32 ring_cons;
-> +	struct skb_csum_offl_params offl_params;
->   
->   	if (!priv->port_up)
->   		goto tx_drop;
-> @@ -853,8 +862,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   	/* Prepare ctrl segement apart opcode+ownership, which depends on
->   	 * whether LSO is used */
->   	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
-> -	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
-> -		if (!skb->encapsulation)
-> +	if (skb_csum_offload_chk(skb, &csum_offl_spec,
-> +				 &offl_params, true)) {
-> +		if (!offl_params.encapped_csum)
->   			tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
->   								 MLX4_WQE_CTRL_TCP_UDP_CSUM);
->   		else
-> @@ -912,9 +922,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   		build_inline_wqe(tx_desc, skb, shinfo, real_size, &vlan_tag,
->   				 tx_ind, fragptr);
->   
-> -	if (skb->encapsulation) {
-> -		struct iphdr *ipv4 = (struct iphdr *)skb_inner_network_header(skb);
-> -		if (ipv4->protocol == IPPROTO_TCP || ipv4->protocol == IPPROTO_UDP)
-> +	if (!offl_params.encapped_csum) {
-> +		if (offl_params.ip_proto == IPPROTO_TCP ||
-> +		    offl_params.ip_proto == IPPROTO_UDP)
->   			op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP | MLX4_WQE_CTRL_ILP);
->   		else
->   			op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP);
-> -- 2.4.6
-few quick comments
+On Wed, Oct 7, 2015 at 11:17 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> Currently, all ipv6 addresses are flushed when the interface is configured
+> down, including global, static addresses:
+  :
+>
+> Add a new sysctl to make this behavior optional. The new setting defaults to
+> flush all addresses to maintain backwards compatibility. When the setting is
+> reset global addresses with no expire times are not flushed:
 
-not all mlx4 devices support offloading checksum for tunneled traffic, 
-only ConnectX3-pro -- this translates for the mlx4 EN driver
-logic that determines that on startup, e.g only when 
-mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN
-we set hw_enc_features and friends -- in that respect, I wasn't sure if 
-it's okay to blindly set  .encap_oka = 1 here.
+does src addr selection also need to be modified to know if/when it can/cannot
+use this static address as a source addr? Or does the TENTATIVE flag
+make it Do The Right Thing per rfc 3484?
 
-Another constraint, is that when the device does support (say) TCP TX 
-checksum offload for the inner packet they don't support UDP
-checksum offload for the outer packet.
+--Sowmini
