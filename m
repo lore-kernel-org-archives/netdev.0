@@ -1,60 +1,42 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcm80211:Fix error handling in the function brcmf_sdio_htclk
-Date: Wed, 7 Oct 2015 11:49:48 +0200
-Message-ID: <5614EABC.9040404@broadcom.com>
-References: <1444099010-27210-1-git-send-email-xerofoify@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] openvswitch: Fix egress tunnel info.
+Date: Wed, 7 Oct 2015 11:53:25 +0200
+Message-ID: <20151007115325.60c077cc@griffin>
+References: <CALnjE+rOO2Db-fk9zNgY6Wn1q_57Pr=ABB2vOf_L4zM_7Z8Sfw@mail.gmail.com>
+	<20151006175634.200d69a0@griffin>
+	<CALnjE+pvenVjpyKHKjyqj-mWi9tgUtWs2mOUKhX1+O-0XkP3jQ@mail.gmail.com>
+	<20151006204558.5f2f56fc@griffin>
+	<CALnjE+ozN6CXTmhVjWiQLEUTL0Q8FJjPeO-H-zzoXKgvjcu2DA@mail.gmail.com>
+	<20151006210358.65750aeb@griffin>
+	<CALnjE+rk4d0bfsqu3KMhpYUDqYPzPYkA+ZqS5VU_J_GbAj5p4A@mail.gmail.com>
+	<20151006213245.74810d81@griffin>
+	<CALnjE+p2KQqZsgkHYsWrJfKUCev85eGH6TWdrQHTA-9KxO9tjQ@mail.gmail.com>
+	<20151007100955.3f13120e@griffin>
+	<20151007093401.GA28717@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <frankyl@broadcom.com>, <meuleman@broadcom.com>,
-	<kvalo@codeaurora.org>, <pieterpg@broadcom.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>, <brudley@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444099010-27210-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pravin Shelar <pshelar@nicira.com>, netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33094 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751457AbbJGJx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 05:53:29 -0400
+In-Reply-To: <20151007093401.GA28717@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nick,
+On Wed, 7 Oct 2015 11:34:01 +0200, Thomas Graf wrote:
+> Extending ovs_dp_cmd_fill_info() to dump a new dp->kernel_features
+> via a new Netlink attribtue which signals these capabilities looks
+> like a straight forward way to solve this.
+> 
+> OVS just needs to set NLM_F_ECHO when creating the initial datapath.
 
-On 10/06/2015 04:36 AM, Nicholas Krause wrote:
-> This fixes error handling in the function brcmf_sdio_htclk to
-> properly check if the call to the function brcmf_sdio_regrb
-> fails in the else if condition where the clkstate is in the
-> CLK_PENDING state in order to avoid incorrect execution of
-> the function brcmf_sdio_htclk when the call to brcmf_sdio_htclk
-> fails by returning a error code here.
+Agreed. That's exactly what I'm trying to implement just now.
 
-This commit message seems a bit overstating the change or I am missing 
-what you mean by incorrect execution here. These functions are pretty 
-low-level and failures are likely SDIO bus errors that are likely 
-persistent. For that reason not every individual call is checked for 
-errors as net result is that device will become inoperable.
+ Jiri
 
-Regards,
-Arend
-
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 5 +++++
->   1 file changed, 5 insertions(+)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> index f990e3d..030b50a 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> @@ -886,6 +886,11 @@ static int brcmf_sdio_htclk(struct brcmf_sdio *bus, bool on, bool pendok)
->   			/* Cancel CA-only interrupt filter */
->   			devctl = brcmf_sdiod_regrb(bus->sdiodev,
->   						   SBSDIO_DEVICE_CTL, &err);
-> +			if (err) {
-> +				brcmf_err("Devctl error canceling CA: %d\n",
-> +					  err);
-> +				return -EBADE;
-> +			}
->   			devctl &= ~SBSDIO_DEVCTL_CA_INT_ONLY;
->   			brcmf_sdiod_regwb(bus->sdiodev, SBSDIO_DEVICE_CTL,
->   					  devctl, &err);
->
+-- 
+Jiri Benc
