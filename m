@@ -1,8 +1,10 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/6] net: dsa: add port_fdb_prepare
-Date: Wed,  7 Oct 2015 19:48:29 -0400
-Message-ID: <1444261711-1829-5-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/6] net: dsa: push switchdev prepare phase in FDB ops
+Date: Wed,  7 Oct 2015 19:48:25 -0400
+Message-ID: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Scott Feldman <sfeldma@gmail.com>,
@@ -14,123 +16,117 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Push the prepare phase for FDB operations down to the DSA drivers, with
-a new port_fdb_prepare function. Currently only mv88e6xxx is affected.
+This patchset pushes the switchdev prepare phase for the FDB add and de=
+l
+operations down to the DSA drivers. Currently only mv88e6xxx is affecte=
+d.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
+Since the dump requires a bit of refactoring in the driver, it'll come =
+in a
+future patchset.
+
+The first 3 patches removes the dsa.h include from linux/netdevice.h, w=
+hich
+broke the inclusion of switchdev.h in dsa.h.
+
+The last 3 patches add port_fdb_prepare and change port_fdb_add and
+port_fdb_del to use the switchdev FDB object structure.
+
+To be more specific about the include dependency issue, here's a snippe=
+t of
+what happens currently if you include switchdev.h in dsa.h:
+
+[...]
+    include/net/switchdev.h:52:30: error: field =E2=80=98ppid=E2=80=99 =
+has incomplete type
+       struct netdev_phys_item_id ppid; /* PORT_PARENT_ID */
+                                  ^
+    include/net/switchdev.h:185:14: warning: =E2=80=98struct nlmsghdr=E2=
+=80=99 declared inside parameter list [enabled by default]
+           struct nlmsghdr *nlh, u16 flags);
+                  ^
+    include/net/switchdev.h:195:7: warning: =E2=80=98struct ndmsg=E2=80=
+=99 declared inside parameter list [enabled by default]
+    include/net/switchdev.h:198:7: warning: =E2=80=98struct nlattr=E2=80=
+=99 declared inside parameter list [enabled by default]
+           u16 vid);
+           ^
+    include/net/switchdev.h:201:15: warning: =E2=80=98struct netlink_ca=
+llback=E2=80=99 declared inside parameter list [enabled by default]
+            struct net_device *filter_dev, int idx);
+                   ^
+[...]
+
+Removing the dsa.h include from linux/netdevice.h gets rid of these err=
+ors but
+then the DSA code complains if you don't include it in dsa_priv.h:
+
+[...]
+net/dsa/slave.c: In function =E2=80=98dsa_slave_set_mac_address=E2=80=99=
+:
+net/dsa/slave.c:178:39: error: dereferencing pointer to incomplete type
+  struct net_device *master =3D p->parent->dst->master_netdev;
+                                       ^
+In file included from include/linux/list.h:8:0,
+                 from net/dsa/slave.c:11:
+net/dsa/slave.c: In function =E2=80=98dsa_bridge_check_vlan_range=E2=80=
+=99:
+net/dsa/slave.c:209:26: error: =E2=80=98DSA_MAX_PORTS=E2=80=99 undeclar=
+ed (first use in this function)
+  DECLARE_BITMAP(members, DSA_MAX_PORTS);
+                          ^
+net/dsa/slave.c:209:26: note: each undeclared identifier is reported on=
+ly once for each function it appears in
+  DECLARE_BITMAP(members, DSA_MAX_PORTS);
+                          ^
+include/linux/kernel.h:67:30: note: in definition of macro =E2=80=98DIV=
+_ROUND_UP=E2=80=99
+ #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+                              ^
+include/linux/types.h:10:21: note: in expansion of macro =E2=80=98BITS_=
+TO_LONGS=E2=80=99
+  unsigned long name[BITS_TO_LONGS(bits)]
+                     ^
+net/dsa/slave.c:209:2: note: in expansion of macro =E2=80=98DECLARE_BIT=
+MAP=E2=80=99
+  DECLARE_BITMAP(members, DSA_MAX_PORTS);
+  ^
+net/dsa/slave.c:1190:7: error: =E2=80=98DSA_TAG_PROTO_EDSA=E2=80=99 und=
+eclared (first use in this function)
+  case DSA_TAG_PROTO_EDSA:
+       ^
+net/dsa/slave.c: In function =E2=80=98dsa_slave_get_iflink=E2=80=99:
+net/dsa/slave.c:64:1: warning: control reaches end of non-void function=
+ [-Wreturn-type]
+ }
+ ^
+[...]
+
+
+Thanks,
+-v
+
+Vivien Didelot (6):
+  net: dsa: add uses_hw_tag
+  net: dsa: include dsa.h in dsa_priv.h
+  net: remove dsa.h include from linux/netdevice.h
+  net: dsa: add port_fdb_prepare
+  net: dsa: push prepare phase in port_fdb_add
+  net: dsa: use switchdev obj in port_fdb_del
+
  drivers/net/dsa/mv88e6171.c |  1 +
  drivers/net/dsa/mv88e6352.c |  1 +
- drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
- drivers/net/dsa/mv88e6xxx.h |  3 +++
- include/net/dsa.h           |  4 ++++
- net/dsa/slave.c             |  7 +++++--
- 6 files changed, 24 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 23 +++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx.h |  8 ++++++--
+ include/linux/netdevice.h   |  9 ++++++---
+ include/net/dsa.h           | 14 +++++++-------
+ net/dsa/dsa.c               |  1 +
+ net/dsa/dsa_priv.h          |  1 +
+ net/dsa/slave.c             | 11 +++++++----
+ 9 files changed, 47 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index c95cfab..ca3330a 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -121,6 +121,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
- 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
-+	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
- 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 3736706..078a358 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -348,6 +348,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
- 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
-+	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
- 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6053d11..9fbb727 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1841,6 +1841,16 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
- 	return _mv88e6xxx_atu_load(ds, &entry);
- }
- 
-+int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
-+			       const struct switchdev_obj_port_fdb *fdb,
-+			       struct switchdev_trans *trans)
-+{
-+	/* We don't need any dynamic resource from the kernel (yet),
-+	 * so skip the prepare phase.
-+	 */
-+	return 0;
-+}
-+
- int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   const unsigned char *addr, u16 vid)
- {
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 39b261f..4475640 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -479,6 +479,9 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
- int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid);
- int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
- 			   unsigned long *ports, unsigned long *untagged);
-+int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
-+			       const struct switchdev_obj_port_fdb *fdb,
-+			       struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   const unsigned char *addr, u16 vid);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 3e9eb6c..3aee8a5 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -19,6 +19,7 @@
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
-+#include <net/switchdev.h>
- 
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
-@@ -316,6 +317,9 @@ struct dsa_switch_driver {
- 	/*
- 	 * Forwarding database
- 	 */
-+	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
-+				    const struct switchdev_obj_port_fdb *fdb,
-+				    struct switchdev_trans *trans);
- 	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
- 				const unsigned char *addr, u16 vid);
- 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 4f607bc..48e8c15 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -346,10 +346,13 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
--	int ret = -EOPNOTSUPP;
-+	int ret;
-+
-+	if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
-+		return -EOPNOTSUPP;
- 
- 	if (switchdev_trans_ph_prepare(trans))
--		ret = ds->drv->port_fdb_add ? 0 : -EOPNOTSUPP;
-+		ret = ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
- 	else
- 		ret = ds->drv->port_fdb_add(ds, p->port, fdb->addr, fdb->vid);
- 
--- 
+--=20
 2.6.0
