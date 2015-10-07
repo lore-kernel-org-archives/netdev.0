@@ -1,49 +1,37 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Wed, 7 Oct 2015 09:06:52 -0700
-Message-ID: <20151007160652.GK26924@tassilo.jf.intel.com>
-References: <560ABE86.9050508@gmail.com>
- <20150930114255.13505.2618.stgit@canyon>
- <20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
- <20151002114118.75aae2f9@redhat.com>
- <20151002154039.69f82bdc@redhat.com>
- <20151002145044.781c911ea98e3ea74ae5cf3b@linux-foundation.org>
- <20151005212639.35932b6c@redhat.com>
- <20151005212045.GG26924@tassilo.jf.intel.com>
- <20151006010703.09e2f0ff@redhat.com>
- <20151007143120.7068416d@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: clear sender_cpu before xmit
+Date: Wed, 07 Oct 2015 18:09:32 +0200
+Message-ID: <561543BC.6080804@iogearbox.net>
+References: <1444189567-3031-1-git-send-email-ast@plumgrid.com> <5614D51E.2040109@iogearbox.net> <56153DCB.5020003@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151007143120.7068416d@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56538 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755009AbbJGQJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:09:40 -0400
+In-Reply-To: <56153DCB.5020003@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> My specific CPU (i7-4790K @ 4.00GHz) unfortunately seems to have
-> limited "Frontend" support. E.g. 
-> 
->  # perf record -g -a -e stalled-cycles-frontend
->  Error:
->  The stalled-cycles-frontend event is not supported.
-> 
-> And AFAIK icache misses are part of "frontend".
+On 10/07/2015 05:44 PM, Alexei Starovoitov wrote:
+> On 10/7/15 1:17 AM, Daniel Borkmann wrote:
+>> On 10/07/2015 05:46 AM, Alexei Starovoitov wrote:
+>>> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before
+>>> forwarding")
+>>> the skb->sender_cpu needs to be cleared before xmit.
+>>>
+>>> Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
+>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>
+>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>
+>> There's one more, but for net-next, see my other email.
+>
+> Of course. I left it for the morning, but you beat me to it.
 
-Ignore stalled-cycles-frontend. It is very unreliable and has never worked right.
-toplev gives you much more reliable output.
-
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ahh okay, fair enough. :)
