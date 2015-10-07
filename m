@@ -1,72 +1,136 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Wed, 7 Oct 2015 16:49:38 -0700
-Message-ID: <5615AF92.50402@plumgrid.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
- <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com>
- <5613C261.4080302@iogearbox.net> <56158CAF.9030209@plumgrid.com>
- <561597A6.4000203@iogearbox.net>
- <CAGXu5jLM5Wp_PjdcEcxUo-VoEmsSycF236MZaJd2wvLjbQx+eQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/6] net: dsa: add port_fdb_prepare
+Date: Wed,  7 Oct 2015 19:48:29 -0400
+Message-ID: <1444261711-1829-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jLM5Wp_PjdcEcxUo-VoEmsSycF236MZaJd2wvLjbQx+eQ@mail.gmail.com>
+In-Reply-To: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/7/15 3:22 PM, Kees Cook wrote:
->> Yes, I agree with you that there would be a CVE regardless. I still
->> >like the option of configurable access, not a big fan of the sysctl
->> >either. Thinking out loudly, what about a Kconfig option? We started
->> >out like this on bpf(2) itself (initially under expert settings, now
->> >afaik not anymore), and depending on usage scenarios, a requirement
->> >could be to have immutable cap_sys_admin-only, for other use-cases a
->> >requirement on the kernel might instead be to have unprivileged users
->> >as well.
-> It'd be nice to have it just be a Kconfig, but this shoots
-> distro-users in the foot if a distro decides to include unpriv bpf and
-> the user doesn't want it. I think it's probably a good idea to keep
-> the sysctl.
+Push the prepare phase for FDB operations down to the DSA drivers, with
+a new port_fdb_prepare function. Currently only mv88e6xxx is affected.
 
-I don't like introducing Kconfig for no clear reason. It only adds
-to the testing matrix and makes it harder to hack around.
-Paranoid distros can disable bpf via single config already,
-there is no reason to go more fine grained here.
-Unpriv checks add minimal amount of code, so even for tinification
-purpose there is no need to chop of few bytes. tiny kernels would
-disable bpf all together.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  3 +++
+ include/net/dsa.h           |  4 ++++
+ net/dsa/slave.c             |  7 +++++--
+ 6 files changed, 24 insertions(+), 2 deletions(-)
 
-As far as sysctl we can look at two with similar purpose:
-sysctl_perf_event_paranoid and modules_disabled.
-First one is indeed multi level, but not because of the fear of bugs,
-but because of real security implications. Like raw events on
-hyperthreaded cpu or uncore events can extract data from other
-user processes. So it controls these extra privileges.
-For bpf there are no hw implications to deal with.
-If we make seccomp+bpf in the future it shouldn't need another knob
-or extra bit. There are no extra privileges to grant, so not needed.
-
-modules_disabled is off by default and can be toggled on once.
-I think for paranoid distro users that "don't want bpf" that is
-the better model.
-So I'm thinking to do sysctl_unprivileged_bpf_disabled that will be
-0=off by default (meaning that users can load unpriv socket filter
-programs and seccomp in the future) and that can be switched
-to 1=on once and stay that way until reboot.
-I think that's the best balance that avoids adding checks to all
-apps that want to use bpf and admins can still act on it.
- From app point of view it's no different than bpf syscall
-was not compiled in. So single feature test for bpf syscall will
-be enough.
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index c95cfab..ca3330a 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -121,6 +121,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+ 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 3736706..078a358 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -348,6 +348,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+ 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 6053d11..9fbb727 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1841,6 +1841,16 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
+ 	return _mv88e6xxx_atu_load(ds, &entry);
+ }
+ 
++int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
++			       const struct switchdev_obj_port_fdb *fdb,
++			       struct switchdev_trans *trans)
++{
++	/* We don't need any dynamic resource from the kernel (yet),
++	 * so skip the prepare phase.
++	 */
++	return 0;
++}
++
+ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid)
+ {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 39b261f..4475640 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -479,6 +479,9 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
+ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid);
+ int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+ 			   unsigned long *ports, unsigned long *untagged);
++int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
++			       const struct switchdev_obj_port_fdb *fdb,
++			       struct switchdev_trans *trans);
+ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 3e9eb6c..3aee8a5 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -19,6 +19,7 @@
+ #include <linux/phy.h>
+ #include <linux/phy_fixed.h>
+ #include <linux/ethtool.h>
++#include <net/switchdev.h>
+ 
+ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_NONE = 0,
+@@ -316,6 +317,9 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Forwarding database
+ 	 */
++	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
++				    const struct switchdev_obj_port_fdb *fdb,
++				    struct switchdev_trans *trans);
+ 	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
+ 				const unsigned char *addr, u16 vid);
+ 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 4f607bc..48e8c15 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -346,10 +346,13 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
++	int ret;
++
++	if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
++		return -EOPNOTSUPP;
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+-		ret = ds->drv->port_fdb_add ? 0 : -EOPNOTSUPP;
++		ret = ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
+ 	else
+ 		ret = ds->drv->port_fdb_add(ds, p->port, fdb->addr, fdb->vid);
+ 
+-- 
+2.6.0
