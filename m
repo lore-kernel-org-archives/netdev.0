@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] openvswitch: add IPv6 tunneling support
-Date: Wed, 07 Oct 2015 04:18:29 -0700 (PDT)
-Message-ID: <20151007.041829.478887127666584497.davem@davemloft.net>
-References: <cover.1444041801.git.jbenc@redhat.com>
+Subject: Re: [PATCH 1/3][RESEND] doc: dt: net: Add fsl,wake-on-filer for
+ eTSEC
+Date: Wed, 07 Oct 2015 04:20:14 -0700 (PDT)
+Message-ID: <20151007.042014.1485696570433453264.davem@davemloft.net>
+References: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
-	jesse@nicira.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, leoli@freescale.com,
+	chenhui.zhao@freescale.com
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52868 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbbJGLCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 07:02:45 -0400
-In-Reply-To: <cover.1444041801.git.jbenc@redhat.com>
+	with ESMTP id S1752344AbbJGLEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 07:04:30 -0400
+In-Reply-To: <1444054799-17876-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Mon,  5 Oct 2015 13:09:45 +0200
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 5 Oct 2015 17:19:57 +0300
 
-> This builds on the previous work that added IPv6 support to lwtunnels and
-> adds IPv6 tunneling support to ovs.
+> Add the "fsl,wake-on-filer" property for eTSEC nodes to
+> indicate that the system has the power management
+> infrastructure needed to be able to wake up the system
+> via FGPI (filer, aka. h/w rx parser) interrupt.
 > 
-> To use IPv6 tunneling, there needs to be a metadata based tunnel net_device
-> created and added to the ovs bridge. Currently, only vxlan is supported by
-> the kernel, with geneve to follow shortly. There's no need nor intent to add
-> a support for this into the vport-vxlan (etc.) compat layer.
+> Cc: Li Yang <leoli@freescale.com>
+> Cc: Zhao Chenhui <chenhui.zhao@freescale.com>
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 > ---
-> 
-> v3: dropped the last two patches added in v2.
+> Patch initially sent to the ppc-devel list,
+> resend it to the netdev list:
+> http://patchwork.ozlabs.org/patch/524902/
 
-Series applied, thanks.
+Applied.
