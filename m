@@ -1,63 +1,60 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 2/5] once: make helper generic for calling
- function once
-Date: Wed, 7 Oct 2015 09:16:49 -0700
-Message-ID: <56154571.7050900@plumgrid.com>
-References: <cover.1444224502.git.daniel@iogearbox.net>
- <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH] net: mdio-octeon: Drop obsolete Kconfig advice
+Date: Wed, 7 Oct 2015 09:20:48 -0700
+Message-ID: <56154660.3070608@caviumnetworks.com>
+References: <20151007102638.335e9762@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: <netdev@vger.kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	David Daney <david.daney@cavium.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34224 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbbJGQQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:16:48 -0400
-Received: by padhy16 with SMTP id hy16so25598939pad.1
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 09:16:48 -0700 (PDT)
-In-Reply-To: <68b03e7c018609b0b56e74346e3f22ac0ad67f28.1444224502.git.daniel@iogearbox.net>
+Received: from mail-bn1bn0100.outbound.protection.outlook.com ([157.56.110.100]:25776
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754275AbbJGQUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2015 12:20:55 -0400
+In-Reply-To: <20151007102638.335e9762@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 6:43 AM, Daniel Borkmann wrote:
-> From: Hannes Frederic Sowa<hannes@stressinduktion.org>
+On 10/07/2015 01:26 AM, Jean Delvare wrote:
+> "Y" was the right answer for MDIO_OCTEON when this option was only
+> available on CAVIUM_OCTEON_SOC. But now that the option is visible on
+> all (64-bit) systems, this piece of advice no longer makes sense. This
+> helper module is selected automatically by drivers which need it
+> anyway.
 >
-> Make the get_random_once() helper generic enough, so that functions
-> in general would only be called once, where one user of this is then
-> net_get_random_once().
->
-> The only implementation specific call is to get_random_bytes(), all
-> the rest of this *_once() facility would be duplicated among different
-> subsystems otherwise. The new do_once() helper will be used by prandom()
-> later on, but might also be useful for other scenarios as well where a
-> one-time initialization in often-called, possibly fast-path code could
-> occur.
->
-> Signed-off-by: Hannes Frederic Sowa<hannes@stressinduktion.org>
-> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
-> ---
->   include/linux/once.h | 25 ++++++++++++++++++-------
->   lib/once.c           | 34 +++++++++++++++++++++-------------
->   2 files changed, 39 insertions(+), 20 deletions(-)
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Fixes: a6d6786452 ("net: mdio-octeon: Modify driver to work on both ThunderX and Octeon")
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Sunil Goutham <sgoutham@cavium.com>
+> Cc: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+> Cc: David Daney <david.daney@cavium.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-looking at the patch 1 the once.c file name really looked out of place,
-but this patch makes it fit. Interesting helper, though
-get_random_once_kvec() and kvec are not pretty, since they take extra
-stack and being inited even when static_key is disabled.
-Instead is it possible to split do_once into two parts then
-your macro can have varags and kvec/extra_helper can be removed like:
-#define do_once(func, ...)                      \
-  ({                                             \
-         bool ___ret = false;                    \
-         static bool ___done = false;            \
-         static struct static_key ___once_key =  \
-                 STATIC_KEY_INIT_TRUE;           \
-         if (static_key_true(&___once_key)) {    \
-                 __do_once_lock(&___done);       \
-                 func(##__VA_ARGS__);            \
-                 __do_once_unlock(&_done, &___once_key);\
-         } \
-         ___ret;                                 \
-  })
+Jean, good catch:
+Acked-by: David Daney <david.daney@cavium.com>
+
+
+> ---
+>   drivers/net/phy/Kconfig |    2 --
+>   1 file changed, 2 deletions(-)
+>
+> --- linux-4.3-rc4.orig/drivers/net/phy/Kconfig	2015-09-20 23:32:34.000000000 +0200
+> +++ linux-4.3-rc4/drivers/net/phy/Kconfig	2015-10-07 10:18:46.260452322 +0200
+> @@ -168,8 +168,6 @@ config MDIO_OCTEON
+>   	  busses. It is required by the Octeon and ThunderX ethernet device
+>   	  drivers.
+>
+> -	  If in doubt, say Y.
+> -
+>   config MDIO_SUN4I
+>   	tristate "Allwinner sun4i MDIO interface support"
+>   	depends on ARCH_SUNXI
+>
+>
