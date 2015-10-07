@@ -1,54 +1,43 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] bpf: fix cb access in socket filter programs
-Date: Wed, 7 Oct 2015 09:53:57 -0700
-Message-ID: <56154E25.3050309@plumgrid.com>
-References: <1444184292-17500-1-git-send-email-ast@plumgrid.com>
- <5614E84E.2010806@iogearbox.net> <56151977.10302@iogearbox.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v4] net: ipv6: Make address flushing on ifdown
+ optional
+Date: Wed, 7 Oct 2015 11:01:53 -0600
+Message-ID: <56155001.3070207@cumulusnetworks.com>
+References: <1444231059-14830-1-git-send-email-dsa@cumulusnetworks.com>
+ <CACP96tQtGecigUUHdF32w91qj=abqJLo+evzOL-9JakSJZ064A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>, hannes@redhat.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35527 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754179AbbJGQyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 12:54:07 -0400
-Received: by pacfv12 with SMTP id fv12so26897056pac.2
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 09:53:56 -0700 (PDT)
-In-Reply-To: <56151977.10302@iogearbox.net>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34966 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753995AbbJGRBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 13:01:51 -0400
+Received: by pacfv12 with SMTP id fv12so27079877pac.2
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 10:01:51 -0700 (PDT)
+In-Reply-To: <CACP96tQtGecigUUHdF32w91qj=abqJLo+evzOL-9JakSJZ064A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 6:09 AM, Daniel Borkmann wrote:
->> bpf_prog_run_clear_cb() wouldn't work on dev_forward_skb() as
->> skb->pkt_type is then being scrubbed to PACKET_HOST, so on the
->> receive path, AF_PACKET might not always see clean skbs->cb[]
->> as assumed ... I think that the skb->pkt_type part needs to be
->> dropped, no?
-
-right. will respin.
-
-> Thinking a bit more about this part, which only accounts for
-> fanout_demux_bpf() and run_filter(), so AF_PACKET only, this
-> logic still needs to be slightly different:
+On 10/7/15 9:43 AM, Sowmini Varadhan wrote:
+> On Wed, Oct 7, 2015 at 11:17 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> Currently, all ipv6 addresses are flushed when the interface is configured
+>> down, including global, static addresses:
+>    :
+>>
+>> Add a new sysctl to make this behavior optional. The new setting defaults to
+>> flush all addresses to maintain backwards compatibility. When the setting is
+>> reset global addresses with no expire times are not flushed:
 >
-> You currently can have eBPF on packet fanout as a demux and behind
-> that eBPF on the actual packet socket. So, for some reason, fanout
-> could transfer some state to the socket along the way, which could
-> break when cleared as-is via bpf_prog_run_clear_cb().
+> does src addr selection also need to be modified to know if/when it can/cannot
+> use this static address as a source addr? Or does the TENTATIVE flag
+> make it Do The Right Thing per rfc 3484?
 >
-> So we need to make sure to only clear this once, either in front
-> of fanout, or when not present, in front of the socket filter.
 
-no. that would be anti-feature. user space shouldn't rely on such
-things. If somebody wants to pass data between two disjoint
-programs (not called via tail_call), they should be using maps or
-some future per-cpu scratch area that will guarantee such semantics.
-cb as part of skb is not suitable for that, since it will limit
-what kernel can do in-between.
+When the device is set 'down' (admin state) all routes (including cached 
+ones) for the device are cleared so there should not be any way to 
+select the source address that is saved. i.e, ipv6_dev_get_saddr() 
+should not get invoked for the device.
