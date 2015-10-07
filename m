@@ -1,29 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 00/14] RDS: connection scalability and performance
- improvements
-Date: Wed, 07 Oct 2015 02:16:34 -0700 (PDT)
-Message-ID: <20151007.021634.1127057852275250731.davem@davemloft.net>
-References: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
+From: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
+Subject: [PATCH] nfc: netlink: avoid NULL pointer dereference on error
+Date: Wed,  7 Oct 2015 11:33:19 +0200
+Message-ID: <1444210399-3913-1-git-send-email-vincent.stehle@laposte.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: santosh.shilimkar@oracle.com
+	=?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>,
+	Thierry Escande <thierry.escande@linux.intel.com>,
+	Samuel Ortiz <sameo@linux.intel.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444067797-14101-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Mon,  5 Oct 2015 10:56:23 -0700
+The function nfc_genl_llc_sdreq() can dereference the dev pointer while
+it is NULL on its error path. Create a new error handling label to avoi=
+d
+that.
 
-> [v3]
-> Updated patch "[PATCH v2 05/14] RDS: defer the over_batch work to
-> send worker" as per David Miller's comment [4] to avoid the magic
-> value usage. Patch now makes use of already available but unused
-> send_batch_count module parameter. Rest of the patches are same as
-> earlier version v2 [3]
+This fixes the following coccinelle error:
 
-Can you respin this again?  Your repost of patch 05/14 was severely whitespace
-damaged.
+  ./net/nfc/netlink.c:1175:21-24: ERROR: dev is NULL but dereferenced.
+
+Signed-off-by: Vincent Stehl=C3=A9 <vincent.stehle@laposte.net>
+Cc: Thierry Escande <thierry.escande@linux.intel.com>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+---
+ net/nfc/netlink.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index 853172c..51c48f0 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -1111,7 +1111,7 @@ static int nfc_genl_llc_sdreq(struct sk_buff *skb=
+, struct genl_info *info)
+ 	dev =3D nfc_get_device(idx);
+ 	if (!dev) {
+ 		rc =3D -ENODEV;
+-		goto exit;
++		goto exit_nodev;
+ 	}
+=20
+ 	device_lock(&dev->dev);
+@@ -1176,6 +1176,7 @@ exit:
+=20
+ 	nfc_put_device(dev);
+=20
++exit_nodev:
+ 	return rc;
+ }
+=20
+--=20
+2.5.1
