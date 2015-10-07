@@ -1,71 +1,57 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
-Date: Tue, 6 Oct 2015 18:01:06 -0700
-Message-ID: <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz> <5612DCC8.4040605@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next v2] net: Fix unused variable compile warning
+Date: Wed, 7 Oct 2015 10:02:40 +0900
+Message-ID: <20151007010237.GD21067@verge.net.au>
+References: <1443714544-21595-1-git-send-email-dsa@cumulusnetworks.com>
+ <CAHA+R7PTyS=wtowhKZ4osDs_VF=UJvfhw_xkWO3PQZuiFdnTsw@mail.gmail.com>
+ <20151005.233537.1854084467334631982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlastimil Babka <vbabka@suse.cz>, Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	"dev@openvswitch.org" <dev@openvswitch.org>, Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
-To: Alexander Duyck <alexander.duyck@gmail.com>, Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5612DCC8.4040605@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: cwang@twopensource.com, dsa@cumulusnetworks.com,
+	netdev@vger.kernel.org, dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:41104 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbbJGBCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 21:02:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20151005.233537.1854084467334631982.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
->>
->> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->>>
->>> When openvswitch tries allocate memory from offline numa node 0:
->>> stats = kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO,
->>> 0)
->>> It catches VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || !node_online(nid))
->>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
->>> This patch disables numa affinity in this case.
->>>
->>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->>
->>
->> ...
->>
->>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
->>> index f2ea83ba4763..c7f74aab34b9 100644
->>> --- a/net/openvswitch/flow_table.c
->>> +++ b/net/openvswitch/flow_table.c
->>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->>>
->>>       /* Initialize the default stat node. */
->>>       stats = kmem_cache_alloc_node(flow_stats_cache,
->>> -                      GFP_KERNEL | __GFP_ZERO, 0);
->>> +                      GFP_KERNEL | __GFP_ZERO,
->>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
->>
->>
->> Stupid question: can node 0 become offline between this check, and the
->> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
->
->
-> Another question to ask would be is it possible for node 0 to be online, but
-> be a memoryless node?
->
-> I would say you are better off just making this call kmem_cache_alloc.  I
-> don't see anything that indicates the memory has to come from node 0, so
-> adding the extra overhead doesn't provide any value.
+On Mon, Oct 05, 2015 at 11:35:37PM -0700, David Miller wrote:
+> From: Cong Wang <cwang@twopensource.com>
+> Date: Mon, 5 Oct 2015 10:53:57 -0700
+>=20
+> > On Thu, Oct 1, 2015 at 8:49 AM, David Ahern <dsa@cumulusnetworks.co=
+m> wrote:
+> >> Eric's net namespace changes in 1b75097dd7a26 leaves net unreferen=
+ced if
+> >> CONFIG_IP_VS_IPV6 is not enabled:
+> >>
+> >> ../net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_out=
+=E2=80=99:
+> >> ../net/netfilter/ipvs/ip_vs_core.c:1177:14: warning: unused variab=
+le =E2=80=98net=E2=80=99 [-Wunused-variable]
+> >>
+> >> After the net refactoring there is only 1 user; push the reference=
+ to the
+> >> 1 user. While the line length slightly exceeds 80 it seems to be t=
+he
+> >> best change.
+> >>
+> >> Fixes: 1b75097dd7a26("ipvs: Pass ipvs into ip_vs_out")
+> >> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> >=20
+> > I saw the same build warning, and this fix looks good to me.
+> >=20
+> > DaveM, can you take this?
+>=20
+> It should be submitted to netfilter-devel and Pablo should take it.
 
-I agree that this at least makes me wonder, though I actually have
-concerns in the opposite direction - I see assumptions about this
-being on node 0 in net/openvswitch/flow.c.
+lvs-devel would be better yet.
+I submitted an identical patch there yesterday.
 
-Jarno, since you original wrote this code, can you take a look to see
-if everything still makes sense?
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I'll pick up David's version and send it to Pablo ASAP.
