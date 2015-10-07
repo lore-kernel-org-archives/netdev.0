@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/6] net: dsa: add uses_hw_tag
-Date: Wed,  7 Oct 2015 19:48:26 -0400
-Message-ID: <1444261711-1829-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/6] net: dsa: use switchdev obj in port_fdb_del
+Date: Wed,  7 Oct 2015 19:48:31 -0400
+Message-ID: <1444261711-1829-7-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -18,73 +18,75 @@ In-Reply-To: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of checking that the dsa_switch_tree rcv pointer is not NULL,
-add a uses_hw_tag boolean to net_device to explicit whether it uses
-hardware inserted tag or not.
+For consistency with the FDB add operation, propagate the
+switchdev_obj_port_fdb structure in the DSA drivers.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/linux/netdevice.h | 6 ++++--
- include/net/dsa.h         | 5 -----
- net/dsa/dsa.c             | 1 +
- 3 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 4 ++--
+ drivers/net/dsa/mv88e6xxx.h | 2 +-
+ include/net/dsa.h           | 2 +-
+ net/dsa/slave.c             | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b337440..73f0510 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1422,6 +1422,7 @@ enum netdev_priv_flags {
-  *	@allmulti:		Counter, enables or disables allmulticast mode
-  *
-  *	@vlan_info:	VLAN info
-+ *	@uses_hw_tag:	Whether the device uses hardware inserted tag or not
-  *	@dsa_ptr:	dsa specific data
-  *	@tipc_ptr:	TIPC specific data
-  *	@atalk_ptr:	AppleTalk link
-@@ -1640,6 +1641,7 @@ struct net_device {
- 	struct vlan_info __rcu	*vlan_info;
- #endif
- #if IS_ENABLED(CONFIG_NET_DSA)
-+	bool uses_hw_tag;
- 	struct dsa_switch_tree	*dsa_ptr;
- #endif
- #if IS_ENABLED(CONFIG_TIPC)
-@@ -1891,8 +1893,8 @@ void dev_net_set(struct net_device *dev, struct net *net)
- static inline bool netdev_uses_dsa(struct net_device *dev)
- {
- #if IS_ENABLED(CONFIG_NET_DSA)
--	if (dev->dsa_ptr != NULL)
--		return dsa_uses_tagged_protocol(dev->dsa_ptr);
-+	if (dev->uses_hw_tag)
-+		return true;
- #endif
- 	return false;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 916c98e..f73c953 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1869,13 +1869,13 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
  }
+ 
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+-			   const unsigned char *addr, u16 vid)
++			   const struct switchdev_obj_port_fdb *fdb)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_port_fdb_load(ds, port, addr, vid,
++	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid,
+ 				       GLOBAL_ATU_DATA_STATE_UNUSED);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index e688bee..1347a73 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -486,7 +486,7 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const struct switchdev_obj_port_fdb *fdb,
+ 			   struct switchdev_trans *trans);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+-			   const unsigned char *addr, u16 vid);
++			   const struct switchdev_obj_port_fdb *fdb);
+ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			       unsigned char *addr, u16 *vid, bool *is_static);
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b34d812..3e9eb6c 100644
+index 2d86d31..b802dab 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -333,9 +333,4 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
- {
- 	return (void *)(ds + 1);
- }
--
--static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
--{
--	return dst->rcv != NULL;
--}
- #endif
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index aa398bc..51b3815 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -834,6 +834,7 @@ static void dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	 */
- 	wmb();
- 	dev->dsa_ptr = (void *)dst;
-+	dev->uses_hw_tag = dst->tag_protocol != DSA_TAG_PROTO_NONE;
+@@ -324,7 +324,7 @@ struct dsa_switch_driver {
+ 				const struct switchdev_obj_port_fdb *fdb,
+ 				struct switchdev_trans *trans);
+ 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+-				const unsigned char *addr, u16 vid);
++				const struct switchdev_obj_port_fdb *fdb);
+ 	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
+ 				    unsigned char *addr, u16 *vid,
+ 				    bool *is_static);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6f7f27e..bb2bd3b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -367,7 +367,7 @@ static int dsa_slave_port_fdb_del(struct net_device *dev,
+ 	int ret = -EOPNOTSUPP;
  
- 	if (dst->link_poll_needed) {
- 		INIT_WORK(&dst->link_poll_work, dsa_link_poll_work);
+ 	if (ds->drv->port_fdb_del)
+-		ret = ds->drv->port_fdb_del(ds, p->port, fdb->addr, fdb->vid);
++		ret = ds->drv->port_fdb_del(ds, p->port, fdb);
+ 
+ 	return ret;
+ }
 -- 
 2.6.0
