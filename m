@@ -1,51 +1,42 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/6] net: remove dsa.h include from linux/netdevice.h
-Date: Wed,  7 Oct 2015 19:48:28 -0400
-Message-ID: <1444261711-1829-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v2 2/5] once: make helper generic for calling
+ functions once
+Date: Wed, 7 Oct 2015 16:52:56 -0700
+Message-ID: <5615B058.2010804@plumgrid.com>
+References: <cover.1444258405.git.daniel@iogearbox.net>
+ <9a27fef5de706382e07d92807a2acaad10055382.1444258406.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34229 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753557AbbJGXw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 19:52:58 -0400
+Received: by padhy16 with SMTP id hy16so35143537pad.1
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 16:52:58 -0700 (PDT)
+In-Reply-To: <9a27fef5de706382e07d92807a2acaad10055382.1444258406.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Forward declare struct dsa_switch_tree in netdevice.h instead of
-including the dsa.h header.
+On 10/7/15 4:20 PM, Daniel Borkmann wrote:
+> From: Hannes Frederic Sowa<hannes@stressinduktion.org>
+>
+> Make the get_random_once() helper generic enough, so that functions
+> in general would only be called once, where one user of this is then
+> net_get_random_once().
+>
+> The only implementation specific call is to get_random_bytes(), all
+> the rest of this *_once() facility would be duplicated among different
+> subsystems otherwise. The new DO_ONCE() helper will be used by prandom()
+> later on, but might also be useful for other scenarios/subsystems as
+> well where a one-time initialization in often-called, possibly fast
+> path code could occur.
+>
+> Signed-off-by: Hannes Frederic Sowa<hannes@stressinduktion.org>
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/linux/netdevice.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 73f0510..d0bcabb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -41,7 +41,6 @@
- 
- #include <linux/ethtool.h>
- #include <net/net_namespace.h>
--#include <net/dsa.h>
- #ifdef CONFIG_DCB
- #include <net/dcbnl.h>
- #endif
-@@ -60,6 +59,8 @@ struct wireless_dev;
- /* 802.15.4 specific */
- struct wpan_dev;
- struct mpls_dev;
-+/* DSA specific */
-+struct dsa_switch_tree;
- 
- void netdev_set_default_ethtool_ops(struct net_device *dev,
- 				    const struct ethtool_ops *ops);
--- 
-2.6.0
+nice! you even added sparse tags.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
