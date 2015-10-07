@@ -1,129 +1,168 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [MM PATCH V4.1 5/6] slub: support for bulk free with SLUB
- freelists
-Date: Wed, 7 Oct 2015 10:36:19 -0300
-Message-ID: <20151007133619.GR12682@redhat.com>
-References: <560ABE86.9050508@gmail.com>
- <20150930114255.13505.2618.stgit@canyon>
- <20151001151015.c59a1360c7720a257f655578@linux-foundation.org>
- <20151002114118.75aae2f9@redhat.com>
- <20151002154039.69f82bdc@redhat.com>
- <20151002145044.781c911ea98e3ea74ae5cf3b@linux-foundation.org>
- <20151005212639.35932b6c@redhat.com>
- <20151005212045.GG26924@tassilo.jf.intel.com>
- <20151006010703.09e2f0ff@redhat.com>
- <20151007143120.7068416d@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@linux.intel.com>, linux-mm@kvack.org,
-        netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151007143120.7068416d@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 5/5] bpf: split state from prandom_u32() and consolidate {c,e}BPF prngs
+Date: Wed,  7 Oct 2015 15:43:56 +0200
+Message-ID: <2b3b623837d040c99186d76966c3524f17057745.1444224502.git.daniel@iogearbox.net>
+References: <cover.1444224502.git.daniel@iogearbox.net>
+Cc: hannes@stressinduktion.org, ast@plumgrid.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Chema Gonzalez <chema@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:45124 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754192AbbJGNoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 09:44:03 -0400
+In-Reply-To: <cover.1444224502.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1444224502.git.daniel@iogearbox.net>
+References: <cover.1444224502.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Oct 07, 2015 at 02:31:20PM +0200, Jesper Dangaard Brouer escreveu:
-> On Tue, 6 Oct 2015 01:07:03 +0200
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > (trimmed Cc list a little)
-> > 
-> > On Mon, 5 Oct 2015 14:20:45 -0700 Andi Kleen <ak@linux.intel.com> wrote:
-> > 
-> > > > My only problem left, is I want a perf measurement that pinpoint these
-> > > > kind of spots.  The difference in L1-icache-load-misses were significant
-> > > > (1,278,276 vs 2,719,158).  I tried to somehow perf record this with
-> > > > different perf events without being able to pinpoint the location (even
-> > > > though I know the spot now).  Even tried Andi's ocperf.py... maybe he
-> > > > will know what event I should try?
-> > > 
-> > > Run pmu-tools toplev.py -l3 with --show-sample. It tells you what the
-> > > bottle neck is and what to sample for if there is a suitable event and
-> > > even prints the command line.
-> > > 
-> > > https://github.com/andikleen/pmu-tools/wiki/toplev-manual#sampling-with-toplev
-> > > 
-> > 
-> > My result from (IP-forward flow hitting CPU 0):
-> >  $ sudo ./toplev.py -I 1000 -l3 -a --show-sample --core C0
-> > 
-> > So, what does this tell me?:
-> >
-> >  C0    BAD     Bad_Speculation:                                 0.00 % [  5.50%]
-> >  C0    BE      Backend_Bound:                                 100.00 % [  5.50%]
-> >  C0    BE/Mem  Backend_Bound.Memory_Bound:                     53.06 % [  5.50%]
-> >  C0    BE/Core Backend_Bound.Core_Bound:                       46.94 % [  5.50%]
-> >  C0-T0 FE      Frontend_Bound.Frontend_Latency.Branch_Resteers: 5.42 % [  5.50%]
-> >  C0-T0 BE/Mem  Backend_Bound.Memory_Bound.L1_Bound:            54.51 % [  5.50%]
-> >  C0-T0 BE/Core Backend_Bound.Core_Bound.Ports_Utilization:     20.99 % [  5.60%]
-> >  C0-T0         CPU utilization: 1.00 CPUs   	[100.00%]
-> >  C0-T1 FE      Frontend_Bound.Frontend_Latency.Branch_Resteers: 6.04 % [  5.50%]
-> >  C0-T1         CPU utilization: 1.00 CPUs   	[100.00%]
-> 
-> Reading: https://github.com/andikleen/pmu-tools/wiki/toplev-manual
-> Helped me understand most of above.
-> 
-> My specific CPU (i7-4790K @ 4.00GHz) unfortunately seems to have
-> limited "Frontend" support. E.g. 
-> 
->  # perf record -g -a -e stalled-cycles-frontend
->  Error:
->  The stalled-cycles-frontend event is not supported.
-> 
-> And AFAIK icache misses are part of "frontend".
-> 
-> 
-> > Unfortunately the perf command it gives me fails with:
-> >  "invalid or unsupported event".
-> > 
-> > Perf command:
-> > 
-> >  sudo ./ocperf.py record -g -e \
->   cpu/event=0xc5,umask=0x0,name=Branch_Resteers_BR_MISP_RETIRED_ALL_BRANCHES:pp,period=400009/pp,\
->   cpu/event=0xd,umask=0x3,cmask=1,name=Bad_Speculation_INT_MISC_RECOVERY_CYCLES,period=2000003/,\
->   cpu/event=0xd1,umask=0x1,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_L1_HIT:pp,period=2000003/pp,\
->   cpu/event=0xd1,umask=0x40,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_HIT_LFB:pp,period=100003/pp \
->   -C 0,4 -a
-> 
-> I fixed the problem with this perf command by removing the ":pp" part.
-> Perhaps your tool need to fix that?
-> 
-> A working command line looks like this:
-> 
->  sudo ./ocperf.py record -g -e \
-> cpu/event=0xc5,umask=0x0,name=Branch_Resteers_BR_MISP_RETIRED_ALL_BRANCHES,period=400009/pp,\
-> cpu/event=0xd,umask=0x3,cmask=1,name=Bad_Speculation_INT_MISC_RECOVERY_CYCLES,period=2000003/,\
-> cpu/event=0xd1,umask=0x1,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_L1_HIT,period=2000003/pp,\
-> cpu/event=0xd1,umask=0x40,name=L1_Bound_MEM_LOAD_UOPS_RETIRED_HIT_LFB,period=100003/pp \
->   -C 0,4 -a
+While recently arguing on a seccomp discussion that raw prandom_u32()
+access shouldn't be exposed to unpriviledged user space, I forgot the
+fact that SKF_AD_RANDOM extension actually already does it for some time
+in cBPF via commit 4cd3675ebf74 ("filter: added BPF random opcode").
 
-There is a recent patch that may help here, see below, but maybe its
-just a matter of removing that :pp, as it ends with a /pp anyway, no
-need to state that twice :)
+Since prandom_u32() is being used in a lot of critical networking code,
+lets be more conservative and split their states. Furthermore, consolidate
+eBPF and cBPF prandom handlers to use the new internal PRNG. For eBPF,
+bpf_get_prandom_u32() was only accessible for priviledged users, but
+should that change one day, we also don't want to leak raw sequences
+through things like eBPF maps.
 
-With the patch below all those /pp would be replaced with /P.
+One thought was also to have own per bpf_prog states, but due to ABI
+reasons this is not easily possible, i.e. the program code currently
+cannot access bpf_prog itself, and copying the rnd_state to/from the
+stack scratch space whenever a program uses the prng seems not really
+worth the trouble and seems too hacky. If needed, taus113 could in such
+cases be implemented within eBPF using a map entry to keep the state
+space, or get_random_bytes() could become a second helper in cases where
+performance would not be critical.
 
-- Arnaldo
+Both sides can trigger a one-time late init via prandom_init_once() on
+the shared state. Performance-wise, there should even be a tiny gain
+as bpf_user_rnd_u32() saves one function call. The PRNG needs to live
+inside the BPF core since kernels could have a NET-less config as well.
 
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Chema Gonzalez <chema@google.com>
+---
+ include/linux/bpf.h  |  4 ++++
+ kernel/bpf/core.c    | 26 ++++++++++++++++++++++++++
+ kernel/bpf/helpers.c |  7 +------
+ kernel/bpf/syscall.c |  2 ++
+ net/core/filter.c    |  9 ++-------
+ 5 files changed, 35 insertions(+), 13 deletions(-)
 
-https://git.kernel.org/cgit/linux/kernel/git/tip/tip.git/commit/tools/perf?id=7f94af7a489fada17d28cc60e8f4409ce216bd6d
-
-----------------------------------------------------------------------
-perf tools: Introduce 'P' modifier to request max precision
-The 'P' will cause the event to get maximum possible detected precise
-level.
-
-Following record:
-  $ perf record -e cycles:P ...
-
-will detect maximum precise level for 'cycles' event and use it.
-----------------------------------------------------------------------
-
-- Arnaldo
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c915a6b..3697ad5 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -200,4 +200,8 @@ extern const struct bpf_func_proto bpf_get_current_comm_proto;
+ extern const struct bpf_func_proto bpf_skb_vlan_push_proto;
+ extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
+ 
++/* Shared helpers among cBPF and eBPF. */
++void bpf_user_rnd_init_once(void);
++u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
++
+ #endif /* _LINUX_BPF_H */
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index c8855c2..8086471 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -731,6 +731,32 @@ void bpf_prog_free(struct bpf_prog *fp)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_free);
+ 
++/* RNG for unpriviledged user space with separated state from prandom_u32(). */
++static DEFINE_PER_CPU(struct rnd_state, bpf_user_rnd_state);
++
++void bpf_user_rnd_init_once(void)
++{
++	prandom_init_once(&bpf_user_rnd_state);
++}
++
++u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	/* Should someone ever have the rather unwise idea to use some
++	 * of the registers passed into this function, then note that
++	 * this function is called from native eBPF and classic-to-eBPF
++	 * transformations. Register assignments from both sides are
++	 * different, f.e. classic always sets fn(ctx, A, X) here.
++	 */
++	struct rnd_state *state;
++	u32 res;
++
++	state = &get_cpu_var(bpf_user_rnd_state);
++	res = prandom_u32_state(state);
++	put_cpu_var(state);
++
++	return res;
++}
++
+ /* Weak definitions of helper functions in case we don't have bpf syscall. */
+ const struct bpf_func_proto bpf_map_lookup_elem_proto __weak;
+ const struct bpf_func_proto bpf_map_update_elem_proto __weak;
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index 1447ec0..4504ca6 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -93,13 +93,8 @@ const struct bpf_func_proto bpf_map_delete_elem_proto = {
+ 	.arg2_type	= ARG_PTR_TO_MAP_KEY,
+ };
+ 
+-static u64 bpf_get_prandom_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+-{
+-	return prandom_u32();
+-}
+-
+ const struct bpf_func_proto bpf_get_prandom_u32_proto = {
+-	.func		= bpf_get_prandom_u32,
++	.func		= bpf_user_rnd_u32,
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+ };
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 5f35f42..c868caf 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -404,6 +404,8 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
+ 
+ 			if (insn->imm == BPF_FUNC_get_route_realm)
+ 				prog->dst_needed = 1;
++			if (insn->imm == BPF_FUNC_get_prandom_u32)
++				bpf_user_rnd_init_once();
+ 			if (insn->imm == BPF_FUNC_tail_call) {
+ 				/* mark bpf_tail_call as different opcode
+ 				 * to avoid conditional branch in
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 8f4603c..342e6c8 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -149,12 +149,6 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
+ 	return raw_smp_processor_id();
+ }
+ 
+-/* note that this only generates 32-bit random numbers */
+-static u64 __get_random_u32(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
+-{
+-	return prandom_u32();
+-}
+-
+ static u32 convert_skb_access(int skb_field, int dst_reg, int src_reg,
+ 			      struct bpf_insn *insn_buf)
+ {
+@@ -313,7 +307,8 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 			*insn = BPF_EMIT_CALL(__get_raw_cpu_id);
+ 			break;
+ 		case SKF_AD_OFF + SKF_AD_RANDOM:
+-			*insn = BPF_EMIT_CALL(__get_random_u32);
++			*insn = BPF_EMIT_CALL(bpf_user_rnd_u32);
++			bpf_user_rnd_init_once();
+ 			break;
+ 		}
+ 		break;
+-- 
+1.9.3
