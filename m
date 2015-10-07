@@ -1,48 +1,62 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] bpf: clear sender_cpu before xmit
-Date: Tue,  6 Oct 2015 20:46:07 -0700
-Message-ID: <1444189567-3031-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36086 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753128AbbJGDqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 23:46:15 -0400
-Received: by pablk4 with SMTP id lk4so7180964pab.3
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 20:46:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 10/15] ipv4: Cache net in ip_build_and_send_pkt
+ and ip_queue_xmit
+Date: Tue, 06 Oct 2015 20:48:19 -0700
+Message-ID: <1444189699.9555.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
+	 <1444157595-28816-10-git-send-email-ebiederm@xmission.com>
+	 <1444167637.9555.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87lhbf8ike.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	lvs-devel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <87lhbf8ike.fsf@x220.int.ebiederm.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similar to commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
-the skb->sender_cpu needs to be cleared before xmit.
+On Tue, 2015-10-06 at 22:26 -0500, Eric W. Biederman wrote:
 
-Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
-That is similar to pending patches for xps:
-http://patchwork.ozlabs.org/patch/526952/
-and for act_mirred:
-http://patchwork.ozlabs.org/patch/527066/
+> So what I am really reading it for is ip_local_out which I change to
+> take a struct net a few patches later in the series.  The patches that
+> changes everything is noticably cleaner and easier to review with these
+> couple of patches pulling struct net into it's own variable ahead of
+> time, and ip_build_and_send_pkt does call ip_local_out unconditionally.
+> 
+> I am in the process of figuring out how to compute net once in the
+> output path and just passing it through so I don't need to compute net
+> from dst->dev.  As when the dust settles I hope to allow for a dst->dev
+> in another network namespace.  So that routes with a destination device
+> in another network namespace will allow for something simpler and faster
+> than ipvlan that achieves a very similar effect.
+> 
+> In this case to achieve what you are looking for, for cache line
+> friendliness I believe we would need to pass net in from
+> tcp_v4_send_synack, and it's cousins in dccp.
 
-though Fixes tag is different, since bpf_clone_redirect() came in
-after commit 2bd82484bb4c ("xps: fix xps for stacked devices")
----
- net/core/filter.c |    1 +
- 1 file changed, 1 insertion(+)
+Yes, something that can be done later.
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 87b78ef0c3d4..bb18c3680001 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1415,6 +1415,7 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
- 		return dev_forward_skb(dev, skb2);
- 
- 	skb2->dev = dev;
-+	skb_sender_cpu_clear(skb2);
- 	return dev_queue_xmit(skb2);
- }
- 
--- 
-1.7.9.5
+> 
+> skc_net does seem firmly in the first cache line of sockets so it does
+> look like any of the the reads to inet_sock that we do perform would
+> hit the same cache line.
+> 
+> To recap.  I store net in a variable because I start using it
+> unconditionally a few patches later. The only way I can see to avoid
+> hitting the cold cache line is to pass net into ip_build_and_send_pkt.
+> 
+> Do you think passing net into ip_build_and_send_pkt is the sensible way
+> to address your performance concern?  Or do you have issues with my
+> passing of net through the output path?
+
+I have no issues, but was pointing out this particular path, that might
+be optimized later, no worries.
+
+Thanks.
+
+
