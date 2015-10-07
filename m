@@ -1,29 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] s390: qeth patches for net-next
-Date: Wed, 07 Oct 2015 04:52:40 -0700 (PDT)
-Message-ID: <20151007.045240.891939967193604120.davem@davemloft.net>
-References: <1444137149-919-1-git-send-email-ubraun@linux.vnet.ibm.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bridge: allow adding of fdb
+ entries pointing to the bridge device
+Date: Wed, 7 Oct 2015 13:40:05 +0200
+Message-ID: <56150495.2070909@cumulusnetworks.com>
+References: <1444147589-11153-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53180 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbbJGLg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 07:36:56 -0400
-In-Reply-To: <1444137149-919-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bridge@lists.linux-foundation.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1444147589-11153-1-git-send-email-roopa@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Tue,  6 Oct 2015 15:12:26 +0200
+On 10/06/2015 06:06 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> This patch enables adding of fdb entries pointing to the bridge device.
+> This can be used to propagate mac address of vlan interfaces
+> configured on top of the vlan filtering bridge.
+> 
+> Before:
+> $bridge fdb add 44:38:39:00:27:9f dev bridge
+> RTNETLINK answers: Invalid argument
+> 
+> After:
+> $bridge fdb add 44:38:39:00:27:9f dev bridge
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+>  net/bridge/br_fdb.c | 110 ++++++++++++++++++++++++++++++++++++++++------------
+>  1 file changed, 85 insertions(+), 25 deletions(-)
+> 
 
-> here are some s390 related patches for net-next. The qeth patches
-> are performance optimizations in the driver. The qdio patch corrects
-> a warning condition.
+Ugh my bad, Dave please don't apply this version, there're still a few rough
+edges we need to take care of. Now that bridge's vlan_group can be used in these
+functions the vlans should be checked for context-only, i.e. br_vlan_should_use()
+and also when a port vlan is deleted its fdb entries are flushed, but that is not
+done for the bridge since it wasn't possible to add them like this. So v3 coming
+soon to your neighborhood! :-)
 
-Series applied, thanks.
+Thanks,
+ Nik
