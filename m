@@ -1,62 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 10/15] ipv4: Cache net in ip_build_and_send_pkt
- and ip_queue_xmit
-Date: Tue, 06 Oct 2015 20:48:19 -0700
-Message-ID: <1444189699.9555.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
-	 <1444157595-28816-10-git-send-email-ebiederm@xmission.com>
-	 <1444167637.9555.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87lhbf8ike.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	lvs-devel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <87lhbf8ike.fsf@x220.int.ebiederm.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Enhance driver to update FW, when FW is too old
+Date: Wed,  7 Oct 2015 09:21:40 +0530
+Message-ID: <1444189900-5940-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.115.98]:14111 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750917AbbJGEtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 00:49:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-10-06 at 22:26 -0500, Eric W. Biederman wrote:
+t4_check_fw_version() can return several error codes (-EINVAL, -EBUSY,
+-EAGAIN). The present code sets the adapter state to UNINIT only if its
+an EFAULT. In all the error cases set the adapter to uninitialized state.
 
-> So what I am really reading it for is ip_local_out which I change to
-> take a struct net a few patches later in the series.  The patches that
-> changes everything is noticably cleaner and easier to review with these
-> couple of patches pulling struct net into it's own variable ahead of
-> time, and ip_build_and_send_pkt does call ip_local_out unconditionally.
-> 
-> I am in the process of figuring out how to compute net once in the
-> output path and just passing it through so I don't need to compute net
-> from dst->dev.  As when the dust settles I hope to allow for a dst->dev
-> in another network namespace.  So that routes with a destination device
-> in another network namespace will allow for something simpler and faster
-> than ipvlan that achieves a very similar effect.
-> 
-> In this case to achieve what you are looking for, for cache line
-> friendliness I believe we would need to pass net in from
-> tcp_v4_send_synack, and it's cousins in dccp.
+In t4_check_fw_version() if call to t4_read_flash() fails, repeat the
+operation a few times before returning failure.
 
-Yes, something that can be done later.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 6 +++++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-> 
-> skc_net does seem firmly in the first cache line of sockets so it does
-> look like any of the the reads to inet_sock that we do perform would
-> hit the same cache line.
-> 
-> To recap.  I store net in a variable because I start using it
-> unconditionally a few patches later. The only way I can see to avoid
-> hitting the cold cache line is to pass net into ip_build_and_send_pkt.
-> 
-> Do you think passing net into ip_build_and_send_pkt is the sensible way
-> to address your performance concern?  Or do you have issues with my
-> passing of net through the output path?
-
-I have no issues, but was pointing out this particular path, that might
-be optimized later, no worries.
-
-Thanks.
-
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 9f1f5b2..c29227e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3698,7 +3698,7 @@ static int adap_init0(struct adapter *adap)
+ 	t4_get_tp_version(adap, &adap->params.tp_vers);
+ 	ret = t4_check_fw_version(adap);
+ 	/* If firmware is too old (not supported by driver) force an update. */
+-	if (ret == -EFAULT)
++	if (ret)
+ 		state = DEV_STATE_UNINIT;
+ 	if ((adap->flags & MASTER_PF) && state != DEV_STATE_INIT) {
+ 		struct fw_info *fw_info;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index dc6ce31..874b599 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2981,11 +2981,15 @@ int t4_get_exprom_version(struct adapter *adap, u32 *vers)
+  */
+ int t4_check_fw_version(struct adapter *adap)
+ {
+-	int ret, major, minor, micro;
++	int i, ret, major, minor, micro;
+ 	int exp_major, exp_minor, exp_micro;
+ 	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
+ 
+ 	ret = t4_get_fw_version(adap, &adap->params.fw_vers);
++	/* Try multiple times before returning error */
++	for (i = 0; ret && i < 3; i++)
++		ret = t4_get_fw_version(adap, &adap->params.fw_vers);
++
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.3.4
