@@ -1,139 +1,343 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3] igb: improve handling of disconnected adapters
-Date: Wed, 7 Oct 2015 08:03:12 -0700
-Message-ID: <56153430.5040302@gmail.com>
-References: <56145254.90405@gmail.com>
- <1444224119-40717-1-git-send-email-jarod@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rustad <mark.d.rustad@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444224119-40717-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v4] net: ipv6: Make address flushing on ifdown optional
+Date: Wed,  7 Oct 2015 08:17:39 -0700
+Message-ID: <1444231059-14830-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: hannes@redhat.com, nicolas.dichtel@6wind.com,
+	David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36343 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603AbbJGPRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 11:17:49 -0400
+Received: by pablk4 with SMTP id lk4so24229703pab.3
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 08:17:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2015 06:21 AM, Jarod Wilson wrote:
-> Some pci changes upcoming in 4.3 seem to cause additional disconnects,
-> which can happen at unfortuitous times for igb, leading to issues such as
-> this:
->
-> [  414.440115] igb 0000:15:00.0: enabling device (0000 -> 0002)
-> [  414.474934] pps pps0: new PPS source ptp1
-> [  414.474937] igb 0000:15:00.0: added PHC on eth0
-> [  414.474938] igb 0000:15:00.0: Intel(R) Gigabit Ethernet Network Connection
-> [  414.474940] igb 0000:15:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-> [  414.475072] igb 0000:15:00.0: eth0: PBA No: 000200-000
-> [  414.475073] igb 0000:15:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-> [  414.478453] igb 0000:15:00.0 enp21s0: renamed from eth0
-> [  414.497747] IPv6: ADDRCONF(NETDEV_UP): enp21s0: link is not ready
-> [  414.536745] igb 0000:15:00.0 enp21s0: PCIe link lost, device now detached
-> [  414.854808] BUG: unable to handle kernel paging request at 0000000000003818
-> [  414.854827] IP: [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.854846] PGD 0
-> [  414.854849] Oops: 0002 [#1] SMP
-> [  414.854856] Modules linked in: firewire_ohci firewire_core crc_itu_t igb dca ctr ccm arc4 iwlmvm mac80211 fuse xt_CHECKSUM ipt_MASQUERADE nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 ipt_REJECT nf_reject_ipv4 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle iptable_security iptable_raw iptable_filter bnep dm_mirror dm_region_hash dm_log dm_mod snd_hda_codec_hdmi coretemp x86_pkg_temp_thermal intel_powerclamp kvm_intel iTCO_wdt ppdev kvm iTCO_vendor_support hp_wmi sparse_keymap crct10dif_pclmul crc32_pclmul ghash_
- clmulni_intel
-> [  414.855073]  drbg ansi_cprng snd_hda_codec_realtek snd_hda_codec_generic aesni_intel aes_x86_64 lrw gf128mul glue_helper ablk_helper cryptd snd_hda_intel snd_hda_codec microcode snd_hda_core snd_hwdep snd_seq snd_seq_device snd_pcm iwlwifi uvcvideo btusb cfg80211 videobuf2_vmalloc videobuf2_memops btrtl btbcm videobuf2_core btintel bluetooth v4l2_common snd_timer videodev snd parport_pc rtsx_pci_ms joydev pcspkr input_leds i2c_i801 media sg memstick rfkill soundcore lpc_ich 8250_fintek parport mei_me hp_accel ie31200_edac shpchp lis3lv02d mei edac_core input_polldev hp_wireless tpm_infineon sch_fq_codel nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c sr_mod sd_mod cdrom rtsx_pci_sdmmc mmc_core crc32c_intel serio_raw rtsx_pci nouveau mxm_wmi ahci hwmon libahci e1000
- e drm_kms_helper
-> [  414.855309]  ptp xhci_pci pps_core ttm xhci_hcd wmi video ipv6 autofs4
-> [  414.855331] CPU: 2 PID: 875 Comm: NetworkManager Not tainted 4.2.0-5.el7_UNSUPPORTED.x86_64 #1
-> [  414.855348] Hardware name: Hewlett-Packard HP ZBook 15 G2/2253, BIOS M70 Ver. 01.07 02/26/2015
-> [  414.855365] task: ffff880484698c00 ti: ffff88005859c000 task.ti: ffff88005859c000
-> [  414.855380] RIP: 0010:[<ffffffffa0b95a9c>]  [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.855401] RSP: 0018:ffff88005859f608  EFLAGS: 00010246
-> [  414.855410] RAX: 0000000000003818 RBX: 0000000000000000 RCX: 0000000000003818
-> [  414.855424] RDX: 0000000000000000 RSI: 0000000000000008 RDI: 00000000002a9fe6
-> [  414.855437] RBP: ffff88005859f638 R08: 0000000003030300 R09: 00000000ffffffe7
-> [  414.855451] R10: ffffffff81fa91b4 R11: 00000000000007e3 R12: 0000000000000000
-> [  414.855464] R13: ffff880471c98840 R14: ffff8804670a1180 R15: 0000000483cce000
-> [  414.855478] FS:  00007f389c6fb8c0(0000) GS:ffff88049dc80000(0000) knlGS:0000000000000000
-> [  414.855493] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  414.855504] CR2: 0000000000003818 CR3: 00000004875da000 CR4: 00000000001406e0
-> [  414.855518] Stack:
-> [  414.855520]  ffff88005859f638 ffff880471c98840 ffff880471c98df8 0000000000000001
-> [  414.855538]  ffff880471c98848 0000000000000001 ffff88005859f698 ffffffffa0b99cb0
-> [  414.855555]  ffff88005859f678 59ab02179a7fe4d0 f3ce6b27ad46225f f5454218094e72d1
-> [  414.855572] Call Trace:
-> [  414.855577]  [<ffffffffa0b99cb0>] igb_configure+0x240/0x400 [igb]
-> [  414.855590]  [<ffffffffa0b99f32>] __igb_open+0xc2/0x560 [igb]
-> [  414.855602]  [<ffffffff8108f43d>] ? notifier_call_chain+0x4d/0x80
-> [  414.855614]  [<ffffffffa0b9a540>] igb_open+0x10/0x20 [igb]
-> [  414.855625]  [<ffffffff81581b81>] __dev_open+0xb1/0x130
-> [  414.855636]  [<ffffffff81581e91>] __dev_change_flags+0xa1/0x160
-> [  414.855647]  [<ffffffff81581f79>] dev_change_flags+0x29/0x60
-> [  414.855658]  [<ffffffff8158efc3>] do_setlink+0x5d3/0xaa0
-> [  414.855679]  [<ffffffff81308073>] ? nla_parse+0xa3/0x100
-> [  414.855689]  [<ffffffff815905f0>] rtnl_newlink+0x4f0/0x880
-> [  414.855700]  [<ffffffff815901f3>] ? rtnl_newlink+0xf3/0x880
-> [  414.855721]  [<ffffffff815ae23e>] ? netlink_unicast+0x1ae/0x220
-> [  414.855734]  [<ffffffff81266648>] ? security_capable+0x48/0x60
-> [  414.855746]  [<ffffffff810796bd>] ? ns_capable+0x2d/0x60
-> [  414.855756]  [<ffffffff8158db35>] rtnetlink_rcv_msg+0x95/0x240
-> [  414.855768]  [<ffffffff8126adc0>] ? sock_has_perm+0x70/0x90
-> [  414.855779]  [<ffffffff8158daa0>] ? rtnetlink_rcv+0x40/0x40
-> [  414.855789]  [<ffffffff815ae7ff>] netlink_rcv_skb+0xaf/0xc0
-> [  414.855800]  [<ffffffff8158da8c>] rtnetlink_rcv+0x2c/0x40
-> [  414.855810]  [<ffffffff815ae1de>] netlink_unicast+0x14e/0x220
-> [  414.855821]  [<ffffffff815ae5ca>] netlink_sendmsg+0x31a/0x390
-> [  414.855833]  [<ffffffff81563208>] sock_sendmsg+0x38/0x50
-> [  414.855843]  [<ffffffff81563b4e>] ___sys_sendmsg+0x27e/0x2a0
-> [  414.855855]  [<ffffffff8123d82f>] ? sysctl_head_finish+0x3f/0x50
-> [  414.855866]  [<ffffffff81077c10>] ? proc_put_long+0xb0/0xb0
-> [  414.855877]  [<ffffffff8123d9d9>] ? proc_sys_call_handler+0x79/0xc0
-> [  414.855890]  [<ffffffff812ec2fc>] ? lockref_put_or_lock+0x4c/0x80
-> [  414.855902]  [<ffffffff81564432>] __sys_sendmsg+0x42/0x80
-> [  414.855913]  [<ffffffff81564482>] SyS_sendmsg+0x12/0x20
-> [  414.855924]  [<ffffffff8165042e>] entry_SYSCALL_64_fastpath+0x12/0x71
-> [  414.855935] Code: c1 49 89 4e 30 49 8b 85 c0 05 00 00 48 85 c0 0f 84 0e 01 00 00 81 c2 10 38 00 00 48 63 d2 48 01 d0 31 d2 89 10 49 8b 46 30 31 d2 <89> 10 41 8b 95 44 06 00 00 b8 14 01 10 02 83
-> fa 05 74 0b 83 fa
-> [  414.856037] RIP  [<ffffffffa0b95a9c>] igb_configure_tx_ring+0x14c/0x250 [igb]
-> [  414.856052]  RSP <ffff88005859f608>
-> [  414.856057] CR2: 0000000000003818
-> [  414.872327] ---[ end trace e97522c0c584ea70 ]---
->
-> This can at least be reduced to a harmless disconnect if we do some
-> additional checking of device presence, similar to ixgbe, and use a saved
-> io_addr instead of hw_addr, which we may have made NULL, and clean up
-> array_rd32 so that it uses igb_rd32 like rd32 does, per Alexander Duyck's
-> suggestion.
->
-> [ 8010.562550] igb 0000:15:00.0: enabling device (0000 -> 0002)
-> [ 8010.597402] pps pps0: new PPS source ptp1
-> [ 8010.597406] igb 0000:15:00.0: added PHC on eth0
-> [ 8010.597407] igb 0000:15:00.0: Intel(R) Gigabit Ethernet Network Connection
-> [ 8010.597409] igb 0000:15:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-> [ 8010.597543] igb 0000:15:00.0: eth0: PBA No: 000200-000
-> [ 8010.597545] igb 0000:15:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-> [ 8010.600468] igb 0000:15:00.0 enp21s0: renamed from eth0
-> [ 8010.619354] IPv6: ADDRCONF(NETDEV_UP): enp21s0: link is not ready
-> [ 8010.663999] igb 0000:15:00.0 enp21s0: PCIe link lost, device now detached
-> [ 8011.012427] IPv6: ADDRCONF(NETDEV_UP): enp21s0: link is not ready
->
-> The device is still not functional at this point, but I believe that's a
-> pci hotplug issue, not an igb issue.
->
-> CC: Mark Rustad <mark.d.rustad@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Alexander Duyck <alexander.duyck@gmail.com>
-> CC: intel-wired-lan@lists.osuosl.org
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
-> note: this patch is dependent on the previously submitted "igb: don't unmap hw_addr
->        if its NULL", which added io_addr.
->
-> v3: don't modify igb_rd32, just pass reg + ((offset) <<2) as suggested by
->      Alexander Duyck.
->
->   drivers/net/ethernet/intel/igb/e1000_regs.h | 3 +--
->   drivers/net/ethernet/intel/igb/igb_main.c   | 8 ++++----
->   2 files changed, 5 insertions(+), 6 deletions(-)
->
+Currently, all ipv6 addresses are flushed when the interface is configured
+down, including global, static addresses:
 
-Looks good.
+    $ ip -6 addr add dev eth1 2000:11:1:1::1/64
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global tentative
+           valid_lft forever preferred_lft forever
+    $ ip link set dev eth1 up
+    $ ip link set dev eth1 down
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
 
-Acked-by: Alexander Duyck <aduyck@mirantis.com>
+Add a new sysctl to make this behavior optional. The new setting defaults to
+flush all addresses to maintain backwards compatibility. When the setting is
+reset global addresses with no expire times are not flushed:
+
+    $ echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
+    $ ip -6 addr add dev eth1 2000:11:1:1::1/64
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global tentative
+           valid_lft forever preferred_lft forever
+    $ ip link set dev eth1 up
+    $ ip link set dev eth1 down
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global
+           valid_lft forever preferred_lft forever
+        inet6 fe80::4:11ff:fe22:3301/64 scope link
+           valid_lft forever preferred_lft forever
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+It has been 8 months since the last version:
+   http://lists.openwall.net/netdev/2015/02/12/33
+
+but wanted to revive it. This current version addresses the last round of
+comments and verifies all routes are deleted and re-added correctly
+
+Nicolas: I ran 'ip monitor' on a link down and link up cycle and you can
+         see the neighbor and route deletes on a down and routes added on
+         an up.
+
+v4:
+- rebased to top of tree
+
+- updated to clear all routes on admin down and re-added on admin up
+
+- verified the route tables (main and local) on a link down have *no*
+  remnants of the configured, global address. On a link up all routes
+  are restored -- multicast, linklocal, local routes and connected.
+
+v3:
+- fix local variable ordering and comment style per Dave's comment
+- consistency in DEVCONF naming per Brian Haley's comment
+- added entry to Documentation/networking/ip-sysctl.txt
+
+v2:
+- only keep static addresses as suggested by Hannes
+- added new managed flag to track configured addresses
+- on ifdown do not remove from configured address from inet6_addr_lst
+- on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
+  redone when link is brought up again
+
+ Documentation/networking/ip-sysctl.txt |  6 +++
+ include/linux/ipv6.h                   |  1 +
+ include/net/if_inet6.h                 |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 91 +++++++++++++++++++++++++++++-----
+ 5 files changed, 87 insertions(+), 13 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index ebe94f2cab98..51c60f58f7ec 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1432,6 +1432,12 @@ dad_transmits - INTEGER
+ 	The amount of Duplicate Address Detection probes to send.
+ 	Default: 1
+ 
++flush_addr_on_down - BOOLEAN
++	Flush all IPv6 addresses on an interface down event. If disabled
++	static global addresses with no expiration time are not flushed.
++
++	Default: enabled
++
+ forwarding - INTEGER
+ 	Configure interface-specific Host/Router behaviour.
+ 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 0ef2a97ccdb5..112a18940ab2 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -60,6 +60,7 @@ struct ipv6_devconf {
+ 		struct in6_addr secret;
+ 	} stable_secret;
+ 	__s32		use_oif_addrs_only;
++	__s32		flush_addr_on_down;
+ 	void		*sysctl;
+ };
+ 
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 1c8b6820b694..f190a14148ab 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -72,6 +72,7 @@ struct inet6_ifaddr {
+ 	int			regen_count;
+ 
+ 	bool			tokenized;
++	bool			managed;
+ 
+ 	struct rcu_head		rcu;
+ 	struct in6_addr		peer_addr;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 38b4fef20219..7c514f7cd209 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -174,6 +174,7 @@ enum {
+ 	DEVCONF_USE_OIF_ADDRS_ONLY,
+ 	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
+ 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
++	DEVCONF_FLUSH_ADDR_ON_DOWN,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f0326aae7a02..e07b1fb52131 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -216,6 +216,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	},
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
++	.flush_addr_on_down	= 1,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -260,6 +261,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	},
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
++	.flush_addr_on_down	= 1,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -955,6 +957,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifa->prefered_lft = prefered_lft;
+ 	ifa->cstamp = ifa->tstamp = jiffies;
+ 	ifa->tokenized = false;
++	ifa->managed = false;
+ 
+ 	ifa->rt = rt;
+ 
+@@ -2689,6 +2692,9 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 			    valid_lft, prefered_lft);
+ 
+ 	if (!IS_ERR(ifp)) {
++		if (!expires)
++			ifp->managed = true;
++
+ 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+ 			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+ 					      expires, flags);
+@@ -3128,6 +3134,34 @@ static void addrconf_gre_config(struct net_device *dev)
+ }
+ #endif
+ 
++static void fixup_managed_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
++{
++	if (!ifp->rt)
++		ifp->rt = addrconf_dst_alloc(idev, &ifp->addr, false);
++
++	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
++		addrconf_prefix_route(&ifp->addr, ifp->prefix_len,
++				      idev->dev, 0, 0);
++	}
++
++	addrconf_dad_start(ifp);
++}
++
++static void addrconf_managed_addr(struct net_device *dev)
++{
++	struct inet6_ifaddr *ifp;
++	struct inet6_dev *idev;
++
++	idev = __in6_dev_get(dev);
++	if (!idev)
++		return;
++
++	list_for_each_entry(ifp, &idev->addr_list, if_list) {
++		if (ifp->managed)
++			fixup_managed_addr(idev, ifp);
++	}
++}
++
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			   void *ptr)
+ {
+@@ -3187,6 +3221,8 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			run_pending = 1;
+ 		}
+ 
++		addrconf_managed_addr(dev);
++
+ 		switch (dev->type) {
+ #if IS_ENABLED(CONFIG_IPV6_SIT)
+ 		case ARPHRD_SIT:
+@@ -3307,7 +3343,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa;
++	struct inet6_ifaddr *ifa, *tmp;
++	struct list_head del_list;
+ 	int state, i;
+ 
+ 	ASSERT_RTNL();
+@@ -3342,9 +3379,13 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ restart:
+ 		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
+ 			if (ifa->idev == idev) {
+-				hlist_del_init_rcu(&ifa->addr_lst);
+ 				addrconf_del_dad_work(ifa);
+-				goto restart;
++				if (how || idev->cnf.flush_addr_on_down ||
++				    !ifa->managed) {
++					hlist_del_init_rcu(&ifa->addr_lst);
++					goto restart;
++				}
++
+ 			}
+ 		}
+ 		spin_unlock_bh(&addrconf_hash_lock);
+@@ -3378,13 +3419,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		write_lock_bh(&idev->lock);
+ 	}
+ 
+-	while (!list_empty(&idev->addr_list)) {
+-		ifa = list_first_entry(&idev->addr_list,
+-				       struct inet6_ifaddr, if_list);
++	INIT_LIST_HEAD(&del_list);
++	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
+ 		addrconf_del_dad_work(ifa);
+ 
+-		list_del(&ifa->if_list);
+-
+ 		write_unlock_bh(&idev->lock);
+ 
+ 		spin_lock_bh(&ifa->lock);
+@@ -3396,13 +3434,29 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
+ 		}
+-		in6_ifa_put(ifa);
+ 
+-		write_lock_bh(&idev->lock);
++		if (!how && !idev->cnf.flush_addr_on_down && ifa->managed) {
++			ifa->state = 0;
++			if (!(ifa->flags & IFA_F_NODAD))
++				ifa->flags |= IFA_F_TENTATIVE;
++		} else {
++			list_del(&ifa->if_list);
++			list_add(&ifa->if_list, &del_list);
++		}
++
++		 write_lock_bh(&idev->lock);
+ 	}
+ 
+ 	write_unlock_bh(&idev->lock);
+ 
++	while (!list_empty(&del_list)) {
++		ifa = list_first_entry(&del_list,
++				       struct inet6_ifaddr, if_list);
++		list_del(&ifa->if_list);
++
++		in6_ifa_put(ifa);
++	}
++
+ 	/* Step 5: Discard anycast and multicast list */
+ 	if (how) {
+ 		ipv6_ac_destroy_dev(idev);
+@@ -4662,6 +4716,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN] = cnf->ignore_routes_with_linkdown;
+ 	/* we omit DEVCONF_STABLE_SECRET for now */
+ 	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
++	array[DEVCONF_FLUSH_ADDR_ON_DOWN] = cnf->flush_addr_on_down;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -5141,10 +5196,12 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ 			if (rt)
+ 				ip6_del_rt(rt);
+ 		}
+-		dst_hold(&ifp->rt->dst);
+-
+-		ip6_del_rt(ifp->rt);
++		if (ifp->rt) {
++			dst_hold(&ifp->rt->dst);
+ 
++			ip6_del_rt(ifp->rt);
++			ifp->rt = NULL;
++		}
+ 		rt_genid_bump_ipv6(net);
+ 		break;
+ 	}
+@@ -5723,6 +5780,14 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
+ 		},
+ 		{
++			.procname       = "flush_addr_on_down",
++			.data           = &ipv6_devconf.flush_addr_on_down,
++			.maxlen         = sizeof(int),
++			.mode           = 0644,
++			.proc_handler   = proc_dointvec,
++
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
+-- 
+1.9.1
