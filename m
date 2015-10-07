@@ -1,45 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] act_mirred: clear sender cpu before sending to tx
-Date: Tue,  6 Oct 2015 17:23:47 -0700
-Message-ID: <1444177427-5603-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35761 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752960AbbJGAYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2015 20:24:13 -0400
-Received: by pacfv12 with SMTP id fv12so2209005pac.2
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2015 17:24:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/3] net: remove dsa.h from netdevice.h
+Date: Tue, 06 Oct 2015 17:42:28 -0700
+Message-ID: <56146A74.8050807@gmail.com>
+References: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similar to commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
-the skb->sender_cpu needs to be cleared when moving from Rx
-Tx, otherwise kernel could crash.
+On 06/10/15 14:54, Vivien Didelot wrote:
+> In order to push switchdev objects down to DSA drivers, I need to include
+> switchdev.h in dsa.h. But compilation fails because of a circular dependency
+> issue, since dsa.h is also included in linux/netdevice.h.
 
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/act_mirred.c | 1 +
- 1 file changed, 1 insertion(+)
+Just for the record, what does this circular dependency looks like? Last
+I tried something in that front, I ended-up forward declaring the
+'switchdev_obj' structure, but that was weeks ago before the whole
+restructuring, so could be pointless now.
 
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 2efaf4e..32fcdec 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -179,6 +179,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
-+	skb_sender_cpu_clear(skb2);
- 	err = dev_queue_xmit(skb2);
- 
- 	if (err) {
+> 
+> dsa.h is included for two purposes: to have the definition of struct
+> dsa_switch_tree; and to have access to dsa_uses_tagged_protocol(), used by
+> netdev_uses_dsa().
+> 
+> This patchset forward declares struct dsa_switch_tree; adds a new uses_hw_tag
+> boolean to struct net_device, which is more explicit than the DSA helper, and
+> finally get rid of the dsa.h include.
+> 
+> With this patchset, switchdev.h can safely be included in dsa.h.
+> 
+> Vivien Didelot (3):
+>   net: dsa: add uses_hw_tag
+>   net: dsa: include dsa.h in dsa_priv.h
+>   net: remove dsa.h include from linux/netdevice.h
+> 
+>  include/linux/netdevice.h | 9 ++++++---
+>  include/net/dsa.h         | 5 -----
+>  net/dsa/dsa.c             | 1 +
+>  net/dsa/dsa_priv.h        | 1 +
+>  4 files changed, 8 insertions(+), 8 deletions(-)
+> 
+
+
 -- 
-1.8.3.1
+Florian
