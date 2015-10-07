@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v4 10/14] RDS: IB: fix the rds_ib_fmr_wq kick call
-Date: Wed,  7 Oct 2015 08:53:44 -0700
-Message-ID: <1444233228-4481-11-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH v4 11/14] RDS: IB: use already available pool handle from ibmr
+Date: Wed,  7 Oct 2015 08:53:45 -0700
+Message-ID: <1444233228-4481-12-git-send-email-santosh.shilimkar@oracle.com>
 References: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	ssantosh@kernel.org,
@@ -12,29 +12,41 @@ In-Reply-To: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RDS IB mr pool has its own workqueue 'rds_ib_fmr_wq', so we need
-to use queue_delayed_work() to kick the work. This was hurting
-the performance since pool maintenance was less often triggered
-from other path.
+rds_ib_mr already keeps the pool handle which it associates
+with. Lets use that instead of round about way of fetching
+it from rds_ib_device.
+
+No functional change.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_rdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rds/ib_rdma.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 872f523..b6644fa 100644
+index b6644fa..52d889a 100644
 --- a/net/rds/ib_rdma.c
 +++ b/net/rds/ib_rdma.c
-@@ -319,7 +319,7 @@ static struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev)
- 	int err = 0, iter = 0;
+@@ -522,8 +522,7 @@ static void rds_ib_teardown_mr(struct rds_ib_mr *ibmr)
  
- 	if (atomic_read(&pool->dirty_count) >= pool->max_items / 10)
--		schedule_delayed_work(&pool->flush_worker, 10);
-+		queue_delayed_work(rds_ib_fmr_wq, &pool->flush_worker, 10);
+ 	__rds_ib_teardown_mr(ibmr);
+ 	if (pinned) {
+-		struct rds_ib_device *rds_ibdev = ibmr->device;
+-		struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
++		struct rds_ib_mr_pool *pool = ibmr->pool;
  
- 	while (1) {
- 		ibmr = rds_ib_reuse_fmr(pool);
+ 		atomic_sub(pinned, &pool->free_pinned);
+ 	}
+@@ -717,8 +716,8 @@ static void rds_ib_mr_pool_flush_worker(struct work_struct *work)
+ void rds_ib_free_mr(void *trans_private, int invalidate)
+ {
+ 	struct rds_ib_mr *ibmr = trans_private;
++	struct rds_ib_mr_pool *pool = ibmr->pool;
+ 	struct rds_ib_device *rds_ibdev = ibmr->device;
+-	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
+ 
+ 	rdsdebug("RDS/IB: free_mr nents %u\n", ibmr->sg_len);
+ 
 -- 
 1.9.1
