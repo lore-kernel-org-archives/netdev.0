@@ -1,55 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/18] i40e: add little endian conversion for checksum
-Date: Wed,  7 Oct 2015 15:47:06 -0700
-Message-ID: <1444258032-41476-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/18] i40e/i40evf: assure clean asq status report
+Date: Wed,  7 Oct 2015 15:47:02 -0700
+Message-ID: <1444258032-41476-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444258032-41476-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com,
-	Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Christopher Pau <christopher.pau@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8249 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3926 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752961AbbJGWrY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752075AbbJGWrY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 7 Oct 2015 18:47:24 -0400
 In-Reply-To: <1444258032-41476-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The checksum is not correct on big endian machines so add code to swap it
-correctly.
+There was a possibility where the asq_last_status could get through without
+update and thus report a previous error.  I don't think we've actually seen
+this happen, but this patch will help make sure it doesn't.
 
-Change-ID: Ic92b886d172a2cbe49f5d7eee1bc78e447023c7b
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>
+Change-ID: I9e33927052a5ee6ea21f80b66d4c4b76c2760b17
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Christopher Pau <christopher.pau@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 2 ++
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index d0288ad..2142e10 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -547,11 +547,13 @@ i40e_status i40e_update_nvm_checksum(struct i40e_hw *hw)
- {
- 	i40e_status ret_code = 0;
- 	u16 checksum;
-+	__le16 le_sum;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 34a64e0..287cb8d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -756,6 +756,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		goto asq_send_command_error;
+ 	}
  
- 	ret_code = i40e_calc_nvm_checksum(hw, &checksum);
-+	le_sum = cpu_to_le16(checksum);
- 	if (!ret_code)
- 		ret_code = i40e_write_nvm_aq(hw, 0x00, I40E_SR_SW_CHECKSUM_WORD,
--					     1, &checksum, true);
-+					     1, &le_sum, true);
++	hw->aq.asq_last_status = I40E_AQ_RC_OK;
++
+ 	val = rd32(hw, hw->aq.asq.head);
+ 	if (val >= hw->aq.num_asq_entries) {
+ 		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index c7f59e0..c5cf886 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -696,6 +696,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 		goto asq_send_command_error;
+ 	}
  
- 	return ret_code;
- }
++	hw->aq.asq_last_status = I40E_AQ_RC_OK;
++
+ 	val = rd32(hw, hw->aq.asq.head);
+ 	if (val >= hw->aq.num_asq_entries) {
+ 		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
 -- 
 2.4.3
