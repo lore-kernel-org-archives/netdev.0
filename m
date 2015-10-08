@@ -1,51 +1,64 @@
-From: BancoPosta Online Loans <bancoposta-loansfactors@outlook.com>
-Subject: Kredit 1.4 %
-Date: Thu, 08 Oct 2015 14:32:52 +0200
-Message-ID: <4add0f293048828678862f45677fe63d@selbsthilfe-tirol.at>
-Reply-To: bancoposta-loansfactors@outlook.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+From: Yaowei Bai <bywxiaobai@163.com>
+Subject: [PATCH 3/9] net/nfnetlink: lockdep_nfnl_is_held can be boolean
+Date: Thu,  8 Oct 2015 21:28:56 +0800
+Message-ID: <1444310942-4428-4-git-send-email-bywxiaobai@163.com>
+References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
+	johannes.berg@intel.com, daniel@iogearbox.net,
+	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net, mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.proweda.biz ([77.244.248.46]:39793 "EHLO
-	server.proweda.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757700AbbJHNep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:34:45 -0400
+Received: from m12-14.163.com ([220.181.12.14]:35983 "EHLO m12-14.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757712AbbJHNh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 09:37:56 -0400
+In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch makes lockdep_nfnl_is_held return bool to improve
+readability due to this particular function only using either
+one or zero as its return value.
 
+No functional change.
 
---=20
-BancoPosta Loans
-Viale Europa,
-175-00144 Roma,
-Italy.
+Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
+---
+ include/linux/netfilter/nfnetlink.h | 6 +++---
+ net/netfilter/nfnetlink.c           | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Zu wen es angeht.
-
-Willkommen zu BANCOPOSTA bietet eine Vielzahl von finanziellen Handel,=20
-Kreditvergabe Dienstleistungen f=C3=BCr Privatpersonen und Zusammenarbe=
-it=20
-bieten wir Darlehen mit einem Zinssatz von 1.4%. Das Flexible Darlehen=20
-Bedingungen aus (1 Jahr auf 20 Jahre), Borrow (5,000.00 Euro bis=20
-100,000,000.00 Euro) f=C3=BCr einen bestimmten Zweck. Wenn Sie die=20
-finanzielle Hilfe brauchen oder Sie Darlehen brauchen an Ihre=20
-uneinbringliche Forderungen zu begleichen, werden Sie aufgefordert, f=C3=
-=BCr=20
-Ihre Kreditbearbeitung unten ausf=C3=BCllen.
-
-Vollst=C3=A4ndiger Name:
-Land:
-Kreditbetrag:
-Darlehen-Dauer:
-
-Wir erwarten Ihre Antwort um uns zu aktivieren gehen Sie mit der=20
-Kredit-Dokumentation
-
-Danke
-
-Massimo Sarmi.
-Kredit-Auszahlung-Manager
+diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+index e955d47..249d1bb 100644
+--- a/include/linux/netfilter/nfnetlink.h
++++ b/include/linux/netfilter/nfnetlink.h
+@@ -45,11 +45,11 @@ int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u32 portid,
+ void nfnl_lock(__u8 subsys_id);
+ void nfnl_unlock(__u8 subsys_id);
+ #ifdef CONFIG_PROVE_LOCKING
+-int lockdep_nfnl_is_held(__u8 subsys_id);
++bool lockdep_nfnl_is_held(__u8 subsys_id);
+ #else
+-static inline int lockdep_nfnl_is_held(__u8 subsys_id)
++static inline bool lockdep_nfnl_is_held(__u8 subsys_id)
+ {
+-	return 1;
++	return true;
+ }
+ #endif /* CONFIG_PROVE_LOCKING */
+ 
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 70277b1..f1d9e88 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -64,7 +64,7 @@ void nfnl_unlock(__u8 subsys_id)
+ EXPORT_SYMBOL_GPL(nfnl_unlock);
+ 
+ #ifdef CONFIG_PROVE_LOCKING
+-int lockdep_nfnl_is_held(u8 subsys_id)
++bool lockdep_nfnl_is_held(u8 subsys_id)
+ {
+ 	return lockdep_is_held(&table[subsys_id].mutex);
+ }
+-- 
+1.9.1
