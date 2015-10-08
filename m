@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: remove dsa.h from netdevice.h
-Date: Thu, 08 Oct 2015 04:57:32 -0700 (PDT)
-Message-ID: <20151008.045732.1781136095864323644.davem@davemloft.net>
-References: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [Patch net] act_mirred: clear sender cpu before sending to tx
+Date: Thu, 08 Oct 2015 05:05:41 -0700 (PDT)
+Message-ID: <20151008.050541.1181539504898578846.davem@davemloft.net>
+References: <1444177427-5603-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
-	f.fainelli@gmail.com, andrew@lunn.ch, narmstrong@baylibre.com,
-	sergei.shtylyov@cogentembedded.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, jhs@mojatatu.com,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756676AbbJHLty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:49:54 -0400
+In-Reply-To: <1444177427-5603-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue,  6 Oct 2015 17:54:24 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  6 Oct 2015 17:23:47 -0700
 
-> In order to push switchdev objects down to DSA drivers, I need to include
-> switchdev.h in dsa.h. But compilation fails because of a circular dependency
-> issue, since dsa.h is also included in linux/netdevice.h.
+> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
+> the skb->sender_cpu needs to be cleared when moving from Rx
+> Tx, otherwise kernel could crash.
 > 
-> dsa.h is included for two purposes: to have the definition of struct
-> dsa_switch_tree; and to have access to dsa_uses_tagged_protocol(), used by
-> netdev_uses_dsa().
-> 
-> This patchset forward declares struct dsa_switch_tree; adds a new uses_hw_tag
-> boolean to struct net_device, which is more explicit than the DSA helper, and
-> finally get rid of the dsa.h include.
-> 
-> With this patchset, switchdev.h can safely be included in dsa.h.
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-The netdevice structure is already too big, and bloating it up even more
-to satisfy some include ordering issue is rather unacceptable as far as I
-am concerned.
-
-Just forward declare the pointer type, you're not dereferencing it.
+Applied and queued up for -stable.
