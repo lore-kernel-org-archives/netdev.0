@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
- xmit
-Date: Thu, 08 Oct 2015 05:07:38 -0700 (PDT)
-Message-ID: <20151008.050738.1767977635761662797.davem@davemloft.net>
-References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
+Subject: Re: [PATCH v2 0/4] sh_eth: Remove obsolete platform_device_id
+ entries
+Date: Thu, 08 Oct 2015 05:10:23 -0700 (PDT)
+Message-ID: <20151008.051023.991121515814557831.davem@davemloft.net>
+References: <1444205657-25314-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, edumazet@google.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60976 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756839AbbJHLvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:50 -0400
-In-Reply-To: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1444205657-25314-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed,  7 Oct 2015 10:16:09 +0200
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Wed,  7 Oct 2015 10:14:13 +0200
 
-> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before
-> forwarding"), we also need to clear the skb->sender_cpu when moving
-> from RX to TX via skb_do_redirect() due to the shared location of
-> napi_id (used on RX) and sender_cpu (used on TX).
+> Since commit 3d7608e4c169af03 ("ARM: shmobile: bockw: remove legacy
+> board file and config"), which is now in arm-soc/for-next, shmobile SoCs
+> are only supported in generic DT-only ARM multi-platform builds.
+> The sh_eth driver doesn't need to match platform devices by name
+> anymore, hence this series removes the corresponding platform_device_id
+> entries.
 > 
-> Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Changes since v1:
+>   - Protect some data and functions by #ifdef CONFIG_OF to silence
+>     unused compiler warnings on SH,
+>   - New patches 3 and 4.
 
-Applied, thanks.
+Since that commit isn't in any of my trees why don't you merge this
+via arm-soc/for-next?
+
+Thanks.
