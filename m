@@ -1,70 +1,218 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 net-next 0/3] bpf: unprivileged
-Date: Wed,  7 Oct 2015 22:23:20 -0700
-Message-ID: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 2/3] bpf: charge user for creation of BPF maps and programs
+Date: Wed,  7 Oct 2015 22:23:22 -0700
+Message-ID: <1444281803-24274-3-git-send-email-ast@plumgrid.com>
+References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v1-v2:
-- this set logically depends on cb patch
-  "bpf: fix cb access in socket filter programs":
-  http://patchwork.ozlabs.org/patch/527391/
-  which is must have to allow unprivileged programs.
-  Thanks Daniel for finding that issue.
-- refactored sysctl to be similar to 'modules_disabled'
-- dropped bpf_trace_printk
-- split tests into separate patch and added more tests
-  based on discussion
+since eBPF programs and maps use kernel memory consider it 'locked' memory
+from user accounting point of view and charge it against RLIMIT_MEMLOCK limit.
+This limit is typically set to 64Kbytes by distros, so almost all
+bpf+tracing programs would need to increase it, since they use maps,
+but kernel charges maximum map size upfront.
+For example the hash map of 1024 elements will be charged as 64Kbyte.
+It's inconvenient for current users and changes current behavior for root,
+but probably worth doing to be consistent root vs non-root.
 
-v1 cover letter:
-I think it is time to liberate eBPF from CAP_SYS_ADMIN.
-As was discussed when eBPF was first introduced two years ago
-the only piece missing in eBPF verifier is 'pointer leak detection'
-to make it available to non-root users.
-Patch 1 adds this pointer analysis.
-The eBPF programs, obviously, need to see and operate on kernel addresses,
-but with these extra checks they won't be able to pass these addresses
-to user space.
-Patch 2 adds accounting of kernel memory used by programs and maps.
-It changes behavoir for existing root users, but I think it needs
-to be done consistently for both root and non-root, since today
-programs and maps are only limited by number of open FDs (RLIMIT_NOFILE).
-Patch 2 accounts program's and map's kernel memory as RLIMIT_MEMLOCK.
+Similar accounting logic is done by mmap of perf_event.
 
-Unprivileged eBPF is only meaningful for 'socket filter'-like programs.
-eBPF programs for tracing and TC classifiers/actions will stay root only.
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+The charging is agressive and even basic test_maps, test_verifier are
+hitting memlock limit, so alternatively we can drop charging
+for cap_sys_admin.
+---
+ include/linux/bpf.h   |    3 +++
+ include/linux/sched.h |    2 +-
+ kernel/bpf/arraymap.c |    2 +-
+ kernel/bpf/hashtab.c  |    4 ++++
+ kernel/bpf/syscall.c  |   63 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 72 insertions(+), 2 deletions(-)
 
-In parallel the bpf fuzzing effort is ongoing and so far
-we've found only one verifier bug and that was already fixed.
-The 'constant blinding' pass also being worked on.
-It will obfuscate constant-like values that are part of eBPF ISA
-to make jit spraying attacks even harder.
-
-Alexei Starovoitov (3):
-  bpf: enable non-root eBPF programs
-  bpf: charge user for creation of BPF maps and programs
-  bpf: add unprivileged bpf tests
-
- include/linux/bpf.h         |    5 +
- include/linux/sched.h       |    2 +-
- kernel/bpf/arraymap.c       |    2 +-
- kernel/bpf/hashtab.c        |    4 +
- kernel/bpf/syscall.c        |   74 ++++++++-
- kernel/bpf/verifier.c       |  106 +++++++++++--
- kernel/sysctl.c             |   13 ++
- net/core/filter.c           |    3 +-
- samples/bpf/libbpf.h        |    8 +
- samples/bpf/test_verifier.c |  357 +++++++++++++++++++++++++++++++++++++++++--
- 10 files changed, 547 insertions(+), 27 deletions(-)
-
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index e472b06df138..e1c869f8e156 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -36,6 +36,8 @@ struct bpf_map {
+ 	u32 key_size;
+ 	u32 value_size;
+ 	u32 max_entries;
++	u32 pages;
++	struct user_struct *user;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
+ };
+@@ -128,6 +130,7 @@ struct bpf_prog_aux {
+ 	const struct bpf_verifier_ops *ops;
+ 	struct bpf_map **used_maps;
+ 	struct bpf_prog *prog;
++	struct user_struct *user;
+ 	union {
+ 		struct work_struct work;
+ 		struct rcu_head	rcu;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index b7b9501b41af..4817df5fffae 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -840,7 +840,7 @@ struct user_struct {
+ 	struct hlist_node uidhash_node;
+ 	kuid_t uid;
+ 
+-#ifdef CONFIG_PERF_EVENTS
++#if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL)
+ 	atomic_long_t locked_vm;
+ #endif
+ };
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 2fecc4aed119..f2d9e698c753 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -49,7 +49,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 	array->map.key_size = attr->key_size;
+ 	array->map.value_size = attr->value_size;
+ 	array->map.max_entries = attr->max_entries;
+-
++	array->map.pages = round_up(array_size, PAGE_SIZE) >> PAGE_SHIFT;
+ 	array->elem_size = elem_size;
+ 
+ 	return &array->map;
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 83c209d9b17a..28592d79502b 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -88,6 +88,10 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 	htab->elem_size = sizeof(struct htab_elem) +
+ 			  round_up(htab->map.key_size, 8) +
+ 			  htab->map.value_size;
++
++	htab->map.pages = round_up(htab->n_buckets * sizeof(struct hlist_head) +
++				   htab->elem_size * htab->map.max_entries,
++				   PAGE_SIZE) >> PAGE_SHIFT;
+ 	return &htab->map;
+ 
+ free_htab:
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 9f824b0f0f5f..43e8afaee329 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -46,11 +46,38 @@ void bpf_register_map_type(struct bpf_map_type_list *tl)
+ 	list_add(&tl->list_node, &bpf_map_types);
+ }
+ 
++static int bpf_map_charge_memlock(struct bpf_map *map)
++{
++	struct user_struct *user = get_current_user();
++	unsigned long memlock_limit;
++
++	memlock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
++
++	atomic_long_add(map->pages, &user->locked_vm);
++
++	if (atomic_long_read(&user->locked_vm) > memlock_limit) {
++		atomic_long_sub(map->pages, &user->locked_vm);
++		free_uid(user);
++		return -EPERM;
++	}
++	map->user = user;
++	return 0;
++}
++
++static void bpf_map_uncharge_memlock(struct bpf_map *map)
++{
++	struct user_struct *user = map->user;
++
++	atomic_long_sub(map->pages, &user->locked_vm);
++	free_uid(user);
++}
++
+ /* called from workqueue */
+ static void bpf_map_free_deferred(struct work_struct *work)
+ {
+ 	struct bpf_map *map = container_of(work, struct bpf_map, work);
+ 
++	bpf_map_uncharge_memlock(map);
+ 	/* implementation dependent freeing */
+ 	map->ops->map_free(map);
+ }
+@@ -110,6 +137,10 @@ static int map_create(union bpf_attr *attr)
+ 
+ 	atomic_set(&map->refcnt, 1);
+ 
++	err = bpf_map_charge_memlock(map);
++	if (err)
++		goto free_map;
++
+ 	err = anon_inode_getfd("bpf-map", &bpf_map_fops, map, O_RDWR | O_CLOEXEC);
+ 
+ 	if (err < 0)
+@@ -440,11 +471,37 @@ static void free_used_maps(struct bpf_prog_aux *aux)
+ 	kfree(aux->used_maps);
+ }
+ 
++static int bpf_prog_charge_memlock(struct bpf_prog *prog)
++{
++	struct user_struct *user = get_current_user();
++	unsigned long memlock_limit;
++
++	memlock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
++
++	atomic_long_add(prog->pages, &user->locked_vm);
++	if (atomic_long_read(&user->locked_vm) > memlock_limit) {
++		atomic_long_sub(prog->pages, &user->locked_vm);
++		free_uid(user);
++		return -EPERM;
++	}
++	prog->aux->user = user;
++	return 0;
++}
++
++static void bpf_prog_uncharge_memlock(struct bpf_prog *prog)
++{
++	struct user_struct *user = prog->aux->user;
++
++	atomic_long_sub(prog->pages, &user->locked_vm);
++	free_uid(user);
++}
++
+ static void __prog_put_rcu(struct rcu_head *rcu)
+ {
+ 	struct bpf_prog_aux *aux = container_of(rcu, struct bpf_prog_aux, rcu);
+ 
+ 	free_used_maps(aux);
++	bpf_prog_uncharge_memlock(aux->prog);
+ 	bpf_prog_free(aux->prog);
+ }
+ 
+@@ -552,6 +609,10 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	if (!prog)
+ 		return -ENOMEM;
+ 
++	err = bpf_prog_charge_memlock(prog);
++	if (err)
++		goto free_prog_nouncharge;
++
+ 	prog->len = attr->insn_cnt;
+ 
+ 	err = -EFAULT;
+@@ -593,6 +654,8 @@ static int bpf_prog_load(union bpf_attr *attr)
+ free_used_maps:
+ 	free_used_maps(prog->aux);
+ free_prog:
++	bpf_prog_uncharge_memlock(prog);
++free_prog_nouncharge:
+ 	bpf_prog_free(prog);
+ 	return err;
+ }
 -- 
 1.7.9.5
