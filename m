@@ -1,47 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
-Date: Thu, 08 Oct 2015 20:20:52 +0200
-Message-ID: <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com>
-References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
- <1444281803-24274-2-git-send-email-ast@plumgrid.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 07/18] i40e: make i40e_init_pf_fcoe to void
+Date: Thu, 8 Oct 2015 21:53:02 +0300
+Message-ID: <5616BB8E.4090903@cogentembedded.com>
+References: <1444258032-41476-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1444258032-41476-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444281803-24274-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:36778 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754181AbbJHSxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 14:53:07 -0400
+Received: by lbcao8 with SMTP id ao8so58024779lbc.3
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 11:53:04 -0700 (PDT)
+In-Reply-To: <1444258032-41476-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei,
+Hello.
 
-On Thu, Oct 8, 2015, at 07:23, Alexei Starovoitov wrote:
-> The feature is controlled by sysctl kernel.unprivileged_bpf_disabled.
-> This toggle defaults to off (0), but can be set true (1).  Once true,
-> bpf programs and maps cannot be accessed from unprivileged process,
-> and the toggle cannot be set back to false.
+On 10/08/2015 01:47 AM, Jeff Kirsher wrote:
 
-This approach seems fine to me.
+> From: Shannon Nelson <shannon.nelson@intel.com>
+>
+> i40e_init_pf_fcoe() didn't return anything except 0, it prints enough
+> error info already, and no driver logic depends on the return value,
+> so this can be void.
+>
+> Change-ID: Ie6afad849857d87a7064c42c3cce14c74c2f29d8
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+[...]
 
-I am wondering if it makes sense to somehow allow ebpf access per
-namespace? I currently have no idea how that could work and on which
-namespace type to depend or going with a prctl or even cgroup maybe. The
-rationale behind this is, that maybe some namespaces like openstack
-router namespaces could make usage of advanced ebpf capabilities in the
-kernel, while other namespaces, especially where untrusted third parties
-are hosted, shouldn't have access to those facilities.
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+> index 5ea75dd..2398d9b 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+[...]
+> @@ -326,7 +324,7 @@ int i40e_init_pf_fcoe(struct i40e_pf *pf)
+>   	wr32(hw, I40E_GLFCOE_RCTL, val);
+>
+>   	dev_info(&pf->pdev->dev, "FCoE is supported.\n");
+> -	return 0;
+> +	return;
 
-In that way, hosters would be able to e.g. deploy more efficient
-performance monitoring container (which should still need not to run as
-root) while the majority of the users has no access to that. Or think
-about routing instances in some namespaces, etc. etc.
+    Not needed at all.
 
-Thanks,
-Hannes
+>   }
+>
+>   /**
+[...]
+
+MBR, Sergei
