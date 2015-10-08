@@ -1,48 +1,55 @@
 From: Yaowei Bai <bywxiaobai@163.com>
-Subject: [PATCH 0/9] net: small improvement
-Date: Thu,  8 Oct 2015 21:28:53 +0800
-Message-ID: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
+Subject: [PATCH 4/9] net/can: can_dropped_invalid_skb can be boolean
+Date: Thu,  8 Oct 2015 21:28:57 +0800
+Message-ID: <1444310942-4428-5-git-send-email-bywxiaobai@163.com>
+References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
 	johannes.berg@intel.com, daniel@iogearbox.net,
 	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net, mkl@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-14.163.com ([220.181.12.14]:39574 "EHLO m12-14.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757642AbbJHNdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 09:33:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset makes several functions in net return bool to improve
-readability and/or simplicity because these functions only use one
-or zero as their return value.
+This patch makes can_dropped_invalid_skb return bool due to this
+particular function only using either one or zero as its return
+value.
 
-No functional changes.
+No functional change.
 
-Yaowei Bai (9):
-  net/netlink: lockdep_genl_is_held can be boolean
-  net/ieee80211: ieee80211_is_* can be boolean
-  net/nfnetlink: lockdep_nfnl_is_held can be boolean
-  net/can: can_dropped_invalid_skb can be boolean
-  net/dccp: dccp_list_has_service can be boolean
-  net/dccp: dccp_bad_service_code can be boolean
-  net/inetdevice: inet_ifa_match can be boolean
-  net/inetdevice: bad_mask can be boolean
-  net/core: lockdep_rtnl_is_held can be boolean
+Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
+---
+ include/linux/can/dev.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
- include/linux/can/dev.h             |  6 +--
- include/linux/dccp.h                |  6 +--
- include/linux/genetlink.h           |  2 +-
- include/linux/ieee80211.h           | 76 ++++++++++++++++++-------------------
- include/linux/inetdevice.h          | 10 ++---
- include/linux/netfilter/nfnetlink.h |  6 +--
- include/linux/rtnetlink.h           |  6 +--
- net/core/rtnetlink.c                |  2 +-
- net/dccp/dccp.h                     |  4 +-
- net/netfilter/nfnetlink.c           |  2 +-
- net/netlink/genetlink.c             |  2 +-
- 11 files changed, 61 insertions(+), 61 deletions(-)
-
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+index c3a9c8f..c92d6ea 100644
+--- a/include/linux/can/dev.h
++++ b/include/linux/can/dev.h
+@@ -77,7 +77,7 @@ struct can_priv {
+ #define get_canfd_dlc(i)	(min_t(__u8, (i), CANFD_MAX_DLC))
+ 
+ /* Drop a given socketbuffer if it does not contain a valid CAN frame. */
+-static inline int can_dropped_invalid_skb(struct net_device *dev,
++static inline bool can_dropped_invalid_skb(struct net_device *dev,
+ 					  struct sk_buff *skb)
+ {
+ 	const struct canfd_frame *cfd = (struct canfd_frame *)skb->data;
+@@ -93,12 +93,12 @@ static inline int can_dropped_invalid_skb(struct net_device *dev,
+ 	} else
+ 		goto inval_skb;
+ 
+-	return 0;
++	return false;
+ 
+ inval_skb:
+ 	kfree_skb(skb);
+ 	dev->stats.tx_dropped++;
+-	return 1;
++	return true;
+ }
+ 
+ static inline bool can_is_canfd_skb(const struct sk_buff *skb)
 -- 
 1.9.1
