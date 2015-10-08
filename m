@@ -1,7 +1,7 @@
 From: Yaowei Bai <bywxiaobai@163.com>
-Subject: [PATCH 9/9] net/core: lockdep_rtnl_is_held can be boolean
-Date: Thu,  8 Oct 2015 21:29:02 +0800
-Message-ID: <1444310942-4428-10-git-send-email-bywxiaobai@163.com>
+Subject: [PATCH 8/9] net/inetdevice: bad_mask can be boolean
+Date: Thu,  8 Oct 2015 21:29:01 +0800
+Message-ID: <1444310942-4428-9-git-send-email-bywxiaobai@163.com>
 References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
@@ -12,51 +12,39 @@ In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes lockdep_rtnl_is_held return bool due to this
-particular function only using either one or zero as its return
-value.
-
-In another patch lockdep_is_held is also made return bool.
+This patch makes bad_mask return bool due to this particular function
+only using either one or zero as its return value.
 
 No functional change.
 
 Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
 ---
- include/linux/rtnetlink.h | 6 +++---
- net/core/rtnetlink.c      | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ include/linux/inetdevice.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 39adaa9..4be5048 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -33,11 +33,11 @@ extern wait_queue_head_t netdev_unregistering_wq;
- extern struct mutex net_mutex;
- 
- #ifdef CONFIG_PROVE_LOCKING
--extern int lockdep_rtnl_is_held(void);
-+extern bool lockdep_rtnl_is_held(void);
- #else
--static inline int lockdep_rtnl_is_held(void)
-+static inline bool lockdep_rtnl_is_held(void)
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 3b0999e..ee971f3 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -180,15 +180,15 @@ static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
+  *	Check if a mask is acceptable.
+  */
+  
+-static __inline__ int bad_mask(__be32 mask, __be32 addr)
++static __inline__ bool bad_mask(__be32 mask, __be32 addr)
  {
--	return 1;
-+	return true;
+ 	__u32 hmask;
+ 	if (addr & (mask = ~mask))
+-		return 1;
++		return true;
+ 	hmask = ntohl(mask);
+ 	if (hmask & (hmask+1))
+-		return 1;
+-	return 0;
++		return true;
++	return false;
  }
- #endif /* #ifdef CONFIG_PROVE_LOCKING */
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 0ec4840..435da82 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -96,7 +96,7 @@ int rtnl_is_locked(void)
- EXPORT_SYMBOL(rtnl_is_locked);
- 
- #ifdef CONFIG_PROVE_LOCKING
--int lockdep_rtnl_is_held(void)
-+bool lockdep_rtnl_is_held(void)
- {
- 	return lockdep_is_held(&rtnl_mutex);
- }
+ #define for_primary_ifa(in_dev)	{ struct in_ifaddr *ifa; \
 -- 
 1.9.1
