@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: introduce unix_sk_const helper
-Date: Thu, 08 Oct 2015 04:03:32 -0700 (PDT)
-Message-ID: <20151008.040332.1651208312284048708.davem@davemloft.net>
-References: <10735490.HC94hyceBX@wuerfel>
+Subject: Re: [PATCH] af_unix: constify the sock parameter in unix_sk()
+Date: Thu, 08 Oct 2015 04:08:06 -0700 (PDT)
+Message-ID: <20151008.040806.1522361874279906150.davem@davemloft.net>
+References: <20151006190353.7311.36864.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aconole@bytheb.org, edumazet@google.com,
-	james.l.morris@oracle.com, linux-security-module@vger.kernel.org,
-	serge@hallyn.com, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10735490.HC94hyceBX@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pmoore@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60598 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752922AbbJHKwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 06:52:19 -0400
+In-Reply-To: <20151006190353.7311.36864.stgit@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 06 Oct 2015 22:52:46 +0200
+From: Paul Moore <pmoore@redhat.com>
+Date: Tue, 06 Oct 2015 15:03:53 -0400
 
-> Commit 124613012db1 ("af_unix: Convert the unix_sk macro to an inline
-> function for type safety") was recently added to catch incorrect
-> uses of the unix_sk helper using compiler warnings.
+> Make unix_sk() just like inet[6]_sk() by constify'ing the sock
+> parameter.
 > 
-> It has now caught one such case in lsm_audit.c. The code is technically
-> correct, but as it converts a const pointer to a non-const pointer,
-> the annotation got lost, which gcc now warns about.
-> 
-> This patch avoids the warning by introducing an additional helper
-> that has const input and output, which makes the lsm_audit code build
-> cleanly again.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> I'm not entirely happy with this workaround myself, but could not come
-> up with a better one.
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-You can make the argument unconditionally const, as Paul Moore has done
-in a separate patch submission.
+Applied, thanks Paul.
