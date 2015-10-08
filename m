@@ -1,235 +1,106 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/4] net: SO_INCOMING_CPU setsockopt() support
-Date: Thu, 8 Oct 2015 13:53:52 -0700
-Message-ID: <CALx6S36yCfq3Y36J2SwRtsKU5H6G2a=arJLVoUtjoPEdGAWJOA@mail.gmail.com>
-References: <1444318627-27883-1-git-send-email-edumazet@google.com>
-	<1444318627-27883-2-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH v2] netfilter: fix bad checksum on IPv6 when NAT is performed
+Date: Thu, 8 Oct 2015 14:09:00 -0700
+Message-ID: <CALx6S37AdH=icFEqXjH5hDJ2O0dkwLEx6_KqpFkoPYF2sr1N_Q@mail.gmail.com>
+References: <1444141425.14655.341.camel@sakura.staff.proxad.net>
+	<1444335587.14655.387.camel@sakura.staff.proxad.net>
+	<1444335972.14655.388.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:36125 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757554AbbJHUyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 16:54:03 -0400
-Received: by ioii196 with SMTP id i196so71556587ioi.3
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 13:54:01 -0700 (PDT)
-In-Reply-To: <1444318627-27883-2-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+	kaber <kaber@trash.net>, pablo@netfilter.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: mbizon@freebox.fr
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1444335972.14655.388.camel@sakura.staff.proxad.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 8, 2015 at 8:37 AM, Eric Dumazet <edumazet@google.com> wrote:
-> SO_INCOMING_CPU as added in commit 2c8c56e15df3 was a getsockopt() command
-> to fetch incoming cpu handling a particular TCP flow after accept()
+On Thu, Oct 8, 2015 at 1:26 PM, Maxime Bizon <mbizon@freebox.fr> wrote:
 >
-> This commits adds setsockopt() support and extends SO_REUSEPORT selection
-> logic : If a TCP listener or UDP socket has this option set, a packet is
-> delivered to this socket only if CPU handling the packet matches the specified one.
+> With this setup:
 >
-> This allows to build very efficient TCP servers, using one thread per cpu,
-> as the associated TCP listener should only accept flows handled in softirq
-> by the same cpu. This provides optimal NUMA/SMP behavior and keep cpu caches hot.
+> * non IPv6 checksumming capable network hardware
+> * GRO off
+> * IPv6 SNAT
 >
-> Note that __inet_lookup_listener() still has to iterate over the list of
-> all listeners. Following patch puts sk_refcnt in a different cache line
-> to let this iteration hit only shared and read mostly cache lines.
+> I get this when I receive an UDPv6 reply: "<unknown>: hw csum failure"
 >
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Call trace:
+>
+> * nf_ip6_checksum() calls __skb_checksum_complete()
+> * nf_nat_ipv6_csum_update() & nf_nat_ipv6_manip_pkt()
+> * __udp6_lib_rcv() => udp6_csum_init()
+> * __skb_checksum_validate_complete() "fastpath" fails because
+>   skb->csum is incorrect.
+> * udpv6_recvmsg() => skb_copy_and_csum_datagram_msg()
+>
+> The last call computes a valid checksum despite CHECKSUM_COMPLETE and
+> triggers the warning.
+>
+> When we perform NAT on IPv4, we also update the IPv4 checksum, so
+> there is no side effect on skb->csum (since the csum over a valid IPv4
+> header area was already zero).
+>
+> But IPv6 doesn't have such checksum, so when performing NAT we need to
+> update skb->csum.
+>
+> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
 > ---
->  include/net/sock.h          | 11 +++++------
->  net/core/sock.c             |  5 +++++
->  net/ipv4/inet_hashtables.c  |  5 +++++
->  net/ipv4/udp.c              | 12 +++++++++++-
->  net/ipv6/inet6_hashtables.c |  5 +++++
->  net/ipv6/udp.c              | 11 +++++++++++
->  6 files changed, 42 insertions(+), 7 deletions(-)
+>  net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 23 +++++++++++++++++++----
+>  1 file changed, 19 insertions(+), 4 deletions(-)
 >
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index dfe2eb8e1132..00f60bea983b 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -150,6 +150,7 @@ typedef __u64 __bitwise __addrpair;
->   *     @skc_node: main hash linkage for various protocol lookup tables
->   *     @skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
->   *     @skc_tx_queue_mapping: tx queue number for this connection
-> + *     @skc_incoming_cpu: record/match cpu processing incoming packets
->   *     @skc_refcnt: reference count
->   *
->   *     This is the minimal network layer representation of sockets, the header
-> @@ -212,6 +213,8 @@ struct sock_common {
->                 struct hlist_nulls_node skc_nulls_node;
->         };
->         int                     skc_tx_queue_mapping;
-> +       int                     skc_incoming_cpu;
-> +
->         atomic_t                skc_refcnt;
->         /* private: */
->         int                     skc_dontcopy_end[0];
-> @@ -274,7 +277,7 @@ struct cg_proto;
->    *    @sk_rcvtimeo: %SO_RCVTIMEO setting
->    *    @sk_sndtimeo: %SO_SNDTIMEO setting
->    *    @sk_rxhash: flow hash received from netif layer
-> -  *    @sk_incoming_cpu: record cpu processing incoming packets
-> +  *    @sk_incoming_cpu: record/match cpu processing incoming packets
->    *    @sk_txhash: computed flow hash for use on transmit
->    *    @sk_filter: socket filtering instructions
->    *    @sk_timer: sock cleanup timer
-> @@ -331,6 +334,7 @@ struct sock {
->  #define sk_v6_daddr            __sk_common.skc_v6_daddr
->  #define sk_v6_rcv_saddr        __sk_common.skc_v6_rcv_saddr
->  #define sk_cookie              __sk_common.skc_cookie
-> +#define sk_incoming_cpu                __sk_common.skc_incoming_cpu
->
->         socket_lock_t           sk_lock;
->         struct sk_buff_head     sk_receive_queue;
-> @@ -353,11 +357,6 @@ struct sock {
->  #ifdef CONFIG_RPS
->         __u32                   sk_rxhash;
->  #endif
-> -       u16                     sk_incoming_cpu;
-> -       /* 16bit hole
-> -        * Warned : sk_incoming_cpu can be set from softirq,
-> -        * Do not use this hole without fully understanding possible issues.
-> -        */
->
->         __u32                   sk_txhash;
->  #ifdef CONFIG_NET_RX_BUSY_POLL
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 7dd1263e4c24..1071f9380250 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -988,6 +988,10 @@ set_rcvbuf:
->                                          sk->sk_max_pacing_rate);
->                 break;
->
-> +       case SO_INCOMING_CPU:
-> +               sk->sk_incoming_cpu = val;
-> +               break;
-> +
->         default:
->                 ret = -ENOPROTOOPT;
->                 break;
-> @@ -2353,6 +2357,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
->
->         sk->sk_max_pacing_rate = ~0U;
->         sk->sk_pacing_rate = ~0U;
-> +       sk->sk_incoming_cpu = -1;
->         /*
->          * Before updating sk_refcnt, we must commit prior changes to memory
->          * (Documentation/RCU/rculist_nulls.txt for details)
-> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-> index bed8886a4b6c..eabcfbc13afb 100644
-> --- a/net/ipv4/inet_hashtables.c
-> +++ b/net/ipv4/inet_hashtables.c
-> @@ -185,6 +185,11 @@ static inline int compute_score(struct sock *sk, struct net *net,
->                                 return -1;
->                         score += 4;
->                 }
-> +               if (sk->sk_incoming_cpu != -1) {
-> +                       if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                               return -1;
-> +                       score++;
-> +               }
-
-If the incoming CPU is set for a connected UDP via
-sk_incoming_cpu_update, wouldn't this check subsequently _only_ allow
-packets for that socket to come from the same CPU?
-
-Also, the check seems a little austere. Why not do something like:
-
-               if (sk->sk_incoming_cpu != -1) {
-                       if (sk->sk_incoming_cpu != raw_smp_processor_id())
-                            score += 4;
-               }
-
-My worry is that the packet steering configuration may change without
-the application's knowledge, so it's possible packets may come in on
-CPUs that the are unexpected to the application and then they would be
-dropped without matching a socket. I suppose that this could work with
-the original patch if a socket is bound to every CPU or there is at
-least one listener socket that is not bound to any CPU.
-
->  }
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index e1fc129099ea..de675b796f78 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -375,7 +375,11 @@ static inline int compute_score(struct sock *sk, struct net *net,
->                         return -1;
->                 score += 4;
->         }
-> -
-> +       if (sk->sk_incoming_cpu != -1) {
-> +               if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                       return -1;
-> +               score++;
-> +       }
->         return score;
->  }
->
-> @@ -419,6 +423,12 @@ static inline int compute_score2(struct sock *sk, struct net *net,
->                 score += 4;
->         }
->
-> +       if (sk->sk_incoming_cpu != -1) {
-> +               if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                       return -1;
-> +               score++;
+> diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+> index 70fbaed..e44af9c 100644
+> --- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+> +++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+> @@ -81,6 +81,8 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+>                                   enum nf_nat_manip_type maniptype)
+>  {
+>         struct ipv6hdr *ipv6h;
+> +       const __be32 *to;
+> +       __be32 *from;
+>         __be16 frag_off;
+>         int hdroff;
+>         u8 nexthdr;
+> @@ -100,11 +102,24 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+>                                 target, maniptype))
+>                 return false;
+>  manip_addr:
+> -       if (maniptype == NF_NAT_MANIP_SRC)
+> -               ipv6h->saddr = target->src.u3.in6;
+> -       else
+> -               ipv6h->daddr = target->dst.u3.in6;
+> +       if (maniptype == NF_NAT_MANIP_SRC) {
+> +               from = ipv6h->saddr.s6_addr32;
+> +               to = target->src.u3.in6.s6_addr32;
+> +       } else {
+> +               from = ipv6h->daddr.s6_addr32;
+> +               to = target->dst.u3.in6.s6_addr32;
 > +       }
 > +
->         return score;
->  }
->
-> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-> index 6ac8dad0138a..af3d7f826bff 100644
-> --- a/net/ipv6/inet6_hashtables.c
-> +++ b/net/ipv6/inet6_hashtables.c
-> @@ -114,6 +114,11 @@ static inline int compute_score(struct sock *sk, struct net *net,
->                                 return -1;
->                         score++;
->                 }
-> +               if (sk->sk_incoming_cpu != -1) {
-> +                       if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                               return -1;
-> +                       score++;
-> +               }
->         }
->         return score;
->  }
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 0aba654f5b91..222fdc780405 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-> @@ -182,6 +182,12 @@ static inline int compute_score(struct sock *sk, struct net *net,
->                 score++;
->         }
->
-> +       if (sk->sk_incoming_cpu != -1) {
-> +               if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                       return -1;
-> +               score++;
-> +       }
+> +       if (skb->ip_summed == CHECKSUM_COMPLETE) {
+> +               __be32 diff[] = {
+> +                       ~from[0], ~from[1], ~from[2], ~from[3],
+> +                       to[0], to[1], to[2], to[3],
+> +               };
 > +
->         return score;
->  }
->
-> @@ -223,6 +229,11 @@ static inline int compute_score2(struct sock *sk, struct net *net,
->                 score++;
->         }
->
-> +       if (sk->sk_incoming_cpu != -1) {
-> +               if (sk->sk_incoming_cpu != raw_smp_processor_id())
-> +                       return -1;
-> +               score++;
+> +               skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
 > +       }
->         return score;
+>
+I think inet_proto_csum_replace16 should be called here.
+
+> +       memcpy(from, to, sizeof (struct in6_addr));
+>         return true;
 >  }
 >
 > --
-> 2.6.0.rc2.230.g3dd15c0
+> 1.9.1
+>
+>
+> --
+> Maxime
+>
 >
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
