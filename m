@@ -1,164 +1,71 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2] bridge: add batch command support
-Date: Wed,  7 Oct 2015 22:53:23 -0700
-Message-ID: <1444283603-8084-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com
-To: stephen@networkplumber.org
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v2 1/4] switchdev: add bridge attributes
+Date: Wed,  7 Oct 2015 23:04:40 -0700
+Message-ID: <1444284283-33601-2-git-send-email-sfeldma@gmail.com>
+References: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
+	pjonnala@broadcom.com, stephen@networkplumber.org,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33204 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbbJHFxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 01:53:34 -0400
-Received: by pacex6 with SMTP id ex6so44268165pac.0
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 22:53:33 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34135 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751277AbbJHGBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:01:48 -0400
+Received: by padhy16 with SMTP id hy16so44372675pad.1
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 23:01:48 -0700 (PDT)
+In-Reply-To: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+From: Scott Feldman <sfeldma@gmail.com>
 
-This patch adds support to batch bridge commands.
-Follows ip batch code.
+Setting the stage to push bridge-level attributes down to port driver so
+hardware can be programmed accordingly.  Bridge-level attribute example is
+ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
 
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- bridge/bridge.c   | 59 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/bridge.8 | 11 +++++++++++
- 2 files changed, 70 insertions(+)
+ include/net/switchdev.h      |    5 +++++
+ include/uapi/linux/if_link.h |    2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/bridge/bridge.c b/bridge/bridge.c
-index eaf09c8..c028f6c 100644
---- a/bridge/bridge.c
-+++ b/bridge/bridge.c
-@@ -9,6 +9,7 @@
- #include <unistd.h>
- #include <sys/socket.h>
- #include <string.h>
-+#include <errno.h>
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 89266a3..8d92cd0 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -43,6 +43,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+ 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
++	SWITCHDEV_ATTR_ID_BRIDGE,
+ };
  
- #include "SNAPSHOT.h"
- #include "utils.h"
-@@ -23,6 +24,8 @@ int show_stats;
- int show_details;
- int compress_vlans;
- int timestamp;
-+char *batch_file;
-+int force;
- const char *_SL_;
+ struct switchdev_attr {
+@@ -52,6 +53,10 @@ struct switchdev_attr {
+ 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+ 		u8 stp_state;				/* PORT_STP_STATE */
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
++		struct switchdev_attr_bridge {		/* BRIDGE */
++			enum ifla_br attr;
++			u32 val;
++		} bridge;
+ 	} u;
+ };
  
- static void usage(void) __attribute__((noreturn));
-@@ -31,6 +34,7 @@ static void usage(void)
- {
- 	fprintf(stderr,
- "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
-+"	bridge [ -force ] -batch filename\n"
- "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
- "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
- "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
-@@ -71,6 +75,50 @@ static int do_cmd(const char *argv0, int argc, char **argv)
- 	return -1;
- }
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index e3b6217..30177b3 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -222,7 +222,7 @@ enum in6_addr_gen_mode {
  
-+static int batch(const char *name)
-+{
-+	char *line = NULL;
-+	size_t len = 0;
-+	int ret = EXIT_SUCCESS;
-+
-+	if (name && strcmp(name, "-") != 0) {
-+		if (freopen(name, "r", stdin) == NULL) {
-+			fprintf(stderr,
-+				"Cannot open file \"%s\" for reading: %s\n",
-+				name, strerror(errno));
-+			return EXIT_FAILURE;
-+		}
-+	}
-+
-+	if (rtnl_open(&rth, 0) < 0) {
-+		fprintf(stderr, "Cannot open rtnetlink\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	cmdlineno = 0;
-+	while (getcmdline(&line, &len, stdin) != -1) {
-+		char *largv[100];
-+		int largc;
-+
-+		largc = makeargs(line, largv, 100);
-+		if (largc == 0)
-+			continue;       /* blank line */
-+
-+		if (do_cmd(largv[0], largc, largv)) {
-+			fprintf(stderr, "Command failed %s:%d\n",
-+				name, cmdlineno);
-+			ret = EXIT_FAILURE;
-+			if (!force)
-+				break;
-+		}
-+	}
-+	if (line)
-+		free(line);
-+
-+	rtnl_close(&rth);
-+	return ret;
-+}
-+
- int
- main(int argc, char **argv)
- {
-@@ -123,6 +171,14 @@ main(int argc, char **argv)
- 				exit(-1);
- 		} else if (matches(opt, "-compressvlans") == 0) {
- 			++compress_vlans;
-+		} else if (matches(opt, "-force") == 0) {
-+			++force;
-+		} else if (matches(opt, "-batch") == 0) {
-+			argc--;
-+			argv++;
-+			if (argc <= 1)
-+				usage();
-+			batch_file = argv[1];
- 		} else {
- 			fprintf(stderr,
- 				"Option \"%s\" is unknown, try \"bridge help\".\n",
-@@ -134,6 +190,9 @@ main(int argc, char **argv)
+ /* Bridge section */
  
- 	_SL_ = oneline ? "\\" : "\n";
- 
-+	if (batch_file)
-+		return batch(batch_file);
-+
- 	if (rtnl_open(&rth, 0) < 0)
- 		exit(1);
- 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 5347a56..d45c728 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -21,6 +21,7 @@ bridge \- show / manipulate bridge addresses and devices
- \fB\-V\fR[\fIersion\fR] |
- \fB\-s\fR[\fItatistics\fR] |
- \fB\-n\fR[\fIetns\fR] name }
-+\fB\-b\fR[\fIatch\fR] filename }
- 
- .ti -8
- .BR "bridge link set"
-@@ -137,6 +138,16 @@ to
- .RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
- .BR help " }"
- 
-+.TP
-+.BR "\-b", " \-batch " <FILENAME>
-+Read commands from provided file or standard input and invoke them.
-+First failure will cause termination of bridge command.
-+
-+.TP
-+.BR "\-force"
-+Don't terminate bridge command on errors in batch mode.
-+If there were any errors during execution of the commands, the application
-+return code will be non zero.
- 
- .SH BRIDGE - COMMAND SYNTAX
- 
+-enum {
++enum ifla_br {
+ 	IFLA_BR_UNSPEC,
+ 	IFLA_BR_FORWARD_DELAY,
+ 	IFLA_BR_HELLO_TIME,
 -- 
-1.9.1
+1.7.10.4
