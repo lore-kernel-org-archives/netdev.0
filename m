@@ -1,127 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: synack packets can be attached to request
- sockets
-Date: Thu, 08 Oct 2015 05:01:55 -0700
-Message-ID: <1444305715.27760.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: Do not drop to make_route if oif is
+ l3mdev
+Date: Thu, 08 Oct 2015 05:19:17 -0700 (PDT)
+Message-ID: <20151008.051917.144727775838115455.davem@davemloft.net>
+References: <1444232413-8435-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Paul Moore <paul@paul-moore.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Eric Paris <eparis@parisplace.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, dsahern@gmail.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36771 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755606AbbJHMB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 08:01:57 -0400
-Received: by pablk4 with SMTP id lk4so53434101pab.3
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 05:01:56 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:32819 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756014AbbJHMD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 08:03:29 -0400
+In-Reply-To: <1444232413-8435-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed,  7 Oct 2015 08:40:13 -0700
 
-selinux needs few changes to accommodate fact that SYNACK messages
-can be attached to a request socket, lacking sk_security pointer
+> Commit deaa0a6a930 ("net: Lookup actual route when oif is VRF device")
+> exposed a bug in __ip_route_output_key_hash for VRF devices: on FIB lookup
+> failure if the oif is specified the current logic drops to make_route on
+> the assumption that the route tables are wrong. For VRF/L3 master devices
+> this leads to wrong dst entries and route lookups. For example:
+>     $ ip route ls table vrf-red
+>     unreachable default
+>     broadcast 10.2.1.0 dev eth1  proto kernel  scope link  src 10.2.1.2
+>     10.2.1.0/24 dev eth1  proto kernel  scope link  src 10.2.1.2
+>     local 10.2.1.2 dev eth1  proto kernel  scope host  src 10.2.1.2
+>     broadcast 10.2.1.255 dev eth1  proto kernel  scope link  src 10.2.1.2
+> 
+>     $ ip route get oif vrf-red 1.1.1.1
+>     1.1.1.1 dev vrf-red  src 10.0.0.2
+>         cache
+> 
+> With this patch:
+>     $  ip route get oif vrf-red 1.1.1.1
+>     RTNETLINK answers: No route to host
+> 
+> which is the correct response based on the default route
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-(Only syncookies are still attached to a TCP_LISTEN socket)
-
-Adds a new sk_listener() helper, and use it in selinux and sch_fq
-
-Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported by: kernel test robot <ying.huang@linux.intel.com>
-Cc: Paul Moore <paul@paul-moore.com>
-Cc: Stephen Smalley <sds@tycho.nsa.gov>
-Cc: Eric Paris <eparis@parisplace.org>
----
- include/net/sock.h       |    8 ++++++++
- net/sched/sch_fq.c       |    3 ++-
- security/selinux/hooks.c |   12 ++++++++----
- 3 files changed, 18 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index dfe2eb8e1132..771ca1996442 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2201,6 +2201,14 @@ static inline bool sk_fullsock(const struct sock *sk)
- 	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
- }
- 
-+/* This helper checks if a socket is a LISTEN or NEW_SYN_RECV
-+ * SYNACK messages can be attached to either ones (depending on SYNCOOKIE)
-+ */
-+static inline bool sk_listener(const struct sock *sk)
-+{
-+	return (1 << sk->sk_state) & (TCPF_LISTEN | TCPF_NEW_SYN_RECV);
-+}
-+
- void sock_enable_timestamp(struct sock *sk, int flag);
- int sock_get_timestamp(struct sock *, struct timeval __user *);
- int sock_get_timestampns(struct sock *, struct timespec __user *);
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 3386cce4751e..109b2322778f 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -225,6 +225,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
- 		return &q->internal;
- 
- 	/* SYNACK messages are attached to a TCP_NEW_SYN_RECV request socket
-+	 * or a listener (SYNCOOKIE mode)
- 	 * 1) request sockets are not full blown,
- 	 *    they do not contain sk_pacing_rate
- 	 * 2) They are not part of a 'flow' yet
-@@ -232,7 +233,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
- 	 *    especially if the listener set SO_MAX_PACING_RATE
- 	 * 4) We pretend they are orphaned
- 	 */
--	if (!sk || sk->sk_state == TCP_NEW_SYN_RECV) {
-+	if (!sk || sk_listener(sk)) {
- 		unsigned long hash = skb_get_hash(skb) & q->orphan_mask;
- 
- 		/* By forcing low order bit to 1, we make sure to not
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 64340160f4ac..6e50841ef1f6 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4898,7 +4898,7 @@ static unsigned int selinux_ip_output(struct sk_buff *skb,
- 	if (sk) {
- 		struct sk_security_struct *sksec;
- 
--		if (sk->sk_state == TCP_LISTEN)
-+		if (sk_listener(sk))
- 			/* if the socket is the listening state then this
- 			 * packet is a SYN-ACK packet which means it needs to
- 			 * be labeled based on the connection/request_sock and
-@@ -5005,7 +5005,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb,
- 	 *       unfortunately, this means more work, but it is only once per
- 	 *       connection. */
- 	if (skb_dst(skb) != NULL && skb_dst(skb)->xfrm != NULL &&
--	    !(sk != NULL && sk->sk_state == TCP_LISTEN))
-+	    !(sk && sk_listener(sk)))
- 		return NF_ACCEPT;
- #endif
- 
-@@ -5022,7 +5022,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb,
- 			secmark_perm = PACKET__SEND;
- 			peer_sid = SECINITSID_KERNEL;
- 		}
--	} else if (sk->sk_state == TCP_LISTEN) {
-+	} else if (sk_listener(sk)) {
- 		/* Locally generated packet but the associated socket is in the
- 		 * listening state which means this is a SYN-ACK packet.  In
- 		 * this particular case the correct security label is assigned
-@@ -5033,7 +5033,11 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb,
- 		 * selinux_inet_conn_request().  See also selinux_ip_output()
- 		 * for similar problems. */
- 		u32 skb_sid;
--		struct sk_security_struct *sksec = sk->sk_security;
-+		struct sk_security_struct *sksec;
-+
-+		if (sk->sk_state == TCP_NEW_SYN_RECV)
-+			sk = inet_reqsk(sk)->rsk_listener;
-+		sksec = sk->sk_security;
- 		if (selinux_skb_peerlbl_sid(skb, family, &skb_sid))
- 			return NF_DROP;
- 		/* At this point, if the returned skb peerlbl is SECSID_NULL
+Applied, thanks.
