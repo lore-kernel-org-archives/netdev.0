@@ -1,53 +1,96 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v2 1/5] net: move net_get_random_once to lib
-Date: Thu, 08 Oct 2015 08:42:03 +0200
-Message-ID: <5616103B.2030805@iogearbox.net>
-References: <201510081306.aKMKQcGQ%fengguang.wu@intel.com>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH 1/1] net namespace: dynamically configure new net namespace
+ inherit net config
+Date: Thu, 8 Oct 2015 14:44:18 +0800
+Message-ID: <561610C2.5000309@windriver.com>
+References: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, davem@davemloft.net, hannes@stressinduktion.org,
-	ast@plumgrid.com, netdev@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38207 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751277AbbJHGmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:42:11 -0400
-In-Reply-To: <201510081306.aKMKQcGQ%fengguang.wu@intel.com>
+Received: from mail1.windriver.com ([147.11.146.13]:55194 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751336AbbJHGoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:44:21 -0400
+In-Reply-To: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2015 07:12 AM, kbuild test robot wrote:
-> Hi Hannes,
->
-> [auto build test WARNING on net-next/master -- if it's inappropriate base, please ignore]
->
-> config: mips-ip27_defconfig (attached as .config)
-> reproduce:
->          wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->          chmod +x ~/bin/make.cross
->          # save the attached .config to linux build tree
->          make.cross ARCH=mips
->
-> All warnings (new ones prefixed by >>):
->
->     mips-linux-gnu-ld: lib/lockref.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
->     mips-linux-gnu-ld: lib/lockref.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
-[...]
->     mips-linux-gnu-ld: lib/reciprocal_div.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
->     mips-linux-gnu-ld: lib/reciprocal_div.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
->>> mips-linux-gnu-ld: lib/once.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
->>> mips-linux-gnu-ld: lib/once.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
+Hi, Miller
 
-Looks like a known issue on MIPS given the warning is not new also on other object
-files. Here was what was discussed recently on this subject on a refactoring patch
-from David Ahern:
+Would you like to check this patch?
 
-   https://patchwork.ozlabs.org/patch/525102/
+Thanks a lot.
+Zhu Yanjun
 
-Thanks!
-
->     mips-linux-gnu-ld: lib/string_helpers.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
->     mips-linux-gnu-ld: lib/string_helpers.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
-[...]
+On 06/26/2015 05:37 PM, Zhu Yanjun wrote:
+> The new net namespace can inherit from the original net config, or
+> the current net config. As such, a config is needed to decide where
+> the new namespace inherit from.
+>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> ---
+>   init/Kconfig       |  9 +++++++++
+>   net/ipv4/devinet.c | 13 +++++++++++++
+>   2 files changed, 22 insertions(+)
+>
+> diff --git a/init/Kconfig b/init/Kconfig
+> index dc24dec..fab8c41 100644
+> --- a/init/Kconfig
+> +++ b/init/Kconfig
+> @@ -1212,6 +1212,15 @@ config NET_NS
+>   	  Allow user space to create what appear to be multiple instances
+>   	  of the network stack.
+>   
+> +config NET_NS_INHERIT_ORIGINAL
+> +	bool "New network namespace inherits from original net config"
+> +	depends on NET_NS
+> +	default n
+> +	help
+> +	  Allow new network namespace inherit from original net config.
+> +	  If no, the new network namespace inherits from the current net
+> +	  config including the modified net config.
+> +
+>   endif # NAMESPACES
+>   
+>   config SCHED_AUTOGROUP
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 419d23c..cf635e4 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -2271,6 +2271,7 @@ static __net_init int devinet_init_net(struct net *net)
+>   #endif
+>   
+>   	err = -ENOMEM;
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>   	all = &ipv4_devconf;
+>   	dflt = &ipv4_devconf_dflt;
+>   
+> @@ -2282,6 +2283,15 @@ static __net_init int devinet_init_net(struct net *net)
+>   		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+>   		if (!dflt)
+>   			goto err_alloc_dflt;
+> +#else
+> +	all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
+> +	if (!all)
+> +		goto err_alloc_all;
+> +
+> +	dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
+> +	if (!dflt)
+> +		goto err_alloc_dflt;
+> +#endif
+>   
+>   #ifdef CONFIG_SYSCTL
+>   		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+> @@ -2292,7 +2302,10 @@ static __net_init int devinet_init_net(struct net *net)
+>   		tbl[0].extra1 = all;
+>   		tbl[0].extra2 = net;
+>   #endif
+> +
+> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>   	}
+> +#endif
+>   
+>   #ifdef CONFIG_SYSCTL
+>   	err = __devinet_sysctl_register(net, "all", all);
