@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] BPF/random32 updates
-Date: Thu, 08 Oct 2015 05:27:18 -0700 (PDT)
-Message-ID: <20151008.052718.857300198002962191.davem@davemloft.net>
-References: <cover.1444258405.git.daniel@iogearbox.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] af_unix: introduce unix_sk_const helper
+Date: Thu, 08 Oct 2015 14:11:41 +0200
+Message-ID: <5878507.y5cIDTsIKy@wuerfel>
+References: <10735490.HC94hyceBX@wuerfel> <20151008.040332.1651208312284048708.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, ast@plumgrid.com,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32870 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102AbbJHMLc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 08:11:32 -0400
-In-Reply-To: <cover.1444258405.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, aconole@bytheb.org, edumazet@google.com,
+	james.l.morris@oracle.com, linux-security-module@vger.kernel.org,
+	serge@hallyn.com, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151008.040332.1651208312284048708.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu,  8 Oct 2015 01:20:34 +0200
-
-> BPF update to split the prandom state apart, and to move the
-> *once helpers to the core. For details, please see individual
-> patches. Given the changes and since it's in the tree for
-> quite some time, net-next is a better choice in our opinion.
+On Thursday 08 October 2015 04:03:32 David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Tue, 06 Oct 2015 22:52:46 +0200
 > 
-> v1 -> v2:
->  - Make DO_ONCE() type-safe, remove the kvec helper. Credits
->    go to Alexei Starovoitov for the __VA_ARGS__ hint, thanks!
->  - Add a comment to the DO_ONCE() helper as suggested by Alexei.
->  - Rework prandom_init_once() helper to the new API.
->  - Keep Alexei's Acked-by on the last patch.
+> > Commit 124613012db1 ("af_unix: Convert the unix_sk macro to an inline
+> > function for type safety") was recently added to catch incorrect
+> > uses of the unix_sk helper using compiler warnings.
+> > 
+> > It has now caught one such case in lsm_audit.c. The code is technically
+> > correct, but as it converts a const pointer to a non-const pointer,
+> > the annotation got lost, which gcc now warns about.
+> > 
+> > This patch avoids the warning by introducing an additional helper
+> > that has const input and output, which makes the lsm_audit code build
+> > cleanly again.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > ---
+> > I'm not entirely happy with this workaround myself, but could not come
+> > up with a better one.
+> 
+> You can make the argument unconditionally const, as Paul Moore has done
+> in a separate patch submission.
 
-Series applied, thanks everyone.
+Ok, I see now how Paul's "audit: constify parts of common_audit_data and lsm_network_audit" patch caused the problem and is now gone from linux-next.
+That seems nicer indeed.
+
+	Arnd
