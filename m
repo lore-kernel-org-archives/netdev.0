@@ -1,58 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 0/6] net: dsa: push switchdev prepare phase in
- FDB ops
-Date: Thu, 8 Oct 2015 15:47:10 +0200
-Message-ID: <20151008134710.GL2186@nanopsycho.orion>
-References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20151008.052839.1028977184279787835.davem@davemloft.net>
- <20151008133250.GB1275@ketchup.mtl.sfl>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2 0/4] sh_eth: Remove obsolete platform_device_id entries
+Date: Thu, 8 Oct 2015 15:49:05 +0200
+Message-ID: <CAMuHMdUsB+9v6T=p0FivcymVFTFtOR8-tf2sOpOMBgV_CH7Hfw@mail.gmail.com>
+References: <1444205657-25314-1-git-send-email-geert+renesas@glider.be>
+	<20151008.051023.991121515814557831.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, andrew@lunn.ch,
-	narmstrong@baylibre.com, sergei.shtylyov@cogentembedded.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151008133250.GB1275@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151008.051023.991121515814557831.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thu, Oct 08, 2015 at 03:32:51PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->Hi David,
->
->On Oct. Thursday 08 (41) 05:28 AM, David Miller wrote:
->> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> Date: Wed,  7 Oct 2015 19:48:25 -0400
->> 
->> > The first 3 patches removes the dsa.h include from linux/netdevice.h, which
->> > broke the inclusion of switchdev.h in dsa.h.
->> 
->> I still don't agree with bloating up struct netdevice just to deal with
->> an include file ordering issue, sorry.
->
->Yes, I just saw your reply on the first version. I will resend the
->patchset with the forward declarations instead.
->
->But looking at the issue that Jiri and the kbuild bot pointed out
->earlier in the thread, we must agree that having the DSA header in
->netdevice.h is wrong.
->
->There are 2 points to note here:
->
->* checking a "rcv" member of a DSA-specific structure to anwser the
->  question "does this interface uses hardware-inserted tag?" is not
->  generic and not robust at all.
->
->* the "dsa_ptr" of net_device is just used to access the dsa_switch_tree
->  from DSA packet_type receive functions. There must be another way to
->  pass it, maybe from a netdev_priv or the packet_type->af_packet_priv?
+Hi David,
 
-I sent previously patch for this:
-http://patchwork.ozlabs.org/patch/336940/
-So now my patch would have another user :)
+[CC Arnd wearing the arm-soc merge hat]
 
-Vivien, I will refresh the patch and send it to you, the you can
-use the priv by dsa and send my patch along with your patchset. How does
-that sound?
+On Thu, Oct 8, 2015 at 2:10 PM, David Miller <davem@davemloft.net> wrote:
+> From: Geert Uytterhoeven <geert+renesas@glider.be>
+> Date: Wed,  7 Oct 2015 10:14:13 +0200
+>
+>> Since commit 3d7608e4c169af03 ("ARM: shmobile: bockw: remove legacy
+>> board file and config"), which is now in arm-soc/for-next, shmobile SoCs
+>> are only supported in generic DT-only ARM multi-platform builds.
+>> The sh_eth driver doesn't need to match platform devices by name
+>> anymore, hence this series removes the corresponding platform_device_id
+>> entries.
+>>
+>> Changes since v1:
+>>   - Protect some data and functions by #ifdef CONFIG_OF to silence
+>>     unused compiler warnings on SH,
+>>   - New patches 3 and 4.
+>
+> Since that commit isn't in any of my trees why don't you merge this
+> via arm-soc/for-next?
+
+This series just changes the sh_eth driver. There's  no direct dependency on
+the arm-soc changes. Hence I think the sh_eth changes should go in through
+the netdev tree.
+
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
