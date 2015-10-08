@@ -1,150 +1,61 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/4] net: align sk_refcnt on 128 bytes boundary
-Date: Thu,  8 Oct 2015 14:58:55 -0700
-Message-ID: <1444341537-20945-3-git-send-email-edumazet@google.com>
-References: <1444341537-20945-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36780 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758809AbbJHV7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 17:59:32 -0400
-Received: by pablk4 with SMTP id lk4so65785110pab.3
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 14:59:32 -0700 (PDT)
-In-Reply-To: <1444341537-20945-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 3.10.y 0/2] ipv6: avoid soft lockups in fib6_run_gc()
+Date: Thu, 08 Oct 2015 23:04:33 +0100
+Message-ID: <1444341873.2956.272.camel@decadent.org.uk>
+References: <20150610103926.3791.22866.stgit@buzz>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-nhmvkm3OdU0SpGoTDctd"
+Cc: Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150610103926.3791.22866.stgit@buzz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sk->sk_refcnt is dirtied for every TCP/UDP incoming packet.
-This is a performance issue if multiple cpus hit a common socket,
-or multiple sockets are chained due to SO_REUSEPORT.
 
-By moving sk_refcnt 8 bytes further, first 128 bytes of sockets
-are mostly read. As they contain the lookup keys, this has
-a considerable performance impact, as cpus can cache them.
+--=-nhmvkm3OdU0SpGoTDctd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-These 8 bytes are not wasted, we use them as a place holder
-for various fields, depending on the socket type.
+On Wed, 2015-06-10 at 13:40 +0300, Konstantin Khlebnikov wrote:
+> Two patches from 3.11 which are missing in 3.10.y
+>=20
+> I've just seen livelock in 3.10.69+ where all cpus are stuck in
+> fib6_run_gc()
+[...]
 
-Tested:
- SYN flood hitting a 16 RX queues NIC.
- TCP listener using 16 sockets and SO_REUSEPORT
- and SO_INCOMING_CPU for proper siloing.
+These also looked applicable to 3.2, so I've queued them up too.
 
- Could process 6.0 Mpps SYN instead of 4.2 Mpps
+Ben.
 
- Kernel profile looked like :
-    11.68%  [kernel]  [k] sha_transform
-     6.51%  [kernel]  [k] __inet_lookup_listener
-     5.07%  [kernel]  [k] __inet_lookup_established
-     4.15%  [kernel]  [k] memcpy_erms
-     3.46%  [kernel]  [k] ipt_do_table
-     2.74%  [kernel]  [k] fib_table_lookup
-     2.54%  [kernel]  [k] tcp_make_synack
-     2.34%  [kernel]  [k] tcp_conn_request
-     2.05%  [kernel]  [k] __netif_receive_skb_core
-     2.03%  [kernel]  [k] kmem_cache_alloc
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/inet_timewait_sock.h |  2 +-
- include/net/request_sock.h       |  2 +-
- include/net/sock.h               | 17 ++++++++++++++---
- 3 files changed, 16 insertions(+), 5 deletions(-)
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index 186f3a1e1b1f..e581fc69129d 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -70,6 +70,7 @@ struct inet_timewait_sock {
- #define tw_dport		__tw_common.skc_dport
- #define tw_num			__tw_common.skc_num
- #define tw_cookie		__tw_common.skc_cookie
-+#define tw_dr			__tw_common.skc_tw_dr
- 
- 	int			tw_timeout;
- 	volatile unsigned char	tw_substate;
-@@ -88,7 +89,6 @@ struct inet_timewait_sock {
- 	kmemcheck_bitfield_end(flags);
- 	struct timer_list	tw_timer;
- 	struct inet_bind_bucket	*tw_tb;
--	struct inet_timewait_death_row *tw_dr;
- };
- #define tw_tclass tw_tos
- 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 95ab5d7aab96..6b818b77d5e5 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -50,9 +50,9 @@ struct request_sock {
- 	struct sock_common		__req_common;
- #define rsk_refcnt			__req_common.skc_refcnt
- #define rsk_hash			__req_common.skc_hash
-+#define rsk_listener			__req_common.skc_listener
- 
- 	struct request_sock		*dl_next;
--	struct sock			*rsk_listener;
- 	u16				mss;
- 	u8				num_retrans; /* number of retransmits */
- 	u8				cookie_ts:1; /* syncookie: encode tcpopts in timestamp */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 08abffe32236..a7818104a73f 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -150,6 +150,9 @@ typedef __u64 __bitwise __addrpair;
-  *	@skc_node: main hash linkage for various protocol lookup tables
-  *	@skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
-  *	@skc_tx_queue_mapping: tx queue number for this connection
-+ *	@skc_flags: place holder for sk_flags
-+ *		%SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
-+ *		%SO_OOBINLINE settings, %SO_TIMESTAMPING settings
-  *	@skc_incoming_cpu: record/match cpu processing incoming packets
-  *	@skc_refcnt: reference count
-  *
-@@ -201,6 +204,16 @@ struct sock_common {
- 
- 	atomic64_t		skc_cookie;
- 
-+	/* following fields are padding to force
-+	 * offset(struct sock, sk_refcnt) == 128 on 64bit arches
-+	 * assuming IPV6 is enabled. We use this padding differently
-+	 * for different kind of 'sockets'
-+	 */
-+	union {
-+		unsigned long	skc_flags;
-+		struct sock	*skc_listener; /* request_sock */
-+		struct inet_timewait_death_row *skc_tw_dr; /* inet_timewait_sock */
-+	};
- 	/*
- 	 * fields between dontcopy_begin/dontcopy_end
- 	 * are not copied in sock_copy()
-@@ -246,8 +259,6 @@ struct cg_proto;
-   *	@sk_pacing_rate: Pacing rate (if supported by transport/packet scheduler)
-   *	@sk_max_pacing_rate: Maximum pacing rate (%SO_MAX_PACING_RATE)
-   *	@sk_sndbuf: size of send buffer in bytes
--  *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
--  *		   %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
-   *	@sk_no_check_tx: %SO_NO_CHECK setting, set checksum in TX packets
-   *	@sk_no_check_rx: allow zero checksum in RX packets
-   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
-@@ -334,6 +345,7 @@ struct sock {
- #define sk_v6_rcv_saddr	__sk_common.skc_v6_rcv_saddr
- #define sk_cookie		__sk_common.skc_cookie
- #define sk_incoming_cpu		__sk_common.skc_incoming_cpu
-+#define sk_flags		__sk_common.skc_flags
- 
- 	socket_lock_t		sk_lock;
- 	struct sk_buff_head	sk_receive_queue;
-@@ -371,7 +383,6 @@ struct sock {
- #ifdef CONFIG_XFRM
- 	struct xfrm_policy	*sk_policy[2];
- #endif
--	unsigned long 		sk_flags;
- 	struct dst_entry	*sk_rx_dst;
- 	struct dst_entry __rcu	*sk_dst_cache;
- 	spinlock_t		sk_dst_lock;
--- 
-2.6.0.rc2.230.g3dd15c0
+--=-nhmvkm3OdU0SpGoTDctd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVhbocee/yOyVhhEJAQq+Pw/+Nf/Oqeyv7+W9SWeXINyd0aDVaB/z5ClL
+EKn4CZyeBBAcWVBrC1U9zVALyK9s5SkmMbyAhNM+rEyZruEc1I0DRvJKhds4T0R5
+MtwLu0SQ/TDVtWUqTSAqliAa6XrJdZK2bBsOramBrxVGvn0hKmWss3tErOn3rm0F
+alkHOTsCKrxBB4EnPPIjqn1CIwzuAbdyiL4uaos04YAqak/m6GGZRwpb/stJEU+a
+kRwgTg/Ssjp54Vm24HesXGGv8wGeBrkNzMXlxHHWYrj3SCNFm9zfUB9K8rYBJhyt
+yckPztDoi5hDMhtzgW7x5K8hqn+pU5q1BdOSj1W9U6q1nz0gYIxtqbxW29JzKOzy
+9lFvIhYKoSMNB6SNFFemIKmeXeZC7KSyaADM6VZu75iSq4lQSx8JUpIVqgWNFTEp
+DlPjwvBgWxgJ7nlhNHiitiR6YFLpqLy0fwNevngg1JCE74KhAIyZcFhs94ZAd130
+XSZrJpbPVM6/+bHFcZe/kV0A6C3kBqcWfdPhliB/TagzK0yQ3GUdgYRXdDY8I5zn
+t3FGUgFCVzPQL1QRgR2xxVn4nz7s9HmhWO6Q0e1sIynQm0XAdqRJAbmfZch4I0wR
+MfhPjLC5jCmbPYaYKwkNyYiPuX3m657teDlqidpTjZ3/JI7ik86V5pxq92IJwsuD
+065zx02Z9AQ=
+=+RPw
+-----END PGP SIGNATURE-----
+
+--=-nhmvkm3OdU0SpGoTDctd--
