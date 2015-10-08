@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: nhs: fix 32-bit build warning
-Date: Thu, 08 Oct 2015 04:55:11 -0700 (PDT)
-Message-ID: <20151008.045511.183579883465246367.davem@davemloft.net>
-References: <8581924.9CPedieySC@wuerfel>
+Subject: Re: [PATCH net-next 0/3] net: remove dsa.h from netdevice.h
+Date: Thu, 08 Oct 2015 04:57:32 -0700 (PDT)
+Message-ID: <20151008.045732.1781136095864323644.davem@davemloft.net>
+References: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, huangdaode@hisilicon.com,
-	liguozhu@huawei.com, Yisen.Zhuang@huawei.com
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60907 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbbJHLjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:39:23 -0400
-In-Reply-To: <8581924.9CPedieySC@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
+	f.fainelli@gmail.com, andrew@lunn.ch, narmstrong@baylibre.com,
+	sergei.shtylyov@cogentembedded.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444168467-10293-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 06 Oct 2015 23:53:57 +0200
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue,  6 Oct 2015 17:54:24 -0400
 
-> The recently added hns driver causes a build warning in ARM
-> allmodconfig builds:
+> In order to push switchdev objects down to DSA drivers, I need to include
+> switchdev.h in dsa.h. But compilation fails because of a circular dependency
+> issue, since dsa.h is also included in linux/netdevice.h.
 > 
-> drivers/net/ethernet/hisilicon/hns/hnae.c: In function 'handles_show':
-> drivers/net/ethernet/hisilicon/hns/hnae.c:452:13: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
->           j, (u64)h->qs[i]->io_base);
->              ^
+> dsa.h is included for two purposes: to have the definition of struct
+> dsa_switch_tree; and to have access to dsa_uses_tagged_protocol(), used by
+> netdev_uses_dsa().
 > 
-> This removes the pointless cast and prints the pointer address using
-> the "%p" format string in all three locations.
+> This patchset forward declares struct dsa_switch_tree; adds a new uses_hw_tag
+> boolean to struct net_device, which is more explicit than the DSA helper, and
+> finally get rid of the dsa.h include.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> With this patchset, switchdev.h can safely be included in dsa.h.
 
-Applied with subject typo fixed, thanks.
+The netdevice structure is already too big, and bloating it up even more
+to satisfy some include ordering issue is rather unacceptable as far as I
+am concerned.
+
+Just forward declare the pointer type, you're not dereferencing it.
