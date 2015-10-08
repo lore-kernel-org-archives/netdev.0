@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] mlxsw: fix warnings for big-endian 32-bit dma_addr_t
-Date: Thu, 08 Oct 2015 05:07:19 -0700 (PDT)
-Message-ID: <20151008.050719.1791217246493289007.davem@davemloft.net>
-References: <30258520.VaA2vDyUiY@wuerfel>
-	<1444200782.26237.8.camel@perches.com>
-	<9933338.DDyBa8BQum@wuerfel>
+Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
+ xmit
+Date: Thu, 08 Oct 2015 05:07:38 -0700 (PDT)
+Message-ID: <20151008.050738.1767977635761662797.davem@davemloft.net>
+References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, jiri@mellanox.com,
-	idosch@mellanox.com, linux-kernel@vger.kernel.org,
-	eladr@mellanox.com, sfeldma@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Cc: ast@plumgrid.com, edumazet@google.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60968 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60976 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755867AbbJHLvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:32 -0400
-In-Reply-To: <9933338.DDyBa8BQum@wuerfel>
+	with ESMTP id S1756839AbbJHLvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:50 -0400
+In-Reply-To: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 07 Oct 2015 08:58:34 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed,  7 Oct 2015 10:16:09 +0200
 
-> The recently added mlxsw driver produces warnings in ARM
-> allmodconfig:
+> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before
+> forwarding"), we also need to clear the skb->sender_cpu when moving
+> from RX to TX via skb_do_redirect() due to the shared location of
+> napi_id (used on RX) and sender_cpu (used on TX).
 > 
-> drivers/net/ethernet/mellanox/mlxsw/pci.c: In function 'mlxsw_pci_cmd_exec':
-> drivers/net/ethernet/mellanox/mlxsw/pci.c:1585:59: warning: right shift count >= width of type [-Wshift-count-overflow]
-> linux/byteorder/big_endian.h:38:51: note: in definition of macro '__cpu_to_be32'
-> drivers/net/ethernet/mellanox/mlxsw/pci.c:76:2: note: in expansion of macro 'iowrite32be'
-> 
-> This uses upper_32_bits() to extract the bits while avoiding that warning.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
-> Fixes: eda6500a987a "mlxsw: Add PCI bus implementation"
+> Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
 Applied, thanks.
