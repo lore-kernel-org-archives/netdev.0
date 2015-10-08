@@ -1,36 +1,49 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Wed, 7 Oct 2015 19:29:16 -0700
-Message-ID: <5615D4FC.1010706@plumgrid.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1444078101-29060-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH v3 0/3] net: unix: fix use-after-free
+Date: Wed,  7 Oct 2015 23:19:34 -0400
+Message-ID: <cover.1444272769.git.jbaron@akamai.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org,
+	joe@perches.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a23-79-238-175.deploy.static.akamaitechnologies.com ([23.79.238.175]:53028
+	"EHLO prod-mail-xrelay07.akamai.com" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751039AbbJHDWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2015 23:22:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/5/15 1:48 PM, Alexei Starovoitov wrote:
-> Unprivileged socket filter bpf programs have access to the
-> following helper functions:
-> - map lookup/update/delete (but they cannot store kernel pointers into them)
-> - get_random (it's already exposed to unprivileged user space)
-> - get_smp_processor_id
-> - tail_call into another socket filter program
-> - ktime_get_ns
-> - bpf_trace_printk (for debugging)
+Hi,
 
-while reviewing everything for Nth time realized that
-bpf_trace_printk is useless for unprivileged users, since
-trace_pipe is root only.
-So going to drop it in V2.
+These patches are against mainline, I can re-base to net-next, just
+let me know.
+
+They have been tested against: https://lkml.org/lkml/2015/9/13/195,
+which causes the use-after-free quite quickly and here:
+https://lkml.org/lkml/2015/10/2/693.
+
+Thanks,
+
+-Jason
+
+v3:
+-beef up memory barrier comments in 3/3 (Peter Zijlstra)
+-clean up unix_dgram_writable() function in 3/3 (Joe Perches)
+
+Jason Baron (3):
+  net: unix: fix use-after-free in unix_dgram_poll()
+  net: unix: Convert gc_flags to flags
+  net: unix: optimize wakeups in unix_dgram_recvmsg()
+
+ include/net/af_unix.h |   4 +-
+ net/unix/af_unix.c    | 117 +++++++++++++++++++++++++++++++++++++++-----------
+ net/unix/garbage.c    |  12 +++---
+ 3 files changed, 101 insertions(+), 32 deletions(-)
+
+-- 
+2.6.1
