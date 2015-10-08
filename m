@@ -1,70 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 00/14] RDS: connection scalability and performance
- improvements
-Date: Thu, 08 Oct 2015 04:39:05 -0700 (PDT)
-Message-ID: <20151008.043905.148919078156104097.davem@davemloft.net>
-References: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] bridge/netfilter: avoid unused label warning
+Date: Thu, 08 Oct 2015 04:42:53 -0700 (PDT)
+Message-ID: <20151008.044253.925506191056148131.davem@davemloft.net>
+References: <7985748.1v9Gzszd4T@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: santosh.shilimkar@oracle.com
+Cc: netdev@vger.kernel.org, fw@strlen.de, pablo@netfilter.org,
+	ebiederm@xmission.com, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444233228-4481-1-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <7985748.1v9Gzszd4T@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Wed,  7 Oct 2015 08:53:34 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 06 Oct 2015 21:22:12 +0200
 
-> [v4]
-> Re-sending the same patches from v3 again since my repost of
-> patch 05/14 from v3 was whitespace damaged.
+> With the ARM mini2440_defconfig, the bridge netfilter code gets
+> built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
+> disabled, which leads to a harmless gcc warning:
 > 
-> [v3]
-> Updated patch "[PATCH v2 05/14] RDS: defer the over_batch work to
-> send worker" as per David Miller's comment [4] to avoid the magic
-> value usage. Patch now makes use of already available but unused
-> send_batch_count module parameter. Rest of the patches are same as
-> earlier version v2 [3]
+> net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
+> net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
 > 
-> [v2]:
-> Dropped "[PATCH 05/15] RDS: increase size of hash-table to 8K" from
-> earlier version [1]. I plan to address the hash table scalability using
-> re-sizable hash tables as suggested by David Laight and David Miller [2]
+> This gets rid of the warning by cleaning up the code to avoid
+> the respective #ifdefs causing this problem, and replacing them
+> with if(IS_ENABLED()) checks. I have verified that the resulting
+> object code is unchanged, and an additional advantage is that
+> we now get compile coverage of the unused functions in more
+> configurations.
 > 
-> This series addresses RDS connection bottlenecks on massive workloads and
-> improve the RDMA performance almost by 3X. RDS TCP also gets a small gain
-> of about 12%.
-> 
-> RDS is being used in massive systems with high scalability where several
-> hundred thousand end points and tens of thousands of local processes
-> are operating in tens of thousand sockets. Being RC(reliable connection),
-> socket bind and release happens very often and any inefficiencies in
-> bind hash look ups hurts the overall system performance. RDS bin hash-table
-> uses global spin-lock which is the biggest bottleneck. To make matter worst,
-> it uses rcu inside global lock for hash buckets.
-> This is being addressed by simply using per bucket rw lock which makes the
-> locking simple and very efficient. The hash table size is still an issue and
-> I plan to address it by using re-sizable hash tables as suggested on the list.
-> 
-> For RDS RDMA improvement, the completion handling is revamped so that we
-> can do batch completions. Both send and receive completion handlers are
-> split logically to achieve the same. RDS 8K messages being one of the
-> key usecase, mr pool is adapted to have the 8K mrs along with default 1M
-> mrs. And while doing this, few fixes and couple of bottlenecks seen with
-> rds_sendmsg() are addressed.
-> 
-> Series applies against 4.3-rc1 as well net-next. Its tested on Oracle
-> hardware with IB fabric for both bcopy as well as RDMA mode. RDS TCP is
-> tested with iXGB NIC. Like last time, iWARP transport is untested with
-> these changes. The patchset is also available at below git repo:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git net/rds/4.3-v3
-> 
-> As a side note, the IB HCA driver I used for testing misses at least 3
-> important patches in upstream to see the full blown IB performance and
-> am hoping to get that in mainline with help of them.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
 
-Pulled, thank you.
+This commit is in v4.2-rc3 and later, but this patch only applies to net-next
+as far as I can tell.
+
+Wouldn't it be better to base this on 'net', or even better Pablo's netfilter
+fixes tree, and while you are at it submit it properly to netfilter-devel
+with Pablo CC:'d as well?
+
+Thanks.
