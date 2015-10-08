@@ -1,64 +1,91 @@
-From: huangdaode <huangdaode@hisilicon.com>
-Subject: [PATCH net-next 1/2] net: Fix Hisilicon Network Subsystem compilation warning
-Date: Thu, 8 Oct 2015 14:17:24 +0800
-Message-ID: <1444285045-23275-2-git-send-email-huangdaode@hisilicon.com>
-References: <1444285045-23275-1-git-send-email-huangdaode@hisilicon.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next RFC 2/3] switchdev: allow caller to explicitly
+ use deferred attr_set version
+Date: Wed, 7 Oct 2015 23:03:35 -0700
+Message-ID: <CAE4R7bCozKS8e4SLKHLZVkq8n-OYXyjEni=vyZHo540WbxvbiA@mail.gmail.com>
+References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
+ <1444242652-17260-3-git-send-email-jiri@resnulli.us> <CAE4R7bAUQ+bPe0fMZsULnTuZKg4t2-RterSqKDS2H=OzZpW1Nw@mail.gmail.com>
+ <20151008053933.GA2186@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-	<netdev@vger.kernel.org>, <linuxarm@huawei.com>,
-	<salil.mehta@huawei.com>, <huangdaode@hisilicon.com>,
-	<kenneth-lee-2012@foxmail.com>, <xuwei5@hisilicon.com>,
-	<lisheng011@huawei.com>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:52299 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967AbbJHGB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:01:59 -0400
-In-Reply-To: <1444285045-23275-1-git-send-email-huangdaode@hisilicon.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:32953 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbbJHGDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:03:55 -0400
+Received: by oixx17 with SMTP id x17so21696892oix.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 23:03:54 -0700 (PDT)
+In-Reply-To: <20151008053933.GA2186@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fix a compilation warning on arm 32-bit platform
+On Wed, Oct 7, 2015 at 10:39 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Oct 08, 2015 at 06:27:07AM CEST, sfeldma@gmail.com wrote:
+>>On Wed, Oct 7, 2015 at 11:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> Caller should know if he can call attr_set directly (when holding RTNL)
+>>> or if he has to use deferred version of this function.
+>>>
+>>> This also allows drivers to sleep inside attr_set and report operation
+>>> status back to switchdev core. Switchdev core then warns if status is
+>>> not ok, instead of silent errors happening in drivers.
+>>>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>>  include/net/switchdev.h   |   2 +
+>>>  net/bridge/br_stp.c       |   4 +-
+>>>  net/switchdev/switchdev.c | 113 +++++++++++++++++++++++++---------------------
+>>>  3 files changed, 65 insertions(+), 54 deletions(-)
+>>>
+>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>> index 89266a3..320be44 100644
+>>> --- a/include/net/switchdev.h
+>>> +++ b/include/net/switchdev.h
+>>> @@ -168,6 +168,8 @@ int switchdev_port_attr_get(struct net_device *dev,
+>>>                             struct switchdev_attr *attr);
+>>>  int switchdev_port_attr_set(struct net_device *dev,
+>>>                             struct switchdev_attr *attr);
+>>> +int switchdev_port_attr_set_deferred(struct net_device *dev,
+>>> +                                    struct switchdev_attr *attr);
+>>
+>>Rather than adding another op, use attr->flags and define:
+>>
+>>#define SWITCHDEV_F_DEFERRED          BIT(x)
+>>
+>>So we get:
+>>
+>>void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>{
+>>        struct switchdev_attr attr = {
+>>                .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>>+              .flags = SWITCHDEV_F_DEFERRED,
+>>                .u.stp_state = state,
+>>        };
+>>        int err;
+>>
+>>        p->state = state;
+>>        err = switchdev_port_attr_set(p->dev, &attr);
+>>        if (err && err != -EOPNOTSUPP)
+>>                br_warn(p->br, "error setting offload STP state on
+>>port %u(%s)\n",
+>>                                (unsigned int) p->port_no,
+>>p->dev->name);
+>>}
+>>
+>>(And add obj->flags to do the same).
+>
+> That's what I wanted to avoid. Also because the obj is const and for
+> call from work, this flag would have to be removed.
 
-Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-Signed-off-by: yankejian <yankejian@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hnae.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 0a0a9e8..ccbb666 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -448,12 +448,12 @@ static ssize_t handles_show(struct device *dev,
- 		s += sprintf(buf + s, "handle %d (eport_id=%u from %s):\n",
- 			    i++, h->eport_id, h->dev->name);
- 		for (j = 0; j < h->q_num; j++) {
--			s += sprintf(buf + s, "\tqueue[%d] on 0x%llx\n",
--				     j, (u64)h->qs[i]->io_base);
--#define HANDEL_TX_MSG "\t\ttx_ring on 0x%llx:%u,%u,%u,%u,%u,%llu,%llu\n"
-+			s += sprintf(buf + s, "\tqueue[%d] on 0x%p\n",
-+				     j, h->qs[i]->io_base);
-+#define HANDEL_TX_MSG "\t\ttx_ring on 0x%p:%u,%u,%u,%u,%u,%llu,%llu\n"
- 			s += sprintf(buf + s,
- 				     HANDEL_TX_MSG,
--				     (u64)h->qs[i]->tx_ring.io_base,
-+				     h->qs[i]->tx_ring.io_base,
- 				     h->qs[i]->tx_ring.buf_size,
- 				     h->qs[i]->tx_ring.desc_num,
- 				     h->qs[i]->tx_ring.max_desc_num_per_pkt,
-@@ -462,8 +462,8 @@ static ssize_t handles_show(struct device *dev,
- 				 h->qs[i]->tx_ring.stats.sw_err_cnt,
- 				 h->qs[i]->tx_ring.stats.io_err_cnt);
- 			s += sprintf(buf + s,
--				"\t\trx_ring on 0x%llx:%u,%u,%llu,%llu,%llu\n",
--				(u64)h->qs[i]->rx_ring.io_base,
-+				"\t\trx_ring on 0x%p:%u,%u,%llu,%llu,%llu\n",
-+				h->qs[i]->rx_ring.io_base,
- 				h->qs[i]->rx_ring.buf_size,
- 				h->qs[i]->rx_ring.desc_num,
- 				h->qs[i]->rx_ring.stats.sw_err_cnt,
--- 
-1.9.1
+What did you want to avoid?
