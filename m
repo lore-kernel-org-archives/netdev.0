@@ -1,7 +1,7 @@
 From: Yaowei Bai <bywxiaobai@163.com>
-Subject: [PATCH 8/9] net/inetdevice: bad_mask can be boolean
-Date: Thu,  8 Oct 2015 21:29:01 +0800
-Message-ID: <1444310942-4428-9-git-send-email-bywxiaobai@163.com>
+Subject: [PATCH 6/9] net/dccp: dccp_bad_service_code can be boolean
+Date: Thu,  8 Oct 2015 21:28:59 +0800
+Message-ID: <1444310942-4428-7-git-send-email-bywxiaobai@163.com>
 References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
@@ -12,39 +12,38 @@ In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes bad_mask return bool due to this particular function
-only using either one or zero as its return value.
+This patch makes dccp_bad_service_code return bool due to these
+particular functions only using either one or zero as their return
+value.
+
+dccp_list_has_service is also been made return bool in this patchset.
 
 No functional change.
 
 Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
 ---
- include/linux/inetdevice.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/dccp/dccp.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 3b0999e..ee971f3 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -180,15 +180,15 @@ static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
-  *	Check if a mask is acceptable.
-  */
-  
--static __inline__ int bad_mask(__be32 mask, __be32 addr)
-+static __inline__ bool bad_mask(__be32 mask, __be32 addr)
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index bebc735..a250825 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -325,13 +325,13 @@ void dccp_send_close(struct sock *sk, const int active);
+ int dccp_invalid_packet(struct sk_buff *skb);
+ u32 dccp_sample_rtt(struct sock *sk, long delta);
+ 
+-static inline int dccp_bad_service_code(const struct sock *sk,
++static inline bool dccp_bad_service_code(const struct sock *sk,
+ 					const __be32 service)
  {
- 	__u32 hmask;
- 	if (addr & (mask = ~mask))
--		return 1;
-+		return true;
- 	hmask = ntohl(mask);
- 	if (hmask & (hmask+1))
--		return 1;
--	return 0;
-+		return true;
-+	return false;
+ 	const struct dccp_sock *dp = dccp_sk(sk);
+ 
+ 	if (dp->dccps_service == service)
+-		return 0;
++		return false;
+ 	return !dccp_list_has_service(dp->dccps_service_list, service);
  }
  
- #define for_primary_ifa(in_dev)	{ struct in_ifaddr *ifa; \
 -- 
 1.9.1
