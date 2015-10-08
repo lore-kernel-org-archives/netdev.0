@@ -1,46 +1,81 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH v2] bridge/netfilter: avoid unused label warning
-Date: Thu, 8 Oct 2015 14:51:05 +0200
-Message-ID: <561666B9.8070802@cumulusnetworks.com>
-References: <5180534.sSnu9AX8xS@wuerfel>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 4/6] net: dsa: add port_fdb_prepare
+Date: Thu, 8 Oct 2015 08:55:25 -0400
+Message-ID: <20151008125524.GA1275@ketchup.mtl.sfl>
+References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1444261711-1829-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20151008002543.GB31267@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <5180534.sSnu9AX8xS@wuerfel>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:54186 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755371AbbJHNCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:02:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20151008002543.GB31267@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2015 02:30 PM, Arnd Bergmann wrote:
-> With the ARM mini2440_defconfig, the bridge netfilter code gets
-> built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
-> disabled, which leads to a harmless gcc warning:
-> 
-> net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
-> net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
-> 
-> This gets rid of the warning by cleaning up the code to avoid
-> the respective #ifdefs causing this problem, and replacing them
-> with if(IS_ENABLED()) checks. I have verified that the resulting
-> object code is unchanged, and an additional advantage is that
-> we now get compile coverage of the unused functions in more
-> configurations.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
-> ---
-> Version 2:
-> 
-> Rebased to git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
-> 
+Hi Andrew,
 
-Looks good to me,
+On Oct. Thursday 08 (41) 02:25 AM, Andrew Lunn wrote:
+> On Wed, Oct 07, 2015 at 07:48:29PM -0400, Vivien Didelot wrote:
+> > Push the prepare phase for FDB operations down to the DSA drivers, with
+> > a new port_fdb_prepare function. Currently only mv88e6xxx is affected.
+> > 
+> > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> > ---
+> >  drivers/net/dsa/mv88e6171.c |  1 +
+> >  drivers/net/dsa/mv88e6352.c |  1 +
+> >  drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
+> >  drivers/net/dsa/mv88e6xxx.h |  3 +++
+> >  include/net/dsa.h           |  4 ++++
+> >  net/dsa/slave.c             |  7 +++++--
+> >  6 files changed, 24 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+> > index c95cfab..ca3330a 100644
+> > --- a/drivers/net/dsa/mv88e6171.c
+> > +++ b/drivers/net/dsa/mv88e6171.c
+> > @@ -121,6 +121,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+> >  	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+> >  	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+> >  	.vlan_getnext		= mv88e6xxx_vlan_getnext,
+> > +	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+> 
+> Hi Vivien
+> 
+> Bike shedding a bit, but i would call this
+> mv88e6xxx_port_fdb_prepare_add.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+I think port_fdb_prepare is fine because it is the only step that
+actually needs the 2-phase model. del and dump are safe and don't need
+pre-check.
 
+> >  	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+> >  	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+> >  	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+> 
+> Taking a theoretical example, say mv88e6xxx_port_fdb_getnext needed a
+> prepare call to allocate memory to put the returned ATU into. What
+> would you call that?
+> 
+> mv88e6xxx_port_fdb_prepare_add and mv88e6xxx_port_fdb_prepare_getnext
+> just seems unambiguous and future proof.
+
+the switchdev dump operation is called just once, so no preparation is
+implied (from the switchdev point of view). It is the responsability of
+the driver to call the switchdev dump callback itself.
+
+Thanks,
+-v
