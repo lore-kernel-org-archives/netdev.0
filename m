@@ -1,77 +1,136 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net v2] fix return of iptunnel_xmit
-Date: Thu, 8 Oct 2015 17:33:54 +0200
-Message-ID: <56168CE2.6060208@tpip.net>
-References: <1444299114-21345-1-git-send-email-aschultz@tpip.net>
- <20151008170849.22bc8632@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:50206 "EHLO mail.tpip.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934107AbbJHPd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 11:33:59 -0400
-In-Reply-To: <20151008170849.22bc8632@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 1/3] net: dsa: add port_fdb_prepare
+Date: Thu,  8 Oct 2015 11:35:12 -0400
+Message-ID: <1444318514-32250-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1444318514-32250-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444318514-32250-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/08/2015 05:08 PM, Jiri Benc wrote:
-> On Thu,  8 Oct 2015 12:11:54 +0200, Andreas Schultz wrote:
->> All users of iptunnel_xmit expect the return value to be the error
->> code from ip_output_local, but currently the return value is length
->> of the send data on success or zero on error.
->> Change iptunnel_xmit returns to match the callers expectation.
->
-> That's not true. All users pass the returned value to
-> iptunnel_xmit_stats() where it is used to increase tx_bytes.
+Push the prepare phase for FDB operations down to the DSA drivers, with
+a new port_fdb_prepare function. Currently only mv88e6xxx is affected.
 
-Yes, but iptunnel_xmit_stats() basically has three different counters:
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  3 +++
+ include/net/dsa.h           |  6 ++++++
+ net/dsa/slave.c             |  7 +++++--
+ 6 files changed, 26 insertions(+), 2 deletions(-)
 
-  1. count packets and bytes when err > 0
-  2. count tx_errors when err < 0
-  3. count tx_dropped when err == 0
-
-Case 2 got lost in cset 0e6fbc5b6c6218987c93b8c7ca60cf786062899d, since
-the return value of iptunnel_xmit() can only be >= 0.
-
-I tried to find out if ip_local_out_sk() can ever return a negative
-value. If it can't then iptunnel_xmit_stats() could be simplified and
-tipc_udp_send_msg should be fixed.
-
-I've reread my change, and it I do have messed up the non-error case.
-pkt_len should be returned when ip_local_out_sk returns NET_XMIT_SUCCESS
-or NET_XMIT_CN, 0 when err > 0 and err when err < 0.
-
-Like this:
-
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 84dce6a..5cced3b 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -80,9 +80,12 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
-                           skb_shinfo(skb)->gso_segs ?: 1);
-
-         err = ip_local_out_sk(sk, skb);
--       if (unlikely(net_xmit_eval(err)))
--               pkt_len = 0;
--       return pkt_len;
-+       if (likely(net_xmit_eval(err) == 0))
-+               return pkt_len;
-+       if (err < 0)
-+               return err;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index c95cfab..ca3330a 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -121,6 +121,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+ 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 3736706..078a358 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -348,6 +348,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+ 	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 6053d11..9fbb727 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1841,6 +1841,16 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
+ 	return _mv88e6xxx_atu_load(ds, &entry);
+ }
+ 
++int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
++			       const struct switchdev_obj_port_fdb *fdb,
++			       struct switchdev_trans *trans)
++{
++	/* We don't need any dynamic resource from the kernel (yet),
++	 * so skip the prepare phase.
++	 */
++	return 0;
++}
 +
-+       return 0;
-  }
-  EXPORT_SYMBOL_GPL(iptunnel_xmit);
-
-Andreas
-
->
-> The only exception is tipc_udp_send_msg which should be fixed instead.
->
->   Jiri
->
+ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid)
+ {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 39b261f..4475640 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -479,6 +479,9 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
+ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid);
+ int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+ 			   unsigned long *ports, unsigned long *untagged);
++int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
++			       const struct switchdev_obj_port_fdb *fdb,
++			       struct switchdev_trans *trans);
+ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b34d812..4f66f84 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -197,6 +197,9 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
+ 		return ds->pd->rtable[dst->cpu_switch];
+ }
+ 
++struct switchdev_trans;
++struct switchdev_obj_port_fdb;
++
+ struct dsa_switch_driver {
+ 	struct list_head	list;
+ 
+@@ -316,6 +319,9 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Forwarding database
+ 	 */
++	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
++				    const struct switchdev_obj_port_fdb *fdb,
++				    struct switchdev_trans *trans);
+ 	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
+ 				const unsigned char *addr, u16 vid);
+ 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 4f607bc..48e8c15 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -346,10 +346,13 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
++	int ret;
++
++	if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
++		return -EOPNOTSUPP;
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+-		ret = ds->drv->port_fdb_add ? 0 : -EOPNOTSUPP;
++		ret = ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
+ 	else
+ 		ret = ds->drv->port_fdb_add(ds, p->port, fdb->addr, fdb->vid);
+ 
+-- 
+2.6.0
