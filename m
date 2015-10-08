@@ -1,80 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 3/3] switchdev: introduce deferred variants
- of obj_add/del helpers
-Date: Thu, 8 Oct 2015 16:44:51 +0200
-Message-ID: <20151008144451.GN2186@nanopsycho.orion>
-References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
- <1444242652-17260-4-git-send-email-jiri@resnulli.us>
- <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
- <20151008082858.GC2186@nanopsycho.orion>
- <20151008130910.GJ2186@nanopsycho.orion>
- <CAJ3xEMjq7bXCrWpHuZV5W8VZxYJX-60=UPW=QjbVUtjrJ9e-RQ@mail.gmail.com>
- <20151008132541.GK2186@nanopsycho.orion>
- <CAJ3xEMhiqfbQRYbAaY5Lxs3oo-XqLQmokNTkXP4qYaocMNZZkw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/6] net: dsa: add port_fdb_prepare
+Date: Thu, 8 Oct 2015 17:07:41 +0200
+Message-ID: <20151008150741.GS17952@lunn.ch>
+References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1444261711-1829-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20151008002543.GB31267@lunn.ch>
+ <20151008125524.GA1275@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, idosch@mellanox.com,
-	Elad Raz <eladr@mellanox.com>,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
 	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33363 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565AbbJHOox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 10:44:53 -0400
-Received: by wiclk2 with SMTP id lk2so31951753wic.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 07:44:52 -0700 (PDT)
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMhiqfbQRYbAaY5Lxs3oo-XqLQmokNTkXP4qYaocMNZZkw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151008125524.GA1275@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Oct 08, 2015 at 04:41:43PM CEST, gerlitz.or@gmail.com wrote:
->On Thu, Oct 8, 2015 at 4:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Thu, Oct 08, 2015 at 03:21:44PM CEST, gerlitz.or@gmail.com wrote:
->>>On Thu, Oct 8, 2015 at 4:09 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Thu, Oct 08, 2015 at 10:28:58AM CEST, jiri@resnulli.us wrote:
->>>>>Thu, Oct 08, 2015 at 08:45:58AM CEST, gerlitz.or@gmail.com wrote:
->>>>>>On Wed, Oct 7, 2015 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>
->>>>>>This introduced a regression to the 2-phase commit scheme, since the
->>>>>>prepare commit can fail
->>>>>>and that would go un-noticed toward the upper layer, agree?
->>>
->>>>>Well, no. This still does the transaction for all lower devices in one
->>>>>go. No change in that.
->>>
->>>> Now I get it, yes you are right. But currently there is no code in
->>>> kernel which would control retval of deferred attr_set or obj_add/del
->>>
->>>I am not sure to understand your reply. You are saying that when the deferred
->>>procedures complete (e.g fail in the prepare phase) they can't actually let
->>>the upper layer to realize that this change isn't possible? this is
->>>exactly the bug.
->>
->> Correct. But check the code. Callers of current deferred variants do
->> not care about the retval. Therefore this is not a regression.
->
->No sure to follow on (current) callers of current deferred variants,
->are there already
->deferred  variants for switchdev ops? aren't they introduced in this series?
+> > Hi Vivien
+> > 
+> > Bike shedding a bit, but i would call this
+> > mv88e6xxx_port_fdb_prepare_add.
+> 
+> I think port_fdb_prepare is fine because it is the only step that
+> actually needs the 2-phase model. del and dump are safe and don't need
+> pre-check.
 
-Yes they are. Those are those places where deferred variants need to be
-called.
+O.K. I don't have a strong opinion, i just think sometime later we
+might run into a naming consistency issue. If this does happen, we can
+fix it then.
 
->
->> It makes sense in my opinion. If you are a called and you explicitly say to
->> defer the operation, you cannot expect retval.
->
->yes, this might make sure for the caller, if they want to know the
->retval, shouldn't use
->the deferred variant.
->
->Or.
+    Andrew
