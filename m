@@ -1,67 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: fix RFS vs lockless listeners
-Date: Thu, 08 Oct 2015 11:16:48 -0700
-Message-ID: <1444328208.27760.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
+Date: Thu, 08 Oct 2015 20:20:52 +0200
+Message-ID: <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com>
+References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
+ <1444281803-24274-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33765 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755309AbbJHSQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 14:16:50 -0400
-Received: by pacex6 with SMTP id ex6so61628450pac.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 11:16:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444281803-24274-2-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Alexei,
 
-Before recent TCP listener patches, we were updating listener
-sk->sk_rxhash before the cloning of master socket.
+On Thu, Oct 8, 2015, at 07:23, Alexei Starovoitov wrote:
+> The feature is controlled by sysctl kernel.unprivileged_bpf_disabled.
+> This toggle defaults to off (0), but can be set true (1).  Once true,
+> bpf programs and maps cannot be accessed from unprivileged process,
+> and the toggle cannot be set back to false.
 
-children sk_rxhash was therefore correct after the normal 3WHS.
+This approach seems fine to me.
 
-But with lockless listener, we no longer dirty/change listener sk_rxhash
-as it would be racy.
+I am wondering if it makes sense to somehow allow ebpf access per
+namespace? I currently have no idea how that could work and on which
+namespace type to depend or going with a prctl or even cgroup maybe. The
+rationale behind this is, that maybe some namespaces like openstack
+router namespaces could make usage of advanced ebpf capabilities in the
+kernel, while other namespaces, especially where untrusted third parties
+are hosted, shouldn't have access to those facilities.
 
-We need to correctly update the child sk_rxhash, otherwise first data
-packet wont hit correct cpu if RFS is used.
+In that way, hosters would be able to e.g. deploy more efficient
+performance monitoring container (which should still need not to run as
+root) while the majority of the users has no access to that. Or think
+about routing instances in some namespaces, etc. etc.
 
-Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Willem de Bruijn <willemb@google.com>
-Cc: Tom Herbert <tom@herbertland.com>
----
- net/ipv4/syncookies.c    |    1 +
- net/ipv4/tcp_minisocks.c |    1 +
- 2 files changed, 2 insertions(+)
-
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 8113c30ccf96..2dbb11331f6c 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -225,6 +225,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
- 	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
- 	if (child) {
- 		atomic_set(&req->rsk_refcnt, 1);
-+		sock_rps_save_rxhash(child, skb);
- 		inet_csk_reqsk_queue_add(sk, req, child);
- 	} else {
- 		reqsk_free(req);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 9adf1e2c3170..1079e6ad77fe 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -768,6 +768,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 	if (!child)
- 		goto listen_overflow;
- 
-+	sock_rps_save_rxhash(child, skb);
- 	tcp_synack_rtt_meas(child, req);
- 	inet_csk_reqsk_queue_drop(sk, req);
- 	inet_csk_reqsk_queue_add(sk, req, child);
+Thanks,
+Hannes
