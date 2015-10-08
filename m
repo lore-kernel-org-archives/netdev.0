@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: clear sender_cpu before xmit
-Date: Thu, 08 Oct 2015 05:06:56 -0700 (PDT)
-Message-ID: <20151008.050656.1281225463647986015.davem@davemloft.net>
-References: <1444189567-3031-1-git-send-email-ast@plumgrid.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH 1/2 net] net/mlx4_core: Test interrupts fail if not all
+ comp vectors called request_irq
+Date: Thu, 8 Oct 2015 14:51:44 +0300
+Message-ID: <CAJ3xEMi2-rLs=9b+6Lubog=ACqYUh1x+V+dViR_KYL0D1Q_vHg@mail.gmail.com>
+References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, edumazet@google.com, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com
+To: Carol L Soto <clsoto@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbbJHLvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:08 -0400
-In-Reply-To: <1444189567-3031-1-git-send-email-ast@plumgrid.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33467 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756839AbbJHLvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:45 -0400
+Received: by iofh134 with SMTP id h134so54869215iof.0
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 04:51:44 -0700 (PDT)
+In-Reply-To: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue,  6 Oct 2015 20:46:07 -0700
+On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote:
+> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>
+> Test interrupts fails if not all completion vectors called
+> request_irq. This case can happen if only mlx4_en loads and
+> we have more completion vectors than rx rings.
+>
+> Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
+> Acked-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-> Similar to commit c29390c6dfee ("xps: must clear sender_cpu before forwarding")
-> the skb->sender_cpu needs to be cleared before xmit.
-> 
-> Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-
-Applied and queued up for -stable.
+Here too, I will submit this with other fixes we have, thanks a lot.
