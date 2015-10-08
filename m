@@ -1,48 +1,66 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net v2] fix return of iptunnel_xmit
-Date: Thu, 8 Oct 2015 17:39:14 +0200
-Message-ID: <20151008173914.16150fd0@griffin>
-References: <1444299114-21345-1-git-send-email-aschultz@tpip.net>
-	<20151008170849.22bc8632@griffin>
-	<56168CE2.6060208@tpip.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH RFC] net: mvneta: add ethtool statistics
+Date: Thu, 8 Oct 2015 16:42:12 +0100
+Message-ID: <20151008154211.GG32532@n2100.arm.linux.org.uk>
+References: <20151006165208.GE3557@lunn.ch>
+ <E1ZjZ2q-00087d-Im@rmk-PC.arm.linux.org.uk>
+ <20151007230333.GL17952@lunn.ch>
+ <20151008085141.GA32532@n2100.arm.linux.org.uk>
+ <20151008153257.GT17952@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35652 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933855AbbJHPjR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 11:39:17 -0400
-In-Reply-To: <56168CE2.6060208@tpip.net>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:48245 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934072AbbJHPmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 11:42:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20151008153257.GT17952@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 8 Oct 2015 17:33:54 +0200, Andreas Schultz wrote:
-> --- a/net/ipv4/ip_tunnel_core.c
-> +++ b/net/ipv4/ip_tunnel_core.c
-> @@ -80,9 +80,12 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
->                            skb_shinfo(skb)->gso_segs ?: 1);
+On Thu, Oct 08, 2015 at 05:32:57PM +0200, Andrew Lunn wrote:
+> > > This would suggest the driver is not clearing the statistics when it
+> > > loads. Should it?
+> > 
+> > That's an interesting question, one which I have no answer for.
 > 
->          err = ip_local_out_sk(sk, skb);
-> -       if (unlikely(net_xmit_eval(err)))
-> -               pkt_len = 0;
-> -       return pkt_len;
-> +       if (likely(net_xmit_eval(err) == 0))
-> +               return pkt_len;
-> +       if (err < 0)
-> +               return err;
-> +
-> +       return 0;
->   }
+> So i took a look at the other Marvell drivers. mv643xx_eth.c, skge and
+> sky2.c all have code to clear the statistics. So for consistency, i
+> think nvneta should as well.
+> 
+> But it gets stranger. mvneta has:
+> 
+> static void mvneta_mib_counters_clear(struct mvneta_port *pp)
+> {
+>         int i;
+>         u32 dummy;
+> 
+>         /* Perform dummy reads from MIB counters */
+>         for (i = 0; i < MVNETA_MIB_LATE_COLLISION; i += 4)
+>                 dummy = mvreg_read(pp, (MVNETA_MIB_COUNTERS_BASE + i));
+> }
 
-That looks better :-)
+That's called from mvneta_port_up(), which is called every time the link
+comes up or the MTU is changed.  That's really not nice.  However, it
+seems ineffectual because it's not accessing any documented registers:
 
-Thanks,
+#define MVNETA_MIB_COUNTERS_BASE                 0x3080
+#define      MVNETA_MIB_LATE_COLLISION           0x7c
 
- Jiri
+However, the documented counters are from 0x3000 to 0x307c.
+
+> Looks like somebody did not finish this?
+
+All you need to do is to read the counter to clear it, so the above
+should result in it being cleared as above.
+
+Maybe the above code can be fixed to read the proper counters, and
+called from a more appropriate place (driver initialisation?)
 
 -- 
-Jiri Benc
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
