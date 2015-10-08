@@ -1,82 +1,67 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next RFC 2/3] switchdev: allow caller to explicitly
- use deferred attr_set version
-Date: Wed, 7 Oct 2015 21:27:07 -0700
-Message-ID: <CAE4R7bAUQ+bPe0fMZsULnTuZKg4t2-RterSqKDS2H=OzZpW1Nw@mail.gmail.com>
-References: <1444242652-17260-1-git-send-email-jiri@resnulli.us> <1444242652-17260-3-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next] cxgb4: Enhance driver to update FW, when FW is too old
+Date: Thu,  8 Oct 2015 10:08:23 +0530
+Message-ID: <1444279103-24857-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	svemuri@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34987 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbbJHE11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 00:27:27 -0400
-Received: by oiww128 with SMTP id w128so20851433oiw.2
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 21:27:27 -0700 (PDT)
-In-Reply-To: <1444242652-17260-3-git-send-email-jiri@resnulli.us>
+Received: from stargate.chelsio.com ([67.207.115.98]:19355 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750735AbbJHEhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 00:37:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2015 at 11:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Caller should know if he can call attr_set directly (when holding RTNL)
-> or if he has to use deferred version of this function.
->
-> This also allows drivers to sleep inside attr_set and report operation
-> status back to switchdev core. Switchdev core then warns if status is
-> not ok, instead of silent errors happening in drivers.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/switchdev.h   |   2 +
->  net/bridge/br_stp.c       |   4 +-
->  net/switchdev/switchdev.c | 113 +++++++++++++++++++++++++---------------------
->  3 files changed, 65 insertions(+), 54 deletions(-)
->
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 89266a3..320be44 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -168,6 +168,8 @@ int switchdev_port_attr_get(struct net_device *dev,
->                             struct switchdev_attr *attr);
->  int switchdev_port_attr_set(struct net_device *dev,
->                             struct switchdev_attr *attr);
-> +int switchdev_port_attr_set_deferred(struct net_device *dev,
-> +                                    struct switchdev_attr *attr);
+t4_check_fw_version() can return several error codes (-EINVAL, -EBUSY,
+-EAGAIN). The present code sets the adapter state to UNINIT only if its
+an EFAULT. In all the error cases set the adapter to uninitialized state.
 
-Rather than adding another op, use attr->flags and define:
+In t4_check_fw_version() if call to t4_get_fw_version() fails, repeat the
+operation a few times before returning failure.
 
-#define SWITCHDEV_F_DEFERRED          BIT(x)
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+V2: Retry t4_get_fw_version() only if ret value is EBUSY or EAGAIN
+    Based on review comment by Neil Horman <nhroman@tuxdriver.com>
 
-So we get:
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 6 +++++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-void br_set_state(struct net_bridge_port *p, unsigned int state)
-{
-        struct switchdev_attr attr = {
-                .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-+              .flags = SWITCHDEV_F_DEFERRED,
-                .u.stp_state = state,
-        };
-        int err;
-
-        p->state = state;
-        err = switchdev_port_attr_set(p->dev, &attr);
-        if (err && err != -EOPNOTSUPP)
-                br_warn(p->br, "error setting offload STP state on
-port %u(%s)\n",
-                                (unsigned int) p->port_no,
-p->dev->name);
-}
-
-(And add obj->flags to do the same).
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 9f1f5b2..c29227e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3698,7 +3698,7 @@ static int adap_init0(struct adapter *adap)
+ 	t4_get_tp_version(adap, &adap->params.tp_vers);
+ 	ret = t4_check_fw_version(adap);
+ 	/* If firmware is too old (not supported by driver) force an update. */
+-	if (ret == -EFAULT)
++	if (ret)
+ 		state = DEV_STATE_UNINIT;
+ 	if ((adap->flags & MASTER_PF) && state != DEV_STATE_INIT) {
+ 		struct fw_info *fw_info;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index dc6ce31..cf61a58 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2981,11 +2981,15 @@ int t4_get_exprom_version(struct adapter *adap, u32 *vers)
+  */
+ int t4_check_fw_version(struct adapter *adap)
+ {
+-	int ret, major, minor, micro;
++	int i, ret, major, minor, micro;
+ 	int exp_major, exp_minor, exp_micro;
+ 	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
+ 
+ 	ret = t4_get_fw_version(adap, &adap->params.fw_vers);
++	/* Try multiple times before returning error */
++	for (i = 0; (ret == -EBUSY || ret == -EAGAIN) && i < 3; i++)
++		ret = t4_get_fw_version(adap, &adap->params.fw_vers);
++
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.3.4
