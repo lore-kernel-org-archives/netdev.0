@@ -1,108 +1,72 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2] netfilter: fix bad checksum on IPv6 when NAT is performed
-Date: Thu, 8 Oct 2015 14:09:00 -0700
-Message-ID: <CALx6S37AdH=icFEqXjH5hDJ2O0dkwLEx6_KqpFkoPYF2sr1N_Q@mail.gmail.com>
-References: <1444141425.14655.341.camel@sakura.staff.proxad.net>
-	<1444335587.14655.387.camel@sakura.staff.proxad.net>
-	<1444335972.14655.388.camel@sakura.staff.proxad.net>
+Subject: Re: [PATCH net-next] tcp: fix RFS vs lockless listeners
+Date: Thu, 8 Oct 2015 14:11:52 -0700
+Message-ID: <CALx6S34qGakV4rzec+thHQhZeNXg0Tc6Lbwretmj71u++i03BQ@mail.gmail.com>
+References: <1444328208.27760.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-	kaber <kaber@trash.net>, pablo@netfilter.org,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: mbizon@freebox.fr
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1444335972.14655.388.camel@sakura.staff.proxad.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33969 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754294AbbJHVLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 17:11:53 -0400
+Received: by iow1 with SMTP id 1so72766447iow.1
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 14:11:52 -0700 (PDT)
+In-Reply-To: <1444328208.27760.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 8, 2015 at 1:26 PM, Maxime Bizon <mbizon@freebox.fr> wrote:
+On Thu, Oct 8, 2015 at 11:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> With this setup:
+> Before recent TCP listener patches, we were updating listener
+> sk->sk_rxhash before the cloning of master socket.
 >
-> * non IPv6 checksumming capable network hardware
-> * GRO off
-> * IPv6 SNAT
+> children sk_rxhash was therefore correct after the normal 3WHS.
 >
-> I get this when I receive an UDPv6 reply: "<unknown>: hw csum failure"
+> But with lockless listener, we no longer dirty/change listener sk_rxhash
+> as it would be racy.
 >
-> Call trace:
+> We need to correctly update the child sk_rxhash, otherwise first data
+> packet wont hit correct cpu if RFS is used.
 >
-> * nf_ip6_checksum() calls __skb_checksum_complete()
-> * nf_nat_ipv6_csum_update() & nf_nat_ipv6_manip_pkt()
-> * __udp6_lib_rcv() => udp6_csum_init()
-> * __skb_checksum_validate_complete() "fastpath" fails because
->   skb->csum is incorrect.
-> * udpv6_recvmsg() => skb_copy_and_csum_datagram_msg()
->
-> The last call computes a valid checksum despite CHECKSUM_COMPLETE and
-> triggers the warning.
->
-> When we perform NAT on IPv4, we also update the IPv4 checksum, so
-> there is no side effect on skb->csum (since the csum over a valid IPv4
-> header area was already zero).
->
-> But IPv6 doesn't have such checksum, so when performing NAT we need to
-> update skb->csum.
->
-> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Willem de Bruijn <willemb@google.com>
+> Cc: Tom Herbert <tom@herbertland.com>
 > ---
->  net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 23 +++++++++++++++++++----
->  1 file changed, 19 insertions(+), 4 deletions(-)
+>  net/ipv4/syncookies.c    |    1 +
+>  net/ipv4/tcp_minisocks.c |    1 +
+>  2 files changed, 2 insertions(+)
 >
-> diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-> index 70fbaed..e44af9c 100644
-> --- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-> +++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-> @@ -81,6 +81,8 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
->                                   enum nf_nat_manip_type maniptype)
->  {
->         struct ipv6hdr *ipv6h;
-> +       const __be32 *to;
-> +       __be32 *from;
->         __be16 frag_off;
->         int hdroff;
->         u8 nexthdr;
-> @@ -100,11 +102,24 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
->                                 target, maniptype))
->                 return false;
->  manip_addr:
-> -       if (maniptype == NF_NAT_MANIP_SRC)
-> -               ipv6h->saddr = target->src.u3.in6;
-> -       else
-> -               ipv6h->daddr = target->dst.u3.in6;
-> +       if (maniptype == NF_NAT_MANIP_SRC) {
-> +               from = ipv6h->saddr.s6_addr32;
-> +               to = target->src.u3.in6.s6_addr32;
-> +       } else {
-> +               from = ipv6h->daddr.s6_addr32;
-> +               to = target->dst.u3.in6.s6_addr32;
-> +       }
-> +
-> +       if (skb->ip_summed == CHECKSUM_COMPLETE) {
-> +               __be32 diff[] = {
-> +                       ~from[0], ~from[1], ~from[2], ~from[3],
-> +                       to[0], to[1], to[2], to[3],
-> +               };
-> +
-> +               skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
-> +       }
+> diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+> index 8113c30ccf96..2dbb11331f6c 100644
+> --- a/net/ipv4/syncookies.c
+> +++ b/net/ipv4/syncookies.c
+> @@ -225,6 +225,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+>         child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
+>         if (child) {
+>                 atomic_set(&req->rsk_refcnt, 1);
+> +               sock_rps_save_rxhash(child, skb);
+>                 inet_csk_reqsk_queue_add(sk, req, child);
+>         } else {
+>                 reqsk_free(req);
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 9adf1e2c3170..1079e6ad77fe 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -768,6 +768,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+>         if (!child)
+>                 goto listen_overflow;
 >
-I think inet_proto_csum_replace16 should be called here.
-
-> +       memcpy(from, to, sizeof (struct in6_addr));
->         return true;
->  }
->
-> --
-> 1.9.1
+> +       sock_rps_save_rxhash(child, skb);
+>         tcp_synack_rtt_meas(child, req);
+>         inet_csk_reqsk_queue_drop(sk, req);
+>         inet_csk_reqsk_queue_add(sk, req, child);
 >
 >
-> --
-> Maxime
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Tom Herbert <tom@herbertland.com>
