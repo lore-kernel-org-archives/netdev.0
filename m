@@ -1,75 +1,34 @@
-From: Andy Gross <agross@codeaurora.org>
-Subject: Re: [PATCH] Bluetooth: hci_smd: Qualcomm WCNSS HCI driver
-Date: Thu, 8 Oct 2015 12:28:19 -0500
-Message-ID: <20151008172819.GA32381@qualcomm.com>
-References: <1443654180-29416-1-git-send-email-bjorn.andersson@sonymobile.com>
- <036E1E75-8E6A-4116-A648-A188A8458416@holtmann.org>
- <20151001203338.GW24668@usrtlx11787.corpusers.net>
- <31CC1992-41BB-484C-9784-3A54D0EF6FF3@holtmann.org>
- <20151008170744.GF24668@usrtlx11787.corpusers.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net v3 1/2] fix return of iptunnel_xmit
+Date: Thu, 8 Oct 2015 10:33:43 -0700
+Message-ID: <CALnjE+pML8uMgEOEEErMd3FNEAqsM=wm5aiFzvKMKShuktm99A@mail.gmail.com>
+References: <1444320530-28706-1-git-send-email-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fengwei Yin <fengwei.yin@linaro.org>,
-	Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46770 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965137AbbJHR2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 13:28:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20151008170744.GF24668@usrtlx11787.corpusers.net>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:35723 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933177AbbJHRdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 13:33:44 -0400
+Received: by ioiz6 with SMTP id z6so65739144ioi.2
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 10:33:43 -0700 (PDT)
+In-Reply-To: <1444320530-28706-1-git-send-email-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 08, 2015 at 10:07:44AM -0700, Bjorn Andersson wrote:
-> On Sat 03 Oct 09:55 PDT 2015, Marcel Holtmann wrote:
-> 
-> > Hi Bjorn,
-> > 
-> [..]
-> > >> Especially the kbuild test robot complained loudly.
-> > >>
-> > >
-> > > Sorry, I forgot to mention in the patch that the patch depends on the
-> > > qcom_smd_id patch - that's available in linux-next. I will take another
-> > > look, but I think that was the cause of all the issues.
-> > 
-> > which means, I can only merge this driver when this other patch has
-> > hit net-next tree. Unless I take the qcom_smd_id through
-> > bluetooth-next tree which doesn't look like a good idea.
-> > 
-> 
-> I was going to suggest that we just wait for -rc1, but the new additions
-> to SMD adds a bunch of new items on the dependency list.
-> 
-> Perhaps once we agree we can get your Ack and have Andy pull it through
-> the qcom-soc tree together with the SMD patches?
+On Thu, Oct 8, 2015 at 9:08 AM, Andreas Schultz <aschultz@tpip.net> wrote:
+> All users of iptunnel_xmit expect the return value to be the packet
+> length on success (>0), negative for a tx error and zero for a tx
+> dropped error. In cset 0e6fbc5b6c6218987c93b8c7ca60cf786062899d the
+> negative return case was lost.
+>
+> This bug was introduced when the ip_tunnel_core code was refactored.
+>
+> Fixes: 0e6fbc5b6c6218987c93b8c7ca60cf786062899d
+> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 
-This is fine by me.
-
-> > >>> obj-$(CONFIG_BT_INTEL)              += btintel.o
-> > >>> obj-$(CONFIG_BT_ATH3K)              += ath3k.o
-> > >>> diff --git a/drivers/bluetooth/hci_smd.c b/drivers/bluetooth/hci_smd.c
-> > > [..]
-> > >>> +#include <net/bluetooth/hci.h>
-> > >>
-> > >> The hci.h include is not needed. If you do, then you are doing
-> > >> something fishy.
-> > >>
-> > >
-
-<snip>
-
--- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project
+Thanks for the fix.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
