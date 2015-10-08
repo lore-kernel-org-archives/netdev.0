@@ -1,64 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/4] net: SO_INCOMING_CPU setsockopt() support
-Date: Thu, 08 Oct 2015 14:17:49 -0700
-Message-ID: <1444339069.27760.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444318627-27883-1-git-send-email-edumazet@google.com>
-	 <1444318627-27883-2-git-send-email-edumazet@google.com>
-	 <CALx6S36yCfq3Y36J2SwRtsKU5H6G2a=arJLVoUtjoPEdGAWJOA@mail.gmail.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH v2] netfilter: fix bad checksum on IPv6 when NAT is
+ performed
+Date: Thu, 08 Oct 2015 23:26:34 +0200
+Message-ID: <1444339594.14655.392.camel@sakura.staff.proxad.net>
+References: <1444141425.14655.341.camel@sakura.staff.proxad.net>
+	 <1444335587.14655.387.camel@sakura.staff.proxad.net>
+	 <1444335972.14655.388.camel@sakura.staff.proxad.net>
+	 <CALx6S37AdH=icFEqXjH5hDJ2O0dkwLEx6_KqpFkoPYF2sr1N_Q@mail.gmail.com>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+	kaber <kaber@trash.net>, pablo@netfilter.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35245 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756536AbbJHVRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 17:17:51 -0400
-Received: by pabve7 with SMTP id ve7so6413955pab.2
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 14:17:51 -0700 (PDT)
-In-Reply-To: <CALx6S36yCfq3Y36J2SwRtsKU5H6G2a=arJLVoUtjoPEdGAWJOA@mail.gmail.com>
+Received: from ns.iliad.fr ([212.27.33.1]:45294 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754172AbbJHV0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 17:26:36 -0400
+In-Reply-To: <CALx6S37AdH=icFEqXjH5hDJ2O0dkwLEx6_KqpFkoPYF2sr1N_Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-08 at 13:53 -0700, Tom Herbert wrote:
 
-> If the incoming CPU is set for a connected UDP via
-> sk_incoming_cpu_update, wouldn't this check subsequently _only_ allow
-> packets for that socket to come from the same CPU?
-> 
+On Thu, 2015-10-08 at 14:09 -0700, Tom Herbert wrote:
 
-Hmm, I thought the SO_REUSEPORT path would be taken only for non
-connected UDP sockets (like TCP listeners.).
+> I think inet_proto_csum_replace16 should be called here.
 
-But you might be right !
+inet_proto_csum_replace16() wants a non NULL checksum pointer to update,
+and there is no such thing here.
 
-> Also, the check seems a little austere. Why not do something like:
-> 
->                if (sk->sk_incoming_cpu != -1) {
->                        if (sk->sk_incoming_cpu != raw_smp_processor_id())
->                             score += 4;
->                }
-> 
-> My worry is that the packet steering configuration may change without
-> the application's knowledge, so it's possible packets may come in on
-> CPUs that the are unexpected to the application and then they would be
-> dropped without matching a socket. I suppose that this could work with
-> the original patch if a socket is bound to every CPU or there is at
-> least one listener socket that is not bound to any CPU.
+I could pass a dummy value, but inet_proto_csum_replace16() will do
+twice more work for nothing
 
-This is what I initially wrote, then I attempted a short cut, (abort
-full list scan), then forgot to re-instate the first try, when I decided
-to let this for future patch (Ying patch)
+or I could modify inet_proto_csum_replace16() to allow a NULL sum
+argument.
 
-if (sk->sk_incoming_cpu == raw_smp_processor_id())
-    score++;
-
-(Note we do not even have to test for sk_incoming_cpu == -1 in this
-variant)
-
-I'll include this in v2.
-
-Thanks.
+-- 
+Maxime
