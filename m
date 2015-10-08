@@ -1,98 +1,49 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next RFC 3/3] switchdev: introduce deferred variants
- of obj_add/del helpers
-Date: Thu, 8 Oct 2015 09:45:58 +0300
-Message-ID: <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
-References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
-	<1444242652-17260-4-git-send-email-jiri@resnulli.us>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: [PATCH iproute2] bridge: add batch command support
+Date: Thu, 8 Oct 2015 10:18:59 +0200
+Message-ID: <CADdy8Hqit2buVfzeweYzW=_QTOqL6kcwQjBRXfdKk9iYO_1xng@mail.gmail.com>
+References: <1444283603-8084-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, idosch@mellanox.com,
-	Elad Raz <eladr@mellanox.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	wkok@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35267 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbbJHGp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:45:59 -0400
-Received: by ioiz6 with SMTP id z6so47792684ioi.2
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 23:45:58 -0700 (PDT)
-In-Reply-To: <1444242652-17260-4-git-send-email-jiri@resnulli.us>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:36431 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753803AbbJHITA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 04:19:00 -0400
+Received: by ioii196 with SMTP id i196so49632656ioi.3
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 01:18:59 -0700 (PDT)
+In-Reply-To: <1444283603-8084-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2015 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+2015-10-08 7:53 GMT+02:00 Roopa Prabhu <roopa@cumulusnetworks.com>:
+> From: Wilson Kok <wkok@cumulusnetworks.com>
 >
-> Similar to the attr usecase, the caller knows if he is holding RTNL and is
-> in atomic section. So let the called to decide the correct call variant.
->
-> This allows drivers to sleep inside their ops and wait for hw to get the
-> operation status. Then the status is propagated into switchdev core.
-> This avoids silent errors in drivers.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> This patch adds support to batch bridge commands.
+> Follows ip batch code.
 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 7f7d551..2086767 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -139,7 +139,7 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
->                 .vid = f->vlan_id,
->         };
->
-> -       switchdev_port_obj_del(f->dst->dev, &fdb.obj);
-> +       switchdev_port_obj_del_deferred(f->dst->dev, &fdb.obj);
->  }
+Hello Roopa,
 
+Thanks for providing the useful batch feature to the bridge command.
 
->  static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index c29f4ee..49e6e6f 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -362,6 +362,75 @@ int switchdev_port_obj_add(struct net_device *dev,
->  }
->  EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
->
-> +struct switchdev_obj_work {
-> +       struct work_struct work;
-> +       struct net_device *dev;
-> +       struct switchdev_obj obj;
-> +       bool add; /* add of del */
-> +};
-> +
-> +static void switchdev_port_obj_work(struct work_struct *work)
-> +{
-> +       struct switchdev_obj_work *ow =
-> +                       container_of(work, struct switchdev_obj_work, work);
-> +       int err;
-> +
-> +       rtnl_lock();
-> +       if (ow->add)
-> +               err = switchdev_port_obj_add(ow->dev, &ow->obj);
-> +       else
-> +               err = switchdev_port_obj_del(ow->dev, &ow->obj);
-> +       if (err && err != -EOPNOTSUPP)
-> +               netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
-> +                          err, ow->add ? "add" : "del", ow->obj.id);
+The patch looks good, except a detail:
 
-This introduced a regression to the 2-phase commit scheme, since the
-prepare commit can fail
-and that would go un-noticed toward the upper layer, agree?
+>         fprintf(stderr,
+>  "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
+> +"      bridge [ -force ] -batch filename\n"
 
-Or.
+in the usage display, a tab is used to indent the second form of the
+bridge command. Spaces should be used instead, to align with the first
+form:
 
-> +       rtnl_unlock();
-> +
-> +       dev_put(ow->dev);
-> +       kfree(ow);
-> +}
+   "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
+   "       bridge [ -force ] -batch filename\n"
+    ^^^^^^^
+
+Except for this detail,
+
+Acked-by: Christophe Gouault <christophe.gouault@6wind.com>
