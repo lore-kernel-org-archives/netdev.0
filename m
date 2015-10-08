@@ -1,29 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 0/5] Add support for Broadcom's iProc MDIO and
- Cygnus Ethernet PHY
-Date: Thu, 08 Oct 2015 04:46:34 -0700 (PDT)
-Message-ID: <20151008.044634.27842806470198529.davem@davemloft.net>
-References: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4] net: Microchip encx24j600 driver
+Date: Thu, 08 Oct 2015 04:50:56 -0700 (PDT)
+Message-ID: <20151008.045056.1836119309075458337.davem@davemloft.net>
+References: <1444163866-18677-1-git-send-email-jon@ringle.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1444159550-3432-1-git-send-email-arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: broonie@kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jringle@gridpoint.com
+To: jon@ringle.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444163866-18677-1-git-send-email-jon@ringle.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Date: Tue, 6 Oct 2015 12:25:45 -0700
+From: jon@ringle.org
+Date: Tue,  6 Oct 2015 16:37:46 -0400
 
-> This patchset adds support for the iProc MDIO interface and the
-> Broadcom Cygnus SoC's internal Ethernet PHY.
+> From: Jon Ringle <jringle@gridpoint.com>
+> 
+> This ethernet driver supports the Micorchip enc424j600/626j600 Ethernet
+> controller over a SPI bus interface. This driver makes use of the regmap API to
+> optimize access to registers by caching registers where possible.
+> 
+> Datasheet:
+> http://ww1.microchip.com/downloads/en/DeviceDoc/39935b.pdf
+> 
+> Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+> ---
+> 
+> This patch requires that the pull request from Mark be applied first:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/broonie/regmap.git tags/regmap-offload-update-bits
 
-Series applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Jon.
