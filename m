@@ -1,59 +1,102 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to
- better support memoryless node
-Date: Thu, 8 Oct 2015 13:20:37 -0700
-Message-ID: <20151008132037.fc3887da0818e7d011cb752f@linux-foundation.org>
-References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
-	<1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
-	<4197C471DCF8714FBA1FE32565271C148FFFF4D3@ORSMSX103.amr.corp.intel.com>
-	<alpine.DEB.2.10.1508191717450.30666@chino.kir.corp.google.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: [PATCH v2] netfilter: fix bad checksum on IPv6 when NAT is performed
+Date: Thu, 08 Oct 2015 22:26:12 +0200
+Message-ID: <1444335972.14655.388.camel@sakura.staff.proxad.net>
+References: <1444141425.14655.341.camel@sakura.staff.proxad.net>
+	 <1444335587.14655.387.camel@sakura.staff.proxad.net>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Patil, Kiran" <kiran.patil@intel.com>,
-	Jiang Liu <jiang.liu@linux.intel.com>,
-	Mel Gorman <mgorman@suse.de>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Wysocki, Rafael J" <rafael.j.wysocki@intel.com>,
-	Tang Chen <tangchen@cn.fujitsu.com>, Tejun Heo <tj@kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"Luck, Tony" <tony.luck@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"li
-To: David Rientjes <rientjes@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1508191717450.30666@chino.kir.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: davem <davem@davemloft.net>, kaber <kaber@trash.net>,
+	pablo@netfilter.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1444335587.14655.387.camel@sakura.staff.proxad.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Aug 2015 17:18:15 -0700 (PDT) David Rientjes <rientjes@google.com> wrote:
 
-> On Wed, 19 Aug 2015, Patil, Kiran wrote:
-> 
-> > Acked-by: Kiran Patil <kiran.patil@intel.com>
-> 
-> Where's the call to preempt_disable() to prevent kernels with preemption 
-> from making numa_node_id() invalid during this iteration?
+With this setup:
 
-David asked this question twice, received no answer and now the patch
-is in the maintainer tree, destined for mainline.
+* non IPv6 checksumming capable network hardware
+* GRO off
+* IPv6 SNAT
 
-If I was asked this question I would respond
+I get this when I receive an UDPv6 reply: "<unknown>: hw csum failure"
 
-  The use of numa_mem_id() is racy and best-effort.  If the unlikely
-  race occurs, the memory allocation will occur on the wrong node, the
-  overall result being very slightly suboptimal performance.  The
-  existing use of numa_node_id() suffers from the same issue.
+Call trace:
 
-But I'm not the person proposing the patch.  Please don't just ignore
-reviewer comments!
+* nf_ip6_checksum() calls __skb_checksum_complete()
+* nf_nat_ipv6_csum_update() & nf_nat_ipv6_manip_pkt()
+* __udp6_lib_rcv() => udp6_csum_init()
+* __skb_checksum_validate_complete() "fastpath" fails because
+  skb->csum is incorrect.
+* udpv6_recvmsg() => skb_copy_and_csum_datagram_msg()
+
+The last call computes a valid checksum despite CHECKSUM_COMPLETE and
+triggers the warning.
+
+When we perform NAT on IPv4, we also update the IPv4 checksum, so
+there is no side effect on skb->csum (since the csum over a valid IPv4
+header area was already zero).
+
+But IPv6 doesn't have such checksum, so when performing NAT we need to
+update skb->csum.
+
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+---
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 70fbaed..e44af9c 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -81,6 +81,8 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+ 				  enum nf_nat_manip_type maniptype)
+ {
+ 	struct ipv6hdr *ipv6h;
++	const __be32 *to;
++	__be32 *from;
+ 	__be16 frag_off;
+ 	int hdroff;
+ 	u8 nexthdr;
+@@ -100,11 +102,24 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
+ 				target, maniptype))
+ 		return false;
+ manip_addr:
+-	if (maniptype == NF_NAT_MANIP_SRC)
+-		ipv6h->saddr = target->src.u3.in6;
+-	else
+-		ipv6h->daddr = target->dst.u3.in6;
++	if (maniptype == NF_NAT_MANIP_SRC) {
++		from = ipv6h->saddr.s6_addr32;
++		to = target->src.u3.in6.s6_addr32;
++	} else {
++		from = ipv6h->daddr.s6_addr32;
++		to = target->dst.u3.in6.s6_addr32;
++	}
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		__be32 diff[] = {
++			~from[0], ~from[1], ~from[2], ~from[3],
++			to[0], to[1], to[2], to[3],
++		};
++
++		skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
++	}
+ 
++	memcpy(from, to, sizeof (struct in6_addr));
+ 	return true;
+ }
+ 
+-- 
+1.9.1
+
+
+-- 
+Maxime
+
+
