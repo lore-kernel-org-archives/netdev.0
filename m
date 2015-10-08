@@ -1,59 +1,130 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next RFC 3/3] switchdev: introduce deferred variants
- of obj_add/del helpers
-Date: Thu, 8 Oct 2015 16:21:44 +0300
-Message-ID: <CAJ3xEMjq7bXCrWpHuZV5W8VZxYJX-60=UPW=QjbVUtjrJ9e-RQ@mail.gmail.com>
-References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
-	<1444242652-17260-4-git-send-email-jiri@resnulli.us>
-	<CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
-	<20151008082858.GC2186@nanopsycho.orion>
-	<20151008130910.GJ2186@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, idosch@mellanox.com,
-	Elad Raz <eladr@mellanox.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 -next] m_bpf: don't require default opcode on ebpf actions
+Date: Thu,  8 Oct 2015 15:22:05 +0200
+Message-ID: <605ab2e3b1957b5f268214b165b7b27a527ee3a9.1444307491.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:33052 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755041AbbJHNVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:21:45 -0400
-Received: by igbbp9 with SMTP id bp9so2004653igb.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 06:21:44 -0700 (PDT)
-In-Reply-To: <20151008130910.GJ2186@nanopsycho.orion>
+Received: from www62.your-server.de ([213.133.104.62]:43611 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753454AbbJHNWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:22:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 8, 2015 at 4:09 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Oct 08, 2015 at 10:28:58AM CEST, jiri@resnulli.us wrote:
->>Thu, Oct 08, 2015 at 08:45:58AM CEST, gerlitz.or@gmail.com wrote:
->>>On Wed, Oct 7, 2015 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+After the patch, the most minimal command to load an eBPF action
+for late binding with auto index selection through tc is:
 
->>>This introduced a regression to the 2-phase commit scheme, since the
->>>prepare commit can fail
->>>and that would go un-noticed toward the upper layer, agree?
+  tc actions add action bpf obj prog.o
 
->>Well, no. This still does the transaction for all lower devices in one
->>go. No change in that.
+We already set TC_ACT_PIPE in tc as default opcode, so if nothing
+further has been specified, just use it. Also, allow "ok" next to
+"pass" for matching cmdline on TC_ACT_OK.
 
-> Now I get it, yes you are right. But currently there is no code in
-> kernel which would control retval of deferred attr_set or obj_add/del
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ [ In future work, we need to consolidate some bigger sections.
+   Patch is on top of http://patchwork.ozlabs.org/patch/522713/ ]
 
-I am not sure to understand your reply. You are saying that when the deferred
-procedures complete (e.g fail in the prepare phase) they can't actually let
-the upper layer to realize that this change isn't possible? this is
-exactly the bug.
+ tc/m_bpf.c | 47 +++++++++++++++++++++++------------------------
+ 1 file changed, 23 insertions(+), 24 deletions(-)
 
-
-Or.
-
-
-Or.
+diff --git a/tc/m_bpf.c b/tc/m_bpf.c
+index e1bb6a4..fb4c3c7 100644
+--- a/tc/m_bpf.c
++++ b/tc/m_bpf.c
+@@ -111,25 +111,28 @@ opt_bpf:
+ 			if (ebpf) {
+ 				bpf_uds_name = getenv(BPF_ENV_UDS);
+ 				bpf_obj = *argv;
+-				NEXT_ARG();
+ 
+-				if (strcmp(*argv, "section") == 0 ||
+-				    strcmp(*argv, "sec") == 0) {
++				NEXT_ARG_FWD();
++
++				if (argc > 0 &&
++				    (strcmp(*argv, "section") == 0 ||
++				     strcmp(*argv, "sec") == 0)) {
+ 					NEXT_ARG();
+ 					bpf_sec_name = *argv;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+-				if (!bpf_uds_name &&
++				if (argc > 0 && !bpf_uds_name &&
+ 				    (strcmp(*argv, "export") == 0 ||
+ 				     strcmp(*argv, "exp") == 0)) {
+ 					NEXT_ARG();
+ 					bpf_uds_name = *argv;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+-				if (strcmp(*argv, "verbose") == 0 ||
+-				    strcmp(*argv, "verb") == 0) {
++				if (argc > 0 &&
++				    (strcmp(*argv, "verbose") == 0 ||
++				     strcmp(*argv, "verb") == 0)) {
+ 					bpf_verbose = true;
+-					NEXT_ARG();
++					NEXT_ARG_FWD();
+ 				}
+ 
+ 				PREV_ARG();
+@@ -166,33 +169,29 @@ opt_bpf:
+ 				goto opt_bpf;
+ 			break;
+ 		}
+-		argc--;
+-		argv++;
++
++		NEXT_ARG_FWD();
+ 	}
+ 
+ 	parm.action = TC_ACT_PIPE;
+ 	if (argc) {
+ 		if (matches(*argv, "reclassify") == 0) {
+ 			parm.action = TC_ACT_RECLASSIFY;
+-			argc--;
+-			argv++;
++			NEXT_ARG_FWD();
+ 		} else if (matches(*argv, "pipe") == 0) {
+ 			parm.action = TC_ACT_PIPE;
+-			argc--;
+-			argv++;
++			NEXT_ARG_FWD();
+ 		} else if (matches(*argv, "drop") == 0 ||
+ 			   matches(*argv, "shot") == 0) {
+ 			parm.action = TC_ACT_SHOT;
+-			argc--;
+-			argv++;
++			NEXT_ARG_FWD();
+ 		} else if (matches(*argv, "continue") == 0) {
+ 			parm.action = TC_ACT_UNSPEC;
+-			argc--;
+-			argv++;
+-		} else if (matches(*argv, "pass") == 0) {
++			NEXT_ARG_FWD();
++		} else if (matches(*argv, "pass") == 0 ||
++			   matches(*argv, "ok") == 0) {
+ 			parm.action = TC_ACT_OK;
+-			argc--;
+-			argv++;
++			NEXT_ARG_FWD();
+ 		}
+ 	}
+ 
+@@ -203,8 +202,8 @@ opt_bpf:
+ 				fprintf(stderr, "bpf: Illegal \"index\"\n");
+ 				return -1;
+ 			}
+-			argc--;
+-			argv++;
++
++			NEXT_ARG_FWD();
+ 		}
+ 	}
+ 
+-- 
+1.9.3
