@@ -1,42 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/4] net: SO_INCOMING_CPU setsockopt()
- support
-Date: Thu, 08 Oct 2015 15:24:13 -0700
-Message-ID: <1444343053.27760.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <201510090613.liYbSvmH%fengguang.wu@intel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: report features supported by the
+ kernel datapath
+Date: Thu, 8 Oct 2015 15:40:57 -0700
+Message-ID: <CAEP_g=-pgG6yhGsbvbdrJdAK3VXX1a+8c-wRkHuRte0=2Byg2w@mail.gmail.com>
+References: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, kbuild-all@01.org,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33077 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbbJHWYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 18:24:15 -0400
-Received: by pacex6 with SMTP id ex6so66518281pac.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 15:24:14 -0700 (PDT)
-In-Reply-To: <201510090613.liYbSvmH%fengguang.wu@intel.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34438 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933464AbbJHWlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 18:41:18 -0400
+Received: by lbbwt4 with SMTP id wt4so62831050lbb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 15:41:17 -0700 (PDT)
+In-Reply-To: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-09 at 06:14 +0800, kbuild test robot wrote:
-> Hi Eric,
-> 
-> [auto build test WARNING on net-next/master -- if it's inappropriate base, please ignore]
-> 
-> config: sh-titan_defconfig (attached as .config)
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=sh 
-> 
-> All warnings (new ones prefixed by >>):
-> 
->    net/ipv6/udp.c: In function 'udp6_lib_lookup2':
-> >> net/ipv6/udp.c:276:1: warning: label 'exact_match' defined but not used [-Wunused-label]
+On Thu, Oct 8, 2015 at 6:53 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Allow the user space to query what features are supported by the openvswitch
+> module. This will be used to allow or disallow certain configurations and/or
+> switch between newer and older APIs depending on what the kernel supports.
+>
+> Two features are reported as supported by this patch: lwtunnel and IPv6
+> tunneling support. Theoretically, we could merge these two, as any of them
+> implies the other with this patch applied, but it's better to keep them
+> separate: kernel 4.3 supports lwtunnels but not IPv6 for ovs, and the
+> separation of the two flags allows us to backport a version of this patch
+> to 4.3 should the need arise.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Oh right, I'll send a V3 then.
+I have similar concerns as were expressed in the other thread. The
+features listed here aren't OVS components and I don't think that it
+makes sense for OVS to try to cover everything that is related - the
+goal that we've been working towards is to have OVS be less monolithic
+and more integrated. So to the extent that it is necessary to have
+capabilities be exposed (and I would like to avoid this where
+possible), it should be in the individual component, not in OVS.
