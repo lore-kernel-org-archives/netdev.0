@@ -1,34 +1,53 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
-Date: Wed, 7 Oct 2015 23:30:26 -0700
-Message-ID: <56160D82.5060405@plumgrid.com>
-References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
- <1444078101-29060-2-git-send-email-ast@plumgrid.com>
- <5612F639.2050305@iogearbox.net> <56131B1F.80002@plumgrid.com>
- <5613C261.4080302@iogearbox.net> <56158CAF.9030209@plumgrid.com>
- <561597A6.4000203@iogearbox.net>
- <CAGXu5jLM5Wp_PjdcEcxUo-VoEmsSycF236MZaJd2wvLjbQx+eQ@mail.gmail.com>
- <5615AF92.50402@plumgrid.com> <20151008062155.GA18452@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2 1/5] net: move net_get_random_once to lib
+Date: Thu, 08 Oct 2015 08:42:03 +0200
+Message-ID: <5616103B.2030805@iogearbox.net>
+References: <201510081306.aKMKQcGQ%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151008062155.GA18452@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kbuild-all@01.org, davem@davemloft.net, hannes@stressinduktion.org,
+	ast@plumgrid.com, netdev@vger.kernel.org
+To: kbuild test robot <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38207 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751277AbbJHGmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:42:11 -0400
+In-Reply-To: <201510081306.aKMKQcGQ%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/7/15 11:21 PM, Ingo Molnar wrote:
-> so I see no reason why unprivileged eBPF couldn't have a sysctl too - with the
-> default value set to permissive.
+On 10/08/2015 07:12 AM, kbuild test robot wrote:
+> Hi Hannes,
+>
+> [auto build test WARNING on net-next/master -- if it's inappropriate base, please ignore]
+>
+> config: mips-ip27_defconfig (attached as .config)
+> reproduce:
+>          wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>          chmod +x ~/bin/make.cross
+>          # save the attached .config to linux build tree
+>          make.cross ARCH=mips
+>
+> All warnings (new ones prefixed by >>):
+>
+>     mips-linux-gnu-ld: lib/lockref.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
+>     mips-linux-gnu-ld: lib/lockref.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
+[...]
+>     mips-linux-gnu-ld: lib/reciprocal_div.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
+>     mips-linux-gnu-ld: lib/reciprocal_div.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
+>>> mips-linux-gnu-ld: lib/once.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
+>>> mips-linux-gnu-ld: lib/once.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
 
-agreed. sent out v2 follows 'modules_disabled' style.
+Looks like a known issue on MIPS given the warning is not new also on other object
+files. Here was what was discussed recently on this subject on a refactoring patch
+from David Ahern:
+
+   https://patchwork.ozlabs.org/patch/525102/
+
+Thanks!
+
+>     mips-linux-gnu-ld: lib/string_helpers.o: warning: Inconsistent ISA between e_flags and .MIPS.abiflags
+>     mips-linux-gnu-ld: lib/string_helpers.o: warning: Inconsistent ISA extensions between e_flags and .MIPS.abiflags
+[...]
