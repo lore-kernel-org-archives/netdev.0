@@ -1,34 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 3/4] sh_eth: Remove obsolete r8a7740-gether
- platform_device_id entry
-Date: Thu, 8 Oct 2015 11:07:49 +0900
-Message-ID: <20151008020748.GB8756@verge.net.au>
-References: <1444205657-25314-1-git-send-email-geert+renesas@glider.be>
- <1444205657-25314-4-git-send-email-geert+renesas@glider.be>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] bpf: enable non-root eBPF programs
+Date: Wed, 7 Oct 2015 19:29:16 -0700
+Message-ID: <5615D4FC.1010706@plumgrid.com>
+References: <1444078101-29060-1-git-send-email-ast@plumgrid.com>
+ <1444078101-29060-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444205657-25314-4-git-send-email-geert+renesas@glider.be>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1444078101-29060-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 07, 2015 at 10:14:16AM +0200, Geert Uytterhoeven wrote:
-> Since commit 1fa59bda21c7fa36 ("ARM: shmobile: Remove legacy board code
-> for Armadillo-800 EVA"), r8a7740 is only supported in generic DT-only
-> ARM multi-platform builds.  The driver doesn't need to match platform
-> devices by name anymore, hence remove the corresponding
-> platform_device_id entry.
-> 
-> Protect r8a7740_data by #ifdef CONFIG_OF as it's now referenced on DT
-> platforms only. Move it to a more logical position, in front of the
-> r8a777x support, so we can have a single #ifdef covering all r7s* and
-> r8a* support soon. This requires moving a few helper functions, too.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+On 10/5/15 1:48 PM, Alexei Starovoitov wrote:
+> Unprivileged socket filter bpf programs have access to the
+> following helper functions:
+> - map lookup/update/delete (but they cannot store kernel pointers into them)
+> - get_random (it's already exposed to unprivileged user space)
+> - get_smp_processor_id
+> - tail_call into another socket filter program
+> - ktime_get_ns
+> - bpf_trace_printk (for debugging)
 
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
-
+while reviewing everything for Nth time realized that
+bpf_trace_printk is useless for unprivileged users, since
+trace_pipe is root only.
+So going to drop it in V2.
