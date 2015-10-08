@@ -1,35 +1,42 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH 1/2 net] net/mlx4_core: Test interrupts fail if not all
- comp vectors called request_irq
-Date: Thu, 8 Oct 2015 14:51:44 +0300
-Message-ID: <CAJ3xEMi2-rLs=9b+6Lubog=ACqYUh1x+V+dViR_KYL0D1Q_vHg@mail.gmail.com>
-References: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] mlxsw: fix warnings for big-endian 32-bit dma_addr_t
+Date: Thu, 08 Oct 2015 05:07:19 -0700 (PDT)
+Message-ID: <20151008.050719.1791217246493289007.davem@davemloft.net>
+References: <30258520.VaA2vDyUiY@wuerfel>
+	<1444200782.26237.8.camel@perches.com>
+	<9933338.DDyBa8BQum@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com
-To: Carol L Soto <clsoto@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, netdev@vger.kernel.org, jiri@mellanox.com,
+	idosch@mellanox.com, linux-kernel@vger.kernel.org,
+	eladr@mellanox.com, sfeldma@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33467 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756839AbbJHLvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:45 -0400
-Received: by iofh134 with SMTP id h134so54869215iof.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 04:51:44 -0700 (PDT)
-In-Reply-To: <1444166829-17638-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60968 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755867AbbJHLvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:51:32 -0400
+In-Reply-To: <9933338.DDyBa8BQum@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote:
-> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->
-> Test interrupts fails if not all completion vectors called
-> request_irq. This case can happen if only mlx4_en loads and
-> we have more completion vectors than rx rings.
->
-> Fixes: c66fa19c405a ('net/mlx4: Add EQ pool')
-> Acked-by: Matan Barak <matanb@mellanox.com>
-> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 07 Oct 2015 08:58:34 +0200
 
-Here too, I will submit this with other fixes we have, thanks a lot.
+> The recently added mlxsw driver produces warnings in ARM
+> allmodconfig:
+> 
+> drivers/net/ethernet/mellanox/mlxsw/pci.c: In function 'mlxsw_pci_cmd_exec':
+> drivers/net/ethernet/mellanox/mlxsw/pci.c:1585:59: warning: right shift count >= width of type [-Wshift-count-overflow]
+> linux/byteorder/big_endian.h:38:51: note: in definition of macro '__cpu_to_be32'
+> drivers/net/ethernet/mellanox/mlxsw/pci.c:76:2: note: in expansion of macro 'iowrite32be'
+> 
+> This uses upper_32_bits() to extract the bits while avoiding that warning.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> Fixes: eda6500a987a "mlxsw: Add PCI bus implementation"
+
+Applied, thanks.
