@@ -1,73 +1,149 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 1/4] switchdev: add bridge attributes
-Date: Thu, 8 Oct 2015 09:46:48 -0400
-Message-ID: <20151008134648.GB17507@ketchup.mtl.sfl>
-References: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
- <1444284283-33601-2-git-send-email-sfeldma@gmail.com>
- <20151008083923.GE2186@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
-	siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
-	stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	andrew@lunn.ch, f.fainelli@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] openvswitch: report features supported by the kernel datapath
+Date: Thu,  8 Oct 2015 15:53:04 +0200
+Message-ID: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:56750 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932809AbbJHNwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:52:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20151008083923.GE2186@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:42233 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932876AbbJHNx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 09:53:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Thursday 08 (41) 10:39 AM, Jiri Pirko wrote:
-> Thu, Oct 08, 2015 at 08:04:40AM CEST, sfeldma@gmail.com wrote:
-> >From: Scott Feldman <sfeldma@gmail.com>
-> >
-> >Setting the stage to push bridge-level attributes down to port driver so
-> >hardware can be programmed accordingly.  Bridge-level attribute example is
-> >ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
-> >
-> >Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> >---
-> > include/net/switchdev.h      |    5 +++++
-> > include/uapi/linux/if_link.h |    2 +-
-> > 2 files changed, 6 insertions(+), 1 deletion(-)
-> >
-> >diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> >index 89266a3..8d92cd0 100644
-> >--- a/include/net/switchdev.h
-> >+++ b/include/net/switchdev.h
-> >@@ -43,6 +43,7 @@ enum switchdev_attr_id {
-> > 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
-> > 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-> > 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
-> >+	SWITCHDEV_ATTR_ID_BRIDGE,
-> > };
-> > 
-> > struct switchdev_attr {
-> >@@ -52,6 +53,10 @@ struct switchdev_attr {
-> > 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
-> > 		u8 stp_state;				/* PORT_STP_STATE */
-> > 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
-> >+		struct switchdev_attr_bridge {		/* BRIDGE */
-> >+			enum ifla_br attr;
-> 
-> I don't like pushing down IFLA_BR_* values throught switchdev. I think
-> it might better to just intruduce:
-> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME
-> 
-> and "u32 ageing_time" here. Something similar to stp_state. Much easier
-> to read and does not give blank cheque for passing any bridge IFLA_BR_*
-> down to drivers.
-> 
-> It also aligns with bridge code nicely, I believe.
+Allow the user space to query what features are supported by the openvswitch
+module. This will be used to allow or disallow certain configurations and/or
+switch between newer and older APIs depending on what the kernel supports.
 
-I would add that pushing bridge-specific aspects down to the drivers
-does not really make sense since such notion does not exist for them. A
-Linux-bridge is just an untagged-VLAN for the switch chip point-of-view.
+Two features are reported as supported by this patch: lwtunnel and IPv6
+tunneling support. Theoretically, we could merge these two, as any of them
+implies the other with this patch applied, but it's better to keep them
+separate: kernel 4.3 supports lwtunnels but not IPv6 for ovs, and the
+separation of the two flags allows us to backport a version of this patch
+to 4.3 should the need arise.
 
-Thanks,
--v
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+This is intentionally submitted to net-next. Kernel 4.3 will be fine without
+this feature (but despite that, I'd like to keep the two flags separate).
+---
+ include/uapi/linux/openvswitch.h | 12 ++++++++++++
+ net/openvswitch/datapath.c       | 21 ++++++++++++++++++---
+ 2 files changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 32e07d8cbaf4..3d8d00b6e55d 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -73,6 +73,10 @@ enum ovs_datapath_cmd {
+  * datapath.  Always present in notifications.
+  * @OVS_DP_ATTR_MEGAFLOW_STATS: Statistics about mega flow masks usage for the
+  * datapath. Always present in notifications.
++ * @OVS_DP_ATTR_KERNEL_FEATURES: Bitmask of features that the datapath
++ * supports.  When creating a datapath, this is a minimal feature set
++ * requested, the request will fail if it cannot be honored.  On get
++ * operations, this contains all features supported by the datapath.
+  *
+  * These attributes follow the &struct ovs_header within the Generic Netlink
+  * payload for %OVS_DP_* commands.
+@@ -84,6 +88,7 @@ enum ovs_datapath_attr {
+ 	OVS_DP_ATTR_STATS,		/* struct ovs_dp_stats */
+ 	OVS_DP_ATTR_MEGAFLOW_STATS,	/* struct ovs_dp_megaflow_stats */
+ 	OVS_DP_ATTR_USER_FEATURES,	/* OVS_DP_F_*  */
++	OVS_DP_ATTR_KERNEL_FEATURES,	/* OVS_DP_KF_* */
+ 	__OVS_DP_ATTR_MAX
+ };
+ 
+@@ -121,6 +126,13 @@ struct ovs_vport_stats {
+ /* Allow datapath to associate multiple Netlink PIDs to each vport */
+ #define OVS_DP_F_VPORT_PIDS	(1 << 1)
+ 
++/* Datapath features */
++#define OVS_DP_KF_LWTUNNEL	(1ULL << 0)  /* lwtunnel interface supported */
++#define OVS_DP_KF_IPV6_TUNNEL	(1ULL << 1)  /* IPv6 tunneling supported */
++
++#define OVS_DP_KF_ALL		(OVS_DP_KF_LWTUNNEL | \
++				 OVS_DP_KF_IPV6_TUNNEL)
++
+ /* Fixed logical ports. */
+ #define OVSP_LOCAL      ((__u32)0)
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index a75828091e21..896435779fc8 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1439,6 +1439,7 @@ static size_t ovs_dp_cmd_msg_size(void)
+ 	msgsize += nla_total_size(sizeof(struct ovs_dp_stats));
+ 	msgsize += nla_total_size(sizeof(struct ovs_dp_megaflow_stats));
+ 	msgsize += nla_total_size(sizeof(u32)); /* OVS_DP_ATTR_USER_FEATURES */
++	msgsize += nla_total_size(sizeof(u64)); /* OVS_DP_ATTR_KERNEL_FEATURES */
+ 
+ 	return msgsize;
+ }
+@@ -1476,6 +1477,9 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
+ 	if (nla_put_u32(skb, OVS_DP_ATTR_USER_FEATURES, dp->user_features))
+ 		goto nla_put_failure;
+ 
++	if (nla_put_u64(skb, OVS_DP_ATTR_KERNEL_FEATURES, OVS_DP_KF_ALL))
++		goto nla_put_failure;
++
+ 	genlmsg_end(skb, ovs_header);
+ 	return 0;
+ 
+@@ -1526,6 +1530,13 @@ static void ovs_dp_change(struct datapath *dp, struct nlattr *a[])
+ 		dp->user_features = nla_get_u32(a[OVS_DP_ATTR_USER_FEATURES]);
+ }
+ 
++static bool ovs_dp_kernel_features_ok(struct nlattr *a[])
++{
++	if (!a[OVS_DP_ATTR_KERNEL_FEATURES])
++		return true;
++	return !(nla_get_u64(a[OVS_DP_ATTR_KERNEL_FEATURES]) & ~OVS_DP_KF_ALL);
++}
++
+ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct nlattr **a = info->attrs;
+@@ -1536,9 +1547,10 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	struct ovs_net *ovs_net;
+ 	int err, i;
+ 
+-	err = -EINVAL;
+ 	if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
+-		goto err;
++		return -EINVAL;
++	if (!ovs_dp_kernel_features_ok(a))
++		return -EOPNOTSUPP;
+ 
+ 	reply = ovs_dp_cmd_alloc_info(info);
+ 	if (!reply)
+@@ -1626,7 +1638,6 @@ err_free_dp:
+ 	kfree(dp);
+ err_free_reply:
+ 	kfree_skb(reply);
+-err:
+ 	return err;
+ }
+ 
+@@ -1694,6 +1705,9 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	struct datapath *dp;
+ 	int err;
+ 
++	if (!ovs_dp_kernel_features_ok(info->attrs))
++		return -EOPNOTSUPP;
++
+ 	reply = ovs_dp_cmd_alloc_info(info);
+ 	if (!reply)
+ 		return -ENOMEM;
+@@ -1777,6 +1791,7 @@ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
+ 	[OVS_DP_ATTR_NAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ - 1 },
+ 	[OVS_DP_ATTR_UPCALL_PID] = { .type = NLA_U32 },
+ 	[OVS_DP_ATTR_USER_FEATURES] = { .type = NLA_U32 },
++	[OVS_DP_ATTR_KERNEL_FEATURES] = { .type = NLA_U64 },
+ };
+ 
+ static const struct genl_ops dp_datapath_genl_ops[] = {
+-- 
+1.8.3.1
