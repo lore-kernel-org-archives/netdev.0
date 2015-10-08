@@ -1,58 +1,51 @@
 From: Yaowei Bai <bywxiaobai@163.com>
-Subject: [PATCH 1/9] net/netlink: lockdep_genl_is_held can be boolean
-Date: Thu,  8 Oct 2015 21:28:54 +0800
-Message-ID: <1444310942-4428-2-git-send-email-bywxiaobai@163.com>
+Subject: [PATCH 5/9] net/dccp: dccp_list_has_service can be boolean
+Date: Thu,  8 Oct 2015 21:28:58 +0800
+Message-ID: <1444310942-4428-6-git-send-email-bywxiaobai@163.com>
 References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
 	johannes.berg@intel.com, daniel@iogearbox.net,
 	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net, mkl@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-14.163.com ([220.181.12.14]:37582 "EHLO m12-14.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757341AbbJHNdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 09:33:21 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch makes lockdep_genl_is_held return bool to improve
-readability due to this particular function only using either
-one or zero as its return value.
+This patch makes dccp_list_has_service return bool due to this
+particular function only using either one or zero as its return
+value.
 
 No functional change.
 
 Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
 ---
- include/linux/genetlink.h | 2 +-
- net/netlink/genetlink.c   | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/dccp.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
-index 09460d6..a4c61cb 100644
---- a/include/linux/genetlink.h
-+++ b/include/linux/genetlink.h
-@@ -8,7 +8,7 @@
- extern void genl_lock(void);
- extern void genl_unlock(void);
- #ifdef CONFIG_LOCKDEP
--extern int lockdep_genl_is_held(void);
-+extern bool lockdep_genl_is_held(void);
- #endif
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 2210254..61d042b 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -202,16 +202,16 @@ struct dccp_service_list {
+ #define DCCP_SERVICE_INVALID_VALUE htonl((__u32)-1)
+ #define DCCP_SERVICE_CODE_IS_ABSENT		0
  
- /* for synchronisation between af_netlink and genetlink */
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 2ed5f96..d5d713d 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -39,7 +39,7 @@ void genl_unlock(void)
- EXPORT_SYMBOL(genl_unlock);
- 
- #ifdef CONFIG_LOCKDEP
--int lockdep_genl_is_held(void)
-+bool lockdep_genl_is_held(void)
+-static inline int dccp_list_has_service(const struct dccp_service_list *sl,
++static inline bool dccp_list_has_service(const struct dccp_service_list *sl,
+ 					const __be32 service)
  {
- 	return lockdep_is_held(&genl_mutex);
+ 	if (likely(sl != NULL)) {
+ 		u32 i = sl->dccpsl_nr;
+ 		while (i--)
+ 			if (sl->dccpsl_list[i] == service)
+-				return 1;
++				return true;
+ 	}
+-	return 0;
++	return false;
  }
+ 
+ struct dccp_ackvec;
 -- 
 1.9.1
