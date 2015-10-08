@@ -1,46 +1,135 @@
-From: huangdaode <huangdaode@hisilicon.com>
-Subject: [PATCH net-next 2/2] net: fix a bug on Hisilicon Network Subsystem
-Date: Thu, 8 Oct 2015 14:17:25 +0800
-Message-ID: <1444285045-23275-3-git-send-email-huangdaode@hisilicon.com>
-References: <1444285045-23275-1-git-send-email-huangdaode@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-	<netdev@vger.kernel.org>, <linuxarm@huawei.com>,
-	<salil.mehta@huawei.com>, <huangdaode@hisilicon.com>,
-	<kenneth-lee-2012@foxmail.com>, <xuwei5@hisilicon.com>,
-	<lisheng011@huawei.com>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v2 3/4] bridge: push bridge setting ageing_time down to switchdev
+Date: Wed,  7 Oct 2015 23:04:42 -0700
+Message-ID: <1444284283-33601-4-git-send-email-sfeldma@gmail.com>
+References: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
+	pjonnala@broadcom.com, stephen@networkplumber.org,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:52280 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650AbbJHGB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:01:57 -0400
-In-Reply-To: <1444285045-23275-1-git-send-email-huangdaode@hisilicon.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33028 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751277AbbJHGBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 02:01:52 -0400
+Received: by pacex6 with SMTP id ex6so44493075pac.0
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2015 23:01:52 -0700 (PDT)
+In-Reply-To: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug in hns driver during internal testing of the
-driver.
+From: Scott Feldman <sfeldma@gmail.com>
 
-Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-Signed-off-by: yankejian <yankejian@huawei.com>
+Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
+support setting ageing_time (or setting bridge attrs in general).
+
+If push fails, don't update ageing_time in bridge and return err to user.
+
+If push succeeds, update ageing_time in bridge and run gc_timer now to
+recalabrate when to run gc_timer next, based on new ageing_time.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/bridge/br_ioctl.c    |    3 +--
+ net/bridge/br_netlink.c  |    6 +++---
+ net/bridge/br_private.h  |    1 +
+ net/bridge/br_stp.c      |   24 ++++++++++++++++++++++++
+ net/bridge/br_sysfs_br.c |    3 +--
+ 5 files changed, 30 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 95bf42a..e162e4a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -179,7 +179,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
- 			return -EINVAL;
- 		}
- 	} else if (mac_cb->dsaf_dev->dsaf_mode < DSAF_MODE_MAX) {
--		if (mac_cb->mac_id <= DSAF_MAX_PORT_NUM_PER_CHIP) {
-+		if (mac_cb->mac_id >= DSAF_MAX_PORT_NUM_PER_CHIP) {
- 			dev_err(mac_cb->dev,
- 				"input invalid,%s mac%d vmid%d!\n",
- 				mac_cb->dsaf_dev->ae_dev.name,
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 8d423bc..263b4de 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -200,8 +200,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		br->ageing_time = clock_t_to_jiffies(args[1]);
+-		return 0;
++		return br_set_ageing_time(br, args[1]);
+ 
+ 	case BRCTL_GET_PORT_INFO:
+ 	{
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index d78b442..544ab96 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -870,9 +870,9 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 	}
+ 
+ 	if (data[IFLA_BR_AGEING_TIME]) {
+-		u32 ageing_time = nla_get_u32(data[IFLA_BR_AGEING_TIME]);
+-
+-		br->ageing_time = clock_t_to_jiffies(ageing_time);
++		err = br_set_ageing_time(br, nla_get_u32(data[IFLA_BR_AGEING_TIME]));
++		if (err)
++			return err;
+ 	}
+ 
+ 	if (data[IFLA_BR_STP_STATE]) {
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 09d3ecb..ba0c67b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -882,6 +882,7 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
+ int br_set_forward_delay(struct net_bridge *br, unsigned long x);
+ int br_set_hello_time(struct net_bridge *br, unsigned long x);
+ int br_set_max_age(struct net_bridge *br, unsigned long x);
++int br_set_ageing_time(struct net_bridge *br, u32 ageing_time);
+ 
+ 
+ /* br_stp_if.c */
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index 3a982c0..ae3286b 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -566,6 +566,30 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
+ 
+ }
+ 
++int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
++{
++	struct switchdev_attr attr = {
++		.id = SWITCHDEV_ATTR_ID_BRIDGE,
++		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
++		.u.bridge.attr = IFLA_BR_AGEING_TIME,
++		.u.bridge.val = ageing_time,
++	};
++	unsigned long t = clock_t_to_jiffies(ageing_time);
++	int err;
++
++	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
++		return -ERANGE;
++
++	err = switchdev_port_attr_set(br->dev, &attr);
++	if (err)
++		return err;
++
++	br->ageing_time = t;
++	mod_timer(&br->gc_timer, jiffies);
++
++	return 0;
++}
++
+ void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
+ {
+ 	br->bridge_forward_delay = t;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 4c97fc5..04ef192 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -102,8 +102,7 @@ static ssize_t ageing_time_show(struct device *d,
+ 
+ static int set_ageing_time(struct net_bridge *br, unsigned long val)
+ {
+-	br->ageing_time = clock_t_to_jiffies(val);
+-	return 0;
++	return br_set_ageing_time(br, val);
+ }
+ 
+ static ssize_t ageing_time_store(struct device *d,
 -- 
-1.9.1
+1.7.10.4
