@@ -1,96 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 3/3] switchdev: introduce deferred variants
- of obj_add/del helpers
-Date: Thu, 8 Oct 2015 10:28:58 +0200
-Message-ID: <20151008082858.GC2186@nanopsycho.orion>
-References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
- <1444242652-17260-4-git-send-email-jiri@resnulli.us>
- <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [PATCH] iwlwifi:Fix incorrect fallthrough in switch statement
+ in the function iwl_mvm_check_running_scans
+Date: Thu, 8 Oct 2015 08:30:22 +0000
+Message-ID: <1444293021.2899.46.camel@intel.com>
+References: <1442967859-16347-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, idosch@mellanox.com,
-	Elad Raz <eladr@mellanox.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:37207 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753653AbbJHI3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 04:29:01 -0400
-Received: by wicfx3 with SMTP id fx3so14123706wic.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 01:28:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Spinadel, David" <david.spinadel@intel.com>,
+	"Dreyfuss, Haim" <haim.dreyfuss@intel.com>,
+	"Bondar, Alexander" <alexander.bondar@intel.com>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"Stern, Avraham" <avraham.stern@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: "xerofoify@gmail.com" <xerofoify@gmail.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442967859-16347-1-git-send-email-xerofoify@gmail.com>
+Content-Language: en-US
+Content-ID: <C1F9D9CE4F5D6543830A6E17FD219424@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Oct 08, 2015 at 08:45:58AM CEST, gerlitz.or@gmail.com wrote:
->On Wed, Oct 7, 2015 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> Similar to the attr usecase, the caller knows if he is holding RTNL and is
->> in atomic section. So let the called to decide the correct call variant.
->>
->> This allows drivers to sleep inside their ops and wait for hw to get the
->> operation status. Then the status is propagated into switchdev core.
->> This avoids silent errors in drivers.
->>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->> index 7f7d551..2086767 100644
->> --- a/net/bridge/br_fdb.c
->> +++ b/net/bridge/br_fdb.c
->> @@ -139,7 +139,7 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
->>                 .vid = f->vlan_id,
->>         };
->>
->> -       switchdev_port_obj_del(f->dst->dev, &fdb.obj);
->> +       switchdev_port_obj_del_deferred(f->dst->dev, &fdb.obj);
->>  }
->
->
->>  static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
->> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> index c29f4ee..49e6e6f 100644
->> --- a/net/switchdev/switchdev.c
->> +++ b/net/switchdev/switchdev.c
->> @@ -362,6 +362,75 @@ int switchdev_port_obj_add(struct net_device *dev,
->>  }
->>  EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
->>
->> +struct switchdev_obj_work {
->> +       struct work_struct work;
->> +       struct net_device *dev;
->> +       struct switchdev_obj obj;
->> +       bool add; /* add of del */
->> +};
->> +
->> +static void switchdev_port_obj_work(struct work_struct *work)
->> +{
->> +       struct switchdev_obj_work *ow =
->> +                       container_of(work, struct switchdev_obj_work, work);
->> +       int err;
->> +
->> +       rtnl_lock();
->> +       if (ow->add)
->> +               err = switchdev_port_obj_add(ow->dev, &ow->obj);
->> +       else
->> +               err = switchdev_port_obj_del(ow->dev, &ow->obj);
->> +       if (err && err != -EOPNOTSUPP)
->> +               netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
->> +                          err, ow->add ? "add" : "del", ow->obj.id);
->
->This introduced a regression to the 2-phase commit scheme, since the
->prepare commit can fail
->and that would go un-noticed toward the upper layer, agree?
-
-Well, no. This still does the transaction for all lower devices in one
-go. No change in that.
+T24gVHVlLCAyMDE1LTA5LTIyIGF0IDIwOjI0IC0wNDAwLCBOaWNob2xhcyBLcmF1c2Ugd3JvdGU6
+DQo+IFRoaXMgZml4ZXMgaW5jb3JyZWN0IGZhbGx0aHJvdWdoIGluIHRoZSBzd2l0Y2ggc3RhdG1l
+bnQgY2hlY2tpbmcNCj4gdGhlIHNjYW4gdHlwZSBwYXNzZWQgYnkgdGhlIGNhbGxlciB0byBpd2xf
+bXZtX2NoZWNrX3J1bm5pbmdfc2NhbnMNCj4gZm9yIHRoZSBzd2l0Y2ggY2FzZSBJV0xfTVZNX1ND
+QU5fU0NIRUQgdG8gcmV0dXJuIGRpcmVjdGx5IGFmdGVyDQo+IHRoZSBjYWxsIHRvIGl3bF9tdm1f
+c2Nhbl9zdG9wIGluIG9yZGVyIHRvIGF2b2lkIGZhbGx0aHJvdWdoIGludG8NCj4gdGhlIG5leHQg
+Y2FzZSBhbmQgaW5jb3JyZWN0bHkgcmV0dXJuIHplcm8gaW5kaWNhdGluZyBzdWNjZXNzIHRvDQo+
+IHRoZSBjYWxsZXIgZXZlbiBpZiB0aGUgZnVuY3Rpb24gY2FsbCB0byBpd2xfbXZtX3NjYW5fc3Rv
+cCBmYWlscy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5
+QGdtYWlsLmNvbT4NCj4gLS0tDQoNCkFwcGxpZWQgdG8gb3VyIGludGVybmFsIHRyZWUgd2l0aCBh
+IG1vZGlmaWVkIGNvbW1pdCBtZXNzYWdlLg0KDQpUaGFua3MhDQoNCi0tDQpMdWNhLg==
