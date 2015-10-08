@@ -1,45 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge/netfilter: avoid unused label warning
-Date: Thu, 08 Oct 2015 04:42:53 -0700 (PDT)
-Message-ID: <20151008.044253.925506191056148131.davem@davemloft.net>
-References: <7985748.1v9Gzszd4T@wuerfel>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 0/5] Add support for Broadcom's iProc MDIO and
+ Cygnus Ethernet PHY
+Date: Thu, 08 Oct 2015 04:46:34 -0700 (PDT)
+Message-ID: <20151008.044634.27842806470198529.davem@davemloft.net>
+References: <1444159550-3432-1-git-send-email-arunp@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, pablo@netfilter.org,
-	ebiederm@xmission.com, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7985748.1v9Gzszd4T@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1444159550-3432-1-git-send-email-arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 06 Oct 2015 21:22:12 +0200
+From: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Date: Tue, 6 Oct 2015 12:25:45 -0700
 
-> With the ARM mini2440_defconfig, the bridge netfilter code gets
-> built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
-> disabled, which leads to a harmless gcc warning:
-> 
-> net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
-> net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
-> 
-> This gets rid of the warning by cleaning up the code to avoid
-> the respective #ifdefs causing this problem, and replacing them
-> with if(IS_ENABLED()) checks. I have verified that the resulting
-> object code is unchanged, and an additional advantage is that
-> we now get compile coverage of the unused functions in more
-> configurations.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+> This patchset adds support for the iProc MDIO interface and the
+> Broadcom Cygnus SoC's internal Ethernet PHY.
 
-This commit is in v4.2-rc3 and later, but this patch only applies to net-next
-as far as I can tell.
-
-Wouldn't it be better to base this on 'net', or even better Pablo's netfilter
-fixes tree, and while you are at it submit it properly to netfilter-devel
-with Pablo CC:'d as well?
-
-Thanks.
+Series applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
