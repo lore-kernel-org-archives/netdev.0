@@ -1,117 +1,108 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2] ip, realms: also allow to pass in raw realms value
-Date: Thu,  8 Oct 2015 12:22:39 +0200
-Message-ID: <7b438e1a9424209d64fbb77911a05af37038c74d.1444297002.git.daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56617 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754666AbbJHKWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 06:22:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Xu <xuwei5@hisilicon.com>
+Subject: Re: [PATCH net-next 3/6] net: remove dsa.h include from linux/netdevice.h
+Date: Thu, 8 Oct 2015 11:37:22 +0100
+Message-ID: <56164762.1000302@hisilicon.com>
+References: <1444261711-1829-4-git-send-email-vivien.didelot@savoirfairelinux.com> <201510081700.L9pmIsAA%fengguang.wu@intel.com> <20151008091825.GG2186@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	<kbuild-all@01.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Linuxarm <linuxarm@huawei.com>
+To: Jiri Pirko <jiri@resnulli.us>, kbuild test robot <lkp@intel.com>,
+	huangdaode <huangdaode@hisilicon.com>,
+	"Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+	yankejian 00180145 <y00180145@notesmail.huawei.com.cn>,
+	Salil Mehta <salil.mehta@huawei.com>, <yisenzhuang@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151008091825.GG2186@nanopsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If get_rt_realms() fails, try to get a possible raw u32 realms
-value for the u32 RTA_FLOW/FRA_FLOW attribute, as it might be
-useful to directly configure the hex value itself. And only if
-that fails, then bail out.
 
-The source realm is provided in the upper u16 (mask: 0xffff0000)
-and the destination realm through the lower u16 part (mask:
-0x0000ffff). This can be useful for tc's bpf realm matcher, but
-also a full hex/mask param can be provided already for matching
-through iptables' --realm cmdline option, for example.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/rtm_map.h |  3 +--
- ip/iproute.c      |  6 +++---
- ip/iprule.c       |  2 +-
- ip/rtm_map.c      | 10 +++++++++-
- 4 files changed, 14 insertions(+), 7 deletions(-)
+On 10/8/2015 10:18 AM, Jiri Pirko wrote:
+> Thu, Oct 08, 2015 at 11:04:48AM CEST, lkp@intel.com wrote:
+>> Hi Vivien,
+>>
+>> [auto build test ERROR on net-next/master -- if it's inappropriate base, please ignore]
+>>
+>> config: arm64-allyesconfig (attached as .config)
+>> reproduce:
+>>        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>>        chmod +x ~/bin/make.cross
+>>        # save the attached .config to linux build tree
+>>        make.cross ARCH=arm64 
+>>
+>> All errors (new ones prefixed by >>):
+>>
+>>   In file included from drivers/net/ethernet/hisilicon/hns/hnae.c:15:0:
+>>>> drivers/net/ethernet/hisilicon/hns/hnae.h:465:2: error: unknown type name 'phy_interface_t'
+>>     phy_interface_t phy_if;
+>>     ^
+>>
+>> vim +/phy_interface_t +465 drivers/net/ethernet/hisilicon/hns/hnae.h
+> 
+> 
 
-diff --git a/include/rtm_map.h b/include/rtm_map.h
-index 70bda7d..d6e5885 100644
---- a/include/rtm_map.h
-+++ b/include/rtm_map.h
-@@ -4,7 +4,6 @@
- char *rtnl_rtntype_n2a(int id, char *buf, int len);
- int rtnl_rtntype_a2n(int *id, char *arg);
- 
--int get_rt_realms(__u32 *realms, char *arg);
--
-+int get_rt_realms_or_raw(__u32 *realms, char *arg);
- 
- #endif /* __RTM_MAP_H__ */
-diff --git a/ip/iproute.c b/ip/iproute.c
-index b0cd299..40e6ebe 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -749,7 +749,7 @@ static int parse_one_nh(struct rtmsg *r, struct rtattr *rta,
- 		} else if (matches(*argv, "realms") == 0) {
- 			__u32 realm;
- 			NEXT_ARG();
--			if (get_rt_realms(&realm, *argv))
-+			if (get_rt_realms_or_raw(&realm, *argv))
- 				invarg("\"realm\" value is invalid\n", *argv);
- 			rta_addattr32(rta, 4096, RTA_FLOW, realm);
- 			rtnh->rtnh_len += sizeof(struct rtattr) + 4;
-@@ -1050,7 +1050,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 		} else if (matches(*argv, "realms") == 0) {
- 			__u32 realm;
- 			NEXT_ARG();
--			if (get_rt_realms(&realm, *argv))
-+			if (get_rt_realms_or_raw(&realm, *argv))
- 				invarg("\"realm\" value is invalid\n", *argv);
- 			addattr32(&req.n, sizeof(req), RTA_FLOW, realm);
- 		} else if (strcmp(*argv, "onlink") == 0) {
-@@ -1383,7 +1383,7 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 		} else if (matches(*argv, "realms") == 0) {
- 			__u32 realm;
- 			NEXT_ARG();
--			if (get_rt_realms(&realm, *argv))
-+			if (get_rt_realms_or_raw(&realm, *argv))
- 				invarg("invalid realms\n", *argv);
- 			filter.realm = realm;
- 			filter.realmmask = ~0U;
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 714278a..128b16a 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -305,7 +305,7 @@ static int iprule_modify(int cmd, int argc, char **argv)
- 		} else if (matches(*argv, "realms") == 0) {
- 			__u32 realm;
- 			NEXT_ARG();
--			if (get_rt_realms(&realm, *argv))
-+			if (get_rt_realms_or_raw(&realm, *argv))
- 				invarg("invalid realms\n", *argv);
- 			addattr32(&req.n, sizeof(req), FRA_FLOW, realm);
- 		} else if (matches(*argv, "table") == 0 ||
-diff --git a/ip/rtm_map.c b/ip/rtm_map.c
-index 21e818b..1d7d2c7 100644
---- a/ip/rtm_map.c
-+++ b/ip/rtm_map.c
-@@ -93,7 +93,7 @@ int rtnl_rtntype_a2n(int *id, char *arg)
- 	return 0;
- }
- 
--int get_rt_realms(__u32 *realms, char *arg)
-+static int get_rt_realms(__u32 *realms, char *arg)
- {
- 	__u32 realm = 0;
- 	char *p = strchr(arg, '/');
-@@ -114,3 +114,11 @@ int get_rt_realms(__u32 *realms, char *arg)
- 	*realms |= realm;
- 	return 0;
- }
-+
-+int get_rt_realms_or_raw(__u32 *realms, char *arg)
-+{
-+	if (!get_rt_realms(realms, arg))
-+		return 0;
-+
-+	return get_unsigned(realms, arg, 0);
-+}
--- 
-1.9.3
+Hi Jiri,
+
+> Looks like hnae.c needs to do "#include <linux/phy.h>" directly.
+> Cc'ing maintainer.
+> 
+
+Thanks!
+We will send the fix patch soon.
+
+Best Regards,
+Wei
+
+> 
+>>
+>> 6fe6611f huangdaode 2015-09-17  449  struct hnae_ae_dev {
+>> 6fe6611f huangdaode 2015-09-17  450  	struct device cls_dev; /* the class dev */
+>> 6fe6611f huangdaode 2015-09-17  451  	struct device *dev; /* the presented dev */
+>> 6fe6611f huangdaode 2015-09-17  452  	struct hnae_ae_ops *ops;
+>> 6fe6611f huangdaode 2015-09-17  453  	struct list_head node;
+>> 6fe6611f huangdaode 2015-09-17  454  	struct module *owner; /* the module who provides this dev */
+>> 6fe6611f huangdaode 2015-09-17  455  	int id;
+>> 6fe6611f huangdaode 2015-09-17  456  	char name[AE_NAME_SIZE];
+>> 6fe6611f huangdaode 2015-09-17  457  	struct list_head handle_list;
+>> 6fe6611f huangdaode 2015-09-17  458  	spinlock_t lock; /* lock to protect the handle_list */
+>> 6fe6611f huangdaode 2015-09-17  459  };
+>> 6fe6611f huangdaode 2015-09-17  460  
+>> 6fe6611f huangdaode 2015-09-17  461  struct hnae_handle {
+>> 6fe6611f huangdaode 2015-09-17  462  	struct device *owner_dev; /* the device which make use of this handle */
+>> 6fe6611f huangdaode 2015-09-17  463  	struct hnae_ae_dev *dev;  /* the device who provides this handle */
+>> 6fe6611f huangdaode 2015-09-17  464  	struct device_node *phy_node;
+>> 6fe6611f huangdaode 2015-09-17 @465  	phy_interface_t phy_if;
+>> 6fe6611f huangdaode 2015-09-17  466  	u32 if_support;
+>> 6fe6611f huangdaode 2015-09-17  467  	int q_num;
+>> 6fe6611f huangdaode 2015-09-17  468  	int vf_id;
+>> 6fe6611f huangdaode 2015-09-17  469  	u32 eport_id;
+>> 6fe6611f huangdaode 2015-09-17  470  	enum hnae_port_type port_type;
+>> 6fe6611f huangdaode 2015-09-17  471  	struct list_head node;    /* list to hnae_ae_dev->handle_list */
+>> 6fe6611f huangdaode 2015-09-17  472  	struct hnae_buf_ops *bops; /* operation for the buffer */
+>> 6fe6611f huangdaode 2015-09-17  473  	struct hnae_queue **qs;  /* array base of all queues */
+>>
+>> :::::: The code at line 465 was first introduced by commit
+>> :::::: 6fe6611ff275522a4e4c0359e2f46cdd07780d2f net: add Hisilicon Network Subsystem hnae framework support
+>>
+>> :::::: TO: huangdaode <huangdaode@hisilicon.com>
+>> :::::: CC: David S. Miller <davem@davemloft.net>
+>>
+>> ---
+>> 0-DAY kernel test infrastructure                Open Source Technology Center
+>> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> 
+> 
+> 
+> .
+> 
