@@ -1,40 +1,51 @@
-From: Yaowei Bai <bywxiaobai@163.com>
-Subject: [PATCH 7/9] net/inetdevice: inet_ifa_match can be boolean
-Date: Thu,  8 Oct 2015 21:29:00 +0800
-Message-ID: <1444310942-4428-8-git-send-email-bywxiaobai@163.com>
-References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
-	johannes.berg@intel.com, daniel@iogearbox.net,
-	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net, mkl@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: BancoPosta Online Loans <bancoposta-loansfactors@outlook.com>
+Subject: Kredit 1.4 %
+Date: Thu, 08 Oct 2015 14:32:52 +0200
+Message-ID: <4add0f293048828678862f45677fe63d@selbsthilfe-tirol.at>
+Reply-To: bancoposta-loansfactors@outlook.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.proweda.biz ([77.244.248.46]:39793 "EHLO
+	server.proweda.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757700AbbJHNep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:34:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch makes inet_ifa_match return bool due to this
-particular function only using either one or zero as its return
-value.
 
-No functional change.
 
-Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
----
- include/linux/inetdevice.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+--=20
+BancoPosta Loans
+Viale Europa,
+175-00144 Roma,
+Italy.
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index a4328ce..3b0999e 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -171,7 +171,7 @@ __be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
- 			 __be32 local, int scope);
- struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
- 				    __be32 mask);
--static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
-+static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
- {
- 	return !((addr^ifa->ifa_address)&ifa->ifa_mask);
- }
--- 
-1.9.1
+Zu wen es angeht.
+
+Willkommen zu BANCOPOSTA bietet eine Vielzahl von finanziellen Handel,=20
+Kreditvergabe Dienstleistungen f=C3=BCr Privatpersonen und Zusammenarbe=
+it=20
+bieten wir Darlehen mit einem Zinssatz von 1.4%. Das Flexible Darlehen=20
+Bedingungen aus (1 Jahr auf 20 Jahre), Borrow (5,000.00 Euro bis=20
+100,000,000.00 Euro) f=C3=BCr einen bestimmten Zweck. Wenn Sie die=20
+finanzielle Hilfe brauchen oder Sie Darlehen brauchen an Ihre=20
+uneinbringliche Forderungen zu begleichen, werden Sie aufgefordert, f=C3=
+=BCr=20
+Ihre Kreditbearbeitung unten ausf=C3=BCllen.
+
+Vollst=C3=A4ndiger Name:
+Land:
+Kreditbetrag:
+Darlehen-Dauer:
+
+Wir erwarten Ihre Antwort um uns zu aktivieren gehen Sie mit der=20
+Kredit-Dokumentation
+
+Danke
+
+Massimo Sarmi.
+Kredit-Auszahlung-Manager
