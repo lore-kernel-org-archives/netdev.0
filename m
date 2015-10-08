@@ -1,10 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 2/3] net: dsa: push prepare phase in
- port_fdb_add
-Date: Thu, 8 Oct 2015 17:48:14 +0200
-Message-ID: <20151008154814.GR2186@nanopsycho.orion>
+Subject: Re: [PATCH net-next v2 3/3] net: dsa: use switchdev obj in
+ port_fdb_del
+Date: Thu, 8 Oct 2015 17:48:29 +0200
+Message-ID: <20151008154829.GS2186@nanopsycho.orion>
 References: <1444318514-32250-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1444318514-32250-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1444318514-32250-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,13 +16,13 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1444318514-32250-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1444318514-32250-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thu, Oct 08, 2015 at 05:35:13PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->Now that the prepare phase is pushed down to the DSA drivers, propagate
->it to the port_fdb_add function.
+Thu, Oct 08, 2015 at 05:35:14PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>For consistency with the FDB add operation, propagate the
+>switchdev_obj_port_fdb structure in the DSA drivers.
 >
 >Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
