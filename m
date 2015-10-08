@@ -1,33 +1,49 @@
-From: John Mclin <sec304_fuentes@santafe.edu.ar>
-Subject: =?utf-8?Q?EMPLOYEE_#:_MS-284-GS_=E2=80=9CSecret_Shopping=E2=80=9D?=
-Date: Thu, 8 Oct 2015 09:09:15 -0300 (GMT-03:00)
-Message-ID: <1534137583.80195.1444306155133.JavaMail.zimbra@santafe.edu.ar>
-Reply-To: John Mclin <mystery.surveyshoopper@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/5] Mellanox driver update to 4.3-rc4
+Date: Thu,  8 Oct 2015 15:26:14 +0300
+Message-ID: <1444307179-16105-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Achiad Shochat <achiad@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.santafe.edu.ar ([200.12.192.40]:60797 "EHLO
-	correo.santafe.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755474AbbJHMTa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 08:19:30 -0400
+Received: from [193.47.165.129] ([193.47.165.129]:57443 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755146AbbJHM0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 08:26:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Congratulation!!! You have been selected to participate in a paid Custo=
-mer Research Program known as =E2=80=9CSecret Shopping=E2=80=9D. As one=
- of the people selected to represent our firm, you will be acting as a =
-Customer Service Evaluator of selected companies in your area. Get back=
- with the requested data below for more Information.
+Hi Dave, 
 
-1. Name:
-2. Address:
-3. Contact Phone Number:
-4. Zip Code:
-5. Age:
-6. Occupation:
+Small set of fixes for net, which includes Carol's patches, a fix
+from Achiad to have the right behaviour for mlx5 Eth devices w.r.t 
+VLANs in promiscuous mode, a good-bye patch from Ido who left Mellanox
+and the 1st patch from Jiri to our NIC drivers (I love one-liners)...
 
-John Mclin
-Director of Operation
-Mystery Shopper
+Or.
+
+Achiad Shochat (1):
+
+Achiad Shochat (1):
+  net/mlx5e: Disable VLAN filter in promiscuous mode
+
+Carol L Soto (2):
+  net/mlx4_core: Avoid failing the interrupts test
+  net/mlx4: Avoid going into legacy completion mode when unnecessary
+
+Ido Shamay (1):
+  MAINTAINERS: Update mlx4_en driver entry
+
+Jiri Pirko (1):
+  net/mlx5: Fix typo in mlx5_query_port_pvlc
+
+ MAINTAINERS                                             |  1 -
+ drivers/net/ethernet/mellanox/mlx4/eq.c                 |  4 ++++
+ drivers/net/ethernet/mellanox/mlx4/main.c               | 10 ++--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c | 16 ++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/port.c          |  2 +-
+ 5 files changed, 21 insertions(+), 12 deletions(-)
+
+-- 
+2.3.7
