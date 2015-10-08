@@ -1,39 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/6] net: dsa: add port_fdb_prepare
-Date: Thu, 8 Oct 2015 17:07:41 +0200
-Message-ID: <20151008150741.GS17952@lunn.ch>
-References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1444261711-1829-5-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20151008002543.GB31267@lunn.ch>
- <20151008125524.GA1275@ketchup.mtl.sfl>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net v2] fix return of iptunnel_xmit
+Date: Thu, 8 Oct 2015 17:08:49 +0200
+Message-ID: <20151008170849.22bc8632@griffin>
+References: <1444299114-21345-1-git-send-email-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151008125524.GA1275@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Schultz <aschultz@tpip.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43379 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933554AbbJHPIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 11:08:53 -0400
+In-Reply-To: <1444299114-21345-1-git-send-email-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Hi Vivien
-> > 
-> > Bike shedding a bit, but i would call this
-> > mv88e6xxx_port_fdb_prepare_add.
-> 
-> I think port_fdb_prepare is fine because it is the only step that
-> actually needs the 2-phase model. del and dump are safe and don't need
-> pre-check.
+On Thu,  8 Oct 2015 12:11:54 +0200, Andreas Schultz wrote:
+> All users of iptunnel_xmit expect the return value to be the error
+> code from ip_output_local, but currently the return value is length
+> of the send data on success or zero on error.
+> Change iptunnel_xmit returns to match the callers expectation.
 
-O.K. I don't have a strong opinion, i just think sometime later we
-might run into a naming consistency issue. If this does happen, we can
-fix it then.
+That's not true. All users pass the returned value to
+iptunnel_xmit_stats() where it is used to increase tx_bytes.
 
-    Andrew
+The only exception is tipc_udp_send_msg which should be fixed instead.
+
+ Jiri
+
+-- 
+Jiri Benc
