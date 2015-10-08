@@ -1,52 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 00/16] net: Pass net through the output path v2
-Date: Thu, 8 Oct 2015 11:40:30 +0200
-Message-ID: <56163A0E.4050701@6wind.com>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <87pp1fpy1b.fsf@x220.int.ebiederm.org>
- <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
- <87si62gteh.fsf_-_@x220.int.ebiederm.org>
- <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
- <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
- <87bnca4aie.fsf_-_@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <87bnca4aie.fsf_-_@x220.int.ebiederm.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net] fix return of iptunnel_xmit
+Date: Thu,  8 Oct 2015 11:55:04 +0200
+Message-ID: <1444298104-4887-1-git-send-email-aschultz@tpip.net>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:46186 "EHLO mail.tpip.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754342AbbJHJzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 05:55:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 07/10/2015 23:46, Eric W. Biederman a =C3=A9crit :
->
-> This is the next installment of my work to pass struct net through th=
-e
-> output path so the code does not need to guess how to figure out whic=
-h
-> network namespace it is in, and ultimately routes can have output
-> devices in another network namespace.
->
-> The first patch in this series is a fix for a bug that came in when s=
-k
-> was passed through the functions in the output path, and as such is
-> probably a candidate for net.  At the same time my later patches depe=
-nd
-> on it so sending the fix separately would be confusing.
->
-> The second patch in this series is another fix that for an issue that
-> came in when sk was passed through the output path.  I don't think it
-> needs a backport as I don't think anyone uses the path where the code
-> was incorrect.
->
-> The rest of the patchset focuses on the path from xxx_local_out to
-> dst_output and in the end succeeds in passing sock_net(sk) from the
-> socket a packet locally originates on to the dst->output function.
-LGTM.
+All users of iptunnel_xmit expect the return value to be the error
+code from ip_output_local, but currently the return value is length
+of the send data on success or zero on error.
+Change iptunnel_xmit returns to match the callers expectation.
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+This bug was introduced when the ip_tunnel_core code was refactored.
+
+Fixes: 0e6fbc5b6c6218987c93b8c7ca60cf786062899d
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ net/ipv4/ip_tunnel_core.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 84dce6a..f25ccea 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -54,7 +54,6 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ {
+ 	int pkt_len = skb->len - skb_inner_network_offset(skb);
+ 	struct iphdr *iph;
+-	int err;
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
+@@ -79,10 +78,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	__ip_select_ident(dev_net(rt->dst.dev), iph,
+ 			  skb_shinfo(skb)->gso_segs ?: 1);
+ 
+-	err = ip_local_out_sk(sk, skb);
+-	if (unlikely(net_xmit_eval(err)))
+-		pkt_len = 0;
+-	return pkt_len;
++	return ip_local_out_sk(sk, skb);
+ }
+ EXPORT_SYMBOL_GPL(iptunnel_xmit);
+ 
+-- 
+2.1.4
