@@ -1,211 +1,305 @@
-From: Weidong Wang <wangweidong1@huawei.com>
-Subject: [PATCH net-next v3] BNX2: fix a Null Pointer for stats_blk
-Date: Thu, 8 Oct 2015 18:03:47 +0800
-Message-ID: <56163F83.1000901@huawei.com>
-References: <56014CC0.3050201@huawei.com> <5608E5DE.6010706@huawei.com> <560A02FA.6030309@huawei.com> <20150929.211011.677113057504126372.davem@davemloft.net>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net] fix return of iptunnel_xmit
+Date: Thu, 8 Oct 2015 18:05:03 +0800
+Message-ID: <201510081823.wuQ7DOFZ%fengguang.wu@intel.com>
+References: <1444298104-4887-1-git-send-email-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <sony.chacko@qlogic.com>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<rui.xiang@huawei.com>, <manish.chopra@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="/04w6evG8XlLl3ft"
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+	Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:8679 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755913AbbJHKE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 06:04:56 -0400
-In-Reply-To: <20150929.211011.677113057504126372.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:46662 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751627AbbJHKGA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 06:06:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1444298104-4887-1-git-send-email-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we have two processes to do:
-P1#: ifconfig eth0 down; which will call bnx2_close, then will
-, and set Null to stats_blk
-P2#: ifconfig eth0; which will call bnx2_get_stats64, it will
-use stats_blk.
-In one case:
-    --P1#--                   --P2#--
-                              stats_blk(no null)
-    bnx2_free_mem
-    ->bp->stats_blk = NULL
-                              GET_64BIT_NET_STATS
 
-then it will cause 'NULL Pointer' Problem.
-it is as well with 'ethtool -S ethx'.
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Allocate the statistics block at probe time so that this problem is
-impossible
+Hi Andreas,
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+[auto build test WARNING on net/master -- if it's inappropriate base, please ignore]
+
+config: microblaze-mmu_defconfig (attached as .config)
+reproduce:
+        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        # save the attached .config to linux build tree
+        make.cross ARCH=microblaze 
+
+All warnings (new ones prefixed by >>):
+
+   net/ipv4/ip_tunnel_core.c: In function 'iptunnel_xmit':
+>> net/ipv4/ip_tunnel_core.c:55:6: warning: unused variable 'pkt_len' [-Wunused-variable]
+     int pkt_len = skb->len - skb_inner_network_offset(skb);
+         ^
+
+vim +/pkt_len +55 net/ipv4/ip_tunnel_core.c
+
+0e6fbc5b Pravin B Shelar 2013-06-17  39  #include <net/protocol.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  40  #include <net/ip_tunnels.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  41  #include <net/arp.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  42  #include <net/checksum.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  43  #include <net/dsfield.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  44  #include <net/inet_ecn.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  45  #include <net/xfrm.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  46  #include <net/net_namespace.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  47  #include <net/netns/generic.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  48  #include <net/rtnetlink.h>
+63d008a4 Jiri Benc       2015-09-22  49  #include <net/dst_metadata.h>
+0e6fbc5b Pravin B Shelar 2013-06-17  50  
+aad88724 Eric Dumazet    2014-04-15  51  int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+0e6fbc5b Pravin B Shelar 2013-06-17  52  		  __be32 src, __be32 dst, __u8 proto,
+963a88b3 Nicolas Dichtel 2013-09-02  53  		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
+0e6fbc5b Pravin B Shelar 2013-06-17  54  {
+bc22a0e2 Nicolas Dichtel 2015-09-18 @55  	int pkt_len = skb->len - skb_inner_network_offset(skb);
+0e6fbc5b Pravin B Shelar 2013-06-17  56  	struct iphdr *iph;
+0e6fbc5b Pravin B Shelar 2013-06-17  57  
+963a88b3 Nicolas Dichtel 2013-09-02  58  	skb_scrub_packet(skb, xnet);
+963a88b3 Nicolas Dichtel 2013-09-02  59  
+7539fadc Tom Herbert     2013-12-15  60  	skb_clear_hash(skb);
+0e6fbc5b Pravin B Shelar 2013-06-17  61  	skb_dst_set(skb, &rt->dst);
+0e6fbc5b Pravin B Shelar 2013-06-17  62  	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+0e6fbc5b Pravin B Shelar 2013-06-17  63  
+
+:::::: The code at line 55 was first introduced by commit
+:::::: bc22a0e2ea03b75b51a1f722f93821744b5b5ff1 iptunnel: make rx/tx bytes counters consistent
+
+:::::: TO: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+:::::: CC: David S. Miller <davem@davemloft.net>
+
 ---
-Change in v2:
- - Use Allocate the statistics block instead of spinlock, which
-   suggested by David Miller.
- - Updating commit message according to changes.
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
-Change in v3:
- - bnx2_alloc_stats_blk is just allocating the stats block.
- - use 'bp->status_blk' to store the status_blk which would used
-   in other funcs, just to key the codes simplified.
+--/04w6evG8XlLl3ft
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
 
----
- drivers/net/ethernet/broadcom/bnx2.c | 79 ++++++++++++++++++++++++------------
- drivers/net/ethernet/broadcom/bnx2.h |  1 +
- 2 files changed, 53 insertions(+), 27 deletions(-)
+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
+XIu4AAA=
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 2b66ef3..6259064 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -813,6 +813,46 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
- }
-
- static void
-+bnx2_free_stats_blk(struct net_device *dev)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	if (bp->status_blk) {
-+		dma_free_coherent(&bp->pdev->dev, bp->status_stats_size,
-+				  bp->status_blk,
-+				  bp->status_blk_mapping);
-+		bp->status_blk = NULL;
-+		bp->stats_blk = NULL;
-+	}
-+}
-+
-+static int
-+bnx2_alloc_stats_blk(struct net_device *dev)
-+{
-+	int status_blk_size;
-+	void *status_blk;
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	/* Combine status and statistics blocks into one allocation. */
-+	status_blk_size = L1_CACHE_ALIGN(sizeof(struct status_block));
-+	if (bp->flags & BNX2_FLAG_MSIX_CAP)
-+		status_blk_size = L1_CACHE_ALIGN(BNX2_MAX_MSIX_HW_VEC *
-+						 BNX2_SBLK_MSIX_ALIGN_SIZE);
-+	bp->status_stats_size = status_blk_size +
-+				sizeof(struct statistics_block);
-+	status_blk = dma_zalloc_coherent(&bp->pdev->dev, bp->status_stats_size,
-+					 &bp->status_blk_mapping, GFP_KERNEL);
-+	if (status_blk == NULL)
-+		return -ENOMEM;
-+
-+	bp->status_blk = status_blk;
-+	bp->stats_blk = status_blk + status_blk_size;
-+	bp->stats_blk_mapping = bp->status_blk_mapping + status_blk_size;
-+
-+	return 0;
-+}
-+
-+static void
- bnx2_free_mem(struct bnx2 *bp)
- {
- 	int i;
-@@ -829,37 +869,19 @@ bnx2_free_mem(struct bnx2 *bp)
- 			bp->ctx_blk[i] = NULL;
- 		}
- 	}
--	if (bnapi->status_blk.msi) {
--		dma_free_coherent(&bp->pdev->dev, bp->status_stats_size,
--				  bnapi->status_blk.msi,
--				  bp->status_blk_mapping);
-+
-+	if (bnapi->status_blk.msi)
- 		bnapi->status_blk.msi = NULL;
--		bp->stats_blk = NULL;
--	}
- }
-
- static int
- bnx2_alloc_mem(struct bnx2 *bp)
- {
--	int i, status_blk_size, err;
-+	int i, err;
- 	struct bnx2_napi *bnapi;
--	void *status_blk;
--
--	/* Combine status and statistics blocks into one allocation. */
--	status_blk_size = L1_CACHE_ALIGN(sizeof(struct status_block));
--	if (bp->flags & BNX2_FLAG_MSIX_CAP)
--		status_blk_size = L1_CACHE_ALIGN(BNX2_MAX_MSIX_HW_VEC *
--						 BNX2_SBLK_MSIX_ALIGN_SIZE);
--	bp->status_stats_size = status_blk_size +
--				sizeof(struct statistics_block);
--
--	status_blk = dma_zalloc_coherent(&bp->pdev->dev, bp->status_stats_size,
--					 &bp->status_blk_mapping, GFP_KERNEL);
--	if (status_blk == NULL)
--		goto alloc_mem_err;
-
- 	bnapi = &bp->bnx2_napi[0];
--	bnapi->status_blk.msi = status_blk;
-+	bnapi->status_blk.msi = bp->status_blk;
- 	bnapi->hw_tx_cons_ptr =
- 		&bnapi->status_blk.msi->status_tx_quick_consumer_index0;
- 	bnapi->hw_rx_cons_ptr =
-@@ -870,7 +892,7 @@ bnx2_alloc_mem(struct bnx2 *bp)
-
- 			bnapi = &bp->bnx2_napi[i];
-
--			sblk = (status_blk + BNX2_SBLK_MSIX_ALIGN_SIZE * i);
-+			sblk = (bp->status_blk + BNX2_SBLK_MSIX_ALIGN_SIZE * i);
- 			bnapi->status_blk.msix = sblk;
- 			bnapi->hw_tx_cons_ptr =
- 				&sblk->status_tx_quick_consumer_index;
-@@ -880,10 +902,6 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 		}
- 	}
-
--	bp->stats_blk = status_blk + status_blk_size;
--
--	bp->stats_blk_mapping = bp->status_blk_mapping + status_blk_size;
--
- 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709) {
- 		bp->ctx_pages = 0x2000 / BNX2_PAGE_SIZE;
- 		if (bp->ctx_pages == 0)
-@@ -8330,6 +8348,11 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
-
- 	bp->phy_addr = 1;
-
-+	/* allocate stats_blk */
-+	rc = bnx2_alloc_stats_blk(dev);
-+	if (rc)
-+		goto err_out_unmap;
-+
- 	/* Disable WOL support if we are running on a SERDES chip. */
- 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709)
- 		bnx2_get_5709_media(bp);
-@@ -8586,6 +8609,7 @@ error:
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- err_free:
-+	bnx2_free_stats_blk(dev);
- 	free_netdev(dev);
- 	return rc;
- }
-@@ -8603,6 +8627,7 @@ bnx2_remove_one(struct pci_dev *pdev)
-
- 	pci_iounmap(bp->pdev, bp->regview);
-
-+	bnx2_free_stats_blk(dev);
- 	kfree(bp->temp_stats_blk);
-
- 	if (bp->flags & BNX2_FLAG_AER_ENABLED) {
-diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
-index f92f76c..380234d 100644
---- a/drivers/net/ethernet/broadcom/bnx2.h
-+++ b/drivers/net/ethernet/broadcom/bnx2.h
-@@ -6928,6 +6928,7 @@ struct bnx2 {
-
- 	dma_addr_t		status_blk_mapping;
-
-+	void *status_blk;
- 	struct statistics_block	*stats_blk;
- 	struct statistics_block	*temp_stats_blk;
- 	dma_addr_t		stats_blk_mapping;
--- 
-1.9.0
+--/04w6evG8XlLl3ft--
