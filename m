@@ -1,57 +1,73 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2 0/4] sh_eth: Remove obsolete platform_device_id entries
-Date: Thu, 8 Oct 2015 15:49:05 +0200
-Message-ID: <CAMuHMdUsB+9v6T=p0FivcymVFTFtOR8-tf2sOpOMBgV_CH7Hfw@mail.gmail.com>
-References: <1444205657-25314-1-git-send-email-geert+renesas@glider.be>
-	<20151008.051023.991121515814557831.davem@davemloft.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 1/4] switchdev: add bridge attributes
+Date: Thu, 8 Oct 2015 09:46:48 -0400
+Message-ID: <20151008134648.GB17507@ketchup.mtl.sfl>
+References: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
+ <1444284283-33601-2-git-send-email-sfeldma@gmail.com>
+ <20151008083923.GE2186@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20151008.051023.991121515814557831.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
+	siva.mannem.lnx@gmail.com, pjonnala@broadcom.com,
+	stephen@networkplumber.org, roopa@cumulusnetworks.com,
+	andrew@lunn.ch, f.fainelli@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:56750 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932809AbbJHNwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 09:52:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20151008083923.GE2186@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Oct. Thursday 08 (41) 10:39 AM, Jiri Pirko wrote:
+> Thu, Oct 08, 2015 at 08:04:40AM CEST, sfeldma@gmail.com wrote:
+> >From: Scott Feldman <sfeldma@gmail.com>
+> >
+> >Setting the stage to push bridge-level attributes down to port driver so
+> >hardware can be programmed accordingly.  Bridge-level attribute example is
+> >ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
+> >
+> >Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> >---
+> > include/net/switchdev.h      |    5 +++++
+> > include/uapi/linux/if_link.h |    2 +-
+> > 2 files changed, 6 insertions(+), 1 deletion(-)
+> >
+> >diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> >index 89266a3..8d92cd0 100644
+> >--- a/include/net/switchdev.h
+> >+++ b/include/net/switchdev.h
+> >@@ -43,6 +43,7 @@ enum switchdev_attr_id {
+> > 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+> > 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+> > 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+> >+	SWITCHDEV_ATTR_ID_BRIDGE,
+> > };
+> > 
+> > struct switchdev_attr {
+> >@@ -52,6 +53,10 @@ struct switchdev_attr {
+> > 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+> > 		u8 stp_state;				/* PORT_STP_STATE */
+> > 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
+> >+		struct switchdev_attr_bridge {		/* BRIDGE */
+> >+			enum ifla_br attr;
+> 
+> I don't like pushing down IFLA_BR_* values throught switchdev. I think
+> it might better to just intruduce:
+> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME
+> 
+> and "u32 ageing_time" here. Something similar to stp_state. Much easier
+> to read and does not give blank cheque for passing any bridge IFLA_BR_*
+> down to drivers.
+> 
+> It also aligns with bridge code nicely, I believe.
 
-[CC Arnd wearing the arm-soc merge hat]
+I would add that pushing bridge-specific aspects down to the drivers
+does not really make sense since such notion does not exist for them. A
+Linux-bridge is just an untagged-VLAN for the switch chip point-of-view.
 
-On Thu, Oct 8, 2015 at 2:10 PM, David Miller <davem@davemloft.net> wrote:
-> From: Geert Uytterhoeven <geert+renesas@glider.be>
-> Date: Wed,  7 Oct 2015 10:14:13 +0200
->
->> Since commit 3d7608e4c169af03 ("ARM: shmobile: bockw: remove legacy
->> board file and config"), which is now in arm-soc/for-next, shmobile SoCs
->> are only supported in generic DT-only ARM multi-platform builds.
->> The sh_eth driver doesn't need to match platform devices by name
->> anymore, hence this series removes the corresponding platform_device_id
->> entries.
->>
->> Changes since v1:
->>   - Protect some data and functions by #ifdef CONFIG_OF to silence
->>     unused compiler warnings on SH,
->>   - New patches 3 and 4.
->
-> Since that commit isn't in any of my trees why don't you merge this
-> via arm-soc/for-next?
-
-This series just changes the sh_eth driver. There's  no direct dependency on
-the arm-soc changes. Hence I think the sh_eth changes should go in through
-the netdev tree.
-
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Thanks,
+-v
