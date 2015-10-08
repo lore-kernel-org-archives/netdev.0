@@ -1,131 +1,96 @@
-From: Yoshinori Sato <ysato@users.sourceforge.jp>
-Subject: [PATCH v3 2/2] ne: DeviceTree support.
-Date: Thu,  8 Oct 2015 17:28:41 +0900
-Message-ID: <1444292921-18598-2-git-send-email-ysato@users.sourceforge.jp>
-References: <1443765891-32589-1-git-send-email-ysato@users.sourceforge.jp>
- <1444292921-18598-1-git-send-email-ysato@users.sourceforge.jp>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 3/3] switchdev: introduce deferred variants
+ of obj_add/del helpers
+Date: Thu, 8 Oct 2015 10:28:58 +0200
+Message-ID: <20151008082858.GC2186@nanopsycho.orion>
+References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
+ <1444242652-17260-4-git-send-email-jiri@resnulli.us>
+ <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, idosch@mellanox.com,
+	Elad Raz <eladr@mellanox.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.asahi-net.or.jp ([202.224.39.198]:60857 "EHLO
-	mail2.asahi-net.or.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbbJHI3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 04:29:02 -0400
-In-Reply-To: <1444292921-18598-1-git-send-email-ysato@users.sourceforge.jp>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:37207 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753653AbbJHI3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 04:29:01 -0400
+Received: by wicfx3 with SMTP id fx3so14123706wic.0
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 01:28:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMhEupHZvdQfBucemQwyjtQUcwwc5D5MhYqpctJGqtcTsA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes v3
-Use dev_of_node
-Changes v2
-none
+Thu, Oct 08, 2015 at 08:45:58AM CEST, gerlitz.or@gmail.com wrote:
+>On Wed, Oct 7, 2015 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Similar to the attr usecase, the caller knows if he is holding RTNL and is
+>> in atomic section. So let the called to decide the correct call variant.
+>>
+>> This allows drivers to sleep inside their ops and wait for hw to get the
+>> operation status. Then the status is propagated into switchdev core.
+>> This avoids silent errors in drivers.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>
+>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>> index 7f7d551..2086767 100644
+>> --- a/net/bridge/br_fdb.c
+>> +++ b/net/bridge/br_fdb.c
+>> @@ -139,7 +139,7 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+>>                 .vid = f->vlan_id,
+>>         };
+>>
+>> -       switchdev_port_obj_del(f->dst->dev, &fdb.obj);
+>> +       switchdev_port_obj_del_deferred(f->dst->dev, &fdb.obj);
+>>  }
+>
+>
+>>  static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> index c29f4ee..49e6e6f 100644
+>> --- a/net/switchdev/switchdev.c
+>> +++ b/net/switchdev/switchdev.c
+>> @@ -362,6 +362,75 @@ int switchdev_port_obj_add(struct net_device *dev,
+>>  }
+>>  EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
+>>
+>> +struct switchdev_obj_work {
+>> +       struct work_struct work;
+>> +       struct net_device *dev;
+>> +       struct switchdev_obj obj;
+>> +       bool add; /* add of del */
+>> +};
+>> +
+>> +static void switchdev_port_obj_work(struct work_struct *work)
+>> +{
+>> +       struct switchdev_obj_work *ow =
+>> +                       container_of(work, struct switchdev_obj_work, work);
+>> +       int err;
+>> +
+>> +       rtnl_lock();
+>> +       if (ow->add)
+>> +               err = switchdev_port_obj_add(ow->dev, &ow->obj);
+>> +       else
+>> +               err = switchdev_port_obj_del(ow->dev, &ow->obj);
+>> +       if (err && err != -EOPNOTSUPP)
+>> +               netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
+>> +                          err, ow->add ? "add" : "del", ow->obj.id);
+>
+>This introduced a regression to the 2-phase commit scheme, since the
+>prepare commit can fail
+>and that would go un-noticed toward the upper layer, agree?
 
-Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
----
- Documentation/devicetree/bindings/net/ne2000.txt | 17 +++++++++++++++++
- drivers/net/ethernet/8390/ne.c                   | 20 +++++++++++++++++++-
- 2 files changed, 36 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/devicetree/bindings/net/ne2000.txt
-
-diff --git a/Documentation/devicetree/bindings/net/ne2000.txt b/Documentation/devicetree/bindings/net/ne2000.txt
-new file mode 100644
-index 0000000..8b0dfbf
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ne2000.txt
-@@ -0,0 +1,17 @@
-+NE2000 compatible network controller
-+
-+Required properties:
-+- compatible: "national,ne2000"
-+- reg: base address and length of NE2000.
-+- interrupts: interrupt specifier for the sole interrupt.
-+- national,dcr: DCR setting value.
-+
-+Example
-+
-+	ne2000: ethernet@200000 {
-+		compatible = "national,ne2000";
-+		reg = <0x200000 32>;
-+		interrupts = <17 0>;
-+		national,dcr = <0x48>;
-+	};
-+
-diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
-index 90bf71b..82a4ec3 100644
---- a/drivers/net/ethernet/8390/ne.c
-+++ b/drivers/net/ethernet/8390/ne.c
-@@ -52,6 +52,7 @@ static const char version2[] =
- #include <linux/etherdevice.h>
- #include <linux/jiffies.h>
- #include <linux/platform_device.h>
-+#include <linux/of.h>
- 
- #include <asm/io.h>
- 
-@@ -72,6 +73,7 @@ static int io[MAX_NE_CARDS];
- static int irq[MAX_NE_CARDS];
- static int bad[MAX_NE_CARDS];
- static u32 ne_msg_enable;
-+static unsigned int of_dcr_val;
- 
- #ifdef MODULE
- module_param_array(io, int, NULL, 0);
-@@ -171,6 +173,8 @@ bad_clone_list[] __initdata = {
- #  define DCR_VAL 0x48		/* 8-bit mode */
- #elif defined(CONFIG_ATARI)	/* 8-bit mode on Atari, normal on Q40 */
- #  define DCR_VAL (MACH_IS_ATARI ? 0x48 : 0x49)
-+#elif defined(CONFIG_OF_NET)
-+#  define DCR_VAL of_dcr_val
- #else
- #  define DCR_VAL 0x49
- #endif
-@@ -304,7 +308,8 @@ static int __init ne_probe1(struct net_device *dev, unsigned long ioaddr)
- 	struct ei_device *ei_local = netdev_priv(dev);
- 
- 	if (!request_region(ioaddr, NE_IO_EXTENT, DRV_NAME))
--		return -EBUSY;
-+		if (!request_mem_region(ioaddr, NE_IO_EXTENT, DRV_NAME))
-+			return -EBUSY;
- 
- 	reg0 = inb_p(ioaddr);
- 	if (reg0 == 0xFF) {
-@@ -809,11 +814,18 @@ static int __init ne_drv_probe(struct platform_device *pdev)
- 	if (!dev)
- 		return -ENOMEM;
- 
-+	if (dev_of_node(dev))
-+		of_property_read_u32(dev_of_node(dev),
-+				     "national,dcr", &of_dcr_val);
-+
- 	/* ne.c doesn't populate resources in platform_device, but
- 	 * rbtx4927_ne_init and rbtx4938_ne_init do register devices
- 	 * with resources.
- 	 */
- 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
-+	if (!res)
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+
- 	if (res) {
- 		dev->base_addr = res->start;
- 		dev->irq = platform_get_irq(pdev, 0);
-@@ -915,12 +927,18 @@ static int ne_drv_resume(struct platform_device *pdev)
- #define ne_drv_resume NULL
- #endif
- 
-+static const struct of_device_id ne2000_of_table[] __maybe_unused = {
-+	{ .compatible = "national,ne2000" },
-+	{ }
-+};
-+
- static struct platform_driver ne_driver = {
- 	.remove		= ne_drv_remove,
- 	.suspend	= ne_drv_suspend,
- 	.resume		= ne_drv_resume,
- 	.driver		= {
- 		.name	= DRV_NAME,
-+		.of_match_table = of_match_ptr(ne2000_of_table),
- 	},
- };
- 
--- 
-2.1.4
+Well, no. This still does the transaction for all lower devices in one
+go. No change in that.
