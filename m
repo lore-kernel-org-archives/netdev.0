@@ -1,51 +1,58 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 0/6] net: dsa: push switchdev prepare phase in
- FDB ops
-Date: Thu, 8 Oct 2015 09:32:51 -0400
-Message-ID: <20151008133250.GB1275@ketchup.mtl.sfl>
-References: <1444261711-1829-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20151008.052839.1028977184279787835.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
-	f.fainelli@gmail.com, andrew@lunn.ch, narmstrong@baylibre.com,
-	sergei.shtylyov@cogentembedded.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151008.052839.1028977184279787835.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yaowei Bai <bywxiaobai@163.com>
+Subject: [PATCH 1/9] net/netlink: lockdep_genl_is_held can be boolean
+Date: Thu,  8 Oct 2015 21:28:54 +0800
+Message-ID: <1444310942-4428-2-git-send-email-bywxiaobai@163.com>
+References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
+	johannes.berg@intel.com, daniel@iogearbox.net,
+	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net, mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-14.163.com ([220.181.12.14]:37582 "EHLO m12-14.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757341AbbJHNdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 09:33:21 -0400
+In-Reply-To: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+This patch makes lockdep_genl_is_held return bool to improve
+readability due to this particular function only using either
+one or zero as its return value.
 
-On Oct. Thursday 08 (41) 05:28 AM, David Miller wrote:
-> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Date: Wed,  7 Oct 2015 19:48:25 -0400
-> 
-> > The first 3 patches removes the dsa.h include from linux/netdevice.h, which
-> > broke the inclusion of switchdev.h in dsa.h.
-> 
-> I still don't agree with bloating up struct netdevice just to deal with
-> an include file ordering issue, sorry.
+No functional change.
 
-Yes, I just saw your reply on the first version. I will resend the
-patchset with the forward declarations instead.
+Signed-off-by: Yaowei Bai <bywxiaobai@163.com>
+---
+ include/linux/genetlink.h | 2 +-
+ net/netlink/genetlink.c   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-But looking at the issue that Jiri and the kbuild bot pointed out
-earlier in the thread, we must agree that having the DSA header in
-netdevice.h is wrong.
-
-There are 2 points to note here:
-
-* checking a "rcv" member of a DSA-specific structure to anwser the
-  question "does this interface uses hardware-inserted tag?" is not
-  generic and not robust at all.
-
-* the "dsa_ptr" of net_device is just used to access the dsa_switch_tree
-  from DSA packet_type receive functions. There must be another way to
-  pass it, maybe from a netdev_priv or the packet_type->af_packet_priv?
-
-Thanks,
--v
+diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
+index 09460d6..a4c61cb 100644
+--- a/include/linux/genetlink.h
++++ b/include/linux/genetlink.h
+@@ -8,7 +8,7 @@
+ extern void genl_lock(void);
+ extern void genl_unlock(void);
+ #ifdef CONFIG_LOCKDEP
+-extern int lockdep_genl_is_held(void);
++extern bool lockdep_genl_is_held(void);
+ #endif
+ 
+ /* for synchronisation between af_netlink and genetlink */
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2ed5f96..d5d713d 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -39,7 +39,7 @@ void genl_unlock(void)
+ EXPORT_SYMBOL(genl_unlock);
+ 
+ #ifdef CONFIG_LOCKDEP
+-int lockdep_genl_is_held(void)
++bool lockdep_genl_is_held(void)
+ {
+ 	return lockdep_is_held(&genl_mutex);
+ }
+-- 
+1.9.1
