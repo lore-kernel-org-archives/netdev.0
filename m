@@ -1,60 +1,118 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH-next v2 3/4] net/sched: make sch_blackhole.c explicitly
- non-modular
-Date: Thu, 8 Oct 2015 18:59:59 -0400
-Message-ID: <20151008225959.GN14103@windriver.com>
-References: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
- <1444253266-22012-4-git-send-email-paul.gortmaker@windriver.com>
- <CAHA+R7PgVBptnzzcWFW+9bp9UL40e+V+4K8PJjrF-KzeFQodQw@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
+Date: Thu, 8 Oct 2015 16:03:07 -0700
+Message-ID: <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
+ <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+ <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34969 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbbJHXAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 19:00:05 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7PgVBptnzzcWFW+9bp9UL40e+V+4K8PJjrF-KzeFQodQw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, Vlastimil Babka <vbabka@suse.cz>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>, "dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
+To: Jarno Rajahalme <jrajahalme@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-[Re: [PATCH-next v2 3/4] net/sched: make sch_blackhole.c explicitly non-modular] On 07/10/2015 (Wed 14:47) Cong Wang wrote:
+On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme <jrajahalme@nicira.com> wr=
+ote:
+>
+>> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
+>>
+>> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>>>>
+>>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>>>>>
+>>>>> When openvswitch tries allocate memory from offline numa node 0:
+>>>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_=
+ZERO,
+>>>>> 0)
+>>>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || !node_online=
+(nid))
+>>>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp=
+.h
+>>>>> This patch disables numa affinity in this case.
+>>>>>
+>>>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>>>>
+>>>>
+>>>> ...
+>>>>
+>>>>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_tabl=
+e.c
+>>>>> index f2ea83ba4763..c7f74aab34b9 100644
+>>>>> --- a/net/openvswitch/flow_table.c
+>>>>> +++ b/net/openvswitch/flow_table.c
+>>>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>>>>
+>>>>>      /* Initialize the default stat node. */
+>>>>>      stats =3D kmem_cache_alloc_node(flow_stats_cache,
+>>>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
+>>>>> +                      GFP_KERNEL | __GFP_ZERO,
+>>>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>>>>
+>>>>
+>>>> Stupid question: can node 0 become offline between this check, and the
+>>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>>>
+>>>
+>>> Another question to ask would be is it possible for node 0 to be online=
+, but
+>>> be a memoryless node?
+>>>
+>>> I would say you are better off just making this call kmem_cache_alloc. =
+ I
+>>> don't see anything that indicates the memory has to come from node 0, s=
+o
+>>> adding the extra overhead doesn't provide any value.
+>>
+>> I agree that this at least makes me wonder, though I actually have
+>> concerns in the opposite direction - I see assumptions about this
+>> being on node 0 in net/openvswitch/flow.c.
+>>
+>> Jarno, since you original wrote this code, can you take a look to see
+>> if everything still makes sense?
+>
+> We keep the pre-allocated stats node at array index 0, which is initially=
+ used by all CPUs, but if CPUs from multiple numa nodes start updating the =
+stats, we allocate additional stats nodes (up to one per numa node), and th=
+e CPUs on node 0 keep using the preallocated entry. If stats cannot be allo=
+cated from CPUs local node, then those CPUs keep using the entry at index 0=
+. Currently the code in net/openvswitch/flow.c will try to allocate the loc=
+al memory repeatedly, which may not be optimal when there is no memory at t=
+he local node.
+>
+> Allocating the memory for the index 0 from other than node 0, as discusse=
+d here, just means that the CPUs on node 0 will keep on using non-local mem=
+ory for stats. In a scenario where there are CPUs on two nodes (0, 1), but =
+only the node 1 has memory, a shared flow entry will still end up having se=
+parate memory allocated for both nodes, but both of the nodes would be at n=
+ode 1. However, there is still a high likelihood that the memory allocation=
+s would not share a cache line, which should prevent the nodes from invalid=
+ating each other=E2=80=99s caches. Based on this I do not see a problem rel=
+axing the memory allocation for the default stats node. If node 0 has memor=
+y, however, it would be better to allocate the memory from node 0.
 
-> On Wed, Oct 7, 2015 at 2:27 PM, Paul Gortmaker
-> <paul.gortmaker@windriver.com> wrote:
-> > The Kconfig currently controlling compilation of this code is:
-> >
-> > net/sched/Kconfig:menuconfig NET_SCHED
-> > net/sched/Kconfig:      bool "QoS and/or fair queueing"
-> >
-> > ...meaning that it currently is not being built as a module by anyone.
-> 
-> Is there any reason why sch_blackhole can't be a module like
-> other qdisc's?
-> 
-> If not, I'd rather making it be a module. It is small but not often used.
+Thanks for going through all of that.
 
-As I've said in other similar threads, there are some 300+ places
-where code that can't ever be modular uses modular calls and/or
-introduces dead module remove code.
+It seems like the question that is being raised is whether it actually
+makes sense to try to get the initial memory on node 0, especially
+since it seems to introduce some corner cases? Is there any reason why
+the flow is more likely to hit node 0 than a randomly chosen one?
+(Assuming that this is a multinode system, otherwise it's kind of a
+moot point.) We could have a separate pointer to the default allocated
+memory, so it wouldn't conflict with memory that was intentionally
+allocated for node 0.
 
-Hence here I am making the code consistent with its current limitations.
-I'm not looking to extend functionality in code that I don't know
-intimately.  I can't do that and do it reliably and guarantee it
-works as a module when it has never been used as such before in 300+
-places all across the kernel.
-
-If there are interested users who want their code tristate and can vouch
-that their code works OK as such, I can drop the patch(es) here ; this
-is what happened with 4 of the patches I originally had in v1 of this
-very series.  But a good number of the 300+ instances have been this way
-since before git history began (2005) and so I wonder the value in say
-extending instances like old ISA drivers from bool to tristate...
-
-Paul.
 --
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
