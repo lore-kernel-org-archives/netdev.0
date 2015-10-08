@@ -1,69 +1,66 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
-Date: Thu, 8 Oct 2015 15:05:28 -0700
-Message-ID: <5616E8A8.5020809@plumgrid.com>
-References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
- <1444281803-24274-2-git-send-email-ast@plumgrid.com>
- <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2] netfilter: fix bad checksum on IPv6 when NAT is performed
+Date: Thu, 8 Oct 2015 15:11:50 -0700
+Message-ID: <CALx6S34mEeFT_4kBWnEJ2H8P7+FCG_ZpN-CUEgSj4FBH1YeeeQ@mail.gmail.com>
+References: <1444141425.14655.341.camel@sakura.staff.proxad.net>
+	<1444335587.14655.387.camel@sakura.staff.proxad.net>
+	<1444335972.14655.388.camel@sakura.staff.proxad.net>
+	<CALx6S37AdH=icFEqXjH5hDJ2O0dkwLEx6_KqpFkoPYF2sr1N_Q@mail.gmail.com>
+	<1444339594.14655.392.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1444328452.3935641.405110585.76554E06-2RFepEojUI2N1INw9kWLP6GC3tUn3ZHUQQ4Iyu8u01E@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+	kaber <kaber@trash.net>, pablo@netfilter.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: mbizon@freebox.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:35277 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933120AbbJHWLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 18:11:51 -0400
+Received: by ioiz6 with SMTP id z6so73506075ioi.2
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 15:11:50 -0700 (PDT)
+In-Reply-To: <1444339594.14655.392.camel@sakura.staff.proxad.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/8/15 11:20 AM, Hannes Frederic Sowa wrote:
-> Hi Alexei,
+On Thu, Oct 8, 2015 at 2:26 PM, Maxime Bizon <mbizon@freebox.fr> wrote:
 >
-> On Thu, Oct 8, 2015, at 07:23, Alexei Starovoitov wrote:
->> The feature is controlled by sysctl kernel.unprivileged_bpf_disabled.
->> This toggle defaults to off (0), but can be set true (1).  Once true,
->> bpf programs and maps cannot be accessed from unprivileged process,
->> and the toggle cannot be set back to false.
+> On Thu, 2015-10-08 at 14:09 -0700, Tom Herbert wrote:
 >
-> This approach seems fine to me.
+>> I think inet_proto_csum_replace16 should be called here.
 >
-> I am wondering if it makes sense to somehow allow ebpf access per
-> namespace? I currently have no idea how that could work and on which
-> namespace type to depend or going with a prctl or even cgroup maybe. The
-> rationale behind this is, that maybe some namespaces like openstack
-> router namespaces could make usage of advanced ebpf capabilities in the
-> kernel, while other namespaces, especially where untrusted third parties
-> are hosted, shouldn't have access to those facilities.
+> inet_proto_csum_replace16() wants a non NULL checksum pointer to update,
+> and there is no such thing here.
 >
-> In that way, hosters would be able to e.g. deploy more efficient
-> performance monitoring container (which should still need not to run as
-> root) while the majority of the users has no access to that. Or think
-> about routing instances in some namespaces, etc. etc.
+> I could pass a dummy value, but inet_proto_csum_replace16() will do
+> twice more work for nothing
+>
+> or I could modify inet_proto_csum_replace16() to allow a NULL sum
+> argument.
+>
+If I am reading the code correctly, it looks like
+inet_proto_csum_replace16 is called from
+{tcp,dccp,tcp.udp,udplite}_manip_pkt via l3proto->csum_update which is
+a call to nf_nat_ipv6_csum_update for IPv6. So for these protocols
+when the transport checksum is updated skb->csum is also correctly
+updated. For other protocols or when UDP checksum is zero or for
+fragments-- I don't see where skb->csum is being properly updated.
+This potentially seems to be a major bug.
 
-when we're talking about eBPF for networking or performance monitoring
-it's all going to be under root anyway. The next question is
-how to let the programs run only for traffic or for applications within
-namespaces. Something gotta do this demux. It either can be in-kernel
-C code which is configured via some API that calls different eBPF
-programs based on cgroup or based on netns, or it can be another
-eBPF program that does demux on its own.
-In case of tracing such 'demuxing' program can be attached to kernel
-events and call 'worker' programs via tail_call, so that 'worker'
-programs will have an illusion that they're working only with events
-that belong to their namespace.
-imo existing facilities already allow 'per namespace' eBPF, though
-the prog_array used to jump from 'demuxing' bpf into 'worker' bpf
-currently is a bit awkward to use (because of FD passing via daemon),
-but that will get solved soon.
-It feels that in-kernel C code doing filtering may be
-'more robust' from namespace isolation point of view, but I don't
-think we have a concrete and tested proposal, so I would
-experiment with 'demuxing' bpf first.
-The programs in general don't have a notion of namespace. They
-need to be attached to veth via TC to get packets for
-particular namespace.
+I would suggest:
+1) Modify the inet_proto_csum_replace* routines to check for NULL
+check pointer and and only write it when non-NULL
+2) Call l3proto->csum_update from unknown_manip_pkt with check == NULL
+3) In udp_manip_pkt call l3proto->csum_update with check = NULL when
+UDP checksum is zero
+4) For IPv6 fragments call l3proto->csum_update with check = NULL
+
+Tom
+
+
+
+> --
+> Maxime
+>
+>
