@@ -1,58 +1,113 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/4] net: SO_INCOMING_CPU setsockopt() support
-Date: Thu, 8 Oct 2015 10:10:11 -0700
-Message-ID: <CALx6S37Dd0iWo7q1KP+yGSVEb8CScj788mJZpo-8-+6MwV7DMw@mail.gmail.com>
-References: <1444318627-27883-1-git-send-email-edumazet@google.com>
-	<1444318627-27883-2-git-send-email-edumazet@google.com>
-	<CALx6S35jNA8sQ_yibFK-eL-asbNP9BieRvTcKkM3-CNarKJMDA@mail.gmail.com>
-	<1444321775.27760.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S34ctcycnjTR4gon7oSRMdh3Xod2yi_B_TtTvrxt6MW4gg@mail.gmail.com>
-	<1444323627.27760.27.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] ipv6 route: use err pointers instead of returning pointer by reference
+Date: Thu,  8 Oct 2015 10:26:25 -0700
+Message-ID: <1444325185-42661-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:34920 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964921AbbJHRKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 13:10:13 -0400
-Received: by ioiz6 with SMTP id z6so65008870ioi.2
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 10:10:13 -0700 (PDT)
-In-Reply-To: <1444323627.27760.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35777 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965087AbbJHR03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 13:26:29 -0400
+Received: by pabve7 with SMTP id ve7so1784763pab.2
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 10:26:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 8, 2015 at 10:00 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2015-10-08 at 09:44 -0700, Tom Herbert wrote:
->
->> I see. We are not using SO_INCOMING_CPU_MASK as a defense against
->> DDOS. It's used ensure affinity in application connection processing
->> between CPUs. For instance, if we have two NUMA nodes we can start two
->> instances of the application bound to each node and then use
->> SO_REUSEPORT and SO_INCOMING_CPU_MASK to ensure connections are
->> processed on the the same NUMA node. Packets crossing NUMA boundaries
->> even with RFS is painful.
->
-> Then maybe you need something simpler than a mask of cpus, like
-> SO_INCOMING_NODE ?
->
-> Note that this could also be automatically tuned.
->
-> If you have a bunch of listeners on one port (could be 2), then the
-> underlying node on which TCP socket was allocated could be used as a
-> score modifier in compute_score()
->
-Maybe, but I really like the simplicity of SO_INCOMING_CPU_MASK in
-that it doesn't depend on NUMA configuration or RSS configuration.
-It's very easy for the application to just set the same incoming CPU
-mask to be the same CPU mask that the listener thread is bound to.
-We've seen some nice performance benefits in doing with memcached,
-that is to run an instances bound to the set of CPUs for each set NUMA
-node and bind listener threads to the same set.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Tom
+This patch makes ip6_route_info_create return err pointer instead of
+returning the rt pointer by reference as suggested  by Dave
 
->
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+Dave, sorry abt the delay on this one. net-next was closed when i got to it
+and its been in my queue since then.
+
+ net/ipv6/route.c | 30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4320ddc..b45aa49 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1724,21 +1724,21 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
+ 	return -EINVAL;
+ }
+ 
+-int ip6_route_info_create(struct fib6_config *cfg, struct rt6_info **rt_ret)
++static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ {
+-	int err;
+ 	struct net *net = cfg->fc_nlinfo.nl_net;
+ 	struct rt6_info *rt = NULL;
+ 	struct net_device *dev = NULL;
+ 	struct inet6_dev *idev = NULL;
+ 	struct fib6_table *table;
+ 	int addr_type;
++	int err = -EINVAL;
+ 
+ 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
+-		return -EINVAL;
++		goto out;
+ #ifndef CONFIG_IPV6_SUBTREES
+ 	if (cfg->fc_src_len)
+-		return -EINVAL;
++		goto out;
+ #endif
+ 	if (cfg->fc_ifindex) {
+ 		err = -ENODEV;
+@@ -1958,9 +1958,7 @@ install_route:
+ 
+ 	cfg->fc_nlinfo.nl_net = dev_net(dev);
+ 
+-	*rt_ret = rt;
+-
+-	return 0;
++	return rt;
+ out:
+ 	if (dev)
+ 		dev_put(dev);
+@@ -1969,9 +1967,7 @@ out:
+ 	if (rt)
+ 		dst_free(&rt->dst);
+ 
+-	*rt_ret = NULL;
+-
+-	return err;
++	return ERR_PTR(err);
+ }
+ 
+ int ip6_route_add(struct fib6_config *cfg)
+@@ -1980,9 +1976,12 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	struct rt6_info *rt = NULL;
+ 	int err;
+ 
+-	err = ip6_route_info_create(cfg, &rt);
+-	if (err)
++	rt = ip6_route_info_create(cfg);
++	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
++		rt = NULL;
+ 		goto out;
++	}
+ 
+ 	err = ip6_convert_metrics(&mxc, cfg);
+ 	if (err)
+@@ -2871,9 +2870,12 @@ static int ip6_route_multipath_add(struct fib6_config *cfg)
+ 				r_cfg.fc_encap_type = nla_get_u16(nla);
+ 		}
+ 
+-		err = ip6_route_info_create(&r_cfg, &rt);
+-		if (err)
++		rt = ip6_route_info_create(&r_cfg);
++		if (IS_ERR(rt)) {
++			err = PTR_ERR(rt);
++			rt = NULL;
+ 			goto cleanup;
++		}
+ 
+ 		err = ip6_route_info_append(&rt6_nh_list, rt, &r_cfg);
+ 		if (err) {
+-- 
+1.9.1
