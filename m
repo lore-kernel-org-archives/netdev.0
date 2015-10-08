@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] Do not set shared_ports when nreq > MAX_MSIX
-Date: Thu, 08 Oct 2015 04:54:54 -0700 (PDT)
-Message-ID: <20151008.045454.1028964260721714737.davem@davemloft.net>
-References: <1444166829-17638-2-git-send-email-clsoto@linux.vnet.ibm.com>
-	<CAJ3xEMjYtmSj3kBo24w+4Y3Nh60C9J=NHb_=YQw1QASJ1i_i1g@mail.gmail.com>
-	<5614411E.1070105@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: nhs: fix 32-bit build warning
+Date: Thu, 08 Oct 2015 04:55:11 -0700 (PDT)
+Message-ID: <20151008.045511.183579883465246367.davem@davemloft.net>
+References: <8581924.9CPedieySC@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerlitz.or@gmail.com, matanb@mellanox.com, netdev@vger.kernel.org,
-	ogerlitz@mellanox.com, brking@linux.vnet.ibm.com
-To: clsoto@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, huangdaode@hisilicon.com,
+	liguozhu@huawei.com, Yisen.Zhuang@huawei.com
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60903 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60907 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbbJHLjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:39:08 -0400
-In-Reply-To: <5614411E.1070105@linux.vnet.ibm.com>
+	with ESMTP id S1752986AbbJHLjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 07:39:23 -0400
+In-Reply-To: <8581924.9CPedieySC@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carol Soto <clsoto@linux.vnet.ibm.com>
-Date: Tue, 6 Oct 2015 16:46:06 -0500
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 06 Oct 2015 23:53:57 +0200
 
+> The recently added hns driver causes a build warning in ARM
+> allmodconfig builds:
 > 
+> drivers/net/ethernet/hisilicon/hns/hnae.c: In function 'handles_show':
+> drivers/net/ethernet/hisilicon/hns/hnae.c:452:13: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+>           j, (u64)h->qs[i]->io_base);
+>              ^
 > 
-> On 10/6/2015 4:39 PM, Or Gerlitz wrote:
->> On Wed, Oct 7, 2015 at 12:27 AM,  <clsoto@linux.vnet.ibm.com> wrote:
->>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->>>
->>> If we get MAX_MSIX interrupts would like to have each receive ring
->>> with his own msix interrupt line.
->> so 9293267a3e2a  was only partially correct? and/or not fully optimal?
->> please elaborate more on that in your change log.
-> just not fully optimal, with commit 9293267a3e2a if I have 64 MSIXs
-> and 2 ports I can get 8 rings for each port but then the rings will
-> share the interrupt lines. For 64 MSIXs we can have each ring with his
-> own interrupt line.
+> This removes the pointless cast and prints the pointer address using
+> the "%p" format string in all three locations.
 > 
->>> Fixes: 9293267a3e2a ('net/mlx4_core: Capping number of requested MSIXs
->>> to MAX_MSIX')
->>> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
->> Carol, you didn't use net/mlx4: prefix as ask for mlx4 driver patch
->> titles, so please repost, but before that I'd like to see an ack from
->> Matan for this patch as well.
-> Sorry completely missed it. When Matan acks will resend it.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Also please fix you subject to have a proper "mlx4: " subsystem prefix.
+Applied with subject typo fixed, thanks.
