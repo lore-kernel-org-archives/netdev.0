@@ -1,60 +1,29 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net v2] fix return of iptunnel_xmit
-Date: Thu,  8 Oct 2015 12:11:54 +0200
-Message-ID: <1444299114-21345-1-git-send-email-aschultz@tpip.net>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip: find correct route for socket which is not bound
+ (v2)
+Date: Thu, 08 Oct 2015 03:30:40 -0700 (PDT)
+Message-ID: <20151008.033040.1547006591564973862.davem@davemloft.net>
+References: <1443145960-20514-1-git-send-email-wen.gang.wang@oracle.com>
+	<5615E379.1040206@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: wen.gang.wang@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:45583 "EHLO mail.tpip.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752412AbbJHKMA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 06:12:00 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60449 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753951AbbJHKOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 06:14:54 -0400
+In-Reply-To: <5615E379.1040206@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All users of iptunnel_xmit expect the return value to be the error
-code from ip_output_local, but currently the return value is length
-of the send data on success or zero on error.
-Change iptunnel_xmit returns to match the callers expectation.
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Date: Thu, 8 Oct 2015 11:31:05 +0800
 
-This bug was introduced when the ip_tunnel_core code was refactored.
+> Any comment on this patch?
 
-Fixes: 0e6fbc5b6c6218987c93b8c7ca60cf786062899d
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
----
-Change in v2:
- - remove unused variable pkt_len
-
----
- net/ipv4/ip_tunnel_core.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 84dce6a..c167c4a 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -52,9 +52,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
- 		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
- {
--	int pkt_len = skb->len - skb_inner_network_offset(skb);
- 	struct iphdr *iph;
--	int err;
- 
- 	skb_scrub_packet(skb, xnet);
- 
-@@ -79,10 +77,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	__ip_select_ident(dev_net(rt->dst.dev), iph,
- 			  skb_shinfo(skb)->gso_segs ?: 1);
- 
--	err = ip_local_out_sk(sk, skb);
--	if (unlikely(net_xmit_eval(err)))
--		pkt_len = 0;
--	return pkt_len;
-+	return ip_local_out_sk(sk, skb);
- }
- EXPORT_SYMBOL_GPL(iptunnel_xmit);
- 
--- 
-2.1.4
+I'm still thinking about it, so if nobody else chimes in with a review
+that convinces me one way or another you will just have to patiently
+wait for me.
