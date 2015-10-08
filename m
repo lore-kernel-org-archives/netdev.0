@@ -1,90 +1,54 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/3] net: dsa: use switchdev obj in port_fdb_del
-Date: Thu,  8 Oct 2015 11:35:14 -0400
-Message-ID: <1444318514-32250-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1444318514-32250-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444318514-32250-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/4] tcp: better smp listener behavior
+Date: Thu,  8 Oct 2015 08:37:03 -0700
+Message-ID: <1444318627-27883-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34969 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933809AbbJHPhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 11:37:15 -0400
+Received: by pacgl6 with SMTP id gl6so1649125pac.2
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 08:37:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For consistency with the FDB add operation, propagate the
-switchdev_obj_port_fdb structure in the DSA drivers.
+As promised in last patch series, we implement a better SO_REUSEPORT
+strategy, based on cpu affinities if selected by the application.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 4 ++--
- drivers/net/dsa/mv88e6xxx.h | 2 +-
- include/net/dsa.h           | 2 +-
- net/dsa/slave.c             | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+We also moved sk_refcnt out of the cache line containing the lookup
+keys, as it was considerably slowing down smp operations because
+of false sharing. This was simpler than converting listen sockets
+to conventional RCU (to avoid sk_refcnt dirtying)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9223273..e381bfc 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1870,13 +1870,13 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- }
- 
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid)
-+			   const struct switchdev_obj_port_fdb *fdb)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	mutex_lock(&ps->smi_mutex);
--	ret = _mv88e6xxx_port_fdb_load(ds, port, addr, vid,
-+	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid,
- 				       GLOBAL_ATU_DATA_STATE_UNUSED);
- 	mutex_unlock(&ps->smi_mutex);
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index e688bee..1347a73 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -486,7 +486,7 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb,
- 			   struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid);
-+			   const struct switchdev_obj_port_fdb *fdb);
- int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, u16 *vid, bool *is_static);
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index ce8f9b7..e005886 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -326,7 +326,7 @@ struct dsa_switch_driver {
- 				const struct switchdev_obj_port_fdb *fdb,
- 				struct switchdev_trans *trans);
- 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
--				const unsigned char *addr, u16 vid);
-+				const struct switchdev_obj_port_fdb *fdb);
- 	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
- 				    unsigned char *addr, u16 *vid,
- 				    bool *is_static);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6f7f27e..bb2bd3b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -367,7 +367,7 @@ static int dsa_slave_port_fdb_del(struct net_device *dev,
- 	int ret = -EOPNOTSUPP;
- 
- 	if (ds->drv->port_fdb_del)
--		ret = ds->drv->port_fdb_del(ds, p->port, fdb->addr, fdb->vid);
-+		ret = ds->drv->port_fdb_del(ds, p->port, fdb);
- 
- 	return ret;
- }
+Could process 6.0 Mpps SYN instead of 4.2 Mpps on my test server.
+
+Eric Dumazet (4):
+  net: SO_INCOMING_CPU setsockopt() support
+  net: align sk_refcnt on 128 bytes boundary
+  net: shrink struct sock and request_sock by 8 bytes
+  tcp: shrink tcp_timewait_sock by 8 bytes
+
+ include/linux/tcp.h              |  4 ++--
+ include/net/inet_timewait_sock.h |  2 +-
+ include/net/request_sock.h       |  7 +++----
+ include/net/sock.h               | 37 +++++++++++++++++++++++++++----------
+ net/core/sock.c                  |  5 +++++
+ net/ipv4/inet_hashtables.c       |  5 +++++
+ net/ipv4/syncookies.c            |  4 ++--
+ net/ipv4/tcp_input.c             |  2 +-
+ net/ipv4/tcp_ipv4.c              |  2 +-
+ net/ipv4/tcp_minisocks.c         | 18 +++++++++---------
+ net/ipv4/tcp_output.c            |  2 +-
+ net/ipv4/udp.c                   | 12 +++++++++++-
+ net/ipv6/inet6_hashtables.c      |  5 +++++
+ net/ipv6/syncookies.c            |  4 ++--
+ net/ipv6/tcp_ipv6.c              |  2 +-
+ net/ipv6/udp.c                   | 11 +++++++++++
+ 16 files changed, 87 insertions(+), 35 deletions(-)
+
 -- 
-2.6.0
+2.6.0.rc2.230.g3dd15c0
