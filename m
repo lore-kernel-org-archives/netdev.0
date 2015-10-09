@@ -1,94 +1,78 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/16] i40e: inline interrupt enable
-Date: Thu,  8 Oct 2015 18:32:40 -0700
-Message-ID: <1444354374-24351-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/16] i40e/i40evf: pass QOS handle to VF
+Date: Thu,  8 Oct 2015 18:32:53 -0700
+Message-ID: <1444354374-24351-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444354374-24351-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:54300 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755265AbbJIBc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2015 21:32:57 -0400
+	id S1755547AbbJIBdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2015 21:33:00 -0400
 In-Reply-To: <1444354374-24351-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The interrupt enable function can be inlined by moving it to the header
-file, which decreases the function call overhead for a frequently called
-function.
+The VF really doesn't care about the QOS handle but it will in the
+future. Since the VF only uses TC0, send it that handle. On the VF
+side, save the handle and use it to populate the QOS params when we call
+into the client interface.
 
-Change-ID: I3214cc99593725768642680e7b8ce7e9bba7e44d
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I76f41b070baeaa09b19383e9168bc677837e0761
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      | 19 ++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 18 ------------------
- 2 files changed, 18 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 6 ++++--
+ drivers/net/ethernet/intel/i40evf/i40evf.h         | 1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 1 +
+ 3 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 681bd5d..7a3c939 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -702,7 +702,24 @@ static inline void i40e_dbg_pf_exit(struct i40e_pf *pf) {}
- static inline void i40e_dbg_init(void) {}
- static inline void i40e_dbg_exit(void) {}
- #endif /* CONFIG_DEBUG_FS*/
--void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
-+/**
-+ * i40e_irq_dynamic_enable - Enable default interrupt generation settings
-+ * @vsi: pointer to a vsi
-+ * @vector: enable a particular Hw Interrupt vector, without base_vector
-+ **/
-+static inline void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u32 val;
-+
-+	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
-+	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
-+	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
-+	wr32(hw, I40E_PFINT_DYN_CTLN(vector + vsi->base_vector - 1), val);
-+	/* skip the flush */
-+}
-+
- void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector);
- void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
- void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fb4b34d..2c59214 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3060,24 +3060,6 @@ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 678623f..ee747dc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1210,8 +1210,10 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 	if (vf->lan_vsi_idx) {
+ 		vfres->vsi_res[i].vsi_id = vf->lan_vsi_id;
+ 		vfres->vsi_res[i].vsi_type = I40E_VSI_SRIOV;
+-		vfres->vsi_res[i].num_queue_pairs =
+-		    pf->vsi[vf->lan_vsi_idx]->alloc_queue_pairs;
++		vfres->vsi_res[i].num_queue_pairs = vsi->alloc_queue_pairs;
++		/* VFs only use TC 0 */
++		vfres->vsi_res[i].qset_handle
++					  = le16_to_cpu(vsi->info.qs_handle[0]);
+ 		ether_addr_copy(vfres->vsi_res[i].default_mac_addr,
+ 				vf->default_lan_addr.addr);
+ 		i++;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 27dc3fe..e7a223e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -66,6 +66,7 @@ struct i40e_vsi {
+ 	 */
+ 	u16 rx_itr_setting;
+ 	u16 tx_itr_setting;
++	u16 qs_handle;
+ };
+ 
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 1f99930..c00e495 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2115,6 +2115,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 	adapter->vsi.tx_itr_setting = (I40E_ITR_DYNAMIC |
+ 				       ITR_REG_TO_USEC(I40E_ITR_TX_DEF));
+ 	adapter->vsi.netdev = adapter->netdev;
++	adapter->vsi.qs_handle = adapter->vsi_res->qset_handle;
+ 	return 0;
  }
  
- /**
-- * i40e_irq_dynamic_enable - Enable default interrupt generation settings
-- * @vsi: pointer to a vsi
-- * @vector: enable a particular Hw Interrupt vector, without base_vector
-- **/
--void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
--{
--	struct i40e_pf *pf = vsi->back;
--	struct i40e_hw *hw = &pf->hw;
--	u32 val;
--
--	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
--	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
--	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
--	wr32(hw, I40E_PFINT_DYN_CTLN(vector + vsi->base_vector - 1), val);
--	/* skip the flush */
--}
--
--/**
-  * i40e_irq_dynamic_disable - Disable default interrupt generation settings
-  * @vsi: pointer to a vsi
-  * @vector: disable a particular Hw Interrupt vector
 -- 
 2.4.3
