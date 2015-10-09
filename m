@@ -1,101 +1,70 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH v2] ipvs: drop first packet to dead server
-Date: Fri, 9 Oct 2015 18:17:34 +0200
-Message-ID: <20151009161734.GA5034@midget.suse.cz>
-References: <20150925093737.GA5047@midget.suse.cz>
- <20150925094820.GB5047@midget.suse.cz>
- <alpine.LFD.2.11.1509272004230.1618@ja.home.ssi.bg>
+From: "Devon H. O'Dell" <dho@fastly.com>
+Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before xmit
+Date: Fri, 9 Oct 2015 09:40:43 -0700
+Message-ID: <CADe=ujZWjibL39JXM4U32GSHjK_sc6oov1Z0KrTL2dMGryJCjw@mail.gmail.com>
+References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
+	<56153E6C.9050202@plumgrid.com>
+	<CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com>
+	<561727D5.2070001@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:58048 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933282AbbJIQRi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 12:17:38 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1509272004230.1618@ja.home.ssi.bg>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:36762 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757049AbbJIQkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 12:40:45 -0400
+Received: by obcgx8 with SMTP id gx8so66557638obc.3
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 09:40:44 -0700 (PDT)
+In-Reply-To: <561727D5.2070001@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Oct 8, 2015 at 7:35 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 10/8/15 5:50 PM, Devon H. O'Dell wrote:
+>>>
+>>> with the amount of skb_sender_cpu_clear() all over the code base
+>>> >I wonder whether there is a better solution to all of these.
+>>
+>> I think there is. We found that splitting the union of sender_cpu and
+>> napi_id solved the issue for us. In general, I think this is an OK
+>> solution as long as the following hold:
+>>
+>>   * skbs are always allocated via kzalloc
+>>   * out -> out cloned skbs are always cloned on the same CPU
+>>   * an extra four bytes in skbuff isn't a bad thing
+>
+>
+> I'm pretty sure extending sk_buff for this is not acceptable.
 
-On Sun, Sep 27, 2015 at 08:25:18PM +0300, Julian Anastasov wrote:
-> On Fri, 25 Sep 2015, Jiri Bohac wrote:
-> 
-> >  		if (!atomic_read(&cp->n_control))
-> >  			ip_vs_conn_expire_now(cp);
-> >  		__ip_vs_conn_put(cp);
-> > -		cp = NULL;
-> > +		return NF_DROP;
-> 
-> 	So, at this point we do not know whether we have
-> one or many real servers, with same or different forwarding
-> method. For example, if we know that old real server is DR
-> and the new real server is again DR we can reuse the conntrack.
-> 
-> 	Without such info we have to drop the connection
-> _only_ when conntrack is used.
+That's unfortunate.
 
-right, good point!
+> I was thinking may be we can use sign bit to distinguish between
+> napi_id and sender_cpu.
+> Like:
+>         if ((int)skb->sender_cpu >= 0)
+>                 skb->sender_cpu = - (raw_smp_processor_id() + 1);
+> and inside get_xps_queue() use it only if it's negative.
 
-> +static inline bool ip_vs_conn_uses_conntrack(struct ip_vs_conn *cp,
-> +					struct sk_buff *skb)
-> +{
-> +#ifdef CONFIG_IP_VS_NFCT
-> +	enum ip_conntrack_info ctinfo;
-> +	struct nf_conn *ct;
-> +
-> +	if (!(cp->flags & IP_VS_CONN_F_NFCT))
-> +		return false;
-> +	ct = nf_ct_get(skb, &ctinfo);
-> +	if (ct && !nf_ct_is_untracked(ct))
-> +		return true;
-> +#endif
-> +	return false;
-> +}
-> +
+I like the idea, but it seems unnecessarily magical. What about using
+a bitfield? Then there's just an option bit that is either
+OPTION_NAPI_ID or OPTION_SENDER_CPU. Then the check to set sender_cpu
+in netdev_pick_tx becomes
 
-I tested this part; we found the problem on an old (3.12) kernel,
-we're missing the parts dealing with rescheduling on port reuse -
-only dealing with the "weight == 0" case.
+    if (skb->sender_napi_option == OPTION_NAPI_ID || skb->sender_cpu == 0) ...
 
-> +	if (conn_reuse_mode && !iph.fragoffs && is_new_conn(skb, &iph) && cp) {
-> +		bool uses_ct = false, resched = false;
-> +
-> +		if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
-> +		    unlikely(!atomic_read(&cp->dest->weight))) {
-> +			resched = true;
-> +			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
-> +		} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
-> +			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
-> +			if (!atomic_read(&cp->n_control)) {
-> +				resched = true;
-> +			} else {
-> +				/* Do not reschedule controlling connection
-> +				 * that uses conntrack while it is still
-> +				 * referenced by controlled connection(s).
-> +				 */
-> +				resched = !uses_ct;
-> +			}
-> +		}
-> +
-> +		if (resched) {
-> +			if (!atomic_read(&cp->n_control))
-> +				ip_vs_conn_expire_now(cp);
-> +			__ip_vs_conn_put(cp);
-> +			if (uses_ct)
-> +				return NF_DROP;
-> +			cp = NULL;
-> +		}
+> Then we can remove skb_sender_cpu_clear() from everywhere.
+> Adding a check to napi_hash_add() to make sure that napi_id is not
+> negative is probably ok too.
 
-Looks good, but I can't easily test this.
+We could change this to check that sender_napi_option would be
+OPTION_NAPI_ID with the bitfield idea.
 
-Thanks,
+My names are probably bad, but I think the idea is less magical (and
+is effectively the same thing you are proposing).
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+> Thoughts?
+
+--dho
