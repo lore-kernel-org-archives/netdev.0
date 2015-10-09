@@ -1,38 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/4] net: SO_INCOMING_CPU setsockopt()
- support
-Date: Fri, 09 Oct 2015 02:45:46 -0700
-Message-ID: <1444383946.27760.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444358004-26483-1-git-send-email-edumazet@google.com>
-	 <1444358004-26483-2-git-send-email-edumazet@google.com>
-	 <CALx6S36E7gO0YLadaayiXiJXhaveirumLZ-hiYJQuxrpObjZJQ@mail.gmail.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: report features
+ supported by the kernel datapath
+Date: Fri, 9 Oct 2015 11:46:46 +0200
+Message-ID: <20151009114646.2ee66f3b@griffin>
+References: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
+ <CAEP_g=-pgG6yhGsbvbdrJdAK3VXX1a+8c-wRkHuRte0=2Byg2w@mail.gmail.com>
+ <20151009092453.GB18316@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33558 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754897AbbJIJpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 05:45:49 -0400
-Received: by pacex6 with SMTP id ex6so82762922pac.0
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 02:45:48 -0700 (PDT)
-In-Reply-To: <CALx6S36E7gO0YLadaayiXiJXhaveirumLZ-hiYJQuxrpObjZJQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20151009092453.GB18316-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-10-08 at 20:40 -0700, Tom Herbert wrote:
-
-> Do we care about losing this optimization? It's not done in IPv4 but I
-> can imagine that there is some arguments that address comparisons in
-> IPv6 are more expensive hence this might make sense...
-
-I do not think we care. You removed the 'optimization' in IPv4 in commit
-ba418fa357a7b ("soreuseport: UDP/IPv4 implementation") back in 2013 and
-really no one noticed.
-
-The important factor here is the number of cache lines taken to traverse
-the list...
+T24gRnJpLCA5IE9jdCAyMDE1IDExOjI0OjUzICswMjAwLCBUaG9tYXMgR3JhZiB3cm90ZToKPiBP
+biAxMC8wOC8xNSBhdCAwMzo0MHBtLCBKZXNzZSBHcm9zcyB3cm90ZToKPiA+IEkgaGF2ZSBzaW1p
+bGFyIGNvbmNlcm5zIGFzIHdlcmUgZXhwcmVzc2VkIGluIHRoZSBvdGhlciB0aHJlYWQuIFRoZQo+
+ID4gZmVhdHVyZXMgbGlzdGVkIGhlcmUgYXJlbid0IE9WUyBjb21wb25lbnRzIGFuZCBJIGRvbid0
+IHRoaW5rIHRoYXQgaXQKPiA+IG1ha2VzIHNlbnNlIGZvciBPVlMgdG8gdHJ5IHRvIGNvdmVyIGV2
+ZXJ5dGhpbmcgdGhhdCBpcyByZWxhdGVkIC0gdGhlCj4gPiBnb2FsIHRoYXQgd2UndmUgYmVlbiB3
+b3JraW5nIHRvd2FyZHMgaXMgdG8gaGF2ZSBPVlMgYmUgbGVzcyBtb25vbGl0aGljCj4gPiBhbmQg
+bW9yZSBpbnRlZ3JhdGVkLiBTbyB0byB0aGUgZXh0ZW50IHRoYXQgaXQgaXMgbmVjZXNzYXJ5IHRv
+IGhhdmUKPiA+IGNhcGFiaWxpdGllcyBiZSBleHBvc2VkIChhbmQgSSB3b3VsZCBsaWtlIHRvIGF2
+b2lkIHRoaXMgd2hlcmUKPiA+IHBvc3NpYmxlKSwgaXQgc2hvdWxkIGJlIGluIHRoZSBpbmRpdmlk
+dWFsIGNvbXBvbmVudCwgbm90IGluIE9WUy4KCkZhaXIgZW5vdWdoLiBOb3RlIHRoYXQgdGhlIElQ
+djYgZmxhZyByZWFsbHkgYmVsb25ncyB0byBvdnMsIHRob3VnaCAtCml0J3MgYWJvdXQgdGhlIGV4
+aXN0ZW5jZSBvZiBPVlNfVFVOTkVMX0tFWV9BVFRSX0lQVjZfU1JDIGFuZApPVlNfVFVOTkVMX0tF
+WV9BVFRSX0lQVjZfRFNUIG5ldGxpbmsgYXR0cmlidXRlcy4gRm9yIHRoZSBsd3R1bm5lbCBmbGFn
+Cih3aGljaCBpcyBqdXN0IGFub3RoZXIgd2F5IHRvIHRlbGwgd2hldGhlciB2eGxhbi9nZW5ldmUv
+ZXRjLiBoYXMKQ09MTEVDVF9NRVRBREFUQSBzdXBwb3J0KSBJIGNhbiBhZ3JlZSB0aGF0IGl0IGRv
+ZXMgbm90IGJlbG9uZyB0byBvdnMuCgo+IEknbSBmaW5lIHdpdGggdGhhdCBhcyB3ZWxsLiBIb3dl
+dmVyLCBJIGRvIGRpc2xpa2UgdGhlIGlkZWEgb2YgY3JlYXRpbmcKPiBuZXRfZGV2aWNlcyB3aXRo
+IGEgc2V0IG9mIHBhcmFtZXRlcnMganVzdCB0byBmaWd1cmUgaWYgdGhlIHBhcmFtZXRlcnMKPiBh
+cmUgc3VwcG9ydGVkIG9yIG5vdC4gVGhpcyB3b3JrcyBPSyBmb3IgdGhlIGZpcnN0IHN0ZXAgb2Yg
+ZXZvbHV0aW9uCj4gd2hlcmUgd2UgaGF2ZSBzdXBwb3J0IG9yIG5vdCBidXQgaXQgZ2V0cyBhYnNv
+bHV0ZWx5IG1lc3N5IHdoZW4gd2UKPiBoYXZlOiBubyBzdXBwb3J0LCBtdWx0aXBsZSBsZXZlbHMg
+b2YgcGFydGlhbCBzdXBwb3J0IGFuZCBmaW5hbGx5IGZ1bGwKPiBzdXBwb3J0LgoKMTAwJSBhZ3Jl
+ZWQuCgo+IFdlIGhhdmUgYmVlbiB0aGlua2luZyBhYm91dCBhIG1vcmUgZ2VuZXJpYyBjYXBhYmls
+aXRpZXMgTmV0bGluawo+IGludGVyZmFjZSBmb3IgYSB3aGlsZSBhbmQgdGhpcyBsb29rcyBsaWtl
+IGEgZ29vZCBqdXN0aWZpY2F0aW9uIGZvcgo+IGZpbmFsbHkgZG9pbmcgdGhhdCB3b3JrLgoKSSd2
+ZSBiZWVuIGxvb2tpbmcgaW50byB0aGlzIHNpbmNlIG1vcm5pbmcgYW5kIGV2ZXJ5dGhpbmcgSSd2
+ZSBiZWVuIGFibGUKdG8gY29tZSB1cCB3aXRoIHNlZW1zIHRvIGJlIHF1aXRlIGludHJ1c2l2ZS4g
+QmVmb3JlIGludmVzdGluZyB0aW1lIHRvCmNyZWF0ZSBhIGxvbmcgcGF0Y2hzZXQgdGhhdCBtaWdo
+dCBiZSBwb3RlbnRpYWxseSByZWplY3RlZCwgSSdkIGxpa2UgdG8KZ2V0IHNvbWUgb3BpbmlvbnMu
+CgpNeSB0aG91Z2h0cyBhcmUgaW50cm9kdWNpbmcgZWl0aGVyIFJUTV9WQUxJREFURUxJTksgb3IK
+UlRNX05FV0xJTktfU1RSSUNULiBJbiB0aGUgZmlyc3QgY2FzZSwgaXQgd291bGQganVzdCBjaGVj
+ayB3aGV0aGVyIHRoZQpwYXNzZWQgYXR0cmlidXRlcyBhcmUgb2theSBmb3IgInN0cmljdCIgY3Jl
+YXRpb24gb2YgdGhlIGxpbms7IGluIHRoZQpzZWNvbmQgY2FzZSwgaXQgd291bGQgZWl0aGVyIHJl
+amVjdCB0aGUgcmVxdWVzdCwgb3IgY3JlYXRlIHRoZSBsaW5rCihzaW1pbGFybHkgdG8gd2hhdCBS
+VE1fTkVXTElOSyBkb2VzIGJ1dCB3aXRoICJzdHJpY3QiIGF0dHJpYnV0ZXMKY2hlY2tpbmcpLgoK
+VGhlICJzdHJpY3QiIGNoZWNraW5nIHdvdWxkIG1lYW46CgotIFJlamVjdGluZyBhdHRyaWJ1dGVz
+IHdpdGggdHlwZSA8PSAwIGFuZCA+IG1heHR5cGUgKGkuZS4gY2hhbmdpbmcKICBubGFfcGFyc2Us
+IG5sbXNnX3BhcnNlLCBldGMuIHRvIGRvIG9wdGlvbmFsIHN0cmljdCBjaGVja2luZyBiYXNlZCBv
+bgogIGEgcGFzc2VkIGJvb2wgcGFyYW1ldGVyKS4KCi0gQWRkaW5nIHRoZSBib29sIHBhcmFtZXRl
+ciBmb3Igc3RyaWN0IGNoZWNraW5nIHRvIHJ0bmxfbGlua19vcHMKICB2YWxpZGF0ZSBhbmQgc2xh
+dmVfdmFsaWRhdGUgY2FsbGJhY2tzLgoKSXQgd291bGQgbWVhbiByZWZhY3RvcmluZyBvZiBydG5s
+X25ld2xpbmsuCgpPciBkbyB5b3UgaGF2ZSBzb21ldGhpbmcgbW9yZSBnZW5lcmljIGluIG1pbmQ/
+IExpa2UgYWRkaW5nIGEgbmV3Ck5MTV9GX1JFUVVFU1RfU1RSSUNUIGZsYWcgdG8gbmxtc2doZHIg
+dG8gYmUgdXNlZCBpbnN0ZWFkIG9mCk5MTV9GX1JFUVVFU1Q/CgpUaGFua3MsCgogSmlyaQoKLS0g
+CkppcmkgQmVuYwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
