@@ -1,64 +1,52 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] netfilter: turn NF_HOOK into an inline function
-Date: Fri, 09 Oct 2015 14:45:20 +0200
-Message-ID: <7665226.mEs2QJDTOT@wuerfel>
+Subject: [PATCH] net: HNS: fix MDIO dependencies
+Date: Fri, 09 Oct 2015 14:53:54 +0200
+Message-ID: <8114651.XErShuFr2W@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: davem@davemloft.net, Yisen Zhuang <Yisen.Zhuang@huawei.com>,
+	Kenneth Lee <liguozhu@huawei.com>,
+	huangdaode <huangdaode@hisilicon.com>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A recent change to the dst_output handling caused a new warning
-when the call to NF_HOOK() is the only used of a local variable
-passed as 'dev', and CONFIG_NETFILTER is disabled:
+The newly introduced HNS_MDIO Kconfig symbol selects 'MDIO', but
+that is the wrong symbol as the code used by this driver is
+provided by PHYLIB rather than the MDIO driver. Also, there is
+no need to make this driver user selectable, because it is already
+selected by all drivers that need it.
 
-net/ipv6/ip6_output.c: In function 'ip6_output':
-net/ipv6/ip6_output.c:135:21: warning: unused variable 'dev' [-Wunused-variable]
-
-The reason for this is that the NF_HOOK macro in this case does
-not reference the variable at all. To avoid that warning now
-and in the future, this changes the macro into an equivalent
-inline function, which tells the compiler that the variable is
-passed correctly but still unused.
+This changes the Kconfig file to select the correct library, and
+to make the option silent.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: ede2059dbaf9 ("dst: Pass net into dst->output")
+Fixes: 5b904d39406 ("net: add Hisilicon Network Subsystem MDIO support")
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index edb3dc32f1da..1ff5c3f82820 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -347,8 +347,23 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
- }
+diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+index 165b5a8aa2ea..8d12b587809e 100644
+--- a/drivers/net/ethernet/hisilicon/Kconfig
++++ b/drivers/net/ethernet/hisilicon/Kconfig
+@@ -24,7 +24,6 @@ config HIX5HD2_GMAC
  
- #else /* !CONFIG_NETFILTER */
--#define NF_HOOK(pf, hook, net, sk, skb, indev, outdev, okfn) (okfn)(net, sk, skb)
--#define NF_HOOK_COND(pf, hook, net, sk, skb, indev, outdev, okfn, cond) (okfn)(net, sk, skb)
-+static inline int
-+NF_HOOK_COND(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
-+	     struct sk_buff *skb, struct net_device *in, struct net_device *out,
-+	     int (*okfn)(struct net *, struct sock *, struct sk_buff *),
-+	     bool cond)
-+{
-+	return okfn(net, sk, skb);
-+}
-+
-+static inline int
-+NF_HOOK(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk, struct sk_buff *skb,
-+	struct net_device *in, struct net_device *out,
-+	int (*okfn)(struct net *, struct sock *, struct sk_buff *))
-+{
-+	return okfn(net, sk, skb);
-+}
-+
- static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
- 			  struct sock *sk, struct sk_buff *skb,
- 			  struct net_device *indev, struct net_device *outdev,
+ config HIP04_ETH
+ 	tristate "HISILICON P04 Ethernet support"
+-	select PHYLIB
+ 	select MARVELL_PHY
+ 	select MFD_SYSCON
+ 	select HNS_MDIO
+@@ -33,8 +32,8 @@ config HIP04_ETH
+ 	  want to use the internal ethernet then you should answer Y to this.
+ 
+ config HNS_MDIO
+-	tristate "Hisilicon HNS MDIO device Support"
+-	select MDIO
++	tristate
++	select PHYLIB
+ 	---help---
+ 	  This selects the HNS MDIO support. It is needed by HNS_DSAF to access
+ 	  the PHY
