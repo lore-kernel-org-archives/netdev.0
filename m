@@ -1,28 +1,24 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] ath6kl: remove redundant null pointer check on send_pkt
-Date: Fri, 09 Oct 2015 11:47:14 +0300
-Message-ID: <874mi0sa25.fsf@kamboji.qca.qualcomm.com>
-References: <1441633745-5755-1-git-send-email-colin.king@canonical.com>
+Subject: Re: [PATCH v2] ath6kl: drop unlikely behind WARN_ON()
+Date: Fri, 09 Oct 2015 11:49:02 +0300
+Message-ID: <87vbagqvep.fsf@kamboji.qca.qualcomm.com>
+References: <61de1b17c432479ccded41edfb553e2d20ebf8ae.1444048783.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+To: Geliang Tang <geliangtang@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441633745-5755-1-git-send-email-colin.king@canonical.com>
-	(Colin King's message of "Mon, 7 Sep 2015 14:49:05 +0100")
+In-Reply-To: <61de1b17c432479ccded41edfb553e2d20ebf8ae.1444048783.git.geliangtang@163.com>
+	(Geliang Tang's message of "Mon, 5 Oct 2015 20:46:12 +0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Colin King <colin.king@canonical.com> writes:
+Geliang Tang <geliangtang@163.com> writes:
 
-> From: Colin Ian King <colin.king@canonical.com>
+> WARN_ON() already contain an unlikely compiler flag. Drop it.
 >
-> The check for send_pkt being NULL is redundant before the call
-> to htc_reclaim_txctrl_buf, therefore it should be removed. This was
-> detected by static analysis by cppcheck.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 
 Applied, thanks.
 
