@@ -1,70 +1,107 @@
-From: "Devon H. O'Dell" <dho@fastly.com>
-Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before xmit
-Date: Fri, 9 Oct 2015 09:40:43 -0700
-Message-ID: <CADe=ujZWjibL39JXM4U32GSHjK_sc6oov1Z0KrTL2dMGryJCjw@mail.gmail.com>
-References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
-	<56153E6C.9050202@plumgrid.com>
-	<CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com>
-	<561727D5.2070001@plumgrid.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
+ for IPv6
+Date: Fri, 9 Oct 2015 11:27:36 -0600
+Message-ID: <5617F908.8060807@cumulusnetworks.com>
+References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
+ <m2a8rs7crl.wl@gmail.com> <20151009071710.GJ7701@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: multipart/mixed;
+ boundary="------------010708020407070209040908"
+Cc: netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Hajime Tazaki <thehajime@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:36762 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757049AbbJIQkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 12:40:45 -0400
-Received: by obcgx8 with SMTP id gx8so66557638obc.3
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 09:40:44 -0700 (PDT)
-In-Reply-To: <561727D5.2070001@plumgrid.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34393 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752824AbbJIR1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 13:27:31 -0400
+Received: by padhy16 with SMTP id hy16so91953165pad.1
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 10:27:31 -0700 (PDT)
+In-Reply-To: <20151009071710.GJ7701@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 8, 2015 at 7:35 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On 10/8/15 5:50 PM, Devon H. O'Dell wrote:
+This is a multi-part message in MIME format.
+--------------010708020407070209040908
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+
+On 10/9/15 1:17 AM, Steffen Klassert wrote:
+>>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+>>> index 30caa289c5db..5cedfda4b241 100644
+>>> --- a/net/ipv6/xfrm6_policy.c
+>>> +++ b/net/ipv6/xfrm6_policy.c
+>>> @@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
 >>>
->>> with the amount of skb_sender_cpu_clear() all over the code base
->>> >I wonder whether there is a better solution to all of these.
+>>>   	memset(&fl6, 0, sizeof(fl6));
+>>>   	fl6.flowi6_oif = oif;
+>>> +	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
+>>>   	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
+>>>   	if (saddr)
+>>>   		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
 >>
->> I think there is. We found that splitting the union of sender_cpu and
->> napi_id solved the issue for us. In general, I think this is an OK
->> solution as long as the following hold:
->>
->>   * skbs are always allocated via kzalloc
->>   * out -> out cloned skbs are always cloned on the same CPU
->>   * an extra four bytes in skbuff isn't a bad thing
+>> I found that this fix is still not sufficient with the mip6
+>> (Mobile IPv6) use case.
 >
+> It does not even fix the vti case. The behaviour of the vti devices is
+> the same, with and without the patch.
 >
-> I'm pretty sure extending sk_buff for this is not acceptable.
 
-That's unfortunate.
+The attached patch applied to Linus' tree works for me. Currently the 
+above change is not in his tree, so I added it to this patch. Once you 
+confirm that it works for you I'll create the delta-patch for net and 
+send out.
 
-> I was thinking may be we can use sign bit to distinguish between
-> napi_id and sender_cpu.
-> Like:
->         if ((int)skb->sender_cpu >= 0)
->                 skb->sender_cpu = - (raw_smp_processor_id() + 1);
-> and inside get_xps_queue() use it only if it's negative.
+Thanks,
+David
 
-I like the idea, but it seems unnecessarily magical. What about using
-a bitfield? Then there's just an option bit that is either
-OPTION_NAPI_ID or OPTION_SENDER_CPU. Then the check to set sender_cpu
-in netdev_pick_tx becomes
+--------------010708020407070209040908
+Content-Type: text/plain; charset=UTF-8; x-mac-type="0"; x-mac-creator="0";
+ name="really-fix-vti6-with-oif.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="really-fix-vti6-with-oif.patch"
 
-    if (skb->sender_napi_option == OPTION_NAPI_ID || skb->sender_cpu == 0) ...
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 92b1aa38f121..2dbd73014a1b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -874,7 +874,8 @@ static struct dst_entry *ip6_sk_dst_check(struct sock *sk,
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	    ip6_rt_check(&rt->rt6i_src, &fl6->saddr, np->saddr_cache) ||
+ #endif
+-	    (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex)) {
++	   (!(fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF) &&
++	      (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex))) {
+ 		dst_release(dst);
+ 		dst = NULL;
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index cb32ce250db0..df24cff4a0cb 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1068,6 +1068,9 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+ 	saved_fn = fn;
+ 
++	if (fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF)
++		oif = 0;
++
+ redo_rt6_select:
+ 	rt = rt6_select(fn, oif, strict);
+ 	if (rt->rt6i_nsiblings)
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 30caa289c5db..5cedfda4b241 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
+ 
+ 	memset(&fl6, 0, sizeof(fl6));
+ 	fl6.flowi6_oif = oif;
++	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
+ 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
+ 	if (saddr)
+ 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
 
-> Then we can remove skb_sender_cpu_clear() from everywhere.
-> Adding a check to napi_hash_add() to make sure that napi_id is not
-> negative is probably ok too.
-
-We could change this to check that sender_napi_option would be
-OPTION_NAPI_ID with the bitfield idea.
-
-My names are probably bad, but I think the idea is less magical (and
-is effectively the same thing you are proposing).
-
-> Thoughts?
-
---dho
+--------------010708020407070209040908--
