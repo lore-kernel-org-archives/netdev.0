@@ -1,59 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH-next v2 0/4] make non-modular code explicitly
- non-modular
-Date: Fri, 09 Oct 2015 07:52:57 -0700 (PDT)
-Message-ID: <20151009.075257.1072002884119004986.davem@davemloft.net>
-References: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v4 1/3] net: unix: fix use-after-free in unix_dgram_poll()
+Date: Fri, 09 Oct 2015 16:38:29 +0200
+Message-ID: <87io6gayze.fsf@stressinduktion.org>
+References: <cover.1444363559.git.jbaron@akamai.com> <8f8dfc6fdb8015091b58509044b15489df261461.1444363559.git.jbaron@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com, anish@chelsio.com,
-	kraig@google.com, daniel@iogearbox.net, edumazet@google.com,
-	jhs@mojatatu.com, john.r.fastabend@intel.com,
-	nicolas.dichtel@6wind.com, ogerlitz@mellanox.com,
-	shanim@mellanox.com, varkabhadram@gmail.com
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41103 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001AbbJIOhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 10:37:09 -0400
-In-Reply-To: <1444253266-22012-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org,
+	joe@perches.com
+To: Jason Baron <jbaron@akamai.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8f8dfc6fdb8015091b58509044b15489df261461.1444363559.git.jbaron@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 7 Oct 2015 17:27:42 -0400
+Hi,
 
-> [v2: drop m68k patches that Geert converted to modules; add one ARM
->  driver patch ; update net-next baseline to today; switch to ARM
->  for build testing.]
-> 
-> In a previous merge window, we made changes to allow better
-> delineation between modular and non-modular code in commit
-> 0fd972a7d91d6e15393c449492a04d94c0b89351 ("module: relocate module_init
-> from init.h to module.h").  This allows us to now ensure module code
-> looks modular and non-modular code does not accidentally look modular
-> just to avoid suffering build breakage.
-> 
-> Here we target code that is, by nature of their Makefile and/or
-> Kconfig settings, only available to be built-in, but implicitly
-> presenting itself as being possibly modular by way of using modular
-> headers, macros, and functions.
-> 
-> The goal here is to remove that illusion of modularity from these
-> files, but in a way that leaves the actual runtime unchanged.
-> In doing so, we remove code that has never been tested and adds
-> no value to the tree.  And we continue the process of expecting a
-> level of consistency between the Kconfig/Makefile of code and the
-> code in use itself.
-> 
-> Fortuntately the net subsystem has relatively few instances, given
-> the overall amount of code and drivers it contains.  For comparison
-> there are over 300 instances tree wide, resulting in a possible net
-> removal of on the order of 5000 lines of unused code.
-> 
-> Build tested on net-next from today, on ARM, since that is the arch
-> where the one ethernet driver changed here is available.
+Jason Baron <jbaron@akamai.com> writes:
 
-Series applied, thanks Paul.
+> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
+> queue associated with the socket s that we are poll'ing against, but also calls
+> sock_poll_wait() for a remote peer socket p, if it is connected. Thus,
+> if we call poll()/select()/epoll() for the socket s, there are then
+> a couple of code paths in which the remote peer socket p and its associated
+> peer_wait queue can be freed before poll()/select()/epoll() have a chance
+> to remove themselves from the remote peer socket.
+>
+> The way that remote peer socket can be freed are:
+>
+> 1. If s calls connect() to a connect to a new socket other than p, it will
+> drop its reference on p, and thus a close() on p will free it.
+>
+> 2. If we call close on p(), then a subsequent sendmsg() from s, will drop
+> the final reference to p, allowing it to be freed.
+>
+> Address this issue, by reverting unix_dgram_poll() to only register with
+> the wait queue associated with s and register a callback with the remote peer
+> socket on connect() that will wake up the wait queue associated with s. If
+> scenarios 1 or 2 occur above we then simply remove the callback from the
+> remote peer. This then presents the expected semantics to poll()/select()/
+> epoll().
+>
+> I've implemented this for sock-type, SOCK_RAW, SOCK_DGRAM, and SOCK_SEQPACKET
+> but not for SOCK_STREAM, since SOCK_STREAM does not use unix_dgram_poll().
+>
+> Introduced in commit ec0d215f9420 ("af_unix: fix 'poll for write'/connected
+> DGRAM sockets").
+>
+> Tested-by: Mathias Krause <minipli@googlemail.com>
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
+
+While I think this approach works, I haven't seen where the current code
+leaks a reference. Assignment to unix_peer(sk) in general take spin_lock
+and increment refcount. Are there bugs at the two places you referred
+to?
+
+Is an easier fix just to use atomic_inc_not_zero(&sk->sk_refcnt) in
+unix_peer_get() which could also help other places?
+
+Thanks,
+Hannes
