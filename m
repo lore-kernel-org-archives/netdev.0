@@ -1,95 +1,69 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH v4 2/3] net: unix: Convert gc_flags to flags
-Date: Fri,  9 Oct 2015 00:16:01 -0400
-Message-ID: <25562541ebb216c4330b8628442f05a2326b2c23.1444363559.git.jbaron@akamai.com>
-References: <cover.1444363559.git.jbaron@akamai.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org,
-	joe@perches.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1444363559.git.jbaron@akamai.com>
-In-Reply-To: <cover.1444363559.git.jbaron@akamai.com>
-References: <cover.1444363559.git.jbaron@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Grant Zhang <gzhang@fastly.com>
+Subject: Re: [PATCH v3 net-next 0/4] tcp: better smp listener behavior
+Date: Thu, 8 Oct 2015 21:16:38 -0700
+Message-ID: <56173FA6.70701@fastly.com>
+References: <1444358004-26483-1-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36036 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756404AbbJIEQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 00:16:39 -0400
+Received: by pablk4 with SMTP id lk4so74217751pab.3
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 21:16:38 -0700 (PDT)
+In-Reply-To: <1444358004-26483-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert gc_flags to flags in perparation for the subsequent patch, which will
-make use of a flag bit for a non-gc purpose.
 
-Signed-off-by: Jason Baron <jbaron@akamai.com>
----
- include/net/af_unix.h |  2 +-
- net/unix/garbage.c    | 12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 9698aff..6a4a345 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -58,7 +58,7 @@ struct unix_sock {
- 	atomic_long_t		inflight;
- 	spinlock_t		lock;
- 	unsigned char		recursion_level;
--	unsigned long		gc_flags;
-+	unsigned long		flags;
- #define UNIX_GC_CANDIDATE	0
- #define UNIX_GC_MAYBE_CYCLE	1
- 	struct socket_wq	peer_wq;
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index a73a226..39794d9 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -179,7 +179,7 @@ static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
- 					 * have been added to the queues after
- 					 * starting the garbage collection
- 					 */
--					if (test_bit(UNIX_GC_CANDIDATE, &u->gc_flags)) {
-+					if (test_bit(UNIX_GC_CANDIDATE, &u->flags)) {
- 						hit = true;
- 
- 						func(u);
-@@ -246,7 +246,7 @@ static void inc_inflight_move_tail(struct unix_sock *u)
- 	 * of the list, so that it's checked even if it was already
- 	 * passed over
- 	 */
--	if (test_bit(UNIX_GC_MAYBE_CYCLE, &u->gc_flags))
-+	if (test_bit(UNIX_GC_MAYBE_CYCLE, &u->flags))
- 		list_move_tail(&u->link, &gc_candidates);
- }
- 
-@@ -305,8 +305,8 @@ void unix_gc(void)
- 		BUG_ON(total_refs < inflight_refs);
- 		if (total_refs == inflight_refs) {
- 			list_move_tail(&u->link, &gc_candidates);
--			__set_bit(UNIX_GC_CANDIDATE, &u->gc_flags);
--			__set_bit(UNIX_GC_MAYBE_CYCLE, &u->gc_flags);
-+			__set_bit(UNIX_GC_CANDIDATE, &u->flags);
-+			__set_bit(UNIX_GC_MAYBE_CYCLE, &u->flags);
- 		}
- 	}
- 
-@@ -332,7 +332,7 @@ void unix_gc(void)
- 
- 		if (atomic_long_read(&u->inflight) > 0) {
- 			list_move_tail(&u->link, &not_cycle_list);
--			__clear_bit(UNIX_GC_MAYBE_CYCLE, &u->gc_flags);
-+			__clear_bit(UNIX_GC_MAYBE_CYCLE, &u->flags);
- 			scan_children(&u->sk, inc_inflight_move_tail, NULL);
- 		}
- 	}
-@@ -343,7 +343,7 @@ void unix_gc(void)
- 	 */
- 	while (!list_empty(&not_cycle_list)) {
- 		u = list_entry(not_cycle_list.next, struct unix_sock, link);
--		__clear_bit(UNIX_GC_CANDIDATE, &u->gc_flags);
-+		__clear_bit(UNIX_GC_CANDIDATE, &u->flags);
- 		list_move_tail(&u->link, &gc_inflight_list);
- 	}
- 
--- 
-2.6.1
+On 08/10/2015 19:33, Eric Dumazet wrote:
+> As promised in last patch series, we implement a better SO_REUSEPORT
+> strategy, based on cpu affinities if selected by the application.
+>
+> We also moved sk_refcnt out of the cache line containing the lookup
+> keys, as it was considerably slowing down smp operations because
+> of false sharing. This was simpler than converting listen sockets
+> to conventional RCU (to avoid sk_refcnt dirtying)
+>
+> Could process 6.0 Mpps SYN instead of 4.2 Mpps on my test server.
+>
+> Eric Dumazet (4):
+>    net: SO_INCOMING_CPU setsockopt() support
+>    net: align sk_refcnt on 128 bytes boundary
+>    net: shrink struct sock and request_sock by 8 bytes
+>    tcp: shrink tcp_timewait_sock by 8 bytes
+>
+>   include/linux/tcp.h              |  4 ++--
+>   include/net/inet_timewait_sock.h |  2 +-
+>   include/net/request_sock.h       |  7 +++----
+>   include/net/sock.h               | 41 +++++++++++++++++++++++++++-------------
+>   net/core/sock.c                  |  5 +++++
+>   net/ipv4/inet_hashtables.c       |  2 ++
+>   net/ipv4/syncookies.c            |  4 ++--
+>   net/ipv4/tcp_input.c             |  2 +-
+>   net/ipv4/tcp_ipv4.c              |  2 +-
+>   net/ipv4/tcp_minisocks.c         | 18 +++++++++---------
+>   net/ipv4/tcp_output.c            |  2 +-
+>   net/ipv4/udp.c                   |  6 +++++-
+>   net/ipv6/inet6_hashtables.c      |  2 ++
+>   net/ipv6/syncookies.c            |  4 ++--
+>   net/ipv6/tcp_ipv6.c              |  2 +-
+>   net/ipv6/udp.c                   | 11 +++++++----
+>   16 files changed, 72 insertions(+), 42 deletions(-)
+>
+Eric,
+
+Does it make sense to make the listener hash table percpu? Socket with 
+SO_INCOMING_CPU set could just be add to the hashtable for that specific 
+cpu.
+
+Thanks,
+
+Grant
