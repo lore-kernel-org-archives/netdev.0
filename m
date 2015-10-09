@@ -1,74 +1,54 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: fix typo in man page
-Date: Fri, 09 Oct 2015 03:24:57 +0100
-Message-ID: <1444357497.2956.291.camel@decadent.org.uk>
-References: <1444118856-6211-1-git-send-email-ivecera@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VWe/aVBaJizrkiCdU/te"
-To: Ivan Vecera <ivecera@redhat.com>, bwh@kernel.org,
-	netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v3 net-next 0/4] tcp: better smp listener behavior
+Date: Thu,  8 Oct 2015 19:33:20 -0700
+Message-ID: <1444358004-26483-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36328 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934791AbbJICZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:25:06 -0400
-In-Reply-To: <1444118856-6211-1-git-send-email-ivecera@redhat.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35877 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756401AbbJICd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:33:29 -0400
+Received: by pablk4 with SMTP id lk4so71763422pab.3
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 19:33:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+As promised in last patch series, we implement a better SO_REUSEPORT
+strategy, based on cpu affinities if selected by the application.
 
---=-VWe/aVBaJizrkiCdU/te
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+We also moved sk_refcnt out of the cache line containing the lookup
+keys, as it was considerably slowing down smp operations because
+of false sharing. This was simpler than converting listen sockets
+to conventional RCU (to avoid sk_refcnt dirtying)
 
-On Tue, 2015-10-06 at 10:07 +0200, Ivan Vecera wrote:
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  ethtool.8.in | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/ethtool.8.in b/ethtool.8.in
-> index ae56293..eeffa70 100644
-> --- a/ethtool.8.in
-> +++ b/ethtool.8.in
-> @@ -872,7 +872,7 @@ Enables/disables the device support of EEE.
->  Determines whether the device should assert its Tx LPI.
->  .TP
->  .BI advertise \ N
-> -Sets the speeds for which the device should advertise EEE capabiliities.
-> +Sets the speeds for which the device should advertise EEE capabilities.
->  Values are as for
->  .B \-\-change advertise
->  .TP
+Could process 6.0 Mpps SYN instead of 4.2 Mpps on my test server.
 
-Applied, thanks.
+Eric Dumazet (4):
+  net: SO_INCOMING_CPU setsockopt() support
+  net: align sk_refcnt on 128 bytes boundary
+  net: shrink struct sock and request_sock by 8 bytes
+  tcp: shrink tcp_timewait_sock by 8 bytes
 
-Ben.
+ include/linux/tcp.h              |  4 ++--
+ include/net/inet_timewait_sock.h |  2 +-
+ include/net/request_sock.h       |  7 +++----
+ include/net/sock.h               | 41 +++++++++++++++++++++++++++-------------
+ net/core/sock.c                  |  5 +++++
+ net/ipv4/inet_hashtables.c       |  2 ++
+ net/ipv4/syncookies.c            |  4 ++--
+ net/ipv4/tcp_input.c             |  2 +-
+ net/ipv4/tcp_ipv4.c              |  2 +-
+ net/ipv4/tcp_minisocks.c         | 18 +++++++++---------
+ net/ipv4/tcp_output.c            |  2 +-
+ net/ipv4/udp.c                   |  6 +++++-
+ net/ipv6/inet6_hashtables.c      |  2 ++
+ net/ipv6/syncookies.c            |  4 ++--
+ net/ipv6/tcp_ipv6.c              |  2 +-
+ net/ipv6/udp.c                   | 11 +++++++----
+ 16 files changed, 72 insertions(+), 42 deletions(-)
 
---=20
-Ben Hutchings
-If the facts do not conform to your theory, they must be disposed of.
---=-VWe/aVBaJizrkiCdU/te
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVhcleee/yOyVhhEJAQpLShAA0ob9HcmfYTXen0IWNJNT7A08A5X9QaFR
-kp+hHSsUxsoVMhwVv39Suq4gtAHFd/jOQYNqDpmRrivwhjkv2cyvsvbShYbimhbq
-8InPi3JhN2GW5bsvXSqLHNWmHZDr6Mh2l+Sm09GdFTlHbjlp0j8iosan97E69i9Z
-a8Kvb+rZL+w4uN+xpGe4r/peWjpjzIr2Ak5ZfXygKwd+LuYYWkAeuh1vEkdzPoy1
-r79BzRcYvETVUofU9qiBxgE6UjZCyWZfSqAJeYddGmuC1sL49hPAVwOcBcDSycTR
-G0uokNZMJ9E6GEFVgmlI1JjnyBX6G2A9jzT0GJ6MIplz2qof3ftJUHWggZlmX8YD
-rop7JlIuiUlPHAmOQuq4qX61Y/DVOZvck+vjOdLVr/QomWoRswkiyodabK1fa4Ec
-WD47h/I27bZyJ7rSiFvi7ycdcOdwEfHmqxnDpvMbPS78Z0LLMwWyYizDz5MaDgFt
-9MxAo3ziIIErthJ3A42qNUSiQABoOUrCTfbR1noROiQ6h1EV/q6jWH+ti5VKspyw
-PbrwkZQRnOS7cG6lVBLK8IrCJLApN9qI399g7whDoHzZ7od9xMHBmnTQOhD6Xuq7
-qSr798UK+8cmfg6OmOnbLgpj58//tApGfnpOHLrvy90Ak9S12YCNn0L6xHJwSzg4
-Jwl1x1/G/Rg=
-=L6kE
------END PGP SIGNATURE-----
-
---=-VWe/aVBaJizrkiCdU/te--
+-- 
+2.6.0.rc2.230.g3dd15c0
