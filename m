@@ -1,32 +1,47 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 1/1] i40e: re-use %*ph specifier to hexdump a data
-Date: Fri, 9 Oct 2015 13:28:57 -0700
-Message-ID: <20151009132857.00002b95@unknown>
-References: <1443777496-43299-1-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+Subject: [PATCH v2 6/7] Bluetooth: Add HCI device identifier for Qualcomm SMD
+Date: Fri, 9 Oct 2015 13:48:04 -0700
+Message-ID: <1444423685-14717-7-git-send-email-bjorn.andersson@sonymobile.com>
+References: <1444423685-14717-1-git-send-email-bjorn.andersson@sonymobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-	jesse.brandeburg@intel.com
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33061 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750702AbbJIU26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 16:28:58 -0400
-In-Reply-To: <1443777496-43299-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Fengwei Yin <fengwei.yin@linaro.org>,
+	Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
+	<linux-arm-msm@vger.kernel.org>, <linux-bluetooth@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gross <agross@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444423685-14717-1-git-send-email-bjorn.andersson@sonymobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Oct 2015 12:18:16 +0300
-Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
+This patch assigns the next free HCI device identifier to Bluetooth
+devices based on the Qualcomm Shared Memory channels.
 
-> Instead of using a custom approach change the code to use %*ph format
-> specifier.
-> 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+---
 
-Nice catch, thanks!
+Changes since v1:
+- Split out this from the btqcomsmd patch
 
-Acked-by: jesse Brandeburg <jesse.brandeburg@intel.com>
+ include/net/bluetooth/hci.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
+index e7f938cac7c6..adfb371a19f9 100644
+--- a/include/net/bluetooth/hci.h
++++ b/include/net/bluetooth/hci.h
+@@ -60,6 +60,7 @@
+ #define HCI_RS232	4
+ #define HCI_PCI		5
+ #define HCI_SDIO	6
++#define HCI_SMD		7
+ 
+ /* HCI controller types */
+ #define HCI_BREDR	0x00
+-- 
+2.4.2
