@@ -1,75 +1,66 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: report features
- supported by the kernel datapath
-Date: Fri, 9 Oct 2015 11:46:46 +0200
-Message-ID: <20151009114646.2ee66f3b@griffin>
-References: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
- <CAEP_g=-pgG6yhGsbvbdrJdAK3VXX1a+8c-wRkHuRte0=2Byg2w@mail.gmail.com>
- <20151009092453.GB18316@pox.localdomain>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH] driver: net: cpsw: add no_bd_ram dt parsing
+Date: Fri, 9 Oct 2015 15:36:46 +0530
+Message-ID: <1444385206-7011-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151009092453.GB18316-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-omap@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Sekhar Nori <nsekhar@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:37053 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757235AbbJIKII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 06:08:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCA5IE9jdCAyMDE1IDExOjI0OjUzICswMjAwLCBUaG9tYXMgR3JhZiB3cm90ZToKPiBP
-biAxMC8wOC8xNSBhdCAwMzo0MHBtLCBKZXNzZSBHcm9zcyB3cm90ZToKPiA+IEkgaGF2ZSBzaW1p
-bGFyIGNvbmNlcm5zIGFzIHdlcmUgZXhwcmVzc2VkIGluIHRoZSBvdGhlciB0aHJlYWQuIFRoZQo+
-ID4gZmVhdHVyZXMgbGlzdGVkIGhlcmUgYXJlbid0IE9WUyBjb21wb25lbnRzIGFuZCBJIGRvbid0
-IHRoaW5rIHRoYXQgaXQKPiA+IG1ha2VzIHNlbnNlIGZvciBPVlMgdG8gdHJ5IHRvIGNvdmVyIGV2
-ZXJ5dGhpbmcgdGhhdCBpcyByZWxhdGVkIC0gdGhlCj4gPiBnb2FsIHRoYXQgd2UndmUgYmVlbiB3
-b3JraW5nIHRvd2FyZHMgaXMgdG8gaGF2ZSBPVlMgYmUgbGVzcyBtb25vbGl0aGljCj4gPiBhbmQg
-bW9yZSBpbnRlZ3JhdGVkLiBTbyB0byB0aGUgZXh0ZW50IHRoYXQgaXQgaXMgbmVjZXNzYXJ5IHRv
-IGhhdmUKPiA+IGNhcGFiaWxpdGllcyBiZSBleHBvc2VkIChhbmQgSSB3b3VsZCBsaWtlIHRvIGF2
-b2lkIHRoaXMgd2hlcmUKPiA+IHBvc3NpYmxlKSwgaXQgc2hvdWxkIGJlIGluIHRoZSBpbmRpdmlk
-dWFsIGNvbXBvbmVudCwgbm90IGluIE9WUy4KCkZhaXIgZW5vdWdoLiBOb3RlIHRoYXQgdGhlIElQ
-djYgZmxhZyByZWFsbHkgYmVsb25ncyB0byBvdnMsIHRob3VnaCAtCml0J3MgYWJvdXQgdGhlIGV4
-aXN0ZW5jZSBvZiBPVlNfVFVOTkVMX0tFWV9BVFRSX0lQVjZfU1JDIGFuZApPVlNfVFVOTkVMX0tF
-WV9BVFRSX0lQVjZfRFNUIG5ldGxpbmsgYXR0cmlidXRlcy4gRm9yIHRoZSBsd3R1bm5lbCBmbGFn
-Cih3aGljaCBpcyBqdXN0IGFub3RoZXIgd2F5IHRvIHRlbGwgd2hldGhlciB2eGxhbi9nZW5ldmUv
-ZXRjLiBoYXMKQ09MTEVDVF9NRVRBREFUQSBzdXBwb3J0KSBJIGNhbiBhZ3JlZSB0aGF0IGl0IGRv
-ZXMgbm90IGJlbG9uZyB0byBvdnMuCgo+IEknbSBmaW5lIHdpdGggdGhhdCBhcyB3ZWxsLiBIb3dl
-dmVyLCBJIGRvIGRpc2xpa2UgdGhlIGlkZWEgb2YgY3JlYXRpbmcKPiBuZXRfZGV2aWNlcyB3aXRo
-IGEgc2V0IG9mIHBhcmFtZXRlcnMganVzdCB0byBmaWd1cmUgaWYgdGhlIHBhcmFtZXRlcnMKPiBh
-cmUgc3VwcG9ydGVkIG9yIG5vdC4gVGhpcyB3b3JrcyBPSyBmb3IgdGhlIGZpcnN0IHN0ZXAgb2Yg
-ZXZvbHV0aW9uCj4gd2hlcmUgd2UgaGF2ZSBzdXBwb3J0IG9yIG5vdCBidXQgaXQgZ2V0cyBhYnNv
-bHV0ZWx5IG1lc3N5IHdoZW4gd2UKPiBoYXZlOiBubyBzdXBwb3J0LCBtdWx0aXBsZSBsZXZlbHMg
-b2YgcGFydGlhbCBzdXBwb3J0IGFuZCBmaW5hbGx5IGZ1bGwKPiBzdXBwb3J0LgoKMTAwJSBhZ3Jl
-ZWQuCgo+IFdlIGhhdmUgYmVlbiB0aGlua2luZyBhYm91dCBhIG1vcmUgZ2VuZXJpYyBjYXBhYmls
-aXRpZXMgTmV0bGluawo+IGludGVyZmFjZSBmb3IgYSB3aGlsZSBhbmQgdGhpcyBsb29rcyBsaWtl
-IGEgZ29vZCBqdXN0aWZpY2F0aW9uIGZvcgo+IGZpbmFsbHkgZG9pbmcgdGhhdCB3b3JrLgoKSSd2
-ZSBiZWVuIGxvb2tpbmcgaW50byB0aGlzIHNpbmNlIG1vcm5pbmcgYW5kIGV2ZXJ5dGhpbmcgSSd2
-ZSBiZWVuIGFibGUKdG8gY29tZSB1cCB3aXRoIHNlZW1zIHRvIGJlIHF1aXRlIGludHJ1c2l2ZS4g
-QmVmb3JlIGludmVzdGluZyB0aW1lIHRvCmNyZWF0ZSBhIGxvbmcgcGF0Y2hzZXQgdGhhdCBtaWdo
-dCBiZSBwb3RlbnRpYWxseSByZWplY3RlZCwgSSdkIGxpa2UgdG8KZ2V0IHNvbWUgb3BpbmlvbnMu
-CgpNeSB0aG91Z2h0cyBhcmUgaW50cm9kdWNpbmcgZWl0aGVyIFJUTV9WQUxJREFURUxJTksgb3IK
-UlRNX05FV0xJTktfU1RSSUNULiBJbiB0aGUgZmlyc3QgY2FzZSwgaXQgd291bGQganVzdCBjaGVj
-ayB3aGV0aGVyIHRoZQpwYXNzZWQgYXR0cmlidXRlcyBhcmUgb2theSBmb3IgInN0cmljdCIgY3Jl
-YXRpb24gb2YgdGhlIGxpbms7IGluIHRoZQpzZWNvbmQgY2FzZSwgaXQgd291bGQgZWl0aGVyIHJl
-amVjdCB0aGUgcmVxdWVzdCwgb3IgY3JlYXRlIHRoZSBsaW5rCihzaW1pbGFybHkgdG8gd2hhdCBS
-VE1fTkVXTElOSyBkb2VzIGJ1dCB3aXRoICJzdHJpY3QiIGF0dHJpYnV0ZXMKY2hlY2tpbmcpLgoK
-VGhlICJzdHJpY3QiIGNoZWNraW5nIHdvdWxkIG1lYW46CgotIFJlamVjdGluZyBhdHRyaWJ1dGVz
-IHdpdGggdHlwZSA8PSAwIGFuZCA+IG1heHR5cGUgKGkuZS4gY2hhbmdpbmcKICBubGFfcGFyc2Us
-IG5sbXNnX3BhcnNlLCBldGMuIHRvIGRvIG9wdGlvbmFsIHN0cmljdCBjaGVja2luZyBiYXNlZCBv
-bgogIGEgcGFzc2VkIGJvb2wgcGFyYW1ldGVyKS4KCi0gQWRkaW5nIHRoZSBib29sIHBhcmFtZXRl
-ciBmb3Igc3RyaWN0IGNoZWNraW5nIHRvIHJ0bmxfbGlua19vcHMKICB2YWxpZGF0ZSBhbmQgc2xh
-dmVfdmFsaWRhdGUgY2FsbGJhY2tzLgoKSXQgd291bGQgbWVhbiByZWZhY3RvcmluZyBvZiBydG5s
-X25ld2xpbmsuCgpPciBkbyB5b3UgaGF2ZSBzb21ldGhpbmcgbW9yZSBnZW5lcmljIGluIG1pbmQ/
-IExpa2UgYWRkaW5nIGEgbmV3Ck5MTV9GX1JFUVVFU1RfU1RSSUNUIGZsYWcgdG8gbmxtc2doZHIg
-dG8gYmUgdXNlZCBpbnN0ZWFkIG9mCk5MTV9GX1JFUVVFU1Q/CgpUaGFua3MsCgogSmlyaQoKLS0g
-CkppcmkgQmVuYwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+cpdma is capable of placing the dma descriptors in ddr using
+dma_alloc_coherent() when the internal bd ram size is not enough.
+To utilize this feature pass the DT parameter "no_bd_ram" and
+increase bd_ram_size and number of rx descriptors.
+
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 4 ++++
+ drivers/net/ethernet/ti/cpsw.h | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 8fc90f1..cf1a625 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1987,6 +1987,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 	}
+ 	data->ale_entries = prop;
+ 
++	data->no_bd_ram = of_property_read_bool(node, "no_bd_ram");
++
+ 	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
+ 		dev_err(&pdev->dev, "Missing bd_ram_size property in the DT.\n");
+ 		return -EINVAL;
+@@ -2358,6 +2360,8 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	dma_params.desc_mem_size	= data->bd_ram_size;
+ 	dma_params.desc_align		= 16;
+ 	dma_params.has_ext_regs		= true;
++	if (data->no_bd_ram)
++		dma_params.desc_mem_phys = 0;
+ 	dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
+ 
+ 	priv->dma = cpdma_ctlr_create(&dma_params);
+diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
+index ca90efa..b654ac2 100644
+--- a/drivers/net/ethernet/ti/cpsw.h
++++ b/drivers/net/ethernet/ti/cpsw.h
+@@ -33,6 +33,7 @@ struct cpsw_platform_data {
+ 	u32	cpts_clock_mult;  /* convert input clock ticks to nanoseconds */
+ 	u32	cpts_clock_shift; /* convert input clock ticks to nanoseconds */
+ 	u32	ale_entries;	/* ale table size */
++	bool	no_bd_ram;	/* set if cpsw bd ram should not be used */
+ 	u32	bd_ram_size;  /*buffer descriptor ram size */
+ 	u32	rx_descs;	/* Number of Rx Descriptios */
+ 	u32	mac_control;	/* Mac control register */
+-- 
+2.6.1.133.gf5b6079
