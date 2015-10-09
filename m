@@ -1,73 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2 1/4] switchdev: add bridge attributes
-Date: Thu, 8 Oct 2015 19:22:19 -0700
-Message-ID: <CAE4R7bBFE_X0LitnJHnNKaPah7EKU14K7ZV2QmkiMFiZ3DYTVw@mail.gmail.com>
-References: <1444284283-33601-1-git-send-email-sfeldma@gmail.com>
- <1444284283-33601-2-git-send-email-sfeldma@gmail.com> <20151008083923.GE2186@nanopsycho.orion>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] ethtool: add new emac_regs struct from driver, add new
+ chip types.
+Date: Fri, 09 Oct 2015 03:24:02 +0100
+Message-ID: <1444357442.2956.290.camel@decadent.org.uk>
+References: <20150923144634.2ea2bce9@fr-ThinkPad-W520>
+	 <20150925081545.26cbb101@fr-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33112 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbbJICWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:22:39 -0400
-Received: by obbbh8 with SMTP id bh8so52888096obb.0
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 19:22:38 -0700 (PDT)
-In-Reply-To: <20151008083923.GE2186@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-cRyadbCUCzYt6lbDCkhz"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Ivan Mikhaylov <ivan@ru.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150925081545.26cbb101@fr-ThinkPad-W520>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 8, 2015 at 1:39 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Oct 08, 2015 at 08:04:40AM CEST, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>Setting the stage to push bridge-level attributes down to port driver so
->>hardware can be programmed accordingly.  Bridge-level attribute example is
->>ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
->>
->>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>---
->> include/net/switchdev.h      |    5 +++++
->> include/uapi/linux/if_link.h |    2 +-
->> 2 files changed, 6 insertions(+), 1 deletion(-)
->>
->>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>index 89266a3..8d92cd0 100644
->>--- a/include/net/switchdev.h
->>+++ b/include/net/switchdev.h
->>@@ -43,6 +43,7 @@ enum switchdev_attr_id {
->>       SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
->>       SWITCHDEV_ATTR_ID_PORT_STP_STATE,
->>       SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
->>+      SWITCHDEV_ATTR_ID_BRIDGE,
->> };
->>
->> struct switchdev_attr {
->>@@ -52,6 +53,10 @@ struct switchdev_attr {
->>               struct netdev_phys_item_id ppid;        /* PORT_PARENT_ID */
->>               u8 stp_state;                           /* PORT_STP_STATE */
->>               unsigned long brport_flags;             /* PORT_BRIDGE_FLAGS */
->>+              struct switchdev_attr_bridge {          /* BRIDGE */
->>+                      enum ifla_br attr;
->
-> I don't like pushing down IFLA_BR_* values throught switchdev. I think
-> it might better to just intruduce:
-> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME
->
-> and "u32 ageing_time" here. Something similar to stp_state. Much easier
-> to read and does not give blank cheque for passing any bridge IFLA_BR_*
-> down to drivers.
->
-> It also aligns with bridge code nicely, I believe.
 
-Done, v3 sent with your suggested change.
+--=-cRyadbCUCzYt6lbDCkhz
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2015-09-25 at 08:15 +0400, Ivan Mikhaylov wrote:
+> * add new version of emac_regs struct from driver structure perspective
+>   and passing size from actual struct size, not from memory area variable
+>   which set in dts file.
+> * add three types of network chips for new struct : emac, emac4, emac4syn=
+c.
+> * add emac4sync processing in print_emac_regs.
+> * this commit fixing problem with output of MII sections for new driver v=
+ersions.
+[...]
+
+Applied, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+If the facts do not conform to your theory, they must be disposed of.
+--=-cRyadbCUCzYt6lbDCkhz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVhclQue/yOyVhhEJAQr3WBAAvahJDJqHhE7YtJ2FbIPXmGU7scby1JKQ
+rBELMJV/LiBNpAjfjFxt87A5FfZhCHgOks5SwCpPOCyqFV6xvre7uBE7PYkIFtZh
+V9FE+A1ma5W7SL4zUvzzI2/yYzL0YIf+l81lHRqdN7lM5+sHrJho68vi1sfJ2cyz
+HXCYa3g5+8JG8HDJJ29R8ZObl6Y/51th9/DFo2KySVBuLhAqMgOhzgb/xX74RICi
+HIfOcGUzG2hd9R3FnwrYUnD09VEdnmEKkkRzsDLW5vG60z8WhYgwXmRJSHMd+9In
+8h7T/zRUVt7CTNFXU+mYntKKkoKRUWhO3r3A8RbwTvjo0ZBrwh7YooTISsRmlX/r
+kfAh1nyFUyB/PtYW5iGZjrtq8Hb1nWZe2fdPPjnvymsEwA0rjK0yVvinkkoXO5+o
+dfPxD/pMC8tuS4/1BycMzStAz/uHemkFGjYMBNUYEtwnKQEDm1W2rBZurwXRirbz
+Z9gH54a3ZS8PCwc6YLQSPNbCc5QHzY3/VYNieni8Nvyae25k1qNWBJSa/cSBPbBd
+m6zNryRzsRXbYM0mqfRNa1WeudZy45Czaxi9oJfPjPGNs96/ODaSCOgLaNSp6EFi
+sS1OztO6O2zuHZfOeNE+oGAYoqXWXznsgItxTbTl37spgfsEGC3MwQ4ev31N6+UQ
+G2FQbwTYU5o=
+=W5gh
+-----END PGP SIGNATURE-----
+
+--=-cRyadbCUCzYt6lbDCkhz--
