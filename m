@@ -1,56 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
- xmit
-Date: Fri, 09 Oct 2015 19:33:14 +0200
-Message-ID: <5617FA5A.9090406@iogearbox.net>
-References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net> <56153E6C.9050202@plumgrid.com> <CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com> <561727D5.2070001@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"Devon H. O'Dell" <dho@fastly.com>
+From: Ronen Arad <ronen.arad@intel.com>
+Subject: [PATCH] rtnetlink: fix gcc -Wconversion warning
+Date: Fri,  9 Oct 2015 10:35:47 -0700
+Message-ID: <1444412147-21589-1-git-send-email-ronen.arad@intel.com>
+Cc: Ronen Arad <ronen.arad@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35089 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758117AbbJIRd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 13:33:27 -0400
-In-Reply-To: <561727D5.2070001@plumgrid.com>
+Received: from mga09.intel.com ([134.134.136.24]:39401 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758634AbbJIRgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 13:36:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/09/2015 04:35 AM, Alexei Starovoitov wrote:
-> On 10/8/15 5:50 PM, Devon H. O'Dell wrote:
->>> with the amount of skb_sender_cpu_clear() all over the code base
->>> >I wonder whether there is a better solution to all of these.
->> I think there is. We found that splitting the union of sender_cpu and
->> napi_id solved the issue for us. In general, I think this is an OK
->> solution as long as the following hold:
->>
->>   * skbs are always allocated via kzalloc
->>   * out -> out cloned skbs are always cloned on the same CPU
->>   * an extra four bytes in skbuff isn't a bad thing
->
-> I'm pretty sure extending sk_buff for this is not acceptable.
+RTA_ALIGNTO is currently define as 4. It has to be 4U to prevent warning
+for RTA_ALIGN and RTA_DATA expansions when -Wconversion gcc option is
+enabled.
+This follows NLMSG_ALIGNTO definition in <include/uapi/linux/netlink.h>.
 
-+1, I agree.
+Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+---
+ include/uapi/linux/rtnetlink.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> I was thinking may be we can use sign bit to distinguish between
-> napi_id and sender_cpu.
-> Like:
->          if ((int)skb->sender_cpu >= 0)
->                  skb->sender_cpu = - (raw_smp_processor_id() + 1);
-> and inside get_xps_queue() use it only if it's negative.
-> Then we can remove skb_sender_cpu_clear() from everywhere.
-> Adding a check to napi_hash_add() to make sure that napi_id is not
-> negative is probably ok too.
-> Thoughts?
-
-I think this doesn't make it any more maintainable.
-
-skb_sender_cpu_clear(), one can at least git-grep to easily find
-out and review call-sites in the code. There are various members
-already used differently depending on the context.
-
-Thanks,
-Daniel
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 4db0b3c..123a5af 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -160,7 +160,7 @@ struct rtattr {
+ 
+ /* Macros to handle rtattributes */
+ 
+-#define RTA_ALIGNTO	4
++#define RTA_ALIGNTO	4U
+ #define RTA_ALIGN(len) ( ((len)+RTA_ALIGNTO-1) & ~(RTA_ALIGNTO-1) )
+ #define RTA_OK(rta,len) ((len) >= (int)sizeof(struct rtattr) && \
+ 			 (rta)->rta_len >= sizeof(struct rtattr) && \
+-- 
+2.1.0
