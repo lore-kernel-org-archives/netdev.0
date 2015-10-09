@@ -1,146 +1,141 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [RHEL6.8 net PATCH] ipv4/icmp: redirect messages can use the ingress daddr as source
-Date: Fri,  9 Oct 2015 11:40:06 +0200
-Message-ID: <d10d2ec1cdf0334e9951b819051d4a127e103091.1444383578.git.pabeni@redhat.com>
-Cc: Jonathan Corbet <corbet@lwn.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next 1/1] sfc: fully reset if MC_REBOOT event received
+ without warm_boot_count increment
+Date: Fri, 9 Oct 2015 10:40:35 +0100
+Message-ID: <56178B93.6020205@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50562 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754838AbbJIJlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 05:41:10 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:27644 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755508AbbJIJmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 05:42:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows configuring how the source address of ICMP
-redirect messages is selected; by default the old behaviour is
-retained, while setting icmp_redirects_use_orig_daddr force the
-usage of the destination address of the packet that caused the
-redirect.
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The new behaviour fits closely the RFC 5798 section 8.1.1, and fix the
-following scenario:
+On EF10, MC_CMD_VPORT_RECONFIGURE can cause a CODE_MC_REBOOT event
+to be sent to a function without incrementing the (adapter-wide)
+warm_boot_count.  In this case, the reboot is not detected by the
+loop on efx_mcdi_poll_reboot(), so prepare for recovery from an MC
+reboot anyway.  When this codepath is run, the MC has always just
+rebooted, so this recovery is valid.
 
-Two machines are set up with VRRP to act as routers out of a subnet,
-they have IPs x.x.x.1/24 and x.x.x.2/24, with VRRP holding on to
-x.x.x.254/24.
+The loop on efx_mcdi_poll_reboot() is still required for other MC
+reboot cases, so that actions in response to an MC reboot are
+performed, such as clearing locally calculated statistics.
+Siena NICs are unaffected by this change as the above scenario
+does not apply.
 
-If a host in said subnet needs to get an ICMP redirect from the VRRP
-router, i.e. to reach a destination behind a different gateway, the
-source IP in the ICMP redirect is chosen as the primary IP on the
-interface that the packet arrived at, i.e. x.x.x.1 or x.x.x.2.
-
-The host will then ignore said redirect, due to RFC 1122 section 3.2.2.2,
-and will continue to use the wrong next-op.
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- Documentation/networking/ip-sysctl.txt | 19 +++++++++++++++++--
- include/net/netns/ipv4.h               |  1 +
- net/ipv4/icmp.c                        |  9 ++++++++-
- net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
- 4 files changed, 33 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       | 30 +++++++++++++++++++-----------
+ drivers/net/ethernet/sfc/mcdi.c       | 13 ++++++++++++-
+ drivers/net/ethernet/sfc/net_driver.h |  1 +
+ 3 files changed, 32 insertions(+), 12 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ebe94f2..9983825 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -884,8 +884,8 @@ icmp_ignore_bogus_error_responses - BOOLEAN
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index ff649eb..78b7b7b 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -1604,6 +1604,22 @@ efx_ef10_mcdi_read_response(struct efx_nic *efx, efx_dword_t *outbuf,
+ 	memcpy(outbuf, pdu + offset, outlen);
+ }
  
- icmp_errors_use_inbound_ifaddr - BOOLEAN
- 
--	If zero, icmp error messages are sent with the primary address of
--	the exiting interface.
-+	If zero, icmp error messages except redirects are sent with the primary
-+	address of the exiting interface.
- 
- 	If non-zero, the message will be sent with the primary address of
- 	the interface that received the packet that caused the icmp error.
-@@ -897,8 +897,23 @@ icmp_errors_use_inbound_ifaddr - BOOLEAN
- 	then the primary address of the first non-loopback interface that
- 	has one will be used regardless of this setting.
- 
-+	The source address selection of icmp redirect messages is controlled by
-+	icmp_errors_use_inbound_ifaddr.
- 	Default: 0
- 
-+icmp_redirects_use_orig_daddr - BOOLEAN
++static void efx_ef10_mcdi_reboot_detected(struct efx_nic *efx)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
 +
-+	If zero, icmp redirect messages are sent using the address specified for
-+	other icmp errors by icmp_errors_use_inbound_ifaddr.
++	/* All our allocations have been reset */
++	efx_ef10_reset_mc_allocations(efx);
 +
-+	If non-zero, the message will be sent with the destination address of
-+	the packet that caused the icmp redirect.
-+	This behaviour is the preferred one on VRRP routers (see RFC 5798
-+	section 8.1.1).
++	/* The datapath firmware might have been changed */
++	nic_data->must_check_datapath_caps = true;
 +
-+	Default: 0
-+
-+
- igmp_max_memberships - INTEGER
- 	Change the maximum number of multicast groups we can subscribe to.
- 	Default: 20
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index c68926b..46d336a 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -74,6 +74,7 @@ struct netns_ipv4 {
- 	int sysctl_icmp_ratelimit;
- 	int sysctl_icmp_ratemask;
- 	int sysctl_icmp_errors_use_inbound_ifaddr;
-+	int sysctl_icmp_redirects_use_orig_daddr;
- 
- 	struct local_ports ip_local_ports;
- 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index e5eb8ac..3b57aa4 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -642,7 +642,9 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 	 */
- 
- 	saddr = iph->daddr;
--	if (!(rt->rt_flags & RTCF_LOCAL)) {
-+	if (!((type == ICMP_REDIRECT) &&
-+	      net->ipv4.sysctl_icmp_redirects_use_orig_daddr) &&
-+	    !(rt->rt_flags & RTCF_LOCAL)) {
- 		struct net_device *dev = NULL;
- 
- 		rcu_read_lock();
-@@ -1205,6 +1207,11 @@ static int __net_init icmp_sk_init(struct net *net)
- 	net->ipv4.sysctl_icmp_ratemask = 0x1818;
- 	net->ipv4.sysctl_icmp_errors_use_inbound_ifaddr = 0;
- 
-+	/* Control paramerer - use the daddr of originating packets as saddr
-+	 * in redirect messages?
++	/* MAC statistics have been cleared on the NIC; clear the local
++	 * statistic that we update with efx_update_diff_stat().
 +	 */
-+	net->ipv4.sysctl_icmp_redirects_use_orig_daddr = 0;
++	nic_data->stats[EF10_STAT_port_rx_bad_bytes] = 0;
++}
 +
- 	return 0;
+ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
+ {
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+@@ -1623,17 +1639,7 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
+ 		return 0;
  
- fail:
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 894da3a..30a531c 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -818,6 +818,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
-+		.procname	= "icmp_redirects_use_orig_daddr",
-+		.data		= &init_net.ipv4.sysctl_icmp_redirects_use_orig_daddr,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
- 		.procname	= "icmp_ratelimit",
- 		.data		= &init_net.ipv4.sysctl_icmp_ratelimit,
- 		.maxlen		= sizeof(int),
--- 
-1.8.3.1
+ 	nic_data->warm_boot_count = rc;
+-
+-	/* All our allocations have been reset */
+-	efx_ef10_reset_mc_allocations(efx);
+-
+-	/* The datapath firmware might have been changed */
+-	nic_data->must_check_datapath_caps = true;
+-
+-	/* MAC statistics have been cleared on the NIC; clear the local
+-	 * statistic that we update with efx_update_diff_stat().
+-	 */
+-	nic_data->stats[EF10_STAT_port_rx_bad_bytes] = 0;
++	efx_ef10_mcdi_reboot_detected(efx);
+ 
+ 	return -EIO;
+ }
+@@ -4670,6 +4676,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
+ 	.mcdi_poll_response = efx_ef10_mcdi_poll_response,
+ 	.mcdi_read_response = efx_ef10_mcdi_read_response,
+ 	.mcdi_poll_reboot = efx_ef10_mcdi_poll_reboot,
++	.mcdi_reboot_detected = efx_ef10_mcdi_reboot_detected,
+ 	.irq_enable_master = efx_port_dummy_op_void,
+ 	.irq_test_generate = efx_ef10_irq_test_generate,
+ 	.irq_disable_non_ev = efx_port_dummy_op_void,
+@@ -4774,6 +4781,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ 	.mcdi_poll_response = efx_ef10_mcdi_poll_response,
+ 	.mcdi_read_response = efx_ef10_mcdi_read_response,
+ 	.mcdi_poll_reboot = efx_ef10_mcdi_poll_reboot,
++	.mcdi_reboot_detected = efx_ef10_mcdi_reboot_detected,
+ 	.irq_enable_master = efx_port_dummy_op_void,
+ 	.irq_test_generate = efx_ef10_irq_test_generate,
+ 	.irq_disable_non_ev = efx_port_dummy_op_void,
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 98d172b..d3f307e 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -1028,10 +1028,21 @@ static void efx_mcdi_ev_death(struct efx_nic *efx, int rc)
+ 
+ 		/* Consume the status word since efx_mcdi_rpc_finish() won't */
+ 		for (count = 0; count < MCDI_STATUS_DELAY_COUNT; ++count) {
+-			if (efx_mcdi_poll_reboot(efx))
++			rc = efx_mcdi_poll_reboot(efx);
++			if (rc)
+ 				break;
+ 			udelay(MCDI_STATUS_DELAY_US);
+ 		}
++
++		/* On EF10, a CODE_MC_REBOOT event can be received without the
++		 * reboot detection in efx_mcdi_poll_reboot() being triggered.
++		 * If zero was returned from the final call to
++		 * efx_mcdi_poll_reboot(), the MC reboot wasn't noticed but the
++		 * MC has definitely rebooted so prepare for the reset.
++		 */
++		if (!rc && efx->type->mcdi_reboot_detected)
++			efx->type->mcdi_reboot_detected(efx);
++
+ 		mcdi->new_epoch = true;
+ 
+ 		/* Nobody was waiting for an MCDI request, so trigger a reset */
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index c530e1c..ad56231 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -1277,6 +1277,7 @@ struct efx_nic_type {
+ 	void (*mcdi_read_response)(struct efx_nic *efx, efx_dword_t *pdu,
+ 				   size_t pdu_offset, size_t pdu_len);
+ 	int (*mcdi_poll_reboot)(struct efx_nic *efx);
++	void (*mcdi_reboot_detected)(struct efx_nic *efx);
+ 	void (*irq_enable_master)(struct efx_nic *efx);
+ 	void (*irq_test_generate)(struct efx_nic *efx);
+ 	void (*irq_disable_non_ev)(struct efx_nic *efx);
