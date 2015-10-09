@@ -1,58 +1,55 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
-Date: Fri, 9 Oct 2015 15:31:06 -0700
-Message-ID: <20151009153106.000050f6@unknown>
-References: <6607276.TY67sbLLqL@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tun: use sk_fullsock() before reading
+ sk->sk_tsflags
+Date: Fri, 09 Oct 2015 15:42:21 -0700
+Message-ID: <1444430541.27760.109.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-	<kbuild-all@01.org>, Andrew Bowers <andrewx.bowers@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:3579 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176AbbJIWbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 18:31:23 -0400
-In-Reply-To: <6607276.TY67sbLLqL@wuerfel>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33821 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754292AbbJIWmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 18:42:23 -0400
+Received: by padhy16 with SMTP id hy16so98081552pad.1
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 15:42:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 Oct 2015 22:13:19 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> Jesse Brandeburg fixed a bug for 32-bit systems in the i40e driver
-> in commit 9c70d7cebfec5 ("i40e: fix 32 bit build warnings"), but the
-> same code still exists in the i40evf driver and causes compilation
-> warnings in ARM and x86 allmodconfig:
-> 
-> drivers/net/ethernet/intel/i40evf/i40e_common.c:445:68: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
-> drivers/net/ethernet/intel/i40evf/i40e_common.c:446:71: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
-> 
-> This applies the same fix by removing the broken code.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+timewait or request sockets are small and do not contain sk->sk_tsflags
 
-Thanks for catching that, my mistake.
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Without this fix, we might read garbage, and crash later in
 
-> It would probably be a good idea to merge some of the duplicate code into
-> a library module that gets used by both drivers to avoid having to fix bugs
-> twice in the future.
+__skb_complete_tx_timestamp()
+ -> sock_queue_err_skb()
 
-The library is a nice idea, but while much of the code is the same,
-many things about interaction with it while running in the VF context
-are different than when called in the PF context.
+(These pseudo sockets do not have an error queue either)
 
-We will look closely at what we can commonize and at least move to
-header files.
+Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ Note this bug also exists on net tree for timewait sockets but only
+ in exceptional conditions (routing glitches and IP early demux)
 
-Thanks!
+ drivers/net/tun.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 976aa9704297..b1878faea397 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -858,7 +858,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+ 		goto drop;
+ 
+-	if (skb->sk) {
++	if (skb->sk && sk_fullsock(skb->sk)) {
+ 		sock_tx_timestamp(skb->sk, &skb_shinfo(skb)->tx_flags);
+ 		sw_tx_timestamp(skb);
+ 	}
