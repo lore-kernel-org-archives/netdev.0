@@ -1,127 +1,72 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: fix waitqueue_active without memory barrier
- in brcmfmac driver
-Date: Fri, 9 Oct 2015 21:44:24 +0200
-Message-ID: <56181918.9010706@broadcom.com>
-References: <17EC94B0A072C34B8DCF0D30AD16044A02874785@BPXM09GP.gisp.nec.co.jp>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: avoid warning in gss_key_timeout
+Date: Fri, 9 Oct 2015 16:10:59 -0400
+Message-ID: <20151009201059.GC8188@fieldses.org>
+References: <6995148.OQIKcAcqHW@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02874785@BPXM09GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <6995148.OQIKcAcqHW@wuerfel>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/09/2015 02:35 AM, Kosuke Tatsukawa wrote:
-> brcmf_msgbuf_ioctl_resp_wake() seems to be missing a memory barrier
-> which might cause the waker to not notice the waiter and miss sending a
-> wake_up as in the following figure.
+On Fri, Oct 09, 2015 at 04:13:45PM +0200, Arnd Bergmann wrote:
+> The gss_key_timeout() function causes a harmless warning in some
+> configurations, e.g. ARM imx_v6_v7_defconfig with gcc-5.2, if the
+> compiler cannot figure out the state of the 'expire' variable across
+> an rcu_read_unlock():
+> 
+> net/sunrpc/auth_gss/auth_gss.c: In function 'gss_key_timeout':
+> net/sunrpc/auth_gss/auth_gss.c:1422:211: warning: 'expire' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> 
+> To avoid this warning without adding a bogus initialization, this
+> rewrites the function so the comparison is done inside of the
+> critical section. As a side-effect, it also becomes slightly
+> easier to understand because the implementation now more closely
+> resembles the comment above it.
 
-My mail reader treats this as HTML format or so. Can you resend it in
-plain text please?
-
-Regards,
-Arend
+Looks reasonable, thanks; applying for 4.4--b.
 
 > 
->    brcmf_msgbuf_ioctl_resp_wake		    brcmf_msgbuf_ioctl_resp_wait
-> ------------------------------------------------------------------------
-> if (waitqueue_active(&msgbuf->ioctl_resp_wait))
-> /* The CPU might reorder the test for
->     the waitqueue up here, before
->     prior writes complete */
->     	   	     	 	       /* wait_event_timeout */
-> 				        /* __wait_event_timeout */
-> 					 /* ___wait_event */
-> 					 prepare_to_wait_event(&wq, &__wait,
-> 					   state);
-> 					 if (msgbuf->ctl_completed)
-> 					 ...
-> msgbuf->ctl_completed = true;
-> 					 schedule_timeout(__ret))
-> ------------------------------------------------------------------------
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: c5e6aecd034e7 ("sunrpc: fix RCU handling of gc_ctx field")
 > 
-> There are three other place in drivers/net/wireless/brcm80211/brcmfmac/
-> which have similar code.  The attached patch removes the call to
-> waitqueue_active() leaving just wake_up() behind.  This fixes the
-> problem because the call to spin_lock_irqsave() in wake_up() will be an
-> ACQUIRE operation.
-> 
-> I found this issue when I was looking through the linux source code
-> for places calling waitqueue_active() before wake_up*(), but without
-> preceding memory barriers, after sending a patch to fix a similar
-> issue in drivers/tty/n_tty.c  (Details about the original issue can be
-> found here: https://lkml.org/lkml/2015/9/28/849).
-> 
-> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c |    3 +--
->   drivers/net/wireless/brcm80211/brcmfmac/sdio.c   |    6 ++----
->   drivers/net/wireless/brcm80211/brcmfmac/usb.c    |    3 +--
->   3 files changed, 4 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
-> index 7b2136c..648151e 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
-> @@ -473,8 +473,7 @@ static int brcmf_msgbuf_ioctl_resp_wait(struct brcmf_msgbuf *msgbuf)
->   static void brcmf_msgbuf_ioctl_resp_wake(struct brcmf_msgbuf *msgbuf)
->   {
->   	msgbuf->ctl_completed = true;
-> -	if (waitqueue_active(&msgbuf->ioctl_resp_wait))
-> -		wake_up(&msgbuf->ioctl_resp_wait);
-> +	wake_up(&msgbuf->ioctl_resp_wait);
->   }
->   
->   
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> index f990e3d..332c4c8 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> @@ -1785,8 +1785,7 @@ static int brcmf_sdio_dcmd_resp_wait(struct brcmf_sdio *bus, uint *condition,
->   
->   static int brcmf_sdio_dcmd_resp_wake(struct brcmf_sdio *bus)
->   {
-> -	if (waitqueue_active(&bus->dcmd_resp_wait))
-> -		wake_up_interruptible(&bus->dcmd_resp_wait);
-> +	wake_up_interruptible(&bus->dcmd_resp_wait);
->   
->   	return 0;
->   }
-> @@ -2110,8 +2109,7 @@ static uint brcmf_sdio_readframes(struct brcmf_sdio *bus, uint maxframes)
->   static void
->   brcmf_sdio_wait_event_wakeup(struct brcmf_sdio *bus)
->   {
-> -	if (waitqueue_active(&bus->ctrl_wait))
-> -		wake_up_interruptible(&bus->ctrl_wait);
-> +	wake_up_interruptible(&bus->ctrl_wait);
->   	return;
->   }
->   
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> index daba86d..7f5889c 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> @@ -184,8 +184,7 @@ static int brcmf_usb_ioctl_resp_wait(struct brcmf_usbdev_info *devinfo)
->   
->   static void brcmf_usb_ioctl_resp_wake(struct brcmf_usbdev_info *devinfo)
->   {
-> -	if (waitqueue_active(&devinfo->ioctl_resp_wait))
-> -		wake_up(&devinfo->ioctl_resp_wait);
-> +	wake_up(&devinfo->ioctl_resp_wait);
->   }
->   
->   static void
-> 
+> diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+> index dace13d7638e..799e65b944b9 100644
+> --- a/net/sunrpc/auth_gss/auth_gss.c
+> +++ b/net/sunrpc/auth_gss/auth_gss.c
+> @@ -1411,17 +1411,16 @@ gss_key_timeout(struct rpc_cred *rc)
+>  {
+>  	struct gss_cred *gss_cred = container_of(rc, struct gss_cred, gc_base);
+>  	struct gss_cl_ctx *ctx;
+> -	unsigned long now = jiffies;
+> -	unsigned long expire;
+> +	unsigned long timeout = jiffies + (gss_key_expire_timeo * HZ);
+> +	int ret = 0;
+>  
+>  	rcu_read_lock();
+>  	ctx = rcu_dereference(gss_cred->gc_ctx);
+> -	if (ctx)
+> -		expire = ctx->gc_expiry - (gss_key_expire_timeo * HZ);
+> +	if (!ctx || time_after(timeout, ctx->gc_expiry))
+> +		ret = -EACCES;
+>  	rcu_read_unlock();
+> -	if (!ctx || time_after(now, expire))
+> -		return -EACCES;
+> -	return 0;
+> +
+> +	return ret;
+>  }
+>  
+>  static int
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
