@@ -1,155 +1,58 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
-Date: Fri, 9 Oct 2015 15:11:19 -0700
-Message-ID: <CAEP_g=8TTh7pQL_DadBPdhfat+gd_XizGJqWK2wvHvo7oy6WaQ@mail.gmail.com>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
- <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
- <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com> <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
- <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
+Date: Fri, 9 Oct 2015 15:31:06 -0700
+Message-ID: <20151009153106.000050f6@unknown>
+References: <6607276.TY67sbLLqL@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, Vlastimil Babka <vbabka@suse.cz>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>, "dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
-To: Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
+	<kbuild-all@01.org>, Andrew Bowers <andrewx.bowers@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:3579 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751176AbbJIWbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 18:31:23 -0400
+In-Reply-To: <6607276.TY67sbLLqL@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme <jrajahalme@nicira.com> wro=
-te:
->
-> On Oct 8, 2015, at 4:03 PM, Jesse Gross <jesse@nicira.com> wrote:
->
-> On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme <jrajahalme@nicira.com>
-> wrote:
->
->
-> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
->
-> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->
-> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
->
->
-> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->
->
-> When openvswitch tries allocate memory from offline numa node 0:
-> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO=
-,
-> 0)
-> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || !node_online(nid=
-))
-> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
-> This patch disables numa affinity in this case.
->
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->
->
->
-> ...
->
-> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-> index f2ea83ba4763..c7f74aab34b9 100644
-> --- a/net/openvswitch/flow_table.c
-> +++ b/net/openvswitch/flow_table.c
-> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->
->     /* Initialize the default stat node. */
->     stats =3D kmem_cache_alloc_node(flow_stats_cache,
-> -                      GFP_KERNEL | __GFP_ZERO, 0);
-> +                      GFP_KERNEL | __GFP_ZERO,
-> +                      node_online(0) ? 0 : NUMA_NO_NODE);
->
->
->
-> Stupid question: can node 0 become offline between this check, and the
-> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
->
->
->
-> Another question to ask would be is it possible for node 0 to be online, =
-but
-> be a memoryless node?
->
-> I would say you are better off just making this call kmem_cache_alloc.  I
-> don't see anything that indicates the memory has to come from node 0, so
-> adding the extra overhead doesn't provide any value.
->
->
-> I agree that this at least makes me wonder, though I actually have
-> concerns in the opposite direction - I see assumptions about this
-> being on node 0 in net/openvswitch/flow.c.
->
-> Jarno, since you original wrote this code, can you take a look to see
-> if everything still makes sense?
->
->
-> We keep the pre-allocated stats node at array index 0, which is initially
-> used by all CPUs, but if CPUs from multiple numa nodes start updating the
-> stats, we allocate additional stats nodes (up to one per numa node), and =
-the
-> CPUs on node 0 keep using the preallocated entry. If stats cannot be
-> allocated from CPUs local node, then those CPUs keep using the entry at
-> index 0. Currently the code in net/openvswitch/flow.c will try to allocat=
-e
-> the local memory repeatedly, which may not be optimal when there is no
-> memory at the local node.
->
-> Allocating the memory for the index 0 from other than node 0, as discusse=
-d
-> here, just means that the CPUs on node 0 will keep on using non-local mem=
-ory
-> for stats. In a scenario where there are CPUs on two nodes (0, 1), but on=
-ly
-> the node 1 has memory, a shared flow entry will still end up having separ=
-ate
-> memory allocated for both nodes, but both of the nodes would be at node 1=
-.
-> However, there is still a high likelihood that the memory allocations wou=
-ld
-> not share a cache line, which should prevent the nodes from invalidating
-> each other=E2=80=99s caches. Based on this I do not see a problem relaxin=
-g the
-> memory allocation for the default stats node. If node 0 has memory, howev=
-er,
-> it would be better to allocate the memory from node 0.
->
->
-> Thanks for going through all of that.
->
-> It seems like the question that is being raised is whether it actually
-> makes sense to try to get the initial memory on node 0, especially
-> since it seems to introduce some corner cases? Is there any reason why
-> the flow is more likely to hit node 0 than a randomly chosen one?
-> (Assuming that this is a multinode system, otherwise it's kind of a
-> moot point.) We could have a separate pointer to the default allocated
-> memory, so it wouldn't conflict with memory that was intentionally
-> allocated for node 0.
->
->
-> It would still be preferable to know from which node the default stats no=
-de
-> was allocated, and store it in the appropriate pointer in the array. We
-> could then add a new =E2=80=9Cdefault stats node index=E2=80=9D that woul=
-d be used to locate
-> the node in the array of pointers we already have. That way we would avoi=
-d
-> extra allocation and processing of the default stats node.
+On Wed, 7 Oct 2015 22:13:19 +0200
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-I agree, that sounds reasonable to me. Will you make that change?
+> Jesse Brandeburg fixed a bug for 32-bit systems in the i40e driver
+> in commit 9c70d7cebfec5 ("i40e: fix 32 bit build warnings"), but the
+> same code still exists in the i40evf driver and causes compilation
+> warnings in ARM and x86 allmodconfig:
+> 
+> drivers/net/ethernet/intel/i40evf/i40e_common.c:445:68: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+> drivers/net/ethernet/intel/i40evf/i40e_common.c:446:71: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+> 
+> This applies the same fix by removing the broken code.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Besides eliminating corner cases, it might help performance in some
-cases too by avoiding stressing memory bandwidth on node 0.
+Thanks for catching that, my mistake.
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> It would probably be a good idea to merge some of the duplicate code into
+> a library module that gets used by both drivers to avoid having to fix bugs
+> twice in the future.
+
+The library is a nice idea, but while much of the code is the same,
+many things about interaction with it while running in the VF context
+are different than when called in the PF context.
+
+We will look closely at what we can commonize and at least move to
+header files.
+
+Thanks!
