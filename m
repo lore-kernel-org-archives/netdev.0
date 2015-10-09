@@ -1,63 +1,90 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH 02/23] usb-gadget: use per-attribute show and store methods
-Date: Fri, 9 Oct 2015 16:19:57 -0500
-Message-ID: <87io6fu4ci.fsf@saruman.tx.rr.com>
-References: <1443879179-22280-1-git-send-email-hch@lst.de> <1443879179-22280-3-git-send-email-hch@lst.de>
+From: Trond Myklebust <trond.myklebust@primarydata.com>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier in sunrpc
+Date: Fri, 9 Oct 2015 17:21:27 -0400
+Message-ID: <CAHQdGtRh5BiiUXBrqq3+8v5ZbymoycGdwTeGQUrxzuZdinfMNQ@mail.gmail.com>
+References: <87h9m04mbt.fsf@notabene.neil.brown.name>
+	<17EC94B0A072C34B8DCF0D30AD16044A02874B59@BPXM09GP.gisp.nec.co.jp>
+	<20151009211819.GE8188@fieldses.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-="; micalg=pgp-sha1;
-	protocol="application/pgp-signature"
-Cc: Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
-	Tejun Heo <tj@kernel.org>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
-	<target-devel@vger.kernel.org>, <cluster-devel@redhat.com>,
-	<ocfs2-devel@oss.oracle.com>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Christoph Hellwig <hch@lst.de>, Joel Becker <jlbec@evilplan.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <1443879179-22280-3-git-send-email-hch@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
+	Neil Brown <nfbrown@novell.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:36353 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756245AbbJIVV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 17:21:28 -0400
+Received: by oibi136 with SMTP id i136so50951633oib.3
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 14:21:28 -0700 (PDT)
+In-Reply-To: <20151009211819.GE8188@fieldses.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-
-Hi,
-
-Christoph Hellwig <hch@lst.de> writes:
-> To simplify the configfs interface and remove boilerplate code that also
-> causes binary bloat.
+On Fri, Oct 9, 2015 at 5:18 PM, J. Bruce Fields <bfields@fieldses.org> wrote:
 >
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> Reviewed-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+> On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+> > Neil Brown wrote:
+> > > Kosuke Tatsukawa <tatsu@ab.jp.nec.com> writes:
+> > >
+> > >> There are several places in net/sunrpc/svcsock.c which calls
+> > >> waitqueue_active() without calling a memory barrier.  Add a memory
+> > >> barrier just as in wq_has_sleeper().
+> > >>
+> > >> I found this issue when I was looking through the linux source code
+> > >> for places calling waitqueue_active() before wake_up*(), but without
+> > >> preceding memory barriers, after sending a patch to fix a similar
+> > >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+> > >> found here: https://lkml.org/lkml/2015/9/28/849).
+> > >
+> > > hi,
+> > > this feels like the wrong approach to the problem.  It requires extra
+> > > 'smb_mb's to be spread around which are hard to understand as easy to
+> > > forget.
+> > >
+> > > A quick look seems to suggest that (nearly) every waitqueue_active()
+> > > will need an smb_mb.  Could we just put the smb_mb() inside
+> > > waitqueue_active()??
+> > <snip>
+> >
+> > There are around 200 occurrences of waitqueue_active() in the kernel
+> > source, and most of the places which use it before wake_up are either
+> > protected by some spin lock, or already has a memory barrier or some
+> > kind of atomic operation before it.
+> >
+> > Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+> > many cases and won't be a good idea.
+> >
+> > Another way to solve this problem is to remove the waitqueue_active(),
+> > making the code look like this;
+> >       if (wq)
+> >               wake_up_interruptible(wq);
+> > This also fixes the problem because the spinlock in the wake_up*() acts
+> > as a memory barrier and prevents the code from being reordered by the
+> > CPU (and it also makes the resulting code is much simpler).
+>
+> I might not care which we did, except I don't have the means to test
+> this quickly, and I guess this is some of our most frequently called
+> code.
+>
+> I suppose your patch is the most conservative approach, as the
+> alternative is a spinlock/unlock in wake_up_interruptible, which I
+> assume is necessarily more expensive than an smp_mb().
+>
+> As far as I can tell it's been this way since forever.  (Well, since a
+> 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+> removed some spinlocks from the data_ready routines.)
+>
+> I don't understand what the actual race is yet (which code exactly is
+> missing the wakeup in this case?  nfsd threads seem to instead get
+> woken up by the wake_up_process() in svc_xprt_do_enqueue().)
+>
 
-I suppose this depends on other fs/configfs changes ?
-
-=2D-=20
-balbi
-
---=-=-=
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJWGC9+AAoJEIaOsuA1yqRESncP/2gLswrEp+T41rgBfpNNx6p/
-mDqm9LW2bIFTtufk9ujhuxnhi+pEMdN1XMHaivuYzjJizumgJJkoCCelVzyfCmI0
-LVhuZ/iflwrB6RzpsuqzmK9PoJWy25fs+/qlyEwrrPnc7POR6xtWZLjkqpa7bEXR
-a/WniI7NcTOeqFF6WzgnO9vWeQK88vv0RuKMBiGcD1FsSzpzLiebfbGFDP6vlobA
-6bjqMBnmYZVKil7HHVSKJSFLkFsYSQWhjyjwHy6PlI/fJZlXITzwVbMbtcKy/yG4
-d/CWaKas/O3Dj3YHxQCTJ8noLXnXx+keNDzHjB46ho1dKPA4FoQDOsUuX51kcBx7
-765R8J0FpDk1yW1x9QWKn+DIMGbL2HsMjG2NKLz80N1lp6x802SF2dosAZBkGmIP
-kpEQbgrsxYx++4rcT+WenmurrEa4WYgHrPbT2yXAv3V62lZkbMN5GFbFCvhJwPo4
-T9rCNBp6zuCEwaaLW5vZiDIeCtnN7x2JIR5IiA1u4YQHH66hIRea0WYIbp/9+cKf
-8P+1OFF4ZC+MbTYyexhElKHDE23kJKtsKnMcM+t/ZYQWmpGFp4doZnhrnVJpn0pj
-7h9MWPI9jdvbSmrcLvzgUJCoKe6EN0+KupoH02Tq8rfiQBPrHxKlyXSphnqMMpoE
-Zle/Y9jiO8fztYRoYo2b
-=Q7dh
------END PGP SIGNATURE-----
---=-=-=--
+Those threads still use blocking calls for sendpage() and sendmsg(),
+so presumably they may be affected.
