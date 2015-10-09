@@ -1,78 +1,64 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 2/4] switchdev: skip over ports returning -EOPNOTSUPP when recursing ports
-Date: Thu,  8 Oct 2015 19:23:18 -0700
-Message-ID: <1444357400-37078-3-git-send-email-sfeldma@gmail.com>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
-Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
-	pjonnala@broadcom.com, stephen@networkplumber.org,
-	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] ethtool: Add vmxnet3 register dump support
+Date: Fri, 09 Oct 2015 03:21:00 +0100
+Message-ID: <1444357260.2956.289.camel@decadent.org.uk>
+References: <1443046752-28892-1-git-send-email-skhare@vmware.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-YcKVA/wwdqbDedXPobHM"
+Cc: Bhavesh Davda <bhavesh@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>, bwh@kernel.org,
+	netdev@vger.kernel.org, pv-drivers@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34633 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932262AbbJICUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:20:25 -0400
-Received: by padhy16 with SMTP id hy16so71428235pad.1
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 19:20:25 -0700 (PDT)
-In-Reply-To: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36309 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932265AbbJICVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:21:12 -0400
+In-Reply-To: <1443046752-28892-1-git-send-email-skhare@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
 
-This allows us to recurse over all the ports, skipping over unsupporting
-ports.  Without the change, the recursion would stop at first unsupported
-port.
+--=-YcKVA/wwdqbDedXPobHM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- include/net/switchdev.h   |    1 +
- net/switchdev/switchdev.c |    9 ++++++++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+On Wed, 2015-09-23 at 15:19 -0700, Shrikrishna Khare wrote:
+> This adds support for dumping vmxnet3 registers in a readable format.
+>=20
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+> Acked-by: Srividya Murali <smurali@vmware.com>
+[...]
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 61f129b..1ce7083 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -16,6 +16,7 @@
- #include <linux/list.h>
- 
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
-+#define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
- 
- struct switchdev_trans_item {
- 	struct list_head list;
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 6e4a4f9..7a9ab90 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -147,7 +147,7 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 		return ops->switchdev_port_attr_set(dev, attr, trans);
- 
- 	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
--		return err;
-+		goto done;
- 
- 	/* Switch device port(s) may be stacked under
- 	 * bond/team/vlan dev, so recurse down to set attr on
-@@ -156,10 +156,17 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
- 		err = __switchdev_port_attr_set(lower_dev, attr, trans);
-+		if (err == -EOPNOTSUPP &&
-+		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
-+			continue;
- 		if (err)
- 			break;
- 	}
- 
-+done:
-+	if (err == -EOPNOTSUPP && attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
-+		err = 0;
-+
- 	return err;
- }
- 
--- 
-1.7.10.4
+Applied, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+If the facts do not conform to your theory, they must be disposed of.
+
+--=-YcKVA/wwdqbDedXPobHM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVhckjOe/yOyVhhEJAQpvDw/9FsXinuzMgl+62i7iaOLhellaWR2vHyne
+djaQuHNJGg5JnTSrsdfNqGNI0H+PHJTGBDaYeqjlN7Zqc9mHIymJguuOkkj6Qf+C
+5REavIZorY37zBFgomJD3ae+I8akgr/eFXe3+tjC+U5TCwBxB/meqAKgGIriYvJl
+zMt19WLuhTC/JEZw+POgBw++ups47MpKrzPHRzIZ2lzbTGBEnTXOdw2RpGpE2Kly
+nT9HN0sP0S04zV4MBTkeXPS/6AxiJVa+ufGPR/e9RGHWync8hjg1tyLIKRDWsSsn
+C5ysaXOnPVJU9reOA9mT+FO481KXfKNiGniyzw5EWcTS+FTZtXDRv0IEzCgI0dVO
+HvL94TmKTSo2lJfl9Ka9k4x8JkwmCOAmnYn6CvTpR/JwhNiL37oZqEFXTINUiKmW
+sW3cw2MsLaC0i6d5jjs52ajb/Zn0KQVVO7QaS00c55ely/xeZZdeKHOVxkUsUqhq
+RcIMG63SM+D2307AONrxwgXdVBYkqYVcWuOKPiVl7yHGyAYXbduTXonL+kjAqMrP
+8tbvm6wMwXT+il0HCuAW7oadiC0axrrley0WeckXeZ0f0GTDLwtgTmcrwz60nHym
+5etnzoArtfqL99GU/lu0ScD7nAcWtrgp0thj9jFnMZdjmTBtHeyurzoj/8kQ3WoC
+akm/OQboAIo=
+=gdeB
+-----END PGP SIGNATURE-----
+
+--=-YcKVA/wwdqbDedXPobHM--
