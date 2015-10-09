@@ -1,129 +1,231 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
- down to switchdev
-Date: Thu, 8 Oct 2015 20:31:53 -0700
-Message-ID: <CAE4R7bBvG5s5agx6PkqVF+OAXdiAY5iiBKpgH5N7x5DQ_+FgfA@mail.gmail.com>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
- <1444357400-37078-4-git-send-email-sfeldma@gmail.com> <CAGVrzca-PQ6kbW+KCi_LWOs0zqCgicoB2sNrK=kViECRu7sH4Q@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v3 net-next 1/4] net: SO_INCOMING_CPU setsockopt() support
+Date: Thu, 8 Oct 2015 20:40:11 -0700
+Message-ID: <CALx6S36E7gO0YLadaayiXiJXhaveirumLZ-hiYJQuxrpObjZJQ@mail.gmail.com>
+References: <1444358004-26483-1-git-send-email-edumazet@google.com>
+	<1444358004-26483-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:36712 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754017AbbJIDcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 23:32:13 -0400
-Received: by obcgx8 with SMTP id gx8so53625219obc.3
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 20:32:12 -0700 (PDT)
-In-Reply-To: <CAGVrzca-PQ6kbW+KCi_LWOs0zqCgicoB2sNrK=kViECRu7sH4Q@mail.gmail.com>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:35479 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898AbbJIDkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 23:40:12 -0400
+Received: by ioiz6 with SMTP id z6so79061295ioi.2
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 20:40:11 -0700 (PDT)
+In-Reply-To: <1444358004-26483-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 8, 2015 at 7:40 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2015-10-08 19:23 GMT-07:00  <sfeldma@gmail.com>:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
->> support setting ageing_time (or setting bridge attrs in general).
->>
->> If push fails, don't update ageing_time in bridge and return err to user.
->>
->> If push succeeds, update ageing_time in bridge and run gc_timer now to
->> recalabrate when to run gc_timer next, based on new ageing_time.
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  net/bridge/br_ioctl.c    |    3 +--
->>  net/bridge/br_netlink.c  |    6 +++---
->>  net/bridge/br_private.h  |    1 +
->>  net/bridge/br_stp.c      |   23 +++++++++++++++++++++++
->>  net/bridge/br_sysfs_br.c |    3 +--
->>  5 files changed, 29 insertions(+), 7 deletions(-)
->>
->> diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
->> index 8d423bc..263b4de 100644
->> --- a/net/bridge/br_ioctl.c
->> +++ b/net/bridge/br_ioctl.c
->> @@ -200,8 +200,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->>                 if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
->>                         return -EPERM;
->>
->> -               br->ageing_time = clock_t_to_jiffies(args[1]);
->> -               return 0;
->> +               return br_set_ageing_time(br, args[1]);
->>
->>         case BRCTL_GET_PORT_INFO:
->>         {
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index d78b442..544ab96 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -870,9 +870,9 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
->>         }
->>
->>         if (data[IFLA_BR_AGEING_TIME]) {
->> -               u32 ageing_time = nla_get_u32(data[IFLA_BR_AGEING_TIME]);
->> -
->> -               br->ageing_time = clock_t_to_jiffies(ageing_time);
->> +               err = br_set_ageing_time(br, nla_get_u32(data[IFLA_BR_AGEING_TIME]));
->> +               if (err)
->> +                       return err;
->>         }
->>
->>         if (data[IFLA_BR_STP_STATE]) {
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 09d3ecb..ba0c67b 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -882,6 +882,7 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
->>  int br_set_forward_delay(struct net_bridge *br, unsigned long x);
->>  int br_set_hello_time(struct net_bridge *br, unsigned long x);
->>  int br_set_max_age(struct net_bridge *br, unsigned long x);
->> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time);
->>
->>
->>  /* br_stp_if.c */
->> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->> index 3a982c0..db6d243de 100644
->> --- a/net/bridge/br_stp.c
->> +++ b/net/bridge/br_stp.c
->> @@ -566,6 +566,29 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
->>
->>  }
->>
->> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
->> +{
->> +       struct switchdev_attr attr = {
->> +               .id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
->> +               .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
->> +               .u.ageing_time = ageing_time,
->> +       };
->> +       unsigned long t = clock_t_to_jiffies(ageing_time);
->> +       int err;
->> +
->> +       if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->> +               return -ERANGE;
->> +
->> +       err = switchdev_port_attr_set(br->dev, &attr);
->> +       if (err)
->> +               return err;
->> +
->> +       br->ageing_time = t;
->> +       mod_timer(&br->gc_timer, jiffies);
+On Thu, Oct 8, 2015 at 7:33 PM, Eric Dumazet <edumazet@google.com> wrote:
+> SO_INCOMING_CPU as added in commit 2c8c56e15df3 was a getsockopt() command
+> to fetch incoming cpu handling a particular TCP flow after accept()
 >
-> If the switch driver/HW supports ageing, does it still make sense to
-> have this software timer ticking?
+> This commits adds setsockopt() support and extends SO_REUSEPORT selection
+> logic : If a TCP listener or UDP socket has this option set, a packet is
+> delivered to this socket only if CPU handling the packet matches the specified
+> one.
+>
+> This allows to build very efficient TCP servers, using one listener per
+> RX queue, as the associated TCP listener should only accept flows handled
+> in softirq by the same cpu.
+> This provides optimal NUMA behavior and keep cpu caches hot.
+>
+> Note that __inet_lookup_listener() still has to iterate over the list of
+> all listeners. Following patch puts sk_refcnt in a different cache line
+> to let this iteration hit only shared and read mostly cache lines.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  include/net/sock.h          | 10 ++++------
+>  net/core/sock.c             |  5 +++++
+>  net/ipv4/inet_hashtables.c  |  2 ++
+>  net/ipv4/udp.c              |  6 +++++-
+>  net/ipv6/inet6_hashtables.c |  2 ++
+>  net/ipv6/udp.c              | 11 +++++++----
+>  6 files changed, 25 insertions(+), 11 deletions(-)
+>
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index dfe2eb8e1132..08abffe32236 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -150,6 +150,7 @@ typedef __u64 __bitwise __addrpair;
+>   *     @skc_node: main hash linkage for various protocol lookup tables
+>   *     @skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
+>   *     @skc_tx_queue_mapping: tx queue number for this connection
+> + *     @skc_incoming_cpu: record/match cpu processing incoming packets
+>   *     @skc_refcnt: reference count
+>   *
+>   *     This is the minimal network layer representation of sockets, the header
+> @@ -212,6 +213,8 @@ struct sock_common {
+>                 struct hlist_nulls_node skc_nulls_node;
+>         };
+>         int                     skc_tx_queue_mapping;
+> +       int                     skc_incoming_cpu;
+> +
+>         atomic_t                skc_refcnt;
+>         /* private: */
+>         int                     skc_dontcopy_end[0];
+> @@ -274,7 +277,6 @@ struct cg_proto;
+>    *    @sk_rcvtimeo: %SO_RCVTIMEO setting
+>    *    @sk_sndtimeo: %SO_SNDTIMEO setting
+>    *    @sk_rxhash: flow hash received from netif layer
+> -  *    @sk_incoming_cpu: record cpu processing incoming packets
+>    *    @sk_txhash: computed flow hash for use on transmit
+>    *    @sk_filter: socket filtering instructions
+>    *    @sk_timer: sock cleanup timer
+> @@ -331,6 +333,7 @@ struct sock {
+>  #define sk_v6_daddr            __sk_common.skc_v6_daddr
+>  #define sk_v6_rcv_saddr        __sk_common.skc_v6_rcv_saddr
+>  #define sk_cookie              __sk_common.skc_cookie
+> +#define sk_incoming_cpu                __sk_common.skc_incoming_cpu
+>
+>         socket_lock_t           sk_lock;
+>         struct sk_buff_head     sk_receive_queue;
+> @@ -353,11 +356,6 @@ struct sock {
+>  #ifdef CONFIG_RPS
+>         __u32                   sk_rxhash;
+>  #endif
+> -       u16                     sk_incoming_cpu;
+> -       /* 16bit hole
+> -        * Warned : sk_incoming_cpu can be set from softirq,
+> -        * Do not use this hole without fully understanding possible issues.
+> -        */
+>
+>         __u32                   sk_txhash;
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 7dd1263e4c24..1071f9380250 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -988,6 +988,10 @@ set_rcvbuf:
+>                                          sk->sk_max_pacing_rate);
+>                 break;
+>
+> +       case SO_INCOMING_CPU:
+> +               sk->sk_incoming_cpu = val;
+> +               break;
+> +
+>         default:
+>                 ret = -ENOPROTOOPT;
+>                 break;
+> @@ -2353,6 +2357,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+>
+>         sk->sk_max_pacing_rate = ~0U;
+>         sk->sk_pacing_rate = ~0U;
+> +       sk->sk_incoming_cpu = -1;
+>         /*
+>          * Before updating sk_refcnt, we must commit prior changes to memory
+>          * (Documentation/RCU/rculist_nulls.txt for details)
+> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+> index bed8886a4b6c..08643a3616af 100644
+> --- a/net/ipv4/inet_hashtables.c
+> +++ b/net/ipv4/inet_hashtables.c
+> @@ -185,6 +185,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
+>                                 return -1;
+>                         score += 4;
+>                 }
+> +               if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +                       score++;
+>         }
+>         return score;
+>  }
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index e1fc129099ea..24ec14f9825c 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -375,7 +375,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
+>                         return -1;
+>                 score += 4;
+>         }
+> -
+> +       if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +               score++;
+>         return score;
+>  }
+>
+> @@ -419,6 +420,9 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+>                 score += 4;
+>         }
+>
+> +       if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +               score++;
+> +
+>         return score;
+>  }
+>
+> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+> index 6ac8dad0138a..21ace5a2bf7c 100644
+> --- a/net/ipv6/inet6_hashtables.c
+> +++ b/net/ipv6/inet6_hashtables.c
+> @@ -114,6 +114,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
+>                                 return -1;
+>                         score++;
+>                 }
+> +               if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +                       score++;
+>         }
+>         return score;
+>  }
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 0aba654f5b91..01bcb49619ee 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -182,10 +182,12 @@ static inline int compute_score(struct sock *sk, struct net *net,
+>                 score++;
+>         }
+>
+> +       if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +               score++;
+> +
+>         return score;
+>  }
+>
+> -#define SCORE2_MAX (1 + 1 + 1)
+>  static inline int compute_score2(struct sock *sk, struct net *net,
+>                                  const struct in6_addr *saddr, __be16 sport,
+>                                  const struct in6_addr *daddr,
+> @@ -223,6 +225,9 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+>                 score++;
+>         }
+>
+> +       if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> +               score++;
+> +
+>         return score;
+>  }
+>
+> @@ -251,8 +256,7 @@ begin:
+>                                 hash = udp6_ehashfn(net, daddr, hnum,
+>                                                     saddr, sport);
+>                                 matches = 1;
+> -                       } else if (score == SCORE2_MAX)
+> -                               goto exact_match;
+> +                       }
 
-Yes, because the bridge still needs to age out entries it has learned
-(those not marked with added_by_external_learn), for example entries
-learned on non-offloaded ports.
+Do we care about losing this optimization? It's not done in IPv4 but I
+can imagine that there is some arguments that address comparisons in
+IPv6 are more expensive hence this might make sense...
+
+>                 } else if (score == badness && reuseport) {
+>                         matches++;
+>                         if (reciprocal_scale(hash, matches) == 0)
+> @@ -269,7 +273,6 @@ begin:
+>                 goto begin;
+>
+>         if (result) {
+> -exact_match:
+>                 if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+>                         result = NULL;
+>                 else if (unlikely(compute_score2(result, net, saddr, sport,
+> --
+> 2.6.0.rc2.230.g3dd15c0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
