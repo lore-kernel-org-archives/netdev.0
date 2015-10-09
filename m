@@ -1,81 +1,55 @@
 From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH 04/12] mwifiex: use ktime_get_real for timestamping
-Date: Fri, 9 Oct 2015 11:36:44 +0000
-Message-ID: <89eb0939d50045ff8d248e6f8fd87d1a@SC-EXCH04.marvell.com>
-References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
- <1443612402-3000775-5-git-send-email-arnd@arndb.de>
+Subject: RE: [PATCH] mwifiex: fix a comment typo
+Date: Fri, 9 Oct 2015 11:37:49 +0000
+Message-ID: <1d4ac22c01e9451f949c1df5343c2229@SC-EXCH04.marvell.com>
+References: <53a87c6aae6bae712c079bf17ed27d0f1b381016.1443948331.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "y2038@lists.linaro.org" <y2038@lists.linaro.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geliang Tang <geliangtang@163.com>,
 	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1443612402-3000775-5-git-send-email-arnd@arndb.de>
+In-Reply-To: <53a87c6aae6bae712c079bf17ed27d0f1b381016.1443948331.git.geliangtang@163.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
-
-> From: Arnd Bergmann [mailto:arnd@arndb.de]
-> Sent: Wednesday, September 30, 2015 4:57 PM
-> To: netdev@vger.kernel.org
-> Cc: y2038@lists.linaro.org; linux-kernel@vger.kernel.org; David S.
-> Miller; Arnd Bergmann; Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo;
-> linux-wireless@vger.kernel.org
-> Subject: [PATCH 04/12] mwifiex: use ktime_get_real for timestamping
+> From: Geliang Tang [mailto:geliangtang@163.com]
+> Sent: Sunday, October 04, 2015 2:17 PM
+> To: Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo
+> Cc: Geliang Tang; linux-wireless@vger.kernel.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [PATCH] mwifiex: fix a comment typo
 > 
-> The mwifiex_11n_aggregate_pkt() function creates a ktime_t from a
-> timeval returned by do_gettimeofday, which is slow and causes an
-> overflow in 2038 on 32-bit architectures.
+> Just fix a typo in the code comment.
 > 
-> This solves both problems by using the appropriate ktime_get_real()
-> function.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Amitkumar Karwar <akarwar@marvell.com>
-> Cc: Nishant Sarmukadam <nishants@marvell.com>
-> Cc: Kalle Valo <kvalo@codeaurora.org>
-> Cc: linux-wireless@vger.kernel.org
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 > ---
->  drivers/net/wireless/mwifiex/11n_aggr.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
+>  drivers/net/wireless/mwifiex/cfg80211.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/wireless/mwifiex/11n_aggr.c
-> b/drivers/net/wireless/mwifiex/11n_aggr.c
-> index f7c717253a66..78853c51774d 100644
-> --- a/drivers/net/wireless/mwifiex/11n_aggr.c
-> +++ b/drivers/net/wireless/mwifiex/11n_aggr.c
-> @@ -173,7 +173,6 @@ mwifiex_11n_aggregate_pkt(struct mwifiex_private
-> *priv,
->  	int pad = 0, aggr_num = 0, ret;
->  	struct mwifiex_tx_param tx_param;
->  	struct txpd *ptx_pd = NULL;
-> -	struct timeval tv;
->  	int headroom = adapter->iface_type == MWIFIEX_USB ? 0 :
-> INTF_HEADER_LEN;
-> 
->  	skb_src = skb_peek(&pra_list->skb_head); @@ -203,8 +202,7 @@
-> mwifiex_11n_aggregate_pkt(struct mwifiex_private *priv,
->  	tx_info_aggr->flags |= MWIFIEX_BUF_FLAG_AGGR_PKT;
->  	skb_aggr->priority = skb_src->priority;
-> 
-> -	do_gettimeofday(&tv);
-> -	skb_aggr->tstamp = timeval_to_ktime(tv);
-> +	skb_aggr->tstamp = ktime_get_real();
-> 
->  	do {
->  		/* Check if AMSDU can accommodate this MSDU */
+> diff --git a/drivers/net/wireless/mwifiex/cfg80211.c
+> b/drivers/net/wireless/mwifiex/cfg80211.c
+> index 30cbafb..b7ac45f 100644
+> --- a/drivers/net/wireless/mwifiex/cfg80211.c
+> +++ b/drivers/net/wireless/mwifiex/cfg80211.c
+> @@ -2374,7 +2374,7 @@ mwifiex_cfg80211_leave_ibss(struct wiphy *wiphy,
+> struct net_device *dev)
+>   * CFG802.11 operation handler for scan request.
+>   *
+>   * This function issues a scan request to the firmware based upon
+> - * the user specified scan configuration. On successfull completion,
+> + * the user specified scan configuration. On successful completion,
+>   * it also informs the results.
+>   */
+>  static int
 > --
-> 2.1.0.rc2
-
-Looks good.
+> 2.5.0
+> 
 
 Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
