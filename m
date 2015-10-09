@@ -1,47 +1,123 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Fri, 9 Oct 2015 09:17:10 +0200
-Message-ID: <20151009071710.GJ7701@secunet.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <m2a8rs7crl.wl@gmail.com>
+From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+Subject: Re: bnx2x - occasional high packet loss (on LAN)
+Date: Fri, 9 Oct 2015 09:59:21 +0200
+Message-ID: <20151009075921.GG6850@pcnci.linuxbox.cz>
+References: <20150915041726.GD6850@pcnci.linuxbox.cz>
+ <81D78EA7F834FA4C83B64260D494C8590870F221@avmb3.qlogic.org>
+ <20150916081833.GE6850@pcnci.linuxbox.cz>
+ <20150921103200.GF6850@pcnci.linuxbox.cz>
+ <81D78EA7F834FA4C83B64260D494C859087192AE@avmb3.qlogic.org>
+ <20150921105840.GJ9248@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
-To: Hajime Tazaki <thehajime@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="64j1qyTOoGvYcHb1"
+Cc: netdev <netdev@vger.kernel.org>,
+	"nik@linuxbox.cz" <nik@linuxbox.cz>,
+	Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+To: Ariel Elior <Ariel.Elior@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50997 "EHLO a.mx.secunet.com"
+Received: from gwu.lbox.cz ([62.245.111.132]:34232 "EHLO gwu.lbox.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932691AbbJIHRO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 03:17:14 -0400
+	id S1755805AbbJIH70 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 03:59:26 -0400
 Content-Disposition: inline
-In-Reply-To: <m2a8rs7crl.wl@gmail.com>
+In-Reply-To: <20150921105840.GJ9248@pcnci.linuxbox.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 09, 2015 at 03:54:22PM +0900, Hajime Tazaki wrote:
-> 
-> Hello David,
-> 
-> At Mon,  5 Oct 2015 08:32:51 -0600,
-> David Ahern wrote:
-> 
-> > 
-> > diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-> > index 30caa289c5db..5cedfda4b241 100644
-> > --- a/net/ipv6/xfrm6_policy.c
-> > +++ b/net/ipv6/xfrm6_policy.c
-> > @@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
-> >  
-> >  	memset(&fl6, 0, sizeof(fl6));
-> >  	fl6.flowi6_oif = oif;
-> > +	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
-> >  	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
-> >  	if (saddr)
-> >  		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
-> 
-> I found that this fix is still not sufficient with the mip6
-> (Mobile IPv6) use case.
 
-It does not even fix the vti case. The behaviour of the vti devices is
-the same, with and without the patch.
+--64j1qyTOoGvYcHb1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hello Ariel,
+
+finally, I was able to reproduce the problem with debug set as you
+requested..
+
+> > Two things you can collect for me to help debug this issue:
+> >=20
+> > 1.
+> > Output of ethtool -d eth1 after problem occurs (redirect to a file)
+>=20
+> here it is:
+> http://nik.lbox.cz/download/ethtool-eth4.txt
+> http://nik.lbox.cz/download/ethtool-eth5.txt
+>=20
+> > 2.
+> > dmesg after enabling link related debug messages. Use
+> > modprobe bnx2x debug=3D0x4
+> > Or
+> > ethtool -s eth1 msglvl 0x4
+
+here it is:
+
+http://nik.lbox.cz/download/dmesg3-box1.txt
+
+http://nik.lbox.cz/download/dmesg3-box2.txt
+
+will this help?
+
+BR
+
+nik
+
+
+>=20
+> I have set this for both interfaces, but don't see anything new
+> in dmesg..
+>=20
+>=20
+> > to enable these prints.
+> >=20
+> > This holds for both of your problems (unless it is the same issue).
+> >=20
+> > Thanks,
+> > Ariel
+> >=20
+>=20
+> --=20
+> -------------------------------------
+> Ing. Nikola CIPRICH
+> LinuxBox.cz, s.r.o.
+> 28.rijna 168, 709 00 Ostrava
+>=20
+> tel.:   +420 591 166 214
+> fax:    +420 596 621 273
+> mobil:  +420 777 093 799
+> www.linuxbox.cz
+>=20
+> mobil servis: +420 737 238 656
+> email servis: servis@linuxbox.cz
+> -------------------------------------
+
+
+
+--=20
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28.rijna 168, 709 00 Ostrava
+
+tel.:   +420 591 166 214
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
+
+--64j1qyTOoGvYcHb1
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.14 (GNU/Linux)
+
+iEYEARECAAYFAlYXc9kACgkQ3xdJJrLygV64zQCdFCyayPol6LPoNOWdkEn7kzXe
+Oj4AmwXOxVegqAcsifcNk9gZwSwnr/Zv
+=j2xp
+-----END PGP SIGNATURE-----
+
+--64j1qyTOoGvYcHb1--
