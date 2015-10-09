@@ -1,57 +1,102 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH] mwifiex: fix a comment typo
-Date: Fri, 9 Oct 2015 11:37:49 +0000
-Message-ID: <1d4ac22c01e9451f949c1df5343c2229@SC-EXCH04.marvell.com>
-References: <53a87c6aae6bae712c079bf17ed27d0f1b381016.1443948331.git.geliangtang@163.com>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
+Date: Fri, 09 Oct 2015 13:45:39 +0200
+Message-ID: <87mvvsb6zg.fsf@stressinduktion.org>
+References: <1444281803-24274-1-git-send-email-ast@plumgrid.com> <1444281803-24274-2-git-send-email-ast@plumgrid.com> <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com> <5616E8A8.5020809@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@163.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53a87c6aae6bae712c079bf17ed27d0f1b381016.1443948331.git.geliangtang@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5616E8A8.5020809-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> From: Geliang Tang [mailto:geliangtang@163.com]
-> Sent: Sunday, October 04, 2015 2:17 PM
-> To: Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo
-> Cc: Geliang Tang; linux-wireless@vger.kernel.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [PATCH] mwifiex: fix a comment typo
-> 
-> Just fix a typo in the code comment.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@163.com>
-> ---
->  drivers/net/wireless/mwifiex/cfg80211.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/mwifiex/cfg80211.c
-> b/drivers/net/wireless/mwifiex/cfg80211.c
-> index 30cbafb..b7ac45f 100644
-> --- a/drivers/net/wireless/mwifiex/cfg80211.c
-> +++ b/drivers/net/wireless/mwifiex/cfg80211.c
-> @@ -2374,7 +2374,7 @@ mwifiex_cfg80211_leave_ibss(struct wiphy *wiphy,
-> struct net_device *dev)
->   * CFG802.11 operation handler for scan request.
->   *
->   * This function issues a scan request to the firmware based upon
-> - * the user specified scan configuration. On successfull completion,
-> + * the user specified scan configuration. On successful completion,
->   * it also informs the results.
->   */
->  static int
-> --
-> 2.5.0
-> 
+Hi,
 
-Acked-by: Amitkumar Karwar <akarwar@marvell.com>
+Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> writes:
 
-Regards,
-Amitkumar
+> On 10/8/15 11:20 AM, Hannes Frederic Sowa wrote:
+>> Hi Alexei,
+>>
+>> On Thu, Oct 8, 2015, at 07:23, Alexei Starovoitov wrote:
+>>> The feature is controlled by sysctl kernel.unprivileged_bpf_disabled.
+>>> This toggle defaults to off (0), but can be set true (1).  Once true,
+>>> bpf programs and maps cannot be accessed from unprivileged process,
+>>> and the toggle cannot be set back to false.
+>>
+>> This approach seems fine to me.
+>>
+>> I am wondering if it makes sense to somehow allow ebpf access per
+>> namespace? I currently have no idea how that could work and on which
+>> namespace type to depend or going with a prctl or even cgroup maybe. The
+>> rationale behind this is, that maybe some namespaces like openstack
+>> router namespaces could make usage of advanced ebpf capabilities in the
+>> kernel, while other namespaces, especially where untrusted third parties
+>> are hosted, shouldn't have access to those facilities.
+>>
+>> In that way, hosters would be able to e.g. deploy more efficient
+>> performance monitoring container (which should still need not to run as
+>> root) while the majority of the users has no access to that. Or think
+>> about routing instances in some namespaces, etc. etc.
+>
+> when we're talking about eBPF for networking or performance monitoring
+> it's all going to be under root anyway.
+
+I am not so sure, actually. Like PCP (Performance CoPilot), which does
+long term collecting of performance data in the kernel and maybe sending
+it over the network, it would be great if at least some capabilities
+could be dropped after the bpf filedescriptor was allocated. But current
+bpf syscall always checks capabilities on every call, which is actually
+quite unusual for capabilities.
+
+For networking the basic technique was also to drop capabilities sooner
+than later.
+
+Can we filter bpf syscall finegrained with selinux?
+
+> The next question is
+> how to let the programs run only for traffic or for applications within
+> namespaces. Something gotta do this demux. It either can be in-kernel
+> C code which is configured via some API that calls different eBPF
+> programs based on cgroup or based on netns, or it can be another
+> eBPF program that does demux on its own.
+
+This sounds quite complex. Afaics this problem hasn't even be solved in
+perf so far, tracepoints hit independent of the namespace currently.
+
+> In case of tracing such 'demuxing' program can be attached to kernel
+> events and call 'worker' programs via tail_call, so that 'worker'
+> programs will have an illusion that they're working only with events
+> that belong to their namespace.
+> imo existing facilities already allow 'per namespace' eBPF, though
+> the prog_array used to jump from 'demuxing' bpf into 'worker' bpf
+> currently is a bit awkward to use (because of FD passing via daemon),
+> but that will get solved soon.
+
+Aha, so client namespaces hand over their fds to parent demuxer and it
+sets up the necessary calls. Yeah, this seems to work.
+
+> It feels that in-kernel C code doing filtering may be
+> 'more robust' from namespace isolation point of view, but I don't
+> think we have a concrete and tested proposal, so I would
+> experiment with 'demuxing' bpf first.
+> The programs in general don't have a notion of namespace. They
+> need to be attached to veth via TC to get packets for
+> particular namespace.
+
+Okay.
+
+For me namespacing of ebpf code is actually not that important, I would
+much rather like to control which namespace is allowed to execute ebpf
+in an unpriviledged manner. Like Thomas wrote, a capability was great
+for that, but I don't know if any new capabilities will be added.
+
+Thanks,
+Hannes
