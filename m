@@ -1,102 +1,146 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: question about potential integer truncation in
- mwifiex_set_wapi_ie and mwifiex_set_wps_ie
-Date: Fri, 9 Oct 2015 12:05:01 +0000
-Message-ID: <464d9553bace4971add4c3b448a1255f@SC-EXCH04.marvell.com>
-References: <560AAC78.14106.6193CAA9@pageexec.freemail.hu>
- <20150929231038.GG8613@us.netrek.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Avinash Patil <patila@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"re.emese@gmail.com" <re.emese@gmail.com>,
-	"spender@grsecurity.net" <spender@grsecurity.net>
-To: "quozl@laptop.org" <quozl@laptop.org>,
-	PaX Team <pageexec@freemail.hu>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ipv4/icmp: redirect messages can use the ingress daddr as source
+Date: Fri,  9 Oct 2015 14:34:31 +0200
+Message-ID: <d10d2ec1cdf0334e9951b819051d4a127e103091.1444385951.git.pabeni@redhat.com>
+Cc: Jonathan Corbet <corbet@lwn.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:22427 "EHLO
-	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750702AbbJIMFf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2015 08:05:35 -0400
-In-Reply-To: <20150929231038.GG8613@us.netrek.org>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:53284 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751262AbbJIMfB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 08:35:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi James/PaX Team,
+This patch allows configuring how the source address of ICMP
+redirect messages is selected; by default the old behaviour is
+retained, while setting icmp_redirects_use_orig_daddr force the
+usage of the destination address of the packet that caused the
+redirect.
 
-> -----Original Message-----
-> From: quozl@laptop.org [mailto:quozl@laptop.org]
-> Sent: Wednesday, September 30, 2015 4:41 AM
-> To: PaX Team
-> Cc: Amitkumar Karwar; Avinash Patil; Kalle Valo; linux-
-> wireless@vger.kernel.org; netdev@vger.kernel.org; re.emese@gmail.com;
-> spender@grsecurity.net
-> Subject: Re: question about potential integer truncation in
-> mwifiex_set_wapi_ie and mwifiex_set_wps_ie
-> 
-> On Tue, Sep 29, 2015 at 05:21:28PM +0200, PaX Team wrote:
-> > hi all,
-> >
-> > in drivers/net/wireless/mwifiex/sta_ioctl.c the following functions
-> >
-> > 	mwifiex_set_wpa_ie_helper
-> > 	mwifiex_set_wapi_ie
-> > 	mwifiex_set_wps_ie
-> >
-> > can truncate the incoming ie_len argument from u16 to u8 when it gets
-> > stored in mwifiex_private.wpa_ie_len, mwifiex_private.wapi_ie_len and
-> > mwifiex_private.wps_ie_len, respectively. based on some light code
-> > reading it seems a length value of 256 is valid (IEEE_MAX_IE_SIZE and
-> > MWIFIEX_MAX_VSIE_LEN seem to limit it) and thus would get truncated to
-> > 0 when stored in those u8 fields. the question is whether this is
-> > intentional or a bug somewhere.
-> 
-> i agree, while there is a test to ensure ie_len is not greater than 256,
-> there is a possibility that it will be exactly 256, which means
-> 256 bytes will be given to memcpy but
-> mwifiex_private.{wpa,wapi,wps}_ie_len will be zero.
-> 
-> i suggest changing the lengths to u16.  not tested.
-> 
-> diff --git a/drivers/net/wireless/mwifiex/main.h
-> b/drivers/net/wireless/mwifiex/main.h
-> index fe12560..b66e9a7 100644
-> --- a/drivers/net/wireless/mwifiex/main.h
-> +++ b/drivers/net/wireless/mwifiex/main.h
-> @@ -512,14 +512,14 @@ struct mwifiex_private {
->  	struct mwifiex_wep_key wep_key[NUM_WEP_KEYS];
->  	u16 wep_key_curr_index;
->  	u8 wpa_ie[256];
-> -	u8 wpa_ie_len;
-> +	u16 wpa_ie_len;
->  	u8 wpa_is_gtk_set;
->  	struct host_cmd_ds_802_11_key_material aes_key;
->  	struct host_cmd_ds_802_11_key_material_v2 aes_key_v2;
->  	u8 wapi_ie[256];
-> -	u8 wapi_ie_len;
-> +	u16 wapi_ie_len;
->  	u8 *wps_ie;
-> -	u8 wps_ie_len;
-> +	u16 wps_ie_len;
->  	u8 wmm_required;
->  	u8 wmm_enabled;
->  	u8 wmm_qosinfo;
-> 
+The new behaviour fits closely the RFC 5798 section 8.1.1, and fix the
+following scenario:
 
-This change makes sense. Also, we should not typecast the length to v8 while copying to mwifiex_private variable.
+Two machines are set up with VRRP to act as routers out of a subnet,
+they have IPs x.x.x.1/24 and x.x.x.2/24, with VRRP holding on to
+x.x.x.254/24.
 
-./sta_ioctl.c:761:		priv->wpa_ie_len = (u8) ie_len;
+If a host in said subnet needs to get an ICMP redirect from the VRRP
+router, i.e. to reach a destination behind a different gateway, the
+source IP in the ICMP redirect is chosen as the primary IP on the
+interface that the packet arrived at, i.e. x.x.x.1 or x.x.x.2.
 
-Eventually the length stored in 'wapi_ie_len' is copied to a u16 variable.
+The host will then ignore said redirect, due to RFC 1122 section 3.2.2.2,
+and will continue to use the wrong next-op.
 
-/join.c:304:		ie_header.len = cpu_to_le16(priv->wapi_ie_len);
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ Documentation/networking/ip-sysctl.txt | 19 +++++++++++++++++--
+ include/net/netns/ipv4.h               |  1 +
+ net/ipv4/icmp.c                        |  9 ++++++++-
+ net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
+ 4 files changed, 33 insertions(+), 3 deletions(-)
 
-I will submit a patch to fix this.
-
-Regards,
-Amitkumar
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index ebe94f2..9983825 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -884,8 +884,8 @@ icmp_ignore_bogus_error_responses - BOOLEAN
+ 
+ icmp_errors_use_inbound_ifaddr - BOOLEAN
+ 
+-	If zero, icmp error messages are sent with the primary address of
+-	the exiting interface.
++	If zero, icmp error messages except redirects are sent with the primary
++	address of the exiting interface.
+ 
+ 	If non-zero, the message will be sent with the primary address of
+ 	the interface that received the packet that caused the icmp error.
+@@ -897,8 +897,23 @@ icmp_errors_use_inbound_ifaddr - BOOLEAN
+ 	then the primary address of the first non-loopback interface that
+ 	has one will be used regardless of this setting.
+ 
++	The source address selection of icmp redirect messages is controlled by
++	icmp_errors_use_inbound_ifaddr.
+ 	Default: 0
+ 
++icmp_redirects_use_orig_daddr - BOOLEAN
++
++	If zero, icmp redirect messages are sent using the address specified for
++	other icmp errors by icmp_errors_use_inbound_ifaddr.
++
++	If non-zero, the message will be sent with the destination address of
++	the packet that caused the icmp redirect.
++	This behaviour is the preferred one on VRRP routers (see RFC 5798
++	section 8.1.1).
++
++	Default: 0
++
++
+ igmp_max_memberships - INTEGER
+ 	Change the maximum number of multicast groups we can subscribe to.
+ 	Default: 20
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index c68926b..46d336a 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -74,6 +74,7 @@ struct netns_ipv4 {
+ 	int sysctl_icmp_ratelimit;
+ 	int sysctl_icmp_ratemask;
+ 	int sysctl_icmp_errors_use_inbound_ifaddr;
++	int sysctl_icmp_redirects_use_orig_daddr;
+ 
+ 	struct local_ports ip_local_ports;
+ 
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index e5eb8ac..3b57aa4 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -642,7 +642,9 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	 */
+ 
+ 	saddr = iph->daddr;
+-	if (!(rt->rt_flags & RTCF_LOCAL)) {
++	if (!((type == ICMP_REDIRECT) &&
++	      net->ipv4.sysctl_icmp_redirects_use_orig_daddr) &&
++	    !(rt->rt_flags & RTCF_LOCAL)) {
+ 		struct net_device *dev = NULL;
+ 
+ 		rcu_read_lock();
+@@ -1205,6 +1207,11 @@ static int __net_init icmp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_icmp_ratemask = 0x1818;
+ 	net->ipv4.sysctl_icmp_errors_use_inbound_ifaddr = 0;
+ 
++	/* Control paramerer - use the daddr of originating packets as saddr
++	 * in redirect messages?
++	 */
++	net->ipv4.sysctl_icmp_redirects_use_orig_daddr = 0;
++
+ 	return 0;
+ 
+ fail:
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 894da3a..30a531c 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -818,6 +818,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname	= "icmp_redirects_use_orig_daddr",
++		.data		= &init_net.ipv4.sysctl_icmp_redirects_use_orig_daddr,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
+ 		.procname	= "icmp_ratelimit",
+ 		.data		= &init_net.ipv4.sysctl_icmp_ratelimit,
+ 		.maxlen		= sizeof(int),
+-- 
+1.8.3.1
