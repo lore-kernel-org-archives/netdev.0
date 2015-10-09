@@ -1,59 +1,115 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Fri, 9 Oct 2015 09:53:46 -0600
-Message-ID: <5617E30A.8030804@cumulusnetworks.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <m2a8rs7crl.wl@gmail.com> <20151009071710.GJ7701@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Hajime Tazaki <thehajime@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35787 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932244AbbJIPxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 11:53:41 -0400
-Received: by pabve7 with SMTP id ve7so31605024pab.2
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 08:53:40 -0700 (PDT)
-In-Reply-To: <20151009071710.GJ7701@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] ovs: do not allocate memory from offline numa
+	node
+Date: Fri, 9 Oct 2015 08:54:35 -0700
+Message-ID: <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
+ <5612DCC8.4040605@gmail.com>
+ <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+ <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
+ <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 10/9/15 1:17 AM, Steffen Klassert wrote:
-> On Fri, Oct 09, 2015 at 03:54:22PM +0900, Hajime Tazaki wrote:
->>
->> Hello David,
->>
->> At Mon,  5 Oct 2015 08:32:51 -0600,
->> David Ahern wrote:
->>
->>>
->>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
->>> index 30caa289c5db..5cedfda4b241 100644
->>> --- a/net/ipv6/xfrm6_policy.c
->>> +++ b/net/ipv6/xfrm6_policy.c
->>> @@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
->>>
->>>   	memset(&fl6, 0, sizeof(fl6));
->>>   	fl6.flowi6_oif = oif;
->>> +	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
->>>   	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
->>>   	if (saddr)
->>>   		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
->>
->> I found that this fix is still not sufficient with the mip6
->> (Mobile IPv6) use case.
->
-> It does not even fix the vti case. The behaviour of the vti devices is
-> the same, with and without the patch.
->
-
-I goofed this patch was on top of my IPv6 VRF patches. You need the 
-FLOWI_FLAG_SKIP_NH_OIF bits from:
-
-     http://www.spinics.net/lists/netdev/msg346860.html
-
-Let me cook up a patch based on Linus' tree which is where it is needed.
+Cj4gT24gT2N0IDgsIDIwMTUsIGF0IDQ6MDMgUE0sIEplc3NlIEdyb3NzIDxqZXNzZUBuaWNpcmEu
+Y29tPiB3cm90ZToKPiAKPiBPbiBXZWQsIE9jdCA3LCAyMDE1IGF0IDEwOjQ3IEFNLCBKYXJubyBS
+YWphaGFsbWUgPGpyYWphaGFsbWVAbmljaXJhLmNvbSA8bWFpbHRvOmpyYWphaGFsbWVAbmljaXJh
+LmNvbT4+IHdyb3RlOgo+PiAKPj4+IE9uIE9jdCA2LCAyMDE1LCBhdCA2OjAxIFBNLCBKZXNzZSBH
+cm9zcyA8amVzc2VAbmljaXJhLmNvbT4gd3JvdGU6Cj4+PiAKPj4+IE9uIE1vbiwgT2N0IDUsIDIw
+MTUgYXQgMToyNSBQTSwgQWxleGFuZGVyIER1eWNrCj4+PiA8YWxleGFuZGVyLmR1eWNrQGdtYWls
+LmNvbT4gd3JvdGU6Cj4+Pj4gT24gMTAvMDUvMjAxNSAwNjo1OSBBTSwgVmxhc3RpbWlsIEJhYmth
+IHdyb3RlOgo+Pj4+PiAKPj4+Pj4gT24gMTAvMDIvMjAxNSAxMjoxOCBQTSwgS29uc3RhbnRpbiBL
+aGxlYm5pa292IHdyb3RlOgo+Pj4+Pj4gCj4+Pj4+PiBXaGVuIG9wZW52c3dpdGNoIHRyaWVzIGFs
+bG9jYXRlIG1lbW9yeSBmcm9tIG9mZmxpbmUgbnVtYSBub2RlIDA6Cj4+Pj4+PiBzdGF0cyA9IGtt
+ZW1fY2FjaGVfYWxsb2Nfbm9kZShmbG93X3N0YXRzX2NhY2hlLCBHRlBfS0VSTkVMIHwgX19HRlBf
+WkVSTywKPj4+Pj4+IDApCj4+Pj4+PiBJdCBjYXRjaGVzIFZNX0JVR19PTihuaWQgPCAwIHx8IG5p
+ZCA+PSBNQVhfTlVNTk9ERVMgfHwgIW5vZGVfb25saW5lKG5pZCkpCj4+Pj4+PiBbIHJlcGxhY2Vk
+IHdpdGggVk1fV0FSTl9PTighbm9kZV9vbmxpbmUobmlkKSkgcmVjZW50bHkgXSBpbiBsaW51eC9n
+ZnAuaAo+Pj4+Pj4gVGhpcyBwYXRjaCBkaXNhYmxlcyBudW1hIGFmZmluaXR5IGluIHRoaXMgY2Fz
+ZS4KPj4+Pj4+IAo+Pj4+Pj4gU2lnbmVkLW9mZi1ieTogS29uc3RhbnRpbiBLaGxlYm5pa292IDxr
+aGxlYm5pa292QHlhbmRleC10ZWFtLnJ1Pgo+Pj4+PiAKPj4+Pj4gCj4+Pj4+IC4uLgo+Pj4+PiAK
+Pj4+Pj4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jIGIvbmV0L29w
+ZW52c3dpdGNoL2Zsb3dfdGFibGUuYwo+Pj4+Pj4gaW5kZXggZjJlYTgzYmE0NzYzLi5jN2Y3NGFh
+YjM0YjkgMTAwNjQ0Cj4+Pj4+PiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jCj4+
+Pj4+PiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jCj4+Pj4+PiBAQCAtOTMsNyAr
+OTMsOCBAQCBzdHJ1Y3Qgc3dfZmxvdyAqb3ZzX2Zsb3dfYWxsb2Modm9pZCkKPj4+Pj4+IAo+Pj4+
+Pj4gICAgIC8qIEluaXRpYWxpemUgdGhlIGRlZmF1bHQgc3RhdCBub2RlLiAqLwo+Pj4+Pj4gICAg
+IHN0YXRzID0ga21lbV9jYWNoZV9hbGxvY19ub2RlKGZsb3dfc3RhdHNfY2FjaGUsCj4+Pj4+PiAt
+ICAgICAgICAgICAgICAgICAgICAgIEdGUF9LRVJORUwgfCBfX0dGUF9aRVJPLCAwKTsKPj4+Pj4+
+ICsgICAgICAgICAgICAgICAgICAgICAgR0ZQX0tFUk5FTCB8IF9fR0ZQX1pFUk8sCj4+Pj4+PiAr
+ICAgICAgICAgICAgICAgICAgICAgIG5vZGVfb25saW5lKDApID8gMCA6IE5VTUFfTk9fTk9ERSk7
+Cj4+Pj4+IAo+Pj4+PiAKPj4+Pj4gU3R1cGlkIHF1ZXN0aW9uOiBjYW4gbm9kZSAwIGJlY29tZSBv
+ZmZsaW5lIGJldHdlZW4gdGhpcyBjaGVjaywgYW5kIHRoZQo+Pj4+PiBWTV9XQVJOX09OPyA6KSBC
+VFcgd2hhdCBraW5kIG9mIHN5c3RlbSBoYXMgbm9kZSAwIG9mZmxpbmU/Cj4+Pj4gCj4+Pj4gCj4+
+Pj4gQW5vdGhlciBxdWVzdGlvbiB0byBhc2sgd291bGQgYmUgaXMgaXQgcG9zc2libGUgZm9yIG5v
+ZGUgMCB0byBiZSBvbmxpbmUsIGJ1dAo+Pj4+IGJlIGEgbWVtb3J5bGVzcyBub2RlPwo+Pj4+IAo+
+Pj4+IEkgd291bGQgc2F5IHlvdSBhcmUgYmV0dGVyIG9mZiBqdXN0IG1ha2luZyB0aGlzIGNhbGwg
+a21lbV9jYWNoZV9hbGxvYy4gIEkKPj4+PiBkb24ndCBzZWUgYW55dGhpbmcgdGhhdCBpbmRpY2F0
+ZXMgdGhlIG1lbW9yeSBoYXMgdG8gY29tZSBmcm9tIG5vZGUgMCwgc28KPj4+PiBhZGRpbmcgdGhl
+IGV4dHJhIG92ZXJoZWFkIGRvZXNuJ3QgcHJvdmlkZSBhbnkgdmFsdWUuCj4+PiAKPj4+IEkgYWdy
+ZWUgdGhhdCB0aGlzIGF0IGxlYXN0IG1ha2VzIG1lIHdvbmRlciwgdGhvdWdoIEkgYWN0dWFsbHkg
+aGF2ZQo+Pj4gY29uY2VybnMgaW4gdGhlIG9wcG9zaXRlIGRpcmVjdGlvbiAtIEkgc2VlIGFzc3Vt
+cHRpb25zIGFib3V0IHRoaXMKPj4+IGJlaW5nIG9uIG5vZGUgMCBpbiBuZXQvb3BlbnZzd2l0Y2gv
+Zmxvdy5jLgo+Pj4gCj4+PiBKYXJubywgc2luY2UgeW91IG9yaWdpbmFsIHdyb3RlIHRoaXMgY29k
+ZSwgY2FuIHlvdSB0YWtlIGEgbG9vayB0byBzZWUKPj4+IGlmIGV2ZXJ5dGhpbmcgc3RpbGwgbWFr
+ZXMgc2Vuc2U/Cj4+IAo+PiBXZSBrZWVwIHRoZSBwcmUtYWxsb2NhdGVkIHN0YXRzIG5vZGUgYXQg
+YXJyYXkgaW5kZXggMCwgd2hpY2ggaXMgaW5pdGlhbGx5IHVzZWQgYnkgYWxsIENQVXMsIGJ1dCBp
+ZiBDUFVzIGZyb20gbXVsdGlwbGUgbnVtYSBub2RlcyBzdGFydCB1cGRhdGluZyB0aGUgc3RhdHMs
+IHdlIGFsbG9jYXRlIGFkZGl0aW9uYWwgc3RhdHMgbm9kZXMgKHVwIHRvIG9uZSBwZXIgbnVtYSBu
+b2RlKSwgYW5kIHRoZSBDUFVzIG9uIG5vZGUgMCBrZWVwIHVzaW5nIHRoZSBwcmVhbGxvY2F0ZWQg
+ZW50cnkuIElmIHN0YXRzIGNhbm5vdCBiZSBhbGxvY2F0ZWQgZnJvbSBDUFVzIGxvY2FsIG5vZGUs
+IHRoZW4gdGhvc2UgQ1BVcyBrZWVwIHVzaW5nIHRoZSBlbnRyeSBhdCBpbmRleCAwLiBDdXJyZW50
+bHkgdGhlIGNvZGUgaW4gbmV0L29wZW52c3dpdGNoL2Zsb3cuYyB3aWxsIHRyeSB0byBhbGxvY2F0
+ZSB0aGUgbG9jYWwgbWVtb3J5IHJlcGVhdGVkbHksIHdoaWNoIG1heSBub3QgYmUgb3B0aW1hbCB3
+aGVuIHRoZXJlIGlzIG5vIG1lbW9yeSBhdCB0aGUgbG9jYWwgbm9kZS4KPj4gCj4+IEFsbG9jYXRp
+bmcgdGhlIG1lbW9yeSBmb3IgdGhlIGluZGV4IDAgZnJvbSBvdGhlciB0aGFuIG5vZGUgMCwgYXMg
+ZGlzY3Vzc2VkIGhlcmUsIGp1c3QgbWVhbnMgdGhhdCB0aGUgQ1BVcyBvbiBub2RlIDAgd2lsbCBr
+ZWVwIG9uIHVzaW5nIG5vbi1sb2NhbCBtZW1vcnkgZm9yIHN0YXRzLiBJbiBhIHNjZW5hcmlvIHdo
+ZXJlIHRoZXJlIGFyZSBDUFVzIG9uIHR3byBub2RlcyAoMCwgMSksIGJ1dCBvbmx5IHRoZSBub2Rl
+IDEgaGFzIG1lbW9yeSwgYSBzaGFyZWQgZmxvdyBlbnRyeSB3aWxsIHN0aWxsIGVuZCB1cCBoYXZp
+bmcgc2VwYXJhdGUgbWVtb3J5IGFsbG9jYXRlZCBmb3IgYm90aCBub2RlcywgYnV0IGJvdGggb2Yg
+dGhlIG5vZGVzIHdvdWxkIGJlIGF0IG5vZGUgMS4gSG93ZXZlciwgdGhlcmUgaXMgc3RpbGwgYSBo
+aWdoIGxpa2VsaWhvb2QgdGhhdCB0aGUgbWVtb3J5IGFsbG9jYXRpb25zIHdvdWxkIG5vdCBzaGFy
+ZSBhIGNhY2hlIGxpbmUsIHdoaWNoIHNob3VsZCBwcmV2ZW50IHRoZSBub2RlcyBmcm9tIGludmFs
+aWRhdGluZyBlYWNoIG90aGVy4oCZcyBjYWNoZXMuIEJhc2VkIG9uIHRoaXMgSSBkbyBub3Qgc2Vl
+IGEgcHJvYmxlbSByZWxheGluZyB0aGUgbWVtb3J5IGFsbG9jYXRpb24gZm9yIHRoZSBkZWZhdWx0
+IHN0YXRzIG5vZGUuIElmIG5vZGUgMCBoYXMgbWVtb3J5LCBob3dldmVyLCBpdCB3b3VsZCBiZSBi
+ZXR0ZXIgdG8gYWxsb2NhdGUgdGhlIG1lbW9yeSBmcm9tIG5vZGUgMC4KPiAKPiBUaGFua3MgZm9y
+IGdvaW5nIHRocm91Z2ggYWxsIG9mIHRoYXQuCj4gCj4gSXQgc2VlbXMgbGlrZSB0aGUgcXVlc3Rp
+b24gdGhhdCBpcyBiZWluZyByYWlzZWQgaXMgd2hldGhlciBpdCBhY3R1YWxseQo+IG1ha2VzIHNl
+bnNlIHRvIHRyeSB0byBnZXQgdGhlIGluaXRpYWwgbWVtb3J5IG9uIG5vZGUgMCwgZXNwZWNpYWxs
+eQo+IHNpbmNlIGl0IHNlZW1zIHRvIGludHJvZHVjZSBzb21lIGNvcm5lciBjYXNlcz8gSXMgdGhl
+cmUgYW55IHJlYXNvbiB3aHkKPiB0aGUgZmxvdyBpcyBtb3JlIGxpa2VseSB0byBoaXQgbm9kZSAw
+IHRoYW4gYSByYW5kb21seSBjaG9zZW4gb25lPwo+IChBc3N1bWluZyB0aGF0IHRoaXMgaXMgYSBt
+dWx0aW5vZGUgc3lzdGVtLCBvdGhlcndpc2UgaXQncyBraW5kIG9mIGEKPiBtb290IHBvaW50Likg
+V2UgY291bGQgaGF2ZSBhIHNlcGFyYXRlIHBvaW50ZXIgdG8gdGhlIGRlZmF1bHQgYWxsb2NhdGVk
+Cj4gbWVtb3J5LCBzbyBpdCB3b3VsZG4ndCBjb25mbGljdCB3aXRoIG1lbW9yeSB0aGF0IHdhcyBp
+bnRlbnRpb25hbGx5Cj4gYWxsb2NhdGVkIGZvciBub2RlIDAuCgpJdCB3b3VsZCBzdGlsbCBiZSBw
+cmVmZXJhYmxlIHRvIGtub3cgZnJvbSB3aGljaCBub2RlIHRoZSBkZWZhdWx0IHN0YXRzIG5vZGUg
+d2FzIGFsbG9jYXRlZCwgYW5kIHN0b3JlIGl0IGluIHRoZSBhcHByb3ByaWF0ZSBwb2ludGVyIGlu
+IHRoZSBhcnJheS4gV2UgY291bGQgdGhlbiBhZGQgYSBuZXcg4oCcZGVmYXVsdCBzdGF0cyBub2Rl
+IGluZGV44oCdIHRoYXQgd291bGQgYmUgdXNlZCB0byBsb2NhdGUgdGhlIG5vZGUgaW4gdGhlIGFy
+cmF5IG9mIHBvaW50ZXJzIHdlIGFscmVhZHkgaGF2ZS4gVGhhdCB3YXkgd2Ugd291bGQgYXZvaWQg
+ZXh0cmEgYWxsb2NhdGlvbiBhbmQgcHJvY2Vzc2luZyBvZiB0aGUgZGVmYXVsdCBzdGF0cyBub2Rl
+LgoKICBKYXJubwoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
+aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
