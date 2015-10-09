@@ -1,56 +1,56 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
-Date: Fri, 9 Oct 2015 10:30:49 -0700
-Message-ID: <5617F9C9.10407@plumgrid.com>
-References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
- <1444281803-24274-2-git-send-email-ast@plumgrid.com>
- <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com>
- <5616E8A8.5020809@plumgrid.com> <87mvvsb6zg.fsf@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
+ xmit
+Date: Fri, 09 Oct 2015 19:33:14 +0200
+Message-ID: <5617FA5A.9090406@iogearbox.net>
+References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net> <56153E6C.9050202@plumgrid.com> <CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com> <561727D5.2070001@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mvvsb6zg.fsf@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"Devon H. O'Dell" <dho@fastly.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35089 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758117AbbJIRd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 13:33:27 -0400
+In-Reply-To: <561727D5.2070001@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/9/15 4:45 AM, Hannes Frederic Sowa wrote:
-> Afaics this problem hasn't even be solved in
-> perf so far, tracepoints hit independent of the namespace currently.
+On 10/09/2015 04:35 AM, Alexei Starovoitov wrote:
+> On 10/8/15 5:50 PM, Devon H. O'Dell wrote:
+>>> with the amount of skb_sender_cpu_clear() all over the code base
+>>> >I wonder whether there is a better solution to all of these.
+>> I think there is. We found that splitting the union of sender_cpu and
+>> napi_id solved the issue for us. In general, I think this is an OK
+>> solution as long as the following hold:
+>>
+>>   * skbs are always allocated via kzalloc
+>>   * out -> out cloned skbs are always cloned on the same CPU
+>>   * an extra four bytes in skbuff isn't a bad thing
+>
+> I'm pretty sure extending sk_buff for this is not acceptable.
 
-yes and that's exactly what we're trying to solve.
-The "demux+worker bpf programs" proposal is a work-in-progress solution
-to get confidence how to actually separate tracepoint events into
-namespaces before adding any new APIs to kernel.
++1, I agree.
 
-> For me namespacing of ebpf code is actually not that important, I would
-> much rather like to control which namespace is allowed to execute ebpf
-> in an unpriviledged manner. Like Thomas wrote, a capability was great
-> for that, but I don't know if any new capabilities will be added.
+> I was thinking may be we can use sign bit to distinguish between
+> napi_id and sender_cpu.
+> Like:
+>          if ((int)skb->sender_cpu >= 0)
+>                  skb->sender_cpu = - (raw_smp_processor_id() + 1);
+> and inside get_xps_queue() use it only if it's negative.
+> Then we can remove skb_sender_cpu_clear() from everywhere.
+> Adding a check to napi_hash_add() to make sure that napi_id is not
+> negative is probably ok too.
+> Thoughts?
 
-I think we're mixing too many things here.
-First I believe eBPF 'socket filters' do not need any caps.
-They're packet read-only and functionally very similar to classic with
-a distinction that packet data can be aggregated into maps and programs
-can be written in C. So I see no reason to restrict them per user or
-per namespace.
-Openstack use case is different. There it will be prog_type_sched_cls
-that can mangle packets, change skb metadata, etc under TC framework.
-These are not suitable for all users and this patch leaves
-them root-only. If you're proposing to add CAP_BPF_TC to let containers
-use them without being CAP_SYS_ADMIN, then I agree, it is useful, but
-needs a lot more safety analysis on tc side.
-Similar for prog_type_kprobe: we can add CAP_BPF_KPROBE to let
-some trusted applications run unprivileged, but still being able
-to do performance monitoring/analytics.
-And we would need to carefully think about program restrictions,
-since bpf_probe_read and kernel pointer walking is essential part
-in tracing.
+I think this doesn't make it any more maintainable.
+
+skb_sender_cpu_clear(), one can at least git-grep to easily find
+out and review call-sites in the code. There are various members
+already used differently depending on the context.
+
+Thanks,
+Daniel
