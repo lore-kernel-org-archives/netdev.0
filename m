@@ -1,107 +1,56 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Fri, 9 Oct 2015 11:27:36 -0600
-Message-ID: <5617F908.8060807@cumulusnetworks.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <m2a8rs7crl.wl@gmail.com> <20151009071710.GJ7701@secunet.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next 1/3] bpf: enable non-root eBPF programs
+Date: Fri, 9 Oct 2015 10:30:49 -0700
+Message-ID: <5617F9C9.10407@plumgrid.com>
+References: <1444281803-24274-1-git-send-email-ast@plumgrid.com>
+ <1444281803-24274-2-git-send-email-ast@plumgrid.com>
+ <1444328452.3935641.405110585.76554E06@webmail.messagingengine.com>
+ <5616E8A8.5020809@plumgrid.com> <87mvvsb6zg.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010708020407070209040908"
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Hajime Tazaki <thehajime@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34393 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752824AbbJIR1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 13:27:31 -0400
-Received: by padhy16 with SMTP id hy16so91953165pad.1
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 10:27:31 -0700 (PDT)
-In-Reply-To: <20151009071710.GJ7701@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------010708020407070209040908
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mvvsb6zg.fsf@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/9/15 1:17 AM, Steffen Klassert wrote:
->>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
->>> index 30caa289c5db..5cedfda4b241 100644
->>> --- a/net/ipv6/xfrm6_policy.c
->>> +++ b/net/ipv6/xfrm6_policy.c
->>> @@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
->>>
->>>   	memset(&fl6, 0, sizeof(fl6));
->>>   	fl6.flowi6_oif = oif;
->>> +	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
->>>   	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
->>>   	if (saddr)
->>>   		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
->>
->> I found that this fix is still not sufficient with the mip6
->> (Mobile IPv6) use case.
->
-> It does not even fix the vti case. The behaviour of the vti devices is
-> the same, with and without the patch.
->
+On 10/9/15 4:45 AM, Hannes Frederic Sowa wrote:
+> Afaics this problem hasn't even be solved in
+> perf so far, tracepoints hit independent of the namespace currently.
 
-The attached patch applied to Linus' tree works for me. Currently the 
-above change is not in his tree, so I added it to this patch. Once you 
-confirm that it works for you I'll create the delta-patch for net and 
-send out.
+yes and that's exactly what we're trying to solve.
+The "demux+worker bpf programs" proposal is a work-in-progress solution
+to get confidence how to actually separate tracepoint events into
+namespaces before adding any new APIs to kernel.
 
-Thanks,
-David
+> For me namespacing of ebpf code is actually not that important, I would
+> much rather like to control which namespace is allowed to execute ebpf
+> in an unpriviledged manner. Like Thomas wrote, a capability was great
+> for that, but I don't know if any new capabilities will be added.
 
---------------010708020407070209040908
-Content-Type: text/plain; charset=UTF-8; x-mac-type="0"; x-mac-creator="0";
- name="really-fix-vti6-with-oif.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="really-fix-vti6-with-oif.patch"
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 92b1aa38f121..2dbd73014a1b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -874,7 +874,8 @@ static struct dst_entry *ip6_sk_dst_check(struct sock *sk,
- #ifdef CONFIG_IPV6_SUBTREES
- 	    ip6_rt_check(&rt->rt6i_src, &fl6->saddr, np->saddr_cache) ||
- #endif
--	    (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex)) {
-+	   (!(fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF) &&
-+	      (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex))) {
- 		dst_release(dst);
- 		dst = NULL;
- 	}
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index cb32ce250db0..df24cff4a0cb 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1068,6 +1068,9 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
- 	saved_fn = fn;
- 
-+	if (fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF)
-+		oif = 0;
-+
- redo_rt6_select:
- 	rt = rt6_select(fn, oif, strict);
- 	if (rt->rt6i_nsiblings)
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 30caa289c5db..5cedfda4b241 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- 
- 	memset(&fl6, 0, sizeof(fl6));
- 	fl6.flowi6_oif = oif;
-+	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
- 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
- 	if (saddr)
- 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
-
---------------010708020407070209040908--
+I think we're mixing too many things here.
+First I believe eBPF 'socket filters' do not need any caps.
+They're packet read-only and functionally very similar to classic with
+a distinction that packet data can be aggregated into maps and programs
+can be written in C. So I see no reason to restrict them per user or
+per namespace.
+Openstack use case is different. There it will be prog_type_sched_cls
+that can mangle packets, change skb metadata, etc under TC framework.
+These are not suitable for all users and this patch leaves
+them root-only. If you're proposing to add CAP_BPF_TC to let containers
+use them without being CAP_SYS_ADMIN, then I agree, it is useful, but
+needs a lot more safety analysis on tc side.
+Similar for prog_type_kprobe: we can add CAP_BPF_KPROBE to let
+some trusted applications run unprivileged, but still being able
+to do performance monitoring/analytics.
+And we would need to carefully think about program restrictions,
+since bpf_probe_read and kernel pointer walking is essential part
+in tracing.
