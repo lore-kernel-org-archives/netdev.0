@@ -1,26 +1,137 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v2] ath6kl: drop unlikely behind WARN_ON()
-Date: Fri, 09 Oct 2015 11:49:02 +0300
-Message-ID: <87vbagqvep.fsf@kamboji.qca.qualcomm.com>
-References: <61de1b17c432479ccded41edfb553e2d20ebf8ae.1444048783.git.geliangtang@163.com>
+From: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to
+ better support memoryless node
+Date: Fri, 9 Oct 2015 18:08:41 +0900
+Message-ID: <56178419.6090503@jp.fujitsu.com>
+References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
+ <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
+ <4197C471DCF8714FBA1FE32565271C148FFFF4D3@ORSMSX103.amr.corp.intel.com>
+ <alpine.DEB.2.10.1508191717450.30666@chino.kir.corp.google.com>
+ <20151008132037.fc3887da0818e7d011cb752f@linux-foundation.org>
+ <56175637.50102@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geliang Tang <geliangtang@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <61de1b17c432479ccded41edfb553e2d20ebf8ae.1444048783.git.geliangtang@163.com>
-	(Geliang Tang's message of "Mon, 5 Oct 2015 20:46:12 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Patil, Kiran" <kiran.patil@intel.com>, Mel Gorman <mgorman@suse.de>,
+ Mike Galbraith <umgwanakikbuti@gmail.com>,
+ Peter Zijlstra <peterz@infradead.org>,
+ "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>,
+ Tang Chen <tangchen@cn.fujitsu.com>, Tejun Heo <tj@kernel.org>,
+ "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+ "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+ "Nelson, Shannon" <shannon.nelson@intel.com>,
+ "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+ "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+ "Vick, Matthew" <matthew.vick@intel.com>,
+ "Ronciak, John" <john.ronciak@intel.com>,
+ "Williams, Mitch A" <mitch.a.williams@intel.com>,
+ "Luck, Tony" <tony.luck@intel.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "x86@kernel.org" <x86@kernel.org>,
+ "linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel
+To: Jiang Liu <jiang.liu@linux.intel.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <56175637.50102@linux.intel.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Geliang Tang <geliangtang@163.com> writes:
+On 2015/10/09 14:52, Jiang Liu wrote:
+> On 2015/10/9 4:20, Andrew Morton wrote:
+>> On Wed, 19 Aug 2015 17:18:15 -0700 (PDT) David Rientjes <rientjes@google.com> wrote:
+>>
+>>> On Wed, 19 Aug 2015, Patil, Kiran wrote:
+>>>
+>>>> Acked-by: Kiran Patil <kiran.patil@intel.com>
+>>>
+>>> Where's the call to preempt_disable() to prevent kernels with preemption
+>>> from making numa_node_id() invalid during this iteration?
+>>
+>> David asked this question twice, received no answer and now the patch
+>> is in the maintainer tree, destined for mainline.
+>>
+>> If I was asked this question I would respond
+>>
+>>    The use of numa_mem_id() is racy and best-effort.  If the unlikely
+>>    race occurs, the memory allocation will occur on the wrong node, the
+>>    overall result being very slightly suboptimal performance.  The
+>>    existing use of numa_node_id() suffers from the same issue.
+>>
+>> But I'm not the person proposing the patch.  Please don't just ignore
+>> reviewer comments!
+> Hi Andrew,
+> 	Apologize for the slow response due to personal reasons!
+> And thanks for answering the question from David. To be honest,
+> I didn't know how to answer this question before. Actually this
+> question has puzzled me for a long time when dealing with memory
+> hot-removal. For normal cases, it only causes sub-optimal memory
+> allocation if schedule event happens between querying NUMA node id
+> and calling alloc_pages_node(). But what happens if system run into
+> following execution sequence?
+> 1) node = numa_mem_id();
+> 2) memory hot-removal event triggers
+> 2.1) remove affected memory
+> 2.2) reset pgdat to zero if node becomes empty after memory removal
 
-> WARN_ON() already contain an unlikely compiler flag. Drop it.
+I'm sorry if I misunderstand something.
+After commit b0dc3a342af36f95a68fe229b8f0f73552c5ca08, there is no memset().
+
+> 3) alloc_pages_node(), which may access zero-ed pgdat structure.
+
+?
+
 >
-> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> I haven't found a mechanism to protect system from above sequence yet,
+> so puzzled for a long time already:(. Does stop_machine() protect
+> system from such a execution sequence?
 
-Applied, thanks.
+To access pgdat, a pgdat's zone should be on per-pgdat-zonelist.
+Now, __build_all_zonelists() is called under stop_machine(). That's the reason
+why you're asking what stop_machine() does. And, as you know, stop_machine() is not
+protecting anything. The caller may fallback into removed zone.
 
--- 
-Kalle Valo
+Then, let's think.
+
+At first, please note "pgdat" is not removed (and cannot be removed),
+accessing pgdat's memory will not cause segmentation fault.
+
+Just contents are problem. At removal, zone's page related information
+and pgdat's page related information is cleared.
+
+alloc_pages uses zonelist/zoneref/cache to walk each zones without accessing
+pgdat itself. I think accessing zonelist is safe because it's an array updated
+by stop_machine().
+
+So, the problem is alloc_pages() can work correctly even if zone contains no page.
+I think it should work.
+
+(Note: zones are included in pgdat. So, zeroing pgdat means zeroing zone and other
+  structures. it will not work.)
+
+So, what problem you see now ?
+I'm sorry I can't chase old discusions.
+
+Thanks,
+-Kame
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
