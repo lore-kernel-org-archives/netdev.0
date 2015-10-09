@@ -1,52 +1,39 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: HNS: fix MDIO dependencies
-Date: Fri, 09 Oct 2015 14:53:54 +0200
-Message-ID: <8114651.XErShuFr2W@wuerfel>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCHv2 net-next] cxgb4: Enhance driver to update FW, when FW
+ is too old
+Date: Fri, 9 Oct 2015 09:01:54 -0400
+Message-ID: <20151009130153.GA4284@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, Yisen Zhuang <Yisen.Zhuang@huawei.com>,
-	Kenneth Lee <liguozhu@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, leedom@chelsio.com,
+	nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60318 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752801AbbJINCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 09:02:14 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The newly introduced HNS_MDIO Kconfig symbol selects 'MDIO', but
-that is the wrong symbol as the code used by this driver is
-provided by PHYLIB rather than the MDIO driver. Also, there is
-no need to make this driver user selectable, because it is already
-selected by all drivers that need it.
 
-This changes the Kconfig file to select the correct library, and
-to make the option silent.
+> 	ret = t4_get_fw_version(adap, &adap->params.fw_vers);
+>+	/* Try multiple times before returning error */
+>+	for (i = 0; (ret == -EBUSY || ret == -EAGAIN) && i < 3; i++)
+>+		ret = t4_get_fw_version(adap, &adap->params.fw_vers);
+>+
+> 	if (ret)
+> 		return ret;
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 5b904d39406 ("net: add Hisilicon Network Subsystem MDIO support")
 
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index 165b5a8aa2ea..8d12b587809e 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -24,7 +24,6 @@ config HIX5HD2_GMAC
+Nit: Just initalize ret to -EBUSY and change the test for i to < 4 rather than <
+3.  That way you will only have one call site for t4_get_fw_version, which I
+think is more readable.  Alternatively a do..while loop might be appropriate
+here.
+
+But I suppose I'm just splitting hairs at this point
+
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
  
- config HIP04_ETH
- 	tristate "HISILICON P04 Ethernet support"
--	select PHYLIB
- 	select MARVELL_PHY
- 	select MFD_SYSCON
- 	select HNS_MDIO
-@@ -33,8 +32,8 @@ config HIP04_ETH
- 	  want to use the internal ethernet then you should answer Y to this.
- 
- config HNS_MDIO
--	tristate "Hisilicon HNS MDIO device Support"
--	select MDIO
-+	tristate
-+	select PHYLIB
- 	---help---
- 	  This selects the HNS MDIO support. It is needed by HNS_DSAF to access
- 	  the PHY
