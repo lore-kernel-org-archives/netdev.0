@@ -1,99 +1,54 @@
-From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Subject: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier in
- sunrpc
-Date: Fri, 9 Oct 2015 01:44:07 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A028748C0@BPXM09GP.gisp.nec.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"Jeff Layton" <jlayton@poochiereds.net>,
-	"David S. Miller" <davem@davemloft.net>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v3 1/4] switchdev: add bridge ageing_time attribute
+Date: Thu,  8 Oct 2015 19:23:17 -0700
+Message-ID: <1444357400-37078-2-git-send-email-sfeldma@gmail.com>
+References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, siva.mannem.lnx@gmail.com,
+	pjonnala@broadcom.com, stephen@networkplumber.org,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:54848 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754172AbbJIBoj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 21:44:39 -0400
-Content-Language: ja-JP
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35968 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbbJICUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 22:20:23 -0400
+Received: by pablk4 with SMTP id lk4so71454148pab.3
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 19:20:23 -0700 (PDT)
+In-Reply-To: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several places in net/sunrpc/svcsock.c which calls
-waitqueue_active() without calling a memory barrier.  Add a memory
-barrier just as in wq_has_sleeper().
+From: Scott Feldman <sfeldma@gmail.com>
 
-I found this issue when I was looking through the linux source code
-for places calling waitqueue_active() before wake_up*(), but without
-preceding memory barriers, after sending a patch to fix a similar
-issue in drivers/tty/n_tty.c  (Details about the original issue can be
-found here: https://lkml.org/lkml/2015/9/28/849).
+Setting the stage to push bridge-level attributes down to port driver so
+hardware can be programmed accordingly.  Bridge-level attribute example is
+ageing_time.  This is a per-bridge attribute, not a per-bridge-port attr.
 
-Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
-v2:
-  - Fixed compiler warnings caused by type mismatch
-v1:
-  - https://lkml.org/lkml/2015/10/8/993
----
- net/sunrpc/svcsock.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ include/net/switchdev.h |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 0c81202..ec19444 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -414,6 +414,7 @@ static void svc_udp_data_ready(struct sock *sk)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
-+	smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
-@@ -432,6 +433,7 @@ static void svc_write_space(struct sock *sk)
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 89266a3..61f129b 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -43,6 +43,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+ 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
++	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+ };
  
-+	smp_mb();
- 	if (wq && waitqueue_active(wq)) {
- 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
- 		       svsk);
-@@ -787,6 +789,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
- 	}
+ struct switchdev_attr {
+@@ -52,6 +53,7 @@ struct switchdev_attr {
+ 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+ 		u8 stp_state;				/* PORT_STP_STATE */
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
++		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
+ 	} u;
+ };
  
- 	wq = sk_sleep(sk);
-+	smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible_all(wq);
- }
-@@ -808,6 +811,7 @@ static void svc_tcp_state_change(struct sock *sk)
- 		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
-+	smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible_all(wq);
- }
-@@ -823,6 +827,7 @@ static void svc_tcp_data_ready(struct sock *sk)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
-+	smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
-@@ -1594,6 +1599,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
- 	sk->sk_write_space = svsk->sk_owspace;
- 
- 	wq = sk_sleep(sk);
-+	smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
 -- 
-1.7.1
+1.7.10.4
