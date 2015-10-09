@@ -1,96 +1,51 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [patch net-next] bridge: try switchdev op first in
- __vlan_vid_add/del
-Date: Fri, 9 Oct 2015 18:44:06 -0400
-Message-ID: <20151009224405.GA25393@ketchup.mtl.sfl>
-References: <1444391651-13775-1-git-send-email-jiri@resnulli.us>
+Subject: switchdev and VLAN ranges
+Date: Fri, 9 Oct 2015 19:30:51 -0400 (EDT)
+Message-ID: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, andrew@lunn.ch, john.fastabend@gmail.com,
-	David.Laight@ACULAB.COM
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, stephen@networkplumber.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36884 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:37833 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbbJIWoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 18:44:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1444391651-13775-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1750913AbbJIXaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 19:30:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+Hi All,
 
-On Oct. Friday 09 (41) 01:54 PM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Some drivers need to implement both switchdev vlan ops and
-> vid_add/kill ndos. For that to work in bridge code, we need to try
-> switchdev op first when adding/deleting vlan id.
+I understand that specifying a VLAN range on the command line is nice
+for the user, and it makes no big deal for software implementation.
 
-Just curious, when would a driver need to have both operations?
+However, AFAICT a VLAN range does not make sense at all for hardware
+such as Ethernet switch chips. Am I wrong?
 
-I kinda have the same question regarding ndo_fdb_{add,del} and the
-bridge_{get,set}link equivalent, which is a bit confusing to me.
+I would suggest to make switchdev directly answer to a bridge request
+that the operation is not supported when the user asks for a VLAN range.
 
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> ---
->  net/bridge/br_vlan.c | 58 ++++++++++++++++++++--------------------------------
->  1 file changed, 22 insertions(+), 36 deletions(-)
-> 
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index eae07ee..975deb9 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -72,28 +72,20 @@ static void __vlan_add_flags(struct net_bridge_vlan *v, u16 flags)
->  static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
->  			  u16 vid, u16 flags)
->  {
-> -	const struct net_device_ops *ops = dev->netdev_ops;
-> +	struct switchdev_obj_port_vlan v = {
-> +		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-> +		.flags = flags,
-> +		.vid_begin = vid,
-> +		.vid_end = vid,
-> +	};
->  	int err;
->  
-> -	/* If driver uses VLAN ndo ops, use 8021q to install vid
-> -	 * on device, otherwise try switchdev ops to install vid.
-> +	/* Try switchdev op first. In case it is not supported, fallback to
-> +	 * 8021q add.
->  	 */
-> -
-> -	if (ops->ndo_vlan_rx_add_vid) {
-> -		err = vlan_vid_add(dev, br->vlan_proto, vid);
-> -	} else {
-> -		struct switchdev_obj_port_vlan v = {
-> -			.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-> -			.flags = flags,
-> -			.vid_begin = vid,
-> -			.vid_end = vid,
-> -		};
-> -
-> -		err = switchdev_port_obj_add(dev, &v.obj);
-> -		if (err == -EOPNOTSUPP)
-> -			err = 0;
-> -	}
-> -
-> +	err = switchdev_port_obj_add(dev, &v.obj);
-> +	if (err == -EOPNOTSUPP)
-> +		return vlan_vid_add(dev, br->vlan_proto, vid);
+That way, we can simply use a single "vid" member in struct
+switchdev_obj_port_vlan instead of "vid_begin" and "vid_end" and thus
+avoid making drivers heavier with iteration loops on such range.
 
-                err = vlan_vid_add(dev, br->vlan_proto, vid);
+I have two concerns in mind:
 
-Just being picky: the above line would have been preferred to keep a
-single return path, but this does not justify a v2 though.
+a) if we imagine that drivers like Rocker allocate memory in the prepare
+phase for each VID, preparing a range like 100-4000 would definitely not
+be recommended.
 
->  	return err;
->  }
+b) imagine that you have two Linux bridges on a switch, one using the
+hardware VLAN 100. If you request the VLAN range 99-101 for the other
+bridge members, it is not possible for the driver to say "I can
+accelerate VLAN 99 and 101, but not 100". It must return OPNOTSUPP for
+the whole range.
+
+That's why I think that avoiding VLAN range at the switchdev level would
+be a good idea.
 
 Thanks,
 -v
