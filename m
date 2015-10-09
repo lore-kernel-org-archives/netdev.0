@@ -1,54 +1,72 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH] netfilter: turn NF_HOOK into an inline function
-Date: Fri, 09 Oct 2015 13:21:54 -0500
-Message-ID: <877fmvzyv1.fsf@x220.int.ebiederm.org>
-References: <201510092113.o4u2vjMD%fengguang.wu@intel.com>
-	<37905061.HAWoCKur8L@wuerfel>
+Date: Fri, 09 Oct 2015 13:28:23 -0500
+Message-ID: <87zizryjzs.fsf@x220.int.ebiederm.org>
+References: <7665226.mEs2QJDTOT@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
 	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <37905061.HAWoCKur8L@wuerfel> (Arnd Bergmann's message of "Fri,
-	09 Oct 2015 15:15:59 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7665226.mEs2QJDTOT@wuerfel> (Arnd Bergmann's message of "Fri, 09
+	Oct 2015 14:45:20 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Arnd Bergmann <arnd@arndb.de> writes:
 
-> On Friday 09 October 2015 21:03:57 kbuild test robot wrote:
->> ^1da177e Linus Torvalds    2005-04-16  818      cb->rt_flags &= ~DN_RT_F_IE;
->> ^1da177e Linus Torvalds    2005-04-16  819      if (rt->rt_flags & RTCF_DOREDIRECT)
->> ^1da177e Linus Torvalds    2005-04-16  820              cb->rt_flags |= DN_RT_F_IE;
->> ^1da177e Linus Torvalds    2005-04-16  821  
->> 29a26a56 Eric W. Biederman 2015-09-15  822      return NF_HOOK(NFPROTO_DECNET, NF_DN_FORWARD,
->> 29a26a56 Eric W. Biederman 2015-09-15 @823                     &init_net, NULL, skb, dev, skb->dev,
->> 8f40b161 David S. Miller   2011-07-17  824                     dn_to_neigh_output);
->> ^1da177e Linus Torvalds    2005-04-16  825  
->> ^1da177e Linus Torvalds    2005-04-16  826  drop:
->> 
+> A recent change to the dst_output handling caused a new warning
+> when the call to NF_HOOK() is the only used of a local variable
+> passed as 'dev', and CONFIG_NETFILTER is disabled:
 >
-> Ah, right. The 'dev' variable here is declared as
+> net/ipv6/ip6_output.c: In function 'ip6_output':
+> net/ipv6/ip6_output.c:135:21: warning: unused variable 'dev' [-Wunused-variable]
 >
-> #ifdef CONFIG_NETFILTER
->         struct net_device *dev = skb->dev;
-> #endif
->
-> Apparently because the code produced the same warning as the ipv6 code.
->
-> Removing the #ifdef here would make that code nicer and let us use
-> my patch. Alternatively we could put the same #ifdef into IPV6 and
-> not use the inline function.
+> The reason for this is that the NF_HOOK macro in this case does
+> not reference the variable at all. To avoid that warning now
+> and in the future, this changes the macro into an equivalent
+> inline function, which tells the compiler that the variable is
+> passed correctly but still unused.
 
-Compilers are good at removing unused variabes (SSA should guarantee
-this will always happen), and #ifdefs sucks.  I vote for your inline.
-Especially as the case that is actively used and tested
-(CONFIG_NETFILTER) has these two functions as inline functions.
+For clarification the actual change that trigger this is I passed in net
+instead of computing net as net = dev_net(dev).  Which was the second
+use of the dev variable.
 
-Eric
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: ede2059dbaf9 ("dst: Pass net into dst->output")
+>
+> diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+> index edb3dc32f1da..1ff5c3f82820 100644
+> --- a/include/linux/netfilter.h
+> +++ b/include/linux/netfilter.h
+> @@ -347,8 +347,23 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
+>  }
+>  
+>  #else /* !CONFIG_NETFILTER */
+> -#define NF_HOOK(pf, hook, net, sk, skb, indev, outdev, okfn) (okfn)(net, sk, skb)
+> -#define NF_HOOK_COND(pf, hook, net, sk, skb, indev, outdev, okfn, cond) (okfn)(net, sk, skb)
+> +static inline int
+> +NF_HOOK_COND(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
+> +	     struct sk_buff *skb, struct net_device *in, struct net_device *out,
+> +	     int (*okfn)(struct net *, struct sock *, struct sk_buff *),
+> +	     bool cond)
+> +{
+> +	return okfn(net, sk, skb);
+> +}
+> +
+> +static inline int
+> +NF_HOOK(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk, struct sk_buff *skb,
+> +	struct net_device *in, struct net_device *out,
+> +	int (*okfn)(struct net *, struct sock *, struct sk_buff *))
+> +{
+> +	return okfn(net, sk, skb);
+> +}
+> +
+>  static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
+>  			  struct sock *sk, struct sk_buff *skb,
+>  			  struct net_device *indev, struct net_device *outdev,
