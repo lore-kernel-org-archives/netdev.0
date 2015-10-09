@@ -1,116 +1,102 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] bridge: try switchdev op first in __vlan_vid_add/del
-Date: Fri,  9 Oct 2015 13:54:11 +0200
-Message-ID: <1444391651-13775-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	john.fastabend@gmail.com, David.Laight@ACULAB.COM
-To: netdev@vger.kernel.org
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: RE: question about potential integer truncation in
+ mwifiex_set_wapi_ie and mwifiex_set_wps_ie
+Date: Fri, 9 Oct 2015 12:05:01 +0000
+Message-ID: <464d9553bace4971add4c3b448a1255f@SC-EXCH04.marvell.com>
+References: <560AAC78.14106.6193CAA9@pageexec.freemail.hu>
+ <20150929231038.GG8613@us.netrek.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Avinash Patil <patila@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"re.emese@gmail.com" <re.emese@gmail.com>,
+	"spender@grsecurity.net" <spender@grsecurity.net>
+To: "quozl@laptop.org" <quozl@laptop.org>,
+	PaX Team <pageexec@freemail.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:37961 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbbJILyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 07:54:15 -0400
-Received: by wiclk2 with SMTP id lk2so63741788wic.1
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 04:54:13 -0700 (PDT)
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:22427 "EHLO
+	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750702AbbJIMFf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 08:05:35 -0400
+In-Reply-To: <20150929231038.GG8613@us.netrek.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hi James/PaX Team,
 
-Some drivers need to implement both switchdev vlan ops and
-vid_add/kill ndos. For that to work in bridge code, we need to try
-switchdev op first when adding/deleting vlan id.
+> -----Original Message-----
+> From: quozl@laptop.org [mailto:quozl@laptop.org]
+> Sent: Wednesday, September 30, 2015 4:41 AM
+> To: PaX Team
+> Cc: Amitkumar Karwar; Avinash Patil; Kalle Valo; linux-
+> wireless@vger.kernel.org; netdev@vger.kernel.org; re.emese@gmail.com;
+> spender@grsecurity.net
+> Subject: Re: question about potential integer truncation in
+> mwifiex_set_wapi_ie and mwifiex_set_wps_ie
+> 
+> On Tue, Sep 29, 2015 at 05:21:28PM +0200, PaX Team wrote:
+> > hi all,
+> >
+> > in drivers/net/wireless/mwifiex/sta_ioctl.c the following functions
+> >
+> > 	mwifiex_set_wpa_ie_helper
+> > 	mwifiex_set_wapi_ie
+> > 	mwifiex_set_wps_ie
+> >
+> > can truncate the incoming ie_len argument from u16 to u8 when it gets
+> > stored in mwifiex_private.wpa_ie_len, mwifiex_private.wapi_ie_len and
+> > mwifiex_private.wps_ie_len, respectively. based on some light code
+> > reading it seems a length value of 256 is valid (IEEE_MAX_IE_SIZE and
+> > MWIFIEX_MAX_VSIE_LEN seem to limit it) and thus would get truncated to
+> > 0 when stored in those u8 fields. the question is whether this is
+> > intentional or a bug somewhere.
+> 
+> i agree, while there is a test to ensure ie_len is not greater than 256,
+> there is a possibility that it will be exactly 256, which means
+> 256 bytes will be given to memcpy but
+> mwifiex_private.{wpa,wapi,wps}_ie_len will be zero.
+> 
+> i suggest changing the lengths to u16.  not tested.
+> 
+> diff --git a/drivers/net/wireless/mwifiex/main.h
+> b/drivers/net/wireless/mwifiex/main.h
+> index fe12560..b66e9a7 100644
+> --- a/drivers/net/wireless/mwifiex/main.h
+> +++ b/drivers/net/wireless/mwifiex/main.h
+> @@ -512,14 +512,14 @@ struct mwifiex_private {
+>  	struct mwifiex_wep_key wep_key[NUM_WEP_KEYS];
+>  	u16 wep_key_curr_index;
+>  	u8 wpa_ie[256];
+> -	u8 wpa_ie_len;
+> +	u16 wpa_ie_len;
+>  	u8 wpa_is_gtk_set;
+>  	struct host_cmd_ds_802_11_key_material aes_key;
+>  	struct host_cmd_ds_802_11_key_material_v2 aes_key_v2;
+>  	u8 wapi_ie[256];
+> -	u8 wapi_ie_len;
+> +	u16 wapi_ie_len;
+>  	u8 *wps_ie;
+> -	u8 wps_ie_len;
+> +	u16 wps_ie_len;
+>  	u8 wmm_required;
+>  	u8 wmm_enabled;
+>  	u8 wmm_qosinfo;
+> 
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- net/bridge/br_vlan.c | 58 ++++++++++++++++++++--------------------------------
- 1 file changed, 22 insertions(+), 36 deletions(-)
+This change makes sense. Also, we should not typecast the length to v8 while copying to mwifiex_private variable.
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index eae07ee..975deb9 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -72,28 +72,20 @@ static void __vlan_add_flags(struct net_bridge_vlan *v, u16 flags)
- static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
- 			  u16 vid, u16 flags)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct switchdev_obj_port_vlan v = {
-+		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-+		.flags = flags,
-+		.vid_begin = vid,
-+		.vid_end = vid,
-+	};
- 	int err;
- 
--	/* If driver uses VLAN ndo ops, use 8021q to install vid
--	 * on device, otherwise try switchdev ops to install vid.
-+	/* Try switchdev op first. In case it is not supported, fallback to
-+	 * 8021q add.
- 	 */
--
--	if (ops->ndo_vlan_rx_add_vid) {
--		err = vlan_vid_add(dev, br->vlan_proto, vid);
--	} else {
--		struct switchdev_obj_port_vlan v = {
--			.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
--			.flags = flags,
--			.vid_begin = vid,
--			.vid_end = vid,
--		};
--
--		err = switchdev_port_obj_add(dev, &v.obj);
--		if (err == -EOPNOTSUPP)
--			err = 0;
--	}
--
-+	err = switchdev_port_obj_add(dev, &v.obj);
-+	if (err == -EOPNOTSUPP)
-+		return vlan_vid_add(dev, br->vlan_proto, vid);
- 	return err;
- }
- 
-@@ -122,27 +114,21 @@ static void __vlan_del_list(struct net_bridge_vlan *v)
- static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
- 			  u16 vid)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
--	int err = 0;
-+	struct switchdev_obj_port_vlan v = {
-+		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-+		.vid_begin = vid,
-+		.vid_end = vid,
-+	};
-+	int err;
- 
--	/* If driver uses VLAN ndo ops, use 8021q to delete vid
--	 * on device, otherwise try switchdev ops to delete vid.
-+	/* Try switchdev op first. In case it is not supported, fallback to
-+	 * 8021q del.
- 	 */
--
--	if (ops->ndo_vlan_rx_kill_vid) {
-+	err = switchdev_port_obj_del(dev, &v.obj);
-+	if (err == -EOPNOTSUPP) {
- 		vlan_vid_del(dev, br->vlan_proto, vid);
--	} else {
--		struct switchdev_obj_port_vlan v = {
--			.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
--			.vid_begin = vid,
--			.vid_end = vid,
--		};
--
--		err = switchdev_port_obj_del(dev, &v.obj);
--		if (err == -EOPNOTSUPP)
--			err = 0;
-+		return 0;
- 	}
--
- 	return err;
- }
- 
--- 
-1.9.3
+./sta_ioctl.c:761:		priv->wpa_ie_len = (u8) ie_len;
+
+Eventually the length stored in 'wapi_ie_len' is copied to a u16 variable.
+
+/join.c:304:		ie_header.len = cpu_to_le16(priv->wapi_ie_len);
+
+I will submit a patch to fix this.
+
+Regards,
+Amitkumar
