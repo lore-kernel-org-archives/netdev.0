@@ -1,49 +1,101 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH v4] net/bonding: send arp in interval if no active slave
-Date: Fri, 09 Oct 2015 10:36:03 -0400
-Message-ID: <5617D0D3.90208@redhat.com>
-References: <56094137.9030206@redhat.com> <1444161197-38442-1-git-send-email-jarod@redhat.com> <56150A1B.10405@cumulusnetworks.com> <56151E4A.2000503@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
+Date: Fri, 9 Oct 2015 16:36:36 +0200
+Message-ID: <20151009143636.GI2161@nanopsycho.orion>
+References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
+ <20151006073018.GA2165@nanopsycho.orion>
+ <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
+ <20151007060355.GA2152@nanopsycho.orion>
+ <CAE4R7bAHh-vc08Jfq8Q-OZoUCFQhfvOq2+STc_X0eM0q-8fzJw@mail.gmail.com>
+ <20151007173956.GI2152@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Uwe Koziolek <uwe.koziolek@redknee.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56151E4A.2000503@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Laight <David.Laight@aculab.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:37660 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001AbbJIOgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 10:36:39 -0400
+Received: by wicfx3 with SMTP id fx3so69716305wic.0
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 07:36:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20151007173956.GI2152@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jarod Wilson wrote:
-...
-> As Andy already stated I'm not a fan of such workarounds either but it's
-> necessary sometimes so if this is going to be actually considered then a
-> few things need to be fixed. Please make this a proper bonding option
-> which can be changed at runtime and not only via a module parameter.
-
-Is there any particular userspace tool that would need some updating, or 
-is adding the sysfs knobs sufficient here? I think I've got all the 
-sysfs stuff thrown together now, but still need to test.
-
-
->> Now, I saw that you've only tested with 500 ms, can't this be fixed by
->> using
->> a different interval ? This seems like a very specific problem to have a
->> whole new option for.
+Wed, Oct 07, 2015 at 07:39:56PM CEST, jiri@resnulli.us wrote:
+>Wed, Oct 07, 2015 at 06:53:22PM CEST, sfeldma@gmail.com wrote:
+>>On Tue, Oct 6, 2015 at 11:03 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Oct 06, 2015 at 07:14:39PM CEST, sfeldma@gmail.com wrote:
+>>>>On Tue, Oct 6, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>> Tue, Oct 06, 2015 at 05:56:12AM CEST, sfeldma@gmail.com wrote:
+>>>>>>On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>>>
+>>>>>>> This patchset allows new rocker worlds to be easily added in future (like eBPF
+>>>>>>> based one I have been working on). The main part of the patchset is the OF-DPA
+>>>>>>> carve-out. It resuts in OF-DPA specific file. Clean cut.
+>>>>>>>
+>>>>>>> v1->v2:
+>>>>>>>  - rtnl rocker mode change userspace expose patch was removed
+>>>>>>>
+>>>>>>> Jiri Pirko (13):
+>>>>>>>   rocker: remove unused rocker_port param from alloc funcs and shorten
+>>>>>>>     their names
+>>>>>>>   rocker: rename rocker.h to rocker_hw.h
+>>>>>>>   rocker: rename rocker.c to rocker_main.c
+>>>>>>>   rocker: push tlv processing into separate files
+>>>>>>>   rocker: implement set settings mode command
+>>>>>>>   rocker: introduce worlds infrastructure
+>>>>>>>   rocker: introduce OF-DPA world skeleton
+>>>>>>>   rocker: set default world on port probe and clean world on remove
+>>>>>>>   rocker: pass "learning" value as a parameter to
+>>>>>>>     rocker_port_set_learning
+>>>>>>>   rocker: pre-allocate wait structures during cmd ring init
+>>>>>>>   rocker: remove trans parameter to rocker_cmd_exec function
+>>>>>>>   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
+>>>>>>>     flags
+>>>>>>>   rocker: move OF-DPA stuff into separate file
+>>>>>>
+>>>>>>A couple of my tests are failing with this patchset.  A simple port
+>>>>>>test is failing and IPv4 routing test is failing.
+>>>>>>
+>>>>>>The port test is simple: just connect a port on DUT to a port on
+>>>>>>another system and assign an IP address to each port and verify IP
+>>>>>>connectivity.  I have this:
+>>>>>>
+>>>>>>   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
+>>>>>>
+>>>>>>The IPv4 routing tests is a bit more complicated to setup.  I'm using
+>>>>>>OSPF, but I'm not seeing full routes formed in the topology, so I
+>>>>>>suspect OSPF hellos aren't getting thru.
+>>>>>>
+>>>>>>Please fix find/fix these issues and send v3.  I don't want any git
+>>>>>>bisect issues when running tests.  Thanks.
+>>>>>
+>>>>> I fixed that. Sending v3 in a sec. Thanks.
+>>>>
+>>>>Sorry, both tests are still broken.  Would you send me your tests
+>>>>scripts so I can see why your tests are passing?
+>>>
+>>> I'm trying some smoke tests including bridge setup and just ip-ip
+>>> setup by hand. Meybe if you send me your scripts, I can run it locally.
+>>
+>>My test scripts are already included in the qemu tree.
 >
-> ...I'll wait until we've heard confirmation from Uwe that intervals
-> other than 500ms don't fix things.
+>Okay, will rework and use your scripts. Hope I will find some time
+>during this weekend.
 
-Okay, so I believe the "only tested with 500ms" was in reference to 
-testing with Uwe's initial patch. I do have supporting evidence in a 
-bugzilla report that shows upwards of 5000ms still experience the 
-problem here.
-
-
-
--- 
-Jarod Wilson
-jarod@redhat.com
+Scott, could you try to test with current net-next?
+I'm trying basic:
+DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
+and it does not work for me now. It worked previously when I tested with
+my patchset. This is getting odd.
