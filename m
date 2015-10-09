@@ -1,82 +1,115 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH ethtool 2/2] Fix return type of test_free() prorotype
-Date: Fri, 09 Oct 2015 04:03:50 +0100
-Message-ID: <1444359830.2956.296.camel@decadent.org.uk>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 1/1] net namespace: dynamically configure new net
+ namespace inherit net config
+Date: Thu, 8 Oct 2015 23:13:19 -0400
+Message-ID: <CAP=VYLoVu18eZ7vn_jvGCdhuhwFvDnmS+z+DPw_rN5gLSMcv6w@mail.gmail.com>
+References: <1435311439-26916-1-git-send-email-Yanjun.Zhu@windriver.com> <561610C2.5000309@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-gg9hzJRWVblIbajULpwL"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: yzhu1 <Yanjun.Zhu@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36476 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932587AbbJIDED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 23:04:03 -0400
-Received: from deadeye.wl.decadent.org.uk ([192.168.4.247] helo=deadeye)
-	by shadbolt.decadent.org.uk with esmtps (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
-	(Exim 4.84)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1ZkNyT-0003IM-1d
-	for netdev@vger.kernel.org; Fri, 09 Oct 2015 04:04:01 +0100
-Received: from ben by deadeye with local (Exim 4.86)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1ZkNyN-0001YL-Sz
-	for netdev@vger.kernel.org; Fri, 09 Oct 2015 04:03:55 +0100
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:35964 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751973AbbJIDNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 23:13:50 -0400
+Received: by wicgb1 with SMTP id gb1so49885009wic.1
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 20:13:49 -0700 (PDT)
+In-Reply-To: <561610C2.5000309@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Oct 8, 2015 at 2:44 AM, yzhu1 <Yanjun.Zhu@windriver.com> wrote:
+> Hi, Miller
+>
+> Would you like to check this patch?
 
---=-gg9hzJRWVblIbajULpwL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I explained to you way back in June what some of the biggest oversights
+were, here with your work.  And you have changed nothing but yet expect
+a reply from maintainers who are extremely busy, simply by resending
+the same old patch over and over.  Do you not see why this approach will
+not work?
 
-The return type should be void, consistent with the definition and
-with the standard free() function.
+Paul.
+--
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-I've applied this post-4.2.
-
-Ben.
-
- internal.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/internal.h b/internal.h
-index 156770c..b5ef646 100644
---- a/internal.h
-+++ b/internal.h
-@@ -148,7 +148,7 @@ void *test_calloc(size_t nmemb, size_t size);
- char *test_strdup(const char *s);
- #undef strdup
- #define strdup(s) test_strdup(s)
--void *test_free(void *ptr);
-+void test_free(void *ptr);
- #undef free
- #define free(ptr) test_free(ptr)
- void *test_realloc(void *ptr, size_t size);
---=20
-Ben Hutchings
-If the facts do not conform to your theory, they must be disposed of.
---=-gg9hzJRWVblIbajULpwL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVhculue/yOyVhhEJAQrwihAAwr7y0ODof7ZvvPsG+ZH+YL8HcymiIT0x
-54P/phI0zLE8DcUumgpq86Jg/MuYe7mYCzjSvAtyC8VVzGWbzn37YXvHBUyQDncC
-Ew2k21ft2xuYbfKgkTWkqGy/0rdatXi0AtThbZ6g5SScPCH9AIcanAj4NdkiiaeT
-J4yPH/LLZAzPST+F45dPtxOnjxvJz7nwt91aTPfK5A7BJps117KOP0rK8V85is5N
-faJNT26brTDpfRM/oFG3dnzMoLJrovq5/jb+543cZEqoMRsLSlrVaTKfbxQoFgwZ
-k8odZfO6IxN7yQjocRCmYAQ46AN4SRYyf36R2Fv0dmmhqVD1LQBRBOf+CHD9ihHq
-XRuTX1kF2+KCoqnXz/agoRxZTx7kuYyPMvQL3p3PfIv60bAj7sBigl05QG7zDvCH
-OL8QYHGkvZQTxbfmmtrzIRg3aYNbwSV3Jhih3AsF7w/AHCi5vLIl0TZQfJM+lIvw
-xO4avJPxsGqlIbuFKL4UxbIyLmMOCxzXCfsRHMvhkbyiNK1XOKcvWMTgyhjNjKMY
-bR92z5QhlwfkzpipJEjpPyBRsUBBRm95ZFduxdGHhzRet9DEfIiht8XJDdbCbmTz
-gXkFN7yP/ORIMjIU9n7C8gQBP747Tw+HO7ssytRQME0y2X3OjGIo3FmkB6q2RUmQ
-uivFVoNF6pY=
-=qUBO
------END PGP SIGNATURE-----
-
---=-gg9hzJRWVblIbajULpwL--
+>
+> Thanks a lot.
+> Zhu Yanjun
+>
+> On 06/26/2015 05:37 PM, Zhu Yanjun wrote:
+>>
+>> The new net namespace can inherit from the original net config, or
+>> the current net config. As such, a config is needed to decide where
+>> the new namespace inherit from.
+>>
+>> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+>> ---
+>>   init/Kconfig       |  9 +++++++++
+>>   net/ipv4/devinet.c | 13 +++++++++++++
+>>   2 files changed, 22 insertions(+)
+>>
+>> diff --git a/init/Kconfig b/init/Kconfig
+>> index dc24dec..fab8c41 100644
+>> --- a/init/Kconfig
+>> +++ b/init/Kconfig
+>> @@ -1212,6 +1212,15 @@ config NET_NS
+>>           Allow user space to create what appear to be multiple instances
+>>           of the network stack.
+>>   +config NET_NS_INHERIT_ORIGINAL
+>> +       bool "New network namespace inherits from original net config"
+>> +       depends on NET_NS
+>> +       default n
+>> +       help
+>> +         Allow new network namespace inherit from original net config.
+>> +         If no, the new network namespace inherits from the current net
+>> +         config including the modified net config.
+>> +
+>>   endif # NAMESPACES
+>>     config SCHED_AUTOGROUP
+>> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+>> index 419d23c..cf635e4 100644
+>> --- a/net/ipv4/devinet.c
+>> +++ b/net/ipv4/devinet.c
+>> @@ -2271,6 +2271,7 @@ static __net_init int devinet_init_net(struct net
+>> *net)
+>>   #endif
+>>         err = -ENOMEM;
+>> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>>         all = &ipv4_devconf;
+>>         dflt = &ipv4_devconf_dflt;
+>>   @@ -2282,6 +2283,15 @@ static __net_init int devinet_init_net(struct net
+>> *net)
+>>                 dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt),
+>> GFP_KERNEL);
+>>                 if (!dflt)
+>>                         goto err_alloc_dflt;
+>> +#else
+>> +       all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
+>> +       if (!all)
+>> +               goto err_alloc_all;
+>> +
+>> +       dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt),
+>> GFP_KERNEL);
+>> +       if (!dflt)
+>> +               goto err_alloc_dflt;
+>> +#endif
+>>     #ifdef CONFIG_SYSCTL
+>>                 tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+>> @@ -2292,7 +2302,10 @@ static __net_init int devinet_init_net(struct net
+>> *net)
+>>                 tbl[0].extra1 = all;
+>>                 tbl[0].extra2 = net;
+>>   #endif
+>> +
+>> +#ifndef CONFIG_NET_NS_INHERIT_ORIGINAL
+>>         }
+>> +#endif
+>>     #ifdef CONFIG_SYSCTL
+>>         err = __devinet_sysctl_register(net, "all", all);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
