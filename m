@@ -1,180 +1,136 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
- down to switchdev
-Date: Fri, 9 Oct 2015 08:41:41 +0200
-Message-ID: <20151009064140.GF2161@nanopsycho.orion>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
- <1444357400-37078-4-git-send-email-sfeldma@gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
+Subject: Re: [patch net-next RFC 2/3] switchdev: allow caller to explicitly
+ use deferred attr_set version
+Date: Fri, 9 Oct 2015 08:46:38 +0200
+Message-ID: <20151009064638.GG2161@nanopsycho.orion>
+References: <1444242652-17260-1-git-send-email-jiri@resnulli.us>
+ <1444242652-17260-3-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAUQ+bPe0fMZsULnTuZKg4t2-RterSqKDS2H=OzZpW1Nw@mail.gmail.com>
+ <20151008053933.GA2186@nanopsycho.orion>
+ <CAE4R7bCozKS8e4SLKHLZVkq8n-OYXyjEni=vyZHo540WbxvbiA@mail.gmail.com>
+ <20151008082631.GB2186@nanopsycho.orion>
+ <CAE4R7bAXqd6HeO-FxONXJgJTGVvgv5JawxGtZJvidZ4Uc4ePJw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"vivien.didelot@savoirfairelinux.com"
-	<vivien.didelot@savoirfairelinux.com>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:36274 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754917AbbJIGlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 02:41:44 -0400
-Received: by wicgb1 with SMTP id gb1so54051049wic.1
-        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 23:41:42 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:36442 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932079AbbJIGql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 02:46:41 -0400
+Received: by wicgb1 with SMTP id gb1so54186334wic.1
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2015 23:46:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
+In-Reply-To: <CAE4R7bAXqd6HeO-FxONXJgJTGVvgv5JawxGtZJvidZ4Uc4ePJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Oct 09, 2015 at 06:38:10AM CEST, pjonnala@broadcom.com wrote:
+Fri, Oct 09, 2015 at 06:39:41AM CEST, sfeldma@gmail.com wrote:
+>On Thu, Oct 8, 2015 at 1:26 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Oct 08, 2015 at 08:03:35AM CEST, sfeldma@gmail.com wrote:
+>>>On Wed, Oct 7, 2015 at 10:39 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Thu, Oct 08, 2015 at 06:27:07AM CEST, sfeldma@gmail.com wrote:
+>>>>>On Wed, Oct 7, 2015 at 11:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>>
+>>>>>> Caller should know if he can call attr_set directly (when holding RTNL)
+>>>>>> or if he has to use deferred version of this function.
+>>>>>>
+>>>>>> This also allows drivers to sleep inside attr_set and report operation
+>>>>>> status back to switchdev core. Switchdev core then warns if status is
+>>>>>> not ok, instead of silent errors happening in drivers.
+>>>>>>
+>>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>>> ---
+>>>>>>  include/net/switchdev.h   |   2 +
+>>>>>>  net/bridge/br_stp.c       |   4 +-
+>>>>>>  net/switchdev/switchdev.c | 113 +++++++++++++++++++++++++---------------------
+>>>>>>  3 files changed, 65 insertions(+), 54 deletions(-)
+>>>>>>
+>>>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>>>>> index 89266a3..320be44 100644
+>>>>>> --- a/include/net/switchdev.h
+>>>>>> +++ b/include/net/switchdev.h
+>>>>>> @@ -168,6 +168,8 @@ int switchdev_port_attr_get(struct net_device *dev,
+>>>>>>                             struct switchdev_attr *attr);
+>>>>>>  int switchdev_port_attr_set(struct net_device *dev,
+>>>>>>                             struct switchdev_attr *attr);
+>>>>>> +int switchdev_port_attr_set_deferred(struct net_device *dev,
+>>>>>> +                                    struct switchdev_attr *attr);
+>>>>>
+>>>>>Rather than adding another op, use attr->flags and define:
+>>>>>
+>>>>>#define SWITCHDEV_F_DEFERRED          BIT(x)
+>>>>>
+>>>>>So we get:
+>>>>>
+>>>>>void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>>>>{
+>>>>>        struct switchdev_attr attr = {
+>>>>>                .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>>>>>+              .flags = SWITCHDEV_F_DEFERRED,
+>>>>>                .u.stp_state = state,
+>>>>>        };
+>>>>>        int err;
+>>>>>
+>>>>>        p->state = state;
+>>>>>        err = switchdev_port_attr_set(p->dev, &attr);
+>>>>>        if (err && err != -EOPNOTSUPP)
+>>>>>                br_warn(p->br, "error setting offload STP state on
+>>>>>port %u(%s)\n",
+>>>>>                                (unsigned int) p->port_no,
+>>>>>p->dev->name);
+>>>>>}
+>>>>>
+>>>>>(And add obj->flags to do the same).
+>>>>
+>>>> That's what I wanted to avoid. Also because the obj is const and for
+>>>> call from work, this flag would have to be removed.
+>>>
+>>>What did you want to avoid?
+>>
+>> Having this as a flag. I don't like it too much.
+>> But that is cosmetics. Other than that, does the patchset make sense?
+>> Do you see some possible issues?
 >
->
->> -----Original Message-----
->> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
->> Sent: Friday, October 09, 2015 7:53 AM
->> To: netdev@vger.kernel.org
->> Cc: davem@davemloft.net; jiri@resnulli.us; siva.mannem.lnx@gmail.com;
->> Premkumar Jonnala; stephen@networkplumber.org;
->> roopa@cumulusnetworks.com; andrew@lunn.ch; f.fainelli@gmail.com;
->> vivien.didelot@savoirfairelinux.com
->> Subject: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time down
->> to switchdev
->> 
->> From: Scott Feldman <sfeldma@gmail.com>
->> 
->> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
->> support setting ageing_time (or setting bridge attrs in general).
->> 
->> If push fails, don't update ageing_time in bridge and return err to user.
->> 
->> If push succeeds, update ageing_time in bridge and run gc_timer now to
->> recalabrate when to run gc_timer next, based on new ageing_time.
->> 
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  net/bridge/br_ioctl.c    |    3 +--
->>  net/bridge/br_netlink.c  |    6 +++---
->>  net/bridge/br_private.h  |    1 +
->>  net/bridge/br_stp.c      |   23 +++++++++++++++++++++++
->>  net/bridge/br_sysfs_br.c |    3 +--
->>  5 files changed, 29 insertions(+), 7 deletions(-)
->> 
->> diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
->> index 8d423bc..263b4de 100644
->> --- a/net/bridge/br_ioctl.c
->> +++ b/net/bridge/br_ioctl.c
->> @@ -200,8 +200,7 @@ static int old_dev_ioctl(struct net_device *dev, struct
->> ifreq *rq, int cmd)
->>  		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
->>  			return -EPERM;
->> 
->> -		br->ageing_time = clock_t_to_jiffies(args[1]);
->> -		return 0;
->> +		return br_set_ageing_time(br, args[1]);
->> 
->>  	case BRCTL_GET_PORT_INFO:
->>  	{
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index d78b442..544ab96 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -870,9 +870,9 @@ static int br_changelink(struct net_device *brdev, struct
->> nlattr *tb[],
->>  	}
->> 
->>  	if (data[IFLA_BR_AGEING_TIME]) {
->> -		u32 ageing_time = nla_get_u32(data[IFLA_BR_AGEING_TIME]);
->> -
->> -		br->ageing_time = clock_t_to_jiffies(ageing_time);
->> +		err = br_set_ageing_time(br,
->> nla_get_u32(data[IFLA_BR_AGEING_TIME]));
->> +		if (err)
->> +			return err;
->>  	}
->> 
->>  	if (data[IFLA_BR_STP_STATE]) {
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 09d3ecb..ba0c67b 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -882,6 +882,7 @@ void __br_set_forward_delay(struct net_bridge *br,
->> unsigned long t);
->>  int br_set_forward_delay(struct net_bridge *br, unsigned long x);
->>  int br_set_hello_time(struct net_bridge *br, unsigned long x);
->>  int br_set_max_age(struct net_bridge *br, unsigned long x);
->> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time);
->> 
->> 
->>  /* br_stp_if.c */
->> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->> index 3a982c0..db6d243de 100644
->> --- a/net/bridge/br_stp.c
->> +++ b/net/bridge/br_stp.c
->> @@ -566,6 +566,29 @@ int br_set_max_age(struct net_bridge *br, unsigned
->> long val)
->> 
->>  }
->> 
->> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
->> +{
->> +	struct switchdev_attr attr = {
->> +		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
->> +		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
->> +		.u.ageing_time = ageing_time,
->> +	};
->> +	unsigned long t = clock_t_to_jiffies(ageing_time);
->> +	int err;
->> +
->> +	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->> +		return -ERANGE;
->> +
->> +	err = switchdev_port_attr_set(br->dev, &attr);
->
->A thought - given that the ageing time is not a per-bridge-port attr, why are we using a "port based api"
->to pass the attribute down?  May be I'm missing something here?
+>patch 1/3 makes sense, I tested it out and no issues.  (Looks like
+>there are other places to assert rtnl_lock, are you going to add
+>those?)
 
-I general, it can be. And in case of rocker, it is.
-Other drivers will just use port handler to set the ageing time on the
-appropriate bridge.
+Sure, can you pinpoint the places?
 
+>
+>patch 2/3: Rather than trying to guess the call context in the core,
+>make the caller call the right variant for its context.  That part is
+>good.  On the flag vs. no flags, the reasons why I want this as a flag
+>are:
+>
+>a) I want to keep the switchdev ops set to the core set: get/set attr
+>and add/del/dump objs.  I've pushed back on changing this before.  I
+>don't want ops explosion (like netdev_ops), and I'd like to avoid the
+>1000-line patch when the arg list in an op changes, and we need to
+>update N drivers.  The flags lets the caller modify the algo behavior,
+>while keeping the core call (and args) fixed.
+>
+>b) the caller can combine flags, where it makes sense.  For example,
+>maybe I'm in a locked context and I don't want to recurse the device
+>tree, so I would make the call with NO_RECURSE | DEFERRED.  If we
+>didn't use flags, then we need to supply ops for each variant on the
+>call, and then things explode.
+
+Fair enough. I'll process this in.
 
 
 >
->-Prem
->
->
->> +	if (err)
->> +		return err;
->> +
->> +	br->ageing_time = t;
->> +	mod_timer(&br->gc_timer, jiffies);
->> +
->> +	return 0;
->> +}
->> +
->>  void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
->>  {
->>  	br->bridge_forward_delay = t;
->> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
->> index 4c97fc5..04ef192 100644
->> --- a/net/bridge/br_sysfs_br.c
->> +++ b/net/bridge/br_sysfs_br.c
->> @@ -102,8 +102,7 @@ static ssize_t ageing_time_show(struct device *d,
->> 
->>  static int set_ageing_time(struct net_bridge *br, unsigned long val)
->>  {
->> -	br->ageing_time = clock_t_to_jiffies(val);
->> -	return 0;
->> +	return br_set_ageing_time(br, val);
->>  }
->> 
->>  static ssize_t ageing_time_store(struct device *d,
->> --
->> 1.7.10.4
->
+>patch 3/3 I haven't looked at yet...I'm stuck on 2/3.
+
+It is very similar to 2/3, only for obj_add/del.
