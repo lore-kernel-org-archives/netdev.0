@@ -1,49 +1,155 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: report features supported by the
- kernel datapath
-Date: Fri, 9 Oct 2015 15:06:33 -0700
-Message-ID: <CAEP_g=9LMhjEn5X+9J8KDdqVxLBNiCjKGBG_a-_aCYWHwDBy3Q@mail.gmail.com>
-References: <f035dbc85f4fb7e8c8691801849a9db286154bde.1444312374.git.jbenc@redhat.com>
- <CAEP_g=-pgG6yhGsbvbdrJdAK3VXX1a+8c-wRkHuRte0=2Byg2w@mail.gmail.com>
- <20151009092453.GB18316@pox.localdomain> <20151009114646.2ee66f3b@griffin>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
+Date: Fri, 9 Oct 2015 15:11:19 -0700
+Message-ID: <CAEP_g=8TTh7pQL_DadBPdhfat+gd_XizGJqWK2wvHvo7oy6WaQ@mail.gmail.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
+ <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+ <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com> <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
+ <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:35677 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbbJIWGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 18:06:54 -0400
-Received: by lbwr8 with SMTP id r8so94271912lbw.2
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 15:06:53 -0700 (PDT)
-In-Reply-To: <20151009114646.2ee66f3b@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, Vlastimil Babka <vbabka@suse.cz>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>, "dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
+To: Jarno Rajahalme <jrajahalme@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 9, 2015 at 2:46 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Fri, 9 Oct 2015 11:24:53 +0200, Thomas Graf wrote:
->> On 10/08/15 at 03:40pm, Jesse Gross wrote:
->> > I have similar concerns as were expressed in the other thread. The
->> > features listed here aren't OVS components and I don't think that it
->> > makes sense for OVS to try to cover everything that is related - the
->> > goal that we've been working towards is to have OVS be less monolithic
->> > and more integrated. So to the extent that it is necessary to have
->> > capabilities be exposed (and I would like to avoid this where
->> > possible), it should be in the individual component, not in OVS.
+On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme <jrajahalme@nicira.com> wro=
+te:
 >
-> Fair enough. Note that the IPv6 flag really belongs to ovs, though -
-> it's about the existence of OVS_TUNNEL_KEY_ATTR_IPV6_SRC and
-> OVS_TUNNEL_KEY_ATTR_IPV6_DST netlink attributes. For the lwtunnel flag
-> (which is just another way to tell whether vxlan/geneve/etc. has
-> COLLECT_METADATA support) I can agree that it does not belong to ovs.
+> On Oct 8, 2015, at 4:03 PM, Jesse Gross <jesse@nicira.com> wrote:
+>
+> On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme <jrajahalme@nicira.com>
+> wrote:
+>
+>
+> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
+>
+> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>
+> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>
+>
+> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>
+>
+> When openvswitch tries allocate memory from offline numa node 0:
+> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_ZERO=
+,
+> 0)
+> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || !node_online(nid=
+))
+> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h
+> This patch disables numa affinity in this case.
+>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>
+>
+>
+> ...
+>
+> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+> index f2ea83ba4763..c7f74aab34b9 100644
+> --- a/net/openvswitch/flow_table.c
+> +++ b/net/openvswitch/flow_table.c
+> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>
+>     /* Initialize the default stat node. */
+>     stats =3D kmem_cache_alloc_node(flow_stats_cache,
+> -                      GFP_KERNEL | __GFP_ZERO, 0);
+> +                      GFP_KERNEL | __GFP_ZERO,
+> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>
+>
+>
+> Stupid question: can node 0 become offline between this check, and the
+> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>
+>
+>
+> Another question to ask would be is it possible for node 0 to be online, =
+but
+> be a memoryless node?
+>
+> I would say you are better off just making this call kmem_cache_alloc.  I
+> don't see anything that indicates the memory has to come from node 0, so
+> adding the extra overhead doesn't provide any value.
+>
+>
+> I agree that this at least makes me wonder, though I actually have
+> concerns in the opposite direction - I see assumptions about this
+> being on node 0 in net/openvswitch/flow.c.
+>
+> Jarno, since you original wrote this code, can you take a look to see
+> if everything still makes sense?
+>
+>
+> We keep the pre-allocated stats node at array index 0, which is initially
+> used by all CPUs, but if CPUs from multiple numa nodes start updating the
+> stats, we allocate additional stats nodes (up to one per numa node), and =
+the
+> CPUs on node 0 keep using the preallocated entry. If stats cannot be
+> allocated from CPUs local node, then those CPUs keep using the entry at
+> index 0. Currently the code in net/openvswitch/flow.c will try to allocat=
+e
+> the local memory repeatedly, which may not be optimal when there is no
+> memory at the local node.
+>
+> Allocating the memory for the index 0 from other than node 0, as discusse=
+d
+> here, just means that the CPUs on node 0 will keep on using non-local mem=
+ory
+> for stats. In a scenario where there are CPUs on two nodes (0, 1), but on=
+ly
+> the node 1 has memory, a shared flow entry will still end up having separ=
+ate
+> memory allocated for both nodes, but both of the nodes would be at node 1=
+.
+> However, there is still a high likelihood that the memory allocations wou=
+ld
+> not share a cache line, which should prevent the nodes from invalidating
+> each other=E2=80=99s caches. Based on this I do not see a problem relaxin=
+g the
+> memory allocation for the default stats node. If node 0 has memory, howev=
+er,
+> it would be better to allocate the memory from node 0.
+>
+>
+> Thanks for going through all of that.
+>
+> It seems like the question that is being raised is whether it actually
+> makes sense to try to get the initial memory on node 0, especially
+> since it seems to introduce some corner cases? Is there any reason why
+> the flow is more likely to hit node 0 than a randomly chosen one?
+> (Assuming that this is a multinode system, otherwise it's kind of a
+> moot point.) We could have a separate pointer to the default allocated
+> memory, so it wouldn't conflict with memory that was intentionally
+> allocated for node 0.
+>
+>
+> It would still be preferable to know from which node the default stats no=
+de
+> was allocated, and store it in the appropriate pointer in the array. We
+> could then add a new =E2=80=9Cdefault stats node index=E2=80=9D that woul=
+d be used to locate
+> the node in the array of pointers we already have. That way we would avoi=
+d
+> extra allocation and processing of the default stats node.
 
-We actually already have a mechanism for handling compatibility as new
-keys are added without requiring capabilities bits - see
-Documentation/networking/openvswitch.txt. We've used this quite a few
-times, including the addition of baseline tunnel capabilities.
+I agree, that sounds reasonable to me. Will you make that change?
 
-That doesn't really cover IPv6 capability for individual tunneling
-protocols though (which could vary on a per-protocol basis).
+Besides eliminating corner cases, it might help performance in some
+cases too by avoiding stressing memory bandwidth on node 0.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
