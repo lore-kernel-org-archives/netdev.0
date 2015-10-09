@@ -1,35 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/4] tcp: better smp listener behavior
-Date: Fri, 09 Oct 2015 03:53:27 -0700
-Message-ID: <1444388007.27760.58.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444358004-26483-1-git-send-email-edumazet@google.com>
-	 <56173FA6.70701@fastly.com>
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: Re: [PATCH 05/12] mwifiex: avoid gettimeofday in
+	ba_threshold setting
+Date: Fri, 9 Oct 2015 11:35:47 +0000
+Message-ID: <4d9d7f2dc1a44e00b9ce74660e306640@SC-EXCH04.marvell.com>
+References: <1443612402-3000775-1-git-send-email-arnd@arndb.de>
+ <1443612402-3000775-6-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Grant Zhang <gzhang@fastly.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36173 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093AbbJIKx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 06:53:29 -0400
-Received: by pablk4 with SMTP id lk4so84074908pab.3
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 03:53:29 -0700 (PDT)
-In-Reply-To: <56173FA6.70701@fastly.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "y2038@lists.linaro.org" <y2038@lists.linaro.org>,
+ "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Nishant Sarmukadam <nishants@marvell.com>, "David S.
+ Miller" <davem@davemloft.net>, Kalle Valo <kvalo@codeaurora.org>
+To: Arnd Bergmann <arnd@arndb.de>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1443612402-3000775-6-git-send-email-arnd@arndb.de>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-10-08 at 21:16 -0700, Grant Zhang wrote:
-
-> 
-> Does it make sense to make the listener hash table percpu? Socket with 
-> SO_INCOMING_CPU set could just be add to the hashtable for that specific 
-> cpu.
-
-Not sure : We plan to upstream a patch adding a soreuseport specific
-table to make the lookup time independent of number of sockets bound to
-one particular port. This simply adds an RCU protected array, with
-ability to immediately fetch slot number X from this array.
+SGkgQXJuZCwKCj4gRnJvbTogQXJuZCBCZXJnbWFubiBbbWFpbHRvOmFybmRAYXJuZGIuZGVdCj4g
+U2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMzAsIDIwMTUgNDo1NyBQTQo+IFRvOiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnCj4gQ2M6IHkyMDM4QGxpc3RzLmxpbmFyby5vcmc7IGxpbnV4LWtlcm5l
+bEB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuCj4gTWlsbGVyOyBBcm5kIEJlcmdtYW5uOyBBbWl0
+a3VtYXIgS2Fyd2FyOyBOaXNoYW50IFNhcm11a2FkYW07IEthbGxlIFZhbG87Cj4gbGludXgtd2ly
+ZWxlc3NAdmdlci5rZXJuZWwub3JnCj4gU3ViamVjdDogW1BBVENIIDA1LzEyXSBtd2lmaWV4OiBh
+dm9pZCBnZXR0aW1lb2ZkYXkgaW4gYmFfdGhyZXNob2xkCj4gc2V0dGluZwo+IAo+IG13aWZpZXhf
+Z2V0X3JhbmRvbV9iYV90aHJlc2hvbGQoKSB1c2VzIGEgY29tcGxleCBob21lZ3Jvd24KPiBpbXBs
+ZW1lbnRhdGlvbiB0byBnZW5lcmF0ZSBhIHBzZXVkby1yYW5kb20gbnVtYmVyIGZyb20gdGhlIGN1
+cnJlbnQgdGltZQo+IGFzIHJldHVybmVkIGZyb20gZG9fZ2V0dGltZW9mZGF5KCkuCj4gCj4gVGhp
+cyBjdXJyZW50bHkgcmVxdWlyZXMgdHdvIDMyLWJpdCBkaXZpc2lvbnMgcGx1cyBhIGNvdXBsZSBv
+ZiBvdGhlcgo+IGNvbXB1dGF0aW9ucyB0aGF0IGFyZSBldmVudHVhbGx5IGRpc2NhcmRlZCBhcyBv
+bmx5IGVpZ2h0IGJpdHMgb2YgdGhlCj4gbWljcm9zZWNvbmQgcG9ydGlvbiBhcmUgdXNlZCBhdCBh
+bGwuCj4gCj4gV2UgY291bGQgcmVwbGFjZSB0aGlzIHdpdGggYSBjYWxsIHRvIGdldF9yYW5kb21f
+Ynl0ZXMoKSwgYnV0IHRoYXQgbWlnaHQKPiBkcmFpbiB0aGUgZW50cm9weSBwb29sIHRvbyBmYXN0
+IGlmIHRoaXMgaXMgY2FsbGVkIGZvciBlYWNoIHBhY2tldC4KPiAKPiBJbnN0ZWFkLCB0aGlzIHBh
+dGNoIGNvbnZlcnRzIGl0IHRvIHVzZSBrdGltZV9nZXRfbnMoKSwgd2hpY2ggaXMgYSBiaXQKPiBm
+YXN0ZXIgdGhhbiBkb19nZXR0aW1lb2ZkYXkoKSwgYW5kIHRoZW4gdXNlcyBhIHNpbWlsYXIgYWxn
+b3JpdGhtIGFzCj4gYmVmb3JlLCBidXQgaW4gYSB3YXkgdGhhdCB0YWtlcyBib3RoIHRoZSBuYW5v
+c2Vjb25kIGFuZCBzZWNvbmQgcG9ydGlvbgo+IGludG8gYWNjb3VudCBmb3Igc2xpZ2h0bHktbW9y
+ZS1idXQtc3RpbGwtbm90LXZlcnktcmFuZG9tCj4gcHNldWRvcmFuZG9tIG51bWJlci4KPiAKPiBT
+aWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgo+IENjOiBBbWl0a3Vt
+YXIgS2Fyd2FyIDxha2Fyd2FyQG1hcnZlbGwuY29tPgo+IENjOiBOaXNoYW50IFNhcm11a2FkYW0g
+PG5pc2hhbnRzQG1hcnZlbGwuY29tPgo+IENjOiBLYWxsZSBWYWxvIDxrdmFsb0Bjb2RlYXVyb3Jh
+Lm9yZz4KPiBDYzogbGludXgtd2lyZWxlc3NAdmdlci5rZXJuZWwub3JnCj4gLS0tCj4gIGRyaXZl
+cnMvbmV0L3dpcmVsZXNzL213aWZpZXgvd21tLmMgfCAxNSArKysrLS0tLS0tLS0tLS0KPiAgMSBm
+aWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0pCj4gCj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL213aWZpZXgvd21tLmMKPiBiL2RyaXZlcnMvbmV0
+L3dpcmVsZXNzL213aWZpZXgvd21tLmMKPiBpbmRleCAxNzNkMzY2M2MyZTAuLjg3OGQzNTgwNjNk
+YyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3dtbS5jCj4gKysr
+IGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC93bW0uYwo+IEBAIC0xMTcsMjIgKzExNywx
+NSBAQCBtd2lmaWV4X3dtbV9hbGxvY2F0ZV9yYWxpc3Rfbm9kZShzdHJ1Y3QKPiBtd2lmaWV4X2Fk
+YXB0ZXIgKmFkYXB0ZXIsIGNvbnN0IHU4ICpyYSkKPiAgICovCj4gIHN0YXRpYyB1OCBtd2lmaWV4
+X2dldF9yYW5kb21fYmFfdGhyZXNob2xkKHZvaWQpCj4gIHsKPiAtCXUzMiBzZWMsIHVzZWM7Cj4g
+LQlzdHJ1Y3QgdGltZXZhbCBiYV90c3RhbXA7Cj4gLQl1OCBiYV90aHJlc2hvbGQ7Cj4gLQo+ICsJ
+dTY0IG5zOwo+ICAJLyogc2V0dXAgYmFfcGFja2V0X3RocmVzaG9sZCBoZXJlIHJhbmRvbSBudW1i
+ZXIgYmV0d2Vlbgo+ICAJICogW0JBX1NFVFVQX1BBQ0tFVF9PRkZTRVQsCj4gIAkgKiBCQV9TRVRV
+UF9QQUNLRVRfT0ZGU0VUK0JBX1NFVFVQX01BWF9QQUNLRVRfVEhSRVNIT0xELTFdCj4gIAkgKi8K
+PiArCW5zID0ga3RpbWVfZ2V0X25zKCk7Cj4gKwlucyArPSAobnMgPj4gMzIpICsgKG5zID4+IDE2
+KTsKPiAKPiAtCWRvX2dldHRpbWVvZmRheSgmYmFfdHN0YW1wKTsKPiAtCXNlYyA9IChiYV90c3Rh
+bXAudHZfc2VjICYgMHhGRkZGKSArIChiYV90c3RhbXAudHZfc2VjID4+IDE2KTsKPiAtCXVzZWMg
+PSAoYmFfdHN0YW1wLnR2X3VzZWMgJiAweEZGRkYpICsgKGJhX3RzdGFtcC50dl91c2VjID4+IDE2
+KTsKPiAtCWJhX3RocmVzaG9sZCA9ICgoKHNlYyA8PCAxNikgKyB1c2VjKSAlCj4gQkFfU0VUVVBf
+TUFYX1BBQ0tFVF9USFJFU0hPTEQpCj4gLQkJCQkJCSAgICAgICsgQkFfU0VUVVBfUEFDS0VUX09G
+RlNFVDsKPiAtCj4gLQlyZXR1cm4gYmFfdGhyZXNob2xkOwo+ICsJcmV0dXJuICgodTgpbnMgJSBC
+QV9TRVRVUF9NQVhfUEFDS0VUX1RIUkVTSE9MRCkgKwo+ICtCQV9TRVRVUF9QQUNLRVRfT0ZGU0VU
+Owo+ICB9Cj4gCj4gIC8qCj4gLS0KCkxvb2tzIGZpbmUgdG8gbWUuCkFja2VkLWJ5OiBBbWl0a3Vt
+YXIgS2Fyd2FyIDxha2Fyd2FyQG1hcnZlbGwuY29tPgoKUmVnYXJkcywKQW1pdGt1bWFyCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcg
+bGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWls
+bWFuL2xpc3RpbmZvL3kyMDM4Cg==
