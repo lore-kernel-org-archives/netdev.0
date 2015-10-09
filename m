@@ -1,46 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v4 1/2] fix return of iptunnel_xmit
-Date: Fri, 9 Oct 2015 16:05:22 +0300
-Message-ID: <5617BB92.8000500@cogentembedded.com>
-References: <1444382858-6725-1-git-send-email-aschultz@tpip.net>
- <1444382858-6725-2-git-send-email-aschultz@tpip.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] netfilter: turn NF_HOOK into an inline function
+Date: Fri, 09 Oct 2015 15:15:59 +0200
+Message-ID: <37905061.HAWoCKur8L@wuerfel>
+References: <201510092113.o4u2vjMD%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andreas Schultz <aschultz@tpip.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:35819 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754346AbbJINFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 09:05:24 -0400
-Received: by lbwr8 with SMTP id r8so79493510lbw.2
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 06:05:23 -0700 (PDT)
-In-Reply-To: <1444382858-6725-2-git-send-email-aschultz@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: kbuild-all@01.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: kbuild test robot <lkp@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201510092113.o4u2vjMD%fengguang.wu@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Friday 09 October 2015 21:03:57 kbuild test robot wrote:
+> ^1da177e Linus Torvalds    2005-04-16  818      cb->rt_flags &= ~DN_RT_F_IE;
+> ^1da177e Linus Torvalds    2005-04-16  819      if (rt->rt_flags & RTCF_DOREDIRECT)
+> ^1da177e Linus Torvalds    2005-04-16  820              cb->rt_flags |= DN_RT_F_IE;
+> ^1da177e Linus Torvalds    2005-04-16  821  
+> 29a26a56 Eric W. Biederman 2015-09-15  822      return NF_HOOK(NFPROTO_DECNET, NF_DN_FORWARD,
+> 29a26a56 Eric W. Biederman 2015-09-15 @823                     &init_net, NULL, skb, dev, skb->dev,
+> 8f40b161 David S. Miller   2011-07-17  824                     dn_to_neigh_output);
+> ^1da177e Linus Torvalds    2005-04-16  825  
+> ^1da177e Linus Torvalds    2005-04-16  826  drop:
+> 
 
-On 10/9/2015 12:27 PM, Andreas Schultz wrote:
+Ah, right. The 'dev' variable here is declared as
 
-> All users of iptunnel_xmit expect the return value to be the packet
-> length on success (>0), negative for a tx error and zero for a tx
-> dropped error. In cset 0e6fbc5b6c6218987c93b8c7ca60cf786062899d the
+#ifdef CONFIG_NETFILTER
+        struct net_device *dev = skb->dev;
+#endif
 
-    Didn't checkpatch.pl compalin about improper commit citing?
+Apparently because the code produced the same warning as the ipv6 code.
 
-> negative return case was lost.
+Removing the #ifdef here would make that code nicer and let us use
+my patch. Alternatively we could put the same #ifdef into IPV6 and
+not use the inline function.
 
-> This bug was introduced when the ip_tunnel_core code was refactored.
+Any opinions?
 
-> Fixes: 0e6fbc5b6c6218987c93b8c7ca60cf786062899d
-
-    See Documentation/SubmittingPatches for the proper format of this tag.
-
-> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
-> Acked-by: Jiri Benc <jbenc@redhat.com>
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
-
-MBR, Sergei
+	Arnd
