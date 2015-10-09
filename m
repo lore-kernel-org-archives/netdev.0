@@ -1,72 +1,32 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: avoid warning in gss_key_timeout
-Date: Fri, 9 Oct 2015 16:10:59 -0400
-Message-ID: <20151009201059.GC8188@fieldses.org>
-References: <6995148.OQIKcAcqHW@wuerfel>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH 1/1] i40e: re-use %*ph specifier to hexdump a data
+Date: Fri, 9 Oct 2015 13:28:57 -0700
+Message-ID: <20151009132857.00002b95@unknown>
+References: <1443777496-43299-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <6995148.OQIKcAcqHW@wuerfel>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
+	jesse.brandeburg@intel.com
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:33061 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750702AbbJIU26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2015 16:28:58 -0400
+In-Reply-To: <1443777496-43299-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 09, 2015 at 04:13:45PM +0200, Arnd Bergmann wrote:
-> The gss_key_timeout() function causes a harmless warning in some
-> configurations, e.g. ARM imx_v6_v7_defconfig with gcc-5.2, if the
-> compiler cannot figure out the state of the 'expire' variable across
-> an rcu_read_unlock():
-> 
-> net/sunrpc/auth_gss/auth_gss.c: In function 'gss_key_timeout':
-> net/sunrpc/auth_gss/auth_gss.c:1422:211: warning: 'expire' may be used uninitialized in this function [-Wmaybe-uninitialized]
-> 
-> To avoid this warning without adding a bogus initialization, this
-> rewrites the function so the comparison is done inside of the
-> critical section. As a side-effect, it also becomes slightly
-> easier to understand because the implementation now more closely
-> resembles the comment above it.
+On Fri, 2 Oct 2015 12:18:16 +0300
+Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
 
-Looks reasonable, thanks; applying for 4.4--b.
+> Instead of using a custom approach change the code to use %*ph format
+> specifier.
+> 
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Fixes: c5e6aecd034e7 ("sunrpc: fix RCU handling of gc_ctx field")
-> 
-> diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-> index dace13d7638e..799e65b944b9 100644
-> --- a/net/sunrpc/auth_gss/auth_gss.c
-> +++ b/net/sunrpc/auth_gss/auth_gss.c
-> @@ -1411,17 +1411,16 @@ gss_key_timeout(struct rpc_cred *rc)
->  {
->  	struct gss_cred *gss_cred = container_of(rc, struct gss_cred, gc_base);
->  	struct gss_cl_ctx *ctx;
-> -	unsigned long now = jiffies;
-> -	unsigned long expire;
-> +	unsigned long timeout = jiffies + (gss_key_expire_timeo * HZ);
-> +	int ret = 0;
->  
->  	rcu_read_lock();
->  	ctx = rcu_dereference(gss_cred->gc_ctx);
-> -	if (ctx)
-> -		expire = ctx->gc_expiry - (gss_key_expire_timeo * HZ);
-> +	if (!ctx || time_after(timeout, ctx->gc_expiry))
-> +		ret = -EACCES;
->  	rcu_read_unlock();
-> -	if (!ctx || time_after(now, expire))
-> -		return -EACCES;
-> -	return 0;
-> +
-> +	return ret;
->  }
->  
->  static int
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nice catch, thanks!
+
+Acked-by: jesse Brandeburg <jesse.brandeburg@intel.com>
