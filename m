@@ -1,118 +1,123 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
-Date: Thu, 8 Oct 2015 16:03:07 -0700
-Message-ID: <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
- <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
- <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
+From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Subject: [PATCH] brcmfmac: fix waitqueue_active without memory barrier in
+ brcmfmac driver
+Date: Fri, 9 Oct 2015 00:35:46 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02874785@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, Vlastimil Babka <vbabka@suse.cz>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>, "dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
-To: Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"Hante Meuleman" <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:61404 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760213AbbJIAh7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2015 20:37:59 -0400
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme <jrajahalme@nicira.com> wr=
-ote:
->
->> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com> wrote:
->>
->> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
->>>>
->>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->>>>>
->>>>> When openvswitch tries allocate memory from offline numa node 0:
->>>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP_=
-ZERO,
->>>>> 0)
->>>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || !node_online=
-(nid))
->>>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp=
-.h
->>>>> This patch disables numa affinity in this case.
->>>>>
->>>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->>>>
->>>>
->>>> ...
->>>>
->>>>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_tabl=
-e.c
->>>>> index f2ea83ba4763..c7f74aab34b9 100644
->>>>> --- a/net/openvswitch/flow_table.c
->>>>> +++ b/net/openvswitch/flow_table.c
->>>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->>>>>
->>>>>      /* Initialize the default stat node. */
->>>>>      stats =3D kmem_cache_alloc_node(flow_stats_cache,
->>>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
->>>>> +                      GFP_KERNEL | __GFP_ZERO,
->>>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
->>>>
->>>>
->>>> Stupid question: can node 0 become offline between this check, and the
->>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
->>>
->>>
->>> Another question to ask would be is it possible for node 0 to be online=
-, but
->>> be a memoryless node?
->>>
->>> I would say you are better off just making this call kmem_cache_alloc. =
- I
->>> don't see anything that indicates the memory has to come from node 0, s=
-o
->>> adding the extra overhead doesn't provide any value.
->>
->> I agree that this at least makes me wonder, though I actually have
->> concerns in the opposite direction - I see assumptions about this
->> being on node 0 in net/openvswitch/flow.c.
->>
->> Jarno, since you original wrote this code, can you take a look to see
->> if everything still makes sense?
->
-> We keep the pre-allocated stats node at array index 0, which is initially=
- used by all CPUs, but if CPUs from multiple numa nodes start updating the =
-stats, we allocate additional stats nodes (up to one per numa node), and th=
-e CPUs on node 0 keep using the preallocated entry. If stats cannot be allo=
-cated from CPUs local node, then those CPUs keep using the entry at index 0=
-. Currently the code in net/openvswitch/flow.c will try to allocate the loc=
-al memory repeatedly, which may not be optimal when there is no memory at t=
-he local node.
->
-> Allocating the memory for the index 0 from other than node 0, as discusse=
-d here, just means that the CPUs on node 0 will keep on using non-local mem=
-ory for stats. In a scenario where there are CPUs on two nodes (0, 1), but =
-only the node 1 has memory, a shared flow entry will still end up having se=
-parate memory allocated for both nodes, but both of the nodes would be at n=
-ode 1. However, there is still a high likelihood that the memory allocation=
-s would not share a cache line, which should prevent the nodes from invalid=
-ating each other=E2=80=99s caches. Based on this I do not see a problem rel=
-axing the memory allocation for the default stats node. If node 0 has memor=
-y, however, it would be better to allocate the memory from node 0.
+brcmf_msgbuf_ioctl_resp_wake() seems to be missing a memory barrier
+which might cause the waker to not notice the waiter and miss sending a
+wake_up as in the following figure.
 
-Thanks for going through all of that.
+  brcmf_msgbuf_ioctl_resp_wake		    brcmf_msgbuf_ioctl_resp_wait
+------------------------------------------------------------------------
+if (waitqueue_active(&msgbuf->ioctl_resp_wait))
+/* The CPU might reorder the test for
+   the waitqueue up here, before
+   prior writes complete */
+   	   	     	 	       /* wait_event_timeout */
+				        /* __wait_event_timeout */
+					 /* ___wait_event */
+					 prepare_to_wait_event(&wq, &__wait,
+					   state);
+					 if (msgbuf->ctl_completed)
+					 ...
+msgbuf->ctl_completed = true;
+					 schedule_timeout(__ret))
+------------------------------------------------------------------------
 
-It seems like the question that is being raised is whether it actually
-makes sense to try to get the initial memory on node 0, especially
-since it seems to introduce some corner cases? Is there any reason why
-the flow is more likely to hit node 0 than a randomly chosen one?
-(Assuming that this is a multinode system, otherwise it's kind of a
-moot point.) We could have a separate pointer to the default allocated
-memory, so it wouldn't conflict with memory that was intentionally
-allocated for node 0.
+There are three other place in drivers/net/wireless/brcm80211/brcmfmac/
+which have similar code.  The attached patch removes the call to
+waitqueue_active() leaving just wake_up() behind.  This fixes the
+problem because the call to spin_lock_irqsave() in wake_up() will be an
+ACQUIRE operation.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I found this issue when I was looking through the linux source code
+for places calling waitqueue_active() before wake_up*(), but without
+preceding memory barriers, after sending a patch to fix a similar
+issue in drivers/tty/n_tty.c  (Details about the original issue can be
+found here: https://lkml.org/lkml/2015/9/28/849).
+
+Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c |    3 +--
+ drivers/net/wireless/brcm80211/brcmfmac/sdio.c   |    6 ++----
+ drivers/net/wireless/brcm80211/brcmfmac/usb.c    |    3 +--
+ 3 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+index 7b2136c..648151e 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+@@ -473,8 +473,7 @@ static int brcmf_msgbuf_ioctl_resp_wait(struct brcmf_msgbuf *msgbuf)
+ static void brcmf_msgbuf_ioctl_resp_wake(struct brcmf_msgbuf *msgbuf)
+ {
+ 	msgbuf->ctl_completed = true;
+-	if (waitqueue_active(&msgbuf->ioctl_resp_wait))
+-		wake_up(&msgbuf->ioctl_resp_wait);
++	wake_up(&msgbuf->ioctl_resp_wait);
+ }
+ 
+ 
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+index f990e3d..332c4c8 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+@@ -1785,8 +1785,7 @@ static int brcmf_sdio_dcmd_resp_wait(struct brcmf_sdio *bus, uint *condition,
+ 
+ static int brcmf_sdio_dcmd_resp_wake(struct brcmf_sdio *bus)
+ {
+-	if (waitqueue_active(&bus->dcmd_resp_wait))
+-		wake_up_interruptible(&bus->dcmd_resp_wait);
++	wake_up_interruptible(&bus->dcmd_resp_wait);
+ 
+ 	return 0;
+ }
+@@ -2110,8 +2109,7 @@ static uint brcmf_sdio_readframes(struct brcmf_sdio *bus, uint maxframes)
+ static void
+ brcmf_sdio_wait_event_wakeup(struct brcmf_sdio *bus)
+ {
+-	if (waitqueue_active(&bus->ctrl_wait))
+-		wake_up_interruptible(&bus->ctrl_wait);
++	wake_up_interruptible(&bus->ctrl_wait);
+ 	return;
+ }
+ 
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+index daba86d..7f5889c 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+@@ -184,8 +184,7 @@ static int brcmf_usb_ioctl_resp_wait(struct brcmf_usbdev_info *devinfo)
+ 
+ static void brcmf_usb_ioctl_resp_wake(struct brcmf_usbdev_info *devinfo)
+ {
+-	if (waitqueue_active(&devinfo->ioctl_resp_wait))
+-		wake_up(&devinfo->ioctl_resp_wait);
++	wake_up(&devinfo->ioctl_resp_wait);
+ }
+ 
+ static void
+-- 
+1.7.1
