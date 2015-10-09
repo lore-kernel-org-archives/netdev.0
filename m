@@ -1,29 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] Mellanox driver update for net-next
-Date: Fri, 09 Oct 2015 07:28:58 -0700 (PDT)
-Message-ID: <20151009.072858.578866593150031295.davem@davemloft.net>
-References: <1444313643-15284-1-git-send-email-ogerlitz@mellanox.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] sunrpc: avoid warning in gss_key_timeout
+Date: Fri, 09 Oct 2015 16:13:45 +0200
+Message-ID: <6995148.OQIKcAcqHW@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eli@mellanox.com, achiad@mellanox.com,
-	amirv@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40928 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752682AbbJIONI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 10:13:08 -0400
-In-Reply-To: <1444313643-15284-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  8 Oct 2015 17:13:56 +0300
+The gss_key_timeout() function causes a harmless warning in some
+configurations, e.g. ARM imx_v6_v7_defconfig with gcc-5.2, if the
+compiler cannot figure out the state of the 'expire' variable across
+an rcu_read_unlock():
 
-> Some small fixes and small enhancements from the team.
-> 
-> Series applies over net-next commit acb4a6b "tcp: ensure prior synack rtx behavior
-> with small backlogs".
+net/sunrpc/auth_gss/auth_gss.c: In function 'gss_key_timeout':
+net/sunrpc/auth_gss/auth_gss.c:1422:211: warning: 'expire' may be used uninitialized in this function [-Wmaybe-uninitialized]
 
-Series applied, thanks.
+To avoid this warning without adding a bogus initialization, this
+rewrites the function so the comparison is done inside of the
+critical section. As a side-effect, it also becomes slightly
+easier to understand because the implementation now more closely
+resembles the comment above it.
+
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Fixes: c5e6aecd034e7 ("sunrpc: fix RCU handling of gc_ctx field")
+
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index dace13d7638e..799e65b944b9 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -1411,17 +1411,16 @@ gss_key_timeout(struct rpc_cred *rc)
+ {
+ 	struct gss_cred *gss_cred = container_of(rc, struct gss_cred, gc_base);
+ 	struct gss_cl_ctx *ctx;
+-	unsigned long now = jiffies;
+-	unsigned long expire;
++	unsigned long timeout = jiffies + (gss_key_expire_timeo * HZ);
++	int ret = 0;
+ 
+ 	rcu_read_lock();
+ 	ctx = rcu_dereference(gss_cred->gc_ctx);
+-	if (ctx)
+-		expire = ctx->gc_expiry - (gss_key_expire_timeo * HZ);
++	if (!ctx || time_after(timeout, ctx->gc_expiry))
++		ret = -EACCES;
+ 	rcu_read_unlock();
+-	if (!ctx || time_after(now, expire))
+-		return -EACCES;
+-	return 0;
++
++	return ret;
+ }
+ 
+ static int
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
