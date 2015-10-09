@@ -1,48 +1,27 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netfilter: turn NF_HOOK into an inline function
-Date: Fri, 09 Oct 2015 15:15:59 +0200
-Message-ID: <37905061.HAWoCKur8L@wuerfel>
-References: <201510092113.o4u2vjMD%fengguang.wu@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
+ 2015-10-08
+Date: Fri, 09 Oct 2015 07:23:47 -0700 (PDT)
+Message-ID: <20151009.072347.255393397062982909.davem@davemloft.net>
+References: <1444354374-24351-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: kbuild-all@01.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201510092113.o4u2vjMD%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40901 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751464AbbJIOIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 10:08:00 -0400
+In-Reply-To: <1444354374-24351-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 09 October 2015 21:03:57 kbuild test robot wrote:
-> ^1da177e Linus Torvalds    2005-04-16  818      cb->rt_flags &= ~DN_RT_F_IE;
-> ^1da177e Linus Torvalds    2005-04-16  819      if (rt->rt_flags & RTCF_DOREDIRECT)
-> ^1da177e Linus Torvalds    2005-04-16  820              cb->rt_flags |= DN_RT_F_IE;
-> ^1da177e Linus Torvalds    2005-04-16  821  
-> 29a26a56 Eric W. Biederman 2015-09-15  822      return NF_HOOK(NFPROTO_DECNET, NF_DN_FORWARD,
-> 29a26a56 Eric W. Biederman 2015-09-15 @823                     &init_net, NULL, skb, dev, skb->dev,
-> 8f40b161 David S. Miller   2011-07-17  824                     dn_to_neigh_output);
-> ^1da177e Linus Torvalds    2005-04-16  825  
-> ^1da177e Linus Torvalds    2005-04-16  826  drop:
-> 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  8 Oct 2015 18:32:38 -0700
 
-Ah, right. The 'dev' variable here is declared as
+> This series contains updates to i40e and i40evf only (again).
 
-#ifdef CONFIG_NETFILTER
-        struct net_device *dev = skb->dev;
-#endif
-
-Apparently because the code produced the same warning as the ipv6 code.
-
-Removing the #ifdef here would make that code nicer and let us use
-my patch. Alternatively we could put the same #ifdef into IPV6 and
-not use the inline function.
-
-Any opinions?
-
-	Arnd
+Pulled, thanks Jeff.
