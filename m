@@ -1,7 +1,7 @@
 From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH 3/7] usb: gadget: gserial: Privatize close_wait
-Date: Sat, 10 Oct 2015 16:00:53 -0400
-Message-ID: <1444507257-7513-4-git-send-email-peter@hurleysoftware.com>
+Subject: [PATCH 7/7] tty: Remove wait_event_interruptible_tty()
+Date: Sat, 10 Oct 2015 16:00:57 -0400
+Message-ID: <1444507257-7513-8-git-send-email-peter@hurleysoftware.com>
 References: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
 Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
 	David Laight <David.Laight@aculab.com>,
@@ -10,56 +10,61 @@ Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
 	David Miller <davem@davemloft.net>,
 	Peter Hurley <peter@hurleysoftware.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:33009 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784AbbJJUBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 16:01:30 -0400
+Received: by qgew37 with SMTP id w37so36048669qge.0
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 13:01:29 -0700 (PDT)
 In-Reply-To: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-close_wait is no longer needed or provided by the tty core.
-Move close_wait to struct gs_port.
+In-tree users of wait_event_interruptible_tty() have been removed;
+remove.
 
 Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- drivers/usb/gadget/function/u_serial.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ include/linux/tty.h | 26 --------------------------
+ 1 file changed, 26 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/u_serial.c b/drivers/usb/gadget/function/u_serial.c
-index 7ee0579..42894f5 100644
---- a/drivers/usb/gadget/function/u_serial.c
-+++ b/drivers/usb/gadget/function/u_serial.c
-@@ -114,6 +114,7 @@ struct gs_port {
- 	struct gs_buf		port_write_buf;
- 	wait_queue_head_t	drain_wait;	/* wait while writes drain */
- 	bool                    write_busy;
-+	wait_queue_head_t	close_wait;
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index 090ce2a..c2889f4 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -655,32 +655,6 @@ extern void __lockfunc tty_unlock(struct tty_struct *tty);
+ extern void __lockfunc tty_lock_slave(struct tty_struct *tty);
+ extern void __lockfunc tty_unlock_slave(struct tty_struct *tty);
+ extern void tty_set_lock_subclass(struct tty_struct *tty);
+-/*
+- * wait_event_interruptible_tty -- wait for a condition with the tty lock held
+- *
+- * The condition we are waiting for might take a long time to
+- * become true, or might depend on another thread taking the
+- * BTM. In either case, we need to drop the BTM to guarantee
+- * forward progress. This is a leftover from the conversion
+- * from the BKL and should eventually get removed as the BTM
+- * falls out of use.
+- *
+- * Do not use in new code.
+- */
+-#define wait_event_interruptible_tty(tty, wq, condition)		\
+-({									\
+-	int __ret = 0;							\
+-	if (!(condition))						\
+-		__ret = __wait_event_interruptible_tty(tty, wq,		\
+-						       condition);	\
+-	__ret;								\
+-})
+-
+-#define __wait_event_interruptible_tty(tty, wq, condition)		\
+-	___wait_event(wq, condition, TASK_INTERRUPTIBLE, 0, 0,		\
+-			tty_unlock(tty);				\
+-			schedule();					\
+-			tty_lock(tty))
  
- 	/* REVISIT this state ... */
- 	struct usb_cdc_line_coding port_line_coding;	/* 8-N-1 etc */
-@@ -884,7 +885,7 @@ static void gs_close(struct tty_struct *tty, struct file *file)
- 	pr_debug("gs_close: ttyGS%d (%p,%p) done!\n",
- 			port->port_num, tty, file);
- 
--	wake_up(&port->port.close_wait);
-+	wake_up(&port->close_wait);
- exit:
- 	spin_unlock_irq(&port->port_lock);
- }
-@@ -1044,6 +1045,7 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
- 	tty_port_init(&port->port);
- 	spin_lock_init(&port->port_lock);
- 	init_waitqueue_head(&port->drain_wait);
-+	init_waitqueue_head(&port->close_wait);
- 
- 	tasklet_init(&port->push, gs_rx_push, (unsigned long) port);
- 
-@@ -1074,7 +1076,7 @@ static void gserial_free_port(struct gs_port *port)
- {
- 	tasklet_kill(&port->push);
- 	/* wait for old opens to finish */
--	wait_event(port->port.close_wait, gs_closed(port));
-+	wait_event(port->close_wait, gs_closed(port));
- 	WARN_ON(port->port_usb != NULL);
- 	tty_port_destroy(&port->port);
- 	kfree(port);
+ #ifdef CONFIG_PROC_FS
+ extern void proc_tty_register_driver(struct tty_driver *);
 -- 
 2.6.1
