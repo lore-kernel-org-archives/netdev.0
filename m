@@ -1,109 +1,81 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
-Date: Fri, 9 Oct 2015 19:51:20 -0700
-Message-ID: <CAE4R7bC9o641hJV3rN68C1iutNAZ3kdtd=S3_9B5SV17in63ag@mail.gmail.com>
-References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
- <20151006073018.GA2165@nanopsycho.orion> <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
- <20151007060355.GA2152@nanopsycho.orion> <CAE4R7bAHh-vc08Jfq8Q-OZoUCFQhfvOq2+STc_X0eM0q-8fzJw@mail.gmail.com>
- <20151007173956.GI2152@nanopsycho.orion> <20151009143636.GI2161@nanopsycho.orion>
+Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
+ down to switchdev
+Date: Fri, 9 Oct 2015 19:53:52 -0700
+Message-ID: <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
+References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
+ <1444357400-37078-4-git-send-email-sfeldma@gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"vivien.didelot@savoirfairelinux.com"
+	<vivien.didelot@savoirfairelinux.com>
+To: Premkumar Jonnala <pjonnala@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:35553 "EHLO
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:36748 "EHLO
 	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbbJJCvk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 22:51:40 -0400
-Received: by obbzf10 with SMTP id zf10so75419652obb.2
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 19:51:39 -0700 (PDT)
-In-Reply-To: <20151009143636.GI2161@nanopsycho.orion>
+	with ESMTP id S1751009AbbJJCyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 22:54:12 -0400
+Received: by obcgx8 with SMTP id gx8so75620800obc.3
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 19:54:11 -0700 (PDT)
+In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 9, 2015 at 7:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Oct 07, 2015 at 07:39:56PM CEST, jiri@resnulli.us wrote:
->>Wed, Oct 07, 2015 at 06:53:22PM CEST, sfeldma@gmail.com wrote:
->>>On Tue, Oct 6, 2015 at 11:03 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Tue, Oct 06, 2015 at 07:14:39PM CEST, sfeldma@gmail.com wrote:
->>>>>On Tue, Oct 6, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>> Tue, Oct 06, 2015 at 05:56:12AM CEST, sfeldma@gmail.com wrote:
->>>>>>>On Mon, Oct 5, 2015 at 10:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>>>>>
->>>>>>>> This patchset allows new rocker worlds to be easily added in future (like eBPF
->>>>>>>> based one I have been working on). The main part of the patchset is the OF-DPA
->>>>>>>> carve-out. It resuts in OF-DPA specific file. Clean cut.
->>>>>>>>
->>>>>>>> v1->v2:
->>>>>>>>  - rtnl rocker mode change userspace expose patch was removed
->>>>>>>>
->>>>>>>> Jiri Pirko (13):
->>>>>>>>   rocker: remove unused rocker_port param from alloc funcs and shorten
->>>>>>>>     their names
->>>>>>>>   rocker: rename rocker.h to rocker_hw.h
->>>>>>>>   rocker: rename rocker.c to rocker_main.c
->>>>>>>>   rocker: push tlv processing into separate files
->>>>>>>>   rocker: implement set settings mode command
->>>>>>>>   rocker: introduce worlds infrastructure
->>>>>>>>   rocker: introduce OF-DPA world skeleton
->>>>>>>>   rocker: set default world on port probe and clean world on remove
->>>>>>>>   rocker: pass "learning" value as a parameter to
->>>>>>>>     rocker_port_set_learning
->>>>>>>>   rocker: pre-allocate wait structures during cmd ring init
->>>>>>>>   rocker: remove trans parameter to rocker_cmd_exec function
->>>>>>>>   rocker: call rocker_cmd_exec function with "nowait" boolean instead of
->>>>>>>>     flags
->>>>>>>>   rocker: move OF-DPA stuff into separate file
->>>>>>>
->>>>>>>A couple of my tests are failing with this patchset.  A simple port
->>>>>>>test is failing and IPv4 routing test is failing.
->>>>>>>
->>>>>>>The port test is simple: just connect a port on DUT to a port on
->>>>>>>another system and assign an IP address to each port and verify IP
->>>>>>>connectivity.  I have this:
->>>>>>>
->>>>>>>   DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
->>>>>>>
->>>>>>>The IPv4 routing tests is a bit more complicated to setup.  I'm using
->>>>>>>OSPF, but I'm not seeing full routes formed in the topology, so I
->>>>>>>suspect OSPF hellos aren't getting thru.
->>>>>>>
->>>>>>>Please fix find/fix these issues and send v3.  I don't want any git
->>>>>>>bisect issues when running tests.  Thanks.
->>>>>>
->>>>>> I fixed that. Sending v3 in a sec. Thanks.
->>>>>
->>>>>Sorry, both tests are still broken.  Would you send me your tests
->>>>>scripts so I can see why your tests are passing?
->>>>
->>>> I'm trying some smoke tests including bridge setup and just ip-ip
->>>> setup by hand. Meybe if you send me your scripts, I can run it locally.
->>>
->>>My test scripts are already included in the qemu tree.
->>
->>Okay, will rework and use your scripts. Hope I will find some time
->>during this weekend.
+On Thu, Oct 8, 2015 at 9:38 PM, Premkumar Jonnala <pjonnala@broadcom.com> wrote:
 >
-> Scott, could you try to test with current net-next?
-> I'm trying basic:
-> DUT:sw1p1 (11.0.0.1/24) <-----------> host1:eth0 (11.0.0.2/24)
-> and it does not work for me now. It worked previously when I tested with
-> my patchset. This is getting odd.
+>
+>> -----Original Message-----
+>> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
+>> Sent: Friday, October 09, 2015 7:53 AM
+>> To: netdev@vger.kernel.org
+>> Cc: davem@davemloft.net; jiri@resnulli.us; siva.mannem.lnx@gmail.com;
+>> Premkumar Jonnala; stephen@networkplumber.org;
+>> roopa@cumulusnetworks.com; andrew@lunn.ch; f.fainelli@gmail.com;
+>> vivien.didelot@savoirfairelinux.com
+>> Subject: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time down
+>> to switchdev
+>>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
+>> support setting ageing_time (or setting bridge attrs in general).
+>>
+>> If push fails, don't update ageing_time in bridge and return err to user.
+>>
+>> If push succeeds, update ageing_time in bridge and run gc_timer now to
+>> recalabrate when to run gc_timer next, based on new ageing_time.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I had just re-run the tests against net-next before submitting the
-ageing_time patchset and everything passes.
+<snip>
 
-Are you using a namespace or a VM for host1?  Either one should work.
+>> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+>> +{
+>> +     struct switchdev_attr attr = {
+>> +             .id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+>> +             .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+>> +             .u.ageing_time = ageing_time,
+>> +     };
+>> +     unsigned long t = clock_t_to_jiffies(ageing_time);
+>> +     int err;
+>> +
+>> +     if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+>> +             return -ERANGE;
+>> +
+>> +     err = switchdev_port_attr_set(br->dev, &attr);
+>
+> A thought - given that the ageing time is not a per-bridge-port attr, why are we using a "port based api"
+> to pass the attribute down?  May be I'm missing something here?
 
-This would be a bad test, as the kernel will loop the traffic and the
-offload device will not see it:
-
-DUT:sw1p1 (11.0.0.1/24) <-------->DUT:sw1p2(11.0.0.2/24)
+I think Florian raised the same point earlier.  Sigh, I think this
+should be addressed....v4 coming soon...thanks guys for keeping the
+standard high.
