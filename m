@@ -1,42 +1,46 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH v4 net-next 01/10] qed: Add module with basic common
- support
-Date: Sat, 10 Oct 2015 14:18:18 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E44712@avmb3.qlogic.org>
-References: <1444217127-17557-1-git-send-email-Yuval.Mintz@qlogic.com>
-	<1444217127-17557-2-git-send-email-Yuval.Mintz@qlogic.com>,<20151010.062452.1106942695684145823.davem@davemloft.net>
+From: "j.ps@openmailbox.org" <j.ps@openmailbox.org>
+Subject: Re: "ss -p" segfaults (updated to 4.2)
+Date: Sat, 10 Oct 2015 15:34:52 +0100
+Message-ID: <5619220C.2030702@openmailbox.org>
+References: <55AE15FE.6020802@openmailbox.org>
+ <55AE16BD.40607@openmailbox.org> <20151006100933.GA2702@1wt.eu>
+Reply-To: j.ps@openmailbox.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, schwab@linux-m68k.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:18737 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751397AbbJJOSX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Oct 2015 10:18:23 -0400
-In-Reply-To: <20151010.062452.1106942695684145823.davem@davemloft.net>
-Content-Language: en-US
+Received: from smtp8.openmailbox.org ([62.4.1.42]:47193 "EHLO
+	smtp8.openmailbox.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595AbbJJOnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 10:43:21 -0400
+In-Reply-To: <20151006100933.GA2702@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +config QED
-> > +     tristate "QLogic QED 25/40/100Gb core driver"
-> > +     depends on PCI && X86_64
-> > +     ---help---
-> > +       This enables the support for ...
+Hi Willy,
 
-> You should be maximizing the number of platforms that can at least
-> build test this driver, rather than restricting things so much.
+It seems fine to me.
+You may reword the commit message at will.
 
-> If you are making this restriction because there are x86_64'isms
-> in this driver, that's even worse.
+Thx,
+Jose
 
-> So I want to see this depending upon "PCI" only.
-
-So far we've worked on stabalizing it on 64-bit LE endian.
-I can easily understand why we'd want to relax this restriction later on
-[and sooner rather than later], but what would you gain be gained by
-compile-fixing for platforms on which it was never tested?
+On 2015-10-06 11:09, Willy Tarreau wrote:
+> Hi guys,
+> 
+> I've updated Jose's patch to make it slightly simpler (eg: calloc instead
+> of malloc+memset), and ported it to 4.2.0 which requires it as well, and
+> attached it to this e-mail.
+> 
+> I can confirm that with this patch 4.1.1 doesn't segfault on me anymore.
+> The commit message should be reworked I guess though everything's in it
+> and I didn't want to modify his description.
+> 
+> Can it be merged as-is or should I reword the commit message and reference
+> Jose as the fix reporter ? We should not let this bug live forever.
+> 
+> Thanks,
+> Willy
+> 
