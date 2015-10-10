@@ -1,7 +1,7 @@
 From: Tillmann Heidsieck <theidsieck@leenox.de>
-Subject: [PATCH 1/2] atm: iphase: return -ENOMEM instead of -1 in case of failed kmalloc()
-Date: Sat, 10 Oct 2015 21:47:18 +0200
-Message-ID: <1444506439-10414-2-git-send-email-theidsieck@leenox.de>
+Subject: [PATCH 2/2] atm: iphase: fix misleading indention
+Date: Sat, 10 Oct 2015 21:47:19 +0200
+Message-ID: <1444506439-10414-3-git-send-email-theidsieck@leenox.de>
 References: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
 Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,29 +12,29 @@ In-Reply-To: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Smatch complains about returning hard coded error codes, silence this
-warning.
+Fix a smatch warning:
+drivers/atm/iphase.c:1178 rx_pkt() warn: curly braces intended?
 
-drivers/atm/iphase.c:115 ia_enque_rtn_q() warn: returning -1 instead of -ENOMEM is sloppy
+The code is correct, the indention is misleading. In case the allocation
+of skb fails, we want to skip to the end.
 
 Signed-off-by: Tillmann Heidsieck <theidsieck@leenox.de>
 ---
- drivers/atm/iphase.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/atm/iphase.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 65e65903faa0..d5010d7a99c3 100644
+index d5010d7a99c3..7d00f2994738 100644
 --- a/drivers/atm/iphase.c
 +++ b/drivers/atm/iphase.c
-@@ -112,7 +112,8 @@ static void ia_enque_head_rtn_q (IARTN_Q *que, IARTN_Q * data)
- 
- static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
-    IARTN_Q *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
--   if (!entry) return -1;
-+   if (!entry)
-+      return -ENOMEM;
-    entry->data = data;
-    entry->next = NULL;
-    if (que->next == NULL) 
+@@ -1176,7 +1176,7 @@ static int rx_pkt(struct atm_dev *dev)
+         if (!(skb = atm_alloc_charge(vcc, len, GFP_ATOMIC))) {
+            if (vcc->vci < 32)
+               printk("Drop control packets\n");
+-	      goto out_free_desc;
++	   goto out_free_desc;
+         }
+ 	skb_put(skb,len);  
+         // pwang_test
 -- 
 2.6.1
