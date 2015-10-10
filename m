@@ -1,50 +1,55 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] bpf, skb_do_redirect: clear sender_cpu before
- xmit
-Date: Fri, 9 Oct 2015 20:19:39 -0700
-Message-ID: <561883CB.4030808@plumgrid.com>
-References: <ceae3b812d3e01f73efcfdff0a7817b3c61ae24e.1444205375.git.daniel@iogearbox.net>
- <56153E6C.9050202@plumgrid.com>
- <CADe=ujYvfU_h46cQXiG6Vt1iZfs+A7fYqeZ_vWtob2Kef08ukQ@mail.gmail.com>
- <561727D5.2070001@plumgrid.com> <5617FA5A.9090406@iogearbox.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next] bridge: try switchdev op first in __vlan_vid_add/del
+Date: Fri, 9 Oct 2015 20:20:28 -0700
+Message-ID: <CAE4R7bB-X_GekWgRTcdOJGa+JTwaxtHmttsFz0f19ae-t+d-Uw@mail.gmail.com>
+References: <1444391651-13775-1-git-send-email-jiri@resnulli.us> <20151009224405.GA25393@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"Devon H. O'Dell" <dho@fastly.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33908 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbbJJDTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 23:19:42 -0400
-Received: by padhy16 with SMTP id hy16so102740849pad.1
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 20:19:41 -0700 (PDT)
-In-Reply-To: <5617FA5A.9090406@iogearbox.net>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34195 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbbJJDUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2015 23:20:49 -0400
+Received: by oiak8 with SMTP id k8so39438962oia.1
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2015 20:20:48 -0700 (PDT)
+In-Reply-To: <20151009224405.GA25393@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/9/15 10:33 AM, Daniel Borkmann wrote:
->> I was thinking may be we can use sign bit to distinguish between
->> napi_id and sender_cpu.
->> Like:
->>          if ((int)skb->sender_cpu >= 0)
->>                  skb->sender_cpu = - (raw_smp_processor_id() + 1);
->> and inside get_xps_queue() use it only if it's negative.
->> Then we can remove skb_sender_cpu_clear() from everywhere.
->> Adding a check to napi_hash_add() to make sure that napi_id is not
->> negative is probably ok too.
->> Thoughts?
+On Fri, Oct 9, 2015 at 3:44 PM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> Hi Jiri,
 >
-> I think this doesn't make it any more maintainable.
+> On Oct. Friday 09 (41) 01:54 PM, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Some drivers need to implement both switchdev vlan ops and
+>> vid_add/kill ndos. For that to work in bridge code, we need to try
+>> switchdev op first when adding/deleting vlan id.
 >
-> skb_sender_cpu_clear(), one can at least git-grep to easily find
-> out and review call-sites in the code. There are various members
-> already used differently depending on the context.
+> Just curious, when would a driver need to have both operations?
 
-since this bug wasn't fixed at once in all places, it means
-that it is hard to review _all_ needed call-sites.
-There are 7 places that call skb_sender_cpu_clear() in net-next.
-Plus 2 more in net.
-How many such paths from rx to tx left?
-On the first glance ovs is missing one and who knows what else.
+Ya, I was kind of curious of that myself. Is this because the driver
+wants to support standalone VLANs using 802.1q module and vconfig, as
+well as bridge vlans?  With the vlan support built into the bridge,
+I've been working under the assumption that 802.1q module (and
+vconfig) aren't needed, and vlans for a bridged and non-bridge port
+can be managed using the "bridge" iproute2 cmd.
+
+> I kinda have the same question regarding ndo_fdb_{add,del} and the
+> bridge_{get,set}link equivalent, which is a bit confusing to me.
+
+I had to look back at my commit 7f109539 to remind myself about the
+vid_add/kill ndos and bridge_{get,set}link usage.   Maybe that
+write-up helps?  I'm not following you on the ndo_fdb_add/del part of
+your question.
