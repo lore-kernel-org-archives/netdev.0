@@ -1,45 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] mISDN: use kstrdup() in dsp_pipeline_build
-Date: Sat, 10 Oct 2015 12:22:10 -0700
-Message-ID: <1444504930.8012.19.camel@perches.com>
-References: <1efbeaf13aca3797e7d7f899ca00b27e37bbde9d.1444498002.git.geliangtang@163.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 16/16] i40e: print neato new features
+Date: Sat, 10 Oct 2015 22:29:12 +0300
+Message-ID: <CAJ3xEMgbD=+neDvJx90NRxoa_7bOnyvLhBMrCD=nWWJnieykWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geliang Tang <geliangtang@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1efbeaf13aca3797e7d7f899ca00b27e37bbde9d.1444498002.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34830 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752499AbbJJT3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 15:29:13 -0400
+Received: by iofl186 with SMTP id l186so38999750iof.2
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 12:29:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-10-10 at 02:32 -0700, Geliang Tang wrote:
-> Use kstrdup instead of strlen-kmalloc-strcpy.
+On Fri, Oct 9, 2015 at 4:32 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>
+> To help users and developers know what compile options
+> and hardware features are enabled at compile time, print
+> VxLAN is available.
 
-Not the same code.
+What neato means?
 
-Instead of returning early, a 0 length string will
-now set pipeline->inuse to 0.
-
-Maybe that's OK, but you should state why in the
-commit log.
-
-> diff --git a/drivers/isdn/mISDN/dsp_pipeline.c b/drivers/isdn/mISDN/dsp_pipeline.c
-[]
-> @@ -250,14 +250,9 @@ int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
->  	if (!cfg)
->  		return 0;
->  
-> -	len = strlen(cfg);
-> -	if (!len)
-> -		return 0;
-> -
-> -	dup = kmalloc(len + 1, GFP_ATOMIC);
-> +	dup = kstrdup(cfg, GFP_ATOMIC);
->  	if (!dup)
->  		return 0;
-> -	strcpy(dup, cfg);
->  	while ((tok = strsep(&dup, "|"))) {
->  		if (!strlen(tok))
->  			continue;
+Or.
