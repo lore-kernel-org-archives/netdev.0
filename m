@@ -1,7 +1,7 @@
 From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH 4/7] tty: Remove tty_port::close_wait
-Date: Sat, 10 Oct 2015 16:00:54 -0400
-Message-ID: <1444507257-7513-5-git-send-email-peter@hurleysoftware.com>
+Subject: [PATCH 3/7] usb: gadget: gserial: Privatize close_wait
+Date: Sat, 10 Oct 2015 16:00:53 -0400
+Message-ID: <1444507257-7513-4-git-send-email-peter@hurleysoftware.com>
 References: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
 Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
 	David Laight <David.Laight@aculab.com>,
@@ -10,113 +10,56 @@ Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
 	David Miller <davem@davemloft.net>,
 	Peter Hurley <peter@hurleysoftware.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:36050 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbbJJUB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 16:01:27 -0400
-Received: by qgx61 with SMTP id 61so94628295qgx.3
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 13:01:26 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With the removal of tty_wait_until_sent_from_close(), tty drivers
-no longer wait during open for parallel closes to complete (instead,
-the tty core waits before calling the driver open() method). Thus,
-the close_wait waitqueue is no longer used for waiting.
-
-Remove struct tty_port::close_wait.
+close_wait is no longer needed or provided by the tty core.
+Move close_wait to struct gs_port.
 
 Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- drivers/tty/rocket.c             | 1 -
- drivers/tty/serial/68328serial.c | 1 -
- drivers/tty/serial/crisv10.c     | 1 -
- drivers/tty/serial/serial_core.c | 1 -
- drivers/tty/tty_port.c           | 2 --
- include/linux/tty.h              | 1 -
- 6 files changed, 7 deletions(-)
+ drivers/usb/gadget/function/u_serial.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/tty/rocket.c b/drivers/tty/rocket.c
-index 69c72d1..802eac7 100644
---- a/drivers/tty/rocket.c
-+++ b/drivers/tty/rocket.c
-@@ -1049,7 +1049,6 @@ static void rp_close(struct tty_struct *tty, struct file *filp)
- 	mutex_unlock(&port->mutex);
- 	tty_port_tty_set(port, NULL);
+diff --git a/drivers/usb/gadget/function/u_serial.c b/drivers/usb/gadget/function/u_serial.c
+index 7ee0579..42894f5 100644
+--- a/drivers/usb/gadget/function/u_serial.c
++++ b/drivers/usb/gadget/function/u_serial.c
+@@ -114,6 +114,7 @@ struct gs_port {
+ 	struct gs_buf		port_write_buf;
+ 	wait_queue_head_t	drain_wait;	/* wait while writes drain */
+ 	bool                    write_busy;
++	wait_queue_head_t	close_wait;
  
--	wake_up_interruptible(&port->close_wait);
- 	complete_all(&info->close_wait);
- 	atomic_dec(&rp_num_ports_open);
+ 	/* REVISIT this state ... */
+ 	struct usb_cdc_line_coding port_line_coding;	/* 8-N-1 etc */
+@@ -884,7 +885,7 @@ static void gs_close(struct tty_struct *tty, struct file *file)
+ 	pr_debug("gs_close: ttyGS%d (%p,%p) done!\n",
+ 			port->port_num, tty, file);
  
-diff --git a/drivers/tty/serial/68328serial.c b/drivers/tty/serial/68328serial.c
-index 9ba0c93..0140ba4 100644
---- a/drivers/tty/serial/68328serial.c
-+++ b/drivers/tty/serial/68328serial.c
-@@ -1071,7 +1071,6 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
- 		wake_up_interruptible(&port->open_wait);
- 	}
- 	port->flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
--	wake_up_interruptible(&port->close_wait);
- 	local_irq_restore(flags);
+-	wake_up(&port->port.close_wait);
++	wake_up(&port->close_wait);
+ exit:
+ 	spin_unlock_irq(&port->port_lock);
  }
+@@ -1044,6 +1045,7 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
+ 	tty_port_init(&port->port);
+ 	spin_lock_init(&port->port_lock);
+ 	init_waitqueue_head(&port->drain_wait);
++	init_waitqueue_head(&port->close_wait);
  
-diff --git a/drivers/tty/serial/crisv10.c b/drivers/tty/serial/crisv10.c
-index 06f4fe9..f13f2eb 100644
---- a/drivers/tty/serial/crisv10.c
-+++ b/drivers/tty/serial/crisv10.c
-@@ -3655,7 +3655,6 @@ rs_close(struct tty_struct *tty, struct file * filp)
- 		wake_up_interruptible(&info->port.open_wait);
- 	}
- 	info->port.flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
--	wake_up_interruptible(&info->port.close_wait);
- 	local_irq_restore(flags);
+ 	tasklet_init(&port->push, gs_rx_push, (unsigned long) port);
  
- 	/* port closed */
-diff --git a/drivers/tty/serial/serial_core.c b/drivers/tty/serial/serial_core.c
-index df4271a..def5199 100644
---- a/drivers/tty/serial/serial_core.c
-+++ b/drivers/tty/serial/serial_core.c
-@@ -1437,7 +1437,6 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
- 	clear_bit(ASYNCB_CLOSING, &port->flags);
- 	spin_unlock_irq(&port->lock);
- 	wake_up_interruptible(&port->open_wait);
--	wake_up_interruptible(&port->close_wait);
- 
- 	mutex_unlock(&port->mutex);
- 
-diff --git a/drivers/tty/tty_port.c b/drivers/tty/tty_port.c
-index 0e1cf04..e04a8cf 100644
---- a/drivers/tty/tty_port.c
-+++ b/drivers/tty/tty_port.c
-@@ -22,7 +22,6 @@ void tty_port_init(struct tty_port *port)
- 	memset(port, 0, sizeof(*port));
- 	tty_buffer_init(port);
- 	init_waitqueue_head(&port->open_wait);
--	init_waitqueue_head(&port->close_wait);
- 	init_waitqueue_head(&port->delta_msr_wait);
- 	mutex_init(&port->mutex);
- 	mutex_init(&port->buf_mutex);
-@@ -520,7 +519,6 @@ void tty_port_close_end(struct tty_port *port, struct tty_struct *tty)
- 		wake_up_interruptible(&port->open_wait);
- 	}
- 	port->flags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_CLOSING);
--	wake_up_interruptible(&port->close_wait);
- 	spin_unlock_irqrestore(&port->lock, flags);
- }
- EXPORT_SYMBOL(tty_port_close_end);
-diff --git a/include/linux/tty.h b/include/linux/tty.h
-index 614c822..090ce2a 100644
---- a/include/linux/tty.h
-+++ b/include/linux/tty.h
-@@ -227,7 +227,6 @@ struct tty_port {
- 	int			blocked_open;	/* Waiting to open */
- 	int			count;		/* Usage count */
- 	wait_queue_head_t	open_wait;	/* Open waiters */
--	wait_queue_head_t	close_wait;	/* Close waiters */
- 	wait_queue_head_t	delta_msr_wait;	/* Modem status change */
- 	unsigned long		flags;		/* TTY flags ASY_*/
- 	unsigned char		console:1,	/* port is a console */
+@@ -1074,7 +1076,7 @@ static void gserial_free_port(struct gs_port *port)
+ {
+ 	tasklet_kill(&port->push);
+ 	/* wait for old opens to finish */
+-	wait_event(port->port.close_wait, gs_closed(port));
++	wait_event(port->close_wait, gs_closed(port));
+ 	WARN_ON(port->port_usb != NULL);
+ 	tty_port_destroy(&port->port);
+ 	kfree(port);
 -- 
 2.6.1
