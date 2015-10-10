@@ -1,51 +1,114 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] bridge: allow adding of fdb entries pointing
- to the bridge device
-Date: Sat, 10 Oct 2015 07:49:43 -0700
-Message-ID: <56192587.4000400@cumulusnetworks.com>
-References: <1444325932-1577-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bAQEDj7P=raMNhAmOk3VCSb5Qi079rLEdkz2DTRXCLp0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2] ipv6 route: use err pointers instead of returning pointer by reference
+Date: Sat, 10 Oct 2015 08:26:36 -0700
+Message-ID: <1444490796-47173-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34654 "EHLO
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35156 "EHLO
 	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbbJJOtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 10:49:45 -0400
-Received: by padhy16 with SMTP id hy16so113082973pad.1
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 07:49:44 -0700 (PDT)
-In-Reply-To: <CAE4R7bAQEDj7P=raMNhAmOk3VCSb5Qi079rLEdkz2DTRXCLp0A@mail.gmail.com>
+	with ESMTP id S1752013AbbJJP0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 11:26:41 -0400
+Received: by pabve7 with SMTP id ve7so55476818pab.2
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 08:26:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/9/15, 9:52 PM, Scott Feldman wrote:
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-<snip>
-> @@ -640,7 +641,7 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
->         ndm->ndm_flags   = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
->         ndm->ndm_type    = 0;
->         ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
-> -       ndm->ndm_state   = fdb_to_nud(fdb);
-> +       ndm->ndm_state   = fdb_to_nud(br, fdb);
->
->         if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr))
->                 goto nla_put_failure;
-> @@ -785,7 +786,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
->                 }
->         }
->
-> -       if (fdb_to_nud(fdb) != state) {
-> +       if (fdb_to_nud(br, fdb) != state) {
->
-> Hi Roopa,
->
-> Are the above changes to fdb_to_nud() related to the patch subject?
-> I was trying to figure out this part of the patch...seems unrelated.
-> Is fdb->dst->br now not valid in some cases?
-yes, because fdb entries pointing to the bridge will have fdb->dst = NULL.
-The rest of the bridge code already handles fdb->dst = NULL. Only this function needed a change.
+This patch makes ip6_route_info_create return err pointer instead of
+returning the rt pointer by reference as suggested  by Dave
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+v1 - v2: remove unnecessary NULL initialization of rt as pointed out by scott feldman
+
+ net/ipv6/route.c | 32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4320ddc..db5b54a 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1724,21 +1724,21 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
+ 	return -EINVAL;
+ }
+ 
+-int ip6_route_info_create(struct fib6_config *cfg, struct rt6_info **rt_ret)
++static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ {
+-	int err;
+ 	struct net *net = cfg->fc_nlinfo.nl_net;
+ 	struct rt6_info *rt = NULL;
+ 	struct net_device *dev = NULL;
+ 	struct inet6_dev *idev = NULL;
+ 	struct fib6_table *table;
+ 	int addr_type;
++	int err = -EINVAL;
+ 
+ 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
+-		return -EINVAL;
++		goto out;
+ #ifndef CONFIG_IPV6_SUBTREES
+ 	if (cfg->fc_src_len)
+-		return -EINVAL;
++		goto out;
+ #endif
+ 	if (cfg->fc_ifindex) {
+ 		err = -ENODEV;
+@@ -1958,9 +1958,7 @@ install_route:
+ 
+ 	cfg->fc_nlinfo.nl_net = dev_net(dev);
+ 
+-	*rt_ret = rt;
+-
+-	return 0;
++	return rt;
+ out:
+ 	if (dev)
+ 		dev_put(dev);
+@@ -1969,20 +1967,21 @@ out:
+ 	if (rt)
+ 		dst_free(&rt->dst);
+ 
+-	*rt_ret = NULL;
+-
+-	return err;
++	return ERR_PTR(err);
+ }
+ 
+ int ip6_route_add(struct fib6_config *cfg)
+ {
+ 	struct mx6_config mxc = { .mx = NULL, };
+-	struct rt6_info *rt = NULL;
++	struct rt6_info *rt;
+ 	int err;
+ 
+-	err = ip6_route_info_create(cfg, &rt);
+-	if (err)
++	rt = ip6_route_info_create(cfg);
++	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
++		rt = NULL;
+ 		goto out;
++	}
+ 
+ 	err = ip6_convert_metrics(&mxc, cfg);
+ 	if (err)
+@@ -2871,9 +2870,12 @@ static int ip6_route_multipath_add(struct fib6_config *cfg)
+ 				r_cfg.fc_encap_type = nla_get_u16(nla);
+ 		}
+ 
+-		err = ip6_route_info_create(&r_cfg, &rt);
+-		if (err)
++		rt = ip6_route_info_create(&r_cfg);
++		if (IS_ERR(rt)) {
++			err = PTR_ERR(rt);
++			rt = NULL;
+ 			goto cleanup;
++		}
+ 
+ 		err = ip6_route_info_append(&rt6_nh_list, rt, &r_cfg);
+ 		if (err) {
+-- 
+1.9.1
