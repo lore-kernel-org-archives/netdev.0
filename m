@@ -1,119 +1,71 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
- down to switchdev
-Date: Sat, 10 Oct 2015 11:56:19 -0400
-Message-ID: <20151010155619.GA14572@ketchup>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
- <1444357400-37078-4-git-send-email-sfeldma@gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
- <20151010070434.GB1990@nanopsycho.orion>
+Subject: Re: [patch net-next] bridge: try switchdev op first in
+ __vlan_vid_add/del
+Date: Sat, 10 Oct 2015 12:03:54 -0400
+Message-ID: <20151010160354.GB14572@ketchup>
+References: <1444391651-13775-1-git-send-email-jiri@resnulli.us>
+ <20151009224405.GA25393@ketchup.mtl.sfl>
+ <CAE4R7bB-X_GekWgRTcdOJGa+JTwaxtHmttsFz0f19ae-t+d-Uw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
 	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:54408 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:54463 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372AbbJJQCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 12:02:16 -0400
+	with ESMTP id S1752092AbbJJQD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 12:03:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20151010070434.GB1990@nanopsycho.orion>
+In-Reply-To: <CAE4R7bB-X_GekWgRTcdOJGa+JTwaxtHmttsFz0f19ae-t+d-Uw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Saturday 10 (41) 09:04 AM, Jiri Pirko wrote:
-> Sat, Oct 10, 2015 at 04:53:52AM CEST, sfeldma@gmail.com wrote:
-> >On Thu, Oct 8, 2015 at 9:38 PM, Premkumar Jonnala <pjonnala@broadcom.com> wrote:
-> >>
-> >>
-> >>> -----Original Message-----
-> >>> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
-> >>> Sent: Friday, October 09, 2015 7:53 AM
-> >>> To: netdev@vger.kernel.org
-> >>> Cc: davem@davemloft.net; jiri@resnulli.us; siva.mannem.lnx@gmail.com;
-> >>> Premkumar Jonnala; stephen@networkplumber.org;
-> >>> roopa@cumulusnetworks.com; andrew@lunn.ch; f.fainelli@gmail.com;
-> >>> vivien.didelot@savoirfairelinux.com
-> >>> Subject: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time down
-> >>> to switchdev
-> >>>
-> >>> From: Scott Feldman <sfeldma@gmail.com>
-> >>>
-> >>> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
-> >>> support setting ageing_time (or setting bridge attrs in general).
-> >>>
-> >>> If push fails, don't update ageing_time in bridge and return err to user.
-> >>>
-> >>> If push succeeds, update ageing_time in bridge and run gc_timer now to
-> >>> recalabrate when to run gc_timer next, based on new ageing_time.
-> >>>
-> >>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+On Oct. Friday 09 (41) 08:20 PM, Scott Feldman wrote:
+> On Fri, Oct 9, 2015 at 3:44 PM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com> wrote:
+> > Hi Jiri,
 > >
-> ><snip>
-> >
-> >>> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
-> >>> +{
-> >>> +     struct switchdev_attr attr = {
-> >>> +             .id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-> >>> +             .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-> >>> +             .u.ageing_time = ageing_time,
-> >>> +     };
-> >>> +     unsigned long t = clock_t_to_jiffies(ageing_time);
-> >>> +     int err;
-> >>> +
-> >>> +     if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
-> >>> +             return -ERANGE;
-> >>> +
-> >>> +     err = switchdev_port_attr_set(br->dev, &attr);
+> > On Oct. Friday 09 (41) 01:54 PM, Jiri Pirko wrote:
+> >> From: Jiri Pirko <jiri@mellanox.com>
 > >>
-> >> A thought - given that the ageing time is not a per-bridge-port attr, why are we using a "port based api"
-> >> to pass the attribute down?  May be I'm missing something here?
+> >> Some drivers need to implement both switchdev vlan ops and
+> >> vid_add/kill ndos. For that to work in bridge code, we need to try
+> >> switchdev op first when adding/deleting vlan id.
 > >
-> >I think Florian raised the same point earlier.  Sigh, I think this
-> >should be addressed....v4 coming soon...thanks guys for keeping the
-> >standard high.
+> > Just curious, when would a driver need to have both operations?
 > 
-> Scott, can you tell us how do you want to address this? I like the
-> current implementation.
+> Ya, I was kind of curious of that myself. Is this because the driver
+> wants to support standalone VLANs using 802.1q module and vconfig, as
+> well as bridge vlans?  With the vlan support built into the bridge,
+> I've been working under the assumption that 802.1q module (and
+> vconfig) aren't needed, and vlans for a bridged and non-bridge port
+> can be managed using the "bridge" iproute2 cmd.
+> 
+> > I kinda have the same question regarding ndo_fdb_{add,del} and the
+> > bridge_{get,set}link equivalent, which is a bit confusing to me.
+> 
+> I had to look back at my commit 7f109539 to remind myself about the
+> vid_add/kill ndos and bridge_{get,set}link usage.   Maybe that
+> write-up helps?  I'm not following you on the ndo_fdb_add/del part of
+> your question.
 
-Scott, didn't you have a plan to add a struct device for the parent of
-switchdev ports?
+Sorry I wasn't clear. What is confusing to me for FDB ops is that we
+define net_device_ops like:
 
-I think it would be good to introduce such device with an helper to
-retrieve this upper parent, and move the switchdev ops to this guy.
+        .ndo_fdb_add            = switchdev_port_fdb_add,                           
+        .ndo_fdb_del            = switchdev_port_fdb_del,
+        .ndo_fdb_dump           = switchdev_port_fdb_dump,
 
-So switchdev drivers may implement such API calls:
-
-    .obj_add(struct device *swdev, struct switchdev_obj *obj);
-
-    .port_obj_add(struct device *swdev, struct net_device *port,
-                  struct switchdev_obj *obj);
-
-Then switchdev code may have a parent API and the current port API may
-look like this:
-
-    int switchdev_port_obj_add(struct net_device *dev,
-                               struct switchdev_obj *obj)
-    {
-        struct device *swdev = switchdev_get_parent(dev);
-        int err = -EOPNOTSUPP;
-
-        if (swdev && swdev->switchdev_ops &&
-            swdev->switchdev_ops->port_obj_add)
-            err = swdev->switchdev_ops->port_obj_add(swdev, dev, obj);
-
-        return err;
-    }
+But if I'm not mistaken, "bridge fdb" commands use the
+.ndo_bridge_{get,set,del}link ops, isn't it?
 
 Thanks,
 -v
