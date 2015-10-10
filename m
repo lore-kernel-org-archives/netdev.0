@@ -1,39 +1,53 @@
-From: RBI@vger.kernel.org, INDIA@vger.kernel.org
-Subject: GOOD NEWS
-Date: Sat, 10 Oct 2015 14:54:02 +0530
-Message-ID: <HK2PR01MB0801B82632446C9D86912B96B8330@HK2PR01MB0801.apcprd01.prod.exchangelabs.com>
-Reply-To: <rbi_fundrelease@underpaid.co.in>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
+From: Geliang Tang <geliangtang@163.com>
+Subject: [PATCH] mISDN: use kstrdup() in dsp_pipeline_build
+Date: Sat, 10 Oct 2015 02:32:15 -0700
+Message-ID: <1efbeaf13aca3797e7d7f899ca00b27e37bbde9d.1444498002.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pu1apc01hn0207.outbound.protection.outlook.com ([104.47.126.207]:61989
-	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751318AbbJJJZF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 05:25:05 -0400
-Content-Description: Mail message body
+Received: from m12-16.163.com ([220.181.12.16]:44305 "EHLO m12-16.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751337AbbJJJd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Oct 2015 05:33:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Foreign Exchange Transfer Department Reserve Bank of India have decided to bring to your attention, that you were listed as a beneficiary in the recent schedule for payment of outstanding debts incurred by the UNITED KINGDOM LOTTERY PROMOTION COUNCIL  pending since 2009 to 2015  according to your file record with your email id, Your payment is categorized as: Contract type: Unpaid Lottery Inheritance fund/ Undelivered Lottery fund.
+Use kstrdup instead of strlen-kmalloc-strcpy.
 
-VERIFICATION FORM
-=================
-1. Full Names:                                                             
-2. Your Full Address:
-3. Sex:                                                    
-4. Age: 
-5. Mobile No:
-6. Marital Status:
-7. Nationality:                                                  
-8. Current City:
-9. Your Occupation:   
-10. Winning Email id:                                                      
-11. Reply to this Email ID: rbi_fundrelease@underpaid.co.in
+Signed-off-by: Geliang Tang <geliangtang@163.com>
+---
+ drivers/isdn/mISDN/dsp_pipeline.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-BANKING DETAILS BELOW:
-=====================
-Bank Name...........A/C Name...
-A/C Number..........Swift_________ Code
+diff --git a/drivers/isdn/mISDN/dsp_pipeline.c b/drivers/isdn/mISDN/dsp_pipeline.c
+index 8b1a66c..c60722d 100644
+--- a/drivers/isdn/mISDN/dsp_pipeline.c
++++ b/drivers/isdn/mISDN/dsp_pipeline.c
+@@ -235,7 +235,7 @@ void dsp_pipeline_destroy(struct dsp_pipeline *pipeline)
+ 
+ int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
+ {
+-	int len, incomplete = 0, found = 0;
++	int incomplete = 0, found = 0;
+ 	char *dup, *tok, *name, *args;
+ 	struct dsp_element_entry *entry, *n;
+ 	struct dsp_pipeline_entry *pipeline_entry;
+@@ -250,14 +250,9 @@ int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
+ 	if (!cfg)
+ 		return 0;
+ 
+-	len = strlen(cfg);
+-	if (!len)
+-		return 0;
+-
+-	dup = kmalloc(len + 1, GFP_ATOMIC);
++	dup = kstrdup(cfg, GFP_ATOMIC);
+ 	if (!dup)
+ 		return 0;
+-	strcpy(dup, cfg);
+ 	while ((tok = strsep(&dup, "|"))) {
+ 		if (!strlen(tok))
+ 			continue;
+-- 
+1.9.1
