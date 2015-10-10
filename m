@@ -1,204 +1,122 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: switchdev and VLAN ranges
-Date: Sat, 10 Oct 2015 15:47:16 -0400
-Message-ID: <20151010194716.GA1331@ketchup.lan>
-References: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
- <CAE4R7bBRySJZxq4HKfSkyLNHiC0oMUqb95E=fCHjKX6MpNUGBw@mail.gmail.com>
- <20151010163300.GC14572@ketchup>
- <CAGVrzcbXW=GRdq+Ftp=vefOPK-RYV5cYRCuBg2-YUui3iE3keA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: [PATCH 4/7] tty: Remove tty_port::close_wait
+Date: Sat, 10 Oct 2015 16:00:54 -0400
+Message-ID: <1444507257-7513-5-git-send-email-peter@hurleysoftware.com>
+References: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
+Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
+	David Laight <David.Laight@aculab.com>,
+	Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Peter Hurley <peter@hurleysoftware.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58150 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751394AbbJJTr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 15:47:56 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcbXW=GRdq+Ftp=vefOPK-RYV5cYRCuBg2-YUui3iE3keA@mail.gmail.com>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:36050 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751485AbbJJUB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 16:01:27 -0400
+Received: by qgx61 with SMTP id 61so94628295qgx.3
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 13:01:26 -0700 (PDT)
+In-Reply-To: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Saturday 10 (41) 11:10 AM, Florian Fainelli wrote:
-> 2015-10-10 9:33 GMT-07:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
-> > On Oct. Friday 09 (41) 09:22 PM, Scott Feldman wrote:
-> >> On Fri, Oct 9, 2015 at 4:30 PM, Vivien Didelot
-> >> <vivien.didelot@savoirfairelinux.com> wrote:
-> >> > Hi All,
-> >> >
-> >> > I understand that specifying a VLAN range on the command line is nice
-> >> > for the user, and it makes no big deal for software implementation.
-> >>
-> >> [Adding Roopa, since she did the original vlan range support in the
-> >> kernel/iproute2]
-> >>
-> >> > However, AFAICT a VLAN range does not make sense at all for hardware
-> >> > such as Ethernet switch chips. Am I wrong?
-> >> >
-> >> > I would suggest to make switchdev directly answer to a bridge request
-> >> > that the operation is not supported when the user asks for a VLAN range.
-> >> >
-> >> > That way, we can simply use a single "vid" member in struct
-> >> > switchdev_obj_port_vlan instead of "vid_begin" and "vid_end" and thus
-> >> > avoid making drivers heavier with iteration loops on such range.
-> >> >
-> >> > I have two concerns in mind:
-> >> >
-> >> > a) if we imagine that drivers like Rocker allocate memory in the prepare
-> >> > phase for each VID, preparing a range like 100-4000 would definitely not
-> >> > be recommended.
-> >>
-> >> This call should be in process context so it doesn't seem to terrible
-> >> for the driver to take its time to reserve/allocate resources in
-> >> prepare phase, even for a vlan range.  I think I'm missing your point.
-> >
-> > I'll try to give a concrete example. If I want to use the prepare phase
-> > in the mv88e6xxx driver, I will allocate a struct mv88e6xxx_vtu_entry
-> > (basically a row in the hardware VLAN table) in the prepare phase before
-> > programming it in the commit phase.
-> >
-> > With this VLAN range, the driver will allocate 3900 struct. This seems
-> > pointless for drivers and error-prone.
-> 
-> We could amortize this allocation cost by having a way to tell the
-> bridge VLAN filtering code, once associated with a switchdev driver,
-> that this driver needs X amount of bytes for its private VLAN entry,
-> but that sounds overkill. If the switch driver needs to maintain
-> bookeeping information about VLANs, we would have to allocate this
-> data somewhere, so we might as well have the switch driver do it?
+With the removal of tty_wait_until_sent_from_close(), tty drivers
+no longer wait during open for parallel closes to complete (instead,
+the tty core waits before calling the driver open() method). Thus,
+the close_wait waitqueue is no longer used for waiting.
 
-You are right, the allocation would have to be done anyway. I am
-considering caching the VLAN table in mv88e6xxx sometimes.
+Remove struct tty_port::close_wait.
 
-> >
-> >> > b) imagine that you have two Linux bridges on a switch, one using the
-> >> > hardware VLAN 100. If you request the VLAN range 99-101 for the other
-> >> > bridge members, it is not possible for the driver to say "I can
-> >> > accelerate VLAN 99 and 101, but not 100". It must return OPNOTSUPP for
-> >> > the whole range.
-> >>
-> >> Well, it probably should return -ERANGE to indicate the range can't be
-> >> added, but that's an aside.
-> >>
-> >> The reason why vlan ranges need to work down to the switchdev driver
-> >> is, from the user's perspective, it's an all-or-nothing request from
-> >> the user to add the vlan range to the device.  So we need to ask the
-> >> driver in the prepare phase, "can you support this range,
-> >> completely?", and if yes, then commit it as a whole.  The netlink
-> >> response back to the user isn't equipped to describe what subset of
-> >> the range was added, and what subset was not.
-> >
-> > I understand the all-or-nothing request, and I don't want to re-train
-> > the user. I am basically suggesting that switchdev returns -ERANGE in
-> > its code, if the device is a switch port and a VLAN range is requested.
-> 
-> Denying VLAN ranges in switchdev would at best, be something that
-> should be negotiated with the underlying switch driver. There could be
-> cases where it is desirable to push VLAN ranges to batch expensive HW
-> operations for instance, or just because you can do it and this maps
-> nicely to your HW is nice to have.  Do you have something else in
-> mind?
+Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
+---
+ drivers/tty/rocket.c             | 1 -
+ drivers/tty/serial/68328serial.c | 1 -
+ drivers/tty/serial/crisv10.c     | 1 -
+ drivers/tty/serial/serial_core.c | 1 -
+ drivers/tty/tty_port.c           | 2 --
+ include/linux/tty.h              | 1 -
+ 6 files changed, 7 deletions(-)
 
-I don't really have something else in mind. I was just worried that we
-are pushing features to drivers based on potential (but not existent
-AFAICT) hardware features.
-
-I am curious to find an hardware that might program a batch of VLAN in a
-single shot, especially on a per-port basis as Linux does. If someone
-could point me an example of such hardware, I would gladly stop
-questioning the need for VLAN ranges in drivers.
-
-> >
-> > I mean, I like the per-port paradigm of Linux, but an infrastructure
-> > such as switchdev should not just forward user request to the device,
-> > but also protect it and push consistent calls to the hardware.
-> >
-> >> > That's why I think that avoiding VLAN range at the switchdev level would
-> >> > be a good idea.
-> >>
-> >> As a general rule with switchdev, we've tried to keep the user's
-> >> experience the same when using {Linux} as a soft switch/router vs.
-> >> using {Linux + offload device} as a hard switch/router.  So if native
-> >> Linux supports some operation, for example vlan ranges, then we should
-> >> try to extend that to the offload model.  In other words, we don't
-> >> want to re-train the user when moving from soft switch to hard switch!
-> >>  But there are physical limitations when dealing with an offload
-> >> device....
-> >>
-> >> Anyway, with your vlan range example, we've got a case where each soft
-> >> bridge has an independent vlan set, and the vlan sets between soft
-> >> bridges can overlap.  For the (typical) hard switch, there is one vlan
-> >> set for the whole switch, and trying to overlay the soft bridges'
-> >> (overlapping) vlan sets on the hard switch fails.  That failure is
-> >> reported to the user.  We tried, but due to offload device
-> >> limitations, we can't support that operation.  Of course, if the vlan
-> >> sets didn't overlap, then we don't have a problem.
-> >>
-> >> This will not be the only case where something we can do on a soft
-> >> Linux switch/router can't be offloaded to some physical offload
-> >> device.  But I think the philosophy has been to try offload what we
-> >> can, up to the point of failure.  In some cases, we can mask that
-> >> failure from the user by falling back to soft-switch only, but in
-> >> other cases the failure will pop up right in the user's face, like in
-> >> your example.
-> >>
-> >> One idea to help mitigate the user's confusion would be to limit the
-> >> number of bridges overlaid on the device to just one.  Our drivers
-> >> know when ports are enslaved to bridges, so is there something we can
-> >> do there to fail the enslave on a second bridge?  Exercise left to the
-> >> reader.  If we had that, now vlan ranges work 1:1 with soft Linux
-> >> because both soft bridge and device have single vlan set.
-> >>
-> >> Sorry for the long-winded response.
-> >
-> > I'm fine with the multiple software bridges on top of hardware switches.
-> > IIRC, Andrew is actually using this feature. The user should be able to
-> > request mixing of any ports like (s)he wants.
-> >
-> > A use case I can imagine is a bridge on a router between a WAN interface
-> > and a few switch ports, and an isolated group of ports (e.g. sandbox).
-> 
-> That use case can be solved by having a single bridge entity spanning
-> an entire switch device, and configuring different PVIDs on e.g: ports
-> 2-3-4 (WAN) and ports 0-1 (sandbox).
-
-That's true. The number of software bridge groups on top of an hardware
-switch is not really the issue here.
-
-If Linux and the bridge code has an explicit support for hardware
-switch, then mapping a single software bridge group on a switch chip
-would be really consistent. Otherwise, it doesn't add much value.
-
-> 
-> >
-> > What I have done in net/dsa/slave.c:dsa_bridge_check_vlan_range() should
-> > ideally be moved up to switchdev (this code prevents overlapping of VLAN
-> > between bridges in DSA switches).
-> 
-> As we discussed before over IRC, checking for overlapping VLANs is
-> something that may have to be switch driver specific at some point.
-> 
-> For instance, some switches do a double tag VLAN tag normalization
-> whenever a packet is ingressed, which means that as long as your are
-> not doing double VLAN tagging (that would be fun to support, but even
-> there), you could dedicate an outer VLAN tag per bridge instance, and
-> still allow the same inner VLAN tags to be configured by an user. The
-> switch would still guarantee proper isolation/switching/individual or
-> shared FDBs for these logical domains.
-
-Indeed, you can do internal hacks in the driver to support other
-features. But do we really want to do that? Wouldn't it be better to
-keep simple and explicit support? Like, VLAN is VLAN, double tagging is
-double tagging, etc. So we would avoid confusion in implementations.
-
-DSA and its "hardware bridging" code -- which is a hack using port-based
-VLAN maps until full 802.1Q support was added -- is good an example of
-confusion that such flexibility might bring.
-
-Thanks,
--v
+diff --git a/drivers/tty/rocket.c b/drivers/tty/rocket.c
+index 69c72d1..802eac7 100644
+--- a/drivers/tty/rocket.c
++++ b/drivers/tty/rocket.c
+@@ -1049,7 +1049,6 @@ static void rp_close(struct tty_struct *tty, struct file *filp)
+ 	mutex_unlock(&port->mutex);
+ 	tty_port_tty_set(port, NULL);
+ 
+-	wake_up_interruptible(&port->close_wait);
+ 	complete_all(&info->close_wait);
+ 	atomic_dec(&rp_num_ports_open);
+ 
+diff --git a/drivers/tty/serial/68328serial.c b/drivers/tty/serial/68328serial.c
+index 9ba0c93..0140ba4 100644
+--- a/drivers/tty/serial/68328serial.c
++++ b/drivers/tty/serial/68328serial.c
+@@ -1071,7 +1071,6 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
+ 		wake_up_interruptible(&port->open_wait);
+ 	}
+ 	port->flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
+-	wake_up_interruptible(&port->close_wait);
+ 	local_irq_restore(flags);
+ }
+ 
+diff --git a/drivers/tty/serial/crisv10.c b/drivers/tty/serial/crisv10.c
+index 06f4fe9..f13f2eb 100644
+--- a/drivers/tty/serial/crisv10.c
++++ b/drivers/tty/serial/crisv10.c
+@@ -3655,7 +3655,6 @@ rs_close(struct tty_struct *tty, struct file * filp)
+ 		wake_up_interruptible(&info->port.open_wait);
+ 	}
+ 	info->port.flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
+-	wake_up_interruptible(&info->port.close_wait);
+ 	local_irq_restore(flags);
+ 
+ 	/* port closed */
+diff --git a/drivers/tty/serial/serial_core.c b/drivers/tty/serial/serial_core.c
+index df4271a..def5199 100644
+--- a/drivers/tty/serial/serial_core.c
++++ b/drivers/tty/serial/serial_core.c
+@@ -1437,7 +1437,6 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
+ 	clear_bit(ASYNCB_CLOSING, &port->flags);
+ 	spin_unlock_irq(&port->lock);
+ 	wake_up_interruptible(&port->open_wait);
+-	wake_up_interruptible(&port->close_wait);
+ 
+ 	mutex_unlock(&port->mutex);
+ 
+diff --git a/drivers/tty/tty_port.c b/drivers/tty/tty_port.c
+index 0e1cf04..e04a8cf 100644
+--- a/drivers/tty/tty_port.c
++++ b/drivers/tty/tty_port.c
+@@ -22,7 +22,6 @@ void tty_port_init(struct tty_port *port)
+ 	memset(port, 0, sizeof(*port));
+ 	tty_buffer_init(port);
+ 	init_waitqueue_head(&port->open_wait);
+-	init_waitqueue_head(&port->close_wait);
+ 	init_waitqueue_head(&port->delta_msr_wait);
+ 	mutex_init(&port->mutex);
+ 	mutex_init(&port->buf_mutex);
+@@ -520,7 +519,6 @@ void tty_port_close_end(struct tty_port *port, struct tty_struct *tty)
+ 		wake_up_interruptible(&port->open_wait);
+ 	}
+ 	port->flags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_CLOSING);
+-	wake_up_interruptible(&port->close_wait);
+ 	spin_unlock_irqrestore(&port->lock, flags);
+ }
+ EXPORT_SYMBOL(tty_port_close_end);
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index 614c822..090ce2a 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -227,7 +227,6 @@ struct tty_port {
+ 	int			blocked_open;	/* Waiting to open */
+ 	int			count;		/* Usage count */
+ 	wait_queue_head_t	open_wait;	/* Open waiters */
+-	wait_queue_head_t	close_wait;	/* Close waiters */
+ 	wait_queue_head_t	delta_msr_wait;	/* Modem status change */
+ 	unsigned long		flags;		/* TTY flags ASY_*/
+ 	unsigned char		console:1,	/* port is a console */
+-- 
+2.6.1
