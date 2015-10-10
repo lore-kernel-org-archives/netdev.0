@@ -1,30 +1,40 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 16/16] i40e: print neato new features
-Date: Sat, 10 Oct 2015 22:29:12 +0300
-Message-ID: <CAJ3xEMgbD=+neDvJx90NRxoa_7bOnyvLhBMrCD=nWWJnieykWw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34830 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752499AbbJJT3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 15:29:13 -0400
-Received: by iofl186 with SMTP id l186so38999750iof.2
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 12:29:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tillmann Heidsieck <theidsieck@leenox.de>
+Subject: [PATCH 1/2] atm: iphase: return -ENOMEM instead of -1 in case of failed kmalloc()
+Date: Sat, 10 Oct 2015 21:47:18 +0200
+Message-ID: <1444506439-10414-2-git-send-email-theidsieck@leenox.de>
+References: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tillmann Heidsieck <theidsieck@leenox.de>
+To: Chas Williams <3chas3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 9, 2015 at 4:32 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->
-> To help users and developers know what compile options
-> and hardware features are enabled at compile time, print
-> VxLAN is available.
+Smatch complains about returning hard coded error codes, silence this
+warning.
 
-What neato means?
+drivers/atm/iphase.c:115 ia_enque_rtn_q() warn: returning -1 instead of -ENOMEM is sloppy
 
-Or.
+Signed-off-by: Tillmann Heidsieck <theidsieck@leenox.de>
+---
+ drivers/atm/iphase.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 65e65903faa0..d5010d7a99c3 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -112,7 +112,8 @@ static void ia_enque_head_rtn_q (IARTN_Q *que, IARTN_Q * data)
+ 
+ static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
+    IARTN_Q *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
+-   if (!entry) return -1;
++   if (!entry)
++      return -ENOMEM;
+    entry->data = data;
+    entry->next = NULL;
+    if (que->next == NULL) 
+-- 
+2.6.1
