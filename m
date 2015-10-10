@@ -1,70 +1,131 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/13] rocker: add support for multiple worlds
-Date: Sat, 10 Oct 2015 09:35:06 +0200
-Message-ID: <20151010073506.GA2119@nanopsycho.orion>
-References: <1444067046-27825-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bAymAKeKBOwPP11QDvBYR-iCMg3VD_7qBZH+n_+f-x9WA@mail.gmail.com>
- <20151006073018.GA2165@nanopsycho.orion>
- <CAE4R7bDTF9tt-G+9vXQ-jfkHVg=sL06DPzmA6gfSWvhDEz95OQ@mail.gmail.com>
- <20151007060355.GA2152@nanopsycho.orion>
- <CAE4R7bAHh-vc08Jfq8Q-OZoUCFQhfvOq2+STc_X0eM0q-8fzJw@mail.gmail.com>
- <20151007173956.GI2152@nanopsycho.orion>
- <20151009143636.GI2161@nanopsycho.orion>
- <CAE4R7bC9o641hJV3rN68C1iutNAZ3kdtd=S3_9B5SV17in63ag@mail.gmail.com>
- <20151010072115.GC1990@nanopsycho.orion>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: fix waitqueue_active without memory barrier
+ in brcmfmac driver
+Date: Sat, 10 Oct 2015 09:42:23 +0200
+Message-ID: <5618C15F.2030706@broadcom.com>
+References: <17EC94B0A072C34B8DCF0D30AD16044A02874785@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>, Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Laight <David.Laight@aculab.com>,
-	john fastabend <john.fastabend@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35597 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbbJJHfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 03:35:10 -0400
-Received: by wicge5 with SMTP id ge5so94584878wic.0
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2015 00:35:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20151010072115.GC1990@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>,
+	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02874785-9lrffkYxhwTt6d3pZDjeaEtBU8KWyXPq@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Oct 10, 2015 at 09:21:15AM CEST, jiri@resnulli.us wrote:
+On 10/09/2015 02:35 AM, Kosuke Tatsukawa wrote:
+> brcmf_msgbuf_ioctl_resp_wake() seems to be missing a memory barrier
+> which might cause the waker to not notice the waiter and miss sending a
+> wake_up as in the following figure.
+> 
+>    brcmf_msgbuf_ioctl_resp_wake		    brcmf_msgbuf_ioctl_resp_wait
+> ------------------------------------------------------------------------
+> if (waitqueue_active(&msgbuf->ioctl_resp_wait))
+> /* The CPU might reorder the test for
+>     the waitqueue up here, before
+>     prior writes complete */
+>     	   	     	 	       /* wait_event_timeout */
+> 				        /* __wait_event_timeout */
+> 					 /* ___wait_event */
+> 					 prepare_to_wait_event(&wq, &__wait,
+> 					   state);
+> 					 if (msgbuf->ctl_completed)
+> 					 ...
+> msgbuf->ctl_completed = true;
+> 					 schedule_timeout(__ret))
+> ------------------------------------------------------------------------
+> 
+> There are three other place in drivers/net/wireless/brcm80211/brcmfmac/
+> which have similar code.  The attached patch removes the call to
+> waitqueue_active() leaving just wake_up() behind.  This fixes the
+> problem because the call to spin_lock_irqsave() in wake_up() will be an
+> ACQUIRE operation.
+> 
+> I found this issue when I was looking through the linux source code
+> for places calling waitqueue_active() before wake_up*(), but without
+> preceding memory barriers, after sending a patch to fix a similar
+> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+> found here: https://lkml.org/lkml/2015/9/28/849).
 
-<snip>
+I prefer to add proper barriers instead of removing waitqueue_active()
+check. We will review your patch and submit it through our upstream process.
 
->>
->>I had just re-run the tests against net-next before submitting the
->>ageing_time patchset and everything passes.
->>
->>Are you using a namespace or a VM for host1?  Either one should work.
->>
->>This would be a bad test, as the kernel will loop the traffic and the
->>offload device will not see it:
->>
->>DUT:sw1p1 (11.0.0.1/24) <-------->DUT:sw1p2(11.0.0.2/24)
->
->For this test, I'm using 2 namespaces on baremetal.
->
->I just discovered very odd behaviour.
->I'm using 2 scripts so setup basic bridging scenario:
->On host, I use "setupns.sh": http://pastebin.com/f9igGxgV
->On vm, I use "setbr.sh" http://pastebin.com/Ycyyj8PK
->
->Now when I turn on the vm and do:
->vm# ./setbr.sh
->host# ./setupns.sh
->It works fine.
->
->But when I execute these if reverse order:
->host# ./setupns.sh
->vm# ./setbr.sh
->It does not work.
+Regards,
+Arend
 
-Hmm, I compiled git master qemu and with that, it works fine. I guess
-that was some but in my previous qemu version. Sorry about the fuzz :/
+> Signed-off-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c |    3 +--
+>   drivers/net/wireless/brcm80211/brcmfmac/sdio.c   |    6 ++----
+>   drivers/net/wireless/brcm80211/brcmfmac/usb.c    |    3 +--
+>   3 files changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+> index 7b2136c..648151e 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+> @@ -473,8 +473,7 @@ static int brcmf_msgbuf_ioctl_resp_wait(struct brcmf_msgbuf *msgbuf)
+>   static void brcmf_msgbuf_ioctl_resp_wake(struct brcmf_msgbuf *msgbuf)
+>   {
+>   	msgbuf->ctl_completed = true;
+> -	if (waitqueue_active(&msgbuf->ioctl_resp_wait))
+> -		wake_up(&msgbuf->ioctl_resp_wait);
+> +	wake_up(&msgbuf->ioctl_resp_wait);
+>   }
+>   
+>   
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> index f990e3d..332c4c8 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> @@ -1785,8 +1785,7 @@ static int brcmf_sdio_dcmd_resp_wait(struct brcmf_sdio *bus, uint *condition,
+>   
+>   static int brcmf_sdio_dcmd_resp_wake(struct brcmf_sdio *bus)
+>   {
+> -	if (waitqueue_active(&bus->dcmd_resp_wait))
+> -		wake_up_interruptible(&bus->dcmd_resp_wait);
+> +	wake_up_interruptible(&bus->dcmd_resp_wait);
+>   
+>   	return 0;
+>   }
+> @@ -2110,8 +2109,7 @@ static uint brcmf_sdio_readframes(struct brcmf_sdio *bus, uint maxframes)
+>   static void
+>   brcmf_sdio_wait_event_wakeup(struct brcmf_sdio *bus)
+>   {
+> -	if (waitqueue_active(&bus->ctrl_wait))
+> -		wake_up_interruptible(&bus->ctrl_wait);
+> +	wake_up_interruptible(&bus->ctrl_wait);
+>   	return;
+>   }
+>   
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> index daba86d..7f5889c 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> @@ -184,8 +184,7 @@ static int brcmf_usb_ioctl_resp_wait(struct brcmf_usbdev_info *devinfo)
+>   
+>   static void brcmf_usb_ioctl_resp_wake(struct brcmf_usbdev_info *devinfo)
+>   {
+> -	if (waitqueue_active(&devinfo->ioctl_resp_wait))
+> -		wake_up(&devinfo->ioctl_resp_wait);
+> +	wake_up(&devinfo->ioctl_resp_wait);
+>   }
+>   
+>   static void
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
