@@ -1,33 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] net: hns: fix the unknown phy_nterface_t type
- error
-Date: Sat, 10 Oct 2015 11:14:59 +0200
-Message-ID: <20151010091459.GC2119@nanopsycho.orion>
-References: <1444468838-59313-1-git-send-email-huangdaode@hisilicon.com>
+From: RBI@vger.kernel.org, INDIA@vger.kernel.org
+Subject: GOOD NEWS
+Date: Sat, 10 Oct 2015 14:54:02 +0530
+Message-ID: <HK2PR01MB0801B82632446C9D86912B96B8330@HK2PR01MB0801.apcprd01.prod.exchangelabs.com>
+Reply-To: <rbi_fundrelease@underpaid.co.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, linux-kernel@vger.kernel.org
-To: huangdaode <huangdaode@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444468838-59313-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pu1apc01hn0207.outbound.protection.outlook.com ([104.47.126.207]:61989
+	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751318AbbJJJZF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2015 05:25:05 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sat, Oct 10, 2015 at 11:20:38AM CEST, huangdaode@hisilicon.com wrote:
->This patch fix the building error reported by Jiri Pirko <jiri@resnulli.us>
->
->drivers/net/ethernet/hisilicon/hns/hnae.h:465:2: error: unknown type
->name 'phy_interface_t'
->        phy_interface_t phy_if;
->	^
->the full build log is on https://lists.01.org/pipermail/kbuild-all.
->
->Signed-off-by: huangdaode <huangdaode@hisilicon.com>
->Signed-off-by: yankejian <yankejian@huawei.com>
+The Foreign Exchange Transfer Department Reserve Bank of India have decided to bring to your attention, that you were listed as a beneficiary in the recent schedule for payment of outstanding debts incurred by the UNITED KINGDOM LOTTERY PROMOTION COUNCIL  pending since 2009 to 2015  according to your file record with your email id, Your payment is categorized as: Contract type: Unpaid Lottery Inheritance fund/ Undelivered Lottery fund.
 
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+VERIFICATION FORM
+=================
+1. Full Names:                                                             
+2. Your Full Address:
+3. Sex:                                                    
+4. Age: 
+5. Mobile No:
+6. Marital Status:
+7. Nationality:                                                  
+8. Current City:
+9. Your Occupation:   
+10. Winning Email id:                                                      
+11. Reply to this Email ID: rbi_fundrelease@underpaid.co.in
+
+BANKING DETAILS BELOW:
+=====================
+Bank Name...........A/C Name...
+A/C Number..........Swift_________ Code
