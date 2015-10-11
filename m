@@ -1,41 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: fix RFS vs lockless listeners
-Date: Sun, 11 Oct 2015 05:33:53 -0700 (PDT)
-Message-ID: <20151011.053353.955988140004407245.davem@davemloft.net>
-References: <1444328208.27760.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Timur Tabi <timur@tabi.org>
+Subject: Re: [PATCH 1/2] net/fsl_pq_mdio: check TBI address for consistency
+ with mapped range
+Date: Sun, 11 Oct 2015 07:41:52 -0500
+Message-ID: <561A5910.1070202@tabi.org>
+References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+ <1444403708-16576-1-git-send-email-gerlando.falauto@keymile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, tom@herbertland.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57135 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594AbbJKMSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 08:18:01 -0400
-In-Reply-To: <1444328208.27760.35.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ogabbay@advaoptical.com, bigeasy@linutronix.de,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Fleming <afleming@freescale.com>,
+	Kumar Gala <galak@kernel.crashing.org>
+To: Gerlando Falauto <gerlando.falauto@keymile.com>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444403708-16576-1-git-send-email-gerlando.falauto@keymile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 08 Oct 2015 11:16:48 -0700
+Gerlando Falauto wrote:
+>
+> Change-Id: If1e7d8931f440ea9259726c36d3df797dda016fb
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Before recent TCP listener patches, we were updating listener
-> sk->sk_rxhash before the cloning of master socket.
-> 
-> children sk_rxhash was therefore correct after the normal 3WHS.
-> 
-> But with lockless listener, we no longer dirty/change listener sk_rxhash
-> as it would be racy.
-> 
-> We need to correctly update the child sk_rxhash, otherwise first data
-> packet wont hit correct cpu if RFS is used.
-> 
-> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Willem de Bruijn <willemb@google.com>
-> Cc: Tom Herbert <tom@herbertland.com>
+You need to remove these from patches that are emailed, and fix the 
+pointer type comparison.
 
-Applied, thanks Eric.
+Otherwise,
+
+Acked-by: Timur Tabi <timur@tabi.org>
