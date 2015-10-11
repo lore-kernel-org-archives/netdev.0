@@ -1,174 +1,94 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
- down to switchdev
-Date: Sun, 11 Oct 2015 18:38:37 -0400
-Message-ID: <20151011223836.GA21128@ketchup.lan>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
- <1444357400-37078-4-git-send-email-sfeldma@gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
- <20151010070434.GB1990@nanopsycho.orion>
- <20151010155619.GA14572@ketchup>
- <20151010210919.GA2217@nanopsycho.orion>
- <20151010224121.GA27091@ketchup.lan>
- <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
+Subject: Re: switchdev and VLAN ranges
+Date: Sun, 11 Oct 2015 18:41:25 -0400
+Message-ID: <20151011224125.GB21128@ketchup.lan>
+References: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
+ <BF3B1B92-E7B5-4C49-9B56-FBD36E546F28@mellanox.com>
+ <5618EA2A.3020900@cumulusnetworks.com>
+ <20151011071208.GA2188@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>,
-	Premkumar Jonnala <pjonnala@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:55820 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:55868 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349AbbJKWin (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 18:38:43 -0400
+	with ESMTP id S1752349AbbJKWl3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 18:41:29 -0400
 Content-Disposition: inline
-In-Reply-To: <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
+In-Reply-To: <20151011071208.GA2188@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Saturday 10 (41) 05:07 PM, Florian Fainelli wrote:
-> 2015-10-10 15:41 GMT-07:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
-> > On Oct. Saturday 10 (41) 11:09 PM, Jiri Pirko wrote:
-> >> Sat, Oct 10, 2015 at 05:56:19PM CEST, vivien.didelot@savoirfairelinux.com wrote:
-> >> >On Oct. Saturday 10 (41) 09:04 AM, Jiri Pirko wrote:
-> >> >> Sat, Oct 10, 2015 at 04:53:52AM CEST, sfeldma@gmail.com wrote:
-> >> >> >On Thu, Oct 8, 2015 at 9:38 PM, Premkumar Jonnala <pjonnala@broadcom.com> wrote:
-> >> >> >>
-> >> >> >>
-> >> >> >>> -----Original Message-----
-> >> >> >>> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
-> >> >> >>> Sent: Friday, October 09, 2015 7:53 AM
-> >> >> >>> To: netdev@vger.kernel.org
-> >> >> >>> Cc: davem@davemloft.net; jiri@resnulli.us; siva.mannem.lnx@gmail.com;
-> >> >> >>> Premkumar Jonnala; stephen@networkplumber.org;
-> >> >> >>> roopa@cumulusnetworks.com; andrew@lunn.ch; f.fainelli@gmail.com;
-> >> >> >>> vivien.didelot@savoirfairelinux.com
-> >> >> >>> Subject: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time down
-> >> >> >>> to switchdev
-> >> >> >>>
-> >> >> >>> From: Scott Feldman <sfeldma@gmail.com>
-> >> >> >>>
-> >> >> >>> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
-> >> >> >>> support setting ageing_time (or setting bridge attrs in general).
-> >> >> >>>
-> >> >> >>> If push fails, don't update ageing_time in bridge and return err to user.
-> >> >> >>>
-> >> >> >>> If push succeeds, update ageing_time in bridge and run gc_timer now to
-> >> >> >>> recalabrate when to run gc_timer next, based on new ageing_time.
-> >> >> >>>
-> >> >> >>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> >> >> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> >> >
-> >> >> ><snip>
-> >> >> >
-> >> >> >>> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
-> >> >> >>> +{
-> >> >> >>> +     struct switchdev_attr attr = {
-> >> >> >>> +             .id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-> >> >> >>> +             .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-> >> >> >>> +             .u.ageing_time = ageing_time,
-> >> >> >>> +     };
-> >> >> >>> +     unsigned long t = clock_t_to_jiffies(ageing_time);
-> >> >> >>> +     int err;
-> >> >> >>> +
-> >> >> >>> +     if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
-> >> >> >>> +             return -ERANGE;
-> >> >> >>> +
-> >> >> >>> +     err = switchdev_port_attr_set(br->dev, &attr);
-> >> >> >>
-> >> >> >> A thought - given that the ageing time is not a per-bridge-port attr, why are we using a "port based api"
-> >> >> >> to pass the attribute down?  May be I'm missing something here?
-> >> >> >
-> >> >> >I think Florian raised the same point earlier.  Sigh, I think this
-> >> >> >should be addressed....v4 coming soon...thanks guys for keeping the
-> >> >> >standard high.
-> >> >>
-> >> >> Scott, can you tell us how do you want to address this? I like the
-> >> >> current implementation.
-> >> >
-> >> >Scott, didn't you have a plan to add a struct device for the parent of
-> >> >switchdev ports?
-> >> >
-> >> >I think it would be good to introduce such device with an helper to
-> >> >retrieve this upper parent, and move the switchdev ops to this guy.
-> >> >
-> >> >So switchdev drivers may implement such API calls:
-> >> >
-> >> >    .obj_add(struct device *swdev, struct switchdev_obj *obj);
-> >> >
-> >> >    .port_obj_add(struct device *swdev, struct net_device *port,
-> >> >                  struct switchdev_obj *obj);
-> >> >
-> >> >Then switchdev code may have a parent API and the current port API may
-> >> >look like this:
-> >> >
-> >> >    int switchdev_port_obj_add(struct net_device *dev,
-> >> >                               struct switchdev_obj *obj)
-> >> >    {
-> >> >        struct device *swdev = switchdev_get_parent(dev);
-> >> >        int err = -EOPNOTSUPP;
-> >> >
-> >> >        if (swdev && swdev->switchdev_ops &&
-> >> >            swdev->switchdev_ops->port_obj_add)
-> >> >            err = swdev->switchdev_ops->port_obj_add(swdev, dev, obj);
-> >> >
-> >> >        return err;
-> >> >    }
-> >>
-> >> Fro the record, I don't see any reason for this "device". It would just
-> >> introduce unnecessary complexicity. So far, we are fine without it.
+On Oct. Sunday 11 (41) 09:12 AM, Jiri Pirko wrote:
+> Sat, Oct 10, 2015 at 12:36:26PM CEST, nikolay@cumulusnetworks.com wro=
+te:
+> >On 10/10/2015 09:49 AM, Elad Raz wrote:
+> >>=20
+> >>> On Oct 10, 2015, at 2:30 AM, Vivien Didelot <vivien.didelot@savoi=
+rfairelinux.com> wrote:
+> >>>
+> >>> I have two concerns in mind:
+> >>>
+> >>> a) if we imagine that drivers like Rocker allocate memory in the =
+prepare
+> >>> phase for each VID, preparing a range like 100-4000 would definit=
+ely not
+> >>> be recommended.
+> >>>
+> >>> b) imagine that you have two Linux bridges on a switch, one using=
+ the
+> >>> hardware VLAN 100. If you request the VLAN range 99-101 for the o=
+ther
+> >>> bridge members, it is not possible for the driver to say "I can
+> >>> accelerate VLAN 99 and 101, but not 100". It must return OPNOTSUP=
+P for
+> >>> the whole range.
+> >>=20
+> >> Another concern I have with vid_being..vid_end range is the =E2=80=
+=9Cflags=E2=80=9D. Where flags can be BRIDGE_VLAN_INFO_PVID.
+> >> There is no sense having more than one VLAN as a PVID.
+> >> This leave the HW vendor the choice which VLAN id they will use as=
+ the PVID.
+> >>=20
 > >
-> > I wouldn't say that. I beleive that an Ethernet switch deserves its
-> > struct device in the tree, since it is a physical chip, like any other.
-> 
-> Agreed, but gating these patches because we do not yet have a device
-> driver model for an Ethernet switch outside of its individual ports
-> does not seem like it hurts the current patch series, nor the existing
-> model (and future).
-
-Sure, I didn't mean to NAK the patch with this comment, I just wrote it
-because we raised a concern about an API higher than the port level.
-
+> >iproute2 doesn't allow to do it but I can see that someone can actua=
+lly make it
+> >so the flags for the range have it and it doesn't look correct. Perh=
+aps we need
+> >something like the patch below to enforce this from kernel-side.
 > >
-> > Configuring it through one of its port (net_device) is fine, since you
-> > want to change the port behavior, and Linux config is on per-port basis.
 > >
-> > But the complexity is already introduced in the struct net_device with
-> > the switchdev_ops. These ops really belong to the parent device, not to
-> > all of its ports.
-> 
-> I am not sure if complexity is the correct term here, bloat (to some
-> extent) maybe, since with what you are suggesting we could save one
-> set of function pointers per-port, and instead move that to a
-> global/switch-wide device implementing these operations. In essence,
-> there will be per-port switchdev_ops, bridge-specific, and maybe in
-> the future switch device specific.
+> >diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> >index d78b4429505a..02b17b53e9a6 100644
+> >--- a/net/bridge/br_netlink.c
+> >+++ b/net/bridge/br_netlink.c
+> >@@ -524,6 +524,9 @@ static int br_afspec(struct net_bridge *br,
+> > 			if (vinfo_start)
+> > 				return -EINVAL;
+> > 			vinfo_start =3D vinfo;
+> >+			/* don't allow range of pvids */
+> >+			if (vinfo_start->flags & BRIDGE_VLAN_INFO_PVID)
+> >+				return -EINVAL;
+> > 			continue;
+> > 		}
+> >=20
+>=20
+> Looks correct to me. Could you please submit this properly? Thanks!
 
-Exact. I think that a switch net_device port should just have a pointer
-or something to its parent device (the switch) to query its operations.
-
-> >
-> > Ideally a switch device would be registered with this set of operations,
-> > creates its net_devices, and will be accessible from a port net_device
-> > through a netdev helper function.
-> 
-> I think the core of the discussion for a proper Ethernet switch device
-> model is precisely whether we want to have a special network device to
-> configure the switch as a whole. It sure would represent one facet of
-> the switch device, but not everything else for which we are still
-> trying to find out what that is.
-
-I am not even convinced that a switch chip must be represented in the
-Linux tree by a net_device. That's basically a chip exposing a bench of
-registers to configure and expose not only net interfaces, but also
-temperature sensors, and even GPIO sometimes.
+The above patch is correct, but we only solve part of the problem, sinc=
+e
+the range and bridge flags are exposed by switchdev_obj_port_vlan as is=
+=2E
 
 Thanks,
 -v
