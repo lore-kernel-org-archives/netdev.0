@@ -1,37 +1,37 @@
 From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH nf-next 0/7] coding style improvements for netfilter
-Date: Sun, 11 Oct 2015 17:32:13 +0100
-Message-ID: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
+Subject: [PATCH nf-next 1/7] netfilter-ipv6: label placement
+Date: Sun, 11 Oct 2015 17:32:14 +0100
+Message-ID: <1444581140-6255-2-git-send-email-ipm@chirality.org.uk>
+References: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
 Cc: Ian Morris <ipm@chirality.org.uk>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series of patches improves the coding style of the netfilter-ipv6 
-code by addressing some issues detected by checkpatch.
+Whitespace cleansing: Labels should not be indented.
 
-The changes were previously submitted as part of a larger monolithic 
-patch but on advice from Pablo, these are being re-sent in smaller, 
-more structured batches.
+No changes detected by objdiff.
 
-Ian Morris (7):
-  netfilter-ipv6: label placement
-  netfilter-ipv6: function definition layout
-  netfilter-ipv6: code indentation
-  netfilter-ipv6: whitespace around operators
-  netfilter-ipv6: ternary operator layout
-  netfilter-ipv6: improve if statements
-  netfilter-ipv6: pointer cast layout
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+---
+ net/ipv6/netfilter/ip6_tables.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/ipv6/netfilter/ip6_tables.c                | 20 ++++++++++----------
- net/ipv6/netfilter/ip6t_SYNPROXY.c             |  2 +-
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |  4 ++--
- net/ipv6/netfilter/nf_conntrack_reasm.c        |  4 ++--
- net/ipv6/netfilter/nf_reject_ipv6.c            |  4 ++--
- net/ipv6/netfilter/nft_chain_route_ipv6.c      |  6 +++---
- 6 files changed, 20 insertions(+), 20 deletions(-)
-
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 80e3bd7..67a2821 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -561,7 +561,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 				pos = newpos;
+ 			}
+ 		}
+-		next:
++next:
+ 		duprintf("Finished chain %u\n", hook);
+ 	}
+ 	return 1;
 -- 
 1.9.1
 
