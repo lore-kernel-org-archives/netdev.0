@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] sch_hhf: fix return value of hhf_drop()
-Date: Sun, 11 Oct 2015 04:50:08 -0700 (PDT)
-Message-ID: <20151011.045008.2132675615709931080.davem@davemloft.net>
-References: <1444261652-3177-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v4 0/3] net: unix: fix use-after-free
+Date: Sun, 11 Oct 2015 04:55:57 -0700 (PDT)
+Message-ID: <20151011.045557.2164838188213641141.davem@davemloft.net>
+References: <cover.1444363559.git.jbaron@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, vtlam@google.com,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56930 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbbJKLeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 07:34:14 -0400
-In-Reply-To: <1444261652-3177-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org,
+	joe@perches.com
+To: jbaron@akamai.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1444363559.git.jbaron@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed,  7 Oct 2015 16:47:32 -0700
-
-> Similar to commit c0afd9ce4d6a ("fq_codel: fix return value of fq_codel_drop()")
-> ->drop() is supposed to return the number of bytes it dropped,
-> but hhf_drop () returns the id of the bucket where it drops
-> a packet from.
-> 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Terry Lam <vtlam@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-
-Applied, thanks.
+RnJvbTogSmFzb24gQmFyb24gPGpiYXJvbkBha2FtYWkuY29tPg0KRGF0ZTogRnJpLCAgOSBPY3Qg
+MjAxNSAwMDoxNTo1OSAtMDQwMA0KDQo+IFRoZXNlIHBhdGNoZXMgYXJlIGFnYWluc3QgbWFpbmxp
+bmUsIEkgY2FuIHJlLWJhc2UgdG8gbmV0LW5leHQsIHBsZWFzZQ0KPiBsZXQgbWUga25vdy4NCj4g
+DQo+IFRoZXkgaGF2ZSBiZWVuIHRlc3RlZCBhZ2FpbnN0OiBodHRwczovL2xrbWwub3JnL2xrbWwv
+MjAxNS85LzEzLzE5NSwNCj4gd2hpY2ggY2F1c2VzIHRoZSB1c2UtYWZ0ZXItZnJlZSBxdWl0ZSBx
+dWlja2x5IGFuZCBoZXJlOg0KPiBodHRwczovL2xrbWwub3JnL2xrbWwvMjAxNS8xMC8yLzY5My4N
+Cg0KSSdkIGxpa2UgdG8gdW5kZXJzdGFuZCBob3cgcGF0Y2hlcyB0aGF0IGRvbid0IGV2ZW4gY29t
+cGlsZSBjYW4gYmUNCiJ0ZXN0ZWQiPw0KDQpuZXQvdW5peC9hZl91bml4LmM6IEluIGZ1bmN0aW9u
+IKF1bml4X2RncmFtX3dyaXRhYmxlojoNCm5ldC91bml4L2FmX3VuaXguYzoyNDgwOjM6IGVycm9y
+OiChb3RoZXJfZnVsbKIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQpu
+ZXQvdW5peC9hZl91bml4LmM6MjQ4MDozOiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmll
+ciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbg0K
+DQpDb3VsZCB5b3UgZXhwbGFpbiBob3cgdGhhdCB3b3JrcywgSSdtIGhhdmluZyBhIGhhcmQgdGlt
+ZSB1bmRlcnN0YW5kaW5nDQp0aGlzPw0KDQpBbHNvIHBsZWFzZSBhZGRyZXNzIEhhbm5lcydzIGZl
+ZWRiYWNrLCB0aGFua3MuDQo=
