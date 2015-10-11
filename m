@@ -1,44 +1,62 @@
-From: Fengguang Wu <lkp@intel.com>
-Subject: Re: [kbuild-all] [PATCH net-next] net: Lookup actual route when oif
- is VRF device
-Date: Sun, 11 Oct 2015 22:27:09 +0800
-Message-ID: <20151011142709.GD17528@wfg-t540p.sh.intel.com>
-References: <201510060144.B0K1B1ZG%fengguang.wu@intel.com>
- <5612BD04.4040605@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	kbuild-all@01.org
-To: David Ahern <dsahern@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/7] switchdev: change locking
+Date: Sun, 11 Oct 2015 17:21:04 +0200
+Message-ID: <1444576871-19138-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:37198 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751585AbbJKO1N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Oct 2015 10:27:13 -0400
-Content-Disposition: inline
-In-Reply-To: <5612BD04.4040605@gmail.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:36393 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332AbbJKPVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 11:21:15 -0400
+Received: by wicgb1 with SMTP id gb1so121856899wic.1
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 08:21:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Jiri Pirko <jiri@mellanox.com>
 
-On Mon, Oct 05, 2015 at 12:10:12PM -0600, David Ahern wrote:
-> On 10/5/15 12:01 PM, kbuild test robot wrote:
-> >Hi David,
-> >
-> >[auto build test ERROR on v4.3-rc4 -- if it's inappropriate base, please ignore]
-> >
-> 
-> net-next patches can *not* be applied to Linus' tree. If you are going to
-> run the build bot for patches submitted to netdev, please be sure to apply
-> those patches to net-next tree.
+This is something which I'm currently struggling with.
+Callers of attr_set and obj_add/del often hold not only RTNL, but also
+spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
 
-OK. Hope these rules will work:
+The way rocker is dealing with this now is just to invoke driver operation
+and go out, without any checking or reporting of the operation status.
 
-- "[PATCH net-next]" will be tested on net-next/master
-- "[PATCH net]"      will be tested on net/master
-- "[PATCH nf]"       will be tested on nf/master
-- "[PATCH nf-next]"  will be tested on nf-next/master
+Since it would be nice to at least put a warning in case the operation fails,
+it makes sense to do this in delayed work directly in switchdev core
+instead of implementing this in separate drivers. And that is what this patchset
+is introducing.
 
-Thanks,
-Fengguang
+So from now on, the locking of switchdev mod ops is consistent. Caller either
+holds rtnl mutex or in case it does not, caller sets defer flag, telling
+switchdev core to process the op later in delayed work.
+
+Flush function for switchdev deferred ops can be called by op
+caller in appropriate location, for example after it releases
+spin lock, to force switchdev core to process pending ops.
+
+Jiri Pirko (7):
+  switchdev: introduce switchdev workqueue
+  switchdev: allow caller to explicitly request attr_set as deferred
+  switchdev: remove pointers from switchdev objects
+  switchdev: introduce possibility to defer obj_add/del
+  bridge: defer switchdev fdb del call in fdb_del_external_learn
+  rocker: remove nowait from switchdev callbacks.
+  switchdev: assert rtnl mutex when going over lower netdevs
+
+ drivers/net/ethernet/rocker/rocker.c |  13 +-
+ include/net/switchdev.h              |  14 +-
+ net/bridge/br_fdb.c                  |   7 +-
+ net/bridge/br_if.c                   |   3 +
+ net/bridge/br_stp.c                  |   3 +-
+ net/dsa/slave.c                      |   2 +-
+ net/switchdev/switchdev.c            | 289 ++++++++++++++++++++++++-----------
+ 7 files changed, 231 insertions(+), 100 deletions(-)
+
+-- 
+1.9.3
