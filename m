@@ -1,68 +1,168 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next] RDS-TCP: Reset tcp callbacks if re-using an
- outgoing socket in rds_tcp_accept_one()
-Date: Sun, 11 Oct 2015 16:49:44 -0400
-Message-ID: <20151011204944.GB14646@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
-	santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 v2] bridge: add batch command support
+Date: Sun, 11 Oct 2015 14:03:03 -0700
+Message-ID: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	christophe.gouault@6wind.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33750 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418AbbJKVDH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 17:03:07 -0400
+Received: by pabrc13 with SMTP id rc13so71077pab.0
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 14:03:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Wilson Kok <wkok@cumulusnetworks.com> 
 
-Consider the following "duelling syn" sequence between two peers A and B:
-        	A		B
-        	SYN1     -->
-        	    	<--	SYN2
-        	SYN2ACK  -->
+This patch adds support to batch bridge commands.
+Follows ip batch code.
 
-Note that the SYN/ACK has already been sent out by TCP before
-rds_tcp_accept_one() gets invoked as part of callbacks.
-
-If the inet_addr(A) is numerically less than inet_addr(B),
-the arbitration scheme in rds_tcp_accept_one() will prefer the
-TCP connection triggered by SYN1, and will send a CLOSE for the
-SYN2 (just after the SYN2ACK was sent).
-
-Since B also follows the same arbitration scheme, it will send the SYN-ACK
-for SYN1 that will set up a healthy ESTABLISHED connection on both sides.
-B will also get a  CLOSE for SYN2, which should result in the cleanup
-of the TCP state machine for SYN2, but it should not trigger any
-stale RDS-TCP callbacks (such as ->writespace, ->state_change etc),
-that would disrupt the progress of the SYN2 based RDS-TCP  connection.
-
-Thus the arbitration scheme in rds_tcp_accept_one() should restore
-rds_tcp callbacks for the winner before setting them up for the
-new accept socket, and also make sure that conn->c_outgoing
-is set to 0 so that we do not trigger any reconnect attempts on the
-passive side of the tcp socket in the future, in conformance with
-commit c82ac7e69efe ("net/rds: RDS-TCP: only initiate reconnect attempt
-on outgoing TCP socket.")
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Acked-by: Christophe Gouault <christophe.gouault@6wind.com>
 ---
- net/rds/tcp_listen.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+v2 - change tab to space in usage as pointed out by Christophe Gouault
 
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index 1d90240..0936a4a 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -125,6 +125,9 @@ int rds_tcp_accept_one(struct socket *sock)
- 		new_sock = NULL;
- 		ret = 0;
- 		goto out;
-+	} else if (rs_tcp->t_sock) {
-+		rds_tcp_restore_callbacks(rs_tcp->t_sock, rs_tcp);
-+		conn->c_outgoing = 0;
- 	}
+ bridge/bridge.c   | 59 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/bridge.8 | 11 +++++++++++
+ 2 files changed, 70 insertions(+)
+
+diff --git a/bridge/bridge.c b/bridge/bridge.c
+index eaf09c8..72f153f 100644
+--- a/bridge/bridge.c
++++ b/bridge/bridge.c
+@@ -9,6 +9,7 @@
+ #include <unistd.h>
+ #include <sys/socket.h>
+ #include <string.h>
++#include <errno.h>
  
- 	rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING);
+ #include "SNAPSHOT.h"
+ #include "utils.h"
+@@ -23,6 +24,8 @@ int show_stats;
+ int show_details;
+ int compress_vlans;
+ int timestamp;
++char *batch_file;
++int force;
+ const char *_SL_;
+ 
+ static void usage(void) __attribute__((noreturn));
+@@ -31,6 +34,7 @@ static void usage(void)
+ {
+ 	fprintf(stderr,
+ "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
++"       bridge [ -force ] -batch filename\n"
+ "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+ "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+ "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
+@@ -71,6 +75,50 @@ static int do_cmd(const char *argv0, int argc, char **argv)
+ 	return -1;
+ }
+ 
++static int batch(const char *name)
++{
++	char *line = NULL;
++	size_t len = 0;
++	int ret = EXIT_SUCCESS;
++
++	if (name && strcmp(name, "-") != 0) {
++		if (freopen(name, "r", stdin) == NULL) {
++			fprintf(stderr,
++				"Cannot open file \"%s\" for reading: %s\n",
++				name, strerror(errno));
++			return EXIT_FAILURE;
++		}
++	}
++
++	if (rtnl_open(&rth, 0) < 0) {
++		fprintf(stderr, "Cannot open rtnetlink\n");
++		return EXIT_FAILURE;
++	}
++
++	cmdlineno = 0;
++	while (getcmdline(&line, &len, stdin) != -1) {
++		char *largv[100];
++		int largc;
++
++		largc = makeargs(line, largv, 100);
++		if (largc == 0)
++			continue;       /* blank line */
++
++		if (do_cmd(largv[0], largc, largv)) {
++			fprintf(stderr, "Command failed %s:%d\n",
++				name, cmdlineno);
++			ret = EXIT_FAILURE;
++			if (!force)
++				break;
++		}
++	}
++	if (line)
++		free(line);
++
++	rtnl_close(&rth);
++	return ret;
++}
++
+ int
+ main(int argc, char **argv)
+ {
+@@ -123,6 +171,14 @@ main(int argc, char **argv)
+ 				exit(-1);
+ 		} else if (matches(opt, "-compressvlans") == 0) {
+ 			++compress_vlans;
++		} else if (matches(opt, "-force") == 0) {
++			++force;
++		} else if (matches(opt, "-batch") == 0) {
++			argc--;
++			argv++;
++			if (argc <= 1)
++				usage();
++			batch_file = argv[1];
+ 		} else {
+ 			fprintf(stderr,
+ 				"Option \"%s\" is unknown, try \"bridge help\".\n",
+@@ -134,6 +190,9 @@ main(int argc, char **argv)
+ 
+ 	_SL_ = oneline ? "\\" : "\n";
+ 
++	if (batch_file)
++		return batch(batch_file);
++
+ 	if (rtnl_open(&rth, 0) < 0)
+ 		exit(1);
+ 
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 5347a56..d45c728 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -21,6 +21,7 @@ bridge \- show / manipulate bridge addresses and devices
+ \fB\-V\fR[\fIersion\fR] |
+ \fB\-s\fR[\fItatistics\fR] |
+ \fB\-n\fR[\fIetns\fR] name }
++\fB\-b\fR[\fIatch\fR] filename }
+ 
+ .ti -8
+ .BR "bridge link set"
+@@ -137,6 +138,16 @@ to
+ .RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
+ .BR help " }"
+ 
++.TP
++.BR "\-b", " \-batch " <FILENAME>
++Read commands from provided file or standard input and invoke them.
++First failure will cause termination of bridge command.
++
++.TP
++.BR "\-force"
++Don't terminate bridge command on errors in batch mode.
++If there were any errors during execution of the commands, the application
++return code will be non zero.
+ 
+ .SH BRIDGE - COMMAND SYNTAX
+ 
 -- 
-1.7.1
+1.9.1
