@@ -1,168 +1,176 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 v2] bridge: add batch command support
-Date: Sun, 11 Oct 2015 14:03:03 -0700
-Message-ID: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
-	christophe.gouault@6wind.com
-To: stephen@networkplumber.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 1/2] mpls: multipath route support
+Date: Sun, 11 Oct 2015 14:23:25 -0700
+Message-ID: <561AD34D.4070005@cumulusnetworks.com>
+References: <1444588174-44663-2-git-send-email-roopa@cumulusnetworks.com> <87fv1hrvdp.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, rshearma@brocade.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33750 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418AbbJKVDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 17:03:07 -0400
-Received: by pabrc13 with SMTP id rc13so71077pab.0
-        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 14:03:07 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34541 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409AbbJKVX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 17:23:27 -0400
+Received: by padhy16 with SMTP id hy16so135190665pad.1
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 14:23:27 -0700 (PDT)
+In-Reply-To: <87fv1hrvdp.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com> 
+On 10/11/15, 1:41 PM, Eric W. Biederman wrote:
+> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
+>
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch adds support for MPLS multipath routes.
+>>
+>> Includes following changes to support multipath:
+>> - splits struct mpls_route into 'struct mpls_route + struct mpls_nh'
+>>
+>> - 'struct mpls_nh' represents a mpls nexthop label forwarding entry
+>>
+>> - moves mpls route and nexthop structures into internal.h
+>>
+>> - A mpls_route can point to multiple mpls_nh structs
+>>
+>> - the nexthops are maintained as a array (similar to ipv4 fib)
+>>
+>> - In the process of restructuring, this patch also consistently changes
+>>   all labels to u8
+>>
+>> - Adds support to parse/fill RTA_MULTIPATH netlink attribute for
+>> multipath routes similar to ipv4/v6 fib
+>>
+>> - In this patch, the multipath route nexthop selection algorithm
+>> simply returns the first nexthop. It is replaced by a
+>> hash based algorithm from Robert Shearman in the next patch
+>>
+>> - mpls_route_update cleanup: remove 'dev' handling in mpls_route_update.
+>> mpls_route_update though implemented to update based on dev, it was
+>> never used that way. And the dev handling gets tricky with multiple nexthops.
+>> Cannot match against any single nexthops dev. So, this patch removes the unused
+>> 'dev' handling in mpls_route_update.
+> Ugh.  Looking at this patch I have found if not a bug a misfeature.
+>
+> The existing code has a function:
+>
+>> bool mpls_output_possible(const struct net_device *dev)
+>> {
+>> 	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
+>> }
+> Which makes a lot of sense if you only have a single path to choose
+> from.   When multipath comes into play we need to do something to ensure
+> we don't select a path that where no output is possible for a prolonged
+> period of time.
 
-This patch adds support to batch bridge commands.
-Follows ip batch code.
+I was planning to add support for this in incremental patches (they are in my todo). Basically introduce the required
+support for RTNH_F_DEAD and RTNH_F_LINKDOWN and skipping dead and link down nexthops.
+I will submit this as an incremental patch.
+>
+>> Example:
+>>
+>> $ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
+>>                 nexthop as 700 via inet 10.1.1.6 dev swp2 \
+>>                 nexthop as 800 via inet 40.1.1.2 dev swp3
+>>
+>> $ip  -f mpls route show
+>> 100
+>>         nexthop as to 200 via inet 10.1.1.2  dev swp1
+>>         nexthop as to 700 via inet 10.1.1.6  dev swp2
+>>         nexthop as to 800 via inet 40.1.1.2  dev swp3
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>  include/net/mpls_iptunnel.h |   2 +-
+>>  net/mpls/af_mpls.c          | 500 +++++++++++++++++++++++++++++++-------------
+>>  net/mpls/internal.h         |  52 ++++-
+>>  3 files changed, 404 insertions(+), 150 deletions(-)
+>>
+> [...]
+>> @@ -196,9 +176,13 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>>  	if (!rt)
+>>  		goto drop;
+>>  
+>> +	nh = mpls_select_multipath(rt);
+>> +	if (!nh)
+>> +		goto drop;
+>> +
+>>  	/* Find the output device */
+>> -	out_dev = rcu_dereference(rt->rt_dev);
+>> -	if (!mpls_output_possible(out_dev))
+>> +	out_dev = rcu_dereference(nh->nh_dev);
+>> +	if (!out_dev || !mpls_output_possible(out_dev))
+>>  		goto drop;
+>>
+> nit: mpls_output_possible already embeds the !out_dev test, making this
+> hunk redundant.
+ack,
+>
+>>  	if (skb_warn_if_lro(skb))
+>> @@ -635,9 +763,11 @@ static void mpls_ifdown(struct net_device *dev)
+>>  		struct mpls_route *rt = rtnl_dereference(platform_label[index]);
+>>  		if (!rt)
+>>  			continue;
+>> -		if (rtnl_dereference(rt->rt_dev) != dev)
+>> -			continue;
+>> -		rt->rt_dev = NULL;
+>> +		for_nexthops(rt) {
+>> +			if (rtnl_dereference(nh->nh_dev) != dev)
+>> +				continue;
+>> +			nh->nh_dev = NULL;
+>> +		} endfor_nexthops(rt);
+>>  	}
+>>  
+>>  	mdev = mpls_dev_get(dev);
+>> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+>> index 2681a4b..d7757be3 100644
+>> --- a/net/mpls/internal.h
+>> +++ b/net/mpls/internal.h
+>> @@ -21,6 +21,54 @@ struct mpls_dev {
+>>  
+>>  struct sk_buff;
+>>  
+>> +#define LABEL_NOT_SPECIFIED (1 << 20)
+>> +#define MAX_NEW_LABELS 2
+>> +
+>> +/* This maximum ha length copied from the definition of struct neighbour */
+>> +#define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
+>>
+>> +enum mpls_payload_type {
+>> +	MPT_UNSPEC, /* IPv4 or IPv6 */
+>> +	MPT_IPV4 = 4,
+>> +	MPT_IPV6 = 6,
+>> +
+>> +	/* Other types not implemented:
+>> +	 *  - Pseudo-wire with or without control word (RFC4385)
+>> +	 *  - GAL (RFC5586)
+>> +	 */
+>> +};
+>> +
+>> +struct mpls_nh { /* next hop label forwarding entry */
+>> +	struct net_device __rcu *nh_dev;
+>> +	u32			nh_label[MAX_NEW_LABELS];
+>> +	u8			nh_labels;
+>> +	u8			nh_via_alen;
+>> +	u8			nh_via_table;
+>> +	u8			nh_via[MAX_VIA_ALEN];
+>> +};
+> I think for this patch this is a good version of mpls_nh.
+>
+> We do have significant optimization opportunities with the mpls_nh
+> structure.
+>
+> - We waste a byte on each mpls label.
+> - We need a full byte on any of the fields (nh_lables, nh_via_alen, nh_via_table).
+> - nh_via does not need to be longer than 16bytes.  Only infiniband
+>   has addresses longer than 16bytes, and no one has standardized
+>   mpls over infinband.
+>
+> So I think with a little care we could reduce mpls_nh to 32 bytes on
+> 64bit without any loss of functionality.
+>  
+yes, reducing MAX_VIA_ALEN to 16bytes would help here. I can do that in an incremental patch.
 
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Acked-by: Christophe Gouault <christophe.gouault@6wind.com>
----
-v2 - change tab to space in usage as pointed out by Christophe Gouault
-
- bridge/bridge.c   | 59 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/bridge.8 | 11 +++++++++++
- 2 files changed, 70 insertions(+)
-
-diff --git a/bridge/bridge.c b/bridge/bridge.c
-index eaf09c8..72f153f 100644
---- a/bridge/bridge.c
-+++ b/bridge/bridge.c
-@@ -9,6 +9,7 @@
- #include <unistd.h>
- #include <sys/socket.h>
- #include <string.h>
-+#include <errno.h>
- 
- #include "SNAPSHOT.h"
- #include "utils.h"
-@@ -23,6 +24,8 @@ int show_stats;
- int show_details;
- int compress_vlans;
- int timestamp;
-+char *batch_file;
-+int force;
- const char *_SL_;
- 
- static void usage(void) __attribute__((noreturn));
-@@ -31,6 +34,7 @@ static void usage(void)
- {
- 	fprintf(stderr,
- "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
-+"       bridge [ -force ] -batch filename\n"
- "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
- "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
- "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
-@@ -71,6 +75,50 @@ static int do_cmd(const char *argv0, int argc, char **argv)
- 	return -1;
- }
- 
-+static int batch(const char *name)
-+{
-+	char *line = NULL;
-+	size_t len = 0;
-+	int ret = EXIT_SUCCESS;
-+
-+	if (name && strcmp(name, "-") != 0) {
-+		if (freopen(name, "r", stdin) == NULL) {
-+			fprintf(stderr,
-+				"Cannot open file \"%s\" for reading: %s\n",
-+				name, strerror(errno));
-+			return EXIT_FAILURE;
-+		}
-+	}
-+
-+	if (rtnl_open(&rth, 0) < 0) {
-+		fprintf(stderr, "Cannot open rtnetlink\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	cmdlineno = 0;
-+	while (getcmdline(&line, &len, stdin) != -1) {
-+		char *largv[100];
-+		int largc;
-+
-+		largc = makeargs(line, largv, 100);
-+		if (largc == 0)
-+			continue;       /* blank line */
-+
-+		if (do_cmd(largv[0], largc, largv)) {
-+			fprintf(stderr, "Command failed %s:%d\n",
-+				name, cmdlineno);
-+			ret = EXIT_FAILURE;
-+			if (!force)
-+				break;
-+		}
-+	}
-+	if (line)
-+		free(line);
-+
-+	rtnl_close(&rth);
-+	return ret;
-+}
-+
- int
- main(int argc, char **argv)
- {
-@@ -123,6 +171,14 @@ main(int argc, char **argv)
- 				exit(-1);
- 		} else if (matches(opt, "-compressvlans") == 0) {
- 			++compress_vlans;
-+		} else if (matches(opt, "-force") == 0) {
-+			++force;
-+		} else if (matches(opt, "-batch") == 0) {
-+			argc--;
-+			argv++;
-+			if (argc <= 1)
-+				usage();
-+			batch_file = argv[1];
- 		} else {
- 			fprintf(stderr,
- 				"Option \"%s\" is unknown, try \"bridge help\".\n",
-@@ -134,6 +190,9 @@ main(int argc, char **argv)
- 
- 	_SL_ = oneline ? "\\" : "\n";
- 
-+	if (batch_file)
-+		return batch(batch_file);
-+
- 	if (rtnl_open(&rth, 0) < 0)
- 		exit(1);
- 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 5347a56..d45c728 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -21,6 +21,7 @@ bridge \- show / manipulate bridge addresses and devices
- \fB\-V\fR[\fIersion\fR] |
- \fB\-s\fR[\fItatistics\fR] |
- \fB\-n\fR[\fIetns\fR] name }
-+\fB\-b\fR[\fIatch\fR] filename }
- 
- .ti -8
- .BR "bridge link set"
-@@ -137,6 +138,16 @@ to
- .RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
- .BR help " }"
- 
-+.TP
-+.BR "\-b", " \-batch " <FILENAME>
-+Read commands from provided file or standard input and invoke them.
-+First failure will cause termination of bridge command.
-+
-+.TP
-+.BR "\-force"
-+Don't terminate bridge command on errors in batch mode.
-+If there were any errors during execution of the commands, the application
-+return code will be non zero.
- 
- .SH BRIDGE - COMMAND SYNTAX
- 
--- 
-1.9.1
+thanks for the review.
