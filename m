@@ -1,56 +1,53 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH nf-next 2/7] netfilter-ipv6: function definition layout
-Date: Sun, 11 Oct 2015 17:32:15 +0100
-Message-ID: <1444581140-6255-3-git-send-email-ipm@chirality.org.uk>
-References: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
-Cc: Ian Morris <ipm@chirality.org.uk>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
+ for IPv6
+Date: Sun, 11 Oct 2015 12:01:30 -0600
+Message-ID: <561AA3FA.7070001@cumulusnetworks.com>
+References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
+ <m2a8rs7crl.wl@gmail.com> <20151009071710.GJ7701@secunet.com>
+ <5617F908.8060807@cumulusnetworks.com> <m21td17d5p.wl@gmail.com>
+ <561A64B4.5080301@cumulusnetworks.com> <m2zizp5vqm.wl@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: Hajime Tazaki <thehajime@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36829 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbbJKSB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 14:01:28 -0400
+Received: by pablk4 with SMTP id lk4so133190665pab.3
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 11:01:28 -0700 (PDT)
+In-Reply-To: <m2zizp5vqm.wl@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use tabs instead of spaces to indent second line of parameters in
-function definitions.
+On 10/11/15 8:24 AM, Hajime Tazaki wrote:
+>
+> I've faced this issue since the following patch was applied.
+>
+> commit 741a11d9e4103a8e1c590ef1280143fe654e4e33
+> Author: David Ahern <dsa@cumulusnetworks.com>
+> Date:   Mon Sep 28 10:12:13 2015 -0700
+>
+>      net: ipv6: Add RT6_LOOKUP_F_IFACE flag if oif is set
+>
+> I still couldn't spot which part (other than my posted call
+> graph) is broken and am not sure whether the xfrm change
+> affects or not (which I need to check the mip6 code again).
 
-No changes detected by objdiff.
+Ok, this is a separate problem from what Steffen is hitting.
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
----
- net/ipv6/netfilter/ip6_tables.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+>
+>> Can you apply this patch, and then run:
+>>
+>> perf record -e fib6:* -a -g
+>> perf script
+>
+> I'm using libos environment right now, so the perf trace
+> can't be used as it is.
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 67a2821..0654312 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -816,7 +816,7 @@ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
-    newinfo) */
- static int
- translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
--                const struct ip6t_replace *repl)
-+		const struct ip6t_replace *repl)
- {
- 	struct ip6t_entry *iter;
- 	unsigned int i;
-@@ -1090,7 +1090,7 @@ static int compat_table_info(const struct xt_table_info *info,
- #endif
- 
- static int get_info(struct net *net, void __user *user,
--                    const int *len, int compat)
-+		    const int *len, int compat)
- {
- 	char name[XT_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1152,7 +1152,7 @@ static int get_info(struct net *net, void __user *user,
- 
- static int
- get_entries(struct net *net, struct ip6t_get_entries __user *uptr,
--            const int *len)
-+	    const int *len)
- {
- 	int ret;
- 	struct ip6t_get_entries get;
--- 
-1.9.1
+ok.
 
+Some path in raw6_sendmsg is setting fl6.flowi6_oif. Can you instrument it?
