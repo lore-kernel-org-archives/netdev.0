@@ -1,63 +1,38 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] qlcnic: constify qlcnic_mbx_ops structure
-Date: Sun, 11 Oct 2015 13:48:05 +0200
-Message-ID: <1444564085-12839-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dept-GELinuxNICDev@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth-next 2015-10-08
+Date: Sun, 11 Oct 2015 05:20:17 -0700 (PDT)
+Message-ID: <20151011.052017.2010610253690558091.davem@davemloft.net>
+References: <20151008140058.GA21971@t440s.P-661HNU-F1>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57060 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbbJKMEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 08:04:23 -0400
+In-Reply-To: <20151008140058.GA21971@t440s.P-661HNU-F1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The only instance of a qlcnic_mbx_ops structure is never modified.  Thus
-the declaration of the structure and all references to the structure type
-can be made const.
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Thu, 8 Oct 2015 17:00:58 +0300
 
-In the definition of the qlcnic_mailbox structure, the ops field is no
-longer lined up with the other fields.  This was left as is, to avoid a lot
-of trivial changes on the other lines.
+> Here's another set of Bluetooth & 802.15.4 patches for the 4.4 kernel.
+> 
+> 802.15.4:
+>  - Many improvements & fixes to the mrf24j40 driver
+>  - Fixes and cleanups to nl802154, mac802154 & ieee802154 code
+> 
+> Bluetooth:
+>  - New chipset support in btmrvl driver
+>  - Fixes & cleanups to btbcm, btmrvl, bpa10x & btintel drivers
+>  - Support for vendor specific diagnostic data through common API
+>  - Cleanups to the 6lowpan code
+>  - New events & message types for monitor channel
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Done with the help of Coccinelle.
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h         |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 9f0bdd9..37a731b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -4048,7 +4048,7 @@ static void qlcnic_83xx_mailbox_worker(struct work_struct *work)
- 	struct qlcnic_mailbox *mbx = container_of(work, struct qlcnic_mailbox,
- 						  work);
- 	struct qlcnic_adapter *adapter = mbx->adapter;
--	struct qlcnic_mbx_ops *mbx_ops = mbx->ops;
-+	const struct qlcnic_mbx_ops *mbx_ops = mbx->ops;
- 	struct device *dev = &adapter->pdev->dev;
- 	atomic_t *rsp_status = &mbx->rsp_status;
- 	struct list_head *head = &mbx->cmd_q;
-@@ -4098,7 +4098,7 @@ static void qlcnic_83xx_mailbox_worker(struct work_struct *work)
- 	}
- }
- 
--static struct qlcnic_mbx_ops qlcnic_83xx_mbx_ops = {
-+static const struct qlcnic_mbx_ops qlcnic_83xx_mbx_ops = {
- 	.enqueue_cmd    = qlcnic_83xx_enqueue_mbx_cmd,
- 	.dequeue_cmd    = qlcnic_83xx_dequeue_mbx_cmd,
- 	.decode_resp    = qlcnic_83xx_decode_mbx_rsp,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index d6696cf..46bbea8 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1092,7 +1092,7 @@ struct qlcnic_filter_hash {
- struct qlcnic_mailbox {
- 	struct workqueue_struct	*work_q;
- 	struct qlcnic_adapter	*adapter;
--	struct qlcnic_mbx_ops	*ops;
-+	const struct qlcnic_mbx_ops *ops;
- 	struct work_struct	work;
- 	struct completion	completion;
- 	struct list_head	cmd_q;
+Pulled, thanks Johan.
