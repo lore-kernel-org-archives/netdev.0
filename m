@@ -1,52 +1,38 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] bridge: vlan: enforce no pvid flag in
-	vlan ranges
-Date: Sun, 11 Oct 2015 12:49:56 +0200
-Message-ID: <1444560596-7140-1-git-send-email-razor@blackwall.org>
-References: <20151011071208.GA2188@nanopsycho.orion>
-Cc: jiri@resnulli.us, Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org, eladr@mellanox.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151011071208.GA2188@nanopsycho.orion>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 01/10] qed: Add module with basic common
+ support
+Date: Sun, 11 Oct 2015 04:16:08 -0700 (PDT)
+Message-ID: <20151011.041608.1224841508064967134.davem@davemloft.net>
+References: <1444217127-17557-2-git-send-email-Yuval.Mintz@qlogic.com>
+	<20151010.062452.1106942695684145823.davem@davemloft.net>
+	<B5657A6538887040AD3A81F1008BEC63E44712@avmb3.qlogic.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55203 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbbJKLAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 07:00:17 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E44712@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sat, 10 Oct 2015 14:18:18 +0000
 
-Currently it's possible for someone to send a vlan range to the kernel
-with the pvid flag set which will result in the pvid bouncing from a
-vlan to vlan and isn't correct, it also introduces problems for hardware
-where it doesn't make sense having more than 1 pvid. iproute2 already
-enforces this, so let's enforce it on kernel-side as well.
+> So far we've worked on stabalizing it on 64-bit LE endian.
+> I can easily understand why we'd want to relax this restriction later on
+> [and sooner rather than later], but what would you gain be gained by
+> compile-fixing for platforms on which it was never tested?
 
-Reported-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_netlink.c | 3 +++
- 1 file changed, 3 insertions(+)
+This is exactly the kind of attitude I don't want to see.
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index d78b4429505a..02b17b53e9a6 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -524,6 +524,9 @@ static int br_afspec(struct net_bridge *br,
- 			if (vinfo_start)
- 				return -EINVAL;
- 			vinfo_start = vinfo;
-+			/* don't allow range of pvids */
-+			if (vinfo_start->flags & BRIDGE_VLAN_INFO_PVID)
-+				return -EINVAL;
- 			continue;
- 		}
- 
--- 
-2.4.3
+I am so glad that so many driver authors supported all PCI platforms
+from the very beginning so that casually I could test their driver on
+my sparc64 systems.
+
+There is huge value in expanding the compiler testing your driver
+gets, from day one.
