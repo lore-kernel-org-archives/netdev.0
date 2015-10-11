@@ -1,67 +1,174 @@
-From: Ben Cox <ben@benjojo.co.uk>
-Subject: Re: [PATCH] icmp: Fixed bug in raw sockets causing incorrect ICMP
- SNMP counter values
-Date: Sun, 11 Oct 2015 23:17:02 +0100
-Message-ID: <CAL=9YSVgnCDzZkDM4JujD89V3GpUnDGXyMk7qMnWg7LtmT5G7w@mail.gmail.com>
-References: <20151011205528.GA4322@benjojo.co.uk>
-	<1444601448.27760.143.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
+ down to switchdev
+Date: Sun, 11 Oct 2015 18:38:37 -0400
+Message-ID: <20151011223836.GA21128@ketchup.lan>
+References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
+ <1444357400-37078-4-git-send-email-sfeldma@gmail.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
+ <20151010070434.GB1990@nanopsycho.orion>
+ <20151010155619.GA14572@ketchup>
+ <20151010210919.GA2217@nanopsycho.orion>
+ <20151010224121.GA27091@ketchup.lan>
+ <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Cartwright-Cox <ben@benjojo.co.uk>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ben+patches@benjojo.co.uk, David L Stevens <dlstevens@us.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444601448.27760.143.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:55820 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349AbbJKWin (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 18:38:43 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Forgive me for possibly being a little stupid here (This is my first
-patch to Linux so I am slightly over my head)
+On Oct. Saturday 10 (41) 05:07 PM, Florian Fainelli wrote:
+> 2015-10-10 15:41 GMT-07:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
+> > On Oct. Saturday 10 (41) 11:09 PM, Jiri Pirko wrote:
+> >> Sat, Oct 10, 2015 at 05:56:19PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+> >> >On Oct. Saturday 10 (41) 09:04 AM, Jiri Pirko wrote:
+> >> >> Sat, Oct 10, 2015 at 04:53:52AM CEST, sfeldma@gmail.com wrote:
+> >> >> >On Thu, Oct 8, 2015 at 9:38 PM, Premkumar Jonnala <pjonnala@broadcom.com> wrote:
+> >> >> >>
+> >> >> >>
+> >> >> >>> -----Original Message-----
+> >> >> >>> From: sfeldma@gmail.com [mailto:sfeldma@gmail.com]
+> >> >> >>> Sent: Friday, October 09, 2015 7:53 AM
+> >> >> >>> To: netdev@vger.kernel.org
+> >> >> >>> Cc: davem@davemloft.net; jiri@resnulli.us; siva.mannem.lnx@gmail.com;
+> >> >> >>> Premkumar Jonnala; stephen@networkplumber.org;
+> >> >> >>> roopa@cumulusnetworks.com; andrew@lunn.ch; f.fainelli@gmail.com;
+> >> >> >>> vivien.didelot@savoirfairelinux.com
+> >> >> >>> Subject: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time down
+> >> >> >>> to switchdev
+> >> >> >>>
+> >> >> >>> From: Scott Feldman <sfeldma@gmail.com>
+> >> >> >>>
+> >> >> >>> Use SWITCHDEV_F_SKIP_EOPNOTSUPP to skip over ports in bridge that don't
+> >> >> >>> support setting ageing_time (or setting bridge attrs in general).
+> >> >> >>>
+> >> >> >>> If push fails, don't update ageing_time in bridge and return err to user.
+> >> >> >>>
+> >> >> >>> If push succeeds, update ageing_time in bridge and run gc_timer now to
+> >> >> >>> recalabrate when to run gc_timer next, based on new ageing_time.
+> >> >> >>>
+> >> >> >>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> >> >> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >> >> >
+> >> >> ><snip>
+> >> >> >
+> >> >> >>> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+> >> >> >>> +{
+> >> >> >>> +     struct switchdev_attr attr = {
+> >> >> >>> +             .id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+> >> >> >>> +             .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+> >> >> >>> +             .u.ageing_time = ageing_time,
+> >> >> >>> +     };
+> >> >> >>> +     unsigned long t = clock_t_to_jiffies(ageing_time);
+> >> >> >>> +     int err;
+> >> >> >>> +
+> >> >> >>> +     if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+> >> >> >>> +             return -ERANGE;
+> >> >> >>> +
+> >> >> >>> +     err = switchdev_port_attr_set(br->dev, &attr);
+> >> >> >>
+> >> >> >> A thought - given that the ageing time is not a per-bridge-port attr, why are we using a "port based api"
+> >> >> >> to pass the attribute down?  May be I'm missing something here?
+> >> >> >
+> >> >> >I think Florian raised the same point earlier.  Sigh, I think this
+> >> >> >should be addressed....v4 coming soon...thanks guys for keeping the
+> >> >> >standard high.
+> >> >>
+> >> >> Scott, can you tell us how do you want to address this? I like the
+> >> >> current implementation.
+> >> >
+> >> >Scott, didn't you have a plan to add a struct device for the parent of
+> >> >switchdev ports?
+> >> >
+> >> >I think it would be good to introduce such device with an helper to
+> >> >retrieve this upper parent, and move the switchdev ops to this guy.
+> >> >
+> >> >So switchdev drivers may implement such API calls:
+> >> >
+> >> >    .obj_add(struct device *swdev, struct switchdev_obj *obj);
+> >> >
+> >> >    .port_obj_add(struct device *swdev, struct net_device *port,
+> >> >                  struct switchdev_obj *obj);
+> >> >
+> >> >Then switchdev code may have a parent API and the current port API may
+> >> >look like this:
+> >> >
+> >> >    int switchdev_port_obj_add(struct net_device *dev,
+> >> >                               struct switchdev_obj *obj)
+> >> >    {
+> >> >        struct device *swdev = switchdev_get_parent(dev);
+> >> >        int err = -EOPNOTSUPP;
+> >> >
+> >> >        if (swdev && swdev->switchdev_ops &&
+> >> >            swdev->switchdev_ops->port_obj_add)
+> >> >            err = swdev->switchdev_ops->port_obj_add(swdev, dev, obj);
+> >> >
+> >> >        return err;
+> >> >    }
+> >>
+> >> Fro the record, I don't see any reason for this "device". It would just
+> >> introduce unnecessary complexicity. So far, we are fine without it.
+> >
+> > I wouldn't say that. I beleive that an Ethernet switch deserves its
+> > struct device in the tree, since it is a physical chip, like any other.
+> 
+> Agreed, but gating these patches because we do not yet have a device
+> driver model for an Ethernet switch outside of its individual ports
+> does not seem like it hurts the current patch series, nor the existing
+> model (and future).
 
-Is this issue not addressed above the file where the following check is done?
+Sure, I didn't mean to NAK the patch with this comment, I just wrote it
+because we raised a concern about an API higher than the port level.
 
-if (iphlen > length)
-    goto error_free;
+> >
+> > Configuring it through one of its port (net_device) is fine, since you
+> > want to change the port behavior, and Linux config is on per-port basis.
+> >
+> > But the complexity is already introduced in the struct net_device with
+> > the switchdev_ops. These ops really belong to the parent device, not to
+> > all of its ports.
+> 
+> I am not sure if complexity is the correct term here, bloat (to some
+> extent) maybe, since with what you are suggesting we could save one
+> set of function pointers per-port, and instead move that to a
+> global/switch-wide device implementing these operations. In essence,
+> there will be per-port switchdev_ops, bridge-specific, and maybe in
+> the future switch device specific.
 
+Exact. I think that a switch net_device port should just have a pointer
+or something to its parent device (the switch) to query its operations.
 
+> >
+> > Ideally a switch device would be registered with this set of operations,
+> > creates its net_devices, and will be accessible from a port net_device
+> > through a netdev helper function.
+> 
+> I think the core of the discussion for a proper Ethernet switch device
+> model is precisely whether we want to have a special network device to
+> configure the switch as a whole. It sure would represent one facet of
+> the switch device, but not everything else for which we are still
+> trying to find out what that is.
 
-On Sun, Oct 11, 2015 at 11:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2015-10-11 at 20:55 +0000, Ben Cartwright-Cox wrote:
->> Sending ICMP packets with raw sockets ends up in the SNMP counters
->> logging the type as the first byte of the IPv4 header rather than
->> the ICMP header (in nearly all cases this is seen as "OutType69".
->> This is fixed by adding the IP Header Length to the casting into
->> a icmphdr struct.
->>
->> Signed-off-by: Ben Cartwright-Cox <ben@benjojo.co.uk>
->> ---
->>  net/ipv4/raw.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
->> index 561cd4b..1ad8bae 100644
->> --- a/net/ipv4/raw.c
->> +++ b/net/ipv4/raw.c
->> @@ -409,7 +409,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
->>       }
->>       if (iph->protocol == IPPROTO_ICMP)
->>               icmp_out_count(net, ((struct icmphdr *)
->> -                     skb_transport_header(skb))->type);
->> +                     skb_transport_header(skb) + iphlen)->type);
->>
->>       err = NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_OUT, sk, skb,
->>                     NULL, rt->dst.dev, dst_output_sk);
->
->
-> Hmm... This seems to lack checks against a malicious user ?
->
-> The only guarantee you have here is that iphlen < length.
->
-> It is not enough.
->
-> Make sure you do not access not initialized memory or even non existent
-> one.
->
->
->
+I am not even convinced that a switch chip must be represented in the
+Linux tree by a net_device. That's basically a chip exposing a bench of
+registers to configure and expose not only net interfaces, but also
+temperature sensors, and even GPIO sometimes.
+
+Thanks,
+-v
