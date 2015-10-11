@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/7] switchdev: allow caller to explicitly request attr_set as deferred
-Date: Sun, 11 Oct 2015 17:21:06 +0200
-Message-ID: <1444576871-19138-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/7] switchdev: remove pointers from switchdev objects
+Date: Sun, 11 Oct 2015 17:21:07 +0200
+Message-ID: <1444576871-19138-4-git-send-email-jiri@resnulli.us>
 References: <1444576871-19138-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
@@ -10,211 +10,199 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:37818 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbbJKPVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 11:21:18 -0400
-Received: by wijq8 with SMTP id q8so25533730wij.0
-        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 08:21:17 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35234 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872AbbJKPVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 11:21:20 -0400
+Received: by wicge5 with SMTP id ge5so122656951wic.0
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 08:21:18 -0700 (PDT)
 In-Reply-To: <1444576871-19138-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Caller should know if he can call attr_set directly (when holding RTNL)
-or if he has to defer the att_set processing for later.
-
-This also allows drivers to sleep inside attr_set and report operation
-status back to switchdev core. Switchdev core then warns if status is
-not ok, instead of silent errors happening in drivers.
+When object is used in deferred work, we cannot use pointers in
+switchdev object structures because the memory they point at may be already
+used by someone else. So rather do local copy of the value.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h   |   1 +
- net/bridge/br_stp.c       |   3 +-
- net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
- 3 files changed, 59 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c |  6 +++---
+ include/net/switchdev.h              |  7 +++----
+ net/bridge/br_fdb.c                  |  2 +-
+ net/dsa/slave.c                      |  2 +-
+ net/switchdev/switchdev.c            | 11 +++++++----
+ 5 files changed, 15 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index cf91ffc..5473fbe 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4453,7 +4453,7 @@ static int rocker_port_obj_add(struct net_device *dev,
+ 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
+ 		err = rocker_port_fib_ipv4(rocker_port, trans,
+ 					   htonl(fib4->dst), fib4->dst_len,
+-					   fib4->fi, fib4->tb_id, 0);
++					   &fib4->fi, fib4->tb_id, 0);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = rocker_port_fdb_add(rocker_port, trans,
+@@ -4525,7 +4525,7 @@ static int rocker_port_obj_del(struct net_device *dev,
+ 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
+ 		err = rocker_port_fib_ipv4(rocker_port, NULL,
+ 					   htonl(fib4->dst), fib4->dst_len,
+-					   fib4->fi, fib4->tb_id,
++					   &fib4->fi, fib4->tb_id,
+ 					   ROCKER_OP_FLAG_REMOVE);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+@@ -4555,7 +4555,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
+ 	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
+ 		if (found->key.rocker_port != rocker_port)
+ 			continue;
+-		fdb->addr = found->key.addr;
++		ether_addr_copy(fdb->addr, found->key.addr);
+ 		fdb->ndm_state = NUD_REACHABLE;
+ 		fdb->vid = rocker_port_vlan_to_vid(rocker_port,
+ 						   found->key.vlan_id);
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index cc7f772..74e349a 100644
+index 74e349a..cd281db 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -16,6 +16,7 @@
+@@ -14,6 +14,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/notifier.h>
  #include <linux/list.h>
++#include <net/ip_fib.h>
  
  #define SWITCHDEV_F_NO_RECURSE		BIT(0)
-+#define SWITCHDEV_F_DEFER		BIT(1)
+ #define SWITCHDEV_F_DEFER		BIT(1)
+@@ -56,8 +57,6 @@ struct switchdev_attr {
+ 	} u;
+ };
  
- struct switchdev_trans_item {
- 	struct list_head list;
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 3a982c0..a90bf18 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+-struct fib_info;
+-
+ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_ID_UNDEFINED,
+ 	SWITCHDEV_OBJ_ID_PORT_VLAN,
+@@ -85,7 +84,7 @@ struct switchdev_obj_ipv4_fib {
+ 	struct switchdev_obj obj;
+ 	u32 dst;
+ 	int dst_len;
+-	struct fib_info *fi;
++	struct fib_info fi;
+ 	u8 tos;
+ 	u8 type;
+ 	u32 nlflags;
+@@ -98,7 +97,7 @@ struct switchdev_obj_ipv4_fib {
+ /* SWITCHDEV_OBJ_ID_PORT_FDB */
+ struct switchdev_obj_port_fdb {
+ 	struct switchdev_obj obj;
+-	const unsigned char *addr;
++	unsigned char addr[ETH_ALEN];
+ 	u16 vid;
+ 	u16 ndm_state;
+ };
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 7f7d551..b3801fd 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -135,10 +135,10 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
  {
- 	struct switchdev_attr attr = {
- 		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-+		.flags = SWITCHDEV_F_DEFER,
- 		.u.stp_state = state,
+ 	struct switchdev_obj_port_fdb fdb = {
+ 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-		.addr = f->addr.addr,
+ 		.vid = f->vlan_id,
  	};
- 	int err;
  
- 	p->state = state;
- 	err = switchdev_port_attr_set(p->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
-+	if (err)
- 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
- 				(unsigned int) p->port_no, p->dev->name);
++	ether_addr_copy(fdb.addr, f->addr.addr);
+ 	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
  }
+ 
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 4f607bc..a477975 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -390,7 +390,7 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
+ 		if (ret < 0)
+ 			break;
+ 
+-		fdb->addr = addr;
++		ether_addr_copy(fdb->addr, addr);
+ 		fdb->vid = vid;
+ 		fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
+ 
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 10306b6..8831dbd 100644
+index 8831dbd..32a0390 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -166,6 +166,49 @@ static int __switchdev_port_attr_set(struct net_device *dev,
- 	return err;
- }
+@@ -15,6 +15,7 @@
+ #include <linux/mutex.h>
+ #include <linux/notifier.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/if_bridge.h>
+ #include <linux/list.h>
+ #include <linux/workqueue.h>
+@@ -830,10 +831,10 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ {
+ 	struct switchdev_obj_port_fdb fdb = {
+ 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-		.addr = addr,
+ 		.vid = vid,
+ 	};
  
-+static int switchdev_port_attr_set_now(struct net_device *dev,
-+				       struct switchdev_attr *attr)
-+{
-+	struct switchdev_trans trans;
-+	int err;
-+
-+	switchdev_trans_init(&trans);
-+
-+	/* Phase I: prepare for attr set. Driver/device should fail
-+	 * here if there are going to be issues in the commit phase,
-+	 * such as lack of resources or support.  The driver/device
-+	 * should reserve resources needed for the commit phase here,
-+	 * but should not commit the attr.
-+	 */
-+
-+	trans.ph_prepare = true;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	if (err) {
-+		/* Prepare phase failed: abort the transaction.  Any
-+		 * resources reserved in the prepare phase are
-+		 * released.
-+		 */
-+
-+		if (err != -EOPNOTSUPP)
-+			switchdev_trans_items_destroy(&trans);
-+
-+		return err;
-+	}
-+
-+	/* Phase II: commit attr set.  This cannot fail as a fault
-+	 * of driver/device.  If it does, it's a bug in the driver/device
-+	 * because the driver said everythings was OK in phase I.
-+	 */
-+
-+	trans.ph_prepare = false;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
-+	     dev->name, attr->id);
-+	switchdev_trans_items_warn_destroy(dev, &trans);
-+
-+	return err;
-+}
-+
- struct switchdev_attr_set_work {
- 	struct work_struct work;
++	ether_addr_copy(fdb.addr, addr);
+ 	return switchdev_port_obj_add(dev, &fdb.obj);
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
+@@ -855,10 +856,10 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ {
+ 	struct switchdev_obj_port_fdb fdb = {
+ 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-		.addr = addr,
+ 		.vid = vid,
+ 	};
+ 
++	ether_addr_copy(fdb.addr, addr);
+ 	return switchdev_port_obj_del(dev, &fdb.obj);
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
+@@ -1020,7 +1021,6 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
+ 		.dst = dst,
+ 		.dst_len = dst_len,
+-		.fi = fi,
+ 		.tos = tos,
+ 		.type = type,
+ 		.nlflags = nlflags,
+@@ -1029,6 +1029,8 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
  	struct net_device *dev;
-@@ -176,14 +219,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
- {
- 	struct switchdev_attr_set_work *asw =
- 		container_of(work, struct switchdev_attr_set_work, work);
-+	bool rtnl_locked = rtnl_is_locked();
- 	int err;
+ 	int err = 0;
  
--	rtnl_lock();
--	err = switchdev_port_attr_set(asw->dev, &asw->attr);
-+	if (!rtnl_locked)
-+		rtnl_lock();
-+	err = switchdev_port_attr_set_now(asw->dev, &asw->attr);
- 	if (err && err != -EOPNOTSUPP)
- 		netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
- 			   err, asw->attr.id);
--	rtnl_unlock();
-+	if (!rtnl_locked)
-+		rtnl_unlock();
++	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
++
+ 	/* Don't offload route if using custom ip rules or if
+ 	 * IPv4 FIB offloading has been disabled completely.
+ 	 */
+@@ -1072,7 +1074,6 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
+ 		.dst = dst,
+ 		.dst_len = dst_len,
+-		.fi = fi,
+ 		.tos = tos,
+ 		.type = type,
+ 		.nlflags = 0,
+@@ -1081,6 +1082,8 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	struct net_device *dev;
+ 	int err = 0;
  
- 	dev_put(asw->dev);
- 	kfree(work);
-@@ -204,7 +250,7 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
- 	asw->dev = dev;
- 	memcpy(&asw->attr, attr, sizeof(asw->attr));
- 
--	schedule_work(&asw->work);
-+	queue_work(switchdev_wq, &asw->work);
- 
- 	return 0;
- }
-@@ -218,57 +264,16 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
-  *	Use a 2-phase prepare-commit transaction model to ensure
-  *	system is not left in a partially updated state due to
-  *	failure from driver/device.
-+ *
-+ *	rtnl_lock must be held and must not be in atomic section,
-+ *	in case SWITCHDEV_F_DEFER flag is not set.
-  */
- int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- {
--	struct switchdev_trans trans;
--	int err;
--
--	if (!rtnl_is_locked()) {
--		/* Running prepare-commit transaction across stacked
--		 * devices requires nothing moves, so if rtnl_lock is
--		 * not held, schedule a worker thread to hold rtnl_lock
--		 * while setting attr.
--		 */
--
-+	if (attr->flags & SWITCHDEV_F_DEFER)
- 		return switchdev_port_attr_set_defer(dev, attr);
--	}
--
--	switchdev_trans_init(&trans);
--
--	/* Phase I: prepare for attr set. Driver/device should fail
--	 * here if there are going to be issues in the commit phase,
--	 * such as lack of resources or support.  The driver/device
--	 * should reserve resources needed for the commit phase here,
--	 * but should not commit the attr.
--	 */
--
--	trans.ph_prepare = true;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	if (err) {
--		/* Prepare phase failed: abort the transaction.  Any
--		 * resources reserved in the prepare phase are
--		 * released.
--		 */
--
--		if (err != -EOPNOTSUPP)
--			switchdev_trans_items_destroy(&trans);
--
--		return err;
--	}
--
--	/* Phase II: commit attr set.  This cannot fail as a fault
--	 * of driver/device.  If it does, it's a bug in the driver/device
--	 * because the driver said everythings was OK in phase I.
--	 */
--
--	trans.ph_prepare = false;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
--	     dev->name, attr->id);
--	switchdev_trans_items_warn_destroy(dev, &trans);
--
--	return err;
-+	ASSERT_RTNL();
-+	return switchdev_port_attr_set_now(dev, attr);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
++	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
++
+ 	if (!(fi->fib_flags & RTNH_F_OFFLOAD))
+ 		return 0;
  
 -- 
 1.9.3
