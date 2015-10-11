@@ -1,75 +1,20 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH v4 1/3] net: unix: fix use-after-free in unix_dgram_poll()
-Date: Sun, 11 Oct 2015 14:30:58 +0100
-Message-ID: <87r3l1cz1p.fsf@doppelsaurus.mobileactivedefense.com>
-References: <cover.1444363559.git.jbaron@akamai.com>
-	<8f8dfc6fdb8015091b58509044b15489df261461.1444363559.git.jbaron@akamai.com>
-	<87io6gayze.fsf@stressinduktion.org>
+From: "Maria" <mmf@nuella.com>
+Subject: *|Deposit|*
+Date: Sun, 11 Oct 2015 03:11:43 +0300
+Message-ID: <20151011010127.093A8150F1DD@mail.univ-ouargla.dz>
+Reply-To: mff@nuella.96.lt
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org,
-	joe@perches.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87io6gayze.fsf@stressinduktion.org> (Hannes Frederic Sowa's
-	message of "Fri, 09 Oct 2015 16:38:29 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <mmf@nuella.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.univ-ouargla.dz ([193.194.92.3]:43405 "HELO
+	mail.univ-ouargla.dz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750853AbbJKNkG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 09:40:06 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> Jason Baron <jbaron@akamai.com> writes:
->
->> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
->> queue associated with the socket s that we are poll'ing against, but also calls
->> sock_poll_wait() for a remote peer socket p, if it is connected. Thus,
->> if we call poll()/select()/epoll() for the socket s, there are then
->> a couple of code paths in which the remote peer socket p and its associated
->> peer_wait queue can be freed before poll()/select()/epoll() have a chance
->> to remove themselves from the remote peer socket.
->>
->> The way that remote peer socket can be freed are:
->>
->> 1. If s calls connect() to a connect to a new socket other than p, it will
->> drop its reference on p, and thus a close() on p will free it.
->>
->> 2. If we call close on p(), then a subsequent sendmsg() from s, will drop
->> the final reference to p, allowing it to be freed.
->>
->> Address this issue, by reverting unix_dgram_poll() to only register with
->> the wait queue associated with s and register a callback with the remote peer
->> socket on connect() that will wake up the wait queue associated with s. If
->> scenarios 1 or 2 occur above we then simply remove the callback from the
->> remote peer. This then presents the expected semantics to poll()/select()/
->> epoll().
->>
->> I've implemented this for sock-type, SOCK_RAW, SOCK_DGRAM, and SOCK_SEQPACKET
->> but not for SOCK_STREAM, since SOCK_STREAM does not use unix_dgram_poll().
->>
->> Introduced in commit ec0d215f9420 ("af_unix: fix 'poll for write'/connected
->> DGRAM sockets").
->>
->> Tested-by: Mathias Krause <minipli@googlemail.com>
->> Signed-off-by: Jason Baron <jbaron@akamai.com>
->
-> While I think this approach works, I haven't seen where the current code
-> leaks a reference.
-
-It doesn't "leak a reference" (strictly). It possibly registers a wait queue with
-whatever invoked the poll-routine which belongs to the peer socket of
-the socket poll was called on. And the inherent problem with that is
-that the lifetime of the peer socket is not necessarily the same as
-the lifetime of the polled socket. If the polled socket is disconnected
-from its peer while still being polled (or registered for being
-polled), the former peer may be freed despite the polling code (of whatever
-provenience) still references the peer_wait member of the unix socket
-structure for this socket.
-
-As pointed out in the original mail, two ways for this to happen is to
-call connect on the polled socket or cause a unix_dgram_sendmsg call
-on that after the peer socket was closed.
+Accept 19M USD as a cash gift?
+Write back asap.
