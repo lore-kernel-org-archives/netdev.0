@@ -1,208 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/7] switchdev: remove pointers from switchdev objects
-Date: Sun, 11 Oct 2015 17:21:07 +0200
-Message-ID: <1444576871-19138-4-git-send-email-jiri@resnulli.us>
-References: <1444576871-19138-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
-	stephen@networkplumber.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35234 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbbJKPVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 11:21:20 -0400
-Received: by wicge5 with SMTP id ge5so122656951wic.0
-        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 08:21:18 -0700 (PDT)
-In-Reply-To: <1444576871-19138-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: [PATCH nf-next 5/7] netfilter-ipv6: ternary operator layout
+Date: Sun, 11 Oct 2015 17:32:18 +0100
+Message-ID: <1444581140-6255-6-git-send-email-ipm@chirality.org.uk>
+References: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
+Cc: Ian Morris <ipm@chirality.org.uk>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1444581140-6255-1-git-send-email-ipm@chirality.org.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+Correct whitespace layout of ternary operators in the netfilter-ipv6
+code.
 
-When object is used in deferred work, we cannot use pointers in
-switchdev object structures because the memory they point at may be already
-used by someone else. So rather do local copy of the value.
+No changes detected by objdiff.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 ---
- drivers/net/ethernet/rocker/rocker.c |  6 +++---
- include/net/switchdev.h              |  7 +++----
- net/bridge/br_fdb.c                  |  2 +-
- net/dsa/slave.c                      |  2 +-
- net/switchdev/switchdev.c            | 11 +++++++----
- 5 files changed, 15 insertions(+), 13 deletions(-)
+ net/ipv6/netfilter/ip6_tables.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index cf91ffc..5473fbe 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4453,7 +4453,7 @@ static int rocker_port_obj_add(struct net_device *dev,
- 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
- 		err = rocker_port_fib_ipv4(rocker_port, trans,
- 					   htonl(fib4->dst), fib4->dst_len,
--					   fib4->fi, fib4->tb_id, 0);
-+					   &fib4->fi, fib4->tb_id, 0);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		err = rocker_port_fdb_add(rocker_port, trans,
-@@ -4525,7 +4525,7 @@ static int rocker_port_obj_del(struct net_device *dev,
- 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
- 		err = rocker_port_fib_ipv4(rocker_port, NULL,
- 					   htonl(fib4->dst), fib4->dst_len,
--					   fib4->fi, fib4->tb_id,
-+					   &fib4->fi, fib4->tb_id,
- 					   ROCKER_OP_FLAG_REMOVE);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
-@@ -4555,7 +4555,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
- 	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
- 		if (found->key.rocker_port != rocker_port)
- 			continue;
--		fdb->addr = found->key.addr;
-+		ether_addr_copy(fdb->addr, found->key.addr);
- 		fdb->ndm_state = NUD_REACHABLE;
- 		fdb->vid = rocker_port_vlan_to_vid(rocker_port,
- 						   found->key.vlan_id);
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 74e349a..cd281db 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -14,6 +14,7 @@
- #include <linux/netdevice.h>
- #include <linux/notifier.h>
- #include <linux/list.h>
-+#include <net/ip_fib.h>
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 62190c3..80f014a 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -117,7 +117,7 @@ ip6_packet_match(const struct sk_buff *skb,
+ 	if (FWINV(ret != 0, IP6T_INV_VIA_IN)) {
+ 		dprintf("VIA in mismatch (%s vs %s).%s\n",
+ 			indev, ip6info->iniface,
+-			ip6info->invflags&IP6T_INV_VIA_IN ?" (INV)":"");
++			ip6info->invflags&IP6T_INV_VIA_IN ? " (INV)" : "");
+ 		return false;
+ 	}
  
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
- #define SWITCHDEV_F_DEFER		BIT(1)
-@@ -56,8 +57,6 @@ struct switchdev_attr {
- 	} u;
- };
- 
--struct fib_info;
--
- enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_ID_UNDEFINED,
- 	SWITCHDEV_OBJ_ID_PORT_VLAN,
-@@ -85,7 +84,7 @@ struct switchdev_obj_ipv4_fib {
- 	struct switchdev_obj obj;
- 	u32 dst;
- 	int dst_len;
--	struct fib_info *fi;
-+	struct fib_info fi;
- 	u8 tos;
- 	u8 type;
- 	u32 nlflags;
-@@ -98,7 +97,7 @@ struct switchdev_obj_ipv4_fib {
- /* SWITCHDEV_OBJ_ID_PORT_FDB */
- struct switchdev_obj_port_fdb {
- 	struct switchdev_obj obj;
--	const unsigned char *addr;
-+	unsigned char addr[ETH_ALEN];
- 	u16 vid;
- 	u16 ndm_state;
- };
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 7f7d551..b3801fd 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -135,10 +135,10 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = f->addr.addr,
- 		.vid = f->vlan_id,
- 	};
- 
-+	ether_addr_copy(fdb.addr, f->addr.addr);
- 	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
- }
- 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 4f607bc..a477975 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -390,7 +390,7 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
- 		if (ret < 0)
- 			break;
- 
--		fdb->addr = addr;
-+		ether_addr_copy(fdb->addr, addr);
- 		fdb->vid = vid;
- 		fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
- 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 8831dbd..32a0390 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -15,6 +15,7 @@
- #include <linux/mutex.h>
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
- #include <linux/if_bridge.h>
- #include <linux/list.h>
- #include <linux/workqueue.h>
-@@ -830,10 +831,10 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = addr,
- 		.vid = vid,
- 	};
- 
-+	ether_addr_copy(fdb.addr, addr);
- 	return switchdev_port_obj_add(dev, &fdb.obj);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
-@@ -855,10 +856,10 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = addr,
- 		.vid = vid,
- 	};
- 
-+	ether_addr_copy(fdb.addr, addr);
- 	return switchdev_port_obj_del(dev, &fdb.obj);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
-@@ -1020,7 +1021,6 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
- 		.dst = dst,
- 		.dst_len = dst_len,
--		.fi = fi,
- 		.tos = tos,
- 		.type = type,
- 		.nlflags = nlflags,
-@@ -1029,6 +1029,8 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	struct net_device *dev;
- 	int err = 0;
- 
-+	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
-+
- 	/* Don't offload route if using custom ip rules or if
- 	 * IPv4 FIB offloading has been disabled completely.
- 	 */
-@@ -1072,7 +1074,6 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
- 		.dst = dst,
- 		.dst_len = dst_len,
--		.fi = fi,
- 		.tos = tos,
- 		.type = type,
- 		.nlflags = 0,
-@@ -1081,6 +1082,8 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	struct net_device *dev;
- 	int err = 0;
- 
-+	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
-+
- 	if (!(fi->fib_flags & RTNH_F_OFFLOAD))
- 		return 0;
+@@ -126,7 +126,7 @@ ip6_packet_match(const struct sk_buff *skb,
+ 	if (FWINV(ret != 0, IP6T_INV_VIA_OUT)) {
+ 		dprintf("VIA out mismatch (%s vs %s).%s\n",
+ 			outdev, ip6info->outiface,
+-			ip6info->invflags&IP6T_INV_VIA_OUT ?" (INV)":"");
++			ip6info->invflags&IP6T_INV_VIA_OUT ? " (INV)" : "");
+ 		return false;
+ 	}
  
 -- 
-1.9.3
+1.9.1
+
