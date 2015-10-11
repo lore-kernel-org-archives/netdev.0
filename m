@@ -1,67 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] tun: use sk_fullsock() before reading
- sk->sk_tsflags
-Date: Sun, 11 Oct 2015 09:06:03 +0300
-Message-ID: <20151011090544-mutt-send-email-mst@redhat.com>
-References: <1444430541.27760.109.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: RE: [PATCH net-next] bnxt_en: New Broadcom ethernet driver.
+Date: Sun, 11 Oct 2015 06:54:40 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D09001A2C@avmb3.qlogic.org>
+References: <1444477151-2225-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54445 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750828AbbJKGGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Oct 2015 02:06:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1444430541.27760.109.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:19238 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751332AbbJKGyo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Oct 2015 02:54:44 -0400
+In-Reply-To: <1444477151-2225-1-git-send-email-mchan@broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 09, 2015 at 03:42:21PM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Michael Chan
+> Sent: Saturday, October 10, 2015 2:39 PM
+> To: David Miller <davem@davemloft.net>
+> Cc: netdev <netdev@vger.kernel.org>
+> Subject: [PATCH net-next] bnxt_en: New Broadcom ethernet driver.
 > 
-> timewait or request sockets are small and do not contain sk->sk_tsflags
-> 
-> Without this fix, we might read garbage, and crash later in
-> 
-> __skb_complete_tx_timestamp()
->  -> sock_queue_err_skb()
-> 
-> (These pseudo sockets do not have an error queue either)
-> 
-> Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  Note this bug also exists on net tree for timewait sockets but only
->  in exceptional conditions (routing glitches and IP early demux)
-> 
->  drivers/net/tun.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 976aa9704297..b1878faea397 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -858,7 +858,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
->  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
->  		goto drop;
->  
-> -	if (skb->sk) {
-> +	if (skb->sk && sk_fullsock(skb->sk)) {
->  		sock_tx_timestamp(skb->sk, &skb_shinfo(skb)->tx_flags);
->  		sw_tx_timestamp(skb);
->  	}
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +config BNXT
+> +	tristate "Broadcom NetXtreme-C/E support"
+> +	depends on PCI
+> +	select FW_LOADER
+> +	select LIBCRC32C
+> +	---help---
+> +	  This driver supports Broadcom NetXtremeII 10/25/40/50 gigabit
+> +	  Ethernet cards.  To compile this driver as a module, choose M here:
+> +	  the module will be called bnx2x.  This is recommended.
+Should be bnxt
