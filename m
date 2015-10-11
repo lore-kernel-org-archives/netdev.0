@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/4] net: dsa: mv88e6xxx: do not support per-port FID
-Date: Sun, 11 Oct 2015 18:08:36 -0400
-Message-ID: <1444601318-20561-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/4] net: dsa: mv88e6xxx: fix hardware bridging
+Date: Sun, 11 Oct 2015 18:08:38 -0400
+Message-ID: <1444601318-20561-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,201 +16,147 @@ In-Reply-To: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since we configure a switch chip through a Linux bridge, and a bridge is
-implemented as a VLAN, there is no need for per-port FID anymore.
+Playing with the VLAN map of every port to implement "hardware bridging"
+in the 88E6352 driver was a hack until full 802.1Q was supported.
 
-This patch gets rid of this and simplifies the driver code since we can
-now directly map all 4095 FIDs available to all VLANs.
+Indeed with 802.1Q port mode "Disabled" or "Fallback", this feature is
+used to restrict which output ports an input port can egress frames to.
+
+A Linux bridge is an untagged VLAN. With full 802.1Q support, we don't
+need this hack anymore and can use the "Secure" strict 802.1Q port mode.
+
+With this mode, the port-based VLAN map still needs to be configured,
+but all the logic is VTU-centric. This means that the switch only cares
+about rules described in its hardware VLAN table, which is exactly what
+Linux bridge expects and what we want.
+
+Note also that the hardware bridging was broken with the previous
+flexible "Fallback" 802.1Q port mode. Here's an example:
+
+Port0 and Port1 belong to the same bridge. If Port0 sends crafted tagged
+frames with VID 200 to Port1, Port1 receives it. Even if Port1 is in
+hardware VLAN 200, but not Port0, Port1 will still receive it, because
+Fallback mode doesn't care about invalid VID or non-member source port.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 69 ++++++++-------------------------------------
- drivers/net/dsa/mv88e6xxx.h |  5 ----
- 2 files changed, 11 insertions(+), 63 deletions(-)
+ drivers/net/dsa/mv88e6171.c |  2 --
+ drivers/net/dsa/mv88e6352.c |  2 --
+ drivers/net/dsa/mv88e6xxx.c | 47 +++------------------------------------------
+ drivers/net/dsa/mv88e6xxx.h |  2 --
+ 4 files changed, 3 insertions(+), 50 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index ca3330a..dfca352 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -113,8 +113,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ #endif
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+-	.port_join_bridge       = mv88e6xxx_join_bridge,
+-	.port_leave_bridge      = mv88e6xxx_leave_bridge,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
+ 	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_pvid_set		= mv88e6xxx_port_pvid_set,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 078a358..796fdcb 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -340,8 +340,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.set_eeprom		= mv88e6352_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+-	.port_join_bridge	= mv88e6xxx_join_bridge,
+-	.port_leave_bridge	= mv88e6xxx_leave_bridge,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
+ 	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_pvid_set		= mv88e6xxx_port_pvid_set,
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 254f9bb..787352df 100644
+index 787352df..63736f9 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1468,6 +1468,7 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
- 	struct mv88e6xxx_vtu_stu_entry vlan = {
- 		.valid = true,
- 		.vid = vid,
-+		.fid = vid, /* We use one FID per VLAN */
- 	};
- 	int i;
- 
-@@ -1501,22 +1502,10 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
- 				return err;
- 		}
- 
--		/* Non-bridged ports and bridge groups use FIDs from 1 to
--		 * num_ports; VLANs use FIDs from num_ports+1 to 4095.
--		 */
--		vlan.fid = find_next_zero_bit(ps->fid_bitmap, VLAN_N_VID,
--					      ps->num_ports + 1);
--		if (unlikely(vlan.fid == VLAN_N_VID)) {
--			pr_err("no more FID available for VLAN %d\n", vid);
--			return -ENOSPC;
--		}
--
- 		/* Clear all MAC addresses from the new database */
- 		err = _mv88e6xxx_atu_flush(ds, vlan.fid, true);
- 		if (err)
- 			return err;
--
--		set_bit(vlan.fid, ps->fid_bitmap);
- 	}
- 
- 	*entry = vlan;
-@@ -1556,7 +1545,6 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	struct mv88e6xxx_vtu_stu_entry vlan;
--	bool keep = false;
- 	int i, err;
- 
- 	mutex_lock(&ps->smi_mutex);
-@@ -1574,28 +1562,22 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
- 	vlan.data[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
- 
- 	/* keep the VLAN unless all ports are excluded */
-+	vlan.valid = false;
- 	for (i = 0; i < ps->num_ports; ++i) {
- 		if (dsa_is_cpu_port(ds, i))
- 			continue;
- 
- 		if (vlan.data[i] != GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER) {
--			keep = true;
-+			vlan.valid = true;
- 			break;
- 		}
- 	}
- 
--	vlan.valid = keep;
- 	err = _mv88e6xxx_vtu_loadpurge(ds, &vlan);
- 	if (err)
- 		goto unlock;
- 
- 	err = _mv88e6xxx_atu_remove(ds, vlan.fid, port, false);
--	if (err)
--		goto unlock;
--
--	if (!keep)
--		clear_bit(vlan.fid, ps->fid_bitmap);
--
- unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
-@@ -1722,37 +1704,13 @@ static int _mv88e6xxx_atu_load(struct dsa_switch *ds,
- 	return _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_LOAD_DB);
+@@ -1124,41 +1124,6 @@ static int _mv88e6xxx_port_vlan_map_set(struct dsa_switch *ds, int port,
+ 	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_BASE_VLAN, reg);
  }
  
--static int _mv88e6xxx_port_vid_to_fid(struct dsa_switch *ds, int port, u16 vid)
+-/* Bridge handling functions */
+-
+-static int mv88e6xxx_map_bridge(struct dsa_switch *ds, u16 members)
 -{
 -	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct mv88e6xxx_vtu_stu_entry vlan;
--	int err;
+-	const unsigned long output = members | BIT(dsa_upstream_port(ds));
+-	int port, err = 0;
 -
--	if (vid == 0)
--		return ps->fid[port];
+-	mutex_lock(&ps->smi_mutex);
 -
--	err = _mv88e6xxx_port_vtu_getnext(ds, port, vid - 1, &vlan);
--	if (err)
--		return err;
+-	for_each_set_bit(port, &output, ps->num_ports) {
+-		if (dsa_is_cpu_port(ds, port))
+-			continue;
 -
--	if (vlan.vid == vid)
--		return vlan.fid;
+-		err = _mv88e6xxx_port_vlan_map_set(ds, port, output & ~port);
+-		if (err)
+-			break;
+-	}
 -
--	return -ENOENT;
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	return err;
 -}
 -
- static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
- 				    const unsigned char *addr, u16 vid,
- 				    u8 state)
- {
- 	struct mv88e6xxx_atu_entry entry = { 0 };
--	int ret;
- 
--	ret = _mv88e6xxx_port_vid_to_fid(ds, port, vid);
--	if (ret < 0)
--		return ret;
 -
--	entry.fid = ret;
-+	entry.fid = vid; /* We use one FID per VLAN */
- 	entry.state = state;
- 	ether_addr_copy(entry.mac, addr);
- 	if (state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-@@ -1767,6 +1725,10 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 			       const struct switchdev_obj_port_fdb *fdb,
- 			       struct switchdev_trans *trans)
- {
-+	/* We don't use per-port FDB */
-+	if (fdb->vid == 0)
-+		return -EOPNOTSUPP;
-+
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
- 	 */
-@@ -1864,16 +1826,11 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+-int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+-{
+-	return mv88e6xxx_map_bridge(ds, br_port_mask);
+-}
+-
+-int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+-{
+-	return mv88e6xxx_map_bridge(ds, br_port_mask & ~port);
+-}
+-
+ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
  {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	struct mv88e6xxx_atu_entry next;
--	u16 fid;
-+	u16 fid = *vid; /* We use one FID per VLAN */
- 	int ret;
+@@ -2007,7 +1972,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+ 	}
  
- 	mutex_lock(&ps->smi_mutex);
+-	reg |= PORT_CONTROL_2_8021Q_FALLBACK;
++	reg |= PORT_CONTROL_2_8021Q_SECURE;
  
--	ret = _mv88e6xxx_port_vid_to_fid(ds, port, *vid);
--	if (ret < 0)
--		goto unlock;
--	fid = ret;
--
- 	do {
- 		if (is_broadcast_ether_addr(addr)) {
- 			struct mv88e6xxx_vtu_stu_entry vtu;
-@@ -1924,7 +1881,7 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
- static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int ret, fid;
-+	int ret;
- 	u16 reg;
- 
- 	mutex_lock(&ps->smi_mutex);
-@@ -2145,15 +2102,11 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	if (ret)
+ 	if (reg) {
+ 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
+@@ -2103,15 +2068,9 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
  		goto abort;
  
--	/* Port based VLAN map: give each port its own address
-+	/* Port based VLAN map: do not give each port its own address
- 	 * database, allow the CPU port to talk to each of the 'real'
- 	 * ports, and allow each of the 'real' ports to only talk to
- 	 * the upstream port.
+ 	/* Port based VLAN map: do not give each port its own address
+-	 * database, allow the CPU port to talk to each of the 'real'
+-	 * ports, and allow each of the 'real' ports to only talk to
+-	 * the upstream port.
++	 * database, and allow every port to egress frames on all other ports.
  	 */
--	fid = port + 1;
--	ps->fid[port] = fid;
--	set_bit(fid, ps->fid_bitmap);
+-	if (dsa_is_cpu_port(ds, port))
+-		reg = BIT(ps->num_ports) - 1;
+-	else
+-		reg = BIT(dsa_upstream_port(ds));
 -
- 	if (dsa_is_cpu_port(ds, port))
- 		reg = BIT(ps->num_ports) - 1;
- 	else
++	reg = BIT(ps->num_ports) - 1; /* all ports */
+ 	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg & ~port);
+ 	if (ret)
+ 		goto abort;
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 716f692..d5ee01a 100644
+index d5ee01a..ba94f17 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -407,11 +407,6 @@ struct mv88e6xxx_priv_state {
- 	int		id; /* switch product id */
- 	int		num_ports;	/* number of switch ports */
- 
--	/* hw bridging */
--
--	DECLARE_BITMAP(fid_bitmap, VLAN_N_VID);	/* FIDs 1 to 4095 available */
--	u16 fid[DSA_MAX_PORTS];			/* per (non-bridged) port FID */
--
- 	unsigned long port_state_update_mask;
- 	u8 port_state[DSA_MAX_PORTS];
- 
+@@ -463,8 +463,6 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
+ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
+ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 		      struct phy_device *phydev, struct ethtool_eee *e);
+-int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask);
+-int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask);
+ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
+ int mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *vid);
+ int mv88e6xxx_port_pvid_set(struct dsa_switch *ds, int port, u16 vid);
 -- 
 2.6.0
