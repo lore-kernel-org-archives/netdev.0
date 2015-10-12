@@ -1,143 +1,76 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] bridge: fix gc_timer mod/del race
-	condition
-Date: Mon, 12 Oct 2015 17:55:55 +0200
-Message-ID: <1444665355-28448-1-git-send-email-razor@blackwall.org>
-Cc: jiri@resnulli.us, Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	sfeldma@gmail.com, davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 0/7] switchdev: change locking
+Date: Mon, 12 Oct 2015 17:57:10 +0200
+Message-ID: <20151012155710.GI2370@nanopsycho.orion>
+References: <1444664750-11260-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
+	stephen@networkplumber.org
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:33331 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbbJLP5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 11:57:13 -0400
+Received: by wicge5 with SMTP id ge5so23454463wic.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 08:57:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1444664750-11260-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Damn, wrong branch, please ignore, will send v4 shortly.
 
-commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to
-switchdev") introduced a timer race condition because the gc_timer can
-get rearmed after it's supposedly stopped and flushed in br_dev_delete()
-leading to a use of freed memory. So take rtnl to sync with bridge
-destruction when setting ageing_timer.
-Here's the trace reproduced with these two commands running in parallel:
-while :; do echo 10000 > /sys/class/net/br0/bridge/ageing_timer; done;
-while :; do brctl addbr br0; ip l set br0 up; ip l set br0 down;
-brctl delbr br0; done;
-
-[  300.000029] BUG: unable to handle kernel paging request at
-ffffffff811c59d3
-[  300.000263] IP: [<ffffffff810f168e>] __internal_add_timer+0x2e/0xd0
-[  300.000422] PGD 1a0f067 PUD 1a10063 PMD 10001e1
-[  300.000639] Oops: 0003 [#1] SMP
-[  300.000793] Modules linked in: bridge stp llc nfsd auth_rpcgss
-oid_registry nfs_acl nfs lockd grace fscache sunrpc crct10dif_pclmul
-crc32_pclmul crc32c_intel ghash_clmulni_intel ppdev aesni_intel
-aes_x86_64 glue_helper lrw gf128mul ablk_helper cryptd
-snd_hda_codec_generic qxl drm_kms_helper psmouse pcspkr ttm
-snd_hda_intel 9pnet_virtio evdev serio_raw joydev snd_hda_codec 9pnet
-virtio_balloon drm snd_hwdep virtio_console snd_hda_core pvpanic snd_pcm
-i2c_piix4 snd_timer acpi_cpufreq parport_pc snd parport soundcore button
-processor i2c_core ipv6 autofs4 hid_generic usbhid hid ext4 crc16
-mbcache jbd2 sg sr_mod cdrom ata_generic virtio_blk virtio_net e1000
-ehci_pci uhci_hcd ehci_hcd usbcore usb_common floppy ata_piix libata
-virtio_pci virtio_ring virtio scsi_mod
-[  300.004008] CPU: 1 PID: 1169 Comm: bash Not tainted 4.3.0-rc3+ #46
-[  300.004008] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  300.004008] task: ffff880035be2200 ti: ffff88003795c000 task.ti:
-ffff88003795c000
-[  300.004008] RIP: 0010:[<ffffffff810f168e>]  [<ffffffff810f168e>]
-__internal_add_timer+0x2e/0xd0
-[  300.004008] RSP: 0018:ffff88003fd03e78  EFLAGS: 00010046
-[  300.004008] RAX: ffff88003fd0ef60 RBX: 840fc78949c08548 RCX:
-00000001ffffffff
-[  300.004008] RDX: 0000000000000000 RSI: ffffffff811c59d3 RDI:
-ffff88003fd0df00
-[  300.004008] RBP: ffff88003fd03e78 R08: 00000000ffffffff R09:
-0000000000000000
-[  300.004008] R10: 0000000000000000 R11: 0000000000000000 R12:
-ffff88003fd0df00
-[  300.004008] R13: 0000000000000000 R14: 0000000000000001 R15:
-ffffffff816032e0
-[  300.004008] FS:  00007fcbdd609700(0000) GS:ffff88003fd00000(0000)
-knlGS:0000000000000000
-[  300.004008] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  300.004008] CR2: ffffffff811c59d3 CR3: 0000000037879000 CR4:
-00000000000406e0
-[  300.004008] Stack:
-[  300.004008]  ffff88003fd03ea8 ffffffff810f1775 ffff88003c8cb958
-ffff88003fd0df00
-[  300.004008]  0000000000000000 0000000000000001 ffff88003fd03f18
-ffffffff810f28c4
-[  300.004008]  ffff88003fd0eb68 ffff88003fd0e968 ffff88003fd0e768
-ffff88003fd0df68
-[  300.004008] Call Trace:
-[  300.004008]  <IRQ>
-[  300.004008]  [<ffffffff810f1775>] cascade+0x45/0x70
-[  300.004008]  [<ffffffff810f28c4>] run_timer_softirq+0x2f4/0x340
-[  300.004008]  [<ffffffff8107e380>] __do_softirq+0xd0/0x440
-[  300.004008]  [<ffffffff8107e8a3>] irq_exit+0xb3/0xc0
-[  300.004008]  [<ffffffff815c2032>] smp_apic_timer_interrupt+0x42/0x50
-[  300.004008]  [<ffffffff815bfe37>] apic_timer_interrupt+0x87/0x90
-[  300.004008]  <EOI>
-[  300.004008]  [<ffffffff811fb80c>] ? create_object+0x13c/0x2e0
-[  300.004008]  [<ffffffff8109b23e>] ? __kernel_text_address+0x4e/0x70
-[  300.004008]  [<ffffffff8109b23e>] ? __kernel_text_address+0x4e/0x70
-[  300.004008]  [<ffffffff8101e17f>] print_context_stack+0x7f/0xf0
-[  300.004008]  [<ffffffff8101d55b>] dump_trace+0x11b/0x300
-[  300.004008]  [<ffffffff8102970b>] save_stack_trace+0x2b/0x50
-[  300.004008]  [<ffffffff811fb80c>] create_object+0x13c/0x2e0
-[  300.004008]  [<ffffffff815b2e8e>] kmemleak_alloc+0x4e/0xb0
-[  300.004008]  [<ffffffff811e475d>] kmem_cache_alloc_trace+0x18d/0x2f0
-[  300.004008]  [<ffffffff8128b139>] kernfs_fop_open+0xc9/0x380
-[  300.004008]  [<ffffffff8120214f>] do_dentry_open+0x1ff/0x2f0
-[  300.004008]  [<ffffffff8128b070>] ? kernfs_fop_release+0x70/0x70
-[  300.004008]  [<ffffffff812034f9>] vfs_open+0x59/0x60
-[  300.004008]  [<ffffffff812130de>] path_openat+0x1ce/0x1260
-[  300.004008]  [<ffffffff812154ae>] do_filp_open+0x7e/0xe0
-[  300.004008]  [<ffffffff812251ff>] ? __alloc_fd+0xaf/0x180
-[  300.004008]  [<ffffffff8120387b>] do_sys_open+0x12b/0x210
-[  300.004008]  [<ffffffff8120397e>] SyS_open+0x1e/0x20
-[  300.004008]  [<ffffffff815bf0b6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-[  300.004008] Code: 66 90 48 8b 46 10 48 8b 4f 40 55 48 89 c2 48 89 e5
-48 29 ca 48 81 fa ff 00 00 00 77 20 0f b6 c0 48 8d 44 c7 68 48 8b 10 48
-85 d2 <48> 89 16 74 04 48 89 72 08 48 89 30 48 89 46 08 5d c3 48 81 fa
-[  300.004008] RIP  [<ffffffff810f168e>] __internal_add_timer+0x2e/0xd0
-[  300.004008]  RSP <ffff88003fd03e78>
-[  300.004008] CR2: ffffffff811c59d3
-
-Fixes: c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_sysfs_br.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 04ef1926ee7e..8365bd53c421 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -102,7 +102,15 @@ static ssize_t ageing_time_show(struct device *d,
- 
- static int set_ageing_time(struct net_bridge *br, unsigned long val)
- {
--	return br_set_ageing_time(br, val);
-+	int ret;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	ret = br_set_ageing_time(br, val);
-+	rtnl_unlock();
-+
-+	return ret;
- }
- 
- static ssize_t ageing_time_store(struct device *d,
--- 
-2.4.3
+Mon, Oct 12, 2015 at 05:45:43PM CEST, jiri@resnulli.us wrote:
+>From: Jiri Pirko <jiri@mellanox.com>
+>
+>This is something which I'm currently struggling with.
+>Callers of attr_set and obj_add/del often hold not only RTNL, but also
+>spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
+>
+>The way rocker is dealing with this now is just to invoke driver operation
+>and go out, without any checking or reporting of the operation status.
+>
+>Since it would be nice to at least put a warning in case the operation fails,
+>it makes sense to do this in delayed work directly in switchdev core
+>instead of implementing this in separate drivers. And that is what this patchset
+>is introducing.
+>
+>So from now on, the locking of switchdev mod ops is consistent. Caller either
+>holds rtnl mutex or in case it does not, caller sets defer flag, telling
+>switchdev core to process the op later in delayed work.
+>
+>Flush function for switchdev deferred ops can be called by op
+>caller in appropriate location, for example after it releases
+>spin lock, to force switchdev core to process pending ops.
+>
+>v1->v2:
+>- rebased on current net-next head (including Scott's ageing patchset)
+>v2->v3:
+>- fixed comment s/of/or/ typo suggested by Nik
+>
+>Jiri Pirko (7):
+>  switchdev: assert rtnl in switchdev_port_obj_del
+>  switchdev: introduce switchdev workqueue
+>  switchdev: allow caller to explicitly request attr_set as deferred
+>  switchdev: remove pointers from switchdev objects
+>  switchdev: introduce possibility to defer obj_add/del
+>  bridge: defer switchdev fdb del call in fdb_del_external_learn
+>  rocker: remove nowait from switchdev callbacks.
+>
+> drivers/net/ethernet/rocker/rocker.c |  13 +-
+> include/net/switchdev.h              |  14 +-
+> net/bridge/br_fdb.c                  |   7 +-
+> net/bridge/br_if.c                   |   3 +
+> net/bridge/br_stp.c                  |   3 +-
+> net/dsa/slave.c                      |   2 +-
+> net/switchdev/switchdev.c            | 276 +++++++++++++++++++++++++----------
+> 7 files changed, 222 insertions(+), 96 deletions(-)
+>
+>-- 
+>1.9.3
+>
