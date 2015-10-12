@@ -1,62 +1,37 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH net-next 0/4] tcp: better smp listener behavior
-Date: Tue, 13 Oct 2015 12:01:18 +0200
-Message-ID: <20151013100118.GG11304@distanz.ch>
-References: <1444318627-27883-1-git-send-email-edumazet@google.com>
- <CALx6S35NOaLyqmWbgcRdV9Swm1NVVSFkoShW0ywMi7V21jhtYQ@mail.gmail.com>
- <1444387845.27760.55.camel@edumazet-glaptop2.roam.corp.google.com>
- <56180147.6070205@iogearbox.net>
- <20151013092223.GE11304@distanz.ch>
- <561CCEAD.206@iogearbox.net>
+From: "Mrs Hayet Zara" <hayetzaara@gmail.com>
+Subject: PLS I NEED YOUR HELP
+Date: Tue, 13 Oct 2015 00:23:32 +0300 (EEST)
+Message-ID: <801173d6b0531b323fcf7652d47712df.squirrel@82.79.55.74>
+Reply-To: geldkantornl@aim.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:39139 "EHLO sym2.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbbJMKBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 06:01:22 -0400
-Content-Disposition: inline
-In-Reply-To: <561CCEAD.206@iogearbox.net>
+Received: from [82.79.55.74] ([82.79.55.74]:38891 "EHLO
+	server-servicii.uvvgsm.ro" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752302AbbJMKnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 06:43:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-10-13 at 11:28:13 +0200, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 10/13/2015 11:22 AM, Tobias Klauser wrote:
-> >On 2015-10-09 at 20:02:47 +0200, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> >>On 10/09/2015 12:50 PM, Eric Dumazet wrote:
-> >>>On Thu, 2015-10-08 at 20:42 -0700, Tom Herbert wrote:
-> >>>>On Thu, Oct 8, 2015 at 8:37 AM, Eric Dumazet <edumazet@google.com> wrote:
-> >>>>>As promised in last patch series, we implement a better SO_REUSEPORT
-> >>>>>strategy, based on cpu affinities if selected by the application.
-> >>>>>
-> >>>>>We also moved sk_refcnt out of the cache line containing the lookup
-> >>>>>keys, as it was considerably slowing down smp operations because
-> >>>>>of false sharing. This was simpler than converting listen sockets
-> >>>>>to conventional RCU (to avoid sk_refcnt dirtying)
-> >>>>>
-> >>>>>Could process 6.0 Mpps SYN instead of 4.2 Mpps on my test server.
-> >>>>>
-> >>>>Is this IPv4, IPv6, or some combination of the two ? :-)
-> >>>
-> >>>IPv4 only (mostly because I was using trafgen and its csumtcp() only
-> >>>deals with IPv4 and I am lazy)
-> >>
-> >>Agreed, will fix that in trafgen. ;) Thanks!
-> >
-> >Daniel, I'd have som preliminary patches for trafgen ready to introduce
-> >the csumudp6 and csumtcp6 trafgen helper functions (UDP/TCP checksum
-> >using IPv6 pseudo headers). If you want I can push them after some
-> >further testing later today.
-> 
-> Was off yesterday, so looks like you beat me to it. So, yes, perfect,
-> please do! :)
 
-csumudp6 and csumtcp6 for trafgen are now availble in the netsniff-ng
-git as of commit 19c15748 ("trafgen: Add checksum helpers for TCP/UDP
-over IPv6").
+
+
+I am Mrs Zaara Heyet an oil-servicing equipment merchant, am writing this
+mail to you with tears and love from my heart of charity work i could not
+fulfill before the end of my days due to my present healness ,Please do
+not think of this letter as one of those being sent around to ask for
+money,I got your email id from our chambers of commerce while searching
+for a reliable person to help me carry out this project.
+
+I have an urgent and confidential business proposition involving transfer
+of Nine Million $9,000.000.00 USD ,it will be of great benefit for both of
+us especially you as my days are number on earth. I will give you more
+details as regards this transaction as soon as you, reply me of your
+interest via my personal E-mail: geldkantornl@aim.com , Thanks for your
+interested .
+
+WARNING!!WARNING!!
+This winning notification is expected to be read and/or used only by the
+individual(s) for whom it is intended.:**************
