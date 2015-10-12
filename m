@@ -1,56 +1,88 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Mon, 12 Oct 2015 12:49:29 -0600
-Message-ID: <561C00B9.1020301@cumulusnetworks.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <m2a8rs7crl.wl@gmail.com> <20151009071710.GJ7701@secunet.com>
- <5617F908.8060807@cumulusnetworks.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [iproute2 PATCH] iplink: Support VF Trust
+Date: Mon, 12 Oct 2015 11:59:30 -0700
+Message-ID: <1444676370.2781.15.camel@intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05F42A95@BPXM14GP.gisp.nec.co.jp>
+	 <20151012095423.4feabde1@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hajime Tazaki <thehajime@gmail.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Jj/061SlDJjrhD4cDeIf"
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35894 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751535AbbJLSts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:49:48 -0400
-Received: by pacex6 with SMTP id ex6so6736265pac.3
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:49:47 -0700 (PDT)
-In-Reply-To: <5617F908.8060807@cumulusnetworks.com>
+Received: from mga02.intel.com ([134.134.136.20]:53909 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751081AbbJLS7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Oct 2015 14:59:46 -0400
+In-Reply-To: <20151012095423.4feabde1@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/9/15 11:27 AM, David Ahern wrote:
-> On 10/9/15 1:17 AM, Steffen Klassert wrote:
->>>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
->>>> index 30caa289c5db..5cedfda4b241 100644
->>>> --- a/net/ipv6/xfrm6_policy.c
->>>> +++ b/net/ipv6/xfrm6_policy.c
->>>> @@ -37,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct
->>>> net *net, int tos, int oif,
->>>>
->>>>       memset(&fl6, 0, sizeof(fl6));
->>>>       fl6.flowi6_oif = oif;
->>>> +    fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
->>>>       memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
->>>>       if (saddr)
->>>>           memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
->>>
->>> I found that this fix is still not sufficient with the mip6
->>> (Mobile IPv6) use case.
->>
->> It does not even fix the vti case. The behaviour of the vti devices is
->> the same, with and without the patch.
->>
->
-> The attached patch applied to Linus' tree works for me. Currently the
-> above change is not in his tree, so I added it to this patch. Once you
-> confirm that it works for you I'll create the delta-patch for net and
-> send out.
 
-Steffen: Have you had a chance to try the patch? Does it solve the vti6 
-problem for you?
+--=-Jj/061SlDJjrhD4cDeIf
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-David
+On Mon, 2015-10-12 at 09:54 -0700, Stephen Hemminger wrote:
+> On Wed, 7 Oct 2015 10:06:32 +0000
+> Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com> wrote:
+>=20
+> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> >=20
+> > Add IFLA_VF_TRUST message to trust the VF.
+> > PF can accept some privileged operation from the trusted VF.
+> > For example, ixgbe PF doesn't allow to enable VF promiscuous mode
+> until
+> > the VF is trusted because it may hurt performance.
+> >=20
+> > To trust VF.
+> >  # ip link set dev eth0 vf 1 trust on
+> >=20
+> > To untrust VF.
+> >  # ip link set dev eth0 vf 1 trust off
+> >=20
+> > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>=20
+> I am waiting until this is accepted into kernel before merging it
+> into iproute2.
+
+Yeah, I figured.  I had him resend it since our validation team did not
+have these changes available to test Hiroshi's latest set of
+driver/core changes.
+--=-Jj/061SlDJjrhD4cDeIf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWHAMSAAoJEOVv75VaS+3OB5oP/RDVbak7xMhyO2+ojDaYg/ei
+qiVq1fUs19IFY60akcGEjOfD4mcXqmmfBk9YIVMxmh8iOblqYennZin2zvr5Nyzq
+fzHzR0lVhDqnPAigBVwjJ31qWTa7eyl6G2I0DQW2Fx6SnZBkBiouxLvqpugSAb5t
+hT4xOm8IuG2Sg2El0WeJdXnPvPriR/xrtXgv6jRNC3AapJnD4wULkhF6ZH8DZb2L
+IP4i9CAncnjeUdXDLBk3WkiLVYT0XOuiOfY60wR6e8j7xrw7lqg8Thf0Gm/9o4my
+WRxTld5Jw/xDclT512GC0ezkzc0eB9M3dKjgEi7aXqznEhyyAU8MRAfvSia3ofQd
+ARbjO/3u1IFVpTRoQNxfJZUsgXDqZ2laWO0PHhdcLQ2GSc1QEJdbtA0JFtyDFQ++
+bhdibXC6ezB5RUrdV1mbbOYW/MHdjr7CBmyl6LbcBZ8k0oGwhZHYhzUndiHoOo+r
+v64TYBY8abQPA8bpnf18Izuwa260LHd9H+9nk1Hi697bIjuOpIltCi4XI66Yp9SE
+VLqOXEa87WMAwnMaHwJ1ndJ/kc0mo8ojBz6mqXMWxob6R/lIu0GdbQg7FNpyflaW
+smUrpVavf1RnES8gVz6izgg9SpT1vJXHWzd4vNoe71pdk3op4KDA1BDoOI14L0Bt
+dft9R7xUjOpU9uRRvuLr
+=sV9X
+-----END PGP SIGNATURE-----
+
+--=-Jj/061SlDJjrhD4cDeIf--
