@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] sfc: replace spinlocks with bit ops for
- busy poll locking
-Date: Mon, 12 Oct 2015 05:31:39 -0700 (PDT)
-Message-ID: <20151012.053139.813936137450671826.davem@davemloft.net>
-References: <56178680.9020702@solarflare.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
+Date: Mon, 12 Oct 2015 14:17:16 +0200
+Message-ID: <20151012121715.GD2370@nanopsycho.orion>
+References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+ <1444651299-2813-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sfeldma@gmail.com,
+	vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36173 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbbJLMPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:15:51 -0400
-In-Reply-To: <56178680.9020702@solarflare.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33809 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173AbbJLMRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:17:23 -0400
+Received: by wicgb1 with SMTP id gb1so48000836wic.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 05:17:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1444651299-2813-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 9 Oct 2015 10:18:56 +0100
+Mon, Oct 12, 2015 at 02:01:39PM CEST, razor@blackwall.org wrote:
+>From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+>We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
+>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
->  static void efx_remove_port(struct efx_nic *efx);
-> -static void efx_init_napi_channel(struct efx_channel *channel);
-> +static int efx_init_napi_channel(struct efx_channel *channel);
-
-The changes to modify the call chain to return a status code is
-completely unnecessary, and distracts from the core of what this
-patch is actually doing.
-
-Nothing signals an error, all of these code paths return '0',
-so it's pointless to return a status or check such statuses.
+Acked-by: Jiri Pirko <jiri@mellanox.com>
