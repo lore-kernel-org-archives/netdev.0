@@ -1,163 +1,100 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: switchdev and VLAN ranges
-Date: Mon, 12 Oct 2015 12:15:58 +0200
-Message-ID: <561B885E.7070606@cumulusnetworks.com>
-References: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
- <BF3B1B92-E7B5-4C49-9B56-FBD36E546F28@mellanox.com>
- <5618EA2A.3020900@cumulusnetworks.com>
- <20151011071208.GA2188@nanopsycho.orion> <20151011224125.GB21128@ketchup.lan>
- <561AFB2C.2010603@cumulusnetworks.com>
- <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Mon, 12 Oct 2015 10:41:06 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02877311@BPXM09GP.gisp.nec.co.jp>
+References: <20151009211819.GE8188@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Jiri Pirko <jiri@resnulli.us>, Elad Raz <eladr@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:32904 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbbJLKQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 06:16:01 -0400
-Received: by wicge5 with SMTP id ge5so11347534wic.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 03:16:00 -0700 (PDT)
-In-Reply-To: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151009211819.GE8188-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Content-Language: ja-JP
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/12/2015 07:14 AM, Scott Feldman wrote:
-> On Sun, Oct 11, 2015 at 5:13 PM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com> wrote:
->> On 10/12/2015 12:41 AM, Vivien Didelot wrote:
->>> On Oct. Sunday 11 (41) 09:12 AM, Jiri Pirko wrote:
->>>> Sat, Oct 10, 2015 at 12:36:26PM CEST, nikolay@cumulusnetworks.com =
-wrote:
->>>>> On 10/10/2015 09:49 AM, Elad Raz wrote:
->>>>>>
->>>>>>> On Oct 10, 2015, at 2:30 AM, Vivien Didelot <vivien.didelot@sav=
-oirfairelinux.com> wrote:
->>>>>>>
->>>>>>> I have two concerns in mind:
->>>>>>>
->>>>>>> a) if we imagine that drivers like Rocker allocate memory in th=
-e prepare
->>>>>>> phase for each VID, preparing a range like 100-4000 would defin=
-itely not
->>>>>>> be recommended.
->>>>>>>
->>>>>>> b) imagine that you have two Linux bridges on a switch, one usi=
-ng the
->>>>>>> hardware VLAN 100. If you request the VLAN range 99-101 for the=
- other
->>>>>>> bridge members, it is not possible for the driver to say "I can
->>>>>>> accelerate VLAN 99 and 101, but not 100". It must return OPNOTS=
-UPP for
->>>>>>> the whole range.
->>>>>>
->>>>>> Another concern I have with vid_being..vid_end range is the =E2=80=
-=9Cflags=E2=80=9D. Where flags can be BRIDGE_VLAN_INFO_PVID.
->>>>>> There is no sense having more than one VLAN as a PVID.
->>>>>> This leave the HW vendor the choice which VLAN id they will use =
-as the PVID.
->>>>>>
->>>>>
->>>>> iproute2 doesn't allow to do it but I can see that someone can ac=
-tually make it
->>>>> so the flags for the range have it and it doesn't look correct. P=
-erhaps we need
->>>>> something like the patch below to enforce this from kernel-side.
->>>>>
->>>>>
->>>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>>>> index d78b4429505a..02b17b53e9a6 100644
->>>>> --- a/net/bridge/br_netlink.c
->>>>> +++ b/net/bridge/br_netlink.c
->>>>> @@ -524,6 +524,9 @@ static int br_afspec(struct net_bridge *br,
->>>>>                     if (vinfo_start)
->>>>>                             return -EINVAL;
->>>>>                     vinfo_start =3D vinfo;
->>>>> +                   /* don't allow range of pvids */
->>>>> +                   if (vinfo_start->flags & BRIDGE_VLAN_INFO_PVI=
-D)
->>>>> +                           return -EINVAL;
->>>>>                     continue;
->>>>>             }
->>>>>
->>>>
->>>> Looks correct to me. Could you please submit this properly? Thanks=
-!
->>>
->>> The above patch is correct, but we only solve part of the problem, =
-since
->>> the range and bridge flags are exposed by switchdev_obj_port_vlan a=
-s is.
->>>
->>> Thanks,
->>> -v
->>>
->>
->> Yes, the above fixes the bridge side. About the switchdev side it se=
-ems like it's
->> up to the switchdev driver to do the right thing in its switchdev_op=
-s. I took a
->> quick look at DSA and it seems correct, the flag isn't saved and on =
-dump request
->> the flags are generated so it shouldn't be possible to export multip=
-le pvids.
->> But switchdev_port_br_afspec() seems problematic, in fact I don't ev=
-en see a vlan
->> id check, i.e. =3D=3D0 || >=3D VLAN_N_MASK.
->> Of course, I might be totally off point as I'm not that familiar wit=
-h switchdev and
->> it's very late. :-)
->> But maybe it needs something like:
->>
->> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> index 6e4a4f9ad927..3dd52a53867f 100644
->> --- a/net/switchdev/switchdev.c
->> +++ b/net/switchdev/switchdev.c
->> @@ -16,6 +16,7 @@
->>  #include <linux/notifier.h>
->>  #include <linux/netdevice.h>
->>  #include <linux/if_bridge.h>
->> +#include <linux/if_vlan.h>
->>  #include <linux/list.h>
->>  #include <net/ip_fib.h>
->>  #include <net/switchdev.h>
->> @@ -716,10 +717,14 @@ static int switchdev_port_br_afspec(struct net=
-_device *dev,
->>                         return -EINVAL;
->>                 vinfo =3D nla_data(attr);
->>                 vlan.flags =3D vinfo->flags;
->> +               if (!vinfo->vid || vinfo->vid >=3D VLAN_VID_MASK)
->> +                        return -EINVAL;
->>                 if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
->>                         if (vlan.vid_begin)
->>                                 return -EINVAL;
->>                         vlan.vid_begin =3D vinfo->vid;
->> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
->> +                               return -EINVAL;
->>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END=
-) {
->>                         if (!vlan.vid_begin)
->>                                 return -EINVAL;
->=20
-> This (and you other patch) seem right to me, if we're going to block
-> setting PVID when specifying a vlan range.  Would you mind combining
-> and resending both patches as one as a proper patch?
->=20
+J. Bruce Fields wrote:
+> On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+>> Neil Brown wrote:
+>> > Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org> writes:
+>> > 
+>> >> There are several places in net/sunrpc/svcsock.c which calls
+>> >> waitqueue_active() without calling a memory barrier.  Add a memory
+>> >> barrier just as in wq_has_sleeper().
+>> >>
+>> >> I found this issue when I was looking through the linux source code
+>> >> for places calling waitqueue_active() before wake_up*(), but without
+>> >> preceding memory barriers, after sending a patch to fix a similar
+>> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+>> >> found here: https://lkml.org/lkml/2015/9/28/849).
+>> > 
+>> > hi,
+>> > this feels like the wrong approach to the problem.  It requires extra
+>> > 'smb_mb's to be spread around which are hard to understand as easy to
+>> > forget.
+>> > 
+>> > A quick look seems to suggest that (nearly) every waitqueue_active()
+>> > will need an smb_mb.  Could we just put the smb_mb() inside
+>> > waitqueue_active()??
+>> <snip>
+>> 
+>> There are around 200 occurrences of waitqueue_active() in the kernel
+>> source, and most of the places which use it before wake_up are either
+>> protected by some spin lock, or already has a memory barrier or some
+>> kind of atomic operation before it.
+>> 
+>> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+>> many cases and won't be a good idea.
+>> 
+>> Another way to solve this problem is to remove the waitqueue_active(),
+>> making the code look like this;
+>> 	if (wq)
+>> 		wake_up_interruptible(wq);
+>> This also fixes the problem because the spinlock in the wake_up*() acts
+>> as a memory barrier and prevents the code from being reordered by the
+>> CPU (and it also makes the resulting code is much simpler).
+> 
+> I might not care which we did, except I don't have the means to test
+> this quickly, and I guess this is some of our most frequently called
+> code.
+> 
+> I suppose your patch is the most conservative approach, as the
+> alternative is a spinlock/unlock in wake_up_interruptible, which I
+> assume is necessarily more expensive than an smp_mb().
+> 
+> As far as I can tell it's been this way since forever.  (Well, since a
+> 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+> removed some spinlocks from the data_ready routines.)
+> 
+> I don't understand what the actual race is yet (which code exactly is
+> missing the wakeup in this case?  nfsd threads seem to instead get
+> woken up by the wake_up_process() in svc_xprt_do_enqueue().)
 
-Thanks for the review, I'll prepare a small set as I'd like to keep the=
-se
-separate since they touch two different subsystems and will re-post.
-I'll target net-next with the pvid range change and -net with the vlan
-range check patch. Does this sound okay ?
+Thank you for the reply.  I tried looking into this.
 
-Thanks,
- Nik
+The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
+svc_udp_init(), which are both called from svc_setup_socket().
+svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
+callback port related code.
+
+Maybe I'm wrong, but there might not be any kernel code that is using
+the socket's wait queue in this case.
+
+Best regards.
+---
+Kosuke TATSUKAWA  | 3rd IT Platform Department
+                  | IT Platform Division, NEC Corporation
+                  | tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
