@@ -1,38 +1,54 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH iproute2 v2] bridge: add batch command support
-Date: Mon, 12 Oct 2015 09:40:50 +0200
-Message-ID: <CADdy8Hp4mpkjk2ir96A8LK09PCieSS7exx2sOahLr-m4nJqLgQ@mail.gmail.com>
-References: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wkok@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Sathya Perla <sathya.perla@avagotech.com>
+Subject: [PATCH 1/5] be2net: fix BE3-R FW download compatibility check
+Date: Mon, 12 Oct 2015 03:47:17 -0400
+Message-ID: <1444636041-4727-2-git-send-email-sathya.perla@avagotech.com>
+References: <1444636041-4727-1-git-send-email-sathya.perla@avagotech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:34906 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbbJLHkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 03:40:51 -0400
-Received: by iofl186 with SMTP id l186so62148045iof.2
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 00:40:50 -0700 (PDT)
-In-Reply-To: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:50637 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751779AbbJLH5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 03:57:22 -0400
+In-Reply-To: <1444636041-4727-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-10-11 23:03 GMT+02:00 Roopa Prabhu <roopa@cumulusnetworks.com>:
-> From: Wilson Kok <wkok@cumulusnetworks.com>
->
-> This patch adds support to batch bridge commands.
-> Follows ip batch code.
->
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Acked-by: Christophe Gouault <christophe.gouault@6wind.com>
-> ---
-> v2 - change tab to space in usage as pointed out by Christophe Gouault
+From: Kalesh AP <kalesh.purayil@avagotech.com>
 
-No more comments on this patch, looks good to me.
+In the BE3 FW image, unlike Skyhawk's, the "asic_type_rev" field doesn't
+track the asic_rev of chip it is compatible with. When asic_type_rev
+is 0 the image is compatible only with pre-BE3-R chips (asic_rev < 0x10).
+Fix the current compatibility check to take care of this.
+We hit this issue when we try to flash old BE3 images (used prior to the
+release of BE3-R) on pre-BE3-R adapters.
 
-Best Regards,
-Christophe
+Fixes: a6e6ff6eee12f3e ("be2net: simplify UFI compatibility checking")
+Signed-off-by: Kalesh AP <kalesh.purayil@avagotech.com>
+Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 7bf51a1..86eed47 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4999,7 +4999,15 @@ static bool be_check_ufi_compatibility(struct be_adapter *adapter,
+ 		return false;
+ 	}
+ 
+-	return (fhdr->asic_type_rev >= adapter->asic_rev);
++	/* In BE3 FW images the "asic_type_rev" field doesn't track the
++	 * asic_rev of the chips it is compatible with.
++	 * When asic_type_rev is 0 the image is compatible only with
++	 * pre-BE3-R chips (asic_rev < 0x10)
++	 */
++	if (BEx_chip(adapter) && fhdr->asic_type_rev == 0)
++		return adapter->asic_rev < 0x10;
++	else
++		return (fhdr->asic_type_rev >= adapter->asic_rev);
+ }
+ 
+ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
+-- 
+2.4.1
