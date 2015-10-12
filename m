@@ -1,51 +1,56 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH 3/5] be2net: pad skb to meet minimum TX pkt size in BE3
-Date: Mon, 12 Oct 2015 03:47:19 -0400
-Message-ID: <1444636041-4727-4-git-send-email-sathya.perla@avagotech.com>
-References: <1444636041-4727-1-git-send-email-sathya.perla@avagotech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:50637 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751779AbbJLH5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 03:57:24 -0400
-In-Reply-To: <1444636041-4727-1-git-send-email-sathya.perla@avagotech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [4.1.3-rt8] [report][cpuhotplug] BUG: spinlock bad magic on
+ CPU#0, sh/137
+Date: Mon, 12 Oct 2015 10:16:17 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1510120952560.6097@nanos>
+References: <5617CE6D.9060800@ti.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-rt-users@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5617CE6D.9060800@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Suresh Reddy <Suresh.Reddy@avagotech.com>
+On Fri, 9 Oct 2015, Grygorii Strashko wrote:
+> I can constantly see below error report with 4.1 RT-kernel on TI ARM dra7-evm 
+> if I'm trying to unplug cpu1:
+> 
+> [   57.737589] CPU1: shutdown
+> [   57.767537] BUG: spinlock bad magic on CPU#0, sh/137
+> [   57.767546]  lock: 0xee994730, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
 
-On BE3 chips in SRIOV configs, the TX path stalls when a packet less
-than 32B is received from the host. A workaround to pad such packets
-already exists for the Skyhawk and Lancer chips. Use the same workaround
-for BE3 chips too.
+> It looks like this backtrace was introduces by 
+> 
+> commit 91df05da13a6c6c358e71182e80f19f3c48d1615
+> net: Use skbufhead with raw lock
+>
+> I see the potential fix for this issue as below: 
+> 
+> index 4969c0d..f8c23de 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -7217,7 +7217,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+>                 netif_rx_ni(skb);
+>                 input_queue_head_incr(oldsd);
+>         }
+> -       while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
+> +       while ((skb = __skb_dequeue(&oldsd->input_pkt_queue))) {
 
-Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
-Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+Your patch is white space damaged ....
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 86eed47..821e014 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1123,11 +1123,12 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
- 					   struct sk_buff *skb,
- 					   struct be_wrb_params *wrb_params)
- {
--	/* Lancer, SH-R ASICs have a bug wherein Packets that are 32 bytes or
--	 * less may cause a transmit stall on that port. So the work-around is
--	 * to pad short packets (<= 32 bytes) to a 36-byte length.
-+	/* Lancer, SH and BE3 in SRIOV mode have a bug wherein
-+	 * packets that are 32b or less may cause a transmit stall
-+	 * on that port. The workaround is to pad such packets
-+	 * (len <= 32 bytes) to a minimum length of 36b.
- 	 */
--	if (unlikely(!BEx_chip(adapter) && skb->len <= 32)) {
-+	if (skb->len <= 32) {
- 		if (skb_put_padto(skb, 36))
- 			return NULL;
- 	}
--- 
-2.4.1
+>                 netif_rx_ni(skb);
+>                 input_queue_head_incr(oldsd);
+>         }
+> 
+> input_pkt_queue is per-cpu queue and at this moment cpu is dead already,
+> so no one should touch it. But I'm not sure if my assumption is correct.
+
+It is. Picking it up for the next release
+
+Thanks,
+
+	tglx
