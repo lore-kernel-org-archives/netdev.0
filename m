@@ -1,42 +1,69 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next 4/4] bridge: vlan: combine (br|nbp)_vlan_flush
- into one
-Date: Mon, 12 Oct 2015 20:51:56 +0300
-Message-ID: <20151012175156.GA16784@colbert.mtl.com>
-References: <1444650069-32572-1-git-send-email-razor@blackwall.org>
- <1444650069-32572-5-git-send-email-razor@blackwall.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <shm@cumulusnetworks.com>,
-	<roopa@cumulusnetworks.com>, <stephen@networkplumber.org>,
-	<bridge@lists.linux-foundation.org>, <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>, <sfeldma@gmail.com>,
-	<vivien.didelot@savoirfairelinux.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v4 0/7] switchdev: change locking
+Date: Mon, 12 Oct 2015 19:54:20 +0200
+Message-ID: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0073.outbound.protection.outlook.com ([157.55.234.73]:50309
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752018AbbJLRwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2015 13:52:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1444650069-32572-5-git-send-email-razor@blackwall.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36983 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529AbbJLRya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 13:54:30 -0400
+Received: by wijq8 with SMTP id q8so69158462wij.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 10:54:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 12, 2015 at 02:41:09PM IDT, razor@blackwall.org wrote:
->From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->
->As Ido Schimmel pointed out the vlan_vid_del() loop in nbp_vlan_flush is
->unnecessary (and is actually a remnant of the old vlan code) so we can
->remove it and combine both br/nbp vlan_flush functions into one.
-Just a small note to Scott and Vivien:
+From: Jiri Pirko <jiri@mellanox.com>
 
-One of the side effects of Nik's recent patchsets is that when VLANs are
-flushed on a port the deletion is propagated to the driver via
-switchdev ops, as __vlan_vid_del is called.
+This is something which I'm currently struggling with.
+Callers of attr_set and obj_add/del often hold not only RTNL, but also
+spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
 
-Therefore there is no need to do internal bookkeeping and remove VLANs
-yourself when port is removed from bridge.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+The way rocker is dealing with this now is just to invoke driver operation
+and go out, without any checking or reporting of the operation status.
+
+Since it would be nice to at least put a warning in case the operation fails,
+it makes sense to do this in delayed work directly in switchdev core
+instead of implementing this in separate drivers. And that is what this patchset
+is introducing.
+
+So from now on, the locking of switchdev mod ops is consistent. Caller either
+holds rtnl mutex or in case it does not, caller sets defer flag, telling
+switchdev core to process the op later in delayed work.
+
+Flush function for switchdev deferred ops can be called by op
+caller in appropriate location, for example after it releases
+spin lock, to force switchdev core to process pending ops.
+
+v1->v2:
+- rebased on current net-next head (including Scott's ageing patchset)
+v2->v3:
+- fixed comment s/of/or/ typo suggested by Nik
+v3->v4:
+- the actual patchset is sent instead of different branch I send in v3 :/
+
+Jiri Pirko (7):
+  switchdev: introduce switchdev workqueue
+  switchdev: allow caller to explicitly request attr_set as deferred
+  switchdev: remove pointers from switchdev objects
+  switchdev: introduce possibility to defer obj_add/del
+  bridge: defer switchdev fdb del call in fdb_del_external_learn
+  rocker: remove nowait from switchdev callbacks.
+  switchdev: assert rtnl mutex when going over lower netdevs
+
+ drivers/net/ethernet/rocker/rocker.c |  13 +-
+ include/net/switchdev.h              |  14 +-
+ net/bridge/br_fdb.c                  |   7 +-
+ net/bridge/br_if.c                   |   3 +
+ net/bridge/br_stp.c                  |   3 +-
+ net/dsa/slave.c                      |   2 +-
+ net/switchdev/switchdev.c            | 289 ++++++++++++++++++++++++-----------
+ 7 files changed, 231 insertions(+), 100 deletions(-)
+
+-- 
+1.9.3
