@@ -1,107 +1,50 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 1/4] net: Add IPv6 support to l3mdev
-Date: Mon, 12 Oct 2015 11:47:07 -0700
-Message-ID: <1444675630-42959-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 2/4] net: Export fib6_get_table and nd_tbl
+Date: Mon, 12 Oct 2015 11:47:08 -0700
+Message-ID: <1444675630-42959-3-git-send-email-dsa@cumulusnetworks.com>
 References: <1444675630-42959-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36182 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751535AbbJLSrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:47:17 -0400
-Received: by pacex6 with SMTP id ex6so6690834pac.3
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:47:17 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34584 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbbJLSrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:47:19 -0400
+Received: by padhy16 with SMTP id hy16so160542536pad.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:47:19 -0700 (PDT)
 In-Reply-To: <1444675630-42959-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add operations to retrieve cached IPv6 dst entry from l3mdev device
-and lookup IPv6 source address.
-
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/l3mdev.h | 46 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
+ net/ipv6/ip6_fib.c | 1 +
+ net/ipv6/ndisc.c   | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index 44a19a171104..774d85b2d5d9 100644
---- a/include/net/l3mdev.h
-+++ b/include/net/l3mdev.h
-@@ -19,14 +19,22 @@
-  * @l3mdev_get_rtable: Get cached IPv4 rtable (dst_entry) for device
-  *
-  * @l3mdev_get_saddr: Get source address for a flow
-+ *
-+ * @l3mdev_get_rt6_dst: Get cached IPv6 rt6_info (dst_entry) for device
-  */
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 7d2e0023c72d..09fddf70cca4 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -264,6 +264,7 @@ struct fib6_table *fib6_get_table(struct net *net, u32 id)
  
- struct l3mdev_ops {
- 	u32		(*l3mdev_fib_table)(const struct net_device *dev);
-+
-+	/* IPv4 ops */
- 	struct rtable *	(*l3mdev_get_rtable)(const struct net_device *dev,
- 					     const struct flowi4 *fl4);
- 	void		(*l3mdev_get_saddr)(struct net_device *dev,
- 					    struct flowi4 *fl4);
-+
-+	/* IPv6 ops */
-+	struct dst_entry * (*l3mdev_get_rt6_dst)(const struct net_device *dev,
-+						 const struct flowi6 *fl6);
- };
- 
- #ifdef CONFIG_NET_L3_MASTER_DEV
-@@ -123,6 +131,31 @@ static inline void l3mdev_get_saddr(struct net *net, int ifindex,
- 	}
+ 	return NULL;
  }
++EXPORT_SYMBOL_GPL(fib6_get_table);
  
-+static inline struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
-+						   const struct flowi6 *fl6)
-+{
-+	if (netif_is_l3_master(dev) && dev->l3mdev_ops->l3mdev_get_rt6_dst)
-+		return dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
-+
-+	return NULL;
-+}
-+
-+static inline
-+struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
-+					const struct flowi6 *fl6)
-+{
-+	struct dst_entry *dst = NULL;
-+	struct net_device *dev;
-+
-+	dev = dev_get_by_index(net, fl6->flowi6_oif);
-+	if (dev) {
-+		dst = l3mdev_get_rt6_dst(dev, fl6);
-+		dev_put(dev);
-+	}
-+
-+	return dst;
-+}
-+
- #else
- 
- static inline int l3mdev_master_ifindex_rcu(struct net_device *dev)
-@@ -171,6 +204,19 @@ static inline void l3mdev_get_saddr(struct net *net, int ifindex,
- 				    struct flowi4 *fl4)
+ static void __net_init fib6_tables_init(struct net *net)
  {
- }
-+
-+static inline
-+struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
-+				     const struct flowi6 *fl6)
-+{
-+	return NULL;
-+}
-+static inline
-+struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
-+					const struct flowi6 *fl6)
-+{
-+	return NULL;
-+}
- #endif
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index b18012f9f9fc..9f8a82488223 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -147,6 +147,7 @@ struct neigh_table nd_tbl = {
+ 	.gc_thresh2 =	 512,
+ 	.gc_thresh3 =	1024,
+ };
++EXPORT_SYMBOL_GPL(nd_tbl);
  
- #endif /* _NET_L3MDEV_H_ */
+ static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
+ {
 -- 
 1.9.1
