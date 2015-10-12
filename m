@@ -1,109 +1,49 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 4/7] switchdev: introduce possibility to defer
- obj_add/del
-Date: Mon, 12 Oct 2015 16:46:53 +0200
-Message-ID: <561BC7DD.5020406@cumulusnetworks.com>
-References: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
- <1444655710-8279-5-git-send-email-jiri@resnulli.us>
- <561BC4F1.5080005@cumulusnetworks.com>
- <20151012144436.GE2370@nanopsycho.orion>
+From: Ben Cartwright-Cox <Ben@Benjojo.co.uk>
+Subject: [PATCH v2 net] raw: increment correct SNMP counters for ICMP
+ messages
+Date: Mon, 12 Oct 2015 14:53:24 +0000
+Message-ID: <20151012145324.GA17679@benjojo.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, vivien.didelot@savoirfairelinux.com,
-	andrew@lunn.ch, john.fastabend@gmail.com, David.Laight@ACULAB.COM,
-	stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35845 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678AbbJLOq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 10:46:56 -0400
-Received: by wicgb1 with SMTP id gb1so152124865wic.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 07:46:55 -0700 (PDT)
-In-Reply-To: <20151012144436.GE2370@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ben+patches@benjojo.co.uk,
+	dlstevens@us.ibm.com, eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/12/2015 04:44 PM, Jiri Pirko wrote:
-> Mon, Oct 12, 2015 at 04:34:25PM CEST, nikolay@cumulusnetworks.com wrote:
->> On 10/12/2015 03:15 PM, Jiri Pirko wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> Similar to the attr usecase, the caller knows if he is holding RTNL and is
->>> in atomic section. So let the called to decide the correct call variant.
->>>
->>> This allows drivers to sleep inside their ops and wait for hw to get the
->>> operation status. Then the status is propagated into switchdev core.
->>> This avoids silent errors in drivers.
->>>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>>  include/net/switchdev.h   |   1 +
->>>  net/switchdev/switchdev.c | 137 +++++++++++++++++++++++++++++++++++++---------
->>>  2 files changed, 112 insertions(+), 26 deletions(-)
->>>
->> [snip]
->>> +
->>> +struct switchdev_obj_work {
->>> +	struct work_struct work;
->>> +	struct net_device *dev;
->>> +	struct switchdev_obj obj;
->>> +	bool add; /* add of del */
->> s/of/or/ ? :-)
-> 
-> will fix, thanks.
-> 
-> 
->>
->>> +};
->>> +
->>> +static void switchdev_port_obj_work(struct work_struct *work)
->>> +{
->>> +	struct switchdev_obj_work *ow =
->>> +			container_of(work, struct switchdev_obj_work, work);
->>> +	bool rtnl_locked = rtnl_is_locked();
->>> +	int err;
->>> +
->>> +	if (!rtnl_locked)
->>> +		rtnl_lock();
->>> +	if (ow->add)
->>> +		err = switchdev_port_obj_add_now(ow->dev, &ow->obj);
->>> +	else
->>> +		err = switchdev_port_obj_del_now(ow->dev, &ow->obj);
->>> +	if (err && err != -EOPNOTSUPP)
->>> +		netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
->>> +			   err, ow->add ? "add" : "del", ow->obj.id);
->>> +	if (!rtnl_locked)
->>> +		rtnl_unlock();
->>> +
->>> +	dev_put(ow->dev);
->>> +	kfree(ow);
->>> +}
->>> +
->>> +static int switchdev_port_obj_work_schedule(struct net_device *dev,
->>> +					    const struct switchdev_obj *obj,
->>> +					    bool add)
->>> +{
->>> +	struct switchdev_obj_work *ow;
->>> +
->>> +	ow = kmalloc(sizeof(*ow), GFP_ATOMIC);
->>> +	if (!ow)
->>> +		return -ENOMEM;
->>> +
->>> +	INIT_WORK(&ow->work, switchdev_port_obj_work);
->>> +
->> This can be called without rtnl, what stops the device from disappearing
->> between the above and the hold below ?
-> 
-> You are right. I will have to figure that out. Btw the same issue
-> already exists for attr_set deferred work.
-> 
-> 
+Sending ICMP packets with raw sockets ends up in the SNMP counters
+logging the type as the first byte of the IPv4 header rather than
+the ICMP header. This is fixed by adding the IP Header Length to
+the casting into a icmphdr struct.
 
-I have to say there're a few users now that need delayed RTNL execution
-the bonding being a heavy one, teaming I think also has some rtnl delays.
-Maybe it's time we do a generic delayed rtnl execution so it can be re-used
-by all.
+Signed-off-by: Ben Cartwright-Cox <ben@benjojo.co.uk>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/raw.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 561cd4b..ef3c9ba 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -406,10 +406,12 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ 			ip_select_ident(net, skb, NULL);
+ 
+ 		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
++		skb->transport_header += iphlen;
++		if (iph->protocol == IPPROTO_ICMP &&
++		    length >= iphlen + sizeof(struct icmphdr))
++			icmp_out_count(net, ((struct icmphdr *)
++				skb_transport_header(skb))->type);
+ 	}
+-	if (iph->protocol == IPPROTO_ICMP)
+-		icmp_out_count(net, ((struct icmphdr *)
+-			skb_transport_header(skb))->type);
+ 
+ 	err = NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_OUT, sk, skb,
+ 		      NULL, rt->dst.dev, dst_output_sk);
+-- 
+1.9.1
