@@ -1,107 +1,47 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: [PATCH v2 2/2] net/fsl_pq_mdio: fix computed address for the TBI
- register
-Date: Mon, 12 Oct 2015 09:18:41 +0200
-Message-ID: <1444634321-14902-2-git-send-email-gerlando.falauto@keymile.com>
-References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
- <1444634321-14902-1-git-send-email-gerlando.falauto@keymile.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 0/3] net: Pass net into defragmentation
+Date: Mon, 12 Oct 2015 09:26:38 +0200
+Message-ID: <561B60AE.7010809@6wind.com>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+ <87pp1fpy1b.fsf@x220.int.ebiederm.org>
+ <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
+ <87si62gteh.fsf_-_@x220.int.ebiederm.org>
+ <877fn7eh2f.fsf_-_@x220.int.ebiederm.org>
+ <878u7fesrg.fsf_-_@x220.int.ebiederm.org>
+ <87bnca4aie.fsf_-_@x220.int.ebiederm.org>
+ <87fv1jyjcj.fsf_-_@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: bigeasy@linutronix.de, "David S. Miller" <davem@davemloft.net>,
- Gerlando Falauto <gerlando.falauto@keymile.com>, ogabbay@advaoptical.com
-To: netdev@vger.kernel.org, timur@tabi.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1444634321-14902-1-git-send-email-gerlando.falauto@keymile.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38158 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbbJLH0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 03:26:42 -0400
+Received: by wieq12 with SMTP id q12so6146140wie.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 00:26:41 -0700 (PDT)
+In-Reply-To: <87fv1jyjcj.fsf_-_@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Y29tbWl0IGFmYWU1YWQ3OGIzNDJmNDAxYzI4YjBiYjFhZGIzY2Q0OTRjYjEyNWEKICAibmV0L2Zz
-bF9wcV9tZGlvOiBzdHJlYW1saW5lIHByb2Jpbmcgb2YgTURJTyBub2RlcyIKCmFkZGVkIHN1cHBv
-cnQgZm9yIGRpZmZlcmVudCB0eXBlcyBvZiBNRElPIGRldmljZXM6CjEpIEdpYW5mYXIgTURJTyBu
-b2RlcyB0aGF0IG9ubHkgbWFwIHRoZSBNSUkgcmVnaXN0ZXJzCjIpIEdpYW5mYXIgTURJTyBub2Rl
-cyB0aGF0IG1hcCB0aGUgZnVsbCBNRElPIHJlZ2lzdGVyIHNldAozKSBlVFNFQzIgTURJTyBub2Rl
-cyAod2hpY2ggbWFwIHRoZSBmdWxsIE1ESU8gcmVnaXN0ZXIgc2V0KQo0KSBRRSBNRElPIG5vZGVz
-ICh3aGljaCBtYXAgb25seSB0aGUgTUlJIHJlZ2lzdGVycykKCkhvd2V2ZXIsIHRoZSBpbXBsZW1l
-bnRhdGlvbiBmb3IgdHlwZXMgMSBhbmQgNCB3b3VsZCBtaXN0YWtlbmx5IGFzc3VtZQphIG1hcHBp
-bmcgb2YgdGhlIGZ1bGwgTURJTyByZWdpc3RlciBzZXQsIHRoZXJlYnkgY29tcHV0aW5nIHRoZSBh
-ZGRyZXNzCmZvciB0aGUgVEJJIHJlZ2lzdGVyIHN0YXJ0aW5nIGZyb20gdGhlIGNvbnRhaW5pbmcg
-c3RydWN0dXJlLgpUaGUgVEJJIHJlZ2lzdGVyIHdvdWxkIHRoZXJlZm9yZSBiZSBhY2Nlc3NlZCBh
-dCBhIHdyb25nIChtdWNoIGJpZ2dlcikKYWRkcmVzcywgbm90IGdpdmluZyB0aGUgZXhwZWN0ZWQg
-cmVzdWx0IGF0IGFsbC4KVGhpcyBwYXRjaCByZXN0b3JlcyB0aGUgY29ycmVjdCBiZWhhdmlvciB3
-ZSBoYWQgcHJpb3IgdG8gdGhlIGFib3ZlIG9uZS4KClRoZSBjb25zZXF1ZW5jZXMgb2YgdGhpcyBi
-dWcgYXJlIGFwcGFyZW50IHdoZW4gdHJ5aW5nIHRvIGFjY2VzcyBhIFBIWQp3aXRoIHRoZSBzYW1l
-IGFkZHJlc3MgYXMgdGhlIHZhbHVlIGNvbnRhaW5lZCBpbiB0aGUgaW5pdGlhbCB2YWx1ZSBvZgp0
-aGUgVEJJIHJlZ2lzdGVyIChub3JtYWxseSAwKTsgaW4gdGhhdCBjYXNlIHlvdSdsbCBnZXQgYW5z
-d2VycyBmcm9tIHRoZQppbnRlcm5hbCBUQkkgZGV2aWNlIChldmVuIHRob3VnaCBNRElPL01EQyBw
-aW5zIGFyZSBhY3R1YWxseSAqYWxzbyoKdG9nZ2xpbmcgb24gdGhlIHBoeXNpY2FsIGJ1cyEpLgpC
-ZXdhcmUgdGhhdCB5b3UgYWxzbyBuZWVkIHRvIGFkZCBhIGZha2UgdGJpIG5vZGUgdG8geW91ciBk
-ZXZpY2UgdHJlZQp3aXRoIGFuIHVudXNlZCBhZGRyZXNzLgoKTm90aWNlIGhvdyB0aGlzIGZpeCBp
-cyByZWxhdGVkIHRvIGNvbW1pdAoyMjA2Njk0OTViZjhiNjgxMzBhODIxODYwNzE0N2M3Yjc0YzI4
-ZDJiCiAgInBvd2VycGM6IEFkZCBUQkkgUEhZIG5vZGUgdG8gZmlyc3QgTURJTyBidXMiCgp3aGlj
-aCBmaXhlZCB0aGUgYmVoYXZpb3IgaW4ga2VybmVsIDMuMywgd2hpY2ggd2FzIGxhdGVyIGJyb2tl
-biBieSB0aGUKYWJvdmUgY29tbWl0IG9uIGtlcm5lbCAzLjcuCgpTaWduZWQtb2ZmLWJ5OiBHZXJs
-YW5kbyBGYWxhdXRvIDxnZXJsYW5kby5mYWxhdXRvQGtleW1pbGUuY29tPgpDYzogVGltdXIgVGFi
-aSA8dGltdXJAdGFiaS5vcmc+CkNjOiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+CkNjOiBLdW1hciBHYWxhIDxnYWxha0BrZXJuZWwuY3Jhc2hpbmcub3JnPgotLS0KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc2xfcHFfbWRpby5jIHwgMjQgKysrKysrKysrKysr
-KysrKysrLS0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgMTggaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlv
-bnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNsX3Bx
-X21kaW8uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc2xfcHFfbWRpby5jCmlu
-ZGV4IDUzMzNkMGEuLjU1YzM2MjMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mc2xfcHFfbWRpby5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
-ZS9mc2xfcHFfbWRpby5jCkBAIC0xOTgsMTEgKzE5OCwxMyBAQCBzdGF0aWMgaW50IGZzbF9wcV9t
-ZGlvX3Jlc2V0KHN0cnVjdCBtaWlfYnVzICpidXMpCiAKICNpZiBkZWZpbmVkKENPTkZJR19HSUFO
-RkFSKSB8fCBkZWZpbmVkKENPTkZJR19HSUFORkFSX01PRFVMRSkKIC8qCisgKiBSZXR1cm4gdGhl
-IFRCSVBBIGFkZHJlc3MsIHN0YXJ0aW5nIGZyb20gdGhlIGFkZHJlc3MKKyAqIG9mIHRoZSBtYXBw
-ZWQgR0ZBUiBNRElPIHJlZ2lzdGVycyAoc3RydWN0IGdmYXIpCiAgKiBUaGlzIGlzIG1pbGRseSBl
-dmlsLCBidXQgc28gaXMgb3VyIGhhcmR3YXJlIGZvciBkb2luZyB0aGlzLgogICogQWxzbywgd2Ug
-aGF2ZSB0byBjYXN0IGJhY2sgdG8gc3RydWN0IGdmYXIgYmVjYXVzZSBvZgogICogZGVmaW5pdGlv
-biB3ZWlyZG5lc3MgZG9uZSBpbiBnaWFuZmFyLmguCiAgKi8KLXN0YXRpYyB1aW50MzJfdCBfX2lv
-bWVtICpnZXRfZ2Zhcl90YmlwYSh2b2lkIF9faW9tZW0gKnApCitzdGF0aWMgdWludDMyX3QgX19p
-b21lbSAqZ2V0X2dmYXJfdGJpcGFfZnJvbV9tZGlvKHZvaWQgX19pb21lbSAqcCkKIHsKIAlzdHJ1
-Y3QgZ2ZhciBfX2lvbWVtICplbmV0X3JlZ3MgPSBwOwogCkBAIC0yMTAsNiArMjEyLDE1IEBAIHN0
-YXRpYyB1aW50MzJfdCBfX2lvbWVtICpnZXRfZ2Zhcl90YmlwYSh2b2lkIF9faW9tZW0gKnApCiB9
-CiAKIC8qCisgKiBSZXR1cm4gdGhlIFRCSVBBIGFkZHJlc3MsIHN0YXJ0aW5nIGZyb20gdGhlIGFk
-ZHJlc3MKKyAqIG9mIHRoZSBtYXBwZWQgR0ZBUiBNSUkgcmVnaXN0ZXJzIChnZmFyX21paV9yZWdz
-W10gd2l0aGluIHN0cnVjdCBnZmFyKQorICovCitzdGF0aWMgdWludDMyX3QgX19pb21lbSAqZ2V0
-X2dmYXJfdGJpcGFfZnJvbV9taWkodm9pZCBfX2lvbWVtICpwKQoreworCXJldHVybiBnZXRfZ2Zh
-cl90YmlwYV9mcm9tX21kaW8oY29udGFpbmVyX29mKHAsIHN0cnVjdCBnZmFyLCBnZmFyX21paV9y
-ZWdzKSk7Cit9CisKKy8qCiAgKiBSZXR1cm4gdGhlIFRCSVBBUiBhZGRyZXNzIGZvciBhbiBlVFNF
-QzIgbm9kZQogICovCiBzdGF0aWMgdWludDMyX3QgX19pb21lbSAqZ2V0X2V0c2VjX3RiaXBhKHZv
-aWQgX19pb21lbSAqcCkKQEAgLTIyMCwxMSArMjMxLDEyIEBAIHN0YXRpYyB1aW50MzJfdCBfX2lv
-bWVtICpnZXRfZXRzZWNfdGJpcGEodm9pZCBfX2lvbWVtICpwKQogCiAjaWYgZGVmaW5lZChDT05G
-SUdfVUNDX0dFVEgpIHx8IGRlZmluZWQoQ09ORklHX1VDQ19HRVRIX01PRFVMRSkKIC8qCi0gKiBS
-ZXR1cm4gdGhlIFRCSVBBUiBhZGRyZXNzIGZvciBhIFFFIE1ESU8gbm9kZQorICogUmV0dXJuIHRo
-ZSBUQklQQVIgYWRkcmVzcyBmb3IgYSBRRSBNRElPIG5vZGUsIHN0YXJ0aW5nIGZyb20gdGhlIGFk
-ZHJlc3MKKyAqIG9mIHRoZSBtYXBwZWQgTUlJIHJlZ2lzdGVycyAoc3RydWN0IGZzbF9wcV9taWkp
-CiAgKi8KIHN0YXRpYyB1aW50MzJfdCBfX2lvbWVtICpnZXRfdWNjX3RiaXBhKHZvaWQgX19pb21l
-bSAqcCkKIHsKLQlzdHJ1Y3QgZnNsX3BxX21kaW8gX19pb21lbSAqbWRpbyA9IHA7CisJc3RydWN0
-IGZzbF9wcV9tZGlvIF9faW9tZW0gKm1kaW8gPSBjb250YWluZXJfb2YocCwgc3RydWN0IGZzbF9w
-cV9tZGlvLCBtaWkpOwogCiAJcmV0dXJuICZtZGlvLT51dGJpcGFyOwogfQpAQCAtMzAwLDE0ICsz
-MTIsMTQgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBvZl9kZXZpY2VfaWQgZnNsX3BxX21kaW9fbWF0
-Y2hbXSA9IHsKIAkJLmNvbXBhdGlibGUgPSAiZnNsLGdpYW5mYXItdGJpIiwKIAkJLmRhdGEgPSAm
-KHN0cnVjdCBmc2xfcHFfbWRpb19kYXRhKSB7CiAJCQkubWlpX29mZnNldCA9IDAsCi0JCQkuZ2V0
-X3RiaXBhID0gZ2V0X2dmYXJfdGJpcGEsCisJCQkuZ2V0X3RiaXBhID0gZ2V0X2dmYXJfdGJpcGFf
-ZnJvbV9taWksCiAJCX0sCiAJfSwKIAl7CiAJCS5jb21wYXRpYmxlID0gImZzbCxnaWFuZmFyLW1k
-aW8iLAogCQkuZGF0YSA9ICYoc3RydWN0IGZzbF9wcV9tZGlvX2RhdGEpIHsKIAkJCS5taWlfb2Zm
-c2V0ID0gMCwKLQkJCS5nZXRfdGJpcGEgPSBnZXRfZ2Zhcl90YmlwYSwKKwkJCS5nZXRfdGJpcGEg
-PSBnZXRfZ2Zhcl90YmlwYV9mcm9tX21paSwKIAkJfSwKIAl9LAogCXsKQEAgLTMxNSw3ICszMjcs
-NyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IG9mX2RldmljZV9pZCBmc2xfcHFfbWRpb19tYXRjaFtd
-ID0gewogCQkuY29tcGF0aWJsZSA9ICJnaWFuZmFyIiwKIAkJLmRhdGEgPSAmKHN0cnVjdCBmc2xf
-cHFfbWRpb19kYXRhKSB7CiAJCQkubWlpX29mZnNldCA9IG9mZnNldG9mKHN0cnVjdCBmc2xfcHFf
-bWRpbywgbWlpKSwKLQkJCS5nZXRfdGJpcGEgPSBnZXRfZ2Zhcl90YmlwYSwKKwkJCS5nZXRfdGJp
-cGEgPSBnZXRfZ2Zhcl90YmlwYV9mcm9tX21kaW8sCiAJCX0sCiAJfSwKIAl7Ci0tIAoxLjguMC4x
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBw
-Yy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8v
-bGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+Le 09/10/2015 20:42, Eric W. Biederman a =C3=A9crit :
+>
+> This is the next installment of my work to pass struct net through th=
+e
+> output path so the code does not need to guess how to figure out whic=
+h
+> network namespace it is in, and ultimately routes can have output
+> devices in another network namespace.
+>
+> In netfilter and af_packet we defragment packets in the output path,
+> and there is the usual amount of confusion about how to compute which
+> net we are processing the packets in.  This patchset clears that
+> confusion up by explicitly passing in struct net in ip_defrag,
+> ip_check_defrag, and nf_ct_frag6_gather.
+
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
