@@ -1,100 +1,151 @@
-From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
-Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
- in sunrpc
-Date: Mon, 12 Oct 2015 10:41:06 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02877311@BPXM09GP.gisp.nec.co.jp>
-References: <20151009211819.GE8188@fieldses.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Use-after-free in ep_remove_wait_queue
+Date: Mon, 12 Oct 2015 13:07:55 +0200
+Message-ID: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151009211819.GE8188-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Content-Language: ja-JP
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>, Kees Cook <keescook@google.com>
+To: Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-J. Bruce Fields wrote:
-> On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
->> Neil Brown wrote:
->> > Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org> writes:
->> > 
->> >> There are several places in net/sunrpc/svcsock.c which calls
->> >> waitqueue_active() without calling a memory barrier.  Add a memory
->> >> barrier just as in wq_has_sleeper().
->> >>
->> >> I found this issue when I was looking through the linux source code
->> >> for places calling waitqueue_active() before wake_up*(), but without
->> >> preceding memory barriers, after sending a patch to fix a similar
->> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
->> >> found here: https://lkml.org/lkml/2015/9/28/849).
->> > 
->> > hi,
->> > this feels like the wrong approach to the problem.  It requires extra
->> > 'smb_mb's to be spread around which are hard to understand as easy to
->> > forget.
->> > 
->> > A quick look seems to suggest that (nearly) every waitqueue_active()
->> > will need an smb_mb.  Could we just put the smb_mb() inside
->> > waitqueue_active()??
->> <snip>
->> 
->> There are around 200 occurrences of waitqueue_active() in the kernel
->> source, and most of the places which use it before wake_up are either
->> protected by some spin lock, or already has a memory barrier or some
->> kind of atomic operation before it.
->> 
->> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
->> many cases and won't be a good idea.
->> 
->> Another way to solve this problem is to remove the waitqueue_active(),
->> making the code look like this;
->> 	if (wq)
->> 		wake_up_interruptible(wq);
->> This also fixes the problem because the spinlock in the wake_up*() acts
->> as a memory barrier and prevents the code from being reordered by the
->> CPU (and it also makes the resulting code is much simpler).
-> 
-> I might not care which we did, except I don't have the means to test
-> this quickly, and I guess this is some of our most frequently called
-> code.
-> 
-> I suppose your patch is the most conservative approach, as the
-> alternative is a spinlock/unlock in wake_up_interruptible, which I
-> assume is necessarily more expensive than an smp_mb().
-> 
-> As far as I can tell it's been this way since forever.  (Well, since a
-> 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
-> removed some spinlocks from the data_ready routines.)
-> 
-> I don't understand what the actual race is yet (which code exactly is
-> missing the wakeup in this case?  nfsd threads seem to instead get
-> woken up by the wake_up_process() in svc_xprt_do_enqueue().)
+Hello,
 
-Thank you for the reply.  I tried looking into this.
+The following program causes use-after-in kernel:
 
-The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
-svc_udp_init(), which are both called from svc_setup_socket().
-svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
-callback port related code.
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#include <syscall.h>
+#include <string.h>
+#include <stdint.h>
 
-Maybe I'm wrong, but there might not be any kernel code that is using
-the socket's wait queue in this case.
+int main()
+{
+        long r0 = syscall(SYS_mmap, 0x20001000ul, 0x1000ul, 0x3ul,
+0x32ul, 0xfffffffffffffffful, 0x0ul);
+        long r1 = syscall(SYS_mmap, 0x20000000ul, 0x1000ul, 0x3ul,
+0x32ul, 0xfffffffffffffffful, 0x0ul);
+        long r2 = syscall(SYS_socketpair, 0x1ul, 0x3ul, 0x1ul, 0x20000ffcul);
+        long r3 = -1;
+        if (r2 != -1)
+                r3 = *(uint32_t*)0x20000ffc;
+        long r4 = -1;
+        if (r2 != -1)
+                r4 = *(uint32_t*)0x20001000;
+        long r5 = syscall(SYS_epoll_create, 0x1ul);
+        long r6 = syscall(SYS_mmap, 0x20003000ul, 0x1000ul, 0x3ul,
+0x32ul, 0xfffffffffffffffful, 0x0ul);
+        long r7 = syscall(SYS_dup3, r4, r3, 0x80000ul);
+        *(uint32_t*)0x20003000 = 0x6;
+        *(uint32_t*)0x20003004 = 0x2;
+        *(uint64_t*)0x20003008 = 0x6;
+        long r11 = syscall(SYS_epoll_ctl, r5, 0x1ul, r3, 0x20003000ul);
+        long r12 = syscall(SYS_mmap, 0x20002000ul, 0x1000ul, 0x3ul,
+0x32ul, 0xfffffffffffffffful, 0x0ul);
+        memcpy((void*)0x20002000, "\x00", 1);
+        long r14 = syscall(SYS_write, r7, 0x20002000ul, 0x1ul);
+        *(uint64_t*)0x20001a4d = 0x5;
+        long r16 = syscall(SYS_epoll_pwait, r5, 0x20004000ul, 0x1ul,
+0x1ul, 0x20001a4dul, 0x8ul);
+        return 0;
+}
 
-Best regards.
----
-Kosuke TATSUKAWA  | 3rd IT Platform Department
-                  | IT Platform Division, NEC Corporation
-                  | tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+on commit bcee19f424a0d8c26ecf2607b73c690802658b29
+(git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git)
+
+BUG: KASan: use after free in remove_wait_queue+0xfb/0x120 at addr
+ffff88002db3cf50
+Write of size 8 by task syzkaller_execu/10568
+================================================================
+BUG UNIX (Not tainted): kasan: bad access detected
+-----------------------------------------------------------------------------
+
+Call Trace:
+ [<     inline     >] __list_del include/linux/list.h:89
+ [<     inline     >] list_del include/linux/list.h:107
+ [<     inline     >] __remove_wait_queue include/linux/wait.h:145
+ [<ffffffff811bfbab>] remove_wait_queue+0xfb/0x120 kernel/sched/wait.c:50
+ [<     inline     >] ep_remove_wait_queue fs/eventpoll.c:524
+ [<ffffffff8154094b>] ep_unregister_pollwait.isra.7+0x10b/0x1c0
+fs/eventpoll.c:542
+ [<ffffffff81541417>] ep_free+0x97/0x190 fs/eventpoll.c:759 (discriminator 3)
+ [<ffffffff81541554>] ep_eventpoll_release+0x44/0x60 fs/eventpoll.c:791
+ [<ffffffff814772ad>] __fput+0x21d/0x6e0 fs/file_table.c:208
+ [<ffffffff814777f5>] ____fput+0x15/0x20 fs/file_table.c:244
+ [<ffffffff81150094>] task_work_run+0x164/0x1f0 kernel/task_work.c:115
+(discriminator 1)
+ [<     inline     >] exit_task_work include/linux/task_work.h:21
+ [<ffffffff810fe7ae>] do_exit+0xa4e/0x2d40 kernel/exit.c:746
+ [<ffffffff81104426>] do_group_exit+0xf6/0x340 kernel/exit.c:874
+ [<     inline     >] SYSC_exit_group kernel/exit.c:885
+ [<ffffffff8110468d>] SyS_exit_group+0x1d/0x20 kernel/exit.c:883
+ [<ffffffff82e424d1>] entry_SYSCALL_64_fastpath+0x31/0x95
+arch/x86/entry/entry_64.S:187
+
+INFO: Allocated in sk_prot_alloc+0x69/0x340 age=6 cpu=1 pid=10568
+[<      none      >] __slab_alloc+0x426/0x470 mm/slub.c:2402
+[<     inline     >] slab_alloc_node mm/slub.c:2470
+[<     inline     >] slab_alloc mm/slub.c:2512
+[<      none      >] kmem_cache_alloc+0x10d/0x140 mm/slub.c:2517
+[<      none      >] sk_prot_alloc+0x69/0x340 net/core/sock.c:1329
+[<      none      >] sk_alloc+0x33/0x280 net/core/sock.c:1404
+[<      none      >] unix_create1+0x5e/0x3d0 net/unix/af_unix.c:648
+[<      none      >] unix_create+0x14d/0x1f0 net/unix/af_unix.c:707
+[<      none      >] __sock_create+0x1f1/0x4c0 net/socket.c:1169
+[<     inline     >] sock_create net/socket.c:1209
+[<     inline     >] SYSC_socketpair net/socket.c:1281
+[<      none      >] SyS_socketpair+0x10f/0x4d0 net/socket.c:1260
+[<      none      >] entry_SYSCALL_64_fastpath+0x31/0x95
+arch/x86/entry/entry_64.S:187
+
+INFO: Freed in sk_destruct+0x2e9/0x400 age=9 cpu=1 pid=10568
+[<      none      >] __slab_free+0x12d/0x280 mm/slub.c:2587 (discriminator 1)
+[<     inline     >] slab_free mm/slub.c:2736
+[<      none      >] kmem_cache_free+0x161/0x180 mm/slub.c:2745
+[<     inline     >] sk_prot_free net/core/sock.c:1374
+[<      none      >] sk_destruct+0x2e9/0x400 net/core/sock.c:1452
+[<      none      >] __sk_free+0x57/0x200 net/core/sock.c:1460
+[<      none      >] sk_free+0x30/0x40 net/core/sock.c:1471
+[<     inline     >] sock_put include/net/sock.h:1593
+[<      none      >] unix_dgram_sendmsg+0xeaf/0x1100 net/unix/af_unix.c:1571
+[<     inline     >] sock_sendmsg_nosec net/socket.c:610
+[<      none      >] sock_sendmsg+0xca/0x110 net/socket.c:620
+[<      none      >] sock_write_iter+0x216/0x3a0 net/socket.c:819
+[<     inline     >] new_sync_write fs/read_write.c:478
+[<      none      >] __vfs_write+0x2ed/0x3d0 fs/read_write.c:491
+[<      none      >] vfs_write+0x173/0x4a0 fs/read_write.c:538
+[<     inline     >] SYSC_write fs/read_write.c:585
+[<      none      >] SyS_write+0x108/0x220 fs/read_write.c:577
+[<      none      >] entry_SYSCALL_64_fastpath+0x31/0x95
+arch/x86/entry/entry_64.S:187
+
+INFO: Slab 0xffffea0000b6ce00 objects=26 used=4 fp=0xffff88002db3cc00
+flags=0x100000000004080
+INFO: Object 0xffff88002db3cc00 @offset=19456 fp=0xffff88002db3c280
+CPU: 1 PID: 10568 Comm: syzkaller_execu Tainted: G    B           4.3.0-rc2+ #12
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff880026647a80 ffffffff81a425a0 ffff88002e17c000
+ ffff88002db3cc00 ffff88002db38000 ffff880026647ab0 ffffffff8145a554
+ ffff88002e17c000 ffffea0000b6ce00 ffff88002db3cc00 ffff88002db3cf40
+
+Memory state around the buggy address:
+ ffff88002db3ce00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff88002db3ce80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff88002db3cf00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                                 ^
+ ffff88002db3cf80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+ ffff88002db3d000: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+=========================================================
+
+Found with syzkaller fuzzer.
