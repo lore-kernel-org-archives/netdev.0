@@ -1,52 +1,67 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] switchdev: check if the vlan id is in the proper vlan range
-Date: Mon, 12 Oct 2015 14:31:01 +0200
-Message-ID: <1444653061-5850-1-git-send-email-razor@blackwall.org>
-Cc: jiri@resnulli.us, sfeldma@gmail.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:38201 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbbJLMbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:31:06 -0400
-Received: by wieq12 with SMTP id q12so18015916wie.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 05:31:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH v4 0/3] net: unix: fix use-after-free
+Date: Mon, 12 Oct 2015 13:54:02 +0100
+Message-ID: <87pp0ki6xh.fsf@doppelsaurus.mobileactivedefense.com>
+References: <cover.1444363559.git.jbaron@akamai.com>
+	<20151011.045557.2164838188213641141.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jbaron@akamai.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	rweikusat@mobileactivedefense.com, viro@zeniv.linux.org.uk,
+	davidel@xmailserver.org, dave@stgolabs.net, olivier@mauras.ch,
+	pageexec@freemail.hu, torvalds@linux-foundation.org,
+	peterz@infradead.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151011.045557.2164838188213641141.davem@davemloft.net> (David
+	Miller's message of "Sun, 11 Oct 2015 04:55:57 -0700 (PDT)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+David Miller <davem@davemloft.net> writes:
+> From: Jason Baron <jbaron@akamai.com>
+> Date: Fri,  9 Oct 2015 00:15:59 -0400
+>
+>> These patches are against mainline, I can re-base to net-next, pleas=
+e
+>> let me know.
+>>=20
+>> They have been tested against: https://lkml.org/lkml/2015/9/13/195,
+>> which causes the use-after-free quite quickly and here:
+>> https://lkml.org/lkml/2015/10/2/693.
+>
+> I'd like to understand how patches that don't even compile can be
+> "tested"?
+>
+> net/unix/af_unix.c: In function =E2=80=98unix_dgram_writable=E2=80=99=
+:
+> net/unix/af_unix.c:2480:3: error: =E2=80=98other_full=E2=80=99 undecl=
+ared (first use in this function)
+> net/unix/af_unix.c:2480:3: note: each undeclared identifier is report=
+ed only once for each function it appears in
+>
+> Could you explain how that works, I'm having a hard time understandin=
+g
+> this?
 
-VLANs 0 and 4095 are reserved and shouldn't be used, add checks to
-switchdev similar to the bridge. Also make sure ids above 4095 cannot
-be passed either.
+This is basicallly a workaround for the problem that it's not possible
+to tell epoll to let go of a certain wait queue: Instead of registering
+the peer_wait queue via sock_poll_wait, a wait_queue_t under control of
+the af_unix.c code is linked onto it which relays a wake up on the
+peer_wait queue to the 'ordinary' wait queue associated with the polled
+socket via custom wake function. But (at least the code I looked it) it
+enqueues a unix socket on connect which has certain side effects (in
+particular, /dev/log will have a seriously large wait queue of entirely
+uninterested peers) and in many cases, this is simply not necessary, as
+the additional peer_wait event is only interesting in case a peer of a
+fan-in socket (like /dev/log) happens to be waiting for writeabilty via
+poll/ select/ epoll/ ...
 
-Fixes: 47f8328bb1a4 ("switchdev: add new switchdev bridge setlink")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/switchdev/switchdev.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index fda38f830a10..77f5d17e2612 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -16,6 +16,7 @@
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
- #include <linux/if_bridge.h>
-+#include <linux/if_vlan.h>
- #include <net/ip_fib.h>
- #include <net/switchdev.h>
- 
-@@ -634,6 +635,8 @@ static int switchdev_port_br_afspec(struct net_device *dev,
- 		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
- 			return -EINVAL;
- 		vinfo = nla_data(attr);
-+		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
-+			return -EINVAL;
- 		vlan->flags = vinfo->flags;
- 		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
- 			if (vlan->vid_begin)
--- 
-2.4.3
+Since the wait queue handling code is now under control of the af_unix.=
+c
+code, it can remove itself from the peer_wait queue prior to dropping
+its reference to a peer on disconnect or on detecting a dead peer in
+unix_dgram_sendmsg.
