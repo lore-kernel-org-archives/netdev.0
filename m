@@ -1,56 +1,56 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next v2 0/4] bridge: vlan: cleanups & fixes
-	(part 3)
-Date: Mon, 12 Oct 2015 21:47:01 +0200
-Message-ID: <1444679225-7354-1-git-send-email-razor@blackwall.org>
-Cc: idosch@mellanox.com, shm@cumulusnetworks.com,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
+Subject: [PATCH net-next v2 3/4] bridge: vlan: drop unnecessary flush code
+Date: Mon, 12 Oct 2015 21:47:04 +0200
+Message-ID: <1444679225-7354-4-git-send-email-razor@blackwall.org>
+References: <1444679225-7354-1-git-send-email-razor@blackwall.org>
+Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, idosch@mellanox.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37298 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbbJLTrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 15:47:12 -0400
+Received: by wijq8 with SMTP id q8so73193417wij.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 12:47:11 -0700 (PDT)
+In-Reply-To: <1444679225-7354-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Hi,
-Patch 01 converts the vlgrp member to use rcu as it was already used in a
-similar way so better to make it official and use all the available RCU
-instrumentation. Patch 02 fixes a bug where the vlan_list can be traversed
-without rtnl or rcu held which could lead to using freed entries.
-Patch 03 removes some redundant code that isn't needed anymore.
-Patch 04 fixes a bug reported by Ido Schimmel about the vlan_flush order
-and switchdevs, it moves it back.
+As Ido Schimmel pointed out the vlan_vid_del() code in nbp_vlan_flush is
+unnecessary (and is actually a remnant of the old vlan code) so we can
+remove it.
 
-v2: patch 03 and 04 are new, couldn't escape the second synchronize_rcu()
-since the rhtable destruction can sleep
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: new patch
 
-Thank you,
- Nik
+ net/bridge/br_vlan.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-Nikolay Aleksandrov (4):
-  bridge: vlan: use proper rcu for the vlgrp member
-  bridge: vlan: use rcu for vlan_list traversal in br_fill_ifinfo
-  bridge: vlan: drop unnecessary flush code
-  bridge: vlan: move back vlan_flush
-
- net/bridge/br_device.c  |   2 +-
- net/bridge/br_forward.c |   6 +--
- net/bridge/br_if.c      |   3 +-
- net/bridge/br_input.c   |   4 +-
- net/bridge/br_netlink.c |  25 +++++----
- net/bridge/br_private.h |  33 ++++++++++--
- net/bridge/br_vlan.c    | 133 ++++++++++++++++++++++++++++++------------------
- 7 files changed, 135 insertions(+), 71 deletions(-)
-
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 4d8a21daf728..573ddfc31fb1 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -973,14 +973,7 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 
+ void nbp_vlan_flush(struct net_bridge_port *port)
+ {
+-	struct net_bridge_vlan_group *vg;
+-	struct net_bridge_vlan *vlan;
+-
+ 	ASSERT_RTNL();
+ 
+-	vg = nbp_vlan_group(port);
+-	list_for_each_entry(vlan, &vg->vlan_list, vlist)
+-		vlan_vid_del(port->dev, port->br->vlan_proto, vlan->vid);
+-
+-	__vlan_flush(vg);
++	__vlan_flush(nbp_vlan_group(port));
+ }
 -- 
 2.4.3
