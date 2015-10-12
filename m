@@ -1,86 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 0/3] net: unix: fix use-after-free
-Date: Mon, 12 Oct 2015 06:36:19 -0700
-Message-ID: <1444656979.27760.161.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1444363559.git.jbaron@akamai.com>
-	 <20151011.045557.2164838188213641141.davem@davemloft.net>
-	 <87pp0ki6xh.fsf@doppelsaurus.mobileactivedefense.com>
+From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 18/23] spear13xx_pcie_gadget: use per-attribute show	and store methods
+Date: Mon, 12 Oct 2015 08:49:46 -0500
+Message-ID: <87io6crybp.fsf@saruman.tx.rr.com>
+References: <CAHM4w1=ySCiVR3g=oYx5JPK2XxRCYxP7MQNrF_VLJaRrT5g-Yg@mail.gmail.com> <87r3l3u50y.fsf@saruman.tx.rr.com> <20151011130941.GA3890@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jbaron@akamai.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org,
-	joe@perches.com
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pp0ki6xh.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; boundary="=-=-="; micalg=pgp-sha1;
+	protocol="application/pgp-signature"
+Cc: Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+	Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Nicholas Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>,
+	Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pantelis Antoniou <pantelis.antoniou-OWPKS81ov/FWk0Htik3J/w@public.gmane.org>,
+	<target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>, USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151011130941.GA3890-jcswGhMUV9g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-10-12 at 13:54 +0100, Rainer Weikusat wrote:
-> David Miller <davem@davemloft.net> writes:
-> > From: Jason Baron <jbaron@akamai.com>
-> > Date: Fri,  9 Oct 2015 00:15:59 -0400
-> >
-> >> These patches are against mainline, I can re-base to net-next, ple=
-ase
-> >> let me know.
-> >>=20
-> >> They have been tested against: https://lkml.org/lkml/2015/9/13/195=
-,
-> >> which causes the use-after-free quite quickly and here:
-> >> https://lkml.org/lkml/2015/10/2/693.
-> >
-> > I'd like to understand how patches that don't even compile can be
-> > "tested"?
-> >
-> > net/unix/af_unix.c: In function =E2=80=98unix_dgram_writable=E2=80=99=
-:
-> > net/unix/af_unix.c:2480:3: error: =E2=80=98other_full=E2=80=99 unde=
-clared (first use in this function)
-> > net/unix/af_unix.c:2480:3: note: each undeclared identifier is repo=
-rted only once for each function it appears in
-> >
-> > Could you explain how that works, I'm having a hard time understand=
-ing
-> > this?
->=20
-> This is basicallly a workaround for the problem that it's not possibl=
-e
-> to tell epoll to let go of a certain wait queue: Instead of registeri=
-ng
-> the peer_wait queue via sock_poll_wait, a wait_queue_t under control =
-of
-> the af_unix.c code is linked onto it which relays a wake up on the
-> peer_wait queue to the 'ordinary' wait queue associated with the poll=
-ed
-> socket via custom wake function. But (at least the code I looked it) =
-it
-> enqueues a unix socket on connect which has certain side effects (in
-> particular, /dev/log will have a seriously large wait queue of entire=
-ly
-> uninterested peers) and in many cases, this is simply not necessary, =
-as
-> the additional peer_wait event is only interesting in case a peer of =
-a
-> fan-in socket (like /dev/log) happens to be waiting for writeabilty v=
-ia
-> poll/ select/ epoll/ ...
->=20
-> Since the wait queue handling code is now under control of the af_uni=
-x.c
-> code, it can remove itself from the peer_wait queue prior to dropping
-> its reference to a peer on disconnect or on detecting a dead peer in
-> unix_dgram_sendmsg.
-> --
+--=-=-=
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Okay, but David was asking how the patch was supposed to be tested, and
-applied, if it does not compile.
+Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org> writes:
 
-A patch is not only showing the idea, but must be ready for inclusion.
+> On Fri, Oct 09, 2015 at 04:05:17PM -0500, Felipe Balbi wrote:
+>> Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>=20
+>> > On Sat, Oct 3, 2015 at 7:02 PM, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org> wrote:
+>> >> Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+>> >
+>> > Acked-by: Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>=20
+>> I don't seem to have the actual patch, care to resend?
+>
+> The whole series was sent to all the receipients in the To and Cc lists,
+> so check your spam folder or one of the list archives.
 
-Please ?
+I don't have it, if you want it to reach upstream, please resend
+
+=2D-=20
+balbi
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWG7p8AAoJEIaOsuA1yqREOdQQAIe6NQMBYWNZEqpPwrGEuq/z
+Vn+N7z5j6yyIIvMXhgFuL2iYKdXMENxIrwUNiI9dggsJFdRP4leYMDhRJfZ1Dyhy
+9NNWRUiheloRiwQkqIXHFuYmLO6tnVgqz87SYLphPo4GEI9AsOH5Uo4Byiy75265
+f0vY36RMhH9nBrZ2hznUSIJPmVIgBzKNwLcT9AqHnhUuV4hi5TCYDWddwCHyLNQW
+BNhQ1d9dS4szfbpS/md+jqsRQo/93KzdyAnsYBevqmeWGV+BR9lihfWxYtq1Hy/N
+Ebc8yEuwD2JgYtDaQcdSnz4bYHzD/0euFuRyAjN4elV7oYgtFfAvtUatbwfZC6wb
+Id3VpSfZ3nIMzVegLP7UBNsW244aU9UXXWfCcX5PDIPkhsNbaRDRc8rErfXERFm7
+A8o/MExZBEEnjzgx1zpomcRMftoXnxkGYZm5tPNSL8gNDq38olx/+NFv6XtMkmw/
+7MQz7KyOBLQ7wxvnAWDsuH9qhK5hIS6u0CQcQkQbE0H4xRYxfuu0MHYNzlDLDjox
+8Uj96qBIy1fOXOjdoech8OgQZT4NFDTgPBjV8ddG0lp/RCiLViSEREs/eo6B6nhe
+ewBQpxi6Qe0/jBoct/QRSvWoxwViqn7c7vRhvo9juyxuTDtUXfmMvTrYqt8c7mXT
+1vew4C5BGiG3N/a1hFRY
+=bCs3
+-----END PGP SIGNATURE-----
+--=-=-=--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
