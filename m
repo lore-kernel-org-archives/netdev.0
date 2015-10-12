@@ -1,43 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Issue with /proc/sys/net/ipv4/tcp_mem
-Date: Mon, 12 Oct 2015 11:37:02 -0500
-Message-ID: <87io6coxg1.fsf@x220.int.ebiederm.org>
-References: <561B7F98.1040809@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next] m_bpf: don't require default opcode on
+ ebpf actions
+Date: Mon, 12 Oct 2015 09:45:32 -0700
+Message-ID: <20151012094532.1c348b05@urahara>
+References: <605ab2e3b1957b5f268214b165b7b27a527ee3a9.1444307491.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: wangyufen <wangyufen@huawei.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:40167 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbbJLQol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 12:44:41 -0400
-In-Reply-To: <561B7F98.1040809@huawei.com> (wangyufen@huawei.com's message of
-	"Mon, 12 Oct 2015 17:38:32 +0800")
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35996 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbbJLQpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 12:45:19 -0400
+Received: by pacex6 with SMTP id ex6so4384207pac.3
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 09:45:19 -0700 (PDT)
+In-Reply-To: <605ab2e3b1957b5f268214b165b7b27a527ee3a9.1444307491.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-wangyufen <wangyufen@huawei.com> writes:
+On Thu,  8 Oct 2015 15:22:05 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Hi,
->
-> I tried on linux-4.1:
->     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->     8388608	12582912	16777216
->     linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
->     -bash: echo: write error: Invalid argument
->     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->     1234	12582912	16777216
->
-> the echo operation got error, but value already written to tcp_mem.
->
-> I checked, patch f594d63199688ad568fb caused the issue.
+> After the patch, the most minimal command to load an eBPF action
+> for late binding with auto index selection through tc is:
+> 
+>   tc actions add action bpf obj prog.o
+> 
+> We already set TC_ACT_PIPE in tc as default opcode, so if nothing
+> further has been specified, just use it. Also, allow "ok" next to
+> "pass" for matching cmdline on TC_ACT_OK.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-
-If your problem is that you can not write a single value and instead
-have to write all three values I don't know what to tell you.  I don't
-see how that could have ever worked.
-
-Certainly the commit you pointed at did not change that behavior.
-
-Eric
+Applied to net-next
