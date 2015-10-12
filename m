@@ -1,67 +1,192 @@
 From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next 1/4] bridge: vlan: use proper rcu for the vlgrp
- member
-Date: Mon, 12 Oct 2015 20:29:55 +0300
-Message-ID: <20151012172921.GB6756@colbert.mtl.com>
+Subject: Re: [PATCH net-next 3/4] bridge: vlan: break vlan_flush in two
+ phases to keep old order
+Date: Mon, 12 Oct 2015 20:39:04 +0300
+Message-ID: <20151012173904.GC6756@colbert.mtl.com>
 References: <1444650069-32572-1-git-send-email-razor@blackwall.org>
- <1444650069-32572-2-git-send-email-razor@blackwall.org>
+ <1444650069-32572-4-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>, <shm@cumulusnetworks.com>,
 	<roopa@cumulusnetworks.com>, <stephen@networkplumber.org>,
 	<bridge@lists.linux-foundation.org>, <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+	"Nikolay Aleksandrov" <nikolay@cumulusnetworks.com>
 To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0065.outbound.protection.outlook.com ([157.56.112.65]:60288
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+Received: from mail-db3on0054.outbound.protection.outlook.com ([157.55.234.54]:26606
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751633AbbJLRaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2015 13:30:04 -0400
+	id S1751231AbbJLRjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Oct 2015 13:39:14 -0400
 Content-Disposition: inline
-In-Reply-To: <1444650069-32572-2-git-send-email-razor@blackwall.org>
+In-Reply-To: <1444650069-32572-4-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 12, 2015 at 02:41:06PM IDT, razor@blackwall.org wrote:
+Mon, Oct 12, 2015 at 02:41:08PM IDT, razor@blackwall.org wrote:
 >From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 >
-Hi Nik,
+Hi,
 
-Small nitpick:
-
-<snip>
-
->@@ -825,17 +848,19 @@ unlock:
+>Ido Schimmel reported a problem with switchdev devices because of the
+>order change of del_nbp operations, more specifically the move of
+>nbp_vlan_flush() which deletes all vlans and frees vlgrp after the
+>rx_handler has been unregistered. So in order to fix this break
+>vlan_flush in two phases:
+>1. delete all of vlan_group's vlans
+>2. destroy rhtable and free vlgrp
+>We execute phase I (free_rht == false) in the same place as before so the
+>vlans can be cleared and free the vlgrp after the rx_handler has been
+>unregistered in phase II (free_rht == true).
+I don't fully understand the reason for the two-phase cleanup. Please
+see below.
+>
+>Reported-by: Ido Schimmel <idosch@mellanox.com>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>---
+>Ido: I hope this fixes it for your case, a test would be much appreciated.
+This indeed fixes our switchdev issue. Thanks for the fix!
+>
+> net/bridge/br_if.c      | 11 ++++++++---
+> net/bridge/br_private.h |  8 ++++----
+> net/bridge/br_vlan.c    | 17 ++++++++++-------
+> 3 files changed, 22 insertions(+), 14 deletions(-)
+>
+>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>index 934cae9fa317..74a03c0a4e5f 100644
+>--- a/net/bridge/br_if.c
+>+++ b/net/bridge/br_if.c
+>@@ -248,6 +248,8 @@ static void del_nbp(struct net_bridge_port *p)
 > 
-> int br_vlan_init(struct net_bridge *br)
+> 	list_del_rcu(&p->list);
+> 
+>+	/* vlan_flush phase I: remove vlans */
+>+	nbp_vlan_flush(p, false);
+> 	br_fdb_delete_by_port(br, p, 0, 1);
+> 	nbp_update_port_count(br);
+> 
+>@@ -256,8 +258,10 @@ static void del_nbp(struct net_bridge_port *p)
+> 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+> 
+> 	netdev_rx_handler_unregister(dev);
+>-	/* use the synchronize_rcu done by netdev_rx_handler_unregister */
+>-	nbp_vlan_flush(p);
+>+	/* use the synchronize_rcu done by netdev_rx_handler_unregister
+>+	 * vlan_flush phase II: free rht and vlgrp
+>+	 */
+>+	nbp_vlan_flush(p, true);
+> 
+> 	br_multicast_del_port(p);
+> 
+>@@ -281,7 +285,8 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
+> 
+> 	br_fdb_delete_by_port(br, NULL, 0, 1);
+> 
+>-	br_vlan_flush(br);
+>+	/* vlan_flush execute both phases (see del_nbp) */
+>+	br_vlan_flush(br, true);
+> 	br_multicast_dev_del(br);
+> 	del_timer_sync(&br->gc_timer);
+> 
+>diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>index 7d14ba93bba4..3938a976417f 100644
+>--- a/net/bridge/br_private.h
+>+++ b/net/bridge/br_private.h
+>@@ -682,7 +682,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+> 			       struct sk_buff *skb);
+> int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags);
+> int br_vlan_delete(struct net_bridge *br, u16 vid);
+>-void br_vlan_flush(struct net_bridge *br);
+>+void br_vlan_flush(struct net_bridge *br, bool free_rht);
+> struct net_bridge_vlan *br_vlan_find(struct net_bridge_vlan_group *vg, u16 vid);
+> void br_recalculate_fwd_mask(struct net_bridge *br);
+> int __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+>@@ -694,7 +694,7 @@ int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
+> int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid);
+> int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
+> int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+>-void nbp_vlan_flush(struct net_bridge_port *port);
+>+void nbp_vlan_flush(struct net_bridge_port *port, bool free_rht);
+> int nbp_vlan_init(struct net_bridge_port *port);
+> int nbp_get_num_vlan_infos(struct net_bridge_port *p, u32 filter_mask);
+> 
+>@@ -790,7 +790,7 @@ static inline int br_vlan_delete(struct net_bridge *br, u16 vid)
+> 	return -EOPNOTSUPP;
+> }
+> 
+>-static inline void br_vlan_flush(struct net_bridge *br)
+>+static inline void br_vlan_flush(struct net_bridge *br, bool free_rht)
 > {
->+	struct net_bridge_vlan_group *vg;
-> 	int ret = -ENOMEM;
+> }
 > 
->-	br->vlgrp = kzalloc(sizeof(struct net_bridge_vlan_group), GFP_KERNEL);
->-	if (!br->vlgrp)
->+	vg = kzalloc(sizeof(struct net_bridge_vlan_group), GFP_KERNEL);
-Maybe just do sizeof(*vg)?
->+	if (!vg)
-> 		goto out;
->-	ret = rhashtable_init(&br->vlgrp->vlan_hash, &br_vlan_rht_params);
->+	ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
-> 	if (ret)
-> 		goto err_rhtbl;
->-	INIT_LIST_HEAD(&br->vlgrp->vlan_list);
->+	INIT_LIST_HEAD(&vg->vlan_list);
-> 	br->vlan_proto = htons(ETH_P_8021Q);
-> 	br->default_pvid = 1;
->+	rcu_assign_pointer(br->vlgrp, vg);
-> 	ret = br_vlan_add(br, 1,
-> 			  BRIDGE_VLAN_INFO_PVID | BRIDGE_VLAN_INFO_UNTAGGED |
-> 			  BRIDGE_VLAN_INFO_BRENTRY);
->@@ -846,9 +871,9 @@ out:
-> 	return ret;
-
-</snip>
-
+>@@ -813,7 +813,7 @@ static inline int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+> 	return -EOPNOTSUPP;
+> }
+> 
+>-static inline void nbp_vlan_flush(struct net_bridge_port *port)
+>+static inline void nbp_vlan_flush(struct net_bridge_port *port, bool free_rht)
+> {
+> }
+> 
+>diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>index a212979257b1..4fb9b23c9838 100644
+>--- a/net/bridge/br_vlan.c
+>+++ b/net/bridge/br_vlan.c
+>@@ -307,15 +307,18 @@ out:
+> 	return err;
+> }
+> 
+>-static void __vlan_flush(struct net_bridge_vlan_group *vlgrp)
+>+static void __vlan_flush(struct net_bridge_vlan_group *vlgrp, bool free_rht)
+> {
+> 	struct net_bridge_vlan *vlan, *tmp;
+> 
+> 	__vlan_delete_pvid(vlgrp, vlgrp->pvid);
+> 	list_for_each_entry_safe(vlan, tmp, &vlgrp->vlan_list, vlist)
+> 		__vlan_del(vlan);
+>-	rhashtable_destroy(&vlgrp->vlan_hash);
+>-	kfree_rcu(vlgrp, rcu);
+>+
+Why not just issue a synchronize_rcu here and remove the if statement? I
+believe that would also be better for when we remove the bridge device
+itself. It's fully symmetric with init that way.
+>+	if (free_rht) {
+>+		rhashtable_destroy(&vlgrp->vlan_hash);
+>+		kfree_rcu(vlgrp, rcu);
+>+	}
+> }
+> 
+> struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>@@ -569,11 +572,11 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
+> 	return __vlan_del(v);
+> }
+> 
+>-void br_vlan_flush(struct net_bridge *br)
+>+void br_vlan_flush(struct net_bridge *br, bool free_rht)
+> {
+> 	ASSERT_RTNL();
+> 
+>-	__vlan_flush(br_vlan_group(br));
+>+	__vlan_flush(br_vlan_group(br), free_rht);
+> }
+> 
+> struct net_bridge_vlan *br_vlan_find(struct net_bridge_vlan_group *vg, u16 vid)
+>@@ -957,7 +960,7 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+> 	return __vlan_del(v);
+> }
+> 
+>-void nbp_vlan_flush(struct net_bridge_port *port)
+>+void nbp_vlan_flush(struct net_bridge_port *port, bool free_rht)
+> {
+> 	struct net_bridge_vlan_group *vg;
+> 	struct net_bridge_vlan *vlan;
+>@@ -968,5 +971,5 @@ void nbp_vlan_flush(struct net_bridge_port *port)
+> 	list_for_each_entry(vlan, &vg->vlan_list, vlist)
+> 		vlan_vid_del(port->dev, port->br->vlan_proto, vlan->vid);
+> 
+>-	__vlan_flush(vg);
+>+	__vlan_flush(vg, free_rht);
+> }
 >-- 
 >2.4.3
 >
