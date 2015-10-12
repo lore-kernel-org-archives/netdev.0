@@ -1,55 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next 1/2] ipvs: Remove possibly unused variable from
- ip_vs_out
-Date: Mon, 12 Oct 2015 17:43:49 +0200
-Message-ID: <20151012154349.GA22589@salvia>
-References: <1444195403-4288-1-git-send-email-horms@verge.net.au>
- <1444195403-4288-2-git-send-email-horms@verge.net.au>
- <56152517.6020807@cogentembedded.com>
+Subject: Re: [PATCH v2] bridge/netfilter: avoid unused label warning
+Date: Mon, 12 Oct 2015 17:48:20 +0200
+Message-ID: <20151012154820.GA23092@salvia>
+References: <5180534.sSnu9AX8xS@wuerfel>
+ <561666B9.8070802@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, netfilter-devel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <56152517.6020807@cogentembedded.com>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <561666B9.8070802@cumulusnetworks.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 07, 2015 at 04:58:47PM +0300, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 10/7/2015 8:23 AM, Simon Horman wrote:
->=20
-> >From: David Ahern <dsa@cumulusnetworks.com>
-> >
-> >Eric's net namespace changes in 1b75097dd7a26 leaves net unreference=
-d if
-> >CONFIG_IP_VS_IPV6 is not enabled:
-> >
-> >../net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_out=E2=
-=80=99:
-> >../net/netfilter/ipvs/ip_vs_core.c:1177:14: warning: unused variable=
- =E2=80=98net=E2=80=99 [-Wunused-variable]
-> >
-> >After the net refactoring there is only 1 user; push the reference t=
-o the
-> >1 user. While the line length slightly exceeds 80 it seems to be the
-> >best change.
-> >
-> >Fixes: 1b75097dd7a26("ipvs: Pass ipvs into ip_vs_out")
->=20
->    Minor nit: missing space before (. Could be probbably fixed while =
-applying...
+On Thu, Oct 08, 2015 at 02:51:05PM +0200, Nikolay Aleksandrov wrote:
+> On 10/08/2015 02:30 PM, Arnd Bergmann wrote:
+> > With the ARM mini2440_defconfig, the bridge netfilter code gets
+> > built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
+> > disabled, which leads to a harmless gcc warning:
+> > 
+> > net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
+> > net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
+> > 
+> > This gets rid of the warning by cleaning up the code to avoid
+> > the respective #ifdefs causing this problem, and replacing them
+> > with if(IS_ENABLED()) checks. I have verified that the resulting
+> > object code is unchanged, and an additional advantage is that
+> > we now get compile coverage of the unused functions in more
+> > configurations.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+> > ---
+> > Version 2:
+> > 
+> > Rebased to git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
+> > 
+> 
+> Looks good to me,
+> 
+> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-I have pulled this anyway, I don't want to keep this back for this
-minor style problem.
+Nice that we got rid of that many ifdefs. Thanks!
 
-But please Simon, run checkpatch.pl before submitting next time.
-
-Thanks!
+BTW, just for the record in case someone search for this on the
+Internet: I have renamed the subject to "netfilter: bridge: avoid
+unused label warning" for consistency with other existing subject
+lines in the repo.
