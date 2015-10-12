@@ -1,55 +1,45 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net-next] RDS-TCP: Reset tcp callbacks if re-using an
- outgoing socket in rds_tcp_accept_one()
-Date: Sun, 11 Oct 2015 19:32:22 -0700
-Message-ID: <561B1BB6.2060208@oracle.com>
-References: <20151011204944.GB14646@oracle.com>
+From: huangdaode <huangdaode@hisilicon.com>
+Subject: Re: [PATCH net-next 0/2] net: fix some bugs in HNS drivers
+Date: Mon, 12 Oct 2015 10:34:39 +0800
+Message-ID: <561B1C3F.4070108@hisilicon.com>
+References: <1444285045-23275-1-git-send-email-huangdaode@hisilicon.com> <20151011.050252.1499118063121905989.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+	<netdev@vger.kernel.org>, <linuxarm@huawei.com>,
+	<salil.mehta@huawei.com>, <kenneth-lee-2012@foxmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151011204944.GB14646@oracle.com>
+In-Reply-To: <20151011.050252.1499118063121905989.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/11/15 1:49 PM, Sowmini Varadhan wrote:
+On 2015/10/11 20:02, David Miller wrote:
+> From: huangdaode <huangdaode@hisilicon.com>
+> Date: Thu, 8 Oct 2015 14:17:23 +0800
 >
-> Consider the following "duelling syn" sequence between two peers A and B:
->          	A		B
->          	SYN1     -->
->          	    	<--	SYN2
->          	SYN2ACK  -->
+>> This patchset fixes the two bugs in HNS driver, one is for fixing the
+>> compilation warning bug on arm 32-bit platform, another is fixing the wrong
+>> mac port judgement bug which is found during internal tests.
+> This patch series does not apply to the net-next tree at all.
 >
-> Note that the SYN/ACK has already been sent out by TCP before
-> rds_tcp_accept_one() gets invoked as part of callbacks.
+> Also, both patches should use a subsystem prefix of "hisilicon: "
+> in the Subject lines.
 >
-> If the inet_addr(A) is numerically less than inet_addr(B),
-> the arbitration scheme in rds_tcp_accept_one() will prefer the
-> TCP connection triggered by SYN1, and will send a CLOSE for the
-> SYN2 (just after the SYN2ACK was sent).
+> Thanks.
 >
-> Since B also follows the same arbitration scheme, it will send the SYN-ACK
-> for SYN1 that will set up a healthy ESTABLISHED connection on both sides.
-> B will also get a  CLOSE for SYN2, which should result in the cleanup
-> of the TCP state machine for SYN2, but it should not trigger any
-> stale RDS-TCP callbacks (such as ->writespace, ->state_change etc),
-> that would disrupt the progress of the SYN2 based RDS-TCP  connection.
+> .
 >
-> Thus the arbitration scheme in rds_tcp_accept_one() should restore
-> rds_tcp callbacks for the winner before setting them up for the
-> new accept socket, and also make sure that conn->c_outgoing
-> is set to 0 so that we do not trigger any reconnect attempts on the
-> passive side of the tcp socket in the future, in conformance with
-> commit c82ac7e69efe ("net/rds: RDS-TCP: only initiate reconnect attempt
-> on outgoing TCP socket.")
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
 
-Looks fine to me.
+Thanks David,
+Because it conflicts with arnd's patches,  which fixes this bug.
+in the mail, Joe Perches advised another fix, we will send out the patch 
+soon.
+thanks
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+-- 
+Best Regards
+Daode Huang
