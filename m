@@ -1,43 +1,35 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once
- HANDEL_TX_MSG macro
-Date: Mon, 12 Oct 2015 09:12:54 -0700
-Message-ID: <1444666374.9184.1.camel@perches.com>
-References: <1444620225-2339-1-git-send-email-huangdaode@hisilicon.com>
-	 <1444620225-2339-2-git-send-email-huangdaode@hisilicon.com>
-	 <6398202.hrOAl1xuJE@wuerfel>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2] bridge: add batch command support
+Date: Mon, 12 Oct 2015 09:25:00 -0700
+Message-ID: <20151012092500.43618e8e@urahara>
+References: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode <huangdaode@hisilicon.com>, davem@davemloft.net,
-	liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
-	xuwei5@hisilicon.com, lisheng011@huawei.com,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6398202.hrOAl1xuJE@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	christophe.gouault@6wind.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33105 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932067AbbJLQYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 12:24:47 -0400
+Received: by pabrc13 with SMTP id rc13so23017617pab.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 09:24:47 -0700 (PDT)
+In-Reply-To: <1444597383-34752-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-10-12 at 13:59 +0200, Arnd Bergmann wrote:
-> On Monday 12 October 2015 11:23:44 huangdaode wrote:
-> > +                       s += sprintf(s,
-> > +                                   "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n",
-> > +                                   h->qs[i]->tx_ring.io_base,
-[]
-> There is actually a more significant problem with this code, which I
-> failed to notice when doing the original bugfix: 
+On Sun, 11 Oct 2015 14:03:03 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+
+> From: Wilson Kok <wkok@cumulusnetworks.com> 
 > 
-> You have a sysfs interface here that exports internal data of the
-> device that should not be visible like this. One problem is that
-> the io_base is a kernel pointer that must not be visible to non-root
-> users (so we don't easily create an attack surface for exploits).
+> This patch adds support to batch bridge commands.
+> Follows ip batch code.
+> 
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Acked-by: Christophe Gouault <christophe.gouault@6wind.com>
 
-Using %pK might have been appropriate.
-
-> It would probably be better to completely remove that sysfs interface, and
-> to use the ethtool netlink interface to export them.
-
-But this would be better.
+Applied, thanks
