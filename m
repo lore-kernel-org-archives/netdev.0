@@ -1,45 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once HANDEL_TX_MSG macro
-Date: Mon, 12 Oct 2015 13:59:39 +0200
-Message-ID: <6398202.hrOAl1xuJE@wuerfel>
-References: <1444620225-2339-1-git-send-email-huangdaode@hisilicon.com> <1444620225-2339-2-git-send-email-huangdaode@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, linux-kernel@vger.kernel.org
-To: huangdaode <huangdaode@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444620225-2339-2-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
+Date: Mon, 12 Oct 2015 14:01:39 +0200
+Message-ID: <1444651299-2813-1-git-send-email-razor@blackwall.org>
+References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+Cc: sfeldma@gmail.com, jiri@resnulli.us,
+	vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:37671 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbbJLMBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:01:49 -0400
+Received: by wijq8 with SMTP id q8so54398532wij.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 05:01:48 -0700 (PDT)
+In-Reply-To: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 12 October 2015 11:23:44 huangdaode wrote:
-> +                       s += sprintf(s,
-> +                                   "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n",
-> +                                   h->qs[i]->tx_ring.io_base,
-> +                                   h->qs[i]->tx_ring.buf_size,
-> +                                   h->qs[i]->tx_ring.desc_num,
-> +                                   h->qs[i]->tx_ring.max_desc_num_per_pkt,
-> +                                   h->qs[i]->tx_ring.max_raw_data_sz_per_desc,
-> +                                   h->qs[i]->tx_ring.max_pkt_size,
-> +                                   h->qs[i]->tx_ring.stats.sw_err_cnt,
-> +                                   h->qs[i]->tx_ring.stats.io_err_cnt);
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-There is actually a more significant problem with this code, which I
-failed to notice when doing the original bugfix: 
+We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
 
-You have a sysfs interface here that exports internal data of the
-device that should not be visible like this. One problem is that
-the io_base is a kernel pointer that must not be visible to non-root
-users (so we don't easily create an attack surface for exploits).
-Another problem is that the format is not documented in Documentation/ABI/
-and that you have multiple values in one sysfs file here.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/switchdev/switchdev.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-It would probably be better to completely remove that sysfs interface, and
-to use the ethtool netlink interface to export them.
-
-	Arnd
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 6e4a4f9ad927..256c596de896 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+ 			if (vlan.vid_begin)
+ 				return -EINVAL;
+ 			vlan.vid_begin = vinfo->vid;
++			/* don't allow range of pvids */
++			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
++				return -EINVAL;
+ 		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+ 			if (!vlan.vid_begin)
+ 				return -EINVAL;
+-- 
+2.4.3
