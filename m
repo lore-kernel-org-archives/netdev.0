@@ -1,59 +1,36 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH v2] mISDN: use kstrdup() in dsp_pipeline_build
-Date: Mon, 12 Oct 2015 01:19:07 -0700
-Message-ID: <01134401b5d955b4dd794562d85608db4fb8ba21.1444666330.git.geliangtang@163.com>
-References: <1444504930.8012.19.camel@perches.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>, Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444504930.8012.19.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH] driver: net: cpsw: add no_bd_ram dt parsing
+Date: Mon, 12 Oct 2015 13:50:48 +0530
+Message-ID: <561B6D60.9060301@ti.com>
+References: <1444385206-7011-1-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-omap@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Sekhar Nori <nsekhar@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:57313 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751460AbbJLIV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Oct 2015 04:21:28 -0400
+In-Reply-To: <1444385206-7011-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use kstrdup instead of strlen-kmalloc-strcpy. Remove unneeded NULL
-test, it will be tested inside kstrdup. Remove 0 length string test,
-it has been tested in the caller of dsp_pipeline_build.
+On Friday 09 October 2015 03:36 PM, Mugunthan V N wrote:
+> cpdma is capable of placing the dma descriptors in ddr using
+> dma_alloc_coherent() when the internal bd ram size is not enough.
+> To utilize this feature pass the DT parameter "no_bd_ram" and
+> increase bd_ram_size and number of rx descriptors.
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
-Changes in v2:
-  - Remove unneeded NULL test.
----
- drivers/isdn/mISDN/dsp_pipeline.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+Dave
 
-diff --git a/drivers/isdn/mISDN/dsp_pipeline.c b/drivers/isdn/mISDN/dsp_pipeline.c
-index 8b1a66c..e72b4e7 100644
---- a/drivers/isdn/mISDN/dsp_pipeline.c
-+++ b/drivers/isdn/mISDN/dsp_pipeline.c
-@@ -235,7 +235,7 @@ void dsp_pipeline_destroy(struct dsp_pipeline *pipeline)
- 
- int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
- {
--	int len, incomplete = 0, found = 0;
-+	int incomplete = 0, found = 0;
- 	char *dup, *tok, *name, *args;
- 	struct dsp_element_entry *entry, *n;
- 	struct dsp_pipeline_entry *pipeline_entry;
-@@ -247,17 +247,9 @@ int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
- 	if (!list_empty(&pipeline->list))
- 		_dsp_pipeline_destroy(pipeline);
- 
--	if (!cfg)
--		return 0;
--
--	len = strlen(cfg);
--	if (!len)
--		return 0;
--
--	dup = kmalloc(len + 1, GFP_ATOMIC);
-+	dup = kstrdup(cfg, GFP_ATOMIC);
- 	if (!dup)
- 		return 0;
--	strcpy(dup, cfg);
- 	while ((tok = strsep(&dup, "|"))) {
- 		if (!strlen(tok))
- 			continue;
--- 
-1.9.1
+Please drop this patch as it is not working on AM437x platform. Will
+send a v2 after fixing it.
+
+Regards
+Mugunthan V N
