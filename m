@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 0/7] switchdev: change locking
-Date: Mon, 12 Oct 2015 17:45:43 +0200
-Message-ID: <1444664750-11260-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 2/7] switchdev: introduce switchdev workqueue
+Date: Mon, 12 Oct 2015 17:45:45 +0200
+Message-ID: <1444664750-11260-3-git-send-email-jiri@resnulli.us>
+References: <1444664750-11260-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
 	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
@@ -9,59 +10,86 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:38588 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbbJLPpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 11:45:53 -0400
-Received: by wieq12 with SMTP id q12so26504985wie.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 08:45:52 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35622 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbbJLPpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 11:45:55 -0400
+Received: by wicge5 with SMTP id ge5so155776200wic.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 08:45:54 -0700 (PDT)
+In-Reply-To: <1444664750-11260-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This is something which I'm currently struggling with.
-Callers of attr_set and obj_add/del often hold not only RTNL, but also
-spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
+This is going to be used for deferred operations.
 
-The way rocker is dealing with this now is just to invoke driver operation
-and go out, without any checking or reporting of the operation status.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/switchdev.h   |  5 +++++
+ net/switchdev/switchdev.c | 20 ++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
 
-Since it would be nice to at least put a warning in case the operation fails,
-it makes sense to do this in delayed work directly in switchdev core
-instead of implementing this in separate drivers. And that is what this patchset
-is introducing.
-
-So from now on, the locking of switchdev mod ops is consistent. Caller either
-holds rtnl mutex or in case it does not, caller sets defer flag, telling
-switchdev core to process the op later in delayed work.
-
-Flush function for switchdev deferred ops can be called by op
-caller in appropriate location, for example after it releases
-spin lock, to force switchdev core to process pending ops.
-
-v1->v2:
-- rebased on current net-next head (including Scott's ageing patchset)
-v2->v3:
-- fixed comment s/of/or/ typo suggested by Nik
-
-Jiri Pirko (7):
-  switchdev: assert rtnl in switchdev_port_obj_del
-  switchdev: introduce switchdev workqueue
-  switchdev: allow caller to explicitly request attr_set as deferred
-  switchdev: remove pointers from switchdev objects
-  switchdev: introduce possibility to defer obj_add/del
-  bridge: defer switchdev fdb del call in fdb_del_external_learn
-  rocker: remove nowait from switchdev callbacks.
-
- drivers/net/ethernet/rocker/rocker.c |  13 +-
- include/net/switchdev.h              |  14 +-
- net/bridge/br_fdb.c                  |   7 +-
- net/bridge/br_if.c                   |   3 +
- net/bridge/br_stp.c                  |   3 +-
- net/dsa/slave.c                      |   2 +-
- net/switchdev/switchdev.c            | 276 +++++++++++++++++++++++++----------
- 7 files changed, 222 insertions(+), 96 deletions(-)
-
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 1ce7083..d2879f2 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -205,6 +205,7 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 				 struct net_device *group_dev,
+ 				 bool joining);
++void switchdev_flush_deferred(void);
+ 
+ #else
+ 
+@@ -326,6 +327,10 @@ static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
+ {
+ }
+ 
++static inline void switchdev_flush_deferred(void)
++{
++}
++
+ #endif
+ 
+ #endif /* _LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index a79ee44..f782eba 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -17,9 +17,12 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_bridge.h>
+ #include <linux/list.h>
++#include <linux/workqueue.h>
+ #include <net/ip_fib.h>
+ #include <net/switchdev.h>
+ 
++static struct workqueue_struct *switchdev_wq;
++
+ /**
+  *	switchdev_trans_item_enqueue - Enqueue data item to transaction queue
+  *
+@@ -1221,3 +1224,20 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 	dev->offload_fwd_mark = mark;
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
++
++void switchdev_flush_deferred(void)
++{
++	flush_workqueue(switchdev_wq);
++}
++
++EXPORT_SYMBOL_GPL(switchdev_flush_deferred);
++
++static int __init switchdev_init(void)
++{
++	switchdev_wq = create_workqueue("switchdev");
++	if (!switchdev_wq)
++		return -ENOMEM;
++	return 0;
++}
++
++subsys_initcall(switchdev_init);
 -- 
 1.9.3
