@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: change type of alive from int to bool
-Date: Mon, 12 Oct 2015 05:15:31 -0700 (PDT)
-Message-ID: <20151012.051531.496968111040791414.davem@davemloft.net>
-References: <1444351297-22614-1-git-send-email-richard@weltraumpflege.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once HANDEL_TX_MSG macro
+Date: Mon, 12 Oct 2015 13:59:39 +0200
+Message-ID: <6398202.hrOAl1xuJE@wuerfel>
+References: <1444620225-2339-1-git-send-email-huangdaode@hisilicon.com> <1444620225-2339-2-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org
-To: richard@weltraumpflege.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36077 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634AbbJLL7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 07:59:44 -0400
-In-Reply-To: <1444351297-22614-1-git-send-email-richard@weltraumpflege.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, linux-kernel@vger.kernel.org
+To: huangdaode <huangdaode@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444620225-2339-2-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Sailer <richard@weltraumpflege.org>
-Date: Fri,  9 Oct 2015 02:41:37 +0200
+On Monday 12 October 2015 11:23:44 huangdaode wrote:
+> +                       s += sprintf(s,
+> +                                   "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n",
+> +                                   h->qs[i]->tx_ring.io_base,
+> +                                   h->qs[i]->tx_ring.buf_size,
+> +                                   h->qs[i]->tx_ring.desc_num,
+> +                                   h->qs[i]->tx_ring.max_desc_num_per_pkt,
+> +                                   h->qs[i]->tx_ring.max_raw_data_sz_per_desc,
+> +                                   h->qs[i]->tx_ring.max_pkt_size,
+> +                                   h->qs[i]->tx_ring.stats.sw_err_cnt,
+> +                                   h->qs[i]->tx_ring.stats.io_err_cnt);
 
-> The alive parameter of tcp_orphan_retries, indicates
-> whether the connection is assumed alive or not.
-> In the function and all places calling it is used as a boolean value.
-> 
-> Therefore this changes the type of alive to bool in the function
-> definition and all calling locations.
-> 
-> Since tcp_orphan_tries is a tcp_timer.c local function no change in
-> any other file or header is necessary.
-> 
-> Signed-off-by: Richard Sailer <richard@weltraumpflege.org>
+There is actually a more significant problem with this code, which I
+failed to notice when doing the original bugfix: 
 
-Applied to net-next, thanks.
+You have a sysfs interface here that exports internal data of the
+device that should not be visible like this. One problem is that
+the io_base is a kernel pointer that must not be visible to non-root
+users (so we don't easily create an attack surface for exploits).
+Another problem is that the format is not documented in Documentation/ABI/
+and that you have multiple values in one sysfs file here.
+
+It would probably be better to completely remove that sysfs interface, and
+to use the ethtool netlink interface to export them.
+
+	Arnd
