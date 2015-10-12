@@ -1,72 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 5/7] bridge: defer switchdev fdb del call in fdb_del_external_learn
-Date: Mon, 12 Oct 2015 20:03:04 +0200
-Message-ID: <1444672986-20709-4-git-send-email-jiri@resnulli.us>
-References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
- <1444672986-20709-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
-	stephen@networkplumber.org
-To: netdev@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 4/4] bridge: vlan: combine (br|nbp)_vlan_flush
+ into one
+Date: Mon, 12 Oct 2015 14:15:39 -0400
+Message-ID: <20151012181539.GA30057@ketchup.lan>
+References: <1444650069-32572-1-git-send-email-razor@blackwall.org>
+ <1444650069-32572-5-git-send-email-razor@blackwall.org>
+ <20151012175156.GA16784@colbert.mtl.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nikolay Aleksandrov <razor@blackwall.org>, sfeldma@gmail.com,
+	netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com, stephen@networkplumber.org,
+	bridge@lists.linux-foundation.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Ido Schimmel <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37114 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850AbbJLSDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:22 -0400
-Received: by wijq8 with SMTP id q8so69493775wij.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:21 -0700 (PDT)
-In-Reply-To: <1444672986-20709-1-git-send-email-jiri@resnulli.us>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:51505 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448AbbJLSPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:15:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20151012175156.GA16784@colbert.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hi,
 
-Since spinlock is held here, defer the switchdev operation.
+On Oct. Monday 12 (42) 08:51 PM, Ido Schimmel wrote:
+> Mon, Oct 12, 2015 at 02:41:09PM IDT, razor@blackwall.org wrote:
+> >From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> >
+> >As Ido Schimmel pointed out the vlan_vid_del() loop in nbp_vlan_flush is
+> >unnecessary (and is actually a remnant of the old vlan code) so we can
+> >remove it and combine both br/nbp vlan_flush functions into one.
+> Just a small note to Scott and Vivien:
+> 
+> One of the side effects of Nik's recent patchsets is that when VLANs are
+> flushed on a port the deletion is propagated to the driver via
+> switchdev ops, as __vlan_vid_del is called.
+> 
+> Therefore there is no need to do internal bookkeeping and remove VLANs
+> yourself when port is removed from bridge.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/bridge/br_fdb.c | 5 ++++-
- net/bridge/br_if.c  | 3 +++
- 2 files changed, 7 insertions(+), 1 deletion(-)
+I was thinking about caching VLAN entries in the mv88e6xxx driver to
+improve look up on VLAN and FDB operations, but it's a bit prematurate.
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index f5e7da0..c88bd8e 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -134,7 +134,10 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
- static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
- {
- 	struct switchdev_obj_port_fdb fdb = {
--		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
-+		.obj = {
-+			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
-+			.flags = SWITCHDEV_F_DEFER,
-+		},
- 		.vid = f->vlan_id,
- 	};
- 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 934cae9..09147cb 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -24,6 +24,7 @@
- #include <linux/slab.h>
- #include <net/sock.h>
- #include <linux/if_vlan.h>
-+#include <net/switchdev.h>
- 
- #include "br_private.h"
- 
-@@ -249,6 +250,8 @@ static void del_nbp(struct net_bridge_port *p)
- 	list_del_rcu(&p->list);
- 
- 	br_fdb_delete_by_port(br, p, 0, 1);
-+	switchdev_flush_deferred();
-+
- 	nbp_update_port_count(br);
- 
- 	netdev_upper_dev_unlink(dev, br->dev);
--- 
-1.9.3
+But when VLAN are flushed, we still need to remove them from the
+hardware table, right?
+
+Flushing is interesting though, most hardware have flush operations and
+it would be interesting to have switchdev fdb_flush and vlan_flush ops.
+
+Thanks!
+-v
