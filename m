@@ -1,134 +1,55 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Use-after-free in ep_remove_wait_queue
-Date: Mon, 12 Oct 2015 14:02:49 +0200
-Message-ID: <20151012120249.GB16370@unicorn.suse.cz>
-References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [RFC PATCH 1/2] perf: Add the flag sample_disable not to output
+ data on samples
+Date: Mon, 12 Oct 2015 14:02:57 +0200
+Message-ID: <20151012120257.GO3816@twins.programming.kicks-ass.net>
+References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
+ <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
-	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
-	syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Julien Tinnes <jln@google.com>,
-	Kees Cook <keescook@google.com>,
-	Mathias Krause <minipli@googlemail.com>,
-	Jason Baron <jbaron@akamai.com>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:34251 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739AbbJLMCy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2015 08:02:54 -0400
+Cc: ast@plumgrid.com, davem@davemloft.net, acme@kernel.org,
+	mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net, wangnan0@huawei.com,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2015 at 01:07:55PM +0200, Dmitry Vyukov wrote:
-> Hello,
-> 
-> The following program causes use-after-in kernel:
-> 
-...
->         long r0 = syscall(SYS_mmap, 0x20001000ul, 0x1000ul, 0x3ul,
-> 0x32ul, 0xfffffffffffffffful, 0x0ul);
->         long r1 = syscall(SYS_mmap, 0x20000000ul, 0x1000ul, 0x3ul,
-> 0x32ul, 0xfffffffffffffffful, 0x0ul);
->         long r2 = syscall(SYS_socketpair, 0x1ul, 0x3ul, 0x1ul, 0x20000ffcul);
->         long r3 = -1;
->         if (r2 != -1)
->                 r3 = *(uint32_t*)0x20000ffc;
->         long r4 = -1;
->         if (r2 != -1)
->                 r4 = *(uint32_t*)0x20001000;
->         long r5 = syscall(SYS_epoll_create, 0x1ul);
->         long r6 = syscall(SYS_mmap, 0x20003000ul, 0x1000ul, 0x3ul,
-> 0x32ul, 0xfffffffffffffffful, 0x0ul);
->         long r7 = syscall(SYS_dup3, r4, r3, 0x80000ul);
->         *(uint32_t*)0x20003000 = 0x6;
->         *(uint32_t*)0x20003004 = 0x2;
->         *(uint64_t*)0x20003008 = 0x6;
->         long r11 = syscall(SYS_epoll_ctl, r5, 0x1ul, r3, 0x20003000ul);
->         long r12 = syscall(SYS_mmap, 0x20002000ul, 0x1000ul, 0x3ul,
-> 0x32ul, 0xfffffffffffffffful, 0x0ul);
->         memcpy((void*)0x20002000, "\x00", 1);
->         long r14 = syscall(SYS_write, r7, 0x20002000ul, 0x1ul);
->         *(uint64_t*)0x20001a4d = 0x5;
->         long r16 = syscall(SYS_epoll_pwait, r5, 0x20004000ul, 0x1ul,
-> 0x1ul, 0x20001a4dul, 0x8ul);
->         return 0;
-...
-> Call Trace:
->  [<     inline     >] __list_del include/linux/list.h:89
->  [<     inline     >] list_del include/linux/list.h:107
->  [<     inline     >] __remove_wait_queue include/linux/wait.h:145
->  [<ffffffff811bfbab>] remove_wait_queue+0xfb/0x120 kernel/sched/wait.c:50
->  [<     inline     >] ep_remove_wait_queue fs/eventpoll.c:524
->  [<ffffffff8154094b>] ep_unregister_pollwait.isra.7+0x10b/0x1c0
-> fs/eventpoll.c:542
->  [<ffffffff81541417>] ep_free+0x97/0x190 fs/eventpoll.c:759 (discriminator 3)
->  [<ffffffff81541554>] ep_eventpoll_release+0x44/0x60 fs/eventpoll.c:791
->  [<ffffffff814772ad>] __fput+0x21d/0x6e0 fs/file_table.c:208
->  [<ffffffff814777f5>] ____fput+0x15/0x20 fs/file_table.c:244
->  [<ffffffff81150094>] task_work_run+0x164/0x1f0 kernel/task_work.c:115
-> (discriminator 1)
->  [<     inline     >] exit_task_work include/linux/task_work.h:21
->  [<ffffffff810fe7ae>] do_exit+0xa4e/0x2d40 kernel/exit.c:746
->  [<ffffffff81104426>] do_group_exit+0xf6/0x340 kernel/exit.c:874
->  [<     inline     >] SYSC_exit_group kernel/exit.c:885
->  [<ffffffff8110468d>] SyS_exit_group+0x1d/0x20 kernel/exit.c:883
->  [<ffffffff82e424d1>] entry_SYSCALL_64_fastpath+0x31/0x95
-> arch/x86/entry/entry_64.S:187
-> 
-> INFO: Allocated in sk_prot_alloc+0x69/0x340 age=6 cpu=1 pid=10568
-> [<      none      >] __slab_alloc+0x426/0x470 mm/slub.c:2402
-> [<     inline     >] slab_alloc_node mm/slub.c:2470
-> [<     inline     >] slab_alloc mm/slub.c:2512
-> [<      none      >] kmem_cache_alloc+0x10d/0x140 mm/slub.c:2517
-> [<      none      >] sk_prot_alloc+0x69/0x340 net/core/sock.c:1329
-> [<      none      >] sk_alloc+0x33/0x280 net/core/sock.c:1404
-> [<      none      >] unix_create1+0x5e/0x3d0 net/unix/af_unix.c:648
-> [<      none      >] unix_create+0x14d/0x1f0 net/unix/af_unix.c:707
-> [<      none      >] __sock_create+0x1f1/0x4c0 net/socket.c:1169
-> [<     inline     >] sock_create net/socket.c:1209
-> [<     inline     >] SYSC_socketpair net/socket.c:1281
-> [<      none      >] SyS_socketpair+0x10f/0x4d0 net/socket.c:1260
-> [<      none      >] entry_SYSCALL_64_fastpath+0x31/0x95
-> arch/x86/entry/entry_64.S:187
-> 
-> INFO: Freed in sk_destruct+0x2e9/0x400 age=9 cpu=1 pid=10568
-> [<      none      >] __slab_free+0x12d/0x280 mm/slub.c:2587 (discriminator 1)
-> [<     inline     >] slab_free mm/slub.c:2736
-> [<      none      >] kmem_cache_free+0x161/0x180 mm/slub.c:2745
-> [<     inline     >] sk_prot_free net/core/sock.c:1374
-> [<      none      >] sk_destruct+0x2e9/0x400 net/core/sock.c:1452
-> [<      none      >] __sk_free+0x57/0x200 net/core/sock.c:1460
-> [<      none      >] sk_free+0x30/0x40 net/core/sock.c:1471
-> [<     inline     >] sock_put include/net/sock.h:1593
-> [<      none      >] unix_dgram_sendmsg+0xeaf/0x1100 net/unix/af_unix.c:1571
-> [<     inline     >] sock_sendmsg_nosec net/socket.c:610
-> [<      none      >] sock_sendmsg+0xca/0x110 net/socket.c:620
-> [<      none      >] sock_write_iter+0x216/0x3a0 net/socket.c:819
-> [<     inline     >] new_sync_write fs/read_write.c:478
-> [<      none      >] __vfs_write+0x2ed/0x3d0 fs/read_write.c:491
-> [<      none      >] vfs_write+0x173/0x4a0 fs/read_write.c:538
-> [<     inline     >] SYSC_write fs/read_write.c:585
-> [<      none      >] SyS_write+0x108/0x220 fs/read_write.c:577
-> [<      none      >] entry_SYSCALL_64_fastpath+0x31/0x95
-> arch/x86/entry/entry_64.S:187
+On Mon, Oct 12, 2015 at 09:02:42AM +0000, Kaixu Xia wrote:
+> --- a/include/linux/perf_event.h
+> +++ b/include/linux/perf_event.h
+> @@ -483,6 +483,8 @@ struct perf_event {
+>  	perf_overflow_handler_t		overflow_handler;
+>  	void				*overflow_handler_context;
+>  
+> +	atomic_t			*sample_disable;
+> +
+>  #ifdef CONFIG_EVENT_TRACING
+>  	struct trace_event_call		*tp_event;
+>  	struct event_filter		*filter;
 
-Probably the issue discussed in
+> diff --git a/kernel/events/core.c b/kernel/events/core.c
+> index b11756f..f6ef45c 100644
+> --- a/kernel/events/core.c
+> +++ b/kernel/events/core.c
+> @@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
+>  		irq_work_queue(&event->pending);
+>  	}
+>  
+> +	if ((event->sample_disable) && atomic_read(event->sample_disable))
+> +		return ret;
+> +
+>  	if (event->overflow_handler)
+>  		event->overflow_handler(event, data, regs);
+>  	else
 
-  http://thread.gmane.org/gmane.linux.kernel/2057497/
+Try and guarantee sample_disable lives in the same cacheline as
+overflow_handler.
 
-and previous related threads.
-
-Michal Kubecek
+I think we should at the very least replace the kzalloc() currently used
+with a cacheline aligned alloc, and check the structure layout to verify
+these two do in fact share a cacheline.
