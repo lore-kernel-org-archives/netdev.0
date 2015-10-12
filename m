@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 6/7] rocker: remove nowait from switchdev callbacks.
-Date: Mon, 12 Oct 2015 20:03:05 +0200
-Message-ID: <1444672986-20709-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 5/7] bridge: defer switchdev fdb del call in fdb_del_external_learn
+Date: Mon, 12 Oct 2015 20:03:04 +0200
+Message-ID: <1444672986-20709-4-git-send-email-jiri@resnulli.us>
 References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
  <1444672986-20709-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
@@ -11,57 +11,62 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33454 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbbJLSDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:23 -0400
-Received: by wicge5 with SMTP id ge5so27502714wic.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:22 -0700 (PDT)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37114 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850AbbJLSDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:22 -0400
+Received: by wijq8 with SMTP id q8so69493775wij.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:21 -0700 (PDT)
 In-Reply-To: <1444672986-20709-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-No need to avoid sleeping in switchdev callbacks now, as the switchdev
-core allows it.
+Since spinlock is held here, defer the switchdev operation.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/bridge/br_fdb.c | 5 ++++-
+ net/bridge/br_if.c  | 3 +++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index bb956a5..9629c5b5 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3672,7 +3672,7 @@ static int rocker_port_fdb_flush(struct rocker_port *rocker_port,
- 	    rocker_port->stp_state == BR_STATE_FORWARDING)
- 		return 0;
- 
--	flags |= ROCKER_OP_FLAG_REMOVE;
-+	flags |= ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
- 
- 	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
- 
-@@ -4382,8 +4382,7 @@ static int rocker_port_attr_set(struct net_device *dev,
- 
- 	switch (attr->id) {
- 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
--		err = rocker_port_stp_update(rocker_port, trans,
--					     ROCKER_OP_FLAG_NOWAIT,
-+		err = rocker_port_stp_update(rocker_port, trans, 0,
- 					     attr->u.stp_state);
- 		break;
- 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
-@@ -4517,7 +4516,7 @@ static int rocker_port_fdb_del(struct rocker_port *rocker_port,
- 			       const struct switchdev_obj_port_fdb *fdb)
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index f5e7da0..c88bd8e 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -134,7 +134,10 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
  {
- 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
--	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
-+	int flags = ROCKER_OP_FLAG_REMOVE;
+ 	struct switchdev_obj_port_fdb fdb = {
+-		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
++		.obj = {
++			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
++			.flags = SWITCHDEV_F_DEFER,
++		},
+ 		.vid = f->vlan_id,
+ 	};
  
- 	if (!rocker_port_is_bridged(rocker_port))
- 		return -EINVAL;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 934cae9..09147cb 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -24,6 +24,7 @@
+ #include <linux/slab.h>
+ #include <net/sock.h>
+ #include <linux/if_vlan.h>
++#include <net/switchdev.h>
+ 
+ #include "br_private.h"
+ 
+@@ -249,6 +250,8 @@ static void del_nbp(struct net_bridge_port *p)
+ 	list_del_rcu(&p->list);
+ 
+ 	br_fdb_delete_by_port(br, p, 0, 1);
++	switchdev_flush_deferred();
++
+ 	nbp_update_port_count(br);
+ 
+ 	netdev_upper_dev_unlink(dev, br->dev);
 -- 
 1.9.3
