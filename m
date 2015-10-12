@@ -1,215 +1,368 @@
-From: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Subject: [PATCH] - gre: add eth_p_teb gro-handler for OVS with gre tunnels
-Date: Mon, 12 Oct 2015 15:26:24 -0700
-Message-ID: <fc84377af8867930138e05c27952d4d4@imap.linux.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v5 01/10] qed: Add module with basic common
+ support
+Date: Tue, 13 Oct 2015 01:07:50 +0200
+Message-ID: <20151012230750.GA7378@electric-eye.fr.zoreil.com>
+References: <1444674622-13059-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <1444674622-13059-2-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, Davem <davem@davemloft.net>,
-	jkidambi@us.ibm.com, manand@us.ibm.com
-To: Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesse Gross <jesse@nicira.com>, hkchu@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:59453 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbbJLW03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 18:26:29 -0400
-Received: from localhost
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sramamur@linux.vnet.ibm.com>;
-	Mon, 12 Oct 2015 16:26:29 -0600
-Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 2AE8019D8042
-	for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 16:14:37 -0600 (MDT)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by b03cxnp08026.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t9CMPPvv4850020
-	for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 15:25:25 -0700
-Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t9CMQOG2017744
-	for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 16:26:25 -0600
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43365 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbbJLXI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 19:08:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1444674622-13059-2-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Yuval Mintz <Yuval.Mintz@qlogic.com> :
+> The Qlogic Everest Driver is the backend module for the 579xx ethernet
+> products by Qlogic.
+> 
+> This module serves two main purposes:
+>  1. It's responsible to contain all the common code that will be shared
+>     between the various drivers that would be used with said line of
+>     products. Flows such as chip initialization and de-initialization
+>     fall under this category.
+> 
+>  2. It would abstract the protocol-specific HW & FW components, allowing
+>     the protocol drivers to have a clean APIs which is detached in its
+>     slowpath configuration from the actual HSI.
+> 
+> This adds a very basic module without any protocol-specific bits.
+> I.e., this adds a basic implementation that almost entirely falls under
+> the first category.
 
-Problem:
---------
+500 ko of a basic something is mildly reviewable for mere mortals.
 
-When using OVS with GRE tunnels, and GRO is enabled on the nic,
-We find that GRO doesnt really take effect. As a result, TCP stream
-performance on a 10G nic is around 2-3Gbps.
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+> new file mode 100644
+> index 0000000..f9f01bb
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed.h
+[...]
+> +/* helpers */
+> +static inline u32 DB_ADDR(u32	cid,
+> +			  u32	DEMS)
 
-Root Cause:
------------
+static inline u32 DB_ADDR(u32 cid, u32 DEMS)
 
-The protocol field set in GRE (by OVS) is ETH_P_TEB.
-The code in gre_gro_receive() (gre_offload.c) calls
-gro_find_receive_by_type() to determine a gro handler for the
-ETH_P_TEB protocol. However, no such protocol is registered
-at the device layer (only ETH_P_IP, ETH_P_IPV6, and mpls related
-protocols are registered). Hence, GRO is skipped.
+[...]
+> +/* forward */
+> +struct qed_ptt_pool;
+> +struct qed_spq;
+> +struct qed_sb_info;
+> +struct qed_sb_attn_info;
+> +struct qed_cxt_mngr;
+> +struct qed_sb_sp_info;
+> +struct qed_mcp_info;
+
+Many forward. Dependencies hell ?
+
+[...]
+> +struct qed_simd_fp_handler {
+> +	void	*token;
+> +	void	(*func)(void *);
+> +};
+
+Use union * ?
+
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+> new file mode 100644
+> index 0000000..4acc053
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+[...]
+> +	qed_ilt_cli_blk_fill(p_cli,
+> +			     p_blk,
+> +			     curr_line,
+> +			     total,
+> +			     CONN_CXT_SIZE(p_hwfn));
+
+	qed_ilt_cli_blk_fill(p_cli, p_blk, curr_line, total, CONN_CXT_SIZE(p_hwfn));
+
+s/p_// and it fits in 80 cols.
+
+[...]
+> +static int qed_ilt_shadow_alloc(struct qed_hwfn *p_hwfn)
+> +{
+> +	struct qed_cxt_mngr *p_mngr = p_hwfn->p_cxt_mngr;
+> +	struct qed_ilt_client_cfg *clients = p_mngr->clients;
+> +	struct qed_ilt_cli_blk *p_blk;
+> +	u32 size, i, j;
+> +	int rc;
+> +
+> +	size = qed_cxt_ilt_shadow_size(clients);
+> +	p_mngr->ilt_shadow = kcalloc(size, sizeof(struct qed_dma_mem),
+> +				     GFP_KERNEL);
+> +	if (!p_mngr->ilt_shadow) {
+> +		DP_NOTICE(p_hwfn, "Failed to allocate ilt shadow table\n");
+> +		rc = -ENOMEM;
+> +		goto ilt_shadow_fail;
+> +	} else {
+> +		DP_VERBOSE(p_hwfn, QED_MSG_ILT,
+> +			   "Allocated 0x%x bytes for ilt shadow\n",
+> +			   (u32)(size * sizeof(struct qed_dma_mem)));
+> +	}
+
+The "else" branch after the "goto" isn't idiomatic.
+
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+> new file mode 100644
+> index 0000000..14366af
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+[...]
+> +void qed_init_struct(struct qed_dev *cdev)
+> +{
+> +	u8 i;
+> +
+> +	for (i = 0; i < MAX_HWFNS_PER_DEVICE; i++) {
+> +		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+> +
+> +		p_hwfn->cdev		= cdev;
+> +		p_hwfn->my_id		= i;
+> +		p_hwfn->b_active	= false;
+> +
+> +		;
+
+; ?
 
 
-Fix:
-----
+[...]
+> +static int qed_init_qm_info(struct qed_hwfn *p_hwfn)
+> +{
+> +	struct qed_qm_info *qm_info = &p_hwfn->qm_info;
+> +	struct init_qm_port_params *p_qm_port;
+> +	u8 num_vports, i, vport_id, num_ports;
+> +	u16 num_pqs, multi_cos_tcs = 1;
+> +
+> +	memset(qm_info, 0, sizeof(*qm_info));
+> +
+> +	num_pqs = multi_cos_tcs + 1; /* The '1' is for pure-LB */
+> +	num_vports = (u8)RESC_NUM(p_hwfn, QED_VPORT);
+> +
+> +	/* Sanity checking that setup requires legal number of resources */
+> +	if (num_pqs > RESC_NUM(p_hwfn, QED_PQ)) {
+> +		DP_ERR(p_hwfn,
+> +		       "Need too many Physical queues - 0x%04x when only %04x are available\n",
+> +		       num_pqs, RESC_NUM(p_hwfn, QED_PQ));
+> +		return -EINVAL;
+> +	}
+> +
+> +	/* PQs will be arranged as follows: First per-TC PQ then pure-LB quete.
+> +	 */
+> +	qm_info->qm_pq_params = kzalloc(sizeof(*qm_info->qm_pq_params) *
+> +					num_pqs, GFP_ATOMIC);
 
-Add a GRO handler at the device layer for the ETH_P_TEB protocol. It is 
-implemented
-as a independent module, so it can be added if needed.
 
+qed_init_qm_info is only used in qed_resc_alloc. qed_resc_alloc performs
+GFP_KERNEL alloc and qed_resc_alloc does not use qed_init_qm_info in
+a spinlocked section. I would thus expect both to use the same allocation
+flag.
 
-Measurements:
+[...]
+> +int qed_resc_alloc(struct qed_dev *cdev)
+> +{
+> +	struct qed_consq *p_consq;
+> +	struct qed_eq *p_eq;
+> +	int i, rc = 0;
+> +
+> +	cdev->fw_data = kzalloc(sizeof(*cdev->fw_data), GFP_KERNEL);
+> +	if (!cdev->fw_data)
+> +		return -ENOMEM;
+> +
+[...]
+> +	cdev->reset_stats = kzalloc(sizeof(*cdev->reset_stats), GFP_ATOMIC);
 
-Single TCP stream performance
+GFP_{KERNEL / ATOMIC} but the context is the same.
 
-Before:  2.4 Gbps
+[...]
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+> new file mode 100644
+> index 0000000..cbb0c1c
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+> @@ -0,0 +1,5040 @@
+> +/* QLogic qed NIC Driver
+> + * Copyright (c) 2015 QLogic Corporation
+> + *
+> + * This software is available under the terms of the GNU General Public License
+> + * (GPL) Version 2, available from the file COPYING in the main directory of
+> + * this source tree.
+> + */
+[...]
+> +/****************************************************************************
+> +* Copyright(c) 2015 Qlogic Corporation, all rights reserved
+> +* Proprietary and Confidential Information.
+> +*
+> +* This source file is the property of Qlogic Corporation, and
+> +* may not be copied or distributed in any isomorphic form without
+> +* the prior written consent of Qlogic Corporation.
 
-After:   7.1 Gbps
+Oops.
 
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+> new file mode 100644
+> index 0000000..1512b72
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+[...]
+> +int qed_dmae_info_alloc(struct qed_hwfn *p_hwfn)
+> +{
+> +	dma_addr_t *p_addr = &p_hwfn->dmae_info.completion_word_phys_addr;
+> +	struct dmae_cmd **p_cmd	= &p_hwfn->dmae_info.p_dmae_cmd;
+> +	u32 **p_buff = &p_hwfn->dmae_info.p_intermediate_buffer;
+> +	u32 **p_comp = &p_hwfn->dmae_info.p_completion_word;
+> +
+> +	*p_comp = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
+> +				     sizeof(u32),
+> +				     p_addr,
+> +				     GFP_KERNEL);
+> +	if (!*p_comp) {
+> +		DP_NOTICE(p_hwfn, "Failed to allocate `p_completion_word'\n");
+> +		qed_dmae_info_free(p_hwfn);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	p_addr = &p_hwfn->dmae_info.dmae_cmd_phys_addr;
+> +	*p_cmd = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
+> +				    sizeof(struct dmae_cmd),
+> +				    p_addr, GFP_KERNEL);
+> +	if (!*p_cmd) {
+> +		DP_NOTICE(p_hwfn, "Failed to allocate `struct dmae_cmd'\n");
+> +		qed_dmae_info_free(p_hwfn);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	p_addr	= &p_hwfn->dmae_info.intermediate_buffer_phys_addr;
+> +	*p_buff = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
+> +				     sizeof(u32) * DMAE_MAX_RW_SIZE,
+> +				     p_addr, GFP_KERNEL);
+> +	if (!*p_buff) {
+> +		DP_NOTICE(p_hwfn, "Failed to allocate `intermediate_buffer'\n");
+> +		qed_dmae_info_free(p_hwfn);
+> +		return -ENOMEM;
+> +	}
 
+"qed_dmae_info_free(p_hwfn); ... return -ENOMEM;" is repeated three times.
 
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+> new file mode 100644
+> index 0000000..c622ffb
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+[...]
+> +/* Prepare Tx PQ mapping runtime init values for the specified PF */
+> +static void qed_tx_pq_map_rt_init(
+> +	struct qed_hwfn			*p_hwfn,
+> +	struct qed_ptt			*p_ptt,
+> +	u8				port_id,
+> +	u8				pf_id,
+> +	u8
+> +	max_phys_tcs_per_port,
+> +	bool				is_first_pf,
+> +	u32				num_pf_cids,
+> +	u32				num_vf_cids,
+> +	u16				start_pq,
+> +	u16				num_pf_pqs,
+> +	u16				num_vf_pqs,
+> +	u8				start_vport,
+> +	u32
+> +	base_mem_addr_4kb,
+> +	struct init_qm_pq_params	*pq_params,
+> +	struct init_qm_vport_params	*vport_params)
+> +{
+> +	u16	i, pq_id, pq_group;
+> +	u16	num_pqs		= num_pf_pqs + num_vf_pqs;
+> +	u16	first_pq_group	= start_pq / QM_PF_QUEUE_GROUP_SIZE;
+> +	u16	last_pq_group	=
+> +		(start_pq + num_pqs - 1) / QM_PF_QUEUE_GROUP_SIZE;
+> +	bool	is_bb_a0 = QED_IS_BB_A0(p_hwfn->cdev);
+> +
+> +	/* a bit per Tx PQ indicating if the PQ is associated with a VF */
+> +	u32	tx_pq_vf_mask[MAX_QM_TX_QUEUES /
+> +			      QM_PF_QUEUE_GROUP_SIZE] = { 0 };
+> +	u32	tx_pq_vf_mask_width
+> +		= is_bb_a0 ? 32 : QM_PF_QUEUE_GROUP_SIZE;
+> +	u32	num_tx_pq_vf_masks
+> +		= MAX_QM_TX_QUEUES / tx_pq_vf_mask_width;
+> +	u32	pq_mem_4kb
+> +		= QM_PQ_MEM_4KB(num_pf_cids);
+> +	u32	vport_pq_mem_4kb
+> +		= QM_PQ_MEM_4KB(num_vf_cids);
+> +	u32	mem_addr_4kb
+> +		= base_mem_addr_4kb;
 
+Broken style.
 
-Signed-off-by: Ramu Ramamurthy <ramu.ramamurthy@us.ibm.com>
----
-  net/ipv4/Makefile          |    1 +
-  net/ipv4/eth_teb_offload.c |  114 
-++++++++++++++++++++++++++++++++++++++++++++
-  2 files changed, 115 insertions(+), 0 deletions(-)
-  create mode 100644 net/ipv4/eth_teb_offload.c
+> +
+> +	/* set mapping from PQ group to PF */
+> +	for (pq_group = first_pq_group; pq_group <= last_pq_group; pq_group++)
+> +		STORE_RT_REG(p_hwfn, QM_REG_PQTX2PF_0_RT_OFFSET + pq_group,
+> +			     (u32)(pf_id));
+> +	/* set PQ sizes */
+> +	STORE_RT_REG(p_hwfn, QM_REG_MAXPQSIZE_0_RT_OFFSET,
+> +		     QM_PQ_SIZE_256B(num_pf_cids));
+> +	STORE_RT_REG(p_hwfn, QM_REG_MAXPQSIZE_1_RT_OFFSET,
+> +		     QM_PQ_SIZE_256B(num_vf_cids));
+> +	/* go over all Tx PQs */
+> +	for (i = 0, pq_id = start_pq; i < num_pqs; i++, pq_id++) {
+> +		struct qm_rf_pq_map	tx_pq_map;
+> +		u8			voq	= VOQ(port_id,
+> +						      pq_params[i].tc_id,
+> +						      max_phys_tcs_per_port);
+> +		bool	is_vf_pq		= (i >= num_pf_pqs);
+> +
+> +		/* update first Tx PQ of VPORT/TC */
+> +		u8	vport_id_in_pf =
+> +			pq_params[i].vport_id - start_vport;
+> +		u16	first_tx_pq_id =
+> +			vport_params[vport_id_in_pf].first_tx_pq_id[pq_params[i]
+> +								    .tc_id];
+> +		if (first_tx_pq_id == QM_INVALID_PQ_ID) {
+> +			/* create new VP PQ */
+> +			vport_params[vport_id_in_pf].first_tx_pq_id[pq_params[i]
+> +								    .tc_id] =
+> +				pq_id;
 
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 89aacb6..8b2d7ee 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_IPIP) += ipip.o
-  gre-y := gre_demux.o
-  obj-$(CONFIG_NET_FOU) += fou.o
-  obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
-+obj-$(CONFIG_NET_IPGRE_DEMUX) += eth_teb_offload.o
-  obj-$(CONFIG_NET_IPGRE) += ip_gre.o
-  obj-$(CONFIG_NET_UDP_TUNNEL) += udp_tunnel.o
-  obj-$(CONFIG_NET_IPVTI) += ip_vti.o
-diff --git a/net/ipv4/eth_teb_offload.c b/net/ipv4/eth_teb_offload.c
-new file mode 100644
-index 0000000..fc4aabd
---- /dev/null
-+++ b/net/ipv4/eth_teb_offload.c
-@@ -0,0 +1,114 @@
-+/*
-+ * This module performs GRO for Transparent Ethernet Bridging
-+ * protocol encapulated within GRE. The usecase is to boost the
-+ * performance of OpenVswitch with GRE tunnels.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/init.h>
-+#include <net/protocol.h>
-+#include <linux/etherdevice.h>
-+
-+static struct sk_buff **eth_teb_gro_receive(struct sk_buff **head,
-+					    struct sk_buff *skb)
-+{
-+	struct sk_buff *p, **pp = NULL;
-+	struct ethhdr *eh, *eh2;
-+	unsigned int hlen, off_eth;
-+	const struct packet_offload *ptype;
-+	__be16 type;
-+	int flush = 1;
-+
-+	off_eth = skb_gro_offset(skb);
-+	hlen = off_eth + sizeof(*eh);
-+	eh   = skb_gro_header_fast(skb, off_eth);
-+	if (skb_gro_header_hard(skb, hlen)) {
-+		eh = skb_gro_header_slow(skb, hlen, off_eth);
-+		if (unlikely(!eh))
-+			goto out;
-+	}
-+
-+	flush = 0;
-+
-+	for (p = *head; p; p = p->next) {
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		eh2 = (struct ethhdr   *)(p->data + off_eth);
-+		if (compare_ether_header(eh, eh2)) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
-+		}
-+	}
-+
-+	type = eh->h_proto;
-+
-+	rcu_read_lock();
-+	ptype = gro_find_receive_by_type(type);
-+	if (!ptype) {
-+		flush = 1;
-+		goto out_unlock;
-+	}
-+
-+	skb_gro_pull(skb, sizeof(*eh));
-+	skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
-+	pp = ptype->callbacks.gro_receive(head, skb);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+out:
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	return pp;
-+}
-+
-+static int eth_teb_gro_complete(struct sk_buff *skb, int nhoff)
-+{
-+	struct ethhdr *eh;
-+	struct packet_offload *ptype;
-+	__be16 type;
-+	int ethteb_len	= sizeof(struct ethhdr);
-+	int err = -ENOSYS;
-+
-+	eh = (struct ethhdr *)(skb->data + nhoff);
-+	type = eh->h_proto;
-+
-+	rcu_read_lock();
-+	ptype = gro_find_complete_by_type(type);
-+	if (ptype)
-+		err = ptype->callbacks.gro_complete(skb, nhoff + ethteb_len);
-+
-+	rcu_read_unlock();
-+	return err;
-+}
-+
-+static struct packet_offload ethteb_offload __read_mostly = {
-+	.type = cpu_to_be16(ETH_P_TEB),
-+	.callbacks = {
-+		.gro_receive = eth_teb_gro_receive,
-+		.gro_complete = eth_teb_gro_complete,
-+	},
-+};
-+
-+static int __init eth_teb_offload_init(void)
-+{
-+	pr_info("Transparent Ethernet Bridging offload register\n");
-+	dev_add_offload(&ethteb_offload);
-+	return 0;
-+}
-+
-+static void __exit eth_teb_offload_exit(void)
-+{
-+	dev_remove_offload(&ethteb_offload);
-+	pr_info("Transparent Ethernet Bridging offload deregister\n");
-+}
-+
-+module_init(eth_teb_offload_init)
-+module_exit(eth_teb_offload_exit)
-+
-+MODULE_DESCRIPTION("Offload for Transparent Ethernet Bridging");
-+MODULE_AUTHOR("Ramu Ramamurthy (ramu.ramamurthy@us.ibm.com)");
-+MODULE_LICENSE("GPL");
+Imho you won't avoid moving the body of the "for" loop in its own helper.
+
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+> new file mode 100644
+> index 0000000..9dcc02f
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+[...]
+> +int
+> +qed_spq_get_entry(struct qed_hwfn	*p_hwfn,
+> +		  struct qed_spq_entry	**pp_ent)
+> +{
+> +	struct qed_spq		*p_spq	= p_hwfn->p_spq;
+> +	struct qed_spq_entry	*p_ent	= NULL;
+> +
+> +	spin_lock_bh(&p_spq->lock);
+> +
+> +	if (list_empty(&p_spq->free_pool)) {
+> +		p_ent = kzalloc(sizeof(*p_ent), GFP_ATOMIC);
+> +		if (!p_ent) {
+> +			spin_unlock_bh(&p_spq->lock);
+> +			return -ENOMEM;
+
+Nit:
+			rc = -ENOMEM;
+			goto out_unlock;
+
 -- 
-1.7.1
+Ueimor
