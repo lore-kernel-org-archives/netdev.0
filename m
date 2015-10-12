@@ -1,36 +1,96 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 3/3] ipv6: Pass struct net into
- nf_ct_frag6_gather
-Date: Mon, 12 Oct 2015 22:12:18 +0200
-Message-ID: <20151012201218.GB12460@salvia>
-References: <87bnca4aie.fsf_-_@x220.int.ebiederm.org>
- <1444416295-31683-3-git-send-email-ebiederm@xmission.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Mon, 12 Oct 2015 16:26:43 -0400
+Message-ID: <20151012202643.GM28755@fieldses.org>
+References: <20151009211819.GE8188@fieldses.org>
+ <17EC94B0A072C34B8DCF0D30AD16044A02877311@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58089 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694AbbJLUFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2015 16:05:19 -0400
+Cc: Neil Brown <nfbrown@novell.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1444416295-31683-3-git-send-email-ebiederm@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02877311@BPXM09GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 09, 2015 at 01:44:55PM -0500, Eric W. Biederman wrote:
-> The function nf_ct_frag6_gather is called on both the input and the
-> output paths of the networking stack.  In particular ipv6_defrag which
-> calls nf_ct_frag6_gather is called from both the the PRE_ROUTING chain
-> on input and the LOCAL_OUT chain on output.
+On Mon, Oct 12, 2015 at 10:41:06AM +0000, Kosuke Tatsukawa wrote:
+> J. Bruce Fields wrote:
+> > On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+> >> Neil Brown wrote:
+> >> > Kosuke Tatsukawa <tatsu@ab.jp.nec.com> writes:
+> >> > 
+> >> >> There are several places in net/sunrpc/svcsock.c which calls
+> >> >> waitqueue_active() without calling a memory barrier.  Add a memory
+> >> >> barrier just as in wq_has_sleeper().
+> >> >>
+> >> >> I found this issue when I was looking through the linux source code
+> >> >> for places calling waitqueue_active() before wake_up*(), but without
+> >> >> preceding memory barriers, after sending a patch to fix a similar
+> >> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+> >> >> found here: https://lkml.org/lkml/2015/9/28/849).
+> >> > 
+> >> > hi,
+> >> > this feels like the wrong approach to the problem.  It requires extra
+> >> > 'smb_mb's to be spread around which are hard to understand as easy to
+> >> > forget.
+> >> > 
+> >> > A quick look seems to suggest that (nearly) every waitqueue_active()
+> >> > will need an smb_mb.  Could we just put the smb_mb() inside
+> >> > waitqueue_active()??
+> >> <snip>
+> >> 
+> >> There are around 200 occurrences of waitqueue_active() in the kernel
+> >> source, and most of the places which use it before wake_up are either
+> >> protected by some spin lock, or already has a memory barrier or some
+> >> kind of atomic operation before it.
+> >> 
+> >> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+> >> many cases and won't be a good idea.
+> >> 
+> >> Another way to solve this problem is to remove the waitqueue_active(),
+> >> making the code look like this;
+> >> 	if (wq)
+> >> 		wake_up_interruptible(wq);
+> >> This also fixes the problem because the spinlock in the wake_up*() acts
+> >> as a memory barrier and prevents the code from being reordered by the
+> >> CPU (and it also makes the resulting code is much simpler).
+> > 
+> > I might not care which we did, except I don't have the means to test
+> > this quickly, and I guess this is some of our most frequently called
+> > code.
+> > 
+> > I suppose your patch is the most conservative approach, as the
+> > alternative is a spinlock/unlock in wake_up_interruptible, which I
+> > assume is necessarily more expensive than an smp_mb().
+> > 
+> > As far as I can tell it's been this way since forever.  (Well, since a
+> > 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+> > removed some spinlocks from the data_ready routines.)
+> > 
+> > I don't understand what the actual race is yet (which code exactly is
+> > missing the wakeup in this case?  nfsd threads seem to instead get
+> > woken up by the wake_up_process() in svc_xprt_do_enqueue().)
 > 
-> The addition of a net parameter makes it explicit which network
-> namespace the packets are being reassembled in, and removes the need
-> for nf_ct_frag6_gather to guess.
+> Thank you for the reply.  I tried looking into this.
+> 
+> The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
+> svc_udp_init(), which are both called from svc_setup_socket().
+> svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
+> callback port related code.
+> 
+> Maybe I'm wrong, but there might not be any kernel code that is using
+> the socket's wait queue in this case.
 
-For the netfilter chunk:
+As Trond points out there are probably waiters internal to the
+networking code.
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+--b.
