@@ -1,78 +1,220 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 3/4] bridge: vlan: break vlan_flush in two phases
- to keep old order
-Date: Mon, 12 Oct 2015 19:55:31 +0200
-Message-ID: <561BF413.5010609@cumulusnetworks.com>
-References: <1444650069-32572-1-git-send-email-razor@blackwall.org>
- <1444650069-32572-4-git-send-email-razor@blackwall.org>
- <20151012173904.GC6756@colbert.mtl.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, stephen@networkplumber.org,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: Ido Schimmel <idosch@mellanox.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v4 2/7] switchdev: allow caller to explicitly request attr_set as deferred
+Date: Mon, 12 Oct 2015 20:03:01 +0200
+Message-ID: <1444672986-20709-1-git-send-email-jiri@resnulli.us>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:35598 "EHLO
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33182 "EHLO
 	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822AbbJLRzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 13:55:35 -0400
-Received: by wicge5 with SMTP id ge5so160093012wic.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 10:55:33 -0700 (PDT)
-In-Reply-To: <20151012173904.GC6756@colbert.mtl.com>
+	with ESMTP id S1751790AbbJLSDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:09 -0400
+Received: by wicge5 with SMTP id ge5so27494942wic.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:08 -0700 (PDT)
+In-Reply-To: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2015 07:39 PM, Ido Schimmel wrote:
-> Mon, Oct 12, 2015 at 02:41:08PM IDT, razor@blackwall.org wrote:
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>
-> Hi,
-> 
->> Ido Schimmel reported a problem with switchdev devices because of the
->> order change of del_nbp operations, more specifically the move of
->> nbp_vlan_flush() which deletes all vlans and frees vlgrp after the
->> rx_handler has been unregistered. So in order to fix this break
->> vlan_flush in two phases:
->> 1. delete all of vlan_group's vlans
->> 2. destroy rhtable and free vlgrp
->> We execute phase I (free_rht == false) in the same place as before so the
->> vlans can be cleared and free the vlgrp after the rx_handler has been
->> unregistered in phase II (free_rht == true).
-> I don't fully understand the reason for the two-phase cleanup. Please
-> see below.
->>
->> Reported-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> ---
->> Ido: I hope this fixes it for your case, a test would be much appreciated.
-> This indeed fixes our switchdev issue. Thanks for the fix!
->>
-[snip]
->>
->> -static void __vlan_flush(struct net_bridge_vlan_group *vlgrp)
->> +static void __vlan_flush(struct net_bridge_vlan_group *vlgrp, bool free_rht)
->> {
->> 	struct net_bridge_vlan *vlan, *tmp;
->>
->> 	__vlan_delete_pvid(vlgrp, vlgrp->pvid);
->> 	list_for_each_entry_safe(vlan, tmp, &vlgrp->vlan_list, vlist)
->> 		__vlan_del(vlan);
->> -	rhashtable_destroy(&vlgrp->vlan_hash);
->> -	kfree_rcu(vlgrp, rcu);
->> +
-> Why not just issue a synchronize_rcu here and remove the if statement? I
-> believe that would also be better for when we remove the bridge device
-> itself. It's fully symmetric with init that way.
-Hi,
-I considered that, but I don't want to issue a second synchronize_rcu() for each
-port when deleting them, with this change we avoid a second synchronize_rcu()
-and use the rx_handler unregister one. In complex setups with lots of ports
-this is a considerable overhead.
-For the bridge device del case - the call is the same, there're no two phases
-there.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Cheers,
- Nik
+Caller should know if he can call attr_set directly (when holding RTNL)
+or if he has to defer the att_set processing for later.
+
+This also allows drivers to sleep inside attr_set and report operation
+status back to switchdev core. Switchdev core then warns if status is
+not ok, instead of silent errors happening in drivers.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/switchdev.h   |   1 +
+ net/bridge/br_stp.c       |   3 +-
+ net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
+ 3 files changed, 59 insertions(+), 52 deletions(-)
+
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d2879f2..6b109e4 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -17,6 +17,7 @@
+ 
+ #define SWITCHDEV_F_NO_RECURSE		BIT(0)
+ #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
++#define SWITCHDEV_F_DEFER		BIT(2)
+ 
+ struct switchdev_trans_item {
+ 	struct list_head list;
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index db6d243de..80c34d7 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+ {
+ 	struct switchdev_attr attr = {
+ 		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
++		.flags = SWITCHDEV_F_DEFER,
+ 		.u.stp_state = state,
+ 	};
+ 	int err;
+ 
+ 	p->state = state;
+ 	err = switchdev_port_attr_set(p->dev, &attr);
+-	if (err && err != -EOPNOTSUPP)
++	if (err)
+ 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+ 				(unsigned int) p->port_no, p->dev->name);
+ }
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index d119e9c..9f94272 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -173,6 +173,49 @@ done:
+ 	return err;
+ }
+ 
++static int switchdev_port_attr_set_now(struct net_device *dev,
++				       struct switchdev_attr *attr)
++{
++	struct switchdev_trans trans;
++	int err;
++
++	switchdev_trans_init(&trans);
++
++	/* Phase I: prepare for attr set. Driver/device should fail
++	 * here if there are going to be issues in the commit phase,
++	 * such as lack of resources or support.  The driver/device
++	 * should reserve resources needed for the commit phase here,
++	 * but should not commit the attr.
++	 */
++
++	trans.ph_prepare = true;
++	err = __switchdev_port_attr_set(dev, attr, &trans);
++	if (err) {
++		/* Prepare phase failed: abort the transaction.  Any
++		 * resources reserved in the prepare phase are
++		 * released.
++		 */
++
++		if (err != -EOPNOTSUPP)
++			switchdev_trans_items_destroy(&trans);
++
++		return err;
++	}
++
++	/* Phase II: commit attr set.  This cannot fail as a fault
++	 * of driver/device.  If it does, it's a bug in the driver/device
++	 * because the driver said everythings was OK in phase I.
++	 */
++
++	trans.ph_prepare = false;
++	err = __switchdev_port_attr_set(dev, attr, &trans);
++	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
++	     dev->name, attr->id);
++	switchdev_trans_items_warn_destroy(dev, &trans);
++
++	return err;
++}
++
+ struct switchdev_attr_set_work {
+ 	struct work_struct work;
+ 	struct net_device *dev;
+@@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
+ {
+ 	struct switchdev_attr_set_work *asw =
+ 		container_of(work, struct switchdev_attr_set_work, work);
++	bool rtnl_locked = rtnl_is_locked();
+ 	int err;
+ 
+-	rtnl_lock();
+-	err = switchdev_port_attr_set(asw->dev, &asw->attr);
++	if (!rtnl_locked)
++		rtnl_lock();
++	err = switchdev_port_attr_set_now(asw->dev, &asw->attr);
+ 	if (err && err != -EOPNOTSUPP)
+ 		netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
+ 			   err, asw->attr.id);
+-	rtnl_unlock();
++	if (!rtnl_locked)
++		rtnl_unlock();
+ 
+ 	dev_put(asw->dev);
+ 	kfree(work);
+@@ -211,7 +257,7 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
+ 	asw->dev = dev;
+ 	memcpy(&asw->attr, attr, sizeof(asw->attr));
+ 
+-	schedule_work(&asw->work);
++	queue_work(switchdev_wq, &asw->work);
+ 
+ 	return 0;
+ }
+@@ -225,57 +271,16 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
+  *	Use a 2-phase prepare-commit transaction model to ensure
+  *	system is not left in a partially updated state due to
+  *	failure from driver/device.
++ *
++ *	rtnl_lock must be held and must not be in atomic section,
++ *	in case SWITCHDEV_F_DEFER flag is not set.
+  */
+ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+ {
+-	struct switchdev_trans trans;
+-	int err;
+-
+-	if (!rtnl_is_locked()) {
+-		/* Running prepare-commit transaction across stacked
+-		 * devices requires nothing moves, so if rtnl_lock is
+-		 * not held, schedule a worker thread to hold rtnl_lock
+-		 * while setting attr.
+-		 */
+-
++	if (attr->flags & SWITCHDEV_F_DEFER)
+ 		return switchdev_port_attr_set_defer(dev, attr);
+-	}
+-
+-	switchdev_trans_init(&trans);
+-
+-	/* Phase I: prepare for attr set. Driver/device should fail
+-	 * here if there are going to be issues in the commit phase,
+-	 * such as lack of resources or support.  The driver/device
+-	 * should reserve resources needed for the commit phase here,
+-	 * but should not commit the attr.
+-	 */
+-
+-	trans.ph_prepare = true;
+-	err = __switchdev_port_attr_set(dev, attr, &trans);
+-	if (err) {
+-		/* Prepare phase failed: abort the transaction.  Any
+-		 * resources reserved in the prepare phase are
+-		 * released.
+-		 */
+-
+-		if (err != -EOPNOTSUPP)
+-			switchdev_trans_items_destroy(&trans);
+-
+-		return err;
+-	}
+-
+-	/* Phase II: commit attr set.  This cannot fail as a fault
+-	 * of driver/device.  If it does, it's a bug in the driver/device
+-	 * because the driver said everythings was OK in phase I.
+-	 */
+-
+-	trans.ph_prepare = false;
+-	err = __switchdev_port_attr_set(dev, attr, &trans);
+-	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
+-	     dev->name, attr->id);
+-	switchdev_trans_items_warn_destroy(dev, &trans);
+-
+-	return err;
++	ASSERT_RTNL();
++	return switchdev_port_attr_set_now(dev, attr);
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
+ 
+-- 
+1.9.3
