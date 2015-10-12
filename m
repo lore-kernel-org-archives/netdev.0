@@ -1,220 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/7] switchdev: allow caller to explicitly request attr_set as deferred
-Date: Mon, 12 Oct 2015 15:15:05 +0200
-Message-ID: <1444655710-8279-3-git-send-email-jiri@resnulli.us>
-References: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
-	stephen@networkplumber.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:37963 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752252AbbJLNPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 09:15:16 -0400
-Received: by wieq12 with SMTP id q12so19895486wie.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 06:15:15 -0700 (PDT)
-In-Reply-To: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 0/3] net: unix: fix use-after-free
+Date: Mon, 12 Oct 2015 06:36:19 -0700
+Message-ID: <1444656979.27760.161.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1444363559.git.jbaron@akamai.com>
+	 <20151011.045557.2164838188213641141.davem@davemloft.net>
+	 <87pp0ki6xh.fsf@doppelsaurus.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jbaron@akamai.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	minipli@googlemail.com, normalperson@yhbt.net,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org,
+	joe@perches.com
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87pp0ki6xh.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Mon, 2015-10-12 at 13:54 +0100, Rainer Weikusat wrote:
+> David Miller <davem@davemloft.net> writes:
+> > From: Jason Baron <jbaron@akamai.com>
+> > Date: Fri,  9 Oct 2015 00:15:59 -0400
+> >
+> >> These patches are against mainline, I can re-base to net-next, ple=
+ase
+> >> let me know.
+> >>=20
+> >> They have been tested against: https://lkml.org/lkml/2015/9/13/195=
+,
+> >> which causes the use-after-free quite quickly and here:
+> >> https://lkml.org/lkml/2015/10/2/693.
+> >
+> > I'd like to understand how patches that don't even compile can be
+> > "tested"?
+> >
+> > net/unix/af_unix.c: In function =E2=80=98unix_dgram_writable=E2=80=99=
+:
+> > net/unix/af_unix.c:2480:3: error: =E2=80=98other_full=E2=80=99 unde=
+clared (first use in this function)
+> > net/unix/af_unix.c:2480:3: note: each undeclared identifier is repo=
+rted only once for each function it appears in
+> >
+> > Could you explain how that works, I'm having a hard time understand=
+ing
+> > this?
+>=20
+> This is basicallly a workaround for the problem that it's not possibl=
+e
+> to tell epoll to let go of a certain wait queue: Instead of registeri=
+ng
+> the peer_wait queue via sock_poll_wait, a wait_queue_t under control =
+of
+> the af_unix.c code is linked onto it which relays a wake up on the
+> peer_wait queue to the 'ordinary' wait queue associated with the poll=
+ed
+> socket via custom wake function. But (at least the code I looked it) =
+it
+> enqueues a unix socket on connect which has certain side effects (in
+> particular, /dev/log will have a seriously large wait queue of entire=
+ly
+> uninterested peers) and in many cases, this is simply not necessary, =
+as
+> the additional peer_wait event is only interesting in case a peer of =
+a
+> fan-in socket (like /dev/log) happens to be waiting for writeabilty v=
+ia
+> poll/ select/ epoll/ ...
+>=20
+> Since the wait queue handling code is now under control of the af_uni=
+x.c
+> code, it can remove itself from the peer_wait queue prior to dropping
+> its reference to a peer on disconnect or on detecting a dead peer in
+> unix_dgram_sendmsg.
+> --
 
-Caller should know if he can call attr_set directly (when holding RTNL)
-or if he has to defer the att_set processing for later.
+Okay, but David was asking how the patch was supposed to be tested, and
+applied, if it does not compile.
 
-This also allows drivers to sleep inside attr_set and report operation
-status back to switchdev core. Switchdev core then warns if status is
-not ok, instead of silent errors happening in drivers.
+A patch is not only showing the idea, but must be ready for inclusion.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/switchdev.h   |   1 +
- net/bridge/br_stp.c       |   3 +-
- net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
- 3 files changed, 59 insertions(+), 52 deletions(-)
-
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d2879f2..6b109e4 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -17,6 +17,7 @@
- 
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
- #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
-+#define SWITCHDEV_F_DEFER		BIT(2)
- 
- struct switchdev_trans_item {
- 	struct list_head list;
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index db6d243de..80c34d7 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
- {
- 	struct switchdev_attr attr = {
- 		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-+		.flags = SWITCHDEV_F_DEFER,
- 		.u.stp_state = state,
- 	};
- 	int err;
- 
- 	p->state = state;
- 	err = switchdev_port_attr_set(p->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
-+	if (err)
- 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
- 				(unsigned int) p->port_no, p->dev->name);
- }
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index d119e9c..9f94272 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -173,6 +173,49 @@ done:
- 	return err;
- }
- 
-+static int switchdev_port_attr_set_now(struct net_device *dev,
-+				       struct switchdev_attr *attr)
-+{
-+	struct switchdev_trans trans;
-+	int err;
-+
-+	switchdev_trans_init(&trans);
-+
-+	/* Phase I: prepare for attr set. Driver/device should fail
-+	 * here if there are going to be issues in the commit phase,
-+	 * such as lack of resources or support.  The driver/device
-+	 * should reserve resources needed for the commit phase here,
-+	 * but should not commit the attr.
-+	 */
-+
-+	trans.ph_prepare = true;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	if (err) {
-+		/* Prepare phase failed: abort the transaction.  Any
-+		 * resources reserved in the prepare phase are
-+		 * released.
-+		 */
-+
-+		if (err != -EOPNOTSUPP)
-+			switchdev_trans_items_destroy(&trans);
-+
-+		return err;
-+	}
-+
-+	/* Phase II: commit attr set.  This cannot fail as a fault
-+	 * of driver/device.  If it does, it's a bug in the driver/device
-+	 * because the driver said everythings was OK in phase I.
-+	 */
-+
-+	trans.ph_prepare = false;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
-+	     dev->name, attr->id);
-+	switchdev_trans_items_warn_destroy(dev, &trans);
-+
-+	return err;
-+}
-+
- struct switchdev_attr_set_work {
- 	struct work_struct work;
- 	struct net_device *dev;
-@@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
- {
- 	struct switchdev_attr_set_work *asw =
- 		container_of(work, struct switchdev_attr_set_work, work);
-+	bool rtnl_locked = rtnl_is_locked();
- 	int err;
- 
--	rtnl_lock();
--	err = switchdev_port_attr_set(asw->dev, &asw->attr);
-+	if (!rtnl_locked)
-+		rtnl_lock();
-+	err = switchdev_port_attr_set_now(asw->dev, &asw->attr);
- 	if (err && err != -EOPNOTSUPP)
- 		netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
- 			   err, asw->attr.id);
--	rtnl_unlock();
-+	if (!rtnl_locked)
-+		rtnl_unlock();
- 
- 	dev_put(asw->dev);
- 	kfree(work);
-@@ -211,7 +257,7 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
- 	asw->dev = dev;
- 	memcpy(&asw->attr, attr, sizeof(asw->attr));
- 
--	schedule_work(&asw->work);
-+	queue_work(switchdev_wq, &asw->work);
- 
- 	return 0;
- }
-@@ -225,57 +271,16 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
-  *	Use a 2-phase prepare-commit transaction model to ensure
-  *	system is not left in a partially updated state due to
-  *	failure from driver/device.
-+ *
-+ *	rtnl_lock must be held and must not be in atomic section,
-+ *	in case SWITCHDEV_F_DEFER flag is not set.
-  */
- int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- {
--	struct switchdev_trans trans;
--	int err;
--
--	if (!rtnl_is_locked()) {
--		/* Running prepare-commit transaction across stacked
--		 * devices requires nothing moves, so if rtnl_lock is
--		 * not held, schedule a worker thread to hold rtnl_lock
--		 * while setting attr.
--		 */
--
-+	if (attr->flags & SWITCHDEV_F_DEFER)
- 		return switchdev_port_attr_set_defer(dev, attr);
--	}
--
--	switchdev_trans_init(&trans);
--
--	/* Phase I: prepare for attr set. Driver/device should fail
--	 * here if there are going to be issues in the commit phase,
--	 * such as lack of resources or support.  The driver/device
--	 * should reserve resources needed for the commit phase here,
--	 * but should not commit the attr.
--	 */
--
--	trans.ph_prepare = true;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	if (err) {
--		/* Prepare phase failed: abort the transaction.  Any
--		 * resources reserved in the prepare phase are
--		 * released.
--		 */
--
--		if (err != -EOPNOTSUPP)
--			switchdev_trans_items_destroy(&trans);
--
--		return err;
--	}
--
--	/* Phase II: commit attr set.  This cannot fail as a fault
--	 * of driver/device.  If it does, it's a bug in the driver/device
--	 * because the driver said everythings was OK in phase I.
--	 */
--
--	trans.ph_prepare = false;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
--	     dev->name, attr->id);
--	switchdev_trans_items_warn_destroy(dev, &trans);
--
--	return err;
-+	ASSERT_RTNL();
-+	return switchdev_port_attr_set_now(dev, attr);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
- 
--- 
-1.9.3
+Please ?
