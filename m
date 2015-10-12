@@ -1,43 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once HANDEL_TX_MSG macro
-Date: Mon, 12 Oct 2015 13:53:42 +0200
-Message-ID: <7677925.qV8yFrBeTx@wuerfel>
-References: <1444620225-2339-1-git-send-email-huangdaode@hisilicon.com> <1444620278.8012.41.camel@perches.com> <561B2B30.1020400@hisilicon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3] bridge: allow adding of fdb entries
+ pointing to the bridge device
+Date: Mon, 12 Oct 2015 05:12:52 -0700 (PDT)
+Message-ID: <20151012.051252.617752883924274108.davem@davemloft.net>
+References: <1444325932-1577-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Joe Perches <joe@perches.com>, davem@davemloft.net,
-	liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
-	xuwei5@hisilicon.com, lisheng011@huawei.com,
-	linux-kernel@vger.kernel.org
-To: huangdaode <huangdaode@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561B2B30.1020400@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36068 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426AbbJLL5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 07:57:01 -0400
+In-Reply-To: <1444325932-1577-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 12 October 2015 11:38:24 huangdaode wrote:
-> On 2015/10/12 11:24, Joe Perches wrote:
-> > Hello Huang.
-> >
-> > On Mon, 2015-10-12 at 11:23 +0800, huangdaode wrote:
-> >> This patch changes the code style to make the code more simple.
-> >> also removes the once used HNADEL_TX_MSG macro, according to the
-> > HANDEL_TX_MSG typo
-> >
-> >> review comments from Joe Perches.
-> >>
-> >> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-> >> Reviewed-by: Joe Perches <joe@perches.com>
-> > I didn't review this.
-> > '
-> Hi Joe
-> please refer to http://lists.openwall.net/netdev/2015/10/11/61
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Thu,  8 Oct 2015 10:38:52 -0700
 
-You should only add the "Reviewed-by" tag to a commit message
-if the person you are adding replied with this explicitly.
-Don't add it just because someone gave feedback.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> This patch enables adding of fdb entries pointing to the bridge device.
+> This can be used to propagate mac address of vlan interfaces
+> configured on top of the vlan filtering bridge.
+> 
+> Before:
+> $bridge fdb add 44:38:39:00:27:9f dev bridge
+> RTNETLINK answers: Invalid argument
+> 
+> After:
+> $bridge fdb add 44:38:39:00:27:9f dev bridge
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> v1 - v2 : fix kbuild warnings
+> v2 - v3 : address review comments from Nikolay (use of br_vlan_should_use)
 
-	Arnd
+Applied, thanks.
