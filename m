@@ -1,141 +1,134 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: switchdev and VLAN ranges
-Date: Mon, 12 Oct 2015 02:13:32 +0200
-Message-ID: <561AFB2C.2010603@cumulusnetworks.com>
-References: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
- <BF3B1B92-E7B5-4C49-9B56-FBD36E546F28@mellanox.com>
- <5618EA2A.3020900@cumulusnetworks.com>
- <20151011071208.GA2188@nanopsycho.orion> <20151011224125.GB21128@ketchup.lan>
+From: huangdaode <huangdaode@hisilicon.com>
+Subject: Re: [PATCH] net: nhs: fix 32-bit build warning
+Date: Mon, 12 Oct 2015 09:25:37 +0800
+Message-ID: <561B0C11.9030800@hisilicon.com>
+References: <8581924.9CPedieySC@wuerfel> <1444594420.8012.34.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Elad Raz <eladr@mellanox.com>, Scott Feldman <sfeldma@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, Kenneth Lee <liguozhu@huawei.com>,
+	Yisen Zhuang <Yisen.Zhuang@huawei.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34953 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbbJLANh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 20:13:37 -0400
-Received: by wicge5 with SMTP id ge5so130876105wic.0
-        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 17:13:35 -0700 (PDT)
-In-Reply-To: <20151011224125.GB21128@ketchup.lan>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:57790 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752657AbbJLB0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2015 21:26:00 -0400
+In-Reply-To: <1444594420.8012.34.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2015 12:41 AM, Vivien Didelot wrote:
-> On Oct. Sunday 11 (41) 09:12 AM, Jiri Pirko wrote:
->> Sat, Oct 10, 2015 at 12:36:26PM CEST, nikolay@cumulusnetworks.com wr=
-ote:
->>> On 10/10/2015 09:49 AM, Elad Raz wrote:
->>>>
->>>>> On Oct 10, 2015, at 2:30 AM, Vivien Didelot <vivien.didelot@savoi=
-rfairelinux.com> wrote:
->>>>>
->>>>> I have two concerns in mind:
->>>>>
->>>>> a) if we imagine that drivers like Rocker allocate memory in the =
-prepare
->>>>> phase for each VID, preparing a range like 100-4000 would definit=
-ely not
->>>>> be recommended.
->>>>>
->>>>> b) imagine that you have two Linux bridges on a switch, one using=
- the
->>>>> hardware VLAN 100. If you request the VLAN range 99-101 for the o=
-ther
->>>>> bridge members, it is not possible for the driver to say "I can
->>>>> accelerate VLAN 99 and 101, but not 100". It must return OPNOTSUP=
-P for
->>>>> the whole range.
->>>>
->>>> Another concern I have with vid_being..vid_end range is the =E2=80=
-=9Cflags=E2=80=9D. Where flags can be BRIDGE_VLAN_INFO_PVID.
->>>> There is no sense having more than one VLAN as a PVID.
->>>> This leave the HW vendor the choice which VLAN id they will use as=
- the PVID.
->>>>
->>>
->>> iproute2 doesn't allow to do it but I can see that someone can actu=
-ally make it
->>> so the flags for the range have it and it doesn't look correct. Per=
-haps we need
->>> something like the patch below to enforce this from kernel-side.
->>>
->>>
->>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>> index d78b4429505a..02b17b53e9a6 100644
->>> --- a/net/bridge/br_netlink.c
->>> +++ b/net/bridge/br_netlink.c
->>> @@ -524,6 +524,9 @@ static int br_afspec(struct net_bridge *br,
->>> 			if (vinfo_start)
->>> 				return -EINVAL;
->>> 			vinfo_start =3D vinfo;
->>> +			/* don't allow range of pvids */
->>> +			if (vinfo_start->flags & BRIDGE_VLAN_INFO_PVID)
->>> +				return -EINVAL;
->>> 			continue;
->>> 		}
->>>
->>
->> Looks correct to me. Could you please submit this properly? Thanks!
->=20
-> The above patch is correct, but we only solve part of the problem, si=
-nce
-> the range and bridge flags are exposed by switchdev_obj_port_vlan as =
-is.
->=20
-> Thanks,
-> -v
->=20
+On 2015/10/12 4:13, Joe Perches wrote:
+> On Tue, 2015-10-06 at 23:53 +0200, Arnd Bergmann wrote:
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+> []
+>> @@ -448,12 +448,12 @@ static ssize_t handles_show(struct device *dev,
+>>   		s += sprintf(buf + s, "handle %d (eport_id=%u from %s):\n",
+>>   			    i++, h->eport_id, h->dev->name);
+>>   		for (j = 0; j < h->q_num; j++) {
+>> -			s += sprintf(buf + s, "\tqueue[%d] on 0x%llx\n",
+>> -				     j, (u64)h->qs[i]->io_base);
+>> -#define HANDEL_TX_MSG "\t\ttx_ring on 0x%llx:%u,%u,%u,%u,%u,%llu,%llu\n"
+>> +			s += sprintf(buf + s, "\tqueue[%d] on %p\n",
+>> +				     j, h->qs[i]->io_base);
+>> +#define HANDEL_TX_MSG "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n"
+>>   			s += sprintf(buf + s,
+>>   				     HANDEL_TX_MSG,
+> Maybe one day remove the misspelled and
+> used once HANDEL_TX_MSG macro too.
+>
+> Another possibility is to use a generally
+> smaller object code style like:
+>
+> 	char *s = buf;
+> 	...
+> 	s += sprintf(s, ...)
+> 	...
+> 	return s - buf;
+>
+> instead of
+>
+> 	ssize_t s = 0;
+> 	...
+> 	s += sprintf(buf + s, ...)
+> 	...
+> 	return s;
+> ---
+>   drivers/net/ethernet/hisilicon/hns/hnae.c | 35 +++++++++++++++----------------
+>   1 file changed, 17 insertions(+), 18 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+> index f52e99a..d2af46f 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hnae.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+> @@ -439,40 +439,39 @@ EXPORT_SYMBOL(hnae_ae_unregister);
+>   static ssize_t handles_show(struct device *dev,
+>   			    struct device_attribute *attr, char *buf)
+>   {
+> -	ssize_t s = 0;
+> +	char *s = buf;
+>   	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
+>   	struct hnae_handle *h;
+>   	int i = 0, j;
+>   
+>   	list_for_each_entry_rcu(h, &hdev->handle_list, node) {
+> -		s += sprintf(buf + s, "handle %d (eport_id=%u from %s):\n",
+> -			    i++, h->eport_id, h->dev->name);
+> +		s += sprintf(s, "handle %d (eport_id=%u from %s):\n",
+> +			     i++, h->eport_id, h->dev->name);
+>   		for (j = 0; j < h->q_num; j++) {
+> -			s += sprintf(buf + s, "\tqueue[%d] on %p\n",
+> +			s += sprintf(s, "\tqueue[%d] on %p\n",
+>   				     j, h->qs[i]->io_base);
+> -#define HANDEL_TX_MSG "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n"
+> -			s += sprintf(buf + s,
+> -				     HANDEL_TX_MSG,
+> +			s += sprintf(s,
+> +				     "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n",
+>   				     h->qs[i]->tx_ring.io_base,
+>   				     h->qs[i]->tx_ring.buf_size,
+>   				     h->qs[i]->tx_ring.desc_num,
+>   				     h->qs[i]->tx_ring.max_desc_num_per_pkt,
+>   				     h->qs[i]->tx_ring.max_raw_data_sz_per_desc,
+>   				     h->qs[i]->tx_ring.max_pkt_size,
+> -				 h->qs[i]->tx_ring.stats.sw_err_cnt,
+> -				 h->qs[i]->tx_ring.stats.io_err_cnt);
+> -			s += sprintf(buf + s,
+> -				"\t\trx_ring on %p:%u,%u,%llu,%llu,%llu\n",
+> -				h->qs[i]->rx_ring.io_base,
+> -				h->qs[i]->rx_ring.buf_size,
+> -				h->qs[i]->rx_ring.desc_num,
+> -				h->qs[i]->rx_ring.stats.sw_err_cnt,
+> -				h->qs[i]->rx_ring.stats.io_err_cnt,
+> -				h->qs[i]->rx_ring.stats.seg_pkt_cnt);
+> +				     h->qs[i]->tx_ring.stats.sw_err_cnt,
+> +				     h->qs[i]->tx_ring.stats.io_err_cnt);
+> +			s += sprintf(s,
+> +				     "\t\trx_ring on %p:%u,%u,%llu,%llu,%llu\n",
+> +				     h->qs[i]->rx_ring.io_base,
+> +				     h->qs[i]->rx_ring.buf_size,
+> +				     h->qs[i]->rx_ring.desc_num,
+> +				     h->qs[i]->rx_ring.stats.sw_err_cnt,
+> +				     h->qs[i]->rx_ring.stats.io_err_cnt,
+> +				     h->qs[i]->rx_ring.stats.seg_pkt_cnt);
+>   		}
+>   	}
+>   
+> -	return s;
+> +	return s - buf;
+>   }
+>   
+>   static DEVICE_ATTR_RO(handles);
+>
+>
+>
+> .
+>
+thanks Joe
+your suggestion is good, will send out a patch to fix it.
 
-Yes, the above fixes the bridge side. About the switchdev side it seems=
- like it's
-up to the switchdev driver to do the right thing in its switchdev_ops. =
-I took a
-quick look at DSA and it seems correct, the flag isn't saved and on dum=
-p request
-the flags are generated so it shouldn't be possible to export multiple =
-pvids.
-But switchdev_port_br_afspec() seems problematic, in fact I don't even =
-see a vlan
-id check, i.e. =3D=3D0 || >=3D VLAN_N_MASK.
-Of course, I might be totally off point as I'm not that familiar with s=
-witchdev and
-it's very late. :-)
-But maybe it needs something like:
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 6e4a4f9ad927..3dd52a53867f 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -16,6 +16,7 @@
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
- #include <linux/if_bridge.h>
-+#include <linux/if_vlan.h>
- #include <linux/list.h>
- #include <net/ip_fib.h>
- #include <net/switchdev.h>
-@@ -716,10 +717,14 @@ static int switchdev_port_br_afspec(struct net_de=
-vice *dev,
- 			return -EINVAL;
- 		vinfo =3D nla_data(attr);
- 		vlan.flags =3D vinfo->flags;
-+		if (!vinfo->vid || vinfo->vid >=3D VLAN_VID_MASK)
-+                        return -EINVAL;
- 		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
- 			if (vlan.vid_begin)
- 				return -EINVAL;
- 			vlan.vid_begin =3D vinfo->vid;
-+			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
-+				return -EINVAL;
- 		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
- 			if (!vlan.vid_begin)
- 				return -EINVAL;
+-- 
+Best Regards
+Daode Huang
