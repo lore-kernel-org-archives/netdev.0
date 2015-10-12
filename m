@@ -1,8 +1,9 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 2/7] switchdev: allow caller to explicitly request attr_set as deferred
-Date: Mon, 12 Oct 2015 20:03:01 +0200
-Message-ID: <1444672986-20709-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 4/7] switchdev: introduce possibility to defer obj_add/del
+Date: Mon, 12 Oct 2015 20:03:03 +0200
+Message-ID: <1444672986-20709-3-git-send-email-jiri@resnulli.us>
 References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+ <1444672986-20709-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
 	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
@@ -10,211 +11,211 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33182 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751790AbbJLSDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:09 -0400
-Received: by wicge5 with SMTP id ge5so27494942wic.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:08 -0700 (PDT)
-In-Reply-To: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36217 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbbJLSDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 14:03:21 -0400
+Received: by wicgb1 with SMTP id gb1so158824794wic.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 11:03:20 -0700 (PDT)
+In-Reply-To: <1444672986-20709-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Caller should know if he can call attr_set directly (when holding RTNL)
-or if he has to defer the att_set processing for later.
+Similar to the attr usecase, the caller knows if he is holding RTNL and is
+in atomic section. So let the called to decide the correct call variant.
 
-This also allows drivers to sleep inside attr_set and report operation
-status back to switchdev core. Switchdev core then warns if status is
-not ok, instead of silent errors happening in drivers.
+This allows drivers to sleep inside their ops and wait for hw to get the
+operation status. Then the status is propagated into switchdev core.
+This avoids silent errors in drivers.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
  include/net/switchdev.h   |   1 +
- net/bridge/br_stp.c       |   3 +-
- net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
- 3 files changed, 59 insertions(+), 52 deletions(-)
+ net/switchdev/switchdev.c | 137 +++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 112 insertions(+), 26 deletions(-)
 
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d2879f2..6b109e4 100644
+index 767d516..14e2595 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -17,6 +17,7 @@
+@@ -69,6 +69,7 @@ enum switchdev_obj_id {
  
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
- #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
-+#define SWITCHDEV_F_DEFER		BIT(2)
+ struct switchdev_obj {
+ 	enum switchdev_obj_id id;
++	u32 flags;
+ };
  
- struct switchdev_trans_item {
- 	struct list_head list;
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index db6d243de..80c34d7 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
- {
- 	struct switchdev_attr attr = {
- 		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-+		.flags = SWITCHDEV_F_DEFER,
- 		.u.stp_state = state,
- 	};
- 	int err;
- 
- 	p->state = state;
- 	err = switchdev_port_attr_set(p->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
-+	if (err)
- 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
- 				(unsigned int) p->port_no, p->dev->name);
- }
+ /* SWITCHDEV_OBJ_ID_PORT_VLAN */
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index d119e9c..9f94272 100644
+index c23dd31..00f7363 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -173,6 +173,49 @@ done:
+@@ -311,21 +311,8 @@ static int __switchdev_port_obj_add(struct net_device *dev,
  	return err;
  }
  
-+static int switchdev_port_attr_set_now(struct net_device *dev,
-+				       struct switchdev_attr *attr)
+-/**
+- *	switchdev_port_obj_add - Add port object
+- *
+- *	@dev: port device
+- *	@id: object ID
+- *	@obj: object to add
+- *
+- *	Use a 2-phase prepare-commit transaction model to ensure
+- *	system is not left in a partially updated state due to
+- *	failure from driver/device.
+- *
+- *	rtnl_lock must be held.
+- */
+-int switchdev_port_obj_add(struct net_device *dev,
+-			   const struct switchdev_obj *obj)
++static int switchdev_port_obj_add_now(struct net_device *dev,
++				      const struct switchdev_obj *obj)
+ {
+ 	struct switchdev_trans trans;
+ 	int err;
+@@ -367,17 +354,9 @@ int switchdev_port_obj_add(struct net_device *dev,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
+ 
+-/**
+- *	switchdev_port_obj_del - Delete port object
+- *
+- *	@dev: port device
+- *	@id: object ID
+- *	@obj: object to delete
+- */
+-int switchdev_port_obj_del(struct net_device *dev,
+-			   const struct switchdev_obj *obj)
++static int switchdev_port_obj_del_now(struct net_device *dev,
++				      const struct switchdev_obj *obj)
+ {
+ 	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 	struct net_device *lower_dev;
+@@ -393,13 +372,119 @@ int switchdev_port_obj_del(struct net_device *dev,
+ 	 */
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		err = switchdev_port_obj_del(lower_dev, obj);
++		err = switchdev_port_obj_del_now(lower_dev, obj);
+ 		if (err)
+ 			break;
+ 	}
+ 
+ 	return err;
+ }
++
++struct switchdev_obj_work {
++	struct work_struct work;
++	struct net_device *dev;
++	struct switchdev_obj obj;
++	bool add; /* add or del */
++};
++
++static void switchdev_port_obj_work(struct work_struct *work)
 +{
-+	struct switchdev_trans trans;
++	struct switchdev_obj_work *ow =
++			container_of(work, struct switchdev_obj_work, work);
++	bool rtnl_locked = rtnl_is_locked();
 +	int err;
 +
-+	switchdev_trans_init(&trans);
-+
-+	/* Phase I: prepare for attr set. Driver/device should fail
-+	 * here if there are going to be issues in the commit phase,
-+	 * such as lack of resources or support.  The driver/device
-+	 * should reserve resources needed for the commit phase here,
-+	 * but should not commit the attr.
-+	 */
-+
-+	trans.ph_prepare = true;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	if (err) {
-+		/* Prepare phase failed: abort the transaction.  Any
-+		 * resources reserved in the prepare phase are
-+		 * released.
-+		 */
-+
-+		if (err != -EOPNOTSUPP)
-+			switchdev_trans_items_destroy(&trans);
-+
-+		return err;
-+	}
-+
-+	/* Phase II: commit attr set.  This cannot fail as a fault
-+	 * of driver/device.  If it does, it's a bug in the driver/device
-+	 * because the driver said everythings was OK in phase I.
-+	 */
-+
-+	trans.ph_prepare = false;
-+	err = __switchdev_port_attr_set(dev, attr, &trans);
-+	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
-+	     dev->name, attr->id);
-+	switchdev_trans_items_warn_destroy(dev, &trans);
-+
-+	return err;
-+}
-+
- struct switchdev_attr_set_work {
- 	struct work_struct work;
- 	struct net_device *dev;
-@@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
- {
- 	struct switchdev_attr_set_work *asw =
- 		container_of(work, struct switchdev_attr_set_work, work);
-+	bool rtnl_locked = rtnl_is_locked();
- 	int err;
- 
--	rtnl_lock();
--	err = switchdev_port_attr_set(asw->dev, &asw->attr);
 +	if (!rtnl_locked)
 +		rtnl_lock();
-+	err = switchdev_port_attr_set_now(asw->dev, &asw->attr);
- 	if (err && err != -EOPNOTSUPP)
- 		netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
- 			   err, asw->attr.id);
--	rtnl_unlock();
++	if (ow->add)
++		err = switchdev_port_obj_add_now(ow->dev, &ow->obj);
++	else
++		err = switchdev_port_obj_del_now(ow->dev, &ow->obj);
++	if (err && err != -EOPNOTSUPP)
++		netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
++			   err, ow->add ? "add" : "del", ow->obj.id);
 +	if (!rtnl_locked)
 +		rtnl_unlock();
- 
- 	dev_put(asw->dev);
- 	kfree(work);
-@@ -211,7 +257,7 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
- 	asw->dev = dev;
- 	memcpy(&asw->attr, attr, sizeof(asw->attr));
- 
--	schedule_work(&asw->work);
-+	queue_work(switchdev_wq, &asw->work);
- 
- 	return 0;
- }
-@@ -225,57 +271,16 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
-  *	Use a 2-phase prepare-commit transaction model to ensure
-  *	system is not left in a partially updated state due to
-  *	failure from driver/device.
++
++	dev_put(ow->dev);
++	kfree(ow);
++}
++
++static int switchdev_port_obj_work_schedule(struct net_device *dev,
++					    const struct switchdev_obj *obj,
++					    bool add)
++{
++	struct switchdev_obj_work *ow;
++
++	ow = kmalloc(sizeof(*ow), GFP_ATOMIC);
++	if (!ow)
++		return -ENOMEM;
++
++	INIT_WORK(&ow->work, switchdev_port_obj_work);
++
++	dev_hold(dev);
++	ow->dev = dev;
++	memcpy(&ow->obj, obj, sizeof(ow->obj));
++	ow->add = add;
++
++	queue_work(switchdev_wq, &ow->work);
++	return 0;
++}
++
++static int switchdev_port_obj_add_defer(struct net_device *dev,
++					const struct switchdev_obj *obj)
++{
++	return switchdev_port_obj_work_schedule(dev, obj, true);
++}
++
++/**
++ *	switchdev_port_obj_add - Add port object
++ *
++ *	@dev: port device
++ *	@id: object ID
++ *	@obj: object to add
++ *
++ *	Use a 2-phase prepare-commit transaction model to ensure
++ *	system is not left in a partially updated state due to
++ *	failure from driver/device.
 + *
 + *	rtnl_lock must be held and must not be in atomic section,
 + *	in case SWITCHDEV_F_DEFER flag is not set.
-  */
- int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- {
--	struct switchdev_trans trans;
--	int err;
--
--	if (!rtnl_is_locked()) {
--		/* Running prepare-commit transaction across stacked
--		 * devices requires nothing moves, so if rtnl_lock is
--		 * not held, schedule a worker thread to hold rtnl_lock
--		 * while setting attr.
--		 */
--
-+	if (attr->flags & SWITCHDEV_F_DEFER)
- 		return switchdev_port_attr_set_defer(dev, attr);
--	}
--
--	switchdev_trans_init(&trans);
--
--	/* Phase I: prepare for attr set. Driver/device should fail
--	 * here if there are going to be issues in the commit phase,
--	 * such as lack of resources or support.  The driver/device
--	 * should reserve resources needed for the commit phase here,
--	 * but should not commit the attr.
--	 */
--
--	trans.ph_prepare = true;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	if (err) {
--		/* Prepare phase failed: abort the transaction.  Any
--		 * resources reserved in the prepare phase are
--		 * released.
--		 */
--
--		if (err != -EOPNOTSUPP)
--			switchdev_trans_items_destroy(&trans);
--
--		return err;
--	}
--
--	/* Phase II: commit attr set.  This cannot fail as a fault
--	 * of driver/device.  If it does, it's a bug in the driver/device
--	 * because the driver said everythings was OK in phase I.
--	 */
--
--	trans.ph_prepare = false;
--	err = __switchdev_port_attr_set(dev, attr, &trans);
--	WARN(err, "%s: Commit of attribute (id=%d) failed.\n",
--	     dev->name, attr->id);
--	switchdev_trans_items_warn_destroy(dev, &trans);
--
--	return err;
++ */
++int switchdev_port_obj_add(struct net_device *dev,
++			   const struct switchdev_obj *obj)
++{
++	if (obj->flags & SWITCHDEV_F_DEFER)
++		return switchdev_port_obj_add_defer(dev, obj);
 +	ASSERT_RTNL();
-+	return switchdev_port_attr_set_now(dev, attr);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
++	return switchdev_port_obj_add_now(dev, obj);
++}
++EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
++
++static int switchdev_port_obj_del_defer(struct net_device *dev,
++					const struct switchdev_obj *obj)
++{
++	return switchdev_port_obj_work_schedule(dev, obj, false);
++}
++
++/**
++ *	switchdev_port_obj_del - Delete port object
++ *
++ *	@dev: port device
++ *	@id: object ID
++ *	@obj: object to delete
++ *
++ *	rtnl_lock must be held and must not be in atomic section,
++ *	in case SWITCHDEV_F_DEFER flag is not set.
++ */
++int switchdev_port_obj_del(struct net_device *dev,
++			   const struct switchdev_obj *obj)
++{
++	if (obj->flags & SWITCHDEV_F_DEFER)
++		return switchdev_port_obj_del_defer(dev, obj);
++	ASSERT_RTNL();
++	return switchdev_port_obj_del_now(dev, obj);
++}
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
  
+ /**
 -- 
 1.9.3
