@@ -1,41 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] sfc: fully reset if MC_REBOOT event
- received without warm_boot_count increment
-Date: Mon, 12 Oct 2015 05:35:42 -0700 (PDT)
-Message-ID: <20151012.053542.2070340672205173627.davem@davemloft.net>
-References: <56178B93.6020205@solarflare.com>
+Subject: Re: [PATCH] pcnet32: fix a logic error with pci_set_dma_mask
+Date: Mon, 12 Oct 2015 05:38:14 -0700 (PDT)
+Message-ID: <20151012.053814.1870650163021801761.davem@davemloft.net>
+References: <c2a42526779ca29258fa84bff51f8d94ed9fcc28.1444415947.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbbJLMTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:19:47 -0400
-In-Reply-To: <56178B93.6020205@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pcnet32@frontier.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geliangtang@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c2a42526779ca29258fa84bff51f8d94ed9fcc28.1444415947.git.geliangtang@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 9 Oct 2015 10:40:35 +0100
+From: Geliang Tang <geliangtang@163.com>
+Date: Fri,  9 Oct 2015 03:45:39 -0700
 
-> From: Daniel Pieczko <dpieczko@solarflare.com>
+> pcnet32 can't work on my machine recently. It says "architecture
+> does not support 32bit PCI busmaster DMA". There is a logic error
+> in it: pci_set_dma_mask() return 0 means return successfully.
 > 
-> On EF10, MC_CMD_VPORT_RECONFIGURE can cause a CODE_MC_REBOOT event
-> to be sent to a function without incrementing the (adapter-wide)
-> warm_boot_count.  In this case, the reboot is not detected by the
-> loop on efx_mcdi_poll_reboot(), so prepare for recovery from an MC
-> reboot anyway.  When this codepath is run, the MC has always just
-> rebooted, so this recovery is valid.
-> 
-> The loop on efx_mcdi_poll_reboot() is still required for other MC
-> reboot cases, so that actions in response to an MC reboot are
-> performed, such as clearing locally calculated statistics.
-> Siena NICs are unaffected by this change as the above scenario
-> does not apply.
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 
-Applied, thanks.
+This driver doesn't call pci_set_dma_mask() in any of my tree(s).
