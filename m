@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] bridge: allow adding of fdb entries
- pointing to the bridge device
-Date: Mon, 12 Oct 2015 05:12:52 -0700 (PDT)
-Message-ID: <20151012.051252.617752883924274108.davem@davemloft.net>
-References: <1444325932-1577-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] tcp: change type of alive from int to bool
+Date: Mon, 12 Oct 2015 05:15:31 -0700 (PDT)
+Message-ID: <20151012.051531.496968111040791414.davem@davemloft.net>
+References: <1444351297-22614-1-git-send-email-richard@weltraumpflege.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, nikolay@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org
+To: richard@weltraumpflege.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36068 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36077 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbbJLL5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 07:57:01 -0400
-In-Reply-To: <1444325932-1577-1-git-send-email-roopa@cumulusnetworks.com>
+	with ESMTP id S1751634AbbJLL7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 07:59:44 -0400
+In-Reply-To: <1444351297-22614-1-git-send-email-richard@weltraumpflege.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Thu,  8 Oct 2015 10:38:52 -0700
+From: Richard Sailer <richard@weltraumpflege.org>
+Date: Fri,  9 Oct 2015 02:41:37 +0200
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> The alive parameter of tcp_orphan_retries, indicates
+> whether the connection is assumed alive or not.
+> In the function and all places calling it is used as a boolean value.
 > 
-> This patch enables adding of fdb entries pointing to the bridge device.
-> This can be used to propagate mac address of vlan interfaces
-> configured on top of the vlan filtering bridge.
+> Therefore this changes the type of alive to bool in the function
+> definition and all calling locations.
 > 
-> Before:
-> $bridge fdb add 44:38:39:00:27:9f dev bridge
-> RTNETLINK answers: Invalid argument
+> Since tcp_orphan_tries is a tcp_timer.c local function no change in
+> any other file or header is necessary.
 > 
-> After:
-> $bridge fdb add 44:38:39:00:27:9f dev bridge
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v1 - v2 : fix kbuild warnings
-> v2 - v3 : address review comments from Nikolay (use of br_vlan_should_use)
+> Signed-off-by: Richard Sailer <richard@weltraumpflege.org>
 
-Applied, thanks.
+Applied to net-next, thanks.
