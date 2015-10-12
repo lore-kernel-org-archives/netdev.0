@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/7] switchdev: introduce possibility to defer obj_add/del
-Date: Mon, 12 Oct 2015 15:15:07 +0200
-Message-ID: <1444655710-8279-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 7/7] switchdev: assert rtnl mutex when going over lower netdevs
+Date: Mon, 12 Oct 2015 15:15:10 +0200
+Message-ID: <1444655710-8279-8-git-send-email-jiri@resnulli.us>
 References: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
@@ -10,211 +10,72 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34896 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415AbbJLNPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 09:15:18 -0400
-Received: by wicge5 with SMTP id ge5so149777699wic.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 06:15:17 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:36360 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752315AbbJLNPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 09:15:23 -0400
+Received: by wicgb1 with SMTP id gb1so148643240wic.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 06:15:22 -0700 (PDT)
 In-Reply-To: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Similar to the attr usecase, the caller knows if he is holding RTNL and is
-in atomic section. So let the called to decide the correct call variant.
-
-This allows drivers to sleep inside their ops and wait for hw to get the
-operation status. Then the status is propagated into switchdev core.
-This avoids silent errors in drivers.
+netdev_for_each_lower_dev has to be called with rtnl mutex held. So
+better enforce it in switchdev functions.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h   |   1 +
- net/switchdev/switchdev.c | 137 +++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 112 insertions(+), 26 deletions(-)
+ net/switchdev/switchdev.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 767d516..14e2595 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -69,6 +69,7 @@ enum switchdev_obj_id {
- 
- struct switchdev_obj {
- 	enum switchdev_obj_id id;
-+	u32 flags;
- };
- 
- /* SWITCHDEV_OBJ_ID_PORT_VLAN */
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index c23dd31..5d0d731 100644
+index 5d0d731..11e0291 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -311,21 +311,8 @@ static int __switchdev_port_obj_add(struct net_device *dev,
- 	return err;
- }
- 
--/**
-- *	switchdev_port_obj_add - Add port object
-- *
-- *	@dev: port device
-- *	@id: object ID
-- *	@obj: object to add
-- *
-- *	Use a 2-phase prepare-commit transaction model to ensure
-- *	system is not left in a partially updated state due to
-- *	failure from driver/device.
-- *
-- *	rtnl_lock must be held.
-- */
--int switchdev_port_obj_add(struct net_device *dev,
--			   const struct switchdev_obj *obj)
-+static int switchdev_port_obj_add_now(struct net_device *dev,
-+				      const struct switchdev_obj *obj)
- {
- 	struct switchdev_trans trans;
- 	int err;
-@@ -367,17 +354,9 @@ int switchdev_port_obj_add(struct net_device *dev,
- 
- 	return err;
- }
--EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
- 
--/**
-- *	switchdev_port_obj_del - Delete port object
-- *
-- *	@dev: port device
-- *	@id: object ID
-- *	@obj: object to delete
-- */
--int switchdev_port_obj_del(struct net_device *dev,
--			   const struct switchdev_obj *obj)
-+static int switchdev_port_obj_del_now(struct net_device *dev,
-+				      const struct switchdev_obj *obj)
- {
- 	const struct switchdev_ops *ops = dev->switchdev_ops;
- 	struct net_device *lower_dev;
-@@ -393,13 +372,119 @@ int switchdev_port_obj_del(struct net_device *dev,
- 	 */
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = switchdev_port_obj_del(lower_dev, obj);
-+		err = switchdev_port_obj_del_now(lower_dev, obj);
- 		if (err)
- 			break;
- 	}
- 
- 	return err;
- }
-+
-+struct switchdev_obj_work {
-+	struct work_struct work;
-+	struct net_device *dev;
-+	struct switchdev_obj obj;
-+	bool add; /* add of del */
-+};
-+
-+static void switchdev_port_obj_work(struct work_struct *work)
-+{
-+	struct switchdev_obj_work *ow =
-+			container_of(work, struct switchdev_obj_work, work);
-+	bool rtnl_locked = rtnl_is_locked();
-+	int err;
-+
-+	if (!rtnl_locked)
-+		rtnl_lock();
-+	if (ow->add)
-+		err = switchdev_port_obj_add_now(ow->dev, &ow->obj);
-+	else
-+		err = switchdev_port_obj_del_now(ow->dev, &ow->obj);
-+	if (err && err != -EOPNOTSUPP)
-+		netdev_err(ow->dev, "failed (err=%d) to %s object (id=%d)\n",
-+			   err, ow->add ? "add" : "del", ow->obj.id);
-+	if (!rtnl_locked)
-+		rtnl_unlock();
-+
-+	dev_put(ow->dev);
-+	kfree(ow);
-+}
-+
-+static int switchdev_port_obj_work_schedule(struct net_device *dev,
-+					    const struct switchdev_obj *obj,
-+					    bool add)
-+{
-+	struct switchdev_obj_work *ow;
-+
-+	ow = kmalloc(sizeof(*ow), GFP_ATOMIC);
-+	if (!ow)
-+		return -ENOMEM;
-+
-+	INIT_WORK(&ow->work, switchdev_port_obj_work);
-+
-+	dev_hold(dev);
-+	ow->dev = dev;
-+	memcpy(&ow->obj, obj, sizeof(ow->obj));
-+	ow->add = add;
-+
-+	queue_work(switchdev_wq, &ow->work);
-+	return 0;
-+}
-+
-+static int switchdev_port_obj_add_defer(struct net_device *dev,
-+					const struct switchdev_obj *obj)
-+{
-+	return switchdev_port_obj_work_schedule(dev, obj, true);
-+}
-+
-+/**
-+ *	switchdev_port_obj_add - Add port object
+@@ -494,6 +494,8 @@ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
+  *	@id: object ID
+  *	@obj: object to dump
+  *	@cb: function to call with a filled object
 + *
-+ *	@dev: port device
-+ *	@id: object ID
-+ *	@obj: object to add
-+ *
-+ *	Use a 2-phase prepare-commit transaction model to ensure
-+ *	system is not left in a partially updated state due to
-+ *	failure from driver/device.
-+ *
-+ *	rtnl_lock must be held and must not be in atomic section,
-+ *	in case SWITCHDEV_F_DEFER flag is not set.
-+ */
-+int switchdev_port_obj_add(struct net_device *dev,
-+			   const struct switchdev_obj *obj)
-+{
-+	if (obj->flags & SWITCHDEV_F_DEFER)
-+		return switchdev_port_obj_add_defer(dev, obj);
++ *	rtnl_lock must be held.
+  */
+ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+ 			    switchdev_obj_dump_cb_t *cb)
+@@ -503,6 +505,8 @@ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+ 	struct list_head *iter;
+ 	int err = -EOPNOTSUPP;
+ 
 +	ASSERT_RTNL();
-+	return switchdev_port_obj_add_now(dev, obj);
-+}
-+EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
 +
-+static int switchdev_port_obj_del_defer(struct net_device *dev,
-+					const struct switchdev_obj *obj)
-+{
-+	return switchdev_port_obj_work_schedule(dev, obj, false);
-+}
-+
-+/**
-+ *	switchdev_port_obj_del - Delete port object
-+ *
-+ *	@dev: port device
-+ *	@id: object ID
-+ *	@obj: object to delete
-+ *
-+ *	rtnl_lock must be held and must not be in atomic section,
-+ *	in case SWITCHDEV_F_DEFER flag is not set.
-+ */
-+int switchdev_port_obj_del(struct net_device *dev,
-+			   const struct switchdev_obj *obj)
-+{
-+	if (obj->flags & SWITCHDEV_F_DEFER)
-+		return switchdev_port_obj_del_defer(dev, obj);
-+	ASSERT_RTNL();
-+	return switchdev_port_obj_del_now(dev, obj);
-+}
- EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
+ 	if (ops && ops->switchdev_port_obj_dump)
+ 		return ops->switchdev_port_obj_dump(dev, obj, cb);
  
- /**
+@@ -1068,6 +1072,8 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
+ 	struct net_device *dev = NULL;
+ 	int nhsel;
+ 
++	ASSERT_RTNL();
++
+ 	/* For this route, all nexthop devs must be on the same switch. */
+ 
+ 	for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+@@ -1298,10 +1304,11 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 	u32 mark = dev->ifindex;
+ 	u32 reset_mark = 0;
+ 
+-	if (group_dev && joining) {
+-		mark = switchdev_port_fwd_mark_get(dev, group_dev);
+-	} else if (group_dev && !joining) {
+-		if (dev->offload_fwd_mark == mark)
++	if (group_dev) {
++		ASSERT_RTNL();
++		if (joining)
++			mark = switchdev_port_fwd_mark_get(dev, group_dev);
++		else if (dev->offload_fwd_mark == mark)
+ 			/* Ohoh, this port was the mark reference port,
+ 			 * but it's leaving the group, so reset the
+ 			 * mark for the remaining ports in the group.
 -- 
 1.9.3
