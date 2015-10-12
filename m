@@ -1,152 +1,148 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
- down to switchdev
-Date: Mon, 12 Oct 2015 04:39:47 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9F6AD0@SJEXCHMB14.corp.ad.broadcom.com>
-References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
- <1444357400-37078-4-git-send-email-sfeldma@gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
- <20151010070434.GB1990@nanopsycho.orion> <20151010155619.GA14572@ketchup>
- <20151010210919.GA2217@nanopsycho.orion>
- <20151010224121.GA27091@ketchup.lan>
- <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: switchdev and VLAN ranges
+Date: Sun, 11 Oct 2015 22:14:11 -0700
+Message-ID: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+References: <493168159.229458.1444433451493.JavaMail.zimbra@savoirfairelinux.com>
+ <BF3B1B92-E7B5-4C49-9B56-FBD36E546F28@mellanox.com> <5618EA2A.3020900@cumulusnetworks.com>
+ <20151011071208.GA2188@nanopsycho.orion> <20151011224125.GB21128@ketchup.lan> <561AFB2C.2010603@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Jiri Pirko <jiri@resnulli.us>, Elad Raz <eladr@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:29442 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753163AbbJLEjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 00:39:48 -0400
-In-Reply-To: <CAGVrzcYJo5B_AzKN247_Knqq1r4FTz6cpFXvt927AnR162UoYg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:35336 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbbJLFOc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 01:14:32 -0400
+Received: by oiao187 with SMTP id o187so21456185oia.2
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2015 22:14:31 -0700 (PDT)
+In-Reply-To: <561AFB2C.2010603@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAyMDE1LTEwLTEwIDE1OjQxIEdNVC0wNzowMCBWaXZpZW4gRGlkZWxvdA0KPiA8dml2aWVuLmRp
-ZGVsb3RAc2F2b2lyZmFpcmVsaW51eC5jb20+Og0KPiA+IE9uIE9jdC4gU2F0dXJkYXkgMTAgKDQx
-KSAxMTowOSBQTSwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPj4gU2F0LCBPY3QgMTAsIDIwMTUgYXQg
-MDU6NTY6MTlQTSBDRVNULCB2aXZpZW4uZGlkZWxvdEBzYXZvaXJmYWlyZWxpbnV4LmNvbQ0KPiB3
-cm90ZToNCj4gPj4gPk9uIE9jdC4gU2F0dXJkYXkgMTAgKDQxKSAwOTowNCBBTSwgSmlyaSBQaXJr
-byB3cm90ZToNCj4gPj4gPj4gU2F0LCBPY3QgMTAsIDIwMTUgYXQgMDQ6NTM6NTJBTSBDRVNULCBz
-ZmVsZG1hQGdtYWlsLmNvbSB3cm90ZToNCj4gPj4gPj4gPk9uIFRodSwgT2N0IDgsIDIwMTUgYXQg
-OTozOCBQTSwgUHJlbWt1bWFyIEpvbm5hbGENCj4gPHBqb25uYWxhQGJyb2FkY29tLmNvbT4gd3Jv
-dGU6DQo+ID4+ID4+ID4+DQo+ID4+ID4+ID4+DQo+ID4+ID4+ID4+PiAtLS0tLU9yaWdpbmFsIE1l
-c3NhZ2UtLS0tLQ0KPiA+PiA+PiA+Pj4gRnJvbTogc2ZlbGRtYUBnbWFpbC5jb20gW21haWx0bzpz
-ZmVsZG1hQGdtYWlsLmNvbV0NCj4gPj4gPj4gPj4+IFNlbnQ6IEZyaWRheSwgT2N0b2JlciAwOSwg
-MjAxNSA3OjUzIEFNDQo+ID4+ID4+ID4+PiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+
-PiA+PiA+Pj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IGppcmlAcmVzbnVsbGkudXM7DQo+IHNp
-dmEubWFubmVtLmxueEBnbWFpbC5jb207DQo+ID4+ID4+ID4+PiBQcmVta3VtYXIgSm9ubmFsYTsg
-c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmc7DQo+ID4+ID4+ID4+PiByb29wYUBjdW11bHVzbmV0
-d29ya3MuY29tOyBhbmRyZXdAbHVubi5jaDsNCj4gZi5mYWluZWxsaUBnbWFpbC5jb207DQo+ID4+
-ID4+ID4+PiB2aXZpZW4uZGlkZWxvdEBzYXZvaXJmYWlyZWxpbnV4LmNvbQ0KPiA+PiA+PiA+Pj4g
-U3ViamVjdDogW1BBVENIIG5ldC1uZXh0IHYzIDMvNF0gYnJpZGdlOiBwdXNoIGJyaWRnZSBzZXR0
-aW5nDQo+IGFnZWluZ190aW1lIGRvd24NCj4gPj4gPj4gPj4+IHRvIHN3aXRjaGRldg0KPiA+PiA+
-PiA+Pj4NCj4gPj4gPj4gPj4+IEZyb206IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAZ21haWwuY29t
-Pg0KPiA+PiA+PiA+Pj4NCj4gPj4gPj4gPj4+IFVzZSBTV0lUQ0hERVZfRl9TS0lQX0VPUE5PVFNV
-UFAgdG8gc2tpcCBvdmVyIHBvcnRzIGluIGJyaWRnZQ0KPiB0aGF0IGRvbid0DQo+ID4+ID4+ID4+
-PiBzdXBwb3J0IHNldHRpbmcgYWdlaW5nX3RpbWUgKG9yIHNldHRpbmcgYnJpZGdlIGF0dHJzIGlu
-IGdlbmVyYWwpLg0KPiA+PiA+PiA+Pj4NCj4gPj4gPj4gPj4+IElmIHB1c2ggZmFpbHMsIGRvbid0
-IHVwZGF0ZSBhZ2VpbmdfdGltZSBpbiBicmlkZ2UgYW5kIHJldHVybiBlcnIgdG8gdXNlci4NCj4g
-Pj4gPj4gPj4+DQo+ID4+ID4+ID4+PiBJZiBwdXNoIHN1Y2NlZWRzLCB1cGRhdGUgYWdlaW5nX3Rp
-bWUgaW4gYnJpZGdlIGFuZCBydW4gZ2NfdGltZXIgbm93DQo+IHRvDQo+ID4+ID4+ID4+PiByZWNh
-bGFicmF0ZSB3aGVuIHRvIHJ1biBnY190aW1lciBuZXh0LCBiYXNlZCBvbiBuZXcgYWdlaW5nX3Rp
-bWUuDQo+ID4+ID4+ID4+Pg0KPiA+PiA+PiA+Pj4gU2lnbmVkLW9mZi1ieTogU2NvdHQgRmVsZG1h
-biA8c2ZlbGRtYUBnbWFpbC5jb20+DQo+ID4+ID4+ID4+PiBTaWduZWQtb2ZmLWJ5OiBKaXJpIFBp
-cmtvIDxqaXJpQHJlc251bGxpLnVzPg0KPiA+PiA+PiA+DQo+ID4+ID4+ID48c25pcD4NCj4gPj4g
-Pj4gPg0KPiA+PiA+PiA+Pj4gK2ludCBicl9zZXRfYWdlaW5nX3RpbWUoc3RydWN0IG5ldF9icmlk
-Z2UgKmJyLCB1MzIgYWdlaW5nX3RpbWUpDQo+ID4+ID4+ID4+PiArew0KPiA+PiA+PiA+Pj4gKyAg
-ICAgc3RydWN0IHN3aXRjaGRldl9hdHRyIGF0dHIgPSB7DQo+ID4+ID4+ID4+PiArICAgICAgICAg
-ICAgIC5pZCA9IFNXSVRDSERFVl9BVFRSX0lEX0JSSURHRV9BR0VJTkdfVElNRSwNCj4gPj4gPj4g
-Pj4+ICsgICAgICAgICAgICAgLmZsYWdzID0gU1dJVENIREVWX0ZfU0tJUF9FT1BOT1RTVVBQLA0K
-PiA+PiA+PiA+Pj4gKyAgICAgICAgICAgICAudS5hZ2VpbmdfdGltZSA9IGFnZWluZ190aW1lLA0K
-PiA+PiA+PiA+Pj4gKyAgICAgfTsNCj4gPj4gPj4gPj4+ICsgICAgIHVuc2lnbmVkIGxvbmcgdCA9
-IGNsb2NrX3RfdG9famlmZmllcyhhZ2VpbmdfdGltZSk7DQo+ID4+ID4+ID4+PiArICAgICBpbnQg
-ZXJyOw0KPiA+PiA+PiA+Pj4gKw0KPiA+PiA+PiA+Pj4gKyAgICAgaWYgKHQgPCBCUl9NSU5fQUdF
-SU5HX1RJTUUgfHwgdCA+IEJSX01BWF9BR0VJTkdfVElNRSkNCj4gPj4gPj4gPj4+ICsgICAgICAg
-ICAgICAgcmV0dXJuIC1FUkFOR0U7DQo+ID4+ID4+ID4+PiArDQo+ID4+ID4+ID4+PiArICAgICBl
-cnIgPSBzd2l0Y2hkZXZfcG9ydF9hdHRyX3NldChici0+ZGV2LCAmYXR0cik7DQo+ID4+ID4+ID4+
-DQo+ID4+ID4+ID4+IEEgdGhvdWdodCAtIGdpdmVuIHRoYXQgdGhlIGFnZWluZyB0aW1lIGlzIG5v
-dCBhIHBlci1icmlkZ2UtcG9ydCBhdHRyLCB3aHkNCj4gYXJlIHdlIHVzaW5nIGEgInBvcnQgYmFz
-ZWQgYXBpIg0KPiA+PiA+PiA+PiB0byBwYXNzIHRoZSBhdHRyaWJ1dGUgZG93bj8gIE1heSBiZSBJ
-J20gbWlzc2luZyBzb21ldGhpbmcgaGVyZT8NCj4gPj4gPj4gPg0KPiA+PiA+PiA+SSB0aGluayBG
-bG9yaWFuIHJhaXNlZCB0aGUgc2FtZSBwb2ludCBlYXJsaWVyLiAgU2lnaCwgSSB0aGluayB0aGlz
-DQo+ID4+ID4+ID5zaG91bGQgYmUgYWRkcmVzc2VkLi4uLnY0IGNvbWluZyBzb29uLi4udGhhbmtz
-IGd1eXMgZm9yIGtlZXBpbmcgdGhlDQo+ID4+ID4+ID5zdGFuZGFyZCBoaWdoLg0KPiA+PiA+Pg0K
-PiA+PiA+PiBTY290dCwgY2FuIHlvdSB0ZWxsIHVzIGhvdyBkbyB5b3Ugd2FudCB0byBhZGRyZXNz
-IHRoaXM/IEkgbGlrZSB0aGUNCj4gPj4gPj4gY3VycmVudCBpbXBsZW1lbnRhdGlvbi4NCj4gPj4g
-Pg0KPiA+PiA+U2NvdHQsIGRpZG4ndCB5b3UgaGF2ZSBhIHBsYW4gdG8gYWRkIGEgc3RydWN0IGRl
-dmljZSBmb3IgdGhlIHBhcmVudCBvZg0KPiA+PiA+c3dpdGNoZGV2IHBvcnRzPw0KPiA+PiA+DQo+
-ID4+ID5JIHRoaW5rIGl0IHdvdWxkIGJlIGdvb2QgdG8gaW50cm9kdWNlIHN1Y2ggZGV2aWNlIHdp
-dGggYW4gaGVscGVyIHRvDQo+ID4+ID5yZXRyaWV2ZSB0aGlzIHVwcGVyIHBhcmVudCwgYW5kIG1v
-dmUgdGhlIHN3aXRjaGRldiBvcHMgdG8gdGhpcyBndXkuDQo+ID4+ID4NCj4gPj4gPlNvIHN3aXRj
-aGRldiBkcml2ZXJzIG1heSBpbXBsZW1lbnQgc3VjaCBBUEkgY2FsbHM6DQo+ID4+ID4NCj4gPj4g
-PiAgICAub2JqX2FkZChzdHJ1Y3QgZGV2aWNlICpzd2Rldiwgc3RydWN0IHN3aXRjaGRldl9vYmog
-Km9iaik7DQo+ID4+ID4NCj4gPj4gPiAgICAucG9ydF9vYmpfYWRkKHN0cnVjdCBkZXZpY2UgKnN3
-ZGV2LCBzdHJ1Y3QgbmV0X2RldmljZSAqcG9ydCwNCj4gPj4gPiAgICAgICAgICAgICAgICAgIHN0
-cnVjdCBzd2l0Y2hkZXZfb2JqICpvYmopOw0KPiA+PiA+DQo+ID4+ID5UaGVuIHN3aXRjaGRldiBj
-b2RlIG1heSBoYXZlIGEgcGFyZW50IEFQSSBhbmQgdGhlIGN1cnJlbnQgcG9ydCBBUEkgbWF5DQo+
-ID4+ID5sb29rIGxpa2UgdGhpczoNCj4gPj4gPg0KPiA+PiA+ICAgIGludCBzd2l0Y2hkZXZfcG9y
-dF9vYmpfYWRkKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4+ID4gICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgc3RydWN0IHN3aXRjaGRldl9vYmogKm9iaikNCj4gPj4gPiAgICB7DQo+
-ID4+ID4gICAgICAgIHN0cnVjdCBkZXZpY2UgKnN3ZGV2ID0gc3dpdGNoZGV2X2dldF9wYXJlbnQo
-ZGV2KTsNCj4gPj4gPiAgICAgICAgaW50IGVyciA9IC1FT1BOT1RTVVBQOw0KPiA+PiA+DQo+ID4+
-ID4gICAgICAgIGlmIChzd2RldiAmJiBzd2Rldi0+c3dpdGNoZGV2X29wcyAmJg0KPiA+PiA+ICAg
-ICAgICAgICAgc3dkZXYtPnN3aXRjaGRldl9vcHMtPnBvcnRfb2JqX2FkZCkNCj4gPj4gPiAgICAg
-ICAgICAgIGVyciA9IHN3ZGV2LT5zd2l0Y2hkZXZfb3BzLT5wb3J0X29ial9hZGQoc3dkZXYsIGRl
-diwgb2JqKTsNCj4gPj4gPg0KPiA+PiA+ICAgICAgICByZXR1cm4gZXJyOw0KPiA+PiA+ICAgIH0N
-Cj4gPj4NCj4gPj4gRnJvIHRoZSByZWNvcmQsIEkgZG9uJ3Qgc2VlIGFueSByZWFzb24gZm9yIHRo
-aXMgImRldmljZSIuIEl0IHdvdWxkIGp1c3QNCj4gPj4gaW50cm9kdWNlIHVubmVjZXNzYXJ5IGNv
-bXBsZXhpY2l0eS4gU28gZmFyLCB3ZSBhcmUgZmluZSB3aXRob3V0IGl0Lg0KPiA+DQo+ID4gSSB3
-b3VsZG4ndCBzYXkgdGhhdC4gSSBiZWxlaXZlIHRoYXQgYW4gRXRoZXJuZXQgc3dpdGNoIGRlc2Vy
-dmVzIGl0cw0KPiA+IHN0cnVjdCBkZXZpY2UgaW4gdGhlIHRyZWUsIHNpbmNlIGl0IGlzIGEgcGh5
-c2ljYWwgY2hpcCwgbGlrZSBhbnkgb3RoZXIuDQo+IA0KPiBBZ3JlZWQsIGJ1dCBnYXRpbmcgdGhl
-c2UgcGF0Y2hlcyBiZWNhdXNlIHdlIGRvIG5vdCB5ZXQgaGF2ZSBhIGRldmljZQ0KPiBkcml2ZXIg
-bW9kZWwgZm9yIGFuIEV0aGVybmV0IHN3aXRjaCBvdXRzaWRlIG9mIGl0cyBpbmRpdmlkdWFsIHBv
-cnRzDQo+IGRvZXMgbm90IHNlZW0gbGlrZSBpdCBodXJ0cyB0aGUgY3VycmVudCBwYXRjaCBzZXJp
-ZXMsIG5vciB0aGUgZXhpc3RpbmcNCj4gbW9kZWwgKGFuZCBmdXR1cmUpLg0KDQpJIGRvbid0IHRo
-aW5rIHdlIGhhdmUgdG8gZ2F0ZSB0aGlzIHBhdGNoIGJlY2F1c2Ugb2YgdGhpcyBjaGFuZ2UsIGJ1
-dCBJIHdhbnRlZCB0bw0KcmFpc2UgdGhpcyBpc3N1ZSBiZWNhdXNlIGl0IGRpZG4ndCBzZWVtIHJp
-Z2h0IHRvIHVzZSAicG9ydCBsZXZlbCIgQVBJIHdoZW4gd2hhdCB3ZQ0Kd2FudCB0byBjb25maWd1
-cmUgaXMgcmVhbGx5IGEgImJyaWRnZSBsZXZlbCIgYXR0cmlidXRlLg0KDQo+IA0KPiA+DQo+ID4g
-Q29uZmlndXJpbmcgaXQgdGhyb3VnaCBvbmUgb2YgaXRzIHBvcnQgKG5ldF9kZXZpY2UpIGlzIGZp
-bmUsIHNpbmNlIHlvdQ0KPiA+IHdhbnQgdG8gY2hhbmdlIHRoZSBwb3J0IGJlaGF2aW9yLCBhbmQg
-TGludXggY29uZmlnIGlzIG9uIHBlci1wb3J0IGJhc2lzLg0KPiA+DQo+ID4gQnV0IHRoZSBjb21w
-bGV4aXR5IGlzIGFscmVhZHkgaW50cm9kdWNlZCBpbiB0aGUgc3RydWN0IG5ldF9kZXZpY2Ugd2l0
-aA0KPiA+IHRoZSBzd2l0Y2hkZXZfb3BzLiBUaGVzZSBvcHMgcmVhbGx5IGJlbG9uZyB0byB0aGUg
-cGFyZW50IGRldmljZSwgbm90IHRvDQo+ID4gYWxsIG9mIGl0cyBwb3J0cy4NCj4gDQo+IEkgYW0g
-bm90IHN1cmUgaWYgY29tcGxleGl0eSBpcyB0aGUgY29ycmVjdCB0ZXJtIGhlcmUsIGJsb2F0ICh0
-byBzb21lDQo+IGV4dGVudCkgbWF5YmUsIHNpbmNlIHdpdGggd2hhdCB5b3UgYXJlIHN1Z2dlc3Rp
-bmcgd2UgY291bGQgc2F2ZSBvbmUNCj4gc2V0IG9mIGZ1bmN0aW9uIHBvaW50ZXJzIHBlci1wb3J0
-LCBhbmQgaW5zdGVhZCBtb3ZlIHRoYXQgdG8gYQ0KPiBnbG9iYWwvc3dpdGNoLXdpZGUgZGV2aWNl
-IGltcGxlbWVudGluZyB0aGVzZSBvcGVyYXRpb25zLiBJbiBlc3NlbmNlLA0KPiB0aGVyZSB3aWxs
-IGJlIHBlci1wb3J0IHN3aXRjaGRldl9vcHMsIGJyaWRnZS1zcGVjaWZpYywgYW5kIG1heWJlIGlu
-DQo+IHRoZSBmdXR1cmUgc3dpdGNoIGRldmljZSBzcGVjaWZpYy4NCg0KVGhpcyBpcyByaWdodC4g
-IEdvaW5nIGZvcndhcmQsIHdlIHdpbGwgaGF2ZSBtZXRob2RzL2F0dHJpYnV0ZXMgdGhhdCBhcmUg
-YnJpZGdlIHNwZWNpZmljLA0Kcm91dGVyIHNwZWNpZmljLCBldGMuICBJIHRoaW5rIGhhdmluZyBh
-IHJpZ2h0IG1vZGVsIGF0IHRoZSBzdGFydCB3aWxsIGdvIGEgbG9uZyB3YXkgaW4NCmhlbHBpbmcg
-a2VlcCB0aGUgY29kZS1iYXNlIGV4dGVuc2libGUgaW4gdGhlIGZ1dHVyZS4NCg0KPiANCj4gPg0K
-PiA+IElkZWFsbHkgYSBzd2l0Y2ggZGV2aWNlIHdvdWxkIGJlIHJlZ2lzdGVyZWQgd2l0aCB0aGlz
-IHNldCBvZiBvcGVyYXRpb25zLA0KPiA+IGNyZWF0ZXMgaXRzIG5ldF9kZXZpY2VzLCBhbmQgd2ls
-bCBiZSBhY2Nlc3NpYmxlIGZyb20gYSBwb3J0IG5ldF9kZXZpY2UNCj4gPiB0aHJvdWdoIGEgbmV0
-ZGV2IGhlbHBlciBmdW5jdGlvbi4NCj4gDQo+IEkgdGhpbmsgdGhlIGNvcmUgb2YgdGhlIGRpc2N1
-c3Npb24gZm9yIGEgcHJvcGVyIEV0aGVybmV0IHN3aXRjaCBkZXZpY2UNCj4gbW9kZWwgaXMgcHJl
-Y2lzZWx5IHdoZXRoZXIgd2Ugd2FudCB0byBoYXZlIGEgc3BlY2lhbCBuZXR3b3JrIGRldmljZSB0
-bw0KPiBjb25maWd1cmUgdGhlIHN3aXRjaCBhcyBhIHdob2xlLiBJdCBzdXJlIHdvdWxkIHJlcHJl
-c2VudCBvbmUgZmFjZXQgb2YNCj4gdGhlIHN3aXRjaCBkZXZpY2UsIGJ1dCBub3QgZXZlcnl0aGlu
-ZyBlbHNlIGZvciB3aGljaCB3ZSBhcmUgc3RpbGwNCj4gdHJ5aW5nIHRvIGZpbmQgb3V0IHdoYXQg
-dGhhdCBpcy4NCg0KQWdyZWUuICBXZSB3aWxsIGhhdmUgbW9kZWxzIG90aGVyIHRoYW4gc3dpdGNo
-IGRldmljZSwgYnV0IGdpdmVuIHRoYXQgd2UgYXJlIHJ1bm5pbmcNCmludG8gc3dpdGNoLWxldmVs
-IGF0dHJpYnV0ZXMsIGl0IHdvdWxkIGJlIGdyZWF0IGlmIHdlIGNhbiBpbnRyb2R1Y2UgdGhhdCBj
-b25jZXB0IG5vdywNCmFuZCBhZGQgbW9yZSBhYnN0cmFjdGlvbnMvbW9kZWxzIGFzIHdlIGNvbWUg
-YWNyb3NzIG5ldyBhdHRyaWJ1dGVzLg0KDQotUHJlbQ0KDQo+IC0tDQo+IEZsb3JpYW4NCg==
+On Sun, Oct 11, 2015 at 5:13 PM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> On 10/12/2015 12:41 AM, Vivien Didelot wrote:
+>> On Oct. Sunday 11 (41) 09:12 AM, Jiri Pirko wrote:
+>>> Sat, Oct 10, 2015 at 12:36:26PM CEST, nikolay@cumulusnetworks.com w=
+rote:
+>>>> On 10/10/2015 09:49 AM, Elad Raz wrote:
+>>>>>
+>>>>>> On Oct 10, 2015, at 2:30 AM, Vivien Didelot <vivien.didelot@savo=
+irfairelinux.com> wrote:
+>>>>>>
+>>>>>> I have two concerns in mind:
+>>>>>>
+>>>>>> a) if we imagine that drivers like Rocker allocate memory in the=
+ prepare
+>>>>>> phase for each VID, preparing a range like 100-4000 would defini=
+tely not
+>>>>>> be recommended.
+>>>>>>
+>>>>>> b) imagine that you have two Linux bridges on a switch, one usin=
+g the
+>>>>>> hardware VLAN 100. If you request the VLAN range 99-101 for the =
+other
+>>>>>> bridge members, it is not possible for the driver to say "I can
+>>>>>> accelerate VLAN 99 and 101, but not 100". It must return OPNOTSU=
+PP for
+>>>>>> the whole range.
+>>>>>
+>>>>> Another concern I have with vid_being..vid_end range is the =E2=80=
+=9Cflags=E2=80=9D. Where flags can be BRIDGE_VLAN_INFO_PVID.
+>>>>> There is no sense having more than one VLAN as a PVID.
+>>>>> This leave the HW vendor the choice which VLAN id they will use a=
+s the PVID.
+>>>>>
+>>>>
+>>>> iproute2 doesn't allow to do it but I can see that someone can act=
+ually make it
+>>>> so the flags for the range have it and it doesn't look correct. Pe=
+rhaps we need
+>>>> something like the patch below to enforce this from kernel-side.
+>>>>
+>>>>
+>>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>>>> index d78b4429505a..02b17b53e9a6 100644
+>>>> --- a/net/bridge/br_netlink.c
+>>>> +++ b/net/bridge/br_netlink.c
+>>>> @@ -524,6 +524,9 @@ static int br_afspec(struct net_bridge *br,
+>>>>                     if (vinfo_start)
+>>>>                             return -EINVAL;
+>>>>                     vinfo_start =3D vinfo;
+>>>> +                   /* don't allow range of pvids */
+>>>> +                   if (vinfo_start->flags & BRIDGE_VLAN_INFO_PVID=
+)
+>>>> +                           return -EINVAL;
+>>>>                     continue;
+>>>>             }
+>>>>
+>>>
+>>> Looks correct to me. Could you please submit this properly? Thanks!
+>>
+>> The above patch is correct, but we only solve part of the problem, s=
+ince
+>> the range and bridge flags are exposed by switchdev_obj_port_vlan as=
+ is.
+>>
+>> Thanks,
+>> -v
+>>
+>
+> Yes, the above fixes the bridge side. About the switchdev side it see=
+ms like it's
+> up to the switchdev driver to do the right thing in its switchdev_ops=
+=2E I took a
+> quick look at DSA and it seems correct, the flag isn't saved and on d=
+ump request
+> the flags are generated so it shouldn't be possible to export multipl=
+e pvids.
+> But switchdev_port_br_afspec() seems problematic, in fact I don't eve=
+n see a vlan
+> id check, i.e. =3D=3D0 || >=3D VLAN_N_MASK.
+> Of course, I might be totally off point as I'm not that familiar with=
+ switchdev and
+> it's very late. :-)
+> But maybe it needs something like:
+>
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index 6e4a4f9ad927..3dd52a53867f 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -16,6 +16,7 @@
+>  #include <linux/notifier.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/if_bridge.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/list.h>
+>  #include <net/ip_fib.h>
+>  #include <net/switchdev.h>
+> @@ -716,10 +717,14 @@ static int switchdev_port_br_afspec(struct net_=
+device *dev,
+>                         return -EINVAL;
+>                 vinfo =3D nla_data(attr);
+>                 vlan.flags =3D vinfo->flags;
+> +               if (!vinfo->vid || vinfo->vid >=3D VLAN_VID_MASK)
+> +                        return -EINVAL;
+>                 if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+>                         if (vlan.vid_begin)
+>                                 return -EINVAL;
+>                         vlan.vid_begin =3D vinfo->vid;
+> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+> +                               return -EINVAL;
+>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END)=
+ {
+>                         if (!vlan.vid_begin)
+>                                 return -EINVAL;
+
+This (and you other patch) seem right to me, if we're going to block
+setting PVID when specifying a vlan range.  Would you mind combining
+and resending both patches as one as a proper patch?
