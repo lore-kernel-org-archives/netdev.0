@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 0/7] switchdev: change locking
-Date: Mon, 12 Oct 2015 15:15:03 +0200
-Message-ID: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 6/7] rocker: remove nowait from switchdev callbacks.
+Date: Mon, 12 Oct 2015 15:15:09 +0200
+Message-ID: <1444655710-8279-7-git-send-email-jiri@resnulli.us>
+References: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
 	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
@@ -9,57 +10,57 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34790 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbbJLNPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 09:15:15 -0400
-Received: by wicgb1 with SMTP id gb1so49988058wic.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 06:15:13 -0700 (PDT)
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36914 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbbJLNPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 09:15:20 -0400
+Received: by wijq8 with SMTP id q8so57463049wij.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 06:15:19 -0700 (PDT)
+In-Reply-To: <1444655710-8279-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This is something which I'm currently struggling with.
-Callers of attr_set and obj_add/del often hold not only RTNL, but also
-spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
+No need to avoid sleeping in switchdev callbacks now, as the switchdev
+core allows it.
 
-The way rocker is dealing with this now is just to invoke driver operation
-and go out, without any checking or reporting of the operation status.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-Since it would be nice to at least put a warning in case the operation fails,
-it makes sense to do this in delayed work directly in switchdev core
-instead of implementing this in separate drivers. And that is what this patchset
-is introducing.
-
-So from now on, the locking of switchdev mod ops is consistent. Caller either
-holds rtnl mutex or in case it does not, caller sets defer flag, telling
-switchdev core to process the op later in delayed work.
-
-Flush function for switchdev deferred ops can be called by op
-caller in appropriate location, for example after it releases
-spin lock, to force switchdev core to process pending ops.
-
-v1->v2:
-- rebased on current net-next head (including Scott's ageing patchset)
-
-Jiri Pirko (7):
-  switchdev: introduce switchdev workqueue
-  switchdev: allow caller to explicitly request attr_set as deferred
-  switchdev: remove pointers from switchdev objects
-  switchdev: introduce possibility to defer obj_add/del
-  bridge: defer switchdev fdb del call in fdb_del_external_learn
-  rocker: remove nowait from switchdev callbacks.
-  switchdev: assert rtnl mutex when going over lower netdevs
-
- drivers/net/ethernet/rocker/rocker.c |  13 +-
- include/net/switchdev.h              |  14 +-
- net/bridge/br_fdb.c                  |   7 +-
- net/bridge/br_if.c                   |   3 +
- net/bridge/br_stp.c                  |   3 +-
- net/dsa/slave.c                      |   2 +-
- net/switchdev/switchdev.c            | 289 ++++++++++++++++++++++++-----------
- 7 files changed, 231 insertions(+), 100 deletions(-)
-
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index bb956a5..9629c5b5 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3672,7 +3672,7 @@ static int rocker_port_fdb_flush(struct rocker_port *rocker_port,
+ 	    rocker_port->stp_state == BR_STATE_FORWARDING)
+ 		return 0;
+ 
+-	flags |= ROCKER_OP_FLAG_REMOVE;
++	flags |= ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
+ 
+ 	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
+ 
+@@ -4382,8 +4382,7 @@ static int rocker_port_attr_set(struct net_device *dev,
+ 
+ 	switch (attr->id) {
+ 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
+-		err = rocker_port_stp_update(rocker_port, trans,
+-					     ROCKER_OP_FLAG_NOWAIT,
++		err = rocker_port_stp_update(rocker_port, trans, 0,
+ 					     attr->u.stp_state);
+ 		break;
+ 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
+@@ -4517,7 +4516,7 @@ static int rocker_port_fdb_del(struct rocker_port *rocker_port,
+ 			       const struct switchdev_obj_port_fdb *fdb)
+ {
+ 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
+-	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
++	int flags = ROCKER_OP_FLAG_REMOVE;
+ 
+ 	if (!rocker_port_is_bridged(rocker_port))
+ 		return -EINVAL;
 -- 
 1.9.3
