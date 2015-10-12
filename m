@@ -1,32 +1,44 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Mon, 12 Oct 2015 14:17:16 +0200
-Message-ID: <20151012121715.GD2370@nanopsycho.orion>
-References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
- <1444651299-2813-1-git-send-email-razor@blackwall.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: Use-after-free in ep_remove_wait_queue
+Date: Mon, 12 Oct 2015 14:17:37 +0200
+Message-ID: <CACT4Y+Z2H8xPg1Dq0Z=HC3WKm+Uw+ZjK6zOLvxhPwFd4D0CsZw@mail.gmail.com>
+References: <CACT4Y+b3xsLsKVFCz2M7nqqfXnyuMHEVYtJS2wN4WHLWs9A5ng@mail.gmail.com>
+ <20151012120249.GB16370@unicorn.suse.cz> <1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sfeldma@gmail.com,
-	vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:33809 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173AbbJLMRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 08:17:23 -0400
-Received: by wicgb1 with SMTP id gb1so48000836wic.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 05:17:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1444651299-2813-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	dhowells@redhat.com, paul@paul-moore.com, salyzyn@android.com,
+	sds@tycho.nsa.gov, ying.xue@windriver.com, netdev@vger.kernel.org,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Julien Tinnes <jln@google.com>,
+	Kees Cook <keescook@google.com>,
+	Mathias Krause <minipli@googlemail.com>,
+	Jason Baron <jbaron@akamai.com>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>
+To: syzkaller@googlegroups.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444652071.27760.156.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 12, 2015 at 02:01:39PM CEST, razor@blackwall.org wrote:
->From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Mon, Oct 12, 2015 at 2:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2015-10-12 at 14:02 +0200, Michal Kubecek wrote:
 >
->We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
+>> Probably the issue discussed in
+>>
+>>   http://thread.gmane.org/gmane.linux.kernel/2057497/
+>>
+>> and previous related threads.
+>>
 >
->Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Same issue, but Dmitry apparently did not trust me.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Just wanted to make sure. Let's consider this as fixed.
