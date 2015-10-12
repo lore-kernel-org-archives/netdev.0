@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next v2 3/4] bridge: vlan: drop unnecessary flush code
-Date: Mon, 12 Oct 2015 21:47:04 +0200
-Message-ID: <1444679225-7354-4-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next v2 2/4] bridge: vlan: use rcu for vlan_list traversal in br_fill_ifinfo
+Date: Mon, 12 Oct 2015 21:47:03 +0200
+Message-ID: <1444679225-7354-3-git-send-email-razor@blackwall.org>
 References: <1444679225-7354-1-git-send-email-razor@blackwall.org>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
@@ -9,48 +9,85 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37298 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795AbbJLTrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 15:47:12 -0400
-Received: by wijq8 with SMTP id q8so73193417wij.0
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 12:47:11 -0700 (PDT)
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:34772 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208AbbJLTrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 15:47:11 -0400
+Received: by wicgb1 with SMTP id gb1so62841306wic.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 12:47:10 -0700 (PDT)
 In-Reply-To: <1444679225-7354-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-As Ido Schimmel pointed out the vlan_vid_del() code in nbp_vlan_flush is
-unnecessary (and is actually a remnant of the old vlan code) so we can
-remove it.
+br_fill_ifinfo is called by br_ifinfo_notify which can be called from
+many contexts with different locks held, sometimes it relies upon
+bridge's spinlock only which is a problem for the vlan code, so use
+explicitly rcu for that to avoid problems.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
-v2: new patch
+v2: no change
 
- net/bridge/br_vlan.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ net/bridge/br_netlink.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 4d8a21daf728..573ddfc31fb1 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -973,14 +973,7 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 7723a5be6c18..b1acb04b1485 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -253,7 +253,7 @@ static int br_fill_ifvlaninfo_compressed(struct sk_buff *skb,
+ 	 * if vlaninfo represents a range
+ 	 */
+ 	pvid = br_get_pvid(vg);
+-	list_for_each_entry(v, &vg->vlan_list, vlist) {
++	list_for_each_entry_rcu(v, &vg->vlan_list, vlist) {
+ 		flags = 0;
+ 		if (!br_vlan_should_use(v))
+ 			continue;
+@@ -303,7 +303,7 @@ static int br_fill_ifvlaninfo(struct sk_buff *skb,
+ 	u16 pvid;
  
- void nbp_vlan_flush(struct net_bridge_port *port)
- {
--	struct net_bridge_vlan_group *vg;
--	struct net_bridge_vlan *vlan;
--
- 	ASSERT_RTNL();
+ 	pvid = br_get_pvid(vg);
+-	list_for_each_entry(v, &vg->vlan_list, vlist) {
++	list_for_each_entry_rcu(v, &vg->vlan_list, vlist) {
+ 		if (!br_vlan_should_use(v))
+ 			continue;
  
--	vg = nbp_vlan_group(port);
--	list_for_each_entry(vlan, &vg->vlan_list, vlist)
--		vlan_vid_del(port->dev, port->br->vlan_proto, vlan->vid);
+@@ -386,22 +386,27 @@ static int br_fill_ifinfo(struct sk_buff *skb,
+ 		struct nlattr *af;
+ 		int err;
+ 
++		/* RCU needed because of the VLAN locking rules (rcu || rtnl) */
++		rcu_read_lock();
+ 		if (port)
+-			vg = nbp_vlan_group(port);
++			vg = nbp_vlan_group_rcu(port);
+ 		else
+-			vg = br_vlan_group(br);
++			vg = br_vlan_group_rcu(br);
+ 
+-		if (!vg || !vg->num_vlans)
++		if (!vg || !vg->num_vlans) {
++			rcu_read_unlock();
+ 			goto done;
 -
--	__vlan_flush(vg);
-+	__vlan_flush(nbp_vlan_group(port));
- }
++		}
+ 		af = nla_nest_start(skb, IFLA_AF_SPEC);
+-		if (!af)
++		if (!af) {
++			rcu_read_unlock();
+ 			goto nla_put_failure;
+-
++		}
+ 		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
+ 			err = br_fill_ifvlaninfo_compressed(skb, vg);
+ 		else
+ 			err = br_fill_ifvlaninfo(skb, vg);
++		rcu_read_unlock();
+ 		if (err)
+ 			goto nla_put_failure;
+ 		nla_nest_end(skb, af);
 -- 
 2.4.3
