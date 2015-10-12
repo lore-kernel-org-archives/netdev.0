@@ -1,63 +1,97 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 4/9] net/can: can_dropped_invalid_skb can be boolean
-Date: Mon, 12 Oct 2015 11:00:18 +0200
-Message-ID: <561B76A2.1020003@pengutronix.de>
-References: <1444310942-4428-1-git-send-email-bywxiaobai@163.com>
- <1444310942-4428-5-git-send-email-bywxiaobai@163.com>
- <56179387.1090301@pengutronix.de> <20151009142502.GA5427@bbox>
+From: Kaixu Xia <xiakaixu@huawei.com>
+Subject: [RFC PATCH 1/2] perf: Add the flag sample_disable not to output data on samples
+Date: Mon, 12 Oct 2015 09:02:42 +0000
+Message-ID: <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
+References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="xJJip87bX8agae4QfkOjOADNME0WD8FdW"
-Cc: davem@davemloft.net, tgraf@suug.ch, herbert@gondor.apana.org.au,
-	johannes.berg@intel.com, daniel@iogearbox.net,
-	gerrit@erg.abdn.ac.uk, socketcan@hartkopp.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yaowei Bai <bywxiaobai@163.com>
+Content-Type: text/plain
+Cc: <xiakaixu@huawei.com>, <wangnan0@huawei.com>,
+	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
+	<hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
+	<mingo@redhat.com>, <a.p.zijlstra@chello.nl>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151009142502.GA5427@bbox>
+In-Reply-To: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xJJip87bX8agae4QfkOjOADNME0WD8FdW
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+In some scenarios we don't want to output trace data when sampling
+to reduce overhead. This patch adds the flag sample_disable to
+implement this function. By setting this flag and integrating with
+ebpf, we can control the data output process and get the samples we
+are most interested in.
 
-On 10/09/2015 04:25 PM, Yaowei Bai wrote:
->> Yaowei, feel free to send the CAN patch as part of your series directl=
-y
->> to David.
->=20
-> OK, i'll do that and sorry for disturbing you. :)
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ include/linux/bpf.h        | 1 +
+ include/linux/perf_event.h | 2 ++
+ kernel/bpf/arraymap.c      | 5 +++++
+ kernel/events/core.c       | 3 +++
+ 4 files changed, 11 insertions(+)
 
-Putting me on Cc was 100% correct, but IMHO no need to split up the
-series when David can apply it in one go.
-
-regards,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---xJJip87bX8agae4QfkOjOADNME0WD8FdW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWG3aiAAoJEP5prqPJtc/HHKwH/24kUWqL9zotiuNSo9ZLViIa
-5DySYpch4c2Vys/vgVBVarScgAGtBuCDa2Gf6nBmTsNynlpYOqrMLA8J/2ab9zsT
-Ue+J1BrCWuDTo3ltQj3Uqu00OL608eEVztRe7LmaxiJm/aDl2uuHRPdpRdyOsa+a
-R/b9N/QNbX65FhKb4vso2oMDO2DjEQU1mbXPM5dKM8ay/T/udBBMjQoOeNzZqu6A
-k2wE9t3c5HDvnPYO7C56JdspmSxo5TI2ariyFXLDY6phcjedo4VrkLBk88pBVkNf
-lAbEW9Qw5LtqxS8t+RKjSnVHNszVVJBkeSM4AD0kfxU8f2TxmTQjDAQq4T7TopM=
-=NVF7
------END PGP SIGNATURE-----
-
---xJJip87bX8agae4QfkOjOADNME0WD8FdW--
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index f57d7fe..25e073d 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -39,6 +39,7 @@ struct bpf_map {
+ 	u32 max_entries;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
++	atomic_t perf_sample_disable;
+ };
+ 
+ struct bpf_map_type_list {
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 092a0e8..0606d1d 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -483,6 +483,8 @@ struct perf_event {
+ 	perf_overflow_handler_t		overflow_handler;
+ 	void				*overflow_handler_context;
+ 
++	atomic_t			*sample_disable;
++
+ #ifdef CONFIG_EVENT_TRACING
+ 	struct trace_event_call		*tp_event;
+ 	struct event_filter		*filter;
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 29ace10..4ae82c9 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -51,6 +51,9 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 
+ 	array->elem_size = elem_size;
+ 
++	if (attr->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY)
++		atomic_set(&array->map.perf_sample_disable, 1);
++
+ 	return &array->map;
+ }
+ 
+@@ -298,6 +301,8 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
+ 		perf_event_release_kernel(event);
+ 		return ERR_PTR(-EINVAL);
+ 	}
++
++	event->sample_disable = &map->perf_sample_disable;
+ 	return event;
+ }
+ 
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index b11756f..f6ef45c 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
+ 		irq_work_queue(&event->pending);
+ 	}
+ 
++	if ((event->sample_disable) && atomic_read(event->sample_disable))
++		return ret;
++
+ 	if (event->overflow_handler)
+ 		event->overflow_handler(event, data, regs);
+ 	else
+-- 
+1.8.3.4
