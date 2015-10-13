@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] atm: iphase: fix misleading indention
-Date: Mon, 12 Oct 2015 19:56:56 -0700 (PDT)
-Message-ID: <20151012.195656.558210406749852516.davem@davemloft.net>
-References: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
-	<1444506439-10414-3-git-send-email-theidsieck@leenox.de>
+Subject: Re: [PATCH net-next V15 0/3] openvswitch: Add support for 802.1ad
+Date: Mon, 12 Oct 2015 19:58:41 -0700 (PDT)
+Message-ID: <20151012.195841.292062617131376194.davem@davemloft.net>
+References: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: theidsieck@leenox.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444506439-10414-3-git-send-email-theidsieck@leenox.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, therbert@redhat.com,
+	dev@openvswitch.org
+To: thomasfherbert@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932092AbbJMCml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 22:42:41 -0400
+In-Reply-To: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tillmann Heidsieck <theidsieck@leenox.de>
-Date: Sat, 10 Oct 2015 21:47:19 +0200
+From: Thomas F Herbert <thomasfherbert@gmail.com>
+Date: Sat, 10 Oct 2015 19:40:30 -0400
 
-> Fix a smatch warning:
-> drivers/atm/iphase.c:1178 rx_pkt() warn: curly braces intended?
-> 
-> The code is correct, the indention is misleading. In case the allocation
-> of skb fails, we want to skip to the end.
-> 
-> Signed-off-by: Tillmann Heidsieck <theidsieck@leenox.de>
+> Thomas F Herbert (3):
+>   openvswitch: 802.1ad uapi changes.
+>   Check for vlan ethernet types for 8021.q or 802.1ad
+>   802.1AD: Flow handling, actions, vlan parsing and netlink attributes
 
-Applied to net-next.
+I think this patch series has gone long enough, can I get some ACK's
+ASAP for this V15 posting?
+
+Thanks.
