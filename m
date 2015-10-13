@@ -1,66 +1,52 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/6] net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
-Date: Tue, 13 Oct 2015 11:42:59 -0400
-Message-ID: <1444750983-14726-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/4] Mellanox driver update, Oct 13 2015
+Date: Tue, 13 Oct 2015 18:44:05 +0300
+Message-ID: <1444751049-2511-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eli Cohen <eli@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:49483 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752493AbbJMPoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 11:44:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is no need to write the MAC address before every Get Next
-operation, since ATU MAC registers are not cleared between calls.
+Hi Dave,
 
-Move the _mv88e6xxx_atu_mac_write call outside of _mv88e6xxx_atu_getnext
-so future code could call ATU Get Next multiple times and save a few
-register access.
----
- drivers/net/dsa/mv88e6xxx.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+This series contains two more patches from Eli, patch from Majd
+to support PCI error handlers and a fix from Jack to mlx4 VFs
+when probed without a provisioned mac address.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 1edefe0..b4e97c1 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1751,7 +1751,6 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- }
- 
- static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
--				  const unsigned char *addr,
- 				  struct mv88e6xxx_atu_entry *entry)
- {
- 	struct mv88e6xxx_atu_entry next = { 0 };
-@@ -1763,10 +1762,6 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = _mv88e6xxx_atu_mac_write(ds, addr);
--	if (ret < 0)
--		return ret;
--
- 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
- 	if (ret < 0)
- 		return ret;
-@@ -1827,7 +1822,11 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- 			fid = vtu.fid;
- 		}
- 
--		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
-+		ret = _mv88e6xxx_atu_mac_write(ds, addr);
-+		if (ret < 0)
-+			goto unlock;
-+
-+		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
- 		if (ret < 0)
- 			goto unlock;
- 
+The patch set applied on top of net-next commit bbb300e "Merge branch 'bridge-vlan'"
+
+Or.
+
+Eli Cohen (2):
+  net/mlx5_core: Fix internal error detection conditions
+  net/mlx5_core: Wait for FW readiness on startup
+
+Jack Morgenstein (1):
+  net/mlx4_core: Replace VF zero mac with random mac in mlx4_core
+
+Majd Dibbiny (1):
+  net/mlx5_core: Add pci error handlers to mlx5_core driver
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  23 ++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |  16 ++
+ drivers/net/ethernet/mellanox/mlx4/main.c          |   2 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      | 170 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/health.c   | 123 +++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     | 212 ++++++++++++++++++++-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   4 +
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |  13 +-
+ include/linux/mlx4/device.h                        |   1 +
+ include/linux/mlx5/device.h                        |   3 +-
+ include/linux/mlx5/driver.h                        |  28 +++
+ 12 files changed, 565 insertions(+), 32 deletions(-)
+
 -- 
-2.6.1
+2.3.7
