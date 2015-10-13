@@ -1,41 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] route: fib_validate_source remove the <=
- RT_SCOPE_HOST test
-Date: Tue, 13 Oct 2015 22:24:47 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1510132223030.2336@ja.home.ssi.bg>
-References: <a9569cddcdeb5f0b7d138a22086f76f1b9e5acd5.1444754404.git.lucien.xin@gmail.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
+Date: Tue, 13 Oct 2015 12:25:10 -0700
+Message-ID: <20151013122510.0000429f@unknown>
+References: <6607276.TY67sbLLqL@wuerfel>
+	<1444717101.2870.16.camel@intel.com>
+	<57023416.17EujnXPCo@wuerfel>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-	fw@strlen.de
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
+	<kbuild-all@01.org>, Andrew Bowers <andrewx.bowers@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	"John Ronciak" <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46578 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751851AbbJMTZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 15:25:04 -0400
-In-Reply-To: <a9569cddcdeb5f0b7d138a22086f76f1b9e5acd5.1444754404.git.lucien.xin@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:10768 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752290AbbJMTZM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 15:25:12 -0400
+In-Reply-To: <57023416.17EujnXPCo@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 13 Oct 2015 13:37:04 +0200
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-	Hello,
-
-On Wed, 14 Oct 2015, Xin Long wrote:
-
-> commit fe3edf45792a ("ipv4: Remove all RTCF_DIRECTSRC handliing.").
+> On Monday 12 October 2015 23:18:21 you wrote:
+> > On Wed, 2015-10-07 at 22:13 +0200, Arnd Bergmann wrote:
+> > > Jesse Brandeburg fixed a bug for 32-bit systems in the i40e driver
+> > > in commit 9c70d7cebfec5 ("i40e: fix 32 bit build warnings"), but the
+> > > same code still exists in the i40evf driver and causes compilation
+> > > warnings in ARM and x86 allmodconfig:
+> > > 
+> > > drivers/net/ethernet/intel/i40evf/i40e_common.c:445:68: warning: cast
+> > > from pointer to integer of different size [-Wpointer-to-int-cast]
+> > > drivers/net/ethernet/intel/i40evf/i40e_common.c:446:71: warning: cast
+> > > from pointer to integer of different size [-Wpointer-to-int-cast]
+> > > 
+> > > This applies the same fix by removing the broken code.
+> > > 
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > 
+> > Does not apply at all to my next-queue tree (dev-queue branch), my
+> > guess is that this is already fixed in one of the patches already in my
+> > queue.
+> > 
 > 
-> Before this commit, we had a tristate:
-> < 0: error
-> 0: ok
-> 1: ok and set RTCF_DIRECTSRC
-> 
-> But now we only care about 0 or < 0.
+> I still get these warnings on your branch:
 
-	Not true, __mkroute_input() uses the 'err' result
-to set IPSKB_DOREDIRECT.
+Make sure you're pulling from the dev-queue branch, not the master
+branch of Jeff's next-queue repo.
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+I've made that mistake many times, and I do see that the code in
+question is not present in:
+https://git.kernel.org/cgit/linux/kernel/git/jkirsher/next-queue.git/tree/drivers/net/ethernet/intel/i40evf/i40e_common.c?h=dev-queue
