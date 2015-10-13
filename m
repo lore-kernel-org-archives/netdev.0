@@ -1,62 +1,87 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] route: fib_validate_source remove the <= RT_SCOPE_HOST test
-Date: Wed, 14 Oct 2015 00:40:04 +0800
-Message-ID: <a9569cddcdeb5f0b7d138a22086f76f1b9e5acd5.1444754404.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, fw@strlen.de
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34861 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752920AbbJMQkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 12:40:08 -0400
-Received: by pabve7 with SMTP id ve7so26391333pab.2
-        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 09:40:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: eliminate risk of stalled
+	link synchronization
+Date: Tue, 13 Oct 2015 12:41:51 -0400
+Message-ID: <1444754511-14119-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-commit fe3edf45792a ("ipv4: Remove all RTCF_DIRECTSRC handliing.").
+In commit 6e498158a827 ("tipc: move link synch and failover to link aggregation level")
+we introduced a new mechanism for performing link failover and
+synchronization. We have now detected a bug in this mechanism.
 
-Before this commit, we had a tristate:
-< 0: error
-0: ok
-1: ok and set RTCF_DIRECTSRC
+During link synchronization we use the arrival of any packet on
+the tunnel link to trig a check for whether it has reached the
+synchronization point or not. This has turned out to be too
+permissive, since it may cause an arriving non-last SYNCH packet to
+end the synch state, just to see the next SYNCH packet initiate a
+new synch state with a new, higher synch point. This is not fatal,
+but should be avoided, because it may significantly extend the
+synchronization period, while at the same time we are not allowed
+to send NACKs if packets are lost. In the worst case, a low-traffic
+user may see its traffic stall until a LINK_PROTOCOL state message
+trigs the link to leave synchronization state.
 
-But now we only care about 0 or < 0.
+At the same time, LINK_PROTOCOL packets which happen to have a (non-
+valid) sequence number lower than the tunnel link's rcv_nxt value will
+be consistently dropped, and will never be able to resolve the situation
+described above.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+We fix this by exempting LINK_PROTOCOL packets from the sequence number
+check, as they should be. We also reduce (but don't completely
+eliminate) the risk of entering multiple synchronization states by only
+allowing the (logically) first SYNCH packet to initiate a synchronization
+state. This works independently of actual packet arrival order.
+
+Fixes: commit 6e498158a827 ("tipc: move link synch and failover to link aggregation level")
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/ipv4/fib_frontend.c | 14 +++-----------
- 1 file changed, 3 insertions(+), 11 deletions(-)
+ net/tipc/node.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index d7c2bb0..f5c74d8 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -376,22 +376,14 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	if (FIB_RES_DEV(res) == dev)
- 		dev_match = true;
- #endif
--	if (dev_match) {
--		ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
--		return ret;
--	}
-+	if (dev_match)
-+		return 0;
- 	if (no_addr)
- 		goto last_resort;
- 	if (rpf == 1)
- 		goto e_rpf;
--	fl4.flowi4_oif = dev->ifindex;
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 703875f..2c32a83 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1116,7 +1116,7 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 	}
  
--	ret = 0;
--	if (fib_lookup(net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE) == 0) {
--		if (res.type == RTN_UNICAST)
--			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
--	}
--	return ret;
-+	return 0;
+ 	/* Ignore duplicate packets */
+-	if (less(oseqno, rcv_nxt))
++	if ((usr != LINK_PROTOCOL) && less(oseqno, rcv_nxt))
+ 		return true;
  
- last_resort:
- 	if (rpf)
+ 	/* Initiate or update failover mode if applicable */
+@@ -1146,8 +1146,8 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 	if (!pl || !tipc_link_is_up(pl))
+ 		return true;
+ 
+-	/* Initiate or update synch mode if applicable */
+-	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG)) {
++	/* Initiate synch mode if applicable */
++	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG) && (oseqno == 1)) {
+ 		syncpt = iseqno + exp_pkts - 1;
+ 		if (!tipc_link_is_up(l)) {
+ 			tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
 -- 
-2.1.0
+1.9.1
+
+
+------------------------------------------------------------------------------
