@@ -1,90 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/17] i40evf: properly handle ndo_set_mac_address calls
-Date: Mon, 12 Oct 2015 22:53:05 -0700
-Message-ID: <1444715598-20970-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/17] ixgbe: add flow control ethertype to the anti-spoofing filter
+Date: Mon, 12 Oct 2015 22:53:16 -0700
+Message-ID: <1444715598-20970-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2285 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:65148 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752098AbbJMFx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752024AbbJMFx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 13 Oct 2015 01:53:27 -0400
 In-Reply-To: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The driver was not correctly handling calls to its ndo_set_mac_address
-method. It did not properly check to see if the override would be
-allowed by the PF driver, and never removed the old address from its
-filter list.
+This patch makes sure that flow control packets initiated by the VF are
+dropped and reported as spoofed.
 
-Add a new flag to the adapter struct which is set if the MAC address is
-assigned by the PF. Check this flag and don't allow the MAC address to
-be changed if it is set. Search for and properly remove the filter
-for the old MAC address when the new one is set.
+Flow control packets can be used to limit the throughput or as DOS
+attack when generated from a VF. Flow control is not supported per VF
+hence any pause frames generated from a VF are considered malicious.
 
-Change-ID: I817bf620c869c5a80e6a7eab65c9cbad1dc89799
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Also cleaned up indentation and some redundant comments.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h      |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 18 +++++++++++++++---
- 2 files changed, 16 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 16 +++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 ++++
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index e7a223e..6f42711 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -220,6 +220,7 @@ struct i40evf_adapter {
- #define I40EVF_FLAG_RESET_NEEDED                 BIT(10)
- #define I40EVF_FLAG_WB_ON_ITR_CAPABLE		BIT(11)
- #define I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE	BIT(12)
-+#define I40EVF_FLAG_ADDR_SET_BY_PF		BIT(13)
- /* duplicates for common code */
- #define I40E_FLAG_FDIR_ATR_ENABLED		 0
- #define I40E_FLAG_DCB_ENABLED			 0
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index c00e495..7ea7d2e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -841,6 +841,15 @@ static int i40evf_set_mac(struct net_device *netdev, void *p)
- 	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
- 		return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1910039..c4608f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3723,14 +3723,20 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 	hw->mac.ops.set_mac_anti_spoofing(hw, (adapter->num_vfs != 0),
+ 					  adapter->num_vfs);
  
-+	if (adapter->flags & I40EVF_FLAG_ADDR_SET_BY_PF)
-+		return -EPERM;
+-	/* Ensure LLDP is set for Ethertype Antispoofing if we will be
++	/* Ensure LLDP and FC is set for Ethertype Antispoofing if we will be
+ 	 * calling set_ethertype_anti_spoofing for each VF in loop below
+ 	 */
+-	if (hw->mac.ops.set_ethertype_anti_spoofing)
++	if (hw->mac.ops.set_ethertype_anti_spoofing) {
+ 		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_LLDP),
+-				(IXGBE_ETQF_FILTER_EN    | /* enable filter */
+-				 IXGBE_ETQF_TX_ANTISPOOF | /* tx antispoof */
+-				 IXGBE_ETH_P_LLDP));	   /* LLDP eth type */
++				(IXGBE_ETQF_FILTER_EN    |
++				 IXGBE_ETQF_TX_ANTISPOOF |
++				 IXGBE_ETH_P_LLDP));
 +
-+	f = i40evf_find_filter(adapter, hw->mac.addr);
-+	if (f) {
-+		f->remove = true;
-+		adapter->aq_required |= I40EVF_FLAG_AQ_DEL_MAC_FILTER;
++		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FC),
++				(IXGBE_ETQF_FILTER_EN |
++				 IXGBE_ETQF_TX_ANTISPOOF |
++				 ETH_P_PAUSE));
 +	}
-+
- 	f = i40evf_add_filter(adapter, addr->sa_data);
- 	if (f) {
- 		ether_addr_copy(hw->mac.addr, addr->sa_data);
-@@ -2244,10 +2253,13 @@ static void i40evf_init_task(struct work_struct *work)
- 	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
- 		dev_info(&pdev->dev, "Invalid MAC address %pM, using random\n",
- 			 adapter->hw.mac.addr);
--		random_ether_addr(adapter->hw.mac.addr);
-+		eth_hw_addr_random(netdev);
-+		ether_addr_copy(adapter->hw.mac.addr, netdev->dev_addr);
-+	} else {
-+		adapter->flags |= I40EVF_FLAG_ADDR_SET_BY_PF;
-+		ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
-+		ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
- 	}
--	ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
--	ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
  
- 	init_timer(&adapter->watchdog_timer);
- 	adapter->watchdog_timer.function = &i40evf_watchdog_timer;
+ 	/* For VFs that have spoof checking turned off */
+ 	for (i = 0; i < adapter->num_vfs; i++) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 939c90c..995f031 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1752,6 +1752,9 @@ enum {
+  *    FCoE (0x8906):         Filter 2
+  *    1588 (0x88f7):         Filter 3
+  *    FIP  (0x8914):         Filter 4
++ *    LLDP (0x88CC):         Filter 5
++ *    LACP (0x8809):         Filter 6
++ *    FC   (0x8808):         Filter 7
+  */
+ #define IXGBE_ETQF_FILTER_EAPOL          0
+ #define IXGBE_ETQF_FILTER_FCOE           2
+@@ -1759,6 +1762,7 @@ enum {
+ #define IXGBE_ETQF_FILTER_FIP            4
+ #define IXGBE_ETQF_FILTER_LLDP		 5
+ #define IXGBE_ETQF_FILTER_LACP		 6
++#define IXGBE_ETQF_FILTER_FC		 7
+ 
+ /* VLAN Control Bit Masks */
+ #define IXGBE_VLNCTRL_VET       0x0000FFFF  /* bits 0-15 */
 -- 
 2.4.3
