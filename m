@@ -1,15 +1,13 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v4 2/7] switchdev: allow caller to explicitly
- request attr_set as deferred
-Date: Mon, 12 Oct 2015 23:53:45 -0700
-Message-ID: <CAE4R7bC4vik8-V9L5oTukQ4YhMoCGF_uOM_481fJgq3yc1LN=g@mail.gmail.com>
+Subject: Re: [patch net-next v4 6/7] rocker: remove nowait from switchdev callbacks.
+Date: Mon, 12 Oct 2015 23:55:11 -0700
+Message-ID: <CAE4R7bAayOFtATyoTxm56e7gbSifkKt51mUeFa8-wL0FrKjHDA@mail.gmail.com>
 References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
- <1444672986-20709-1-git-send-email-jiri@resnulli.us> <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
- <20151013054414.GA2242@nanopsycho.orion> <561C9EC2.7030907@gmail.com> <20151013062112.GD2242@nanopsycho.orion>
+ <1444672986-20709-1-git-send-email-jiri@resnulli.us> <1444672986-20709-5-git-send-email-jiri@resnulli.us>
+ <CAE4R7bDfDCEGcHY=y+77DbC0z09ogN9jiO_qBhb+utwXTUzmHw@mail.gmail.com> <20151013062530.GE2242@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
+Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ido Schimmel <idosch@mellanox.com>,
 	Elad Raz <eladr@mellanox.com>,
@@ -17,121 +15,55 @@ Cc: John Fastabend <john.fastabend@gmail.com>,
 	Guenter Roeck <linux@roeck-us.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	"andrew@lunn.ch" <andrew@lunn.ch>,
+	john fastabend <john.fastabend@gmail.com>,
 	David Laight <David.Laight@aculab.com>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:35706 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449AbbJMGyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 02:54:06 -0400
-Received: by oiao187 with SMTP id o187so4497845oia.2
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 23:54:04 -0700 (PDT)
-In-Reply-To: <20151013062112.GD2242@nanopsycho.orion>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:33790 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914AbbJMGzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 02:55:31 -0400
+Received: by oiar126 with SMTP id r126so4525352oia.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 23:55:31 -0700 (PDT)
+In-Reply-To: <20151013062530.GE2242@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2015 at 11:21 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 13, 2015 at 08:03:46AM CEST, john.fastabend@gmail.com wrote:
->>On 15-10-12 10:44 PM, Jiri Pirko wrote:
->>> Tue, Oct 13, 2015 at 04:52:42AM CEST, sfeldma@gmail.com wrote:
->>>> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>>
->>>>> Caller should know if he can call attr_set directly (when holding RTNL)
->>>>> or if he has to defer the att_set processing for later.
->>>>>
->>>>> This also allows drivers to sleep inside attr_set and report operation
->>>>> status back to switchdev core. Switchdev core then warns if status is
->>>>> not ok, instead of silent errors happening in drivers.
->>>>>
->>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>> ---
->>>>>  include/net/switchdev.h   |   1 +
->>>>>  net/bridge/br_stp.c       |   3 +-
->>>>>  net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
->>>>>  3 files changed, 59 insertions(+), 52 deletions(-)
->>>>>
->>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>>>> index d2879f2..6b109e4 100644
->>>>> --- a/include/net/switchdev.h
->>>>> +++ b/include/net/switchdev.h
->>>>> @@ -17,6 +17,7 @@
->>>>>
->>>>>  #define SWITCHDEV_F_NO_RECURSE         BIT(0)
->>>>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP    BIT(1)
->>>>> +#define SWITCHDEV_F_DEFER              BIT(2)
->>>>>
->>>>>  struct switchdev_trans_item {
->>>>>         struct list_head list;
->>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->>>>> index db6d243de..80c34d7 100644
->>>>> --- a/net/bridge/br_stp.c
->>>>> +++ b/net/bridge/br_stp.c
->>>>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
->>>>>  {
->>>>>         struct switchdev_attr attr = {
->>>>>                 .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
->>>>> +               .flags = SWITCHDEV_F_DEFER,
->>>>>                 .u.stp_state = state,
->>>>>         };
->>>>>         int err;
->>>>>
->>>>>         p->state = state;
->>>>>         err = switchdev_port_attr_set(p->dev, &attr);
->>>>> -       if (err && err != -EOPNOTSUPP)
->>>>> +       if (err)
->>>>
->>>> This looks like a problem as now all other non-switchdev ports will
->>>> get an WARN in the log when STP state changes.  We should only WARN if
->>>> there was an err and the err is not -EOPNOTSUPP.
+On Mon, Oct 12, 2015 at 11:25 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Oct 13, 2015 at 06:02:28AM CEST, sfeldma@gmail.com wrote:
+>>On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
 >>>
->>> If SWITCHDEV_F_DEFER flag is set, there's only 0 of -ENOMEM.
+>>> No need to avoid sleeping in switchdev callbacks now, as the switchdev
+>>> core allows it.
 >>>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>>  drivers/net/ethernet/rocker/rocker.c | 7 +++----
+>>>  1 file changed, 3 insertions(+), 4 deletions(-)
 >>>
->>>>
->>>>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
->>>>>                                 (unsigned int) p->port_no, p->dev->name);
->>>>>  }
->>>>
->>>> <snip>
->>>>
->>>>>  struct switchdev_attr_set_work {
->>>>>         struct work_struct work;
->>>>>         struct net_device *dev;
->>>>> @@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
->>>>>  {
->>>>>         struct switchdev_attr_set_work *asw =
->>>>>                 container_of(work, struct switchdev_attr_set_work, work);
->>>>> +       bool rtnl_locked = rtnl_is_locked();
->>>>>         int err;
->>>>>
->>>>> -       rtnl_lock();
->>>>> -       err = switchdev_port_attr_set(asw->dev, &asw->attr);
->>>>> +       if (!rtnl_locked)
->>>>> +               rtnl_lock();
->>>>
->>>> I'm not following this change.  If someone else has rtnl_lock, we'll
->>>> not wait to grab it here ourselves, and proceed as if we have the
->>>> lock.  But what if that someone else releases the lock in the middle
->>>> of us doing switchdev_port_attr_set_now?  Seems we want to
->>>> unconditionally wait and grab the lock.  We need to block anything
->>>>from moving while we do the attr set.
+>>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>> index bb956a5..9629c5b5 100644
+>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> @@ -3672,7 +3672,7 @@ static int rocker_port_fdb_flush(struct rocker_port *rocker_port,
+>>>             rocker_port->stp_state == BR_STATE_FORWARDING)
+>>>                 return 0;
 >>>
->>> Why would someone we call (driver) return the lock? In that case, he is
->>> buggy and should be fixed.
->>>
->>> This hunk only ensures we have rtnl_lock. If not, we take it here. We do
->>> not take it unconditionally because we may already have it, for example
->>> if caller of switchdev_flush_deferred holds rtnl_lock.
->>>
+>>> -       flags |= ROCKER_OP_FLAG_REMOVE;
+>>> +       flags |= ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
 >>
->>This is where you lost me. How do you know another core doesn't happen
->>to have the lock when you hit this code path? Maybe someone is running
->>an ethtool command on another core or something.
+>>I understand the two changes below where you're removing NOWAIT, but
+>>here you're adding NOWAIT which I'm not sure how that is related to
+>>the switchdev core changes.  Is this two patches?
 >
-> You are right. The same problem exists currently in switchdev_port_attr_set.
+> I removed ROCKER_OP_FLAG_NOWAIT from attr_set. But here in
+> rocker_port_fdb_flush, which is called from attr_set, we call
+> rocker_port_fdb_learn with spin lock. Therefore I had to put
+> ROCKER_OP_FLAG_NOWAIT here. Before ROCKER_OP_FLAG_NOWAIT removal from
+> attr_set this was there already.
 
-You are right as in you'll change this back to unconditional grabbing
-of rtnl_lock?  I don't follow how this problem currently exists as
-current code does an unconditional grab of rtnl_lock.
+Gotcha.
+
+Acked-by: Scott Feldman <sfeldma@gmail.com>
