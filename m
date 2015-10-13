@@ -1,87 +1,144 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: eliminate risk of stalled
-	link synchronization
-Date: Tue, 13 Oct 2015 12:41:51 -0400
-Message-ID: <1444754511-14119-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 4/6] net: dsa: mv88e6xxx: implement port_fdb_dump
+Date: Tue, 13 Oct 2015 12:46:21 -0400
+Message-ID: <1444754783-26975-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In commit 6e498158a827 ("tipc: move link synch and failover to link aggregation level")
-we introduced a new mechanism for performing link failover and
-synchronization. We have now detected a bug in this mechanism.
+Implement the port_fdb_dump DSA operation.
 
-During link synchronization we use the arrival of any packet on
-the tunnel link to trig a check for whether it has reached the
-synchronization point or not. This has turned out to be too
-permissive, since it may cause an arriving non-last SYNCH packet to
-end the synch state, just to see the next SYNCH packet initiate a
-new synch state with a new, higher synch point. This is not fatal,
-but should be avoided, because it may significantly extend the
-synchronization period, while at the same time we are not allowed
-to send NACKs if packets are lost. In the worst case, a low-traffic
-user may see its traffic stall until a LINK_PROTOCOL state message
-trigs the link to leave synchronization state.
-
-At the same time, LINK_PROTOCOL packets which happen to have a (non-
-valid) sequence number lower than the tunnel link's rcv_nxt value will
-be consistently dropped, and will never be able to resolve the situation
-described above.
-
-We fix this by exempting LINK_PROTOCOL packets from the sequence number
-check, as they should be. We also reduce (but don't completely
-eliminate) the risk of entering multiple synchronization states by only
-allowing the (logically) first SYNCH packet to initiate a synchronization
-state. This works independently of actual packet arrival order.
-
-Fixes: commit 6e498158a827 ("tipc: move link synch and failover to link aggregation level")
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/tipc/node.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 65 +++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  3 +++
+ 4 files changed, 70 insertions(+)
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 703875f..2c32a83 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1116,7 +1116,7 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 	}
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index dfca352..489deb8 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -123,6 +123,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
++	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
  
- 	/* Ignore duplicate packets */
--	if (less(oseqno, rcv_nxt))
-+	if ((usr != LINK_PROTOCOL) && less(oseqno, rcv_nxt))
- 		return true;
+ MODULE_ALIAS("platform:mv88e6171");
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 796fdcb..6b8fd24 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -350,6 +350,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
++	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
  
- 	/* Initiate or update failover mode if applicable */
-@@ -1146,8 +1146,8 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 	if (!pl || !tipc_link_is_up(pl))
- 		return true;
+ MODULE_ALIAS("platform:mv88e6172");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 7b15b98..a1740b4 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1799,6 +1799,71 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	return 0;
+ }
  
--	/* Initiate or update synch mode if applicable */
--	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG)) {
-+	/* Initiate synch mode if applicable */
-+	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG) && (oseqno == 1)) {
- 		syncpt = iseqno + exp_pkts - 1;
- 		if (!tipc_link_is_up(l)) {
- 			tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
++int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
++			    struct switchdev_obj_port_fdb *fdb,
++			    switchdev_obj_dump_cb_t *cb)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_stu_entry vlan = {
++		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
++	};
++	int err;
++
++	mutex_lock(&ps->smi_mutex);
++
++	err = _mv88e6xxx_vtu_vid_write(ds, vlan.vid);
++	if (err)
++		goto unlock;
++
++	do {
++		struct mv88e6xxx_atu_entry addr = {
++			.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
++		};
++
++		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++		if (err)
++			goto unlock;
++
++		if (!vlan.valid)
++			break;
++
++		err = _mv88e6xxx_atu_mac_write(ds, addr.mac);
++		if (err)
++			goto unlock;
++
++		do {
++			err = _mv88e6xxx_atu_getnext(ds, vlan.fid, &addr);
++			if (err)
++				goto unlock;
++
++			if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
++				break;
++
++			if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
++				bool is_static = addr.state ==
++					(is_multicast_ether_addr(addr.mac) ?
++					 GLOBAL_ATU_DATA_STATE_MC_STATIC :
++					 GLOBAL_ATU_DATA_STATE_UC_STATIC);
++
++				fdb->vid = vlan.vid;
++				fdb->addr = addr.mac;
++				fdb->ndm_state = is_static ? NUD_NOARP :
++					NUD_REACHABLE;
++
++				err = cb(&fdb->obj);
++				if (err)
++					goto unlock;
++			}
++		} while (!is_broadcast_ether_addr(addr.mac));
++
++	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
++
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
++}
++
+ /* get next entry for port */
+ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			       unsigned char *addr, u16 *vid, bool *is_static)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ba94f17..08e0fbb 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -481,6 +481,9 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 			   const struct switchdev_obj_port_fdb *fdb);
+ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			       unsigned char *addr, u16 *vid, bool *is_static);
++int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
++			    struct switchdev_obj_port_fdb *fdb,
++			    switchdev_obj_dump_cb_t *cb);
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
+ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+ 			     int reg, int val);
 -- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+2.6.1
