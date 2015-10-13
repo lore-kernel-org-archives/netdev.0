@@ -1,120 +1,76 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v4 1/3] net: unix: fix use-after-free in unix_dgram_poll()
-Date: Tue, 13 Oct 2015 13:42:48 +0200
-Message-ID: <1444736568.1833972.408818809.0B539A96@webmail.messagingengine.com>
-References: <cover.1444363559.git.jbaron@akamai.com>
- <8f8dfc6fdb8015091b58509044b15489df261461.1444363559.git.jbaron@akamai.com>
- <87io6gayze.fsf@stressinduktion.org> <561C0D03.60607@akamai.com>
+Subject: Re: Infinite loop in ip6_fragment
+Date: Tue, 13 Oct 2015 13:56:53 +0200
+Message-ID: <1444737413.1838027.408845625.7BE0D712@webmail.messagingengine.com>
+References: <CACT4Y+Y_TcyY+6XEDQj8EtqoP_VN_hZEru1By4BPKJtJpXmPzQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org,
-	joe@perches.com
-To: Jason Baron <jbaron@akamai.com>, davem@davemloft.net
+Cc: syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561C0D03.60607@akamai.com>
+In-Reply-To: <CACT4Y+Y_TcyY+6XEDQj8EtqoP_VN_hZEru1By4BPKJtJpXmPzQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello,
 
-On Mon, Oct 12, 2015, at 21:41, Jason Baron wrote:
-> On 10/09/2015 10:38 AM, Hannes Frederic Sowa wrote:
-> > Hi,
-> > 
-> > Jason Baron <jbaron@akamai.com> writes:
-> > 
-> >> The unix_dgram_poll() routine calls sock_poll_wait() not only for the wait
-> >> queue associated with the socket s that we are poll'ing against, but also calls
-> >> sock_poll_wait() for a remote peer socket p, if it is connected. Thus,
-> >> if we call poll()/select()/epoll() for the socket s, there are then
-> >> a couple of code paths in which the remote peer socket p and its associated
-> >> peer_wait queue can be freed before poll()/select()/epoll() have a chance
-> >> to remove themselves from the remote peer socket.
-> >>
-> >> The way that remote peer socket can be freed are:
-> >>
-> >> 1. If s calls connect() to a connect to a new socket other than p, it will
-> >> drop its reference on p, and thus a close() on p will free it.
-> >>
-> >> 2. If we call close on p(), then a subsequent sendmsg() from s, will drop
-> >> the final reference to p, allowing it to be freed.
-> >>
-> >> Address this issue, by reverting unix_dgram_poll() to only register with
-> >> the wait queue associated with s and register a callback with the remote peer
-> >> socket on connect() that will wake up the wait queue associated with s. If
-> >> scenarios 1 or 2 occur above we then simply remove the callback from the
-> >> remote peer. This then presents the expected semantics to poll()/select()/
-> >> epoll().
-> >>
-> >> I've implemented this for sock-type, SOCK_RAW, SOCK_DGRAM, and SOCK_SEQPACKET
-> >> but not for SOCK_STREAM, since SOCK_STREAM does not use unix_dgram_poll().
-> >>
-> >> Introduced in commit ec0d215f9420 ("af_unix: fix 'poll for write'/connected
-> >> DGRAM sockets").
-> >>
-> >> Tested-by: Mathias Krause <minipli@googlemail.com>
-> >> Signed-off-by: Jason Baron <jbaron@akamai.com>
-> > 
-> > While I think this approach works, I haven't seen where the current code
-> > leaks a reference. Assignment to unix_peer(sk) in general take spin_lock
-> > and increment refcount. Are there bugs at the two places you referred
-> > to?
-> > 
-> > Is an easier fix just to use atomic_inc_not_zero(&sk->sk_refcnt) in
-> > unix_peer_get() which could also help other places?
-> > 
+On Mon, Oct 12, 2015, at 11:26, Dmitry Vyukov wrote:
+>  [<ffffffff8175164e>] ip6_fragment+0x37e/0x9d0 net/ipv6/ip6_output.c:805
+>  [<ffffffff81751d6d>] ip6_finish_output+0xcd/0xe0
+>  net/ipv6/ip6_output.c:130
+>  [<     inline     >] NF_HOOK_COND include/linux/netfilter.h:236
+>  [<ffffffff81751dbf>] ip6_output+0x3f/0xe0 net/ipv6/ip6_output.c:146
+>  [<     inline     >] dst_output_sk include/net/dst.h:459
+>  [<ffffffff8178ae68>] ip6_local_out_sk+0x28/0x30
+>  net/ipv6/output_core.c:167
+>  [<ffffffff8178ae80>] ip6_local_out+0x10/0x20 net/ipv6/output_core.c:175
+>  [<ffffffff81752358>] ip6_send_skb+0x18/0x60 net/ipv6/ip6_output.c:1683
+>  [<ffffffff817523d4>] ip6_push_pending_frames+0x34/0x40
+> net/ipv6/ip6_output.c:1703
+>  [<     inline     >] rawv6_push_pending_frames net/ipv6/raw.c:607
+>  [<ffffffff8176ccc1>] rawv6_sendmsg+0x871/0xb30 net/ipv6/raw.c:901
+>  [<ffffffff81717d32>] inet_sendmsg+0x62/0xa0 net/ipv4/af_inet.c:737
+>  [<     inline     >] sock_sendmsg_nosec net/socket.c:610
+>  [<ffffffff8167b4c3>] sock_sendmsg+0x33/0x40 net/socket.c:620
+>  [<ffffffff8167b543>] sock_write_iter+0x73/0xd0 net/socket.c:819
+>  [<     inline     >] do_iter_readv_writev fs/read_write.c:664
+>  [<ffffffff81165d7d>] do_readv_writev+0x1bd/0x270 fs/read_write.c:808
+>  [<ffffffff81165ea4>] vfs_writev+0x34/0x40 fs/read_write.c:847
+>  [<     inline     >] SYSC_writev fs/read_write.c:880
+>  [<ffffffff81166b05>] SyS_writev+0x45/0xc0 fs/read_write.c:872
+>  [<ffffffff81859a97>] entry_SYSCALL_64_fastpath+0x12/0x6a
+> arch/x86/entry/entry_64.S:185
 > 
-> Hi,
+> ip6_fragment computes mtu value as 4, which is then rounded down to 8
+> and becomes 0. This causes infinite send loop by 0 bytes. Initial mtu
+> value is 1500, but here is becomes 4:
 > 
-> So we could potentially inc the refcnt on the remote peer such that the
-> remote peer does not free before the socket that has connected to it.
-> However, then the socket that has taken the reference against the peer
-> socket has to potentially record a number of remote sockets (all the ones
-> that it has connected to over its lifetime), and then drop all of their
-> refcnt's when it finally closes.
+>         mtu -= hlen + sizeof(struct frag_hdr);
 > 
-> The reason for this is that with the current code when we do
-> poll()/select()/epoll() on a socket with a peer socket, those calls
-> take reference on the peer socket. Specifically, they record the remote
-> peer whead, such that they can remove their callbacks when they return.
-> So its not safe to just drop a reference on the remote peer when it
-> closes because their might be outstanding poll()/select()/epoll()
-> references pending.
+> sizeof(struct frag_hdr) = 8, hlen = 1488.
 
-Thanks for the explanation, it was very helpful. The eventpoll
-infrastructure seems not to be easily able to handle these kind of
-socket cross references easily, I understand.
+Yeah, absolutely logic and difficult to fix.
 
-> Normally, poll()/select()/epoll() are waiting on a whead associated
-> directly with the fd/file that they are waiting for.
+Because of the unknown socket(..., ..., protocol = 0x....) you enabled
+hdrincl. The writev included non-fragmentable padding and options (yeah
+by being just zeros). hlen is the non-fragmentable header length of the
+packet and thus reduced the length of the actual payload near to or
+equal to zero.
 
-Exactly. The reference count is implicit by the current process to
-handle the filedescriptor and deregister the wait heads during program
-tear-down or close. So a sock_poll_wait call to a foreign socket's wait
-queue will confuse this subsystem.
+I think we just have to abort sending those packets and send errors back
+to user space.
 
-> The other point here is that the way this patch structures things is
-> that when the socket connects to a new remote and hence disconnects from
-> an existing remote, POLLOUT events will continue to be correctly
-> delivered. That was not possible with the current structure of things
-> b/c there was no way to inform poll to re-register with the remote peer
-> whead. So, that means that the first test case here now works:
-> 
-> https://lkml.org/lkml/2015/10/4/154
-> 
-> Whereas with the old code test case would just hang for ever.
-> 
-> So yes there is a bit of code churn here, but I think it moves the
-> code-base in a direction that not only solves this issue, but corrects
-> additional poll() behaviors as well.
+Thanks for the report!
 
-Agreed, the new semantics make sense to me and are an improvement.
-
-Thanks,
+Bye,
 Hannes
