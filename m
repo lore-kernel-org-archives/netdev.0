@@ -1,168 +1,159 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 4/4] net/mlx4_core: Replace VF zero mac with random mac in mlx4_core
-Date: Tue, 13 Oct 2015 18:44:09 +0300
-Message-ID: <1444751049-2511-5-git-send-email-ogerlitz@mellanox.com>
-References: <1444751049-2511-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Eli Cohen <eli@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:49516 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752493AbbJMPoi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 11:44:38 -0400
-In-Reply-To: <1444751049-2511-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 5/6] net: dsa: mv88e6xxx: remove port_fdb_getnext
+Date: Tue, 13 Oct 2015 11:43:02 -0400
+Message-ID: <1444750983-14726-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Now that port_fdb_dump is implemented and even simpler, get rid of
+port_fdb_getnext.
 
-By design, when no default MAC addresses are set in the Hypervisor for VFs,
-the VFs are passed zero-macs. When such a MAC is received by the VF, it
-generates a random MAC address and registers that MAC address
-with the Hypervisor.
-
-This random mac generation is currently done in the mlx4_en module.
-There is a problem, though, if the mlx4_ib module is loaded by a VF before
-the mlx4_en module. In this case, for RoCE, mlx4_ib will see the un-replaced
-zero-mac and register that zero-mac as part of QP1 initialization.
-
-Having a zero-mac in the port's MAC table creates problems for a
-Baseboard Management Console. The BMC occasionally sends packets with a
-zero-mac destination MAC. If there is a zero-mac present in the port's
-MAC table, the FW will send such BMC packets to the host driver rather than
-to the wire, and BMC will stop working.
-
-To address this problem, we move the replacement of zero-mac addresses
-with random-mac addresses to procedure mlx4_slave_cap(), which is part of the
-driver startup for VFs, and is before activation of mlx4_ib and mlx4_en.
-As a result, zero-mac addresses will never be registered in the port MAC table
-by the driver.
-
-In addition, when mlx4_en does initialize the net device, it needs to set
-the NET_ADDR_RANDOM flag in the netdev structure if the address was
-randomly generated. This is done so that udev on the VM does not create
-a new device name after each VF probe (VM boot and such). To accomplish this,
-we add a per-port flag in mlx4_dev which gets set whenever mlx4_core replaces
-a zero-mac with a randomly-generated mac. This flag is examined when mlx4_en
-initializes the net-device.
-
-Fix was suggested by Matan Barak <matanb@mellanox.com>
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 23 +++++++++++------------
- drivers/net/ethernet/mellanox/mlx4/fw.c        | 16 ++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/main.c      |  2 ++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |  2 ++
- include/linux/mlx4/device.h                    |  1 +
- 5 files changed, 32 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6171.c |  1 -
+ drivers/net/dsa/mv88e6352.c |  1 -
+ drivers/net/dsa/mv88e6xxx.c | 73 ---------------------------------------------
+ drivers/net/dsa/mv88e6xxx.h |  2 --
+ 4 files changed, 77 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 597d892..886e1bc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2816,7 +2816,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	struct mlx4_en_priv *priv;
- 	int i;
- 	int err;
--	u64 mac_u64;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 489deb8..2c8eb6f 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -122,7 +122,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+-	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+ 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
  
- 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
- 				 MAX_TX_RINGS, MAX_RX_RINGS);
-@@ -2908,17 +2907,17 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	dev->addr_len = ETH_ALEN;
- 	mlx4_en_u64_to_mac(dev->dev_addr, mdev->dev->caps.def_mac[priv->port]);
- 	if (!is_valid_ether_addr(dev->dev_addr)) {
--		if (mlx4_is_slave(priv->mdev->dev)) {
--			eth_hw_addr_random(dev);
--			en_warn(priv, "Assigned random MAC address %pM\n", dev->dev_addr);
--			mac_u64 = mlx4_mac_to_u64(dev->dev_addr);
--			mdev->dev->caps.def_mac[priv->port] = mac_u64;
--		} else {
--			en_err(priv, "Port: %d, invalid mac burned: %pM, quiting\n",
--			       priv->port, dev->dev_addr);
--			err = -EINVAL;
--			goto out;
--		}
-+		en_err(priv, "Port: %d, invalid mac burned: %pM, quiting\n",
-+		       priv->port, dev->dev_addr);
-+		err = -EINVAL;
-+		goto out;
-+	} else if (mlx4_is_slave(priv->mdev->dev) &&
-+		   (priv->mdev->dev->port_random_macs & 1 << priv->port)) {
-+		/* Random MAC was assigned in mlx4_slave_cap
-+		 * in mlx4_core module
-+		 */
-+		dev->addr_assign_type |= NET_ADDR_RANDOM;
-+		en_warn(priv, "Assigned random MAC address %pM\n", dev->dev_addr);
- 	}
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 6b8fd24..cbf4dd8 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -349,7 +349,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+-	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+ 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
  
- 	memcpy(priv->current_mac, dev->dev_addr, sizeof(priv->current_mac));
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index e8ec1de..f13a4d7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -2840,3 +2840,19 @@ int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val)
- 	return -EOPNOTSUPP;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 41e630a..5657f5b 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1559,33 +1559,6 @@ unlock:
+ 	return err;
  }
- EXPORT_SYMBOL(set_phv_bit);
-+
-+void mlx4_replace_zero_macs(struct mlx4_dev *dev)
-+{
-+	int i;
-+	u8 mac_addr[ETH_ALEN];
-+
-+	dev->port_random_macs = 0;
-+	for (i = 1; i <= dev->caps.num_ports; ++i)
-+		if (!dev->caps.def_mac[i] &&
-+		    dev->caps.port_type[i] == MLX4_PORT_TYPE_ETH) {
-+			eth_random_addr(mac_addr);
-+			dev->port_random_macs |= 1 << i;
-+			dev->caps.def_mac[i] = mlx4_mac_to_u64(mac_addr);
-+		}
-+}
-+EXPORT_SYMBOL_GPL(mlx4_replace_zero_macs);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 006757f..bcbdfab 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -863,6 +863,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 		return -ENODEV;
- 	}
  
-+	mlx4_replace_zero_macs(dev);
-+
- 	dev->caps.qp0_qkey = kcalloc(dev->caps.num_ports, sizeof(u32), GFP_KERNEL);
- 	dev->caps.qp0_tunnel = kcalloc(dev->caps.num_ports, sizeof (u32), GFP_KERNEL);
- 	dev->caps.qp0_proxy = kcalloc(dev->caps.num_ports, sizeof (u32), GFP_KERNEL);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 232b2b5..e1cf903 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1378,6 +1378,8 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work);
+-static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
+-				       struct mv88e6xxx_vtu_stu_entry *entry)
+-{
+-	int err;
+-
+-	do {
+-		if (vid == 4095)
+-			return -ENOENT;
+-
+-		err = _mv88e6xxx_vtu_vid_write(ds, vid);
+-		if (err)
+-			return err;
+-
+-		err = _mv88e6xxx_vtu_getnext(ds, entry);
+-		if (err)
+-			return err;
+-
+-		if (!entry->valid)
+-			return -ENOENT;
+-
+-		vid = entry->vid;
+-	} while (entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED &&
+-		 entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED);
+-
+-	return 0;
+-}
+-
+ int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+ 			   unsigned long *ports, unsigned long *untagged)
+ {
+@@ -1864,52 +1837,6 @@ unlock:
+ 	return err;
+ }
  
- void mlx4_init_quotas(struct mlx4_dev *dev);
- 
-+/* for VFs, replace zero MACs with randomly-generated MACs at driver start */
-+void mlx4_replace_zero_macs(struct mlx4_dev *dev);
- int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave, int port);
- /* Returns the VF index of slave */
- int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index baad4cb..5a8677b 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -833,6 +833,7 @@ struct mlx4_dev {
- 	struct mlx4_quotas	quotas;
- 	struct radix_tree_root	qp_table_tree;
- 	u8			rev_id;
-+	u8			port_random_macs;
- 	char			board_id[MLX4_BOARD_ID_LEN];
- 	int			numa_node;
- 	int			oper_log_mgm_entry_size;
+-/* get next entry for port */
+-int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+-			       unsigned char *addr, u16 *vid, bool *is_static)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	struct mv88e6xxx_atu_entry next;
+-	u16 fid = *vid; /* We use one FID per VLAN */
+-	int ret;
+-
+-	mutex_lock(&ps->smi_mutex);
+-
+-	do {
+-		if (is_broadcast_ether_addr(addr)) {
+-			struct mv88e6xxx_vtu_stu_entry vtu;
+-
+-			ret = _mv88e6xxx_port_vtu_getnext(ds, port, *vid, &vtu);
+-			if (ret < 0)
+-				goto unlock;
+-
+-			*vid = vtu.vid;
+-			fid = vtu.fid;
+-		}
+-
+-		ret = _mv88e6xxx_atu_mac_write(ds, addr);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		ether_addr_copy(addr, next.mac);
+-
+-		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
+-			continue;
+-	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
+-
+-	*is_static = next.state == (is_multicast_ether_addr(addr) ?
+-				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
+-				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
+-unlock:
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	return ret;
+-}
+-
+ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ {
+ 	struct mv88e6xxx_priv_state *ps;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 08e0fbb..c921427 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -479,8 +479,6 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   struct switchdev_trans *trans);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 			   const struct switchdev_obj_port_fdb *fdb);
+-int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+-			       unsigned char *addr, u16 *vid, bool *is_static);
+ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+ 			    struct switchdev_obj_port_fdb *fdb,
+ 			    switchdev_obj_dump_cb_t *cb);
 -- 
-2.3.7
+2.6.1
