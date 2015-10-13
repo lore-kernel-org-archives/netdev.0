@@ -1,70 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Tue, 13 Oct 2015 07:26:13 +0200
-Message-ID: <20151013052613.GB2437@netboy>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
- <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] bridge: push bridge setting ageing_time
+ down to switchdev
+Date: Mon, 12 Oct 2015 22:39:23 -0700
+Message-ID: <CAE4R7bBW+LkanhJfwSHLCtYNP6pE3=LVfHjWE1_j14brhExtcQ@mail.gmail.com>
+References: <1444357400-37078-1-git-send-email-sfeldma@gmail.com>
+ <1444357400-37078-4-git-send-email-sfeldma@gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9F6596@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bANc4rT3X_pCO5SSvDre7vvZ3+0VY43PZu9cpv020uayw@mail.gmail.com>
+ <20151010070434.GB1990@nanopsycho.orion> <20151010155619.GA14572@ketchup>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	tglx@linutronix.de, john.stultz@linaro.org, peterz@infradead.org,
-	x86@kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kevin.b.stanton@intel.com
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Premkumar Jonnala <pjonnala@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:34326 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbbJMFjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 01:39:43 -0400
+Received: by obbda8 with SMTP id da8so5534527obb.1
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 22:39:43 -0700 (PDT)
+In-Reply-To: <20151010155619.GA14572@ketchup>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2015 at 11:45:19AM -0700, Christopher S. Hall wrote:
-> +int get_correlated_timestamp(struct correlated_ts *crt,
-> +			     struct correlated_cs *crs)
-> +{
-> +	struct timekeeper *tk = &tk_core.timekeeper;
-> +	unsigned long seq;
-> +	cycles_t cycles, cycles_now, cycles_last;
-> +	ktime_t base;
-> +	s64 nsecs;
-> +	int ret;
-> +
-> +	do {
-> +		seq = read_seqcount_begin(&tk_core.seq);
-> +		/*
-> +		 * Verify that the correlated clocksoure is related to
-> +		 * the currently installed timekeeper clocksoure
-> +		 */
-> +		if (tk->tkr_mono.clock != crs->related_cs)
-> +			return -ENODEV;
-> +
-> +		/*
-> +		 * Get a timestamp from the device if get_ts is non-NULL
-> +		 */
-> +		if( crt->get_ts ) {
+On Sat, Oct 10, 2015 at 8:56 AM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
 
-CodingStyle.
+> Scott, didn't you have a plan to add a struct device for the parent of
+> switchdev ports?
 
-> +			ret = crt->get_ts(crt);
-> +			if (ret)
-> +				return ret;
-> +		}
-> +
-> +		/*
-> +		 * Convert the timestamp to timekeeper clock cycles
-> +		 */
-> +		cycles = crs->convert(crs, crt->system_ts);
-> +
-> +		/*
-> +		 * If we have get_ts is valid, we know the cycles value
-> +		 * value is up to date and we can just do the conversion
-> +		 */
-> +		if( crt->get_ts )
-
-Ditto.
-
-> +			goto do_convert;
-> +
-
-Thanks,
-Richard
+I had sent out a rough RFC for a switch device in the last window.  I
+have continued working on it, and I plan to send it very soon,
+probably again as an RFC.
