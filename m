@@ -1,171 +1,144 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v4 2/7] switchdev: allow caller to explicitly
- request attr_set as deferred
-Date: Tue, 13 Oct 2015 16:39:47 +0200
-Message-ID: <20151013143947.GG2242@nanopsycho.orion>
-References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
- <1444672986-20709-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
- <20151013054414.GA2242@nanopsycho.orion>
- <561C9EC2.7030907@gmail.com>
- <20151013062112.GD2242@nanopsycho.orion>
- <CAE4R7bC4vik8-V9L5oTukQ4YhMoCGF_uOM_481fJgq3yc1LN=g@mail.gmail.com>
- <20151013073020.GF2242@nanopsycho.orion>
- <CAE4R7bBk91rr8UoLtXH8eFK5V1TrSZ+mceZYdjQ8gb2E7Vo0JQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/6] net: dsa: mv88e6xxx: implement port_fdb_dump
+Date: Tue, 13 Oct 2015 11:43:01 -0400
+Message-ID: <1444750983-14726-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	David Laight <David.Laight@aculab.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:35803 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752422AbbJMOju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 10:39:50 -0400
-Received: by qkap81 with SMTP id p81so8640789qka.2
-        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 07:39:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBk91rr8UoLtXH8eFK5V1TrSZ+mceZYdjQ8gb2E7Vo0JQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 13, 2015 at 04:07:31PM CEST, sfeldma@gmail.com wrote:
->On Tue, Oct 13, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Oct 13, 2015 at 08:53:45AM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Oct 12, 2015 at 11:21 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Tue, Oct 13, 2015 at 08:03:46AM CEST, john.fastabend@gmail.com wrote:
->>>>>On 15-10-12 10:44 PM, Jiri Pirko wrote:
->>>>>> Tue, Oct 13, 2015 at 04:52:42AM CEST, sfeldma@gmail.com wrote:
->>>>>>> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>>>>>
->>>>>>>> Caller should know if he can call attr_set directly (when holding RTNL)
->>>>>>>> or if he has to defer the att_set processing for later.
->>>>>>>>
->>>>>>>> This also allows drivers to sleep inside attr_set and report operation
->>>>>>>> status back to switchdev core. Switchdev core then warns if status is
->>>>>>>> not ok, instead of silent errors happening in drivers.
->>>>>>>>
->>>>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>>>>> ---
->>>>>>>>  include/net/switchdev.h   |   1 +
->>>>>>>>  net/bridge/br_stp.c       |   3 +-
->>>>>>>>  net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
->>>>>>>>  3 files changed, 59 insertions(+), 52 deletions(-)
->>>>>>>>
->>>>>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>>>>>>> index d2879f2..6b109e4 100644
->>>>>>>> --- a/include/net/switchdev.h
->>>>>>>> +++ b/include/net/switchdev.h
->>>>>>>> @@ -17,6 +17,7 @@
->>>>>>>>
->>>>>>>>  #define SWITCHDEV_F_NO_RECURSE         BIT(0)
->>>>>>>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP    BIT(1)
->>>>>>>> +#define SWITCHDEV_F_DEFER              BIT(2)
->>>>>>>>
->>>>>>>>  struct switchdev_trans_item {
->>>>>>>>         struct list_head list;
->>>>>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->>>>>>>> index db6d243de..80c34d7 100644
->>>>>>>> --- a/net/bridge/br_stp.c
->>>>>>>> +++ b/net/bridge/br_stp.c
->>>>>>>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
->>>>>>>>  {
->>>>>>>>         struct switchdev_attr attr = {
->>>>>>>>                 .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
->>>>>>>> +               .flags = SWITCHDEV_F_DEFER,
->>>>>>>>                 .u.stp_state = state,
->>>>>>>>         };
->>>>>>>>         int err;
->>>>>>>>
->>>>>>>>         p->state = state;
->>>>>>>>         err = switchdev_port_attr_set(p->dev, &attr);
->>>>>>>> -       if (err && err != -EOPNOTSUPP)
->>>>>>>> +       if (err)
->>>>>>>
->>>>>>> This looks like a problem as now all other non-switchdev ports will
->>>>>>> get an WARN in the log when STP state changes.  We should only WARN if
->>>>>>> there was an err and the err is not -EOPNOTSUPP.
->>>>>>
->>>>>> If SWITCHDEV_F_DEFER flag is set, there's only 0 of -ENOMEM.
->>>>>>
->>>>>>
->>>>>>>
->>>>>>>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
->>>>>>>>                                 (unsigned int) p->port_no, p->dev->name);
->>>>>>>>  }
->>>>>>>
->>>>>>> <snip>
->>>>>>>
->>>>>>>>  struct switchdev_attr_set_work {
->>>>>>>>         struct work_struct work;
->>>>>>>>         struct net_device *dev;
->>>>>>>> @@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
->>>>>>>>  {
->>>>>>>>         struct switchdev_attr_set_work *asw =
->>>>>>>>                 container_of(work, struct switchdev_attr_set_work, work);
->>>>>>>> +       bool rtnl_locked = rtnl_is_locked();
->>>>>>>>         int err;
->>>>>>>>
->>>>>>>> -       rtnl_lock();
->>>>>>>> -       err = switchdev_port_attr_set(asw->dev, &asw->attr);
->>>>>>>> +       if (!rtnl_locked)
->>>>>>>> +               rtnl_lock();
->>>>>>>
->>>>>>> I'm not following this change.  If someone else has rtnl_lock, we'll
->>>>>>> not wait to grab it here ourselves, and proceed as if we have the
->>>>>>> lock.  But what if that someone else releases the lock in the middle
->>>>>>> of us doing switchdev_port_attr_set_now?  Seems we want to
->>>>>>> unconditionally wait and grab the lock.  We need to block anything
->>>>>>>from moving while we do the attr set.
->>>>>>
->>>>>> Why would someone we call (driver) return the lock? In that case, he is
->>>>>> buggy and should be fixed.
->>>>>>
->>>>>> This hunk only ensures we have rtnl_lock. If not, we take it here. We do
->>>>>> not take it unconditionally because we may already have it, for example
->>>>>> if caller of switchdev_flush_deferred holds rtnl_lock.
->>>>>>
->>>>>
->>>>>This is where you lost me. How do you know another core doesn't happen
->>>>>to have the lock when you hit this code path? Maybe someone is running
->>>>>an ethtool command on another core or something.
->>>>
->>>> You are right. The same problem exists currently in switchdev_port_attr_set.
->>>
->>>You are right as in you'll change this back to unconditional grabbing
->>>of rtnl_lock?  I don't follow how this problem currently exists as
->>>current code does an unconditional grab of rtnl_lock.
->>
->>   cpu1                          cpu2
->>                                 rtnl_lock()
->> switchdev_port_attr_set
->>   !rtnl_is_locked() == false
->>   switchdev_trans_init
->>                                 rtnl_unlock()
->>   __switchdev_port_attr_set
->>
->> now __switchdev_port_attr_set is called without rtnl_lock.
->
->Got it.  Another example of trying to guess context and getting it
->wrong.  This is why I like your DEFERRED option so caller can be
->explicit.
->
->> Would make sense to introduce rtnl_is_locked_by_me() or something.
->
->Is it sufficient to simply call rtnl_lock() in your deferred context?
->You can sleep there and that way there is no question who has the
->lock.
+Implement the port_fdb_dump DSA operation.
 
-The problem is that caller of flust_deferred may hold the lock already
-and then we would deadlock. I'm cooking up v5 with different approach.
-Stay tuned.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 65 +++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  3 +++
+ 4 files changed, 70 insertions(+)
+
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index dfca352..489deb8 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -123,6 +123,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
++	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6171");
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 796fdcb..6b8fd24 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -350,6 +350,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+ 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
++	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6172");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index b4e97c1..41e630a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1799,6 +1799,71 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	return 0;
+ }
+ 
++int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
++			    struct switchdev_obj_port_fdb *fdb,
++			    switchdev_obj_dump_cb_t *cb)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_stu_entry vlan = {
++		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
++	};
++	int err;
++
++	mutex_lock(&ps->smi_mutex);
++
++	err = _mv88e6xxx_vtu_vid_write(ds, vlan.vid);
++	if (err)
++		goto unlock;
++
++	do {
++		struct mv88e6xxx_atu_entry addr = {
++			.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
++		};
++
++		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++		if (err)
++			break;
++
++		if (!vlan.valid)
++			break;
++
++		err = _mv88e6xxx_atu_mac_write(ds, addr.mac);
++		if (err)
++			return err;
++
++		do {
++			err = _mv88e6xxx_atu_getnext(ds, vlan.fid, &addr);
++			if (err)
++				break;
++
++			if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
++				break;
++
++			if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
++				bool is_static = addr.state ==
++					(is_multicast_ether_addr(addr.mac) ?
++					 GLOBAL_ATU_DATA_STATE_MC_STATIC :
++					 GLOBAL_ATU_DATA_STATE_UC_STATIC);
++
++				fdb->vid = vlan.vid;
++				fdb->addr = addr.mac;
++				fdb->ndm_state = is_static ? NUD_NOARP :
++					NUD_REACHABLE;
++
++				err = cb(&fdb->obj);
++				if (err)
++					goto unlock;
++			}
++		} while (!is_broadcast_ether_addr(addr.mac));
++
++	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
++
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
++}
++
+ /* get next entry for port */
+ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			       unsigned char *addr, u16 *vid, bool *is_static)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ba94f17..08e0fbb 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -481,6 +481,9 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 			   const struct switchdev_obj_port_fdb *fdb);
+ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			       unsigned char *addr, u16 *vid, bool *is_static);
++int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
++			    struct switchdev_obj_port_fdb *fdb,
++			    switchdev_obj_dump_cb_t *cb);
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
+ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+ 			     int reg, int val);
+-- 
+2.6.1
