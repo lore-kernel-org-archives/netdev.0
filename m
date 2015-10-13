@@ -1,10 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] atm: iphase: return -ENOMEM instead of -1 in case
- of failed kmalloc()
-Date: Mon, 12 Oct 2015 19:56:48 -0700 (PDT)
-Message-ID: <20151012.195648.1985012794848944824.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] atm: iphase: fix misleading indention
+Date: Mon, 12 Oct 2015 19:56:56 -0700 (PDT)
+Message-ID: <20151012.195656.558210406749852516.davem@davemloft.net>
 References: <1444506439-10414-1-git-send-email-theidsieck@leenox.de>
-	<1444506439-10414-2-git-send-email-theidsieck@leenox.de>
+	<1444506439-10414-3-git-send-email-theidsieck@leenox.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,17 +12,18 @@ Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
 	linux-kernel@vger.kernel.org
 To: theidsieck@leenox.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444506439-10414-2-git-send-email-theidsieck@leenox.de>
+In-Reply-To: <1444506439-10414-3-git-send-email-theidsieck@leenox.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Tillmann Heidsieck <theidsieck@leenox.de>
-Date: Sat, 10 Oct 2015 21:47:18 +0200
+Date: Sat, 10 Oct 2015 21:47:19 +0200
 
-> Smatch complains about returning hard coded error codes, silence this
-> warning.
+> Fix a smatch warning:
+> drivers/atm/iphase.c:1178 rx_pkt() warn: curly braces intended?
 > 
-> drivers/atm/iphase.c:115 ia_enque_rtn_q() warn: returning -1 instead of -ENOMEM is sloppy
+> The code is correct, the indention is misleading. In case the allocation
+> of skb fails, we want to skip to the end.
 > 
 > Signed-off-by: Tillmann Heidsieck <theidsieck@leenox.de>
 
