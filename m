@@ -1,93 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2015-09-17
-Date: Tue, 13 Oct 2015 18:08:01 +0200
-Message-ID: <561D2C61.1050201@pengutronix.de>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [bug report or not] ping6 will lost packets when ping6 lots of
+ ipv6 address
+Date: Tue, 13 Oct 2015 09:11:45 -0700
+Message-ID: <20151013161145.GE88112@canlin-mbp1.DHCP.thefacebook.com>
+References: <CAJFZqHwASEOG-atD=yvygra=Ah5awF+9drmgGZm7L2OoGam0DQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="q5vXpcpgL1o7eWKRXcduOFhPhhJ4pveB2"
-Cc: David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>
+To: Li RongQing <roy.qing.li@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:15721 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932369AbbJMQLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 12:11:51 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJFZqHwASEOG-atD=yvygra=Ah5awF+9drmgGZm7L2OoGam0DQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---q5vXpcpgL1o7eWKRXcduOFhPhhJ4pveB2
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-Hello David,
-
-this is a pull request of 4 patches for net-next/master.
-
-Two patches are by Gerhard Bertelsmann, fixing some problems in the
-sun4i driver. The patch by Arnd Bergmann stops using timeval for the
-CAN broadcast manager. The last patch by Alexandre Belloni removes the
-otherwise unused struct at91_can_data from the driver.
-
-Marc
-
----
-
-The following changes since commit bbb300eb976b613a8e4e666d3af39f5ab1031d=
-22:
-
-  Merge branch 'bridge-vlan' (2015-10-13 04:58:04 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-4.4-20151013
-
-for you to fetch changes up to 42160a041db89807691b2a3fbf42e36a98b6019e:
-
-  can: at91: remove at91_can_data (2015-10-13 17:42:35 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-4.4-20151013
-
-----------------------------------------------------------------
-Alexandre Belloni (1):
-      can: at91: remove at91_can_data
-
-Arnd Bergmann (1):
-      can: avoid using timeval for uapi
-
-Gerhard Bertelsmann (2):
-      can: sun4i: fix arbitration lost error reporting
-      can: sun4i: fix MODULE_DESCRIPTION
-
- drivers/net/can/at91_can.c          | 21 ---------------------
- drivers/net/can/sun4i_can.c         |  4 ++--
- include/linux/platform_data/atmel.h |  5 -----
- include/uapi/linux/can/bcm.h        |  7 ++++++-
- net/can/bcm.c                       | 15 ++++++++++-----
- 5 files changed, 18 insertions(+), 34 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---q5vXpcpgL1o7eWKRXcduOFhPhhJ4pveB2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWHSxhAAoJEP5prqPJtc/HR2QIAJ7txv49xwSSlsVBxmr3CFRn
-gO+0E+8yo82kPihbs/ya3urVN+l4IHF9Y22fz7hjhYie2WJgeg9Xbd5SQ2D9rKms
-sEqSUgR1Pv2GgORAATsXiNGKw6TFfFQbOdzsbUy5ws7o5G/0vuseRxJgCX0W1KFC
-wHYjFcXif1JbB40sehxrNyUV80fkJuQqOalE3sFm5P+pUWxt54GKCAOAHDiH7rpl
-cQ0W1+Nql8TXbo8fGxF7ItOw+ImhAp+BuV/skndHtcuvOVpLftAtupIF0/A2dbo7
-G2XoCZ69B5ZIoKbP1YFXlg53Bg+yyFW3gIlv/0r0UI9TgudP7mH0M31O7k7y5V8=
-=mHQE
------END PGP SIGNATURE-----
-
---q5vXpcpgL1o7eWKRXcduOFhPhhJ4pveB2--
+On Tue, Oct 13, 2015 at 08:46:49PM +0800, Li RongQing wrote:
+> 1. in a machine, configure 3000 ipv6 address in one interface
+>
+> for i in {1..3000}; do ip -6 addr add 4001:5013::$i/0 dev eth0; done
+>
+>
+> 2. in other machine, ping6 the upper configured ipv6 address, then
+> lots of lost packets
+>
+> ip -6 addr add 4001:5013::0/64 dev eth0
+> for i in {1..2000}; do ping6 -q -c1 4001:5013::$i; done;
+>
+> 3. increasing the gc thresh can handles these lost
+>
+> sysctl -w  net.ipv6.neigh.default.gc_thresh1=2000
+> sysctl -w  net.ipv6.neigh.default.gc_thresh2=3000
+> sysctl -w  net.ipv6.neigh.default.gc_thresh3=4000
+> sysctl -w net.ipv6.route.gc_thresh=3000
+> sysctl -w net.ipv6.route.max_size =3000
+Which kernel is used in this test?
