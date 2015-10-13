@@ -1,50 +1,54 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: simplify configfs attributes V2
-Date: Tue, 13 Oct 2015 14:54:33 +0200
-Message-ID: <20151013125433.GA18474@lst.de>
-References: <1443879179-22280-1-git-send-email-hch@lst.de> <20151005143705.bdcfa7d7b8211506c5dbc12e@linux-foundation.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Some ICMP-Reply messages don't arrive in User Space in recent
+ Kernels
+Date: Tue, 13 Oct 2015 15:18:12 +0200
+Message-ID: <1444742292.1855606.408914113.79C7B013@webmail.messagingengine.com>
+References: <CAEvAWuHSwA0=j_YDbowA56eCx10sJPm5KkveneSVhBQHNKY_zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>,
-	Nicholas Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pratyush Anand <pratyush.anand-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pantelis Antoniou <pantelis.antoniou-OWPKS81ov/FWk0Htik3J/w@public.gmane.org>,
-	target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ocfs2-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151005143705.bdcfa7d7b8211506c5dbc12e-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?Q?J=C3=B6rg=20Pommnitz?= <j.pommnitz@gmail.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:53735 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753103AbbJMNSN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 09:18:13 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6A251207B5
+	for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 09:18:12 -0400 (EDT)
+In-Reply-To: <CAEvAWuHSwA0=j_YDbowA56eCx10sJPm5KkveneSVhBQHNKY_zg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 05, 2015 at 02:37:05PM -0700, Andrew Morton wrote:
-> > This series consolidates the code to implement configfs attributes
-> > by providing the ->show and ->store method in common code and using
-> > container_of in the methods to access the containing structure.
-> > 
-> > This reduces source and binary size of configfs consumers a lot.
-> 
-> There's a version of this patch series (I assume V1) in linux-next via
-> Nicholas's tree so my hands are tied.  I trust that Nicholas will
-> update things.
-> 
-> Or maybe it was a slipup - modifying usb, ocfs2 etc from the iscsi tree
-> is innovative ;)
+On Tue, Oct 13, 2015, at 08:47, J=C3=B6rg Pommnitz wrote:
+> Hello all,
+> I'm moving an application from 2.6.23 (yes, it's ancient; that's why
+> we are moving) to 3.18LTS. The application monitors multiple network
+> links to the same target with ping packets. The different links are
+> selected either by their next hop router (Ethernet) or the network
+> interface (Point-to-Point links, aka cellular data).
+> To force different routes to the same target, the outgoing packets ar=
+e
+> tagged with different firewall marks. Then I'm using routing rules to
+> select different routing tables with different routes for the same
+> target.
+> The outgoing path works perfectly fine in both, 2.6.23 and 3.18.
+> However, the same is not true for the incoming ICMP replies. They are
+> incoming; I see them with tcpdump. But some packets do not get
+> delivered to user space in 3.18. I'm not 100% sure, but I think this
+> happens if there is no "normal" route to the ping target, e.g. the
+> source address of the ICMP replies. This looks like some kind of
+> misguided ingress filtering that keeps packets out if a normal routin=
+g
+> lookup fails.
+>=20
+> Am I on the right track? If so, is there a way to disable this
+> filtering? If not, what could cause this changed behaviour?
 
-Nic wanted this as the target code is the biggest user of configfs.
-I don't really care where it goes as long as we get in the current version
-into a stable not to be rebased branch somehwere so that all consumers
-can use that as a base point.
+Did you disable rp_filter? Sounds like it, but 2.6.23 also had it
+activated by default, so maybe you missed the option in sysctl.conf.
 
-Nic, can you do that?  A lot of previous work went in through Andrew, but I
-think -mm is still a quilt stack so the stable base branch wouldn't be
-possible that way.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bye,
+Hannes
