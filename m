@@ -1,44 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: Don't call with rt6_uncached_list_flush_dev
-Date: Tue, 13 Oct 2015 04:53:23 -0700 (PDT)
-Message-ID: <20151013.045323.2126402747167465452.davem@davemloft.net>
-References: <CACT4Y+a3J5sgSk7OvzdG6vg2PuFfBPpuJHo3csKpox5s77H+rA@mail.gmail.com>
-	<1444652652.27760.158.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87wpusoz27.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH net-next 0/4 v3] net: VRF support in IPv6 stack
+Date: Tue, 13 Oct 2015 04:56:28 -0700 (PDT)
+Message-ID: <20151013.045628.1427505591915527875.davem@davemloft.net>
+References: <1444675630-42959-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kafai@fb.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-	andreyknvl@google.com, sasha.levin@oracle.com, edumazet@google.com,
-	maze@google.com, eric.dumazet@gmail.com
-To: ebiederm@xmission.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wpusoz27.fsf_-_@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbbJMLk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 07:40:27 -0400
+In-Reply-To: <1444675630-42959-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 12 Oct 2015 11:02:08 -0500
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 12 Oct 2015 11:47:06 -0700
 
+> Initial support for VRF in IPv6 stack. Makes IPv6 functionality on par
+> with IPv4 -- ping, tcp client/server and udp client/server all work fine.
+> tcpdump on vrf device and external tap (e.g., host side tap device) shows
+> all packets with proper addresses. IPv6 does not need the source address
+> operation like IPv4. Verified vti6 works properly in my setup as does use
+> of an IPv6 address on the VRF device.
 > 
-> As originally written rt6_uncached_list_flush_dev makes no sense when
-> called with dev == NULL as it attempts to flush all uncached routes
-> regardless of network namespace when dev == NULL.  Which is simply
-> incorrect behavior.
+> v3
+> - re-based to top of net-next (updates per net namespace changes by Eric)
+> - fixed dst_entry typecasts as requested by Dave
+> - added flags to inet6_rtm_getroute (IPv6 version of deaa0a6a930e)
 > 
-> Furthermore at the point rt6_ifdown is called with dev == NULL no more
-> network devices exist in the network namespace so even if the code in
-> rt6_uncached_list_flush_dev were to attempt something sensible it
-> would be meaningless.
-> 
-> Therefore remove support in rt6_uncached_list_flush_dev for handling
-> network devices where dev == NULL, and only call rt6_uncached_list_flush_dev
->  when rt6_ifdown is called with a network device.
-> 
-> Fixes: 8d0b94afdca8 ("ipv6: Keep track of DST_NOCACHE routes in case of iface down/unregister")
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> v2
+> - fixed CONFIG_IPV6 dependency as questioned by Cong
+>   - if IPV6 is a module, kbuild ensures VRF is a module
+>   - if IPV6 is disabled IPV6 functionality is compiled out of VRF module
+> - addressed comments from Nik over IRC
+>   - removed duplicate call to netif_is_l3_master in l3mdev_rt6_dst_by_oif
+>   - changed allocation flag from GFP_ATOMIC to GFP_KERNEL since it is init time
+>   - added free of rt6i_pcpu
+>   - check_ipv6_frame returns false only if packet is NDISC type
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
