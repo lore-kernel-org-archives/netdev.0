@@ -1,31 +1,41 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: Re: [PATCH] pcnet32: fix a logic error with pci_set_dma_mask
-Date: Tue, 13 Oct 2015 00:53:10 -0700
-Message-ID: <20151013075310.GA3705@ubuntu>
-References: <c2a42526779ca29258fa84bff51f8d94ed9fcc28.1444415947.git.geliangtang@163.com>
- <20151012.053814.1870650163021801761.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Tue, 13 Oct 2015 10:31:13 +0200
+Message-ID: <20151013083113.GA1931@localhost.localdomain>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <20151013045832.GA2437@netboy>
+ <alpine.DEB.2.11.1510130944520.6097@nanos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geliang Tang <geliangtang@163.com>
-To: David Miller <davem@davemloft.net>, Don Fry <pcnet32@frontier.com>
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151012.053814.1870650163021801761.davem@davemloft.net>
+In-Reply-To: <alpine.DEB.2.11.1510130944520.6097@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2015 at 05:38:14AM -0700, David Miller wrote:
-> From: Geliang Tang <geliangtang@163.com>
-> Date: Fri,  9 Oct 2015 03:45:39 -0700
+On Tue, Oct 13, 2015 at 09:51:02AM +0200, Thomas Gleixner wrote:
 > 
-> > pcnet32 can't work on my machine recently. It says "architecture
-> > does not support 32bit PCI busmaster DMA". There is a logic error
-> > in it: pci_set_dma_mask() return 0 means return successfully.
-> > 
-> > Signed-off-by: Geliang Tang <geliangtang@163.com>
-> 
-> This driver doesn't call pci_set_dma_mask() in any of my tree(s).
+> You are restricting the problem space to this particular use
+> case. There are other use cases where PTP is not available or not the
+> relevant reference, but you still want to correlate time domains to
+> ART.
 
-This patch is against linux-next tree. It was introduced by commit
-9c034d4 'pcnet32: use pci_set_dma_mask insted of pci_dma_supported'.
+They may well be other use cases, but they have not been identified
+here.  The PTP to media clock problem has a very simple solution.  You
+do not need a history of system time stamps to solve it.
+
+Even if you wanted to correlate the system time's UTC with the media
+clock, still you don't need any shadow history for that.  Just feed
+(ART, UTC) pairs into the DSP at a regular rate, and let the DSP do
+the math.  This does not need to be part of the central time keeping
+code at all.
+
+Thanks,
+Richard
