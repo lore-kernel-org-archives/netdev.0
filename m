@@ -1,41 +1,171 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] net: Fix vti use case with oif in dst lookups
- for IPv6
-Date: Tue, 13 Oct 2015 16:34:14 +0200
-Message-ID: <20151013143414.GA5445@secunet.com>
-References: <1444055571-82546-1-git-send-email-dsa@cumulusnetworks.com>
- <m2a8rs7crl.wl@gmail.com>
- <20151009071710.GJ7701@secunet.com>
- <5617F908.8060807@cumulusnetworks.com>
- <561C00B9.1020301@cumulusnetworks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 2/7] switchdev: allow caller to explicitly
+ request attr_set as deferred
+Date: Tue, 13 Oct 2015 16:39:47 +0200
+Message-ID: <20151013143947.GG2242@nanopsycho.orion>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+ <1444672986-20709-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
+ <20151013054414.GA2242@nanopsycho.orion>
+ <561C9EC2.7030907@gmail.com>
+ <20151013062112.GD2242@nanopsycho.orion>
+ <CAE4R7bC4vik8-V9L5oTukQ4YhMoCGF_uOM_481fJgq3yc1LN=g@mail.gmail.com>
+ <20151013073020.GF2242@nanopsycho.orion>
+ <CAE4R7bBk91rr8UoLtXH8eFK5V1TrSZ+mceZYdjQ8gb2E7Vo0JQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Hajime Tazaki <thehajime@gmail.com>, <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50690 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932419AbbJMOeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 10:34:20 -0400
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:35803 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752422AbbJMOju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 10:39:50 -0400
+Received: by qkap81 with SMTP id p81so8640789qka.2
+        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 07:39:49 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <561C00B9.1020301@cumulusnetworks.com>
+In-Reply-To: <CAE4R7bBk91rr8UoLtXH8eFK5V1TrSZ+mceZYdjQ8gb2E7Vo0JQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David.
+Tue, Oct 13, 2015 at 04:07:31PM CEST, sfeldma@gmail.com wrote:
+>On Tue, Oct 13, 2015 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Tue, Oct 13, 2015 at 08:53:45AM CEST, sfeldma@gmail.com wrote:
+>>>On Mon, Oct 12, 2015 at 11:21 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Tue, Oct 13, 2015 at 08:03:46AM CEST, john.fastabend@gmail.com wrote:
+>>>>>On 15-10-12 10:44 PM, Jiri Pirko wrote:
+>>>>>> Tue, Oct 13, 2015 at 04:52:42AM CEST, sfeldma@gmail.com wrote:
+>>>>>>> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>>>>
+>>>>>>>> Caller should know if he can call attr_set directly (when holding RTNL)
+>>>>>>>> or if he has to defer the att_set processing for later.
+>>>>>>>>
+>>>>>>>> This also allows drivers to sleep inside attr_set and report operation
+>>>>>>>> status back to switchdev core. Switchdev core then warns if status is
+>>>>>>>> not ok, instead of silent errors happening in drivers.
+>>>>>>>>
+>>>>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>>>>> ---
+>>>>>>>>  include/net/switchdev.h   |   1 +
+>>>>>>>>  net/bridge/br_stp.c       |   3 +-
+>>>>>>>>  net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
+>>>>>>>>  3 files changed, 59 insertions(+), 52 deletions(-)
+>>>>>>>>
+>>>>>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>>>>>>> index d2879f2..6b109e4 100644
+>>>>>>>> --- a/include/net/switchdev.h
+>>>>>>>> +++ b/include/net/switchdev.h
+>>>>>>>> @@ -17,6 +17,7 @@
+>>>>>>>>
+>>>>>>>>  #define SWITCHDEV_F_NO_RECURSE         BIT(0)
+>>>>>>>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP    BIT(1)
+>>>>>>>> +#define SWITCHDEV_F_DEFER              BIT(2)
+>>>>>>>>
+>>>>>>>>  struct switchdev_trans_item {
+>>>>>>>>         struct list_head list;
+>>>>>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>>>>>>>> index db6d243de..80c34d7 100644
+>>>>>>>> --- a/net/bridge/br_stp.c
+>>>>>>>> +++ b/net/bridge/br_stp.c
+>>>>>>>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>>>>>>>  {
+>>>>>>>>         struct switchdev_attr attr = {
+>>>>>>>>                 .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>>>>>>>> +               .flags = SWITCHDEV_F_DEFER,
+>>>>>>>>                 .u.stp_state = state,
+>>>>>>>>         };
+>>>>>>>>         int err;
+>>>>>>>>
+>>>>>>>>         p->state = state;
+>>>>>>>>         err = switchdev_port_attr_set(p->dev, &attr);
+>>>>>>>> -       if (err && err != -EOPNOTSUPP)
+>>>>>>>> +       if (err)
+>>>>>>>
+>>>>>>> This looks like a problem as now all other non-switchdev ports will
+>>>>>>> get an WARN in the log when STP state changes.  We should only WARN if
+>>>>>>> there was an err and the err is not -EOPNOTSUPP.
+>>>>>>
+>>>>>> If SWITCHDEV_F_DEFER flag is set, there's only 0 of -ENOMEM.
+>>>>>>
+>>>>>>
+>>>>>>>
+>>>>>>>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+>>>>>>>>                                 (unsigned int) p->port_no, p->dev->name);
+>>>>>>>>  }
+>>>>>>>
+>>>>>>> <snip>
+>>>>>>>
+>>>>>>>>  struct switchdev_attr_set_work {
+>>>>>>>>         struct work_struct work;
+>>>>>>>>         struct net_device *dev;
+>>>>>>>> @@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
+>>>>>>>>  {
+>>>>>>>>         struct switchdev_attr_set_work *asw =
+>>>>>>>>                 container_of(work, struct switchdev_attr_set_work, work);
+>>>>>>>> +       bool rtnl_locked = rtnl_is_locked();
+>>>>>>>>         int err;
+>>>>>>>>
+>>>>>>>> -       rtnl_lock();
+>>>>>>>> -       err = switchdev_port_attr_set(asw->dev, &asw->attr);
+>>>>>>>> +       if (!rtnl_locked)
+>>>>>>>> +               rtnl_lock();
+>>>>>>>
+>>>>>>> I'm not following this change.  If someone else has rtnl_lock, we'll
+>>>>>>> not wait to grab it here ourselves, and proceed as if we have the
+>>>>>>> lock.  But what if that someone else releases the lock in the middle
+>>>>>>> of us doing switchdev_port_attr_set_now?  Seems we want to
+>>>>>>> unconditionally wait and grab the lock.  We need to block anything
+>>>>>>>from moving while we do the attr set.
+>>>>>>
+>>>>>> Why would someone we call (driver) return the lock? In that case, he is
+>>>>>> buggy and should be fixed.
+>>>>>>
+>>>>>> This hunk only ensures we have rtnl_lock. If not, we take it here. We do
+>>>>>> not take it unconditionally because we may already have it, for example
+>>>>>> if caller of switchdev_flush_deferred holds rtnl_lock.
+>>>>>>
+>>>>>
+>>>>>This is where you lost me. How do you know another core doesn't happen
+>>>>>to have the lock when you hit this code path? Maybe someone is running
+>>>>>an ethtool command on another core or something.
+>>>>
+>>>> You are right. The same problem exists currently in switchdev_port_attr_set.
+>>>
+>>>You are right as in you'll change this back to unconditional grabbing
+>>>of rtnl_lock?  I don't follow how this problem currently exists as
+>>>current code does an unconditional grab of rtnl_lock.
+>>
+>>   cpu1                          cpu2
+>>                                 rtnl_lock()
+>> switchdev_port_attr_set
+>>   !rtnl_is_locked() == false
+>>   switchdev_trans_init
+>>                                 rtnl_unlock()
+>>   __switchdev_port_attr_set
+>>
+>> now __switchdev_port_attr_set is called without rtnl_lock.
+>
+>Got it.  Another example of trying to guess context and getting it
+>wrong.  This is why I like your DEFERRED option so caller can be
+>explicit.
+>
+>> Would make sense to introduce rtnl_is_locked_by_me() or something.
+>
+>Is it sufficient to simply call rtnl_lock() in your deferred context?
+>You can sleep there and that way there is no question who has the
+>lock.
 
-On Mon, Oct 12, 2015 at 12:49:29PM -0600, David Ahern wrote:
-> On 10/9/15 11:27 AM, David Ahern wrote:
-> >
-> >The attached patch applied to Linus' tree works for me. Currently the
-> >above change is not in his tree, so I added it to this patch. Once you
-> >confirm that it works for you I'll create the delta-patch for net and
-> >send out.
-> 
-> Steffen: Have you had a chance to try the patch? Does it solve the
-> vti6 problem for you?
-> 
-
-I'm not at office this week, so not able to do a test
-before monday. I let you know as soon as I tried the
-patch.
+The problem is that caller of flust_deferred may hold the lock already
+and then we would deadlock. I'm cooking up v5 with different approach.
+Stay tuned.
