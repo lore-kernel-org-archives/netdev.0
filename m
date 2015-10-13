@@ -1,53 +1,62 @@
-From: Leonid Bloch <leonid@daynix.com>
-Subject: [PATCH] e1000e: fix division by zero on jumbo MTUs
-Date: Tue, 13 Oct 2015 12:48:18 +0300
-Message-ID: <1444729698-9441-1-git-send-email-leonid@daynix.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Dmitry Fleytman <dmitry@daynix.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net-next 0/4] tcp: better smp listener behavior
+Date: Tue, 13 Oct 2015 12:01:18 +0200
+Message-ID: <20151013100118.GG11304@distanz.ch>
+References: <1444318627-27883-1-git-send-email-edumazet@google.com>
+ <CALx6S35NOaLyqmWbgcRdV9Swm1NVVSFkoShW0ywMi7V21jhtYQ@mail.gmail.com>
+ <1444387845.27760.55.camel@edumazet-glaptop2.roam.corp.google.com>
+ <56180147.6070205@iogearbox.net>
+ <20151013092223.GE11304@distanz.ch>
+ <561CCEAD.206@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:39139 "EHLO sym2.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751779AbbJMKBW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 06:01:22 -0400
+Content-Disposition: inline
+In-Reply-To: <561CCEAD.206@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Fleytman <dmitry@daynix.com>
+On 2015-10-13 at 11:28:13 +0200, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 10/13/2015 11:22 AM, Tobias Klauser wrote:
+> >On 2015-10-09 at 20:02:47 +0200, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> >>On 10/09/2015 12:50 PM, Eric Dumazet wrote:
+> >>>On Thu, 2015-10-08 at 20:42 -0700, Tom Herbert wrote:
+> >>>>On Thu, Oct 8, 2015 at 8:37 AM, Eric Dumazet <edumazet@google.com> wrote:
+> >>>>>As promised in last patch series, we implement a better SO_REUSEPORT
+> >>>>>strategy, based on cpu affinities if selected by the application.
+> >>>>>
+> >>>>>We also moved sk_refcnt out of the cache line containing the lookup
+> >>>>>keys, as it was considerably slowing down smp operations because
+> >>>>>of false sharing. This was simpler than converting listen sockets
+> >>>>>to conventional RCU (to avoid sk_refcnt dirtying)
+> >>>>>
+> >>>>>Could process 6.0 Mpps SYN instead of 4.2 Mpps on my test server.
+> >>>>>
+> >>>>Is this IPv4, IPv6, or some combination of the two ? :-)
+> >>>
+> >>>IPv4 only (mostly because I was using trafgen and its csumtcp() only
+> >>>deals with IPv4 and I am lazy)
+> >>
+> >>Agreed, will fix that in trafgen. ;) Thanks!
+> >
+> >Daniel, I'd have som preliminary patches for trafgen ready to introduce
+> >the csumudp6 and csumtcp6 trafgen helper functions (UDP/TCP checksum
+> >using IPv6 pseudo headers). If you want I can push them after some
+> >further testing later today.
+> 
+> Was off yesterday, so looks like you beat me to it. So, yes, perfect,
+> please do! :)
 
-This patch fixes possible division by zero in receive
-interrupt handler when working without adaptive interrupt
-moderation.
-
-The adaptive interrupt moderation mechanism is typically
-disabled on jumbo MTUs.
-
-Signed-off-by: Dmitry Fleytman <dmitry@daynix.com>
-Signed-off-by: Leonid Bloch <leonid@daynix.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index faf4b3f..a60dce1 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1959,8 +1959,10 @@ static irqreturn_t e1000_intr_msix_rx(int __always_unused irq, void *data)
- 	 * previous interrupt.
- 	 */
- 	if (rx_ring->set_itr) {
--		writel(1000000000 / (rx_ring->itr_val * 256),
--		       rx_ring->itr_register);
-+		u32 itr = rx_ring->itr_val ?
-+			1000000000 / (rx_ring->itr_val * 256) : 0;
-+
-+		writel(itr, rx_ring->itr_register);
- 		rx_ring->set_itr = 0;
- 	}
- 
--- 
-2.4.3
+csumudp6 and csumtcp6 for trafgen are now availble in the netsniff-ng
+git as of commit 19c15748 ("trafgen: Add checksum helpers for TCP/UDP
+over IPv6").
