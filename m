@@ -1,83 +1,117 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Issue with /proc/sys/net/ipv4/tcp_mem
-Date: Tue, 13 Oct 2015 00:07:16 -0500
-Message-ID: <87twpvmk57.fsf@x220.int.ebiederm.org>
-References: <561B7F98.1040809@huawei.com>
-	<87io6coxg1.fsf@x220.int.ebiederm.org>
-	<1444700679.21657.11.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v4 5/7] bridge: defer switchdev fdb del call
+ in fdb_del_external_learn
+Date: Mon, 12 Oct 2015 22:16:54 -0700
+Message-ID: <561C93C6.2070402@gmail.com>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us> <1444672986-20709-1-git-send-email-jiri@resnulli.us> <1444672986-20709-4-git-send-email-jiri@resnulli.us> <CAE4R7bAhQ2gBp248KAhEEC27SrYZY8enxBjZsUoR_a4Bwq7DAg@mail.gmail.com> <561C7B1B.90406@gmail.com> <CAE4R7bB1ARJEOuLzedaQrvbiK=YrbqDy3Vytas4JMotAeVS5mA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: wangyufen <wangyufen@huawei.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53452 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932162AbbJMFP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 01:15:26 -0400
-In-Reply-To: <1444700679.21657.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Mon, 12 Oct 2015 18:44:39 -0700")
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35626 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752156AbbJMFRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 01:17:12 -0400
+Received: by pabve7 with SMTP id ve7so9780114pab.2
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 22:17:12 -0700 (PDT)
+In-Reply-To: <CAE4R7bB1ARJEOuLzedaQrvbiK=YrbqDy3Vytas4JMotAeVS5mA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On 15-10-12 09:19 PM, Scott Feldman wrote:
+> On Mon, Oct 12, 2015 at 8:31 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> On 15-10-12 08:28 PM, Scott Feldman wrote:
+>>> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>
+>>>> Since spinlock is held here, defer the switchdev operation.
+>>>>
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>>>>  net/bridge/br_fdb.c | 5 ++++-
+>>>>  net/bridge/br_if.c  | 3 +++
+>>>>  2 files changed, 7 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>>>> index f5e7da0..c88bd8e 100644
+>>>> --- a/net/bridge/br_fdb.c
+>>>> +++ b/net/bridge/br_fdb.c
+>>>> @@ -134,7 +134,10 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+>>>>  static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+>>>>  {
+>>>>         struct switchdev_obj_port_fdb fdb = {
+>>>> -               .obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+>>>> +               .obj = {
+>>>> +                       .id = SWITCHDEV_OBJ_ID_PORT_FDB,
+>>>> +                       .flags = SWITCHDEV_F_DEFER,
+>>>> +               },
+>>>>                 .vid = f->vlan_id,
+>>>>         };
+>>>>
+>>>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>>>> index 934cae9..09147cb 100644
+>>>> --- a/net/bridge/br_if.c
+>>>> +++ b/net/bridge/br_if.c
+>>>> @@ -24,6 +24,7 @@
+>>>>  #include <linux/slab.h>
+>>>>  #include <net/sock.h>
+>>>>  #include <linux/if_vlan.h>
+>>>> +#include <net/switchdev.h>
+>>>>
+>>>>  #include "br_private.h"
+>>>>
+>>>> @@ -249,6 +250,8 @@ static void del_nbp(struct net_bridge_port *p)
+>>>>         list_del_rcu(&p->list);
+>>>>
+>>>>         br_fdb_delete_by_port(br, p, 0, 1);
+>>>> +       switchdev_flush_deferred();
+>>>> +
+>>>
+>>> This potentially flushes other (valid) work on the deferred queue not
+>>> related to FDB del.
+>>>
+>>> I wonder if this flush step is necessary at all?  The work we deferred
+>>> to delete the FDB entry can still happen after the port has been
+>>> removed (del_nbp).  If the port driver/device find the FDB entry, then
+>>> delete it, otherwise ignore it.
+>>>
+>>
+>> Just the first thing that springs to mind reading this comment is,
+>>
+>>   - del gets deffered
+>>   - add fdb
+>>   - del runs
+>>
+>> Is there an issue here? Sorry I'll do a more thorough review now just
+>> thought I would toss it out there before I forget.
+> 
+> It's a valid thought to consider, for sure.  The context is these are
+> only FDB entries added by an external learn event.  So I believe in
+> your sequence, the second step to add fdb entry wouldn't happen as the
+> fdb entry already exists at that point (in other words, the entry has
+> already been learned on external device and pushed up via notifier to
+> bridge).  So I think we're OK in regards to your question.
+> 
 
-> On Mon, 2015-10-12 at 11:37 -0500, Eric W. Biederman wrote:
->> wangyufen <wangyufen@huawei.com> writes:
->> 
->> > Hi,
->> >
->> > I tried on linux-4.1:
->> >     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->> >     8388608	12582912	16777216
->> >     linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
->> >     -bash: echo: write error: Invalid argument
->> >     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->> >     1234	12582912	16777216
->> >
->> > the echo operation got error, but value already written to tcp_mem.
->> >
->> > I checked, patch f594d63199688ad568fb caused the issue.
->> 
->> 
->> If your problem is that you can not write a single value and instead
->> have to write all three values I don't know what to tell you.  I don't
->> see how that could have ever worked.
->> 
->> Certainly the commit you pointed at did not change that behavior.
->
-> I would not be so sure.
-> Above commit added a regression for partial writes.
-> If a write() returns an error like EINVAL, we expect no change occurred.
->
-> Prior code was calling proc_doulongvec_minmax() using a temporary array,
-> and updated tcp_mem[0 .. 2] only of proc_doulongvec_minmax() returned 0
->
->        ret = proc_doulongvec_minmax(&tmp, write, buffer, lenp, ppos);
->        if (ret)
->                return ret;
-> #ifdef CONFIG_MEMCG_KMEM
-> 	// deleted for clarity
-> #endif
->
->        net->ipv4.sysctl_tcp_mem[0] = vec[0];
->        net->ipv4.sysctl_tcp_mem[1] = vec[1];
->        net->ipv4.sysctl_tcp_mem[2] = vec[2];
->
->        return 0;
->
-> We could argue it is a bug in proc_doulongvec_minmax().
-> This helper probably should allocate a temp buffer,
-> as we have the same issue with udp_mem[].
+ah I see so the take away is we need to be very careful about who/what
+sets the deferred bit or you might get yourself in a world of hurt.
 
-Point.  We do store the value on partial writes when before we did not.
+Here you are just ensuring you get all the fdb addr's out of the device.
+Seems OK to me just be sure you don't try to set the deferred bit on
+the attributes setting the state to DISABLED so we don't get a race
+there.
 
-That is weird.  Clearly someone noticed.  I agree this is a confusing
-corner case in proc_doulongvec_minmax that it may be worth addressing.
-
-Does this cause a regression in a real application?   I definitely would
-like to know what in the world a real application is doing that causes
-it to break with this difference in behavior before doing anything,
-because I am dense enough not to see how an application could
-meaningfully care about this difference in behavior.
-
-Eric
+Thanks,
+John
