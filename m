@@ -1,96 +1,137 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [RFC PATCH 2/2] bpf: Implement bpf_perf_event_sample_enable/disable()
- helpers
-Date: Tue, 13 Oct 2015 12:34:52 +0800
-Message-ID: <561C89EC.8030303@huawei.com>
-References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com> <1444640563-159175-3-git-send-email-xiakaixu@huawei.com> <561C0A1E.2080500@plumgrid.com> <561C7A1F.6040702@huawei.com> <561C7CDA.8050004@plumgrid.com> <561C7FBE.4000104@huawei.com> <561C85BB.3000505@plumgrid.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v4 2/7] switchdev: allow caller to explicitly
+ request attr_set as deferred
+Date: Mon, 12 Oct 2015 21:40:25 -0700
+Message-ID: <561C8B39.20604@gmail.com>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us> <1444672986-20709-1-git-send-email-jiri@resnulli.us> <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<hekuang@huawei.com>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Kaixu Xia <xiakaixu@huawei.com>, <davem@davemloft.net>,
-	<acme@kernel.org>, <mingo@redhat.com>, <a.p.zijlstra@chello.nl>,
-	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
-	<daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561C85BB.3000505@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33677 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbbJMEkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 00:40:43 -0400
+Received: by pabrc13 with SMTP id rc13so8824262pab.0
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 21:40:42 -0700 (PDT)
+In-Reply-To: <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2015/10/13 12:16, Alexei Starovoitov wrote:
-> On 10/12/15 8:51 PM, Wangnan (F) wrote:
->>> why 'set disable' is needed ?
->>> the example given in cover letter shows the use case where you want
->>> to receive samples only within sys_write() syscall.
->>> The example makes sense, but sys_write() is running on this cpu, so 
->>> just
->>> disabling it on the current one is enough.
->>>
+On 15-10-12 07:52 PM, Scott Feldman wrote:
+> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
 >>
->> Our real use case is control of the system-wide sampling. For example,
->> we need sampling all CPUs when smartphone start refershing its display.
->> We need all CPUs because in Android system there are plenty of threads
->> get involed into this behavior. We can't achieve this by controling
->> sampling on only one CPU. This is the reason we need 'set enable'
->> and 'set disable'.
->
-> ok, but that use case may have different enable/disable pattern.
-> In sys_write example ultra-fast enable/disable is must have, since
-> the whole syscall is fast and overhead should be minimal.
-> but for display refresh? we're talking milliseconds, no?
-> Can you just ioctl() it from user space?
-> If cost of enable/disable is high or the time range between toggling is
-> long, then doing it from the bpf program doesn't make sense. Instead
-> the program can do bpf_perf_event_output() to send a notification to
-> user space that condition is met and the user space can ioctl() events.
->
+>> Caller should know if he can call attr_set directly (when holding RTNL)
+>> or if he has to defer the att_set processing for later.
+>>
+>> This also allows drivers to sleep inside attr_set and report operation
+>> status back to switchdev core. Switchdev core then warns if status is
+>> not ok, instead of silent errors happening in drivers.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  include/net/switchdev.h   |   1 +
+>>  net/bridge/br_stp.c       |   3 +-
+>>  net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
+>>  3 files changed, 59 insertions(+), 52 deletions(-)
+>>
+>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>> index d2879f2..6b109e4 100644
+>> --- a/include/net/switchdev.h
+>> +++ b/include/net/switchdev.h
+>> @@ -17,6 +17,7 @@
+>>
+>>  #define SWITCHDEV_F_NO_RECURSE         BIT(0)
+>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP    BIT(1)
+>> +#define SWITCHDEV_F_DEFER              BIT(2)
+>>
+>>  struct switchdev_trans_item {
+>>         struct list_head list;
+>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>> index db6d243de..80c34d7 100644
+>> --- a/net/bridge/br_stp.c
+>> +++ b/net/bridge/br_stp.c
+>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>  {
+>>         struct switchdev_attr attr = {
+>>                 .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>> +               .flags = SWITCHDEV_F_DEFER,
+>>                 .u.stp_state = state,
+>>         };
+>>         int err;
+>>
+>>         p->state = state;
+>>         err = switchdev_port_attr_set(p->dev, &attr);
+>> -       if (err && err != -EOPNOTSUPP)
+>> +       if (err)
+> 
+> This looks like a problem as now all other non-switchdev ports will
+> get an WARN in the log when STP state changes.  We should only WARN if
+> there was an err and the err is not -EOPNOTSUPP.
+> 
+>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+>>                                 (unsigned int) p->port_no, p->dev->name);
+>>  }
+> 
+> <snip>
+> 
+>>  struct switchdev_attr_set_work {
+>>         struct work_struct work;
+>>         struct net_device *dev;
+>> @@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
+>>  {
+>>         struct switchdev_attr_set_work *asw =
+>>                 container_of(work, struct switchdev_attr_set_work, work);
+>> +       bool rtnl_locked = rtnl_is_locked();
+>>         int err;
+>>
+>> -       rtnl_lock();
+>> -       err = switchdev_port_attr_set(asw->dev, &asw->attr);
+>> +       if (!rtnl_locked)
+>> +               rtnl_lock();
+> 
+> I'm not following this change.  If someone else has rtnl_lock, we'll
+> not wait to grab it here ourselves, and proceed as if we have the
+> lock.  But what if that someone else releases the lock in the middle
+> of us doing switchdev_port_attr_set_now?  Seems we want to
+> unconditionally wait and grab the lock.  We need to block anything
+> from moving while we do the attr set.
+> 
 
-OK. I think I understand your design principle that, everything inside BPF
-should be as fast as possible.
+Also an additional race between setting rtnl_locked and the if stmt
+and then grabbing the lock. There seems to be a something of pattern
+around this where other subsystems use a rtnl_trylock and if it fails
+do a restart/re-queue operation to retry. Looks like how you handle
+it in the team driver at least.
 
-Make userspace control events using ioctl make things harder. You know that
-'perf record' itself doesn't care too much about events it reveived. It only
-copies data to perf.data, but what we want is to use perf record simply like
-this:
-
-  # perf record -e evt=cycles -e control.o/pmu=evt/ -a sleep 100
-
-And in control.o we create uprobe point to mark the start and finish of 
-a frame:
-
-  SEC("target=/a/b/c.o\nstartFrame=0x123456")
-  int startFrame(void *) {
-    bpf_pmu_enable(pmu);
-    return 1;
-  }
-
-  SEC("target=/a/b/c.o\nfinishFrame=0x234568")
-  int finishFrame(void *) {
-    bpf_pmu_disable(pmu);
-    return 1;
-  }
-
-I think it is make sence also.
-
-I still think perf is not necessary be independent each other. You know 
-we have
-PERF_EVENT_IOC_SET_OUTPUT which can set multiple events output through one
-ringbuffer. This way perf events are connected.
-
-I think the 'set disable/enable' design in this patchset satisify the 
-design goal
-that in BPF program we only do simple and fast things. The only 
-inconvience is
-we add something into map, which is ugly. What about using similar 
-implementation
-like PERF_EVENT_IOC_SET_OUTPUT, creating a new ioctl like 
-PERF_EVENT_IOC_SET_ENABLER,
-then let perf to select an event as 'enabler', then BPF can still 
-control one atomic
-variable to enable/disable a set of events.
-
-Thank you.
+>> +       err = switchdev_port_attr_set_now(asw->dev, &asw->attr);
+>>         if (err && err != -EOPNOTSUPP)
+>>                 netdev_err(asw->dev, "failed (err=%d) to set attribute (id=%d)\n",
+>>                            err, asw->attr.id);
+>> -       rtnl_unlock();
+>> +       if (!rtnl_locked)
+>> +               rtnl_unlock();
+>>
+>>         dev_put(asw->dev);
+>>         kfree(work);
+>> @@ -211,7 +257,7 @@ static int switchdev_port_attr_set_defer(struct net_device *dev,
+>>         asw->dev = dev;
+>>         memcpy(&asw->attr, attr, sizeof(asw->attr));
+>>
+>> -       schedule_work(&asw->work);
+>> +       queue_work(switchdev_wq, &asw->work);
+>>
+>>         return 0;
+>>  }
