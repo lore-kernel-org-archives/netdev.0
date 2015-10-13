@@ -1,39 +1,44 @@
-From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next V15 0/3] openvswitch: Add support for
-	802.1ad
-Date: Tue, 13 Oct 2015 09:47:34 +0100
-Message-ID: <561CC526.2070702@gmail.com>
-References: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
- <20151012.195841.292062617131376194.davem@davemloft.net>
-Reply-To: thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] netlink: trim skb to exact size to avoid MSG_TRUNC
+Date: Tue, 13 Oct 2015 10:56:00 +0200
+Message-ID: <20151013085600.GA23077@pox.localdomain>
+References: <1444698923-13992-1-git-send-email-ronen.arad@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151012.195841.292062617131376194.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ronen Arad <ronen.arad@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:34083 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbbJMI4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 04:56:03 -0400
+Received: by wicgb1 with SMTP id gb1so79794754wic.1
+        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 01:56:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1444698923-13992-1-git-send-email-ronen.arad@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTAvMTMvMTUgMzo1OCBBTSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IEZyb206IFRob21hcyBG
-IEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPiBEYXRlOiBTYXQsIDEwIE9jdCAy
-MDE1IDE5OjQwOjMwIC0wNDAwCj4KPj4gVGhvbWFzIEYgSGVyYmVydCAoMyk6Cj4+ICAgIG9wZW52
-c3dpdGNoOiA4MDIuMWFkIHVhcGkgY2hhbmdlcy4KPj4gICAgQ2hlY2sgZm9yIHZsYW4gZXRoZXJu
-ZXQgdHlwZXMgZm9yIDgwMjEucSBvciA4MDIuMWFkCj4+ICAgIDgwMi4xQUQ6IEZsb3cgaGFuZGxp
-bmcsIGFjdGlvbnMsIHZsYW4gcGFyc2luZyBhbmQgbmV0bGluayBhdHRyaWJ1dGVzCj4gSSB0aGlu
-ayB0aGlzIHBhdGNoIHNlcmllcyBoYXMgZ29uZSBsb25nIGVub3VnaCwgY2FuIEkgZ2V0IHNvbWUg
-QUNLJ3MKPiBBU0FQIGZvciB0aGlzIFYxNSBwb3N0aW5nPwpEYXZlLCBGb3IgcXVhbGl0eSBjb25j
-ZXJucywgSSB0aGluayBpdCBpcyBiZXN0IGlmIEkgcmVzcG9uZCB0byBQcmF2aW4ncyAKbGF0ZXN0
-IGNvbW1lbnRzIHdpdGggYW4gdXBkYXRlZCBzZXJpZXMuIEkgd2lsbCBzdWJtaXQgc2hvcnRseS4K
-Ci0tVEZICj4KPiBUaGFua3MuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
-ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 10/12/15 at 06:15pm, Ronen Arad wrote:
+> The available room in the skb allocated in netlink_dump for iproute2
+> show requests (e.g. "ip link [show]", "bridge [-c] vlan show") should
+> be trimmed to the exact size requested in order to avoid MSG_TRUNC flag
+> set in netlink_recvmg.
+> This was handled properly for small skb allocated when no interface has
+> many VLANs configured. This patch applies the same logic to larger skbs
+> which are allocated using the calculated min_dump_alloc size.
+> 
+> Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+
+Wouldn't this imply a bug in which rtnl_calcit() does not account for
+some data that is later dumped? How else could the skb end up being
+larger than what alloc_size accounts for at this point unless we end
+up stuffing 2x smallish messages into the padded projection of the
+calculated maximum message size of that type. Is that what you are
+seeing?
+
+Regardless of that, alloc_size is likely larger than nlk->max_recvmsg_len
+anyway at this point so unless the reader suddenly provides a different
+message size or does peeking it will likely still be truncated.
+
+I'm just trying to understand which exact case you are solving here.
