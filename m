@@ -1,56 +1,54 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v4 4/7] switchdev: introduce possibility to defer obj_add/del
-Date: Mon, 12 Oct 2015 20:08:23 -0700
-Message-ID: <CAE4R7bBkO=mcMQ-Pbns5kq4gcjZNqpZz1_-snn89bnfGdqzVcw@mail.gmail.com>
-References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
- <1444672986-20709-1-git-send-email-jiri@resnulli.us> <1444672986-20709-3-git-send-email-jiri@resnulli.us>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC PATCH 1/2] perf: Add the flag sample_disable not to output
+ data on samples
+Date: Mon, 12 Oct 2015 20:10:44 -0700
+Message-ID: <561C7634.5010703@plumgrid.com>
+References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
+ <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
+ <561C07E0.6070203@plumgrid.com> <561C6CAE.7080503@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:36172 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbbJMDIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 23:08:43 -0400
-Received: by obbrx8 with SMTP id rx8so3695811obb.3
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 20:08:42 -0700 (PDT)
-In-Reply-To: <1444672986-20709-3-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, acme@kernel.org, mingo@redhat.com,
+	a.p.zijlstra@chello.nl, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net, wangnan0@huawei.com,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: xiakaixu <xiakaixu@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <561C6CAE.7080503@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Similar to the attr usecase, the caller knows if he is holding RTNL and is
-> in atomic section. So let the called to decide the correct call variant.
->
-> This allows drivers to sleep inside their ops and wait for hw to get the
-> operation status. Then the status is propagated into switchdev core.
-> This avoids silent errors in drivers.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On 10/12/15 7:30 PM, xiakaixu wrote:
+>> The proper perf_event_enable/disable are so heavy that another
+>> >mechanism needed? cpu_function_call is probably too much to do
+>> >from bpf program, but that can be simplified?
+>> >Based on the use case from cover letter, sounds like you want
+>> >something like soft_disable?
+>> >Then extending event->state would make the most sense.
+>> >Also consider the case of re-entrant event enable/disable.
+>> >So inc/dec of a flag may be needed?
+> Thanks for your comments!
+> I've tried perf_event_enable/disable, but there is a warning caused
+> by cpu_function_call. The main reason as follows,
+>   int smp_call_function_single(...)
+>   {
+> 	...
+> 	WARN_ON_ONCE(cpu_online(this_cpu) && irqs_disabled()
+> 		     && !oops_in_progress);
 
-<snip>
+of course, that's what I meant by 'cpu_function_call is too much
+to do from bpf program'. In this case it's running out of kprobe
+with disabled irq, so you hit the warning, but even if it was regular
+tracepoint, doing ipi from bpf is too much. All bpf helpers must be
+deterministic without such side effects.
 
-> +static void switchdev_port_obj_work(struct work_struct *work)
-> +{
-> +       struct switchdev_obj_work *ow =
-> +                       container_of(work, struct switchdev_obj_work, work);
-> +       bool rtnl_locked = rtnl_is_locked();
-> +       int err;
-> +
-> +       if (!rtnl_locked)
-> +               rtnl_lock();
+> So I added the extra atomic flag filed in order to avoid this problem.
 
-Same comment as on patch 2/7 about not unconditionally grabbing rtnl_lock.
+that's a hammer approach. There are other ways to do it, like:
+- extend event->state with this soft_disable-like functionality
+  (Also consider the case of re-entrant event enable/disable.
+   inc/dec may be needed)
+- or tap into event->attr.sample_period
+   may be it can be temporarily set to zero to indicate soft_disabled.
