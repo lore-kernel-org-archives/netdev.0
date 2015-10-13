@@ -1,60 +1,84 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: NULL pointer dereference in rt6_get_cookie()
-Date: Tue, 13 Oct 2015 12:30:16 -0700
-Message-ID: <20151013193016.GC68583@kafai-mba.local>
-References: <20151010132437.GB25926@orbit.nwl.cc>
- <20151013181443.GB68583@kafai-mba.local>
- <20151013190941.5BF3C213B6@mail.nwl.cc>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
+Date: Tue, 13 Oct 2015 12:33:58 -0700
+Message-ID: <20151013123358.00005018@unknown>
+References: <6607276.TY67sbLLqL@wuerfel>
+	<1444717101.2870.16.camel@intel.com>
+	<57023416.17EujnXPCo@wuerfel>
+	<1444763132.2870.32.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	<intel-wired-lan@lists.osuosl.org>, <kbuild-all@01.org>,
+	Andrew Bowers <andrewx.bowers@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	"John Ronciak" <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:62347 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751594AbbJMTa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 15:30:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20151013190941.5BF3C213B6@mail.nwl.cc>
+Received: from mga01.intel.com ([192.55.52.88]:24373 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751476AbbJMTeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 15:34:00 -0400
+In-Reply-To: <1444763132.2870.32.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 13, 2015 at 09:10:39PM +0200, Phil Sutter wrote:
-> Hi Martin,
->
-> On Tue, Oct 13, 2015 at 11:14:43AM -0700, Martin KaFai Lau wrote:
-> > On Sat, Oct 10, 2015 at 03:24:37PM +0200, Phil Sutter wrote:
-> > > The conditional at the start of the function evaluates true, since
-> > > 'rt->rt6i_flags & RTF_PCPU' is non-zero.
-> > Hi Phil, can you try the following patch and capture the dmesg output
-> > to confirm the value of rt->rt6i_flags and the rt->dst.flags.
-> >
-> > Thanks,
-> > Martin
-> >
-> > --- a/include/net/ip6_fib.h
-> > +++ b/include/net/ip6_fib.h
-> > @@ -167,8 +167,15 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
-> >
-> >  static inline u32 rt6_get_cookie(const struct rt6_info *rt)
-> >  {
-> > -	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE))
-> > +	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE)) {
-> >  		rt = (struct rt6_info *)(rt->dst.from);
-> > +		if (!rt)
-> > +			pr_err("rt6i_dst:%pI6c/%d rt6i_gateway:%pI6c "
-> > +			       "rt6i_flags:%08X dst.flags:%08X\n",
-> > +			       &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
-> > +			       &rt->rt6i_gateway, rt->rt6i_flags,
-> > +			       rt->dst.flags);
-> > +	}
-> >
-> >  	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
-> >  }
->
-> This code is not sane. Your pr_err() statement tries to dereference the
-> NULL pointer in question. Are you interested in the originally passed
-> rt6_info?
-Good catch. sorry about that.
+On Tue, 13 Oct 2015 12:05:32 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+
+> On Tue, 2015-10-13 at 13:37 +0200, Arnd Bergmann wrote:
+> > This is the majority of all build warnings we get on allmodconfig
+> > (both i386 and arm),
+> > so it would be really nice to have it fixed before 4.3. For all I can
+> > tell, the
+> > patch still applies on your branch too, but see below for the rebased
+> > version.
+> > 
+> > I also note that your branch is not part of linux-next, is that
+> > intentional?
+> > 
+> >         Arnd
+> 
+> Huh are you sure you used by dev-queue branch?  I ask because this is
+> what I am getting when I try to apply your patch:
+> 
+> git am .apply/i40evf-fix-32-bit-build-warnings.patch
+> Applying: Jesse Brandeburg fixed a bug for 32-bit systems in the i40e
+> driver
+> error: patch failed:
+> drivers/net/ethernet/intel/i40evf/i40e_common.c:443
+> error: drivers/net/ethernet/intel/i40evf/i40e_common.c: patch does not
+> apply
+> Patch failed at 0001 Jesse Brandeburg fixed a bug for 32-bit systems in
+> the i40e driver
+> The copy of the patch that failed is found in:
+>    /home/jtkirshe/Public/next-queue/.git/rebase-apply/patch
+> When you have resolved this problem, run "git am --continue".
+> If you prefer to skip this patch, run "git am --skip" instead.
+> To restore the original branch and stop patching, run "git am --abort".
+> [12:02:27 @jtkirshe-linux:next-queue]$ patch -p1 <.apply/i40evf-fix-32
+> -bit-build-warnings.patch 
+> patching file drivers/net/ethernet/intel/i40evf/i40e_common.c
+> Reversed (or previously applied) patch detected!  Assume -R? [n] 
+> Apply anyway? [n] 
+> Skipping patch.
+> 2 out of 2 hunks ignored -- saving rejects to file
+> drivers/net/ethernet/intel/i40evf/i40e_common.c.rej
+> [12:02:52 @jtkirshe-linux:next-queue]$
+> 
+> Even looking at the code, the code your changing does not exist in my
+> dev-queue branch of my next-queue tree. 
+
+it was already fixed via
+
+commit 7890f6979a8eab436487396d6e2e0def8633fa16
+Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date:   Tue Oct 13 11:15:46 2015 -0700
+
+    i40evf: fix overlong BIT defines
