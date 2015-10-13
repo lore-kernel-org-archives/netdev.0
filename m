@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] switchdev: check if the vlan id is in the proper
- vlan range
-Date: Tue, 13 Oct 2015 04:45:02 -0700 (PDT)
-Message-ID: <20151013.044502.487910723296948492.davem@davemloft.net>
-References: <1444653061-5850-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net-next] bridge: fix gc_timer mod/del race condition
+Date: Tue, 13 Oct 2015 04:52:16 -0700 (PDT)
+Message-ID: <20151013.045216.838190689363270571.davem@davemloft.net>
+References: <1444665355-28448-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com,
-	nikolay@cumulusnetworks.com
+	roopa@cumulusnetworks.com, stephen@networkplumber.org,
+	bridge@lists.linux-foundation.org, nikolay@cumulusnetworks.com
 To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47522 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47577 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752200AbbJML3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 07:29:04 -0400
-In-Reply-To: <1444653061-5850-1-git-send-email-razor@blackwall.org>
+	with ESMTP id S932324AbbJMLgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 07:36:17 -0400
+In-Reply-To: <1444665355-28448-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Mon, 12 Oct 2015 14:31:01 +0200
+Date: Mon, 12 Oct 2015 17:55:55 +0200
 
 > From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> VLANs 0 and 4095 are reserved and shouldn't be used, add checks to
-> switchdev similar to the bridge. Also make sure ids above 4095 cannot
-> be passed either.
-> 
-> Fixes: 47f8328bb1a4 ("switchdev: add new switchdev bridge setlink")
+> commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to
+> switchdev") introduced a timer race condition because the gc_timer can
+> get rearmed after it's supposedly stopped and flushed in br_dev_delete()
+> leading to a use of freed memory. So take rtnl to sync with bridge
+> destruction when setting ageing_timer.
+> Here's the trace reproduced with these two commands running in parallel:
+> while :; do echo 10000 > /sys/class/net/br0/bridge/ageing_timer; done;
+> while :; do brctl addbr br0; ip l set br0 up; ip l set br0 down;
+> brctl delbr br0; done;
+ ...
+> Fixes: c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
 > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Applied.
+Applied, thanks.
