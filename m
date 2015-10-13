@@ -1,49 +1,62 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 0/6] net: dsa: implement port_fdb_dump in drivers
-Date: Tue, 13 Oct 2015 12:18:49 -0400
-Message-ID: <20151013161848.GA5116@ketchup.mtl.sfl>
-References: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444750983-14726-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] route: fib_validate_source remove the <= RT_SCOPE_HOST test
+Date: Wed, 14 Oct 2015 00:40:04 +0800
+Message-ID: <a9569cddcdeb5f0b7d138a22086f76f1b9e5acd5.1444754404.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, fw@strlen.de
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34861 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbbJMQkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 12:40:08 -0400
+Received: by pabve7 with SMTP id ve7so26391333pab.2
+        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 09:40:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Oct. Tuesday 13 (42) 11:42 AM, Vivien Didelot wrote:
-> Not all switch chips provide a Get Next kind of operation to dump FDB entries.
-> It is preferred to let the driver handle the dump operation the way it works
-> best for the chip. Thus, drop port_fdb_getnext and implement the port_fdb_dump
-> operation in DSA, which pushes the switchdev FDB dump callback down to the
-> drivers. mv88e6xxx is the only driver affected and is updated accordingly.
-> 
-> Vivien Didelot (6):
->   net: dsa: mv88e6xxx: write VID outside of VTU Get Next code
->   net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
->   net: dsa: add port_fdb_dump function
->   net: dsa: mv88e6xxx: implement port_fdb_dump
->   net: dsa: mv88e6xxx: remove port_fdb_getnext
->   net: dsa: remove port_fdb_getnext
-> 
->  drivers/net/dsa/mv88e6171.c |   2 +-
->  drivers/net/dsa/mv88e6352.c |   2 +-
->  drivers/net/dsa/mv88e6xxx.c | 140 ++++++++++++++++++++++++--------------------
->  drivers/net/dsa/mv88e6xxx.h |   5 +-
->  include/net/dsa.h           |   8 ++-
->  net/dsa/slave.c             |  26 +-------
->  6 files changed, 90 insertions(+), 93 deletions(-)
+commit fe3edf45792a ("ipv4: Remove all RTCF_DIRECTSRC handliing.").
 
-I mispaste a few "return err" instead of "goto unlock" which skips a few
-mutex_unlock() in mv88e6xxx.c. I'm sending a respin right away, please
-ignore this v1.
+Before this commit, we had a tristate:
+< 0: error
+0: ok
+1: ok and set RTCF_DIRECTSRC
 
-Sorry,
--v
+But now we only care about 0 or < 0.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/ipv4/fib_frontend.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index d7c2bb0..f5c74d8 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -376,22 +376,14 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+ 	if (FIB_RES_DEV(res) == dev)
+ 		dev_match = true;
+ #endif
+-	if (dev_match) {
+-		ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+-		return ret;
+-	}
++	if (dev_match)
++		return 0;
+ 	if (no_addr)
+ 		goto last_resort;
+ 	if (rpf == 1)
+ 		goto e_rpf;
+-	fl4.flowi4_oif = dev->ifindex;
+ 
+-	ret = 0;
+-	if (fib_lookup(net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE) == 0) {
+-		if (res.type == RTN_UNICAST)
+-			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+-	}
+-	return ret;
++	return 0;
+ 
+ last_resort:
+ 	if (rpf)
+-- 
+2.1.0
