@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/3] net: unix: fix use-after-free
-Date: Mon, 12 Oct 2015 18:47:36 -0700 (PDT)
-Message-ID: <20151012.184736.878438442169195017.davem@davemloft.net>
-References: <cover.1444363559.git.jbaron@akamai.com>
-	<20151011.045557.2164838188213641141.davem@davemloft.net>
-	<561C0F06.90202@akamai.com>
+Subject: Re: [PATCH] - gre: add eth_p_teb gro-handler for OVS with gre
+ tunnels
+Date: Mon, 12 Oct 2015 18:54:12 -0700 (PDT)
+Message-ID: <20151012.185412.430924816469153975.davem@davemloft.net>
+References: <fc84377af8867930138e05c27952d4d4@imap.linux.ibm.com>
+	<CAEP_g=9YKT0hcTBmg2AcJb8+uQCVNd1YHEPoT+M3LA4k-cPFPw@mail.gmail.com>
+	<603f81c3c472530ca28263a78576130f@imap.linux.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	minipli@googlemail.com, normalperson@yhbt.net,
-	eric.dumazet@gmail.com, rweikusat@mobileactivedefense.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org,
-	joe@perches.com
-To: jbaron@akamai.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561C0F06.90202@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jesse@nicira.com, tom@herbertland.com, eric.dumazet@gmail.com,
+	hkchu@google.com, netdev@vger.kernel.org, jkidambi@us.ibm.com,
+	manand@us.ibm.com
+To: sramamur@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42798 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932092AbbJMBiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 21:38:14 -0400
+In-Reply-To: <603f81c3c472530ca28263a78576130f@imap.linux.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
-Date: Mon, 12 Oct 2015 15:50:30 -0400
+From: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
+Date: Mon, 12 Oct 2015 17:49:13 -0700
 
-> I'm happy to re-post the series or whatever makes things easiest for
-> you.
+> We are using the 3.x kernels and thats why I could not see your fix in
+> my tests.
 
-This is what you should always do, reposting a single patch within a
-series is not sufficient.
-
-Thanks.
+It is inappropriate to submit patches not targetted and tested against
+the current sources.
