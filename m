@@ -1,59 +1,34 @@
-From: Arun Parameswaran <arunp@broadcom.com>
-Subject: [PATCH 1/1] net: phy: bcm-phy-lib: Fix module license issue
-Date: Tue, 13 Oct 2015 13:40:12 -0700
-Message-ID: <1444768812-31476-2-git-send-email-arunp@broadcom.com>
-References: <1444768812-31476-1-git-send-email-arunp@broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Tue, 13 Oct 2015 23:12:24 +0200
+Message-ID: <20151013211224.GA19242@netboy>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <20151013045832.GA2437@netboy>
+ <alpine.DEB.2.11.1510130944520.6097@nanos>
+ <20151013083113.GA1931@localhost.localdomain>
+ <alpine.DEB.2.11.1510132113470.25029@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<bcm-kernel-feedback-list@broadcom.com>,
-	Arun Parameswaran <arunp@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:57961 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752932AbbJMUkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 16:40:20 -0400
-In-Reply-To: <1444768812-31476-1-git-send-email-arunp@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1510132113470.25029@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 'bcm-phy-lib.c', added as a part of the commit
-"net: phy: Add Broadcom phy library for common interfaces"
-was missing the module license. This was causing an issue
-when the library is built as a module; "module license
-'unspecified' taints kernel".
+On Tue, Oct 13, 2015 at 09:15:51PM +0200, Thomas Gleixner wrote:
+> That's not working. The firmware is not going to change, no matter
+> what.
 
-This patch fixes the issue by adding the module license,
-author and description to the bcm-phy-lib.c file.
+Can we at least have a explanation of how the firmware operates?  How
+are (ART,sys) pairs are generated, and how they are supposed to get
+into the DSP?
 
-Fixes: a1cba5613edf5 ("net: phy: Add Broadcom phy library for common
-interfaces")
-Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
----
- drivers/net/phy/bcm-phy-lib.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
-index 13e161e..ddb377e 100644
---- a/drivers/net/phy/bcm-phy-lib.c
-+++ b/drivers/net/phy/bcm-phy-lib.c
-@@ -15,6 +15,7 @@
- #include <linux/brcmphy.h>
- #include <linux/export.h>
- #include <linux/mdio.h>
-+#include <linux/module.h>
- #include <linux/phy.h>
- 
- #define MII_BCM_CHANNEL_WIDTH     0x2000
-@@ -207,3 +208,6 @@ int bcm_phy_enable_eee(struct phy_device *phydev)
- }
- EXPORT_SYMBOL_GPL(bcm_phy_enable_eee);
- 
-+MODULE_DESCRIPTION("Broadcom PHY Library");
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Broadcom Corporation");
--- 
-2.6.1
+Thanks,
+Richard
