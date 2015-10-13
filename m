@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: hns: fix the unknown phy_nterface_t type
- error
-Date: Mon, 12 Oct 2015 19:46:57 -0700 (PDT)
-Message-ID: <20151012.194657.1983469628421104487.davem@davemloft.net>
-References: <1444468838-59313-1-git-send-email-huangdaode@hisilicon.com>
+Subject: Re: [PATCH net-next v2] ipv6 route: use err pointers instead of
+ returning pointer by reference
+Date: Mon, 12 Oct 2015 19:47:57 -0700 (PDT)
+Message-ID: <20151012.194757.872102916771102248.davem@davemloft.net>
+References: <1444490796-47173-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
-	xuwei5@hisilicon.com, lisheng011@huawei.com,
-	linux-kernel@vger.kernel.org
-To: huangdaode@hisilicon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444468838-59313-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43231 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932194AbbJMCb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 22:31:57 -0400
+In-Reply-To: <1444490796-47173-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: huangdaode <huangdaode@hisilicon.com>
-Date: Sat, 10 Oct 2015 17:20:38 +0800
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Sat, 10 Oct 2015 08:26:36 -0700
 
-> This patch fix the building error reported by Jiri Pirko <jiri@resnulli.us>
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> drivers/net/ethernet/hisilicon/hns/hnae.h:465:2: error: unknown type
-> name 'phy_interface_t'
->         phy_interface_t phy_if;
-> 	^
-> the full build log is on https://lists.01.org/pipermail/kbuild-all.
+> This patch makes ip6_route_info_create return err pointer instead of
+> returning the rt pointer by reference as suggested  by Dave
 > 
-> Signed-off-by: huangdaode <huangdaode@hisilicon.com>
-> Signed-off-by: yankejian <yankejian@huawei.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> v1 - v2: remove unnecessary NULL initialization of rt as pointed out by scott feldman
 
 Applied, thanks.
