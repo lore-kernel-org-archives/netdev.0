@@ -1,76 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Infinite loop in ip6_fragment
-Date: Tue, 13 Oct 2015 13:56:53 +0200
-Message-ID: <1444737413.1838027.408845625.7BE0D712@webmail.messagingengine.com>
-References: <CACT4Y+Y_TcyY+6XEDQj8EtqoP_VN_hZEru1By4BPKJtJpXmPzQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH 1/2] perf: Add the flag sample_disable not to output
+ data on samples
+Date: Tue, 13 Oct 2015 15:00:34 +0300
+Message-ID: <561CF262.9040600@cogentembedded.com>
+References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
+ <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>,
-	=?UTF-8?Q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
+Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
+	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>, ast@plumgrid.com,
+	davem@davemloft.net, acme@kernel.org, mingo@redhat.com,
+	a.p.zijlstra@chello.nl, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Y_TcyY+6XEDQj8EtqoP_VN_hZEru1By4BPKJtJpXmPzQ@mail.gmail.com>
+In-Reply-To: <1444640563-159175-2-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello.
 
-On Mon, Oct 12, 2015, at 11:26, Dmitry Vyukov wrote:
->  [<ffffffff8175164e>] ip6_fragment+0x37e/0x9d0 net/ipv6/ip6_output.c:805
->  [<ffffffff81751d6d>] ip6_finish_output+0xcd/0xe0
->  net/ipv6/ip6_output.c:130
->  [<     inline     >] NF_HOOK_COND include/linux/netfilter.h:236
->  [<ffffffff81751dbf>] ip6_output+0x3f/0xe0 net/ipv6/ip6_output.c:146
->  [<     inline     >] dst_output_sk include/net/dst.h:459
->  [<ffffffff8178ae68>] ip6_local_out_sk+0x28/0x30
->  net/ipv6/output_core.c:167
->  [<ffffffff8178ae80>] ip6_local_out+0x10/0x20 net/ipv6/output_core.c:175
->  [<ffffffff81752358>] ip6_send_skb+0x18/0x60 net/ipv6/ip6_output.c:1683
->  [<ffffffff817523d4>] ip6_push_pending_frames+0x34/0x40
-> net/ipv6/ip6_output.c:1703
->  [<     inline     >] rawv6_push_pending_frames net/ipv6/raw.c:607
->  [<ffffffff8176ccc1>] rawv6_sendmsg+0x871/0xb30 net/ipv6/raw.c:901
->  [<ffffffff81717d32>] inet_sendmsg+0x62/0xa0 net/ipv4/af_inet.c:737
->  [<     inline     >] sock_sendmsg_nosec net/socket.c:610
->  [<ffffffff8167b4c3>] sock_sendmsg+0x33/0x40 net/socket.c:620
->  [<ffffffff8167b543>] sock_write_iter+0x73/0xd0 net/socket.c:819
->  [<     inline     >] do_iter_readv_writev fs/read_write.c:664
->  [<ffffffff81165d7d>] do_readv_writev+0x1bd/0x270 fs/read_write.c:808
->  [<ffffffff81165ea4>] vfs_writev+0x34/0x40 fs/read_write.c:847
->  [<     inline     >] SYSC_writev fs/read_write.c:880
->  [<ffffffff81166b05>] SyS_writev+0x45/0xc0 fs/read_write.c:872
->  [<ffffffff81859a97>] entry_SYSCALL_64_fastpath+0x12/0x6a
-> arch/x86/entry/entry_64.S:185
-> 
-> ip6_fragment computes mtu value as 4, which is then rounded down to 8
-> and becomes 0. This causes infinite send loop by 0 bytes. Initial mtu
-> value is 1500, but here is becomes 4:
-> 
->         mtu -= hlen + sizeof(struct frag_hdr);
-> 
-> sizeof(struct frag_hdr) = 8, hlen = 1488.
+On 10/12/2015 12:02 PM, Kaixu Xia wrote:
 
-Yeah, absolutely logic and difficult to fix.
+> In some scenarios we don't want to output trace data when sampling
+> to reduce overhead. This patch adds the flag sample_disable to
+> implement this function. By setting this flag and integrating with
+> ebpf, we can control the data output process and get the samples we
+> are most interested in.
+>
+> Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
 
-Because of the unknown socket(..., ..., protocol = 0x....) you enabled
-hdrincl. The writev included non-fragmentable padding and options (yeah
-by being just zeros). hlen is the non-fragmentable header length of the
-packet and thus reduced the length of the actual payload near to or
-equal to zero.
+[...]
+> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+> index 29ace10..4ae82c9 100644
+> --- a/kernel/bpf/arraymap.c
+> +++ b/kernel/bpf/arraymap.c
+[...]
+> diff --git a/kernel/events/core.c b/kernel/events/core.c
+> index b11756f..f6ef45c 100644
+> --- a/kernel/events/core.c
+> +++ b/kernel/events/core.c
+> @@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
+>   		irq_work_queue(&event->pending);
+>   	}
+>
+> +	if ((event->sample_disable) && atomic_read(event->sample_disable))
 
-I think we just have to abort sending those packets and send errors back
-to user space.
+    Inner parens not needed at all.
 
-Thanks for the report!
+[...]
 
-Bye,
-Hannes
+MBR, Sergei
