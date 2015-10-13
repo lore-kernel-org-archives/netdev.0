@@ -1,64 +1,54 @@
-From: Janusz Wolak <januszwolak@awokados.com.pl>
-Subject: [PATCH 3/6] e1000 driver remove checkpatch errors, warnings and checks.
-Date: Tue, 13 Oct 2015 23:39:19 +0200
-Message-ID: <1444772362-25090-3-git-send-email-januszwolak@awokados.com.pl>
-References: <1444772362-25090-1-git-send-email-januszwolak@awokados.com.pl>
-Cc: jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Janusz Wolak <januszvdm@gmail.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444772362-25090-1-git-send-email-januszwolak@awokados.com.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v5 01/10] qed: Add module with basic common
+ support
+Date: Tue, 13 Oct 2015 23:54:29 +0200
+Message-ID: <20151013215429.GA4378@electric-eye.fr.zoreil.com>
+References: <1444674622-13059-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <1444674622-13059-2-git-send-email-Yuval.Mintz@qlogic.com>
+ <20151012230750.GA7378@electric-eye.fr.zoreil.com>
+ <B5657A6538887040AD3A81F1008BEC63E467D6@avmb3.qlogic.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47231 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbbJMVzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 17:55:07 -0400
+Content-Disposition: inline
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E467D6@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Janusz Wolak <januszvdm@gmail.com>
+Yuval Mintz <Yuval.Mintz@qlogic.com> :
+[...]
+> > > +struct qed_simd_fp_handler {
+> > > +     void    *token;
+> > > +     void    (*func)(void *);
+> > > +};
+> > Use union * ?
+> The token is a cookie to be used by a func, so union isn't appropriate.
 
-Signed-off-by: Janusz Wolak <januszvdm@gmail.com>
----
- drivers/net/ethernet/intel/e1000/e1000.h | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+Lets' reformulate: replace 'void * token' by 'union foobar *token'.
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 6970710..ec82b2d 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -1,5 +1,5 @@
- /*******************************************************************************
--
-+*
-   Intel PRO/1000 Linux driver
-   Copyright(c) 1999 - 2006 Intel Corporation.
- 
-@@ -26,7 +26,6 @@
- 
- *******************************************************************************/
- 
--
- /* Linux PRO/1000 Ethernet Driver main header file */
- 
- #ifndef _E1000_H_
-@@ -53,7 +52,7 @@
- #include <linux/pagemap.h>
- #include <linux/dma-mapping.h>
- #include <linux/bitops.h>
--#include <asm/io.h>
-+#include <linux/io.h>
- #include <asm/irq.h>
- #include <linux/capability.h>
- #include <linux/in.h>
-@@ -82,8 +81,7 @@ struct e1000_adapter;
- 
- #define E1000_MAX_INTR			10
- 
--/*
-- * Count for polling __E1000_RESET condition every 10-20msec.
-+/* Count for polling __E1000_RESET condition every 10-20msec.
-  */
- #define E1000_CHECK_RESET_COUNT	50
- 
+void * silents compiler. union * doesn't.
+
+[...]
+> > > +             rc = -ENOMEM;
+> > > +             goto ilt_shadow_fail;
+> > > +     } else {
+> > > +             DP_VERBOSE(p_hwfn, QED_MSG_ILT,
+> > > +                        "Allocated 0x%x bytes for ilt shadow\n",
+> > > +                        (u32)(size * sizeof(struct qed_dma_mem)));
+> > > +     }
+> > The "else" branch after the "goto" isn't idiomatic.
+> Not that I mind, but is such a prefernce described in any style-guide?
+
+Documentation/CodingStyle gives some hints in its "goto" section but it
+doesn't specifically go that far. Is there a reward if I can exhumate
+some message on netdev where it would had already been outlined ?
+
 -- 
-1.9.1
+Ueimor
