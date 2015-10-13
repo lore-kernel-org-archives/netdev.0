@@ -1,72 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
-Date: Tue, 13 Oct 2015 21:48:15 +0200
-Message-ID: <8282870.qo6xugPiv7@wuerfel>
-References: <6607276.TY67sbLLqL@wuerfel> <57023416.17EujnXPCo@wuerfel> <20151013122510.0000429f@unknown>
+From: Arun Parameswaran <arunp@broadcom.com>
+Subject: [PATCH 0/1] Fix for module license in Broadcom Phy Library
+Date: Tue, 13 Oct 2015 13:40:11 -0700
+Message-ID: <1444768812-31476-1-git-send-email-arunp@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, kbuild-all@01.org,
-	Andrew Bowers <andrewx.bowers@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	David Miller <davem@davemloft.net>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:50818 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276AbbJMTsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 15:48:35 -0400
-In-Reply-To: <20151013122510.0000429f@unknown>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<bcm-kernel-feedback-list@broadcom.com>,
+	Arun Parameswaran <arunp@broadcom.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 October 2015 12:25:10 Jesse Brandeburg wrote:
-> On Tue, 13 Oct 2015 13:37:04 +0200
-> Arnd Bergmann <arnd@arndb.de> wrote:
-> 
-> > On Monday 12 October 2015 23:18:21 you wrote:
-> > > On Wed, 2015-10-07 at 22:13 +0200, Arnd Bergmann wrote:
-> > > > Jesse Brandeburg fixed a bug for 32-bit systems in the i40e driver
-> > > > in commit 9c70d7cebfec5 ("i40e: fix 32 bit build warnings"), but the
-> > > > same code still exists in the i40evf driver and causes compilation
-> > > > warnings in ARM and x86 allmodconfig:
-> > > > 
-> > > > drivers/net/ethernet/intel/i40evf/i40e_common.c:445:68: warning: cast
-> > > > from pointer to integer of different size [-Wpointer-to-int-cast]
-> > > > drivers/net/ethernet/intel/i40evf/i40e_common.c:446:71: warning: cast
-> > > > from pointer to integer of different size [-Wpointer-to-int-cast]
-> > > > 
-> > > > This applies the same fix by removing the broken code.
-> > > > 
-> > > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > > 
-> > > Does not apply at all to my next-queue tree (dev-queue branch), my
-> > > guess is that this is already fixed in one of the patches already in my
-> > > queue.
-> > > 
-> > 
-> > I still get these warnings on your branch:
-> 
-> Make sure you're pulling from the dev-queue branch, not the master
-> branch of Jeff's next-queue repo.
+Hi
+This patchset adds the module description, license & author to the
+Broadcom Phy Library (drivers/net/phy/bcm-phy-lib.c) introduced by
+the commit: a1cba5613edf5 ("net: phy: Add Broadcom phy library for
+common interfaces")
 
-Indeed, I was only looking at the branch that last got pulled into
-net-next, assuming that was the one that was where the fixes for 4.3
-are in. Sorry about that.
+Arun Parameswaran (1):
+  net: phy: bcm-phy-lib: Fix module license issue
 
-> I've made that mistake many times, and I do see that the code in
-> question is not present in:
-> https://git.kernel.org/cgit/linux/kernel/git/jkirsher/next-queue.git/tree/drivers/net/ethernet/intel/i40evf/i40e_common.c?h=dev-queue
+ drivers/net/phy/bcm-phy-lib.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Ok, I see your commit 7890f6979a8 ("i40evf: fix overlong BIT defines")
-there now. Any chance to get that into mainline? The branch appears
-to have a mix of new features and bug fixes, so it looks like it's
-at least not destined for 4.3.
-
-	Arnd
+-- 
+2.6.1
