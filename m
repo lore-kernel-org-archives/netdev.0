@@ -1,44 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] netlink: trim skb to exact size to avoid MSG_TRUNC
-Date: Tue, 13 Oct 2015 10:56:00 +0200
-Message-ID: <20151013085600.GA23077@pox.localdomain>
-References: <1444698923-13992-1-git-send-email-ronen.arad@intel.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2015-10-13
+Date: Tue, 13 Oct 2015 10:59:47 +0200
+Message-ID: <1444726787.1961.7.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ronen Arad <ronen.arad@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34083 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751643AbbJMI4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 04:56:03 -0400
-Received: by wicgb1 with SMTP id gb1so79794754wic.1
-        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 01:56:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1444698923-13992-1-git-send-email-ronen.arad@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/12/15 at 06:15pm, Ronen Arad wrote:
-> The available room in the skb allocated in netlink_dump for iproute2
-> show requests (e.g. "ip link [show]", "bridge [-c] vlan show") should
-> be trimmed to the exact size requested in order to avoid MSG_TRUNC flag
-> set in netlink_recvmg.
-> This was handled properly for small skb allocated when no interface has
-> many VLANs configured. This patch applies the same logic to larger skbs
-> which are allocated using the calculated min_dump_alloc size.
-> 
-> Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+Hi,
 
-Wouldn't this imply a bug in which rtnl_calcit() does not account for
-some data that is later dumped? How else could the skb end up being
-larger than what alloc_size accounts for at this point unless we end
-up stuffing 2x smallish messages into the padded projection of the
-calculated maximum message size of that type. Is that what you are
-seeing?
+There are just two small fixes, but I didn't really want to wait since
+I have nothing else pending.
 
-Regardless of that, alloc_size is likely larger than nlk->max_recvmsg_len
-anyway at this point so unless the reader suddenly provides a different
-message size or does peeking it will likely still be truncated.
+Let me know if there's any problem.
 
-I'm just trying to understand which exact case you are solving here.
+johannes
+
+The following changes since commit babc305e21ea3811d98b67437299360904ac1b6a:
+
+  mac80211: reset CQM history upon reconfiguration (2015-09-22 15:22:50 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-10-13
+
+for you to fetch changes up to 4633dfc32c0019bed2996de9bbdbe7f3b518a44e:
+
+  mac80211: Fix hwflags debugfs file format (2015-10-13 10:30:56 +0200)
+
+----------------------------------------------------------------
+Like last time, we have two small fixes:
+ * fast-xmit was not doing powersave filter clearing correctly,
+   disable fast-xmit while any such operations are still pending
+ * a debugfs file was broken due to some infrastructure changes
+
+----------------------------------------------------------------
+Felix Fietkau (1):
+      mac80211: fix handling of PS filtering with fast-xmit
+
+Mohammed Shafi Shajakhan (1):
+      mac80211: Fix hwflags debugfs file format
+
+ net/mac80211/debugfs.c | 2 +-
+ net/mac80211/status.c  | 1 +
+ net/mac80211/tx.c      | 7 +++++--
+ 3 files changed, 7 insertions(+), 3 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
