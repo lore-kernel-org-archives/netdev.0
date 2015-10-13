@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlcnic: constify qlcnic_mbx_ops structure
-Date: Tue, 13 Oct 2015 04:18:59 -0700 (PDT)
-Message-ID: <20151013.041859.2079956557358480044.davem@davemloft.net>
-References: <1444564085-12839-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH net-next] RDS: Invoke ->laddr_check() in rds_bind() for
+ explicitly bound transports.
+Date: Tue, 13 Oct 2015 04:23:08 -0700 (PDT)
+Message-ID: <20151013.042308.2015873034325925155.davem@davemloft.net>
+References: <20151011204603.GA14646@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@qlogic.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47261 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932195AbbJMLDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 07:03:04 -0400
-In-Reply-To: <1444564085-12839-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
+	igor.maximov@oracle.com, santosh.shilimkar@oracle.com
+To: sowmini.varadhan@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151011204603.GA14646@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun, 11 Oct 2015 13:48:05 +0200
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sun, 11 Oct 2015 16:46:03 -0400
 
-> The only instance of a qlcnic_mbx_ops structure is never modified.  Thus
-> the declaration of the structure and all references to the structure type
-> can be made const.
+> The IP address passed to rds_bind() should be vetted by the
+> transport's ->laddr_check() for a previously bound transport.
+> This needs to be done to avoid cases where, for example,
+> the application has asked for an IB transport,
+> but the IP address passed to bind is only usable on
+> ethernet interfaces.
 > 
-> In the definition of the qlcnic_mailbox structure, the ops field is no
-> longer lined up with the other fields.  This was left as is, to avoid a lot
-> of trivial changes on the other lines.
-> 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-Applied, thanks.
+Applied.
