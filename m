@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V15 0/3] openvswitch: Add support for 802.1ad
-Date: Mon, 12 Oct 2015 19:58:41 -0700 (PDT)
-Message-ID: <20151012.195841.292062617131376194.davem@davemloft.net>
-References: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
+Subject: Re: [PATCH net-next] bridge: vlan: enforce no pvid flag in vlan
+ ranges
+Date: Mon, 12 Oct 2015 19:59:33 -0700 (PDT)
+Message-ID: <20151012.195933.1620669188577531568.davem@davemloft.net>
+References: <20151011071208.GA2188@nanopsycho.orion>
+	<1444560596-7140-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, therbert@redhat.com,
-	dev@openvswitch.org
-To: thomasfherbert@gmail.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	eladr@mellanox.com, nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43340 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43353 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932092AbbJMCml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 22:42:41 -0400
-In-Reply-To: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
+	with ESMTP id S932092AbbJMCne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 22:43:34 -0400
+In-Reply-To: <1444560596-7140-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas F Herbert <thomasfherbert@gmail.com>
-Date: Sat, 10 Oct 2015 19:40:30 -0400
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Sun, 11 Oct 2015 12:49:56 +0200
 
-> Thomas F Herbert (3):
->   openvswitch: 802.1ad uapi changes.
->   Check for vlan ethernet types for 8021.q or 802.1ad
->   802.1AD: Flow handling, actions, vlan parsing and netlink attributes
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> Currently it's possible for someone to send a vlan range to the kernel
+> with the pvid flag set which will result in the pvid bouncing from a
+> vlan to vlan and isn't correct, it also introduces problems for hardware
+> where it doesn't make sense having more than 1 pvid. iproute2 already
+> enforces this, so let's enforce it on kernel-side as well.
+> 
+> Reported-by: Elad Raz <eladr@mellanox.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-I think this patch series has gone long enough, can I get some ACK's
-ASAP for this V15 posting?
-
-Thanks.
+Applied, thanks.
