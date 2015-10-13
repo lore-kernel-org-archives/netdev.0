@@ -1,63 +1,43 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [4.1.3-rt8] [report][cpuhotplug] BUG: spinlock bad magic on
- CPU#0, sh/137
-Date: Tue, 13 Oct 2015 21:25:40 +0300
-Message-ID: <561D4CA4.1010207@ti.com>
-References: <5617CE6D.9060800@ti.com>
- <alpine.DEB.2.11.1510120952560.6097@nanos>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/6] net: dsa: mv88e6xxx: write MAC outside
+ of ATU Get Next code
+Date: Tue, 13 Oct 2015 11:43:56 -0700
+Message-ID: <561D50EC.8010305@gmail.com>
+References: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1444754783-26975-4-git-send-email-vivien.didelot@savoirfairelinux.com> <561D40E9.8030602@gmail.com> <20151013181114.GA29391@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <linux-rt-users@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	<netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1510120952560.6097@nanos>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:32780 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbbJMSop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 14:44:45 -0400
+In-Reply-To: <20151013181114.GA29391@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2015 11:16 AM, Thomas Gleixner wrote:
-> On Fri, 9 Oct 2015, Grygorii Strashko wrote:
->> I can constantly see below error report with 4.1 RT-kernel on TI ARM dra7-evm
->> if I'm trying to unplug cpu1:
+On 13/10/15 11:11, Vivien Didelot wrote:
+> On Oct. Tuesday 13 (42) 10:35 AM, Florian Fainelli wrote:
+>> On 13/10/15 09:46, Vivien Didelot wrote:
+>>> There is no need to write the MAC address before every Get Next
+>>> operation, since ATU MAC registers are not cleared between calls.
+>>>
+>>> Move the _mv88e6xxx_atu_mac_write call outside of _mv88e6xxx_atu_getnext
+>>> so future code could call ATU Get Next multiple times and save a few
+>>> register access.
 >>
->> [   57.737589] CPU1: shutdown
->> [   57.767537] BUG: spinlock bad magic on CPU#0, sh/137
->> [   57.767546]  lock: 0xee994730, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+>> Missing SoB tag here.
 > 
->> It looks like this backtrace was introduces by
->>
->> commit 91df05da13a6c6c358e71182e80f19f3c48d1615
->> net: Use skbufhead with raw lock
->>
->> I see the potential fix for this issue as below:
->>
->> index 4969c0d..f8c23de 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -7217,7 +7217,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
->>                  netif_rx_ni(skb);
->>                  input_queue_head_incr(oldsd);
->>          }
->> -       while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
->> +       while ((skb = __skb_dequeue(&oldsd->input_pkt_queue))) {
-> 
-> Your patch is white space damaged ....
-> 
->>                  netif_rx_ni(skb);
->>                  input_queue_head_incr(oldsd);
->>          }
->>
->> input_pkt_queue is per-cpu queue and at this moment cpu is dead already,
->> so no one should touch it. But I'm not sure if my assumption is correct.
-> 
-> It is. Picking it up for the next release
-> 
+> Damn, good catch. Can I add it in reply to the patch, or should I send a
+> v3?
 
-Thanks & Sorry. I've not expected this diff/hack to be applied as patch :(
-
+I am fairly positive patchwork should be able to pick it up, so replying
+to your patch might just do it fine.
 -- 
-regards,
--grygorii
+Florian
