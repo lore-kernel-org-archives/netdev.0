@@ -1,61 +1,31 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Tue, 13 Oct 2015 09:51:02 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1510130944520.6097@nanos>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <20151013045832.GA2437@netboy>
+From: Geliang Tang <geliangtang@163.com>
+Subject: Re: [PATCH] pcnet32: fix a logic error with pci_set_dma_mask
+Date: Tue, 13 Oct 2015 00:53:10 -0700
+Message-ID: <20151013075310.GA3705@ubuntu>
+References: <c2a42526779ca29258fa84bff51f8d94ed9fcc28.1444415947.git.geliangtang@163.com>
+ <20151012.053814.1870650163021801761.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geliang Tang <geliangtang@163.com>
+To: David Miller <davem@davemloft.net>, Don Fry <pcnet32@frontier.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151013045832.GA2437@netboy>
+Content-Disposition: inline
+In-Reply-To: <20151012.053814.1870650163021801761.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Oct 2015, Richard Cochran wrote:
-> On Mon, Oct 12, 2015 at 11:45:19AM -0700, Christopher S. Hall wrote:
-> > The transforms such an application would
-> > perform are:
+On Mon, Oct 12, 2015 at 05:38:14AM -0700, David Miller wrote:
+> From: Geliang Tang <geliangtang@163.com>
+> Date: Fri,  9 Oct 2015 03:45:39 -0700
+> 
+> > pcnet32 can't work on my machine recently. It says "architecture
+> > does not support 32bit PCI busmaster DMA". There is a logic error
+> > in it: pci_set_dma_mask() return 0 means return successfully.
 > > 
-> > System Clock <-> Audio clock
-> > System Clock <-> Network Device Clock [<-> PTP Master Clock]
+> > Signed-off-by: Geliang Tang <geliangtang@163.com>
 > 
-> This is extra work with no benefit.  In fact, this hurts you
-> because of the need to take avoid update_wall_time AND because of the
-> NTP frequency adjustments.  Cascaded servos are prone to gain peaking,
-> and this can easily avoided in this case.
+> This driver doesn't call pci_set_dma_mask() in any of my tree(s).
 
-In such a system the frequency updates are coming from PTP, so you
-have a strong correlation.
-  
-> > Modern Intel platforms can perform a more accurate cross-
-> > timestamp in hardware (ART,audio device clock).  The audio driver
-> > requires ART->system time transforms -- the same as required for
-> > the network driver.
-> 
-> No, it doesn't need the system time.  It only needs the PTP time.
-> 
-> > The modification to the original patch accomodates these
-> > slow devices by adding the option of providing an ART value outside
-> > of the retry loop and adding a history which can consulted in the
-> > case of an out of date counter value. The history is kept by
-> > making the shadow_timekeeper an array. Each write to the
-> > timekeeper rotates through the array, preserving a
-> > history of updates.
-> 
-> This is all wrong.  All you need to provide the DSP with (ART, PTP)
-> pairs.  This can be done in a multiple of the DSP period, like every
-> 1, 10, or 100 milliseconds.
-
-You are restricting the problem space to this particular use
-case. There are other use cases where PTP is not available or not the
-relevant reference, but you still want to correlate time domains to
-ART.
-
-Thanks,
-
-	tglx
+This patch is against linux-next tree. It was introduced by commit
+9c034d4 'pcnet32: use pci_set_dma_mask insted of pci_dma_supported'.
