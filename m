@@ -1,54 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] RDS-TCP: Reset tcp callbacks if re-using an
- outgoing socket in rds_tcp_accept_one()
-Date: Tue, 13 Oct 2015 04:23:14 -0700 (PDT)
-Message-ID: <20151013.042314.2113017864511427578.davem@davemloft.net>
-References: <20151011204944.GB14646@oracle.com>
+Subject: Re: [PATCH net-next 0/4] net: dsa: mv88e6xxx: fix hardware bridging
+Date: Tue, 13 Oct 2015 04:27:07 -0700 (PDT)
+Message-ID: <20151013.042707.1037079582649207903.davem@davemloft.net>
+References: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
-	igor.maximov@oracle.com, santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
+	kernel@savoirfairelinux.com, linux@roeck-us.net, andrew@lunn.ch,
+	f.fainelli@gmail.com, narmstrong@baylibre.com
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151011204944.GB14646@oracle.com>
+In-Reply-To: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Sun, 11 Oct 2015 16:49:44 -0400
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Sun, 11 Oct 2015 18:08:34 -0400
 
+> DSA and its drivers currently hook the NETDEV_CHANGEUPPER net_device event in
+> order to configure the VLAN map of every port.
 > 
-> Consider the following "duelling syn" sequence between two peers A and B:
->         	A		B
->         	SYN1     -->
->         	    	<--	SYN2
->         	SYN2ACK  -->
+> This VLAN map is a feature of these switch chips to hardcode and restrict which
+> output ports a given input port can egress frames to.
 > 
-> Note that the SYN/ACK has already been sent out by TCP before
-> rds_tcp_accept_one() gets invoked as part of callbacks.
+> A Linux bridge is a simple untagged VLAN propagated by the bridge code itself.
+> With a proper 802.1Q support, a driver does not need this hook anymore, and
+> will simply program the related VLAN object.
 > 
-> If the inet_addr(A) is numerically less than inet_addr(B),
-> the arbitration scheme in rds_tcp_accept_one() will prefer the
-> TCP connection triggered by SYN1, and will send a CLOSE for the
-> SYN2 (just after the SYN2ACK was sent).
+> This patchset improves the hardware bridging code in the mv88e6xxx driver with
+> a strict 802.1Q mode.
 > 
-> Since B also follows the same arbitration scheme, it will send the SYN-ACK
-> for SYN1 that will set up a healthy ESTABLISHED connection on both sides.
-> B will also get a  CLOSE for SYN2, which should result in the cleanup
-> of the TCP state machine for SYN2, but it should not trigger any
-> stale RDS-TCP callbacks (such as ->writespace, ->state_change etc),
-> that would disrupt the progress of the SYN2 based RDS-TCP  connection.
-> 
-> Thus the arbitration scheme in rds_tcp_accept_one() should restore
-> rds_tcp callbacks for the winner before setting them up for the
-> new accept socket, and also make sure that conn->c_outgoing
-> is set to 0 so that we do not trigger any reconnect attempts on the
-> passive side of the tcp socket in the future, in conformance with
-> commit c82ac7e69efe ("net/rds: RDS-TCP: only initiate reconnect attempt
-> on outgoing TCP socket.")
-> 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Ideally, the equivalent must be done for Broadcom Starfighter 2 and Rocker,
+> before completely getting rid of this hook.
 
-Applied.
+Series applied, thanks Vivien.
