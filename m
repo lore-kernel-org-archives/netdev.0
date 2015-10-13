@@ -1,72 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/17] i40e/i40evf: Add new link status defines
-Date: Mon, 12 Oct 2015 22:53:02 -0700
-Message-ID: <1444715598-20970-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/17] i40e: remove redundant call
+Date: Mon, 12 Oct 2015 22:53:08 -0700
+Message-ID: <1444715598-20970-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:62687 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751583AbbJMFxY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 01:53:24 -0400
+	id S1752041AbbJMFxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 01:53:25 -0400
 In-Reply-To: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Add the new Port link status bit and rename the link status to function
-link status.
+This function call isn't needed here; the same function is already
+called by i40e_reset_vf.
 
-Change-ID: I71289327ae62638ce967b6ad40114caf998b6dab
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I96ccbf91b752965c9e28fe895d4c7d4c46e3ba44
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 4 +++-
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 4 +++-
- 2 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 785b3db..02d5225 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -1722,11 +1722,13 @@ struct i40e_aqc_get_link_status {
- 	u8	phy_type;    /* i40e_aq_phy_type   */
- 	u8	link_speed;  /* i40e_aq_link_speed */
- 	u8	link_info;
--#define I40E_AQ_LINK_UP			0x01
-+#define I40E_AQ_LINK_UP			0x01    /* obsolete */
-+#define I40E_AQ_LINK_UP_FUNCTION	0x01
- #define I40E_AQ_LINK_FAULT		0x02
- #define I40E_AQ_LINK_FAULT_TX		0x04
- #define I40E_AQ_LINK_FAULT_RX		0x08
- #define I40E_AQ_LINK_FAULT_REMOTE	0x10
-+#define I40E_AQ_LINK_UP_PORT		0x20
- #define I40E_AQ_MEDIA_AVAILABLE		0x40
- #define I40E_AQ_SIGNAL_DETECT		0x80
- 	u8	an_info;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index c802209..fcb9ef3 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -1719,11 +1719,13 @@ struct i40e_aqc_get_link_status {
- 	u8	phy_type;    /* i40e_aq_phy_type   */
- 	u8	link_speed;  /* i40e_aq_link_speed */
- 	u8	link_info;
--#define I40E_AQ_LINK_UP			0x01
-+#define I40E_AQ_LINK_UP			0x01    /* obsolete */
-+#define I40E_AQ_LINK_UP_FUNCTION	0x01
- #define I40E_AQ_LINK_FAULT		0x02
- #define I40E_AQ_LINK_FAULT_TX		0x04
- #define I40E_AQ_LINK_FAULT_RX		0x08
- #define I40E_AQ_LINK_FAULT_REMOTE	0x10
-+#define I40E_AQ_LINK_UP_PORT		0x20
- #define I40E_AQ_MEDIA_AVAILABLE		0x40
- #define I40E_AQ_SIGNAL_DETECT		0x80
- 	u8	an_info;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index ee747dc..2102280 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -964,8 +964,6 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 		/* VF resources get allocated during reset */
+ 		i40e_reset_vf(&vfs[i], false);
+ 
+-		/* enable VF vplan_qtable mappings */
+-		i40e_enable_vf_mappings(&vfs[i]);
+ 	}
+ 	pf->num_alloc_vfs = num_alloc_vfs;
+ 
 -- 
 2.4.3
