@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 5/6] net: dsa: mv88e6xxx: remove port_fdb_getnext
-Date: Tue, 13 Oct 2015 12:46:22 -0400
-Message-ID: <1444754783-26975-6-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/6] net: dsa: implement port_fdb_dump in drivers
+Date: Tue, 13 Oct 2015 12:46:17 -0400
+Message-ID: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Scott Feldman <sfeldma@gmail.com>,
@@ -12,148 +11,32 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that port_fdb_dump is implemented and even simpler, get rid of
-port_fdb_getnext.
+Not all switch chips provide a Get Next kind of operation to dump FDB entries.
+It is preferred to let the driver handle the dump operation the way it works
+best for the chip. Thus, drop port_fdb_getnext and implement the port_fdb_dump
+operation in DSA, which pushes the switchdev FDB dump callback down to the
+drivers. mv88e6xxx is the only driver affected and is updated accordingly.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6171.c |  1 -
- drivers/net/dsa/mv88e6352.c |  1 -
- drivers/net/dsa/mv88e6xxx.c | 73 ---------------------------------------------
- drivers/net/dsa/mv88e6xxx.h |  2 --
- 4 files changed, 77 deletions(-)
+v1 -> v2: fix a few "return err" instead of "goto unlock" in mv88e6xxx.c
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 489deb8..2c8eb6f 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -122,7 +122,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 6b8fd24..cbf4dd8 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -349,7 +349,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index a1740b4..980460a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1559,33 +1559,6 @@ unlock:
- 	return err;
- }
- 
--static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
--				       struct mv88e6xxx_vtu_stu_entry *entry)
--{
--	int err;
--
--	do {
--		if (vid == 4095)
--			return -ENOENT;
--
--		err = _mv88e6xxx_vtu_vid_write(ds, vid);
--		if (err)
--			return err;
--
--		err = _mv88e6xxx_vtu_getnext(ds, entry);
--		if (err)
--			return err;
--
--		if (!entry->valid)
--			return -ENOENT;
--
--		vid = entry->vid;
--	} while (entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED &&
--		 entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED);
--
--	return 0;
--}
--
- int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
- 			   unsigned long *ports, unsigned long *untagged)
- {
-@@ -1864,52 +1837,6 @@ unlock:
- 	return err;
- }
- 
--/* get next entry for port */
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct mv88e6xxx_atu_entry next;
--	u16 fid = *vid; /* We use one FID per VLAN */
--	int ret;
--
--	mutex_lock(&ps->smi_mutex);
--
--	do {
--		if (is_broadcast_ether_addr(addr)) {
--			struct mv88e6xxx_vtu_stu_entry vtu;
--
--			ret = _mv88e6xxx_port_vtu_getnext(ds, port, *vid, &vtu);
--			if (ret < 0)
--				goto unlock;
--
--			*vid = vtu.vid;
--			fid = vtu.fid;
--		}
--
--		ret = _mv88e6xxx_atu_mac_write(ds, addr);
--		if (ret < 0)
--			goto unlock;
--
--		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
--		if (ret < 0)
--			goto unlock;
--
--		ether_addr_copy(addr, next.mac);
--
--		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			continue;
--	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
--
--	*is_static = next.state == (is_multicast_ether_addr(addr) ?
--				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
--				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
--unlock:
--	mutex_unlock(&ps->smi_mutex);
--
--	return ret;
--}
--
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
- 	struct mv88e6xxx_priv_state *ps;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 08e0fbb..c921427 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -479,8 +479,6 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb);
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static);
- int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 			    struct switchdev_obj_port_fdb *fdb,
- 			    switchdev_obj_dump_cb_t *cb);
+Vivien Didelot (6):
+  net: dsa: add port_fdb_dump function
+  net: dsa: mv88e6xxx: write VID outside of VTU Get Next code
+  net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
+  net: dsa: mv88e6xxx: implement port_fdb_dump
+  net: dsa: mv88e6xxx: remove port_fdb_getnext
+  net: dsa: remove port_fdb_getnext
+
+ drivers/net/dsa/mv88e6171.c |   2 +-
+ drivers/net/dsa/mv88e6352.c |   2 +-
+ drivers/net/dsa/mv88e6xxx.c | 138 ++++++++++++++++++++++++--------------------
+ drivers/net/dsa/mv88e6xxx.h |   5 +-
+ include/net/dsa.h           |   8 ++-
+ net/dsa/slave.c             |  26 +--------
+ 6 files changed, 89 insertions(+), 92 deletions(-)
+
 -- 
 2.6.1
