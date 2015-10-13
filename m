@@ -1,41 +1,137 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next V15 0/3] openvswitch: Add support for 802.1ad
-Date: Mon, 12 Oct 2015 23:48:22 -0700
-Message-ID: <CALnjE+qd8zsontA+1uvSGiOz6p5YZsX1YmJTKhVoaE+yrodOqA@mail.gmail.com>
-References: <1444520433-1958-1-git-send-email-thomasfherbert@gmail.com>
-	<20151012.195841.292062617131376194.davem@davemloft.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v4 2/7] switchdev: allow caller to explicitly
+ request attr_set as deferred
+Date: Mon, 12 Oct 2015 23:53:45 -0700
+Message-ID: <CAE4R7bC4vik8-V9L5oTukQ4YhMoCGF_uOM_481fJgq3yc1LN=g@mail.gmail.com>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+ <1444672986-20709-1-git-send-email-jiri@resnulli.us> <CAE4R7bCm+jOjhMH7wucCFhNd55Do_dJpqzixrtKZbCM4vG1dKw@mail.gmail.com>
+ <20151013054414.GA2242@nanopsycho.orion> <561C9EC2.7030907@gmail.com> <20151013062112.GD2242@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Thomas F Herbert <thomasfherbert@gmail.com>,
-	netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: David Miller <davem@davemloft.net>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:36560 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291AbbJMGsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 02:48:22 -0400
-Received: by ignr19 with SMTP id r19so29885398ign.1
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 23:48:22 -0700 (PDT)
-In-Reply-To: <20151012.195841.292062617131376194.davem@davemloft.net>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:35706 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449AbbJMGyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 02:54:06 -0400
+Received: by oiao187 with SMTP id o187so4497845oia.2
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 23:54:04 -0700 (PDT)
+In-Reply-To: <20151013062112.GD2242@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2015 at 7:58 PM, David Miller <davem@davemloft.net> wrote:
-> From: Thomas F Herbert <thomasfherbert@gmail.com>
-> Date: Sat, 10 Oct 2015 19:40:30 -0400
+On Mon, Oct 12, 2015 at 11:21 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Oct 13, 2015 at 08:03:46AM CEST, john.fastabend@gmail.com wrote:
+>>On 15-10-12 10:44 PM, Jiri Pirko wrote:
+>>> Tue, Oct 13, 2015 at 04:52:42AM CEST, sfeldma@gmail.com wrote:
+>>>> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>
+>>>>> Caller should know if he can call attr_set directly (when holding RTNL)
+>>>>> or if he has to defer the att_set processing for later.
+>>>>>
+>>>>> This also allows drivers to sleep inside attr_set and report operation
+>>>>> status back to switchdev core. Switchdev core then warns if status is
+>>>>> not ok, instead of silent errors happening in drivers.
+>>>>>
+>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>> ---
+>>>>>  include/net/switchdev.h   |   1 +
+>>>>>  net/bridge/br_stp.c       |   3 +-
+>>>>>  net/switchdev/switchdev.c | 107 ++++++++++++++++++++++++----------------------
+>>>>>  3 files changed, 59 insertions(+), 52 deletions(-)
+>>>>>
+>>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>>>> index d2879f2..6b109e4 100644
+>>>>> --- a/include/net/switchdev.h
+>>>>> +++ b/include/net/switchdev.h
+>>>>> @@ -17,6 +17,7 @@
+>>>>>
+>>>>>  #define SWITCHDEV_F_NO_RECURSE         BIT(0)
+>>>>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP    BIT(1)
+>>>>> +#define SWITCHDEV_F_DEFER              BIT(2)
+>>>>>
+>>>>>  struct switchdev_trans_item {
+>>>>>         struct list_head list;
+>>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>>>>> index db6d243de..80c34d7 100644
+>>>>> --- a/net/bridge/br_stp.c
+>>>>> +++ b/net/bridge/br_stp.c
+>>>>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>>>>  {
+>>>>>         struct switchdev_attr attr = {
+>>>>>                 .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>>>>> +               .flags = SWITCHDEV_F_DEFER,
+>>>>>                 .u.stp_state = state,
+>>>>>         };
+>>>>>         int err;
+>>>>>
+>>>>>         p->state = state;
+>>>>>         err = switchdev_port_attr_set(p->dev, &attr);
+>>>>> -       if (err && err != -EOPNOTSUPP)
+>>>>> +       if (err)
+>>>>
+>>>> This looks like a problem as now all other non-switchdev ports will
+>>>> get an WARN in the log when STP state changes.  We should only WARN if
+>>>> there was an err and the err is not -EOPNOTSUPP.
+>>>
+>>> If SWITCHDEV_F_DEFER flag is set, there's only 0 of -ENOMEM.
+>>>
+>>>
+>>>>
+>>>>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+>>>>>                                 (unsigned int) p->port_no, p->dev->name);
+>>>>>  }
+>>>>
+>>>> <snip>
+>>>>
+>>>>>  struct switchdev_attr_set_work {
+>>>>>         struct work_struct work;
+>>>>>         struct net_device *dev;
+>>>>> @@ -183,14 +226,17 @@ static void switchdev_port_attr_set_work(struct work_struct *work)
+>>>>>  {
+>>>>>         struct switchdev_attr_set_work *asw =
+>>>>>                 container_of(work, struct switchdev_attr_set_work, work);
+>>>>> +       bool rtnl_locked = rtnl_is_locked();
+>>>>>         int err;
+>>>>>
+>>>>> -       rtnl_lock();
+>>>>> -       err = switchdev_port_attr_set(asw->dev, &asw->attr);
+>>>>> +       if (!rtnl_locked)
+>>>>> +               rtnl_lock();
+>>>>
+>>>> I'm not following this change.  If someone else has rtnl_lock, we'll
+>>>> not wait to grab it here ourselves, and proceed as if we have the
+>>>> lock.  But what if that someone else releases the lock in the middle
+>>>> of us doing switchdev_port_attr_set_now?  Seems we want to
+>>>> unconditionally wait and grab the lock.  We need to block anything
+>>>>from moving while we do the attr set.
+>>>
+>>> Why would someone we call (driver) return the lock? In that case, he is
+>>> buggy and should be fixed.
+>>>
+>>> This hunk only ensures we have rtnl_lock. If not, we take it here. We do
+>>> not take it unconditionally because we may already have it, for example
+>>> if caller of switchdev_flush_deferred holds rtnl_lock.
+>>>
+>>
+>>This is where you lost me. How do you know another core doesn't happen
+>>to have the lock when you hit this code path? Maybe someone is running
+>>an ethtool command on another core or something.
 >
->> Thomas F Herbert (3):
->>   openvswitch: 802.1ad uapi changes.
->>   Check for vlan ethernet types for 8021.q or 802.1ad
->>   802.1AD: Flow handling, actions, vlan parsing and netlink attributes
->
-> I think this patch series has gone long enough, can I get some ACK's
-> ASAP for this V15 posting?
->
-I know this is taking bit long but this patch-set is touching one of
-most complex netlink attributes processing code in OVS. I think we are
-very close to final version. As of now I am seeing couple of bugs, one
-of the bug is newly introduced in this version. And there is still
-code duplication in flow extract. So I can not ack the patch yet.
-Sorry for the delay.
+> You are right. The same problem exists currently in switchdev_port_attr_set.
+
+You are right as in you'll change this back to unconditional grabbing
+of rtnl_lock?  I don't follow how this problem currently exists as
+current code does an unconditional grab of rtnl_lock.
