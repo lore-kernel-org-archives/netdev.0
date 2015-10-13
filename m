@@ -1,53 +1,82 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [RFC PATCH 2/2] bpf: Implement bpf_perf_event_sample_enable/disable()
- helpers
-Date: Tue, 13 Oct 2015 11:51:26 +0800
-Message-ID: <561C7FBE.4000104@huawei.com>
-References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com> <1444640563-159175-3-git-send-email-xiakaixu@huawei.com> <561C0A1E.2080500@plumgrid.com> <561C7A1F.6040702@huawei.com> <561C7CDA.8050004@plumgrid.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v4 6/7] rocker: remove nowait from switchdev callbacks.
+Date: Mon, 12 Oct 2015 21:02:28 -0700
+Message-ID: <CAE4R7bDfDCEGcHY=y+77DbC0z09ogN9jiO_qBhb+utwXTUzmHw@mail.gmail.com>
+References: <1444672467-20621-1-git-send-email-jiri@resnulli.us>
+ <1444672986-20709-1-git-send-email-jiri@resnulli.us> <1444672986-20709-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<hekuang@huawei.com>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Kaixu Xia <xiakaixu@huawei.com>, <davem@davemloft.net>,
-	<acme@kernel.org>, <mingo@redhat.com>, <a.p.zijlstra@chello.nl>,
-	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
-	<daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561C7CDA.8050004@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:36743 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbbJMECs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 00:02:48 -0400
+Received: by obbrx8 with SMTP id rx8so4330315obb.3
+        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 21:02:48 -0700 (PDT)
+In-Reply-To: <1444672986-20709-5-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2015/10/13 11:39, Alexei Starovoitov wrote:
-> On 10/12/15 8:27 PM, Wangnan (F) wrote:
->> Then how to avoid racing? For example, when one core disabling all 
->> events
->> in a map, another core is enabling all of them. This racing may causes
->> sereval
->> perf events in a map dump samples while other events not. To avoid such
->> racing
->> I think some locking must be introduced, then cost is even higher.
->>
->> The reason why we introduce an atomic pointer is because each operation
->> should
->> controls a set of events, not one event, due to the per-cpu manner of
->> perf events.
+On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 >
-> why 'set disable' is needed ?
-> the example given in cover letter shows the use case where you want
-> to receive samples only within sys_write() syscall.
-> The example makes sense, but sys_write() is running on this cpu, so just
-> disabling it on the current one is enough.
+> No need to avoid sleeping in switchdev callbacks now, as the switchdev
+> core allows it.
 >
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/ethernet/rocker/rocker.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index bb956a5..9629c5b5 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -3672,7 +3672,7 @@ static int rocker_port_fdb_flush(struct rocker_port *rocker_port,
+>             rocker_port->stp_state == BR_STATE_FORWARDING)
+>                 return 0;
+>
+> -       flags |= ROCKER_OP_FLAG_REMOVE;
+> +       flags |= ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
 
-Our real use case is control of the system-wide sampling. For example,
-we need sampling all CPUs when smartphone start refershing its display.
-We need all CPUs because in Android system there are plenty of threads
-get involed into this behavior. We can't achieve this by controling
-sampling on only one CPU. This is the reason we need 'set enable'
-and 'set disable'.
+I understand the two changes below where you're removing NOWAIT, but
+here you're adding NOWAIT which I'm not sure how that is related to
+the switchdev core changes.  Is this two patches?
 
-Thank you.
+
+>         spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
+>
+> @@ -4382,8 +4382,7 @@ static int rocker_port_attr_set(struct net_device *dev,
+>
+>         switch (attr->id) {
+>         case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
+> -               err = rocker_port_stp_update(rocker_port, trans,
+> -                                            ROCKER_OP_FLAG_NOWAIT,
+> +               err = rocker_port_stp_update(rocker_port, trans, 0,
+>                                              attr->u.stp_state);
+>                 break;
+>         case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
+> @@ -4517,7 +4516,7 @@ static int rocker_port_fdb_del(struct rocker_port *rocker_port,
+>                                const struct switchdev_obj_port_fdb *fdb)
+>  {
+>         __be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
+> -       int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
+> +       int flags = ROCKER_OP_FLAG_REMOVE;
+>
+>         if (!rocker_port_is_bridged(rocker_port))
+>                 return -EINVAL;
+> --
+> 1.9.3
+>
