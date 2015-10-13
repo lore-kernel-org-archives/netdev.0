@@ -1,77 +1,96 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Tue, 13 Oct 2015 06:58:32 +0200
-Message-ID: <20151013045832.GA2437@netboy>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
- <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	tglx@linutronix.de, john.stultz@linaro.org, peterz@infradead.org,
-	x86@kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kevin.b.stanton@intel.com
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Subject: [PATCH] net: phy: smsc: disable energy detect mode
+Date: Tue, 13 Oct 2015 07:13:09 +0200
+Message-ID: <1444713189-23063-1-git-send-email-hs@denx.de>
+Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2015 at 11:45:19AM -0700, Christopher S. Hall wrote:
-> Another representative use case of time sync and the correlated
-> clocksource (in addition to PTP noted above) is PTP synchronized
-> audio.
+On some boards the energy enable detect mode leads in
+trouble with some switches, so make the enabling of
+this mode configurable through DT.
 
-The added explanations of the audio use case do help.  However, you
-did not address my point in the last series in any way.
+Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+---
+
+ .../devicetree/bindings/net/smsc-lan87xx.txt       | 19 +++++++++++++++++
+ drivers/net/phy/smsc.c                             | 24 +++++++++++++++++-----
+ 2 files changed, 38 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+
+diff --git a/Documentation/devicetree/bindings/net/smsc-lan87xx.txt b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+new file mode 100644
+index 0000000..39aa1dc
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+@@ -0,0 +1,19 @@
++SMSC LAN87xx Ethernet PHY
++
++Some boards require special tuning values. Configure them
++through an Ethernet OF device node.
++
++Optional properties:
++
++- disable-energy-detect:
++  If set, do not enable energy detect mode for the SMSC phy.
++  default: enable energy detect mode
++
++Examples:
++
++	/* Attach to an Ethernet device with autodetected PHY */
++	&cpsw_emac0 {
++		phy_id = <&davinci_mdio>, <0>;
++		phy-mode = "mii";
++		disable-energy-detect;
++	};
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 70b0895..f90fbf3 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -43,16 +43,30 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
  
-> In a streaming application, as an example, samples will be sent
-> and/or received by multiple devices with a presentation time that is
-> in terms of the PTP master clock. Synchronizing the audio output on
-> these devices requires correlating the audio clock with the PTP
-> master clock. The more precise this correlation is, the better the
-> audio quality (i.e. out of sync audio sounds bad).
-
-^^^^
-This is mega important.  You want to convert PTP time into audio clock
-time.  There is no need for the system time at all.
+ static int smsc_phy_config_init(struct phy_device *phydev)
+ {
++#ifdef CONFIG_OF
++	int len;
++	struct device *dev = &phydev->dev;
++	struct device_node *of_node = dev->of_node;
++#endif
+ 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
++	int enable_energy = 1;
  
-> From an application standpoint, to correlate the PTP master clock
-> with the audio device clock, the system clock is used as a
-> intermediate timebase.
-
-But why involve the system time base?
-
-> The transforms such an application would
-> perform are:
-> 
-> System Clock <-> Audio clock
-> System Clock <-> Network Device Clock [<-> PTP Master Clock]
-
-This is extra work with no benefit.  In fact, this hurts you
-because of the need to take avoid update_wall_time AND because of the
-NTP frequency adjustments.  Cascaded servos are prone to gain peaking,
-and this can easily avoided in this case.
+ 	if (rc < 0)
+ 		return rc;
  
-> Modern Intel platforms can perform a more accurate cross-
-> timestamp in hardware (ART,audio device clock).  The audio driver
-> requires ART->system time transforms -- the same as required for
-> the network driver.
+-	/* Enable energy detect mode for this SMSC Transceivers */
+-	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+-		       rc | MII_LAN83C185_EDPWRDOWN);
+-	if (rc < 0)
+-		return rc;
++#ifdef CONFIG_OF
++	if (!of_node && dev->parent->of_node)
++		of_node = dev->parent->of_node;
++	if (of_find_property(of_node, "disable-energy-detect", &len))
++		enable_energy = 0;
++#endif
++	if (enable_energy) {
++		/* Enable energy detect mode for this SMSC Transceivers */
++		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
++			       rc | MII_LAN83C185_EDPWRDOWN);
++		if (rc < 0)
++			return rc;
++	}
+ 
+ 	return smsc_phy_ack_interrupt(phydev);
+ }
+-- 
+2.1.0
 
-No, it doesn't need the system time.  It only needs the PTP time.
-
-> The modification to the original patch accomodates these
-> slow devices by adding the option of providing an ART value outside
-> of the retry loop and adding a history which can consulted in the
-> case of an out of date counter value. The history is kept by
-> making the shadow_timekeeper an array. Each write to the
-> timekeeper rotates through the array, preserving a
-> history of updates.
-
-This is all wrong.  All you need to provide the DSP with (ART, PTP)
-pairs.  This can be done in a multiple of the DSP period, like every
-1, 10, or 100 milliseconds.
-
-Thanks,
-Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
