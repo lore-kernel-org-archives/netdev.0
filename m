@@ -1,62 +1,66 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] i40evf: fix 32 bit build warnings
-Date: Tue, 13 Oct 2015 12:25:10 -0700
-Message-ID: <20151013122510.0000429f@unknown>
-References: <6607276.TY67sbLLqL@wuerfel>
-	<1444717101.2870.16.camel@intel.com>
-	<57023416.17EujnXPCo@wuerfel>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: NULL pointer dereference in rt6_get_cookie()
+Date: Tue, 13 Oct 2015 21:26:41 +0200
+Message-ID: <20151013192543.06B5021398@mail.nwl.cc>
+References: <20151010132437.GB25926@orbit.nwl.cc>
+ <20151013181443.GB68583@kafai-mba.local>
+ <20151013191039.GA3070@base.sg13b.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	<netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-	<kbuild-all@01.org>, Andrew Bowers <andrewx.bowers@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	"John Ronciak" <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10768 "EHLO mga02.intel.com"
+Received: from orbit.nwl.cc ([176.31.251.142]:48742 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752290AbbJMTZM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2015 15:25:12 -0400
-In-Reply-To: <57023416.17EujnXPCo@wuerfel>
+	id S1751529AbbJMTZp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 15:25:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20151013191039.GA3070@base.sg13b.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Oct 2015 13:37:04 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
-
-> On Monday 12 October 2015 23:18:21 you wrote:
-> > On Wed, 2015-10-07 at 22:13 +0200, Arnd Bergmann wrote:
-> > > Jesse Brandeburg fixed a bug for 32-bit systems in the i40e driver
-> > > in commit 9c70d7cebfec5 ("i40e: fix 32 bit build warnings"), but the
-> > > same code still exists in the i40evf driver and causes compilation
-> > > warnings in ARM and x86 allmodconfig:
-> > > 
-> > > drivers/net/ethernet/intel/i40evf/i40e_common.c:445:68: warning: cast
-> > > from pointer to integer of different size [-Wpointer-to-int-cast]
-> > > drivers/net/ethernet/intel/i40evf/i40e_common.c:446:71: warning: cast
-> > > from pointer to integer of different size [-Wpointer-to-int-cast]
-> > > 
-> > > This applies the same fix by removing the broken code.
-> > > 
-> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > 
-> > Does not apply at all to my next-queue tree (dev-queue branch), my
-> > guess is that this is already fixed in one of the patches already in my
-> > queue.
-> > 
+On Tue, Oct 13, 2015 at 09:10:39PM +0200, Phil Sutter wrote:
+> Hi Martin,
 > 
-> I still get these warnings on your branch:
+> On Tue, Oct 13, 2015 at 11:14:43AM -0700, Martin KaFai Lau wrote:
+> > On Sat, Oct 10, 2015 at 03:24:37PM +0200, Phil Sutter wrote:
+> > > The conditional at the start of the function evaluates true, since
+> > > 'rt->rt6i_flags & RTF_PCPU' is non-zero.
+> > Hi Phil, can you try the following patch and capture the dmesg output
+> > to confirm the value of rt->rt6i_flags and the rt->dst.flags.
+> > 
+> > Thanks,
+> > Martin
+> > 
+> > --- a/include/net/ip6_fib.h
+> > +++ b/include/net/ip6_fib.h
+> > @@ -167,8 +167,15 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
+> > 
+> >  static inline u32 rt6_get_cookie(const struct rt6_info *rt)
+> >  {
+> > -	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE))
+> > +	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE)) {
+> >  		rt = (struct rt6_info *)(rt->dst.from);
+> > +		if (!rt)
+> > +			pr_err("rt6i_dst:%pI6c/%d rt6i_gateway:%pI6c "
+> > +			       "rt6i_flags:%08X dst.flags:%08X\n",
+> > +			       &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
+> > +			       &rt->rt6i_gateway, rt->rt6i_flags,
+> > +			       rt->dst.flags);
+> > +	}
+> > 
+> >  	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
+> >  }
+> 
+> This code is not sane. Your pr_err() statement tries to dereference the
+> NULL pointer in question. Are you interested in the originally passed
+> rt6_info?
 
-Make sure you're pulling from the dev-queue branch, not the master
-branch of Jeff's next-queue repo.
+I have backed up the rt pointer at top of the function and restored it
+before pr_err, this is the output:
 
-I've made that mistake many times, and I do see that the code in
-question is not present in:
-https://git.kernel.org/cgit/linux/kernel/git/jkirsher/next-queue.git/tree/drivers/net/ethernet/intel/i40evf/i40e_common.c?h=dev-queue
+| rt6i_dst:2001:4dd0:ff3b:13::/64 rt6i_gateway::: rt6i_flags:40000001 dst.flags:00000000
+
+HTH, Phil
