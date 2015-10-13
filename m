@@ -1,50 +1,63 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: NULL pointer dereference in rt6_get_cookie()
-Date: Tue, 13 Oct 2015 11:14:43 -0700
-Message-ID: <20151013181443.GB68583@kafai-mba.local>
-References: <20151010132437.GB25926@orbit.nwl.cc>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [4.1.3-rt8] [report][cpuhotplug] BUG: spinlock bad magic on
+ CPU#0, sh/137
+Date: Tue, 13 Oct 2015 21:25:40 +0300
+Message-ID: <561D4CA4.1010207@ti.com>
+References: <5617CE6D.9060800@ti.com>
+ <alpine.DEB.2.11.1510120952560.6097@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60795 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932794AbbJMSPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 14:15:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20151010132437.GB25926@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rt-users@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	<netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1510120952560.6097@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 10, 2015 at 03:24:37PM +0200, Phil Sutter wrote:
-> The conditional at the start of the function evaluates true, since
-> 'rt->rt6i_flags & RTF_PCPU' is non-zero.
-Hi Phil, can you try the following patch and capture the dmesg output
-to confirm the value of rt->rt6i_flags and the rt->dst.flags.
+On 10/12/2015 11:16 AM, Thomas Gleixner wrote:
+> On Fri, 9 Oct 2015, Grygorii Strashko wrote:
+>> I can constantly see below error report with 4.1 RT-kernel on TI ARM dra7-evm
+>> if I'm trying to unplug cpu1:
+>>
+>> [   57.737589] CPU1: shutdown
+>> [   57.767537] BUG: spinlock bad magic on CPU#0, sh/137
+>> [   57.767546]  lock: 0xee994730, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+> 
+>> It looks like this backtrace was introduces by
+>>
+>> commit 91df05da13a6c6c358e71182e80f19f3c48d1615
+>> net: Use skbufhead with raw lock
+>>
+>> I see the potential fix for this issue as below:
+>>
+>> index 4969c0d..f8c23de 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -7217,7 +7217,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+>>                  netif_rx_ni(skb);
+>>                  input_queue_head_incr(oldsd);
+>>          }
+>> -       while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
+>> +       while ((skb = __skb_dequeue(&oldsd->input_pkt_queue))) {
+> 
+> Your patch is white space damaged ....
+> 
+>>                  netif_rx_ni(skb);
+>>                  input_queue_head_incr(oldsd);
+>>          }
+>>
+>> input_pkt_queue is per-cpu queue and at this moment cpu is dead already,
+>> so no one should touch it. But I'm not sure if my assumption is correct.
+> 
+> It is. Picking it up for the next release
+> 
 
-Thanks,
-Martin
+Thanks & Sorry. I've not expected this diff/hack to be applied as patch :(
 
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -167,8 +167,15 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
-
- static inline u32 rt6_get_cookie(const struct rt6_info *rt)
- {
--	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE))
-+	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE)) {
- 		rt = (struct rt6_info *)(rt->dst.from);
-+		if (!rt)
-+			pr_err("rt6i_dst:%pI6c/%d rt6i_gateway:%pI6c "
-+			       "rt6i_flags:%08X dst.flags:%08X\n",
-+			       &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
-+			       &rt->rt6i_gateway, rt->rt6i_flags,
-+			       rt->dst.flags);
-+	}
-
- 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
- }
+-- 
+regards,
+-grygorii
