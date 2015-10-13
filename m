@@ -1,98 +1,41 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v4 5/7] bridge: defer switchdev fdb del call
- in fdb_del_external_learn
-Date: Mon, 12 Oct 2015 20:31:39 -0700
-Message-ID: <561C7B1B.90406@gmail.com>
-References: <1444672467-20621-1-git-send-email-jiri@resnulli.us> <1444672986-20709-1-git-send-email-jiri@resnulli.us> <1444672986-20709-4-git-send-email-jiri@resnulli.us> <CAE4R7bAhQ2gBp248KAhEEC27SrYZY8enxBjZsUoR_a4Bwq7DAg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC PATCH 2/2] bpf: Implement
+ bpf_perf_event_sample_enable/disable() helpers
+Date: Mon, 12 Oct 2015 20:39:06 -0700
+Message-ID: <561C7CDA.8050004@plumgrid.com>
+References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
+ <1444640563-159175-3-git-send-email-xiakaixu@huawei.com>
+ <561C0A1E.2080500@plumgrid.com> <561C7A1F.6040702@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	David Laight <David.Laight@aculab.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35722 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932115AbbJMDb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2015 23:31:57 -0400
-Received: by pabve7 with SMTP id ve7so7099815pab.2
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2015 20:31:56 -0700 (PDT)
-In-Reply-To: <CAE4R7bAhQ2gBp248KAhEEC27SrYZY8enxBjZsUoR_a4Bwq7DAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
+	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
+	daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <561C7A1F.6040702@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-10-12 08:28 PM, Scott Feldman wrote:
-> On Mon, Oct 12, 2015 at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> Since spinlock is held here, defer the switchdev operation.
->>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  net/bridge/br_fdb.c | 5 ++++-
->>  net/bridge/br_if.c  | 3 +++
->>  2 files changed, 7 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->> index f5e7da0..c88bd8e 100644
->> --- a/net/bridge/br_fdb.c
->> +++ b/net/bridge/br_fdb.c
->> @@ -134,7 +134,10 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
->>  static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
->>  {
->>         struct switchdev_obj_port_fdb fdb = {
->> -               .obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
->> +               .obj = {
->> +                       .id = SWITCHDEV_OBJ_ID_PORT_FDB,
->> +                       .flags = SWITCHDEV_F_DEFER,
->> +               },
->>                 .vid = f->vlan_id,
->>         };
->>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index 934cae9..09147cb 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -24,6 +24,7 @@
->>  #include <linux/slab.h>
->>  #include <net/sock.h>
->>  #include <linux/if_vlan.h>
->> +#include <net/switchdev.h>
->>
->>  #include "br_private.h"
->>
->> @@ -249,6 +250,8 @@ static void del_nbp(struct net_bridge_port *p)
->>         list_del_rcu(&p->list);
->>
->>         br_fdb_delete_by_port(br, p, 0, 1);
->> +       switchdev_flush_deferred();
->> +
-> 
-> This potentially flushes other (valid) work on the deferred queue not
-> related to FDB del.
-> 
-> I wonder if this flush step is necessary at all?  The work we deferred
-> to delete the FDB entry can still happen after the port has been
-> removed (del_nbp).  If the port driver/device find the FDB entry, then
-> delete it, otherwise ignore it.
-> 
+On 10/12/15 8:27 PM, Wangnan (F) wrote:
+> Then how to avoid racing? For example, when one core disabling all events
+> in a map, another core is enabling all of them. This racing may causes
+> sereval
+> perf events in a map dump samples while other events not. To avoid such
+> racing
+> I think some locking must be introduced, then cost is even higher.
+>
+> The reason why we introduce an atomic pointer is because each operation
+> should
+> controls a set of events, not one event, due to the per-cpu manner of
+> perf events.
 
-Just the first thing that springs to mind reading this comment is,
-
-  - del gets deffered
-  - add fdb
-  - del runs
-
-Is there an issue here? Sorry I'll do a more thorough review now just
-thought I would toss it out there before I forget.
-
-Thanks,
-John
+why 'set disable' is needed ?
+the example given in cover letter shows the use case where you want
+to receive samples only within sys_write() syscall.
+The example makes sense, but sys_write() is running on this cpu, so just
+disabling it on the current one is enough.
