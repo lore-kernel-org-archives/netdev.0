@@ -1,63 +1,90 @@
-From: =?UTF-8?Q?J=C3=B6rg_Pommnitz?= <j.pommnitz@gmail.com>
-Subject: Re: Some ICMP-Reply messages don't arrive in User Space in recent Kernels
-Date: Tue, 13 Oct 2015 15:22:35 +0200
-Message-ID: <CAEvAWuHfM5m+W=gskdGkxLbSMz+VBA40=WJgBdFgUWP745HZCw@mail.gmail.com>
-References: <CAEvAWuHSwA0=j_YDbowA56eCx10sJPm5KkveneSVhBQHNKY_zg@mail.gmail.com>
-	<1444742292.1855606.408914113.79C7B013@webmail.messagingengine.com>
+From: Kenneth Lee <Kenneth-Lee-2012@foxmail.com>
+Subject: Re: Fwd: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once
+ HANDEL_TX_MSG macro
+Date: Tue, 13 Oct 2015 21:27:12 +0800
+Message-ID: <20151013132712.GA3310@kllt-03>
+References: <6398202.hrOAl1xuJE@wuerfel>
+ <561CAD6D.2060105@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
+	huangdaode <huangdaode@hisilicon.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:35902 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932099AbbJMNWh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 09:22:37 -0400
-Received: by lbcao8 with SMTP id ao8so19745360lbc.3
-        for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 06:22:35 -0700 (PDT)
-In-Reply-To: <1444742292.1855606.408914113.79C7B013@webmail.messagingengine.com>
+Received: from smtpbg202.qq.com ([184.105.206.29]:42856 "EHLO smtpbg202.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932270AbbJMN1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2015 09:27:23 -0400
+Content-Disposition: inline
+In-Reply-To: <561CAD6D.2060105@hisilicon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes,
-thanks for your reply. It was indeed rp_filter (found it myself). What
-changed were the default settings in Ubuntu (07.04 to 14.04).
+On Tue, Oct 13, 2015 at 03:06:21PM +0800, huangdaode wrote:
+> Date: Tue, 13 Oct 2015 15:06:21 +0800
+> From: huangdaode <huangdaode@hisilicon.com>
+> To: Kenneth Lee <kenneth_lee_2012@126.com>
+> Subject: Fwd: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once
+>  HANDEL_TX_MSG macro
+> Message-ID: <561CAD6D.2060105@hisilicon.com>
+> 
+>    -------- Forwarded Message --------
+> 
+>     Subject: Re: [PATCH net-next v2 1/2] hisilicon net: removes the once      
+>              HANDEL_TX_MSG macro                                              
+>        Date: Mon, 12 Oct 2015 13:59:39 +0200                                  
+>        From: Arnd Bergmann <arnd@arndb.de>                                    
+>          To: huangdaode <huangdaode@hisilicon.com>                            
+>          CC: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,    
+>              Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,                 
+>              linuxarm@huawei.com, salil.mehta@huawei.com,                     
+>              kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,              
+>              lisheng011@huawei.com, linux-kernel@vger.kernel.org              
+> 
+>  On Monday 12 October 2015 11:23:44 huangdaode wrote:
+>  > +                       s += sprintf(s,
+>  > +                                   "\t\ttx_ring on %p:%u,%u,%u,%u,%u,%llu,%llu\n",
+>  > +                                   h->qs[i]->tx_ring.io_base,
+>  > +                                   h->qs[i]->tx_ring.buf_size,
+>  > +                                   h->qs[i]->tx_ring.desc_num,
+>  > +                                   h->qs[i]->tx_ring.max_desc_num_per_pkt,
+>  > +                                   h->qs[i]->tx_ring.max_raw_data_sz_per_desc,
+>  > +                                   h->qs[i]->tx_ring.max_pkt_size,
+>  > +                                   h->qs[i]->tx_ring.stats.sw_err_cnt,
+>  > +                                   h->qs[i]->tx_ring.stats.io_err_cnt);
+> 
+>  There is actually a more significant problem with this code, which I
+>  failed to notice when doing the original bugfix:
+> 
+>  You have a sysfs interface here that exports internal data of the
+>  device that should not be visible like this. One problem is that
+>  the io_base is a kernel pointer that must not be visible to non-root
+>  users (so we don't easily create an attack surface for exploits).
+>  Another problem is that the format is not documented in Documentation/ABI/
+>  and that you have multiple values in one sysfs file here.
+> 
+>  It would probably be better to completely remove that sysfs interface, and
+>  to use the ethtool netlink interface to export them.
+> 
+>          Arnd
+> 
+>  .
 
-Regards
-  Joerg
+Hi, Arnd,
 
-2015-10-13 15:18 GMT+02:00 Hannes Frederic Sowa <hannes@stressinduktion=
-=2Eorg>:
-> On Tue, Oct 13, 2015, at 08:47, J=C3=B6rg Pommnitz wrote:
->> Hello all,
->> I'm moving an application from 2.6.23 (yes, it's ancient; that's why
->> we are moving) to 3.18LTS. The application monitors multiple network
->> links to the same target with ping packets. The different links are
->> selected either by their next hop router (Ethernet) or the network
->> interface (Point-to-Point links, aka cellular data).
->> To force different routes to the same target, the outgoing packets a=
-re
->> tagged with different firewall marks. Then I'm using routing rules t=
-o
->> select different routing tables with different routes for the same
->> target.
->> The outgoing path works perfectly fine in both, 2.6.23 and 3.18.
->> However, the same is not true for the incoming ICMP replies. They ar=
-e
->> incoming; I see them with tcpdump. But some packets do not get
->> delivered to user space in 3.18. I'm not 100% sure, but I think this
->> happens if there is no "normal" route to the ping target, e.g. the
->> source address of the ICMP replies. This looks like some kind of
->> misguided ingress filtering that keeps packets out if a normal routi=
-ng
->> lookup fails.
->>
->> Am I on the right track? If so, is there a way to disable this
->> filtering? If not, what could cause this changed behaviour?
->
-> Did you disable rp_filter? Sounds like it, but 2.6.23 also had it
-> activated by default, so maybe you missed the option in sysctl.conf.
->
-> Bye,
-> Hannes
+Thank you for the comment. Yes, the io_base is a security problem, we
+will fix it in coming patch soon.
+
+But can we keep the sysfs? The interface from hnae is not used only by
+ethernet driver but also by Open Data Plane driver. If we more it to
+upper layers. Both drivers will have the same logic. 
+
+So how about we just add documents to Documention/ABI?
+
+Thanks
+-- 
+			-Kenneth Lee (Hisilicon)
