@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 7/8] rocker: remove nowait from switchdev callbacks.
-Date: Wed, 14 Oct 2015 19:40:54 +0200
-Message-ID: <1444844455-12508-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 8/8] switchdev: assert rtnl mutex when going over lower netdevs
+Date: Wed, 14 Oct 2015 19:40:55 +0200
+Message-ID: <1444844455-12508-9-git-send-email-jiri@resnulli.us>
 References: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
@@ -10,57 +10,72 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:37735 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688AbbJNRlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:41:06 -0400
-Received: by wijq8 with SMTP id q8so92523512wij.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:41:05 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:34676 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932602AbbJNRlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:41:08 -0400
+Received: by wicgb1 with SMTP id gb1so139540535wic.1
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:41:07 -0700 (PDT)
 In-Reply-To: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-No need to avoid sleeping in switchdev callbacks now, as the switchdev
-core allows it.
+netdev_for_each_lower_dev has to be called with rtnl mutex held. So
+better enforce it in switchdev functions.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/switchdev/switchdev.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 2cd7435..32a80d2 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3672,7 +3672,7 @@ static int rocker_port_fdb_flush(struct rocker_port *rocker_port,
- 	    rocker_port->stp_state == BR_STATE_FORWARDING)
- 		return 0;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index eac68c4..73e3895 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -520,6 +520,8 @@ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
+  *	@id: object ID
+  *	@obj: object to dump
+  *	@cb: function to call with a filled object
++ *
++ *	rtnl_lock must be held.
+  */
+ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+ 			    switchdev_obj_dump_cb_t *cb)
+@@ -529,6 +531,8 @@ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+ 	struct list_head *iter;
+ 	int err = -EOPNOTSUPP;
  
--	flags |= ROCKER_OP_FLAG_REMOVE;
-+	flags |= ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
++	ASSERT_RTNL();
++
+ 	if (ops && ops->switchdev_port_obj_dump)
+ 		return ops->switchdev_port_obj_dump(dev, obj, cb);
  
- 	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
+@@ -1097,6 +1101,8 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
+ 	struct net_device *dev = NULL;
+ 	int nhsel;
  
-@@ -4382,8 +4382,7 @@ static int rocker_port_attr_set(struct net_device *dev,
++	ASSERT_RTNL();
++
+ 	/* For this route, all nexthop devs must be on the same switch. */
  
- 	switch (attr->id) {
- 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
--		err = rocker_port_stp_update(rocker_port, trans,
--					     ROCKER_OP_FLAG_NOWAIT,
-+		err = rocker_port_stp_update(rocker_port, trans, 0,
- 					     attr->u.stp_state);
- 		break;
- 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
-@@ -4517,7 +4516,7 @@ static int rocker_port_fdb_del(struct rocker_port *rocker_port,
- 			       const struct switchdev_obj_port_fdb *fdb)
- {
- 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, fdb->vid, NULL);
--	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
-+	int flags = ROCKER_OP_FLAG_REMOVE;
+ 	for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+@@ -1327,10 +1333,11 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 	u32 mark = dev->ifindex;
+ 	u32 reset_mark = 0;
  
- 	if (!rocker_port_is_bridged(rocker_port))
- 		return -EINVAL;
+-	if (group_dev && joining) {
+-		mark = switchdev_port_fwd_mark_get(dev, group_dev);
+-	} else if (group_dev && !joining) {
+-		if (dev->offload_fwd_mark == mark)
++	if (group_dev) {
++		ASSERT_RTNL();
++		if (joining)
++			mark = switchdev_port_fwd_mark_get(dev, group_dev);
++		else if (dev->offload_fwd_mark == mark)
+ 			/* Ohoh, this port was the mark reference port,
+ 			 * but it's leaving the group, so reset the
+ 			 * mark for the remaining ports in the group.
 -- 
 1.9.3
