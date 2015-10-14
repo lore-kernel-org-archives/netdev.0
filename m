@@ -1,50 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/6] net: dsa: add port_fdb_dump function
-Date: Wed, 14 Oct 2015 06:12:20 -0700 (PDT)
-Message-ID: <20151014.061220.710919703136753197.davem@davemloft.net>
-References: <1444754783-26975-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-	<1444754783-26975-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp/dccp: fix potential NULL deref in
+ __inet_inherit_port()
+Date: Wed, 14 Oct 2015 05:58:38 -0700
+Message-ID: <1444827518.4166.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, sfeldma@gmail.com, jiri@resnulli.us,
-	f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444754783-26975-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33541 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753562AbbJNM6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 08:58:40 -0400
+Received: by pabrc13 with SMTP id rc13so54185834pab.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 05:58:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue, 13 Oct 2015 12:46:18 -0400
+From: Eric Dumazet <edumazet@google.com>
 
-> @@ -198,7 +198,9 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
->  }
->  
->  struct switchdev_trans;
-> +struct switchdev_obj;
->  struct switchdev_obj_port_fdb;
-> +typedef int switchdev_obj_dump_cb_t(struct switchdev_obj *obj);
->  
->  struct dsa_switch_driver {
->  	struct list_head	list;
- ...
-> @@ -382,6 +382,9 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
->  	u16 vid = 0;
->  	int ret;
->  
-> +	if (ds->drv->port_fdb_dump)
-> +		return ds->drv->port_fdb_dump(ds, p->port, fdb, cb);
-> +
->  	if (!ds->drv->port_fdb_getnext)
+As we no longer hold listener lock in fast path, it is possible that a
+child is created right after listener freed its bound port, if a close()
+is done while incoming packets are processed.
 
-I realize you're fighting include file dependency issues, but this is
-rediculous.  Now you're using two different typedefs for this callback
-function pointer.
+__inet_inherit_port() must detect this and return an error,
+so that caller can free the child earlier.
 
-This is why typedef's suck.
+Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
+Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_hashtables.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-We should just opencode "int (*cb)(struct switchdev_obj *)" everywhere
-and kill these typedefs which are obviously just getting in the way
-and making us do silly things.
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 08643a3616af..958728a22001 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -137,6 +137,10 @@ int __inet_inherit_port(const struct sock *sk, struct sock *child)
+ 
+ 	spin_lock(&head->lock);
+ 	tb = inet_csk(sk)->icsk_bind_hash;
++	if (unlikely(!tb)) {
++		spin_unlock(&head->lock);
++		return -ENOENT;
++	}
+ 	if (tb->port != port) {
+ 		/* NOTE: using tproxy and redirecting skbs to a proxy
+ 		 * on a different listener port breaks the assumption
