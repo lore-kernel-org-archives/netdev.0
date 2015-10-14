@@ -1,50 +1,48 @@
-From: yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next] net: hisilicon net: fix a bug about led
-Date: Wed, 14 Oct 2015 10:28:57 +0800
-Message-ID: <1444789737-25428-1-git-send-email-yankejian@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/4] net/mlx5_core: Fix internal error
+ detection conditions
+Date: Tue, 13 Oct 2015 19:46:37 -0700 (PDT)
+Message-ID: <20151013.194637.203386807677265903.davem@davemloft.net>
+References: <1444751049-2511-1-git-send-email-ogerlitz@mellanox.com>
+	<1444751049-2511-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linuxarm@huawei.com>
-To: <liguozhu@huawei.com>, <yisen.zhuang@huawei.com>,
-	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-	<yankejian@huawei.com>, <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eli@mellanox.com, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:21830 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbbJNCNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 22:13:25 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:55744 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbbJNCah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 22:30:37 -0400
+In-Reply-To: <1444751049-2511-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: lipeng <lipeng321@huawei.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue, 13 Oct 2015 18:44:06 +0300
 
-this patch fixes a bug in hns driver. the link led is on at the beginning,
-but at this time the ethernet port is on down status. it needs to reset
-the led status on init sequence.
+> +	if (in_fatal(dev) && !health->sick) {
+> +		health->sick = 1;
+> +		print_health_info(dev);
+> +		queue_work(health->wq, &health->work);
+>  	}
+>  }
+>  
+> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+> index 41a3287..cd469b9 100644
+> --- a/include/linux/mlx5/driver.h
+> +++ b/include/linux/mlx5/driver.h
+> @@ -393,6 +393,7 @@ struct mlx5_core_health {
+>  	struct timer_list		timer;
+>  	u32				prev;
+>  	int				miss_counter;
+> +	int				sick;
+>  	struct workqueue_struct	       *wq;
+>  	struct work_struct		work;
+>  };
+> -- 
+> 2.3.7
+> 
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Signed-off-by: yankejian <yankejian@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 95bf42a..f8f7347 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -744,9 +744,11 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, int mac_idx)
- 	mac_cb->serdes_vaddr = dsaf_dev->sds_base;
- 
- 	if (dsaf_dev->cpld_base &&
--	    mac_idx < DSAF_SERVICE_PORT_NUM_PER_DSAF)
-+	    mac_idx < DSAF_SERVICE_PORT_NUM_PER_DSAF) {
- 		mac_cb->cpld_vaddr = dsaf_dev->cpld_base +
- 			mac_cb->mac_id * CPLD_ADDR_PORT_OFFSET;
-+		cpld_led_reset(mac_cb);
-+	}
- 	mac_cb->sfp_prsnt = 0;
- 	mac_cb->txpkt_for_led = 0;
- 	mac_cb->rxpkt_for_led = 0;
--- 
-1.9.1
+Please use "bool" and true/false for boolean states.
