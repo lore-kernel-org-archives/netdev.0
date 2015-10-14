@@ -1,235 +1,69 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/16] i40e/i40evf: split device ids into a separate file
-Date: Tue, 13 Oct 2015 23:59:50 -0700
-Message-ID: <1444805996-3877-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/16] i40e: don't panic on VSI allocation failure
+Date: Tue, 13 Oct 2015 23:59:48 -0700
+Message-ID: <1444805996-3877-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27504 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:47517 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752556AbbJNHAC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 03:00:02 -0400
+	id S1752523AbbJNHAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 03:00:01 -0400
 In-Reply-To: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Due to desires to write userland drivers, and other requests, without
-needing the rest of the include files, the device ids are pulled out
-into a standalone file.
+In some circumstances, the firmware may fail to allocate a VSI for a VF.
+When this happens, the driver does not react well to the bad news and
+has a panic attack.
 
-Change-ID: Ic0b047dbf9d4b0891892309c1f2079f56d9b60e8
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+To fix this problem, check the return value from i40e_alloc_vf_res and
+don't try to configure the device further if it failed. Additionally,
+explicitly clear the INIT bit when we free VF resources, so that this
+bit will be in the proper state in the failure case, and won't blow up
+elsewhere.
+
+Change-ID: I6a20ce2b59c3458fd832032e88fa28cd42500189
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_devids.h   | 55 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_type.h     | 26 +-----------
- drivers/net/ethernet/intel/i40evf/i40e_devids.h | 55 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_type.h   | 26 +-----------
- 4 files changed, 112 insertions(+), 50 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_devids.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_devids.h
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_devids.h b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-new file mode 100644
-index 0000000..c601ca4
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-@@ -0,0 +1,55 @@
-+/*******************************************************************************
-+ *
-+ * Intel Ethernet Controller XL710 Family Linux Driver
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+#ifndef _I40E_DEVIDS_H_
-+#define _I40E_DEVIDS_H_
-+
-+/* Device IDs */
-+#define I40E_DEV_ID_SFP_XL710		0x1572
-+#define I40E_DEV_ID_QEMU		0x1574
-+#define I40E_DEV_ID_KX_A		0x157F
-+#define I40E_DEV_ID_KX_B		0x1580
-+#define I40E_DEV_ID_KX_C		0x1581
-+#define I40E_DEV_ID_QSFP_A		0x1583
-+#define I40E_DEV_ID_QSFP_B		0x1584
-+#define I40E_DEV_ID_QSFP_C		0x1585
-+#define I40E_DEV_ID_10G_BASE_T		0x1586
-+#define I40E_DEV_ID_20G_KR2		0x1587
-+#define I40E_DEV_ID_20G_KR2_A		0x1588
-+#define I40E_DEV_ID_10G_BASE_T4		0x1589
-+#define I40E_DEV_ID_VF			0x154C
-+#define I40E_DEV_ID_VF_HV		0x1571
-+#define I40E_DEV_ID_SFP_X722		0x37D0
-+#define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
-+#define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
-+#define I40E_DEV_ID_X722_VF		0x37CD
-+#define I40E_DEV_ID_X722_VF_HV		0x37D9
-+
-+#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
-+					 (d) == I40E_DEV_ID_QSFP_B  || \
-+					 (d) == I40E_DEV_ID_QSFP_C)
-+
-+#endif /* _I40E_DEVIDS_H_ */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 4ec3ffa..102d0c4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -33,31 +33,7 @@
- #include "i40e_adminq.h"
- #include "i40e_hmc.h"
- #include "i40e_lan_hmc.h"
--
--/* Device IDs */
--#define I40E_DEV_ID_SFP_XL710		0x1572
--#define I40E_DEV_ID_QEMU		0x1574
--#define I40E_DEV_ID_KX_A		0x157F
--#define I40E_DEV_ID_KX_B		0x1580
--#define I40E_DEV_ID_KX_C		0x1581
--#define I40E_DEV_ID_QSFP_A		0x1583
--#define I40E_DEV_ID_QSFP_B		0x1584
--#define I40E_DEV_ID_QSFP_C		0x1585
--#define I40E_DEV_ID_10G_BASE_T		0x1586
--#define I40E_DEV_ID_20G_KR2		0x1587
--#define I40E_DEV_ID_20G_KR2_A		0x1588
--#define I40E_DEV_ID_10G_BASE_T4		0x1589
--#define I40E_DEV_ID_VF			0x154C
--#define I40E_DEV_ID_VF_HV		0x1571
--#define I40E_DEV_ID_SFP_X722		0x37D0
--#define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
--#define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
--#define I40E_DEV_ID_X722_VF		0x37CD
--#define I40E_DEV_ID_X722_VF_HV		0x37D9
--
--#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
--					 (d) == I40E_DEV_ID_QSFP_B  || \
--					 (d) == I40E_DEV_ID_QSFP_C)
-+#include "i40e_devids.h"
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 2102280..ae7548a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -703,6 +703,7 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 	 */
+ 	vf->num_queue_pairs = 0;
+ 	vf->vf_states = 0;
++	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
+ }
  
- /* I40E_MASK is a macro used on 32 bit registers */
- #define I40E_MASK(mask, shift) (mask << shift)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_devids.h b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-new file mode 100644
-index 0000000..e6a39c9
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-@@ -0,0 +1,55 @@
-+/*******************************************************************************
-+ *
-+ * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+#ifndef _I40E_DEVIDS_H_
-+#define _I40E_DEVIDS_H_
-+
-+/* Device IDs */
-+#define I40E_DEV_ID_SFP_XL710		0x1572
-+#define I40E_DEV_ID_QEMU		0x1574
-+#define I40E_DEV_ID_KX_A		0x157F
-+#define I40E_DEV_ID_KX_B		0x1580
-+#define I40E_DEV_ID_KX_C		0x1581
-+#define I40E_DEV_ID_QSFP_A		0x1583
-+#define I40E_DEV_ID_QSFP_B		0x1584
-+#define I40E_DEV_ID_QSFP_C		0x1585
-+#define I40E_DEV_ID_10G_BASE_T		0x1586
-+#define I40E_DEV_ID_20G_KR2		0x1587
-+#define I40E_DEV_ID_20G_KR2_A		0x1588
-+#define I40E_DEV_ID_10G_BASE_T4		0x1589
-+#define I40E_DEV_ID_VF			0x154C
-+#define I40E_DEV_ID_VF_HV		0x1571
-+#define I40E_DEV_ID_SFP_X722		0x37D0
-+#define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
-+#define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
-+#define I40E_DEV_ID_X722_VF		0x37CD
-+#define I40E_DEV_ID_X722_VF_HV		0x37D9
-+
-+#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
-+					 (d) == I40E_DEV_ID_QSFP_B  || \
-+					 (d) == I40E_DEV_ID_QSFP_C)
-+
-+#endif /* _I40E_DEVIDS_H_ */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index b3c65dd..6dbace3 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -33,31 +33,7 @@
- #include "i40e_adminq.h"
- #include "i40e_hmc.h"
- #include "i40e_lan_hmc.h"
+ /**
+@@ -841,11 +842,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ complete_reset:
+ 	/* reallocate VF resources to reset the VSI state */
+ 	i40e_free_vf_res(vf);
+-	i40e_alloc_vf_res(vf);
+-	i40e_enable_vf_mappings(vf);
+-	set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
+-	clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
 -
--/* Device IDs */
--#define I40E_DEV_ID_SFP_XL710		0x1572
--#define I40E_DEV_ID_QEMU		0x1574
--#define I40E_DEV_ID_KX_A		0x157F
--#define I40E_DEV_ID_KX_B		0x1580
--#define I40E_DEV_ID_KX_C		0x1581
--#define I40E_DEV_ID_QSFP_A		0x1583
--#define I40E_DEV_ID_QSFP_B		0x1584
--#define I40E_DEV_ID_QSFP_C		0x1585
--#define I40E_DEV_ID_10G_BASE_T		0x1586
--#define I40E_DEV_ID_20G_KR2		0x1587
--#define I40E_DEV_ID_20G_KR2_A		0x1588
--#define I40E_DEV_ID_10G_BASE_T4		0x1589
--#define I40E_DEV_ID_VF			0x154C
--#define I40E_DEV_ID_VF_HV		0x1571
--#define I40E_DEV_ID_SFP_X722		0x37D0
--#define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
--#define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
--#define I40E_DEV_ID_X722_VF		0x37CD
--#define I40E_DEV_ID_X722_VF_HV		0x37D9
--
--#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
--					 (d) == I40E_DEV_ID_QSFP_B  || \
--					 (d) == I40E_DEV_ID_QSFP_C)
-+#include "i40e_devids.h"
- 
- /* I40E_MASK is a macro used on 32 bit registers */
- #define I40E_MASK(mask, shift) (mask << shift)
++	if (!i40e_alloc_vf_res(vf)) {
++		i40e_enable_vf_mappings(vf);
++		set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
++		clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
++	}
+ 	/* tell the VF the reset is done */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
+ 	i40e_flush(hw);
 -- 
 2.4.3
