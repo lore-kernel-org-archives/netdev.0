@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net v2 1/1] tipc: move fragment importance field to new header position
-Date: Wed, 14 Oct 2015 09:23:18 -0400
-Message-ID: <1444828998-2078-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: move fragment importance field to new header position
+Date: Wed, 14 Oct 2015 09:49:28 -0400
+Message-ID: <1444830568-5048-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	parthasarathy.xx.bhuvaragan@ericsson.com,
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:20974 "EHLO
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:34443 "EHLO
 	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753661AbbJNNXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 09:23:55 -0400
+	by vger.kernel.org with ESMTP id S1752817AbbJNNuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 09:50:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
