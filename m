@@ -1,117 +1,67 @@
-From: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-Subject: [PATCH net 2/2] net: mv643xx_eth: Defer writing the first TX descriptor when using TSO
-Date: Sun, 18 Oct 2015 16:02:44 +0200
-Message-ID: <1445176964-22760-3-git-send-email-philipp@familie-kirchhofer.de>
-References: <1445176964-22760-1-git-send-email-philipp@familie-kirchhofer.de>
-Cc: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org
+From: Andrew Shewmaker <agshew@gmail.com>
+Subject: Re: [PATCH net-next 2/7] tcp: track min RTT using windowed min-filter
+Date: Wed, 14 Oct 2015 02:28:00 -0700
+Message-ID: <20151014092800.GA3748@mininet-vm>
+References: <1445057867-32257-1-git-send-email-ycheng@google.com>
+ <1445057867-32257-3-git-send-email-ycheng@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.196.166.47.78.clients.your-server.de ([78.47.166.196]:42169
-	"EHLO vserver.familie-kirchhofer.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752427AbbJROIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 10:08:54 -0400
-In-Reply-To: <1445176964-22760-1-git-send-email-philipp@familie-kirchhofer.de>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:32907 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbbJROQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 10:16:50 -0400
+Received: by iodv82 with SMTP id v82so165115966iod.0
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 07:16:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1445057867-32257-3-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To prevent a race between the TX DMA engine and the CPU the writing of the
-first transmit descriptor must be deferred until all following descriptors
-have been updated. The network card may otherwise start transmitting before
-all packet descriptors are set up correctly, which leads to data corruption
-or an aborted transmit operation.
+On Fri, Oct 16, 2015 at 09:57:42PM -0700, Yuchung Cheng wrote:
+...
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 86a7eda..90edef5 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -217,6 +217,9 @@ struct tcp_sock {
+>  	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
+>  	u32	rttvar_us;	/* smoothed mdev_max			*/
+>  	u32	rtt_seq;	/* sequence number to update rttvar	*/
+> +	struct rtt_meas {
+> +		u32 rtt, ts;	/* RTT in usec and sampling time in jiffies. */
+> +	} rtt_min[3];
 
-This deferral is already done in the non-TSO TX path, implement it also in
-the TSO TX path.
+First, thanks for all the work in this patch series. In particular,
+applying Kern's check to ca_seq_rtt_us should fix some bad behavior
+I've observed recently.
 
-Signed-off-by: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+I only have a couple comments, so I abbreviated most of your patch.
+Should rtt_meas.rtt be rtt_meas.rtt_us in order to be more consistent
+with the naming of related variables?
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 68073bc..5124535 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -791,7 +791,8 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
- }
- 
- static inline void
--txq_put_hdr_tso(struct sk_buff *skb, struct tx_queue *txq, int length)
-+txq_put_hdr_tso(struct sk_buff *skb, struct tx_queue *txq, int length,
-+		u32 *first_cmd_sts, bool first_desc)
- {
- 	struct mv643xx_eth_private *mp = txq_to_mp(txq);
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-@@ -800,6 +801,7 @@ txq_put_hdr_tso(struct sk_buff *skb, struct tx_queue *txq, int length)
- 	int ret;
- 	u32 cmd_csum = 0;
- 	u16 l4i_chk = 0;
-+	u32 cmd_sts;
- 
- 	tx_index = txq->tx_curr_desc;
- 	desc = &txq->tx_desc_area[tx_index];
-@@ -815,9 +817,17 @@ txq_put_hdr_tso(struct sk_buff *skb, struct tx_queue *txq, int length)
- 	desc->byte_cnt = hdr_len;
- 	desc->buf_ptr = txq->tso_hdrs_dma +
- 			txq->tx_curr_desc * TSO_HEADER_SIZE;
--	desc->cmd_sts = cmd_csum | BUFFER_OWNED_BY_DMA  | TX_FIRST_DESC |
-+	cmd_sts = cmd_csum | BUFFER_OWNED_BY_DMA  | TX_FIRST_DESC |
- 				   GEN_CRC;
- 
-+	/* Defer updating the first command descriptor until all
-+	 * following descriptors have been written.
-+	 */
-+	if (first_desc)
-+		*first_cmd_sts = cmd_sts;
-+	else
-+		desc->cmd_sts = cmd_sts;
-+
- 	txq->tx_curr_desc++;
- 	if (txq->tx_curr_desc == txq->tx_ring_size)
- 		txq->tx_curr_desc = 0;
-@@ -831,6 +841,8 @@ static int txq_submit_tso(struct tx_queue *txq, struct sk_buff *skb,
- 	int desc_count = 0;
- 	struct tso_t tso;
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	struct tx_desc *first_tx_desc;
-+	u32 first_cmd_sts = 0;
- 
- 	/* Count needed descriptors */
- 	if ((txq->tx_desc_count + tso_count_descs(skb)) >= txq->tx_ring_size) {
-@@ -838,11 +850,14 @@ static int txq_submit_tso(struct tx_queue *txq, struct sk_buff *skb,
- 		return -EBUSY;
- 	}
- 
-+	first_tx_desc = &txq->tx_desc_area[txq->tx_curr_desc];
-+
- 	/* Initialize the TSO handler, and prepare the first payload */
- 	tso_start(skb, &tso);
- 
- 	total_len = skb->len - hdr_len;
- 	while (total_len > 0) {
-+		bool first_desc = (desc_count == 0);
- 		char *hdr;
- 
- 		data_left = min_t(int, skb_shinfo(skb)->gso_size, total_len);
-@@ -852,7 +867,8 @@ static int txq_submit_tso(struct tx_queue *txq, struct sk_buff *skb,
- 		/* prepare packet headers: MAC + IP + TCP */
- 		hdr = txq->tso_hdrs + txq->tx_curr_desc * TSO_HEADER_SIZE;
- 		tso_build_hdr(skb, hdr, &tso, data_left, total_len == 0);
--		txq_put_hdr_tso(skb, txq, data_left);
-+		txq_put_hdr_tso(skb, txq, data_left, &first_cmd_sts,
-+				first_desc);
- 
- 		while (data_left > 0) {
- 			int size;
-@@ -872,6 +888,10 @@ static int txq_submit_tso(struct tx_queue *txq, struct sk_buff *skb,
- 	__skb_queue_tail(&txq->tx_skb, skb);
- 	skb_tx_timestamp(skb);
- 
-+	/* ensure all other descriptors are written before first cmd_sts */
-+	wmb();
-+	first_tx_desc->cmd_sts = first_cmd_sts;
-+
- 	/* clear TX_END status */
- 	mp->work_tx_end &= ~(1 << txq->index);
- 
+...
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 38743e5..e177386 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+...
+> @@ -2961,7 +3028,7 @@ void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
+>  		rtt_us = skb_mstamp_us_delta(&now, &tcp_rsk(req)->snt_synack);
+>  	}
+>  
+> -	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L);
+> +	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L, rtt_us);
+>  }
+
+This didn't apply to net-next for me. I see seq_rtt_us instead of
+rtt_us and a check on the existence of tp->srtt_us. Maybe I've
+misapplied the patch? I'll try again and test the patch series
+against the bad behavior I mentioned above as soon as I can.
+Hopefully today.
+
+-Andrew Shewmaker
