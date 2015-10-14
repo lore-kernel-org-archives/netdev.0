@@ -1,82 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/16] i40e: Convert CEE App TLV selector to IEEE selector
-Date: Tue, 13 Oct 2015 23:59:46 -0700
-Message-ID: <1444805996-3877-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 16/16] fm10k: do not use enum as boolean
+Date: Tue, 13 Oct 2015 23:59:56 -0700
+Message-ID: <1444805996-3877-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Bowers <gregory.j.bowers@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41965 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:27504 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752519AbbJNHAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 03:00:00 -0400
+	id S1752654AbbJNHAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 03:00:06 -0400
 In-Reply-To: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Bowers <gregory.j.bowers@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Changes the parsing of CEE App TLVs to fill in the App selector in struct
-i40e_dcbx_config with the IEEE App selector so the caller doesn't have to
-consider whether the App came from a CEE or IEEE DCBX negotiation.
+Check for actual value NETREG_UNINITIALIZED in case it ever changes from
+the current value of zero.
 
-Change-ID: Ia7d9d664cde04d2ebcc9822fd22e4929c6edab3a
-Signed-off-by: Greg Bowers <gregory.j.bowers@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_dcb.c  | 16 ++++++++++++----
- drivers/net/ethernet/intel/i40e/i40e_type.h |  2 ++
- 2 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-index 251a841..2691277 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-@@ -380,7 +380,7 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
- {
- 	u16 length, typelength, offset = 0;
- 	struct i40e_cee_app_prio *app;
--	u8 i, up;
-+	u8 i, up, selector;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 2f47bfe..537d81a 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1905,7 +1905,7 @@ static void fm10k_init_reta(struct fm10k_intfc *interface)
+ 	u32 reta, base;
  
- 	typelength = ntohs(tlv->hdr.typelen);
- 	length = (u16)((typelength & I40E_LLDP_TLV_LEN_MASK) >>
-@@ -397,9 +397,17 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
- 				break;
- 		}
- 		dcbcfg->app[i].priority = up;
--		/* Get Selector from lower 2 bits */
--		dcbcfg->app[i].selector = (app->upper_oui_sel &
--					   I40E_CEE_APP_SELECTOR_MASK);
-+
-+		/* Get Selector from lower 2 bits, and convert to IEEE */
-+		selector = (app->upper_oui_sel & I40E_CEE_APP_SELECTOR_MASK);
-+		if (selector == I40E_CEE_APP_SEL_ETHTYPE)
-+			dcbcfg->app[i].selector = I40E_APP_SEL_ETHTYPE;
-+		else if (selector == I40E_CEE_APP_SEL_TCPIP)
-+			dcbcfg->app[i].selector = I40E_APP_SEL_TCPIP;
-+		else
-+			/* Keep selector as it is for unknown types */
-+			dcbcfg->app[i].selector = selector;
-+
- 		dcbcfg->app[i].protocolid = ntohs(app->protocol);
- 		/* Move to next app */
- 		offset += sizeof(*app);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index c8f7a52..4ec3ffa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -418,6 +418,8 @@ struct i40e_fc_info {
- #define I40E_APP_PROTOID_FIP		0x8914
- #define I40E_APP_SEL_ETHTYPE		0x1
- #define I40E_APP_SEL_TCPIP		0x2
-+#define I40E_CEE_APP_SEL_ETHTYPE	0x0
-+#define I40E_CEE_APP_SEL_TCPIP		0x1
- 
- /* CEE or IEEE 802.1Qaz ETS Configuration data */
- struct i40e_dcb_ets_config {
+ 	/* If the netdev is initialized we have to maintain table if possible */
+-	if (interface->netdev->reg_state) {
++	if (interface->netdev->reg_state != NETREG_UNINITIALIZED) {
+ 		for (i = FM10K_RETA_SIZE; i--;) {
+ 			reta = interface->reta[i];
+ 			if ((((reta << 24) >> 24) < rss_i) &&
 -- 
 2.4.3
