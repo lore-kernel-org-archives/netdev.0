@@ -1,63 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v5] net: ipv6: Make address flushing on ifdown
- optional
-Date: Wed, 14 Oct 2015 14:14:05 +0200
-Message-ID: <1444824845.2190190.409937049.5F844219@webmail.messagingengine.com>
-References: <1444815241.2154853.409816321.48710CD1@webmail.messagingengine.com>
- <561E29A3.9080101@6wind.com>
- <1444820621.2175377.409880265.37A31E2D@webmail.messagingengine.com>
- <20151014.051814.801287755321309990.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next 3/4] sch_htb: update backlog as well
+Date: Wed, 14 Oct 2015 08:25:01 -0400
+Message-ID: <561E499D.7060402@mojatatu.com>
+References: <1444675083-9825-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1444675083-9825-4-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, dsa@cumulusnetworks.com,
-	netdev@vger.kernel.org, hannes@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:52502 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751478AbbJNMOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 08:14:06 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 62A5B200AA
-	for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 08:14:05 -0400 (EDT)
-In-Reply-To: <20151014.051814.801287755321309990.davem@davemloft.net>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33329 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752222AbbJNMZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 08:25:04 -0400
+Received: by iodv82 with SMTP id v82so52948558iod.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 05:25:03 -0700 (PDT)
+In-Reply-To: <1444675083-9825-4-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/12/15 14:38, Cong Wang wrote:
+> It is odd to see qlen!=0 but backlog==0, for a real example:
+>
 
+Backlog is a transient stat so a lot of times it should be 0. Only when
+the CPU is sending faster than the link can handle should you see
+the backlog grow (and eventually drain to 0).
 
-On Wed, Oct 14, 2015, at 14:18, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 14 Oct 2015 13:03:41 +0200
-> > The difference is that people upgrade (in case of fedora they get a
-> > .rpmnew file) or install a distribution and don't wonder or have
-> > assumptions about old behavior. In case companies integrate kernel in
-> > products/appliances without a way to manage those sysctls we cannot
-> > simply change them as this would break assumptions for them. I think
-> > those are two different cases.
-> 
-> The thing that is similar is that people set rp_filter inappropriately
-> (no end host should have that knob enabled, ever, it's totally
-> unnecesary).  And the risk here is similar, distribution X will set it
-> so Y will say "we probably should set it too even though we really
-> don't understand it fully".
-> 
-> I really hate situations like this.
+Even though your explanation above is inaccurate I think the spirit
+of the patch looks reasonable. i.e keeping track of all additions to
+the queue and removals from the queue in the backlog stats is useful.
+However, you need to be extremely careful: This should only be done
+at exactly the spot the packet is enqueued (and not by a parent's
+enqueue asking for hierarchical enques).
 
-I can bring up the rp_filter setting, too. It currently gets
-unconditional set to strict mode in systemd on all interfaces.
+I think some more work is needed Cong for this general patchset.
 
-The question is, if we should care about people enabling forwarding by
-simply toggling the sysctl forwarding knob? Essentially in the kernel we
-could provide two sysctl knobs, one for forwarding and one for local
-reception. So people following the guidelines how to enable forwarding
-could automatically have rp_filter enabled while host mode does not
-because we leave  the forwarding rp_filter setting enabled. This at the
-same time seems unnecessary complex and maybe we should simply talk to
-distributions. ;)
+cheers,
+jamal
 
-What do you think?
-
-Bye,
-Hannes
+> qdisc htb 1: dev eth0 root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17
+>   Sent 172680457356 bytes 222469449 pkt (dropped 0, overlimits 123575834 requeues 0)
+>   backlog 0b 72p requeues 0
+>
+> So we need to update backlog too when we update qlen.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
