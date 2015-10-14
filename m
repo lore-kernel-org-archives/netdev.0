@@ -1,44 +1,31 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Wed, 14 Oct 2015 16:22:03 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1510141620320.3785@nanos>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <20151013045832.GA2437@netboy> <alpine.DEB.2.11.1510130944520.6097@nanos> <20151013083113.GA1931@localhost.localdomain>
- <alpine.DEB.2.11.1510132113470.25029@nanos> <20151013211224.GA19242@netboy> <alpine.DEB.2.11.1510140920200.25029@nanos> <20151014092923.GA23870@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net:hisilicon: supports promisc mode
+Date: Wed, 14 Oct 2015 06:53:25 -0700 (PDT)
+Message-ID: <20151014.065325.325271632360341835.davem@davemloft.net>
+References: <1444701225-52153-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: liguozhu@huawei.com, yisen.zhuang@huawei.com,
+	huangdaode@hisilicon.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: yankejian@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151014092923.GA23870@localhost.localdomain>
+In-Reply-To: <1444701225-52153-1-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: yankejian <yankejian@huawei.com>
+Date: Tue, 13 Oct 2015 09:53:45 +0800
 
-
-On Wed, 14 Oct 2015, Richard Cochran wrote:
-
-> On Wed, Oct 14, 2015 at 09:21:42AM +0200, Thomas Gleixner wrote:
-> > The firmware gives you an ART/audio timestamp pair. The firmware does
-> > neither know about system time nor about PTP time.
-> > 
-> > So we have to do correlation in software.
+>   this patch adds support to set promisc mode. it configs the queue on
+> init seq  when it is on promisc mode.and being enabled or disabled promisc
+> mode by upper level user.
 > 
-> Ok, so give me the ART/audio and two recent ART/ptp times* spaced one
-> second apart, then I'll tell you audio/ptp with error well under 1 PPM.
-> No need to change the firmware.
-> 
-> Who cares about the system time?  If the DSP isn't using it, then just
-> leave it out of the equation.
+> Signed-off-by: yankejian <yankejian@huawei.com>
+> Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 
-It's not only the DSP. There is a bunch of usre space software
-involved as well. Care to think about the full picture and not just
-about some randomly chosen single problem out of the full problem
-space.
+Applied.
 
-Thanks,
-
-	tglx
+Please, in the future, put a space character after every ":" in your
+Subject line.
