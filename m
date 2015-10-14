@@ -1,68 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: avoid spurious SYN flood detection at
- listen() time
-Date: Wed, 14 Oct 2015 06:16:49 -0700
-Message-ID: <1444828609.4166.31.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net v2 1/1] tipc: move fragment importance field to new header position
+Date: Wed, 14 Oct 2015 09:23:18 -0400
+Message-ID: <1444828998-2078-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:32860 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753645AbbJNNQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 09:16:51 -0400
-Received: by pabrc13 with SMTP id rc13so54589406pab.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 06:16:50 -0700 (PDT)
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:20974 "EHLO
+	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753661AbbJNNXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 09:23:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+In commit e3eea1eb47a ("tipc: clean up handling of message priorities")
+we introduced a field in the packet header for keeping track of the
+priority of fragments, since this value is not present in the specified
+protocol header. Since the value so far only is used at the transmitting
+end of the link, we have not yet officially defined it as part of the
+protocol.
 
-At listen() time, there is a small window where listener is visible with
-a zero backlog, triggering a spurious "Possible SYN flooding on port"
-message.
+Unfortunately, the field we use for keeping this value, bits 13-15 in
+in word 5, has turned out to be a poor choice; it is already used by the
+broadcast protocol for carrying the 'network id' field of the sending
+node. Since packet fragments also need to be transported across the
+broadcast protocol, the risk of conflict is obvious, and we see this
+happen when we use network identities larger than 2^13-1. This has
+escaped our testing because we have so far only been using small network
+id values.
 
-Nothing prevents us from setting the correct backlog.
+We now move this field to bits 0-2 in word 9, a field that is guaranteed
+to be unused by all involved protocols.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: e3eea1eb47a ("tipc: clean up handling of message priorities")
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/net/inet_connection_sock.h |    2 +-
- net/ipv4/inet_connection_sock.c    |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/tipc/msg.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 3208a65d1c280aaa893e0084108c21f62912e79b..fd645c49e71ef3e39d6452f054857b1b32176c9d 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -312,7 +312,7 @@ static inline unsigned int inet_csk_listen_poll(const struct sock *sk)
- 			(POLLIN | POLLRDNORM) : 0;
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index a82c584..5351a3f 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -357,7 +357,7 @@ static inline u32 msg_importance(struct tipc_msg *m)
+ 	if (likely((usr <= TIPC_CRITICAL_IMPORTANCE) && !msg_errcode(m)))
+ 		return usr;
+ 	if ((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER))
+-		return msg_bits(m, 5, 13, 0x7);
++		return msg_bits(m, 9, 0, 0x7);
+ 	return TIPC_SYSTEM_IMPORTANCE;
  }
  
--int inet_csk_listen_start(struct sock *sk, const int nr_table_entries);
-+int inet_csk_listen_start(struct sock *sk, int backlog);
- void inet_csk_listen_stop(struct sock *sk);
+@@ -366,7 +366,7 @@ static inline void msg_set_importance(struct tipc_msg *m, u32 i)
+ 	int usr = msg_user(m);
  
- void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 514b9e910bd4ea245995346fe8188edd6f24b46f..ba9ec9a0d0ce5fad74a811ab82d4408594474893 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -727,14 +727,14 @@ void inet_csk_prepare_forced_close(struct sock *sk)
- }
- EXPORT_SYMBOL(inet_csk_prepare_forced_close);
- 
--int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
-+int inet_csk_listen_start(struct sock *sk, int backlog)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct inet_sock *inet = inet_sk(sk);
- 
- 	reqsk_queue_alloc(&icsk->icsk_accept_queue);
- 
--	sk->sk_max_ack_backlog = 0;
-+	sk->sk_max_ack_backlog = backlog;
- 	sk->sk_ack_backlog = 0;
- 	inet_csk_delack_init(sk);
- 
+ 	if (likely((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER)))
+-		msg_set_bits(m, 5, 13, 0x7, i);
++		msg_set_bits(m, 9, 0, 0x7, i);
+ 	else if (i < TIPC_SYSTEM_IMPORTANCE)
+ 		msg_set_user(m, i);
+ 	else
+-- 
+1.9.1
