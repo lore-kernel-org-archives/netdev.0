@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 1/8] switchdev: introduce switchdev deferred ops infrastructure
-Date: Wed, 14 Oct 2015 19:40:48 +0200
-Message-ID: <1444844455-12508-2-git-send-email-jiri@resnulli.us>
-References: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 0/8] switchdev: change locking
+Date: Wed, 14 Oct 2015 19:40:47 +0200
+Message-ID: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
 	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
@@ -10,148 +9,68 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:38896 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753784AbbJNRk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:40:59 -0400
-Received: by wieq12 with SMTP id q12so94318933wie.1
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:40:58 -0700 (PDT)
-In-Reply-To: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35155 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753680AbbJNRk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:40:58 -0400
+Received: by wicll6 with SMTP id ll6so7865493wic.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:40:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce infrastructure which will be used internally to defer ops.
-Note that the deferred ops are queued up and either are processed by
-scheduled work or explicitly by user calling deferred_process function.
+This is something which I'm currently struggling with.
+Callers of attr_set and obj_add/del often hold not only RTNL, but also
+spinlock (bridge). So in that case, the driver implementing the op cannot sleep.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/switchdev.h   |  5 +++
- net/switchdev/switchdev.c | 80 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+The way rocker is dealing with this now is just to invoke driver operation
+and go out, without any checking or reporting of the operation status.
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 1ce7083..31b9038 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -167,6 +167,7 @@ switchdev_notifier_info_to_dev(const struct switchdev_notifier_info *info)
- 
- #ifdef CONFIG_NET_SWITCHDEV
- 
-+void switchdev_deferred_process(void);
- int switchdev_port_attr_get(struct net_device *dev,
- 			    struct switchdev_attr *attr);
- int switchdev_port_attr_set(struct net_device *dev,
-@@ -208,6 +209,10 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
- 
- #else
- 
-+static inline void switchdev_deferred_process(void)
-+{
-+}
-+
- static inline int switchdev_port_attr_get(struct net_device *dev,
- 					  struct switchdev_attr *attr)
- {
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index b8aaf820..5e64b59 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -17,6 +17,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_bridge.h>
- #include <linux/list.h>
-+#include <linux/workqueue.h>
- #include <net/ip_fib.h>
- #include <net/switchdev.h>
- 
-@@ -92,6 +93,85 @@ static void switchdev_trans_items_warn_destroy(struct net_device *dev,
- 	switchdev_trans_items_destroy(trans);
- }
- 
-+static LIST_HEAD(deferred);
-+static DEFINE_SPINLOCK(deferred_lock);
-+
-+typedef void switchdev_deferred_func_t(struct net_device *dev,
-+				       const void *data);
-+
-+struct switchdev_deferred_item {
-+	struct list_head list;
-+	struct net_device *dev;
-+	switchdev_deferred_func_t *func;
-+	unsigned long data[0];
-+};
-+
-+static struct switchdev_deferred_item *switchdev_deferred_dequeue(void)
-+{
-+	struct switchdev_deferred_item *dfitem;
-+
-+	spin_lock_bh(&deferred_lock);
-+	if (list_empty(&deferred)) {
-+		dfitem = NULL;
-+		goto unlock;
-+	}
-+	dfitem = list_first_entry(&deferred,
-+				  struct switchdev_deferred_item, list);
-+	list_del(&dfitem->list);
-+unlock:
-+	spin_unlock_bh(&deferred_lock);
-+	return dfitem;
-+}
-+
-+/**
-+ *	switchdev_deferred_process - Process ops in deferred queue
-+ *
-+ *	Called to flush the ops currently queued in deferred ops queue.
-+ *	rtnl_lock must be held.
-+ */
-+void switchdev_deferred_process(void)
-+{
-+	struct switchdev_deferred_item *dfitem;
-+
-+	ASSERT_RTNL();
-+
-+	while ((dfitem = switchdev_deferred_dequeue())) {
-+		dfitem->func(dfitem->dev, dfitem->data);
-+		dev_put(dfitem->dev);
-+		kfree(dfitem);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(switchdev_deferred_process);
-+
-+static void switchdev_deferred_process_work(struct work_struct *work)
-+{
-+	rtnl_lock();
-+	switchdev_deferred_process();
-+	rtnl_unlock();
-+}
-+
-+static DECLARE_WORK(deferred_process_work, switchdev_deferred_process_work);
-+
-+static int switchdev_deferred_enqueue(struct net_device *dev,
-+				      const void *data, size_t data_len,
-+				      switchdev_deferred_func_t *func)
-+{
-+	struct switchdev_deferred_item *dfitem;
-+
-+	dfitem = kmalloc(sizeof(*dfitem) + data_len, GFP_ATOMIC);
-+	if (!dfitem)
-+		return -ENOMEM;
-+	dfitem->dev = dev;
-+	dfitem->func = func;
-+	memcpy(dfitem->data, data, data_len);
-+	dev_hold(dev);
-+	spin_lock_bh(&deferred_lock);
-+	list_add_tail(&dfitem->list, &deferred);
-+	spin_unlock_bh(&deferred_lock);
-+	schedule_work(&deferred_process_work);
-+	return 0;
-+}
-+
- /**
-  *	switchdev_port_attr_get - Get port attribute
-  *
+Since it would be nice to at least put a warning in case the operation fails,
+it makes sense to do this in delayed work directly in switchdev core
+instead of implementing this in separate drivers. And that is what this patchset
+is introducing.
+
+So from now on, the locking of switchdev mod ops is consistent. Caller either
+holds rtnl mutex or in case it does not, caller sets defer flag, telling
+switchdev core to process the op later, in deferred queue.
+
+Function to force to process switchdev deferred ops can be called by op
+caller in appropriate location, for example after it releases
+spin lock, to force switchdev core to process pending ops.
+
+v1->v2:
+- rebased on current net-next head (including Scott's ageing patchset)
+v2->v3:
+- fixed comment s/of/or/ typo suggested by Nik
+v3->v4:
+- the actual patchset is sent instead of different branch I send in v3 :/
+v4->v5:
+- added patch to "const" attr param
+- reworked deferred ops infrastructure (mainly patch number 1 and
+  internal users (patch 3 and 5)) - resolves the issue pointed out
+  by John
+
+Jiri Pirko (8):
+  switchdev: introduce switchdev deferred ops infrastructure
+  switchdev: make struct switchdev_attr parameter const for attr_set
+    calls
+  switchdev: allow caller to explicitly request attr_set as deferred
+  switchdev: remove pointers from switchdev objects
+  switchdev: introduce possibility to defer obj_add/del
+  bridge: defer switchdev fdb del call in fdb_del_external_learn
+  rocker: remove nowait from switchdev callbacks.
+  switchdev: assert rtnl mutex when going over lower netdevs
+
+ drivers/net/ethernet/rocker/rocker.c |  15 +-
+ include/net/switchdev.h              |  20 ++-
+ net/bridge/br_fdb.c                  |   7 +-
+ net/bridge/br_if.c                   |   3 +
+ net/bridge/br_stp.c                  |   3 +-
+ net/dsa/slave.c                      |   4 +-
+ net/switchdev/switchdev.c            | 315 ++++++++++++++++++++++++-----------
+ 7 files changed, 254 insertions(+), 113 deletions(-)
+
 -- 
 1.9.3
