@@ -1,32 +1,49 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [RFC PATCH 2/2] bpf: Implement
- bpf_perf_event_sample_enable/disable() helpers
-Date: Tue, 13 Oct 2015 22:14:39 -0700
-Message-ID: <561DE4BF.6090306@plumgrid.com>
-References: <1444640563-159175-1-git-send-email-xiakaixu@huawei.com>
- <1444640563-159175-3-git-send-email-xiakaixu@huawei.com>
- <561C0A1E.2080500@plumgrid.com> <561C7A1F.6040702@huawei.com>
- <561C7CDA.8050004@plumgrid.com> <561C7FBE.4000104@huawei.com>
- <561C85BB.3000505@plumgrid.com> <561C89EC.8030303@huawei.com>
- <561C9361.6090104@plumgrid.com> <561CE2DB.2030409@huawei.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: simplify configfs attributes V2
+Date: Tue, 13 Oct 2015 22:23:13 -0700
+Message-ID: <1444800193.18065.12.camel@haakon3.risingtidesystems.com>
+References: <1443879179-22280-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, pi3orama@163.com,
+Cc: Joel Becker <jlbec@evilplan.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Felipe Balbi <balbi@ti.com>,
+	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Pratyush Anand <pratyush.anand@gmail.com>,
+	Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
+	target-devel@vger.kernel.org, cluster-devel@redhat.com,
+	ocfs2-devel@oss.oracle.com, linux-usb@vger.kernel.org,
 	netdev@vger.kernel.org
-To: He Kuang <hekuang@huawei.com>, "Wangnan (F)" <wangnan0@huawei.com>,
-	Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
-	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
-	daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <561CE2DB.2030409@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <1443879179-22280-1-git-send-email-hch@lst.de>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/13/15 3:54 AM, He Kuang wrote:
-> If we want perf to reflect as soon as our sample event be generated,
-> --no-buffering should be used, but this option has a greater
-> impact on performance.
+Hi Christoph & Co,
 
-no_buffering doesn't have to be applied to all events obviously.
+On Sat, 2015-10-03 at 15:32 +0200, Christoph Hellwig wrote:
+> This series consolidates the code to implement configfs attributes
+> by providing the ->show and ->store method in common code and using
+> container_of in the methods to access the containing structure.
+> 
+> This reduces source and binary size of configfs consumers a lot.
+> 
+> Changes since V1:
+>  - a couple fixes for unintended changes in the uvc driver
+>  - moved a few CONFIG_ATTR() statements around
+>  - fixed up the documentation and samples in the last patch
+>  - added a little rather pointless blurb to the patch description for
+>    various patches
+> 
+
+Apologies for the delayed follow-up on -v2.
+
+Applied to target-pending/for-next, with Felipe's ACK for usb, and
+Pratyush's ACK for spear13xx.
+
+Thank you,
+
+--nab
