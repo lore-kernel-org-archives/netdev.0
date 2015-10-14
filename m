@@ -1,69 +1,39 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: move fragment importance field to new header position
-Date: Wed, 14 Oct 2015 09:49:28 -0400
-Message-ID: <1444830568-5048-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.xx.bhuvaragan@ericsson.com,
-	richard.alpe@ericsson.com, ying.xue@windriver.com,
-	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:34443 "EHLO
-	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752817AbbJNNuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 09:50:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kbuild test robot <lkp@intel.com>
+Subject: [RFC PATCH] bpf: bpf_perf_event_sample_control_proto can be static
+Date: Wed, 14 Oct 2015 21:49:39 +0800
+Message-ID: <20151014134939.GA4332@lkp-hsx03>
+References: <201510142113.R6QU6uqp%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, ast@plumgrid.com, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
+	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
+	daniel@iogearbox.net, xiakaixu@huawei.com, wangnan0@huawei.com,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1444826277-94060-2-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit e3eea1eb47a ("tipc: clean up handling of message priorities")
-we introduced a field in the packet header for keeping track of the
-priority of fragments, since this value is not present in the specified
-protocol header. Since the value so far only is used at the transmitting
-end of the link, we have not yet officially defined it as part of the
-protocol.
 
-Unfortunately, the field we use for keeping this value, bits 13-15 in
-in word 5, has turned out to be a poor choice; it is already used by the
-broadcast protocol for carrying the 'network id' field of the sending
-node. Since packet fragments also need to be transported across the
-broadcast protocol, the risk of conflict is obvious, and we see this
-happen when we use network identities larger than 2^13-1. This has
-escaped our testing because we have so far only been using small network
-id values.
-
-We now move this field to bits 0-2 in word 9, a field that is guaranteed
-to be unused by all involved protocols.
-
-Fixes: e3eea1eb47a ("tipc: clean up handling of message priorities")
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
 ---
- net/tipc/msg.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ bpf_trace.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index a82c584..5351a3f 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -357,7 +357,7 @@ static inline u32 msg_importance(struct tipc_msg *m)
- 	if (likely((usr <= TIPC_CRITICAL_IMPORTANCE) && !msg_errcode(m)))
- 		return usr;
- 	if ((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER))
--		return msg_bits(m, 5, 13, 0x7);
-+		return msg_bits(m, 9, 0, 0x7);
- 	return TIPC_SYSTEM_IMPORTANCE;
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index f261333..ade24a1 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -236,7 +236,7 @@ static u64 bpf_perf_event_sample_control(u64 r1, u64 index, u64 flag, u64 r4, u6
+ 	return 0;
  }
  
-@@ -366,7 +366,7 @@ static inline void msg_set_importance(struct tipc_msg *m, u32 i)
- 	int usr = msg_user(m);
- 
- 	if (likely((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER)))
--		msg_set_bits(m, 5, 13, 0x7, i);
-+		msg_set_bits(m, 9, 0, 0x7, i);
- 	else if (i < TIPC_SYSTEM_IMPORTANCE)
- 		msg_set_user(m, i);
- 	else
--- 
-1.9.1
+-const struct bpf_func_proto bpf_perf_event_sample_control_proto = {
++static const struct bpf_func_proto bpf_perf_event_sample_control_proto = {
+ 	.func		= bpf_perf_event_sample_control,
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
