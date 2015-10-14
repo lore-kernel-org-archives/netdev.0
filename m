@@ -1,80 +1,70 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net 1/3] openvswitch: Reject ct_state masks for unknown bits
-Date: Wed, 14 Oct 2015 11:10:46 -0700
-Message-ID: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
+Subject: [PATCH net] openvswitch: Scrub skb between namespaces
+Date: Wed, 14 Oct 2015 11:10:47 -0700
+Message-ID: <1444846249-52053-2-git-send-email-joestringer@nicira.com>
+References: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
+Cc: tgraf@suug.ch, hannes@redhat.com, jesse@nicira.com
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34731 "EHLO
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36810 "EHLO
 	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbbJNSK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:10:56 -0400
-Received: by payp3 with SMTP id p3so12940583pay.1
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:10:56 -0700 (PDT)
+	with ESMTP id S1751126AbbJNSK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:10:58 -0400
+Received: by pabur7 with SMTP id ur7so11884054pab.3
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:10:58 -0700 (PDT)
+In-Reply-To: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, 0-bits are generated in ct_state where the bit position is
-undefined, and matches are accepted on these bit-positions. If userspace
-requests to match the 0-value for this bit then it may expect only a
-subset of traffic to match this value, whereas currently all packets
-will have this bit set to 0. Fix this by rejecting such masks.
+If OVS receives a packet from another namespace, then the packet should
+be scrubbed. However, people have already begun to rely on the behaviour
+that skb->mark is preserved across namespaces, so retain this one field.
+
+This is mainly to address information leakage between namespaces when
+using OVS internal ports, but by placing it in ovs_vport_receive() it is
+more generally applicable, meaning it should not be overlooked if other
+port types are allowed to be moved into namespaces in future.
 
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 ---
- net/openvswitch/conntrack.h    | 11 +++++------
- net/openvswitch/flow_netlink.c |  5 ++++-
- 2 files changed, 9 insertions(+), 7 deletions(-)
+I originally proposed this patch as part of the conntrack changes to OVS,
+and there was some discussion on that thread, culminating here:
+http://www.spinics.net/lists/netdev/msg338626.html
 
-diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
-index da8714942c95..2d42b3640117 100644
---- a/net/openvswitch/conntrack.h
-+++ b/net/openvswitch/conntrack.h
-@@ -35,12 +35,9 @@ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
- int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
- void ovs_ct_free_action(const struct nlattr *a);
+We also discussed this a bit in Seattle, however I didn't follow up
+immediately so I don't exactly recall what the consensus was. Following
+Jesse's direction in the above thread, I'm proposing that we preserve the
+mark, but scrub the rest. Also fixed the use-after-free bug present in the
+previous version.
+
+I think this is relevant for 'net', because this is the first time that
+the metadata_dst and nfct are exposed (albeit indirectly) through OVS so it
+would be nice to get agreement on the expected behaviour.
+---
+ net/openvswitch/vport.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index fc5c0b9ccfe9..70f19ea99b92 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -440,10 +440,17 @@ int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+ 		      const struct ip_tunnel_info *tun_info)
+ {
+ 	struct sw_flow_key key;
++	u32 mark = skb->mark;
+ 	int error;
  
--static inline bool ovs_ct_state_supported(u32 state)
--{
--	return !(state & ~(OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED |
--			 OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR |
--			 OVS_CS_F_INVALID | OVS_CS_F_TRACKED));
--}
-+#define CT_SUPPORTED_MASK (OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED | \
-+			   OVS_CS_F_RELATED | OVS_CS_F_REPLY_DIR | \
-+			   OVS_CS_F_INVALID | OVS_CS_F_TRACKED)
- #else
- #include <linux/errno.h>
- 
-@@ -94,5 +91,7 @@ static inline int ovs_ct_put_key(const struct sw_flow_key *key,
- }
- 
- static inline void ovs_ct_free_action(const struct nlattr *a) { }
+ 	OVS_CB(skb)->input_vport = vport;
+ 	OVS_CB(skb)->mru = 0;
++	if (dev_net(skb->dev) != ovs_dp_get_net(vport->dp)) {
++		skb_scrub_packet(skb, true);
++		tun_info = NULL;
++	}
++	skb->mark = mark;
 +
-+#define CT_SUPPORTED_MASK 0
- #endif /* CONFIG_NF_CONNTRACK */
- #endif /* ovs_conntrack.h */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 171a691f1c32..bd710bc37469 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -816,7 +816,7 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 	    ovs_ct_verify(net, OVS_KEY_ATTR_CT_STATE)) {
- 		u32 ct_state = nla_get_u32(a[OVS_KEY_ATTR_CT_STATE]);
- 
--		if (!is_mask && !ovs_ct_state_supported(ct_state)) {
-+		if (ct_state & ~CT_SUPPORTED_MASK) {
- 			OVS_NLERR(log, "ct_state flags %08x unsupported",
- 				  ct_state);
- 			return -EINVAL;
-@@ -1099,6 +1099,9 @@ static void nlattr_set(struct nlattr *attr, u8 val,
- 		} else {
- 			memset(nla_data(nla), val, nla_len(nla));
- 		}
-+
-+		if (nla_type(nla) == OVS_KEY_ATTR_CT_STATE)
-+			*(u32 *)nla_data(nla) &= CT_SUPPORTED_MASK;
- 	}
- }
- 
+ 	/* Extract flow from 'skb' into 'key'. */
+ 	error = ovs_flow_key_extract(tun_info, skb, &key);
+ 	if (unlikely(error)) {
 -- 
 2.1.4
