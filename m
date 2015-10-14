@@ -1,75 +1,62 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH nf-next 6/6] netfilter-ipv4: whitespace around operators
-Date: Wed, 14 Oct 2015 23:17:08 +0100
-Message-ID: <1444861028-21556-7-git-send-email-ipm@chirality.org.uk>
-References: <1444861028-21556-1-git-send-email-ipm@chirality.org.uk>
-Cc: Ian Morris <ipm@chirality.org.uk>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1444861028-21556-1-git-send-email-ipm@chirality.org.uk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: NULL pointer dereference in rt6_get_cookie()
+Date: Thu, 15 Oct 2015 00:34:13 +0200
+Message-ID: <20151014223314.C029E20077@mail.nwl.cc>
+References: <20151010132437.GB25926@orbit.nwl.cc>
+ <20151013181443.GB68583@kafai-mba.local>
+ <20151013191039.GA3070@base.sg13b.nwl.cc>
+ <20151013192543.06B5021398@mail.nwl.cc>
+ <20151014061421.GD68583@kafai-mba.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:46946 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752677AbbJNWdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 18:33:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20151014061421.GD68583@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch cleanses whitespace around arithmetical operators.
+Hi Martin,
 
-No changes detected by objdiff.
+On Tue, Oct 13, 2015 at 11:14:21PM -0700, Martin KaFai Lau wrote:
+> On Tue, Oct 13, 2015 at 09:26:41PM +0200, Phil Sutter wrote:
+> > I have backed up the rt pointer at top of the function and restored it
+> > before pr_err, this is the output:
+> >
+> > | rt6i_dst:2001:4dd0:ff3b:13::/64 rt6i_gateway::: rt6i_flags:40000001 dst.flags:00000000
+> Hi Phil, Can you try the following patch and report the pr_err?
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
----
- net/ipv4/netfilter/ipt_CLUSTERIP.c     | 8 ++++----
- net/ipv4/netfilter/ipt_ah.c            | 2 +-
- net/ipv4/netfilter/nf_nat_snmp_basic.c | 2 +-
- 3 files changed, 6 insertions(+), 6 deletions(-)
+Probably needless to say, but with your patch applied the Oops does not
+occur anymore. This is the log output:
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 3f32c03..4a9e6db 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -492,14 +492,14 @@ static void arp_print(struct arp_payload *payload)
- {
- #define HBUFFERLEN 30
- 	char hbuffer[HBUFFERLEN];
--	int j,k;
-+	int j, k;
- 
--	for (k=0, j=0; k < HBUFFERLEN-3 && j < ETH_ALEN; j++) {
-+	for (k = 0, j = 0; k < HBUFFERLEN - 3 && j < ETH_ALEN; j++) {
- 		hbuffer[k++] = hex_asc_hi(payload->src_hw[j]);
- 		hbuffer[k++] = hex_asc_lo(payload->src_hw[j]);
--		hbuffer[k++]=':';
-+		hbuffer[k++] = ':';
- 	}
--	hbuffer[--k]='\0';
-+	hbuffer[--k] = '\0';
- 
- 	pr_debug("src %pI4@%s, dst %pI4\n",
- 		 &payload->src_ip, hbuffer, &payload->dst_ip);
-diff --git a/net/ipv4/netfilter/ipt_ah.c b/net/ipv4/netfilter/ipt_ah.c
-index 14a2aa8..a787d07 100644
---- a/net/ipv4/netfilter/ipt_ah.c
-+++ b/net/ipv4/netfilter/ipt_ah.c
-@@ -25,7 +25,7 @@ spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
- 	bool r;
- 	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
- 		 invert ? '!' : ' ', min, spi, max);
--	r=(spi >= min && spi <= max) ^ invert;
-+	r = (spi >= min && spi <= max) ^ invert;
- 	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
- 	return r;
- }
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 8e3dffa..89be5c5 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -1156,7 +1156,7 @@ static int snmp_parse_mangle(unsigned char *msg,
- 		}
- 
- 		if (obj->type == SNMP_IPADDR)
--			mangle_address(ctx.begin, ctx.pointer - 4 , map, check);
-+			mangle_address(ctx.begin, ctx.pointer - 4, map, check);
- 
- 		kfree(obj->id);
- 		kfree(obj);
--- 
-1.9.1
+| [   46.518869] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   46.518874] IPv6:  rt:ffff8800cb07a000 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   46.529171] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   46.529174] IPv6:  rt:ffff8800cb07b500 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   46.529187] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   46.529189] IPv6:  rt:ffff8800cb07ad80 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   47.532014] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   47.532021] IPv6:  rt:ffff8800cb07a000 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   47.532028] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   47.532031] IPv6:  rt:ffff8800cb07b500 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   49.536010] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   49.536014] IPv6:  rt:ffff8800cb07ad80 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   49.536021] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   49.536024] IPv6:  rt:ffff8800cb07a180 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   53.544013] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   53.544020] IPv6:  rt:ffff8800cb07a300 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+| [   53.544028] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
+| [   53.544031] IPv6:  rt:ffff8800cb07b980 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
 
+In case the amount of log entries is surprising: my test-case is
+mounting two NFS shares over IPsec. No idea if that's relevant or not.
+
+Cheers, Phil
