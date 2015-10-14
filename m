@@ -1,136 +1,165 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Wed, 14 Oct 2015 11:25:15 -0400
-Message-ID: <20151014152515.GA6681@ketchup.mtl.sfl>
-References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
- <1444651299-2813-1-git-send-email-razor@blackwall.org>
- <20151012173625.GA17983@ketchup.lan>
- <20151013083111.GA1432@colbert.mtl.com>
- <20151013143225.GA9636@ketchup.mtl.sfl>
- <20151014061446.GA29908@colbert.mtl.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org,
-	sfeldma@gmail.com, jiri@resnulli.us, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	eladr@mellanox.com
-To: Ido Schimmel <idosch@mellanox.com>
+From: Ronen Arad <ronen.arad@intel.com>
+Subject: [PATCH net-next v2] netlink: Rightsize IFLA_AF_SPEC size calculation
+Date: Wed, 14 Oct 2015 08:51:28 -0700
+Message-ID: <1444837888-32656-1-git-send-email-ronen.arad@intel.com>
+References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
+Cc: Ronen Arad <ronen.arad@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:41825 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753156AbbJNPZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 11:25:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20151014061446.GA29908@colbert.mtl.com>
+Received: from mga11.intel.com ([192.55.52.93]:2191 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753652AbbJNPvu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 11:51:50 -0400
+In-Reply-To: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
-> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
-> >On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
-> >> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
-> >> >Hi guys,
-> >> >
-> >> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
-> >> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> >> >> 
-> >> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
-> >> >> 
-> >> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> >> >> ---
-> >> >>  net/switchdev/switchdev.c | 3 +++
-> >> >>  1 file changed, 3 insertions(+)
-> >> >> 
-> >> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> >> >> index 6e4a4f9ad927..256c596de896 100644
-> >> >> --- a/net/switchdev/switchdev.c
-> >> >> +++ b/net/switchdev/switchdev.c
-> >> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
-> >> >>  			if (vlan.vid_begin)
-> >> >>  				return -EINVAL;
-> >> >>  			vlan.vid_begin = vinfo->vid;
-> >> >> +			/* don't allow range of pvids */
-> >> >> +			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
-> >> >> +				return -EINVAL;
-> >> >>  		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
-> >> >>  			if (!vlan.vid_begin)
-> >> >>  				return -EINVAL;
-> >> >> -- 
-> >> >> 2.4.3
-> >> >> 
-> >> >
-> >> >Yes the patch looks good, but it is a minor check though. I hope the
-> >> >subject of this thread is making sense.
-> >> >
-> >> >VLAN ranges seem to have been included for an UX purpose (so commands
-> >> >look like Cisco IOS). We don't want to change any existing interface, so
-> >> >we pushed that down to drivers, with the only valid reason that, maybe
-> >> >one day, an hardware can be capable of programming a range on a per-port
-> >> >basis.
-> >> Hi,
-> >> 
-> >> That's actually what we are doing in mlxsw. We can do up to 256 entries in
-> >> one go. We've yet to submit this part.
-> >
-> >Perfect Ido, thanks for pointing this out! I'm OK with the range then. 
-> >
-> >So there is now a very last question in my head for this, which is more
-> >a matter of kernel design. Should the user be aware of such underlying
-> >support? In other words, would it make sense to do this in a driver:
-> >
-> >    foo_port_vlan_add(struct net_device *dev,
-> >                      struct switchdev_obj_port_vlan *vlan)
-> >    {
-> >        if (vlan->vid_begin != vlan->vid_end)
-> >            return -ENOTSUPP; /* or something more relevant for user */
-> >
-> >        return foo_port_single_vlan_add(dev, vlan->vid_begin);
-> >    }
-> >
-> >So drivers keep being simple, and we can easily propagate the fact that
-> >one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
-> >implemented and must be done in software.
-> I think that if you want to keep it simple, then Scott's advice from the
-> previous thread is the most appropriate one. I believe the hardware you
-> are using is simply not meant to support multiple 802.1Q bridges.
+This is a v2 of a 4-parts patch with same subject.
+Giving up on backward compatibility allows for much simplified single patch.
 
-You mean allowing only one Linux bridge over an hardware switch?
+if_nlmsg_size() overestimates the minimum allocation size of netlink
+dump request (when called from rtnl_calcit()) or the size of the
+message (when called from rtnl_getlink()). This is because
+ext_filter_mask is not supported by rtnl_link_get_af_size() and
+rtnl_link_get_size().
 
-It would for sure simplify how, as developers and users, we represent a
-physical switch. But I am not sure how to achieve that and I don't have
-strong opinions on this TBH.
+The over-estimation is significant when at least one netdev has many
+VLANs configured (8 bytes for each configured VLAN).
 
-> Trying to go around this will simply result in weird behavior (such as
-> not supporting VLAN ranges), which is only sacrificed to support
-> something a user doesn't even require (given the fact he's aware the
-> hardware is meant to support only one 802.1Q bridge).
-> 
-> What do you think?
+This patch-set "rightsizes" the protocol specific attribute size
+calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
+and adding this a argument to get_link_af_size op in rtnl_af_ops.
 
-I think mapping one Linux bridge to one physical switch (and thus have
-real bridge device) makes a lot of sense.
+Bridge module already used filtering aware sizing for notifications.
+br_get_link_af_size_filtered() is consistent with the modified
+get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
+br_get_link_af_size() becomes unused and thus removed.
+---
+ include/net/rtnetlink.h |  3 ++-
+ net/bridge/br_netlink.c | 21 +--------------------
+ net/core/rtnetlink.c    |  8 ++++----
+ net/ipv4/devinet.c      |  4 ++--
+ net/ipv6/addrconf.c     |  3 ++-
+ 5 files changed, 11 insertions(+), 28 deletions(-)
 
-But since Linux soft bridges are not stackable (yet?), how do we join 2
-distinct interfaces then? e.g. eth1 is WAN and switch ports behind eth0.
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index aff6ceb..2f87c1b 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -124,7 +124,8 @@ struct rtnl_af_ops {
+ 	int			(*fill_link_af)(struct sk_buff *skb,
+ 						const struct net_device *dev,
+ 						u32 ext_filter_mask);
+-	size_t			(*get_link_af_size)(const struct net_device *dev);
++	size_t			(*get_link_af_size)(const struct net_device *dev,
++						    u32 ext_filter_mask);
 
-> >
-> >I'm not sure how transparent the hardware must be to the user.
-> >
-> >(the problem of one VLAN unsupported in a range is still something we
-> >need to address).
-> >
-> >> 
-> >> >
-> >> >So what happens is that we'll add some code to fix and check non-sense
-> >> >(e.g. range + PVID) in switchdev, bridge, and I'm sure we are missing
-> >> >other spots.
-> >> >
-> >> >Sorry for being insistent, but this still doesn't look right to me.
-> >> >
-> >> >It seems like we are bloating bridge, switchdev and drivers for the only
-> >> >reason to maintain a kernel support for something like:
-> >> >
-> >> >    # for i in $(seq 100 4000); do bridge vlan add vid $i dev swp0; done
+ 	int			(*validate_link_af)(const struct net_device *dev,
+ 						    const struct nlattr *attr);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 94b4de8..40197ff 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -1214,29 +1214,10 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	return 0;
+ }
 
-Thanks,
--v
+-static size_t br_get_link_af_size(const struct net_device *dev)
+-{
+-	struct net_bridge_port *p;
+-	struct net_bridge *br;
+-	int num_vlans = 0;
+-
+-	if (br_port_exists(dev)) {
+-		p = br_port_get_rtnl(dev);
+-		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
+-						  RTEXT_FILTER_BRVLAN);
+-	} else if (dev->priv_flags & IFF_EBRIDGE) {
+-		br = netdev_priv(dev);
+-		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
+-						  RTEXT_FILTER_BRVLAN);
+-	}
+-
+-	/* Each VLAN is returned in bridge_vlan_info along with flags */
+-	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
+-}
+
+ static struct rtnl_af_ops br_af_ops __read_mostly = {
+ 	.family			= AF_BRIDGE,
+-	.get_link_af_size	= br_get_link_af_size,
++	.get_link_af_size	= br_get_link_af_size_filtered,
+ };
+
+ struct rtnl_link_ops br_link_ops __read_mostly = {
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2477595..581aec4 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -497,7 +497,8 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(rtnl_af_unregister);
+
+-static size_t rtnl_link_get_af_size(const struct net_device *dev)
++static size_t rtnl_link_get_af_size(const struct net_device *dev,
++				    u32 ext_filter_mask)
+ {
+ 	struct rtnl_af_ops *af_ops;
+ 	size_t size;
+@@ -509,7 +510,7 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev)
+ 		if (af_ops->get_link_af_size) {
+ 			/* AF_* + nested data */
+ 			size += nla_total_size(sizeof(struct nlattr)) +
+-				af_ops->get_link_af_size(dev);
++				af_ops->get_link_af_size(dev, ext_filter_mask);
+ 		}
+ 	}
+
+@@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+-	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
++		+ rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+@@ -3443,4 +3444,3 @@ void __init rtnetlink_init(void)
+ 	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
+ 	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
+ }
+-
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 7350084..cebd9d3 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1644,7 +1644,8 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
+ }
+
+-static size_t inet_get_link_af_size(const struct net_device *dev)
++static size_t inet_get_link_af_size(const struct net_device *dev,
++				    u32 ext_filter_mask)
+ {
+ 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+
+@@ -2398,4 +2399,3 @@ void __init devinet_init(void)
+ 	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
+ 		      inet_netconf_dump_devconf, NULL);
+ }
+-
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f0326aa..0645fd1 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4786,7 +4786,8 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+
+-static size_t inet6_get_link_af_size(const struct net_device *dev)
++static size_t inet6_get_link_af_size(const struct net_device *dev,
++				     u32 ext_filter_mask)
+ {
+ 	if (!__in6_dev_get(dev))
+ 		return 0;
+--
+2.1.0
