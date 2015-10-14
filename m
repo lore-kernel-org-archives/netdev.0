@@ -1,62 +1,64 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: NULL pointer dereference in rt6_get_cookie()
-Date: Thu, 15 Oct 2015 00:34:13 +0200
-Message-ID: <20151014223314.C029E20077@mail.nwl.cc>
-References: <20151010132437.GB25926@orbit.nwl.cc>
- <20151013181443.GB68583@kafai-mba.local>
- <20151013191039.GA3070@base.sg13b.nwl.cc>
- <20151013192543.06B5021398@mail.nwl.cc>
- <20151014061421.GD68583@kafai-mba.local>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/4] net: dsa: mv88e6xxx: fix hardware bridging
+Date: Thu, 15 Oct 2015 00:46:17 +0200
+Message-ID: <20151014224617.GA10146@lunn.ch>
+References: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:46946 "EHLO mail.nwl.cc"
+Received: from vps0.lunn.ch ([178.209.37.122]:40039 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752677AbbJNWdR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 18:33:17 -0400
+	id S1753156AbbJNWqU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 18:46:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20151014061421.GD68583@kafai-mba.local>
+In-Reply-To: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Martin,
+On Sun, Oct 11, 2015 at 06:08:34PM -0400, Vivien Didelot wrote:
+> DSA and its drivers currently hook the NETDEV_CHANGEUPPER net_device event in
+> order to configure the VLAN map of every port.
+> 
+> This VLAN map is a feature of these switch chips to hardcode and restrict which
+> output ports a given input port can egress frames to.
+> 
+> A Linux bridge is a simple untagged VLAN propagated by the bridge code itself.
+> With a proper 802.1Q support, a driver does not need this hook anymore, and
+> will simply program the related VLAN object.
+> 
+> This patchset improves the hardware bridging code in the mv88e6xxx driver with
+> a strict 802.1Q mode.
 
-On Tue, Oct 13, 2015 at 11:14:21PM -0700, Martin KaFai Lau wrote:
-> On Tue, Oct 13, 2015 at 09:26:41PM +0200, Phil Sutter wrote:
-> > I have backed up the rt pointer at top of the function and restored it
-> > before pr_err, this is the output:
-> >
-> > | rt6i_dst:2001:4dd0:ff3b:13::/64 rt6i_gateway::: rt6i_flags:40000001 dst.flags:00000000
-> Hi Phil, Can you try the following patch and report the pr_err?
+Hi Vivien
 
-Probably needless to say, but with your patch applied the Oops does not
-occur anymore. This is the log output:
+I just tested this as part of net-next/master, and found a problem....
 
-| [   46.518869] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   46.518874] IPv6:  rt:ffff8800cb07a000 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   46.529171] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   46.529174] IPv6:  rt:ffff8800cb07b500 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   46.529187] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   46.529189] IPv6:  rt:ffff8800cb07ad80 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   47.532014] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   47.532021] IPv6:  rt:ffff8800cb07a000 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   47.532028] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   47.532031] IPv6:  rt:ffff8800cb07b500 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   49.536010] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   49.536014] IPv6:  rt:ffff8800cb07ad80 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   49.536021] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   49.536024] IPv6:  rt:ffff8800cb07a180 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   53.544013] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   53.544020] IPv6:  rt:ffff8800cb07a300 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
-| [   53.544028] IPv6: ort:ffff8800cbb5b800 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:40000001 dst.flags:00000020
-| [   53.544031] IPv6:  rt:ffff8800cb07b980 rt6i_dst:[2001:4dd0:ff3b:13::]/64 rt6i_gateway:[::] rt6i_flags:00000001 dst.flags:00000000
+If i do:
 
-In case the amount of log entries is surprising: my test-case is
-mounting two NFS shares over IPsec. No idea if that's relevant or not.
+ip link set lan0 up
+ip addr add 192.168.10.2/24 dev lan0
 
-Cheers, Phil
+It will not ping. Looking in sys/kernel/debug/dsa0/stats i see
+broadcast packets, probably ARP, being received at the port.
+But they are not being forwarded out the CPU port.
+
+If however i do
+
+brctl addbr br0
+brctl addif br0 lan0
+ip addr add 192.168.10.2/24 dev br0
+ip link set br0 up
+
+i can ping.
+
+So it looks like we are too restrictive by default. You should be able
+to use interfaces as they are, without a bridge.
+
+   Andrew
