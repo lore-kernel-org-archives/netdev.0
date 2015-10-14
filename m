@@ -1,210 +1,138 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 4/8] switchdev: remove pointers from switchdev objects
-Date: Wed, 14 Oct 2015 19:40:51 +0200
-Message-ID: <1444844455-12508-5-git-send-email-jiri@resnulli.us>
-References: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
-	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
-	stephen@networkplumber.org
-To: netdev@vger.kernel.org
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
+Date: Wed, 14 Oct 2015 20:42:09 +0300
+Message-ID: <20151014174152.GB9216@colbert.mtl.com>
+References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+ <1444651299-2813-1-git-send-email-razor@blackwall.org>
+ <20151012173625.GA17983@ketchup.lan>
+ <20151013083111.GA1432@colbert.mtl.com>
+ <20151013143225.GA9636@ketchup.mtl.sfl>
+ <20151014061446.GA29908@colbert.mtl.com>
+ <20151014152515.GA6681@ketchup.mtl.sfl>
+ <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Netdev <netdev@vger.kernel.org>,
+	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Elad Raz <eladr@mellanox.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35240 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688AbbJNRlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:41:03 -0400
-Received: by wicll6 with SMTP id ll6so7868139wic.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:41:02 -0700 (PDT)
-In-Reply-To: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
+Received: from mail-db3on0070.outbound.protection.outlook.com ([157.55.234.70]:40096
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932253AbbJNRmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 13:42:20 -0400
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Wed, Oct 14, 2015 at 08:14:24PM IDT, sfeldma@gmail.com wrote:
+>On Wed, Oct 14, 2015 at 8:25 AM, Vivien Didelot
+><vivien.didelot@savoirfairelinux.com> wrote:
+>> On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
+>>> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+>>> >On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
+>>> >> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+>>> >> >Hi guys,
+>>> >> >
+>>> >> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
+>>> >> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>> >> >>
+>>> >> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
+>>> >> >>
+>>> >> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>> >> >> ---
+>>> >> >>  net/switchdev/switchdev.c | 3 +++
+>>> >> >>  1 file changed, 3 insertions(+)
+>>> >> >>
+>>> >> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>>> >> >> index 6e4a4f9ad927..256c596de896 100644
+>>> >> >> --- a/net/switchdev/switchdev.c
+>>> >> >> +++ b/net/switchdev/switchdev.c
+>>> >> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+>>> >> >>                         if (vlan.vid_begin)
+>>> >> >>                                 return -EINVAL;
+>>> >> >>                         vlan.vid_begin = vinfo->vid;
+>>> >> >> +                       /* don't allow range of pvids */
+>>> >> >> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+>>> >> >> +                               return -EINVAL;
+>>> >> >>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+>>> >> >>                         if (!vlan.vid_begin)
+>>> >> >>                                 return -EINVAL;
+>>> >> >> --
+>>> >> >> 2.4.3
+>>> >> >>
+>>> >> >
+>>> >> >Yes the patch looks good, but it is a minor check though. I hope the
+>>> >> >subject of this thread is making sense.
+>>> >> >
+>>> >> >VLAN ranges seem to have been included for an UX purpose (so commands
+>>> >> >look like Cisco IOS). We don't want to change any existing interface, so
+>>> >> >we pushed that down to drivers, with the only valid reason that, maybe
+>>> >> >one day, an hardware can be capable of programming a range on a per-port
+>>> >> >basis.
+>>> >> Hi,
+>>> >>
+>>> >> That's actually what we are doing in mlxsw. We can do up to 256 entries in
+>>> >> one go. We've yet to submit this part.
+>>> >
+>>> >Perfect Ido, thanks for pointing this out! I'm OK with the range then.
+>>> >
+>>> >So there is now a very last question in my head for this, which is more
+>>> >a matter of kernel design. Should the user be aware of such underlying
+>>> >support? In other words, would it make sense to do this in a driver:
+>>> >
+>>> >    foo_port_vlan_add(struct net_device *dev,
+>>> >                      struct switchdev_obj_port_vlan *vlan)
+>>> >    {
+>>> >        if (vlan->vid_begin != vlan->vid_end)
+>>> >            return -ENOTSUPP; /* or something more relevant for user */
+>>> >
+>>> >        return foo_port_single_vlan_add(dev, vlan->vid_begin);
+>>> >    }
+>>> >
+>>> >So drivers keep being simple, and we can easily propagate the fact that
+>>> >one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
+>>> >implemented and must be done in software.
+>>> I think that if you want to keep it simple, then Scott's advice from the
+>>> previous thread is the most appropriate one. I believe the hardware you
+>>> are using is simply not meant to support multiple 802.1Q bridges.
+>>
+>> You mean allowing only one Linux bridge over an hardware switch?
+>>
+>> It would for sure simplify how, as developers and users, we represent a
+>> physical switch. But I am not sure how to achieve that and I don't have
+>> strong opinions on this TBH.
+>
+>Hi Vivien, I think it's possible to keep switch ports on just one
+>bridge if we do a little bit of work on the NETDEV_CHANGEUPPER
+>notifier.  This will give you the driver-level control you want.  Do
+>you have time to investigate?  The idea is:
+>
+>1) In your driver's handler for NETDEV_CHANGEUPPER, if switch port is
+>being added to a second bridge,then return NOTIFY_BAD.  Your driver
+>needs to track the bridge count.
+>
+>2) In __netdev_upper_dev_link(), check the return code from the
+>call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, ...) call, and if
+>NOTIFY_BAD, abort the linking operation (goto rollback_xxx).
+>
+Hi,
 
-When object is used in deferred work, we cannot use pointers in
-switchdev object structures because the memory they point at may be already
-used by someone else. So rather do local copy of the value.
+We are doing something similar in mlxsw (not upstream yet). Jiri
+introduced PRE_CHANGEUPPER, which is called from the function you
+mentioned, but before the linking operation (so that you don't need to
+rollback).
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Scott Feldman <sfeldma@gmail.com>
-Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/ethernet/rocker/rocker.c |  6 +++---
- include/net/switchdev.h              |  7 +++----
- net/bridge/br_fdb.c                  |  2 +-
- net/dsa/slave.c                      |  2 +-
- net/switchdev/switchdev.c            | 11 +++++++----
- 5 files changed, 15 insertions(+), 13 deletions(-)
+If the notification is about a linking operation and the master is a
+bridge different than the current one, then NOTIFY_BAD is returned.
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index f0e820d..2cd7435 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4469,7 +4469,7 @@ static int rocker_port_obj_add(struct net_device *dev,
- 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
- 		err = rocker_port_fib_ipv4(rocker_port, trans,
- 					   htonl(fib4->dst), fib4->dst_len,
--					   fib4->fi, fib4->tb_id, 0);
-+					   &fib4->fi, fib4->tb_id, 0);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		err = rocker_port_fdb_add(rocker_port, trans,
-@@ -4541,7 +4541,7 @@ static int rocker_port_obj_del(struct net_device *dev,
- 		fib4 = SWITCHDEV_OBJ_IPV4_FIB(obj);
- 		err = rocker_port_fib_ipv4(rocker_port, NULL,
- 					   htonl(fib4->dst), fib4->dst_len,
--					   fib4->fi, fib4->tb_id,
-+					   &fib4->fi, fib4->tb_id,
- 					   ROCKER_OP_FLAG_REMOVE);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
-@@ -4571,7 +4571,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
- 	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
- 		if (found->key.rocker_port != rocker_port)
- 			continue;
--		fdb->addr = found->key.addr;
-+		ether_addr_copy(fdb->addr, found->key.addr);
- 		fdb->ndm_state = NUD_REACHABLE;
- 		fdb->vid = rocker_port_vlan_to_vid(rocker_port,
- 						   found->key.vlan_id);
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index f7de6f8..f8672d7 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -14,6 +14,7 @@
- #include <linux/netdevice.h>
- #include <linux/notifier.h>
- #include <linux/list.h>
-+#include <net/ip_fib.h>
- 
- #define SWITCHDEV_F_NO_RECURSE		BIT(0)
- #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
-@@ -59,8 +60,6 @@ struct switchdev_attr {
- 	} u;
- };
- 
--struct fib_info;
--
- enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_ID_UNDEFINED,
- 	SWITCHDEV_OBJ_ID_PORT_VLAN,
-@@ -88,7 +87,7 @@ struct switchdev_obj_ipv4_fib {
- 	struct switchdev_obj obj;
- 	u32 dst;
- 	int dst_len;
--	struct fib_info *fi;
-+	struct fib_info fi;
- 	u8 tos;
- 	u8 type;
- 	u32 nlflags;
-@@ -101,7 +100,7 @@ struct switchdev_obj_ipv4_fib {
- /* SWITCHDEV_OBJ_ID_PORT_FDB */
- struct switchdev_obj_port_fdb {
- 	struct switchdev_obj obj;
--	const unsigned char *addr;
-+	unsigned char addr[ETH_ALEN];
- 	u16 vid;
- 	u16 ndm_state;
- };
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index f43ce05..f5e7da0 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -135,10 +135,10 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = f->addr.addr,
- 		.vid = f->vlan_id,
- 	};
- 
-+	ether_addr_copy(fdb.addr, f->addr.addr);
- 	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
- }
- 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 84cd863..b0b8da0 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -393,7 +393,7 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
- 		if (ret < 0)
- 			break;
- 
--		fdb->addr = addr;
-+		ether_addr_copy(fdb->addr, addr);
- 		fdb->vid = vid;
- 		fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
- 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 007b8f4..5963d7a 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -15,6 +15,7 @@
- #include <linux/mutex.h>
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
- #include <linux/if_bridge.h>
- #include <linux/list.h>
- #include <linux/workqueue.h>
-@@ -891,10 +892,10 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = addr,
- 		.vid = vid,
- 	};
- 
-+	ether_addr_copy(fdb.addr, addr);
- 	return switchdev_port_obj_add(dev, &fdb.obj);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
-@@ -916,10 +917,10 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.addr = addr,
- 		.vid = vid,
- 	};
- 
-+	ether_addr_copy(fdb.addr, addr);
- 	return switchdev_port_obj_del(dev, &fdb.obj);
- }
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
-@@ -1081,7 +1082,6 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
- 		.dst = dst,
- 		.dst_len = dst_len,
--		.fi = fi,
- 		.tos = tos,
- 		.type = type,
- 		.nlflags = nlflags,
-@@ -1090,6 +1090,8 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	struct net_device *dev;
- 	int err = 0;
- 
-+	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
-+
- 	/* Don't offload route if using custom ip rules or if
- 	 * IPv4 FIB offloading has been disabled completely.
- 	 */
-@@ -1133,7 +1135,6 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 		.obj.id = SWITCHDEV_OBJ_ID_IPV4_FIB,
- 		.dst = dst,
- 		.dst_len = dst_len,
--		.fi = fi,
- 		.tos = tos,
- 		.type = type,
- 		.nlflags = 0,
-@@ -1142,6 +1143,8 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	struct net_device *dev;
- 	int err = 0;
- 
-+	memcpy(&ipv4_fib.fi, fi, sizeof(ipv4_fib.fi));
-+
- 	if (!(fi->fib_flags & RTNH_F_OFFLOAD))
- 		return 0;
- 
--- 
-1.9.3
+Vivien, regarding your WAN interface question, this is something we
+currently don't do. We don't even flood traffic from bridged ports
+to CPU (although we can), as it can saturate the bus. Only control
+traffic is supposed to go there.
