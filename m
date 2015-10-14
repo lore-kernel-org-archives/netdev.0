@@ -1,129 +1,188 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/3] tcp/dccp: add inet_csk_reqsk_queue_drop_and_put() helper
-Date: Wed, 14 Oct 2015 11:16:27 -0700
-Message-ID: <1444846588-28344-3-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/3] tcp/dccp: fix race at listener dismantle phase
+Date: Wed, 14 Oct 2015 11:16:28 -0700
+Message-ID: <1444846588-28344-4-git-send-email-edumazet@google.com>
 References: <1444846588-28344-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35293 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbbJNSRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:17:05 -0400
-Received: by padcn9 with SMTP id cn9so29903546pad.2
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:17:05 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33251 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480AbbJNSRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:17:09 -0400
+Received: by pabrc13 with SMTP id rc13so61035629pab.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:17:09 -0700 (PDT)
 In-Reply-To: <1444846588-28344-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let's reduce the confusion about inet_csk_reqsk_queue_drop() :
-In many cases we also need to release reference on request socket,
-so add a helper to do this, reducing code size and complexity.
+Under stress, a close() on a listener can trigger the
+WARN_ON(sk->sk_ack_backlog) in inet_csk_listen_stop()
 
-Fixes: 4bdc3d66147b ("tcp/dccp: fix behavior of stale SYN_RECV request sockets")
+We need to test if listener is still active before queueing
+a child in inet_csk_reqsk_queue_add()
+
+Create a common inet_child_forget() helper, and use it
+from inet_csk_reqsk_queue_add() and inet_csk_listen_stop()
+
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/inet_connection_sock.h |  1 +
- net/dccp/ipv4.c                    |  2 +-
- net/dccp/ipv6.c                    |  2 +-
- net/ipv4/inet_connection_sock.c    | 10 ++++++++--
- net/ipv4/tcp_ipv4.c                |  2 +-
- net/ipv6/tcp_ipv6.c                |  2 +-
- 6 files changed, 13 insertions(+), 6 deletions(-)
+ include/net/inet_connection_sock.h |  9 ++---
+ include/net/request_sock.h         | 19 ----------
+ net/ipv4/inet_connection_sock.c    | 71 ++++++++++++++++++++++++++------------
+ 3 files changed, 51 insertions(+), 48 deletions(-)
 
 diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 3208a65d1c28..89ecbc80b2ce 100644
+index 89ecbc80b2ce..8b0e3d8a4d81 100644
 --- a/include/net/inet_connection_sock.h
 +++ b/include/net/inet_connection_sock.h
-@@ -299,6 +299,7 @@ static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
+@@ -268,13 +268,8 @@ struct dst_entry *inet_csk_route_child_sock(const struct sock *sk,
+ 					    struct sock *newsk,
+ 					    const struct request_sock *req);
+ 
+-static inline void inet_csk_reqsk_queue_add(struct sock *sk,
+-					    struct request_sock *req,
+-					    struct sock *child)
+-{
+-	reqsk_queue_add(&inet_csk(sk)->icsk_accept_queue, req, sk, child);
+-}
+-
++void inet_csk_reqsk_queue_add(struct sock *sk, struct request_sock *req,
++			      struct sock *child);
+ void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
+ 				   unsigned long timeout);
+ 
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 2e73748956d5..a0dde04eb178 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -186,25 +186,6 @@ static inline bool reqsk_queue_empty(const struct request_sock_queue *queue)
+ 	return queue->rskq_accept_head == NULL;
  }
  
- void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req);
-+void inet_csk_reqsk_queue_drop_and_put(struct sock *sk, struct request_sock *req);
- 
- void inet_csk_destroy_sock(struct sock *sk);
- void inet_csk_prepare_forced_close(struct sock *sk);
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 644af510d932..59bc180b02d8 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -828,7 +828,7 @@ lookup:
- 		if (likely(sk->sk_state == DCCP_LISTEN)) {
- 			nsk = dccp_check_req(sk, skb, req);
- 		} else {
--			inet_csk_reqsk_queue_drop(sk, req);
-+			inet_csk_reqsk_queue_drop_and_put(sk, req);
- 			goto lookup;
- 		}
- 		if (!nsk) {
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 68831931b1fe..d9cc731f2619 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -686,7 +686,7 @@ lookup:
- 		if (likely(sk->sk_state == DCCP_LISTEN)) {
- 			nsk = dccp_check_req(sk, skb, req);
- 		} else {
--			inet_csk_reqsk_queue_drop(sk, req);
-+			inet_csk_reqsk_queue_drop_and_put(sk, req);
- 			goto lookup;
- 		}
- 		if (!nsk) {
+-static inline void reqsk_queue_add(struct request_sock_queue *queue,
+-				   struct request_sock *req,
+-				   struct sock *parent,
+-				   struct sock *child)
+-{
+-	spin_lock(&queue->rskq_lock);
+-	req->sk = child;
+-	sk_acceptq_added(parent);
+-
+-	if (queue->rskq_accept_head == NULL)
+-		queue->rskq_accept_head = req;
+-	else
+-		queue->rskq_accept_tail->dl_next = req;
+-
+-	queue->rskq_accept_tail = req;
+-	req->dl_next = NULL;
+-	spin_unlock(&queue->rskq_lock);
+-}
+-
+ static inline struct request_sock *reqsk_queue_remove(struct request_sock_queue *queue,
+ 						      struct sock *parent)
+ {
 diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 514b9e910bd4..a5a1b54915e5 100644
+index a5a1b54915e5..08eaa5e20574 100644
 --- a/net/ipv4/inet_connection_sock.c
 +++ b/net/ipv4/inet_connection_sock.c
-@@ -546,6 +546,13 @@ void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req)
+@@ -764,6 +764,53 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
  }
- EXPORT_SYMBOL(inet_csk_reqsk_queue_drop);
+ EXPORT_SYMBOL_GPL(inet_csk_listen_start);
  
-+void inet_csk_reqsk_queue_drop_and_put(struct sock *sk, struct request_sock *req)
++static void inet_child_forget(struct sock *sk, struct request_sock *req,
++			      struct sock *child)
 +{
-+	inet_csk_reqsk_queue_drop(sk, req);
++	sk->sk_prot->disconnect(child, O_NONBLOCK);
++
++	sock_orphan(child);
++
++	percpu_counter_inc(sk->sk_prot->orphan_count);
++
++	if (sk->sk_protocol == IPPROTO_TCP && tcp_rsk(req)->tfo_listener) {
++		BUG_ON(tcp_sk(child)->fastopen_rsk != req);
++		BUG_ON(sk != req->rsk_listener);
++
++		/* Paranoid, to prevent race condition if
++		 * an inbound pkt destined for child is
++		 * blocked by sock lock in tcp_v4_rcv().
++		 * Also to satisfy an assertion in
++		 * tcp_v4_destroy_sock().
++		 */
++		tcp_sk(child)->fastopen_rsk = NULL;
++	}
++	inet_csk_destroy_sock(child);
 +	reqsk_put(req);
 +}
-+EXPORT_SYMBOL(inet_csk_reqsk_queue_drop_and_put);
 +
- static void reqsk_timer_handler(unsigned long data)
- {
- 	struct request_sock *req = (struct request_sock *)data;
-@@ -608,8 +615,7 @@ static void reqsk_timer_handler(unsigned long data)
- 		return;
- 	}
- drop:
--	inet_csk_reqsk_queue_drop(sk_listener, req);
--	reqsk_put(req);
-+	inet_csk_reqsk_queue_drop_and_put(sk_listener, req);
- }
++void inet_csk_reqsk_queue_add(struct sock *sk, struct request_sock *req,
++			      struct sock *child)
++{
++	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
++
++	spin_lock(&queue->rskq_lock);
++	if (unlikely(sk->sk_state != TCP_LISTEN)) {
++		inet_child_forget(sk, req, child);
++	} else {
++		req->sk = child;
++		req->dl_next = NULL;
++		if (queue->rskq_accept_head == NULL)
++			queue->rskq_accept_head = req;
++		else
++			queue->rskq_accept_tail->dl_next = req;
++		queue->rskq_accept_tail = req;
++		sk_acceptq_added(sk);
++	}
++	spin_unlock(&queue->rskq_lock);
++}
++EXPORT_SYMBOL(inet_csk_reqsk_queue_add);
++
+ /*
+  *	This routine closes sockets which have been at least partially
+  *	opened, but not yet accepted.
+@@ -790,31 +837,11 @@ void inet_csk_listen_stop(struct sock *sk)
+ 		WARN_ON(sock_owned_by_user(child));
+ 		sock_hold(child);
  
- static void reqsk_queue_hash_req(struct request_sock *req,
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index aad2298de7ad..9c68cf3762c4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1591,7 +1591,7 @@ process:
- 		if (likely(sk->sk_state == TCP_LISTEN)) {
- 			nsk = tcp_check_req(sk, skb, req, false);
- 		} else {
--			inet_csk_reqsk_queue_drop(sk, req);
-+			inet_csk_reqsk_queue_drop_and_put(sk, req);
- 			goto lookup;
+-		sk->sk_prot->disconnect(child, O_NONBLOCK);
+-
+-		sock_orphan(child);
+-
+-		percpu_counter_inc(sk->sk_prot->orphan_count);
+-
+-		if (sk->sk_protocol == IPPROTO_TCP && tcp_rsk(req)->tfo_listener) {
+-			BUG_ON(tcp_sk(child)->fastopen_rsk != req);
+-			BUG_ON(sk != req->rsk_listener);
+-
+-			/* Paranoid, to prevent race condition if
+-			 * an inbound pkt destined for child is
+-			 * blocked by sock lock in tcp_v4_rcv().
+-			 * Also to satisfy an assertion in
+-			 * tcp_v4_destroy_sock().
+-			 */
+-			tcp_sk(child)->fastopen_rsk = NULL;
+-		}
+-		inet_csk_destroy_sock(child);
+-
++		inet_child_forget(sk, req, child);
+ 		bh_unlock_sock(child);
+ 		local_bh_enable();
+ 		sock_put(child);
+ 
+-		reqsk_put(req);
+ 		cond_resched();
+ 	}
+ 	if (queue->fastopenq.rskq_rst_head) {
+@@ -829,7 +856,7 @@ void inet_csk_listen_stop(struct sock *sk)
+ 			req = next;
  		}
- 		if (!nsk) {
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 7ce1c57199d1..acb06f86f372 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1386,7 +1386,7 @@ process:
- 		if (likely(sk->sk_state == TCP_LISTEN)) {
- 			nsk = tcp_check_req(sk, skb, req, false);
- 		} else {
--			inet_csk_reqsk_queue_drop(sk, req);
-+			inet_csk_reqsk_queue_drop_and_put(sk, req);
- 			goto lookup;
- 		}
- 		if (!nsk) {
+ 	}
+-	WARN_ON(sk->sk_ack_backlog);
++	WARN_ON_ONCE(sk->sk_ack_backlog);
+ }
+ EXPORT_SYMBOL_GPL(inet_csk_listen_stop);
+ 
 -- 
 2.6.0.rc2.230.g3dd15c0
