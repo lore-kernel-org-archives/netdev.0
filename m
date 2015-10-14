@@ -1,69 +1,85 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/16] i40e: don't panic on VSI allocation failure
-Date: Tue, 13 Oct 2015 23:59:48 -0700
-Message-ID: <1444805996-3877-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/16] i40e: update fw version text string per previous product formats
+Date: Tue, 13 Oct 2015 23:59:49 -0700
+Message-ID: <1444805996-3877-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:47517 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41965 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752523AbbJNHAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752535AbbJNHAB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 14 Oct 2015 03:00:01 -0400
 In-Reply-To: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-In some circumstances, the firmware may fail to allocate a VSI for a VF.
-When this happens, the driver does not react well to the bad news and
-has a panic attack.
+This patch moves the internal fw version and fw api version info to be
+output in probe.  The nvm version, etrack and oem version info are now
+configured for output via ethtool -i.
 
-To fix this problem, check the return value from i40e_alloc_vf_res and
-don't try to configure the device further if it failed. Additionally,
-explicitly clear the INIT bit when we free VF resources, so that this
-bit will be in the proper state in the failure case, and won't blow up
-elsewhere.
-
-Change-ID: I6a20ce2b59c3458fd832032e88fa28cd42500189
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I05d490093a7137dbefcdef263d014d1e5c9e83d0
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      | 10 ++++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c |  7 +++++++
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 2102280..ae7548a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -703,6 +703,7 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
- 	 */
- 	vf->num_queue_pairs = 0;
- 	vf->vf_states = 0;
-+	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index f26dcb2..cfe8f83 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -107,6 +107,8 @@
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+ #define I40E_NVM_VERSION_HI_SHIFT  12
+ #define I40E_NVM_VERSION_HI_MASK   (0xf << I40E_NVM_VERSION_HI_SHIFT)
++#define I40E_OEM_VER_BUILD_MASK    0xff00
++#define I40E_OEM_VER_PATCH_MASK    0xff
  
- /**
-@@ -841,11 +842,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- complete_reset:
- 	/* reallocate VF resources to reset the VSI state */
- 	i40e_free_vf_res(vf);
--	i40e_alloc_vf_res(vf);
--	i40e_enable_vf_mappings(vf);
--	set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
--	clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
--
-+	if (!i40e_alloc_vf_res(vf)) {
-+		i40e_enable_vf_mappings(vf);
-+		set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
-+		clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
-+	}
- 	/* tell the VF the reset is done */
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
- 	i40e_flush(hw);
+ /* The values in here are decimal coded as hex as is the case in the NVM map*/
+ #define I40E_CURRENT_NVM_VERSION_HI 0x2
+@@ -587,14 +589,14 @@ static inline char *i40e_fw_version_str(struct i40e_hw *hw)
+ 	static char buf[32];
+ 
+ 	snprintf(buf, sizeof(buf),
+-		 "f%d.%d.%05d a%d.%d n%x.%02x e%x",
+-		 hw->aq.fw_maj_ver, hw->aq.fw_min_ver, hw->aq.fw_build,
+-		 hw->aq.api_maj_ver, hw->aq.api_min_ver,
++		 "%x.%02x 0x%x %d.%d.%d",
+ 		 (hw->nvm.version & I40E_NVM_VERSION_HI_MASK) >>
+ 			I40E_NVM_VERSION_HI_SHIFT,
+ 		 (hw->nvm.version & I40E_NVM_VERSION_LO_MASK) >>
+ 			I40E_NVM_VERSION_LO_SHIFT,
+-		 (hw->nvm.eetrack & 0xffffff));
++		 hw->nvm.eetrack, (hw->nvm.oem_ver >> 24),
++		 (hw->nvm.oem_ver & I40E_OEM_VER_BUILD_MASK) >> 8,
++		 hw->nvm.oem_ver & I40E_OEM_VER_PATCH_MASK);
+ 
+ 	return buf;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d5d8b66..45b3292 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -10064,6 +10064,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = i40e_init_adminq(hw);
+ 	dev_info(&pdev->dev, "%s\n", i40e_fw_version_str(hw));
++
++	/* provide additional fw info, like api and ver */
++	dev_info(&pdev->dev, "fw_version:%d.%d.%05d\n",
++		 hw->aq.fw_maj_ver, hw->aq.fw_min_ver, hw->aq.fw_build);
++	dev_info(&pdev->dev, "fw api version:%d.%d\n",
++		 hw->aq.api_maj_ver, hw->aq.api_min_ver);
++
+ 	if (err) {
+ 		dev_info(&pdev->dev,
+ 			 "The driver for the device stopped because the NVM image is newer than expected. You must install the most recent version of the network driver.\n");
 -- 
 2.4.3
