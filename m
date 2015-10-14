@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp/dccp: fix behavior of stale SYN_RECV
- request sockets
-Date: Tue, 13 Oct 2015 18:27:58 -0700 (PDT)
-Message-ID: <20151013.182758.307245280925758827.davem@davemloft.net>
-References: <1444781574.4166.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2] mISDN: use kstrdup() in dsp_pipeline_build
+Date: Tue, 13 Oct 2015 18:30:26 -0700 (PDT)
+Message-ID: <20151013.183026.1058494354111432068.davem@davemloft.net>
+References: <1444504930.8012.19.camel@perches.com>
+	<01134401b5d955b4dd794562d85608db4fb8ba21.1444666330.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: joe@perches.com, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geliangtang@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55194 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55211 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbbJNBL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 21:11:58 -0400
-In-Reply-To: <1444781574.4166.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752295AbbJNBOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2015 21:14:24 -0400
+In-Reply-To: <01134401b5d955b4dd794562d85608db4fb8ba21.1444666330.git.geliangtang@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 13 Oct 2015 17:12:54 -0700
+From: Geliang Tang <geliangtang@163.com>
+Date: Mon, 12 Oct 2015 01:19:07 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> Use kstrdup instead of strlen-kmalloc-strcpy. Remove unneeded NULL
+> test, it will be tested inside kstrdup. Remove 0 length string test,
+> it has been tested in the caller of dsp_pipeline_build.
 > 
-> When a TCP/DCCP listener is closed, its pending SYN_RECV request sockets
-> become stale, meaning 3WHS can not complete.
-> 
-> But current behavior is wrong :
-> incoming packets finding such stale sockets are dropped.
-> 
-> We need instead to cleanup the request socket and perform another
-> lookup :
-> - Incoming ACK will give a RST answer,
-> - SYN rtx might find another listener if available.
-> - We expedite cleanup of request sockets and old listener socket.
-> 
-> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> ---
+> Changes in v2:
+>   - Remove unneeded NULL test.
 
-Applied, thanks Eric.
+Applied, thanks.
