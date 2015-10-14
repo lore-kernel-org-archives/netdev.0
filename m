@@ -1,123 +1,88 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Wed, 14 Oct 2015 09:14:46 +0300
-Message-ID: <20151014061446.GA29908@colbert.mtl.com>
-References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
- <1444651299-2813-1-git-send-email-razor@blackwall.org>
- <20151012173625.GA17983@ketchup.lan>
- <20151013083111.GA1432@colbert.mtl.com>
- <20151013143225.GA9636@ketchup.mtl.sfl>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v6 00/10] Add new drivers: qed & qede
+Date: Wed, 14 Oct 2015 09:24:04 +0300
+Message-ID: <1444803854-1319-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Nikolay Aleksandrov <razor@blackwall.org>,
-	<netdev@vger.kernel.org>, <sfeldma@gmail.com>, <jiri@resnulli.us>,
-	<davem@davemloft.net>,
-	"Nikolay Aleksandrov" <nikolay@cumulusnetworks.com>,
-	<eladr@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, <Yuval.Mintz@qlogic.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0062.outbound.protection.outlook.com ([157.55.234.62]:26684
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750759AbbJNGO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 02:14:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20151013143225.GA9636@ketchup.mtl.sfl>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:16610 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750817AbbJNGY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 02:24:59 -0400
+Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
+	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t9E6Mv9A008564
+	for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 23:24:58 -0700
+Received: from avcashub1.qlogic.com (avcashub2.qlogic.com [198.70.193.116])
+	by mx0a-0016ce01.pphosted.com with ESMTP id 1xhhh480ge-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 Oct 2015 23:24:58 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
->> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->> >Hi guys,
->> >
->> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
->> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> >> 
->> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
->> >> 
->> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> >> ---
->> >>  net/switchdev/switchdev.c | 3 +++
->> >>  1 file changed, 3 insertions(+)
->> >> 
->> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> >> index 6e4a4f9ad927..256c596de896 100644
->> >> --- a/net/switchdev/switchdev.c
->> >> +++ b/net/switchdev/switchdev.c
->> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
->> >>  			if (vlan.vid_begin)
->> >>  				return -EINVAL;
->> >>  			vlan.vid_begin = vinfo->vid;
->> >> +			/* don't allow range of pvids */
->> >> +			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
->> >> +				return -EINVAL;
->> >>  		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
->> >>  			if (!vlan.vid_begin)
->> >>  				return -EINVAL;
->> >> -- 
->> >> 2.4.3
->> >> 
->> >
->> >Yes the patch looks good, but it is a minor check though. I hope the
->> >subject of this thread is making sense.
->> >
->> >VLAN ranges seem to have been included for an UX purpose (so commands
->> >look like Cisco IOS). We don't want to change any existing interface, so
->> >we pushed that down to drivers, with the only valid reason that, maybe
->> >one day, an hardware can be capable of programming a range on a per-port
->> >basis.
->> Hi,
->> 
->> That's actually what we are doing in mlxsw. We can do up to 256 entries in
->> one go. We've yet to submit this part.
->
->Perfect Ido, thanks for pointing this out! I'm OK with the range then. 
->
->So there is now a very last question in my head for this, which is more
->a matter of kernel design. Should the user be aware of such underlying
->support? In other words, would it make sense to do this in a driver:
->
->    foo_port_vlan_add(struct net_device *dev,
->                      struct switchdev_obj_port_vlan *vlan)
->    {
->        if (vlan->vid_begin != vlan->vid_end)
->            return -ENOTSUPP; /* or something more relevant for user */
->
->        return foo_port_single_vlan_add(dev, vlan->vid_begin);
->    }
->
->So drivers keep being simple, and we can easily propagate the fact that
->one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
->implemented and must be done in software.
-I think that if you want to keep it simple, then Scott's advice from the
-previous thread is the most appropriate one. I believe the hardware you
-are using is simply not meant to support multiple 802.1Q bridges.
+From: Ariel Elior <Ariel.Elior@qlogic.com>
 
-Trying to go around this will simply result in weird behavior (such as
-not supporting VLAN ranges), which is only sacrificed to support
-something a user doesn't even require (given the fact he's aware the
-hardware is meant to support only one 802.1Q bridge).
+This series implements the driver set for Qlogic's new 579xx series.
+These are 10/20/25/40/50/100 Gig capable converged nics, supporting
+ethernet (obviously), iscsi, fcoe, roce and iwarp protocols.
 
-What do you think?
->
->I'm not sure how transparent the hardware must be to the user.
->
->(the problem of one VLAN unsupported in a range is still something we
->need to address).
->
->> 
->> >
->> >So what happens is that we'll add some code to fix and check non-sense
->> >(e.g. range + PVID) in switchdev, bridge, and I'm sure we are missing
->> >other spots.
->> >
->> >Sorry for being insistent, but this still doesn't look right to me.
->> >
->> >It seems like we are bloating bridge, switchdev and drivers for the only
->> >reason to maintain a kernel support for something like:
->> >
->> >    # for i in $(seq 100 4000); do bridge vlan add vid $i dev swp0; done
->
->Thanks,
->-v
+The overall driver design includes a common module ('qed') and protocol
+specific dependent modules for ethernet ('qede'), fcoe ('qedf'),
+iscsi ('qedi') and roce ('qedr').
+The common module contains all of the common logic, e.g. initialization,
+cleanup, infrastructure for interrupt handling, link management, slowpath
+etc. as well as protocol agnostic features, and supplying an abstraction
+layer for other modules.
+The protocol specific modules can be compiled and operated independently
+of each other, with the exception of the rdma modules which are dependent
+on the ethernet module, in accordance with the kernel rdma stack design.
+
+This series only adds the core and ethernet modules, with basic L2
+capabilities. Future series will add the rest of the modules and enhance
+the L2 functionality.
+
+Ths patch series is constructed of the following patches:
+qed:  Add module with basic common support
+qed:  Add basic L2 interface
+qede: Add basic Network driver
+qed:  Add slowpath L2 support
+qede: Add basic network device support
+qede: Add classification configuration
+qed:  Add link support
+qede: Add support for link
+qed:  Add statistics support
+qede: Add basic ethtool support
+
+This project is a team effort, thanks go to Yuval Mintz, Dmitry Kravkov,
+Michal Kalderon, Tomer Tayar, Manish Chopra, Sudarsana Kalluru,
+Rajesh Borundia, Sony Chacko, Artum Zolotushko, Harish Patil, Rasesh Mody,
+Sergey Ukhterov and Elad Manela, as well as former team members,
+Eilon Greenstein and Shmulik Ravid.
+
+Changes from previos version:
+-----------------------------
+
+>From Version 5:
+  - Style change and fixes [mostly in patches 1, 4 and 7].
+    Thanks go to Francois Romieu, a mere mortal. ;-)
+
+>From Version 4:
+  - Drop dependency for x86_64.
+
+>From Version 3:
+  - Limit support of initial submission to x86_64.
+  - Fix endian problems appearing via sparse [although no BE support yet].
+  - Fix small issues suggested by the kbuild test robot.
+
+>From Version 2:
+  - Removed U64_{HI,LO}; Using {upper,lower}_32_bits instead.
+  - Use regular napi weight definition.
+  - [We still use the __le variants for variables, since we didn't get
+     a reply regarding the change into non-user API types].
+
+>From Version 1:
+  - Removed private license file; Instead revised comments at source headers.
+
+Thanks,
+Ariel Elior
