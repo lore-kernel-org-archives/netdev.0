@@ -1,165 +1,159 @@
-From: Ronen Arad <ronen.arad@intel.com>
-Subject: [PATCH net-next v2] netlink: Rightsize IFLA_AF_SPEC size calculation
-Date: Wed, 14 Oct 2015 08:51:28 -0700
-Message-ID: <1444837888-32656-1-git-send-email-ronen.arad@intel.com>
-References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
-Cc: Ronen Arad <ronen.arad@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2191 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753652AbbJNPvu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 11:51:50 -0400
-In-Reply-To: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Wed, 14 Oct 2015 12:00:40 -0400
+Message-ID: <20151014160040.GA11087@fieldses.org>
+References: <20151012202643.GM28755@fieldses.org>
+ <17EC94B0A072C34B8DCF0D30AD16044A02877996@BPXM09GP.gisp.nec.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02877996-9lrffkYxhwTt6d3pZDjeaEtBU8KWyXPq@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a v2 of a 4-parts patch with same subject.
-Giving up on backward compatibility allows for much simplified single patch.
+On Wed, Oct 14, 2015 at 03:57:13AM +0000, Kosuke Tatsukawa wrote:
+> J. Bruce Fields wrote:
+> > On Mon, Oct 12, 2015 at 10:41:06AM +0000, Kosuke Tatsukawa wrote:
+> >> J. Bruce Fields wrote:
+> >> > On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+> >> >> Neil Brown wrote:
+> >> >> > Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org> writes:
+> >> >> > 
+> >> >> >> There are several places in net/sunrpc/svcsock.c which calls
+> >> >> >> waitqueue_active() without calling a memory barrier.  Add a memory
+> >> >> >> barrier just as in wq_has_sleeper().
+> >> >> >>
+> >> >> >> I found this issue when I was looking through the linux source code
+> >> >> >> for places calling waitqueue_active() before wake_up*(), but without
+> >> >> >> preceding memory barriers, after sending a patch to fix a similar
+> >> >> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+> >> >> >> found here: https://lkml.org/lkml/2015/9/28/849).
+> >> >> > 
+> >> >> > hi,
+> >> >> > this feels like the wrong approach to the problem.  It requires extra
+> >> >> > 'smb_mb's to be spread around which are hard to understand as easy to
+> >> >> > forget.
+> >> >> > 
+> >> >> > A quick look seems to suggest that (nearly) every waitqueue_active()
+> >> >> > will need an smb_mb.  Could we just put the smb_mb() inside
+> >> >> > waitqueue_active()??
+> >> >> <snip>
+> >> >> 
+> >> >> There are around 200 occurrences of waitqueue_active() in the kernel
+> >> >> source, and most of the places which use it before wake_up are either
+> >> >> protected by some spin lock, or already has a memory barrier or some
+> >> >> kind of atomic operation before it.
+> >> >> 
+> >> >> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+> >> >> many cases and won't be a good idea.
+> >> >> 
+> >> >> Another way to solve this problem is to remove the waitqueue_active(),
+> >> >> making the code look like this;
+> >> >> 	if (wq)
+> >> >> 		wake_up_interruptible(wq);
+> >> >> This also fixes the problem because the spinlock in the wake_up*() acts
+> >> >> as a memory barrier and prevents the code from being reordered by the
+> >> >> CPU (and it also makes the resulting code is much simpler).
+> >> > 
+> >> > I might not care which we did, except I don't have the means to test
+> >> > this quickly, and I guess this is some of our most frequently called
+> >> > code.
+> >> > 
+> >> > I suppose your patch is the most conservative approach, as the
+> >> > alternative is a spinlock/unlock in wake_up_interruptible, which I
+> >> > assume is necessarily more expensive than an smp_mb().
+> >> > 
+> >> > As far as I can tell it's been this way since forever.  (Well, since a
+> >> > 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+> >> > removed some spinlocks from the data_ready routines.)
+> >> > 
+> >> > I don't understand what the actual race is yet (which code exactly is
+> >> > missing the wakeup in this case?  nfsd threads seem to instead get
+> >> > woken up by the wake_up_process() in svc_xprt_do_enqueue().)
+> >> 
+> >> Thank you for the reply.  I tried looking into this.
+> >> 
+> >> The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
+> >> svc_udp_init(), which are both called from svc_setup_socket().
+> >> svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
+> >> callback port related code.
+> >> 
+> >> Maybe I'm wrong, but there might not be any kernel code that is using
+> >> the socket's wait queue in this case.
+> > 
+> > As Trond points out there are probably waiters internal to the
+> > networking code.
+> 
+> Trond and Bruce, thank you for the comment.  I was able to find the call
+> to the wait function that was called from nfsd.
+> 
+> sk_stream_wait_connect() and sk_stream_wait_memory() were called from
+> either do_tcp_sendpages() or tcp_sendmsg() called from within
+> svc_send().  sk_stream_wait_connect() shouldn't be called at this point,
+> because the socket has already been used to receive the rpc request.
+> 
+> On the wake_up side, sk_write_space() is called from the following
+> locations.  The relevant ones seems to be preceded by atomic_sub or a
+> memory barrier.
+> + ksocknal_write_space [drivers/staging/lustre/lnet/klnds/socklnd/socklnd_lib.c:633]
+> + atm_pop_raw [net/atm/raw.c:40]
+> + sock_setsockopt [net/core/sock.c:740]
+> + sock_wfree [net/core/sock.c:1630]
+>   Preceded by atomic_sub in sock_wfree()
+> + ccid3_hc_tx_packet_recv [net/dccp/ccids/ccid3.c:442]
+> + do_tcp_sendpages [net/ipv4/tcp.c:1008]
+> + tcp_sendmsg [net/ipv4/tcp.c:1300]
+> + do_tcp_setsockopt [net/ipv4/tcp.c:2597]
+> + tcp_new_space [net/ipv4/tcp_input.c:4885]
+>   Preceded by smp_mb__after_atomic in tcp_check_space()
+> + llc_conn_state_process [net/llc/llc_conn.c:148]
+> + pipe_rcv_status [net/phonet/pep.c:312]
+> + pipe_do_rcv [net/phonet/pep.c:440]
+> + pipe_start_flow_control [net/phonet/pep.c:554]
+> + svc_sock_setbufsize [net/sunrpc/svcsock.c:45]
+> 
+> sk_state_change() calls related to TCP/IP were called from the following
+> places.
+> + inet_shutdown [net/ipv4/af_inet.c:825]
+>   This shouldn't be called when waiting
+> + tcp_done [net/ipv4/tcp.c:3078]
+>   spin_lock*/spin_unlock* is called in lock_timer_base
+> + tcp_fin [net/ipv4/tcp_input.c:4031]
+>   atomic_long_sub is called from sk_memory_allocated_sub called within
+>   sk_mem_reclaim
+> + tcp_finish_connect [net/ipv4/tcp_input.c:5415]
+>   This shoudn't be called when waiting
+> + tcp_rcv_state_process [net/ipv4/tcp_input.c:5807,5880]
+>   The socket shouldn't be in TCP_SYN_RECV nor TCP_FIN_WAIT1 states when
+>   waiting
+> 
+> I think the wait queue won't be used for being woken up by
+> svc_{tcp,udp}_data_ready, because nfsd doesn't read from a socket.
 
-if_nlmsg_size() overestimates the minimum allocation size of netlink
-dump request (when called from rtnl_calcit()) or the size of the
-message (when called from rtnl_getlink()). This is because
-ext_filter_mask is not supported by rtnl_link_get_af_size() and
-rtnl_link_get_size().
+Looking, well, I guess kernel_recvmsg() does read from a socket, but I
+assume calling with MSG_DONTWAIT means that it doesn't block.
 
-The over-estimation is significant when at least one netdev has many
-VLANs configured (8 bytes for each configured VLAN).
+> So with the current implementation, it seems there shouldn't be any
+> problems even if the memory barrier is missing.
 
-This patch-set "rightsizes" the protocol specific attribute size
-calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
-and adding this a argument to get_link_af_size op in rtnl_af_ops.
+Thanks for the detailed investigation.
 
-Bridge module already used filtering aware sizing for notifications.
-br_get_link_af_size_filtered() is consistent with the modified
-get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
-br_get_link_af_size() becomes unused and thus removed.
----
- include/net/rtnetlink.h |  3 ++-
- net/bridge/br_netlink.c | 21 +--------------------
- net/core/rtnetlink.c    |  8 ++++----
- net/ipv4/devinet.c      |  4 ++--
- net/ipv6/addrconf.c     |  3 ++-
- 5 files changed, 11 insertions(+), 28 deletions(-)
+I think it would be worth adding a comment if that might help someone
+having to reinvestigate this again some day.
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index aff6ceb..2f87c1b 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -124,7 +124,8 @@ struct rtnl_af_ops {
- 	int			(*fill_link_af)(struct sk_buff *skb,
- 						const struct net_device *dev,
- 						u32 ext_filter_mask);
--	size_t			(*get_link_af_size)(const struct net_device *dev);
-+	size_t			(*get_link_af_size)(const struct net_device *dev,
-+						    u32 ext_filter_mask);
-
- 	int			(*validate_link_af)(const struct net_device *dev,
- 						    const struct nlattr *attr);
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 94b4de8..40197ff 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1214,29 +1214,10 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	return 0;
- }
-
--static size_t br_get_link_af_size(const struct net_device *dev)
--{
--	struct net_bridge_port *p;
--	struct net_bridge *br;
--	int num_vlans = 0;
--
--	if (br_port_exists(dev)) {
--		p = br_port_get_rtnl(dev);
--		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
--						  RTEXT_FILTER_BRVLAN);
--	} else if (dev->priv_flags & IFF_EBRIDGE) {
--		br = netdev_priv(dev);
--		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
--						  RTEXT_FILTER_BRVLAN);
--	}
--
--	/* Each VLAN is returned in bridge_vlan_info along with flags */
--	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
--}
-
- static struct rtnl_af_ops br_af_ops __read_mostly = {
- 	.family			= AF_BRIDGE,
--	.get_link_af_size	= br_get_link_af_size,
-+	.get_link_af_size	= br_get_link_af_size_filtered,
- };
-
- struct rtnl_link_ops br_link_ops __read_mostly = {
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2477595..581aec4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -497,7 +497,8 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops)
- }
- EXPORT_SYMBOL_GPL(rtnl_af_unregister);
-
--static size_t rtnl_link_get_af_size(const struct net_device *dev)
-+static size_t rtnl_link_get_af_size(const struct net_device *dev,
-+				    u32 ext_filter_mask)
- {
- 	struct rtnl_af_ops *af_ops;
- 	size_t size;
-@@ -509,7 +510,7 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev)
- 		if (af_ops->get_link_af_size) {
- 			/* AF_* + nested data */
- 			size += nla_total_size(sizeof(struct nlattr)) +
--				af_ops->get_link_af_size(dev);
-+				af_ops->get_link_af_size(dev, ext_filter_mask);
- 		}
- 	}
-
-@@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
--	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-+		+ rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
- 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
-@@ -3443,4 +3444,3 @@ void __init rtnetlink_init(void)
- 	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
- 	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
- }
--
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7350084..cebd9d3 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1644,7 +1644,8 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
- }
-
--static size_t inet_get_link_af_size(const struct net_device *dev)
-+static size_t inet_get_link_af_size(const struct net_device *dev,
-+				    u32 ext_filter_mask)
- {
- 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
-
-@@ -2398,4 +2399,3 @@ void __init devinet_init(void)
- 	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
- 		      inet_netconf_dump_devconf, NULL);
- }
--
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f0326aa..0645fd1 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4786,7 +4786,8 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
-
--static size_t inet6_get_link_af_size(const struct net_device *dev)
-+static size_t inet6_get_link_af_size(const struct net_device *dev,
-+				     u32 ext_filter_mask)
- {
- 	if (!__in6_dev_get(dev))
- 		return 0;
+--b.
 --
-2.1.0
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
