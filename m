@@ -1,43 +1,36 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/4] rtnetlink: Add get_link_af_size_filtered
- to rtnl_af_ops
-Date: Wed, 14 Oct 2015 11:55:18 +0200
-Message-ID: <20151014115518.071a3996@griffin>
-References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
-	<1444802314-28830-2-git-send-email-ronen.arad@intel.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v5] net: ipv6: Make address flushing on ifdown
+ optional
+Date: Wed, 14 Oct 2015 12:08:35 +0200
+Message-ID: <561E29A3.9080101@6wind.com>
+References: <1444667587-13863-1-git-send-email-dsa@cumulusnetworks.com>
+ <20151013.184539.1401344867685512636.davem@davemloft.net>
+ <1444815241.2154853.409816321.48710CD1@webmail.messagingengine.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ronen Arad <ronen.arad@intel.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hannes@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51014 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751742AbbJNJzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 05:55:21 -0400
-In-Reply-To: <1444802314-28830-2-git-send-email-ronen.arad@intel.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36216 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbbJNKIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 06:08:38 -0400
+Received: by wicgb1 with SMTP id gb1so223695973wic.1
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 03:08:37 -0700 (PDT)
+In-Reply-To: <1444815241.2154853.409816321.48710CD1@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Oct 2015 22:58:31 -0700, Ronen Arad wrote:
-> --- a/include/net/rtnetlink.h
-> +++ b/include/net/rtnetlink.h
-> @@ -130,6 +130,8 @@ struct rtnl_af_ops {
->  						    const struct nlattr *attr);
->  	int			(*set_link_af)(struct net_device *dev,
->  					       const struct nlattr *attr);
-> +	size_t			(*get_link_af_size_filtered)(const struct net_device *dev,
-> +							     u32 ext_filter_mask);
->  };
-
-There's not much point in having two callbacks doing essentially the
-same. Why you just don't add the new parameter to the existing
-get_link_af_size? Looking at what the patch 3 does, the current
-implementations of the callback can just ignore the new parameter and
-bridge can remove the current br_get_link_af and rename
-br_get_link_af_size_filtered to br_get_link_af.
-
- Jiri
-
--- 
-Jiri Benc
+Le 14/10/2015 11:34, Hannes Frederic Sowa a =C3=A9crit :
+[sni]
+> This sysctl is on my list to be enabled soon by default by any system=
+d
+> based distribution. For that reason, could you maybe remove all the
+I'm not sure to understand why we add a sysctl then. Or at least, why t=
+he linux
+default value is different from all standard distrib. I will be like
+rp_filter :/
