@@ -1,70 +1,90 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net] openvswitch: Scrub skb between namespaces
-Date: Wed, 14 Oct 2015 11:10:47 -0700
-Message-ID: <1444846249-52053-2-git-send-email-joestringer@nicira.com>
+Subject: [PATCH net 3/3] openvswitch: Serialize nested ct actions if provided
+Date: Wed, 14 Oct 2015 11:10:49 -0700
+Message-ID: <1444846249-52053-4-git-send-email-joestringer@nicira.com>
 References: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
-Cc: tgraf@suug.ch, hannes@redhat.com, jesse@nicira.com
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36810 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbbJNSK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:10:58 -0400
-Received: by pabur7 with SMTP id ur7so11884054pab.3
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:10:58 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33166 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932097AbbJNSLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:11:00 -0400
+Received: by pabrc13 with SMTP id rc13so60907520pab.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:10:59 -0700 (PDT)
 In-Reply-To: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If OVS receives a packet from another namespace, then the packet should
-be scrubbed. However, people have already begun to rely on the behaviour
-that skb->mark is preserved across namespaces, so retain this one field.
+If userspace provides a ct action with no nested mark or label, then the
+storage for these fields is zeroed. Later when actions are requested,
+such zeroed fields are serialized even though userspace didn't
+originally specify them. Fix the behaviour by ensuring that no action is
+serialized in this case, and reject actions where userspace attempts to
+set these fields with mask=0. This should make netlink marshalling
+consistent across deserialization/reserialization.
 
-This is mainly to address information leakage between namespaces when
-using OVS internal ports, but by placing it in ovs_vport_receive() it is
-more generally applicable, meaning it should not be overlooked if other
-port types are allowed to be moved into namespaces in future.
-
+Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 ---
-I originally proposed this patch as part of the conntrack changes to OVS,
-and there was some discussion on that thread, culminating here:
-http://www.spinics.net/lists/netdev/msg338626.html
+ net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-We also discussed this a bit in Seattle, however I didn't follow up
-immediately so I don't exactly recall what the consensus was. Following
-Jesse's direction in the above thread, I'm proposing that we preserve the
-mark, but scrub the rest. Also fixed the use-after-free bug present in the
-previous version.
-
-I think this is relevant for 'net', because this is the first time that
-the metadata_dst and nfct are exposed (albeit indirectly) through OVS so it
-would be nice to get agreement on the expected behaviour.
----
- net/openvswitch/vport.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index fc5c0b9ccfe9..70f19ea99b92 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -440,10 +440,17 @@ int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
- 		      const struct ip_tunnel_info *tun_info)
- {
- 	struct sw_flow_key key;
-+	u32 mark = skb->mark;
- 	int error;
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 480dbb9095b7..ba29e6c2e0d4 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -540,6 +540,16 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+ 	return 0;
+ }
  
- 	OVS_CB(skb)->input_vport = vport;
- 	OVS_CB(skb)->mru = 0;
-+	if (dev_net(skb->dev) != ovs_dp_get_net(vport->dp)) {
-+		skb_scrub_packet(skb, true);
-+		tun_info = NULL;
-+	}
-+	skb->mark = mark;
++static bool label_zero(const struct ovs_key_ct_labels *labels)
++{
++	int i;
 +
- 	/* Extract flow from 'skb' into 'key'. */
- 	error = ovs_flow_key_extract(tun_info, skb, &key);
- 	if (unlikely(error)) {
++	for (i = 0; i < sizeof(*labels); i++)
++		if (labels->ct_labels[i])
++			return false;
++	return true;
++}
++
+ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+ 	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0, .maxlen = 0 },
+ 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
+@@ -589,6 +599,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+ 		case OVS_CT_ATTR_MARK: {
+ 			struct md_mark *mark = nla_data(a);
+ 
++			if (!mark->mask) {
++				OVS_NLERR(log, "ct_mark mask cannot be 0");
++				return -EINVAL;
++			}
+ 			info->mark = *mark;
+ 			break;
+ 		}
+@@ -597,6 +611,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+ 		case OVS_CT_ATTR_LABELS: {
+ 			struct md_labels *labels = nla_data(a);
+ 
++			if (label_zero(&labels->mask)) {
++				OVS_NLERR(log, "ct_labels mask cannot be 0");
++				return -EINVAL;
++			}
+ 			info->labels = *labels;
+ 			break;
+ 		}
+@@ -707,11 +725,12 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+ 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
+ 	    nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone.id))
+ 		return -EMSGSIZE;
+-	if (IS_ENABLED(CONFIG_NF_CONNTRACK_MARK) &&
++	if (IS_ENABLED(CONFIG_NF_CONNTRACK_MARK) && ct_info->mark.mask &&
+ 	    nla_put(skb, OVS_CT_ATTR_MARK, sizeof(ct_info->mark),
+ 		    &ct_info->mark))
+ 		return -EMSGSIZE;
+ 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_LABELS) &&
++	    !label_zero(&ct_info->labels.mask) &&
+ 	    nla_put(skb, OVS_CT_ATTR_LABELS, sizeof(ct_info->labels),
+ 		    &ct_info->labels))
+ 		return -EMSGSIZE;
 -- 
 2.1.4
