@@ -1,47 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] tcp/dccp: fix race at listener dismantle
- phase
-Date: Wed, 14 Oct 2015 11:13:25 -0700
-Message-ID: <1444846405.4166.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444845519-20064-1-git-send-email-edumazet@google.com>
-	 <1444845519-20064-4-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/3] tcp/dccp: make our listener code more robust
+Date: Wed, 14 Oct 2015 11:16:25 -0700
+Message-ID: <1444846588-28344-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33148 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222AbbJNSN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:13:27 -0400
-Received: by pabrc13 with SMTP id rc13so60957661pab.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:13:27 -0700 (PDT)
-In-Reply-To: <1444845519-20064-4-git-send-email-edumazet@google.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35836 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbbJNSQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 14:16:32 -0400
+Received: by padcn9 with SMTP id cn9so29891722pad.2
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 11:16:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-14 at 10:58 -0700, Eric Dumazet wrote:
+This patch series addresses request sockets leaks and listener dismantle
+phase. This survives a stress test with listeners being added/removed
+quite randomly.
 
+Eric Dumazet (3):
+  Revert "inet: fix double request socket freeing"
+  tcp/dccp: add inet_csk_reqsk_queue_drop_and_put() helper
+  tcp/dccp: fix race at listener dismantle phase
 
-...
+ include/net/inet_connection_sock.h | 10 ++---
+ include/net/request_sock.h         | 19 ---------
+ net/dccp/ipv4.c                    |  4 +-
+ net/dccp/ipv6.c                    |  2 +-
+ net/ipv4/inet_connection_sock.c    | 81 +++++++++++++++++++++++++++-----------
+ net/ipv4/tcp_ipv4.c                |  6 +--
+ net/ipv6/tcp_ipv6.c                |  2 +-
+ 7 files changed, 67 insertions(+), 57 deletions(-)
 
-
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index a5a1b54915e5..38b7ef8b0b78 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -740,7 +740,7 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
->  
->  	reqsk_queue_alloc(&icsk->icsk_accept_queue);
->  
-> -	sk->sk_max_ack_backlog = 0;
-> +	sk->sk_max_ack_backlog = nr_table_entries;
->  	sk->sk_ack_backlog = 0;
->  	inet_csk_delack_init(sk);
->  
-> @@ -764,6 +764,53 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
-
-
-Arg, this part was not meant to be there, sorry. Will send a v2
+-- 
+2.6.0.rc2.230.g3dd15c0
