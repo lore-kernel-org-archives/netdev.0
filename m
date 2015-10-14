@@ -1,148 +1,58 @@
-From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
- in sunrpc
-Date: Wed, 14 Oct 2015 03:57:13 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02877996@BPXM09GP.gisp.nec.co.jp>
-References: <20151012202643.GM28755@fieldses.org>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next v2] bnxt_en: New Broadcom ethernet driver.
+Date: Wed, 14 Oct 2015 12:09:37 +0800
+Message-ID: <201510141244.6VgZRGZt%fengguang.wu@intel.com>
+References: <1444792633-7679-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Neil Brown <nfbrown@novell.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151012202643.GM28755@fieldses.org>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, davem@davemloft.net, prashant@broadcom.com,
+	eddie.wai@broadcom.com, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:30352 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750719AbbJNEKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 00:10:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1444792633-7679-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-J. Bruce Fields wrote:
-> On Mon, Oct 12, 2015 at 10:41:06AM +0000, Kosuke Tatsukawa wrote:
->> J. Bruce Fields wrote:
->> > On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
->> >> Neil Brown wrote:
->> >> > Kosuke Tatsukawa <tatsu@ab.jp.nec.com> writes:
->> >> > 
->> >> >> There are several places in net/sunrpc/svcsock.c which calls
->> >> >> waitqueue_active() without calling a memory barrier.  Add a memory
->> >> >> barrier just as in wq_has_sleeper().
->> >> >>
->> >> >> I found this issue when I was looking through the linux source code
->> >> >> for places calling waitqueue_active() before wake_up*(), but without
->> >> >> preceding memory barriers, after sending a patch to fix a similar
->> >> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
->> >> >> found here: https://lkml.org/lkml/2015/9/28/849).
->> >> > 
->> >> > hi,
->> >> > this feels like the wrong approach to the problem.  It requires extra
->> >> > 'smb_mb's to be spread around which are hard to understand as easy to
->> >> > forget.
->> >> > 
->> >> > A quick look seems to suggest that (nearly) every waitqueue_active()
->> >> > will need an smb_mb.  Could we just put the smb_mb() inside
->> >> > waitqueue_active()??
->> >> <snip>
->> >> 
->> >> There are around 200 occurrences of waitqueue_active() in the kernel
->> >> source, and most of the places which use it before wake_up are either
->> >> protected by some spin lock, or already has a memory barrier or some
->> >> kind of atomic operation before it.
->> >> 
->> >> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
->> >> many cases and won't be a good idea.
->> >> 
->> >> Another way to solve this problem is to remove the waitqueue_active(),
->> >> making the code look like this;
->> >> 	if (wq)
->> >> 		wake_up_interruptible(wq);
->> >> This also fixes the problem because the spinlock in the wake_up*() acts
->> >> as a memory barrier and prevents the code from being reordered by the
->> >> CPU (and it also makes the resulting code is much simpler).
->> > 
->> > I might not care which we did, except I don't have the means to test
->> > this quickly, and I guess this is some of our most frequently called
->> > code.
->> > 
->> > I suppose your patch is the most conservative approach, as the
->> > alternative is a spinlock/unlock in wake_up_interruptible, which I
->> > assume is necessarily more expensive than an smp_mb().
->> > 
->> > As far as I can tell it's been this way since forever.  (Well, since a
->> > 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
->> > removed some spinlocks from the data_ready routines.)
->> > 
->> > I don't understand what the actual race is yet (which code exactly is
->> > missing the wakeup in this case?  nfsd threads seem to instead get
->> > woken up by the wake_up_process() in svc_xprt_do_enqueue().)
->> 
->> Thank you for the reply.  I tried looking into this.
->> 
->> The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
->> svc_udp_init(), which are both called from svc_setup_socket().
->> svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
->> callback port related code.
->> 
->> Maybe I'm wrong, but there might not be any kernel code that is using
->> the socket's wait queue in this case.
-> 
-> As Trond points out there are probably waiters internal to the
-> networking code.
+Hi Michael,
 
-Trond and Bruce, thank you for the comment.  I was able to find the call
-to the wait function that was called from nfsd.
+[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
 
-sk_stream_wait_connect() and sk_stream_wait_memory() were called from
-either do_tcp_sendpages() or tcp_sendmsg() called from within
-svc_send().  sk_stream_wait_connect() shouldn't be called at this point,
-because the socket has already been used to receive the rpc request.
+url:    https://github.com/0day-ci/linux/commits/Michael-Chan/bnxt_en-New-Broadcom-ethernet-driver/20151014-112018
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
 
-On the wake_up side, sk_write_space() is called from the following
-locations.  The relevant ones seems to be preceded by atomic_sub or a
-memory barrier.
-+ ksocknal_write_space [drivers/staging/lustre/lnet/klnds/socklnd/socklnd_lib.c:633]
-+ atm_pop_raw [net/atm/raw.c:40]
-+ sock_setsockopt [net/core/sock.c:740]
-+ sock_wfree [net/core/sock.c:1630]
-  Preceded by atomic_sub in sock_wfree()
-+ ccid3_hc_tx_packet_recv [net/dccp/ccids/ccid3.c:442]
-+ do_tcp_sendpages [net/ipv4/tcp.c:1008]
-+ tcp_sendmsg [net/ipv4/tcp.c:1300]
-+ do_tcp_setsockopt [net/ipv4/tcp.c:2597]
-+ tcp_new_space [net/ipv4/tcp_input.c:4885]
-  Preceded by smp_mb__after_atomic in tcp_check_space()
-+ llc_conn_state_process [net/llc/llc_conn.c:148]
-+ pipe_rcv_status [net/phonet/pep.c:312]
-+ pipe_do_rcv [net/phonet/pep.c:440]
-+ pipe_start_flow_control [net/phonet/pep.c:554]
-+ svc_sock_setbufsize [net/sunrpc/svcsock.c:45]
 
-sk_state_change() calls related to TCP/IP were called from the following
-places.
-+ inet_shutdown [net/ipv4/af_inet.c:825]
-  This shouldn't be called when waiting
-+ tcp_done [net/ipv4/tcp.c:3078]
-  spin_lock*/spin_unlock* is called in lock_timer_base
-+ tcp_fin [net/ipv4/tcp_input.c:4031]
-  atomic_long_sub is called from sk_memory_allocated_sub called within
-  sk_mem_reclaim
-+ tcp_finish_connect [net/ipv4/tcp_input.c:5415]
-  This shoudn't be called when waiting
-+ tcp_rcv_state_process [net/ipv4/tcp_input.c:5807,5880]
-  The socket shouldn't be in TCP_SYN_RECV nor TCP_FIN_WAIT1 states when
-  waiting
+sparse warnings: (new ones prefixed by >>)
 
-I think the wait queue won't be used for being woken up by
-svc_{tcp,udp}_data_ready, because nfsd doesn't read from a socket.
+>> drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:204:20: sparse: incorrect type in assignment (different base types)
+   drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:204:20:    expected restricted __le32 [addressable] [assigned] [usertype] max_bw
+   drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:204:20:    got int [signed] max_tx_rate
+>> drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:206:20: sparse: incorrect type in assignment (different base types)
+   drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:206:20:    expected restricted __le32 [addressable] [assigned] [usertype] min_bw
+   drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c:206:20:    got int [signed] min_tx_rate
 
-So with the current implementation, it seems there shouldn't be any
-problems even if the memory barrier is missing.
+vim +204 drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+
+   198		if (min_tx_rate == vf->min_tx_rate && max_tx_rate == vf->max_tx_rate)
+   199			return 0;
+   200		bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_CFG, -1, -1);
+   201		req.vf_id = cpu_to_le16(vf->fw_fid);
+   202		req.flags = cpu_to_le32(vf->func_flags);
+   203		req.enables = cpu_to_le32(FUNC_CFG_REQ_ENABLES_MAX_BW);
+ > 204		req.max_bw = max_tx_rate;
+   205		req.enables |= cpu_to_le32(FUNC_CFG_REQ_ENABLES_MIN_BW);
+ > 206		req.min_bw = min_tx_rate;
+   207		rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+   208		if (!rc) {
+   209			vf->min_tx_rate = min_tx_rate;
+
 ---
-Kosuke TATSUKAWA  | 3rd IT Platform Department
-                  | IT Platform Division, NEC Corporation
-                  | tatsu@ab.jp.nec.com
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
