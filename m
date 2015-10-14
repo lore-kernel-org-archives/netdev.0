@@ -1,306 +1,44 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [RFC PATCH] RDS: convert bind hash table to re-sizable hashtable
-Date: Wed, 14 Oct 2015 14:21:53 -0700
-Message-ID: <561EC771.7010903@oracle.com>
-References: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH V2 2/2] bpf: control a set of perf events by creating a
+ new ioctl PERF_EVENT_IOC_SET_ENABLER
+Date: Wed, 14 Oct 2015 14:28:55 -0700
+Message-ID: <561EC917.8090001@plumgrid.com>
+References: <1444826277-94060-1-git-send-email-xiakaixu@huawei.com>
+ <1444826277-94060-3-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org, David Laight <David.Laight@ACULAB.COM>
-To: netdev@vger.kernel.org
+Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
+	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
+	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
+	daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <1444826277-94060-3-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/14/15 2:15 PM, Santosh Shilimkar wrote:
-> From: Santosh Shilimkar <ssantosh@kernel.org>
->
-> To further improve the RDS connection scalabilty on massive systems
-> where number of sockets grows into tens of thousands  of sockets, there
-> is a need of larger bind hashtable. Pre-allocated 8K or 16K table is
-> not very flexible in terms of memory utilisation. The rhashtable
-> infrastructure gives us the flexibility to grow the hashtbable based
-> on use and also comes up with inbuilt efficient bucket(chain) handling.
->
-> Cc: David Laight <David.Laight@ACULAB.COM>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> ---
-> As promised in last series review, here is an RFC to conver RDS to make
-> use of re-sizable hash tables. I haven't turned on auto shrinking on
-> by purpose.
->
-Ignore the automatic_shrinking remark since patch has it enabled.
+On 10/14/15 5:37 AM, Kaixu Xia wrote:
+> +	event->p_sample_disable = &enabler_event->sample_disable;
 
+I don't like it as a concept and it's buggy implementation.
+What happens here when enabler is alive, but other event is destroyed?
 
->   net/rds/af_rds.c |  10 ++++-
->   net/rds/bind.c   | 127 ++++++++++++++++++++-----------------------------------
->   net/rds/rds.h    |   7 ++-
->   3 files changed, 58 insertions(+), 86 deletions(-)
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -221,9 +221,12 @@ static u64 bpf_perf_event_sample_control(u64 r1, u64 index, u64 flag, u64 r4, u6
+>   	struct bpf_array *array = container_of(map, struct bpf_array, map);
+>   	struct perf_event *event;
 >
-> diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-> index 384ea1e..b5476aeb 100644
-> --- a/net/rds/af_rds.c
-> +++ b/net/rds/af_rds.c
-> @@ -573,6 +573,7 @@ static void rds_exit(void)
->   	rds_threads_exit();
->   	rds_stats_exit();
->   	rds_page_exit();
-> +	rds_bind_lock_destroy();
->   	rds_info_deregister_func(RDS_INFO_SOCKETS, rds_sock_info);
->   	rds_info_deregister_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
->   }
-> @@ -582,11 +583,14 @@ static int rds_init(void)
->   {
->   	int ret;
+> -	if (unlikely(index >= array->map.max_entries))
+> +	if (unlikely(index > array->map.max_entries))
+>   		return -E2BIG;
 >
-> -	rds_bind_lock_init();
-> +	ret = rds_bind_lock_init();
-> +	if (ret)
-> +		goto out;
->
->   	ret = rds_conn_init();
->   	if (ret)
-> -		goto out;
-> +		goto out_bind;
-> +
->   	ret = rds_threads_init();
->   	if (ret)
->   		goto out_conn;
-> @@ -620,6 +624,8 @@ out_conn:
->   	rds_conn_exit();
->   	rds_cong_exit();
->   	rds_page_exit();
-> +out_bind:
-> +	rds_bind_lock_destroy();
->   out:
->   	return ret;
->   }
-> diff --git a/net/rds/bind.c b/net/rds/bind.c
-> index bc6b93e..199e4cc 100644
-> --- a/net/rds/bind.c
-> +++ b/net/rds/bind.c
-> @@ -38,54 +38,18 @@
->   #include <linux/ratelimit.h>
->   #include "rds.h"
->
-> -struct bind_bucket {
-> -	rwlock_t                lock;
-> -	struct hlist_head	head;
-> +static struct rhashtable bind_hash_table;
-> +
-> +static struct rhashtable_params ht_parms = {
-> +	.nelem_hint = 768,
-> +	.key_len = sizeof(u64),
-> +	.key_offset = offsetof(struct rds_sock, rs_bound_key),
-> +	.head_offset = offsetof(struct rds_sock, rs_bound_node),
-> +	.max_size = 16384,
-> +	.min_size = 1024,
-> +	.automatic_shrinking = true,
->   };
->
-> -#define BIND_HASH_SIZE 1024
-> -static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
-> -
-> -static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
-> -{
-> -	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
-> -				  (BIND_HASH_SIZE - 1));
-> -}
-> -
-> -/* must hold either read or write lock (write lock for insert != NULL) */
-> -static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
-> -					__be32 addr, __be16 port,
-> -					struct rds_sock *insert)
-> -{
-> -	struct rds_sock *rs;
-> -	struct hlist_head *head = &bucket->head;
-> -	u64 cmp;
-> -	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
-> -
-> -	hlist_for_each_entry(rs, head, rs_bound_node) {
-> -		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
-> -		      be16_to_cpu(rs->rs_bound_port);
-> -
-> -		if (cmp == needle) {
-> -			rds_sock_addref(rs);
-> -			return rs;
-> -		}
-> -	}
-> -
-> -	if (insert) {
-> -		/*
-> -		 * make sure our addr and port are set before
-> -		 * we are added to the list.
-> -		 */
-> -		insert->rs_bound_addr = addr;
-> -		insert->rs_bound_port = port;
-> -		rds_sock_addref(insert);
-> -
-> -		hlist_add_head(&insert->rs_bound_node, head);
-> -	}
-> -	return NULL;
-> -}
-> -
->   /*
->    * Return the rds_sock bound at the given local address.
->    *
-> @@ -94,18 +58,14 @@ static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
->    */
->   struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
->   {
-> +	u64 key = ((u64)addr << 32) | port;
->   	struct rds_sock *rs;
-> -	unsigned long flags;
-> -	struct bind_bucket *bucket = hash_to_bucket(addr, port);
->
-> -	read_lock_irqsave(&bucket->lock, flags);
-> -	rs = rds_bind_lookup(bucket, addr, port, NULL);
-> -	read_unlock_irqrestore(&bucket->lock, flags);
-> -
-> -	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
-> -		rds_sock_put(rs);
-> +	rs = rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms);
-> +	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
-> +		rds_sock_addref(rs);
-> +	else
->   		rs = NULL;
-> -	}
->
->   	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
->   		ntohs(port));
-> @@ -116,10 +76,9 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
->   /* returns -ve errno or +ve port */
->   static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->   {
-> -	unsigned long flags;
->   	int ret = -EADDRINUSE;
->   	u16 rover, last;
-> -	struct bind_bucket *bucket;
-> +	u64 key;
->
->   	if (*port != 0) {
->   		rover = be16_to_cpu(*port);
-> @@ -130,23 +89,31 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->   	}
->
->   	do {
-> -		struct rds_sock *rrs;
->   		if (rover == 0)
->   			rover++;
->
-> -		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
-> -		write_lock_irqsave(&bucket->lock, flags);
-> -		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
-> -		write_unlock_irqrestore(&bucket->lock, flags);
-> -		if (!rrs) {
-> +		key = ((u64)addr << 32) | cpu_to_be16(rover);
-> +		if (rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms))
-> +			continue;
-> +
-> +		rs->rs_bound_key = key;
-> +		rs->rs_bound_addr = addr;
-> +		rs->rs_bound_port = cpu_to_be16(rover);
-> +		rs->rs_bound_node.next = NULL;
-> +		rds_sock_addref(rs);
-> +		if (!rhashtable_insert_fast(&bind_hash_table,
-> +					    &rs->rs_bound_node, ht_parms)) {
->   			*port = rs->rs_bound_port;
->   			ret = 0;
->   			rdsdebug("rs %p binding to %pI4:%d\n",
->   			  rs, &addr, (int)ntohs(*port));
->   			break;
->   		} else {
-> -			rds_sock_put(rrs);
-> +			rds_sock_put(rs);
-> +			ret = -ENOMEM;
-> +			break;
->   		}
-> +
->   	} while (rover++ != last);
->
->   	return ret;
-> @@ -154,23 +121,17 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->
->   void rds_remove_bound(struct rds_sock *rs)
->   {
-> -	unsigned long flags;
-> -	struct bind_bucket *bucket =
-> -		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
-> -
-> -	write_lock_irqsave(&bucket->lock, flags);
->
-> -	if (rs->rs_bound_addr) {
-> -		rdsdebug("rs %p unbinding from %pI4:%d\n",
-> -		  rs, &rs->rs_bound_addr,
-> -		  ntohs(rs->rs_bound_port));
-> +	if (!rs->rs_bound_addr)
-> +		return;
->
-> -		hlist_del_init(&rs->rs_bound_node);
-> -		rds_sock_put(rs);
-> -		rs->rs_bound_addr = 0;
-> -	}
-> +	rdsdebug("rs %p unbinding from %pI4:%d\n",
-> +		 rs, &rs->rs_bound_addr,
-> +		 ntohs(rs->rs_bound_port));
->
-> -	write_unlock_irqrestore(&bucket->lock, flags);
-> +	rhashtable_remove_fast(&bind_hash_table, &rs->rs_bound_node, ht_parms);
-> +	rds_sock_put(rs);
-> +	rs->rs_bound_addr = 0;
->   }
->
->   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-> @@ -217,10 +178,12 @@ out:
->   	return ret;
->   }
->
-> -void rds_bind_lock_init(void)
-> +void rds_bind_lock_destroy(void)
->   {
-> -	int i;
-> +	rhashtable_destroy(&bind_hash_table);
-> +}
->
-> -	for (i = 0; i < BIND_HASH_SIZE; i++)
-> -		rwlock_init(&bind_hash_table[i].lock);
-> +int rds_bind_lock_init(void)
-> +{
-> +	return rhashtable_init(&bind_hash_table, &ht_parms);
->   }
-> diff --git a/net/rds/rds.h b/net/rds/rds.h
-> index 121fb81..0068840 100644
-> --- a/net/rds/rds.h
-> +++ b/net/rds/rds.h
-> @@ -7,6 +7,7 @@
->   #include <rdma/rdma_cm.h>
->   #include <linux/mutex.h>
->   #include <linux/rds.h>
-> +#include <linux/rhashtable.h>
->
->   #include "info.h"
->
-> @@ -472,7 +473,8 @@ struct rds_sock {
->   	 * bound_addr used for both incoming and outgoing, no INADDR_ANY
->   	 * support.
->   	 */
-> -	struct hlist_node	rs_bound_node;
-> +	struct rhash_head	rs_bound_node;
-> +	u64			rs_bound_key;
->   	__be32			rs_bound_addr;
->   	__be32			rs_conn_addr;
->   	__be16			rs_bound_port;
-> @@ -603,7 +605,8 @@ extern wait_queue_head_t rds_poll_waitq;
->   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
->   void rds_remove_bound(struct rds_sock *rs);
->   struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
-> -void rds_bind_lock_init(void);
-> +int rds_bind_lock_init(void);
-> +void rds_bind_lock_destroy(void);
->
->   /* cong.c */
->   int rds_cong_get_maps(struct rds_connection *conn);
->
+> +	if (index == array->map.max_entries)
+> +		index = 0;
+
+what is this hack for ?
+
+Either use notification and user space disable or
+call bpf_perf_event_sample_control() manually for each cpu.
