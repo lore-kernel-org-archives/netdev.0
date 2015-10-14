@@ -1,75 +1,132 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 3/3] tcp/dccp: fix race at listener dismantle
- phase
-Date: Thu, 15 Oct 2015 03:27:48 +0800
-Message-ID: <201510150300.H1hV4P1L%fengguang.wu@intel.com>
-References: <1444845519-20064-4-git-send-email-edumazet@google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] ethtool: Use kcalloc instead of kmalloc for
+ ethtool_get_strings
+Date: Wed, 14 Oct 2015 21:36:19 +0100
+Message-ID: <1444854979.31451.39.camel@decadent.org.uk>
+References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1444805996-3877-16-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1444810180.2718.16.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-aehxVmzC4QJhmdDa8v9K"
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Joe Perches <joe@perches.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58017 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753357AbbJNT23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 15:28:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1444845519-20064-4-git-send-email-edumazet@google.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36837 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932172AbbJNUgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 16:36:36 -0400
+In-Reply-To: <1444810180.2718.16.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
 
-[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
+--=-aehxVmzC4QJhmdDa8v9K
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/tcp-dccp-make-our-listener-code-more-robust/20151015-020006
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+On Wed, 2015-10-14 at 01:09 -0700, Joe Perches wrote:
+> It seems that kernel memory can leak into userspace by a
+> kmalloc, ethtool_get_strings, then copy_to_user sequence.
+>=20
+> Avoid this by using kcalloc to zero fill the copied buffer.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>=20
+> stable too...
+>=20
+> On Tue, 2015-10-13 at 23:59 -0700, Jeff Kirsher wrote:
+> > From: Jacob Keller <jacob.e.keller@intel.com>
+> []
+> > diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers=
+/net/ethernet/intel/fm10k/fm10k_ethtool.c
+> []
+> > @@ -206,13 +206,13 @@ static void fm10k_get_stat_strings(struct net_dev=
+ice *dev, u8 *data)
+> > =C2=A0> > 	> > }
+> > =C2=A0
+> > =C2=A0> > 	> > for (i =3D 0; i < interface->hw.mac.max_queues; i++) {
+> > -> > 	> > 	> > sprintf(p, "tx_queue_%u_packets", i);
+> > +> > 	> > 	> > snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_packets", i);
+>=20
+> It seems these need a memset after the snprintf to zero fill
+> bytes after the string terminating \0 to avoid leaking
+> contents of any unset bytes.
 
+Right. =C2=A0It used to be that all drivers were memcpy()ing from a static
+array which had all the necessary zero bytes, but now there are a bunch
+of them using s{,n}printf() or otherwise dynamically generating names
+for statistics or tests. =C2=A0And I don't think there's any snprintf()-
+alike function that will fix that.
 
-sparse warnings: (new ones prefixed by >>)
+At least these drivers aren't zero-padding all strings: bnx2x, bnad,
+i40e, i40evf, igb, ixgbe, liquidio, mlx4_en, mlx5e, nicvf, qlcnic, sfc,
+vxge.
 
->> net/ipv4/tcp_input.c:6238:17: sparse: context imbalance in 'tcp_conn_request' - unexpected unlock
+Acked-by: Ben Hutchings <ben@decadent.org.uk>
 
-vim +/tcp_conn_request +6238 net/ipv4/tcp_input.c
+Ben.
 
-f7b3bec6 Florian Westphal 2014-11-03  6222  
-f7b3bec6 Florian Westphal 2014-11-03  6223  	if (want_cookie) {
-f7b3bec6 Florian Westphal 2014-11-03  6224  		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-f7b3bec6 Florian Westphal 2014-11-03  6225  		req->cookie_ts = tmp_opt.tstamp_ok;
-f7b3bec6 Florian Westphal 2014-11-03  6226  		if (!tmp_opt.tstamp_ok)
-f7b3bec6 Florian Westphal 2014-11-03  6227  			inet_rsk(req)->ecn_ok = 0;
-f7b3bec6 Florian Westphal 2014-11-03  6228  	}
-f7b3bec6 Florian Westphal 2014-11-03  6229  
-1fb6f159 Octavian Purdila 2014-06-25  6230  	tcp_rsk(req)->snt_isn = isn;
-58d607d3 Eric Dumazet     2015-09-15  6231  	tcp_rsk(req)->txhash = net_tx_rndhash();
-1fb6f159 Octavian Purdila 2014-06-25  6232  	tcp_openreq_init_rwin(req, sk, dst);
-ca6fb065 Eric Dumazet     2015-10-02  6233  	if (!want_cookie) {
-ca6fb065 Eric Dumazet     2015-10-02  6234  		tcp_reqsk_record_syn(sk, req, skb);
-7656d842 Eric Dumazet     2015-10-04  6235  		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc, dst);
-ca6fb065 Eric Dumazet     2015-10-02  6236  	}
-7c85af88 Eric Dumazet     2015-09-24  6237  	if (fastopen_sk) {
-ca6fb065 Eric Dumazet     2015-10-02 @6238  		af_ops->send_synack(fastopen_sk, dst, &fl, req,
-ca6fb065 Eric Dumazet     2015-10-02  6239  				    skb_get_queue_mapping(skb), &foc, false);
-7656d842 Eric Dumazet     2015-10-04  6240  		/* Add the child socket directly into the accept queue */
-7656d842 Eric Dumazet     2015-10-04  6241  		inet_csk_reqsk_queue_add(sk, req, fastopen_sk);
-7656d842 Eric Dumazet     2015-10-04  6242  		sk->sk_data_ready(sk);
-7656d842 Eric Dumazet     2015-10-04  6243  		bh_unlock_sock(fastopen_sk);
-7c85af88 Eric Dumazet     2015-09-24  6244  		sock_put(fastopen_sk);
-7c85af88 Eric Dumazet     2015-09-24  6245  	} else {
-9439ce00 Eric Dumazet     2015-03-17  6246  		tcp_rsk(req)->tfo_listener = false;
+> It'd probably be better to allocate a zeroed buffer instead.
+>=20
+> > =C2=A0		p +=3D ETH_GSTRING_LEN;
+> > -		sprintf(p, "tx_queue_%u_bytes", i);
+> > +> > 	> > 	> > snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_bytes", i);
+>=20
+> so...
+>=20
+> =C2=A0net/core/ethtool.c | 2 +-
+> =C2=A01 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index b495ab1..29edf74 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -1284,7 +1284,7 @@ static int ethtool_get_strings(struct net_device *d=
+ev, void __user *useraddr)
+> =C2=A0
+> =C2=A0	gstrings.len =3D ret;
+> =C2=A0
+> -	data =3D kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
+> +	data =3D kcalloc(gstrings.len, ETH_GSTRING_LEN, GFP_USER);
+> =C2=A0	if (!data)
+> =C2=A0		return -ENOMEM;
+> =C2=A0
+>=20
+>=20
+--=20
+Ben Hutchings
+[W]e found...that it wasn't as easy to get programs right as we had thought=
+.
+... I realized that a large part of my life from then on was going to be sp=
+ent
+in finding mistakes in my own programs. - Maurice Wilkes, 1949
 
-:::::: The code at line 6238 was first introduced by commit
-:::::: ca6fb06518836ef9b65dc0aac02ff97704d52a05 tcp: attach SYNACK messages to request sockets instead of listener
+--=-aehxVmzC4QJhmdDa8v9K
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-:::::: TO: Eric Dumazet <edumazet@google.com>
-:::::: CC: David S. Miller <davem@davemloft.net>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+iQIVAwUAVh68w+e/yOyVhhEJAQrr+g//Y4qMXMy5MzYr+R6n1VGFIfR6pUjWHAlS
+O7o+W7BxWBSPY/dpedsG0B4WCTKUS3LIpKGfI8QwE2i6HI908NfgTUaAxcfm4nMg
+hvcdRlrf07j8vyIbeYkE/xSBgkfnss6jRwcnD0clwSAb2z+s1ZW5SIdJyRPQ8YC8
+DkR/Jxb3MkVWtXdpFr7exgaKUOpRvCdOJGqX3631SycJgB/g1qJCtbDCdxAzdEhz
+KsRSKg8g4JbYM5awnIChCdvjwvPIoUy2uMcxCvPBJEYz2LxQHF0xQqHlTjq/XF81
+pQIknwqomSLOnpdWfgoibjFBDISMitXwRVG+r/j3jgvixetxBuPsnF9r3DbewmJO
+uPcBgswjtqE1C3F0qgiXzjnZipfXfYTqZ9QH2aieIfdNdGIDc/ox5HSr4aKKxsNh
+donIh5CTKJtvKkDg9pZrgMBKhIcJkyigvOAAlFGLKK7m9Aszchm+fguiGznF3y+c
+nJ0Xs2AwOG5CA2fpdPVXfLfaO2gb9ucUp4VspVzD55gXH8HqlApdWuJDQqTdZePp
+/phvpwewIR+950LayOqDJpmGwnnaLKggNX4YXnJRqe1RwT25y6/uO8Y/OPiJ454j
+FLrLKEsmzJh1gAyzftASF9kzNWM/EVJYIR5GQezDeBOR3ybH2fVB6TIV6zsx4Vj8
+pQeyj2j5ddA=
+=7JuK
+-----END PGP SIGNATURE-----
+
+--=-aehxVmzC4QJhmdDa8v9K--
