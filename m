@@ -1,46 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/16] i40e: Use BIT() macro for priority map parsing
-Date: Tue, 13 Oct 2015 23:59:43 -0700
-Message-ID: <1444805996-3877-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:47517 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751020AbbJNG77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 02:59:59 -0400
-In-Reply-To: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Wed, 14 Oct 2015 09:21:42 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1510140920200.25029@nanos>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <20151013045832.GA2437@netboy> <alpine.DEB.2.11.1510130944520.6097@nanos> <20151013083113.GA1931@localhost.localdomain>
+ <alpine.DEB.2.11.1510132113470.25029@nanos> <20151013211224.GA19242@netboy>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151013211224.GA19242@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+On Tue, 13 Oct 2015, Richard Cochran wrote:
+> On Tue, Oct 13, 2015 at 09:15:51PM +0200, Thomas Gleixner wrote:
+> > That's not working. The firmware is not going to change, no matter
+> > what.
+> 
+> Can we at least have a explanation of how the firmware operates?  How
+> are (ART,sys) pairs are generated, and how they are supposed to get
+> into the DSP?
 
-Replace one left over (1 << up) in the i40e_dcb.c file with the BIT()
-macro.
+The firmware gives you an ART/audio timestamp pair. The firmware does
+neither know about system time nor about PTP time.
 
-Change-ID: I39492a400a2cee5ac566143a5b436cc478bea0db
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_dcb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+So we have to do correlation in software.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-index 6fa07ef..251a841 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-@@ -393,7 +393,7 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
- 	for (i = 0; i < dcbcfg->numapps; i++) {
- 		app = (struct i40e_cee_app_prio *)(tlv->tlvinfo + offset);
- 		for (up = 0; up < I40E_MAX_USER_PRIORITY; up++) {
--			if (app->prio_map & (1 << up))
-+			if (app->prio_map & BIT(up))
- 				break;
- 		}
- 		dcbcfg->app[i].priority = up;
--- 
-2.4.3
+Thanks,
+
+	tglx
