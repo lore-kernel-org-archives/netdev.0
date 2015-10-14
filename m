@@ -1,138 +1,190 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Wed, 14 Oct 2015 20:42:09 +0300
-Message-ID: <20151014174152.GB9216@colbert.mtl.com>
-References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
- <1444651299-2813-1-git-send-email-razor@blackwall.org>
- <20151012173625.GA17983@ketchup.lan>
- <20151013083111.GA1432@colbert.mtl.com>
- <20151013143225.GA9636@ketchup.mtl.sfl>
- <20151014061446.GA29908@colbert.mtl.com>
- <20151014152515.GA6681@ketchup.mtl.sfl>
- <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Elad Raz <eladr@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v5 5/8] switchdev: introduce possibility to defer obj_add/del
+Date: Wed, 14 Oct 2015 19:40:52 +0200
+Message-ID: <1444844455-12508-6-git-send-email-jiri@resnulli.us>
+References: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	john.fastabend@gmail.com, David.Laight@ACULAB.COM,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0070.outbound.protection.outlook.com ([157.55.234.70]:40096
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932253AbbJNRmU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 13:42:20 -0400
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37681 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753701AbbJNRlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:41:04 -0400
+Received: by wijq8 with SMTP id q8so92521845wij.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:41:03 -0700 (PDT)
+In-Reply-To: <1444844455-12508-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 14, 2015 at 08:14:24PM IDT, sfeldma@gmail.com wrote:
->On Wed, Oct 14, 2015 at 8:25 AM, Vivien Didelot
-><vivien.didelot@savoirfairelinux.com> wrote:
->> On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
->>> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->>> >On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
->>> >> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->>> >> >Hi guys,
->>> >> >
->>> >> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
->>> >> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>> >> >>
->>> >> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
->>> >> >>
->>> >> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>> >> >> ---
->>> >> >>  net/switchdev/switchdev.c | 3 +++
->>> >> >>  1 file changed, 3 insertions(+)
->>> >> >>
->>> >> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>> >> >> index 6e4a4f9ad927..256c596de896 100644
->>> >> >> --- a/net/switchdev/switchdev.c
->>> >> >> +++ b/net/switchdev/switchdev.c
->>> >> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
->>> >> >>                         if (vlan.vid_begin)
->>> >> >>                                 return -EINVAL;
->>> >> >>                         vlan.vid_begin = vinfo->vid;
->>> >> >> +                       /* don't allow range of pvids */
->>> >> >> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
->>> >> >> +                               return -EINVAL;
->>> >> >>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
->>> >> >>                         if (!vlan.vid_begin)
->>> >> >>                                 return -EINVAL;
->>> >> >> --
->>> >> >> 2.4.3
->>> >> >>
->>> >> >
->>> >> >Yes the patch looks good, but it is a minor check though. I hope the
->>> >> >subject of this thread is making sense.
->>> >> >
->>> >> >VLAN ranges seem to have been included for an UX purpose (so commands
->>> >> >look like Cisco IOS). We don't want to change any existing interface, so
->>> >> >we pushed that down to drivers, with the only valid reason that, maybe
->>> >> >one day, an hardware can be capable of programming a range on a per-port
->>> >> >basis.
->>> >> Hi,
->>> >>
->>> >> That's actually what we are doing in mlxsw. We can do up to 256 entries in
->>> >> one go. We've yet to submit this part.
->>> >
->>> >Perfect Ido, thanks for pointing this out! I'm OK with the range then.
->>> >
->>> >So there is now a very last question in my head for this, which is more
->>> >a matter of kernel design. Should the user be aware of such underlying
->>> >support? In other words, would it make sense to do this in a driver:
->>> >
->>> >    foo_port_vlan_add(struct net_device *dev,
->>> >                      struct switchdev_obj_port_vlan *vlan)
->>> >    {
->>> >        if (vlan->vid_begin != vlan->vid_end)
->>> >            return -ENOTSUPP; /* or something more relevant for user */
->>> >
->>> >        return foo_port_single_vlan_add(dev, vlan->vid_begin);
->>> >    }
->>> >
->>> >So drivers keep being simple, and we can easily propagate the fact that
->>> >one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
->>> >implemented and must be done in software.
->>> I think that if you want to keep it simple, then Scott's advice from the
->>> previous thread is the most appropriate one. I believe the hardware you
->>> are using is simply not meant to support multiple 802.1Q bridges.
->>
->> You mean allowing only one Linux bridge over an hardware switch?
->>
->> It would for sure simplify how, as developers and users, we represent a
->> physical switch. But I am not sure how to achieve that and I don't have
->> strong opinions on this TBH.
->
->Hi Vivien, I think it's possible to keep switch ports on just one
->bridge if we do a little bit of work on the NETDEV_CHANGEUPPER
->notifier.  This will give you the driver-level control you want.  Do
->you have time to investigate?  The idea is:
->
->1) In your driver's handler for NETDEV_CHANGEUPPER, if switch port is
->being added to a second bridge,then return NOTIFY_BAD.  Your driver
->needs to track the bridge count.
->
->2) In __netdev_upper_dev_link(), check the return code from the
->call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, ...) call, and if
->NOTIFY_BAD, abort the linking operation (goto rollback_xxx).
->
-Hi,
+From: Jiri Pirko <jiri@mellanox.com>
 
-We are doing something similar in mlxsw (not upstream yet). Jiri
-introduced PRE_CHANGEUPPER, which is called from the function you
-mentioned, but before the linking operation (so that you don't need to
-rollback).
+Similar to the attr usecase, the caller knows if he is holding RTNL and is
+in atomic section. So let the called to decide the correct call variant.
 
-If the notification is about a linking operation and the master is a
-bridge different than the current one, then NOTIFY_BAD is returned.
+This allows drivers to sleep inside their ops and wait for hw to get the
+operation status. Then the status is propagated into switchdev core.
+This avoids silent errors in drivers.
 
-Vivien, regarding your WAN interface question, this is something we
-currently don't do. We don't even flood traffic from bridged ports
-to CPU (although we can), as it can saturate the bus. Only control
-traffic is supposed to go there.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/switchdev.h   |   1 +
+ net/switchdev/switchdev.c | 100 ++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 81 insertions(+), 20 deletions(-)
+
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index f8672d7..bc865e2 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -69,6 +69,7 @@ enum switchdev_obj_id {
+ 
+ struct switchdev_obj {
+ 	enum switchdev_obj_id id;
++	u32 flags;
+ };
+ 
+ /* SWITCHDEV_OBJ_ID_PORT_VLAN */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 5963d7a..eac68c4 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -362,21 +362,8 @@ static int __switchdev_port_obj_add(struct net_device *dev,
+ 	return err;
+ }
+ 
+-/**
+- *	switchdev_port_obj_add - Add port object
+- *
+- *	@dev: port device
+- *	@id: object ID
+- *	@obj: object to add
+- *
+- *	Use a 2-phase prepare-commit transaction model to ensure
+- *	system is not left in a partially updated state due to
+- *	failure from driver/device.
+- *
+- *	rtnl_lock must be held.
+- */
+-int switchdev_port_obj_add(struct net_device *dev,
+-			   const struct switchdev_obj *obj)
++static int switchdev_port_obj_add_now(struct net_device *dev,
++				      const struct switchdev_obj *obj)
+ {
+ 	struct switchdev_trans trans;
+ 	int err;
+@@ -418,18 +405,53 @@ int switchdev_port_obj_add(struct net_device *dev,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
++
++static void switchdev_port_obj_add_deferred(struct net_device *dev,
++					    const void *data)
++{
++	const struct switchdev_obj *obj = data;
++	int err;
++
++	err = switchdev_port_obj_add_now(dev, obj);
++	if (err && err != -EOPNOTSUPP)
++		netdev_err(dev, "failed (err=%d) to add object (id=%d)\n",
++			   err, obj->id);
++}
++
++static int switchdev_port_obj_add_defer(struct net_device *dev,
++					const struct switchdev_obj *obj)
++{
++	return switchdev_deferred_enqueue(dev, obj, sizeof(*obj),
++					  switchdev_port_obj_add_deferred);
++}
+ 
+ /**
+- *	switchdev_port_obj_del - Delete port object
++ *	switchdev_port_obj_add - Add port object
+  *
+  *	@dev: port device
+  *	@id: object ID
+- *	@obj: object to delete
++ *	@obj: object to add
++ *
++ *	Use a 2-phase prepare-commit transaction model to ensure
++ *	system is not left in a partially updated state due to
++ *	failure from driver/device.
++ *
++ *	rtnl_lock must be held and must not be in atomic section,
++ *	in case SWITCHDEV_F_DEFER flag is not set.
+  */
+-int switchdev_port_obj_del(struct net_device *dev,
++int switchdev_port_obj_add(struct net_device *dev,
+ 			   const struct switchdev_obj *obj)
+ {
++	if (obj->flags & SWITCHDEV_F_DEFER)
++		return switchdev_port_obj_add_defer(dev, obj);
++	ASSERT_RTNL();
++	return switchdev_port_obj_add_now(dev, obj);
++}
++EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
++
++static int switchdev_port_obj_del_now(struct net_device *dev,
++				      const struct switchdev_obj *obj)
++{
+ 	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 	struct net_device *lower_dev;
+ 	struct list_head *iter;
+@@ -444,13 +466,51 @@ int switchdev_port_obj_del(struct net_device *dev,
+ 	 */
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		err = switchdev_port_obj_del(lower_dev, obj);
++		err = switchdev_port_obj_del_now(lower_dev, obj);
+ 		if (err)
+ 			break;
+ 	}
+ 
+ 	return err;
+ }
++
++static void switchdev_port_obj_del_deferred(struct net_device *dev,
++					    const void *data)
++{
++	const struct switchdev_obj *obj = data;
++	int err;
++
++	err = switchdev_port_obj_del_now(dev, obj);
++	if (err && err != -EOPNOTSUPP)
++		netdev_err(dev, "failed (err=%d) to del object (id=%d)\n",
++			   err, obj->id);
++}
++
++static int switchdev_port_obj_del_defer(struct net_device *dev,
++					const struct switchdev_obj *obj)
++{
++	return switchdev_deferred_enqueue(dev, obj, sizeof(*obj),
++					  switchdev_port_obj_del_deferred);
++}
++
++/**
++ *	switchdev_port_obj_del - Delete port object
++ *
++ *	@dev: port device
++ *	@id: object ID
++ *	@obj: object to delete
++ *
++ *	rtnl_lock must be held and must not be in atomic section,
++ *	in case SWITCHDEV_F_DEFER flag is not set.
++ */
++int switchdev_port_obj_del(struct net_device *dev,
++			   const struct switchdev_obj *obj)
++{
++	if (obj->flags & SWITCHDEV_F_DEFER)
++		return switchdev_port_obj_del_defer(dev, obj);
++	ASSERT_RTNL();
++	return switchdev_port_obj_del_now(dev, obj);
++}
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
+ 
+ /**
+-- 
+1.9.3
