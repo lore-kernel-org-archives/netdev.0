@@ -1,49 +1,51 @@
-From: lucien xin <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next] route: fib_validate_source remove the <=
- RT_SCOPE_HOST test
-Date: Thu, 15 Oct 2015 01:25:39 +0800
-Message-ID: <CADvbK_cyMbWCWdRm1CBU6vWQ2MypyP2DSwjdvzEaj1_fy-4vJg@mail.gmail.com>
-References: <a9569cddcdeb5f0b7d138a22086f76f1b9e5acd5.1444754404.git.lucien.xin@gmail.com>
-	<alpine.LFD.2.11.1510132223030.2336@ja.home.ssi.bg>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next] amd-xgbe: Use system workqueue for device restart
+Date: Wed, 14 Oct 2015 12:37:32 -0500
+Message-ID: <20151014173732.11432.15970.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-	fw@strlen.de
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:33096 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932333AbbJNRZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 13:25:39 -0400
-Received: by oiar126 with SMTP id r126so31784480oia.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 10:25:39 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.11.1510132223030.2336@ja.home.ssi.bg>
+Received: from mail-by2on0096.outbound.protection.outlook.com ([207.46.100.96]:55665
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753389AbbJNRhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 13:37:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2015 at 3:24 AM, Julian Anastasov <ja@ssi.bg> wrote:
->
->         Hello,
->
-> On Wed, 14 Oct 2015, Xin Long wrote:
->
->> commit fe3edf45792a ("ipv4: Remove all RTCF_DIRECTSRC handliing.").
->>
->> Before this commit, we had a tristate:
->> < 0: error
->> 0: ok
->> 1: ok and set RTCF_DIRECTSRC
->>
->> But now we only care about 0 or < 0.
->
->         Not true, __mkroute_input() uses the 'err' result
-> to set IPSKB_DOREDIRECT.
->
-yeah, I don't understand why err > 0 is necessary to set IPSKB_DOREDIRECT
-to send redirects.
-FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST, what's that mean?
+A previous patch switched from using the system workqueue to the device
+workqueue for various operations. During a device restart the device
+workqueue is flushed so the restart cannot use this workqueue or else
+a deadlock results.  Move the device restart back to using the system
+workqueue.
 
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 14bad8c..49f796a 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -365,7 +365,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 
+ 		/* Restart the device on a Fatal Bus Error */
+ 		if (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, FBE))
+-			queue_work(pdata->dev_workqueue, &pdata->restart_work);
++			schedule_work(&pdata->restart_work);
+ 
+ 		/* Clear all interrupt signals */
+ 		XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_ch_isr);
+@@ -1537,7 +1537,7 @@ static void xgbe_tx_timeout(struct net_device *netdev)
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 
+ 	netdev_warn(netdev, "tx timeout, device restarting\n");
+-	queue_work(pdata->dev_workqueue, &pdata->restart_work);
++	schedule_work(&pdata->restart_work);
+ }
+ 
+ static struct rtnl_link_stats64 *xgbe_get_stats64(struct net_device *netdev,
