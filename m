@@ -1,8 +1,9 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: [RFC PATCH] bpf: bpf_perf_event_sample_control_proto can be static
+Subject: Re: [PATCH V2 1/2] bpf: control the trace data output on current cpu
+ when perf sampling
 Date: Wed, 14 Oct 2015 21:49:39 +0800
-Message-ID: <20151014134939.GA4332@lkp-hsx03>
-References: <201510142113.R6QU6uqp%fengguang.wu@intel.com>
+Message-ID: <201510142113.R6QU6uqp%fengguang.wu@intel.com>
+References: <1444826277-94060-2-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kbuild-all@01.org, ast@plumgrid.com, davem@davemloft.net,
@@ -18,22 +19,23 @@ In-Reply-To: <1444826277-94060-2-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Kaixu,
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
+
+url:    https://github.com/0day-ci/linux/commits/Kaixu-Xia/bpf-enable-disable-events-stored-in-PERF_EVENT_ARRAY-maps-trace-data-output-when-perf-sampling/20151014-204158
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
+
+
+sparse warnings: (new ones prefixed by >>)
+
+>> kernel/trace/bpf_trace.c:239:29: sparse: symbol 'bpf_perf_event_sample_control_proto' was not declared. Should it be static?
+
+Please review and possibly fold the followup patch.
+
 ---
- bpf_trace.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index f261333..ade24a1 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -236,7 +236,7 @@ static u64 bpf_perf_event_sample_control(u64 r1, u64 index, u64 flag, u64 r4, u6
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_perf_event_sample_control_proto = {
-+static const struct bpf_func_proto bpf_perf_event_sample_control_proto = {
- 	.func		= bpf_perf_event_sample_control,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
