@@ -1,132 +1,299 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: Use kcalloc instead of kmalloc for
- ethtool_get_strings
-Date: Wed, 14 Oct 2015 21:36:19 +0100
-Message-ID: <1444854979.31451.39.camel@decadent.org.uk>
-References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1444805996-3877-16-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1444810180.2718.16.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-aehxVmzC4QJhmdDa8v9K"
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: Joe Perches <joe@perches.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36837 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932172AbbJNUgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 16:36:36 -0400
-In-Reply-To: <1444810180.2718.16.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [RFC PATCH] RDS: convert bind hash table to re-sizable hashtable
+Date: Wed, 14 Oct 2015 14:15:31 -0700
+Message-ID: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Santosh Shilimkar <ssantosh@kernel.org>
 
---=-aehxVmzC4QJhmdDa8v9K
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+To further improve the RDS connection scalabilty on massive systems
+where number of sockets grows into tens of thousands  of sockets, there
+is a need of larger bind hashtable. Pre-allocated 8K or 16K table is
+not very flexible in terms of memory utilisation. The rhashtable
+infrastructure gives us the flexibility to grow the hashtbable based
+on use and also comes up with inbuilt efficient bucket(chain) handling.
 
-On Wed, 2015-10-14 at 01:09 -0700, Joe Perches wrote:
-> It seems that kernel memory can leak into userspace by a
-> kmalloc, ethtool_get_strings, then copy_to_user sequence.
->=20
-> Avoid this by using kcalloc to zero fill the copied buffer.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->=20
-> stable too...
->=20
-> On Tue, 2015-10-13 at 23:59 -0700, Jeff Kirsher wrote:
-> > From: Jacob Keller <jacob.e.keller@intel.com>
-> []
-> > diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers=
-/net/ethernet/intel/fm10k/fm10k_ethtool.c
-> []
-> > @@ -206,13 +206,13 @@ static void fm10k_get_stat_strings(struct net_dev=
-ice *dev, u8 *data)
-> > =C2=A0> > 	> > }
-> > =C2=A0
-> > =C2=A0> > 	> > for (i =3D 0; i < interface->hw.mac.max_queues; i++) {
-> > -> > 	> > 	> > sprintf(p, "tx_queue_%u_packets", i);
-> > +> > 	> > 	> > snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_packets", i);
->=20
-> It seems these need a memset after the snprintf to zero fill
-> bytes after the string terminating \0 to avoid leaking
-> contents of any unset bytes.
+Cc: David Laight <David.Laight@ACULAB.COM>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+As promised in last series review, here is an RFC to conver RDS to make
+use of re-sizable hash tables. I haven't turned on auto shrinking on
+by purpose.
 
-Right. =C2=A0It used to be that all drivers were memcpy()ing from a static
-array which had all the necessary zero bytes, but now there are a bunch
-of them using s{,n}printf() or otherwise dynamically generating names
-for statistics or tests. =C2=A0And I don't think there's any snprintf()-
-alike function that will fix that.
+ net/rds/af_rds.c |  10 ++++-
+ net/rds/bind.c   | 127 ++++++++++++++++++++-----------------------------------
+ net/rds/rds.h    |   7 ++-
+ 3 files changed, 58 insertions(+), 86 deletions(-)
 
-At least these drivers aren't zero-padding all strings: bnx2x, bnad,
-i40e, i40evf, igb, ixgbe, liquidio, mlx4_en, mlx5e, nicvf, qlcnic, sfc,
-vxge.
-
-Acked-by: Ben Hutchings <ben@decadent.org.uk>
-
-Ben.
-
-> It'd probably be better to allocate a zeroed buffer instead.
->=20
-> > =C2=A0		p +=3D ETH_GSTRING_LEN;
-> > -		sprintf(p, "tx_queue_%u_bytes", i);
-> > +> > 	> > 	> > snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_bytes", i);
->=20
-> so...
->=20
-> =C2=A0net/core/ethtool.c | 2 +-
-> =C2=A01 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index b495ab1..29edf74 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1284,7 +1284,7 @@ static int ethtool_get_strings(struct net_device *d=
-ev, void __user *useraddr)
-> =C2=A0
-> =C2=A0	gstrings.len =3D ret;
-> =C2=A0
-> -	data =3D kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
-> +	data =3D kcalloc(gstrings.len, ETH_GSTRING_LEN, GFP_USER);
-> =C2=A0	if (!data)
-> =C2=A0		return -ENOMEM;
-> =C2=A0
->=20
->=20
---=20
-Ben Hutchings
-[W]e found...that it wasn't as easy to get programs right as we had thought=
-.
-... I realized that a large part of my life from then on was going to be sp=
-ent
-in finding mistakes in my own programs. - Maurice Wilkes, 1949
-
---=-aehxVmzC4QJhmdDa8v9K
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVh68w+e/yOyVhhEJAQrr+g//Y4qMXMy5MzYr+R6n1VGFIfR6pUjWHAlS
-O7o+W7BxWBSPY/dpedsG0B4WCTKUS3LIpKGfI8QwE2i6HI908NfgTUaAxcfm4nMg
-hvcdRlrf07j8vyIbeYkE/xSBgkfnss6jRwcnD0clwSAb2z+s1ZW5SIdJyRPQ8YC8
-DkR/Jxb3MkVWtXdpFr7exgaKUOpRvCdOJGqX3631SycJgB/g1qJCtbDCdxAzdEhz
-KsRSKg8g4JbYM5awnIChCdvjwvPIoUy2uMcxCvPBJEYz2LxQHF0xQqHlTjq/XF81
-pQIknwqomSLOnpdWfgoibjFBDISMitXwRVG+r/j3jgvixetxBuPsnF9r3DbewmJO
-uPcBgswjtqE1C3F0qgiXzjnZipfXfYTqZ9QH2aieIfdNdGIDc/ox5HSr4aKKxsNh
-donIh5CTKJtvKkDg9pZrgMBKhIcJkyigvOAAlFGLKK7m9Aszchm+fguiGznF3y+c
-nJ0Xs2AwOG5CA2fpdPVXfLfaO2gb9ucUp4VspVzD55gXH8HqlApdWuJDQqTdZePp
-/phvpwewIR+950LayOqDJpmGwnnaLKggNX4YXnJRqe1RwT25y6/uO8Y/OPiJ454j
-FLrLKEsmzJh1gAyzftASF9kzNWM/EVJYIR5GQezDeBOR3ybH2fVB6TIV6zsx4Vj8
-pQeyj2j5ddA=
-=7JuK
------END PGP SIGNATURE-----
-
---=-aehxVmzC4QJhmdDa8v9K--
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index 384ea1e..b5476aeb 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -573,6 +573,7 @@ static void rds_exit(void)
+ 	rds_threads_exit();
+ 	rds_stats_exit();
+ 	rds_page_exit();
++	rds_bind_lock_destroy();
+ 	rds_info_deregister_func(RDS_INFO_SOCKETS, rds_sock_info);
+ 	rds_info_deregister_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
+ }
+@@ -582,11 +583,14 @@ static int rds_init(void)
+ {
+ 	int ret;
+ 
+-	rds_bind_lock_init();
++	ret = rds_bind_lock_init();
++	if (ret)
++		goto out;
+ 
+ 	ret = rds_conn_init();
+ 	if (ret)
+-		goto out;
++		goto out_bind;
++
+ 	ret = rds_threads_init();
+ 	if (ret)
+ 		goto out_conn;
+@@ -620,6 +624,8 @@ out_conn:
+ 	rds_conn_exit();
+ 	rds_cong_exit();
+ 	rds_page_exit();
++out_bind:
++	rds_bind_lock_destroy();
+ out:
+ 	return ret;
+ }
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index bc6b93e..199e4cc 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -38,54 +38,18 @@
+ #include <linux/ratelimit.h>
+ #include "rds.h"
+ 
+-struct bind_bucket {
+-	rwlock_t                lock;
+-	struct hlist_head	head;
++static struct rhashtable bind_hash_table;
++
++static struct rhashtable_params ht_parms = {
++	.nelem_hint = 768,
++	.key_len = sizeof(u64),
++	.key_offset = offsetof(struct rds_sock, rs_bound_key),
++	.head_offset = offsetof(struct rds_sock, rs_bound_node),
++	.max_size = 16384,
++	.min_size = 1024,
++	.automatic_shrinking = true,
+ };
+ 
+-#define BIND_HASH_SIZE 1024
+-static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
+-
+-static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
+-{
+-	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+-				  (BIND_HASH_SIZE - 1));
+-}
+-
+-/* must hold either read or write lock (write lock for insert != NULL) */
+-static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
+-					__be32 addr, __be16 port,
+-					struct rds_sock *insert)
+-{
+-	struct rds_sock *rs;
+-	struct hlist_head *head = &bucket->head;
+-	u64 cmp;
+-	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
+-
+-	hlist_for_each_entry(rs, head, rs_bound_node) {
+-		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+-		      be16_to_cpu(rs->rs_bound_port);
+-
+-		if (cmp == needle) {
+-			rds_sock_addref(rs);
+-			return rs;
+-		}
+-	}
+-
+-	if (insert) {
+-		/*
+-		 * make sure our addr and port are set before
+-		 * we are added to the list.
+-		 */
+-		insert->rs_bound_addr = addr;
+-		insert->rs_bound_port = port;
+-		rds_sock_addref(insert);
+-
+-		hlist_add_head(&insert->rs_bound_node, head);
+-	}
+-	return NULL;
+-}
+-
+ /*
+  * Return the rds_sock bound at the given local address.
+  *
+@@ -94,18 +58,14 @@ static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
+  */
+ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ {
++	u64 key = ((u64)addr << 32) | port;
+ 	struct rds_sock *rs;
+-	unsigned long flags;
+-	struct bind_bucket *bucket = hash_to_bucket(addr, port);
+ 
+-	read_lock_irqsave(&bucket->lock, flags);
+-	rs = rds_bind_lookup(bucket, addr, port, NULL);
+-	read_unlock_irqrestore(&bucket->lock, flags);
+-
+-	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
+-		rds_sock_put(rs);
++	rs = rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms);
++	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
++		rds_sock_addref(rs);
++	else
+ 		rs = NULL;
+-	}
+ 
+ 	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
+ 		ntohs(port));
+@@ -116,10 +76,9 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+ /* returns -ve errno or +ve port */
+ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ {
+-	unsigned long flags;
+ 	int ret = -EADDRINUSE;
+ 	u16 rover, last;
+-	struct bind_bucket *bucket;
++	u64 key;
+ 
+ 	if (*port != 0) {
+ 		rover = be16_to_cpu(*port);
+@@ -130,23 +89,31 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 	}
+ 
+ 	do {
+-		struct rds_sock *rrs;
+ 		if (rover == 0)
+ 			rover++;
+ 
+-		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
+-		write_lock_irqsave(&bucket->lock, flags);
+-		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
+-		write_unlock_irqrestore(&bucket->lock, flags);
+-		if (!rrs) {
++		key = ((u64)addr << 32) | cpu_to_be16(rover);
++		if (rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms))
++			continue;
++
++		rs->rs_bound_key = key;
++		rs->rs_bound_addr = addr;
++		rs->rs_bound_port = cpu_to_be16(rover);
++		rs->rs_bound_node.next = NULL;
++		rds_sock_addref(rs);
++		if (!rhashtable_insert_fast(&bind_hash_table,
++					    &rs->rs_bound_node, ht_parms)) {
+ 			*port = rs->rs_bound_port;
+ 			ret = 0;
+ 			rdsdebug("rs %p binding to %pI4:%d\n",
+ 			  rs, &addr, (int)ntohs(*port));
+ 			break;
+ 		} else {
+-			rds_sock_put(rrs);
++			rds_sock_put(rs);
++			ret = -ENOMEM;
++			break;
+ 		}
++
+ 	} while (rover++ != last);
+ 
+ 	return ret;
+@@ -154,23 +121,17 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+ 
+ void rds_remove_bound(struct rds_sock *rs)
+ {
+-	unsigned long flags;
+-	struct bind_bucket *bucket =
+-		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
+-
+-	write_lock_irqsave(&bucket->lock, flags);
+ 
+-	if (rs->rs_bound_addr) {
+-		rdsdebug("rs %p unbinding from %pI4:%d\n",
+-		  rs, &rs->rs_bound_addr,
+-		  ntohs(rs->rs_bound_port));
++	if (!rs->rs_bound_addr)
++		return;
+ 
+-		hlist_del_init(&rs->rs_bound_node);
+-		rds_sock_put(rs);
+-		rs->rs_bound_addr = 0;
+-	}
++	rdsdebug("rs %p unbinding from %pI4:%d\n",
++		 rs, &rs->rs_bound_addr,
++		 ntohs(rs->rs_bound_port));
+ 
+-	write_unlock_irqrestore(&bucket->lock, flags);
++	rhashtable_remove_fast(&bind_hash_table, &rs->rs_bound_node, ht_parms);
++	rds_sock_put(rs);
++	rs->rs_bound_addr = 0;
+ }
+ 
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -217,10 +178,12 @@ out:
+ 	return ret;
+ }
+ 
+-void rds_bind_lock_init(void)
++void rds_bind_lock_destroy(void)
+ {
+-	int i;
++	rhashtable_destroy(&bind_hash_table);
++}
+ 
+-	for (i = 0; i < BIND_HASH_SIZE; i++)
+-		rwlock_init(&bind_hash_table[i].lock);
++int rds_bind_lock_init(void)
++{
++	return rhashtable_init(&bind_hash_table, &ht_parms);
+ }
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 121fb81..0068840 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -7,6 +7,7 @@
+ #include <rdma/rdma_cm.h>
+ #include <linux/mutex.h>
+ #include <linux/rds.h>
++#include <linux/rhashtable.h>
+ 
+ #include "info.h"
+ 
+@@ -472,7 +473,8 @@ struct rds_sock {
+ 	 * bound_addr used for both incoming and outgoing, no INADDR_ANY
+ 	 * support.
+ 	 */
+-	struct hlist_node	rs_bound_node;
++	struct rhash_head	rs_bound_node;
++	u64			rs_bound_key;
+ 	__be32			rs_bound_addr;
+ 	__be32			rs_conn_addr;
+ 	__be16			rs_bound_port;
+@@ -603,7 +605,8 @@ extern wait_queue_head_t rds_poll_waitq;
+ int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
+ void rds_remove_bound(struct rds_sock *rs);
+ struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
+-void rds_bind_lock_init(void);
++int rds_bind_lock_init(void);
++void rds_bind_lock_destroy(void);
+ 
+ /* cong.c */
+ int rds_cong_get_maps(struct rds_connection *conn);
+-- 
+1.9.1
