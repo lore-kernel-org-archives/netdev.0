@@ -1,85 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 15/16] fm10k: use snprintf() instead of sprintf() to avoid buffer overflow
-Date: Tue, 13 Oct 2015 23:59:55 -0700
-Message-ID: <1444805996-3877-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/16] i40e: remove redundant call
+Date: Tue, 13 Oct 2015 23:59:47 -0700
+Message-ID: <1444805996-3877-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41965 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:27504 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752632AbbJNHAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 03:00:05 -0400
+	id S1752522AbbJNHAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 03:00:00 -0400
 In-Reply-To: <1444805996-3877-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+This function call isn't needed here; the same function is already
+called by i40e_reset_vf.
+
+Change-ID: I96ccbf91b752965c9e28fe895d4c7d4c46e3ba44
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c | 6 +++---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 8 ++++----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-index 08ecf43..5304bc1 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-@@ -176,7 +176,7 @@ void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector)
- 		return;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index ee747dc..2102280 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -964,8 +964,6 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 		/* VF resources get allocated during reset */
+ 		i40e_reset_vf(&vfs[i], false);
  
- 	/* Generate a folder for each q_vector */
--	sprintf(name, "q_vector.%03d", q_vector->v_idx);
-+	snprintf(name, sizeof(name), "q_vector.%03d", q_vector->v_idx);
- 
- 	q_vector->dbg_q_vector = debugfs_create_dir(name, interface->dbg_intfc);
- 	if (!q_vector->dbg_q_vector)
-@@ -186,7 +186,7 @@ void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector)
- 	for (i = 0; i < q_vector->tx.count; i++) {
- 		struct fm10k_ring *ring = &q_vector->tx.ring[i];
- 
--		sprintf(name, "tx_ring.%03d", ring->queue_index);
-+		snprintf(name, sizeof(name), "tx_ring.%03d", ring->queue_index);
- 
- 		debugfs_create_file(name, 0600,
- 				    q_vector->dbg_q_vector, ring,
-@@ -197,7 +197,7 @@ void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector)
- 	for (i = 0; i < q_vector->rx.count; i++) {
- 		struct fm10k_ring *ring = &q_vector->rx.ring[i];
- 
--		sprintf(name, "rx_ring.%03d", ring->queue_index);
-+		snprintf(name, sizeof(name), "rx_ring.%03d", ring->queue_index);
- 
- 		debugfs_create_file(name, 0600,
- 				    q_vector->dbg_q_vector, ring,
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 4ef2fbd..447a5f8 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -206,13 +206,13 @@ static void fm10k_get_stat_strings(struct net_device *dev, u8 *data)
+-		/* enable VF vplan_qtable mappings */
+-		i40e_enable_vf_mappings(&vfs[i]);
  	}
+ 	pf->num_alloc_vfs = num_alloc_vfs;
  
- 	for (i = 0; i < interface->hw.mac.max_queues; i++) {
--		sprintf(p, "tx_queue_%u_packets", i);
-+		snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_packets", i);
- 		p += ETH_GSTRING_LEN;
--		sprintf(p, "tx_queue_%u_bytes", i);
-+		snprintf(p, ETH_GSTRING_LEN, "tx_queue_%u_bytes", i);
- 		p += ETH_GSTRING_LEN;
--		sprintf(p, "rx_queue_%u_packets", i);
-+		snprintf(p, ETH_GSTRING_LEN, "rx_queue_%u_packets", i);
- 		p += ETH_GSTRING_LEN;
--		sprintf(p, "rx_queue_%u_bytes", i);
-+		snprintf(p, ETH_GSTRING_LEN, "rx_queue_%u_bytes", i);
- 		p += ETH_GSTRING_LEN;
- 	}
- }
 -- 
 2.4.3
