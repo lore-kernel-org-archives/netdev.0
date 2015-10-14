@@ -1,23 +1,25 @@
-From: <lc3@cll1.onmicrosoft.com>
-Subject: Good Day
-Date: Wed, 14 Oct 2015 05:22:59 -0500
-Message-ID: <MA1PR01MB00085A1DCD2E6A05EFD60CD4803F0@MA1PR01MB0008.INDPRD01.PROD.OUTLOOK.COM>
-Reply-To: <mleng8184@gmail.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Killing USBNET as an independent Konfig option
+Date: Wed, 14 Oct 2015 12:45:31 +0200
+Message-ID: <1444819531.1975.2.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <lc3@cll1.onmicrosoft.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sg2apc01hn0235.outbound.protection.outlook.com ([104.47.125.235]:12417
-	"EHLO APC01-SG2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751257AbbJNKiW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 06:38:22 -0400
-Content-Description: Mail message body
+Received: from mx2.suse.de ([195.135.220.15]:40354 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751875AbbJNKrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 06:47:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I need your help for this transaction
+Hi,
 
-Regards,
-Mr. LEUNG Cheung
+would anybody mind me killing the separate config option
+of usbnet? I can see no sense in having it as a separate
+option, as it is just infrastructure.
+
+	Regards
+		Oliver
