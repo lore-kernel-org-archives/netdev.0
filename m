@@ -1,127 +1,43 @@
-From: Sheng Yong <shengyong1@huawei.com>
-Subject: Re: ICMPv6 too big Packet will makes the network unreachable
-Date: Wed, 14 Oct 2015 17:18:32 +0800
-Message-ID: <561E1DE8.6070400@huawei.com>
-References: <CAJFZqHz93RmSp369W508i8zbDmxhohG9n4UfxG1TnSxDPD4B=g@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Wed, 14 Oct 2015 11:29:23 +0200
+Message-ID: <20151014092923.GA23870@localhost.localdomain>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <20151013045832.GA2437@netboy>
+ <alpine.DEB.2.11.1510130944520.6097@nanos>
+ <20151013083113.GA1931@localhost.localdomain>
+ <alpine.DEB.2.11.1510132113470.25029@nanos>
+ <20151013211224.GA19242@netboy>
+ <alpine.DEB.2.11.1510140920200.25029@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <kafai@fb.com>
-To: Li RongQing <roy.qing.li@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:13709 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbbJNJTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 05:19:03 -0400
-In-Reply-To: <CAJFZqHz93RmSp369W508i8zbDmxhohG9n4UfxG1TnSxDPD4B=g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1510140920200.25029@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Rongqing,
+On Wed, Oct 14, 2015 at 09:21:42AM +0200, Thomas Gleixner wrote:
+> The firmware gives you an ART/audio timestamp pair. The firmware does
+> neither know about system time nor about PTP time.
+> 
+> So we have to do correlation in software.
 
-Cced Martin KaFai Lau <kafai@fb.com>
+Ok, so give me the ART/audio and two recent ART/ptp times* spaced one
+second apart, then I'll tell you audio/ptp with error well under 1 PPM.
+No need to change the firmware.
 
-It seems you trigger the problem that I met before, here is the link of disucssion:
-http://www.spinics.net/lists/netdev/msg314717.html
+Who cares about the system time?  If the DSP isn't using it, then just
+leave it out of the equation.
 
-You can try these patches to check if they resolve your problem:
-7035870d1219 | 2015-05-03 | ipv6: Check RTF_LOCAL on rt->rt6i_flags instead of rt->dst.flags
-653437d02f1f | 2015-04-28 | ipv6: Stop /128 route from disappearing after pmtu update
+Thanks,
+Richard
 
-thanks,
-Sheng
-
-On 10/13/2015 3:09 PM, Li RongQing wrote:
-> 1. Machine with 2001:1b70:82a8:18:650:65:0:2 address, and receive wrong
-> icmp packets
->     root@du1:~# ifconfig
->     eth10.650 Link encap:Ethernet  HWaddr 74:c9:9a:a7:e5:88
->               inet6 addr: fe80::76c9:9aff:fea7:e588/64 Scope:Link
->               inet6 addr: 2001:1b70:82a8:18:650:65:0:2/80 Scope:Global
->               UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->               RX packets:1 errors:0 dropped:0 overruns:0 frame:0
->               TX packets:9 errors:0 dropped:0 overruns:0 carrier:0
->               collisions:0 txqueuelen:0
->               RX bytes:104 (104.0 B)  TX bytes:934 (934.0 B)
-> 
-> 2. ICMPv6 packet is as below.
-> 
->    ###[ Ethernet ]###
->      dst       = 74:C9:9A:A7:E5:88
->      src       = ae:4f:44:f2:10:cc
->      type      = 0x86dd
->    ###[ IPv6 ]###
->         version   = 6
->         tc        = 0
->         fl        = 0
->         plen      = None
->         nh        = ICMPv6
->         hlim      = 64
->         src       = 2001:1b70:82a8:18:650:65:0:4
->         dst       = 2001:1b70:82a8:18:650:65:0:2
-> 
->    ###[ ICMPv6 Packet Too Big ]###
->            type      = Packet too big
->            code      = 0
->            cksum     = None
->            mtu       = 1280
-> 
->    ###[ IPv6 ]###
->               version   = 6
->               tc        = 0
->               fl        = 0
->               plen      = None
->               nh        = ICMPv6
->               hlim      = 255
->               src       = 2001:1b70:82a8:18:650:65:0:2
->               dst       = 2001:1b70:82a8:18:650:65:0:2
->    ###[ ICMPv6 Neighbor Discovery - Neighbor Advertisement ]###
->                  type      = Neighbor Advertisement
->                  code      = 0
->                  cksum     = None
->                  R         = 1
->                  S         = 0
->                  O         = 1
->                  res       = 0x0
->                  tgt       = 2001:1b70:82a8:18:650:65:0:2
-> 
->    ##### Test #####
-> 
-> 3. Send ICMPv6  with Scapy to trigger fault.
-> 
->    conf.iface='eth1'
->    eth = Ether(src='ae:4f:44:f2:10:cc', dst='74:C9:9A:A7:E5:88')
->    base = IPv6(src='2001:1b70:82a8:18:650:65:0:4',
-> dst='2001:1b70:82a8:18:650:65:0:2')
->    ptb = ICMPv6PacketTooBig(type=2)
->    packet = eth/base/ptb
->    ptb_payload_na_base = IPv6(src='2001:1b70:82a8:18:650:65:0:2',
-> dst='2001:1b70:82a8:18:650:65:0:2')
->    ptb_payload_na = ICMPv6ND_NA(type=136, tgt='2001:1b70:82a8:18:650:65:0:2')
->    ptb_payload = ptb_payload_na_base/ptb_payload_na
->    packet = packet/ptb_payload
->    sendp(packet, iface="eth1.650", count=1)
-> 
-> 4.  route information  will enter the faulty state after Wait 600 seconds,
-> 
->    root@du1:~# ip route get 2001:1b70:82a8:18:650:65:0:2
->    local 2001:1b70:82a8:18:650:65:0:2 dev lo  proto none  src
-> 2001:1b70:82a8:18:650:65:0:2  metric 0  expires 7sec mtu 1280
-> 
->    root@du1:~# ip route get 2001:1b70:82a8:18:650:65:0:2
->    local 2001:1b70:82a8:18:650:65:0:2 dev lo  proto none  src
-> 2001:1b70:82a8:18:650:65:0:2  metric 0  expires 3sec mtu 1280
-> 
->    root@du1:~# ip route get 2001:1b70:82a8:18:650:65:0:2
->    2001:1b70:82a8:18:650:65:0:2 dev eth10.650  src
-> 2001:1b70:82a8:18:650:65:0:2  metric 0
->        cache
->    root@du1:~#
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+* If the audio clock isn't locked to the ART, then I'll need two samples.
