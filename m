@@ -1,91 +1,123 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: NULL pointer dereference in rt6_get_cookie()
-Date: Tue, 13 Oct 2015 23:14:21 -0700
-Message-ID: <20151014061421.GD68583@kafai-mba.local>
-References: <20151010132437.GB25926@orbit.nwl.cc>
- <20151013181443.GB68583@kafai-mba.local>
- <20151013191039.GA3070@base.sg13b.nwl.cc>
- <20151013192543.06B5021398@mail.nwl.cc>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
+Date: Wed, 14 Oct 2015 09:14:46 +0300
+Message-ID: <20151014061446.GA29908@colbert.mtl.com>
+References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
+ <1444651299-2813-1-git-send-email-razor@blackwall.org>
+ <20151012173625.GA17983@ketchup.lan>
+ <20151013083111.GA1432@colbert.mtl.com>
+ <20151013143225.GA9636@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Phil Sutter <phil@nwl.cc>
+Cc: Nikolay Aleksandrov <razor@blackwall.org>,
+	<netdev@vger.kernel.org>, <sfeldma@gmail.com>, <jiri@resnulli.us>,
+	<davem@davemloft.net>,
+	"Nikolay Aleksandrov" <nikolay@cumulusnetworks.com>,
+	<eladr@mellanox.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:65487 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750759AbbJNGOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 02:14:53 -0400
+Received: from mail-db3on0062.outbound.protection.outlook.com ([157.55.234.62]:26684
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750759AbbJNGO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2015 02:14:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20151013192543.06B5021398@mail.nwl.cc>
+In-Reply-To: <20151013143225.GA9636@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 13, 2015 at 09:26:41PM +0200, Phil Sutter wrote:
-> I have backed up the rt pointer at top of the function and restored it
-> before pr_err, this is the output:
+Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+>On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
+>> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+>> >Hi guys,
+>> >
+>> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
+>> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> >> 
+>> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
+>> >> 
+>> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> >> ---
+>> >>  net/switchdev/switchdev.c | 3 +++
+>> >>  1 file changed, 3 insertions(+)
+>> >> 
+>> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> >> index 6e4a4f9ad927..256c596de896 100644
+>> >> --- a/net/switchdev/switchdev.c
+>> >> +++ b/net/switchdev/switchdev.c
+>> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+>> >>  			if (vlan.vid_begin)
+>> >>  				return -EINVAL;
+>> >>  			vlan.vid_begin = vinfo->vid;
+>> >> +			/* don't allow range of pvids */
+>> >> +			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+>> >> +				return -EINVAL;
+>> >>  		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+>> >>  			if (!vlan.vid_begin)
+>> >>  				return -EINVAL;
+>> >> -- 
+>> >> 2.4.3
+>> >> 
+>> >
+>> >Yes the patch looks good, but it is a minor check though. I hope the
+>> >subject of this thread is making sense.
+>> >
+>> >VLAN ranges seem to have been included for an UX purpose (so commands
+>> >look like Cisco IOS). We don't want to change any existing interface, so
+>> >we pushed that down to drivers, with the only valid reason that, maybe
+>> >one day, an hardware can be capable of programming a range on a per-port
+>> >basis.
+>> Hi,
+>> 
+>> That's actually what we are doing in mlxsw. We can do up to 256 entries in
+>> one go. We've yet to submit this part.
 >
-> | rt6i_dst:2001:4dd0:ff3b:13::/64 rt6i_gateway::: rt6i_flags:40000001 dst.flags:00000000
-Hi Phil, Can you try the following patch and report the pr_err?
+>Perfect Ido, thanks for pointing this out! I'm OK with the range then. 
+>
+>So there is now a very last question in my head for this, which is more
+>a matter of kernel design. Should the user be aware of such underlying
+>support? In other words, would it make sense to do this in a driver:
+>
+>    foo_port_vlan_add(struct net_device *dev,
+>                      struct switchdev_obj_port_vlan *vlan)
+>    {
+>        if (vlan->vid_begin != vlan->vid_end)
+>            return -ENOTSUPP; /* or something more relevant for user */
+>
+>        return foo_port_single_vlan_add(dev, vlan->vid_begin);
+>    }
+>
+>So drivers keep being simple, and we can easily propagate the fact that
+>one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
+>implemented and must be done in software.
+I think that if you want to keep it simple, then Scott's advice from the
+previous thread is the most appropriate one. I believe the hardware you
+are using is simply not meant to support multiple 802.1Q bridges.
 
-Thanks,
-Martin
+Trying to go around this will simply result in weird behavior (such as
+not supporting VLAN ranges), which is only sacrificed to support
+something a user doesn't even require (given the fact he's aware the
+hardware is meant to support only one 802.1Q bridge).
 
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -262,7 +262,7 @@ static struct dst_ops ip6_dst_blackhole_ops = {
- 	.default_advmss		=	ip6_default_advmss,
- 	.update_pmtu		=	ip6_rt_blackhole_update_pmtu,
- 	.redirect		=	ip6_rt_blackhole_redirect,
--	.cow_metrics		=	ip6_rt_blackhole_cow_metrics,
-+	.cow_metrics		=	dst_cow_metrics_generic,
- 	.neigh_lookup		=	ip6_neigh_lookup,
- };
-
-@@ -1201,21 +1201,20 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 		new = &rt->dst;
-
- 		memset(new + 1, 0, sizeof(*rt) - sizeof(*new));
-+		INIT_LIST_HEAD(&rt->rt6i_siblings);
-+		INIT_LIST_HEAD(&rt->rt6i_uncached);
-
- 		new->__use = 1;
- 		new->input = dst_discard;
- 		new->output = dst_discard_out;
-
--		if (dst_metrics_read_only(&ort->dst))
--			new->_metrics = ort->dst._metrics;
--		else
--			dst_copy_metrics(new, &ort->dst);
-+		dst_copy_metrics(new, &ort->dst);
- 		rt->rt6i_idev = ort->rt6i_idev;
- 		if (rt->rt6i_idev)
- 			in6_dev_hold(rt->rt6i_idev);
-
- 		rt->rt6i_gateway = ort->rt6i_gateway;
--		rt->rt6i_flags = ort->rt6i_flags;
-+		rt->rt6i_flags = ort->rt6i_flags & (~RTF_PCPU);
- 		rt->rt6i_metric = 0;
-
- 		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
-@@ -1223,6 +1222,19 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
- #endif
-
-+		pr_err("ort:%p rt6i_dst:[%pI6c]/%d rt6i_gateway:[%pI6c] "
-+		       "rt6i_flags:%08X dst.flags:%08X\n",
-+		       ort,
-+		       &ort->rt6i_dst.addr, ort->rt6i_dst.plen,
-+		       &ort->rt6i_gateway, ort->rt6i_flags,
-+		       ort->dst.flags);
-+		pr_err(" rt:%p rt6i_dst:[%pI6c]/%d rt6i_gateway:[%pI6c] "
-+		       "rt6i_flags:%08X dst.flags:%08X\n",
-+		       rt,
-+		       &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
-+		       &rt->rt6i_gateway, rt->rt6i_flags,
-+		       rt->dst.flags);
-+
- 		dst_free(new);
- 	}
+What do you think?
+>
+>I'm not sure how transparent the hardware must be to the user.
+>
+>(the problem of one VLAN unsupported in a range is still something we
+>need to address).
+>
+>> 
+>> >
+>> >So what happens is that we'll add some code to fix and check non-sense
+>> >(e.g. range + PVID) in switchdev, bridge, and I'm sure we are missing
+>> >other spots.
+>> >
+>> >Sorry for being insistent, but this still doesn't look right to me.
+>> >
+>> >It seems like we are bloating bridge, switchdev and drivers for the only
+>> >reason to maintain a kernel support for something like:
+>> >
+>> >    # for i in $(seq 100 4000); do bridge vlan add vid $i dev swp0; done
+>
+>Thanks,
+>-v
