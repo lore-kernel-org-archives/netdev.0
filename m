@@ -1,60 +1,91 @@
-From: Ronen Arad <ronen.arad@intel.com>
-Subject: [PATCH net-next 4/4] bridge: Remove br_get_link_af_size
-Date: Tue, 13 Oct 2015 22:58:34 -0700
-Message-ID: <1444802314-28830-5-git-send-email-ronen.arad@intel.com>
-References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
-Cc: Ronen Arad <ronen.arad@intel.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: NULL pointer dereference in rt6_get_cookie()
+Date: Tue, 13 Oct 2015 23:14:21 -0700
+Message-ID: <20151014061421.GD68583@kafai-mba.local>
+References: <20151010132437.GB25926@orbit.nwl.cc>
+ <20151013181443.GB68583@kafai-mba.local>
+ <20151013191039.GA3070@base.sg13b.nwl.cc>
+ <20151013192543.06B5021398@mail.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:30704 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752137AbbJNF7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2015 01:59:32 -0400
-In-Reply-To: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:65487 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbbJNGOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 02:14:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20151013192543.06B5021398@mail.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unset get_link_af_size in br_af_ops. br_get_link_af_size() becomes
-unused and thus removed.
+On Tue, Oct 13, 2015 at 09:26:41PM +0200, Phil Sutter wrote:
+> I have backed up the rt pointer at top of the function and restored it
+> before pr_err, this is the output:
+>
+> | rt6i_dst:2001:4dd0:ff3b:13::/64 rt6i_gateway::: rt6i_flags:40000001 dst.flags:00000000
+Hi Phil, Can you try the following patch and report the pr_err?
 
-Signed-off-by: Ronen Arad <ronen.arad@intel.com>
----
- net/bridge/br_netlink.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+Thanks,
+Martin
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index d900881..204222d 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1214,29 +1214,9 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	return 0;
- }
- 
--static size_t br_get_link_af_size(const struct net_device *dev)
--{
--	struct net_bridge_port *p;
--	struct net_bridge *br;
--	int num_vlans = 0;
--
--	if (br_port_exists(dev)) {
--		p = br_port_get_rtnl(dev);
--		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
--						  RTEXT_FILTER_BRVLAN);
--	} else if (dev->priv_flags & IFF_EBRIDGE) {
--		br = netdev_priv(dev);
--		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
--						  RTEXT_FILTER_BRVLAN);
--	}
--
--	/* Each VLAN is returned in bridge_vlan_info along with flags */
--	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
--}
- 
- static struct rtnl_af_ops br_af_ops __read_mostly = {
- 	.family				= AF_BRIDGE,
--	.get_link_af_size		= br_get_link_af_size,
- 	.get_link_af_size_filtered	= br_get_link_af_size_filtered,
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -262,7 +262,7 @@ static struct dst_ops ip6_dst_blackhole_ops = {
+ 	.default_advmss		=	ip6_default_advmss,
+ 	.update_pmtu		=	ip6_rt_blackhole_update_pmtu,
+ 	.redirect		=	ip6_rt_blackhole_redirect,
+-	.cow_metrics		=	ip6_rt_blackhole_cow_metrics,
++	.cow_metrics		=	dst_cow_metrics_generic,
+ 	.neigh_lookup		=	ip6_neigh_lookup,
  };
- 
--- 
-2.1.0
+
+@@ -1201,21 +1201,20 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 		new = &rt->dst;
+
+ 		memset(new + 1, 0, sizeof(*rt) - sizeof(*new));
++		INIT_LIST_HEAD(&rt->rt6i_siblings);
++		INIT_LIST_HEAD(&rt->rt6i_uncached);
+
+ 		new->__use = 1;
+ 		new->input = dst_discard;
+ 		new->output = dst_discard_out;
+
+-		if (dst_metrics_read_only(&ort->dst))
+-			new->_metrics = ort->dst._metrics;
+-		else
+-			dst_copy_metrics(new, &ort->dst);
++		dst_copy_metrics(new, &ort->dst);
+ 		rt->rt6i_idev = ort->rt6i_idev;
+ 		if (rt->rt6i_idev)
+ 			in6_dev_hold(rt->rt6i_idev);
+
+ 		rt->rt6i_gateway = ort->rt6i_gateway;
+-		rt->rt6i_flags = ort->rt6i_flags;
++		rt->rt6i_flags = ort->rt6i_flags & (~RTF_PCPU);
+ 		rt->rt6i_metric = 0;
+
+ 		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
+@@ -1223,6 +1222,19 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
+ #endif
+
++		pr_err("ort:%p rt6i_dst:[%pI6c]/%d rt6i_gateway:[%pI6c] "
++		       "rt6i_flags:%08X dst.flags:%08X\n",
++		       ort,
++		       &ort->rt6i_dst.addr, ort->rt6i_dst.plen,
++		       &ort->rt6i_gateway, ort->rt6i_flags,
++		       ort->dst.flags);
++		pr_err(" rt:%p rt6i_dst:[%pI6c]/%d rt6i_gateway:[%pI6c] "
++		       "rt6i_flags:%08X dst.flags:%08X\n",
++		       rt,
++		       &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
++		       &rt->rt6i_gateway, rt->rt6i_flags,
++		       rt->dst.flags);
++
+ 		dst_free(new);
+ 	}
