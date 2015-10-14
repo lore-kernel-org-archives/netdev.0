@@ -1,43 +1,84 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Wed, 14 Oct 2015 11:29:23 +0200
-Message-ID: <20151014092923.GA23870@localhost.localdomain>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
- <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
- <20151013045832.GA2437@netboy>
- <alpine.DEB.2.11.1510130944520.6097@nanos>
- <20151013083113.GA1931@localhost.localdomain>
- <alpine.DEB.2.11.1510132113470.25029@nanos>
- <20151013211224.GA19242@netboy>
- <alpine.DEB.2.11.1510140920200.25029@nanos>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v5] net: ipv6: Make address flushing on ifdown
+ optional
+Date: Wed, 14 Oct 2015 11:34:01 +0200
+Message-ID: <1444815241.2154853.409816321.48710CD1@webmail.messagingengine.com>
+References: <1444667587-13863-1-git-send-email-dsa@cumulusnetworks.com>
+ <20151013.184539.1401344867685512636.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.11.1510140920200.25029@nanos>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@redhat.com,
+	nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39293 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751478AbbJNJeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 05:34:02 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id C8EB4207BE
+	for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 05:34:01 -0400 (EDT)
+In-Reply-To: <20151013.184539.1401344867685512636.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2015 at 09:21:42AM +0200, Thomas Gleixner wrote:
-> The firmware gives you an ART/audio timestamp pair. The firmware does
-> neither know about system time nor about PTP time.
+Hello,
+
+On Wed, Oct 14, 2015, at 03:45, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Mon, 12 Oct 2015 09:33:07 -0700
 > 
-> So we have to do correlation in software.
+> > Currently, all ipv6 addresses are flushed when the interface is configured
+> > down, including global, static addresses:
+>  ...
+> > Add a new sysctl to make this behavior optional. The new setting defaults to
+> > flush all addresses to maintain backwards compatibility. When the setting is
+> > reset global addresses with no expire times are not flushed:
+>  ...
+> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> 
+> Here is what I really don't like about these changes: the failure
+> semantics are terrible.
+> 
+> If I add an address or a route, and some memory allocation fails, I get
+> a notification and see that my operation did not succeed.
+> 
+> But here, my routes can fail to be added during an ifup and all I will
+> get, at best, is a kernel log message.
+> 
+> This places a serious disconnect between what the user asked for and
+> making sure he finds out directly that his operation did not really
+> fully succeed.
+> 
+> In fact, this failure handling here during ifup leaves the interface in
+> a partially configured state.
 
-Ok, so give me the ART/audio and two recent ART/ptp times* spaced one
-second apart, then I'll tell you audio/ptp with error well under 1 PPM.
-No need to change the firmware.
+Agreed, it would be better.
 
-Who cares about the system time?  If the DSP isn't using it, then just
-leave it out of the equation.
+> There are really two ways to deal with this properly:
+> 
+> 1) Propagate the failure back through the notifiers and fail the ifup
+>    completely when the addrconf_dst_alloc() fails.
+> 
+> 2) On ifdown, stash the objects away somewhere so that memory allocation
+>    is not necessary on ifup.
+
+In regard to error propagation I think 2) is the only viable option. I
+don't think why you shouldn't be able to simply remove the ip6_rt_put
+after the ip6_del_rt and keep the dst_entry hanging there and later
+reinsert.
+
+> Neither are really smooth approaches, but they have the attribute that
+> they give the user clean behavior and semantics.
+
+On another node:
+
+This sysctl is on my list to be enabled soon by default by any systemd
+based distribution. For that reason, could you maybe remove all the
+unlikely annotations from your code. It really doesn't matter in
+configuration code, because it is not performance critical and in my
+opinion just distracts.
 
 Thanks,
-Richard
-
-* If the audio clock isn't locked to the ART, then I'll need two samples.
+Hannes
