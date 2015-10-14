@@ -1,7 +1,7 @@
 From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH nf-next 4/6] netfilter-ipv4: function definition layout
-Date: Wed, 14 Oct 2015 23:17:06 +0100
-Message-ID: <1444861028-21556-5-git-send-email-ipm@chirality.org.uk>
+Subject: [PATCH nf-next 6/6] netfilter-ipv4: whitespace around operators
+Date: Wed, 14 Oct 2015 23:17:08 +0100
+Message-ID: <1444861028-21556-7-git-send-email-ipm@chirality.org.uk>
 References: <1444861028-21556-1-git-send-email-ipm@chirality.org.uk>
 Cc: Ian Morris <ipm@chirality.org.uk>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
@@ -10,79 +10,66 @@ In-Reply-To: <1444861028-21556-1-git-send-email-ipm@chirality.org.uk>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use tabs instead of spaces to indent second line of parameters in
-function definitions.
+This patch cleanses whitespace around arithmetical operators.
 
 No changes detected by objdiff.
 
 Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 ---
- net/ipv4/netfilter/arp_tables.c | 6 +++---
- net/ipv4/netfilter/ip_tables.c  | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c     | 8 ++++----
+ net/ipv4/netfilter/ipt_ah.c            | 2 +-
+ net/ipv4/netfilter/nf_nat_snmp_basic.c | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index eb6663bd..11dccba 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -632,7 +632,7 @@ static inline void cleanup_entry(struct arpt_entry *e)
-  * newinfo).
-  */
- static int translate_table(struct xt_table_info *newinfo, void *entry0,
--                           const struct arpt_replace *repl)
-+			   const struct arpt_replace *repl)
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 3f32c03..4a9e6db 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -492,14 +492,14 @@ static void arp_print(struct arp_payload *payload)
  {
- 	struct arpt_entry *iter;
- 	unsigned int i;
-@@ -892,7 +892,7 @@ static int compat_table_info(const struct xt_table_info *info,
- #endif
+ #define HBUFFERLEN 30
+ 	char hbuffer[HBUFFERLEN];
+-	int j,k;
++	int j, k;
  
- static int get_info(struct net *net, void __user *user,
--                    const int *len, int compat)
-+		    const int *len, int compat)
- {
- 	char name[XT_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1069,7 +1069,7 @@ static int __do_replace(struct net *net, const char *name,
+-	for (k=0, j=0; k < HBUFFERLEN-3 && j < ETH_ALEN; j++) {
++	for (k = 0, j = 0; k < HBUFFERLEN - 3 && j < ETH_ALEN; j++) {
+ 		hbuffer[k++] = hex_asc_hi(payload->src_hw[j]);
+ 		hbuffer[k++] = hex_asc_lo(payload->src_hw[j]);
+-		hbuffer[k++]=':';
++		hbuffer[k++] = ':';
+ 	}
+-	hbuffer[--k]='\0';
++	hbuffer[--k] = '\0';
+ 
+ 	pr_debug("src %pI4@%s, dst %pI4\n",
+ 		 &payload->src_ip, hbuffer, &payload->dst_ip);
+diff --git a/net/ipv4/netfilter/ipt_ah.c b/net/ipv4/netfilter/ipt_ah.c
+index 14a2aa8..a787d07 100644
+--- a/net/ipv4/netfilter/ipt_ah.c
++++ b/net/ipv4/netfilter/ipt_ah.c
+@@ -25,7 +25,7 @@ spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
+ 	bool r;
+ 	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
+ 		 invert ? '!' : ' ', min, spi, max);
+-	r=(spi >= min && spi <= max) ^ invert;
++	r = (spi >= min && spi <= max) ^ invert;
+ 	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
+ 	return r;
  }
+diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+index 8e3dffa..89be5c5 100644
+--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
++++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+@@ -1156,7 +1156,7 @@ static int snmp_parse_mangle(unsigned char *msg,
+ 		}
  
- static int do_replace(struct net *net, const void __user *user,
--                      unsigned int len)
-+		      unsigned int len)
- {
- 	int ret;
- 	struct arpt_replace tmp;
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 08b7ab0..3991a87 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -804,7 +804,7 @@ cleanup_entry(struct ipt_entry *e, struct net *net)
-    newinfo) */
- static int
- translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
--                const struct ipt_replace *repl)
-+		const struct ipt_replace *repl)
- {
- 	struct ipt_entry *iter;
- 	unsigned int i;
-@@ -1078,7 +1078,7 @@ static int compat_table_info(const struct xt_table_info *info,
- #endif
+ 		if (obj->type == SNMP_IPADDR)
+-			mangle_address(ctx.begin, ctx.pointer - 4 , map, check);
++			mangle_address(ctx.begin, ctx.pointer - 4, map, check);
  
- static int get_info(struct net *net, void __user *user,
--                    const int *len, int compat)
-+		    const int *len, int compat)
- {
- 	char name[XT_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1304,7 +1304,7 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
- 
- static int
- do_add_counters(struct net *net, const void __user *user,
--                unsigned int len, int compat)
-+		unsigned int len, int compat)
- {
- 	unsigned int i;
- 	struct xt_counters_info tmp;
+ 		kfree(obj->id);
+ 		kfree(obj);
 -- 
 1.9.1
 
