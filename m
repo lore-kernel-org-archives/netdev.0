@@ -1,57 +1,81 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/15] mlxsw: reg: Adjust definition of enum mlxsw_reg_sfgc_type
-Date: Thu, 15 Oct 2015 17:43:25 +0200
-Message-ID: <1444923809-20785-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 15/15] mlxsw: cmd: Update CONFIG_PROFILE command documentation
+Date: Thu, 15 Oct 2015 17:43:29 +0200
+Message-ID: <1444923809-20785-16-git-send-email-jiri@resnulli.us>
 References: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:35780 "EHLO
-	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbbJOPnp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:45 -0400
-Received: by qkap81 with SMTP id p81so40796526qka.2
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:44 -0700 (PDT)
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:35859 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753511AbbJOPnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:51 -0400
+Received: by lbcao8 with SMTP id ao8so73586250lbc.3
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:49 -0700 (PDT)
 In-Reply-To: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Define max which would be needed later on.
+The meaning of certain parameters in the profile passed to the device
+during initialization has changed, so update their documentation
+accordingly.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/cmd.h | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 34b95a1..6fca13a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -214,13 +214,15 @@ static const struct mlxsw_reg_info mlxsw_reg_sfgc = {
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+index 27e48b4..c7889f4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+@@ -570,7 +570,7 @@ MLXSW_ITEM32(cmd_mbox, config_profile, set_max_vlan_groups, 0x0C, 6, 1);
+  */
+ MLXSW_ITEM32(cmd_mbox, config_profile, set_max_regions, 0x0C, 7, 1);
  
- enum mlxsw_reg_sfgc_type {
--	MLXSW_REG_SFGC_TYPE_BROADCAST = 0,
--	MLXSW_REG_SFGC_TYPE_UNKNOWN_UNICAST = 1,
--	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_IPV4 = 2,
--	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_IPV6 = 3,
--	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_NON_IP = 5,
--	MLXSW_REG_SFGC_TYPE_IPV4_LINK_LOCAL = 6,
--	MLXSW_REG_SFGC_TYPE_IPV6_ALL_HOST = 7,
-+	MLXSW_REG_SFGC_TYPE_BROADCAST,
-+	MLXSW_REG_SFGC_TYPE_UNKNOWN_UNICAST,
-+	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_IPV4,
-+	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_IPV6,
-+	MLXSW_REG_SFGC_TYPE_RESERVED,
-+	MLXSW_REG_SFGC_TYPE_UNREGISTERED_MULTICAST_NON_IP,
-+	MLXSW_REG_SFGC_TYPE_IPV4_LINK_LOCAL,
-+	MLXSW_REG_SFGC_TYPE_IPV6_ALL_HOST,
-+	MLXSW_REG_SFGC_TYPE_MAX,
- };
+-/* cmd_mbox_config_profile_set_fid_based
++/* cmd_mbox_config_profile_set_flood_mode
+  * Capability bit. Setting a bit to 1 configures the profile
+  * according to the mailbox contents.
+  */
+@@ -651,12 +651,8 @@ MLXSW_ITEM32(cmd_mbox, config_profile, max_vlan_groups, 0x28, 0, 12);
+ MLXSW_ITEM32(cmd_mbox, config_profile, max_regions, 0x2C, 0, 16);
  
- /* reg_sfgc_type
+ /* cmd_mbox_config_profile_max_flood_tables
+- * Maximum number of Flooding Tables. Flooding Tables are associated to
+- * the different packet types for the different switch partitions.
+- * Note that the table size depends on the fid_based mode.
+- * In SwitchX silicon, tables are split equally between the switch
+- * partitions. e.g. for 2 swids and 8 tables, the first 4 are associated
+- * with swid-1 and the last 4 are associated with swid-2.
++ * Maximum number of single-entry flooding tables. Different flooding tables
++ * can be associated with different packet types.
+  */
+ MLXSW_ITEM32(cmd_mbox, config_profile, max_flood_tables, 0x30, 16, 4);
+ 
+@@ -667,12 +663,14 @@ MLXSW_ITEM32(cmd_mbox, config_profile, max_flood_tables, 0x30, 16, 4);
+  */
+ MLXSW_ITEM32(cmd_mbox, config_profile, max_vid_flood_tables, 0x30, 8, 4);
+ 
+-/* cmd_mbox_config_profile_fid_based
+- * FID Based Flood Mode
+- * 00 Do not use FID to offset the index into the Port Group Table/Multicast ID
+- * 01 Use FID to offset the index to the Port Group Table (pgi)
+- * 10 Use FID to offset the index to the Port Group Table (pgi) and
+- * the Multicast ID
++/* cmd_mbox_config_profile_flood_mode
++ * Flooding mode to use.
++ * 0-2 - Backward compatible modes for SwitchX devices.
++ * 3 - Mixed mode, where:
++ * max_flood_tables indicates the number of single-entry tables.
++ * max_vid_flood_tables indicates the number of per-VID tables.
++ * max_fid_offset_flood_tables indicates the number of FID-offset tables.
++ * max_fid_flood_tables indicates the number of per-FID tables.
+  */
+ MLXSW_ITEM32(cmd_mbox, config_profile, flood_mode, 0x30, 0, 2);
+ 
 -- 
 1.9.3
