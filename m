@@ -1,76 +1,106 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [RFC PATCH net-next 9/9] veth: validate nested attributes
-Date: Thu, 15 Oct 2015 18:39:14 +0200
-Message-ID: <6e52da4b27497188dd79f64129828c967a6cdca4.1444926905.git.jbenc@redhat.com>
+Subject: [RFC PATCH net-next 7/9] rtnetlink: add strict parameter to validate_link_af
+Date: Thu, 15 Oct 2015 18:39:12 +0200
+Message-ID: <84a49d6d7f9af344e032593cd0f7397fc0ad477e.1444926905.git.jbenc@redhat.com>
 References: <cover.1444926905.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47275 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56007 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753498AbbJOQjo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 12:39:44 -0400
+	id S1751815AbbJOQjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 12:39:42 -0400
 In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For strict attribute checking, it's necessary to validate nested attributes
-in the validate rtnl_link_ops callback.
+This is in preparation for rtnetlink to be able to handle strict
+attribute checking.
+
+Nothing complicated here, just pass the parameter through.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/veth.c      | 8 ++++++++
- include/net/rtnetlink.h | 1 +
- net/core/rtnetlink.c    | 6 ++++++
- 3 files changed, 15 insertions(+)
+ include/net/rtnetlink.h | 3 ++-
+ net/core/rtnetlink.c    | 3 ++-
+ net/ipv4/devinet.c      | 6 ++++--
+ net/ipv6/addrconf.c     | 6 ++++--
+ 4 files changed, 12 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index af0bf39147ba..86a68bd191b6 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -340,6 +340,14 @@ static int veth_validate(struct nlattr *tb[], struct nlattr *data[],
- 		if (!is_valid_veth_mtu(nla_get_u32(tb[IFLA_MTU])))
- 			return -EINVAL;
- 	}
-+	if (data != NULL && data[VETH_INFO_PEER] != NULL) {
-+		struct nlattr *nla_peer = data[VETH_INFO_PEER];
-+
-+		return rtnl_nla_validate_ifla(
-+				nla_data(nla_peer) + sizeof(struct ifinfomsg),
-+				nla_len(nla_peer) - sizeof(struct ifinfomsg),
-+				strict);
-+	}
- 	return 0;
- }
- 
 diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 71c49f5af9a0..be75457e4cc5 100644
+index 9f730f2395de..71c49f5af9a0 100644
 --- a/include/net/rtnetlink.h
 +++ b/include/net/rtnetlink.h
-@@ -168,6 +168,7 @@ int rtnl_delete_link(struct net_device *dev);
- int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm);
+@@ -148,7 +148,8 @@ struct rtnl_af_ops {
+ 	size_t			(*get_link_af_size)(const struct net_device *dev);
  
- int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len);
-+int rtnl_nla_validate_ifla(const struct nlattr *head, int len, bool strict);
- 
- #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
- 
+ 	int			(*validate_link_af)(const struct net_device *dev,
+-						    const struct nlattr *attr);
++						    const struct nlattr *attr,
++						    bool strict);
+ 	int			(*set_link_af)(struct net_device *dev,
+ 					       const struct nlattr *attr);
+ };
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1af929e468cf..89e7f0a6da44 100644
+index 205b7acbd6bf..9d08ad6ee5c3 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -1449,6 +1449,12 @@ int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len)
- }
- EXPORT_SYMBOL(rtnl_nla_parse_ifla);
+@@ -1491,7 +1491,8 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 				return -EOPNOTSUPP;
  
-+int rtnl_nla_validate_ifla(const struct nlattr *head, int len, bool strict)
-+{
-+	return nla_strict_validate(head, len, IFLA_MAX, strict, ifla_policy);
-+}
-+EXPORT_SYMBOL(rtnl_nla_validate_ifla);
-+
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ 			if (af_ops->validate_link_af) {
+-				err = af_ops->validate_link_af(dev, af);
++				err = af_ops->validate_link_af(dev, af,
++							       false);
+ 				if (err < 0)
+ 					return err;
+ 			}
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 735008472844..9ea6bc6683ec 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1679,7 +1679,8 @@ static const struct nla_policy inet_af_policy[IFLA_INET_MAX+1] = {
+ };
+ 
+ static int inet_validate_link_af(const struct net_device *dev,
+-				 const struct nlattr *nla)
++				 const struct nlattr *nla,
++				 bool strict)
  {
- 	struct net *net;
+ 	struct nlattr *a, *tb[IFLA_INET_MAX+1];
+ 	int err, rem;
+@@ -1687,7 +1688,8 @@ static int inet_validate_link_af(const struct net_device *dev,
+ 	if (dev && !__in_dev_get_rtnl(dev))
+ 		return -EAFNOSUPPORT;
+ 
+-	err = nla_parse_nested(tb, IFLA_INET_MAX, nla, inet_af_policy);
++	err = nla_strict_parse_nested(tb, IFLA_INET_MAX, strict, nla,
++				      inet_af_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f0326aae7a02..b29f117cde72 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4876,14 +4876,16 @@ static const struct nla_policy inet6_af_policy[IFLA_INET6_MAX + 1] = {
+ };
+ 
+ static int inet6_validate_link_af(const struct net_device *dev,
+-				  const struct nlattr *nla)
++				  const struct nlattr *nla,
++				  bool strict)
+ {
+ 	struct nlattr *tb[IFLA_INET6_MAX + 1];
+ 
+ 	if (dev && !__in6_dev_get(dev))
+ 		return -EAFNOSUPPORT;
+ 
+-	return nla_parse_nested(tb, IFLA_INET6_MAX, nla, inet6_af_policy);
++	return nla_strict_parse_nested(tb, IFLA_INET6_MAX, strict, nla,
++				       inet6_af_policy);
+ }
+ 
+ static int inet6_set_link_af(struct net_device *dev, const struct nlattr *nla)
 -- 
 1.8.3.1
