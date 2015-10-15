@@ -1,115 +1,189 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Fix suspicious RCU usage in fib_rebalance
-Date: Wed, 14 Oct 2015 16:44:00 -0700
-Message-ID: <1444866240-31778-1-git-send-email-dsa@cumulusnetworks.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
+Date: Wed, 14 Oct 2015 20:07:41 -0400
+Message-ID: <20151015000741.GA1297@ketchup.lan>
+References: <1444651299-2813-1-git-send-email-razor@blackwall.org>
+ <20151012173625.GA17983@ketchup.lan>
+ <20151013083111.GA1432@colbert.mtl.com>
+ <20151013143225.GA9636@ketchup.mtl.sfl>
+ <20151014061446.GA29908@colbert.mtl.com>
+ <20151014152515.GA6681@ketchup.mtl.sfl>
+ <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
+ <20151014174152.GB9216@colbert.mtl.com>
+ <20151014185100.GA5576@ketchup.mtl.sfl>
+ <561ED270.60003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pch@ordbogen.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ido Schimmel <idosch@mellanox.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	Netdev <netdev@vger.kernel.org>,
+	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Elad Raz <eladr@mellanox.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:32888 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166AbbJNXoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 19:44:08 -0400
-Received: by pabrc13 with SMTP id rc13so67833420pab.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 16:44:07 -0700 (PDT)
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:35149 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbbJOAHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 20:07:50 -0400
+Content-Disposition: inline
+In-Reply-To: <561ED270.60003@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This command:
-  ip route add 192.168.1.0/24 nexthop via 10.2.1.5 dev eth1 nexthop via=
- 10.2.2.5 dev eth2
+On Oct. Wednesday 14 (42) 03:08 PM, Florian Fainelli wrote:
+> On 14/10/15 11:51, Vivien Didelot wrote:
+> > On Oct. Wednesday 14 (42) 08:42 PM, Ido Schimmel wrote:
+> >> Wed, Oct 14, 2015 at 08:14:24PM IDT, sfeldma@gmail.com wrote:
+> >>> On Wed, Oct 14, 2015 at 8:25 AM, Vivien Didelot
+> >>> <vivien.didelot@savoirfairelinux.com> wrote:
+> >>>> On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
+> >>>>> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+> >>>>>> On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
+> >>>>>>> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
+> >>>>>>>> Hi guys,
+> >>>>>>>>
+> >>>>>>>> On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
+> >>>>>>>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> >>>>>>>>>
+> >>>>>>>>> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
+> >>>>>>>>>
+> >>>>>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> >>>>>>>>> ---
+> >>>>>>>>>  net/switchdev/switchdev.c | 3 +++
+> >>>>>>>>>  1 file changed, 3 insertions(+)
+> >>>>>>>>>
+> >>>>>>>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> >>>>>>>>> index 6e4a4f9ad927..256c596de896 100644
+> >>>>>>>>> --- a/net/switchdev/switchdev.c
+> >>>>>>>>> +++ b/net/switchdev/switchdev.c
+> >>>>>>>>> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+> >>>>>>>>>                         if (vlan.vid_begin)
+> >>>>>>>>>                                 return -EINVAL;
+> >>>>>>>>>                         vlan.vid_begin = vinfo->vid;
+> >>>>>>>>> +                       /* don't allow range of pvids */
+> >>>>>>>>> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+> >>>>>>>>> +                               return -EINVAL;
+> >>>>>>>>>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+> >>>>>>>>>                         if (!vlan.vid_begin)
+> >>>>>>>>>                                 return -EINVAL;
+> >>>>>>>>> --
+> >>>>>>>>> 2.4.3
+> >>>>>>>>>
+> >>>>>>>>
+> >>>>>>>> Yes the patch looks good, but it is a minor check though. I hope the
+> >>>>>>>> subject of this thread is making sense.
+> >>>>>>>>
+> >>>>>>>> VLAN ranges seem to have been included for an UX purpose (so commands
+> >>>>>>>> look like Cisco IOS). We don't want to change any existing interface, so
+> >>>>>>>> we pushed that down to drivers, with the only valid reason that, maybe
+> >>>>>>>> one day, an hardware can be capable of programming a range on a per-port
+> >>>>>>>> basis.
+> >>>>>>> Hi,
+> >>>>>>>
+> >>>>>>> That's actually what we are doing in mlxsw. We can do up to 256 entries in
+> >>>>>>> one go. We've yet to submit this part.
+> >>>>>>
+> >>>>>> Perfect Ido, thanks for pointing this out! I'm OK with the range then.
+> >>>>>>
+> >>>>>> So there is now a very last question in my head for this, which is more
+> >>>>>> a matter of kernel design. Should the user be aware of such underlying
+> >>>>>> support? In other words, would it make sense to do this in a driver:
+> >>>>>>
+> >>>>>>    foo_port_vlan_add(struct net_device *dev,
+> >>>>>>                      struct switchdev_obj_port_vlan *vlan)
+> >>>>>>    {
+> >>>>>>        if (vlan->vid_begin != vlan->vid_end)
+> >>>>>>            return -ENOTSUPP; /* or something more relevant for user */
+> >>>>>>
+> >>>>>>        return foo_port_single_vlan_add(dev, vlan->vid_begin);
+> >>>>>>    }
+> >>>>>>
+> >>>>>> So drivers keep being simple, and we can easily propagate the fact that
+> >>>>>> one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
+> >>>>>> implemented and must be done in software.
+> >>>>> I think that if you want to keep it simple, then Scott's advice from the
+> >>>>> previous thread is the most appropriate one. I believe the hardware you
+> >>>>> are using is simply not meant to support multiple 802.1Q bridges.
+> >>>>
+> >>>> You mean allowing only one Linux bridge over an hardware switch?
+> >>>>
+> >>>> It would for sure simplify how, as developers and users, we represent a
+> >>>> physical switch. But I am not sure how to achieve that and I don't have
+> >>>> strong opinions on this TBH.
+> >>>
+> >>> Hi Vivien, I think it's possible to keep switch ports on just one
+> >>> bridge if we do a little bit of work on the NETDEV_CHANGEUPPER
+> >>> notifier.  This will give you the driver-level control you want.  Do
+> >>> you have time to investigate?  The idea is:
+> >>>
+> >>> 1) In your driver's handler for NETDEV_CHANGEUPPER, if switch port is
+> >>> being added to a second bridge,then return NOTIFY_BAD.  Your driver
+> >>> needs to track the bridge count.
+> >>>
+> >>> 2) In __netdev_upper_dev_link(), check the return code from the
+> >>> call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, ...) call, and if
+> >>> NOTIFY_BAD, abort the linking operation (goto rollback_xxx).
+> >>>
+> >> Hi,
+> >>
+> >> We are doing something similar in mlxsw (not upstream yet). Jiri
+> >> introduced PRE_CHANGEUPPER, which is called from the function you
+> >> mentioned, but before the linking operation (so that you don't need to
+> >> rollback).
+> >>
+> >> If the notification is about a linking operation and the master is a
+> >> bridge different than the current one, then NOTIFY_BAD is returned.
+> > 
+> > Great, I'll wait for this then.
+> > 
+> > Scott, this is another good reason why we definitely need a simple
+> > struct device per switch chip. In addition to the port net_device
+> > registration, the netdev notifier is another exact same piece of code
+> > that both Rocker and DSA implement.
+> > 
+> >> Vivien, regarding your WAN interface question, this is something we
+> >> currently don't do. We don't even flood traffic from bridged ports
+> >> to CPU (although we can), as it can saturate the bus. Only control
+> >> traffic is supposed to go there.
+> > 
+> > I kinda answered it myself: a Linux bridge needs to remain a user
+> > abstraction of a logical group of net_device. In other words, we must
+> > allow physical distinct ports under the same bridge.
+> > 
+> > Below is an example of a custom router with 2 chained switch chips sw0
+> > and sw1, and what usage I believe we expect:
+> > 
+> >     [ Linux soft bridge "br0" which can accelerate VLAN, STP, etc.    ]
+> >                                                        (CPU)    (WAN)
+> >     [ sw0p0 sw0p1 sw0p2 ] [ sw1p0 sw1p1 sw1p2 sw1p3 ] [ eth0 ] [ eth1 ]
+> >                      `--DSA--'                   `-------'
+> 
+> Your use case is something that is fairly common with PON/GPON devices,
+> but AFAIR they typically implement this by having two sets of bridges,
+> one which spans the WAN interface and a bunch of other ports, and
+> another bridge which is LAN only (few ports + Wi-Fi typically). Usually
+> this is under the same physical switch though, so this is all about
+> partitioning physical ports and physical interfaces under logical groups.
+> 
+> By definition the WAN and LAN domains are separate logical and broadcast
+> domains, with separate admission control rules, STP etc. I do not think
+> your "br0" example should span the WAN interface in this case. Also,
+> with eth0 being the conduit interface, it cannot be allowed to be a
+> bridge member, that's something I ended up fixing in the bridge layer,
+> otherwise untagging does not work, but that is nitpicking.
+> 
+> It still makes sense though allow the creation of a "br0" device which
+> spans the entire set of ports and interfaces (except eth0), but not name
+> eth1 "WAN", just treat it as an extension in that case.
+> 
+> Sorry if that seems like f'ing flies, but having concise example should
+> help make progress on these design issues ;)
 
-generated this suspicious RCU usage message:
+You are right, my drawing wasn't that correct. What you just described
+is more accurate.
 
-[ 63.249262]
-[ 63.249939] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-[ 63.251571] [ INFO: suspicious RCU usage. ]
-[ 63.253250] 4.3.0-rc3+ #298 Not tainted
-[ 63.254724] -------------------------------
-[ 63.256401] ../include/linux/inetdevice.h:205 suspicious rcu_dereferen=
-ce_check() usage!
-[ 63.259450]
-[ 63.259450] other info that might help us debug this:
-[ 63.259450]
-[ 63.262297]
-[ 63.262297] rcu_scheduler_active =3D 1, debug_locks =3D 1
-[ 63.264647] 1 lock held by ip/2870:
-[ 63.265896] #0: (rtnl_mutex){+.+.+.}, at: [<ffffffff813ebfb7>] rtnl_lo=
-ck+0x12/0x14
-[ 63.268858]
-[ 63.268858] stack backtrace:
-[ 63.270409] CPU: 4 PID: 2870 Comm: ip Not tainted 4.3.0-rc3+ #298
-[ 63.272478] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIO=
-S 1.7.5-20140531_083030-gandalf 04/01/2014
-[ 63.275745] 0000000000000001 ffff8800b8c9f8b8 ffffffff8125f73c ffff880=
-13afcf301
-[ 63.278185] ffff8800bab7a380 ffff8800b8c9f8e8 ffffffff8107bf30 ffff880=
-0bb728000
-[ 63.280634] ffff880139fe9a60 0000000000000000 ffff880139fe9a00 ffff880=
-0b8c9f908
-[ 63.283177] Call Trace:
-[ 63.283959] [<ffffffff8125f73c>] dump_stack+0x4c/0x68
-[ 63.285593] [<ffffffff8107bf30>] lockdep_rcu_suspicious+0xfa/0x103
-[ 63.287500] [<ffffffff8144d752>] __in_dev_get_rcu+0x48/0x4f
-[ 63.289169] [<ffffffff8144d797>] fib_rebalance+0x3e/0x127
-[ 63.290753] [<ffffffff8144d986>] ? rcu_read_unlock+0x3e/0x5f
-[ 63.292442] [<ffffffff8144ea45>] fib_create_info+0xaf9/0xdcc
-[ 63.294093] [<ffffffff8106c12f>] ? sched_clock_local+0x12/0x75
-[ 63.295791] [<ffffffff8145236a>] fib_table_insert+0x8c/0x451
-[ 63.297493] [<ffffffff8144bf9c>] ? fib_get_table+0x36/0x43
-[ 63.299109] [<ffffffff8144c3ca>] inet_rtm_newroute+0x43/0x51
-[ 63.300709] [<ffffffff813ef684>] rtnetlink_rcv_msg+0x182/0x195
-[ 63.302334] [<ffffffff8107d04c>] ? trace_hardirqs_on+0xd/0xf
-[ 63.303888] [<ffffffff813ebfb7>] ? rtnl_lock+0x12/0x14
-[ 63.305346] [<ffffffff813ef502>] ? __rtnl_unlock+0x12/0x12
-[ 63.306878] [<ffffffff81407c4c>] netlink_rcv_skb+0x3d/0x90
-[ 63.308437] [<ffffffff813ec00e>] rtnetlink_rcv+0x21/0x28
-[ 63.309916] [<ffffffff81407742>] netlink_unicast+0xfa/0x17f
-[ 63.311447] [<ffffffff81407a5e>] netlink_sendmsg+0x297/0x2dc
-[ 63.313029] [<ffffffff813c6cd4>] sock_sendmsg_nosec+0x12/0x1d
-[ 63.314597] [<ffffffff813c835b>] ___sys_sendmsg+0x196/0x21b
-[ 63.316125] [<ffffffff8100bf9f>] ? native_sched_clock+0x1f/0x3c
-[ 63.317671] [<ffffffff8106c12f>] ? sched_clock_local+0x12/0x75
-[ 63.319185] [<ffffffff8106c397>] ? sched_clock_cpu+0x9d/0xb6
-[ 63.320693] [<ffffffff8107e2d7>] ? __lock_is_held+0x32/0x54
-[ 63.322145] [<ffffffff81159fcb>] ? __fget_light+0x4b/0x77
-[ 63.323541] [<ffffffff813c8726>] __sys_sendmsg+0x3d/0x5b
-[ 63.324947] [<ffffffff813c8751>] SyS_sendmsg+0xd/0x19
-[ 63.326274] [<ffffffff814c8f57>] entry_SYSCALL_64_fastpath+0x12/0x6f
-
-It looks like all of the code paths to fib_rebalance are under rtnl.
-
-=46ixes: 0e884c78ee19 ("ipv4: L3 hash-based multipath")
-Cc: Peter N=C3=B8rlund <pch@ordbogen.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/fib_semantics.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index af77298c8b4f..42778d9d71e5 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -545,7 +545,7 @@ static void fib_rebalance(struct fib_info *fi)
- 		if (nh->nh_flags & RTNH_F_DEAD)
- 			continue;
-=20
--		in_dev =3D __in_dev_get_rcu(nh->nh_dev);
-+		in_dev =3D __in_dev_get_rtnl(nh->nh_dev);
-=20
- 		if (in_dev &&
- 		    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-@@ -559,7 +559,7 @@ static void fib_rebalance(struct fib_info *fi)
- 	change_nexthops(fi) {
- 		int upper_bound;
-=20
--		in_dev =3D __in_dev_get_rcu(nexthop_nh->nh_dev);
-+		in_dev =3D __in_dev_get_rtnl(nexthop_nh->nh_dev);
-=20
- 		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
- 			upper_bound =3D -1;
---=20
-1.9.1
+Thanks,
+-v
