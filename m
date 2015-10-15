@@ -1,63 +1,81 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net 2/2] ipv6: protect mtu calculation of wrap-around and infinite loop by rounding issues
-Date: Thu, 15 Oct 2015 14:07:05 +0200
-Message-ID: <1444910825-25021-2-git-send-email-hannes@stressinduktion.org>
-References: <1444910825-25021-1-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net 1/2] overflow-arith: begin to add support for overflow builtin functions
+Date: Thu, 15 Oct 2015 14:07:04 +0200
+Message-ID: <1444910825-25021-1-git-send-email-hannes@stressinduktion.org>
 Cc: dvyukov@google.com,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35565 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60902 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753064AbbJOMHM (ORCPT
+	by vger.kernel.org with ESMTP id S1752933AbbJOMHM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 08:07:12 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 88FD920E0E
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:07:12 -0400 (EDT)
-In-Reply-To: <1444910825-25021-1-git-send-email-hannes@stressinduktion.org>
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id D356E21074
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:07:11 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Raw sockets with hdrincl enabled can insert ipv6 extension headers
-right into the data stream. In case we need to fragment those packets,
-we reparse the options header to find the place where we can insert
-the fragment header. If the extension headers exceed the link's MTU we
-actually cannot make progress in such a case.
+The idea of the overflow-arith.h header is to collect overflow checking
+functions in one central place.
 
-Instead of ending up in broken arithmetic or rounding towards 0 and
-entering an endless loop in ip6_fragment, just prevent those cases by
-aborting early and signal -EMSGSIZE to user space.
+If gcc compiler supports the __builtin_overflow_* builtins we use them
+because they might give better performance, otherwise the code falls
+back to normal overflow checking functions.
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>
+The builtin_overflow functions are supported by gcc-5 and clang. The
+matter of supporting clang is to just provide a corresponding
+CC_HAVE_BUILTIN_OVERFLOW, because the specific overflow checking builtins
+don't differ between gcc and clang.
+
+I just provide overflow_usub function here as I intend this to get merged
+into net, more functions will definitely follow as they are needed.
+
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/ip6_output.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ include/linux/compiler-gcc.h   |  4 ++++
+ include/linux/overflow-arith.h | 18 ++++++++++++++++++
+ 2 files changed, 22 insertions(+)
+ create mode 100644 include/linux/overflow-arith.h
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 61d403e..00aa538 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -28,6 +28,7 @@
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index dfaa7b3..82c159e 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -237,6 +237,10 @@
+ #define KASAN_ABI_VERSION 3
+ #endif
  
- #include <linux/errno.h>
- #include <linux/kernel.h>
-+#include <linux/overflow-arith.h>
- #include <linux/string.h>
- #include <linux/socket.h>
- #include <linux/net.h>
-@@ -584,7 +585,10 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
- 		if (np->frag_size)
- 			mtu = np->frag_size;
- 	}
--	mtu -= hlen + sizeof(struct frag_hdr);
++#if GCC_VERSION >= 50000
++#define CC_HAVE_BUILTIN_OVERFLOW
++#endif
 +
-+	if (overflow_usub(mtu, hlen + sizeof(struct frag_hdr), &mtu) ||
-+	    mtu <= 7)
-+		goto fail_toobig;
+ #endif	/* gcc version >= 40000 specific checks */
  
- 	frag_id = ipv6_select_ident(net, &ipv6_hdr(skb)->daddr,
- 				    &ipv6_hdr(skb)->saddr);
+ #if !defined(__noclone)
+diff --git a/include/linux/overflow-arith.h b/include/linux/overflow-arith.h
+new file mode 100644
+index 0000000..e12ccf8
+--- /dev/null
++++ b/include/linux/overflow-arith.h
+@@ -0,0 +1,18 @@
++#pragma once
++
++#include <linux/kernel.h>
++
++#ifdef CC_HAVE_BUILTIN_OVERFLOW
++
++#define overflow_usub __builtin_usub_overflow
++
++#else
++
++static inline bool overflow_usub(unsigned int a, unsigned int b,
++				 unsigned int *res)
++{
++	*res = a - b;
++	return *res > a ? true : false;
++}
++
++#endif
 -- 
 2.4.3
