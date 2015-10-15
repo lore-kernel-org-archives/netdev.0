@@ -1,64 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/17] i40e/i40evf: remove redundant declarations of a variable and a function
-Date: Thu, 15 Oct 2015 02:39:58 -0700
-Message-ID: <1444902004-14433-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/17] i40e: Store off PHY capabilities
+Date: Thu, 15 Oct 2015 02:39:59 -0700
+Message-ID: <1444902004-14433-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17991 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:27563 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752416AbbJOJma (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 05:42:30 -0400
+	id S1752019AbbJOJmb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 05:42:31 -0400
 In-Reply-To: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kevin Scott <kevin.c.scott@intel.com>
 
-Remove a variable declaration inside an if block hiding an existing
-declaration at the start of the function.
+Store off reported PHY capabilities in link_info structure.
 
-Also remove a forward function declaration that is no longer needed due
-to code re-organization.
-
-Change-ID: I12954668b722718074949c93d74cd20eaacd93e4
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Ife0f037c26983ca985dbf79abf33f8f8791369e8
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c  | 3 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index b311391..ed70a3f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -90,9 +90,6 @@ static const struct i40e_stats i40e_gstrings_misc_stats[] = {
- 	I40E_VSI_STAT("tx_linearize", tx_linearize),
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index ffd1cd0..d1ee174 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1617,6 +1617,9 @@ i40e_status i40e_aq_get_phy_capabilities(struct i40e_hw *hw,
+ 	if (hw->aq.asq_last_status == I40E_AQ_RC_EIO)
+ 		status = I40E_ERR_UNKNOWN_PHY;
  
--static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
--				 struct ethtool_rxnfc *cmd);
--
- /* These PF_STATs might look like duplicates of some NETDEV_STATs,
-  * but they are separate.  This device supports Virtualization, and
-  * as such might have several netdevs supporting VMDq and FCoE going
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index feb9ad5..f156226 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1628,7 +1628,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 	/* extra wait to make sure minimum wait is met */
- 	msleep(I40EVF_RESET_WAIT_MS);
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
--		struct i40evf_mac_filter *f, *ftmp;
-+		struct i40evf_mac_filter *ftmp;
- 		struct i40evf_vlan_filter *fv, *fvtmp;
++	if (report_init)
++		hw->phy.phy_types = le32_to_cpu(abilities->phy_type);
++
+ 	return status;
+ }
  
- 		/* reset never finished */
 -- 
 2.4.3
