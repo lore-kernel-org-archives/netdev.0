@@ -1,39 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/1] net: phy: bcm-phy-lib: Fix module license issue
-Date: Wed, 14 Oct 2015 18:39:47 -0700 (PDT)
-Message-ID: <20151014.183947.1675991536904094202.davem@davemloft.net>
-References: <1444768812-31476-1-git-send-email-arunp@broadcom.com>
-	<1444768812-31476-2-git-send-email-arunp@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4i: Increased the value of
+ MAX_IMM_TX_PKT_LEN from 128 to 256 bytes
+Date: Wed, 14 Oct 2015 18:40:50 -0700 (PDT)
+Message-ID: <20151014.184050.219016939182967937.davem@davemloft.net>
+References: <201510140013.t9E0Dxno002803@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1444768812-31476-2-git-send-email-arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	hch@infradead.org, James.Bottomley@HansenPartnership.com,
+	michaelc@cs.wisc.edu
+To: kxie@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <201510140013.t9E0Dxno002803@localhost6.localdomain6>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Date: Tue, 13 Oct 2015 13:40:12 -0700
+From: Karen Xie <kxie@chelsio.com>
+Date: Tue, 13 Oct 2015 17:13:59 -0700
 
-> The 'bcm-phy-lib.c', added as a part of the commit
-> "net: phy: Add Broadcom phy library for common interfaces"
-> was missing the module license. This was causing an issue
-> when the library is built as a module; "module license
-> 'unspecified' taints kernel".
+> This helps improving the latency of small packets.
 > 
-> This patch fixes the issue by adding the module license,
-> author and description to the bcm-phy-lib.c file.
-> 
-> Fixes: a1cba5613edf5 ("net: phy: Add Broadcom phy library for common
-> interfaces")
-> Signed-off-by: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Rakesh Ranjan <rakesh@chelsio.com>
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
 
-This patch doesn't apply to my net-next tree at all.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
