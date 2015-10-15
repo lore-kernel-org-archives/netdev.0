@@ -1,81 +1,152 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net 1/2] overflow-arith: begin to add support for overflow builtin functions
-Date: Thu, 15 Oct 2015 14:07:04 +0200
-Message-ID: <1444910825-25021-1-git-send-email-hannes@stressinduktion.org>
-Cc: dvyukov@google.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH stable <= 3.18] net: add length argument to skb_copy_and_csum_datagram_iovec
+Date: Thu, 15 Oct 2015 14:25:03 +0200
+Message-ID: <c1b23313f94ba3fd9977c6fba61483edf6489b5f.1444910940.git.sd@queasysnail.net>
+Cc: herbert@gondor.apana.org.au, stable@vger.kernel.org,
+	sd@queasysnail.net, hannes@stressinduktion.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60902 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752933AbbJOMHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 08:07:12 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id D356E21074
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:07:11 -0400 (EDT)
+Received: from mx1.redhat.com ([209.132.183.28]:44812 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751783AbbJOMZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 08:25:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The idea of the overflow-arith.h header is to collect overflow checking
-functions in one central place.
+Without this length argument, we can read past the end of the iovec in
+memcpy_toiovec because we have no way of knowing the total length of the
+iovec's buffers.
 
-If gcc compiler supports the __builtin_overflow_* builtins we use them
-because they might give better performance, otherwise the code falls
-back to normal overflow checking functions.
+This is needed for stable kernels where 89c22d8c3b27 ("net: Fix skb
+csum races when peeking") has been backported but that don't have the
+ioviter conversion, which is almost all the stable trees <= 3.18.
 
-The builtin_overflow functions are supported by gcc-5 and clang. The
-matter of supporting clang is to just provide a corresponding
-CC_HAVE_BUILTIN_OVERFLOW, because the specific overflow checking builtins
-don't differ between gcc and clang.
+This also fixes a kernel crash for NFS servers when the client uses
+ -onfsvers=3,proto=udp to mount the export.
 
-I just provide overflow_usub function here as I intend this to get merged
-into net, more functions will definitely follow as they are needed.
-
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/linux/compiler-gcc.h   |  4 ++++
- include/linux/overflow-arith.h | 18 ++++++++++++++++++
- 2 files changed, 22 insertions(+)
- create mode 100644 include/linux/overflow-arith.h
+Note: this is based on 3.14.54, as 3.18 doesn't need the hunk for
+net/rxrpc/ar-recvmsg.c, but all older stable kernels do.
 
-diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
-index dfaa7b3..82c159e 100644
---- a/include/linux/compiler-gcc.h
-+++ b/include/linux/compiler-gcc.h
-@@ -237,6 +237,10 @@
- #define KASAN_ABI_VERSION 3
- #endif
+
+ include/linux/skbuff.h | 2 +-
+ net/core/datagram.c    | 6 +++++-
+ net/ipv4/tcp_input.c   | 2 +-
+ net/ipv4/udp.c         | 2 +-
+ net/ipv6/raw.c         | 2 +-
+ net/ipv6/udp.c         | 3 ++-
+ net/rxrpc/ar-recvmsg.c | 3 ++-
+ 7 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ab3133797ff7..220454f32509 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2431,7 +2431,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ int skb_copy_datagram_iovec(const struct sk_buff *from, int offset,
+ 			    struct iovec *to, int size);
+ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb, int hlen,
+-				     struct iovec *iov);
++				     struct iovec *iov, int len);
+ int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
+ 				 const struct iovec *from, int from_offset,
+ 				 int len);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 13bc7dad7990..3437762668af 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -796,6 +796,7 @@ EXPORT_SYMBOL(__skb_checksum_complete);
+  *	@skb: skbuff
+  *	@hlen: hardware length
+  *	@iov: io vector
++ *	@len: amount of data to copy from skb to iov
+  *
+  *	Caller _must_ check that skb will fit to this iovec.
+  *
+@@ -805,11 +806,14 @@ EXPORT_SYMBOL(__skb_checksum_complete);
+  *			   can be modified!
+  */
+ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
+-				     int hlen, struct iovec *iov)
++				     int hlen, struct iovec *iov, int len)
+ {
+ 	__wsum csum;
+ 	int chunk = skb->len - hlen;
  
-+#if GCC_VERSION >= 50000
-+#define CC_HAVE_BUILTIN_OVERFLOW
-+#endif
++	if (chunk > len)
++		chunk = len;
 +
- #endif	/* gcc version >= 40000 specific checks */
+ 	if (!chunk)
+ 		return 0;
  
- #if !defined(__noclone)
-diff --git a/include/linux/overflow-arith.h b/include/linux/overflow-arith.h
-new file mode 100644
-index 0000000..e12ccf8
---- /dev/null
-+++ b/include/linux/overflow-arith.h
-@@ -0,0 +1,18 @@
-+#pragma once
-+
-+#include <linux/kernel.h>
-+
-+#ifdef CC_HAVE_BUILTIN_OVERFLOW
-+
-+#define overflow_usub __builtin_usub_overflow
-+
-+#else
-+
-+static inline bool overflow_usub(unsigned int a, unsigned int b,
-+				 unsigned int *res)
-+{
-+	*res = a - b;
-+	return *res > a ? true : false;
-+}
-+
-+#endif
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9fbd69efa999..cf6168b897c3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4934,7 +4934,7 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ 		err = skb_copy_datagram_iovec(skb, hlen, tp->ucopy.iov, chunk);
+ 	else
+ 		err = skb_copy_and_csum_datagram_iovec(skb, hlen,
+-						       tp->ucopy.iov);
++						       tp->ucopy.iov, chunk);
+ 
+ 	if (!err) {
+ 		tp->ucopy.len -= chunk;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 6970e36ad7b8..8395cf5ec487 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1268,7 +1268,7 @@ try_again:
+ 	else {
+ 		err = skb_copy_and_csum_datagram_iovec(skb,
+ 						       sizeof(struct udphdr),
+-						       msg->msg_iov);
++						       msg->msg_iov, copied);
+ 
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 1f29996e368a..e6c9b4a7ee3c 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -492,7 +492,7 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 			goto csum_copy_err;
+ 		err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
+ 	} else {
+-		err = skb_copy_and_csum_datagram_iovec(skb, 0, msg->msg_iov);
++		err = skb_copy_and_csum_datagram_iovec(skb, 0, msg->msg_iov, copied);
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+ 	}
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 38625a91ec94..4011ccad6c9f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -428,7 +428,8 @@ try_again:
+ 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
+ 					      msg->msg_iov, copied);
+ 	else {
+-		err = skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov);
++		err = skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr),
++						       msg->msg_iov, copied);
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+ 	}
+diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
+index 4949f753686c..83484ebf691d 100644
+--- a/net/rxrpc/ar-recvmsg.c
++++ b/net/rxrpc/ar-recvmsg.c
+@@ -186,7 +186,8 @@ int rxrpc_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 						      msg->msg_iov, copy);
+ 		} else {
+ 			ret = skb_copy_and_csum_datagram_iovec(skb, offset,
+-							       msg->msg_iov);
++							       msg->msg_iov,
++							       copy);
+ 			if (ret == -EINVAL)
+ 				goto csum_copy_error;
+ 		}
 -- 
-2.4.3
+2.6.1
