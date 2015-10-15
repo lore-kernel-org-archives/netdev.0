@@ -1,24 +1,66 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Subject: Re: [PATCH] Fix sleeping memory allocation in atomic context
-Date: Thu, 15 Oct 2015 12:13:36 +0200
-Message-ID: <561F7C50.6080401@cumulusnetworks.com>
+Date: Thu, 15 Oct 2015 12:16:12 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1510151214300.8348@blackhole.kfki.hu>
 References: <1444899472-8191-1-git-send-email-kernel@kyup.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, davem@davemloft.net,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	operations@siteground.com
-To: Nikolay Borisov <kernel@kyup.com>, kadlec@blackhole.kfki.hu
+To: Nikolay Borisov <kernel@kyup.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1444899472-8191-1-git-send-email-kernel@kyup.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2015 10:57 AM, Nikolay Borisov wrote:
+On Thu, 15 Oct 2015, Nikolay Borisov wrote:
+
 > Ipset 6.26 produces the following splat:
 > 
-[snip]
+> BUG: sleeping function called from invalid context at mm/page_alloc.c:2759
+> in_atomic(): 1, irqs_disabled(): 0, pid: 9664, name: ipset
+> CPU: 18 PID: 9664 Comm: ipset Tainted: G           O 3.12.47-clouder3 #1
+> Hardware name: Supermicro X10DRi/X10DRi, BIOS 1.1 04/14/2015
+>  0000000000000002 ffff881fd14273c8 ffffffff8163d891 ffff881fcb4264b0
+>  ffff881fcb4260c0 ffff881fd14273e8 ffffffff810ba5bf ffff881fd1427558
+>  0000000000000000 ffff881fd1427568 ffffffff81142b33 ffff881f00000000
+> Call Trace:
+>  [<ffffffff8163d891>] dump_stack+0x58/0x7f
+>  [<ffffffff810ba5bf>] __might_sleep+0xdf/0x110
+>  [<ffffffff81142b33>] __alloc_pages_nodemask+0x243/0xc20
+>  [<ffffffff81181c6e>] alloc_pages_current+0xbe/0x170
+>  [<ffffffff81188315>] new_slab+0x295/0x340
+>  [<ffffffff81189a40>] __slab_alloc+0x2c0/0x5a0
+>  [<ffffffff8164000c>] ? __schedule+0x2dc/0x760
+>  [<ffffffff8118a71b>] __kmalloc+0x11b/0x230
+>  [<ffffffffa02bd0ac>] ? ip_set_get_byname+0xec/0x100 [ip_set]
+>  [<ffffffffa02d23fb>] list_set_uadd+0x16b/0x314 [ip_set_list_set]
+>  [<ffffffff81642148>] ? _raw_write_unlock_bh+0x28/0x30
+>  [<ffffffffa02d1cfc>] list_set_uadt+0x21c/0x320 [ip_set_list_set]
+>  [<ffffffffa02d2290>] ? list_set_create+0x1a0/0x1a0 [ip_set_list_set]
+>  [<ffffffffa02be242>] call_ad+0x82/0x200 [ip_set]
+>  [<ffffffffa02bb171>] ? find_set_type+0x51/0xa0 [ip_set]
+>  [<ffffffff8133f275>] ? nla_parse+0xf5/0x130
+>  [<ffffffffa02be8ae>] ip_set_uadd+0x20e/0x2d0 [ip_set]
+>  [<ffffffffa02be013>] ? ip_set_create+0x2a3/0x450 [ip_set]
+>  [<ffffffffa02be6a0>] ? ip_set_udel+0x2e0/0x2e0 [ip_set]
+>  [<ffffffff815b316e>] nfnetlink_rcv_msg+0x31e/0x330
+>  [<ffffffff815b2e91>] ? nfnetlink_rcv_msg+0x41/0x330
+>  [<ffffffff815b2e50>] ? nfnl_lock+0x30/0x30
+>  [<ffffffff815ae179>] netlink_rcv_skb+0xa9/0xd0
+>  [<ffffffff815b2d45>] nfnetlink_rcv+0x15/0x20
+>  [<ffffffff815ade5f>] netlink_unicast+0x10f/0x190
+>  [<ffffffff815aedb0>] netlink_sendmsg+0x2c0/0x660
+>  [<ffffffff81567f00>] sock_sendmsg+0x90/0xc0
+>  [<ffffffff81565b03>] ? move_addr_to_user+0xa3/0xc0
+>  [<ffffffff81568552>] ? ___sys_recvmsg+0x182/0x300
+>  [<ffffffff81568064>] SYSC_sendto+0x134/0x180
+>  [<ffffffff811c4e01>] ? mntput+0x21/0x30
+>  [<ffffffff81572d2f>] ? __kfree_skb+0x3f/0xa0
+>  [<ffffffff815680be>] SyS_sendto+0xe/0x10
+>  [<ffffffff816434b2>] system_call_fastpath+0x16/0x1b
 > 
 > The call chain leading to this as follow:
 > call_add -> list_set_uadt -> list_set_uadd -> kzalloc(, GFP_KERNEL).
@@ -28,7 +70,14 @@ On 10/15/2015 10:57 AM, Nikolay Borisov wrote:
 > 
 > To fix it change that particular allocation type to GFP_ATOMIC, to
 > correctly reflect that it is happening in an atomic context.
-> 
+
+Good catch, Pablo please apply the patch.
+
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+
+Best regards,
+Jozsef
+
 > Signed-off-by: Nikolay Borisov <kernel@kyup.com>
 > ---
 > 
@@ -41,20 +90,24 @@ On 10/15/2015 10:57 AM, Nikolay Borisov wrote:
 > 
 > diff --git a/kernel/net/netfilter/ipset/ip_set_list_set.c b/kernel/net/netfilter/ipset/ip_set_list_set.c
 > index b11ba96..0f9195f 100644
+> --- a/kernel/net/netfilter/ipset/ip_set_list_set.c
+> +++ b/kernel/net/netfilter/ipset/ip_set_list_set.c
+> @@ -298,7 +298,7 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+>  	      ip_set_timeout_expired(ext_timeout(n, set))))
+>  		n =  NULL;
+>  
+> -	e = kzalloc(set->dsize, GFP_KERNEL);
+> +	e = kzalloc(set->dsize, GFP_ATOMIC);
+>  	if (!e)
+>  		return -ENOMEM;
+>  	e->id = d->id;
+> -- 
+> 2.5.0
+> 
+> 
 
-Hi,
-You should fix your subject line to include the subsystem [1], something like
-netfilter: ipset: fix...
-The path to the file being patched is incorrect, patches should be generated in
-the root kernel source dir [2].
-Also it'd be nice to add a Fixes tag [3] to show which commit introduced the bug,
-in this case it looks like it's:
-Fixes: 00590fdd5be0 ("netfilter: ipset: Introduce RCU locking in list type")
-
-Cheers,
- Nik
-
-[1] Documentation/SubmittingPatches chapter 14
-[2] Documentation/SubmittingPatches chapter 1
-[3] Documentation/SubmittingPatches chapters 2 and 13
-
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
