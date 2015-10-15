@@ -1,55 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/17] ixgbe: disable LRO by default
-Date: Thu, 15 Oct 2015 02:39:48 -0700
-Message-ID: <1444902004-14433-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/17] i40e: remove obsolete version check
+Date: Thu, 15 Oct 2015 02:39:55 -0700
+Message-ID: <1444902004-14433-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21141 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:31273 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752356AbbJOJm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 05:42:26 -0400
+	id S1752412AbbJOJma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 05:42:30 -0400
 In-Reply-To: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch disables LRO by default in favor of GRO.
+This version check only applies to very, very old firmware,
+that only ran on A0 hardware, which we never shipped and don't
+support in this driver anyway. Remove it, before somebody
+gets hurt.
 
-LRO is incompatible with forwarding and is disabled when forwarding
-is turned on which makes the default offloads of the driver
-inconsistent. LRO can still be enabled via ethtool.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Darin Miller <darin.j.miller@intel.com>
+Change-ID: I3752d090ff488acf98ee76b075af961e9c968ee4
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c4608f8..1b2ad39 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5307,7 +5307,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	rss = min_t(int, ixgbe_max_rss_indices(adapter), num_online_cpus());
- 	adapter->ring_feature[RING_F_RSS].limit = rss;
- 	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
--	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
- 	adapter->max_q_vectors = MAX_Q_VECTORS_82599;
- 	adapter->atr_sample_rate = 20;
- 	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, num_online_cpus());
-@@ -5333,7 +5332,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	switch (hw->mac.type) {
- 	case ixgbe_mac_82598EB:
- 		adapter->flags2 &= ~IXGBE_FLAG2_RSC_CAPABLE;
--		adapter->flags2 &= ~IXGBE_FLAG2_RSC_ENABLED;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7c4add8..c4f26eb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6353,12 +6353,6 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
+ 		}
+ 	} while (err);
  
- 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
- 			adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
+-	if (((pf->hw.aq.fw_maj_ver == 2) && (pf->hw.aq.fw_min_ver < 22)) ||
+-	    (pf->hw.aq.fw_maj_ver < 2)) {
+-		pf->hw.func_caps.num_msix_vectors++;
+-		pf->hw.func_caps.num_msix_vectors_vf++;
+-	}
+-
+ 	if (pf->hw.debug_mask & I40E_DEBUG_USER)
+ 		dev_info(&pf->pdev->dev,
+ 			 "pf=%d, num_vfs=%d, msix_pf=%d, msix_vf=%d, fd_g=%d, fd_b=%d, pf_max_q=%d num_vsi=%d\n",
 -- 
 2.4.3
