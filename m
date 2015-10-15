@@ -1,59 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/17] i40e/i40evf: Bump i40e to 1.3.34 and i40evf to 1.3.21
-Date: Thu, 15 Oct 2015 14:43:24 -0700
-Message-ID: <1444945404-30654-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/17] i40evf: relax and stagger init timing a bit
+Date: Thu, 15 Oct 2015 14:43:22 -0700
+Message-ID: <1444945404-30654-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32107 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:4493 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753306AbbJOVnf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 17:43:35 -0400
+	id S1751483AbbJOVne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 17:43:34 -0400
 In-Reply-To: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Bump.
+On some devices, in some systems, in some configurations, the VFs would
+fail to initialize the first time you loaded the driver.
 
-Change-ID: I7ec818a507554648675b9b245ced9e6b6bd9ed4e
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+To correct this, increase the delay time for the init task slightly, and
+wait longer before giving up.
+
+If we enable VFs and load the VF driver in the same kernel as the PF
+driver, we can totally overwhelm the PF driver with AQ requests because
+all of the instances try to initialize at the same time.
+
+To help alleviate this, stagger the initial scheduling of the init task
+using the PCIe function as a multiplier. We mask off the function to
+only three bits so no instance has to wait too long.
+
+With these two changes, initializing 128 VFs on a single device goes
+from four minutes to just a few seconds.
+
+Change-ID: If3d8720c1c4e838ab36d8781d9ec295a62380936
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h      | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 722b0a1..87a5d09 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index c74f614..22841c6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -87,7 +87,7 @@ struct i40e_vsi {
+ #define I40EVF_MAX_RXBUFFER   16384  /* largest size for single descriptor */
+ #define I40EVF_MAX_AQ_BUF_SIZE    4096
+ #define I40EVF_AQ_LEN             32
+-#define I40EVF_AQ_MAX_ERR         10 /* times to try before resetting AQ */
++#define I40EVF_AQ_MAX_ERR         20 /* times to try before resetting AQ */
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 28
-+#define DRV_VERSION_BUILD 34
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+ #define MAXIMUM_ETHERNET_VLAN_SIZE (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
+ 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b943d93..2575473 100644
+index 9e754d0..b943d93 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+@@ -2344,7 +2344,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 	}
+ 	return;
+ restart:
+-	schedule_delayed_work(&adapter->init_task, msecs_to_jiffies(20));
++	schedule_delayed_work(&adapter->init_task, msecs_to_jiffies(30));
+ 	return;
  
--#define DRV_VERSION "1.3.19"
-+#define DRV_VERSION "1.3.21"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2015 Intel Corporation.";
+ err_register:
+@@ -2361,7 +2361,7 @@ err:
+ 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
+ 		return; /* do not reschedule */
+ 	}
+-	schedule_delayed_work(&adapter->init_task, HZ / 2);
++	schedule_delayed_work(&adapter->init_task, HZ);
+ }
+ 
+ /**
 -- 
 2.4.3
