@@ -1,29 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: aquantia/teranetics: Convert to use
- module_phy_driver macro
-Date: Wed, 14 Oct 2015 19:01:57 -0700 (PDT)
-Message-ID: <20151014.190157.810018870760276601.davem@davemloft.net>
-References: <1444818648.6933.1.camel@ingics.com>
+From: Unknown <unknown@unknown.invalid>
+Subject: Captain Kelvin Ken Miller
+Date: Wed, 14 Oct 2015 18:52:12 -0700
+Message-ID: <VI1PR09MB0398B3D82D86899FF759559EB83E0@VI1PR09MB0398.eurprd09.prod.outlook.com>
+Reply-To: <kel_miller76@gmx.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, Shaohui.Xie@freescale.com,
-	netdev@vger.kernel.org
-To: axel.lin@ingics.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38228 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821AbbJOBpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 21:45:51 -0400
-In-Reply-To: <1444818648.6933.1.camel@ingics.com>
+Received: from mail-db3hn0253.outbound.protection.outlook.com ([157.55.234.253]:46917
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754533AbbJOBwx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 21:52:53 -0400
+Content-Description: Mail message body
+From: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Axel Lin <axel.lin@ingics.com>
-Date: Wed, 14 Oct 2015 18:30:48 +0800
-
-> Use module_phy_driver macro to simplify the code a bit.
-> 
-> Signed-off-by: Axel Lin <axel.lin@ingics.com>
-
-Applied to net-next, thanks.
+Am Captain Kelvin Ken Miller i am with the us army in Camp Abu Naji / FOB Garry Owen (Al Amarah)I need you assistant to move some funds out of Iraq. 
+Kindly respond for more details.
