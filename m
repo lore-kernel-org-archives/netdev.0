@@ -1,137 +1,92 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Wed, 14 Oct 2015 19:58:33 -0700
-Message-ID: <CAE4R7bBxVQnCwpZhhcByBtk4XLP+Kkbc-BrXvoWBsr6mRDQQ5g@mail.gmail.com>
-References: <CAE4R7bDCb6DMCYg1j5hHNV-wtgGMEQfeSnOkCiXrJH4LKxuHOA@mail.gmail.com>
- <1444651299-2813-1-git-send-email-razor@blackwall.org> <20151012173625.GA17983@ketchup.lan>
- <20151013083111.GA1432@colbert.mtl.com> <20151013143225.GA9636@ketchup.mtl.sfl>
- <20151014061446.GA29908@colbert.mtl.com> <20151014152515.GA6681@ketchup.mtl.sfl>
- <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com> <20151014174152.GB9216@colbert.mtl.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH net-next 0/4] net: dsa: mv88e6xxx: fix hardware bridging
+Date: Wed, 14 Oct 2015 20:16:27 -0700
+Message-ID: <561F1A8B.1040904@roeck-us.net>
+References: <1444601318-20561-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20151014224617.GA10146@lunn.ch> <20151015012854.GA10868@ketchup.lan>
+ <20151015025250.GA12436@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Elad Raz <eladr@mellanox.com>
-To: Ido Schimmel <idosch@mellanox.com>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:33919 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbbJOC6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:58:53 -0400
-Received: by obbda8 with SMTP id da8so55249616obb.1
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 19:58:53 -0700 (PDT)
-In-Reply-To: <20151014174152.GB9216@colbert.mtl.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:53733 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbbJODQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 23:16:30 -0400
+In-Reply-To: <20151015025250.GA12436@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2015 at 10:42 AM, Ido Schimmel <idosch@mellanox.com> wrote:
-> Wed, Oct 14, 2015 at 08:14:24PM IDT, sfeldma@gmail.com wrote:
->>On Wed, Oct 14, 2015 at 8:25 AM, Vivien Didelot
->><vivien.didelot@savoirfairelinux.com> wrote:
->>> On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
->>>> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->>>> >On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
->>>> >> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->>>> >> >Hi guys,
->>>> >> >
->>>> >> >On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
->>>> >> >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>> >> >>
->>>> >> >> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
->>>> >> >>
->>>> >> >> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>> >> >> ---
->>>> >> >>  net/switchdev/switchdev.c | 3 +++
->>>> >> >>  1 file changed, 3 insertions(+)
->>>> >> >>
->>>> >> >> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>>> >> >> index 6e4a4f9ad927..256c596de896 100644
->>>> >> >> --- a/net/switchdev/switchdev.c
->>>> >> >> +++ b/net/switchdev/switchdev.c
->>>> >> >> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
->>>> >> >>                         if (vlan.vid_begin)
->>>> >> >>                                 return -EINVAL;
->>>> >> >>                         vlan.vid_begin = vinfo->vid;
->>>> >> >> +                       /* don't allow range of pvids */
->>>> >> >> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
->>>> >> >> +                               return -EINVAL;
->>>> >> >>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
->>>> >> >>                         if (!vlan.vid_begin)
->>>> >> >>                                 return -EINVAL;
->>>> >> >> --
->>>> >> >> 2.4.3
->>>> >> >>
->>>> >> >
->>>> >> >Yes the patch looks good, but it is a minor check though. I hope the
->>>> >> >subject of this thread is making sense.
->>>> >> >
->>>> >> >VLAN ranges seem to have been included for an UX purpose (so commands
->>>> >> >look like Cisco IOS). We don't want to change any existing interface, so
->>>> >> >we pushed that down to drivers, with the only valid reason that, maybe
->>>> >> >one day, an hardware can be capable of programming a range on a per-port
->>>> >> >basis.
->>>> >> Hi,
->>>> >>
->>>> >> That's actually what we are doing in mlxsw. We can do up to 256 entries in
->>>> >> one go. We've yet to submit this part.
->>>> >
->>>> >Perfect Ido, thanks for pointing this out! I'm OK with the range then.
->>>> >
->>>> >So there is now a very last question in my head for this, which is more
->>>> >a matter of kernel design. Should the user be aware of such underlying
->>>> >support? In other words, would it make sense to do this in a driver:
->>>> >
->>>> >    foo_port_vlan_add(struct net_device *dev,
->>>> >                      struct switchdev_obj_port_vlan *vlan)
->>>> >    {
->>>> >        if (vlan->vid_begin != vlan->vid_end)
->>>> >            return -ENOTSUPP; /* or something more relevant for user */
->>>> >
->>>> >        return foo_port_single_vlan_add(dev, vlan->vid_begin);
->>>> >    }
->>>> >
->>>> >So drivers keep being simple, and we can easily propagate the fact that
->>>> >one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
->>>> >implemented and must be done in software.
->>>> I think that if you want to keep it simple, then Scott's advice from the
->>>> previous thread is the most appropriate one. I believe the hardware you
->>>> are using is simply not meant to support multiple 802.1Q bridges.
+On 10/14/2015 07:52 PM, Andrew Lunn wrote:
+> On Wed, Oct 14, 2015 at 09:28:55PM -0400, Vivien Didelot wrote:
+>> On Oct. Thursday 15 (42) 12:46 AM, Andrew Lunn wrote:
+>>> On Sun, Oct 11, 2015 at 06:08:34PM -0400, Vivien Didelot wrote:
+>>>> DSA and its drivers currently hook the NETDEV_CHANGEUPPER net_device event in
+>>>> order to configure the VLAN map of every port.
+>>>>
+>>>> This VLAN map is a feature of these switch chips to hardcode and restrict which
+>>>> output ports a given input port can egress frames to.
+>>>>
+>>>> A Linux bridge is a simple untagged VLAN propagated by the bridge code itself.
+>>>> With a proper 802.1Q support, a driver does not need this hook anymore, and
+>>>> will simply program the related VLAN object.
+>>>>
+>>>> This patchset improves the hardware bridging code in the mv88e6xxx driver with
+>>>> a strict 802.1Q mode.
 >>>
->>> You mean allowing only one Linux bridge over an hardware switch?
+>>> Hi Vivien
 >>>
->>> It would for sure simplify how, as developers and users, we represent a
->>> physical switch. But I am not sure how to achieve that and I don't have
->>> strong opinions on this TBH.
+>>> I just tested this as part of net-next/master, and found a problem....
+>>>
+>>> If i do:
+>>>
+>>> ip link set lan0 up
+>>> ip addr add 192.168.10.2/24 dev lan0
+>>>
+>>> It will not ping. Looking in sys/kernel/debug/dsa0/stats i see
+>>> broadcast packets, probably ARP, being received at the port.
+>>> But they are not being forwarded out the CPU port.
+>>>
+>>> If however i do
+>>>
+>>> brctl addbr br0
+>>> brctl addif br0 lan0
+>>> ip addr add 192.168.10.2/24 dev br0
+>>> ip link set br0 up
+>>>
+>>> i can ping.
+>>>
+>>> So it looks like we are too restrictive by default. You should be able
+>>> to use interfaces as they are, without a bridge.
 >>
->>Hi Vivien, I think it's possible to keep switch ports on just one
->>bridge if we do a little bit of work on the NETDEV_CHANGEUPPER
->>notifier.  This will give you the driver-level control you want.  Do
->>you have time to investigate?  The idea is:
->>
->>1) In your driver's handler for NETDEV_CHANGEUPPER, if switch port is
->>being added to a second bridge,then return NOTIFY_BAD.  Your driver
->>needs to track the bridge count.
->>
->>2) In __netdev_upper_dev_link(), check the return code from the
->>call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, ...) call, and if
->>NOTIFY_BAD, abort the linking operation (goto rollback_xxx).
->>
-> Hi,
+>> Correct, if the ports are not in a VLAN by default, they cannot talk.
 >
-> We are doing something similar in mlxsw (not upstream yet). Jiri
-> introduced PRE_CHANGEUPPER, which is called from the function you
-> mentioned, but before the linking operation (so that you don't need to
-> rollback).
+> Hi Vivien
+>
+> This is a regression. Ports of the switch should work like normal
+> Linux interfaces. And up until now, they did. This patchset changed
+> that.
+>
+> As Florian pointed out, these interfaces are separated from each
+> other. So you need something like a bridge per port by default, which
+> then gets removed and replaced when a port is added to a Linux bridge.
+>
+> We also need to take care of VLANs. When the port is not a member of a
+> linux bridge, i expect all VLAN tagged frames to be received, as well
+> as untagged frames. This is normal Linux behaviour. But i never got
+> around to testing this with DSA.
+>
 
-Oh, cool.
+There was a reason for the original code. I had wondered how it is now
+supposed to work. Guess this exchange explains it. Looking forward to see
+how it is going to be fixed, and too bad I don't have time to be more
+involved.
 
-> If the notification is about a linking operation and the master is a
-> bridge different than the current one, then NOTIFY_BAD is returned.
-
-So you're wanting to restrict to just one bridge also?  Or is
-NOTIFY_BAD returned for some other reason?  I guess I should be
-patient and wait for the patch.
+Guenter
