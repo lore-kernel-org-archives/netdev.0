@@ -1,289 +1,135 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 5/7] tipc: delay ESTABLISH state
-	event when link is established
-Date: Thu, 15 Oct 2015 14:52:44 -0400
-Message-ID: <1444935166-12745-6-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 7/7] tipc: update node FSM when peer RESET message is received
+Date: Thu, 15 Oct 2015 14:52:46 -0400
+Message-ID: <1444935166-12745-8-git-send-email-jon.maloy@ericsson.com>
 References: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:46932 "EHLO
+	smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752125AbbJOSw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 14:52:57 -0400
 In-Reply-To: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Link establishing, just like link teardown, is a non-atomic action, in
-the sense that discovering that conditions are right to establish a link,
-and the actual adding of the link to one of the node's send slots is done
-in two different lock contexts. The link FSM is designed to help bridging
-the gap between the two contexts in a safe manner.
+The change made in the previous commit revealed a small flaw in the way
+the node FSM is updated. When the function tipc_node_link_down() is
+called for the last link to a node, we should check whether this was
+caused by a local reset or by a received RESET message from the peer.
+In the latter case, we can directly issue a PEER_LOST_CONTACT_EVT to
+the node FSM, so that it is ready to re-establish contact. If this is
+not done, the peer node will sometimes have to go through a second
+establish cycle before the link becomes stable.
 
-We have now discovered a weakness in the implementaton of this FSM.
-Because we directly let the link go from state LINK_ESTABLISHING to
-state LINK_ESTABLISHED already in the first lock context, we are unable
-to distinguish between a fully established link, i.e., a link that has
-been added to its slot, and a link that has not yet reached the second
-lock context. It may hence happen that a manual intervention, e.g., when
-disabling an interface, causes the function tipc_node_link_down() to try
-removing the link from the node slots, decrementing its active link
-counter etc, although the link was never added there in the first place.
-
-We solve this by delaying the actual state change until we reach the
-second lock context, inside the function tipc_node_link_up(). This
-makes it possible for potentail callers of __tipc_node_link_down() to
-know if they should proceed or not, and the problem is solved.
-
-Unforunately, the situation described above also has a second problem.
-Since there by necessity is a tipc_node_link_up() call pending once
-the node lock has been released, we must defuse that call by setting
-the link back from LINK_ESTABLISHING to LINK_RESET state. This forces
-us to make a slight modification to the link FSM, which will now look
-as follows.
-
- +------------------------------------+
- |RESET_EVT                           |
- |                                    |
- |                             +--------------+
- |           +-----------------|   SYNCHING   |-----------------+
- |           |FAILURE_EVT      +--------------+   PEER_RESET_EVT|
- |           |                  A            |                  |
- |           |                  |            |                  |
- |           |                  |            |                  |
- |           |                  |SYNCH_      |SYNCH_            |
- |           |                  |BEGIN_EVT   |END_EVT           |
- |           |                  |            |                  |
- |           V                  |            V                  V
- |    +-------------+          +--------------+          +------------+
- |    |  RESETTING  |<---------|  ESTABLISHED |--------->| PEER_RESET |
- |    +-------------+ FAILURE_ +--------------+ PEER_    +------------+
- |           |        EVT        |    A         RESET_EVT       |
- |           |                   |    |                         |
- |           |  +----------------+    |                         |
- |  RESET_EVT|  |RESET_EVT            |                         |
- |           |  |                     |                         |
- |           |  |                     |ESTABLISH_EVT            |
- |           |  |  +-------------+    |                         |
- |           |  |  | RESET_EVT   |    |                         |
- |           |  |  |             |    |                         |
- |           V  V  V             |    |                         |
- |    +-------------+          +--------------+        RESET_EVT|
- +--->|    RESET    |--------->| ESTABLISHING |<----------------+
-      +-------------+ PEER_    +--------------+
-       |           A  RESET_EVT       |
-       |           |                  |
-       |           |                  |
-       |FAILOVER_  |FAILOVER_         |FAILOVER_
-       |BEGIN_EVT  |END_EVT           |BEGIN_EVT
-       |           |                  |
-       V           |                  |
-      +-------------+                 |
-      | FAILINGOVER |<----------------+
-      +-------------+
+We fix this in this commit by conditionally issuing the mentioned
+event in the function tipc_node_link_down(). We also move LINK_RESET
+FSM even away from the link_reset() function and into the caller
+function, partially because it is easier to follow the code when state
+changes are gathered at a limited number of locations, partially
+because there will be cases in future commits where we don't want the
+link to go RESET mode when link_reset() is called.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c | 40 ++++++++++++++++++++++++++--------------
+ net/tipc/link.c |  7 +++++--
  net/tipc/link.h |  1 +
- net/tipc/node.c | 31 ++++++++++++++++++++++---------
- 3 files changed, 49 insertions(+), 23 deletions(-)
+ net/tipc/node.c | 11 +++++++----
+ 3 files changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index e7c6086..8c794c1 100644
+index 737b598..ff9b0b9 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -125,6 +125,11 @@ bool tipc_link_is_reset(struct tipc_link *l)
- 	return l->state & (LINK_RESET | LINK_FAILINGOVER | LINK_ESTABLISHING);
+@@ -120,6 +120,11 @@ bool tipc_link_is_up(struct tipc_link *l)
+ 	return link_is_up(l);
  }
  
-+bool tipc_link_is_establishing(struct tipc_link *l)
++bool tipc_link_peer_is_down(struct tipc_link *l)
 +{
-+	return l->state == LINK_ESTABLISHING;
++	return l->state == LINK_PEER_RESET;
 +}
 +
- bool tipc_link_is_synching(struct tipc_link *l)
+ bool tipc_link_is_reset(struct tipc_link *l)
  {
- 	return l->state == LINK_SYNCHING;
-@@ -321,14 +326,15 @@ int tipc_link_fsm_evt(struct tipc_link *l, int evt)
- 		switch (evt) {
- 		case LINK_ESTABLISH_EVT:
- 			l->state = LINK_ESTABLISHED;
--			rc |= TIPC_LINK_UP_EVT;
- 			break;
- 		case LINK_FAILOVER_BEGIN_EVT:
- 			l->state = LINK_FAILINGOVER;
- 			break;
--		case LINK_PEER_RESET_EVT:
- 		case LINK_RESET_EVT:
-+			l->state = LINK_RESET;
-+			break;
- 		case LINK_FAILURE_EVT:
-+		case LINK_PEER_RESET_EVT:
- 		case LINK_SYNCH_BEGIN_EVT:
- 		case LINK_FAILOVER_END_EVT:
- 			break;
-@@ -1091,9 +1097,9 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 			return tipc_link_proto_rcv(l, skb, xmitq);
+ 	return l->state & (LINK_RESET | LINK_FAILINGOVER | LINK_ESTABLISHING);
+@@ -584,8 +589,6 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr)
  
- 		if (unlikely(!link_is_up(l))) {
--			rc = tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
--			if (!link_is_up(l))
--				goto drop;
-+			if (l->state == LINK_ESTABLISHING)
-+				rc = TIPC_LINK_UP_EVT;
-+			goto drop;
- 		}
+ void tipc_link_reset(struct tipc_link *l)
+ {
+-	tipc_link_fsm_evt(l, LINK_RESET_EVT);
+-
+ 	/* Link is down, accept any session */
+ 	l->peer_session = WILDCARD_SESSION;
  
- 		/* Don't send probe at next timeout expiration */
-@@ -1338,6 +1344,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 	u16 peers_tol = msg_link_tolerance(hdr);
- 	u16 peers_prio = msg_linkprio(hdr);
- 	u16 rcv_nxt = l->rcv_nxt;
-+	int mtyp = msg_type(hdr);
- 	char *if_name;
- 	int rc = 0;
- 
-@@ -1347,7 +1354,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 	if (link_own_addr(l) > msg_prevnode(hdr))
- 		l->net_plane = msg_net_plane(hdr);
- 
--	switch (msg_type(hdr)) {
-+	switch (mtyp) {
- 	case RESET_MSG:
- 
- 		/* Ignore duplicate RESET with old session number */
-@@ -1374,12 +1381,14 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		if (in_range(peers_prio, l->priority + 1, TIPC_MAX_LINK_PRI))
- 			l->priority = peers_prio;
- 
--		if (msg_type(hdr) == RESET_MSG) {
--			rc |= tipc_link_fsm_evt(l, LINK_PEER_RESET_EVT);
--		} else if (!link_is_up(l)) {
--			tipc_link_fsm_evt(l, LINK_PEER_RESET_EVT);
--			rc |= tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
--		}
-+		/* ACTIVATE_MSG serves as PEER_RESET if link is already down */
-+		if ((mtyp == RESET_MSG) || !link_is_up(l))
-+			rc = tipc_link_fsm_evt(l, LINK_PEER_RESET_EVT);
-+
-+		/* ACTIVATE_MSG takes up link if it was already locally reset */
-+		if ((mtyp == ACTIVATE_MSG) && (l->state == LINK_ESTABLISHING))
-+			rc = TIPC_LINK_UP_EVT;
-+
- 		l->peer_session = msg_session(hdr);
- 		l->peer_bearer_id = msg_bearer_id(hdr);
- 		if (l->mtu > msg_max_pkt(hdr))
-@@ -1396,9 +1405,12 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		l->stats.recv_states++;
- 		if (msg_probe(hdr))
- 			l->stats.recv_probes++;
--		rc = tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
--		if (!link_is_up(l))
-+
-+		if (!link_is_up(l)) {
-+			if (l->state == LINK_ESTABLISHING)
-+				rc = TIPC_LINK_UP_EVT;
- 			break;
-+		}
- 
- 		/* Send NACK if peer has sent pkts we haven't received yet */
- 		if (more(peers_snd_nxt, rcv_nxt) && !tipc_link_is_synching(l))
 diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 7a1ad42..d42dfc0 100644
+index 5872f09..0201212 100644
 --- a/net/tipc/link.h
 +++ b/net/tipc/link.h
-@@ -217,6 +217,7 @@ int tipc_link_fsm_evt(struct tipc_link *l, int evt);
+@@ -217,6 +217,7 @@ void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
+ int tipc_link_fsm_evt(struct tipc_link *l, int evt);
  void tipc_link_reset_fragments(struct tipc_link *l_ptr);
  bool tipc_link_is_up(struct tipc_link *l);
++bool tipc_link_peer_is_down(struct tipc_link *l);
  bool tipc_link_is_reset(struct tipc_link *l);
-+bool tipc_link_is_establishing(struct tipc_link *l);
+ bool tipc_link_is_establishing(struct tipc_link *l);
  bool tipc_link_is_synching(struct tipc_link *l);
- bool tipc_link_is_failingover(struct tipc_link *l);
- bool tipc_link_is_blocked(struct tipc_link *l);
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 2c32a83..d3386f8 100644
+index c1c9a99..2670751 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -317,7 +317,11 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 	struct tipc_link *ol = node_active_link(n, 0);
- 	struct tipc_link *nl = n->links[bearer_id].link;
- 
--	if (!nl || !tipc_link_is_up(nl))
-+	if (!nl)
-+		return;
+@@ -41,7 +41,7 @@
+ #include "socket.h"
+ #include "bcast.h"
+ #include "discover.h"
+-#define pr_debug printk
 +
-+	tipc_link_fsm_evt(nl, LINK_ESTABLISH_EVT);
-+	if (!tipc_link_is_up(nl))
- 		return;
- 
- 	n->working_links++;
-@@ -437,17 +441,26 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- static void tipc_node_link_down(struct tipc_node *n, int bearer_id, bool delete)
- {
- 	struct tipc_link_entry *le = &n->links[bearer_id];
-+	struct tipc_link *l = le->link;
- 	struct tipc_media_addr *maddr;
- 	struct sk_buff_head xmitq;
- 
-+	if (!l)
-+		return;
-+
- 	__skb_queue_head_init(&xmitq);
- 
- 	tipc_node_lock(n);
--	__tipc_node_link_down(n, &bearer_id, &xmitq, &maddr);
--	if (delete && le->link) {
--		kfree(le->link);
--		le->link = NULL;
--		n->link_cnt--;
-+	if (!tipc_link_is_establishing(l)) {
-+		__tipc_node_link_down(n, &bearer_id, &xmitq, &maddr);
-+		if (delete) {
-+			kfree(l);
-+			le->link = NULL;
-+			n->link_cnt--;
-+		}
-+	} else {
-+		/* Defuse pending tipc_node_link_up() */
-+		tipc_link_fsm_evt(l, LINK_RESET_EVT);
+ /* Node FSM states and events:
+  */
+ enum {
+@@ -420,6 +420,10 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
  	}
- 	tipc_node_unlock(n);
  
-@@ -579,7 +592,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 	memcpy(&le->maddr, maddr, sizeof(*maddr));
- exit:
- 	tipc_node_unlock(n);
--	if (reset)
-+	if (reset && !tipc_link_is_reset(l))
- 		tipc_node_link_down(n, b->identity, false);
- 	tipc_node_put(n);
- }
-@@ -686,10 +699,10 @@ static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
- 			break;
- 		case SELF_ESTABL_CONTACT_EVT:
- 		case PEER_LOST_CONTACT_EVT:
--			break;
- 		case NODE_SYNCH_END_EVT:
--		case NODE_SYNCH_BEGIN_EVT:
- 		case NODE_FAILOVER_BEGIN_EVT:
-+			break;
-+		case NODE_SYNCH_BEGIN_EVT:
- 		case NODE_FAILOVER_END_EVT:
- 		default:
- 			goto illegal_evt;
+ 	if (!tipc_node_is_up(n)) {
++		if (tipc_link_peer_is_down(l))
++			tipc_node_fsm_evt(n, PEER_LOST_CONTACT_EVT);
++		tipc_node_fsm_evt(n, SELF_LOST_CONTACT_EVT);
++		tipc_link_fsm_evt(l, LINK_RESET_EVT);
+ 		tipc_link_reset(l);
+ 		tipc_link_build_reset_msg(l, xmitq);
+ 		*maddr = &n->links[*bearer_id].maddr;
+@@ -434,6 +438,7 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
+ 	n->sync_point = tnl->rcv_nxt + (U16_MAX / 2 - 1);
+ 	tipc_link_tnl_prepare(l, tnl, FAILOVER_MSG, xmitq);
+ 	tipc_link_reset(l);
++	tipc_link_fsm_evt(l, LINK_RESET_EVT);
+ 	tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
+ 	tipc_node_fsm_evt(n, NODE_FAILOVER_BEGIN_EVT);
+ 	*maddr = &n->links[tnl->bearer_id].maddr;
+@@ -581,6 +586,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
+ 			goto exit;
+ 		}
+ 		tipc_link_reset(l);
++		tipc_link_fsm_evt(l, LINK_RESET_EVT);
+ 		if (n->state == NODE_FAILINGOVER)
+ 			tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
+ 		le->link = l;
+@@ -863,9 +869,6 @@ static void node_lost_contact(struct tipc_node *n_ptr,
+ 			tipc_link_fsm_evt(l, LINK_FAILOVER_END_EVT);
+ 	}
+ 
+-	/* Prevent re-contact with node until cleanup is done */
+-	tipc_node_fsm_evt(n_ptr, SELF_LOST_CONTACT_EVT);
+-
+ 	/* Notify publications from this node */
+ 	n_ptr->action_flags |= TIPC_NOTIFY_NODE_DOWN;
+ 
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
