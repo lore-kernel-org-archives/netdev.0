@@ -1,58 +1,53 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netback: corretly check failed allocation
-Date: Thu, 15 Oct 2015 18:13:02 +0100
-Message-ID: <20151015171301.GB5541@zion.uk.xensource.com>
-References: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
+From: Jonathan Chang <jonathan.chang@delta.com.tw>
+Subject: Re: [PATCH] net: asix: add support for the Billionton GUSB2AM-1G-B USB adapter
+Date: Fri, 16 Oct 2015 01:14:41 +0800
+Message-ID: <87wpuorr3y.fsf@delta.com.tw>
+References: <1444906298-23105-1-git-send-email-jonathan.chang@delta.com.tw>
+	<20151015.060507.622707994969941217.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <taesoo@gatech.edu>,
-	<yeongjin.jang@gatech.edu>, <insu@gatech.edu>
-To: Insu Yun <wuninsu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: base64
+Cc: <linux-usb@vger.kernel.org>, <luca@lucaceresoli.net>,
+	<cj@linux.com>, <Woojung.Huh@microchip.com>, <mjg59@srcf.ucam.org>,
+	<elfring@users.sourceforge.net>,
+	<ckeepax@opensource.wolfsonmicro.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from deismtp02.delta.com.tw ([220.128.70.111]:38472 "EHLO
+	deismtp02.delta.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820AbbJORP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 13:15:26 -0400
+In-Reply-To: <20151015.060507.622707994969941217.davem@davemloft.net> (David
+	Miller's message of "Thu, 15 Oct 2015 06:05:07 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 15, 2015 at 12:26:16PM -0400, Insu Yun wrote:
-> Since vzalloc can be failed in memory pressure,
-> return value should be checked and return ENOMEM.
-
-This function doesn't return ENOMEM, instead it writes to xenstore to
-indicate error. The commit log needs to be updated.
-
-> 
-> Signed-off-by: Insu Yun <wuninsu@gmail.com>
-> ---
->  drivers/net/xen-netback/xenbus.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> index 929a6e7..e288246 100644
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -788,6 +788,11 @@ static void connect(struct backend_info *be)
->  	/* Use the number of queues requested by the frontend */
->  	be->vif->queues = vzalloc(requested_num_queues *
->  				  sizeof(struct xenvif_queue));
-> +  if (!be->vif->queues)  {
-> +    xenbus_dev_fatal(dev, -ENOMEM, "allocating queues");
-> +    return;
-> +  }
-> +
-
-The indentation is wrong. Please configure your email client properly.
-
-And please use "goto err" for error handling -- yes, I understand there
-is existing code that returns directly but IMHO that should be fixed
-too.
-
-We.
-
->  	be->vif->num_queues = requested_num_queues;
->  	be->vif->stalled_queues = requested_num_queues;
->  
-> -- 
-> 1.9.1
+T24gVGh1LCAxNSBPY3QgMjAxNSAwNjowNTowNyAtMDcwMCwgRGF2aWQgTWlsbGVyIDxkYXZlbUBk
+YXZlbWxvZnQubmV0PiB3cml0ZXM6DQo+IEZyb206IDxqb25hdGhhbi5jaGFuZ0BkZWx0YS5jb20u
+dHc+DQo+IERhdGU6IFRodSwgMTUgT2N0IDIwMTUgMTg6NTE6MzggKzA4MDANCj4NCj4gPiAqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqDQo+ID4gVGhpcyBlbWFpbCBtZXNzYWdlLCBpbmNsdWRpbmcgYW55IGF0dGFj
+aG1lbnRzLCBpcyBmb3IgdGhlIHNvbGUNCj4gPiB1c2Ugb2YgdGhlIGludGVuZGVkIHJlY2lwaWVu
+dChzKSBhbmQgbWF5IGNvbnRhaW4gY29uZmlkZW50aWFsIGFuZA0KPiA+IHByaXZpbGVnZWQgaW5m
+b3JtYXRpb24uIEFueSB1bmF1dGhvcml6ZWQgcmV2aWV3LCB1c2UsIGRpc2Nsb3N1cmUgb3INCj4g
+PiBkaXN0cmlidXRpb24gaXMgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVk
+IHJlY2lwaWVudCwgcGxlYXNlDQo+ID4gY29udGFjdCB0aGUgc2VuZGVyIGJ5IHJlcGx5IGUtbWFp
+bCBhbmQgZGVzdHJveSBhbGwgY29waWVzIG9mIHRoZSBvcmlnaW5hbA0KPiA+IG1lc3NhZ2UuIFtE
+ZWx0YSBFbGVjdHJvbmljcywgSU5DLiBUYWl3YW5dDQo+ID4gKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KPg0K
+PiBJJ20gbm90IGNvbnNpZGVyaW5nIGFueSBwYXRjaCB3aXRoIHNvbWV0aGluZyBsaWtlIHRoaXMg
+YXR0YWNoZWQgdG8gaXQsDQo+IHNvcnJ5Lg0KDQpZZXMsIEkgZnVsbHkgdW5kZXJzdGFuZC4gQmVj
+YXVzZSBJIHNlZW0gdW5hYmxlIHRvIGdvIGFyb3VuZCB0aGUgYW5ub3lpbmcNCm1lc3NhZ2UsIEkg
+d2lsbCB0cnkgdG8gcmVzdWJtaXQgdGhlIHBhdGNoIHdpdGggYW5vdGhlciBlbWFpbA0KYWNjb3Vu
+dC4gVGhhbmtzLg0KDQogICAgICAgIEpvbmF0aGFuDQoqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqDQpUaGlzIGVt
+YWlsIG1lc3NhZ2UsIGluY2x1ZGluZyBhbnkgYXR0YWNobWVudHMsIGlzIGZvciB0aGUgc29sZQ0K
+dXNlIG9mIHRoZSBpbnRlbmRlZCByZWNpcGllbnQocykgYW5kIG1heSBjb250YWluIGNvbmZpZGVu
+dGlhbCBhbmQNCnByaXZpbGVnZWQgaW5mb3JtYXRpb24uIEFueSB1bmF1dGhvcml6ZWQgcmV2aWV3
+LCB1c2UsIGRpc2Nsb3N1cmUgb3INCmRpc3RyaWJ1dGlvbiBpcyBwcm9oaWJpdGVkLiBJZiB5b3Ug
+YXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBwbGVhc2UNCmNvbnRhY3QgdGhlIHNlbmRl
+ciBieSByZXBseSBlLW1haWwgYW5kIGRlc3Ryb3kgYWxsIGNvcGllcyBvZiB0aGUgb3JpZ2luYWwN
+Cm1lc3NhZ2UuIFtEZWx0YSBFbGVjdHJvbmljcywgSU5DLiBUYWl3YW5dDQoqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+Kioq
