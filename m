@@ -1,148 +1,35 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
- in sunrpc
-Date: Thu, 15 Oct 2015 16:57:42 -0400
-Message-ID: <20151015205742.GB20155@fieldses.org>
-References: <17EC94B0A072C34B8DCF0D30AD16044A02877D53@BPXM09GP.gisp.nec.co.jp>
- <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 15 Oct 2015 14:30:15 -0700
+Message-ID: <56201AE7.2020103@gmail.com>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Neil Brown <nfbrown@novell.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
+	netdev@vger.kernel.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	David Daney <ddaney@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp>
+In-Reply-To: <56201158.8040806@opensource.altera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
-> Tatsukawa Kosuke wrote:
-> > J. Bruce Fields wrote:
-> >> Thanks for the detailed investigation.
-> >> 
-> >> I think it would be worth adding a comment if that might help someone
-> >> having to reinvestigate this again some day.
-> > 
-> > It would be nice, but I find it difficult to write a comment in the
-> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
-> > of how nfsd uses it, and the current implementation of the network code.
-> > 
-> > Personally, I would prefer removing the call to waitqueue_active() which
-> > would make the memory barrier totally unnecessary at the cost of a
-> > spin_lock + spin_unlock by unconditionally calling
-> > wake_up_interruptible.
+On 15/10/15 13:49, Dinh Nguyen wrote:
+>>
+>> Does this text change with and without the 8b63ec1837fa patch?
 > 
-> On second thought, the callbacks will be called frequently from the tcp
-> code, so it wouldn't be a good idea.
+> No, this text does not change with/without the 8b63ec1837fa patch.
 
-So, I was even considering documenting it like this, if it's not
-overkill.
+Could you instrument mdiobus_scan(), get_phy_device() and
+phy_device_create/register to see if the parent is NULL, non-NULL?
 
-Hmm... but if this is right, then we may as well ask why we're doing the
-wakeups at all.  Might be educational to test the code with them
-removed.
+So far, I cannot see what is wrong with David's changes, quite the
+contrary, and if there was something wrong with the PHY device creation,
+it should not get you that far.
 
---b.
-
-commit 0882cfeb39e0
-Author: J. Bruce Fields <bfields@redhat.com>
-Date:   Thu Oct 15 16:53:41 2015 -0400
-
-    svcrpc: document lack of some memory barriers.
-    
-    Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
-    here.  I think the code's correct, but it's probably worth documenting.
-    
-    Reported-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 856407fa085e..90480993ec4a 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
- 	return svc_port_is_privileged(svc_addr(rqstp));
- }
- 
-+static void svc_no_smp_mb(void)
-+{
-+	/*
-+	 * Kosuke Tatsukawa points out there should normally be an
-+	 * smp_mb() at the callsites of this function.  (Either that or
-+	 * we could just drop the waitqueue_active() checks.)
-+	 *
-+	 * It appears they aren't currently necessary, though, basically
-+	 * because nfsd does non-blocking reads from these sockets, so
-+	 * the only places we wait on this waitqueue is in sendpage and
-+	 * sendmsg, which won't be waiting for wakeups on newly arrived
-+	 * data.
-+	 *
-+	 * Maybe we should add the memory barriers anyway, but these are
-+	 * hot paths so we'd need to be convinced there's no sigificant
-+	 * penalty.
-+	 */
-+}
-+
- /*
-  * INET callback when data has been received on the socket.
-  */
-@@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
-@@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
- 
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq)) {
- 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
- 		       svsk);
-@@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
- 	}
- 
- 	wq = sk_sleep(sk);
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible_all(wq);
- }
-@@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
- 		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible_all(wq);
- }
-@@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
-@@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
- 	sk->sk_write_space = svsk->sk_owspace;
- 
- 	wq = sk_sleep(sk);
--	smp_mb();
-+	svc_no_smp_mb();
- 	if (wq && waitqueue_active(wq))
- 		wake_up_interruptible(wq);
- }
+You have not answered my previous question though, do you have PHY
+fixups registered for that ID?
+-- 
+Florian
