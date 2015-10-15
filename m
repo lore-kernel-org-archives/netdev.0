@@ -1,77 +1,52 @@
 From: Thomas F Herbert <thomasfherbert@gmail.com>
-Subject: [PATCH net-next V16 0/3] openvswitch: Add support for 802.1ad
-Date: Thu, 15 Oct 2015 10:01:52 -0400
-Message-ID: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
+Subject: [PATCH net-next V16 2/3] Check for vlan ethernet types for 8021.q or 802.1ad
+Date: Thu, 15 Oct 2015 10:01:54 -0400
+Message-ID: <1444917715-27093-3-git-send-email-thomasfherbert@gmail.com>
+References: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
 Cc: therbert@redhat.com, dev@openvswitch.org,
 	Thomas F Herbert <thomasfherbert@gmail.com>
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:34113 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbbJOOCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 10:02:11 -0400
-Received: by qgez77 with SMTP id z77so71694243qge.1
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 07:02:10 -0700 (PDT)
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:33310 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbbJOOCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 10:02:24 -0400
+Received: by qgeo38 with SMTP id o38so27491149qge.0
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 07:02:23 -0700 (PDT)
+In-Reply-To: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- This patch accompanies version 14 of the user level openvswitch patch
- submitted to openvswitch dev list.
+---
+ include/linux/if_vlan.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
- V16,15: Implement reviewer comments.
-
- V14: Add outer tpid to flow_key
-
- V13: Fix incorrect encoding and decoding of netlink to/from key
- attributes.
-
- V12: Fix some problems and issues pointed out by reviewers. When parsing
- netlink attributes Ether types other then 0x88a8 as outer tpid.
-
- V11: Add inner tpid to flow key. Fix separate inner encap attribute
- when parsing netlink attributes. Merge 2 patches to consolidate
- qinq changes.
-
- V10: Implement reviewer comments: Consolidate vlan parsing functions.
- Splits netlink parsing and flow conversion into a separate patch. Uses
- double encap attribute encapsulation for 802.1ad.  Netlink attributes
- now look like this:
-
-  eth_type(0x88a8),vlan(vid=100),encap(eth_type(0x8100), vlan(vid=200),
-                       encap(eth_type(0x0800), ...))
-
-The double encap atributes in this version of the patch is incompatible with
-old versions of the user level 802.1ad patch. A new user level patch which
-is also being submitted simultaneously to openvswitch dev mailing list.
-
-V9:  Includes changes suggested by reviewers
-
-V8:  Includes changes suggested by reviewers
-
-V7:  Includes changes suggested by reviewers
-
-V6:  Rebased to net-next
-
-V5:  Use encapsulated attributes
-
-
-For discussion, history  and previous versions of the kernel module
-patch and the user code patch see the OVS dev mailing list,
-openvswitch.org/pipermail/dev/..
-
-Thomas F Herbert (3):
-  openvswitch: 802.1ad uapi changes.
-  Check for vlan ethernet types for 8021.q or 802.1ad
-  802.1AD: Flow handling, actions, vlan parsing and netlink attributes
-
- include/linux/if_vlan.h          |  16 ++++
- include/uapi/linux/openvswitch.h |  17 ++--
- net/openvswitch/actions.c        |   6 +-
- net/openvswitch/flow.c           |  75 +++++++++++++----
- net/openvswitch/flow.h           |   8 +-
- net/openvswitch/flow_netlink.c   | 169 +++++++++++++++++++++++++++++++++++----
- net/openvswitch/vport-netdev.c   |   4 +-
- 7 files changed, 253 insertions(+), 42 deletions(-)
-
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 67ce5bd..ac23521 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -627,6 +627,22 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
+ 
+ 	return features;
+ }
++/**
++ * eth_type_vlan - check for valid vlan ether type.
++ * @ethertype: ether type to check
++ *
++ * Returns true if the ether type is a vlan ether type.
++ */
++static inline bool eth_type_vlan(__be16 ethertype)
++{
++	switch (ethertype) {
++	case (htons(ETH_P_8021Q)):
++	case (htons(ETH_P_8021AD)):
++		return true;
++	default:
++		return false;
++	}
++}
+ 
+ /**
+  * compare_vlan_header - Compare two vlan headers
 -- 
 2.4.3
