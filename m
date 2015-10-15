@@ -1,36 +1,91 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [Question]: iproute2 extension for supporting lightweight
- tunnel
-Date: Thu, 15 Oct 2015 11:23:49 +0200
-Message-ID: <20151015112349.44623b07@griffin>
-References: <7DDE0CBD3BECA4418AF34146552BC32B08C3E1B9@SHSMSX104.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Liu, Mengke" <mengke.liu@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/17] i40e: use priv flags to control flow director
+Date: Thu, 15 Oct 2015 02:39:51 -0700
+Message-ID: <1444902004-14433-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41616 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:27563 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259AbbJOJXw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 05:23:52 -0400
-In-Reply-To: <7DDE0CBD3BECA4418AF34146552BC32B08C3E1B9@SHSMSX104.ccr.corp.intel.com>
+	id S1752370AbbJOJm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 05:42:29 -0400
+In-Reply-To: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Oct 2015 06:26:30 +0000, Liu, Mengke wrote:
-> I am trying to use the "lightweight tunnels" after building the Linux
-> kernel from source with "Lightweight & flow based encapsulation"
-> support. Can you tell me how to get iproute2 extension for supporting
-> the following =C2=A0command in commit log(commit ID
-> e69724f32e62502a6e686eae36b7aadfeea60dca)
->        "ip route add 40.1.1.1/32 encap vxlan id 10 dst 50.1.1.2 dev
-> vxlan0"=20
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This is not yet merged. AFAIK Thomas is going to post a patchset to add
-this to iproute in a few days.
+Some customers wish to be able to control our hardware specific
+feature called flow director, at runtime.  This patch enables
+ethtool priv flags to control this driver/hardware specific feature.
 
- Jiri
+ethtool --set-priv-flags ethX flow-director-atr off
 
---=20
-Jiri Benc
+NOTE: the ethtool ntuple interface controls the flow-director
+      sideband rules.
+
+Change-ID: Iba156350b07fa2ce66f53ded51739f9a3781fe0e
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 ++++++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index cfe8f83..c8591b9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -102,6 +102,7 @@
+ /* Ethtool Private Flags */
+ #define I40E_PRIV_FLAGS_NPAR_FLAG	BIT(0)
+ #define I40E_PRIV_FLAGS_LINKPOLL_FLAG	BIT(1)
++#define I40E_PRIV_FLAGS_FD_ATR		BIT(2)
+ 
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 831f971..185ac91 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -231,6 +231,7 @@ static const char i40e_gstrings_test[][ETH_GSTRING_LEN] = {
+ static const char i40e_priv_flags_strings[][ETH_GSTRING_LEN] = {
+ 	"NPAR",
+ 	"LinkPolling",
++	"flow-director-atr",
+ };
+ 
+ #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_priv_flags_strings)
+@@ -2666,6 +2667,8 @@ static u32 i40e_get_priv_flags(struct net_device *dev)
+ 		I40E_PRIV_FLAGS_NPAR_FLAG : 0;
+ 	ret_flags |= pf->flags & I40E_FLAG_LINK_POLLING_ENABLED ?
+ 		I40E_PRIV_FLAGS_LINKPOLL_FLAG : 0;
++	ret_flags |= pf->flags & I40E_FLAG_FD_ATR_ENABLED ?
++		I40E_PRIV_FLAGS_FD_ATR : 0;
+ 
+ 	return ret_flags;
+ }
+@@ -2686,6 +2689,17 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 	else
+ 		pf->flags &= ~I40E_FLAG_LINK_POLLING_ENABLED;
+ 
++	/* allow the user to control the state of the Flow
++	 * Director ATR (Application Targeted Routing) feature
++	 * of the driver
++	 */
++	if (flags & I40E_PRIV_FLAGS_FD_ATR) {
++		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
++	} else {
++		pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++		pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.4.3
