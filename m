@@ -1,69 +1,77 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/15] mlxsw: Use dev_level_ratelimited instead of net_ratelimit & dev_level
-Date: Thu, 15 Oct 2015 17:43:22 +0200
-Message-ID: <1444923809-20785-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/15] mlxsw: pci: Use MLXSW_PCI_CQS_MAX instead of MLXSW_PCI_CQS_COUNT
+Date: Thu, 15 Oct 2015 17:43:17 +0200
+Message-ID: <1444923809-20785-4-git-send-email-jiri@resnulli.us>
 References: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:34950 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753678AbbJOPnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:42 -0400
-Received: by lffy185 with SMTP id y185so33148988lff.2
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:41 -0700 (PDT)
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:36566 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753523AbbJOPnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:37 -0400
+Received: by lbcao8 with SMTP id ao8so73578032lbc.3
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:35 -0700 (PDT)
 In-Reply-To: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
+The count of CQs can be different for various ASICs, so just define
+maximal value and check for that.
+
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/pci.c      | 7 +++----
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 5 ++---
- 2 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/pci.c | 8 ++++----
+ drivers/net/ethernet/mellanox/mlxsw/pci.h | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 87afa5f..974ce47 100644
+index 462cea3..5ba740a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -431,8 +431,7 @@ static int mlxsw_pci_wqe_frag_map(struct mlxsw_pci *mlxsw_pci, char *wqe,
+@@ -830,7 +830,8 @@ static void mlxsw_pci_eq_tasklet(unsigned long data)
+ {
+ 	struct mlxsw_pci_queue *q = (struct mlxsw_pci_queue *) data;
+ 	struct mlxsw_pci *mlxsw_pci = q->pci;
+-	unsigned long active_cqns[BITS_TO_LONGS(MLXSW_PCI_CQS_COUNT)];
++	u8 cq_count = mlxsw_pci_cq_count(mlxsw_pci);
++	unsigned long active_cqns[BITS_TO_LONGS(MLXSW_PCI_CQS_MAX)];
+ 	char *eqe;
+ 	u8 cqn;
+ 	bool cq_handle = false;
+@@ -866,7 +867,7 @@ static void mlxsw_pci_eq_tasklet(unsigned long data)
  
- 	mapaddr = pci_map_single(pdev, frag_data, frag_len, direction);
- 	if (unlikely(pci_dma_mapping_error(pdev, mapaddr))) {
--		if (net_ratelimit())
--			dev_err(&pdev->dev, "failed to dma map tx frag\n");
-+		dev_err_ratelimited(&pdev->dev, "failed to dma map tx frag\n");
- 		return -EIO;
- 	}
- 	mlxsw_pci_wqe_address_set(wqe, index, mapaddr);
-@@ -700,8 +699,8 @@ static void mlxsw_pci_cqe_rdq_handle(struct mlxsw_pci *mlxsw_pci,
- put_new_skb:
- 	memset(wqe, 0, q->elem_size);
- 	err = mlxsw_pci_rdq_skb_alloc(mlxsw_pci, elem_info);
--	if (err && net_ratelimit())
--		dev_dbg(&pdev->dev, "Failed to alloc skb for RDQ\n");
-+	if (err)
-+		dev_dbg_ratelimited(&pdev->dev, "Failed to alloc skb for RDQ\n");
- 	/* Everything is set up, ring doorbell to pass elem to HW */
- 	q->producer_counter++;
- 	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index fd6f438..39a0074 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1210,9 +1210,8 @@ static void mlxsw_sx_rx_listener_func(struct sk_buff *skb, u8 local_port,
- 	struct mlxsw_sx_port_pcpu_stats *pcpu_stats;
- 
- 	if (unlikely(!mlxsw_sx_port)) {
--		if (net_ratelimit())
--			dev_warn(mlxsw_sx->bus_info->dev, "Port %d: skb received for non-existent port\n",
--				 local_port);
-+		dev_warn_ratelimited(mlxsw_sx->bus_info->dev, "Port %d: skb received for non-existent port\n",
-+				     local_port);
+ 	if (!cq_handle)
  		return;
+-	for_each_set_bit(cqn, active_cqns, MLXSW_PCI_CQS_COUNT) {
++	for_each_set_bit(cqn, active_cqns, cq_count) {
+ 		q = mlxsw_pci_cq_get(mlxsw_pci, cqn);
+ 		mlxsw_pci_queue_tasklet_schedule(q);
  	}
+@@ -1069,8 +1070,7 @@ static int mlxsw_pci_aqs_init(struct mlxsw_pci *mlxsw_pci, char *mbox)
  
+ 	if ((num_sdqs != MLXSW_PCI_SDQS_COUNT) ||
+ 	    (num_rdqs != MLXSW_PCI_RDQS_COUNT) ||
+-	    (num_cqs != MLXSW_PCI_CQS_COUNT) ||
+-	    (num_eqs != MLXSW_PCI_EQS_COUNT)) {
++	    num_cqs > MLXSW_PCI_CQS_MAX || num_eqs != MLXSW_PCI_EQS_COUNT) {
+ 		dev_err(&pdev->dev, "Unsupported number of queues\n");
+ 		return -EINVAL;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.h b/drivers/net/ethernet/mellanox/mlxsw/pci.h
+index 1ef9664..efe1b4b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.h
+@@ -73,7 +73,7 @@
+ 
+ #define MLXSW_PCI_RDQS_COUNT	24
+ #define MLXSW_PCI_SDQS_COUNT	24
+-#define MLXSW_PCI_CQS_COUNT	(MLXSW_PCI_RDQS_COUNT + MLXSW_PCI_SDQS_COUNT)
++#define MLXSW_PCI_CQS_MAX	96
+ #define MLXSW_PCI_EQS_COUNT	2
+ #define MLXSW_PCI_EQ_ASYNC_NUM	0
+ #define MLXSW_PCI_EQ_COMP_NUM	1
 -- 
 1.9.3
