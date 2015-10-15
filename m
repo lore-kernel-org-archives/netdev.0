@@ -1,58 +1,49 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next 0/4] Rightsize IFLA_AF_SPEC size calculation
-Date: Thu, 15 Oct 2015 01:32:02 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC350F7AD3FC@ORSMSX101.amr.corp.intel.com>
-References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
- <20151014.184411.1172845560887990370.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 01/10] qed: Add module with basic common
+ support
+Date: Wed, 14 Oct 2015 18:52:30 -0700 (PDT)
+Message-ID: <20151014.185230.1156225531234470619.davem@davemloft.net>
+References: <1444803854-1319-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<1444803854-1319-2-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17296 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753133AbbJOBcD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 21:32:03 -0400
-In-Reply-To: <20151014.184411.1172845560887990370.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:38164 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754332AbbJOBgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 21:36:24 -0400
+In-Reply-To: <1444803854-1319-2-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Wed, 14 Oct 2015 09:24:05 +0300
 
+> +int qed_qm_pf_rt_init(struct qed_hwfn			*p_hwfn,
+> +		      struct qed_ptt			*p_ptt,
+> +		      u8				port_id,
+> +		      u8				pf_id,
+> +		      u8				max_phys_tcs_per_port,
+> +		      bool				is_first_pf,
+> +		      u32				num_pf_cids,
+> +		      u32				num_vf_cids,
+> +		      u32				num_tids,
+> +		      u16				start_pq,
+> +		      u16				num_pf_pqs,
+> +		      u16				num_vf_pqs,
+> +		      u8				start_vport,
+> +		      u8				num_vports,
+> +		      u8				pf_wfq,
+> +		      u32				pf_rl,
+> +		      struct init_qm_pq_params		*pq_params,
+> +		      struct init_qm_vport_params	*vport_params);
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, October 14, 2015 6:44 PM
->To: Arad, Ronen
->Cc: netdev@vger.kernel.org
->Subject: Re: [PATCH net-next 0/4] Rightsize IFLA_AF_SPEC size calculation
->
->From: Ronen Arad <ronen.arad@intel.com>
->Date: Tue, 13 Oct 2015 22:58:30 -0700
->
->> if_nlmsg_size() overestimates the minimum allocation size of netlink dump
->> request (when called from rtnl_calcit()) or the size of the message (when
->called
->> from rtnl_getlink()). This is because ext_filter_mask is not supported by
->> rtnl_link_get_af_size() and rtnl_link_get_size().
->>
->> The over-estimation is significant when at least one netdev has many VLANs
->> configured (8 bytes for each configured VLAN).
->>
->> This patch-set "rightsizes" the protocol specific attribute size calculation
->by
->> propagating ext_filter_mask to rtnl_link_get_af_size() and adding optional
->> filtering aware get_af_size_filtered op in struct rtnl_af_ops. Bridge
->module,
->> which already used filtering aware sizing for notification, is enhanced to
->do
->> the same for netlink dump requests.
->
->There are only three implementations of get_link_af_size, so please just
->simply
->change it's signature by adding the ext_filter_mask parameter instead of
->creating
->a completely new operation.
-[@Ronen] I've already submitted a V2 that does that in a simplified
-single part patch.
+Sorry, this is completely rediculous.
+
+No function should have so many parameters.
+
+If you need to pass this much information to a function, create a structure in
+which to contain the values and pass a reference to that.
