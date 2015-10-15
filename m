@@ -1,33 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking option
-Date: Fri, 16 Oct 2015 00:07:12 +0200
-Message-ID: <87r3kv3hwv.fsf@stressinduktion.org>
-References: <cover.1444926905.git.jbenc@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 03/17] i40evf: Add support for netpoll
+Date: Fri, 16 Oct 2015 01:10:31 +0300
+Message-ID: <56202457.90403@cogentembedded.com>
+References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1444945404-30654-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47144 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753306AbbJOWHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 18:07:25 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9A8B721923
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 18:07:14 -0400 (EDT)
-In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:35943 "EHLO
+	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbbJOWKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 18:10:35 -0400
+Received: by lfeh64 with SMTP id h64so49560901lfe.3
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 15:10:33 -0700 (PDT)
+In-Reply-To: <1444945404-30654-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Benc <jbenc@redhat.com> writes:
+Hello.
 
-> Before using this new facility, the application should check whether it is
-> supported by the kernel. This is done by sending a NLMSG_NOOP message with
-> NLM_F_REQUEST | NLM_F_STRICT | NLM_F_ACK flags set. If the returned message
-> has NLM_F_STRICT set, the kernel does support NLM_F_STRICT flag; otherwise,
-> the flag should not be used.
+On 10/16/2015 12:43 AM, Jeff Kirsher wrote:
 
-Do you plan to update rfc3549, too? :}
+> From: Alexander Duyck <aduyck@mirantis.com>
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/i40evf/i40evf_main.c | 26 +++++++++++++++++++++++++
+>   1 file changed, 26 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+> index 429a46c..5e13363 100644
+> --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+> @@ -444,6 +444,29 @@ out:
+>   	return err;
+>   }
+>
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +/**
+> + * i40evf_netpoll - A Polling 'interrupt'handler
 
-Bye,
-Hannes
+    Space obviously missing.
+
+[...]
+
+MBR, Sergei
