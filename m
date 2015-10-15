@@ -1,34 +1,102 @@
-From: Thomas Tanaka <thomas.tanaka@gmail.com>
-Subject: Exporting some of sysctls from net/ipv4 and net/core to a net namespace
-Date: Wed, 14 Oct 2015 17:55:57 -0700
-Message-ID: <CAEQGt1L5aDJ0ohM0PvFs6_dziOo=fSjVhGsxcjBgYsCvFN0ofw@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 15 Oct 2015 12:06:01 +1100
+Message-ID: <20151015120601.7560df35@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37175 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753101AbbJOA4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 20:56:18 -0400
-Received: by igbhv6 with SMTP id hv6so30055354igb.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 17:56:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi all,
 
-It seems due to the following patch set in Linux v3.5
-[PATCH net-next 00/19] net: Sysctl simplications and enhancements
-http://comments.gmane.org/gmane.linux.network/227965
-some of the previously visible sysctls variables in net/core and
-net/ipv4 has become invisible.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Is there a possibility that the idea of bringing back some of those
-parameters as a read-only to a net namespace be considered ?
+  net/switchdev/switchdev.c
 
-Thanks in advance.
+between commit:
+
+  87aaf2caed84 ("switchdev: check if the vlan id is in the proper vlan range")
+
+from the net tree and commits:
+
+  7ea6eb3f56f4 ("switchdev: introduce transaction item queue for attr_set and obj_add")
+  ab0690023018 ("net: switchdev: abstract object in add/del ops"
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
 -- 
-Regards,
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Thomas
+diff --cc net/switchdev/switchdev.c
+index 77f5d17e2612,b8aaf820ef65..000000000000
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@@ -16,7 -16,7 +16,8 @@@
+  #include <linux/notifier.h>
+  #include <linux/netdevice.h>
+  #include <linux/if_bridge.h>
+ +#include <linux/if_vlan.h>
++ #include <linux/list.h>
+  #include <net/ip_fib.h>
+  #include <net/switchdev.h>
+  
+@@@ -635,32 -722,33 +723,35 @@@ static int switchdev_port_br_afspec(str
+  		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
+  			return -EINVAL;
+  		vinfo = nla_data(attr);
+ +		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
+ +			return -EINVAL;
+- 		vlan->flags = vinfo->flags;
++ 		vlan.flags = vinfo->flags;
+  		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+- 			if (vlan->vid_begin)
++ 			if (vlan.vid_begin)
++ 				return -EINVAL;
++ 			vlan.vid_begin = vinfo->vid;
++ 			/* don't allow range of pvids */
++ 			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+  				return -EINVAL;
+- 			vlan->vid_begin = vinfo->vid;
+  		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+- 			if (!vlan->vid_begin)
++ 			if (!vlan.vid_begin)
+  				return -EINVAL;
+- 			vlan->vid_end = vinfo->vid;
+- 			if (vlan->vid_end <= vlan->vid_begin)
++ 			vlan.vid_end = vinfo->vid;
++ 			if (vlan.vid_end <= vlan.vid_begin)
+  				return -EINVAL;
+- 			err = f(dev, &obj);
++ 			err = f(dev, &vlan.obj);
+  			if (err)
+  				return err;
+- 			memset(vlan, 0, sizeof(*vlan));
++ 			memset(&vlan, 0, sizeof(vlan));
+  		} else {
+- 			if (vlan->vid_begin)
++ 			if (vlan.vid_begin)
+  				return -EINVAL;
+- 			vlan->vid_begin = vinfo->vid;
+- 			vlan->vid_end = vinfo->vid;
+- 			err = f(dev, &obj);
++ 			vlan.vid_begin = vinfo->vid;
++ 			vlan.vid_end = vinfo->vid;
++ 			err = f(dev, &vlan.obj);
+  			if (err)
+  				return err;
+- 			memset(vlan, 0, sizeof(*vlan));
++ 			memset(&vlan, 0, sizeof(vlan));
+  		}
+  	}
+  
