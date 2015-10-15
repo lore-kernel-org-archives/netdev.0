@@ -1,109 +1,55 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipconfig: send Client-identifier in DHCP requests
-Date: Thu, 15 Oct 2015 10:53:45 +0800
-Message-ID: <1444877625-19035-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
+Date: Wed, 14 Oct 2015 22:54:38 -0400
+Message-ID: <561F156E.9050905@akamai.com>
+References: <cover.1443817522.git.jbaron@akamai.com>	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>	<5612B9A9.8050301@akamai.com>	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>	<561DCFA4.3010300@akamai.com> <87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62316 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751990AbbJOCxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:53:47 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.134])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id t9F2rjEu003966
-	for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 19:53:46 -0700 (PDT)
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:32957 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751098AbbJOCyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:54:41 -0400
+In-Reply-To: <87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+....
+> 
+> X-Signed-Off-By: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> 
 
-A dhcp server may provide parameters to a client from a pool of IP
-addresses and using a shared rootfs, or provide a specific set of
-parameters for a specific client, usually using the MAC address to
-identify each client individually. The dhcp protocol also specifies
-a client-id field which can be used to determine the correct
-parameters to supply when no MAC address is available. There is
-currently no way to tell the kernel to supply a specific client-id,
-only the userspace dhcp clients support this feature, but this can
-not be used when the network is needed before userspace is available
-such as when the root filesystem is on NFS.
+Hi,
 
-This patch is to be able to do something like "ip=dhcp,client_id_type,
-client_id_value", as a kernel parameter to enable the kernel to
-identify itself to the server.
+So the patches I've posted and yours both use the idea of a relaying
+the remote peer wakeup via callbacks that are internal to the net/unix,
+such that we avoid exposing the remote peer wakeup to the external
+poll()/select()/epoll(). They differ in when and how those callbacks
+are registered/unregistered.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- Documentation/filesystems/nfs/nfsroot.txt |  3 +++
- net/ipv4/ipconfig.c                       | 28 +++++++++++++++++++++++++++-
- 2 files changed, 30 insertions(+), 1 deletion(-)
+So I think your approach here will generally keep the peer wait wakeup
+queue to its absolute minimum, by removing from that queue when
+we set POLLOUT, however it requires taking the peer waitqueue lock on
+every poll() call. So I think there are tradeoffs here vs. what I've
+posted. So for example, if there are a lot of writers against one 'server'
+socket, there is going to be a lot of lock contention with your approach
+here. So I think the performance is going to depend on the workload that
+is tested.
 
-diff --git a/Documentation/filesystems/nfs/nfsroot.txt b/Documentation/filesystems/nfs/nfsroot.txt
-index 2d66ed6..bb5ab6d 100644
---- a/Documentation/filesystems/nfs/nfsroot.txt
-+++ b/Documentation/filesystems/nfs/nfsroot.txt
-@@ -157,6 +157,9 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:
- 		  both:        use both BOOTP and RARP but not DHCP
- 		               (old option kept for backwards compatibility)
- 
-+		if dhcp is used, the client identifier can be used by following
-+		format "ip=dhcp,client-id-type,client-id-value"
-+
-                 Default: any
- 
-   <dns0-ip>	IP address of first nameserver.
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index ed4ef09..57c4fd4 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -145,6 +145,7 @@ u8 root_server_path[256] = { 0, };	/* Path to mount as root */
- 
- /* vendor class identifier */
- static char vendor_class_identifier[253] __initdata;
-+static char dhcp_client_identifier[253] __initdata;
- 
- /* Persistent data: */
- 
-@@ -728,6 +729,16 @@ ic_dhcp_init_options(u8 *options)
- 			memcpy(e, vendor_class_identifier, len);
- 			e += len;
- 		}
-+		len = strlen(dhcp_client_identifier + 1);
-+		/* the minimum length of identifier is 2, include 1 byte type,
-+		 * and can not be larger than the length of options
-+		 */
-+		if (len >= 1 && len < 312 - (e - options) - 1) {
-+			*e++ = 61;
-+			*e++ = len + 1;
-+			memcpy(e, dhcp_client_identifier, len + 1);
-+			e += len + 1;
-+		}
- 	}
- 
- 	*e++ = 255;	/* End of the list */
-@@ -1557,8 +1568,23 @@ static int __init ic_proto_name(char *name)
- 		return 0;
- 	}
- #ifdef CONFIG_IP_PNP_DHCP
--	else if (!strcmp(name, "dhcp")) {
-+	else if (!strncmp(name, "dhcp", 4)) {
-+		char *client_id;
-+
- 		ic_proto_enabled &= ~IC_RARP;
-+		client_id = strstr(name, "dhcp,");
-+		if (client_id) {
-+			char *v;
-+
-+			client_id = client_id + 5;
-+			v = strchr(client_id, ',');
-+			if (!v)
-+				return 1;
-+			*v = 0;
-+			kstrtou8(client_id, 0, dhcp_client_identifier);
-+			strncpy(dhcp_client_identifier + 1, v + 1, 251);
-+			*v = ',';
-+		}
- 		return 1;
- 	}
- #endif
--- 
-2.1.4
+I don't have a specific workload that I am trying to solve here, but
+since you introduced the waiting on the remote peer queue, perhaps you
+can post numbers comparing the patches that have been posted for the
+workload that this was developed for? I will send you the latest version
+of what I have privately - so as not to overly spam the list.
+
+Thanks,
+
+-Jason
