@@ -1,58 +1,71 @@
-From: Nikolay Borisov <n.borisov@siteground.com>
-Subject: Re: [PATCH v2] netfilter: ipset: Fix sleeping memory allocation in
- atomic context
-Date: Thu, 15 Oct 2015 23:20:04 +0300
-Message-ID: <CAJFSNy6TaL1padva6euP1-8XFFwPFnBYgsMaEmeWrHpf8AJM-A@mail.gmail.com>
-References: <1444906569-9131-1-git-send-email-kernel@kyup.com>
-	<1444915978.4200.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<561FAD24.4050708@kyup.com>
-	<1444919523.4200.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.DEB.2.10.1510152015370.12052@blackhole.kfki.hu>
-	<1444934818.25595.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 15 Oct 2015 13:25:59 -0700
+Message-ID: <56200BD7.8020505@gmail.com>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Nikolay Borisov <kernel@kyup.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	SiteGround Operations <operations@siteground.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: david.daney@cavium.com, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36181 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbbJOUUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 16:20:06 -0400
-Received: by oihr205 with SMTP id r205so52880215oih.3
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 13:20:04 -0700 (PDT)
-In-Reply-To: <1444934818.25595.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35272 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbbJOU01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 16:26:27 -0400
+In-Reply-To: <562005AD.8020903@opensource.altera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 15, 2015 at 9:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2015-10-15 at 20:25 +0200, Jozsef Kadlecsik wrote:
->
->> Nikolay answered this pretty well: we wouldn't need the spinlock at all,
->> because all commands are serialized anyway with the netlink mutex. But the
->> garbage collector is called by a timer and therefore spinlock is used.
+On 15/10/15 12:59, Dinh Nguyen wrote:
+> On 10/15/2015 03:03 PM, Florian Fainelli wrote:
+>> On 15/10/15 12:09, Dinh Nguyen wrote:
+>>> Hi,
+>>>
+>>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+>>> the bus' parent." seems to have broken ethernet support for the SoCFPGA
+>>> platform which is using the stmmac ethernet driver.
 >>
->
-> Good, please Nikolay, send a v2 of the patch with all these details
-> explained in the changelog, so that we can all agree.
+>> It is not clear to me how this relates to what you are seeing yet.
+>>
+>>>
+>>> It appears that during DHCP, it cannot get an IP address. This only
+>>> happens if ethernet was not used by the bootloader to tftp an kernel
+>>> image. If I use the bootloader to tftp an image then ethernet is working
+>>> fine. So I think the PHY is not getting enabled properly.
+>>>
+>>> If I revert this patch, then ethernet is back to working on the platform.
+>>
+>> Is the Device Tree source for this platform available somewhere to look at?
+>>
+> 
+> Yes, I'm using the DTS that is in the mainline:
+> 
+> arch/arm/boot/dts/socfpga.dtsi
+> arch/arm/boot/dts/socfpga_cyclone5.dtsi
+> arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
 
-While GFP_ATOMIC does indeed look the correct solution for this particular
-case I was wondering whether something like (GFP_KERNEL & ~__GFP_WAIT)
-wouldn't also make the cut without causing sleeping? I guess this is exactly
-the sort of situation that Mel Gorman's patch can address
-(marc.info/?l=linux-kernel&m=144283282101953) ?
+There are no PHY devices in any of these DTS files, instead there is the
+non-standard "phy-addr" property which is set to 0xffffffff supposedly
+to indicate that the MDIO bus should be scanned. This is likely part of
+your problem. The stmmac driver seems to be looking for "snps,phy-addr"
+and not "phy-addr", so I am not even clear how this is supposed to work,
+and the driver mentions this custom property is deprecated anyway.
 
-In any case I will send v2 tomorrow.
+The core problem is in
+drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+which manually detects the PHY, that is mostly fine, except that it does
+not really seem to work here for a reason that is still unclear to me.
 
->
-> If properly explained, no need to add the stack trace which does not
-> really tell us the story.
->
-> Thanks !
->
->
->
+Your Ethernet PHYs need to be declared in Device Tree, see
+Documentation/devicetree/bindings/net/phy.txt
+
+but aside from that, what should be the PHY driver used by our platform?
+ID 00221611 does not seem to be claimed by any known PHY driver, so that
+leave us with the Generic PHY driver I guess?
+
+Do you have specific PHY fixups required for this platform?
+-- 
+Florian
