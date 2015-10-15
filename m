@@ -1,56 +1,58 @@
-From: Arun Parameswaran <aparames@broadcom.com>
-Subject: Re: [PATCH 1/1] net: phy: bcm-phy-lib: Fix module license issue
-Date: Thu, 15 Oct 2015 10:11:07 -0700
-Message-ID: <561FDE2B.7090205@broadcom.com>
-References: <1444768812-31476-1-git-send-email-arunp@broadcom.com>
- <1444768812-31476-2-git-send-email-arunp@broadcom.com>
- <20151014.183947.1675991536904094202.davem@davemloft.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netback: corretly check failed allocation
+Date: Thu, 15 Oct 2015 18:13:02 +0100
+Message-ID: <20151015171301.GB5541@zion.uk.xensource.com>
+References: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>
-To: David Miller <davem@davemloft.net>,
-	Arun Parameswaran <arunp@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:47453 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752591AbbJORLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 13:11:12 -0400
-In-Reply-To: <20151014.183947.1675991536904094202.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <taesoo@gatech.edu>,
+	<yeongjin.jang@gatech.edu>, <insu@gatech.edu>
+To: Insu Yun <wuninsu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Oct 15, 2015 at 12:26:16PM -0400, Insu Yun wrote:
+> Since vzalloc can be failed in memory pressure,
+> return value should be checked and return ENOMEM.
 
+This function doesn't return ENOMEM, instead it writes to xenstore to
+indicate error. The commit log needs to be updated.
 
-On 15-10-14 06:39 PM, David Miller wrote:
-> From: Arun Parameswaran <arunp@broadcom.com>
-> Date: Tue, 13 Oct 2015 13:40:12 -0700
->
->> The 'bcm-phy-lib.c', added as a part of the commit
->> "net: phy: Add Broadcom phy library for common interfaces"
->> was missing the module license. This was causing an issue
->> when the library is built as a module; "module license
->> 'unspecified' taints kernel".
->>
->> This patch fixes the issue by adding the module license,
->> author and description to the bcm-phy-lib.c file.
->>
->> Fixes: a1cba5613edf5 ("net: phy: Add Broadcom phy library for common
->> interfaces")
->> Signed-off-by: Arun Parameswaran <arunp@broadcom.com>
-> This patch doesn't apply to my net-next tree at all.
+> 
+> Signed-off-by: Insu Yun <wuninsu@gmail.com>
+> ---
+>  drivers/net/xen-netback/xenbus.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+> index 929a6e7..e288246 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -788,6 +788,11 @@ static void connect(struct backend_info *be)
+>  	/* Use the number of queues requested by the frontend */
+>  	be->vif->queues = vzalloc(requested_num_queues *
+>  				  sizeof(struct xenvif_queue));
+> +  if (!be->vif->queues)  {
+> +    xenbus_dev_fatal(dev, -ENOMEM, "allocating queues");
+> +    return;
+> +  }
+> +
 
-There is a mismatch in the 'git diff' output, for the last 3 lines in
-bcm-phy-lib.c
+The indentation is wrong. Please configure your email client properly.
 
-For some reason the patch I created has '@@ -207,3 +208,6 @@', instead of
-'@@ -206,3 +207,7 @@', when created from the 'net-next'.
+And please use "goto err" for error handling -- yes, I understand there
+is existing code that returns directly but IMHO that should be fixed
+too.
 
-I will send out a patch based on the 'net-next'.
+We.
 
-Thanks
-Arun
+>  	be->vif->num_queues = requested_num_queues;
+>  	be->vif->stalled_queues = requested_num_queues;
+>  
+> -- 
+> 1.9.1
