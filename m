@@ -1,82 +1,108 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/17] i40e: remove FD atr control from debugfs
-Date: Thu, 15 Oct 2015 02:39:57 -0700
-Message-ID: <1444902004-14433-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/17][pull request] Intel Wired LAN Driver Updates 2015-10-15
+Date: Thu, 15 Oct 2015 02:39:47 -0700
+Message-ID: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:12861 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752419AbbJOJmb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 05:42:31 -0400
-In-Reply-To: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751452AbbJOJmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 05:42:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+This series contains updates to i40e, i40evf and ixgbe.
 
-Since the flow-director-atr priv flag was added to our ethtool interface,
-we don't need the on/off control in debugfs.
+Emil changes the ixgbe driver to disable LRO by default in favor or GRO.
 
-Change-ID: Ib3b599916434ab30ccd40074e71d7a81609b5bb5
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 24 ------------------------
- 1 file changed, 24 deletions(-)
+Mark provides two changes for ixgbe, first fixes a semaphore issue when
+a reset never completes, it is necessary to retake the semaphore before
+returning.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index c1dd248..d15bd62 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -953,24 +953,6 @@ static void i40e_dbg_dump_veb_all(struct i40e_pf *pf)
- 	}
- }
- 
--/**
-- * i40e_dbg_cmd_fd_ctrl - Enable/disable FD sideband/ATR
-- * @pf: the PF that would be altered
-- * @flag: flag that needs enabling or disabling
-- * @enable: Enable/disable FD SD/ATR
-- **/
--static void i40e_dbg_cmd_fd_ctrl(struct i40e_pf *pf, u64 flag, bool enable)
--{
--	if (enable) {
--		pf->flags |= flag;
--	} else {
--		pf->flags &= ~flag;
--		pf->auto_disable_flags |= flag;
--	}
--	dev_info(&pf->pdev->dev, "requesting a PF reset\n");
--	i40e_do_reset_safe(pf, BIT(__I40E_PF_RESET_REQUESTED));
--}
--
- #define I40E_MAX_DEBUG_OUT_BUFFER (4096*4)
- /**
-  * i40e_dbg_command_write - write into command datum
-@@ -1759,10 +1741,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		raw_packet = NULL;
- 		kfree(asc_packet);
- 		asc_packet = NULL;
--	} else if (strncmp(cmd_buf, "fd-atr off", 10) == 0) {
--		i40e_dbg_cmd_fd_ctrl(pf, I40E_FLAG_FD_ATR_ENABLED, false);
--	} else if (strncmp(cmd_buf, "fd-atr on", 9) == 0) {
--		i40e_dbg_cmd_fd_ctrl(pf, I40E_FLAG_FD_ATR_ENABLED, true);
- 	} else if (strncmp(cmd_buf, "fd current cnt", 14) == 0) {
- 		dev_info(&pf->pdev->dev, "FD current total filter count for this interface: %d\n",
- 			 i40e_get_current_fd_count(pf));
-@@ -1989,8 +1967,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		dev_info(&pf->pdev->dev, "  send indirect aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3> <buffer_len>\n");
- 		dev_info(&pf->pdev->dev, "  add fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
- 		dev_info(&pf->pdev->dev, "  rem fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
--		dev_info(&pf->pdev->dev, "  fd-atr off\n");
--		dev_info(&pf->pdev->dev, "  fd-atr on\n");
- 		dev_info(&pf->pdev->dev, "  fd current cnt");
- 		dev_info(&pf->pdev->dev, "  lldp start\n");
- 		dev_info(&pf->pdev->dev, "  lldp stop\n");
+Jesse fixes up a missing function header comment variable reference.  Then
+enables ethtool priv flags to control flow director at runtime.
+
+Neerav changes several i40e error messages to debug only since the
+messages were printing when there was no functional issue and were meant
+for debug only.
+
+Catherine changes the i40e driver to make only X722 support 100M SGMII,
+since it is the only device to actually support it.
+
+Anjali modifies the i40e/i40evf driver to add writeback on ITR offload
+support for X722 since the device has a way to work around the
+descriptor writeback issue.
+
+Mitch cleans up obsolete code.  Also reduces the i40evf init time by
+shortening up the delays in the init task to aid in performance in
+load/unload tests and mitigates DMAR errors in VF enable/disable tests.
+
+Shannon modifies i40e to allow flow director sideband when the device
+is in MFP mode and only has one partition enabled, since we still have
+plenty of interrupts for managing the flow director activity.  Also
+cleaned up flow director ATR control in debugfs since the priv flag
+has been added to our ethtool interface.  Makes several general code
+cleanups of redundant or unnecessary code for i40e.
+
+The following are changes since commit f6bba8945e7cff591127be1f6992c3e466cfff4c:
+  Merge branch 'mlx-next'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Anjali Singhai Jain (2):
+  i40e/i40evf: Add WB_ON_ITR offload support
+  i40e: X722 is on the IOSF bus and does not report the PCI bus info
+
+Catherine Sullivan (2):
+  i40e: Remove 100M SGMII unless hw is X722
+  i40e/i40evf: Bump i40e version to 1.3.28 and i40evf to 1.3.19
+
+Emil Tantilov (1):
+  ixgbe: disable LRO by default
+
+Jesse Brandeburg (2):
+  i40e: Add missing parameter comment to ndo_bridge_setlink
+  i40e: use priv flags to control flow director
+
+Kevin Scott (1):
+  i40e: Store off PHY capabilities
+
+Mark Rustad (2):
+  ixgbe: Fix CS4227-related semaphore error on reset failure
+  ixgbe: Check for setup_internal_link method
+
+Mitch Williams (2):
+  i40e: remove obsolete version check
+  i40evf: speed up init
+
+Neerav Parikh (1):
+  i40e: Change some messages from info to debug only
+
+Shannon Nelson (4):
+  i40e: allow FD SB if MFP mode only has 1 partition
+  i40e: remove FD atr control from debugfs
+  i40e/i40evf: remove redundant declarations of a variable and a
+    function
+  i40e: remove unnecessary string copy operations
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |   3 +
+ drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c      |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  24 ----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  59 ++++++----
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 125 +++++++++++++--------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   4 +
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |   1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  13 ++-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c      |  11 +-
+ 14 files changed, 153 insertions(+), 104 deletions(-)
+
 -- 
 2.4.3
