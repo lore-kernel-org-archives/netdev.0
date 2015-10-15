@@ -1,28 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-10-13
-Date: Wed, 14 Oct 2015 18:35:21 -0700 (PDT)
-Message-ID: <20151014.183521.1617621285805385414.davem@davemloft.net>
-References: <1444726787.1961.7.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: can-next 2015-09-17
+Date: Wed, 14 Oct 2015 18:37:47 -0700 (PDT)
+Message-ID: <20151014.183747.1747923782970607848.davem@davemloft.net>
+References: <561D2C61.1050201@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1444726787.1961.7.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <561D2C61.1050201@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 13 Oct 2015 10:59:47 +0200
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Tue, 13 Oct 2015 18:08:01 +0200
 
-> There are just two small fixes, but I didn't really want to wait since
-> I have nothing else pending.
+> this is a pull request of 4 patches for net-next/master.
 > 
-> Let me know if there's any problem.
+> Two patches are by Gerhard Bertelsmann, fixing some problems in the
+> sun4i driver. The patch by Arnd Bergmann stops using timeval for the
+> CAN broadcast manager. The last patch by Alexandre Belloni removes the
+> otherwise unused struct at91_can_data from the driver.
 
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thank you.
