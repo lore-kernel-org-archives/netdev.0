@@ -1,90 +1,148 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: SoCFPGA ethernet broken
-Date: Thu, 15 Oct 2015 15:49:28 -0500
-Message-ID: <56201158.8040806@opensource.altera.com>
-References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Thu, 15 Oct 2015 16:57:42 -0400
+Message-ID: <20151015205742.GB20155@fieldses.org>
+References: <17EC94B0A072C34B8DCF0D30AD16044A02877D53@BPXM09GP.gisp.nec.co.jp>
+ <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
-	<netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Neil Brown <nfbrown@novell.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56200E15.9080603@caviumnetworks.com>
+Content-Disposition: inline
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2015 03:35 PM, David Daney wrote:
-> On 10/15/2015 01:25 PM, Florian Fainelli wrote:
->> On 15/10/15 12:59, Dinh Nguyen wrote:
->>> On 10/15/2015 03:03 PM, Florian Fainelli wrote:
->>>> On 15/10/15 12:09, Dinh Nguyen wrote:
->>>>> Hi,
->>>>>
->>>>> commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
->>>>> the bus' parent." seems to have broken ethernet support for the
->>>>> SoCFPGA
->>>>> platform which is using the stmmac ethernet driver.
->>>>
->>>> It is not clear to me how this relates to what you are seeing yet.
->>>>
->>>>>
->>>>> It appears that during DHCP, it cannot get an IP address. This only
->>>>> happens if ethernet was not used by the bootloader to tftp an kernel
->>>>> image. If I use the bootloader to tftp an image then ethernet is
->>>>> working
->>>>> fine. So I think the PHY is not getting enabled properly.
->>>>>
->>>>> If I revert this patch, then ethernet is back to working on the
->>>>> platform.
->>>>
->>>> Is the Device Tree source for this platform available somewhere to
->>>> look at?
->>>>
->>>
->>> Yes, I'm using the DTS that is in the mainline:
->>>
->>> arch/arm/boot/dts/socfpga.dtsi
->>> arch/arm/boot/dts/socfpga_cyclone5.dtsi
->>> arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
->>
->> There are no PHY devices in any of these DTS files, instead there is the
->> non-standard "phy-addr" property which is set to 0xffffffff supposedly
->> to indicate that the MDIO bus should be scanned. This is likely part of
->> your problem. The stmmac driver seems to be looking for "snps,phy-addr"
->> and not "phy-addr", so I am not even clear how this is supposed to work,
->> and the driver mentions this custom property is deprecated anyway.
->>
+On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
+> Tatsukawa Kosuke wrote:
+> > J. Bruce Fields wrote:
+> >> Thanks for the detailed investigation.
+> >> 
+> >> I think it would be worth adding a comment if that might help someone
+> >> having to reinvestigate this again some day.
+> > 
+> > It would be nice, but I find it difficult to write a comment in the
+> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
+> > of how nfsd uses it, and the current implementation of the network code.
+> > 
+> > Personally, I would prefer removing the call to waitqueue_active() which
+> > would make the memory barrier totally unnecessary at the cost of a
+> > spin_lock + spin_unlock by unconditionally calling
+> > wake_up_interruptible.
 > 
-> I think it is OK not to expose the PHYs in the device tree if they can
-> be accurately probed without knowing information from the device tree.
-> 
->> The core problem is in
->> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
->> which manually detects the PHY, that is mostly fine, except that it does
->> not really seem to work here for a reason that is still unclear to me.
->>
-> 
-> I agree with this analysis.  I have also been looking at the code and
-> cannot see anything that depends on what the parent device of the PHY
-> is.  So it is a bit mystifying.
-> 
-> 
-> I noticed in your original message you had in the boot log this:
-> 
-> .
-> .
-> .
-> [    0.804992] libphy: stmmac: probed
-> [    0.808410] eth0: PHY ID 00221611 at 4 IRQ POLL (stmmac-0:04) active
-> .
-> .
-> .
-> 
-> Does this text change with and without the 8b63ec1837fa patch?
+> On second thought, the callbacks will be called frequently from the tcp
+> code, so it wouldn't be a good idea.
 
-No, this text does not change with/without the 8b63ec1837fa patch.
+So, I was even considering documenting it like this, if it's not
+overkill.
 
-Dinh
+Hmm... but if this is right, then we may as well ask why we're doing the
+wakeups at all.  Might be educational to test the code with them
+removed.
+
+--b.
+
+commit 0882cfeb39e0
+Author: J. Bruce Fields <bfields@redhat.com>
+Date:   Thu Oct 15 16:53:41 2015 -0400
+
+    svcrpc: document lack of some memory barriers.
+    
+    Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
+    here.  I think the code's correct, but it's probably worth documenting.
+    
+    Reported-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 856407fa085e..90480993ec4a 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
+ 	return svc_port_is_privileged(svc_addr(rqstp));
+ }
+ 
++static void svc_no_smp_mb(void)
++{
++	/*
++	 * Kosuke Tatsukawa points out there should normally be an
++	 * smp_mb() at the callsites of this function.  (Either that or
++	 * we could just drop the waitqueue_active() checks.)
++	 *
++	 * It appears they aren't currently necessary, though, basically
++	 * because nfsd does non-blocking reads from these sockets, so
++	 * the only places we wait on this waitqueue is in sendpage and
++	 * sendmsg, which won't be waiting for wakeups on newly arrived
++	 * data.
++	 *
++	 * Maybe we should add the memory barriers anyway, but these are
++	 * hot paths so we'd need to be convinced there's no sigificant
++	 * penalty.
++	 */
++}
++
+ /*
+  * INET callback when data has been received on the socket.
+  */
+@@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
+ 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
+@@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+ 
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq)) {
+ 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+ 		       svsk);
+@@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+ 	}
+ 
+ 	wq = sk_sleep(sk);
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq))
+ 		wake_up_interruptible_all(wq);
+ }
+@@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
+ 		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq))
+ 		wake_up_interruptible_all(wq);
+ }
+@@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
+ 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
+@@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
+ 	sk->sk_write_space = svsk->sk_owspace;
+ 
+ 	wq = sk_sleep(sk);
+-	smp_mb();
++	svc_no_smp_mb();
+ 	if (wq && waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
