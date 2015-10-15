@@ -1,189 +1,171 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] switchdev: enforce no pvid flag in vlan ranges
-Date: Wed, 14 Oct 2015 20:07:41 -0400
-Message-ID: <20151015000741.GA1297@ketchup.lan>
-References: <1444651299-2813-1-git-send-email-razor@blackwall.org>
- <20151012173625.GA17983@ketchup.lan>
- <20151013083111.GA1432@colbert.mtl.com>
- <20151013143225.GA9636@ketchup.mtl.sfl>
- <20151014061446.GA29908@colbert.mtl.com>
- <20151014152515.GA6681@ketchup.mtl.sfl>
- <CAE4R7bDFMgWnvS03OU+SE3QAeC-TSVYZ7=oLV9q-v6DbYmm_Tg@mail.gmail.com>
- <20151014174152.GB9216@colbert.mtl.com>
- <20151014185100.GA5576@ketchup.mtl.sfl>
- <561ED270.60003@gmail.com>
+From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Thu, 15 Oct 2015 00:09:11 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02877D53@BPXM09GP.gisp.nec.co.jp>
+References: <20151014160040.GA11087@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@mellanox.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Neil Brown <nfbrown@novell.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Elad Raz <eladr@mellanox.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:35149 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbbJOAHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 20:07:50 -0400
-Content-Disposition: inline
-In-Reply-To: <561ED270.60003@gmail.com>
+Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:33474 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753766AbbJOAJp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 20:09:45 -0400
+In-Reply-To: <20151014160040.GA11087@fieldses.org>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Wednesday 14 (42) 03:08 PM, Florian Fainelli wrote:
-> On 14/10/15 11:51, Vivien Didelot wrote:
-> > On Oct. Wednesday 14 (42) 08:42 PM, Ido Schimmel wrote:
-> >> Wed, Oct 14, 2015 at 08:14:24PM IDT, sfeldma@gmail.com wrote:
-> >>> On Wed, Oct 14, 2015 at 8:25 AM, Vivien Didelot
-> >>> <vivien.didelot@savoirfairelinux.com> wrote:
-> >>>> On Oct. Wednesday 14 (42) 09:14 AM, Ido Schimmel wrote:
-> >>>>> Tue, Oct 13, 2015 at 05:32:26PM IDT, vivien.didelot@savoirfairelinux.com wrote:
-> >>>>>> On Oct. Tuesday 13 (42) 11:31 AM, Ido Schimmel wrote:
-> >>>>>>> Mon, Oct 12, 2015 at 08:36:25PM IDT, vivien.didelot@savoirfairelinux.com wrote:
-> >>>>>>>> Hi guys,
-> >>>>>>>>
-> >>>>>>>> On Oct. Monday 12 (42) 02:01 PM, Nikolay Aleksandrov wrote:
-> >>>>>>>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> >>>>>>>>>
-> >>>>>>>>> We shouldn't allow BRIDGE_VLAN_INFO_PVID flag in VLAN ranges.
-> >>>>>>>>>
-> >>>>>>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> >>>>>>>>> ---
-> >>>>>>>>>  net/switchdev/switchdev.c | 3 +++
-> >>>>>>>>>  1 file changed, 3 insertions(+)
-> >>>>>>>>>
-> >>>>>>>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> >>>>>>>>> index 6e4a4f9ad927..256c596de896 100644
-> >>>>>>>>> --- a/net/switchdev/switchdev.c
-> >>>>>>>>> +++ b/net/switchdev/switchdev.c
-> >>>>>>>>> @@ -720,6 +720,9 @@ static int switchdev_port_br_afspec(struct net_device *dev,
-> >>>>>>>>>                         if (vlan.vid_begin)
-> >>>>>>>>>                                 return -EINVAL;
-> >>>>>>>>>                         vlan.vid_begin = vinfo->vid;
-> >>>>>>>>> +                       /* don't allow range of pvids */
-> >>>>>>>>> +                       if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
-> >>>>>>>>> +                               return -EINVAL;
-> >>>>>>>>>                 } else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
-> >>>>>>>>>                         if (!vlan.vid_begin)
-> >>>>>>>>>                                 return -EINVAL;
-> >>>>>>>>> --
-> >>>>>>>>> 2.4.3
-> >>>>>>>>>
-> >>>>>>>>
-> >>>>>>>> Yes the patch looks good, but it is a minor check though. I hope the
-> >>>>>>>> subject of this thread is making sense.
-> >>>>>>>>
-> >>>>>>>> VLAN ranges seem to have been included for an UX purpose (so commands
-> >>>>>>>> look like Cisco IOS). We don't want to change any existing interface, so
-> >>>>>>>> we pushed that down to drivers, with the only valid reason that, maybe
-> >>>>>>>> one day, an hardware can be capable of programming a range on a per-port
-> >>>>>>>> basis.
-> >>>>>>> Hi,
-> >>>>>>>
-> >>>>>>> That's actually what we are doing in mlxsw. We can do up to 256 entries in
-> >>>>>>> one go. We've yet to submit this part.
-> >>>>>>
-> >>>>>> Perfect Ido, thanks for pointing this out! I'm OK with the range then.
-> >>>>>>
-> >>>>>> So there is now a very last question in my head for this, which is more
-> >>>>>> a matter of kernel design. Should the user be aware of such underlying
-> >>>>>> support? In other words, would it make sense to do this in a driver:
-> >>>>>>
-> >>>>>>    foo_port_vlan_add(struct net_device *dev,
-> >>>>>>                      struct switchdev_obj_port_vlan *vlan)
-> >>>>>>    {
-> >>>>>>        if (vlan->vid_begin != vlan->vid_end)
-> >>>>>>            return -ENOTSUPP; /* or something more relevant for user */
-> >>>>>>
-> >>>>>>        return foo_port_single_vlan_add(dev, vlan->vid_begin);
-> >>>>>>    }
-> >>>>>>
-> >>>>>> So drivers keep being simple, and we can easily propagate the fact that
-> >>>>>> one-or-all VLAN is not supportable, vs. the VLAN feature itself is not
-> >>>>>> implemented and must be done in software.
-> >>>>> I think that if you want to keep it simple, then Scott's advice from the
-> >>>>> previous thread is the most appropriate one. I believe the hardware you
-> >>>>> are using is simply not meant to support multiple 802.1Q bridges.
-> >>>>
-> >>>> You mean allowing only one Linux bridge over an hardware switch?
-> >>>>
-> >>>> It would for sure simplify how, as developers and users, we represent a
-> >>>> physical switch. But I am not sure how to achieve that and I don't have
-> >>>> strong opinions on this TBH.
-> >>>
-> >>> Hi Vivien, I think it's possible to keep switch ports on just one
-> >>> bridge if we do a little bit of work on the NETDEV_CHANGEUPPER
-> >>> notifier.  This will give you the driver-level control you want.  Do
-> >>> you have time to investigate?  The idea is:
-> >>>
-> >>> 1) In your driver's handler for NETDEV_CHANGEUPPER, if switch port is
-> >>> being added to a second bridge,then return NOTIFY_BAD.  Your driver
-> >>> needs to track the bridge count.
-> >>>
-> >>> 2) In __netdev_upper_dev_link(), check the return code from the
-> >>> call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, ...) call, and if
-> >>> NOTIFY_BAD, abort the linking operation (goto rollback_xxx).
-> >>>
-> >> Hi,
-> >>
-> >> We are doing something similar in mlxsw (not upstream yet). Jiri
-> >> introduced PRE_CHANGEUPPER, which is called from the function you
-> >> mentioned, but before the linking operation (so that you don't need to
-> >> rollback).
-> >>
-> >> If the notification is about a linking operation and the master is a
-> >> bridge different than the current one, then NOTIFY_BAD is returned.
-> > 
-> > Great, I'll wait for this then.
-> > 
-> > Scott, this is another good reason why we definitely need a simple
-> > struct device per switch chip. In addition to the port net_device
-> > registration, the netdev notifier is another exact same piece of code
-> > that both Rocker and DSA implement.
-> > 
-> >> Vivien, regarding your WAN interface question, this is something we
-> >> currently don't do. We don't even flood traffic from bridged ports
-> >> to CPU (although we can), as it can saturate the bus. Only control
-> >> traffic is supposed to go there.
-> > 
-> > I kinda answered it myself: a Linux bridge needs to remain a user
-> > abstraction of a logical group of net_device. In other words, we must
-> > allow physical distinct ports under the same bridge.
-> > 
-> > Below is an example of a custom router with 2 chained switch chips sw0
-> > and sw1, and what usage I believe we expect:
-> > 
-> >     [ Linux soft bridge "br0" which can accelerate VLAN, STP, etc.    ]
-> >                                                        (CPU)    (WAN)
-> >     [ sw0p0 sw0p1 sw0p2 ] [ sw1p0 sw1p1 sw1p2 sw1p3 ] [ eth0 ] [ eth1 ]
-> >                      `--DSA--'                   `-------'
+J. Bruce Fields wrote:
+> On Wed, Oct 14, 2015 at 03:57:13AM +0000, Kosuke Tatsukawa wrote:
+>> J. Bruce Fields wrote:
+>> > On Mon, Oct 12, 2015 at 10:41:06AM +0000, Kosuke Tatsukawa wrote:
+>> >> J. Bruce Fields wrote:
+>> >> > On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+>> >> >> Neil Brown wrote:
+>> >> >> > Kosuke Tatsukawa <tatsu@ab.jp.nec.com> writes:
+>> >> >> > 
+>> >> >> >> There are several places in net/sunrpc/svcsock.c which calls
+>> >> >> >> waitqueue_active() without calling a memory barrier.  Add a memory
+>> >> >> >> barrier just as in wq_has_sleeper().
+>> >> >> >>
+>> >> >> >> I found this issue when I was looking through the linux source code
+>> >> >> >> for places calling waitqueue_active() before wake_up*(), but without
+>> >> >> >> preceding memory barriers, after sending a patch to fix a similar
+>> >> >> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+>> >> >> >> found here: https://lkml.org/lkml/2015/9/28/849).
+>> >> >> > 
+>> >> >> > hi,
+>> >> >> > this feels like the wrong approach to the problem.  It requires extra
+>> >> >> > 'smb_mb's to be spread around which are hard to understand as easy to
+>> >> >> > forget.
+>> >> >> > 
+>> >> >> > A quick look seems to suggest that (nearly) every waitqueue_active()
+>> >> >> > will need an smb_mb.  Could we just put the smb_mb() inside
+>> >> >> > waitqueue_active()??
+>> >> >> <snip>
+>> >> >> 
+>> >> >> There are around 200 occurrences of waitqueue_active() in the kernel
+>> >> >> source, and most of the places which use it before wake_up are either
+>> >> >> protected by some spin lock, or already has a memory barrier or some
+>> >> >> kind of atomic operation before it.
+>> >> >> 
+>> >> >> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+>> >> >> many cases and won't be a good idea.
+>> >> >> 
+>> >> >> Another way to solve this problem is to remove the waitqueue_active(),
+>> >> >> making the code look like this;
+>> >> >> 	if (wq)
+>> >> >> 		wake_up_interruptible(wq);
+>> >> >> This also fixes the problem because the spinlock in the wake_up*() acts
+>> >> >> as a memory barrier and prevents the code from being reordered by the
+>> >> >> CPU (and it also makes the resulting code is much simpler).
+>> >> > 
+>> >> > I might not care which we did, except I don't have the means to test
+>> >> > this quickly, and I guess this is some of our most frequently called
+>> >> > code.
+>> >> > 
+>> >> > I suppose your patch is the most conservative approach, as the
+>> >> > alternative is a spinlock/unlock in wake_up_interruptible, which I
+>> >> > assume is necessarily more expensive than an smp_mb().
+>> >> > 
+>> >> > As far as I can tell it's been this way since forever.  (Well, since a
+>> >> > 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+>> >> > removed some spinlocks from the data_ready routines.)
+>> >> > 
+>> >> > I don't understand what the actual race is yet (which code exactly is
+>> >> > missing the wakeup in this case?  nfsd threads seem to instead get
+>> >> > woken up by the wake_up_process() in svc_xprt_do_enqueue().)
+>> >> 
+>> >> Thank you for the reply.  I tried looking into this.
+>> >> 
+>> >> The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
+>> >> svc_udp_init(), which are both called from svc_setup_socket().
+>> >> svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
+>> >> callback port related code.
+>> >> 
+>> >> Maybe I'm wrong, but there might not be any kernel code that is using
+>> >> the socket's wait queue in this case.
+>> > 
+>> > As Trond points out there are probably waiters internal to the
+>> > networking code.
+>> 
+>> Trond and Bruce, thank you for the comment.  I was able to find the call
+>> to the wait function that was called from nfsd.
+>> 
+>> sk_stream_wait_connect() and sk_stream_wait_memory() were called from
+>> either do_tcp_sendpages() or tcp_sendmsg() called from within
+>> svc_send().  sk_stream_wait_connect() shouldn't be called at this point,
+>> because the socket has already been used to receive the rpc request.
+>> 
+>> On the wake_up side, sk_write_space() is called from the following
+>> locations.  The relevant ones seems to be preceded by atomic_sub or a
+>> memory barrier.
+>> + ksocknal_write_space [drivers/staging/lustre/lnet/klnds/socklnd/socklnd_lib.c:633]
+>> + atm_pop_raw [net/atm/raw.c:40]
+>> + sock_setsockopt [net/core/sock.c:740]
+>> + sock_wfree [net/core/sock.c:1630]
+>>   Preceded by atomic_sub in sock_wfree()
+>> + ccid3_hc_tx_packet_recv [net/dccp/ccids/ccid3.c:442]
+>> + do_tcp_sendpages [net/ipv4/tcp.c:1008]
+>> + tcp_sendmsg [net/ipv4/tcp.c:1300]
+>> + do_tcp_setsockopt [net/ipv4/tcp.c:2597]
+>> + tcp_new_space [net/ipv4/tcp_input.c:4885]
+>>   Preceded by smp_mb__after_atomic in tcp_check_space()
+>> + llc_conn_state_process [net/llc/llc_conn.c:148]
+>> + pipe_rcv_status [net/phonet/pep.c:312]
+>> + pipe_do_rcv [net/phonet/pep.c:440]
+>> + pipe_start_flow_control [net/phonet/pep.c:554]
+>> + svc_sock_setbufsize [net/sunrpc/svcsock.c:45]
+>> 
+>> sk_state_change() calls related to TCP/IP were called from the following
+>> places.
+>> + inet_shutdown [net/ipv4/af_inet.c:825]
+>>   This shouldn't be called when waiting
+>> + tcp_done [net/ipv4/tcp.c:3078]
+>>   spin_lock*/spin_unlock* is called in lock_timer_base
+>> + tcp_fin [net/ipv4/tcp_input.c:4031]
+>>   atomic_long_sub is called from sk_memory_allocated_sub called within
+>>   sk_mem_reclaim
+>> + tcp_finish_connect [net/ipv4/tcp_input.c:5415]
+>>   This shoudn't be called when waiting
+>> + tcp_rcv_state_process [net/ipv4/tcp_input.c:5807,5880]
+>>   The socket shouldn't be in TCP_SYN_RECV nor TCP_FIN_WAIT1 states when
+>>   waiting
+>> 
+>> I think the wait queue won't be used for being woken up by
+>> svc_{tcp,udp}_data_ready, because nfsd doesn't read from a socket.
 > 
-> Your use case is something that is fairly common with PON/GPON devices,
-> but AFAIR they typically implement this by having two sets of bridges,
-> one which spans the WAN interface and a bunch of other ports, and
-> another bridge which is LAN only (few ports + Wi-Fi typically). Usually
-> this is under the same physical switch though, so this is all about
-> partitioning physical ports and physical interfaces under logical groups.
+> Looking, well, I guess kernel_recvmsg() does read from a socket, but I
+> assume calling with MSG_DONTWAIT means that it doesn't block.
 > 
-> By definition the WAN and LAN domains are separate logical and broadcast
-> domains, with separate admission control rules, STP etc. I do not think
-> your "br0" example should span the WAN interface in this case. Also,
-> with eth0 being the conduit interface, it cannot be allowed to be a
-> bridge member, that's something I ended up fixing in the bridge layer,
-> otherwise untagging does not work, but that is nitpicking.
+>> So with the current implementation, it seems there shouldn't be any
+>> problems even if the memory barrier is missing.
 > 
-> It still makes sense though allow the creation of a "br0" device which
-> spans the entire set of ports and interfaces (except eth0), but not name
-> eth1 "WAN", just treat it as an extension in that case.
+> Thanks for the detailed investigation.
 > 
-> Sorry if that seems like f'ing flies, but having concise example should
-> help make progress on these design issues ;)
+> I think it would be worth adding a comment if that might help someone
+> having to reinvestigate this again some day.
 
-You are right, my drawing wasn't that correct. What you just described
-is more accurate.
+It would be nice, but I find it difficult to write a comment in the
+sunrpc layer why a memory barrier isn't necessary, using the knowledge
+of how nfsd uses it, and the current implementation of the network code.
 
-Thanks,
--v
+Personally, I would prefer removing the call to waitqueue_active() which
+would make the memory barrier totally unnecessary at the cost of a
+spin_lock + spin_unlock by unconditionally calling
+wake_up_interruptible.
+---
+Kosuke TATSUKAWA  | 3rd IT Platform Department
+                  | IT Platform Division, NEC Corporation
+                  | tatsu@ab.jp.nec.com
