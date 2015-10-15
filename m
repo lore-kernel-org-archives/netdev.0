@@ -1,46 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bonding: support encapsulated ipv6 TSO
-Date: Thu, 15 Oct 2015 09:22:11 -0700
-Message-ID: <1444926131.25595.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Insu Yun <wuninsu@gmail.com>
+Subject: [PATCH] mlx4: corretly check failed allocation
+Date: Thu, 15 Oct 2015 12:24:09 -0400
+Message-ID: <1444926249-29033-1-git-send-email-wuninsu@gmail.com>
+Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
+	Insu Yun <wuninsu@gmail.com>
+To: davem@davemloft.net, amirv@mellanox.com, maorg@mellanox.com,
+	ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
+	yishaih@mellanox.com, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33633 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753595AbbJOQWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 12:22:13 -0400
-Received: by pabrc13 with SMTP id rc13so92085683pab.0
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 09:22:12 -0700 (PDT)
+Received: from mail-yk0-f195.google.com ([209.85.160.195]:33010 "EHLO
+	mail-yk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958AbbJOQXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 12:23:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+When allocation fails, mlx4_alloc_cmd_mailbox returns -ENOMEM.
+Since there is no case that mlx4_alloc_cmd_mailbox returns NULL,
+it needs to be checked by IS_ERR, not IS_ERR_OR_NULL
 
-If using a sixtofour device on top of a bonding device,
-skb segmentation of TCP traffic is done right before calling
-bonding xmit, because bonding only enables TSO for IPv4.
-
-This patch improves single flow performance by about 120 % on my hosts,
-because segmentation is deferred right before calling slave xmit.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Insu Yun <wuninsu@gmail.com>
 ---
-drivers/net/bonding/bond_main.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mr.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 90f2615428c0..d0f23cd6e236 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1071,7 +1071,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
- 				 NETIF_F_HIGHDMA | NETIF_F_LRO)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 78f51e1..9319519 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -318,7 +318,7 @@ int mlx4_mr_hw_get_mpt(struct mlx4_dev *dev, struct mlx4_mr *mmr,
+ 				key, NULL);
+ 	} else {
+ 		mailbox = mlx4_alloc_cmd_mailbox(dev);
+-		if (IS_ERR_OR_NULL(mailbox))
++		if (IS_ERR(mailbox))
+ 			return PTR_ERR(mailbox);
  
- #define BOND_ENC_FEATURES	(NETIF_F_ALL_CSUM | NETIF_F_SG | NETIF_F_RXCSUM |\
--				 NETIF_F_TSO)
-+				 NETIF_F_ALL_TSO)
- 
- static void bond_compute_features(struct bonding *bond)
- {
+ 		err = mlx4_cmd_box(dev, 0, mailbox->dma, key,
+-- 
+1.9.1
