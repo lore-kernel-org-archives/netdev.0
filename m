@@ -1,53 +1,50 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next v2] netlink: Rightsize IFLA_AF_SPEC size
- calculation
-Date: Thu, 15 Oct 2015 05:52:40 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC350F7AD4DB@ORSMSX101.amr.corp.intel.com>
-References: <1444802314-28830-1-git-send-email-ronen.arad@intel.com>
-	<1444837888-32656-1-git-send-email-ronen.arad@intel.com>
- <20151014.192422.1272488031691006858.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Thu, 15 Oct 2015 07:57:35 +0200
+Message-ID: <20151015055734.GB4784@netboy>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1510132116480.25029@nanos>
+ <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57102 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753384AbbJOFwm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 01:52:42 -0400
-In-Reply-To: <20151014.192422.1272488031691006858.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>, jeffrey.t.kirsher@intel.com,
+	hpa@zytor.com, mingo@redhat.com, john.stultz@linaro.org,
+	peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: Christopher Hall <christopher.s.hall@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Oct 14, 2015 at 06:57:33PM -0700, Christopher Hall wrote:
+> >>+#define SHADOW_HISTORY_DEPTH 7
+> >
+> >And that number is 7 because?
+> 
+> Due to power of 2 it will be 8 instead. As above the useful history is 8-2*1
+> ms (1 ms is the minimum jiffy length).  Array size 4 would not be enough
+> history for the DSP which requires 4 ms of history, in the worst case.
 
+Just as I suspected, the magic number 7 is based on the needs of one
+particular user.  What about the next user who comes along needing 10
+milliseconds?  That will not do.  Any new interface should be generic
+enough to support a wide range of users.
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, October 14, 2015 7:24 PM
->To: Arad, Ronen
->Cc: netdev@vger.kernel.org
->Subject: Re: [PATCH net-next v2] netlink: Rightsize IFLA_AF_SPEC size
->calculation
->
->From: Ronen Arad <ronen.arad@intel.com>
->Date: Wed, 14 Oct 2015 08:51:28 -0700
->
->> @@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct
->net_device *dev,
->>  	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
->>  	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS +
->IFLA_PORT_SELF */
->>  	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
->> -	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
->> +		+ rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
->>  	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
->
->Please don't change the indentation on this line, keep it matching
->the indentation of all of the surrounding lines of this expression.
-[@Ronen] Sure. V3 submitted. My editor didn't like the indentation of the
-surrounding lines which are one less than two TAB spaces but consistency
-is important. 
->
->Thanks.
+So I think this approach is all wrong.  Here is an idea for you to
+consider.  Instead of mucking with the TK, let the user code (possibly
+in-kernel) sample ART/sys pairs and interpolate the ART/dev time
+stamps.  That way, the user can choose the range and resolution that
+he needs.
+
+> The audio driver is structured in such a way that it's simpler to provide a
+> value rather than a callback.
+
+Can you please provide a link to the audio driver that uses this new
+interface?
+
+Thanks,
+Richard
