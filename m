@@ -1,135 +1,157 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 7/7] tipc: update node FSM when peer RESET message is received
-Date: Thu, 15 Oct 2015 14:52:46 -0400
-Message-ID: <1444935166-12745-8-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/7] tipc: disallow packet
+	duplicates in link deferred queue
+Date: Thu, 15 Oct 2015 14:52:43 -0400
+Message-ID: <1444935166-12745-5-git-send-email-jon.maloy@ericsson.com>
 References: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.xx.bhuvaragan@ericsson.com,
-	richard.alpe@ericsson.com, ying.xue@windriver.com,
-	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:46932 "EHLO
-	smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752125AbbJOSw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 14:52:57 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The change made in the previous commit revealed a small flaw in the way
-the node FSM is updated. When the function tipc_node_link_down() is
-called for the last link to a node, we should check whether this was
-caused by a local reset or by a received RESET message from the peer.
-In the latter case, we can directly issue a PEER_LOST_CONTACT_EVT to
-the node FSM, so that it is ready to re-establish contact. If this is
-not done, the peer node will sometimes have to go through a second
-establish cycle before the link becomes stable.
+After the previous commits, we are guaranteed that no packets
+of type LINK_PROTOCOL or with illegal sequence numbers will be
+attempted added to the link deferred queue. This makes it possible to
+make some simplifications to the sorting algorithm in the function
+tipc_skb_queue_sorted().
 
-We fix this in this commit by conditionally issuing the mentioned
-event in the function tipc_node_link_down(). We also move LINK_RESET
-FSM even away from the link_reset() function and into the caller
-function, partially because it is easier to follow the code when state
-changes are gathered at a limited number of locations, partially
-because there will be cases in future commits where we don't want the
-link to go RESET mode when link_reset() is called.
+We also alter the function so that it will drop packets if one with
+the same seqeunce number is already present in the queue. This is
+necessary because we have identified weird packet sequences, involving
+duplicate packets, where a legitimate in-sequence packet may advance to
+the head of the queue without being detected and de-queued.
+
+Finally, we make this function outline, since it will now be called only
+in exceptional cases.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |  7 +++++--
- net/tipc/link.h |  1 +
- net/tipc/node.c | 11 +++++++----
- 3 files changed, 13 insertions(+), 6 deletions(-)
+ net/tipc/link.c |  2 +-
+ net/tipc/msg.c  | 31 +++++++++++++++++++++++++++++++
+ net/tipc/msg.h  | 34 ++--------------------------------
+ 3 files changed, 34 insertions(+), 33 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 737b598..ff9b0b9 100644
+index 2b549f6..e7c6086 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -120,6 +120,11 @@ bool tipc_link_is_up(struct tipc_link *l)
- 	return link_is_up(l);
+@@ -1114,7 +1114,7 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 
+ 		/* Defer delivery if sequence gap */
+ 		if (unlikely(seqno != rcv_nxt)) {
+-			__tipc_skb_queue_sorted(defq, skb);
++			__tipc_skb_queue_sorted(defq, seqno, skb);
+ 			tipc_link_build_nack_msg(l, xmitq);
+ 			break;
+ 		}
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index c5ac436..454f5ec 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -590,3 +590,34 @@ error:
+ 	kfree_skb(head);
+ 	return NULL;
+ }
++
++/* tipc_skb_queue_sorted(); sort pkt into list according to sequence number
++ * @list: list to be appended to
++ * @seqno: sequence number of buffer to add
++ * @skb: buffer to add
++ */
++void __tipc_skb_queue_sorted(struct sk_buff_head *list, u16 seqno,
++			     struct sk_buff *skb)
++{
++	struct sk_buff *_skb, *tmp;
++
++	if (skb_queue_empty(list) || less(seqno, buf_seqno(skb_peek(list)))) {
++		__skb_queue_head(list, skb);
++		return;
++	}
++
++	if (more(seqno, buf_seqno(skb_peek_tail(list)))) {
++		__skb_queue_tail(list, skb);
++		return;
++	}
++
++	skb_queue_walk_safe(list, _skb, tmp) {
++		if (more(seqno, buf_seqno(_skb)))
++			continue;
++		if (seqno == buf_seqno(_skb))
++			break;
++		__skb_queue_before(list, _skb, skb);
++		return;
++	}
++	kfree_skb(skb);
++}
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 5351a3f..9f0ef54 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -790,6 +790,8 @@ int tipc_msg_build(struct tipc_msg *mhdr, struct msghdr *m,
+ 		   int offset, int dsz, int mtu, struct sk_buff_head *list);
+ bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb, int *err);
+ struct sk_buff *tipc_msg_reassemble(struct sk_buff_head *list);
++void __tipc_skb_queue_sorted(struct sk_buff_head *list, u16 seqno,
++			     struct sk_buff *skb);
+ 
+ static inline u16 buf_seqno(struct sk_buff *skb)
+ {
+@@ -862,38 +864,6 @@ static inline struct sk_buff *tipc_skb_dequeue(struct sk_buff_head *list,
+ 	return skb;
  }
  
-+bool tipc_link_peer_is_down(struct tipc_link *l)
-+{
-+	return l->state == LINK_PEER_RESET;
-+}
-+
- bool tipc_link_is_reset(struct tipc_link *l)
- {
- 	return l->state & (LINK_RESET | LINK_FAILINGOVER | LINK_ESTABLISHING);
-@@ -584,8 +589,6 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr)
- 
- void tipc_link_reset(struct tipc_link *l)
- {
--	tipc_link_fsm_evt(l, LINK_RESET_EVT);
+-/* tipc_skb_queue_sorted(); sort pkt into list according to sequence number
+- * @list: list to be appended to
+- * @skb: buffer to add
+- * Returns true if queue should treated further, otherwise false
+- */
+-static inline bool __tipc_skb_queue_sorted(struct sk_buff_head *list,
+-					   struct sk_buff *skb)
+-{
+-	struct sk_buff *_skb, *tmp;
+-	struct tipc_msg *hdr = buf_msg(skb);
+-	u16 seqno = msg_seqno(hdr);
 -
- 	/* Link is down, accept any session */
- 	l->peer_session = WILDCARD_SESSION;
- 
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 5872f09..0201212 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -217,6 +217,7 @@ void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
- int tipc_link_fsm_evt(struct tipc_link *l, int evt);
- void tipc_link_reset_fragments(struct tipc_link *l_ptr);
- bool tipc_link_is_up(struct tipc_link *l);
-+bool tipc_link_peer_is_down(struct tipc_link *l);
- bool tipc_link_is_reset(struct tipc_link *l);
- bool tipc_link_is_establishing(struct tipc_link *l);
- bool tipc_link_is_synching(struct tipc_link *l);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index c1c9a99..2670751 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -41,7 +41,7 @@
- #include "socket.h"
- #include "bcast.h"
- #include "discover.h"
--#define pr_debug printk
-+
- /* Node FSM states and events:
-  */
- enum {
-@@ -420,6 +420,10 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- 	}
- 
- 	if (!tipc_node_is_up(n)) {
-+		if (tipc_link_peer_is_down(l))
-+			tipc_node_fsm_evt(n, PEER_LOST_CONTACT_EVT);
-+		tipc_node_fsm_evt(n, SELF_LOST_CONTACT_EVT);
-+		tipc_link_fsm_evt(l, LINK_RESET_EVT);
- 		tipc_link_reset(l);
- 		tipc_link_build_reset_msg(l, xmitq);
- 		*maddr = &n->links[*bearer_id].maddr;
-@@ -434,6 +438,7 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- 	n->sync_point = tnl->rcv_nxt + (U16_MAX / 2 - 1);
- 	tipc_link_tnl_prepare(l, tnl, FAILOVER_MSG, xmitq);
- 	tipc_link_reset(l);
-+	tipc_link_fsm_evt(l, LINK_RESET_EVT);
- 	tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
- 	tipc_node_fsm_evt(n, NODE_FAILOVER_BEGIN_EVT);
- 	*maddr = &n->links[tnl->bearer_id].maddr;
-@@ -581,6 +586,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 			goto exit;
- 		}
- 		tipc_link_reset(l);
-+		tipc_link_fsm_evt(l, LINK_RESET_EVT);
- 		if (n->state == NODE_FAILINGOVER)
- 			tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
- 		le->link = l;
-@@ -863,9 +869,6 @@ static void node_lost_contact(struct tipc_node *n_ptr,
- 			tipc_link_fsm_evt(l, LINK_FAILOVER_END_EVT);
- 	}
- 
--	/* Prevent re-contact with node until cleanup is done */
--	tipc_node_fsm_evt(n_ptr, SELF_LOST_CONTACT_EVT);
+-	if (skb_queue_empty(list) || (msg_user(hdr) == LINK_PROTOCOL)) {
+-		__skb_queue_head(list, skb);
+-		return true;
+-	}
+-	if (likely(less(seqno, buf_seqno(skb_peek(list))))) {
+-		__skb_queue_head(list, skb);
+-		return true;
+-	}
+-	if (!more(seqno, buf_seqno(skb_peek_tail(list)))) {
+-		skb_queue_walk_safe(list, _skb, tmp) {
+-			if (likely(less(seqno, buf_seqno(_skb)))) {
+-				__skb_queue_before(list, _skb, skb);
+-				return true;
+-			}
+-		}
+-	}
+-	__skb_queue_tail(list, skb);
+-	return false;
+-}
 -
- 	/* Notify publications from this node */
- 	n_ptr->action_flags |= TIPC_NOTIFY_NODE_DOWN;
- 
+ /* tipc_skb_queue_splice_tail - append an skb list to lock protected list
+  * @list: the new list to append. Not lock protected
+  * @head: target list. Lock protected.
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
