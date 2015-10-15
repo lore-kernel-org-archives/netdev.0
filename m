@@ -1,82 +1,98 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2] ipconfig: send Client-identifier in DHCP requests
-Date: Thu, 15 Oct 2015 07:56:52 -0700
-Message-ID: <CAGVrzcaDXgpao7SjhRg3UE67gMSzD70vjQV2gXkF5=OZsxykfw@mail.gmail.com>
-References: <1444899276-21228-1-git-send-email-roy.qing.li@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v5 3/8] switchdev: allow caller to explicitly
+ request attr_set as deferred
+Date: Thu, 15 Oct 2015 08:21:22 -0700
+Message-ID: <561FC472.5030506@gmail.com>
+References: <1444844455-12508-1-git-send-email-jiri@resnulli.us> <1444844455-12508-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, linux@roeck-us.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	David.Laight@ACULAB.COM, stephen@networkplumber.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:35291 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980AbbJOO5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 10:57:32 -0400
-Received: by igbkq10 with SMTP id kq10so137519932igb.0
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 07:57:32 -0700 (PDT)
-In-Reply-To: <1444899276-21228-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35516 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338AbbJOPVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:21:41 -0400
+Received: by pabur7 with SMTP id ur7so8310087pab.2
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:21:41 -0700 (PDT)
+In-Reply-To: <1444844455-12508-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-10-15 1:54 GMT-07:00  <roy.qing.li@gmail.com>:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> A dhcp server may provide parameters to a client from a pool of IP
-> addresses and using a shared rootfs, or provide a specific set of
-> parameters for a specific client, usually using the MAC address to
-> identify each client individually. The dhcp protocol also specifies
-> a client-id field which can be used to determine the correct
-> parameters to supply when no MAC address is available. There is
-> currently no way to tell the kernel to supply a specific client-id,
-> only the userspace dhcp clients support this feature, but this can
-> not be used when the network is needed before userspace is available
-> such as when the root filesystem is on NFS.
->
-> This patch is to be able to do something like "ip=dhcp,client_id_type,
-> client_id_value", as a kernel parameter to enable the kernel to
-> identify itself to the server.
->
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  Documentation/filesystems/nfs/nfsroot.txt |  3 +++
->  net/ipv4/ipconfig.c                       | 32 ++++++++++++++++++++++++++++++-
->  2 files changed, 34 insertions(+), 1 deletion(-)
->
-> diff --git a/Documentation/filesystems/nfs/nfsroot.txt b/Documentation/filesystems/nfs/nfsroot.txt
-> index 2d66ed6..bb5ab6d 100644
-> --- a/Documentation/filesystems/nfs/nfsroot.txt
-> +++ b/Documentation/filesystems/nfs/nfsroot.txt
-> @@ -157,6 +157,9 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:
->                   both:        use both BOOTP and RARP but not DHCP
->                                (old option kept for backwards compatibility)
->
-> +               if dhcp is used, the client identifier can be used by following
-> +               format "ip=dhcp,client-id-type,client-id-value"
-> +
->                  Default: any
->
->    <dns0-ip>    IP address of first nameserver.
-> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-> index ed4ef09..0bc7412 100644
-> --- a/net/ipv4/ipconfig.c
-> +++ b/net/ipv4/ipconfig.c
-> @@ -146,6 +146,10 @@ u8 root_server_path[256] = { 0, }; /* Path to mount as root */
->  /* vendor class identifier */
->  static char vendor_class_identifier[253] __initdata;
->
-> +#if defined(CONFIG_IP_PNP_DHCP)
-> +static char dhcp_client_identifier[253] __initdata;
-> +#endif
-> +
->  /* Persistent data: */
->
->  static int ic_proto_used;                      /* Protocol used, if any */
-> @@ -728,6 +732,16 @@ ic_dhcp_init_options(u8 *options)
->                         memcpy(e, vendor_class_identifier, len);
->                         e += len;
->                 }
-> +               len = strlen(dhcp_client_identifier + 1);
+On 15-10-14 10:40 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Caller should know if he can call attr_set directly (when holding RTNL)
+> or if he has to defer the att_set processing for later.
+> 
+> This also allows drivers to sleep inside attr_set and report operation
+> status back to switchdev core. Switchdev core then warns if status is
+> not ok, instead of silent errors happening in drivers.
+> 
+> Benefit from newly introduced switchdev deferred ops infrastructure.
+> 
 
-Did not you mean strlen(dhcp_client_identifer) + 1 instead?
--- 
-Florian
+A nit but the patch description should note your setting the defer bit
+on the bridge set state.
+
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/net/switchdev.h   |   1 +
+>  net/bridge/br_stp.c       |   3 +-
+>  net/switchdev/switchdev.c | 108 ++++++++++++++++++----------------------------
+>  3 files changed, 46 insertions(+), 66 deletions(-)
+> 
+> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> index d1c7f90..f7de6f8 100644
+> --- a/include/net/switchdev.h
+> +++ b/include/net/switchdev.h
+> @@ -17,6 +17,7 @@
+>  
+>  #define SWITCHDEV_F_NO_RECURSE		BIT(0)
+>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
+> +#define SWITCHDEV_F_DEFER		BIT(2)
+>  
+>  struct switchdev_trans_item {
+>  	struct list_head list;
+> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+> index db6d243de..80c34d7 100644
+> --- a/net/bridge/br_stp.c
+> +++ b/net/bridge/br_stp.c
+> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+>  {
+>  	struct switchdev_attr attr = {
+>  		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+> +		.flags = SWITCHDEV_F_DEFER,
+>  		.u.stp_state = state,
+>  	};
+
+
+This creates a possible race (with 6/8) I think, please check!
+
+In del_nbp() we call br_stp_disable_port() to set the port state
+to BR_STATE_DISABLE and disabling learning events. But with this
+patch it can be deferred. Also note the STP agent may be in userspace
+which actually seems more likely the case because you likely want to
+run some more modern variant of STP than the kernel supports.
+
+So at some point in the future the driver will turn off learning. At
+the same time we call br_fdb_delete_by_port which calls a deferred
+set of fdb deletes.
+
+I don't see how you guarantee learning is off before you start doing
+the deletes here and possibly learning new addresses after the software
+side believes the port is down.
+
+So
+
+   br_stp_disable_port
+                           br_fdb_delete_by_port
+                           {fdb_del_external_learn}
+   [hw learns a fdb]
+   [hw disables learning]
+
+What stops this from happening?
