@@ -1,68 +1,42 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 12/15] mlxsw: Introduce mlxsw_reg_spms_vid_pack helper and use it
-Date: Thu, 15 Oct 2015 17:43:26 +0200
-Message-ID: <1444923809-20785-13-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 07/15] mlxsw: core: Do not use EMADs in mlxsw_emad_fini
+Date: Thu, 15 Oct 2015 17:43:21 +0200
+Message-ID: <1444923809-20785-8-git-send-email-jiri@resnulli.us>
 References: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33103 "EHLO
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:33894 "EHLO
 	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753839AbbJOPnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:46 -0400
-Received: by lffv3 with SMTP id v3so33312025lff.0
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:45 -0700 (PDT)
+	with ESMTP id S1753761AbbJOPnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 11:43:41 -0400
+Received: by lfaz124 with SMTP id z124so33138718lfa.1
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 08:43:40 -0700 (PDT)
 In-Reply-To: <1444923809-20785-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce separate helper for packing SPMS VIDs, as it can be used for
-multiple VIDs and not only for one as previous SPMS pack function
-provided.
+Be symmetric with mlxsw_emad_init and don't use EMADs in mlxsw_emad_fini
+cleanup function. Use command interface instead.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h      | 8 ++++++--
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 3 ++-
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 6fca13a..7595cf1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -192,11 +192,15 @@ enum mlxsw_reg_spms_state {
-  */
- MLXSW_ITEM_BIT_ARRAY(reg, spms, state, 0x04, 0x400, 2);
- 
--static inline void mlxsw_reg_spms_pack(char *payload, u8 local_port, u16 vid,
--				       enum mlxsw_reg_spms_state state)
-+static inline void mlxsw_reg_spms_pack(char *payload, u8 local_port)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 28c19cc..cf7c9d2 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -556,6 +556,7 @@ static void mlxsw_emad_fini(struct mlxsw_core *mlxsw_core)
  {
- 	MLXSW_REG_ZERO(spms, payload);
- 	mlxsw_reg_spms_local_port_set(payload, local_port);
-+}
-+
-+static inline void mlxsw_reg_spms_vid_pack(char *payload, u16 vid,
-+					   enum mlxsw_reg_spms_state state)
-+{
- 	mlxsw_reg_spms_state_set(payload, vid, state);
- }
+ 	char hpkt_pl[MLXSW_REG_HPKT_LEN];
  
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 39a0074..0c0205c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -923,7 +923,8 @@ static int mlxsw_sx_port_stp_state_set(struct mlxsw_sx_port *mlxsw_sx_port,
- 	spms_pl = kmalloc(MLXSW_REG_SPMS_LEN, GFP_KERNEL);
- 	if (!spms_pl)
- 		return -ENOMEM;
--	mlxsw_reg_spms_pack(spms_pl, mlxsw_sx_port->local_port, vid, state);
-+	mlxsw_reg_spms_pack(spms_pl, mlxsw_sx_port->local_port);
-+	mlxsw_reg_spms_vid_pack(spms_pl, vid, state);
- 	err = mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(spms), spms_pl);
- 	kfree(spms_pl);
- 	return err;
++	mlxsw_core->emad.use_emad = false;
+ 	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
+ 			    MLXSW_REG_HTGT_TRAP_GROUP_EMAD,
+ 			    MLXSW_TRAP_ID_ETHEMAD);
 -- 
 1.9.3
