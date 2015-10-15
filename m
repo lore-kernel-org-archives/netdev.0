@@ -1,41 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] netfilter: ipset: Fix sleeping memory allocation in
- atomic context
-Date: Thu, 15 Oct 2015 11:46:58 -0700
-Message-ID: <1444934818.25595.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1444906569-9131-1-git-send-email-kernel@kyup.com>
-	 <1444915978.4200.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <561FAD24.4050708@kyup.com>
-	 <1444919523.4200.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.10.1510152015370.12052@blackhole.kfki.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Borisov <kernel@kyup.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	operations@siteground.com
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1510152015370.12052@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2] ip monitor neigh: Change 'delete' to 'Deleted' to be consistent with ip route
+Date: Thu, 15 Oct 2015 11:47:43 -0700
+Message-ID: <1444934863-12704-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33063 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752040AbbJOSrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 14:47:48 -0400
+Received: by pabrc13 with SMTP id rc13so95126637pab.0
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 11:47:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-15 at 20:25 +0200, Jozsef Kadlecsik wrote:
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> Nikolay answered this pretty well: we wouldn't need the spinlock at all, 
-> because all commands are serialized anyway with the netlink mutex. But the 
-> garbage collector is called by a timer and therefore spinlock is used.
-> 
+It helps to grep for one string "Deleted" when monitoring all events.
 
-Good, please Nikolay, send a v2 of the patch with all these details
-explained in the changelog, so that we can all agree.
+Fixes: 6ea3ebafe077 ("iproute2: inform user when a neighbor is removed")
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+I am not sure if it is too late for this change. But, sending this patch 
+out because it only affects ip monitor output
 
-If properly explained, no need to add the stack trace which does not
-really tell us the story.
+ ip/ipneigh.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks !
-
-
-
+diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+index a9e23f4..ce57ede 100644
+--- a/ip/ipneigh.c
++++ b/ip/ipneigh.c
+@@ -256,7 +256,7 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
+ 
+ 	if (n->nlmsg_type == RTM_DELNEIGH)
+-		fprintf(fp, "delete ");
++		fprintf(fp, "Deleted ");
+ 	else if (n->nlmsg_type == RTM_GETNEIGH)
+ 		fprintf(fp, "miss ");
+ 	if (tb[NDA_DST]) {
+-- 
+1.9.1
