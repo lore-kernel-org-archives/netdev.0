@@ -1,63 +1,72 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH 1/1] xen-netfront: update num_queues to real created
-Date: Thu, 15 Oct 2015 10:34:15 +0800
-Message-ID: <561F10A7.80305@oracle.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5] net: ipv6: Make address flushing on ifdown
+ optional
+Date: Wed, 14 Oct 2015 20:46:35 -0600
+Message-ID: <561F138B.8060007@cumulusnetworks.com>
+References: <20151013.184539.1401344867685512636.davem@davemloft.net>
+ <1444815241.2154853.409816321.48710CD1@webmail.messagingengine.com>
+ <561E7E57.2070001@cumulusnetworks.com>
+ <20151014.180659.1860914575436401565.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	stable@vger.kernel.org
-To: wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	hannes@redhat.com, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:27983 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754535AbbJOCeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:34:23 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33133 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754893AbbJOCqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:46:33 -0400
+Received: by pabrc13 with SMTP id rc13so72253137pab.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 19:46:33 -0700 (PDT)
+In-Reply-To: <20151014.180659.1860914575436401565.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sometimes xennet_create_queues() may failed to created all requested
-queues, we need to update num_queues to real created to avoid NULL
-pointer dereference.
+On 10/14/15 7:06 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Wed, 14 Oct 2015 10:09:59 -0600
+>
+>> This latest patch makes IPv6 static addresses on par with IPv4,
+>> including error paths.
+>
+> I don't agree with ipv4's behavior... and just because ipv4 does
+> something poorly doesn't mean we get a free pass to replicate that
+> lazyness in ipv6.
+>
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/xen-netfront.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+As I stated this patch makes IPv6 on par with IPv4 with regards to 
+saving the address and lack of error handling back to the user should a 
+failure happen on a link up. Yes, it is best to give the user 
+notification of a failure, but step back for a moment and look at the 
+bigger picture:
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index f821a97..d580aec 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1746,7 +1746,7 @@ static int xennet_create_queues(struct netfront_info *info,
- 		dev_err(&info->netdev->dev, "no queues\n");
- 		return -EINVAL;
- 	}
--	return 0;
-+	return num_queues;
- }
- 
- /* Common code used when first setting up, and when resuming. */
-@@ -1788,9 +1788,12 @@ static int talk_to_netback(struct xenbus_device *dev,
- 	if (info->queues)
- 		xennet_destroy_queues(info);
- 
--	err = xennet_create_queues(info, num_queues);
--	if (err < 0)
-+	/* Update queues number to real created */
-+	num_queues = xennet_create_queues(info, num_queues);
-+	if (num_queues < 0) {
-+		err = num_queues;
- 		goto destroy_ring;
-+	}
- 
- 	/* Create shared ring, alloc event channel -- for each queue */
- 	for (i = 0; i < num_queues; ++i) {
--- 
-1.7.1
+At best the address is saved and restored on a link up (the expected 
+outcome for 99.999999...% of the time). At worst the address is removed 
+because the prefix route fails a memory allocation and the user is not 
+notified. But that is exactly what happens today - the address is 
+dropped and the user has to restore it.
+
+As for the 1 failure path -- it's a GFP_ATOMIC memory allocation 
+failure. Frankly if that happens lack of an address on an interface is 
+the least of the user's problems.
+
+As for the options to fix this existing shortcoming:
+
+1. The existing call_netdevice_notifiers infra does not allow a notifier 
+to 'fail' the transaction and roll it back or even to give the user an 
+error message.
+
+2. Stashing the prefix route has its merits but it has to deal with 
+error paths as well. What if the address is deleted? What if the mask is 
+changed while the device is a down state? What if the device is deleted? 
+Sure, handle those cases but what other paths are missing from that list?
+
+Both paths introduce a lot of complexity all b/c we want to save the 
+address on a link and restore the route on a link up.
+
+Why not take this as a start point that at least does the right thing 
+almost every time?
+
+David
