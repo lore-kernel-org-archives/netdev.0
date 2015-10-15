@@ -1,38 +1,36 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] af_key: fix two typos
-Date: Thu, 15 Oct 2015 17:10:20 +0800
-Message-ID: <1444900220-25178-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [Question]: iproute2 extension for supporting lightweight
+ tunnel
+Date: Thu, 15 Oct 2015 11:23:49 +0200
+Message-ID: <20151015112349.44623b07@griffin>
+References: <7DDE0CBD3BECA4418AF34146552BC32B08C3E1B9@SHSMSX104.ccr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Liu, Mengke" <mengke.liu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58445 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbbJOJKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 05:10:22 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.134])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id t9F9ALEW027458
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 02:10:21 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:41616 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259AbbJOJXw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 05:23:52 -0400
+In-Reply-To: <7DDE0CBD3BECA4418AF34146552BC32B08C3E1B9@SHSMSX104.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roy Li <rongqing.li@windriver.com>
+On Thu, 15 Oct 2015 06:26:30 +0000, Liu, Mengke wrote:
+> I am trying to use the "lightweight tunnels" after building the Linux
+> kernel from source with "Lightweight & flow based encapsulation"
+> support. Can you tell me how to get iproute2 extension for supporting
+> the following =C2=A0command in commit log(commit ID
+> e69724f32e62502a6e686eae36b7aadfeea60dca)
+>        "ip route add 40.1.1.1/32 encap vxlan id 10 dst 50.1.1.2 dev
+> vxlan0"=20
 
-Signed-off-by: Roy Li <rongqing.li@windriver.com>
----
- net/key/af_key.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This is not yet merged. AFAIK Thomas is going to post a patchset to add
+this to iproute in a few days.
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 9e834ec..09a3985 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -261,7 +261,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
- 
- 		err2 = pfkey_broadcast_one(skb, &skb2, allocation, sk);
- 
--		/* Error is cleare after succecful sending to at least one
-+		/* Error is cleared after successful sending to at least one
- 		 * registered KM */
- 		if ((broadcast_flags & BROADCAST_REGISTERED) && err)
- 			err = err2;
--- 
-2.1.4
+ Jiri
+
+--=20
+Jiri Benc
