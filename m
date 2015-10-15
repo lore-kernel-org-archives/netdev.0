@@ -1,162 +1,145 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: Re: [PATCH v2] netfilter: ipset: Fix sleeping memory allocation in
- atomic context
-Date: Thu, 15 Oct 2015 17:49:37 +0300
-Message-ID: <561FBD01.8020906@kyup.com>
-References: <1444906569-9131-1-git-send-email-kernel@kyup.com>
- <1444915978.4200.4.camel@edumazet-glaptop2.roam.corp.google.com>
- <561FAD24.4050708@kyup.com>
- <1444919523.4200.16.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kadlec@blackhole.kfki.hu, pablo@netfilter.org, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	operations@siteground.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1444919523.4200.16.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Morse <james.morse@arm.com>
+Subject: [PATCH 2/2] openvswitch: Allocate memory for ovs internal device stats.
+Date: Thu, 15 Oct 2015 15:54:15 +0100
+Message-ID: <1444920855-16409-1-git-send-email-james.morse@arm.com>
+References: <1443822994-1928-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
+	James Morse <james.morse@arm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:36373 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752076AbbJOOzA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 10:55:00 -0400
+In-Reply-To: <1443822994-1928-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+"openvswitch: Remove vport stats" removed the per-vport statistics, in
+order to use the netdev's statistics fields.
+"openvswitch: Fix ovs_vport_get_stats()" fixed the export of these stats
+to user-space, by using the provided netdev_ops to collate them - but ovs
+internal devices still use an unallocated dev->tstats field to count
+packets, which are not exported by this api.
+
+Allocate the dev->tstats field for ovs internal devices, and wire up
+ndo_get_stats64 with the original implementation of
+ovs_vport_get_stats().
+
+On its own, "openvswitch: Fix ovs_vport_get_stats()" fixes the OOPs,
+unmasking a full-on panic on arm64:
+=============%<==============
+[<ffffffbffc00ce4c>] internal_dev_recv+0xa8/0x170 [openvswitch]
+[<ffffffbffc0008b4>] do_output.isra.31+0x60/0x19c [openvswitch]
+[<ffffffbffc000bf8>] do_execute_actions+0x208/0x11c0 [openvswitch]
+[<ffffffbffc001c78>] ovs_execute_actions+0xc8/0x238 [openvswitch]
+[<ffffffbffc003dfc>] ovs_packet_cmd_execute+0x21c/0x288 [openvswitch]
+[<ffffffc0005e8c5c>] genl_family_rcv_msg+0x1b0/0x310
+[<ffffffc0005e8e60>] genl_rcv_msg+0xa4/0xe4
+[<ffffffc0005e7ddc>] netlink_rcv_skb+0xb0/0xdc
+[<ffffffc0005e8a94>] genl_rcv+0x38/0x50
+[<ffffffc0005e76c0>] netlink_unicast+0x164/0x210
+[<ffffffc0005e7b70>] netlink_sendmsg+0x304/0x368
+[<ffffffc0005a21c0>] sock_sendmsg+0x30/0x4c
+[SNIP]
+Kernel panic - not syncing: Fatal exception in interrupt
+=============%<==============
+
+Signed-off-by: James Morse <james.morse@arm.com>
+Fixes: 8c876639c985 ("openvswitch: Remove vport stats.")
+---
+Hi netdev,
+
+"openvswitch: Fix ovs_vport_get_stats()"  - already applied according to
+[0] (where?), is an incomplete fix for the issue in "openvswitch: Remove
+vport stats.". Use of an unallocated dev->tstats remains for ovs internal
+devices, which causes a panic on arm64. Could this patch and "openvswitch:
+Fix ovs_vport_get_stats()" be considered as fixes for v4.3?
+
+Thanks!
+
+James Morse
 
 
+[0] https://patchwork.ozlabs.org/patch/525827/
 
-On 10/15/2015 05:32 PM, Eric Dumazet wrote:
-> On Thu, 2015-10-15 at 16:41 +0300, Nikolay Borisov wrote:
->>
->> On 10/15/2015 04:32 PM, Eric Dumazet wrote:
->>> On Thu, 2015-10-15 at 13:56 +0300, Nikolay Borisov wrote:
->>>> Commit 00590fdd5be0 introduced RCU locking in list type and in
->>>> doing so introduced a memory allocation in list_set_add, which
->>>> results in the following splat:
->>>>
->>>> BUG: sleeping function called from invalid context at mm/page_alloc.c:2759
->>>> in_atomic(): 1, irqs_disabled(): 0, pid: 9664, name: ipset
->>>> CPU: 18 PID: 9664 Comm: ipset Tainted: G           O 3.12.47-clouder3 #1
->>>> Hardware name: Supermicro X10DRi/X10DRi, BIOS 1.1 04/14/2015
->>>>  0000000000000002 ffff881fd14273c8 ffffffff8163d891 ffff881fcb4264b0
->>>>  ffff881fcb4260c0 ffff881fd14273e8 ffffffff810ba5bf ffff881fd1427558
->>>>  0000000000000000 ffff881fd1427568 ffffffff81142b33 ffff881f00000000
->>>> Call Trace:
->>>>  [<ffffffff8163d891>] dump_stack+0x58/0x7f
->>>>  [<ffffffff810ba5bf>] __might_sleep+0xdf/0x110
->>>>  [<ffffffff81142b33>] __alloc_pages_nodemask+0x243/0xc20
->>>>  [<ffffffff81181c6e>] alloc_pages_current+0xbe/0x170
->>>>  [<ffffffff81188315>] new_slab+0x295/0x340
->>>>  [<ffffffff81189a40>] __slab_alloc+0x2c0/0x5a0
->>>>  [<ffffffff8164000c>] ? __schedule+0x2dc/0x760
->>>>  [<ffffffff8118a71b>] __kmalloc+0x11b/0x230
->>>>  [<ffffffffa02bd0ac>] ? ip_set_get_byname+0xec/0x100 [ip_set]
->>>>  [<ffffffffa02d23fb>] list_set_uadd+0x16b/0x314 [ip_set_list_set]
->>>>  [<ffffffff81642148>] ? _raw_write_unlock_bh+0x28/0x30
->>>>  [<ffffffffa02d1cfc>] list_set_uadt+0x21c/0x320 [ip_set_list_set]
->>>>  [<ffffffffa02d2290>] ? list_set_create+0x1a0/0x1a0 [ip_set_list_set]
->>>>  [<ffffffffa02be242>] call_ad+0x82/0x200 [ip_set]
->>>>  [<ffffffffa02bb171>] ? find_set_type+0x51/0xa0 [ip_set]
->>>>  [<ffffffff8133f275>] ? nla_parse+0xf5/0x130
->>>>  [<ffffffffa02be8ae>] ip_set_uadd+0x20e/0x2d0 [ip_set]
->>>>  [<ffffffffa02be013>] ? ip_set_create+0x2a3/0x450 [ip_set]
->>>>  [<ffffffffa02be6a0>] ? ip_set_udel+0x2e0/0x2e0 [ip_set]
->>>>  [<ffffffff815b316e>] nfnetlink_rcv_msg+0x31e/0x330
->>>>  [<ffffffff815b2e91>] ? nfnetlink_rcv_msg+0x41/0x330
->>>>  [<ffffffff815b2e50>] ? nfnl_lock+0x30/0x30
->>>>  [<ffffffff815ae179>] netlink_rcv_skb+0xa9/0xd0
->>>>  [<ffffffff815b2d45>] nfnetlink_rcv+0x15/0x20
->>>>  [<ffffffff815ade5f>] netlink_unicast+0x10f/0x190
->>>>  [<ffffffff815aedb0>] netlink_sendmsg+0x2c0/0x660
->>>>  [<ffffffff81567f00>] sock_sendmsg+0x90/0xc0
->>>>  [<ffffffff81565b03>] ? move_addr_to_user+0xa3/0xc0
->>>>  [<ffffffff81568552>] ? ___sys_recvmsg+0x182/0x300
->>>>  [<ffffffff81568064>] SYSC_sendto+0x134/0x180
->>>>  [<ffffffff811c4e01>] ? mntput+0x21/0x30
->>>>  [<ffffffff81572d2f>] ? __kfree_skb+0x3f/0xa0
->>>>  [<ffffffff815680be>] SyS_sendto+0xe/0x10
->>>>  [<ffffffff816434b2>] system_call_fastpath+0x16/0x1b
->>>>
->>>> The call chain leading to this is as follow:
->>>> call_ad -> list_set_uadt -> list_set_uadd -> kzalloc(, GFP_KERNEL).
->>>> And since GFP_KERNEL allows initiating direct reclaim thus
->>>> potentially sleeping in the allocation path, this leads to the
->>>> aforementioned splat.
->>>>
->>>> To fix it change the allocation type to GFP_ATOMIC, to
->>>> correctly reflect that it is occuring in an atomic context.
->>>>
->>>> Fixes: 00590fdd5be0 ("netfilter: ipset: Introduce RCU locking in list type")
->>>>
->>>> Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
->>>> Signed-off-by: Nikolay Borisov <kernel@kyup.com>
->>>> ---
->>>>
->>>> Changes since V1: 
->>>>  * Added acked-by 
->>>>  * Fixed patch header 
->>>>
->>>>  net/netfilter/ipset/ip_set_list_set.c | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
->>>> index a1fe537..5a30ce6 100644
->>>> --- a/net/netfilter/ipset/ip_set_list_set.c
->>>> +++ b/net/netfilter/ipset/ip_set_list_set.c
->>>> @@ -297,7 +297,7 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
->>>>  	      ip_set_timeout_expired(ext_timeout(n, set))))
->>>>  		n =  NULL;
->>>>  
->>>> -	e = kzalloc(set->dsize, GFP_KERNEL);
->>>> +	e = kzalloc(set->dsize, GFP_ATOMIC);
->>>>  	if (!e)
->>>>  		return -ENOMEM;
->>>>  	e->id = d->id;
->>>
->>> This patch looks very bogus to me.
->>>
->>> Could we fix the root cause please ?
->>>
->>> Root cause is that somewhere in this controlling path, an erroneous
->>> rcu_read_lock() is used, while it is very probably not needed, as
->>> controlling path should be protected by a mutex, which definitely is
->>> sane, because it allows us to perform GFP_KERNEL allocations and being
->>> preempted.
->>>
->>> Why are we using rcu_read_lock() in list_set_list() ?
->>>
->>> This looks as yet another bit of 'let us throw
->>> rcu_read_lock()/rcu_read_unlock() pairs' all over the places because it
->>> feels so good.
->>
->> I did check the call paths and there isn't an rcu_read_lock called in
->> list_set_uadt/list_set_uadd. On the contrary, this "write" operation to
->> the list is being serialised in call_ad() via set->lock spin_lock.
->>
->> What am I missing here?
-> 
-> I was not complaining to you, but to Jozsef ;)
-> 
-> Looking at commit 00590fdd5be0d7 terse changelog, we have to look at
-> whole commit, and find suspicious rcu_read_lock()
-> 
-> Apparently, before this commit, allocations were safe, in process
-> context (and using GFP_KERNEL), but after the commit, we have the
-> unfortunate side effect of having potential burst of allocations
-> done from bh context, using the special reserves dedicated to GFP_ATOMIC
-> true users (processing packets from softirq handlers)
+ net/openvswitch/vport-internal_dev.c | 43 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 42 insertions(+), 1 deletion(-)
 
-I guess the reason why a spinlock is used is due to the gc code which is
-responsible for reaping entries whose timeout has elapsed. All of this
-is happening in set_cleanup_entries. Given the state of things I don't
-think using a mutex is a feasible solution unless the gc mechanism is
-reworked.
-
-> 
-> I hate when we add more GFP_ATOMIC allocations all over the places,
-> as this increases the risk of depleting memory reserves.
-> 
-> Can the spinlock be converted to a mutex ? If not, then instead of
-> putting a stack trace in your changelog, a good explanation would be
-> more useful.
-> 
-> Thanks !
-> 
-> 
-> 
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 388b8a6bf112..758e53cb7a81 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -106,12 +106,48 @@ static void internal_dev_destructor(struct net_device *dev)
+ 	free_netdev(dev);
+ }
+ 
++static struct rtnl_link_stats64 *
++internal_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
++{
++	int i;
++
++	memset(stats, 0, sizeof(*stats));
++	stats->rx_errors  = dev->stats.rx_errors;
++	stats->tx_errors  = dev->stats.tx_errors;
++	stats->tx_dropped = dev->stats.tx_dropped;
++	stats->rx_dropped = dev->stats.rx_dropped;
++
++	stats->rx_dropped += atomic_long_read(&dev->rx_dropped);
++	stats->tx_dropped += atomic_long_read(&dev->tx_dropped);
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_sw_netstats *percpu_stats;
++		struct pcpu_sw_netstats local_stats;
++		unsigned int start;
++
++		percpu_stats = per_cpu_ptr(dev->tstats, i);
++
++		do {
++			start = u64_stats_fetch_begin_irq(&percpu_stats->syncp);
++			local_stats = *percpu_stats;
++		} while (u64_stats_fetch_retry_irq(&percpu_stats->syncp, start));
++
++		stats->rx_bytes         += local_stats.rx_bytes;
++		stats->rx_packets       += local_stats.rx_packets;
++		stats->tx_bytes         += local_stats.tx_bytes;
++		stats->tx_packets       += local_stats.tx_packets;
++	}
++
++	return stats;
++}
++
+ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_open = internal_dev_open,
+ 	.ndo_stop = internal_dev_stop,
+ 	.ndo_start_xmit = internal_dev_xmit,
+ 	.ndo_set_mac_address = eth_mac_addr,
+ 	.ndo_change_mtu = internal_dev_change_mtu,
++	.ndo_get_stats64 = internal_get_stats,
+ };
+ 
+ static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
+@@ -161,6 +197,11 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
+ 		err = -ENOMEM;
+ 		goto error_free_vport;
+ 	}
++	vport->dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
++	if (!vport->dev->tstats) {
++		err = -ENOMEM;
++		goto error_free_vport;
++	}
+ 
+ 	dev_net_set(vport->dev, ovs_dp_get_net(vport->dp));
+ 	internal_dev = internal_dev_priv(vport->dev);
+@@ -198,7 +239,7 @@ static void internal_dev_destroy(struct vport *vport)
+ 
+ 	/* unregister_netdevice() waits for an RCU grace period. */
+ 	unregister_netdevice(vport->dev);
+-
++	free_percpu(vport->dev->tstats);
+ 	rtnl_unlock();
+ }
+ 
+-- 
+2.1.4
