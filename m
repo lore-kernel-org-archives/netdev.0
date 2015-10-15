@@ -1,67 +1,77 @@
 From: Thomas F Herbert <thomasfherbert@gmail.com>
-Subject: [PATCH net-next V16 1/3] openvswitch: 802.1ad uapi changes.
-Date: Thu, 15 Oct 2015 10:01:53 -0400
-Message-ID: <1444917715-27093-2-git-send-email-thomasfherbert@gmail.com>
-References: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
+Subject: [PATCH net-next V16 0/3] openvswitch: Add support for 802.1ad
+Date: Thu, 15 Oct 2015 10:01:52 -0400
+Message-ID: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
 Cc: therbert@redhat.com, dev@openvswitch.org,
 	Thomas F Herbert <thomasfherbert@gmail.com>
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:34893 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbbJOOCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 10:02:21 -0400
-Received: by qgt47 with SMTP id 47so71402981qgt.2
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 07:02:20 -0700 (PDT)
-In-Reply-To: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:34113 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751086AbbJOOCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 10:02:11 -0400
+Received: by qgez77 with SMTP id z77so71694243qge.1
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 07:02:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-openvswitch: Add support for 8021.AD
+ This patch accompanies version 14 of the user level openvswitch patch
+ submitted to openvswitch dev list.
 
-Change the description of the VLAN tpid field.
+ V16,15: Implement reviewer comments.
 
-Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
----
- include/uapi/linux/openvswitch.h | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ V14: Add outer tpid to flow_key
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 32e07d8..b0c959c 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -585,13 +585,13 @@ struct ovs_action_push_mpls {
-  * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
-  * (but it will not be set in the 802.1Q header that is pushed).
-  *
-- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
-- * values are those that the kernel module also parses as 802.1Q headers, to
-- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
-- * from having surprising results.
-+ * The @vlan_tpid value is typically %ETH_P_8021Q or %ETH_P_8021AD.
-+ * The only acceptable TPID values are those that the kernel module also parses
-+ * as 802.1Q or 802.1AD headers, to prevent %OVS_ACTION_ATTR_PUSH_VLAN followed
-+ * by %OVS_ACTION_ATTR_POP_VLAN from having surprising results.
-  */
- struct ovs_action_push_vlan {
--	__be16 vlan_tpid;	/* 802.1Q TPID. */
-+	__be16 vlan_tpid;	/* 802.1Q or 802.1ad TPID. */
- 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
- };
- 
-@@ -664,9 +664,10 @@ enum ovs_ct_attr {
-  * is copied from the value to the packet header field, rest of the bits are
-  * left unchanged.  The non-masked value bits must be passed in as zeroes.
-  * Masking is not supported for the %OVS_KEY_ATTR_TUNNEL attribute.
-- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
-- * packet.
-- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
-+ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q or 802.1ad header
-+ * onto the packet.
-+ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q or 802.1ad header
-+ * from the packet.
-  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
-  * the nested %OVS_SAMPLE_ATTR_* attributes.
-  * @OVS_ACTION_ATTR_PUSH_MPLS: Push a new MPLS label stack entry onto the
+ V13: Fix incorrect encoding and decoding of netlink to/from key
+ attributes.
+
+ V12: Fix some problems and issues pointed out by reviewers. When parsing
+ netlink attributes Ether types other then 0x88a8 as outer tpid.
+
+ V11: Add inner tpid to flow key. Fix separate inner encap attribute
+ when parsing netlink attributes. Merge 2 patches to consolidate
+ qinq changes.
+
+ V10: Implement reviewer comments: Consolidate vlan parsing functions.
+ Splits netlink parsing and flow conversion into a separate patch. Uses
+ double encap attribute encapsulation for 802.1ad.  Netlink attributes
+ now look like this:
+
+  eth_type(0x88a8),vlan(vid=100),encap(eth_type(0x8100), vlan(vid=200),
+                       encap(eth_type(0x0800), ...))
+
+The double encap atributes in this version of the patch is incompatible with
+old versions of the user level 802.1ad patch. A new user level patch which
+is also being submitted simultaneously to openvswitch dev mailing list.
+
+V9:  Includes changes suggested by reviewers
+
+V8:  Includes changes suggested by reviewers
+
+V7:  Includes changes suggested by reviewers
+
+V6:  Rebased to net-next
+
+V5:  Use encapsulated attributes
+
+
+For discussion, history  and previous versions of the kernel module
+patch and the user code patch see the OVS dev mailing list,
+openvswitch.org/pipermail/dev/..
+
+Thomas F Herbert (3):
+  openvswitch: 802.1ad uapi changes.
+  Check for vlan ethernet types for 8021.q or 802.1ad
+  802.1AD: Flow handling, actions, vlan parsing and netlink attributes
+
+ include/linux/if_vlan.h          |  16 ++++
+ include/uapi/linux/openvswitch.h |  17 ++--
+ net/openvswitch/actions.c        |   6 +-
+ net/openvswitch/flow.c           |  75 +++++++++++++----
+ net/openvswitch/flow.h           |   8 +-
+ net/openvswitch/flow_netlink.c   | 169 +++++++++++++++++++++++++++++++++++----
+ net/openvswitch/vport-netdev.c   |   4 +-
+ 7 files changed, 253 insertions(+), 42 deletions(-)
+
 -- 
 2.4.3
