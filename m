@@ -1,68 +1,175 @@
-From: <jonathan.chang-QMLhiDbVPGenedCIQ9mT8A@public.gmane.org>
-Subject: [PATCH] net: asix: add support for the Billionton GUSB2AM-1G-B USB adapter
-Date: Thu, 15 Oct 2015 18:51:38 +0800
-Message-ID: <1444906298-23105-1-git-send-email-jonathan.chang@delta.com.tw>
+From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Thu, 15 Oct 2015 11:44:20 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp>
+References: <17EC94B0A072C34B8DCF0D30AD16044A02877D53@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-2"
-Content-Transfer-Encoding: base64
-Cc: Jonathan Chang <jonathan.chang-QMLhiDbVPGenedCIQ9mT8A@public.gmane.org>,
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Luca Ceresoli <luca-ep08DiM7hqZH3+C6az13tg@public.gmane.org>,
-	Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	"Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org" <Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-	Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
-	Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Charles Keepax <ckeepax-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02877D53-9lrffkYxhwTt6d3pZDjeaEtBU8KWyXPq@public.gmane.org>
+Content-Language: ja-JP
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSm9uYXRoYW4gQ2hhbmcgPGpvbmF0aGFuLmNoYW5nQGRlbHRhLmNvbS50dz4NCg0KSnVz
-dCBhbm90aGVyIEFYODgxNzgtYmFzZWQgMTAvMTAwLzEwMDAgVVNCLXRvLUV0aGVybmV0IGRvbmds
-ZS4gVGhpcyBvbmUNCnNob3dzIHVwIGluIGxzdXNiIGFzOiAiSUQgMDhkZDowMTE0IEJpbGxpb250
-b24gU3lzdGVtcywgSW5jIi4NCg0KU2lnbmVkLW9mZi1ieTogSm9uYXRoYW4gQ2hhbmcgPGpvbmF0
-aGFuLmNoYW5nQGRlbHRhLmNvbS50dz4NCkNjOiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldD4NCkNjOiBMdWNhIENlcmVzb2xpIDxsdWNhQGx1Y2FjZXJlc29saS5uZXQ+DQpD
-YzogQ2hyaXN0b3BoIEphZWdlciA8Y2pAbGludXguY29tPg0KQ2M6ICJXb29qdW5nLkh1aEBtaWNy
-b2NoaXAuY29tIiA8V29vanVuZy5IdWhAbWljcm9jaGlwLmNvbT4NCkNjOiBNYXR0aGV3IEdhcnJl
-dHQgPG1qZzU5QHNyY2YudWNhbS5vcmc+DQpDYzogTWFya3VzIEVsZnJpbmcgPGVsZnJpbmdAdXNl
-cnMuc291cmNlZm9yZ2UubmV0Pg0KQ2M6IENoYXJsZXMgS2VlcGF4IDxja2VlcGF4QG9wZW5zb3Vy
-Y2Uud29sZnNvbm1pY3JvLmNvbT4NCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpDYzogbGlu
-dXgtdXNiQHZnZXIua2VybmVsLm9yZw0KLS0tDQogZHJpdmVycy9uZXQvdXNiL0tjb25maWcgICAg
-ICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jIHwgICAgNCArKysr
-DQogMiBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKykNCg0KZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L3VzYi9LY29uZmlnIGIvZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCmluZGV4IGZiYjkz
-MjUuLmU2NjgwNWUgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0KKysrIGIv
-ZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCkBAIC0xNjQsNiArMTY0LDcgQEAgY29uZmlnIFVTQl9O
-RVRfQVg4ODE3WA0KIAkgICAgKiBBdGVuIFVDMjEwVA0KIAkgICAgKiBBU0lYIEFYODgxNzINCiAJ
-ICAgICogQmlsbGlvbnRvbiBTeXN0ZW1zLCBVU0IyQVINCisJICAgICogQmlsbGlvbnRvbiBTeXN0
-ZW1zLCBHVVNCMkFNLTFHLUINCiAJICAgICogQnVmZmFsbyBMVUEtVTItS1RYDQogCSAgICAqIENv
-cmVnYSBGRXRoZXIgVVNCMi1UWA0KIAkgICAgKiBELUxpbmsgRFVCLUUxMDANCmRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeF9k
-ZXZpY2VzLmMNCmluZGV4IDExNzNhMjQuLjVjYWJlZmMgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25l
-dC91c2IvYXNpeF9kZXZpY2VzLmMNCisrKyBiL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMu
-Yw0KQEAgLTk1OSw2ICs5NTksMTAgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lk
-CXByb2R1Y3RzIFtdID0gew0KIAlVU0JfREVWSUNFICgweDA4ZGQsIDB4OTBmZiksDQogCS5kcml2
-ZXJfaW5mbyA9ICAodW5zaWduZWQgbG9uZykgJmF4ODgxN3hfaW5mbywNCiB9LCB7DQorCS8vIEJp
-bGxpb250b24gU3lzdGVtcywgR1VTQjJBTS0xRy1CDQorCVVTQl9ERVZJQ0UoMHgwOGRkLCAweDAx
-MTQpLA0KKwkuZHJpdmVyX2luZm8gPSAgKHVuc2lnbmVkIGxvbmcpICZheDg4MTc4X2luZm8sDQor
-fSwgew0KIAkvLyBBVEVOIFVDMjEwVA0KIAlVU0JfREVWSUNFICgweDA1NTcsIDB4MjAwOSksDQog
-CS5kcml2ZXJfaW5mbyA9ICAodW5zaWduZWQgbG9uZykgJmF4ODgxN3hfaW5mbywNCi0tIA0KMS43
-LjEwLjQNCg0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKg0KVGhpcyBlbWFpbCBtZXNzYWdlLCBpbmNsdWRpbmcg
-YW55IGF0dGFjaG1lbnRzLCBpcyBmb3IgdGhlIHNvbGUNCnVzZSBvZiB0aGUgaW50ZW5kZWQgcmVj
-aXBpZW50KHMpIGFuZCBtYXkgY29udGFpbiBjb25maWRlbnRpYWwgYW5kDQpwcml2aWxlZ2VkIGlu
-Zm9ybWF0aW9uLiBBbnkgdW5hdXRob3JpemVkIHJldmlldywgdXNlLCBkaXNjbG9zdXJlIG9yDQpk
-aXN0cmlidXRpb24gaXMgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJl
-Y2lwaWVudCwgcGxlYXNlDQpjb250YWN0IHRoZSBzZW5kZXIgYnkgcmVwbHkgZS1tYWlsIGFuZCBk
-ZXN0cm95IGFsbCBjb3BpZXMgb2YgdGhlIG9yaWdpbmFsDQptZXNzYWdlLiBbRGVsdGEgRWxlY3Ry
-b25pY3MsIElOQy4gVGFpd2FuXQ0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg==
+Tatsukawa Kosuke wrote:
+> J. Bruce Fields wrote:
+>> On Wed, Oct 14, 2015 at 03:57:13AM +0000, Kosuke Tatsukawa wrote:
+>>> J. Bruce Fields wrote:
+>>> > On Mon, Oct 12, 2015 at 10:41:06AM +0000, Kosuke Tatsukawa wrote:
+>>> >> J. Bruce Fields wrote:
+>>> >> > On Fri, Oct 09, 2015 at 06:29:44AM +0000, Kosuke Tatsukawa wrote:
+>>> >> >> Neil Brown wrote:
+>>> >> >> > Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org> writes:
+>>> >> >> > 
+>>> >> >> >> There are several places in net/sunrpc/svcsock.c which calls
+>>> >> >> >> waitqueue_active() without calling a memory barrier.  Add a memory
+>>> >> >> >> barrier just as in wq_has_sleeper().
+>>> >> >> >>
+>>> >> >> >> I found this issue when I was looking through the linux source code
+>>> >> >> >> for places calling waitqueue_active() before wake_up*(), but without
+>>> >> >> >> preceding memory barriers, after sending a patch to fix a similar
+>>> >> >> >> issue in drivers/tty/n_tty.c  (Details about the original issue can be
+>>> >> >> >> found here: https://lkml.org/lkml/2015/9/28/849).
+>>> >> >> > 
+>>> >> >> > hi,
+>>> >> >> > this feels like the wrong approach to the problem.  It requires extra
+>>> >> >> > 'smb_mb's to be spread around which are hard to understand as easy to
+>>> >> >> > forget.
+>>> >> >> > 
+>>> >> >> > A quick look seems to suggest that (nearly) every waitqueue_active()
+>>> >> >> > will need an smb_mb.  Could we just put the smb_mb() inside
+>>> >> >> > waitqueue_active()??
+>>> >> >> <snip>
+>>> >> >> 
+>>> >> >> There are around 200 occurrences of waitqueue_active() in the kernel
+>>> >> >> source, and most of the places which use it before wake_up are either
+>>> >> >> protected by some spin lock, or already has a memory barrier or some
+>>> >> >> kind of atomic operation before it.
+>>> >> >> 
+>>> >> >> Simply adding smp_mb() to waitqueue_active() would incur extra cost in
+>>> >> >> many cases and won't be a good idea.
+>>> >> >> 
+>>> >> >> Another way to solve this problem is to remove the waitqueue_active(),
+>>> >> >> making the code look like this;
+>>> >> >> 	if (wq)
+>>> >> >> 		wake_up_interruptible(wq);
+>>> >> >> This also fixes the problem because the spinlock in the wake_up*() acts
+>>> >> >> as a memory barrier and prevents the code from being reordered by the
+>>> >> >> CPU (and it also makes the resulting code is much simpler).
+>>> >> > 
+>>> >> > I might not care which we did, except I don't have the means to test
+>>> >> > this quickly, and I guess this is some of our most frequently called
+>>> >> > code.
+>>> >> > 
+>>> >> > I suppose your patch is the most conservative approach, as the
+>>> >> > alternative is a spinlock/unlock in wake_up_interruptible, which I
+>>> >> > assume is necessarily more expensive than an smp_mb().
+>>> >> > 
+>>> >> > As far as I can tell it's been this way since forever.  (Well, since a
+>>> >> > 2002 patch "NFSD: TCP: rationalise locking in RPC server routines" which
+>>> >> > removed some spinlocks from the data_ready routines.)
+>>> >> > 
+>>> >> > I don't understand what the actual race is yet (which code exactly is
+>>> >> > missing the wakeup in this case?  nfsd threads seem to instead get
+>>> >> > woken up by the wake_up_process() in svc_xprt_do_enqueue().)
+>>> >> 
+>>> >> Thank you for the reply.  I tried looking into this.
+>>> >> 
+>>> >> The callbacks in net/sunrpc/svcsock.c are set up in svc_tcp_init() and
+>>> >> svc_udp_init(), which are both called from svc_setup_socket().
+>>> >> svc_setup_socket() is called (indirectly) from lockd, nfsd, and nfsv4
+>>> >> callback port related code.
+>>> >> 
+>>> >> Maybe I'm wrong, but there might not be any kernel code that is using
+>>> >> the socket's wait queue in this case.
+>>> > 
+>>> > As Trond points out there are probably waiters internal to the
+>>> > networking code.
+>>> 
+>>> Trond and Bruce, thank you for the comment.  I was able to find the call
+>>> to the wait function that was called from nfsd.
+>>> 
+>>> sk_stream_wait_connect() and sk_stream_wait_memory() were called from
+>>> either do_tcp_sendpages() or tcp_sendmsg() called from within
+>>> svc_send().  sk_stream_wait_connect() shouldn't be called at this point,
+>>> because the socket has already been used to receive the rpc request.
+>>> 
+>>> On the wake_up side, sk_write_space() is called from the following
+>>> locations.  The relevant ones seems to be preceded by atomic_sub or a
+>>> memory barrier.
+>>> + ksocknal_write_space [drivers/staging/lustre/lnet/klnds/socklnd/socklnd_lib.c:633]
+>>> + atm_pop_raw [net/atm/raw.c:40]
+>>> + sock_setsockopt [net/core/sock.c:740]
+>>> + sock_wfree [net/core/sock.c:1630]
+>>>   Preceded by atomic_sub in sock_wfree()
+>>> + ccid3_hc_tx_packet_recv [net/dccp/ccids/ccid3.c:442]
+>>> + do_tcp_sendpages [net/ipv4/tcp.c:1008]
+>>> + tcp_sendmsg [net/ipv4/tcp.c:1300]
+>>> + do_tcp_setsockopt [net/ipv4/tcp.c:2597]
+>>> + tcp_new_space [net/ipv4/tcp_input.c:4885]
+>>>   Preceded by smp_mb__after_atomic in tcp_check_space()
+>>> + llc_conn_state_process [net/llc/llc_conn.c:148]
+>>> + pipe_rcv_status [net/phonet/pep.c:312]
+>>> + pipe_do_rcv [net/phonet/pep.c:440]
+>>> + pipe_start_flow_control [net/phonet/pep.c:554]
+>>> + svc_sock_setbufsize [net/sunrpc/svcsock.c:45]
+>>> 
+>>> sk_state_change() calls related to TCP/IP were called from the following
+>>> places.
+>>> + inet_shutdown [net/ipv4/af_inet.c:825]
+>>>   This shouldn't be called when waiting
+>>> + tcp_done [net/ipv4/tcp.c:3078]
+>>>   spin_lock*/spin_unlock* is called in lock_timer_base
+>>> + tcp_fin [net/ipv4/tcp_input.c:4031]
+>>>   atomic_long_sub is called from sk_memory_allocated_sub called within
+>>>   sk_mem_reclaim
+>>> + tcp_finish_connect [net/ipv4/tcp_input.c:5415]
+>>>   This shoudn't be called when waiting
+>>> + tcp_rcv_state_process [net/ipv4/tcp_input.c:5807,5880]
+>>>   The socket shouldn't be in TCP_SYN_RECV nor TCP_FIN_WAIT1 states when
+>>>   waiting
+>>> 
+>>> I think the wait queue won't be used for being woken up by
+>>> svc_{tcp,udp}_data_ready, because nfsd doesn't read from a socket.
+>> 
+>> Looking, well, I guess kernel_recvmsg() does read from a socket, but I
+>> assume calling with MSG_DONTWAIT means that it doesn't block.
+>> 
+>>> So with the current implementation, it seems there shouldn't be any
+>>> problems even if the memory barrier is missing.
+>> 
+>> Thanks for the detailed investigation.
+>> 
+>> I think it would be worth adding a comment if that might help someone
+>> having to reinvestigate this again some day.
+> 
+> It would be nice, but I find it difficult to write a comment in the
+> sunrpc layer why a memory barrier isn't necessary, using the knowledge
+> of how nfsd uses it, and the current implementation of the network code.
+> 
+> Personally, I would prefer removing the call to waitqueue_active() which
+> would make the memory barrier totally unnecessary at the cost of a
+> spin_lock + spin_unlock by unconditionally calling
+> wake_up_interruptible.
 
+On second thought, the callbacks will be called frequently from the tcp
+code, so it wouldn't be a good idea.
+---
+Kosuke TATSUKAWA  | 3rd IT Platform Department
+                  | IT Platform Division, NEC Corporation
+                  | tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
