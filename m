@@ -1,124 +1,261 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [RFC PATCH net-next 0/9] netlink: strict attribute checking option
-Date: Thu, 15 Oct 2015 18:39:05 +0200
-Message-ID: <cover.1444926905.git.jbenc@redhat.com>
+Subject: [RFC PATCH net-next 8/9] rtnetlink: support strict checking for newlink, setlink and dellink
+Date: Thu, 15 Oct 2015 18:39:13 +0200
+Message-ID: <76938fae11a8858c9594db1dc65de8c44c27ab07.1444926905.git.jbenc@redhat.com>
+References: <cover.1444926905.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50096 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39706 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751815AbbJOQjf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 12:39:35 -0400
+	id S1753458AbbJOQjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 12:39:42 -0400
+In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending a netlink request (NLM_F_REQUEST), any unknown attributes are
-ignored. This behavior is problematic in some situations. For example if the
-user asks for a particular config, the request finishes successfully, yet
-the configuraton applied does not work because some of the attributes are
-not supported by the kernel (e.g. because it's older than the user space
-tool).
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/core/rtnetlink.c | 84 +++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 51 insertions(+), 33 deletions(-)
 
-We're hitting this when configuring metadata based lwtunnels from user space
-applications: it would be surely nice if iproute2 warned about this, as the
-resulting tunnel silently won't work with encap routes. Worse, it's quite
-crucial for openvswitch and similar programs when deciding what kernel API
-(lwtunnel vs. legacy) to use.
-
-This patchset tries to solve this. Everything should be compatible with old
-kernels that don't have this patchset.
-
-Before using this new facility, the application should check whether it is
-supported by the kernel. This is done by sending a NLMSG_NOOP message with
-NLM_F_REQUEST | NLM_F_STRICT | NLM_F_ACK flags set. If the returned message
-has NLM_F_STRICT set, the kernel does support NLM_F_STRICT flag; otherwise,
-the flag should not be used.
-
-When NLM_F_STRICT is set in a request, the request undergoes stricter
-checking for compatibility with the current kernel. Presence of any
-attribute unknown to the kernel will mean the message will be rejected and
-error returned. In case of success, the request has been performed in the
-same way as if NLM_F_STRICT was not set.
-
-However, the sole fact that NLM_F_STRICT is supported by the kernel does not
-yet mean it is supported for the particular netlink family and/or message
-type. If EPROTO is returned in an error reply, it means that the particular
-netlink family/message does not support NLM_F_STRICT (yet). In such case,
-the application could fall back to operation without using NLM_F_STRICT
-(which is needed for older kernels anyway), possibly warning users that some
-options may have been ignored by the kernel, if appropriate.
-
-Another option for using this facility is just set NLM_F_STRICT with
-NLM_F_ACK in a request. There are four results that could happen:
-
-1. Request succeeds and NLM_F_STRICT is set in the reply. Everything is good
-   and verified in this case.
-2. Request succeeds but NLM_F_STRICT is not set in the reply. The request
-   was processed but some attributes might (or might not) be ignored because
-   the kernel does not understand NLM_F_STRICT. Warn user if appropriate.
-3. Request fails with EPROTO. This means NLM_F_STRICT is not supported for
-   this request. Depending on the needs of the application, either fail hard
-   or try again without NLM_F_STRICT, warning user if appropriate.
-4. Request fails with other error code. The request did not succeed.
-
-Applications with hard depency on new kernel features that implement strict
-checking may choose to abort if NLM_F_STRICT is not set in the reply to
-NLMSG_NOOP, always use NLM_F_STRICT and treat EPROTO as any other error
-code.
-
-Note that this RFC patchset is completely untested and may not compile on
-all configs. I'd like to get feedback on whether this makes sense. For
-example, I'm not thrilled about the EPROTO error code. Suggestions for
-a better one are welcome - it needs to be one that is never returned by
-any netlink operation, though.
-
-Jiri Benc (9):
-  netlink: add NLM_F_STRICT for strict attribute checking
-  netlink: remove unnecesary goto's
-  netlink: strict attribute parsing
-  netlink: strict attribute validation
-  rtnetlink: support strict attribute checking
-  rtnetlink: add strict parameter to validate callbacks
-  rtnetlink: add strict parameter to validate_link_af
-  rtnetlink: support strict checking for newlink, setlink and dellink
-  veth: validate nested attributes
-
- crypto/crypto_user.c               |   2 +-
- drivers/infiniband/core/netlink.c  |   2 +-
- drivers/net/bonding/bond_netlink.c |   3 +-
- drivers/net/dummy.c                |   3 +-
- drivers/net/geneve.c               |   3 +-
- drivers/net/ifb.c                  |   3 +-
- drivers/net/ipvlan/ipvlan_main.c   |   3 +-
- drivers/net/macvlan.c              |   3 +-
- drivers/net/nlmon.c                |   3 +-
- drivers/net/team/team.c            |   3 +-
- drivers/net/tun.c                  |   3 +-
- drivers/net/veth.c                 |  13 +++-
- drivers/net/vrf.c                  |   3 +-
- drivers/net/vxlan.c                |   3 +-
- include/net/netlink.h              | 144 ++++++++++++++++++++++++++++++++-----
- include/net/rtnetlink.h            |  37 ++++++++--
- include/uapi/linux/netlink.h       |   1 +
- lib/nlattr.c                       |  56 +++++++++------
- net/8021q/vlan_netlink.c           |  12 ++--
- net/bridge/br_netlink.c            |   3 +-
- net/core/rtnetlink.c               | 143 ++++++++++++++++++++++--------------
- net/core/sock_diag.c               |   2 +-
- net/ieee802154/6lowpan/core.c      |   3 +-
- net/ipv4/devinet.c                 |   6 +-
- net/ipv4/ip_gre.c                  |   8 ++-
- net/ipv4/ip_vti.c                  |   3 +-
- net/ipv6/addrconf.c                |   6 +-
- net/ipv6/ip6_gre.c                 |   8 ++-
- net/ipv6/ip6_tunnel.c              |   3 +-
- net/ipv6/ip6_vti.c                 |   3 +-
- net/ipv6/sit.c                     |   3 +-
- net/netfilter/nfnetlink.c          |   6 +-
- net/netlink/af_netlink.c           |  14 +++-
- net/netlink/genetlink.c            |   2 +-
- net/xfrm/xfrm_user.c               |   2 +-
- 35 files changed, 371 insertions(+), 144 deletions(-)
-
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 9d08ad6ee5c3..1af929e468cf 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1465,7 +1465,8 @@ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ }
+ EXPORT_SYMBOL(rtnl_link_get_net);
+ 
+-static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
++static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[],
++			    bool strict)
+ {
+ 	if (dev) {
+ 		if (tb[IFLA_ADDRESS] &&
+@@ -1492,7 +1493,7 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 
+ 			if (af_ops->validate_link_af) {
+ 				err = af_ops->validate_link_af(dev, af,
+-							       false);
++							       strict);
+ 				if (err < 0)
+ 					return err;
+ 			}
+@@ -1637,7 +1638,8 @@ static int do_set_master(struct net_device *dev, int ifindex)
+ #define DO_SETLINK_NOTIFY	0x03
+ static int do_setlink(const struct sk_buff *skb,
+ 		      struct net_device *dev, struct ifinfomsg *ifm,
+-		      struct nlattr **tb, char *ifname, int status)
++		      struct nlattr **tb, char *ifname, int status,
++		      bool strict)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	int err;
+@@ -1799,8 +1801,9 @@ static int do_setlink(const struct sk_buff *skb,
+ 				err = -EINVAL;
+ 				goto errout;
+ 			}
+-			err = nla_parse_nested(vfinfo, IFLA_VF_MAX, attr,
+-					       ifla_vf_policy);
++			err = nla_strict_parse_nested(vfinfo, IFLA_VF_MAX,
++						      strict, attr,
++						      ifla_vf_policy);
+ 			if (err < 0)
+ 				goto errout;
+ 			err = do_setvfinfo(dev, vfinfo);
+@@ -1827,8 +1830,9 @@ static int do_setlink(const struct sk_buff *skb,
+ 				err = -EINVAL;
+ 				goto errout;
+ 			}
+-			err = nla_parse_nested(port, IFLA_PORT_MAX, attr,
+-					       ifla_port_policy);
++			err = nla_strict_parse_nested(port, IFLA_PORT_MAX,
++						      strict, attr,
++						      ifla_port_policy);
+ 			if (err < 0)
+ 				goto errout;
+ 			if (!port[IFLA_PORT_VF]) {
+@@ -1847,8 +1851,9 @@ static int do_setlink(const struct sk_buff *skb,
+ 	if (tb[IFLA_PORT_SELF]) {
+ 		struct nlattr *port[IFLA_PORT_MAX+1];
+ 
+-		err = nla_parse_nested(port, IFLA_PORT_MAX,
+-			tb[IFLA_PORT_SELF], ifla_port_policy);
++		err = nla_strict_parse_nested(port, IFLA_PORT_MAX, strict,
++					      tb[IFLA_PORT_SELF],
++					      ifla_port_policy);
+ 		if (err < 0)
+ 			goto errout;
+ 
+@@ -1908,8 +1913,10 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	int err;
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	char ifname[IFNAMSIZ];
++	bool strict = nlh->nlmsg_flags & NLM_F_STRICT;
+ 
+-	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
++	err = nlmsg_strict_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, strict,
++				 ifla_policy);
+ 	if (err < 0)
+ 		goto errout;
+ 
+@@ -1932,11 +1939,11 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		goto errout;
+ 	}
+ 
+-	err = validate_linkmsg(dev, tb);
++	err = validate_linkmsg(dev, tb, strict);
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	err = do_setlink(skb, dev, ifm, tb, ifname, 0);
++	err = do_setlink(skb, dev, ifm, tb, ifname, 0, strict);
+ errout:
+ 	return err;
+ }
+@@ -2000,9 +2007,11 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct ifinfomsg *ifm;
+ 	char ifname[IFNAMSIZ];
+ 	struct nlattr *tb[IFLA_MAX+1];
++	bool strict = nlh->nlmsg_flags & NLM_F_STRICT;
+ 	int err;
+ 
+-	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
++	err = nlmsg_strict_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, strict,
++				 ifla_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -2102,14 +2111,14 @@ EXPORT_SYMBOL(rtnl_create_link);
+ static int rtnl_group_changelink(const struct sk_buff *skb,
+ 		struct net *net, int group,
+ 		struct ifinfomsg *ifm,
+-		struct nlattr **tb)
++		struct nlattr **tb, bool strict)
+ {
+ 	struct net_device *dev, *aux;
+ 	int err;
+ 
+ 	for_each_netdev_safe(net, dev, aux) {
+ 		if (dev->group == group) {
+-			err = do_setlink(skb, dev, ifm, tb, NULL, 0);
++			err = do_setlink(skb, dev, ifm, tb, NULL, 0, strict);
+ 			if (err < 0)
+ 				return err;
+ 		}
+@@ -2131,12 +2140,14 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
+ 	unsigned char name_assign_type = NET_NAME_USER;
++	bool strict = nlh->nlmsg_flags & NLM_F_STRICT;
+ 	int err;
+ 
+ #ifdef CONFIG_MODULES
+ replay:
+ #endif
+-	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
++	err = nlmsg_strict_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, strict,
++				 ifla_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -2161,13 +2172,14 @@ replay:
+ 			m_ops = master_dev->rtnl_link_ops;
+ 	}
+ 
+-	err = validate_linkmsg(dev, tb);
++	err = validate_linkmsg(dev, tb, strict);
+ 	if (err < 0)
+ 		return err;
+ 
+ 	if (tb[IFLA_LINKINFO]) {
+-		err = nla_parse_nested(linkinfo, IFLA_INFO_MAX,
+-				       tb[IFLA_LINKINFO], ifla_info_policy);
++		err = nla_strict_parse_nested(linkinfo, IFLA_INFO_MAX,
++					      strict, tb[IFLA_LINKINFO],
++					      ifla_info_policy);
+ 		if (err < 0)
+ 			return err;
+ 	} else
+@@ -2190,15 +2202,16 @@ replay:
+ 
+ 		if (ops) {
+ 			if (ops->maxtype && linkinfo[IFLA_INFO_DATA]) {
+-				err = nla_parse_nested(attr, ops->maxtype,
+-						       linkinfo[IFLA_INFO_DATA],
+-						       ops->policy);
++				err = nla_strict_parse_nested(attr, ops->maxtype,
++							      strict,
++							      linkinfo[IFLA_INFO_DATA],
++							      ops->policy);
+ 				if (err < 0)
+ 					return err;
+ 				data = attr;
+ 			}
+ 			if (ops->validate) {
+-				err = ops->validate(tb, data, false);
++				err = ops->validate(tb, data, strict);
+ 				if (err < 0)
+ 					return err;
+ 			}
+@@ -2207,17 +2220,18 @@ replay:
+ 		if (m_ops) {
+ 			if (m_ops->slave_maxtype &&
+ 			    linkinfo[IFLA_INFO_SLAVE_DATA]) {
+-				err = nla_parse_nested(slave_attr,
+-						       m_ops->slave_maxtype,
+-						       linkinfo[IFLA_INFO_SLAVE_DATA],
+-						       m_ops->slave_policy);
++				err = nla_strict_parse_nested(slave_attr,
++							      m_ops->slave_maxtype,
++							      strict,
++							      linkinfo[IFLA_INFO_SLAVE_DATA],
++							      m_ops->slave_policy);
+ 				if (err < 0)
+ 					return err;
+ 				slave_data = slave_attr;
+ 			}
+ 			if (m_ops->slave_validate) {
+ 				err = m_ops->slave_validate(tb, slave_data,
+-							    false);
++							    strict);
+ 				if (err < 0)
+ 					return err;
+ 			}
+@@ -2253,14 +2267,15 @@ replay:
+ 				status |= DO_SETLINK_NOTIFY;
+ 			}
+ 
+-			return do_setlink(skb, dev, ifm, tb, ifname, status);
++			return do_setlink(skb, dev, ifm, tb, ifname, status,
++					  strict);
+ 		}
+ 
+ 		if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
+ 			if (ifm->ifi_index == 0 && tb[IFLA_GROUP])
+ 				return rtnl_group_changelink(skb, net,
+ 						nla_get_u32(tb[IFLA_GROUP]),
+-						ifm, tb);
++						ifm, tb, strict);
+ 			return -ENODEV;
+ 		}
+ 
+@@ -3443,9 +3458,12 @@ void __init rtnetlink_init(void)
+ 
+ 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
+ 		      rtnl_dump_ifinfo, rtnl_calcit);
+-	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL);
+-	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL);
+-	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL);
++	rtnl_register_flags(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL,
++			    RTNL_F_STRICT);
++	rtnl_register_flags(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL,
++			    RTNL_F_STRICT);
++	rtnl_register_flags(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL,
++			    RTNL_F_STRICT);
+ 
+ 	rtnl_register(PF_UNSPEC, RTM_GETADDR, NULL, rtnl_dump_all, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_GETROUTE, NULL, rtnl_dump_all, NULL);
 -- 
 1.8.3.1
