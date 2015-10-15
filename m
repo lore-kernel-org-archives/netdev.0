@@ -1,218 +1,753 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: SoCFPGA ethernet broken
-Date: Thu, 15 Oct 2015 14:09:22 -0500
-Message-ID: <561FF9E2.30102@opensource.altera.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <david.daney@cavium.com>, Florian Fainelli <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next v3] drivers/net: get rid of unnecessary initializations in .get_drvinfo()
+Date: Thu, 15 Oct 2015 21:28:52 +0200
+Message-ID: <1444937332-26848-1-git-send-email-ivecera@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48729 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751517AbbJOT2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 15:28:54 -0400
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (Postfix) with ESMTPS id 9933E467B
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 19:28:54 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Many drivers initialize uselessly n_priv_flags, n_stats, testinfo_len,
+eedump_len & regdump_len fields in their .get_drvinfo() ethtool op.
+It's not necessary as these fields is filled in ethtool_get_drvinfo().
 
-commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
-the bus' parent." seems to have broken ethernet support for the SoCFPGA
-platform which is using the stmmac ethernet driver.
+v2: removed unused variable
+v3: removed another unused variable
 
-It appears that during DHCP, it cannot get an IP address. This only
-happens if ethernet was not used by the bootloader to tftp an kernel
-image. If I use the bootloader to tftp an image then ethernet is working
-fine. So I think the PHY is not getting enabled properly.
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/infiniband/hw/nes/nes_nic.c                     | 3 ---
+ drivers/net/ethernet/aeroflex/greth.c                   | 2 --
+ drivers/net/ethernet/amd/au1000_eth.c                   | 1 -
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c            | 1 -
+ drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c      | 4 ----
+ drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c      | 4 ----
+ drivers/net/ethernet/atheros/atlx/atl1.c                | 1 -
+ drivers/net/ethernet/atheros/atlx/atl2.c                | 4 ----
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c            | 2 --
+ drivers/net/ethernet/broadcom/bcmsysport.c              | 1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c     | 4 ----
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c          | 1 -
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c      | 1 -
+ drivers/net/ethernet/dec/tulip/de2104x.c                | 1 -
+ drivers/net/ethernet/emulex/benet/be_ethtool.c          | 3 ---
+ drivers/net/ethernet/freescale/gianfar_ethtool.c        | 2 --
+ drivers/net/ethernet/freescale/ucc_geth_ethtool.c       | 2 --
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c        | 1 -
+ drivers/net/ethernet/ibm/emac/core.c                    | 1 -
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c        | 2 --
+ drivers/net/ethernet/intel/e1000e/ethtool.c             | 2 --
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c        | 4 ----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c          | 1 -
+ drivers/net/ethernet/intel/igb/igb_ethtool.c            | 4 ----
+ drivers/net/ethernet/intel/igbvf/ethtool.c              | 2 --
+ drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c          | 3 ---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c        | 3 ---
+ drivers/net/ethernet/marvell/mv643xx_eth.c              | 1 -
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c         | 3 ---
+ drivers/net/ethernet/neterion/s2io.c                    | 2 --
+ drivers/net/ethernet/neterion/vxge/vxge-ethtool.c       | 4 ----
+ drivers/net/ethernet/octeon/octeon_mgmt.c               | 4 ----
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c | 1 -
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c | 2 --
+ drivers/net/ethernet/qlogic/qla3xxx.c                   | 2 --
+ drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c         | 7 -------
+ drivers/net/ethernet/realtek/8139too.c                  | 1 -
+ drivers/net/ethernet/sun/cassini.c                      | 3 ---
+ drivers/net/ethernet/tehuti/tehuti.c                    | 5 -----
+ drivers/net/ethernet/ti/cpmac.c                         | 1 -
+ drivers/net/ethernet/ti/cpsw.c                          | 1 -
+ drivers/net/ethernet/ti/tlan.c                          | 1 -
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c       | 1 -
+ drivers/net/fjes/fjes_ethtool.c                         | 2 --
+ drivers/net/usb/asix_common.c                           | 1 -
+ drivers/net/usb/dm9601.c                                | 1 -
+ drivers/net/usb/mcs7830.c                               | 1 -
+ drivers/net/usb/sr9800.c                                | 4 ----
+ drivers/net/vmxnet3/vmxnet3_ethtool.c                   | 4 ----
+ drivers/net/wireless/ipw2x00/ipw2200.c                  | 1 -
+ 50 files changed, 113 deletions(-)
 
-If I revert this patch, then ethernet is back to working on the platform.
-
-I just tested this in the v4.3-rc5.
-
-Will continue to debug, but was wondering if anyone has seen this issue.
-
-Thanks for any help/comments.
-
-Dinh
-
-Bootlog below.
-----
-[    0.000000] Booting Linux on physical CPU 0x0
-[    0.000000] Initializing cgroup subsys cpuset
-[    0.000000] Linux version 4.3.0-rc5-00037-g5b5f145
-(dinguyen@linux-builds1) (gcc version 4.7.3 20130226 (prerelease) (crosstool
--NG linaro-1.13.1-4.7-2013.03-20130313 - Linaro GCC 2013.03) ) #1 SMP
-Thu Oct 15 13:55:48 CDT 2015
-[    0.000000] CPU: ARMv7 Processor [413fc090] revision 0 (ARMv7),
-cr=10c5387d
-[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing
-instruction cache
-[    0.000000] Machine model: Altera SOCFPGA Cyclone V SoC Development Kit
-[    0.000000] Truncating RAM at 0x00000000-0x40000000 to -0x2f800000
-[    0.000000] Consider using a HIGHMEM enabled kernel.
-[    0.000000] Memory policy: Data cache writealloc
-[    0.000000] On node 0 totalpages: 194560
-[    0.000000] free_area_init_node: node 0, pgdat c067c080, node_mem_map
-ef20b000
-[    0.000000]   Normal zone: 1520 pages used for memmap
-[    0.000000]   Normal zone: 0 pages reserved
-[    0.000000]   Normal zone: 194560 pages, LIFO batch:31
-[    0.000000] PERCPU: Embedded 13 pages/cpu @ef1df000 s21760 r8192
-d23296 u53248
-[    0.000000] pcpu-alloc: s21760 r8192 d23296 u53248 alloc=13*4096
-[    0.000000] pcpu-alloc: [0] 0 [0] 1
-[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.
-Total pages: 193040
-[    0.000000] Kernel command line: console=ttyS0,115200 root=/dev/nfs
-rw nfsroot=137.57.160.210:/home/dinguyen/rootfs_yocto ip=dh
-cp debug
-[    0.000000] PID hash table entries: 4096 (order: 2, 16384 bytes)
-[    0.000000] Dentry cache hash table entries: 131072 (order: 7, 524288
-bytes)
-[    0.000000] Inode-cache hash table entries: 65536 (order: 6, 262144
-bytes)
-[    0.000000] Memory: 764368K/778240K available (4696K kernel code,
-274K rwdata, 1328K rodata, 324K init, 131K bss, 13872K reserv
-ed, 0K cma-reserved)
-[    0.000000] Virtual kernel memory layout:
-[    0.000000]     vector  : 0xffff0000 - 0xffff1000   (   4 kB)
-[    0.000000]     fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
-[    0.000000]     vmalloc : 0xf0000000 - 0xff000000   ( 240 MB)
-[    0.000000]     lowmem  : 0xc0000000 - 0xef800000   ( 760 MB)
-[    0.000000]     modules : 0xbf000000 - 0xc0000000   (  16 MB)
-[    0.000000]       .text : 0xc0008000 - 0xc05ea5f4   (6026 kB)
-[    0.000000]       .init : 0xc05eb000 - 0xc063c000   ( 324 kB)
-[    0.000000]       .data : 0xc063c000 - 0xc0680b30   ( 275 kB)
-[    0.000000]        .bss : 0xc0680b30 - 0xc06a1a38   ( 132 kB)
-[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=2, Nodes=1
-[    0.000000] Hierarchical RCU implementation.
-[    0.000000]  Build-time adjustment of leaf fanout to 32.
-[    0.000000] NR_IRQS:16 nr_irqs:16 16
-[    0.000000] L2C-310 enabling early BRESP for Cortex-A9
-[    0.000000] L2C-310 full line of zeros enabled for Cortex-A9
-[    0.000000] L2C-310 ID prefetch enabled, offset 1 lines
-[    0.000000] L2C-310 dynamic clock gating enabled, standby mode enabled
-[    0.000000] L2C-310 cache controller enabled, 8 ways, 512 kB
-[    0.000000] L2C-310: CACHE_ID 0x410030c9, AUX_CTRL 0x76060001
-[    0.000000] clocksource: timer1: mask: 0xffffffff max_cycles:
-0xffffffff, max_idle_ns: 19112604467 ns
-[    0.000005] sched_clock: 32 bits at 100MHz, resolution 10ns, wraps
-every 21474836475ns
-[    0.000134] Console: colour dummy device 80x30
-[    0.000151] Calibrating delay loop... 1836.64 BogoMIPS (lpj=9183232)
-[    0.059867] pid_max: default: 32768 minimum: 301
-[    0.059938] Mount-cache hash table entries: 2048 (order: 1, 8192 bytes)
-[    0.059947] Mountpoint-cache hash table entries: 2048 (order: 1, 8192
-bytes)
-[    0.060411] CPU: Testing write buffer coherency: ok
-[    0.060586] CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
-[    0.060735] Setting up static identity map for 0x8280 - 0x82d8
-[    0.119895] CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
-[    0.119954] Brought up 2 CPUs
-[    0.119968] SMP: Total of 2 processors activated (3679.84 BogoMIPS).
-[    0.119974] CPU: All CPU(s) started in SVC mode.
-[    0.120594] devtmpfs: initialized
-[    0.124057] VFP support v0.3: implementor 41 architecture 3 part 30
-variant 9 rev 4
-[    0.124296] clocksource: jiffies: mask: 0xffffffff max_cycles:
-0xffffffff, max_idle_ns: 19112604462750000 ns
-[    0.125249] NET: Registered protocol family 16
-[    0.125991] DMA: preallocated 256 KiB pool for atomic coherent
-allocations
-[    0.129791] hw-breakpoint: found 5 (+1 reserved) breakpoint and 1
-watchpoint registers.
-[    0.129803] hw-breakpoint: maximum watchpoint size is 4 bytes.
-[    0.163465] SCSI subsystem initialized
-[    0.163736] usbcore: registered new interface driver usbfs
-[    0.163793] usbcore: registered new interface driver hub
-[    0.163848] usbcore: registered new device driver usb
-[    0.164469] pps_core: LinuxPPS API ver. 1 registered
-[    0.164478] pps_core: Software ver. 5.3.6 - Copyright 2005-2007
-Rodolfo Giometti <giometti@linux.it>
-[    0.164508] PTP clock support registered
-[    0.165340] clocksource: Switched to clocksource timer1
-[    0.188264] NET: Registered protocol family 2
-[    0.188761] TCP established hash table entries: 8192 (order: 3, 32768
-bytes)
-[    0.188839] TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
-[    0.188961] TCP: Hash tables configured (established 8192 bind 8192)
-[    0.189040] UDP hash table entries: 512 (order: 2, 16384 bytes)
-[    0.189083] UDP-Lite hash table entries: 512 (order: 2, 16384 bytes)
-[    0.189250] NET: Registered protocol family 1
-[    0.189570] RPC: Registered named UNIX socket transport module.
-[    0.189579] RPC: Registered udp transport module.
-[    0.189584] RPC: Registered tcp transport module.
-[    0.189589] RPC: Registered tcp NFSv4.1 backchannel transport module.
-[    0.190622] futex hash table entries: 512 (order: 3, 32768 bytes)
-[    0.199426] ntfs: driver 2.1.32 [Flags: R/W].
-[    0.200257] io scheduler noop registered (default)
-[    0.204012] Serial: 8250/16550 driver, 2 ports, IRQ sharing disabled
-[    0.204920] console [ttyS0] disabled
-[    0.204954] ffc02000.serial0: ttyS0 at MMIO 0xffc02000 (irq = 34,
-base_baud = 6250000) is a 16550A
-[    0.740840] console [ttyS0] enabled
-[    0.744835] ffc03000.serial1: ttyS1 at MMIO 0xffc03000 (irq = 35,
-base_baud = 6250000) is a 16550A
-[    0.755333] brd: module loaded
-[    0.758903] CAN device driver interface
-[    0.763108] stmmac - user ID: 0x10, Synopsys ID: 0x37
-[    0.768216]  Ring mode enabled
-[    0.771259]  DMA HW capability register supported
-[    0.775776]  Enhanced/Alternate descriptors
-[    0.780122]  Enabled extended descriptors
-[    0.784112]  RX Checksum Offload Engine supported (type 2)
-[    0.789585]  TX Checksum insertion supported
-[    0.793835]  Enable RX Mitigation via HW Watchdog Timer
-[    0.804992] libphy: stmmac: probed
-[    0.808410] eth0: PHY ID 00221611 at 4 IRQ POLL (stmmac-0:04) active
-[    1.665377] dwc2 ffb40000.usb: DWC OTG Controller
-[    1.670086] dwc2 ffb40000.usb: new USB bus registered, assigned bus
-number 1
-[    1.677138] dwc2 ffb40000.usb: irq 36, io mem 0x00000000
-[    1.683139] hub 1-0:1.0: USB hub found
-[    1.686917] hub 1-0:1.0: 1 port detected
-[    1.691477] mousedev: PS/2 mouse device common for all mice
-[    1.697271] i2c /dev entries driver
-[    1.701325] Synopsys Designware Multimedia Card Interface Driver
-[    1.707550] dw_mmc ff704000.dwmmc0: IDMAC supports 32-bit address mode.
-[    1.714163] dw_mmc ff704000.dwmmc0: Using PIO mode.
-[    1.719035] dw_mmc ff704000.dwmmc0: Version ID is 240a
-[    1.724185] dw_mmc ff704000.dwmmc0: DW MMC controller at irq 30,32
-bit host data width,1024 deep fifo
-[    1.733502] dw_mmc ff704000.dwmmc0: Got CD GPIO
-[    1.775329] dw_mmc ff704000.dwmmc0: 1 slots initialized
-[    1.780769] usbcore: registered new interface driver usbhid
-[    1.786338] usbhid: USB HID core driver
-[    1.790327] oprofile: no performance counters
-[    1.794750] oprofile: using timer interrupt.
-[    1.799920] NET: Registered protocol family 10
-[    1.805084] sit: IPv6 over IPv4 tunneling driver
-[    1.810277] NET: Registered protocol family 17
-[    1.814726] NET: Registered protocol family 15
-[    1.819173] can: controller area network core (rev 20120528 abi 9)
-[    1.825384] NET: Registered protocol family 29
-[    1.829817] can: raw protocol (rev 20120528)
-[    1.834073] can: broadcast manager protocol (rev 20120528 t)
-[    1.839727] can: netlink gateway (rev 20130117) max_hops=1
-[    1.845361] 8021q: 802.1Q VLAN Support v1.8
-[    1.849630] ThumbEE CPU extension supported.
-[    1.853900] Registering SWP/SWPB emulation handler
-[    1.854029] mmc_host mmc0: Bus speed (slot 0) = 50000000Hz (slot req
-50000000Hz, actual 50000000HZ div = 0)
-[    1.854079] mmc0: new high speed SDHC card at address aaaa
-[    1.854496] mmcblk0: mmc0:aaaa SU32G 29.7 GiB
-[    1.855953]  mmcblk0: p1 p2 p3
-[    1.985343] Sending DHCP requests ..
-[    5.955860] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
-1Gbps/Full - flow control rx/tx
-[    9.105279] .... timed out!
-[   85.166664] IP-Config: Retrying forever (NFS root)...
-[   85.256666] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-[   89.245860] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
-1Gbps/Full - flow control rx/tx
-[   89.255301] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[   89.275329] Sending DHCP requests ...... timed out!
-[  161.306641] IP-Config: Retrying forever (NFS root)...
-[  161.396643] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-[  165.385861] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
-1Gbps/Full - flow control rx/tx
-[  165.395301] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 70acda9..6a0bdfa 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1325,9 +1325,6 @@ static void nes_netdev_get_drvinfo(struct net_device *netdev,
+ 		 "%u.%u", nesadapter->firmware_version >> 16,
+ 		 nesadapter->firmware_version & 0x000000ff);
+ 	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->eedump_len = 0;
+-	drvinfo->regdump_len = 0;
+ }
+ 
+ 
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index ae89de7..20bf55d 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -1141,8 +1141,6 @@ static void greth_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *in
+ 	strlcpy(info->version, "revision: 1.0", sizeof(info->version));
+ 	strlcpy(info->bus_info, greth->dev->bus->name, sizeof(info->bus_info));
+ 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+-	info->eedump_len = 0;
+-	info->regdump_len = sizeof(struct greth_regs);
+ }
+ 
+ static void greth_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+index cb367cc..5330bcb 100644
+--- a/drivers/net/ethernet/amd/au1000_eth.c
++++ b/drivers/net/ethernet/amd/au1000_eth.c
+@@ -714,7 +714,6 @@ au1000_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	snprintf(info->bus_info, sizeof(info->bus_info), "%s %d", DRV_NAME,
+ 		 aup->mac_id);
+-	info->regdump_len = 0;
+ }
+ 
+ static void au1000_set_msglevel(struct net_device *dev, u32 value)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 204fb3a..6040293 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -375,7 +375,6 @@ static void xgbe_get_drvinfo(struct net_device *netdev,
+ 		 XGMAC_GET_BITS(hw_feat->version, MAC_VR, USERVER),
+ 		 XGMAC_GET_BITS(hw_feat->version, MAC_VR, DEVID),
+ 		 XGMAC_GET_BITS(hw_feat->version, MAC_VR, SNPSVER));
+-	drvinfo->n_stats = XGBE_STATS_COUNT;
+ }
+ 
+ static u32 xgbe_get_msglevel(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+index 48694c2..872b7ab 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+@@ -233,10 +233,6 @@ static void atl1c_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = 0;
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->regdump_len = atl1c_get_regs_len(netdev);
+-	drvinfo->eedump_len = atl1c_get_eeprom_len(netdev);
+ }
+ 
+ static void atl1c_get_wol(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+index 1be072f..8e3dbd4 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+@@ -316,10 +316,6 @@ static void atl1e_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->fw_version, "L1e", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = 0;
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->regdump_len = atl1e_get_regs_len(netdev);
+-	drvinfo->eedump_len = atl1e_get_eeprom_len(netdev);
+ }
+ 
+ static void atl1e_get_wol(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index eca1d11..529bca7 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -3388,7 +3388,6 @@ static void atl1_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->eedump_len = ATL1_EEDUMP_LEN;
+ }
+ 
+ static void atl1_get_wol(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+index 46a5353..8f76f45 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl2.c
++++ b/drivers/net/ethernet/atheros/atlx/atl2.c
+@@ -2030,10 +2030,6 @@ static void atl2_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->fw_version, "L2", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = 0;
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->regdump_len = atl2_get_regs_len(netdev);
+-	drvinfo->eedump_len = atl2_get_eeprom_len(netdev);
+ }
+ 
+ static void atl2_get_wol(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index a7f2cc3..95af75d 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1333,7 +1333,6 @@ static void bcm_enet_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, "bcm63xx", sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = BCM_ENET_STATS_LEN;
+ }
+ 
+ static int bcm_enet_get_sset_count(struct net_device *netdev,
+@@ -2597,7 +2596,6 @@ static void bcm_enetsw_get_drvinfo(struct net_device *netdev,
+ 	strncpy(drvinfo->version, bcm_enet_driver_version, 32);
+ 	strncpy(drvinfo->fw_version, "N/A", 32);
+ 	strncpy(drvinfo->bus_info, "bcm63xx", 32);
+-	drvinfo->n_stats = BCM_ENETSW_STATS_LEN;
+ }
+ 
+ static void bcm_enetsw_get_ethtool_stats(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index f1b5364..8581063 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -287,7 +287,6 @@ static void bcm_sysport_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+ 	strlcpy(info->version, "0.1", sizeof(info->version));
+ 	strlcpy(info->bus_info, "platform", sizeof(info->bus_info));
+-	info->n_stats = BCM_SYSPORT_STATS_LEN;
+ }
+ 
+ static u32 bcm_sysport_get_msglvl(struct net_device *dev)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index aeb7ce6..a2bc531 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1090,10 +1090,6 @@ static void bnx2x_get_drvinfo(struct net_device *dev,
+ 	bnx2x_fill_fw_str(bp, info->fw_version, sizeof(info->fw_version));
+ 
+ 	strlcpy(info->bus_info, pci_name(bp->pdev), sizeof(info->bus_info));
+-	info->n_stats = BNX2X_NUM_STATS;
+-	info->testinfo_len = BNX2X_NUM_TESTS(bp);
+-	info->eedump_len = bp->common.flash_size;
+-	info->regdump_len = bnx2x_get_regs_len(dev);
+ }
+ 
+ static void bnx2x_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 1a3988f..410995c 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -793,7 +793,6 @@ static void bcmgenet_get_drvinfo(struct net_device *dev,
+ {
+ 	strlcpy(info->driver, "bcmgenet", sizeof(info->driver));
+ 	strlcpy(info->version, "v2.0", sizeof(info->version));
+-	info->n_stats = BCMGENET_STATS_LEN;
+ }
+ 
+ static int bcmgenet_get_sset_count(struct net_device *dev, int string_set)
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 29f3308..245c063 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -153,7 +153,6 @@ lio_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 	strncpy(drvinfo->fw_version, oct->fw_info.liquidio_firmware_version,
+ 		ETHTOOL_FWVERS_LEN);
+ 	strncpy(drvinfo->bus_info, pci_name(oct->pci_dev), 32);
+-	drvinfo->regdump_len = OCT_ETHTOOL_REGDUMP_LEN;
+ }
+ 
+ static void
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index a02ecc4..cadcee6 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -1597,7 +1597,6 @@ static void de_get_drvinfo (struct net_device *dev,struct ethtool_drvinfo *info)
+ 	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	strlcpy(info->bus_info, pci_name(de->pdev), sizeof(info->bus_info));
+-	info->eedump_len = DE_EEPROM_SIZE;
+ }
+ 
+ static int de_get_regs_len(struct net_device *dev)
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 2c9ed17..f4cb8e4 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -234,9 +234,6 @@ static void be_get_drvinfo(struct net_device *netdev,
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ static u32 lancer_cmd_get_file_len(struct be_adapter *adapter, u8 *file_name)
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index fb7f8d6..928ca2b 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -182,8 +182,6 @@ static void gfar_gdrvinfo(struct net_device *dev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, "N/A", sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ 
+diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+index cc83350..89714f5 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
++++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+@@ -351,8 +351,6 @@ uec_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, "QUICC ENGINE", sizeof(drvinfo->bus_info));
+-	drvinfo->eedump_len = 0;
+-	drvinfo->regdump_len = uec_get_regs_len(netdev);
+ }
+ 
+ #ifdef CONFIG_PM
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 2550208..7d58918 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -682,7 +682,6 @@ static void hns_nic_get_drvinfo(struct net_device *net_dev,
+ 	drvinfo->bus_info[ETHTOOL_BUSINFO_LEN - 1] = '\0';
+ 
+ 	strncpy(drvinfo->fw_version, "N/A", ETHTOOL_FWVERS_LEN);
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index b60a34d..5d7db6c 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -2204,7 +2204,6 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	snprintf(info->bus_info, sizeof(info->bus_info), "PPC 4xx EMAC-%d %s",
+ 		 dev->cell_index, dev->ofdev->dev.of_node->full_name);
+-	info->regdump_len = emac_ethtool_get_regs_len(ndev);
+ }
+ 
+ static const struct ethtool_ops emac_ethtool_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 4270ad2..83e557c 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -559,8 +559,6 @@ static void e1000_get_drvinfo(struct net_device *netdev,
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = e1000_get_regs_len(netdev);
+-	drvinfo->eedump_len = e1000_get_eeprom_len(netdev);
+ }
+ 
+ static void e1000_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index ad6daa6..6cab1f3 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -648,8 +648,6 @@ static void e1000_get_drvinfo(struct net_device *netdev,
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = e1000_get_regs_len(netdev);
+-	drvinfo->eedump_len = e1000_get_eeprom_len(netdev);
+ }
+ 
+ static void e1000_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index 4ef2fbd..813c4e6 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -515,10 +515,6 @@ static void fm10k_get_drvinfo(struct net_device *dev,
+ 		sizeof(info->version) - 1);
+ 	strncpy(info->bus_info, pci_name(interface->pdev),
+ 		sizeof(info->bus_info) - 1);
+-
+-	info->n_stats = fm10k_get_sset_count(dev, ETH_SS_STATS);
+-
+-	info->regdump_len = fm10k_get_regs_len(dev);
+ }
+ 
+ static void fm10k_get_pauseparam(struct net_device *dev,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 148f614..d5ad902 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1091,7 +1091,6 @@ static void i40e_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(pf->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_priv_flags = I40E_PRIV_FLAGS_STR_LEN;
+ }
+ 
+ static void i40e_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 7426276..2529bc6 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -842,10 +842,6 @@ static void igb_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = IGB_STATS_LEN;
+-	drvinfo->testinfo_len = IGB_TEST_LEN;
+-	drvinfo->regdump_len = igb_get_regs_len(netdev);
+-	drvinfo->eedump_len = igb_get_eeprom_len(netdev);
+ }
+ 
+ static void igb_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
+index c6996fe..b74ce53 100644
+--- a/drivers/net/ethernet/intel/igbvf/ethtool.c
++++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
+@@ -196,8 +196,6 @@ static void igbvf_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = igbvf_get_regs_len(netdev);
+-	drvinfo->eedump_len = igbvf_get_eeprom_len(netdev);
+ }
+ 
+ static void igbvf_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+index b311e9e..d2b29b4 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+@@ -479,9 +479,6 @@ ixgb_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = IXGB_STATS_LEN;
+-	drvinfo->regdump_len = ixgb_get_regs_len(netdev);
+-	drvinfo->eedump_len = ixgb_get_eeprom_len(netdev);
+ }
+ 
+ static void
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 94c4912..d681273 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -943,9 +943,6 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = IXGBE_STATS_LEN;
+-	drvinfo->testinfo_len = IXGBE_TEST_LEN;
+-	drvinfo->regdump_len = ixgbe_get_regs_len(netdev);
+ }
+ 
+ static void ixgbe_get_ringparam(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index c78ae18..603d29d 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1586,7 +1586,6 @@ static void mv643xx_eth_get_drvinfo(struct net_device *dev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, "platform", sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = ARRAY_SIZE(mv643xx_eth_stats);
+ }
+ 
+ static int mv643xx_eth_nway_reset(struct net_device *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index f79d812..ddb5541 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -95,9 +95,6 @@ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 		(u16) (mdev->dev->caps.fw_ver & 0xffff));
+ 	strlcpy(drvinfo->bus_info, pci_name(mdev->dev->persist->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = 0;
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ static const char mlx4_en_priv_flags[][ETH_GSTRING_LEN] = {
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 2d1b942..9ba9758 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -5389,8 +5389,6 @@ static void s2io_ethtool_gdrvinfo(struct net_device *dev,
+ 	strlcpy(info->driver, s2io_driver_name, sizeof(info->driver));
+ 	strlcpy(info->version, s2io_driver_version, sizeof(info->version));
+ 	strlcpy(info->bus_info, pci_name(sp->pdev), sizeof(info->bus_info));
+-	info->regdump_len = XENA_REG_SPACE;
+-	info->eedump_len = XENA_EEPROM_SPACE;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+index be916eb..9a29670 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+@@ -105,10 +105,6 @@ static void vxge_ethtool_gdrvinfo(struct net_device *dev,
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	strlcpy(info->fw_version, vdev->fw_version, sizeof(info->fw_version));
+ 	strlcpy(info->bus_info, pci_name(vdev->pdev), sizeof(info->bus_info));
+-	info->regdump_len = sizeof(struct vxge_hw_vpath_reg)
+-				* vdev->no_of_vpath;
+-
+-	info->n_stats = STAT_LEN;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index 7bf9c02..c177c7c 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -1344,10 +1344,6 @@ static void octeon_mgmt_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+ 	strlcpy(info->bus_info, "N/A", sizeof(info->bus_info));
+-	info->n_stats = 0;
+-	info->testinfo_len = 0;
+-	info->regdump_len = 0;
+-	info->eedump_len = 0;
+ }
+ 
+ static int octeon_mgmt_get_settings(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+index f6fcf74..b19be7c 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+@@ -164,7 +164,6 @@ static void pch_gbe_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->version, pch_driver_version, sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = pch_gbe_get_regs_len(netdev);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index 87e073c6..f903446 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -93,8 +93,6 @@ netxen_nic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = NETXEN_NIC_REGS_LEN;
+-	drvinfo->eedump_len = netxen_nic_get_eeprom_len(dev);
+ }
+ 
+ static int
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index 4847713..b09a6b8 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -1736,8 +1736,6 @@ static void ql_get_drvinfo(struct net_device *ndev,
+ 		sizeof(drvinfo->version));
+ 	strlcpy(drvinfo->bus_info, pci_name(qdev->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ static u32 ql_get_msglevel(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
+index c3c514e..5dade1f 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
+@@ -415,13 +415,6 @@ static void ql_get_drvinfo(struct net_device *ndev,
+ 		 (qdev->fw_rev_id & 0x000000ff));
+ 	strlcpy(drvinfo->bus_info, pci_name(qdev->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = 0;
+-	drvinfo->testinfo_len = 0;
+-	if (!test_bit(QL_FRC_COREDUMP, &qdev->flags))
+-		drvinfo->regdump_len = sizeof(struct ql_mpi_coredump);
+-	else
+-		drvinfo->regdump_len = sizeof(struct ql_reg_dump);
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ static void ql_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 78bb4ce..ef668d3 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -2388,7 +2388,6 @@ static void rtl8139_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *
+ 	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 	strlcpy(info->bus_info, pci_name(tp->pci_dev), sizeof(info->bus_info));
+-	info->regdump_len = tp->regs_len;
+ }
+ 
+ static int rtl8139_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
+index 6ce9731..062bce9 100644
+--- a/drivers/net/ethernet/sun/cassini.c
++++ b/drivers/net/ethernet/sun/cassini.c
+@@ -4529,9 +4529,6 @@ static void cas_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
+ 	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+ 	strlcpy(info->bus_info, pci_name(cp->pdev), sizeof(info->bus_info));
+-	info->regdump_len = cp->casreg_len < CAS_MAX_REGS ?
+-		cp->casreg_len : CAS_MAX_REGS;
+-	info->n_stats = CAS_NUM_STAT_KEYS;
+ }
+ 
+ static int cas_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index a9cac84..14c9d1b 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -2182,11 +2182,6 @@ bdx_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(priv->pdev),
+ 		sizeof(drvinfo->bus_info));
+-
+-	drvinfo->n_stats = ((priv->stats_flag) ? ARRAY_SIZE(bdx_stat_names) : 0);
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ /*
+diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+index cba3d9f..77d26fe 100644
+--- a/drivers/net/ethernet/ti/cpmac.c
++++ b/drivers/net/ethernet/ti/cpmac.c
+@@ -899,7 +899,6 @@ static void cpmac_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->driver, "cpmac", sizeof(info->driver));
+ 	strlcpy(info->version, CPMAC_VERSION, sizeof(info->version));
+ 	snprintf(info->bus_info, sizeof(info->bus_info), "%s", "cpmac");
+-	info->regdump_len = 0;
+ }
+ 
+ static const struct ethtool_ops cpmac_ethtool_ops = {
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 75584cc..3b75adf 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1784,7 +1784,6 @@ static void cpsw_get_drvinfo(struct net_device *ndev,
+ 	strlcpy(info->driver, "cpsw", sizeof(info->driver));
+ 	strlcpy(info->version, "1.0", sizeof(info->version));
+ 	strlcpy(info->bus_info, priv->pdev->name, sizeof(info->bus_info));
+-	info->regdump_len = cpsw_get_regs_len(ndev);
+ }
+ 
+ static u32 cpsw_get_msglevel(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index 691ec93..a274cd4 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -791,7 +791,6 @@ static void tlan_get_drvinfo(struct net_device *dev,
+ 			sizeof(info->bus_info));
+ 	else
+ 		strlcpy(info->bus_info, "EISA",	sizeof(info->bus_info));
+-	info->eedump_len = TLAN_EEPROM_SIZE;
+ }
+ 
+ static int tlan_get_eeprom_len(struct net_device *dev)
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index d95f9aa..4684644 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -1135,7 +1135,6 @@ static void axienet_ethtools_get_drvinfo(struct net_device *ndev,
+ {
+ 	strlcpy(ed->driver, DRIVER_NAME, sizeof(ed->driver));
+ 	strlcpy(ed->version, DRIVER_VERSION, sizeof(ed->version));
+-	ed->regdump_len = sizeof(u32) * AXIENET_REGS_N;
+ }
+ 
+ /**
+diff --git a/drivers/net/fjes/fjes_ethtool.c b/drivers/net/fjes/fjes_ethtool.c
+index 0119dd1..9c218e1 100644
+--- a/drivers/net/fjes/fjes_ethtool.c
++++ b/drivers/net/fjes/fjes_ethtool.c
+@@ -105,8 +105,6 @@ static void fjes_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->fw_version, "none", sizeof(drvinfo->fw_version));
+ 	snprintf(drvinfo->bus_info, sizeof(drvinfo->bus_info),
+ 		 "platform:%s", plat_dev->name);
+-	drvinfo->regdump_len = 0;
+-	drvinfo->eedump_len = 0;
+ }
+ 
+ static int fjes_get_settings(struct net_device *netdev,
+diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
+index a186b0a..bd9acff 100644
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -588,7 +588,6 @@ void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
+ 	usbnet_get_drvinfo(net, info);
+ 	strlcpy(info->driver, DRIVER_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, DRIVER_VERSION, sizeof(info->version));
+-	info->eedump_len = AX_EEPROM_LEN;
+ }
+ 
+ int asix_set_mac_address(struct net_device *net, void *p)
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 6e9c344..0b4bdd3 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -258,7 +258,6 @@ static void dm9601_get_drvinfo(struct net_device *net,
+ {
+ 	/* Inherit standard device info */
+ 	usbnet_get_drvinfo(net, info);
+-	info->eedump_len = DM_EEPROM_LEN;
+ }
+ 
+ static u32 dm9601_get_link(struct net_device *net)
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index 82d844a..4f345bd 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -445,7 +445,6 @@ static int mcs7830_get_regs_len(struct net_device *net)
+ static void mcs7830_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *drvinfo)
+ {
+ 	usbnet_get_drvinfo(net, drvinfo);
+-	drvinfo->regdump_len = mcs7830_get_regs_len(net);
+ }
+ 
+ static void mcs7830_get_regs(struct net_device *net, struct ethtool_regs *regs, void *data)
+diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
+index 953de13..a50df0d 100644
+--- a/drivers/net/usb/sr9800.c
++++ b/drivers/net/usb/sr9800.c
+@@ -470,14 +470,10 @@ static int sr_get_eeprom(struct net_device *net,
+ static void sr_get_drvinfo(struct net_device *net,
+ 				 struct ethtool_drvinfo *info)
+ {
+-	struct usbnet *dev = netdev_priv(net);
+-	struct sr_data *data = (struct sr_data *)&dev->data;
+-
+ 	/* Inherit standard device info */
+ 	usbnet_get_drvinfo(net, info);
+ 	strncpy(info->driver, DRIVER_NAME, sizeof(info->driver));
+ 	strncpy(info->version, DRIVER_VERSION, sizeof(info->version));
+-	info->eedump_len = data->eeprom_len;
+ }
+ 
+ static u32 sr_get_link(struct net_device *net)
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index a681569..9ba11d7 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -214,10 +214,6 @@ vmxnet3_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
+ 		sizeof(drvinfo->bus_info));
+-	drvinfo->n_stats = vmxnet3_get_sset_count(netdev, ETH_SS_STATS);
+-	drvinfo->testinfo_len = 0;
+-	drvinfo->eedump_len   = 0;
+-	drvinfo->regdump_len  = vmxnet3_get_regs_len(netdev);
+ }
+ 
+ 
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 39f3e6f..ed0adaf 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -10470,7 +10470,6 @@ static void ipw_ethtool_get_drvinfo(struct net_device *dev,
+ 		 vers, date);
+ 	strlcpy(info->bus_info, pci_name(p->pci_dev),
+ 		sizeof(info->bus_info));
+-	info->eedump_len = IPW_EEPROM_IMAGE_SIZE;
+ }
+ 
+ static u32 ipw_ethtool_get_link(struct net_device *dev)
+-- 
+2.4.9
