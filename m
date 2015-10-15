@@ -1,73 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/17] i40evf: Add support for netpoll
-Date: Thu, 15 Oct 2015 14:43:10 -0700
-Message-ID: <1444945404-30654-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/17] i40e: increase AQ work limit
+Date: Thu, 15 Oct 2015 14:43:23 -0700
+Message-ID: <1444945404-30654-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32107 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:28702 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752798AbbJOVn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 17:43:29 -0400
+	id S1753304AbbJOVne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 17:43:34 -0400
 In-Reply-To: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+With 64 VFs, we can easily overwhelm the AQ on the PF if we have too low
+a limit on the number of AQ requests. This leads to ARQ overflow errors,
+and occasionally VFs that fail to initialize.
+
+Since we really only hit this condition on initial VF driver load, the
+requests that we process are lightweight, so this extra work doesn't
+cause problems for the PF driver.
+
+Change-ID: I620221520d8af987df6ace9ba938ffaf22107681
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 26 +++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 429a46c..5e13363 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -444,6 +444,29 @@ out:
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/**
-+ * i40evf_netpoll - A Polling 'interrupt'handler
-+ * @netdev: network interface device structure
-+ *
-+ * This is used by netconsole to send skbs without having to re-enable
-+ * interrupts.  It's not called while the normal interrupt routine is executing.
-+ **/
-+static void i40evf_netpoll(struct net_device *netdev)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	int q_vectors = adapter->num_msix_vectors - NONQ_VECS;
-+	int i;
-+
-+	/* if interface is down do nothing */
-+	if (test_bit(__I40E_DOWN, &adapter->vsi.state))
-+		return;
-+
-+	for (i = 0; i < q_vectors; i++)
-+		i40evf_msix_clean_rings(0, adapter->q_vector[i]);
-+}
-+
-+#endif
- /**
-  * i40evf_request_traffic_irqs - Initialize MSI-X interrupts
-  * @adapter: board private structure
-@@ -2049,6 +2072,9 @@ static const struct net_device_ops i40evf_netdev_ops = {
- 	.ndo_tx_timeout		= i40evf_tx_timeout,
- 	.ndo_vlan_rx_add_vid	= i40evf_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= i40evf_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= i40evf_netpoll,
-+#endif
- };
- 
- /**
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index ad48f52..7a58b1f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -93,7 +93,7 @@
+ #endif /* I40E_FCOE */
+ #define I40E_MAX_AQ_BUF_SIZE          4096
+ #define I40E_AQ_LEN                   256
+-#define I40E_AQ_WORK_LIMIT            32
++#define I40E_AQ_WORK_LIMIT            66 /* max number of VFs + a little */
+ #define I40E_MAX_USER_PRIORITY        8
+ #define I40E_DEFAULT_MSG_ENABLE       4
+ #define I40E_QUEUE_WAIT_RETRY_LIMIT   10
 -- 
 2.4.3
