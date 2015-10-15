@@ -1,179 +1,39 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 6/7] tipc: send out RESET
-	immediately when link goes down
-Date: Thu, 15 Oct 2015 14:52:45 -0400
-Message-ID: <1444935166-12745-7-git-send-email-jon.maloy@ericsson.com>
-References: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH iproute2] ss: return -1 if an unrecognized option was given
+Date: Thu, 15 Oct 2015 21:01:16 +0200
+Message-ID: <1444935676-10068-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:34042 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752514AbbJOTBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2015 15:01:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a link is taken down because of a node local event, such as
-disabling of a bearer or an interface, we currently leave it to the
-peer node to discover the broken communication. The default time for
-such failure discovery is 1.5-2 seconds.
+When getopt_long encounters an option which has not been registered, it
+returns '?'. React upon that and call usage() instead of help() so ss
+returns with a non-zero exit status.
 
-If we instead allow the terminating link endpoint to send out a RESET
-message at the moment it is reset, we can achieve the impression that
-both endpoints are going down instantly. Since this is a very common
-scenario, we find it worthwhile to make this small modification.
-
-Apart from letting the link produce the said message, we also have to
-ensure that the interface is able to transmit it before TIPC is
-detached. We do this by performing the disabling of a bearer in three
-steps:
-
-1) Disable reception of TIPC packets from the interface in question.
-2) Take down the links, while allowing them so send out a RESET message.
-3) Disable transmission of TIPC packets on the interface.
-
-Apart from this, we now have to react on the NETDEV_GOING_DOWN event,
-instead of as currently the NEDEV_DOWN event, to ensure that such
-transmission is possible during the teardown phase.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- net/tipc/bearer.c    |  8 +++-----
- net/tipc/link.c      | 12 ++++++++++++
- net/tipc/link.h      |  1 +
- net/tipc/node.c      |  5 +++--
- net/tipc/udp_media.c |  1 -
- 5 files changed, 19 insertions(+), 8 deletions(-)
+ misc/ss.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index ce9f7bf..82b2786 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -362,6 +362,7 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr)
- 	b_ptr->media->disable_media(b_ptr);
- 
- 	tipc_node_delete_links(net, b_ptr->identity);
-+	RCU_INIT_POINTER(b_ptr->media_ptr, NULL);
- 	if (b_ptr->link_req)
- 		tipc_disc_delete(b_ptr->link_req);
- 
-@@ -399,16 +400,13 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
- 
- /* tipc_disable_l2_media - detach TIPC bearer from an L2 interface
-  *
-- * Mark L2 bearer as inactive so that incoming buffers are thrown away,
-- * then get worker thread to complete bearer cleanup.  (Can't do cleanup
-- * here because cleanup code needs to sleep and caller holds spinlocks.)
-+ * Mark L2 bearer as inactive so that incoming buffers are thrown away
-  */
- void tipc_disable_l2_media(struct tipc_bearer *b)
- {
- 	struct net_device *dev;
- 
- 	dev = (struct net_device *)rtnl_dereference(b->media_ptr);
--	RCU_INIT_POINTER(b->media_ptr, NULL);
- 	RCU_INIT_POINTER(dev->tipc_ptr, NULL);
- 	synchronize_net();
- 	dev_put(dev);
-@@ -554,7 +552,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
+diff --git a/misc/ss.c b/misc/ss.c
+index eca4aa3..a9ae85e 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -3770,8 +3770,8 @@ int main(int argc, char *argv[])
+ 				exit(1);
  			break;
--	case NETDEV_DOWN:
-+	case NETDEV_GOING_DOWN:
- 	case NETDEV_CHANGEMTU:
- 		tipc_reset_bearer(net, b_ptr);
- 		break;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 8c794c1..737b598 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1062,6 +1062,18 @@ void tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
- 	tipc_link_build_proto_msg(l, STATE_MSG, 0, 0, 0, 0, xmitq);
- }
- 
-+/* tipc_link_build_reset_msg: prepare link RESET or ACTIVATE message
-+ */
-+void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
-+{
-+	int mtyp = RESET_MSG;
-+
-+	if (l->state == LINK_ESTABLISHING)
-+		mtyp = ACTIVATE_MSG;
-+
-+	tipc_link_build_proto_msg(l, mtyp, 0, 0, 0, 0, xmitq);
-+}
-+
- /* tipc_link_build_nack_msg: prepare link nack message for transmission
-  */
- static void tipc_link_build_nack_msg(struct tipc_link *l,
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index d42dfc0..5872f09 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -213,6 +213,7 @@ void tipc_link_tnl_prepare(struct tipc_link *l, struct tipc_link *tnl,
- 			   int mtyp, struct sk_buff_head *xmitq);
- void tipc_link_build_bcast_sync_msg(struct tipc_link *l,
- 				    struct sk_buff_head *xmitq);
-+void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
- int tipc_link_fsm_evt(struct tipc_link *l, int evt);
- void tipc_link_reset_fragments(struct tipc_link *l_ptr);
- bool tipc_link_is_up(struct tipc_link *l);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index d3386f8..c1c9a99 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -41,7 +41,7 @@
- #include "socket.h"
- #include "bcast.h"
- #include "discover.h"
--
-+#define pr_debug printk
- /* Node FSM states and events:
-  */
- enum {
-@@ -421,6 +421,8 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- 
- 	if (!tipc_node_is_up(n)) {
- 		tipc_link_reset(l);
-+		tipc_link_build_reset_msg(l, xmitq);
-+		*maddr = &n->links[*bearer_id].maddr;
- 		node_lost_contact(n, &le->inputq);
- 		return;
- 	}
-@@ -463,7 +465,6 @@ static void tipc_node_link_down(struct tipc_node *n, int bearer_id, bool delete)
- 		tipc_link_fsm_evt(l, LINK_RESET_EVT);
- 	}
- 	tipc_node_unlock(n);
--
- 	tipc_bearer_xmit(n->net, bearer_id, &xmitq, maddr);
- 	tipc_sk_rcv(n->net, &le->inputq);
- }
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index c170d31..9bc0b1e 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -425,7 +425,6 @@ static void tipc_udp_disable(struct tipc_bearer *b)
- 	}
- 	if (ub->ubsock)
- 		sock_set_flag(ub->ubsock->sk, SOCK_DEAD);
--	RCU_INIT_POINTER(b->media_ptr, NULL);
- 	RCU_INIT_POINTER(ub->bearer, NULL);
- 
- 	/* sock_release need to be done outside of rtnl lock */
+ 		case 'h':
+-		case '?':
+ 			help();
++		case '?':
+ 		default:
+ 			usage();
+ 		}
 -- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+2.5.0
