@@ -1,56 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 3/4] sch_htb: update backlog as well
-Date: Wed, 14 Oct 2015 21:21:56 -0700
-Message-ID: <CAM_iQpXsweCm+ETtHeNQFMoEJ7jGGSONG=MD6KX=+GHuBFvq2w@mail.gmail.com>
-References: <1444675083-9825-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1444675083-9825-4-git-send-email-xiyou.wangcong@gmail.com>
-	<561E499D.7060402@mojatatu.com>
+From: yankejian <yankejian@huawei.com>
+Subject: [PATCH net-next] net: hisilicon: fixes a bug when using ethtool -S
+Date: Thu, 15 Oct 2015 12:40:34 +0800
+Message-ID: <1444884034-113975-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:33061 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932177AbbJOEV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 00:21:56 -0400
-Received: by oiar126 with SMTP id r126so39666794oia.0
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 21:21:56 -0700 (PDT)
-In-Reply-To: <561E499D.7060402@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: <liguozhu@huawei.com>, <yisen.zhuang@huawei.com>,
+	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+	<yankejian@huawei.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 14, 2015 at 5:25 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 10/12/15 14:38, Cong Wang wrote:
->>
->> It is odd to see qlen!=0 but backlog==0, for a real example:
->>
->
-> Backlog is a transient stat so a lot of times it should be 0. Only when
-> the CPU is sending faster than the link can handle should you see
-> the backlog grow (and eventually drain to 0).
+From: lipeng <lipeng321@huawei.com>
 
-Of course. But in my case, we were sending a burst of traffic while
-with a lower HTB bw limit, so we can consistently see backlog!=0
-for many seconds.
+this patch fixes a bug in hns driver. when we want to get statistic info
+by using ethtool -S, it shows us there are 3 wrong counters info. because
+the strings related to the registers are wrong. it needs to modify the
+strings which give us wrong info.
 
->
-> Even though your explanation above is inaccurate I think the spirit
-> of the patch looks reasonable. i.e keeping track of all additions to
-> the queue and removals from the queue in the backlog stats is useful.
-> However, you need to be extremely careful: This should only be done
-> at exactly the spot the packet is enqueued (and not by a parent's
-> enqueue asking for hierarchical enques).
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: yankejian <yankejian@huawei.com>
+Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-The reason why I care about backlog and qlen is I want to know
-the average length of each packet in backlog, to check if it is a
-GSO packet at least.
-
->
-> I think some more work is needed Cong for this general patchset.
->
-
-Sure, I could miss something somewhere, just point it out. :)
-
-Thanks.
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index dab5ecf..802d554 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -51,9 +51,9 @@ static const struct mac_stats_string g_xgmac_stats_string[] = {
+ 	{"xgmac_rx_bad_pkt_from_dsaf", MAC_STATS_FIELD_OFF(rx_bad_from_sw)},
+ 	{"xgmac_tx_bad_pkt_64tomax", MAC_STATS_FIELD_OFF(tx_bad_pkts)},
+ 
+-	{"xgmac_rx_not_well_pkt", MAC_STATS_FIELD_OFF(rx_fragment_err)},
+-	{"xgmac_rx_good_well_pkt", MAC_STATS_FIELD_OFF(rx_undersize)},
+-	{"xgmac_rx_total_pkt", MAC_STATS_FIELD_OFF(rx_under_min)},
++	{"xgmac_rx_bad_pkts_minto64", MAC_STATS_FIELD_OFF(rx_fragment_err)},
++	{"xgmac_rx_good_pkts_minto64", MAC_STATS_FIELD_OFF(rx_undersize)},
++	{"xgmac_rx_total_pkts_minto64", MAC_STATS_FIELD_OFF(rx_under_min)},
+ 	{"xgmac_rx_pkt_64", MAC_STATS_FIELD_OFF(rx_64bytes)},
+ 	{"xgmac_rx_pkt_65to127", MAC_STATS_FIELD_OFF(rx_65to127)},
+ 	{"xgmac_rx_pkt_128to255", MAC_STATS_FIELD_OFF(rx_128to255)},
+-- 
+1.9.1
