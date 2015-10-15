@@ -1,60 +1,41 @@
-From: isdn@linux-pingi.de
-Subject: Re: [PATCH 2/2] isdn: correctly check failed allocation
-Date: Thu, 15 Oct 2015 20:42:04 +0200
-Message-ID: <561FF37C.7070107@linux-pingi.de>
-References: <1444926568-29572-1-git-send-email-wuninsu@gmail.com>
- <1444926568-29572-2-git-send-email-wuninsu@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] netfilter: ipset: Fix sleeping memory allocation in
+ atomic context
+Date: Thu, 15 Oct 2015 11:46:58 -0700
+Message-ID: <1444934818.25595.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1444906569-9131-1-git-send-email-kernel@kyup.com>
+	 <1444915978.4200.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <561FAD24.4050708@kyup.com>
+	 <1444919523.4200.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.10.1510152015370.12052@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu
-To: Insu Yun <wuninsu@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444926568-29572-2-git-send-email-wuninsu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Nikolay Borisov <kernel@kyup.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	operations@siteground.com
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1510152015370.12052@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Insu,
+On Thu, 2015-10-15 at 20:25 +0200, Jozsef Kadlecsik wrote:
 
-thanks for bringing up this issue again.
-I thought I did fix this a year ago, but seems it did not managed to
-sent it upstream.
-
-The patch do not fix this completly, since it will drop the original skb
-from the L2 I frame queue, so the transmission would lost an I-FRAME,
-which is not allowed by the protocol.
-
-The format of the new lines is wrong, you need to use TAB.
-
-
-Best regards
-Karsten
-
-Am 15.10.2015 um 18:29 schrieb Insu Yun:
-> Since skb_clone is memory allocation, it could be failed when lack of resource.
-> Therefore, return value of skb_clone needs to be checked and handle error.
+> Nikolay answered this pretty well: we wouldn't need the spinlock at all, 
+> because all commands are serialized anyway with the netlink mutex. But the 
+> garbage collector is called by a timer and therefore spinlock is used.
 > 
-> Signed-off-by: Insu Yun <wuninsu@gmail.com>
-> ---
->  drivers/isdn/mISDN/layer2.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-> index 949cabb..888c610 100644
-> --- a/drivers/isdn/mISDN/layer2.c
-> +++ b/drivers/isdn/mISDN/layer2.c
-> @@ -1509,6 +1509,12 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
->  	}
->  
->  	nskb = skb_clone(skb, GFP_ATOMIC);
-> +  if (!nskb) {
-> +			printk(KERN_WARNING "%s: no skb mem in %s\n",
-> +			       mISDNDevName4ch(&l2->ch), __func__);
-> +			return;
-> +  }
-> +
->  	p1 = skb_headroom(nskb);
->  	if (p1 >= i)
->  		memcpy(skb_push(nskb, i), header, i);
-> 
+
+Good, please Nikolay, send a v2 of the patch with all these details
+explained in the changelog, so that we can all agree.
+
+If properly explained, no need to add the stack trace which does not
+really tell us the story.
+
+Thanks !
+
+
+
