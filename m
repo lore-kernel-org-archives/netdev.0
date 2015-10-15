@@ -1,35 +1,113 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: Need to call bpf_prog_uncharge_memlock
- from bpf_prog_put
-Date: Thu, 15 Oct 2015 10:42:02 +0200
-Message-ID: <561F66DA.7020804@iogearbox.net>
-References: <1444858844-883196-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@plumgrid.com
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next v2] ipconfig: send Client-identifier in DHCP requests
+Date: Thu, 15 Oct 2015 16:54:36 +0800
+Message-ID: <1444899276-21228-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45683 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752315AbbJOImH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 04:42:07 -0400
-In-Reply-To: <1444858844-883196-1-git-send-email-tom@herbertland.com>
+Received: from mail.windriver.com ([147.11.1.11]:55505 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbbJOIyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 04:54:38 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.134])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id t9F8sbVP024853
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 01:54:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/14/2015 11:40 PM, Tom Herbert wrote:
-> Currently, is only called from __prog_put_rcu in the bpf_prog_release
-> path. Need this to call this from bpf_prog_put also to get correct
-> accounting.
->
-> Fixes: commit aaac3ba95e4c8b49 ("bpf: charge user for creation of BPF maps and programs")
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Btw, "commit" should not be part of the Fixes tag (see SubmittingPatches +187).
+A dhcp server may provide parameters to a client from a pool of IP
+addresses and using a shared rootfs, or provide a specific set of
+parameters for a specific client, usually using the MAC address to
+identify each client individually. The dhcp protocol also specifies
+a client-id field which can be used to determine the correct
+parameters to supply when no MAC address is available. There is
+currently no way to tell the kernel to supply a specific client-id,
+only the userspace dhcp clients support this feature, but this can
+not be used when the network is needed before userspace is available
+such as when the root filesystem is on NFS.
 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+This patch is to be able to do something like "ip=dhcp,client_id_type,
+client_id_value", as a kernel parameter to enable the kernel to
+identify itself to the server.
 
-Fix looks good to me, so:
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ Documentation/filesystems/nfs/nfsroot.txt |  3 +++
+ net/ipv4/ipconfig.c                       | 32 ++++++++++++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/Documentation/filesystems/nfs/nfsroot.txt b/Documentation/filesystems/nfs/nfsroot.txt
+index 2d66ed6..bb5ab6d 100644
+--- a/Documentation/filesystems/nfs/nfsroot.txt
++++ b/Documentation/filesystems/nfs/nfsroot.txt
+@@ -157,6 +157,9 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:
+ 		  both:        use both BOOTP and RARP but not DHCP
+ 		               (old option kept for backwards compatibility)
+ 
++		if dhcp is used, the client identifier can be used by following
++		format "ip=dhcp,client-id-type,client-id-value"
++
+                 Default: any
+ 
+   <dns0-ip>	IP address of first nameserver.
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index ed4ef09..0bc7412 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -146,6 +146,10 @@ u8 root_server_path[256] = { 0, };	/* Path to mount as root */
+ /* vendor class identifier */
+ static char vendor_class_identifier[253] __initdata;
+ 
++#if defined(CONFIG_IP_PNP_DHCP)
++static char dhcp_client_identifier[253] __initdata;
++#endif
++
+ /* Persistent data: */
+ 
+ static int ic_proto_used;			/* Protocol used, if any */
+@@ -728,6 +732,16 @@ ic_dhcp_init_options(u8 *options)
+ 			memcpy(e, vendor_class_identifier, len);
+ 			e += len;
+ 		}
++		len = strlen(dhcp_client_identifier + 1);
++		/* the minimum length of identifier is 2, include 1 byte type,
++		 * and can not be larger than the length of options
++		 */
++		if (len >= 1 && len < 312 - (e - options) - 1) {
++			*e++ = 61;
++			*e++ = len + 1;
++			memcpy(e, dhcp_client_identifier, len + 1);
++			e += len + 1;
++		}
+ 	}
+ 
+ 	*e++ = 255;	/* End of the list */
+@@ -1557,8 +1571,24 @@ static int __init ic_proto_name(char *name)
+ 		return 0;
+ 	}
+ #ifdef CONFIG_IP_PNP_DHCP
+-	else if (!strcmp(name, "dhcp")) {
++	else if (!strncmp(name, "dhcp", 4)) {
++		char *client_id;
++
+ 		ic_proto_enabled &= ~IC_RARP;
++		client_id = strstr(name, "dhcp,");
++		if (client_id) {
++			char *v;
++
++			client_id = client_id + 5;
++			v = strchr(client_id, ',');
++			if (!v)
++				return 1;
++			*v = 0;
++			if (kstrtou8(client_id, 0, dhcp_client_identifier))
++				DBG("DHCP: Invalid client identifier type\n");
++			strncpy(dhcp_client_identifier + 1, v + 1, 251);
++			*v = ',';
++		}
+ 		return 1;
+ 	}
+ #endif
+-- 
+2.1.4
