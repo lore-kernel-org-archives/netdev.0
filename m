@@ -1,65 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [RFC PATCH net-next 2/9] netlink: remove unnecesary goto's
-Date: Thu, 15 Oct 2015 18:39:07 +0200
-Message-ID: <42d84b840891d129e2cb021cf8c104093e00a47f.1444926905.git.jbenc@redhat.com>
-References: <cover.1444926905.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59180 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752486AbbJOQjh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 12:39:37 -0400
-In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH] xen-netback: corretly check failed allocation
+Date: Thu, 15 Oct 2015 17:44:05 +0100
+Message-ID: <1444927445.1607.113.camel@citrix.com>
+References: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <taesoo@gatech.edu>, <yeongjin.jang@gatech.edu>, <insu@gatech.edu>
+To: Insu Yun <wuninsu@gmail.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444926376-29211-1-git-send-email-wuninsu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jumping to the return makes the code less readable. The compiler will
-optimize this just fine.
+On Thu, 2015-10-15 at 12:26 -0400, Insu Yun wrote:
+> Since vzalloc can be failed in memory pressure,
+> return value should be checked and return ENOMEM.
+> 
+> Signed-off-by: Insu Yun <wuninsu@gmail.com>
+> ---
+>  drivers/net/xen-netback/xenbus.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen
+> -netback/xenbus.c
+> index 929a6e7..e288246 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -788,6 +788,11 @@ static void connect(struct backend_info *be)
+>  	/* Use the number of queues requested by the frontend */
+>  	be->vif->queues = vzalloc(requested_num_queues *
+>  				  sizeof(struct xenvif_queue));
+> +  if (!be->vif->queues)  {
+> +    xenbus_dev_fatal(dev, -ENOMEM, "allocating queues");
+> +    return;
+> +  }
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- lib/nlattr.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+Please fix the coding style, perhaps using checkpatch.pl or by observing
+the surrounding code.
 
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index f5907d23272d..b35c3e6c8e81 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -128,12 +128,10 @@ int nla_validate(const struct nlattr *head, int len, int maxtype,
- 	nla_for_each_attr(nla, head, len, rem) {
- 		err = validate_nla(nla, maxtype, policy);
- 		if (err < 0)
--			goto errout;
-+			return err;
- 	}
- 
--	err = 0;
--errout:
--	return err;
-+	return 0;
- }
- EXPORT_SYMBOL(nla_validate);
- 
-@@ -194,7 +192,7 @@ int nla_parse(struct nlattr **tb, int maxtype, const struct nlattr *head,
- 			if (policy) {
- 				err = validate_nla(nla, maxtype, policy);
- 				if (err < 0)
--					goto errout;
-+					return err;
- 			}
- 
- 			tb[type] = (struct nlattr *)nla;
-@@ -205,9 +203,7 @@ int nla_parse(struct nlattr **tb, int maxtype, const struct nlattr *head,
- 		pr_warn_ratelimited("netlink: %d bytes leftover after parsing attributes in process `%s'.\n",
- 				    rem, current->comm);
- 
--	err = 0;
--errout:
--	return err;
-+	return 0;
- }
- EXPORT_SYMBOL(nla_parse);
- 
--- 
-1.8.3.1
+Ian.
+
+> +
+>  	be->vif->num_queues = requested_num_queues;
+>  	be->vif->stalled_queues = requested_num_queues;
+>  
