@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/7] tipc: simplify
-	tipc_link_rcv() reception loop
-Date: Thu, 15 Oct 2015 14:52:41 -0400
-Message-ID: <1444935166-12745-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 6/7] tipc: send out RESET
+	immediately when link goes down
+Date: Thu, 15 Oct 2015 14:52:45 -0400
+Message-ID: <1444935166-12745-7-git-send-email-jon.maloy@ericsson.com>
 References: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,164 +23,155 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Currently, all packets received in tipc_link_rcv() are unconditionally
-added to the packet deferred queue, whereafter that queue is walked and
-all its buffers evaluated for delivery. This is both non-optimal and
-and makes the queue sorting function unnecessary complex.
+When a link is taken down because of a node local event, such as
+disabling of a bearer or an interface, we currently leave it to the
+peer node to discover the broken communication. The default time for
+such failure discovery is 1.5-2 seconds.
 
-This commit changes the loop so that an arrived packet is evaluated
-first, and added to the deferred queue only when a sequence number gap
-is discovered. A non-empty deferred queue is walked until it is empty
-or until its head's sequence number doesn't fit.
+If we instead allow the terminating link endpoint to send out a RESET
+message at the moment it is reset, we can achieve the impression that
+both endpoints are going down instantly. Since this is a very common
+scenario, we find it worthwhile to make this small modification.
+
+Apart from letting the link produce the said message, we also have to
+ensure that the interface is able to transmit it before TIPC is
+detached. We do this by performing the disabling of a bearer in three
+steps:
+
+1) Disable reception of TIPC packets from the interface in question.
+2) Take down the links, while allowing them so send out a RESET message.
+3) Disable transmission of TIPC packets on the interface.
+
+Apart from this, we now have to react on the NETDEV_GOING_DOWN event,
+instead of as currently the NEDEV_DOWN event, to ensure that such
+transmission is possible during the teardown phase.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c | 84 ++++++++++++++++++++++++++++++++-------------------------
- 1 file changed, 47 insertions(+), 37 deletions(-)
+ net/tipc/bearer.c    |  8 +++-----
+ net/tipc/link.c      | 12 ++++++++++++
+ net/tipc/link.h      |  1 +
+ net/tipc/node.c      |  5 +++--
+ net/tipc/udp_media.c |  1 -
+ 5 files changed, 19 insertions(+), 8 deletions(-)
 
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index ce9f7bf..82b2786 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -362,6 +362,7 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr)
+ 	b_ptr->media->disable_media(b_ptr);
+ 
+ 	tipc_node_delete_links(net, b_ptr->identity);
++	RCU_INIT_POINTER(b_ptr->media_ptr, NULL);
+ 	if (b_ptr->link_req)
+ 		tipc_disc_delete(b_ptr->link_req);
+ 
+@@ -399,16 +400,13 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
+ 
+ /* tipc_disable_l2_media - detach TIPC bearer from an L2 interface
+  *
+- * Mark L2 bearer as inactive so that incoming buffers are thrown away,
+- * then get worker thread to complete bearer cleanup.  (Can't do cleanup
+- * here because cleanup code needs to sleep and caller holds spinlocks.)
++ * Mark L2 bearer as inactive so that incoming buffers are thrown away
+  */
+ void tipc_disable_l2_media(struct tipc_bearer *b)
+ {
+ 	struct net_device *dev;
+ 
+ 	dev = (struct net_device *)rtnl_dereference(b->media_ptr);
+-	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	RCU_INIT_POINTER(dev->tipc_ptr, NULL);
+ 	synchronize_net();
+ 	dev_put(dev);
+@@ -554,7 +552,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 	case NETDEV_CHANGE:
+ 		if (netif_carrier_ok(dev))
+ 			break;
+-	case NETDEV_DOWN:
++	case NETDEV_GOING_DOWN:
+ 	case NETDEV_CHANGEMTU:
+ 		tipc_reset_bearer(net, b_ptr);
+ 		break;
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 11f7429..8e23ab5 100644
+index 8c794c1..737b598 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1047,44 +1047,55 @@ static bool tipc_link_release_pkts(struct tipc_link *l, u16 acked)
- 	return released;
+@@ -1062,6 +1062,18 @@ void tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 	tipc_link_build_proto_msg(l, STATE_MSG, 0, 0, 0, 0, xmitq);
  }
  
-+/* tipc_link_build_ack_msg: prepare link acknowledge message for transmission
++/* tipc_link_build_reset_msg: prepare link RESET or ACTIVATE message
 + */
-+void tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
++void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
 +{
-+	l->rcv_unacked = 0;
-+	l->stats.sent_acks++;
-+	tipc_link_build_proto_msg(l, STATE_MSG, 0, 0, 0, 0, xmitq);
++	int mtyp = RESET_MSG;
++
++	if (l->state == LINK_ESTABLISHING)
++		mtyp = ACTIVATE_MSG;
++
++	tipc_link_build_proto_msg(l, mtyp, 0, 0, 0, 0, xmitq);
 +}
 +
-+/* tipc_link_build_nack_msg: prepare link nack message for transmission
-+ */
-+static void tipc_link_build_nack_msg(struct tipc_link *l,
-+				     struct sk_buff_head *xmitq)
-+{
-+	u32 def_cnt = ++l->stats.deferred_recv;
-+
-+	if ((skb_queue_len(&l->deferdq) == 1) || !(def_cnt % TIPC_NACK_INTV))
-+		tipc_link_build_proto_msg(l, STATE_MSG, 0, 0, 0, 0, xmitq);
-+}
-+
- /* tipc_link_rcv - process TIPC packets/messages arriving from off-node
-- * @link: the link that should handle the message
-+ * @l: the link that should handle the message
-  * @skb: TIPC packet
-  * @xmitq: queue to place packets to be sent after this call
+ /* tipc_link_build_nack_msg: prepare link nack message for transmission
   */
- int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		  struct sk_buff_head *xmitq)
- {
--	struct sk_buff_head *arrvq = &l->deferdq;
-+	struct sk_buff_head *defq = &l->deferdq;
- 	struct tipc_msg *hdr;
- 	u16 seqno, rcv_nxt;
- 	int rc = 0;
- 
--	if (unlikely(!__tipc_skb_queue_sorted(arrvq, skb))) {
--		if (!(skb_queue_len(arrvq) % TIPC_NACK_INTV))
--			tipc_link_build_proto_msg(l, STATE_MSG, 0,
--						  0, 0, 0, xmitq);
--		return rc;
--	}
+ static void tipc_link_build_nack_msg(struct tipc_link *l,
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index d42dfc0..5872f09 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -213,6 +213,7 @@ void tipc_link_tnl_prepare(struct tipc_link *l, struct tipc_link *tnl,
+ 			   int mtyp, struct sk_buff_head *xmitq);
+ void tipc_link_build_bcast_sync_msg(struct tipc_link *l,
+ 				    struct sk_buff_head *xmitq);
++void tipc_link_build_reset_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
+ int tipc_link_fsm_evt(struct tipc_link *l, int evt);
+ void tipc_link_reset_fragments(struct tipc_link *l_ptr);
+ bool tipc_link_is_up(struct tipc_link *l);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index d3386f8..c1c9a99 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -41,7 +41,7 @@
+ #include "socket.h"
+ #include "bcast.h"
+ #include "discover.h"
 -
--	while ((skb = skb_peek(arrvq))) {
-+	do {
- 		hdr = buf_msg(skb);
-+		seqno = msg_seqno(hdr);
-+		rcv_nxt = l->rcv_nxt;
- 
- 		/* Verify and update link state */
--		if (unlikely(msg_user(hdr) == LINK_PROTOCOL)) {
--			__skb_dequeue(arrvq);
--			rc = tipc_link_proto_rcv(l, skb, xmitq);
--			continue;
--		}
-+		if (unlikely(msg_user(hdr) == LINK_PROTOCOL))
-+			return tipc_link_proto_rcv(l, skb, xmitq);
- 
- 		if (unlikely(!link_is_up(l))) {
- 			rc = tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
--			if (!link_is_up(l)) {
--				kfree_skb(__skb_dequeue(arrvq));
--				goto exit;
--			}
-+			if (!link_is_up(l))
-+				goto drop;
- 		}
- 
-+		/* Don't send probe at next timeout expiration */
- 		l->silent_intv_cnt = 0;
- 
- 		/* Forward queues and wake up waiting users */
-@@ -1095,37 +1106,36 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		}
- 
- 		/* Defer reception if there is a gap in the sequence */
--		seqno = msg_seqno(hdr);
--		rcv_nxt = l->rcv_nxt;
- 		if (unlikely(less(rcv_nxt, seqno))) {
--			l->stats.deferred_recv++;
--			goto exit;
-+			__tipc_skb_queue_sorted(defq, skb);
-+			tipc_link_build_nack_msg(l, xmitq);
-+			break;
- 		}
- 
--		__skb_dequeue(arrvq);
--
- 		/* Drop if packet already received */
- 		if (unlikely(more(rcv_nxt, seqno))) {
- 			l->stats.duplicates++;
--			kfree_skb(skb);
--			goto exit;
-+			goto drop;
- 		}
- 
- 		/* Packet can be delivered */
- 		l->rcv_nxt++;
- 		l->stats.recv_info++;
--		if (unlikely(!tipc_data_input(l, skb, l->inputq)))
-+
-+		if (!tipc_data_input(l, skb, l->inputq))
- 			rc = tipc_link_input(l, skb, l->inputq);
-+		if (rc)
-+			break;
- 
- 		/* Ack at regular intervals */
--		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN)) {
--			l->rcv_unacked = 0;
--			l->stats.sent_acks++;
--			tipc_link_build_proto_msg(l, STATE_MSG,
--						  0, 0, 0, 0, xmitq);
--		}
--	}
--exit:
-+		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN))
-+			tipc_link_build_ack_msg(l, xmitq);
-+
-+	} while ((skb = __skb_dequeue(defq)));
-+
-+	return rc;
-+drop:
-+	kfree_skb(skb);
- 	return rc;
- }
- 
-@@ -1249,7 +1259,7 @@ static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
- }
- 
- /* tipc_link_tnl_prepare(): prepare and return a list of tunnel packets
-- * with contents of the link's tranmsit and backlog queues.
-+ * with contents of the link's transmit and backlog queues.
++#define pr_debug printk
+ /* Node FSM states and events:
   */
- void tipc_link_tnl_prepare(struct tipc_link *l, struct tipc_link *tnl,
- 			   int mtyp, struct sk_buff_head *xmitq)
+ enum {
+@@ -421,6 +421,8 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
+ 
+ 	if (!tipc_node_is_up(n)) {
+ 		tipc_link_reset(l);
++		tipc_link_build_reset_msg(l, xmitq);
++		*maddr = &n->links[*bearer_id].maddr;
+ 		node_lost_contact(n, &le->inputq);
+ 		return;
+ 	}
+@@ -463,7 +465,6 @@ static void tipc_node_link_down(struct tipc_node *n, int bearer_id, bool delete)
+ 		tipc_link_fsm_evt(l, LINK_RESET_EVT);
+ 	}
+ 	tipc_node_unlock(n);
+-
+ 	tipc_bearer_xmit(n->net, bearer_id, &xmitq, maddr);
+ 	tipc_sk_rcv(n->net, &le->inputq);
+ }
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index c170d31..9bc0b1e 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -425,7 +425,6 @@ static void tipc_udp_disable(struct tipc_bearer *b)
+ 	}
+ 	if (ub->ubsock)
+ 		sock_set_flag(ub->ubsock->sk, SOCK_DEAD);
+-	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	RCU_INIT_POINTER(ub->bearer, NULL);
+ 
+ 	/* sock_release need to be done outside of rtnl lock */
 -- 
 1.9.1
 
