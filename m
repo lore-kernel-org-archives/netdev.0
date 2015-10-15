@@ -1,134 +1,68 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/3] ip-route man: add usage and description for lwtunnel encap attributes
-Date: Thu, 15 Oct 2015 13:13:40 +0200
-Message-ID: <32616276616701280f2d6da44f0cbaf7fb93f5bf.1444907416.git.tgraf@suug.ch>
-References: <cover.1444907416.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	jbenc@redhat.com, mengke.liu@intel.com, tom@herbertland.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:45956 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbbJOLNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 07:13:51 -0400
-In-Reply-To: <cover.1444907416.git.tgraf@suug.ch>
-In-Reply-To: <cover.1444907416.git.tgraf@suug.ch>
-References: <cover.1444907416.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <jonathan.chang-QMLhiDbVPGenedCIQ9mT8A@public.gmane.org>
+Subject: [PATCH] net: asix: add support for the Billionton GUSB2AM-1G-B USB adapter
+Date: Thu, 15 Oct 2015 18:51:38 +0800
+Message-ID: <1444906298-23105-1-git-send-email-jonathan.chang@delta.com.tw>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: base64
+Cc: Jonathan Chang <jonathan.chang-QMLhiDbVPGenedCIQ9mT8A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Luca Ceresoli <luca-ep08DiM7hqZH3+C6az13tg@public.gmane.org>,
+	Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	"Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org" <Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+	Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
+	Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Charles Keepax <ckeepax-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+RnJvbTogSm9uYXRoYW4gQ2hhbmcgPGpvbmF0aGFuLmNoYW5nQGRlbHRhLmNvbS50dz4NCg0KSnVz
+dCBhbm90aGVyIEFYODgxNzgtYmFzZWQgMTAvMTAwLzEwMDAgVVNCLXRvLUV0aGVybmV0IGRvbmds
+ZS4gVGhpcyBvbmUNCnNob3dzIHVwIGluIGxzdXNiIGFzOiAiSUQgMDhkZDowMTE0IEJpbGxpb250
+b24gU3lzdGVtcywgSW5jIi4NCg0KU2lnbmVkLW9mZi1ieTogSm9uYXRoYW4gQ2hhbmcgPGpvbmF0
+aGFuLmNoYW5nQGRlbHRhLmNvbS50dz4NCkNjOiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldD4NCkNjOiBMdWNhIENlcmVzb2xpIDxsdWNhQGx1Y2FjZXJlc29saS5uZXQ+DQpD
+YzogQ2hyaXN0b3BoIEphZWdlciA8Y2pAbGludXguY29tPg0KQ2M6ICJXb29qdW5nLkh1aEBtaWNy
+b2NoaXAuY29tIiA8V29vanVuZy5IdWhAbWljcm9jaGlwLmNvbT4NCkNjOiBNYXR0aGV3IEdhcnJl
+dHQgPG1qZzU5QHNyY2YudWNhbS5vcmc+DQpDYzogTWFya3VzIEVsZnJpbmcgPGVsZnJpbmdAdXNl
+cnMuc291cmNlZm9yZ2UubmV0Pg0KQ2M6IENoYXJsZXMgS2VlcGF4IDxja2VlcGF4QG9wZW5zb3Vy
+Y2Uud29sZnNvbm1pY3JvLmNvbT4NCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpDYzogbGlu
+dXgtdXNiQHZnZXIua2VybmVsLm9yZw0KLS0tDQogZHJpdmVycy9uZXQvdXNiL0tjb25maWcgICAg
+ICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jIHwgICAgNCArKysr
+DQogMiBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKykNCg0KZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L3VzYi9LY29uZmlnIGIvZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCmluZGV4IGZiYjkz
+MjUuLmU2NjgwNWUgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0KKysrIGIv
+ZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCkBAIC0xNjQsNiArMTY0LDcgQEAgY29uZmlnIFVTQl9O
+RVRfQVg4ODE3WA0KIAkgICAgKiBBdGVuIFVDMjEwVA0KIAkgICAgKiBBU0lYIEFYODgxNzINCiAJ
+ICAgICogQmlsbGlvbnRvbiBTeXN0ZW1zLCBVU0IyQVINCisJICAgICogQmlsbGlvbnRvbiBTeXN0
+ZW1zLCBHVVNCMkFNLTFHLUINCiAJICAgICogQnVmZmFsbyBMVUEtVTItS1RYDQogCSAgICAqIENv
+cmVnYSBGRXRoZXIgVVNCMi1UWA0KIAkgICAgKiBELUxpbmsgRFVCLUUxMDANCmRpZmYgLS1naXQg
+YS9kcml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeF9k
+ZXZpY2VzLmMNCmluZGV4IDExNzNhMjQuLjVjYWJlZmMgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25l
+dC91c2IvYXNpeF9kZXZpY2VzLmMNCisrKyBiL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMu
+Yw0KQEAgLTk1OSw2ICs5NTksMTAgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lk
+CXByb2R1Y3RzIFtdID0gew0KIAlVU0JfREVWSUNFICgweDA4ZGQsIDB4OTBmZiksDQogCS5kcml2
+ZXJfaW5mbyA9ICAodW5zaWduZWQgbG9uZykgJmF4ODgxN3hfaW5mbywNCiB9LCB7DQorCS8vIEJp
+bGxpb250b24gU3lzdGVtcywgR1VTQjJBTS0xRy1CDQorCVVTQl9ERVZJQ0UoMHgwOGRkLCAweDAx
+MTQpLA0KKwkuZHJpdmVyX2luZm8gPSAgKHVuc2lnbmVkIGxvbmcpICZheDg4MTc4X2luZm8sDQor
+fSwgew0KIAkvLyBBVEVOIFVDMjEwVA0KIAlVU0JfREVWSUNFICgweDA1NTcsIDB4MjAwOSksDQog
+CS5kcml2ZXJfaW5mbyA9ICAodW5zaWduZWQgbG9uZykgJmF4ODgxN3hfaW5mbywNCi0tIA0KMS43
+LjEwLjQNCg0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKg0KVGhpcyBlbWFpbCBtZXNzYWdlLCBpbmNsdWRpbmcg
+YW55IGF0dGFjaG1lbnRzLCBpcyBmb3IgdGhlIHNvbGUNCnVzZSBvZiB0aGUgaW50ZW5kZWQgcmVj
+aXBpZW50KHMpIGFuZCBtYXkgY29udGFpbiBjb25maWRlbnRpYWwgYW5kDQpwcml2aWxlZ2VkIGlu
+Zm9ybWF0aW9uLiBBbnkgdW5hdXRob3JpemVkIHJldmlldywgdXNlLCBkaXNjbG9zdXJlIG9yDQpk
+aXN0cmlidXRpb24gaXMgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJl
+Y2lwaWVudCwgcGxlYXNlDQpjb250YWN0IHRoZSBzZW5kZXIgYnkgcmVwbHkgZS1tYWlsIGFuZCBk
+ZXN0cm95IGFsbCBjb3BpZXMgb2YgdGhlIG9yaWdpbmFsDQptZXNzYWdlLiBbRGVsdGEgRWxlY3Ry
+b25pY3MsIElOQy4gVGFpd2FuXQ0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg==
 
-This patch updates ip-route man page with lwtunnel encap
-usage and description, covering MPLS and IP encapsulation.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- man/man8/ip-route.8.in | 70 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 69 insertions(+), 1 deletion(-)
-
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index 72d8d77..9934a1e 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -80,6 +80,8 @@ replace " } "
- 
- .ti -8
- .IR NH " := [ "
-+.B  encap
-+.IR ENCAP " ] [ "
- .B  via
- [
- .IR FAMILY " ] " ADDRESS " ] [ "
-@@ -164,6 +166,26 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
- .IR PREF " := [ "
- .BR low " | " medium " | " high " ]"
- 
-+.ti -8
-+.IR ENCAP " := [ "
-+.IR MPLS " | " IP " ]"
-+
-+.ti -8
-+.IR ENCAP_MPLS " := "
-+.BR mpls " [ "
-+.IR LABEL " ]"
-+
-+.ti -8
-+.IR ENCAP_IP " := "
-+.B ip
-+.B id
-+.IR TUNNEL_ID
-+.B  dst
-+.IR REMOTE_IP " [ "
-+.B tos
-+.IR TOS " ] ["
-+.B  ttl
-+.IR TTL " ]"
- 
- .SH DESCRIPTION
- .B ip route
-@@ -589,6 +611,48 @@ Discovery messages. Namely:
- - the route has a highest priority
- .sp
- 
-+.TP
-+.BI encap " ENCAPTYPE ENCAPHDR"
-+attach tunnel encapsulation attributes to this route.
-+.sp
-+.I ENCAPTYPE
-+is a string specifying the supported encapsulation type. Namely:
-+
-+.in +8
-+.BI mpls
-+- encapsulation type MPLS
-+.sp
-+.BI ip
-+- IP encapsulation (Geneve, GRE, VXLAN, ...)
-+.sp
-+
-+.in -8
-+.I ENCAPHDR
-+is a set of encapsulation attributes specific to the
-+.I ENCAPTYPE.
-+
-+.in +8
-+.B mpls
-+.in +2
-+.I MPLSLABEL
-+- mpls label stack with labels separated by
-+.I "/"
-+.in -2
-+.sp
-+
-+.B ip
-+.in +2
-+.B id
-+.I TUNNEL_ID
-+.B  dst
-+.IR REMOTE_IP " [ "
-+.B tos
-+.IR TOS " ] ["
-+.B  ttl
-+.IR TTL " ]"
-+.in -2
-+.sp
-+
- .in -8
- .RE
- 
-@@ -847,7 +911,11 @@ ip route add default via 192.168.1.1 dev eth0
- Adds a default route (for all addresses) via the local gateway 192.168.1.1 that can
- be reached on device eth0.
- .RE
--
-+.PP
-+ip route add 10.1.1.0/30 encap mpls 200/300 via 10.1.1.1 dev eth0
-+.RS 4
-+Adds an ipv4 route with mpls encapsulation attributes attached to it.
-+.RE
- .SH SEE ALSO
- .br
- .BR ip (8)
--- 
-2.4.3
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
