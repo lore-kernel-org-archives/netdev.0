@@ -1,48 +1,59 @@
-From: yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next] net: hisilicon: fixes a bug when using ethtool -S
-Date: Thu, 15 Oct 2015 12:40:34 +0800
-Message-ID: <1444884034-113975-1-git-send-email-yankejian@huawei.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 2/4] net_sched: update hierarchical backlog too
+Date: Wed, 14 Oct 2015 21:32:06 -0700
+Message-ID: <CAM_iQpWmxhY9Y9PU+9kYYvoc2C07aTxMPxSny1pW+cVYu4TqGQ@mail.gmail.com>
+References: <1444675083-9825-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1444675083-9825-3-git-send-email-xiyou.wangcong@gmail.com>
+	<561E4663.4080101@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linuxarm@huawei.com>
-To: <liguozhu@huawei.com>, <yisen.zhuang@huawei.com>,
-	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-	<yankejian@huawei.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:32934 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbbJOEcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 00:32:08 -0400
+Received: by obbwb3 with SMTP id wb3so29626430obb.0
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2015 21:32:06 -0700 (PDT)
+In-Reply-To: <561E4663.4080101@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: lipeng <lipeng321@huawei.com>
+On Wed, Oct 14, 2015 at 5:11 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 10/12/15 14:38, Cong Wang wrote:
+>>
+>> When the bottom qdisc decides to, for example, drop some packet,
+>> it calls qdisc_tree_decrease_qlen() to update the queue length
+>> for all its ancestors, we need to update the backlog too to
+>> keep the stats on root qdisc accurate.
+>>
+>
+>
+> There is more than one change in there (the codel change seems
+> out of place and i wasnt sure why it was needed).
 
-this patch fixes a bug in hns driver. when we want to get statistic info
-by using ethtool -S, it shows us there are 3 wrong counters info. because
-the strings related to the registers are wrong. it needs to modify the
-strings which give us wrong info.
+I thought it is clear that when codel decides to drop some packets
+we don't know how many bytes it drops, we only know how many
+packets before my patch. For example,
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Signed-off-by: yankejian <yankejian@huawei.com>
-Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+-               qdisc_tree_decrease_qlen(sch, q->cstats.drop_count);
++               qdisc_tree_reduce_backlog(sch, q->cstats.drop_count,
++                                         q->cstats.drop_len);
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-index dab5ecf..802d554 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-@@ -51,9 +51,9 @@ static const struct mac_stats_string g_xgmac_stats_string[] = {
- 	{"xgmac_rx_bad_pkt_from_dsaf", MAC_STATS_FIELD_OFF(rx_bad_from_sw)},
- 	{"xgmac_tx_bad_pkt_64tomax", MAC_STATS_FIELD_OFF(tx_bad_pkts)},
- 
--	{"xgmac_rx_not_well_pkt", MAC_STATS_FIELD_OFF(rx_fragment_err)},
--	{"xgmac_rx_good_well_pkt", MAC_STATS_FIELD_OFF(rx_undersize)},
--	{"xgmac_rx_total_pkt", MAC_STATS_FIELD_OFF(rx_under_min)},
-+	{"xgmac_rx_bad_pkts_minto64", MAC_STATS_FIELD_OFF(rx_fragment_err)},
-+	{"xgmac_rx_good_pkts_minto64", MAC_STATS_FIELD_OFF(rx_undersize)},
-+	{"xgmac_rx_total_pkts_minto64", MAC_STATS_FIELD_OFF(rx_under_min)},
- 	{"xgmac_rx_pkt_64", MAC_STATS_FIELD_OFF(rx_64bytes)},
- 	{"xgmac_rx_pkt_65to127", MAC_STATS_FIELD_OFF(rx_65to127)},
- 	{"xgmac_rx_pkt_128to255", MAC_STATS_FIELD_OFF(rx_128to255)},
--- 
-1.9.1
+This clearly means I need some codel stats from codel to pass to
+qdisc_tree_reduce_backlog(), this is  why the codel part is
+necessary.
+
+
+> Also it seems possible you are double-dipping in some cases;
+> i dont have time to scrutinize - but looking at codel_change() change
+> when the queue limit is exceeded you will end up affecting backlog from
+> both qdisc_qstats_backlog_dec() and your new
+> qdisc_tree_reduce_backlog()
+
+Nope, qdisc_qstats_backlog_dec() decreases the backlog of itself,
+qdisc_tree_reduce_backlog() decreases its upper qdiscs'. It is correct
+as it was.
+
+Thanks.
