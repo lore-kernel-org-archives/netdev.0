@@ -1,60 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] ixgbe: Fix CS4227-related semaphore error on reset failure
-Date: Thu, 15 Oct 2015 02:39:49 -0700
-Message-ID: <1444902004-14433-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 05/17] i40e: Change some messages from info to debug
+ only
+Date: Thu, 15 Oct 2015 02:54:44 -0700
+Message-ID: <1444902884.2718.41.camel@perches.com>
 References: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	 <1444902004-14433-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Neerav Parikh <neerav.parikh@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12861 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751967AbbJOJm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 05:42:26 -0400
-In-Reply-To: <1444902004-14433-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay0066.hostedemail.com ([216.40.44.66]:54642 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752062AbbJOJys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 05:54:48 -0400
+In-Reply-To: <1444902004-14433-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On Thu, 2015-10-15 at 02:39 -0700, Jeff Kirsher wrote:
+> From: Neerav Parikh <neerav.parikh@intel.com>
+> 
+> There are several error messages that have been printing when there is
+> no functional issue. These messages should be available at debug message
+> level only.
+[]
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+[]
+> @@ -6593,9 +6593,9 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+>  	/* make sure our flow control settings are restored */
+>  	ret = i40e_set_fc(&pf->hw, &set_fc_aq_fail, true);
+>  	if (ret)
+> -		dev_info(&pf->pdev->dev, "set fc fail, err %s aq_err %s\n",
+> -			 i40e_stat_str(&pf->hw, ret),
+> -			 i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
+> +		dev_dbg(&pf->pdev->dev, "setting flow control: ret = %s last_status = %s\n",
+> +			i40e_stat_str(&pf->hw, ret),
+> +			i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
+[]
+> @@ -10333,10 +10339,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	/* get the requested speeds from the fw */
+>  	err = i40e_aq_get_phy_capabilities(hw, false, false, &abilities, NULL);
+>  	if (err)
+> -		dev_info(&pf->pdev->dev,
+> -			 "get phy capabilities failed, err %s aq_err %s, advertised speed settings may not be correct\n",
+> -			 i40e_stat_str(&pf->hw, err),
+> -			 i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
+> +		dev_dbg(&pf->pdev->dev, "get requested speeds ret =  %s last_status =  %s\n",
+> +			i40e_stat_str(&pf->hw, err),
+> +			i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
+>  	pf->hw.phy.link_info.requested_speeds = abilities.link_speed;
+>  
+>  	/* get the supported phy types from the fw */
 
-If the reset never completes, it is necessary to retake the
-semaphore before returning, because the caller will release
-the semaphore.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Darin Miller <darin.j.miller@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index ed7b289..06b15edd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -198,6 +198,7 @@ static s32 ixgbe_write_pe(struct ixgbe_hw *hw, u8 reg, u8 value)
-  * ixgbe_reset_cs4227 - Reset CS4227 using port expander
-  * @hw: pointer to hardware structure
-  *
-+ * This function assumes that the caller has acquired the proper semaphore.
-  * Returns error code
-  */
- static s32 ixgbe_reset_cs4227(struct ixgbe_hw *hw)
-@@ -296,6 +297,14 @@ static void ixgbe_check_cs4227(struct ixgbe_hw *hw)
- 		hw->mac.ops.release_swfw_sync(hw, swfw_mask);
- 		msleep(IXGBE_CS4227_CHECK_DELAY);
- 	}
-+	/* If still pending, assume other instance failed. */
-+	if (retry == IXGBE_CS4227_RETRIES) {
-+		status = hw->mac.ops.acquire_swfw_sync(hw, swfw_mask);
-+		if (status) {
-+			hw_err(hw, "semaphore failed with %d\n", status);
-+			return;
-+		}
-+	}
- 
- 	/* Reset the CS4227. */
- 	status = ixgbe_reset_cs4227(hw);
--- 
-2.4.3
+Perhaps these 2 are functional issues and should remain
+dev_info or maybe upgraded to notice or err
