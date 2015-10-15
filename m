@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 0/4] Mellanox driver update, Oct 14 2015
-Date: Wed, 14 Oct 2015 19:15:11 -0700 (PDT)
-Message-ID: <20151014.191511.395802773815194353.davem@davemloft.net>
-References: <1444833828-8240-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next] drivers/net: get rid of unnecessary
+ initializations in .get_drvinfo()
+Date: Wed, 14 Oct 2015 19:26:44 -0700 (PDT)
+Message-ID: <20151014.192644.1811314692228642214.davem@davemloft.net>
+References: <1444840072-21313-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eli@mellanox.com, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, bwh@kernel.org
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38332 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38424 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932406AbbJOB7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 21:59:05 -0400
-In-Reply-To: <1444833828-8240-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1753742AbbJOCKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2015 22:10:39 -0400
+In-Reply-To: <1444840072-21313-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 14 Oct 2015 17:43:44 +0300
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Wed, 14 Oct 2015 18:27:52 +0200
 
-> Hi Dave,
+> Many drivers initialize uselessly n_priv_flags, n_stats, testinfo_len,
+> eedump_len & regdump_len fields in their .get_drvinfo() ethtool op.
+> It's not necessary as these fields is filled in ethtool_get_drvinfo().
 > 
-> This series contains two more patches from Eli, patch from Majd
-> to support PCI error handlers and a fix from Jack to mlx4 VFs
-> when probed without a provisioned mac address.
-> 
-> The patch set applied on top of net-next commit bbb300e "Merge branch 'bridge-vlan'"
-> 
-> changes from V0:
->   - made the health flag int --> bool to address comment from Dave on patch #1
->   - fixed sparse warning noted by the 0-day build tests in patch #2
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+ ...
+>  drivers/net/usb/sr9800.c                                | 1 -
 
-Series applied, thanks.
+Please fix this unused variable warning added to this file and
+resubmit, thanks.
