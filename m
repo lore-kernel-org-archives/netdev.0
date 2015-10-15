@@ -1,65 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/17] i40e: remove read/write failed messages from nvmupdate
-Date: Thu, 15 Oct 2015 14:43:14 -0700
-Message-ID: <1444945404-30654-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2] bridge: add calls to fflush in fdb and mdb print functions
+Date: Thu, 15 Oct 2015 14:53:17 -0700
+Message-ID: <1444945997-55864-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32107 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753002AbbJOVna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2015 17:43:30 -0400
-In-Reply-To: <1444945404-30654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34812 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbbJOVxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 17:53:22 -0400
+Received: by payp3 with SMTP id p3so51130796pay.1
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 14:53:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Wilson Kok <wkok@cumulusnetworks.com>
 
-Allow the nvmupdate application to decide when a read or write error
-should be exposed to the user.  Since the application needs to use
-write probes to find the ReadOnly sections on a potentially unknown NVM
-version in the HW and read probes to check the status of the last write,
-some error messages are expected, but need not be shown to the users.
-The driver doesn't know which are ignorable from real errors, so needs
-to let the application make the decision.
+This patch adds fflush in fdb and mdb print functions
 
-Change-ID: I78fca8ab672bede11c10c820b83c26adfd536d03
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ bridge/fdb.c | 2 ++
+ bridge/mdb.c | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 923f95e..d9c4f07 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -993,9 +993,7 @@ static int i40e_get_eeprom(struct net_device *netdev,
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index bd7e4f9..5ea50ab 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -163,6 +163,8 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "offload ");
  
- 		cmd = (struct i40e_nvm_access *)eeprom;
- 		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
--		if (ret_val &&
--		    ((hw->aq.asq_last_status != I40E_AQ_RC_EACCES) ||
--		     (hw->debug_mask & I40E_DEBUG_NVM)))
-+		if (ret_val && (hw->debug_mask & I40E_DEBUG_NVM))
- 			dev_info(&pf->pdev->dev,
- 				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
- 				 ret_val, hw->aq.asq_last_status, errno,
-@@ -1099,10 +1097,7 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	fprintf(fp, "%s\n", state_n2a(r->ndm_state));
++	fflush(fp);
++
+ 	return 0;
+ }
  
- 	cmd = (struct i40e_nvm_access *)eeprom;
- 	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
--	if (ret_val &&
--	    ((hw->aq.asq_last_status != I40E_AQ_RC_EPERM &&
--	      hw->aq.asq_last_status != I40E_AQ_RC_EBUSY) ||
--	     (hw->debug_mask & I40E_DEBUG_NVM)))
-+	if (ret_val && (hw->debug_mask & I40E_DEBUG_NVM))
- 		dev_info(&pf->pdev->dev,
- 			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
- 			 ret_val, hw->aq.asq_last_status, errno,
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index b14bd01..24c4903 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -135,6 +135,8 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		}
+ 	}
+ 
++	fflush(fp);
++
+ 	return 0;
+ }
+ 
 -- 
-2.4.3
+1.9.1
