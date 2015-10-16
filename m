@@ -1,42 +1,24 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC
- device
-Date: Sat, 17 Oct 2015 22:23:23 +0300
-Message-ID: <5622A02B.3040000@cogentembedded.com>
-References: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
- <5621890E.8090704@cogentembedded.com> <20151016235408.GB28795@lunn.ch>
+From: netdev-owner@vger.kernel.org
+Subject: I am Mrs Patricia J Baker. From Texas I can refer you to a very reliable and
+ legitimate loan lender where i just got my loan . If interested in getting
+ a loan and not sure of what to do,
+ Please get back to me via my personal email so I can also refer you
+ r.cla285@gmail.com
+Date: Fri, 16 Oct 2015 20:32:18 +0100
+Message-ID: <VI1PR05MB1200BC0F156F11AFDC667CB1B83C0@VI1PR05MB1200.eurprd05.prod.outlook.com>
+Reply-To: <r.cla285@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:33795 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984AbbJQTX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 15:23:26 -0400
-Received: by lbbwb3 with SMTP id wb3so57826181lbb.1
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 12:23:25 -0700 (PDT)
-In-Reply-To: <20151016235408.GB28795@lunn.ch>
+Received: from mail-db3hn0249.outbound.protection.outlook.com ([157.55.234.249]:26752
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752597AbbJQTiF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 15:38:05 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2015 2:54 AM, Andrew Lunn wrote:
-
->>> Commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
->>> the bus' parent." broke finding PHY properties in the MAC device tree
->>
->>     You probably forgot to run checkpatch.pl on this patch, else it
->> would have complained about the commit citing style. It's <12-bit
->> SHA1> ("<summary line>").
->
-> Actual, i did, and decided to ignore it. I'm quoting the regression
-> report, which formats it that way.
-
-    BTW, I'm seeing no Reported-by: tag in your patch either, is that intended?
-
-> 	   Andrew
-
-MBR, Sergei
+ALL REPLY SHOULD BE SENT TO  r.cla285@gmail.com
