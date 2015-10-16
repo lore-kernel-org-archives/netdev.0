@@ -1,45 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
- option
-Date: Thu, 15 Oct 2015 23:50:07 -0700 (PDT)
-Message-ID: <20151015.235007.973370825335101214.davem@davemloft.net>
-References: <cover.1444926905.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: jbenc@redhat.com
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: [PATCH v3] netfilter: ipset: Fix sleeping memory allocation in atomic context
+Date: Fri, 16 Oct 2015 09:40:28 +0300
+Message-ID: <1444977628-19323-1-git-send-email-kernel@kyup.com>
+Cc: netfilter-devel@vger.kernel.org, pablo@netfilter.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	operations@siteground.com
+To: kadlec@blackhole.kfki.hu, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51385 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbbJPGd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 02:33:59 -0400
-In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33328 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753388AbbJPGkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 02:40:33 -0400
+Received: by lffv3 with SMTP id v3so70993372lff.0
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 23:40:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu, 15 Oct 2015 18:39:05 +0200
+Commit 00590fdd5be0 introduced RCU locking in list type and in
+doing so introduced a memory allocation in list_set_add, which 
+is done in an atomic context, due to the fact that ipset rcu 
+list modifications are serialised with a spin lock. The reason 
+why we can't use a mutex is that in addition to modifying the 
+list with ipset commands, it's also being modified when a
+particular ipset rule timeout expires aka garbage collection. 
+This gc is triggered from set_cleanup_entries, which in turn 
+is invoked from a timer thus requiring the lock to be bh-safe. 
 
-> When sending a netlink request (NLM_F_REQUEST), any unknown attributes are
-> ignored. This behavior is problematic in some situations. For example if the
-> user asks for a particular config, the request finishes successfully, yet
-> the configuraton applied does not work because some of the attributes are
-> not supported by the kernel (e.g. because it's older than the user space
-> tool).
+Concretely the following call chain can lead to "sleeping function
+called in atomic context" splat: 
+call_ad -> list_set_uadt -> list_set_uadd -> kzalloc(, GFP_KERNEL).
+And since GFP_KERNEL allows initiating direct reclaim thus
+potentially sleeping in the allocation path.
 
-Although we are probably stuck with this, it was probably a bad idea
-to have this behavior as the default.
+To fix the issue change the allocation type to GFP_ATOMIC, to
+correctly reflect that it is occuring in an atomic context.
 
-Better would have been to always error on unrecognized attributes, and
-in the ACK give some indication of which attribute was problematic.
+Fixes: 00590fdd5be0 ("netfilter: ipset: Introduce RCU locking in list type")
 
-But anyhow we are stuck with what we have.  However, I will say I am
-disappointed that it is so hard to simply detect that lwtunnel support
-is present, which as I understand is what this patch set is trying to
-accomplish.
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Nikolay Borisov <kernel@kyup.com>
+---
 
-And this is quite an intrusive patch series, and therefore not
-suitable for -stable backports.  And that's exactly where you actually
-are going to need these changes right?  Older kernels that lack
-lwtunnel support.
+Changes since v2:
+ * Massaged the changelog to reflect discussion 
+ on the mailing list
+
+Changes since v1: 
+ * Added acked-by 
+ * Fixed patch header
+
+ 
+
+ net/netfilter/ipset/ip_set_list_set.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index a1fe537..5a30ce6 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -297,7 +297,7 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 	      ip_set_timeout_expired(ext_timeout(n, set))))
+ 		n =  NULL;
+ 
+-	e = kzalloc(set->dsize, GFP_KERNEL);
++	e = kzalloc(set->dsize, GFP_ATOMIC);
+ 	if (!e)
+ 		return -ENOMEM;
+ 	e->id = d->id;
+-- 
+2.5.0
