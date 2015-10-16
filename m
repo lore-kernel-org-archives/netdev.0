@@ -1,99 +1,47 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth 2015-10-16
-Date: Fri, 16 Oct 2015 17:29:00 +0300
-Message-ID: <20151016142900.GA22587@t440s.P-661HNU-F1>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 16 Oct 2015 09:38:37 -0500
+Message-ID: <alpine.DEB.2.02.1510160935310.22648@linux-builds1>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com>
+ <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cNdxnHkX5QqsyA0e"
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:34408 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbbJPO3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 10:29:09 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Daney <ddaney@caviumnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151016033143.GA28207@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 16 Oct 2015, Andrew Lunn wrote:
 
---cNdxnHkX5QqsyA0e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> > Another debugging point, the SoCFPGA board has a Micrel ksz9021 PHY attached
+> > to the ethernet port. What I'm seeing is that with 8b63ec1837fa patch, when
+> > the call to ksz9021_config_init() is made both of_node and dev->parent->of_node
+> > are NULL, without the patch the dev->parent->of_node is a valid pointer. Thus
+> > the skew values get programmed to the phy.
+> 
+> Ah!
+> 
+> You have the phy device tree parameters in the wrong place. These are
+> phy paramters, so should really be in the phy node. But
+> socfpga_cyclone5_socdk.dts has them in the MAC node.
+>
 
-Hi Dave,
+Alright, let me see if I can rework the DTS.
+ 
+> There is nothing in Documentation/devicetree/bindings/net/micrel.txt
+> which says you are allowed to place them in the MAC node. Obviously
+> the code did allow this, which is what has now broken.
+>
 
-First of all, sorry for the late set of patches for the 4.3 cycle. We
-just finished an intensive week of testing at the Bluetooth UnPlugFest
-and discovered (and fixed) issues there. Unfortunately a few issues
-affect 4.3-rc5 in a way that they break existing Bluetooth LE mouse and
-keyboard support.
+I was following Documentation/devicetree/bindings/net/micrel-ksz90x1.txt and
+in this document I was following the autodetected PHY example. Did I mis-interpret
+the example?
 
-The regressions result from supporting LE privacy in conjunction with
-scanning for Resolvable Private Addresses before connecting. A feature
-that has been tested heavily (including automated unit tests), but sadly
-some regressions slipped in. The UnPlugFest with its multitude of test
-platforms is a good battle testing ground for uncovering every corner
-case.
-
-The patches in this pull request focus only on fixing the regressions in
-4.3-rc5. The patches look a bit larger since we also added comments in
-the critical sections of the fixes to improve clarity.
-
-I would appreciate if we can get these regression fixes to Linus
-quickly. Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 53ca376eec4eb635e2249c8e89093f499e180731:
-
-  mlxsw: core: Fix race condition in __mlxsw_emad_transmit (2015-10-15 06:03:06 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 5157b8a503fa834e8569c7fed06981e3d3d53db0:
-
-  Bluetooth: Fix initializing conn_params in scan phase (2015-10-16 09:24:41 +0200)
-
-----------------------------------------------------------------
-Jakub Pawlowski (2):
-      Bluetooth: Fix double scan updates
-      Bluetooth: Fix initializing conn_params in scan phase
-
-Johan Hedberg (4):
-      Bluetooth: Fix reference counting for LE-scan based connections
-      Bluetooth: Fix LE reconnection logic
-      Bluetooth: Fix remove_device behavior for explicit connects
-      Bluetooth: Fix conn_params list update in hci_connect_le_scan_cleanup
-
- net/bluetooth/hci_conn.c  | 99 +++++++++++++++++++++++++++++++++-------------
- net/bluetooth/hci_core.c  |  7 ----
- net/bluetooth/hci_event.c | 11 ++++--
- net/bluetooth/mgmt.c      | 24 +++++++++--
- 4 files changed, 99 insertions(+), 42 deletions(-)
-
---cNdxnHkX5QqsyA0e
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJWIQmsAAoJECQj9vv5qNQSDCYP/A7UMUc8HeZxGxZIhUkFtZIi
-TOgjf9XBVNMlCrUnEc70y+5voMJPMRMOH3Hx1IcocBbyUAHuYFciWtBOGwbeADXT
-ARFqmJ6nmxE8GKpxdt931xWYpXpaf779L6FCBhS8bvhjFV1QWg6XihVKeibTkZJc
-XZZISKYf/Qfcely7tTgxBWiYZdeAaEAV6kp6yMN2x0lE6YjGzNjolabgrMrbqRY9
-dN807qVjmgyrBGayQlHdLFwDfPnQ8ePJKGo6rfzRGVvxxvzQx41Iopy3XO9h76Td
-juTfEzW6/BCm8nhL5IsIhB1uuK9Dy/SQVExECPzK+muqThuw+4shuGHTPqrxg6ot
-vLLdtdoIuZJ+T2kXvNaLoVvuEkPkY3pVncShPZck6V5hyiOhw21oQNny31IpY3Jg
-Y1VTlJXjlUjwbl5jGEA83eaVm7EuWqgQSdbbj1VJD3ViL19oarYUJ6XiwyjAPRh5
-mZ+Vnob1IROcNviYI4krN05oPzEfesfTMYWVoL0n0hYKzLpyY7Tr+73ACeFdvpme
-CzcsWk21dmrPgc0i6RCp6ZxvpOdcec39OmMSDxI2RbIX8E1+Ch7ecw4iT0M/WjwW
-HCsiY4bJ7Vlbp2BZSncqM0F8jiBSZ0X5YZNjDJITOr8i2BDeyCBPP0YCrmMzUOE7
-W8ii6WQCtZuG+YxEbvYY
-=lYiM
------END PGP SIGNATURE-----
-
---cNdxnHkX5QqsyA0e--
+BR,
+Dinh
