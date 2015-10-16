@@ -1,47 +1,93 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2] netfilter: turn NF_HOOK into an inline function
-Date: Fri, 16 Oct 2015 18:45:27 +0200
-Message-ID: <20151016164527.GA3601@salvia>
-References: <7665226.mEs2QJDTOT@wuerfel>
- <87zizryjzs.fsf@x220.int.ebiederm.org>
- <5713169.GvahoqQ9XY@wuerfel>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Fri, 16 Oct 2015 18:43:51 +0200
+Message-ID: <1445013831.2945152.412200185.4C763002@webmail.messagingengine.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+ <1444991103.2861759.411876897.42C807BD@webmail.messagingengine.com>
+ <56212366.4000307@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35077 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754186AbbJPQiY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 12:38:24 -0400
-Content-Disposition: inline
-In-Reply-To: <5713169.GvahoqQ9XY@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: viro@ZenIV.linux.org.uk, ebiederm@xmission.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56212366.4000307@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 09, 2015 at 08:45:42PM +0200, Arnd Bergmann wrote:
-> A recent change to the dst_output handling caused a new warning
-> when the call to NF_HOOK() is the only used of a local variable
-> passed as 'dev', and CONFIG_NETFILTER is disabled:
-> 
-> net/ipv6/ip6_output.c: In function 'ip6_output':
-> net/ipv6/ip6_output.c:135:21: warning: unused variable 'dev' [-Wunused-variable]
-> 
-> The reason for this is that the NF_HOOK macro in this case does
-> not reference the variable at all, and the call to dev_net(dev)
-> got removed from the ip6_output function. To avoid that warning now
-> and in the future, this changes the macro into an equivalent
-> inline function, which tells the compiler that the variable is
-> passed correctly but still unused.
-> 
-> The dn_forward function apparently had the same problem in
-> the past and added a local workaround that no longer works
-> with the inline function. In order to avoid a regression, we
-> have to also remove the #ifdef from decnet in the same patch.
+Hi Alexei,
 
-Applied, thanks.
+On Fri, Oct 16, 2015, at 18:18, Alexei Starovoitov wrote:
+> On 10/16/15 3:25 AM, Hannes Frederic Sowa wrote:
+> > Namespaces at some point dealt with the same problem, they nowadays use
+> > bind mounts of/proc/$$/ns/* to some place in the file hierarchy to keep
+> > the namespace alive. This at least allows someone to build up its own
+> > hierarchy with normal unix tools and not hidden inside a C-program. For
+> > filedescriptors we already have/proc/$$/fd/* but it seems that doesn't
+> > work out of the box nowadays.
+> 
+> bind mounting of /proc/../fd was initially proposed by Andy and we've
+> looked at it thoroughly, but after discussion with Eric it became
+> apparent that it doesn't fit here. At the end we need shell tools
+> to access maps.
+
+Oh yes, I want shell tools for this very much! Maybe even that things
+like strings, grep etc. work. :)
+
+> Also I think you missed the hierarchy in this patch set _is_ built with
+> normal 'mkdir' and files are removed with 'rm'.
+
+I did not miss that, I am just concerned that if the kernel does not
+enforce such a hierarchy automatically it won't really happen.
+
+> The only thing that C does is BPF_PIN_FD of fd that was received from
+> bpf syscall. That's way cleaner api than doing bind mount from C
+> program.
+
+I am with you there. Unfortunately we don't have a give "this fd a name"
+syscalls so far so I totally understand the decision here.
+
+> We've considered letting open() of the file return bpf specific
+> anon-inode, but decided to reserve that for other more natural file
+> operations. Therefore BPF_NEW_FD is needed.
+
+Can't this be overloaded somehow. You can use mknod for creation and
+open for regular file use. mknod is its own syscall.
+
+> > I don't know in terms of how many objects bpf should be able to handle
+> > and if such a bind-mount based solution would work, I guess not.
+> 
+> We definitely missed you at the last plumbers where it was discussed :)
+
+Yes. :(
+
+> > In my opinion I still favor a user space approach.
+> 
+> that's not acceptable for tracing use cases. No daemons allowed.
+
+Oh, tracing does not allow daemons. Why? I can only imagine embedded
+users, no?
+
+> > Subsystems which use
+> > ebpf in a way that no user space program needs to be running to control
+> > them would need to export the fds by itself. E.g. something like
+> > sysfs/kobject for tc? The hierarchy would then be in control of the
+> > subsystem which could also create a proper naming hierarchy or maybe
+> > even use an already given one. Do most other eBPF users really need to
+> > persist file descriptors somewhere without user space control and pick
+> > them up later?
+> 
+> I think it's way cleaner to have one way of solving it (like this patch
+> does) instead of asking every subsystem to solve it differently.
+> We've also looked at sysfs and it's ugly when it comes to removing,
+> since the user cannot use normal 'rm'.
+
+Ah, okay. Probably it would depend on some tc node always referencing
+the bpf entity. But I see that sysfs might become too problematic.
+
+Bye,
+Hannes
