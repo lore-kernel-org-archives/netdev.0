@@ -1,44 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
- option
-Date: Fri, 16 Oct 2015 12:00:09 +0200
-Message-ID: <20151016120009.45459a75@griffin>
-References: <cover.1444926905.git.jbenc@redhat.com>
-	<87r3kv3hwv.fsf@stressinduktion.org>
-	<20151016094951.11146959@griffin>
-	<20151016.010826.1557577128395519123.davem@davemloft.net>
-	<20151016100843.44c9172a@griffin>
-	<1444988411.2852230.411870761.15F9E4C9@webmail.messagingengine.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: hix5hd2_gmac: avoid integer overload warning
+Date: Fri, 16 Oct 2015 12:00:51 +0200
+Message-ID: <4752736.dePgPCNd9q@wuerfel>
+References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tgraf@suug.ch
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
+	lipeng321@huawei.com
+To: huangdaode <huangdaode@hisilicon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44834 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752787AbbJPKAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 06:00:13 -0400
-In-Reply-To: <1444988411.2852230.411870761.15F9E4C9@webmail.messagingengine.com>
+Received: from mout.kundenserver.de ([212.227.126.187]:62554 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752550AbbJPKBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 06:01:07 -0400
+In-Reply-To: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Oct 2015 11:40:11 +0200, Hannes Frederic Sowa wrote:
-> I would suggest you simply add a description to the rfc via the errata
-> process here: <https://www.rfc-editor.org/errata_report.php>
-> 
-> The original cover letter should be enough to post there. I am also not
-> sure if people do really implement this spec, at least they have a
-> pointer to it, then. AFAIK the IESG will look into that then and even
-> non-approved erratas will be listed on the rfc page.
+BITS_RX_EN is an 'unsigned long' constant, so the ones complement of that
+has bits set that do not fit into a 32-bit variable on 64-bit architectures,
+which causes a harmless gcc warning:
 
-Okay, we may do that. But let's postpone this discussion after we
-decide what route we'll go. We'll definitely need some form of
-documentation but it's preliminary to discuss what exact form when we
-haven't decided whether we'll implement something like this at all.
+drivers/net/ethernet/hisilicon/hix5hd2_gmac.c: In function 'hix5hd2_port_disable':
+drivers/net/ethernet/hisilicon/hix5hd2_gmac.c:374:2: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+  writel_relaxed(~(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
 
- Jiri
+This adds a cast to (u32) to tell gcc that the code is indeed fine.
 
--- 
-Jiri Benc
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+diff --git a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+index a5e077eac99a..e51892d518ff 100644
+--- a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+@@ -371,7 +371,7 @@ static void hix5hd2_port_enable(struct hix5hd2_priv *priv)
+ 
+ static void hix5hd2_port_disable(struct hix5hd2_priv *priv)
+ {
+-	writel_relaxed(~(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
++	writel_relaxed(~(u32)(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
+ 	writel_relaxed(0, priv->base + DESC_WR_RD_ENA);
+ }
+ 
