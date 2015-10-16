@@ -1,66 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 16 Oct 2015 22:29:05 +0200
-Message-ID: <20151016202905.GE28207@lunn.ch>
-References: <alpine.DEB.2.02.1510152102280.22844@linux-builds1>
- <20151016033143.GA28207@lunn.ch>
- <alpine.DEB.2.02.1510160935310.22648@linux-builds1>
- <20151016150345.GI10146@lunn.ch>
- <alpine.DEB.2.02.1510161027590.16637@linux-builds1>
- <20151016155644.GJ10146@lunn.ch>
- <56212A09.5080206@caviumnetworks.com>
- <alpine.DEB.2.02.1510161407570.22838@linux-builds1>
- <20151016193854.GC28207@lunn.ch>
- <56215CF0.6080905@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, david.daney@cavium.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56215CF0.6080905@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next 2/2] Documentation: dts: xgene: Add TX/RX delay field
+Date: Fri, 16 Oct 2015 13:35:52 -0700
+Message-ID: <1445027752-16982-3-git-send-email-isubramanian@apm.com>
+References: <1445027752-16982-1-git-send-email-isubramanian@apm.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34041 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932370AbbJPUfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 16:35:33 -0400
+Received: by pacez2 with SMTP id ez2so13809942pac.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 13:35:32 -0700 (PDT)
+In-Reply-To: <1445027752-16982-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 16, 2015 at 01:24:16PM -0700, David Daney wrote:
-> On 10/16/2015 12:38 PM, Andrew Lunn wrote:
-> >>>Maybe we need to walk up the hierarchy.
-> >>>
-> >>>Perhaps something like:
-> >>>
-> >>>const struct device *dev_walker;
-> >>>
-> >>>dev_walker = &phydev->dev;
-> >>>do {
-> >>>    of_node = dev_walker->of_node;
-> >>>    dev_walker = dev_walker->parent;
-> >>>} while (!of_node && dev_walker);
-> >>>
-> >>
-> >>The above code seems to have fixed the issue.
-> >
-> >What i don't like about this is that it allows you to put these
-> >properties in the mdio device node. These are phy properties, not mdio
-> >properties....
-> 
-> Yes, we know that the device tree is not correctly formed.
-> 
-> You have a choice:
-> 
-> A) Fix the device tree and any code that may have to change to work
-> with a good device tree.
-> 
-> B) Change the code to work with the screwy existing device tree.
-> The above seems to work, other things may also be possible.
-> 
-> I can't really make any decisions as to what the best way to proceed
-> is, as I neither have the hardware in question, nor the time to work
-> on it.
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+---
+ Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Hi hope Dinh will test with phydev->attached_dev->dev->of_node.
-
-   Andrew
+diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+index f55aa28..5b17c13 100644
+--- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
++++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+@@ -37,6 +37,14 @@ Required properties for ethernet interfaces that have external PHY:
+ 
+ Optional properties:
+ - status: Should be "ok" or "disabled" for enabled/disabled. Default is "ok".
++- tx-delay: Delay value for RGMII TXD timming.
++	    Valid values are between 0 to 7, that maps to
++	    417, 717, 1020, 1321, 1611, 1913, 2215, 2514 ps
++	    Default value is 4, which corresponds to 1611 ps
++- rx-delay: Delay value for RGMII RXD timming in ps.
++	    Valid values are between 0 to 7, that maps to
++	    273, 589, 899, 1222, 1480, 1806, 2147, 2464 ps
++	    Default value is 2, which corresponds to 899 ps
+ 
+ Example:
+ 	menetclk: menetclk {
+@@ -72,5 +80,7 @@ Example:
+ 
+ /* Board-specific peripheral configurations */
+ &menet {
++	tx-delay = <4>;
++	rx-delay = <2>;
+         status = "ok";
+ };
+-- 
+1.9.1
