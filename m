@@ -1,34 +1,71 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv2 net] openvswitch: Scrub skb between namespaces
-Date: Fri, 16 Oct 2015 11:47:01 -0700
-Message-ID: <CALnjE+prPFWDjbnXoy_vp7+X2X2DnPJp0DLOcxnZkCK1AExa8A@mail.gmail.com>
-References: <1445018901-18839-1-git-send-email-joestringer@nicira.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Fri, 16 Oct 2015 13:41:55 -0500
+Message-ID: <87d1welkp8.fsf@x220.int.ebiederm.org>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+	<ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+	<1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
+	<5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	Hannes Sowa <hannes@redhat.com>, Jesse Gross <jesse@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:34155 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753580AbbJPSrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 14:47:02 -0400
-Received: by igbni9 with SMTP id ni9so19793248igb.1
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 11:47:01 -0700 (PDT)
-In-Reply-To: <1445018901-18839-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56213A61.40509@iogearbox.net> (Daniel Borkmann's message of
+	"Fri, 16 Oct 2015 19:56:49 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 16, 2015 at 11:08 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> If OVS receives a packet from another namespace, then the packet should
-> be scrubbed. However, people have already begun to rely on the behaviour
-> that skb->mark is preserved across namespaces, so retain this one field.
->
-> This is mainly to address information leakage between namespaces when
-> using OVS internal ports, but by placing it in ovs_vport_receive() it is
-> more generally applicable, meaning it should not be overlooked if other
-> port types are allowed to be moved into namespaces in future.
->
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Daniel Borkmann <daniel@iogearbox.net> writes:
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> On 10/16/2015 07:42 PM, Alexei Starovoitov wrote:
+>> On 10/16/15 10:21 AM, Hannes Frederic Sowa wrote:
+>>> Another question:
+>>> Should multiple mount of the filesystem result in an empty fs (a new
+>>> instance) or in one were one can see other ebpf-fs entities? I think
+>>> Daniel wanted to already use the mountpoint as some kind of hierarchy
+>>> delimiter. I would have used directories for that and multiple mounts
+>>> would then have resulted in the same content of the filesystem. IMHO
+>>> this would remove some ambiguity but then the question arises how this
+>>> is handled in a namespaced environment. Was there some specific reason
+>>> to do so?
+>>
+>> That's an interesting question!
+>> I think all mounts should be independent.
+>> I can see tracing using one and networking using another one
+>> with different hierarchies suitable for their own use cases.
+>> What's an advantage to have the same content everywhere?
+>> Feels harder to manage, since different users would need to
+>> coordinate.
+>
+> I initially had it as a mount_single() file system, where I was thinking
+> to have an entry under /sys/fs/bpf/, so all subsystems would work on top
+> of that mount point, but for the same reasons above I lifted that restriction.
+
+I am missing something.
+
+When I suggested using a filesystem it was my thought there would be
+exactly one superblock per map, and the map would be specified at mount
+time.  You clearly are not implementing that.
+
+A filesystem per map makes sense as you have a key-value store with one
+file per key.
+
+The idea is that something resembling your bpf_pin_fd function would be
+the mount system call for the filesystem.
+
+The the keys in the map could be read by "ls /mountpoint/".
+Key values could be inspected with "cat /mountpoint/key".
+
+That allows all hierarchy etc to be handled in userspace, just as with
+my files for namespaces.
+
+I do not understand why you have presented to userspace a magic
+filesystem that you allow binding to.  That is not what I intended to
+suggest and I do not know how that makes any sense.
+
+Eric
