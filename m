@@ -1,54 +1,37 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH V3 2/2] bpf: control all the perf events stored in
- PERF_EVENT_ARRAY maps
-Date: Fri, 16 Oct 2015 15:12:20 -0700
-Message-ID: <56217644.2060707@plumgrid.com>
-References: <1444981333-70429-1-git-send-email-xiakaixu@huawei.com>
- <1444981333-70429-3-git-send-email-xiakaixu@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip monitor neigh: Change 'delete' to 'Deleted'
+ to be consistent with ip route
+Date: Fri, 16 Oct 2015 16:02:15 -0700
+Message-ID: <20151016160215.52b2a307@xeon-e3>
+References: <1444934863-12704-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
-	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
-To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
-	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
-	daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444981333-70429-3-git-send-email-xiakaixu@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35197 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860AbbJPXCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 19:02:36 -0400
+Received: by payp3 with SMTP id p3so1664061pay.2
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 16:02:35 -0700 (PDT)
+In-Reply-To: <1444934863-12704-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/16/15 12:42 AM, Kaixu Xia wrote:
-> This patch implements the function that controlling all the perf
-> events stored in PERF_EVENT_ARRAY maps by setting the parameter
-> 'index' to maps max_entries.
->
-> Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+On Thu, 15 Oct 2015 11:47:43 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> It helps to grep for one string "Deleted" when monitoring all events.
+> 
+> Fixes: 6ea3ebafe077 ("iproute2: inform user when a neighbor is removed")
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 > ---
->   kernel/trace/bpf_trace.c | 20 ++++++++++++++++++--
->   1 file changed, 18 insertions(+), 2 deletions(-)
->
-> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> index 3175600..4b385863 100644
-> --- a/kernel/trace/bpf_trace.c
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -229,13 +229,30 @@ static u64 bpf_perf_event_dump_control(u64 r1, u64 index, u64 flag, u64 r4, u64
->   	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
->   	struct bpf_array *array = container_of(map, struct bpf_array, map);
->   	struct perf_event *event;
-> +	int i;
->
-> -	if (unlikely(index >= array->map.max_entries))
-> +	if (unlikely(index > array->map.max_entries))
->   		return -E2BIG;
->
->   	if (flag & BIT_FLAG_CHECK)
->   		return -EINVAL;
->
-> +	if (index == array->map.max_entries) {
+> I am not sure if it is too late for this change. But, sending this patch 
+> out because it only affects ip monitor output
+> 
 
-I don't like in-band signaling like this, since it's easy to make
-mistake on the bpf program side.
-Please use 2nd bit of 'flags' for that instead.
-Also squash this patch into 1st.
+Sure applied.
