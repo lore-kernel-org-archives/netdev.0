@@ -1,69 +1,44 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netback: correctly check failed allocation
-Date: Fri, 16 Oct 2015 10:40:59 +0100
-Message-ID: <5620C62B.4000001@citrix.com>
-References: <1444932148-15633-1-git-send-email-wuninsu@gmail.com>
-	<CAGoFzNdCef+tutWgabSahHqV0rkC9FdNpjrQEsxk8GMeBA0TKQ@mail.gmail.com>
- <20151016090521.GJ32638@zion.uk.xensource.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
+ option
+Date: Fri, 16 Oct 2015 12:00:09 +0200
+Message-ID: <20151016120009.45459a75@griffin>
+References: <cover.1444926905.git.jbenc@redhat.com>
+	<87r3kv3hwv.fsf@stressinduktion.org>
+	<20151016094951.11146959@griffin>
+	<20151016.010826.1557577128395519123.davem@davemloft.net>
+	<20151016100843.44c9172a@griffin>
+	<1444988411.2852230.411870761.15F9E4C9@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Yeongjin Jang <yeongjin.jang@gatech.edu>,
-	Taesoo Kim <taesoo@gatech.edu>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, "Yun, Insu" <insu@gatech.edu>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>, Insu Yun <wuninsu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151016090521.GJ32638@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	tgraf@suug.ch
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44834 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752787AbbJPKAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 06:00:13 -0400
+In-Reply-To: <1444988411.2852230.411870761.15F9E4C9@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16/10/15 10:05, Wei Liu wrote:
-> On Thu, Oct 15, 2015 at 02:02:47PM -0400, Insu Yun wrote:
->> I changed patch with valid format.
->>
->> On Thu, Oct 15, 2015 at 2:02 PM, Insu Yun <wuninsu@gmail.com> wrote:
->>
->>> Since vzalloc can be failed in memory pressure,
->>> writes -ENOMEM to xenstore to indicate error.
->>>
->>> Signed-off-by: Insu Yun <wuninsu@gmail.com>
->>> ---
->>>  drivers/net/xen-netback/xenbus.c | 6 ++++++
->>>  1 file changed, 6 insertions(+)
->>>
->>> diff --git a/drivers/net/xen-netback/xenbus.c
->>> b/drivers/net/xen-netback/xenbus.c
->>> index 929a6e7..56ebd82 100644
->>> --- a/drivers/net/xen-netback/xenbus.c
->>> +++ b/drivers/net/xen-netback/xenbus.c
->>> @@ -788,6 +788,12 @@ static void connect(struct backend_info *be)
->>>         /* Use the number of queues requested by the frontend */
->>>         be->vif->queues = vzalloc(requested_num_queues *
->>>                                   sizeof(struct xenvif_queue));
->>> +       if (!be->vif->queues) {
->>> +               xenbus_dev_fatal(dev, -ENOMEM,
->>> +                                "allocating queues");
->>> +               return;
->>>
->>
->> I didn't use goto err, because another error handling is not required
->>
+On Fri, 16 Oct 2015 11:40:11 +0200, Hannes Frederic Sowa wrote:
+> I would suggest you simply add a description to the rfc via the errata
+> process here: <https://www.rfc-editor.org/errata_report.php>
 > 
-> It's recommended in kernel coding style to use "goto" style error
-> handling. I personally prefer that to arbitrary return in function body,
-> too.
-> 
-> It's not a matter of whether another error handling is required or not,
-> it's about cleaner code that is easy to reason about and consistent
-> coding style.
+> The original cover letter should be enough to post there. I am also not
+> sure if people do really implement this spec, at least they have a
+> pointer to it, then. AFAIK the IESG will look into that then and even
+> non-approved erratas will be listed on the rfc page.
 
-Using xenbus_dev_fatal(); return; throughout would be consistent and
-easy to reason about.
+Okay, we may do that. But let's postpone this discussion after we
+decide what route we'll go. We'll definitely need some form of
+documentation but it's preliminary to discuss what exact form when we
+haven't decided whether we'll implement something like this at all.
 
-Also, the goto err path should raise a fatal error (instead of
-disconnecting).  I also note that failures in the xen_net_read_rate(),
-xen_register_watchers() and read_xenbus_vif_flags() are also not handled.
+ Jiri
 
-David
+-- 
+Jiri Benc
