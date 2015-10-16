@@ -1,44 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: hisilicon: include linux/vmalloc.h in dsaf
-Date: Fri, 16 Oct 2015 11:30:56 +0200
-Message-ID: <4903569.oS7BSflIyn@wuerfel>
-References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
-	lipeng321@huawei.com
-To: huangdaode <huangdaode@hisilicon.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net RESEND 0/2] overflow-arith: begin to add support for overflow builtins functions
+Date: Fri, 16 Oct 2015 11:32:41 +0200
+Message-ID: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org, dvyukov@google.com, davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some configurations fail to build the hns dsaf code because of
-a missing header file:
+Hello,
 
-ethernet/hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_init':
-ethernet/hisilicon/hns/hns_dsaf_main.c:1096:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
-  priv->soft_mac_tbl = vzalloc(sizeof(*priv->soft_mac_tbl)
+I add a new header, linux/overflow-arith.h, as the central place to add
+overflow and wrap-around checking functions. The reason I am doing so
+is that it can make use of compiler supported builtin functions which
+can leverage hardware.
 
-This adds the correct #include.
+As I need this for a fix in the ipv6 stack, which is also included in
+this series, I propose to add it sooner than later over Davem's net
+tree. This is also the reason why I start slowly with only the one
+function I need at this time.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Thanks for reviewing!
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 26ae6c64d74c..473a860baf1d 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -17,6 +17,8 @@
- #include <linux/of_address.h>
- #include <linux/of_irq.h>
- #include <linux/device.h>
-+#include <linux/vmalloc.h>
-+
- #include "hns_dsaf_main.h"
- #include "hns_dsaf_rcb.h"
- #include "hns_dsaf_ppe.h"
+Hannes Frederic Sowa (2):
+  overflow-arith: begin to add support for overflow builtin functions
+  ipv6: protect mtu calculation of wrap-around and infinite loop by
+    rounding issues
+
+ include/linux/compiler-gcc.h   |  4 ++++
+ include/linux/overflow-arith.h | 18 ++++++++++++++++++
+ net/ipv6/ip6_output.c          |  6 +++++-
+ 3 files changed, 27 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/overflow-arith.h
+
+-- 
+2.4.3
