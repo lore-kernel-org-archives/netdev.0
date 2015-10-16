@@ -1,59 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 17/17] i40e/i40evf: Bump i40e to 1.3.34 and i40evf to 1.3.21
-Date: Fri, 16 Oct 2015 05:10:25 -0700
-Message-ID: <1444997425-3396-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/17] i40e: priv flag for controlling VEB stats
+Date: Fri, 16 Oct 2015 05:10:17 -0700
+Message-ID: <1444997425-3396-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:58321 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:51464 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753636AbbJPMKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:33 -0400
+	id S1751868AbbJPMK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:29 -0400
 In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Bump.
+Add an ethtool priv flag to enable and disable printing
+the VEB statistics.
 
-Change-ID: I7ec818a507554648675b9b245ced9e6b6bd9ed4e
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: I7654054a3a73b08aa8310d94ee8fce6219107dd8
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 8 ++++++++
+ 2 files changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 722b0a1..87a5d09 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 7aaead3..1125464 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -103,6 +103,7 @@
+ #define I40E_PRIV_FLAGS_NPAR_FLAG	BIT(0)
+ #define I40E_PRIV_FLAGS_LINKPOLL_FLAG	BIT(1)
+ #define I40E_PRIV_FLAGS_FD_ATR		BIT(2)
++#define I40E_PRIV_FLAGS_VEB_STATS	BIT(3)
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 28
-+#define DRV_VERSION_BUILD 34
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 4f3d571..4c4340c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 5fe8ac0..cb88e7a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -229,6 +229,7 @@ static const char i40e_priv_flags_strings[][ETH_GSTRING_LEN] = {
+ 	"NPAR",
+ 	"LinkPolling",
+ 	"flow-director-atr",
++	"veb-stats",
+ };
  
--#define DRV_VERSION "1.3.19"
-+#define DRV_VERSION "1.3.21"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2015 Intel Corporation.";
+ #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_priv_flags_strings)
+@@ -2670,6 +2671,8 @@ static u32 i40e_get_priv_flags(struct net_device *dev)
+ 		I40E_PRIV_FLAGS_LINKPOLL_FLAG : 0;
+ 	ret_flags |= pf->flags & I40E_FLAG_FD_ATR_ENABLED ?
+ 		I40E_PRIV_FLAGS_FD_ATR : 0;
++	ret_flags |= pf->flags & I40E_FLAG_VEB_STATS_ENABLED ?
++		I40E_PRIV_FLAGS_VEB_STATS : 0;
+ 
+ 	return ret_flags;
+ }
+@@ -2701,6 +2704,11 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 		pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
+ 	}
+ 
++	if (flags & I40E_PRIV_FLAGS_VEB_STATS)
++		pf->flags |= I40E_FLAG_VEB_STATS_ENABLED;
++	else
++		pf->flags &= ~I40E_FLAG_VEB_STATS_ENABLED;
++
+ 	return 0;
+ }
+ 
 -- 
 2.4.3
