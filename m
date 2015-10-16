@@ -1,56 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net RESEND 2/2] ipv6: protect mtu calculation of wrap-around and infinite loop by rounding issues
-Date: Fri, 16 Oct 2015 11:32:43 +0200
-Message-ID: <1444987963-15327-3-git-send-email-hannes@stressinduktion.org>
-References: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
-Cc: netdev@vger.kernel.org, dvyukov@google.com, davem@davemloft.net,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: hisilicon: add OF dependency
+Date: Fri, 16 Oct 2015 11:33:49 +0200
+Message-ID: <4665385.OoIztz6y5m@wuerfel>
+References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
+	lipeng321@huawei.com
+To: huangdaode <huangdaode@hisilicon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:65109 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926AbbJPJd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 05:33:59 -0400
+In-Reply-To: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Raw sockets with hdrincl enabled can insert ipv6 extension headers
-right into the data stream. In case we need to fragment those packets,
-we reparse the options header to find the place where we can insert
-the fragment header. If the extension headers exceed the link's MTU we
-actually cannot make progress in such a case.
+The HNS MDIO driver fails to build on older ARM machines that are not
+yet converted to CONFIG_OF:
 
-Instead of ending up in broken arithmetic or rounding towards 0 and
-entering an endless loop in ip6_fragment, just prevent those cases by
-aborting early and signal -EMSGSIZE to user space.
+drivers/net/ethernet/hisilicon/hns_mdio.c: In function 'hns_mdio_bus_name':
+drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: error: 'OF_BAD_ADDR' undeclared (first use in this function)
+  u64 taddr = OF_BAD_ADDR;
+              ^
+drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: note: each undeclared identifier is reported only once for each function it appears in
+drivers/net/ethernet/hisilicon/hns_mdio.c:409:11: error: implicit declaration of function 'of_translate_address' [-Werror=implicit-function-declaration]
+   taddr = of_translate_address(np, addr);
+           ^
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_output.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+This clarifies the dependency to ensure we don't attempt to build these
+drivers without CONFIG_OF, but also adds a COMPILE_TEST alternative to
+give us better build coverage testing.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 61d403e..00aa538 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -28,6 +28,7 @@
+Build-tested on x86 as well to ensure this actually works.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+index 8d12b587809e..f250dec488fd 100644
+--- a/drivers/net/ethernet/hisilicon/Kconfig
++++ b/drivers/net/ethernet/hisilicon/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_HISILICON
+ 	bool "Hisilicon devices"
+ 	default y
+-	depends on ARM || ARM64
++	depends on OF && (ARM || ARM64 || COMPILE_TEST)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
  
- #include <linux/errno.h>
- #include <linux/kernel.h>
-+#include <linux/overflow-arith.h>
- #include <linux/string.h>
- #include <linux/socket.h>
- #include <linux/net.h>
-@@ -584,7 +585,10 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
- 		if (np->frag_size)
- 			mtu = np->frag_size;
- 	}
--	mtu -= hlen + sizeof(struct frag_hdr);
-+
-+	if (overflow_usub(mtu, hlen + sizeof(struct frag_hdr), &mtu) ||
-+	    mtu <= 7)
-+		goto fail_toobig;
- 
- 	frag_id = ipv6_select_ident(net, &ipv6_hdr(skb)->daddr,
- 				    &ipv6_hdr(skb)->saddr);
--- 
-2.4.3
