@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 13/16] mlxsw: reg: Add Switch Virtual-Port Enabling register definition
-Date: Fri, 16 Oct 2015 14:01:34 +0200
-Message-ID: <1444996897-2708-14-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 04/16] mlxsw: cmd: Introduce FID-offset flooding tables
+Date: Fri, 16 Oct 2015 14:01:25 +0200
+Message-ID: <1444996897-2708-5-git-send-email-jiri@resnulli.us>
 References: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
@@ -11,84 +11,87 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sagir@mellanox.com, mattyk@mellanox.com, aviadr@mellanox.com
 To: netdev@vger.kernel.org, ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:35621 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018AbbJPMB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:57 -0400
-Received: by wicll6 with SMTP id ll6so6642713wic.0
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:56 -0700 (PDT)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:36926 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752631AbbJPMBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:47 -0400
+Received: by wijq8 with SMTP id q8so7279847wij.0
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:46 -0700 (PDT)
 In-Reply-To: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In order for a port to support {Port, VID} to FID mapping it needs to be
-configured to a virtual port mode (as opposed to VLAN mode).
+Packets destined to offloaded netdevs will be classified to FIDs in the
+device and flooded in case of BUM.
 
-Add the SVPE register, which enables port virtualization.
+The flooding table used is of type FID-offset, which allows one to
+create different flooding domains for different FIDs and specify the
+offset in the flooding table for each FID (not necessarily equal to FID
+or VID).
+
+Add support for this flooding table type, by exposing the configuration
+of the number of tables from this type and their size.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 38 +++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/cmd.h  | 12 ++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
+ drivers/net/ethernet/mellanox/mlxsw/pci.c  |  4 ++++
+ 3 files changed, 18 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 5a97707..8e1888b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -976,6 +976,42 @@ static inline void mlxsw_reg_svfa_pack(char *payload, u8 local_port,
- 	mlxsw_reg_svfa_vid_set(payload, vid);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+index 010eb5d..cd63b82 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+@@ -674,6 +674,18 @@ MLXSW_ITEM32(cmd_mbox, config_profile, max_vid_flood_tables, 0x30, 8, 4);
+  */
+ MLXSW_ITEM32(cmd_mbox, config_profile, flood_mode, 0x30, 0, 2);
  
-+/* SVPE - Switch Virtual-Port Enabling Register
-+ * --------------------------------------------
-+ * Enables port virtualization.
++/* cmd_mbox_config_profile_max_fid_offset_flood_tables
++ * Maximum number of FID-offset flooding tables.
 + */
-+#define MLXSW_REG_SVPE_ID 0x201E
-+#define MLXSW_REG_SVPE_LEN 0x4
++MLXSW_ITEM32(cmd_mbox, config_profile,
++	     max_fid_offset_flood_tables, 0x34, 24, 4);
 +
-+static const struct mlxsw_reg_info mlxsw_reg_svpe = {
-+	.id = MLXSW_REG_SVPE_ID,
-+	.len = MLXSW_REG_SVPE_LEN,
-+};
-+
-+/* reg_svpe_local_port
-+ * Local port number
-+ * Access: Index
-+ *
-+ * Note: CPU port is not supported (uses VLAN mode only).
++/* cmd_mbox_config_profile_fid_offset_flood_table_size
++ * The size (number of entries) of each FID-offset flood table.
 + */
-+MLXSW_ITEM32(reg, svpe, local_port, 0x00, 16, 8);
++MLXSW_ITEM32(cmd_mbox, config_profile,
++	     fid_offset_flood_table_size, 0x34, 0, 16);
 +
-+/* reg_svpe_vp_en
-+ * Virtual port enable.
-+ * 0 - Disable, VLAN mode (VID to FID).
-+ * 1 - Enable, Virtual port mode ({Port, VID} to FID).
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, svpe, vp_en, 0x00, 8, 1);
-+
-+static inline void mlxsw_reg_svpe_pack(char *payload, u8 local_port,
-+				       bool enable)
-+{
-+	MLXSW_REG_ZERO(svpe, payload);
-+	mlxsw_reg_svpe_local_port_set(payload, local_port);
-+	mlxsw_reg_svpe_vp_en_set(payload, enable);
-+}
-+
- /* SFMR - Switch FID Management Register
-  * -------------------------------------
-  * Creates and configures FIDs.
-@@ -2241,6 +2277,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SPMLR";
- 	case MLXSW_REG_SVFA_ID:
- 		return "SVFA";
-+	case MLXSW_REG_SVPE_ID:
-+		return "SVPE";
- 	case MLXSW_REG_SFMR_ID:
- 		return "SFMR";
- 	case MLXSW_REG_PMLP_ID:
+ /* cmd_mbox_config_profile_max_fid_flood_tables
+  * Maximum number of per-FID flooding tables.
+  *
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 8bb85ea..e92ab27 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -153,6 +153,8 @@ struct mlxsw_config_profile {
+ 	u8	max_flood_tables;
+ 	u8	max_vid_flood_tables;
+ 	u8	flood_mode;
++	u8	max_fid_offset_flood_tables;
++	u16	fid_offset_flood_table_size;
+ 	u8	max_fid_flood_tables;
+ 	u16	fid_flood_table_size;
+ 	u16	max_ib_mc;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index faa4f3f..0fa44c8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -1214,6 +1214,10 @@ static int mlxsw_pci_config_profile(struct mlxsw_pci *mlxsw_pci, char *mbox,
+ 			mbox, profile->max_flood_tables);
+ 		mlxsw_cmd_mbox_config_profile_max_vid_flood_tables_set(
+ 			mbox, profile->max_vid_flood_tables);
++		mlxsw_cmd_mbox_config_profile_max_fid_offset_flood_tables_set(
++			mbox, profile->max_fid_offset_flood_tables);
++		mlxsw_cmd_mbox_config_profile_fid_offset_flood_table_size_set(
++			mbox, profile->fid_offset_flood_table_size);
+ 		mlxsw_cmd_mbox_config_profile_max_fid_flood_tables_set(
+ 			mbox, profile->max_fid_flood_tables);
+ 		mlxsw_cmd_mbox_config_profile_fid_flood_table_size_set(
 -- 
 1.9.3
