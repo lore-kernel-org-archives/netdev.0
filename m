@@ -1,45 +1,168 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/4] BPF updates
-Date: Fri, 16 Oct 2015 03:09:21 +0200
-Message-ID: <cover.1444956943.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
-	tgraf@suug.ch, hannes@stressinduktion.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Fri, 16 Oct 2015 01:46:48 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A0287864B@BPXM09GP.gisp.nec.co.jp>
+References: <20151015205742.GB20155@fieldses.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151015205742.GB20155-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Content-Language: ja-JP
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This set adds support for persistent maps/progs. Please see
-individual patches for further details.
+J. Bruce Fields wrote:
+> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
+>> Tatsukawa Kosuke wrote:
+>> > J. Bruce Fields wrote:
+>> >> Thanks for the detailed investigation.
+>> >> 
+>> >> I think it would be worth adding a comment if that might help someone
+>> >> having to reinvestigate this again some day.
+>> > 
+>> > It would be nice, but I find it difficult to write a comment in the
+>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
+>> > of how nfsd uses it, and the current implementation of the network code.
+>> > 
+>> > Personally, I would prefer removing the call to waitqueue_active() which
+>> > would make the memory barrier totally unnecessary at the cost of a
+>> > spin_lock + spin_unlock by unconditionally calling
+>> > wake_up_interruptible.
+>> 
+>> On second thought, the callbacks will be called frequently from the tcp
+>> code, so it wouldn't be a good idea.
+> 
+> So, I was even considering documenting it like this, if it's not
+> overkill.
+> 
+> Hmm... but if this is right, then we may as well ask why we're doing the
+> wakeups at all.  Might be educational to test the code with them
+> removed.
 
-A man-page update to bpf(2) will be sent afterwards, also a
-iproute2 patch for support in tc.
+sk_write_space will be called in sock_wfree() with UDP/IP each time
+kfree_skb() is called.  With TCP/IP, sk_write_space is only called if
+SOCK_NOSPACE has been set.
 
-Thanks!
+sk_data_ready will be called in both tcp_rcv_established() for TCP/IP
+and in sock_queue_rcv_skb() for UDP/IP.  The latter lacks a memory
+barrier with sk_data_ready called right after __skb_queue_tail().
+I think this hasn't caused any problems because sk_data_ready wasn't
+used.
 
-Daniel Borkmann (4):
-  bpf: abstract anon_inode_getfd invocations
-  bpf: align and clean bpf_{map,prog}_get helpers
-  bpf: add support for persistent maps/progs
-  bpf: add sample usages for persistent maps/progs
 
- include/linux/bpf.h        |  23 +-
- include/uapi/linux/bpf.h   |  45 +---
- include/uapi/linux/magic.h |   1 +
- include/uapi/linux/xattr.h |   3 +
- kernel/bpf/Makefile        |   4 +-
- kernel/bpf/inode.c         | 614 +++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/syscall.c       | 164 ++++++++++--
- kernel/bpf/verifier.c      |   3 +-
- samples/bpf/Makefile       |   2 +
- samples/bpf/fds_example.c  | 224 +++++++++++++++++
- samples/bpf/libbpf.c       |  20 ++
- samples/bpf/libbpf.h       |   3 +
- 12 files changed, 1045 insertions(+), 61 deletions(-)
- create mode 100644 kernel/bpf/inode.c
- create mode 100644 samples/bpf/fds_example.c
-
--- 
-1.9.3
+> --b.
+> 
+> commit 0882cfeb39e0
+> Author: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Date:   Thu Oct 15 16:53:41 2015 -0400
+> 
+>     svcrpc: document lack of some memory barriers.
+>     
+>     Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
+>     here.  I think the code's correct, but it's probably worth documenting.
+>     
+>     Reported-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+> 
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index 856407fa085e..90480993ec4a 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
+>  	return svc_port_is_privileged(svc_addr(rqstp));
+>  }
+>  
+> +static void svc_no_smp_mb(void)
+> +{
+> +	/*
+> +	 * Kosuke Tatsukawa points out there should normally be an
+> +	 * smp_mb() at the callsites of this function.  (Either that or
+> +	 * we could just drop the waitqueue_active() checks.)
+> +	 *
+> +	 * It appears they aren't currently necessary, though, basically
+> +	 * because nfsd does non-blocking reads from these sockets, so
+> +	 * the only places we wait on this waitqueue is in sendpage and
+> +	 * sendmsg, which won't be waiting for wakeups on newly arrived
+> +	 * data.
+> +	 *
+> +	 * Maybe we should add the memory barriers anyway, but these are
+> +	 * hot paths so we'd need to be convinced there's no sigificant
+> +	 * penalty.
+> +	 */
+> +}
+> +
+>  /*
+>   * INET callback when data has been received on the socket.
+>   */
+> @@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
+>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+> @@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+>  
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq)) {
+>  		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+>  		       svsk);
+> @@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+>  	}
+>  
+>  	wq = sk_sleep(sk);
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible_all(wq);
+>  }
+> @@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
+>  		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible_all(wq);
+>  }
+> @@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
+>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+> @@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
+>  	sk->sk_write_space = svsk->sk_owspace;
+>  
+>  	wq = sk_sleep(sk);
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+---
+Kosuke TATSUKAWA  | 3rd IT Platform Department
+                  | IT Platform Division, NEC Corporation
+                  | tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
