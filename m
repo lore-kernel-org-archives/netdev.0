@@ -1,43 +1,89 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: hisilicon: add OF dependency
-Date: Fri, 16 Oct 2015 21:10:54 +0200
-Message-ID: <3752954.ncYqAxKXIS@wuerfel>
-References: <201510170250.9XPqjohi%fengguang.wu@intel.com>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 16 Oct 2015 14:10:02 -0500
+Message-ID: <alpine.DEB.2.02.1510161407570.22838@linux-builds1>
+References: <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1>
+ <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch> <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch> <56212A09.5080206@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: kbuild-all@01.org, huangdaode <huangdaode@hisilicon.com>,
-	davem@davemloft.net, joe@perches.com, liguozhu@hisilicon.com,
-	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
-	linuxarm@huawei.com, salil.mehta@huawei.com,
-	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
-	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
-	lipeng321@huawei.com
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201510170250.9XPqjohi%fengguang.wu@intel.com>
+In-Reply-To: <56212A09.5080206@caviumnetworks.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 17 October 2015 02:39:51 kbuild test robot wrote:
+On Fri, 16 Oct 2015, David Daney wrote:
+
+> On 10/16/2015 08:56 AM, Andrew Lunn wrote:
+> > > So I think I'll move to inspect what Florian had suggested, and that was
+> > > to look
+> > > at:
+> > > drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+> > 
+> > I have a suspicion. If you look at the phy driver it does:
+> > 
+> > static int ksz9021_config_init(struct phy_device *phydev)
+> > {
+> >          const struct device *dev = &phydev->dev;
+> >          const struct device_node *of_node = dev->of_node;
+> > 
+> >          if (!of_node && dev->parent->of_node)
+> >                  of_node = dev->parent->of_node;
+> > 
 > 
-> [auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
+> Maybe we need to walk up the hierarchy.
 > 
-> url:    https://github.com/0day-ci/linux/commits/Arnd-Bergmann/net-hisilicon-add-OF-dependency/20151016-173818
-> config: ia64-allmodconfig (attached as .config)
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=ia64 
+> Perhaps something like:
+> 
+> const struct device *dev_walker;
+> 
+> dev_walker = &phydev->dev;
+> do {
+>    of_node = dev_walker->of_node;
+>    dev_walker = dev_walker->parent;
+> } while (!of_node && dev_walker);
 > 
 
-I guess I should have sent my three patches as a series. The build bot
-found the same two bugs I had found myself and sent fixes for, but
-applying the 'add OF dependency' without the other two makes them appear
-in more configurations.
+The above code seems to have fixed the issue.
 
-For all I can see, the two reports here are fixed if all three of my
-patches are applied.
+> An alternative would be to assign the bus the same of_node as the bus parent.
+> 
+> If either approach works, you can add:
+>  Acked-by: David Daney <david.daney@cavium.com>
+> 
+> to the patch that implements it.
+> 
+> > 
+> > In your case, you don't have a phy node in your device tree, so of_node
+> > is NULL. So it looks in the parent device.
+> > 
+> >      phylib: Make PHYs children of their MDIO bus, not the bus' parent.
+> > 
+> > changed what the parent is. It is now the mdio device. Before, i
+> > suspect it was the MAC. Hence it found your properties in the MAC
+> > node.
+> > 
+> > What i think you might want to do is change this code. Rather than
+> > look a dev->parent->of_node; you might want
+> > phydev->attached_dev->dev->of_node.
+> > 
+> > This assumes the phy has been attached to the MAC. I've no idea of the
+> > ordering, so maybe it has not been attached yet?
+> > 
+> > dp83867.c has similar code. However quick grep did not find any
+> > mainline users with properties in the MAC node. If that is true, i
+> > would suggest removing the code looking in the parent for that phy
+> > driver.
+> > 
+> > 	Andrew
+> > 
+> 
+> 
 
-	Arnd
+BR,
+Dinh
