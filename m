@@ -1,40 +1,39 @@
-From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next V16 0/3] openvswitch: Add support for
-	802.1ad
-Date: Fri, 16 Oct 2015 06:59:29 -0400
-Message-ID: <5620D891.4010109@gmail.com>
-References: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
- <20151015.231643.799590798559891150.davem@davemloft.net>
-Reply-To: thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151015.231643.799590798559891150.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH 3/6] arcnet: com20020-pci: set dev_port to the subdevice index
+Date: Fri, 16 Oct 2015 13:00:57 +0200
+Message-ID: <1444993260-9667-4-git-send-email-m.grzeschik@pengutronix.de>
+References: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: joe@perches.com, netdev@vger.kernel.org, kernel@pengutronix.de
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:45567 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932223AbbJPLBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 07:01:14 -0400
+In-Reply-To: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTAvMTYvMTUgMjoxNiBBTSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IEZyb206IFRob21hcyBG
-IEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KPiBEYXRlOiBUaHUsIDE1IE9jdCAy
-MDE1IDEwOjAxOjUyIC0wNDAwCj4KPj4gICBUaGlzIHBhdGNoIGFjY29tcGFuaWVzIHZlcnNpb24g
-MTQgb2YgdGhlIHVzZXIgbGV2ZWwgb3BlbnZzd2l0Y2ggcGF0Y2gKPj4gICBzdWJtaXR0ZWQgdG8g
-b3BlbnZzd2l0Y2ggZGV2IGxpc3QuCj4+Cj4+ICAgVjE2LDE1OiBJbXBsZW1lbnQgcmV2aWV3ZXIg
-Y29tbWVudHMuCj4gTWlzc2luZyBzaWdub2ZmcywgbWlzc2VkIGhhbmRsaW5nIG9mIGZlZWRiYWNr
-IGZyb20gU2VyZ2VpLCBzbyBzb3JyeQo+IHRoaXMgc3RpbGwgbmVlZHMgd29yayA6LS8KU29ycnks
-IEkgd2FzIGZvY3VzZWQgb24gUHJhdmluJ3MgcmV2aWV3IGFuZCBtaXNzZWQgdGhhdC4gTmV4dCBz
-ZXJpZXMgCnRvZGF5IHdpbGwgZGVsZXRlIHRoZSByZWR1bmRhbnQgcGFyZW5zLCBUaGFua3MgU2Vy
-Z2VpLiBhbmQgc29tZSByZXdvcmsgCmFmdGVyIFByYXZpbidzIHJldmlld3MuCgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
-dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2Rldgo=
+This patch sets the dev_port according to the index of
+the card. This can be used by udev to name the ports
+in userspace.
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index a12bf83..e3b7c14e 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -96,6 +96,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 			ret = -ENOMEM;
+ 			goto out_port;
+ 		}
++		dev->dev_port = i;
+ 
+ 		dev->netdev_ops = &com20020_netdev_ops;
+ 
+-- 
+2.6.1
