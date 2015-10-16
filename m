@@ -1,13 +1,12 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 03:09:24 +0200
-Message-ID: <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 4/4] bpf: add sample usages for persistent maps/progs
+Date: Fri, 16 Oct 2015 03:09:25 +0200
+Message-ID: <a364b734d7a82f088ccae4cc517f1104709c8d34.1444956943.git.daniel@iogearbox.net>
 References: <cover.1444956943.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
 	tgraf@suug.ch, hannes@stressinduktion.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@kernel.org>
+	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1444956943.git.daniel@iogearbox.net>
@@ -16,990 +15,313 @@ References: <cover.1444956943.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This work adds support for "persistent" eBPF maps/programs. The term
-"persistent" is to be understood that maps/programs have a facility
-that lets them survive process termination. This is desired by various
-eBPF subsystem users.
-
-Just to name one example: tc classifier/action. Whenever tc parses
-the ELF object, extracts and loads maps/progs into the kernel, these
-file descriptors will be out of reach after the tc instance exits.
-So a subsequent tc invocation won't be able to access/relocate on this
-resource, and therefore maps cannot easily be shared, f.e. between the
-ingress and egress networking data path.
-
-The current workaround is that Unix domain sockets (UDS) need to be
-instrumented in order to pass the created eBPF map/program file
-descriptors to a third party management daemon through UDS' socket
-passing facility. This makes it a bit complicated to deploy shared
-eBPF maps or programs (programs f.e. for tail calls) among various
-processes.
-
-We've been brainstorming on how we could tackle this issue and various
-approches have been tried out so far:
-
-The first idea was to implement a fuse backend that proxies bpf(2)
-syscalls that create/load maps and programs, where the fuse
-implementation would hold these fds internally and pass them to
-things like tc via UDS socket passing. There could be various fuse
-implementations tailored to a particular eBPF subsystem's needs. The
-advantage is that this would shift the complexity entirely into user
-space, but with a couple of drawbacks along the way. One being that
-fuse needs extra library dependencies and it also doesn't resolve the
-issue that an extra daemon needs to run in the background. At Linux
-Plumbers 2015, we've all concluded eventually that using fuse is not
-an option and an in-kernel solution is needed.
-
-The next idea I've tried out was an extension to the bpf(2) syscall
-that works roughly in a way we bind(2)/connect(2) to paths backed
-by special inodes in case of UDS. This works on top of any file system
-that allows to create special files, where the newly created inode
-operations are similar to those of S_IFSOCK inodes. The inode would
-be instrumented as a lookup key in an rhashtable backend with the
-prog/map stored as value. We found that there are a couple of
-disadvantages on this approach. Since the underlying implementation
-of the inode can differ among file systems, we need a periodic garbage
-collection for dropping the rhashtable entry and the references to
-the maps/progs held with it (it could be done by piggybacking into
-the rhashtable's rehashing, though). The other issue is that this
-requires to add something like S_IFBPF (to clearly identify this inode
-as special to eBPF), where the available space in the S_IFMT is already
-severly limited and could possibly clash with future POSIX values being
-allocated there. Moreover, this approach might not be flexible enough
-from a functionality point of view, f.e. things like future debugging
-facilities, etc could be added that really wouldn't fit into bpf(2)
-syscall (however, the bpf(2) syscall strictly stays the central place
-to manage eBPF things).
-
-This eventually leads us to this patch, which implements a minimal
-eBPF file system. The idea is a bit similar, but to the point that
-these inodes reside at one or multiple mount points. A directory
-hierarchy can be tailored to a specific application use-case from the
-various subsystem users and maps/progs pinned inside it. Two new eBPF
-commands (BPF_PIN_FD, BPF_NEW_FD) have been added to the syscall in
-order to create one or multiple special inodes from an existing file
-descriptor that points to a map/program (we call it eBPF fd pinning),
-or to create a new file descriptor from an existing special inode.
-BPF_PIN_FD requires CAP_SYS_ADMIN capabilities, whereas BPF_NEW_FD
-can also be done unpriviledged when having appropriate permissions
-to the path.
-
-The next step I'm working on is to add dump eBPF map/prog commands
-to bpf(2), so that a specification from a given file descriptor can
-be retrieved. This can be used by things like CRIU but also applications
-can inspect the meta data after calling BPF_NEW_FD.
+This patch adds a couple of stand-alone examples on how BPF_PIN_FD
+and BPF_NEW_FD commands can be used.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h        |  21 ++
- include/uapi/linux/bpf.h   |  45 +---
- include/uapi/linux/magic.h |   1 +
- include/uapi/linux/xattr.h |   3 +
- kernel/bpf/Makefile        |   4 +-
- kernel/bpf/inode.c         | 614 +++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/syscall.c       | 108 ++++++++
- 7 files changed, 758 insertions(+), 38 deletions(-)
- create mode 100644 kernel/bpf/inode.c
+ samples/bpf/Makefile      |   2 +
+ samples/bpf/fds_example.c | 224 ++++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/libbpf.c      |  20 +++++
+ samples/bpf/libbpf.h      |   3 +
+ 4 files changed, 249 insertions(+)
+ create mode 100644 samples/bpf/fds_example.c
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 0ae6f77..bb82764 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -8,8 +8,10 @@
- #define _LINUX_BPF_H 1
- 
- #include <uapi/linux/bpf.h>
-+
- #include <linux/workqueue.h>
- #include <linux/file.h>
-+#include <linux/fs.h>
- 
- struct bpf_map;
- 
-@@ -137,6 +139,17 @@ struct bpf_prog_aux {
- 	};
- };
- 
-+enum bpf_fd_type {
-+	BPF_FD_TYPE_PROG,
-+	BPF_FD_TYPE_MAP,
-+};
-+
-+union bpf_any {
-+	struct bpf_map *map;
-+	struct bpf_prog *prog;
-+	void *raw_ptr;
-+};
-+
- struct bpf_array {
- 	struct bpf_map map;
- 	u32 elem_size;
-@@ -172,6 +185,14 @@ void bpf_map_put(struct bpf_map *map);
- 
- extern int sysctl_unprivileged_bpf_disabled;
- 
-+void bpf_any_get(union bpf_any raw, enum bpf_fd_type type);
-+void bpf_any_put(union bpf_any raw, enum bpf_fd_type type);
-+
-+int bpf_fd_inode_add(const struct filename *pathname,
-+		     union bpf_any raw, enum bpf_fd_type type);
-+union bpf_any bpf_fd_inode_get(const struct filename *pathname,
-+			       enum bpf_fd_type *type);
-+
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
- #else
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 564f1f0..f9b412c 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -63,50 +63,16 @@ struct bpf_insn {
- 	__s32	imm;		/* signed immediate constant */
- };
- 
--/* BPF syscall commands */
-+/* BPF syscall commands, see bpf(2) man-page for details. */
- enum bpf_cmd {
--	/* create a map with given type and attributes
--	 * fd = bpf(BPF_MAP_CREATE, union bpf_attr *, u32 size)
--	 * returns fd or negative error
--	 * map is deleted when fd is closed
--	 */
- 	BPF_MAP_CREATE,
--
--	/* lookup key in a given map
--	 * err = bpf(BPF_MAP_LOOKUP_ELEM, union bpf_attr *attr, u32 size)
--	 * Using attr->map_fd, attr->key, attr->value
--	 * returns zero and stores found elem into value
--	 * or negative error
--	 */
- 	BPF_MAP_LOOKUP_ELEM,
--
--	/* create or update key/value pair in a given map
--	 * err = bpf(BPF_MAP_UPDATE_ELEM, union bpf_attr *attr, u32 size)
--	 * Using attr->map_fd, attr->key, attr->value, attr->flags
--	 * returns zero or negative error
--	 */
- 	BPF_MAP_UPDATE_ELEM,
--
--	/* find and delete elem by key in a given map
--	 * err = bpf(BPF_MAP_DELETE_ELEM, union bpf_attr *attr, u32 size)
--	 * Using attr->map_fd, attr->key
--	 * returns zero or negative error
--	 */
- 	BPF_MAP_DELETE_ELEM,
--
--	/* lookup key in a given map and return next key
--	 * err = bpf(BPF_MAP_GET_NEXT_KEY, union bpf_attr *attr, u32 size)
--	 * Using attr->map_fd, attr->key, attr->next_key
--	 * returns zero and stores next key or negative error
--	 */
- 	BPF_MAP_GET_NEXT_KEY,
--
--	/* verify and load eBPF program
--	 * prog_fd = bpf(BPF_PROG_LOAD, union bpf_attr *attr, u32 size)
--	 * Using attr->prog_type, attr->insns, attr->license
--	 * returns fd or negative error
--	 */
- 	BPF_PROG_LOAD,
-+	BPF_PIN_FD,
-+	BPF_NEW_FD,
- };
- 
- enum bpf_map_type {
-@@ -160,6 +126,11 @@ union bpf_attr {
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
- 	};
-+
-+	struct { /* anonymous struct used by BPF_{PIN,NEW}_FD command */
-+		__u32		fd;
-+		__aligned_u64	pathname;
-+	};
- } __attribute__((aligned(8)));
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-diff --git a/include/uapi/linux/magic.h b/include/uapi/linux/magic.h
-index 7b1425a..c1c5cf7 100644
---- a/include/uapi/linux/magic.h
-+++ b/include/uapi/linux/magic.h
-@@ -75,5 +75,6 @@
- #define ANON_INODE_FS_MAGIC	0x09041934
- #define BTRFS_TEST_MAGIC	0x73727279
- #define NSFS_MAGIC		0x6e736673
-+#define BPFFS_MAGIC		0xcafe4a11
- 
- #endif /* __LINUX_MAGIC_H__ */
-diff --git a/include/uapi/linux/xattr.h b/include/uapi/linux/xattr.h
-index 1590c49..3586d28 100644
---- a/include/uapi/linux/xattr.h
-+++ b/include/uapi/linux/xattr.h
-@@ -42,6 +42,9 @@
- #define XATTR_USER_PREFIX "user."
- #define XATTR_USER_PREFIX_LEN (sizeof(XATTR_USER_PREFIX) - 1)
- 
-+#define XATTR_BPF_PREFIX "bpf."
-+#define XATTR_BPF_PREFIX_LEN (sizeof(XATTR_BPF_PREFIX) - 1)
-+
- /* Security namespace */
- #define XATTR_EVM_SUFFIX "evm"
- #define XATTR_NAME_EVM XATTR_SECURITY_PREFIX XATTR_EVM_SUFFIX
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index e6983be..1327258 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1,2 +1,4 @@
- obj-y := core.o
--obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o arraymap.o helpers.o
-+
-+obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
-+obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o
-diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 63e7d50..f08a3cf 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -4,6 +4,7 @@ obj- := dummy.o
+ # List of programs to build
+ hostprogs-y := test_verifier test_maps
+ hostprogs-y += sock_example
++hostprogs-y += fds_example
+ hostprogs-y += sockex1
+ hostprogs-y += sockex2
+ hostprogs-y += sockex3
+@@ -18,6 +19,7 @@ hostprogs-y += lathist
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+ sock_example-objs := sock_example.o libbpf.o
++fds_example-objs := fds_example.o libbpf.o
+ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+ sockex3-objs := bpf_load.o libbpf.o sockex3_user.o
+diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
 new file mode 100644
-index 0000000..5cef673
+index 0000000..6f912be
 --- /dev/null
-+++ b/kernel/bpf/inode.c
-@@ -0,0 +1,614 @@
-+/*
-+ * Minimal file system backend for special inodes holding eBPF maps and
-+ * programs, used by eBPF fd pinning.
-+ *
-+ * (C) 2015 Daniel Borkmann <daniel@iogearbox.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/cred.h>
-+#include <linux/parser.h>
-+#include <linux/fs.h>
-+#include <linux/magic.h>
-+#include <linux/mount.h>
-+#include <linux/namei.h>
-+#include <linux/seq_file.h>
-+#include <linux/fsnotify.h>
-+#include <linux/filter.h>
++++ b/samples/bpf/fds_example.c
+@@ -0,0 +1,224 @@
++#include <linux/unistd.h>
 +#include <linux/bpf.h>
-+#include <linux/security.h>
-+#include <linux/xattr.h>
 +
-+#define BPFFS_DEFAULT_MODE 0700
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <string.h>
++#include <assert.h>
++#include <errno.h>
 +
-+enum {
-+	BPF_OPT_UID,
-+	BPF_OPT_GID,
-+	BPF_OPT_MODE,
-+	BPF_OPT_ERR,
-+};
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/xattr.h>
 +
-+struct bpf_mnt_opts {
-+	kuid_t uid;
-+	kgid_t gid;
-+	umode_t mode;
-+};
++#include <net/ethernet.h>
++#include <arpa/inet.h>
 +
-+struct bpf_fs_info {
-+	struct bpf_mnt_opts mnt_opts;
-+};
++#include "libbpf.h"
 +
-+struct bpf_dir_state {
-+	unsigned long flags;
-+};
++static char *fname;
 +
-+static const match_table_t bpf_tokens = {
-+	{ BPF_OPT_UID, "uid=%u" },
-+	{ BPF_OPT_GID, "gid=%u" },
-+	{ BPF_OPT_MODE, "mode=%o" },
-+	{ BPF_OPT_ERR, NULL },
-+};
-+
-+static const struct inode_operations bpf_dir_iops;
-+static const struct inode_operations bpf_prog_iops;
-+static const struct inode_operations bpf_map_iops;
-+
-+static struct inode *bpf_get_inode(struct super_block *sb,
-+				   const struct inode *dir,
-+				   umode_t mode)
++static void test_bpf_pin_fd(int fd)
 +{
-+	struct inode *inode = new_inode(sb);
-+
-+	if (!inode)
-+		return ERR_PTR(-ENOSPC);
-+
-+	inode->i_ino = get_next_ino();
-+	inode->i_atime = CURRENT_TIME;
-+	inode->i_mtime = inode->i_atime;
-+	inode->i_ctime = inode->i_atime;
-+	inode_init_owner(inode, dir, mode);
-+
-+	return inode;
-+}
-+
-+static struct inode *bpf_mknod(struct inode *dir, umode_t mode)
-+{
-+	return bpf_get_inode(dir->i_sb, dir, mode);
-+}
-+
-+static bool bpf_dentry_name_reserved(const struct dentry *dentry)
-+{
-+	return strchr(dentry->d_name.name, '.');
-+}
-+
-+enum {
-+	/* Directory state is 'terminating', so no subdirectories
-+	 * are allowed anymore in this directory. This is being
-+	 * reserved so that in future, auto-generated directories
-+	 * could be added along with the special map/prog inodes.
-+	 */
-+	BPF_DSTATE_TERM_BIT,
-+};
-+
-+static bool bpf_inode_is_term(struct inode *dir)
-+{
-+	struct bpf_dir_state *state = dir->i_private;
-+
-+	return test_bit(BPF_DSTATE_TERM_BIT, &state->flags);
-+}
-+
-+static bool bpf_inode_make_term(struct inode *dir)
-+{
-+	struct bpf_dir_state *state = dir->i_private;
-+
-+	return dir->i_nlink != 2 ||
-+	       test_and_set_bit(BPF_DSTATE_TERM_BIT, &state->flags);
-+}
-+
-+static void bpf_inode_undo_term(struct inode *dir)
-+{
-+	struct bpf_dir_state *state = dir->i_private;
-+
-+	clear_bit(BPF_DSTATE_TERM_BIT, &state->flags);
-+}
-+
-+static int bpf_inode_type(const struct inode *inode, enum bpf_fd_type *i_type)
-+{
-+	if (inode->i_op == &bpf_prog_iops)
-+		*i_type = BPF_FD_TYPE_PROG;
-+	else if (inode->i_op == &bpf_map_iops)
-+		*i_type = BPF_FD_TYPE_MAP;
-+	else
-+		return -EACCES;
-+
-+	return 0;
-+}
-+
-+static int bpf_unlink(struct inode *dir, struct dentry *dentry)
-+{
-+	struct inode *inode = d_inode(dentry);
-+	void *i_private = inode->i_private;
-+	enum bpf_fd_type type;
-+	bool is_fd, drop_ref;
++	char buff[64];
 +	int ret;
 +
-+	is_fd = bpf_inode_type(inode, &type) == 0;
-+	drop_ref = inode->i_nlink == 1;
++	memset(buff, 0, sizeof(buff));
++	ret = bpf_pin_fd(fd, fname);
++	getxattr(fname, "bpf.type", buff, sizeof(buff));
 +
-+	ret = simple_unlink(dir, dentry);
-+	if (!ret && is_fd && drop_ref) {
-+		union bpf_any raw;
++	printf("fd:%d type:%s pinned (%s)\n", fd, buff, strerror(errno));
++	assert(ret == 0);
++}
 +
-+		raw.raw_ptr = i_private;
-+		bpf_any_put(raw, type);
-+		bpf_inode_undo_term(dir);
-+	}
++static int test_bpf_new_fd(void)
++{
++	char buff[64];
++	int fd;
++
++	memset(buff, 0, sizeof(buff));
++	getxattr(fname, "bpf.type", buff, sizeof(buff));
++	fd = bpf_new_fd(fname);
++
++	printf("fd:%d type:%s fetched (%s)\n", fd, buff, strerror(errno));
++	assert(fd > 0);
++
++	return fd;
++}
++
++static int test_bpf_map_create(void)
++{
++	int fd;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(uint32_t),
++			    sizeof(uint32_t), 1024);
++
++	printf("fd:%d created (%s)\n", fd, strerror(errno));
++	assert(fd > 0);
++
++	return fd;
++}
++
++static int test_bpf_map_insert(int fd, uint32_t val)
++{
++	uint32_t key = 123;
++	int ret;
++
++	ret = bpf_update_elem(fd, &key, &val, 0);
++
++	printf("fd:%d wrote (%u, %u)\n", fd, key, val);
++	assert(ret == 0);
 +
 +	return ret;
 +}
 +
-+static int bpf_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
++static int test_bpf_map_lookup(int fd)
 +{
-+	struct bpf_dir_state *state;
-+	struct inode *inode;
-+
-+	if (bpf_inode_is_term(dir))
-+		return -EPERM;
-+	if (bpf_dentry_name_reserved(dentry))
-+		return -EPERM;
-+
-+	state = kzalloc(sizeof(*state), GFP_KERNEL);
-+	if (!state)
-+		return -ENOSPC;
-+
-+	inode = bpf_mknod(dir, dir->i_mode);
-+	if (IS_ERR(inode)) {
-+		kfree(state);
-+		return PTR_ERR(inode);
-+	}
-+
-+	inode->i_private = state;
-+	inode->i_op = &bpf_dir_iops;
-+	inode->i_fop = &simple_dir_operations;
-+
-+	inc_nlink(inode);
-+	inc_nlink(dir);
-+
-+	d_instantiate(dentry, inode);
-+	dget(dentry);
-+
-+	return 0;
-+}
-+
-+static int bpf_rmdir(struct inode *dir, struct dentry *dentry)
-+{
-+	struct inode *inode = d_inode(dentry);
-+	void *i_private = inode->i_private;
++	uint32_t key = 123, val;
 +	int ret;
 +
-+	ret = simple_rmdir(dir, dentry);
-+	if (!ret)
-+		kfree(i_private);
++	ret = bpf_lookup_elem(fd, &key, &val);
++
++	printf("fd:%d read (%u, %u)\n", fd, key, val);
++	assert(ret == 0);
 +
 +	return ret;
 +}
 +
-+static const struct inode_operations bpf_dir_iops = {
-+	.lookup		= simple_lookup,
-+	.mkdir		= bpf_mkdir,
-+	.rmdir		= bpf_rmdir,
-+	.unlink		= bpf_unlink,
-+};
-+
-+#define XATTR_TYPE_SUFFIX "type"
-+
-+#define XATTR_NAME_BPF_TYPE (XATTR_BPF_PREFIX XATTR_TYPE_SUFFIX)
-+#define XATTR_NAME_BPF_TYPE_LEN (sizeof(XATTR_NAME_BPF_TYPE) - 1)
-+
-+#define XATTR_VALUE_MAP "map"
-+#define XATTR_VALUE_PROG "prog"
-+
-+static ssize_t bpf_getxattr(struct dentry *dentry, const char *name,
-+			    void *buffer, size_t size)
++static int bpf_map_test_case_1(void)
 +{
-+	enum bpf_fd_type type;
-+	ssize_t ret;
++	int fd;
 +
-+	if (strncmp(name, XATTR_NAME_BPF_TYPE, XATTR_NAME_BPF_TYPE_LEN))
-+		return -ENODATA;
++	fd = test_bpf_map_create();
++	test_bpf_pin_fd(fd);
++	test_bpf_map_insert(fd, 456);
++	test_bpf_map_lookup(fd);
++	close(fd);
 +
-+	if (bpf_inode_type(d_inode(dentry), &type))
-+		return -ENODATA;
++	return 0;
++}
 +
-+	switch (type) {
-+	case BPF_FD_TYPE_PROG:
-+		ret = sizeof(XATTR_VALUE_PROG);
-+		break;
-+	case BPF_FD_TYPE_MAP:
-+		ret = sizeof(XATTR_VALUE_MAP);
-+		break;
-+	}
++static int bpf_map_test_case_2(void)
++{
++	int fd;
 +
-+	if (buffer) {
-+		if (size < ret)
-+			return -ERANGE;
++	fd = test_bpf_new_fd();
++	test_bpf_map_lookup(fd);
++	close(fd);
 +
-+		switch (type) {
-+		case BPF_FD_TYPE_PROG:
-+			strncpy(buffer, XATTR_VALUE_PROG, ret);
-+			break;
-+		case BPF_FD_TYPE_MAP:
-+			strncpy(buffer, XATTR_VALUE_MAP, ret);
-+			break;
-+		}
-+	}
++	return 0;
++}
++
++static int bpf_map_test_case_3(void)
++{
++	int fd1, fd2;
++
++	unlink(fname);
++	fd1 = test_bpf_map_create();
++	test_bpf_pin_fd(fd1);
++	fd2 = test_bpf_new_fd();
++	test_bpf_map_lookup(fd1);
++	test_bpf_map_insert(fd2, 456);
++	test_bpf_map_lookup(fd1);
++	test_bpf_map_lookup(fd2);
++	test_bpf_map_insert(fd1, 789);
++	test_bpf_map_lookup(fd2);
++	close(fd1);
++	close(fd2);
++
++	return 0;
++}
++
++static int test_bpf_prog_create(void)
++{
++	struct bpf_insn insns[] = {
++		BPF_MOV64_IMM(BPF_REG_0, 1),
++		BPF_EXIT_INSN(),
++	};
++	int ret;
++
++	ret = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, insns,
++			    sizeof(insns), "GPL", 0);
++
++	assert(ret > 0);
++	printf("fd:%d created\n", ret);
 +
 +	return ret;
 +}
 +
-+static ssize_t bpf_listxattr(struct dentry *dentry, char *buffer, size_t size)
++static int test_bpf_prog_attach(int fd)
 +{
-+	ssize_t len, used = 0;
++	int sock, ret;
 +
-+	len = security_inode_listsecurity(d_inode(dentry), buffer, size);
-+	if (len < 0)
-+		return len;
++	sock = open_raw_sock("lo");
++	ret = setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &fd, sizeof(fd));
 +
-+	used += len;
-+	if (buffer) {
-+		if (size < used)
-+			return -ERANGE;
++	printf("sock:%d got fd:%d attached\n", sock, fd);
++	assert(ret == 0);
 +
-+		buffer += len;
-+	}
-+
-+	len = XATTR_NAME_BPF_TYPE_LEN + 1;
-+	used += len;
-+	if (buffer) {
-+		if (size < used)
-+			return -ERANGE;
-+
-+		memcpy(buffer, XATTR_NAME_BPF_TYPE, len);
-+		buffer += len;
-+	}
-+
-+	return used;
-+}
-+
-+/* Special inodes handling map/progs currently don't allow for syscalls
-+ * such as open/read/write/etc. We use the same bpf_{map,prog}_new_fd()
-+ * facility for installing an fd to the user as we do on BPF_MAP_CREATE
-+ * and BPF_PROG_LOAD, so an applications using bpf(2) don't see any
-+ * change in behaviour. In future, the set of open/read/write/etc could
-+ * be used f.e. for implementing things like debugging facilities on the
-+ * underlying map/prog that would work with non-bpf(2) aware tooling.
-+ */
-+static const struct inode_operations bpf_prog_iops = {
-+	.getxattr	= bpf_getxattr,
-+	.listxattr	= bpf_listxattr,
-+};
-+
-+static const struct inode_operations bpf_map_iops = {
-+	.getxattr	= bpf_getxattr,
-+	.listxattr	= bpf_listxattr,
-+};
-+
-+static int bpf_mkmap(struct inode *dir, struct dentry *dentry,
-+		     struct bpf_map *map, umode_t i_mode)
-+{
-+	struct inode *inode;
-+
-+	if (bpf_dentry_name_reserved(dentry))
-+		return -EPERM;
-+	if (bpf_inode_make_term(dir))
-+		return -EBUSY;
-+
-+	inode = bpf_mknod(dir, i_mode);
-+	if (IS_ERR(inode)) {
-+		bpf_inode_undo_term(dir);
-+		return PTR_ERR(inode);
-+	}
-+
-+	inode->i_private = map;
-+	inode->i_op = &bpf_map_iops;
-+
-+	d_instantiate(dentry, inode);
-+	dget(dentry);
-+
-+	return 0;
-+}
-+
-+static int bpf_mkprog(struct inode *dir, struct dentry *dentry,
-+		      struct bpf_prog *prog, umode_t i_mode)
-+{
-+	struct inode *inode;
-+
-+	if (bpf_dentry_name_reserved(dentry))
-+		return -EPERM;
-+	if (bpf_inode_make_term(dir))
-+		return -EBUSY;
-+
-+	inode = bpf_mknod(dir, i_mode);
-+	if (IS_ERR(inode)) {
-+		bpf_inode_undo_term(dir);
-+		return PTR_ERR(inode);
-+	}
-+
-+	inode->i_private = prog;
-+	inode->i_op = &bpf_prog_iops;
-+
-+	d_instantiate(dentry, inode);
-+	dget(dentry);
-+
-+	return 0;
-+}
-+
-+static const struct bpf_mnt_opts *bpf_sb_mnt_opts(const struct super_block *sb)
-+{
-+	const struct bpf_fs_info *bfi = sb->s_fs_info;
-+
-+	return &bfi->mnt_opts;
-+}
-+
-+static int bpf_parse_options(char *opt_data, struct bpf_mnt_opts *opts)
-+{
-+	substring_t args[MAX_OPT_ARGS];
-+	unsigned int opt_val, token;
-+	char *opt_ptr;
-+	kuid_t uid;
-+	kgid_t gid;
-+
-+	opts->mode = BPFFS_DEFAULT_MODE;
-+
-+	while ((opt_ptr = strsep(&opt_data, ",")) != NULL) {
-+		if (!*opt_ptr)
-+			continue;
-+
-+		token = match_token(opt_ptr, bpf_tokens, args);
-+		switch (token) {
-+		case BPF_OPT_UID:
-+			if (match_int(&args[0], &opt_val))
-+				return -EINVAL;
-+
-+			uid = make_kuid(current_user_ns(), opt_val);
-+			if (!uid_valid(uid))
-+				return -EINVAL;
-+
-+			opts->uid = uid;
-+			break;
-+		case BPF_OPT_GID:
-+			if (match_int(&args[0], &opt_val))
-+				return -EINVAL;
-+
-+			gid = make_kgid(current_user_ns(), opt_val);
-+			if (!gid_valid(gid))
-+				return -EINVAL;
-+
-+			opts->gid = gid;
-+			break;
-+		case BPF_OPT_MODE:
-+			if (match_octal(&args[0], &opt_val))
-+				return -EINVAL;
-+
-+			opts->mode = opt_val & S_IALLUGO;
-+			break;
-+		default:
-+			return -EINVAL;
-+		};
-+	}
-+
-+	return 0;
-+}
-+
-+static int bpf_apply_options(struct super_block *sb)
-+{
-+	const struct bpf_mnt_opts *opts = bpf_sb_mnt_opts(sb);
-+	struct inode *inode = sb->s_root->d_inode;
-+
-+	inode->i_mode &= ~S_IALLUGO;
-+	inode->i_mode |= opts->mode;
-+
-+	inode->i_uid = opts->uid;
-+	inode->i_gid = opts->gid;
-+
-+	return 0;
-+}
-+
-+static int bpf_show_options(struct seq_file *m, struct dentry *root)
-+{
-+	const struct bpf_mnt_opts *opts = bpf_sb_mnt_opts(root->d_sb);
-+
-+	if (!uid_eq(opts->uid, GLOBAL_ROOT_UID))
-+		seq_printf(m, ",uid=%u",
-+			   from_kuid_munged(&init_user_ns, opts->uid));
-+
-+	if (!gid_eq(opts->gid, GLOBAL_ROOT_GID))
-+		seq_printf(m, ",gid=%u",
-+			   from_kgid_munged(&init_user_ns, opts->gid));
-+
-+	if (opts->mode != BPFFS_DEFAULT_MODE)
-+		seq_printf(m, ",mode=%o", opts->mode);
-+
-+	return 0;
-+}
-+
-+static int bpf_remount(struct super_block *sb, int *flags, char *opt_data)
-+{
-+	struct bpf_fs_info *bfi = sb->s_fs_info;
-+	int ret;
-+
-+	sync_filesystem(sb);
-+
-+	ret = bpf_parse_options(opt_data, &bfi->mnt_opts);
-+	if (ret)
-+		return ret;
-+
-+	bpf_apply_options(sb);
-+	return 0;
-+}
-+
-+static const struct super_operations bpf_super_ops = {
-+	.statfs		= simple_statfs,
-+	.remount_fs	= bpf_remount,
-+	.show_options	= bpf_show_options,
-+};
-+
-+static int bpf_fill_super(struct super_block *sb, void *opt_data, int silent)
-+{
-+	static struct tree_descr bpf_files[] = { { "" } };
-+	struct bpf_dir_state *state;
-+	struct bpf_fs_info *bfi;
-+	struct inode *inode;
-+	int ret = -ENOMEM;
-+
-+	bfi = kzalloc(sizeof(*bfi), GFP_KERNEL);
-+	if (!bfi)
-+		return ret;
-+
-+	state = kzalloc(sizeof(*state), GFP_KERNEL);
-+	if (!state)
-+		goto err_bfi;
-+
-+	save_mount_options(sb, opt_data);
-+	sb->s_fs_info = bfi;
-+
-+	ret = bpf_parse_options(opt_data, &bfi->mnt_opts);
-+	if (ret)
-+		goto err_state;
-+
-+	ret = simple_fill_super(sb, BPFFS_MAGIC, bpf_files);
-+	if (ret)
-+		goto err_state;
-+
-+	sb->s_op = &bpf_super_ops;
-+
-+	inode = sb->s_root->d_inode;
-+	inode->i_op = &bpf_dir_iops;
-+	inode->i_private = state;
-+
-+	bpf_apply_options(sb);
-+
-+	return 0;
-+err_state:
-+	kfree(state);
-+err_bfi:
-+	kfree(bfi);
 +	return ret;
 +}
 +
-+static void bpf_kill_super(struct super_block *sb)
++static int bpf_prog_test_case_1(void)
 +{
-+	kfree(sb->s_root->d_inode->i_private);
-+	kfree(sb->s_fs_info);
-+	kill_litter_super(sb);
++	int fd;
++
++	fd = test_bpf_prog_create();
++	test_bpf_pin_fd(fd);
++	close(fd);
++
++	return 0;
 +}
 +
-+static struct dentry *bpf_mount(struct file_system_type *type,
-+				int flags, const char *dev_name,
-+				void *opt_data)
++static int bpf_prog_test_case_2(void)
 +{
-+	return mount_nodev(type, flags, opt_data, bpf_fill_super);
++	int fd;
++
++	fd = test_bpf_new_fd();
++	test_bpf_prog_attach(fd);
++	close(fd);
++
++	return 0;
 +}
 +
-+static struct file_system_type bpf_fs_type = {
-+	.owner		= THIS_MODULE,
-+	.name		= "bpf",
-+	.mount		= bpf_mount,
-+	.kill_sb	= bpf_kill_super,
-+	.fs_flags	= FS_USERNS_MOUNT,
-+};
-+
-+MODULE_ALIAS_FS("bpf");
-+MODULE_ALIAS_FS("bpffs");
-+
-+static int __init bpf_init(void)
++static int bpf_prog_test_case_3(void)
 +{
-+	return register_filesystem(&bpf_fs_type);
-+}
-+fs_initcall(bpf_init);
++	int fd1, fd2;
 +
-+int bpf_fd_inode_add(const struct filename *pathname,
-+		     union bpf_any raw, enum bpf_fd_type type)
-+{
-+	umode_t i_mode = S_IFREG | S_IRUSR | S_IWUSR;
-+	struct inode *dir_inode;
-+	struct dentry *dentry;
-+	struct path path;
-+	int ret;
++	unlink(fname);
++	fd1 = test_bpf_prog_create();
++	test_bpf_pin_fd(fd1);
++	fd2 = test_bpf_new_fd();
++	test_bpf_prog_attach(fd1);
++	test_bpf_prog_attach(fd2);
++	close(fd1);
++	close(fd2);
 +
-+	dentry = kern_path_create(AT_FDCWD, pathname->name, &path, 0);
-+	if (IS_ERR(dentry)) {
-+		ret = PTR_ERR(dentry);
-+		return ret;
-+	}
-+
-+	ret = security_path_mknod(&path, dentry, i_mode, 0);
-+	if (ret)
-+		goto out;
-+
-+	dir_inode = d_inode(path.dentry);
-+	if (dir_inode->i_op != &bpf_dir_iops) {
-+		ret = -EACCES;
-+		goto out;
-+	}
-+
-+	ret = security_inode_mknod(dir_inode, dentry, i_mode, 0);
-+	if (ret)
-+		goto out;
-+
-+	switch (type) {
-+	case BPF_FD_TYPE_PROG:
-+		ret = bpf_mkprog(dir_inode, dentry, raw.prog, i_mode);
-+		break;
-+	case BPF_FD_TYPE_MAP:
-+		ret = bpf_mkmap(dir_inode, dentry, raw.map, i_mode);
-+		break;
-+	}
-+out:
-+	done_path_create(&path, dentry);
-+	return ret;
++	return 0;
 +}
 +
-+union bpf_any bpf_fd_inode_get(const struct filename *pathname,
-+			       enum bpf_fd_type *type)
++int main(int argc, char **argv)
 +{
-+	struct inode *inode;
-+	union bpf_any raw;
-+	struct path path;
-+	int ret;
++	if (argc != 3)
++		return -1;
 +
-+	ret = kern_path(pathname->name, LOOKUP_FOLLOW, &path);
-+	if (ret)
-+		goto out;
++	fname = argv[2];
 +
-+	inode = d_backing_inode(path.dentry);
-+	ret = inode_permission(inode, MAY_WRITE);
-+	if (ret)
-+		goto out_path;
++	if (!strcmp("map-pin", argv[1]))
++		return bpf_map_test_case_1();
++	if (!strcmp("map-new", argv[1]))
++		return bpf_map_test_case_2();
++	if (!strcmp("map-all", argv[1]))
++		return bpf_map_test_case_3();
 +
-+	ret = bpf_inode_type(inode, type);
-+	if (ret)
-+		goto out_path;
++	if (!strcmp("prog-pin", argv[1]))
++		return bpf_prog_test_case_1();
++	if (!strcmp("prog-new", argv[1]))
++		return bpf_prog_test_case_2();
++	if (!strcmp("prog-all", argv[1]))
++		return bpf_prog_test_case_3();
 +
-+	raw.raw_ptr = inode->i_private;
-+	if (!raw.raw_ptr) {
-+		ret = -EACCES;
-+		goto out_path;
-+	}
-+
-+	bpf_any_get(raw, *type);
-+	touch_atime(&path);
-+	path_put(&path);
-+
-+	return raw;
-+out_path:
-+	path_put(&path);
-+out:
-+	raw.raw_ptr = ERR_PTR(ret);
-+	return raw;
++	return 0;
 +}
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 3fff82c..b4a93b8 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -679,6 +679,108 @@ free_prog_nouncharge:
- 	return err;
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
+index 7e1efa7..dcb7c49 100644
+--- a/samples/bpf/libbpf.c
++++ b/samples/bpf/libbpf.c
+@@ -103,6 +103,26 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
  }
  
-+void bpf_any_get(union bpf_any raw, enum bpf_fd_type type)
++int bpf_pin_fd(int fd, const char *pathname)
 +{
-+	switch (type) {
-+	case BPF_FD_TYPE_PROG:
-+		atomic_inc(&raw.prog->aux->refcnt);
-+		break;
-+	case BPF_FD_TYPE_MAP:
-+		atomic_inc(&raw.map->refcnt);
-+		break;
-+	}
++	union bpf_attr attr = {
++		.fd = fd,
++		.pathname = ptr_to_u64((void *)pathname),
++	};
++
++	return syscall(__NR_bpf, BPF_PIN_FD, &attr, sizeof(attr));
 +}
 +
-+void bpf_any_put(union bpf_any raw, enum bpf_fd_type type)
++int bpf_new_fd(const char *pathname)
 +{
-+	switch (type) {
-+	case BPF_FD_TYPE_PROG:
-+		bpf_prog_put(raw.prog);
-+		break;
-+	case BPF_FD_TYPE_MAP:
-+		bpf_map_put(raw.map);
-+		break;
-+	}
++	union bpf_attr attr = {
++		.fd = 0,
++		.pathname = ptr_to_u64((void *)pathname),
++	};
++
++	return syscall(__NR_bpf, BPF_NEW_FD, &attr, sizeof(attr));
 +}
 +
-+#define BPF_PIN_FD_LAST_FIELD	pathname
-+#define BPF_NEW_FD_LAST_FIELD	BPF_PIN_FD_LAST_FIELD
-+
-+static int bpf_pin_fd(const union bpf_attr *attr)
-+{
-+	struct filename *pathname;
-+	enum bpf_fd_type type;
-+	union bpf_any raw;
-+	int ret;
-+
-+	if (CHECK_ATTR(BPF_PIN_FD))
-+		return -EINVAL;
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	pathname = getname(u64_to_ptr(attr->pathname));
-+	if (IS_ERR(pathname))
-+		return PTR_ERR(pathname);
-+
-+	type = BPF_FD_TYPE_MAP;
-+	raw.map = bpf_map_get(attr->fd);
-+	if (IS_ERR(raw.map)) {
-+		type = BPF_FD_TYPE_PROG;
-+		raw.prog = bpf_prog_get(attr->fd);
-+		if (IS_ERR(raw.prog)) {
-+			ret = PTR_ERR(raw.raw_ptr);
-+			goto out;
-+		}
-+	}
-+
-+	ret = bpf_fd_inode_add(pathname, raw, type);
-+	if (ret != 0)
-+		bpf_any_put(raw, type);
-+out:
-+	putname(pathname);
-+	return ret;
-+}
-+
-+static int bpf_new_fd(const union bpf_attr *attr)
-+{
-+	struct filename *pathname;
-+	enum bpf_fd_type type;
-+	union bpf_any raw;
-+	int ret;
-+
-+	if ((CHECK_ATTR(BPF_NEW_FD)) || attr->fd != 0)
-+		return -EINVAL;
-+
-+	pathname = getname(u64_to_ptr(attr->pathname));
-+	if (IS_ERR(pathname))
-+		return PTR_ERR(pathname);
-+
-+	raw = bpf_fd_inode_get(pathname, &type);
-+	if (IS_ERR(raw.raw_ptr)) {
-+		ret = PTR_ERR(raw.raw_ptr);
-+		goto out;
-+	}
-+
-+	switch (type) {
-+	case BPF_FD_TYPE_PROG:
-+		ret = bpf_prog_new_fd(raw.prog);
-+		break;
-+	case BPF_FD_TYPE_MAP:
-+		ret = bpf_map_new_fd(raw.map);
-+		break;
-+	default:
-+		/* Shut up gcc. */
-+		ret = -ENOENT;
-+		break;
-+	}
-+
-+	if (ret < 0)
-+		bpf_any_put(raw, type);
-+out:
-+	putname(pathname);
-+	return ret;
-+}
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+ int open_raw_sock(const char *name)
  {
- 	union bpf_attr attr = {};
-@@ -739,6 +841,12 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_PROG_LOAD:
- 		err = bpf_prog_load(&attr);
- 		break;
-+	case BPF_PIN_FD:
-+		err = bpf_pin_fd(&attr);
-+		break;
-+	case BPF_NEW_FD:
-+		err = bpf_new_fd(&attr);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
+ 	struct sockaddr_ll sll;
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+index b7f63c70..2832fc6 100644
+--- a/samples/bpf/libbpf.h
++++ b/samples/bpf/libbpf.h
+@@ -15,6 +15,9 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 		  const struct bpf_insn *insns, int insn_len,
+ 		  const char *license, int kern_version);
+ 
++int bpf_pin_fd(int fd, const char *pathname);
++int bpf_new_fd(const char *pathname);
++
+ #define LOG_BUF_SIZE 65536
+ extern char bpf_log_buf[LOG_BUF_SIZE];
+ 
 -- 
 1.9.3
