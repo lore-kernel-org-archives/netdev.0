@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/16] mlxsw: cmd: Introduce per-FID flooding tables
-Date: Fri, 16 Oct 2015 14:01:24 +0200
-Message-ID: <1444996897-2708-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 12/16] mlxsw: reg: Add Switch VID to FID Allocation register definition
+Date: Fri, 16 Oct 2015 14:01:33 +0200
+Message-ID: <1444996897-2708-13-git-send-email-jiri@resnulli.us>
 References: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
@@ -11,91 +11,141 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sagir@mellanox.com, mattyk@mellanox.com, aviadr@mellanox.com
 To: netdev@vger.kernel.org, ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:36518 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752962AbbJPMBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:44 -0400
-Received: by wicgb1 with SMTP id gb1so6386371wic.1
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:43 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:33363 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753636AbbJPMB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:56 -0400
+Received: by wijp11 with SMTP id p11so6936236wij.0
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:55 -0700 (PDT)
 In-Reply-To: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In the newly introduced Spectrum switch ASIC, packets destined to not
-offloaded netdevs will be classified to special FIDs (vFIDs) in the
-device and flooded to the CPU port.
+An incoming packet can be classified into a filtering identifer (FID)
+based on its VID or incoming port and VID ({Port, VID}).
 
-The flooding table used is of type per-FID, which allows one to create
-different flooding domains for different vFIDs.
-
-While using a simple single-entry flood table is certainly sufficient at
-this point, we do plan to offload 802.1D bridges involving VLAN
-interfaces, thus making this change necessary.
-
-Add support for this flooding table type, by exposing the configuration
-of the number of tables from this type and their size.
+Add the SVFA register, which controls this mapping.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/cmd.h  | 13 +++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
- drivers/net/ethernet/mellanox/mlxsw/pci.c  |  4 ++++
- 3 files changed, 19 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 95 +++++++++++++++++++++++++++++++
+ 1 file changed, 95 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-index c7889f4..010eb5d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-@@ -674,6 +674,19 @@ MLXSW_ITEM32(cmd_mbox, config_profile, max_vid_flood_tables, 0x30, 8, 4);
-  */
- MLXSW_ITEM32(cmd_mbox, config_profile, flood_mode, 0x30, 0, 2);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 6f4a7b0..5a97707 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -883,6 +883,99 @@ static inline void mlxsw_reg_spmlr_pack(char *payload, u8 local_port,
+ 	mlxsw_reg_spmlr_learn_mode_set(payload, mode);
+ }
  
-+/* cmd_mbox_config_profile_max_fid_flood_tables
-+ * Maximum number of per-FID flooding tables.
++/* SVFA - Switch VID to FID Allocation Register
++ * --------------------------------------------
++ * Controls the VID to FID mapping and {Port, VID} to FID mapping for
++ * virtualized ports.
++ */
++#define MLXSW_REG_SVFA_ID 0x201C
++#define MLXSW_REG_SVFA_LEN 0x10
++
++static const struct mlxsw_reg_info mlxsw_reg_svfa = {
++	.id = MLXSW_REG_SVFA_ID,
++	.len = MLXSW_REG_SVFA_LEN,
++};
++
++/* reg_svfa_swid
++ * Switch partition ID.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, svfa, swid, 0x00, 24, 8);
++
++/* reg_svfa_local_port
++ * Local port number.
++ * Access: Index
 + *
-+ * Note: This flooding tables cover special FIDs only (vFIDs), starting at
-+ * FID value 4K and higher.
++ * Note: Reserved for 802.1Q FIDs.
 + */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_fid_flood_tables, 0x38, 24, 4);
++MLXSW_ITEM32(reg, svfa, local_port, 0x00, 16, 8);
 +
-+/* cmd_mbox_config_profile_fid_flood_table_size
-+ * The size (number of entries) of each per-FID table.
++enum mlxsw_reg_svfa_mt {
++	MLXSW_REG_SVFA_MT_VID_TO_FID,
++	MLXSW_REG_SVFA_MT_PORT_VID_TO_FID,
++};
++
++/* reg_svfa_mapping_table
++ * Mapping table:
++ * 0 - VID to FID
++ * 1 - {Port, VID} to FID
++ * Access: Index
++ *
++ * Note: Reserved for SwitchX-2.
 + */
-+MLXSW_ITEM32(cmd_mbox, config_profile, fid_flood_table_size, 0x38, 0, 16);
++MLXSW_ITEM32(reg, svfa, mapping_table, 0x00, 8, 3);
 +
- /* cmd_mbox_config_profile_max_ib_mc
-  * Maximum number of multicast FDB records for InfiniBand
-  * FDB (in 512 chunks) per InfiniBand switch partition.
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 1658084..8bb85ea 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -153,6 +153,8 @@ struct mlxsw_config_profile {
- 	u8	max_flood_tables;
- 	u8	max_vid_flood_tables;
- 	u8	flood_mode;
-+	u8	max_fid_flood_tables;
-+	u16	fid_flood_table_size;
- 	u16	max_ib_mc;
- 	u16	max_pkey;
- 	u8	ar_sec;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 974ce47..faa4f3f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1214,6 +1214,10 @@ static int mlxsw_pci_config_profile(struct mlxsw_pci *mlxsw_pci, char *mbox,
- 			mbox, profile->max_flood_tables);
- 		mlxsw_cmd_mbox_config_profile_max_vid_flood_tables_set(
- 			mbox, profile->max_vid_flood_tables);
-+		mlxsw_cmd_mbox_config_profile_max_fid_flood_tables_set(
-+			mbox, profile->max_fid_flood_tables);
-+		mlxsw_cmd_mbox_config_profile_fid_flood_table_size_set(
-+			mbox, profile->fid_flood_table_size);
- 	}
- 	if (profile->used_flood_mode) {
- 		mlxsw_cmd_mbox_config_profile_set_flood_mode_set(
++/* reg_svfa_v
++ * Valid.
++ * Valid if set.
++ * Access: RW
++ *
++ * Note: Reserved for SwitchX-2.
++ */
++MLXSW_ITEM32(reg, svfa, v, 0x00, 0, 1);
++
++/* reg_svfa_fid
++ * Filtering ID.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, svfa, fid, 0x04, 16, 16);
++
++/* reg_svfa_vid
++ * VLAN ID.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, svfa, vid, 0x04, 0, 12);
++
++/* reg_svfa_counter_set_type
++ * Counter set type for flow counters.
++ * Access: RW
++ *
++ * Note: Reserved for SwitchX-2.
++ */
++MLXSW_ITEM32(reg, svfa, counter_set_type, 0x08, 24, 8);
++
++/* reg_svfa_counter_index
++ * Counter index for flow counters.
++ * Access: RW
++ *
++ * Note: Reserved for SwitchX-2.
++ */
++MLXSW_ITEM32(reg, svfa, counter_index, 0x08, 0, 24);
++
++static inline void mlxsw_reg_svfa_pack(char *payload, u8 local_port,
++				       enum mlxsw_reg_svfa_mt mt, bool valid,
++				       u16 fid, u16 vid)
++{
++	MLXSW_REG_ZERO(svfa, payload);
++	local_port = mt == MLXSW_REG_SVFA_MT_VID_TO_FID ? 0 : local_port;
++	mlxsw_reg_svfa_swid_set(payload, 0);
++	mlxsw_reg_svfa_local_port_set(payload, local_port);
++	mlxsw_reg_svfa_mapping_table_set(payload, mt);
++	mlxsw_reg_svfa_v_set(payload, valid);
++	mlxsw_reg_svfa_fid_set(payload, fid);
++	mlxsw_reg_svfa_vid_set(payload, vid);
++}
++
+ /* SFMR - Switch FID Management Register
+  * -------------------------------------
+  * Creates and configures FIDs.
+@@ -2146,6 +2239,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "SFTR";
+ 	case MLXSW_REG_SPMLR_ID:
+ 		return "SPMLR";
++	case MLXSW_REG_SVFA_ID:
++		return "SVFA";
+ 	case MLXSW_REG_SFMR_ID:
+ 		return "SFMR";
+ 	case MLXSW_REG_PMLP_ID:
 -- 
 1.9.3
