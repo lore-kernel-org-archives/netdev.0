@@ -1,55 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: add pfmemalloc check in sk_add_backlog()
-Date: Fri, 16 Oct 2015 08:38:38 -0700
-Message-ID: <1445009918.25595.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150929.215607.1418732892830129304.davem@davemloft.net>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 16 Oct 2015 10:31:47 -0500
+Message-ID: <alpine.DEB.2.02.1510161027590.16637@linux-builds1>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com>
+ <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33962 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932266AbbJPPik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 11:38:40 -0400
-Received: by pacez2 with SMTP id ez2so7982006pac.1
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 08:38:40 -0700 (PDT)
-In-Reply-To: <20150929.215607.1418732892830129304.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Daney <ddaney@caviumnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151016150345.GI10146@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-09-29 at 21:56 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 29 Sep 2015 18:52:25 -0700
+On Fri, 16 Oct 2015, Andrew Lunn wrote:
+
+> On Fri, Oct 16, 2015 at 09:38:37AM -0500, Dinh Nguyen wrote:
+> > On Fri, 16 Oct 2015, Andrew Lunn wrote:
+> > 
+> > > > Another debugging point, the SoCFPGA board has a Micrel ksz9021 PHY attached
+> > > > to the ethernet port. What I'm seeing is that with 8b63ec1837fa patch, when
+> > > > the call to ksz9021_config_init() is made both of_node and dev->parent->of_node
+> > > > are NULL, without the patch the dev->parent->of_node is a valid pointer. Thus
+> > > > the skew values get programmed to the phy.
+> > > 
+> > > Ah!
+> > > 
+> > > You have the phy device tree parameters in the wrong place. These are
+> > > phy paramters, so should really be in the phy node. But
+> > > socfpga_cyclone5_socdk.dts has them in the MAC node.
+> > >
+> > 
+> > Alright, let me see if I can rework the DTS.
 > 
-> > From: Eric Dumazet <edumazet@google.com>
+> Well, we are not supposed to break device tree bindings. So we should
+> try to make this work again.
+>  
+
+Great..thanks for recognizing that point.
+ 
+> > > There is nothing in Documentation/devicetree/bindings/net/micrel.txt
+> > > which says you are allowed to place them in the MAC node. Obviously
+> > > the code did allow this, which is what has now broken.
 > > 
-> > Greg reported crashes hitting the following check in __sk_backlog_rcv()
-> > 
-> > 	BUG_ON(!sock_flag(sk, SOCK_MEMALLOC)); 
-> > 
-> > The pfmemalloc bit is currently checked in sk_filter().
-> > 
-> > This works correctly for TCP, because sk_filter() is ran in
-> > tcp_v[46]_rcv() before hitting the prequeue or backlog checks.
-> > 
-> > For UDP or other protocols, this does not work, because the sk_filter()
-> > is ran from sock_queue_rcv_skb(), which might be called _after_ backlog
-> > queuing if socket is owned by user by the time packet is processed by
-> > softirq handler.
-> > 
-> > Fixes: b4b9e35585089 ("netvm: set PF_MEMALLOC as appropriate during SKB processing")
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Greg Thelen <gthelen@google.com>
+> > I was following Documentation/devicetree/bindings/net/micrel-ksz90x1.txt and
+> > in this document I was following the autodetected PHY example. Did I mis-interpret
+> > the example?
 > 
-> Applied, thanks Eric.
+> I was looking at the wrong binding documentation. So yes, it is
+> documented you can do this.
+> 
+> But i still think it is wrong. These are phy properties, implemented
+> by the phy, so should be in the phy node. So moving them would be
+> good. But as i said, we should fix backwards compatibility if
+> possible.
+>
 
-Hi David
+I moved the phy settings to a separate phy node, but it did not seem to make a
+difference at all.
 
-This patch never reached a public net tree.
+So I think I'll move to inspect what Florian had suggested, and that was to look
+at: drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register 
 
-Should I respin it ?
-
-Thanks !
+BR,
+Dinh
