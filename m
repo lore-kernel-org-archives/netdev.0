@@ -1,91 +1,54 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: phy: smsc: disable energy detect mode
-Date: Fri, 16 Oct 2015 09:27:41 -0700
-Message-ID: <CAGVrzcZLTg_2tUCTyMkEF7y-Esh5ByZsputO6u41RLPizCcz+Q@mail.gmail.com>
-References: <1444713189-23063-1-git-send-email-hs@denx.de> <561D5AC8.7040801@gmail.com>
- <561DD749.9000802@denx.de>
+From: Jan Blunck <jblunck@infradead.org>
+Subject: Re: [PATCH] ipv6: no addrconf for slave devices
+Date: Fri, 16 Oct 2015 18:36:01 +0200
+Message-ID: <CALe+Z01M7RktfbNvR3rcUC_EMGN2zEjNOHScgo8B-bNrActFrQ@mail.gmail.com>
+References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
+	<20151016115457.GE2194@nanopsycho.orion>
+	<CALe+Z02xUZEeRMBfTneJaGFH0TQFoQt9WcJ67ogbQwXEs6p8Ew@mail.gmail.com>
+	<56211FA7.6020107@cumulusnetworks.com>
+	<CALe+Z02gaON+Zan0HbL6X3omwiVYEd4-uayA8sQ+BQmU3x7V0g@mail.gmail.com>
+	<56212256.8090704@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org
-To: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <561DD749.9000802-ynQEQJNshbs@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	fubar@us.ibm.com
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56212256.8090704@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2015-10-13 21:17 GMT-07:00 Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>:
-> Hello Florian,
->
->
-> Am 13.10.2015 um 21:26 schrieb Florian Fainelli:
+On Fri, Oct 16, 2015 at 6:14 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 10/16/15 10:12 AM, Jan Blunck wrote:
 >>
->> On 12/10/15 22:13, Heiko Schocher wrote:
+>> On Fri, Oct 16, 2015 at 6:02 PM, David Ahern <dsa@cumulusnetworks.com>
+>> wrote:
 >>>
->>> On some boards the energy enable detect mode leads in
->>> trouble with some switches, so make the enabling of
->>> this mode configurable through DT.
+>>> On 10/16/15 9:57 AM, Jan Blunck wrote:
+>>>>
+>>>>
+>>>>
+>>>> I don't think that enslaved ports should get network layer addresses.
+>>>> This is one example with a team device:
 >>>
->>> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
->>> ---
 >>>
->>>   .../devicetree/bindings/net/smsc-lan87xx.txt       | 19
->>> +++++++++++++++++
->>>   drivers/net/phy/smsc.c                             | 24
->>> +++++++++++++++++-----
->>>   2 files changed, 38 insertions(+), 5 deletions(-)
->>>   create mode 100644
->>> Documentation/devicetree/bindings/net/smsc-lan87xx.txt
 >>>
->>> diff --git a/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>> b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>> new file mode 100644
->>> index 0000000..39aa1dc
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>> @@ -0,0 +1,19 @@
->>> +SMSC LAN87xx Ethernet PHY
->>> +
->>> +Some boards require special tuning values. Configure them
->>> +through an Ethernet OF device node.
->>> +
->>> +Optional properties:
->>> +
->>> +- disable-energy-detect:
->>> +  If set, do not enable energy detect mode for the SMSC phy.
->>> +  default: enable energy detect mode
+>>> for VRF devices we do want the enslaved links to have link local
+>>> addresses.
+>>>
 >>
+>> That is interesting. As far I can see you are setting IFF_SLAVE in
+>> do_vrf_add_slave() and therefore already stop IPv6 addrconf.
 >>
->> Although energy detection is something that is implemented by many PHYs,
->> I am not sure a generic property is suitable here, I would prefix that
->> with the SMSC vendor prefix here to make it clear this only applies to
->> this PHY.
 >
+> Check net-next. That had to be removed to get IPv6 working.
 >
-> Hmm... but all PHYs should be able to enable, disable it in some way, or?
 
-It may not always be controlled directly at the PHY level, sometimes
-this is something that needs cooperation with the Ethernet MAC as well
-in case of integrated designs.
+Thanks for the pointer.
 
->
->> Would not you want to make it a reverse property here though, something
->> like this:
->>
->> smsc,energy-detect: boolean, when present indicates the PHY reliably
->> supports energy detection
->
->
-> Yes, that was also my first thought, but currently, on this PHYs
-> energy detect mode is on ... and if I introduce such a property,
-> it will disable it for all existing boards, because property is
-> missing ... so, maybe I break boards ...
-
-Fair enough, how about smsc,disabled-energy-detect or something like that then?
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So it would be better to differentiate between L2 and L3 ports and
+only start addrconf on later ones? I don't think there is a flag that
+allows for that though.
