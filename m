@@ -1,70 +1,160 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 16 Oct 2015 10:31:47 -0500
-Message-ID: <alpine.DEB.2.02.1510161027590.16637@linux-builds1>
-References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com>
- <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Performance regression with netns+linux-bridge+veth since Linux
+ 4.0
+Date: Fri, 16 Oct 2015 08:55:38 -0700
+Message-ID: <1445010938.25595.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5620B1F7.5020401@inria.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Daney <ddaney@caviumnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
-	<netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151016150345.GI10146@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lucas Nussbaum <lucas.nussbaum@loria.fr>,
+	Emmanuel Jeanvoine <emmanuel.jeanvoine@inria.fr>
+To: Cristian RUIZ <cristian.ruiz@inria.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34603 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170AbbJPPzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 11:55:40 -0400
+Received: by pacez2 with SMTP id ez2so8326102pac.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 08:55:40 -0700 (PDT)
+In-Reply-To: <5620B1F7.5020401@inria.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Oct 2015, Andrew Lunn wrote:
-
-> On Fri, Oct 16, 2015 at 09:38:37AM -0500, Dinh Nguyen wrote:
-> > On Fri, 16 Oct 2015, Andrew Lunn wrote:
-> > 
-> > > > Another debugging point, the SoCFPGA board has a Micrel ksz9021 PHY attached
-> > > > to the ethernet port. What I'm seeing is that with 8b63ec1837fa patch, when
-> > > > the call to ksz9021_config_init() is made both of_node and dev->parent->of_node
-> > > > are NULL, without the patch the dev->parent->of_node is a valid pointer. Thus
-> > > > the skew values get programmed to the phy.
-> > > 
-> > > Ah!
-> > > 
-> > > You have the phy device tree parameters in the wrong place. These are
-> > > phy paramters, so should really be in the phy node. But
-> > > socfpga_cyclone5_socdk.dts has them in the MAC node.
-> > >
-> > 
-> > Alright, let me see if I can rework the DTS.
+On Fri, 2015-10-16 at 10:14 +0200, Cristian RUIZ wrote:
+> Hello,
 > 
-> Well, we are not supposed to break device tree bindings. So we should
-> try to make this work again.
->  
-
-Great..thanks for recognizing that point.
- 
-> > > There is nothing in Documentation/devicetree/bindings/net/micrel.txt
-> > > which says you are allowed to place them in the MAC node. Obviously
-> > > the code did allow this, which is what has now broken.
-> > 
-> > I was following Documentation/devicetree/bindings/net/micrel-ksz90x1.txt and
-> > in this document I was following the autodetected PHY example. Did I mis-interpret
-> > the example?
+> When evaluating the performance degradation of running HPC applications 
+> inside network namespaces
+> I found that all Linux kernel versions since 4.0 introduce a high 
+> overhead for some applications.
+> I compare the execution time of a benchmark (details below) both in a 
+> "native" execution (without netns), with the execution inside netns.
+> For Linux 3.16, the overhead measured is 42%. For Linux 3.19, it is 8%.
+> For Linux 4.0 and later, the overhead measured jumps to 300%.
+> Using git bisect, I tracked this down to commit 9949afa4 ("tcp: fix 
+> tcp_cong_avoid_ai() credit accumulation bug with decreases in w").
+> Reverting commit 9949afa4 on top of Linux 4.2 restores the correct 
+> (Linux 3.19) behavior.
+> However, I don't understand why commit 9949afa4 causes such issues. Any 
+> ideas?
 > 
-> I was looking at the wrong binding documentation. So yes, it is
-> documented you can do this.
+> The network setup I used is the following:
 > 
-> But i still think it is wrong. These are phy properties, implemented
-> by the phy, so should be in the phy node. So moving them would be
-> good. But as i said, we should fix backwards compatibility if
-> possible.
->
+>          M1                               M2
+> ------------------------        -------------------------
+> |                       |       |                       |
+> |  ---------            |       |            ---------  |
+> |  | veth0 | <-> veth1  |       |  veth1 <-> | veth0 |  |   ...
+> |  ---------      |     |       |    |       ---------  |
+> |    netns       br0    |       |   br0        netns    |
+> |                 |     |       |    |                  |
+> -----------------eth0---        ----eth0-----------------
+>                    |                  |
+>                    |                  |
+>                    ====== switch ======
+> 
+> Which was created using the following commands:
+> brctl addbr br0
+> ip addr add dev br0 192.168.60.101/24 # <- machine ip address
+> ip link set dev br0 up
+> brctl addif br0 eth1
+> ifconfig eth1 0.0.0.0 up
+> ip link add name veth1 type veth peer name veth0
+> ip link set veth1 up
+> brctl addif br0 veth1
+> ip netns add vnode
+> ip link set dev int0 netns vnode
+> ip netns exec vnode ip addr add 10.144.0.3/24 dev int0 # I used a 
+> different network to communicate among network namespaces.
+> ip netns exec vnode ip link set dev veth0 up
+> ifconfig br0:1 10.144.0.252/24 # I assigned an IP address to the bridge
+> inside the network attributed to the network namespaces.
+> 
+> All machines used in my experiments have this configuration.
+> The performance issue appears when I run a parallel application inside 
+> network namespaces
+> over 8 physical machines using the configuration mentioned above.
+> The parallel applications used during the tests belong to the NAS 
+> benchmarks[1]
+> and the most affected application is CG class B.
+> The application runs 16 CPU intensive processes per machine (1 process 
+> per core)
+> that exchange around 1 GByte of data per execution. (The mapping of 
+> processes per physical machines is the same for both native and netns 
+> executions, of course.)
+> Below, the output of some network counters inside netns using the 
+> command 'netstat -s':
+> 
+>      98 resets received for embryonic SYN_RECV sockets
+>      2344 TCP sockets finished time wait in fast timer
+>      986 delayed acks sent
+>      2 delayed acks further delayed because of locked socket
+>      Quick ack mode was activated 34279 times
+>      75 packets directly queued to recvmsg prequeue.
+>      2313551 packet headers predicted
+>      781506 acknowledgments not containing data payload received
+>      1739746 predicted acknowledgments
+>      22228 times recovered from packet loss by selective acknowledgements
+>      Detected reordering 130 times using FACK
+>      Detected reordering 498 times using SACK
+>      Detected reordering 68 times using time stamp
+>      2157 congestion windows fully recovered without slow start
+>      1465 congestion windows partially recovered using Hoe heuristic
+>      2273 congestion windows recovered without slow start by DSACK
+>      140 congestion windows recovered without slow start after partial ack
+>      59007 fast retransmits
+>      53276 forward retransmits
+>      140 other TCP timeouts
+>      TCPLossProbes: 140
+> 
+> Things to remark here is the high number of congestion windows 
+> recoveries and the number of TCP timeouts.
+> For an execution with Linux kernel 3.19 the number of congestion windows 
+> is 3 times lower and there are few TCP timeouts (around 3) than on 4.0. 
+> All this is reflected into the maximum network speed achieved by the 
+> application, 239MB/s (4.0) against 552MB/s (3.19).
+> 
+> More details about the configuration used
+> =========================================
+> 
+> Hardware used
+> -------------
+> All machines are equipped with two CPUs 8 cores each, I attached the 
+> output of '/proc/cpuinfo'.
+> 
+> Memory: 128 GB
+> Network: 10 Gigabit Ethernet (eth0)
+> Driver: ixgbe
+> Storage:     2*600GB HDD / SAS
+> Driver: ahci
+> 
+> User-space software
+> --------------------
+> Debian jessie, OpenMPI version 1.8.5[2], NAS benchmark version 3.3
+> 
+> Linux kernel
+> ------------
+> The .config files used are attached in this mail.
+> 
+> [1] https://www.nas.nasa.gov/publications/npb.html
+> [2] http://www.open-mpi.org/software/ompi/v1.8/
 
-I moved the phy settings to a separate phy node, but it did not seem to make a
-difference at all.
+Hi Christian.
 
-So I think I'll move to inspect what Florian had suggested, and that was to look
-at: drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register 
+Thanks for the nice report.
 
-BR,
-Dinh
+Try to find out where frames are dropped.
+
+Apparently some buffers were tuned in the past, and this tuning no
+longer is correct.
+
+For example you could try the following while tcp flow is active.
+
+perf record -a -g -e skb:kfree_skb sleep 10
+perf report --stdio
+
+I suspect a TSO/GRO issue maybe with large packets.
