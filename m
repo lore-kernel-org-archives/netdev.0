@@ -1,49 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] ipv6: no addrconf for slave devices
-Date: Fri, 16 Oct 2015 13:54:58 +0200
-Message-ID: <20151016115457.GE2194@nanopsycho.orion>
-References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH v3] netfilter: ipset: Fix sleeping memory allocation in
+ atomic context
+Date: Fri, 16 Oct 2015 13:58:55 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1510161357380.15639@blackhole.kfki.hu>
+References: <1444977628-19323-1-git-send-email-kernel@kyup.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fubar@us.ibm.com
-To: Jan Blunck <jblunck@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com, netfilter-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	operations@siteground.com
+To: Nikolay Borisov <kernel@kyup.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1444977628-19323-1-git-send-email-kernel@kyup.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fri, Oct 16, 2015 at 12:21:51PM CEST, jblunck@infradead.org wrote:
->If a device without the IFF_SLAVE flag set (e.g. team, bridge, openvswitch
->vport, batman) is enslaved and IPv6 is active then addrconf will be
->initiated and a link-local address is added to the slave interface.
->
->This patch alters the behavior so that addrconf will only run on the master
->device itself. This is achieved by checking the device tree instead of
->checking for a specific flag.
->
->Signed-off-by: Jan Blunck <jblunck@infradead.org>
->---
-> net/ipv6/addrconf.c | 6 +++++-
-> 1 file changed, 5 insertions(+), 1 deletion(-)
->
->diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->index 9001133..26d61f0 100644
->--- a/net/ipv6/addrconf.c
->+++ b/net/ipv6/addrconf.c
->@@ -3141,8 +3141,12 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+On Fri, 16 Oct 2015, Nikolay Borisov wrote:
+
+> Commit 00590fdd5be0 introduced RCU locking in list type and in
+> doing so introduced a memory allocation in list_set_add, which 
+> is done in an atomic context, due to the fact that ipset rcu 
+> list modifications are serialised with a spin lock. The reason 
+> why we can't use a mutex is that in addition to modifying the 
+> list with ipset commands, it's also being modified when a
+> particular ipset rule timeout expires aka garbage collection. 
+> This gc is triggered from set_cleanup_entries, which in turn 
+> is invoked from a timer thus requiring the lock to be bh-safe. 
 > 
-> 	case NETDEV_UP:
-> 	case NETDEV_CHANGE:
->-		if (dev->flags & IFF_SLAVE)
->+		/* If a master is set stop IPv6 on this interface */
->+		if (netdev_master_upper_dev_get(dev)) {
->+			if (idev)
->+				addrconf_ifdown(dev, 1);
+> Concretely the following call chain can lead to "sleeping function
+> called in atomic context" splat: 
+> call_ad -> list_set_uadt -> list_set_uadd -> kzalloc(, GFP_KERNEL).
+> And since GFP_KERNEL allows initiating direct reclaim thus
+> potentially sleeping in the allocation path.
+> 
+> To fix the issue change the allocation type to GFP_ATOMIC, to
+> correctly reflect that it is occuring in an atomic context.
+> 
+> Fixes: 00590fdd5be0 ("netfilter: ipset: Introduce RCU locking in list type")
+> 
+> Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Signed-off-by: Nikolay Borisov <kernel@kyup.com>
+> ---
+> 
+> Changes since v2:
+>  * Massaged the changelog to reflect discussion 
+>  on the mailing list
+> 
+> Changes since v1: 
+>  * Added acked-by 
+>  * Fixed patch header
+> 
+>  
+> 
+>  net/netfilter/ipset/ip_set_list_set.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-This breaks teamd if it's using NS/NA ping link-watch on link-local addresses.
-
-What is the reason for this patch? Does it recolve any issue you are
-having?
+The patch is applied in the ipset package tree. Thanks!
+ 
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
