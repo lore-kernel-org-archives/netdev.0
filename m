@@ -1,83 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 15/17] i40evf: relax and stagger init timing a bit
-Date: Fri, 16 Oct 2015 05:10:23 -0700
-Message-ID: <1444997425-3396-16-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/17][pull request] Intel Wired LAN Driver Updates 2015-10-16
+Date: Fri, 16 Oct 2015 05:10:08 -0700
+Message-ID: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:36264 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64539 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753865AbbJPMKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:32 -0400
-In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753865AbbJPMKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+This series contains updates to e1000, e1000e, igb, igbvf, ixgbe, ixgbevf,
+i40e, i40evf and fm10k.
 
-On some devices, in some systems, in some configurations, the VFs would
-fail to initialize the first time you loaded the driver.
+Alex Duyck fixes the polling routine for i40e/i40evf were the NAPI budget
+for receive cleanup was being rounded up to 1 but the netpoll call was
+expecting no Rx to be processed as the budget passed was 0.  Also cleaned
+up IN_NETPOLL flag that was not adding any value due to the receive
+cleanup was handled in NAPI.  Added support for netpoll for i40evf as
+well.
 
-To correct this, increase the delay time for the init task slightly, and
-wait longer before giving up.
+Jesse updates all of our drivers to use napi_complete_done() instead of
+napi_complete(), which allows us to use
+/sys/class/net/ethX/gro_flush_timeout.  Added ethtool support to control
+and report the new Interrupt Limit register, since the XL710 hardware
+has a different interrupt moderation design that can support a limit of
+total interrupts per second per vector.
 
-If we enable VFs and load the VF driver in the same kernel as the PF
-driver, we can totally overwhelm the PF driver with AQ requests because
-all of the instances try to initialize at the same time.
+Shannon cleans up startup log entries to cut down the number by putting
+a couple behind debug flags and combining others into single line.  Added
+support to enable/disable printing VEB statistics via ethtool.
 
-To help alleviate this, stagger the initial scheduling of the init task
-using the PCIe function as a multiplier. We mask off the function to
-only three bits so no instance has to wait too long.
+Jingjing fixes a compile issue by adding const to functions that return
+strings that are not going to be modified.
 
-With these two changes, initializing 128 VFs on a single device goes
-from four minutes to just a few seconds.
+Greg Rose cleans up defines that were not used and were causing customer
+confusion.
 
-Change-ID: If3d8720c1c4e838ab36d8781d9ec295a62380936
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf.h      | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Greg Bowers adds support for setting a new bit in the Set Local LLDP MIB
+admin queue command Type field.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index c74f614..22841c6 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -87,7 +87,7 @@ struct i40e_vsi {
- #define I40EVF_MAX_RXBUFFER   16384  /* largest size for single descriptor */
- #define I40EVF_MAX_AQ_BUF_SIZE    4096
- #define I40EVF_AQ_LEN             32
--#define I40EVF_AQ_MAX_ERR         10 /* times to try before resetting AQ */
-+#define I40EVF_AQ_MAX_ERR         20 /* times to try before resetting AQ */
- 
- #define MAXIMUM_ETHERNET_VLAN_SIZE (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 46af35f..4f3d571 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2344,7 +2344,7 @@ static void i40evf_init_task(struct work_struct *work)
- 	}
- 	return;
- restart:
--	schedule_delayed_work(&adapter->init_task, msecs_to_jiffies(20));
-+	schedule_delayed_work(&adapter->init_task, msecs_to_jiffies(30));
- 	return;
- 
- err_register:
-@@ -2361,7 +2361,7 @@ err:
- 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
- 		return; /* do not reschedule */
- 	}
--	schedule_delayed_work(&adapter->init_task, HZ / 2);
-+	schedule_delayed_work(&adapter->init_task, HZ);
- }
- 
- /**
+Mitch fixes an issue where vlan_features field was set to the same value
+as netdev features field, but before the features were actually being
+set up, leaving the vlan_features empty.  Resolve the issue by setting
+up the netdev features first, then mask out the VLAN feature bits when
+assigning vlan_features.  Fixed VF init timing, where in some instances
+the VFs would fail to initialize the first time you loaded the driver.
+To correct this, increased the delay time for the init task and wait
+longer before giving up.
+
+v2: fix missing space in function header comment in patch 3, based on
+    feedback from Sergei Shtylyov.
+
+The following are changes since commit 51161aa98d0aa4eb20952e16d6c6dbb1d085330e:
+  net: Fix suspicious RCU usage in fib_rebalance
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+
+Alexander Duyck (3):
+  i40e/i40evf: Fix handling of napi budget
+  i40e/i40evf: Drop useless "IN_NETPOLL" flag
+  i40evf: Add support for netpoll
+
+Catherine Sullivan (2):
+  i40e: Recognize 1000Base_T_Optical phy type when link is up
+  i40e/i40evf: Bump i40e to 1.3.34 and i40evf to 1.3.21
+
+Greg Bowers (1):
+  i40e: Add support for non-willing Apps
+
+Greg Rose (1):
+  i40e: Removed unused defines
+
+Jesse Brandeburg (2):
+  drivers/net/intel: use napi_complete_done()
+  i40e/i40evf: moderate interrupts differently
+
+Jingjing Wu (2):
+  i40e/i40evf: Fix compile issue related to const string
+  i40e: reset the invalid msg counter in vf when a valid msg is received
+
+Mitch Williams (3):
+  i40evf: correctly populate vlan_features
+  i40evf: relax and stagger init timing a bit
+  i40e: increase AQ work limit
+
+Shannon Nelson (3):
+  i40e: generate fewer startup messages
+  i40e: remove read/write failed messages from nvmupdate
+  i40e: priv flag for controlling VEB stats
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |  2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c      | 21 ++++++----
+ drivers/net/ethernet/intel/i40e/i40e.h             |  9 ++--
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  7 ++++
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  4 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 49 ++++++++++++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 34 ++++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  4 +-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  4 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 20 +++++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 10 +++++
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  5 +--
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 20 +++++----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      | 10 +++++
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 37 ++++++++++++++--
+ drivers/net/ethernet/intel/igb/igb_main.c          | 17 +++++---
+ drivers/net/ethernet/intel/igbvf/netdev.c          |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 14 ++++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 14 ++++---
+ 26 files changed, 211 insertions(+), 92 deletions(-)
+
 -- 
 2.4.3
