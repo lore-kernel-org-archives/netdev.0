@@ -1,42 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] isdn_ppp: Add checks for allocation failure in
- isdn_ppp_open()
-Date: Fri, 16 Oct 2015 00:46:06 -0700 (PDT)
-Message-ID: <20151016.004606.1112196816016985692.davem@davemloft.net>
-References: <1444845074.31451.21.camel@decadent.org.uk>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
+ option
+Date: Fri, 16 Oct 2015 09:39:45 +0200
+Message-ID: <20151016093945.54a6a7aa@griffin>
+References: <cover.1444926905.git.jbenc@redhat.com>
+	<20151015.235007.973370825335101214.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: isdn@linux-pingi.de, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1444845074.31451.21.camel@decadent.org.uk>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41556 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752074AbbJPHjt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 03:39:49 -0400
+In-Reply-To: <20151015.235007.973370825335101214.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 14 Oct 2015 18:51:14 +0100
+On Thu, 15 Oct 2015 23:50:07 -0700 (PDT), David Miller wrote:
+> Although we are probably stuck with this, it was probably a bad idea
+> to have this behavior as the default.
 
-> Compile-tested only.
->=20
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> =A0drivers/isdn/i4l/isdn_ppp.c | 6 ++++++
-> =A01 file changed, 6 insertions(+)
->=20
-> diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.=
-c
-> index c4198fa..86f9abe 100644
-> --- a/drivers/isdn/i4l/isdn_ppp.c
-> +++ b/drivers/isdn/i4l/isdn_ppp.c
-> @@ -301,6 +301,8 @@ isdn_ppp_open(int min, struct file *file)
-> =A0	is->compflags =3D 0;
-> =A0
-> =A0	is->reset =3D isdn_ppp_ccp_reset_alloc(is);
-> +	if (!is->reset)
-> +		return -ENOMEM;
+I agree. But we have what we have.
 
-Ben, your email client has corrupted both of these patches.
+> Better would have been to always error on unrecognized attributes, and
+> in the ACK give some indication of which attribute was problematic.
 
-Please fix this up and resubmit, thanks.
+Should I try to extend the patches to return such information back to
+the user? It would mean more intrusiveness, as there's no space in ack
+to store such information (it would have been better to use attributes
+even in the error responses instead of a fixed structure...).
+
+> But anyhow we are stuck with what we have.  However, I will say I am
+> disappointed that it is so hard to simply detect that lwtunnel support
+> is present, which as I understand is what this patch set is trying to
+> accomplish.
+
+Yes, main motivation is lwtunnel support. However, I'd say this is
+useful outside of it, too.
+
+> And this is quite an intrusive patch series, and therefore not
+> suitable for -stable backports.  And that's exactly where you actually
+> are going to need these changes right?  Older kernels that lack
+> lwtunnel support.
+
+I'm targeting net-next only and don't intend to bring this to older
+kernels. The patchset is designed in the way that it's possible to
+detect that the kernel does not support strict attribute checking. When
+this is detected, the tools will just assume that lwtunnel support is
+not there. That's completely okay, it will just mean that the 4.3
+kernel will be treated as not having lwtunnel support; everything will
+work correctly, including openvswitch (which will use its compat code).
+
+ Jiri
+
+-- 
+Jiri Benc
