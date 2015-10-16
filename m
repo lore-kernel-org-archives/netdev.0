@@ -1,194 +1,196 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next V16 3/3] openvswitch: 802.1AD: Flow
- handling, actions, vlan parsing and netlink attributes
-Date: Thu, 15 Oct 2015 17:37:15 -0700
-Message-ID: <CALnjE+p8A-NDJj8UnALHVvyT=a0Uq=AftVu5duRXdbBLOsVeeA@mail.gmail.com>
-References: <1444917715-27093-1-git-send-email-thomasfherbert@gmail.com>
- <1444917715-27093-4-git-send-email-thomasfherbert@gmail.com>
- <CALnjE+o4o1RWf12F9wyeZfb9=Y+nw+Bta=NA+we1zQ+4yGLYNA@mail.gmail.com>
- <56203B38.2040806@gmail.com>
+From: Neil Brown <nfbrown@novell.com>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier in sunrpc
+Date: Fri, 16 Oct 2015 11:49:18 +1100
+Message-ID: <87y4f3vdrl.fsf@notabene.neil.brown.name>
+References: <17EC94B0A072C34B8DCF0D30AD16044A02877D53@BPXM09GP.gisp.nec.co.jp> <17EC94B0A072C34B8DCF0D30AD16044A02878443@BPXM09GP.gisp.nec.co.jp> <20151015205742.GB20155@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <56203B38.2040806-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha256; protocol="application/pgp-signature"
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-nfs\@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>,
+	Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151015205742.GB20155@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBPY3QgMTUsIDIwMTUgYXQgNDo0OCBQTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
-ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBPbiAxMC8xNS8xNSA3OjAyIFBNLCBQcmF2aW4g
-U2hlbGFyIHdyb3RlOgo+IFRoYW5rcyBmb3IgdGhlIHJldmlldy4gU2VlIG15IGNvbW1lbnQgYmVs
-b3cuCj4KPiAtLVRGSAo+Cj4KPj4gT24gVGh1LCBPY3QgMTUsIDIwMTUgYXQgNzowMSBBTSwgVGhv
-bWFzIEYgSGVyYmVydAo+PiA8dGhvbWFzZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPj4+Cj4+
-PiBBZGQgc3VwcG9ydCBmb3IgODAyLjFhZCBpbmNsdWRpbmcgdGhlIGFiaWxpdHkgdG8gcHVzaCBh
-bmQgcG9wIGRvdWJsZQo+Pj4gdGFnZ2VkIHZsYW5zLiBBZGQgc3VwcG9ydCBmb3IgODAyLjFhZCB0
-byBuZXRsaW5rIHBhcnNpbmcgYW5kIGZsb3cKPj4+IGNvbnZlcnNpb24uIFVzZXMgZG91YmxlIG5l
-c3RlZCBlbmNhcCBhdHRyaWJ1dGVzIHRvIHJlcHJlc2VudCBkb3VibGUKPj4+IHRhZ2dlZCB2bGFu
-LiBJbm5lciBUUElEIGVuY29kZWQgYWxvbmcgd2l0aCBjdGNpIGluIG5lc3RlZCBhdHRyaWJ1dGVz
-Lgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IFRob21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0
-QGdtYWlsLmNvbT4KPj4+IC0tLQo+Pj4gICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAg
-fCAgIDYgKy0KPj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICAgIHwgIDc1ICsrKysr
-KysrKysrKysrLS0tLQo+Pj4gICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgfCAgIDgg
-Ky0KPj4+ICAgbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jIHwgMTY5Cj4+PiArKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLQo+Pj4gICBuZXQvb3BlbnZzd2l0Y2gv
-dnBvcnQtbmV0ZGV2LmMgfCAgIDQgKy0KPj4+ICAgNSBmaWxlcyBjaGFuZ2VkLCAyMjggaW5zZXJ0
-aW9ucygrKSwgMzQgZGVsZXRpb25zKC0pCj4+Pgo+Pj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3
-aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4+PiBpbmRleCAzMTVm
-NTMzLi4wOWNjMWM5IDEwMDY0NAo+Pj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+
-Pj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+Pj4gQEAgLTIzNiw3ICsyMzYsOCBA
-QCBzdGF0aWMgaW50IHBvcF92bGFuKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdAo+Pj4gc3df
-Zmxvd19rZXkgKmtleSkKPj4+ICAgICAgICAgIGlmIChza2Jfdmxhbl90YWdfcHJlc2VudChza2Ip
-KQo+Pj4gICAgICAgICAgICAgICAgICBpbnZhbGlkYXRlX2Zsb3dfa2V5KGtleSk7Cj4+PiAgICAg
-ICAgICBlbHNlCj4+PiAtICAgICAgICAgICAgICAga2V5LT5ldGgudGNpID0gMDsKPj4+ICsgICAg
-ICAgICAgICAgICBrZXktPmV0aC52bGFuLnRjaSA9IDA7Cj4+PiArICAgICAgICAgICAgICAga2V5
-LT5ldGgudmxhbi50cGlkID0gMDsKPj4+ICAgICAgICAgIHJldHVybiBlcnI7Cj4+PiAgIH0KPj4+
-Cj4+PiBAQCAtMjQ2LDcgKzI0Nyw4IEBAIHN0YXRpYyBpbnQgcHVzaF92bGFuKHN0cnVjdCBza19i
-dWZmICpza2IsIHN0cnVjdAo+Pj4gc3dfZmxvd19rZXkgKmtleSwKPj4+ICAgICAgICAgIGlmIChz
-a2Jfdmxhbl90YWdfcHJlc2VudChza2IpKQo+Pj4gICAgICAgICAgICAgICAgICBpbnZhbGlkYXRl
-X2Zsb3dfa2V5KGtleSk7Cj4+PiAgICAgICAgICBlbHNlCj4+PiAtICAgICAgICAgICAgICAga2V5
-LT5ldGgudGNpID0gdmxhbi0+dmxhbl90Y2k7Cj4+PiArICAgICAgICAgICAgICAga2V5LT5ldGgu
-dmxhbi50Y2kgPSB2bGFuLT52bGFuX3RjaTsKPj4+ICsgICAgICAgICAgICAgICBrZXktPmV0aC52
-bGFuLnRwaWQgPSB2bGFuLT52bGFuX3RwaWQ7Cj4+PiAgICAgICAgICByZXR1cm4gc2tiX3ZsYW5f
-cHVzaChza2IsIHZsYW4tPnZsYW5fdHBpZCwKPj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIG50b2hzKHZsYW4tPnZsYW5fdGNpKSAmIH5WTEFOX1RBR19QUkVTRU5UKTsKPj4+ICAgfQo+
-Pj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93LmMgYi9uZXQvb3BlbnZzd2l0Y2gv
-Zmxvdy5jCj4+PiBpbmRleCBjOGRiNDRhLi44YTRlMjk4IDEwMDY0NAo+Pj4gLS0tIGEvbmV0L29w
-ZW52c3dpdGNoL2Zsb3cuYwo+Pj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+Pj4gQEAg
-LTMwMiwyNCArMzAyLDY5IEBAIHN0YXRpYyBib29sIGljbXA2aGRyX29rKHN0cnVjdCBza19idWZm
-ICpza2IpCj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNpemVvZihzdHJ1
-Y3QgaWNtcDZoZHIpKTsKPj4+ICAgfQo+Pj4KPj4+IC1zdGF0aWMgaW50IHBhcnNlX3ZsYW4oc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCj4+PiArc3RydWN0IHF0
-YWdfcHJlZml4IHsKPj4+ICsgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhfUF84MDIxUSAg
-b3IgRVRIX1BfODAyMUFEICovCj4+PiArICAgICAgIF9fYmUxNiB0Y2k7Cj4+PiArfTsKPj4+ICsK
-Pj4KPj4gTm93IHdlIGNhbiBqdXN0IHVzZSBuZXdseSBkZWZpbmVkIHN0cnVjdCB2bGFuX2hlYWRl
-ciBoZXJlLgo+Pgo+Pj4gKy8qIFBhcnNlIHZsYW4gdGFnIGZyb20gdmxhbiBoZWFkZXIuCj4+PiAr
-ICogUmV0dXJucyBFUlJPUiBvbiBtZW1vcnkgZXJyb3IuCj4+PiArICogUmV0dXJucyAwIGlmIGl0
-IGVuY291bnRlcnMgYSBub24tdmxhbiBvciBpbmNvbXBsZXRlIHBhY2tldC4KPj4+ICsgKiBSZXR1
-cm5zIDEgYWZ0ZXIgc3VjY2Vzc2Z1bGx5IHBhcnNpbmcgdmxhbiB0YWcuCj4+PiArICovCj4+PiAr
-Cj4+PiArc3RhdGljIGludCBwYXJzZV92bGFuX3RhZyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBfX2Jl
-MTYgdmxhbl9wcm90bywKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgX19iZTE2IHZsYW5f
-dGNpLCBzdHJ1Y3Qgdmxhbl9oZWFkICp2bGFuKQo+Pj4gICB7Cj4+PiAtICAgICAgIHN0cnVjdCBx
-dGFnX3ByZWZpeCB7Cj4+PiAtICAgICAgICAgICAgICAgX19iZTE2IGV0aF90eXBlOyAvKiBFVEhf
-UF84MDIxUSAqLwo+Pj4gLSAgICAgICAgICAgICAgIF9fYmUxNiB0Y2k7Cj4+PiAtICAgICAgIH07
-Cj4+PiAtICAgICAgIHN0cnVjdCBxdGFnX3ByZWZpeCAqcXA7Cj4+PiArICAgICAgIGlmIChsaWtl
-bHkoIWV0aF90eXBlX3ZsYW4odmxhbl9wcm90bykpKQo+Pj4gKyAgICAgICAgICAgICAgIHJldHVy
-biAwOwo+Pj4KPj4+ICAgICAgICAgIGlmICh1bmxpa2VseShza2ItPmxlbiA8IHNpemVvZihzdHJ1
-Y3QgcXRhZ19wcmVmaXgpICsKPj4+IHNpemVvZihfX2JlMTYpKSkKPj4+ICAgICAgICAgICAgICAg
-ICAgcmV0dXJuIDA7Cj4+Pgo+Pj4gICAgICAgICAgaWYgKHVubGlrZWx5KCFwc2tiX21heV9wdWxs
-KHNrYiwgc2l6ZW9mKHN0cnVjdCBxdGFnX3ByZWZpeCkgKwo+Pj4gLSAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBzaXplb2YoX19iZTE2KSkpKQo+Pj4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgc2l6ZW9mKF9fYmUxNikpKSkKPj4+ICAgICAgICAgICAgICAg
-ICAgcmV0dXJuIC1FTk9NRU07Cj4+Pgo+Pj4gLSAgICAgICBxcCA9IChzdHJ1Y3QgcXRhZ19wcmVm
-aXggKikgc2tiLT5kYXRhOwo+Pj4gLSAgICAgICBrZXktPmV0aC50Y2kgPSBxcC0+dGNpIHwgaHRv
-bnMoVkxBTl9UQUdfUFJFU0VOVCk7Cj4+PiArICAgICAgIHZsYW4tPnRjaSA9IHZsYW5fdGNpIHwg
-aHRvbnMoVkxBTl9UQUdfUFJFU0VOVCk7Cj4+PiArICAgICAgIHZsYW4tPnRwaWQgPSB2bGFuX3By
-b3RvOwo+Pj4gKwo+Pj4gICAgICAgICAgX19za2JfcHVsbChza2IsIHNpemVvZihzdHJ1Y3QgcXRh
-Z19wcmVmaXgpKTsKPj4+ICsgICAgICAgcmV0dXJuIDE7Cj4+PiArfQo+Pj4gKwo+Pj4gK3N0YXRp
-YyBpbnQgcGFyc2VfdmxhbihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkg
-KmtleSkKPj4+ICt7Cj4+PiArICAgICAgIHN0cnVjdCBxdGFnX3ByZWZpeCAqcXAgPSAoc3RydWN0
-IHF0YWdfcHJlZml4ICopc2tiLT5kYXRhOwo+Pj4gKyAgICAgICBpbnQgcmVzOwo+Pj4gKwo+Pj4g
-KyAgICAgICBpZiAobGlrZWx5KHNrYl92bGFuX3RhZ19wcmVzZW50KHNrYikpKSB7Cj4+PiArICAg
-ICAgICAgICAgICAga2V5LT5ldGgudmxhbi50Y2kgPSBodG9ucyhza2ItPnZsYW5fdGNpKTsKPj4+
-ICsgICAgICAgICAgICAgICBrZXktPmV0aC52bGFuLnRwaWQgPSBza2ItPnZsYW5fcHJvdG87Cj4+
-PiArCj4+PiArICAgICAgICAgICAgICAgLyogQ2FzZSB3aGVyZSBpbmdyZXNzIHByb2Nlc3Npbmcg
-aGFzIGFscmVhZHkgc3RyaXBwZWQKPj4+ICsgICAgICAgICAgICAgICAgKiB0aGUgb3V0ZXIgdmxh
-biB0YWcuCj4+PiArICAgICAgICAgICAgICAgICovCj4+PiArICAgICAgICAgICAgICAgcmVzID0g
-cGFyc2Vfdmxhbl90YWcoc2tiLCBxcC0+ZXRoX3R5cGUsIHFwLT50Y2ksCj4+PiArICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgJmtleS0+ZXRoLmN2bGFuKTsKPj4+ICsgICAgICAg
-ICAgICAgICBpZiAocmVzIDwgMCkKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiBy
-ZXM7Cj4+PiArICAgICAgICAgICAgICAgLyogRm9yIGlubmVyIHRhZywgcmV0dXJuIDAgYmVjYXVz
-ZSBuZWl0aGVyCj4+PiArICAgICAgICAgICAgICAgICogbm9uLWV4aXN0YW50IG5vciBwYXJ0aWFs
-IGlubmVyIHRhZyBpcyBhbiBlcnJvci4KPj4+ICsgICAgICAgICAgICAgICAgKi8KPj4+ICsgICAg
-ICAgICAgICAgICByZXR1cm4gMDsKPj4+ICsgICAgICAgfQo+Pj4gKyAgICAgICByZXMgPSBwYXJz
-ZV92bGFuX3RhZyhza2IsIHFwLT5ldGhfdHlwZSwgcXAtPnRjaSwgJmtleS0+ZXRoLnZsYW4pOwo+
-Pj4gKyAgICAgICBpZiAocmVzIDw9IDApCj4+PiArICAgICAgICAgICAgICAgLyogVGhpcyBpcyBh
-biBvdXRlciB0YWcgaW4gdGhlIG5vbi1hY2NlbGVyYXRlZCBWTEFOCj4+PiArICAgICAgICAgICAg
-ICAgICogY2FzZS4gUmV0dXJuIGVycm9yIHVubGVzcyBpdCBpcyBhIGNvbXBsZXRlIHZsYW4gdGFn
-Lgo+Pj4gKyAgICAgICAgICAgICAgICAqLwo+Pj4gKyAgICAgICAgICAgICAgIHJldHVybiByZXM7
-Cj4+PiArCj4+PiArICAgICAgIC8qIFBhcnNlIGlubmVyIHZsYW4gdGFnIGlmIHByZXNlbnQgZm9y
-IG5vbi1hY2NlbGVyYXRlZCBjYXNlLiAqLwo+Pj4gKyAgICAgICByZXMgPSBwYXJzZV92bGFuX3Rh
-Zyhza2IsIHFwLT5ldGhfdHlwZSwgcXAtPnRjaSwKPj4+ICZrZXktPmV0aC5jdmxhbik7Cj4+PiAr
-ICAgICAgIGlmIChyZXMgPD0gMCkKPj4+ICsgICAgICAgICAgICAgICByZXR1cm4gcmVzOwo+Pj4K
-Pj4gc2FtZSBxcCBwb2ludGVyIGlzIHBhc3NlZCBmb3IgaW5uZXIgYW5kIG91dGVyIHZsYW4gcGFy
-YW1ldGVycyBoZXJlLiBJdAo+PiBpcyBiZXR0ZXIgdG8ganVzdCBwYXNzIHNrYiBhbmQga2VlcCBx
-cCBpbnNpZGUgcGFyc2Vfdmxhbl90YWcoKQo+PiBmdW5jdGlvbi4KPj4KPj4+ICAgICAgICAgIHJl
-dHVybiAwOwo+Pj4gICB9Cj4+PiBAQCAtNDgwLDEyICs1MjUsMTIgQEAgc3RhdGljIGludCBrZXlf
-ZXh0cmFjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QKPj4+IHN3X2Zsb3dfa2V5ICprZXkp
-Cj4+PiAgICAgICAgICAgKiB1cGRhdGUgc2tiLT5jc3VtIGhlcmUuCj4+PiAgICAgICAgICAgKi8K
-Pj4+Cj4+PiAtICAgICAgIGtleS0+ZXRoLnRjaSA9IDA7Cj4+PiAtICAgICAgIGlmIChza2Jfdmxh
-bl90YWdfcHJlc2VudChza2IpKQo+Pj4gLSAgICAgICAgICAgICAgIGtleS0+ZXRoLnRjaSA9IGh0
-b25zKHNrYi0+dmxhbl90Y2kpOwo+Pj4gLSAgICAgICBlbHNlIGlmIChldGgtPmhfcHJvdG8gPT0g
-aHRvbnMoRVRIX1BfODAyMVEpKQo+Pj4gLSAgICAgICAgICAgICAgIGlmICh1bmxpa2VseShwYXJz
-ZV92bGFuKHNrYiwga2V5KSkpCj4+PiAtICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gLUVO
-T01FTTsKPj4+ICsgICAgICAga2V5LT5ldGgudmxhbi50Y2kgPSAwOwo+Pj4gKyAgICAgICBrZXkt
-PmV0aC52bGFuLnRwaWQgPSAwOwo+Pj4gKyAgICAgICBrZXktPmV0aC5jdmxhbi50Y2kgPSAwOwo+
-Pj4gKyAgICAgICBrZXktPmV0aC5jdmxhbi50cGlkID0gMDsKPj4KPj4gTGV0cyBtb3ZlIHRoaXMg
-b3ZlciB0byBwYXJzZV92bGFuKCkuCj4+Cj4+PiArICAgICAgIGlmICh1bmxpa2VseShwYXJzZV92
-bGFuKHNrYiwga2V5KSkpCj4+PiArICAgICAgICAgICAgICAgcmV0dXJuIC1FTk9NRU07Cj4+Pgo+
-Pj4gICAgICAgICAga2V5LT5ldGgudHlwZSA9IHBhcnNlX2V0aGVydHlwZShza2IpOwo+Pj4gICAg
-ICAgICAgaWYgKHVubGlrZWx5KGtleS0+ZXRoLnR5cGUgPT0gaHRvbnMoMCkpKQo+Pj4gZGlmZiAt
-LWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwo+Pj4gYi9uZXQvb3BlbnZzd2l0
-Y2gvZmxvd19uZXRsaW5rLmMKPj4+IGluZGV4IGM5MmQ2YTIuLjVjZmY4M2MgMTAwNjQ0Cj4+PiAt
-LS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4+ICsrKyBiL25ldC9vcGVudnN3
-aXRjaC9mbG93X25ldGxpbmsuYwo+Pgo+PiAuLi4KPj4KPj4KPj4+ICAgc3RhdGljIGludCBvdnNf
-a2V5X2Zyb21fbmxhdHRycyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X21hdGNoCj4+
-PiAqbWF0Y2gsCj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1NjQgYXR0cnMs
-IGNvbnN0IHN0cnVjdCBubGF0dHIgKiphLAo+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgYm9vbCBpc19tYXNrLCBib29sIGxvZykKPj4+IEBAIC04NDUsNyArODc1LDcgQEAgc3Rh
-dGljIGludCBvdnNfa2V5X2Zyb21fbmxhdHRycyhzdHJ1Y3QgbmV0ICpuZXQsCj4+PiBzdHJ1Y3Qg
-c3dfZmxvd19tYXRjaCAqbWF0Y2gsCj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJu
-IC1FSU5WQUw7Cj4+PiAgICAgICAgICAgICAgICAgIH0KPj4+Cj4+PiAtICAgICAgICAgICAgICAg
-U1dfRkxPV19LRVlfUFVUKG1hdGNoLCBldGgudGNpLCB0Y2ksIGlzX21hc2spOwo+Pj4gKyAgICAg
-ICAgICAgICAgIFNXX0ZMT1dfS0VZX1BVVChtYXRjaCwgZXRoLnZsYW4udGNpLCB0Y2ksIGlzX21h
-c2spOwo+Pj4gICAgICAgICAgICAgICAgICBhdHRycyAmPSB+KDEgPDwgT1ZTX0tFWV9BVFRSX1ZM
-QU4pOwo+Pj4gICAgICAgICAgfQo+Pj4KPj4+IEBAIC0xMDY0LDYgKzEwOTQsODYgQEAgc3RhdGlj
-IHZvaWQgbWFza19zZXRfbmxhdHRyKHN0cnVjdCBubGF0dHIgKmF0dHIsCj4+PiB1OCB2YWwpCj4+
-PiAgICAgICAgICBubGF0dHJfc2V0KGF0dHIsIHZhbCwgb3ZzX2tleV9sZW5zKTsKPj4+ICAgfQo+
-Pj4KPj4+ICtzdGF0aWMgaW50IHBhcnNlX3ZsYW5fZnJvbV9ubGF0dHJzKGNvbnN0IHN0cnVjdCBu
-bGF0dHIgKipubGEsCj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0cnVj
-dCBzd19mbG93X21hdGNoICptYXRjaCwKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgdTY0ICprZXlfYXR0cnMsIGJvb2wgKmllX3ZhbGlkLAo+Pj4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBjb25zdCBzdHJ1Y3QgbmxhdHRyICoqYSwgYm9vbCBpc19tYXNr
-LAo+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBib29sIGxvZykKPj4+ICt7
-Cj4+PiArICAgICAgIGludCBlcnI7Cj4+PiArICAgICAgIGNvbnN0IHN0cnVjdCBubGF0dHIgKmVu
-Y2FwOwo+Pj4gKwo+Pj4gKyAgICAgICBpZiAoIWlzX21hc2spIHsKPj4+ICsgICAgICAgICAgICAg
-ICB1NjQgdl9hdHRycyA9IDA7Cj4+PiArCj4+Cj4+IGF0dHJpYnV0ZXMgZG9lcyBub3QgbmVlZCA2
-NCBiaXRzLCAzMiBiaXRzIGFyZSBzdWZmaWNpZW50Lgo+Cj4gWWVzLCB0aGVyZSBjZXJ0YWlubHkg
-bm90IG1vcmUgdGhlbiAzMiBhdHRyaWJ1dGVzIGluIHRoaXMgbGF5ZXIgb2YgbmVzdGluZwo+IGJ1
-dCBpbiB0aGUgcGFyc2VfZmxvd19ubGF0dHJzKCkgIGZ1bmN0aW9uIGFyZ3VtZW50IDMgaXMgYSB1
-NjQgKgo+IERvbid0IHlvdSB0aGluayB0aGlzIG1pZ2h0IGJlIGRhbmdlcm91cz8gTWF5YmUgYXJl
-IHlvdSBzYXlpbmcgdGhhdCBJIHNob3VsZAo+IHJld3JpdGUgdGhhdCBnZW5lcmljIGZ1bmN0aW9u
-IHRvIG9ubHkgc3VwcG9ydCBhIG1heGltdW0gb2YgMzIgbmV0bGluawo+IGF0dHJpYnV0ZXMgcGVy
-IGxldmVsIG9mIG5lc3RpbmcuIFRoZSBjdXJyZW50IE9WUyBrZXJuZWwgbW9kdWxlIGlzIG9wdGlt
-aXplZAo+IGZvciA2NCBiaXQgYXJjaGl0ZWN0dXJlcyB3aGVyZSB0aGVyZSBpcyBubyBleHRyYSBj
-b3N0IGZvciBhIDY0IGJpdCB2YWx1ZSBhbmQKPiBJIHRoaW5rIHdoYXQgeW91IGFyZSBzdWdnZXN0
-aW5nIG1pZ2h0IGdvIGJleW9uZCB0aGUgc2NvcGUgb2YgdGhpcyBwYXRjaC4gSWYKPiBpdCBpcyBh
-IGdvb2QgaWRlYSwgc2hvdWxkbid0IGl0IGJlIGNvbnNpZGVyZWQgZm9yIGEgc2VwYXJhdGUgcGF0
-Y2g/Cj4KT0suIExldHMga2VlcCBpdCBhcyBpdCBpcy4KCj4gLS1URkgKPj4+Cj4+PiArICAgICAg
-ICAgICAgICAgZXJyID0gcGFyc2VfZmxvd19ubGF0dHJzKCpubGEsIGEsICZ2X2F0dHJzLCBsb2cp
-Owo+Pj4gKyAgICAgICAgICAgICAgIGlmIChlcnIpCj4+PiArICAgICAgICAgICAgICAgICAgICAg
-ICByZXR1cm4gZXJyOwo+Pj4gKyAgICAgICAgICAgICAgIC8qIEFub3RoZXIgZW5jYXAgYXR0cmli
-dXRlIGhlcmUgaW5kaWNhdGVzCj4+PiArICAgICAgICAgICAgICAgICogdGhlIHByZXNlbmNlIG9m
-IGEgZG91YmxlIHRhZ2dlZCB2bGFuLgo+Pj4gKyAgICAgICAgICAgICAgICAqLwo+Pj4gKyAgICAg
-ICAgICAgICAgIGlmICgodl9hdHRycyAmICgxIDw8IE9WU19LRVlfQVRUUl9FVEhFUlRZUEUpKSAm
-Jgo+Pj4gKwo+Pj4gZXRoX3R5cGVfdmxhbihubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfRVRI
-RVJUWVBFXSkpKSB7Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICBpZiAoISgodl9hdHRycyAm
-ICgxVUxMIDw8IE9WU19LRVlfQVRUUl9WTEFOKSkgJiYKPj4+ICsgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICh2X2F0dHJzICYgKDFVTEwgPDwgT1ZTX0tFWV9BVFRSX0VOQ0FQKSkpKQo+Pj4g
-ewo+Pgo+PiBBZnRlciBjaGFuZ2luZyB2X2F0dHJzIHR5cGUsIHRoZXJlIGlzIG5vIG5lZWQgdG8g
-dXNlIDFVTEwuCj4KPiBTZWUgcmVtYXJrIGFib3ZlLgo+Ckp1c3QgdG8gYmUgY29uc2lzdGVudCwg
-bGV0cyB1c2UgMzIgYml0IHZhbHVlIG9mIG9uZSBoZXJlIGFuZCBvdGhlcgpzdWNoIGluc3RhbmNl
-cy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+--=-=-=
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+"J. Bruce Fields" <bfields@fieldses.org> writes:
+
+> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
+>> Tatsukawa Kosuke wrote:
+>> > J. Bruce Fields wrote:
+>> >> Thanks for the detailed investigation.
+>> >>=20
+>> >> I think it would be worth adding a comment if that might help someone
+>> >> having to reinvestigate this again some day.
+>> >=20
+>> > It would be nice, but I find it difficult to write a comment in the
+>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
+>> > of how nfsd uses it, and the current implementation of the network cod=
+e.
+>> >=20
+>> > Personally, I would prefer removing the call to waitqueue_active() whi=
+ch
+>> > would make the memory barrier totally unnecessary at the cost of a
+>> > spin_lock + spin_unlock by unconditionally calling
+>> > wake_up_interruptible.
+>>=20
+>> On second thought, the callbacks will be called frequently from the tcp
+>> code, so it wouldn't be a good idea.
+>
+> So, I was even considering documenting it like this, if it's not
+> overkill.
+>
+> Hmm... but if this is right, then we may as well ask why we're doing the
+> wakeups at all.  Might be educational to test the code with them
+> removed.
+>
+> --b.
+>
+> commit 0882cfeb39e0
+> Author: J. Bruce Fields <bfields@redhat.com>
+> Date:   Thu Oct 15 16:53:41 2015 -0400
+>
+>     svcrpc: document lack of some memory barriers.
+>=20=20=20=20=20
+>     Kosuke Tatsukawa points out an odd lack of memory barriers in some si=
+tes
+>     here.  I think the code's correct, but it's probably worth documentin=
+g.
+>=20=20=20=20=20
+>     Reported-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+>
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index 856407fa085e..90480993ec4a 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqs=
+tp)
+>  	return svc_port_is_privileged(svc_addr(rqstp));
+>  }
+>=20=20
+> +static void svc_no_smp_mb(void)
+> +{
+> +	/*
+> +	 * Kosuke Tatsukawa points out there should normally be an
+> +	 * smp_mb() at the callsites of this function.  (Either that or
+> +	 * we could just drop the waitqueue_active() checks.)
+> +	 *
+> +	 * It appears they aren't currently necessary, though, basically
+> +	 * because nfsd does non-blocking reads from these sockets, so
+> +	 * the only places we wait on this waitqueue is in sendpage and
+> +	 * sendmsg, which won't be waiting for wakeups on newly arrived
+> +	 * data.
+> +	 *
+> +	 * Maybe we should add the memory barriers anyway, but these are
+> +	 * hot paths so we'd need to be convinced there's no sigificant
+> +	 * penalty.
+> +	 */
+> +}
+> +
+>  /*
+>   * INET callback when data has been received on the socket.
+>   */
+> @@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
+>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+> @@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+>=20=20
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq)) {
+>  		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+>  		       svsk);
+> @@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+>  	}
+>=20=20
+>  	wq =3D sk_sleep(sk);
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible_all(wq);
+>  }
+> @@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
+>  		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible_all(wq);
+>  }
+> @@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
+>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+> @@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
+>  	sk->sk_write_space =3D svsk->sk_owspace;
+>=20=20
+>  	wq =3D sk_sleep(sk);
+> -	smp_mb();
+> +	svc_no_smp_mb();
+>  	if (wq && waitqueue_active(wq))
+>  		wake_up_interruptible(wq);
+>  }
+
+I would feel a lot more comfortable if you instead created:
+
+static inline bool sunrpc_waitqueue_active(struct wait_queue_head *wq)
+{
+	if (!wq)
+        	return false;
+        /* long comment abot not needing a memory barrier */
+        return waitqueue_active(wq);
+}
+
+and then replace various "if (wq && waitqueue_active(wq))" calls with
+if (sunrpc_waitqueue_active(wq))"
+
+The comment seems readable and seems to make sense.
+
+NeilBrown
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWIEmOAAoJEDnsnt1WYoG5AvsP/iz/VQ182MdeetXVXuv/X+dQ
+ISrHAxsQi6s1mRPLLz3C8fzl8aP4TU0ONelLDcnRiPKkSdUNMWnIzIHm6E0loZhd
+vZImEJiEzIFHyJyqXLNX3R1tiys7pV3tKGemIDQse3oWrd5YU42owzly+ZAqGDmQ
+u9XCRsdjs4XGaz62oizjQaxg8In5E4DvRuy7dznbrvrPlhU6VbZFHki+6bz0ua16
+RrU/eklgrUOAGotoGtw8+m2nBGdoc8XZvzIsJKRjWo2RPo3ncWXbaAiI6IDqZ5+E
+56FgL6OUSsnlNSsZV6XVM02nXOU67Vq3QKQnK9BJGV4odINbFtyKZtT+gbPt4zbk
+eLWYL7AF+jU+fxKdLF2Ysg6UtEYYw+x15NUWqXfJIOJT2QjMX4YJs4Bc3i9nYz17
+josLDE3znKFu8GtuboiB3XxuPPgmqOm378K6fW81U2YbKVLhtpa4JmfLsMPqSNq3
+KhZ8z9NGJdZiHwTT4Gw8GsyxWlTYCdIHqv2KSpsJCy0LWsqWCpmCMnkUnKR3gxly
+8oCj5KdNxwEg0U2vC4EqL0ZyCLysWSkrEox4CD1/fTpYjKwxuiDqa95mL247/l/1
+gAb6516aWkM5aT+RNd2GfFIDTH/1d4+GRSTUzUgAZ5spl6Vc0Zt75Li+r35CJE42
+4iSPHWVJZK+N/Oc8lXBU
+=LGut
+-----END PGP SIGNATURE-----
+--=-=-=--
