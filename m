@@ -1,45 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] isdn: correctly check failed allocation
-Date: Thu, 15 Oct 2015 23:32:30 -0700 (PDT)
-Message-ID: <20151015.233230.2252642607405342754.davem@davemloft.net>
-References: <1444926568-29572-1-git-send-email-wuninsu@gmail.com>
-	<1444926568-29572-2-git-send-email-wuninsu@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
+ option
+Date: Thu, 15 Oct 2015 23:50:07 -0700 (PDT)
+Message-ID: <20151015.235007.973370825335101214.davem@davemloft.net>
+References: <cover.1444926905.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
-	yeongjin.jang@gatech.edu, insu@gatech.edu
-To: wuninsu@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444926568-29572-2-git-send-email-wuninsu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51385 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223AbbJPGd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 02:33:59 -0400
+In-Reply-To: <cover.1444926905.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Insu Yun <wuninsu@gmail.com>
-Date: Thu, 15 Oct 2015 12:29:28 -0400
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 15 Oct 2015 18:39:05 +0200
 
-> Since skb_clone is memory allocation, it could be failed when lack of resource.
-> Therefore, return value of skb_clone needs to be checked and handle error.
-> 
-> Signed-off-by: Insu Yun <wuninsu@gmail.com>
-> ---
->  drivers/isdn/mISDN/layer2.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-> index 949cabb..888c610 100644
-> --- a/drivers/isdn/mISDN/layer2.c
-> +++ b/drivers/isdn/mISDN/layer2.c
-> @@ -1509,6 +1509,12 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
->  	}
->  
->  	nskb = skb_clone(skb, GFP_ATOMIC);
-> +  if (!nskb) {
-> +			printk(KERN_WARNING "%s: no skb mem in %s\n",
-> +			       mISDNDevName4ch(&l2->ch), __func__);
-> +			return;
-> +  }
-> +
+> When sending a netlink request (NLM_F_REQUEST), any unknown attributes are
+> ignored. This behavior is problematic in some situations. For example if the
+> user asks for a particular config, the request finishes successfully, yet
+> the configuraton applied does not work because some of the attributes are
+> not supported by the kernel (e.g. because it's older than the user space
+> tool).
 
-Again you have indented this code incorrectly.
+Although we are probably stuck with this, it was probably a bad idea
+to have this behavior as the default.
+
+Better would have been to always error on unrecognized attributes, and
+in the ACK give some indication of which attribute was problematic.
+
+But anyhow we are stuck with what we have.  However, I will say I am
+disappointed that it is so hard to simply detect that lwtunnel support
+is present, which as I understand is what this patch set is trying to
+accomplish.
+
+And this is quite an intrusive patch series, and therefore not
+suitable for -stable backports.  And that's exactly where you actually
+are going to need these changes right?  Older kernels that lack
+lwtunnel support.
