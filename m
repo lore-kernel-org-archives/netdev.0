@@ -1,37 +1,43 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 3/3] ip-route man: add usage and description for
- lwtunnel encap attributes
-Date: Fri, 16 Oct 2015 16:16:08 -0700
-Message-ID: <20151016161608.492dfdee@xeon-e3>
-References: <cover.1444907416.git.tgraf@suug.ch>
-	<32616276616701280f2d6da44f0cbaf7fb93f5bf.1444907416.git.tgraf@suug.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC
+ device
+Date: Sat, 17 Oct 2015 02:32:30 +0300
+Message-ID: <5621890E.8090704@cogentembedded.com>
+References: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	jbenc@redhat.com, mengke.liu@intel.com, tom@herbertland.com
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33744 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbbJPXP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 19:15:56 -0400
-Received: by pabrc13 with SMTP id rc13so132714600pab.0
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 16:15:56 -0700 (PDT)
-In-Reply-To: <32616276616701280f2d6da44f0cbaf7fb93f5bf.1444907416.git.tgraf@suug.ch>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:34153 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817AbbJPXcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 19:32:33 -0400
+Received: by lbbwb3 with SMTP id wb3so48792997lbb.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 16:32:32 -0700 (PDT)
+In-Reply-To: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Oct 2015 13:13:40 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On 10/16/2015 11:49 PM, Andrew Lunn wrote:
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch updates ip-route man page with lwtunnel encap
-> usage and description, covering MPLS and IP encapsulation.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+> the bus' parent." broke finding PHY properties in the MAC device tree
 
-I applied all 3 patches. The first one into master (since it might be useful for
-other code), and other two to net-next.
+    You probably forgot to run checkpatch.pl on this patch, else it would have 
+complained about the commit citing style. It's <12-bit SHA1> ("<summary line>").
+
+> node. The parent device is now the MDIO bus, not the MAC. Use
+> attached_dev towards the MAC device tree node.
+>
+> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+
+    Yeah, exactly like this.
+
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+[...]
+
+MBR, Sergei
