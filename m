@@ -1,86 +1,63 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net 3/3] openvswitch: Serialize nested ct actions if provided
-Date: Fri, 16 Oct 2015 09:18:36 -0700
-Message-ID: <CANr6G5ycTDYZCh8KQm6kL_tu7f4n88Rd56oryxYWZOyc3L0OMQ@mail.gmail.com>
-References: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
- <1444846249-52053-4-git-send-email-joestringer@nicira.com> <CALnjE+qYzaGgxrM5KZWdWRiER213r_ja3iZh+PO+3fbXwi6BEg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Fri, 16 Oct 2015 09:18:46 -0700
+Message-ID: <56212366.4000307@plumgrid.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+ <1444991103.2861759.411876897.42C807BD@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:33830 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751510AbbJPQS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 12:18:58 -0400
-Received: by ykfy204 with SMTP id y204so89562368ykf.1
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 09:18:57 -0700 (PDT)
-In-Reply-To: <CALnjE+qYzaGgxrM5KZWdWRiER213r_ja3iZh+PO+3fbXwi6BEg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: viro@ZenIV.linux.org.uk, ebiederm@xmission.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444991103.2861759.411876897.42C807BD@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15 October 2015 at 11:13, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Oct 14, 2015 at 11:10 AM, Joe Stringer <joestringer@nicira.com> wrote:
->> If userspace provides a ct action with no nested mark or label, then the
->> storage for these fields is zeroed. Later when actions are requested,
->> such zeroed fields are serialized even though userspace didn't
->> originally specify them. Fix the behaviour by ensuring that no action is
->> serialized in this case, and reject actions where userspace attempts to
->> set these fields with mask=0. This should make netlink marshalling
->> consistent across deserialization/reserialization.
->>
->> Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
->> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->> ---
->>  net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
->>  1 file changed, 20 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->> index 480dbb9095b7..ba29e6c2e0d4 100644
->> --- a/net/openvswitch/conntrack.c
->> +++ b/net/openvswitch/conntrack.c
->> @@ -540,6 +540,16 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
->>         return 0;
->>  }
->>
->> +static bool label_zero(const struct ovs_key_ct_labels *labels)
->> +{
->> +       int i;
->> +
->> +       for (i = 0; i < sizeof(*labels); i++)
->> +               if (labels->ct_labels[i])
->> +                       return false;
->> +       return true;
->> +}
->> +
-> There is already function called labels_nonzero(), This can be reused
-> for labels check.
->
->
->>  static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
->>         [OVS_CT_ATTR_COMMIT]    = { .minlen = 0, .maxlen = 0 },
->>         [OVS_CT_ATTR_ZONE]      = { .minlen = sizeof(u16),
->> @@ -589,6 +599,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
->>                 case OVS_CT_ATTR_MARK: {
->>                         struct md_mark *mark = nla_data(a);
->>
->> +                       if (!mark->mask) {
->> +                               OVS_NLERR(log, "ct_mark mask cannot be 0");
->> +                               return -EINVAL;
->> +                       }
->>                         info->mark = *mark;
->>                         break;
->>                 }
->> @@ -597,6 +611,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
->>                 case OVS_CT_ATTR_LABELS: {
->>                         struct md_labels *labels = nla_data(a);
->>
->> +                       if (label_zero(&labels->mask)) {
->> +                               OVS_NLERR(log, "ct_labels mask cannot be 0");
->> +                               return -EINVAL;
->> +                       }
->
-> After this flow install stage sanity check for labels, there is no
-> need for check in CONFIG_NF_CONNTRACK_LABELS action execution.
+On 10/16/15 3:25 AM, Hannes Frederic Sowa wrote:
+> Namespaces at some point dealt with the same problem, they nowadays use
+> bind mounts of/proc/$$/ns/* to some place in the file hierarchy to keep
+> the namespace alive. This at least allows someone to build up its own
+> hierarchy with normal unix tools and not hidden inside a C-program. For
+> filedescriptors we already have/proc/$$/fd/* but it seems that doesn't
+> work out of the box nowadays.
 
-OK, thanks for the review. I'll fix these up.
+bind mounting of /proc/../fd was initially proposed by Andy and we've
+looked at it thoroughly, but after discussion with Eric it became
+apparent that it doesn't fit here. At the end we need shell tools
+to access maps.
+Also I think you missed the hierarchy in this patch set _is_ built with
+normal 'mkdir' and files are removed with 'rm'.
+The only thing that C does is BPF_PIN_FD of fd that was received from
+bpf syscall. That's way cleaner api than doing bind mount from C
+program.
+We've considered letting open() of the file return bpf specific
+anon-inode, but decided to reserve that for other more natural file
+operations. Therefore BPF_NEW_FD is needed.
+
+> I don't know in terms of how many objects bpf should be able to handle
+> and if such a bind-mount based solution would work, I guess not.
+
+We definitely missed you at the last plumbers where it was discussed :)
+
+> In my opinion I still favor a user space approach.
+
+that's not acceptable for tracing use cases. No daemons allowed.
+
+> Subsystems which use
+> ebpf in a way that no user space program needs to be running to control
+> them would need to export the fds by itself. E.g. something like
+> sysfs/kobject for tc? The hierarchy would then be in control of the
+> subsystem which could also create a proper naming hierarchy or maybe
+> even use an already given one. Do most other eBPF users really need to
+> persist file descriptors somewhere without user space control and pick
+> them up later?
+
+I think it's way cleaner to have one way of solving it (like this patch
+does) instead of asking every subsystem to solve it differently.
+We've also looked at sysfs and it's ugly when it comes to removing,
+since the user cannot use normal 'rm'.
