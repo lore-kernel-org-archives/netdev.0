@@ -1,40 +1,86 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] ipv6: no addrconf for slave devices
-Date: Fri, 16 Oct 2015 10:14:14 -0600
-Message-ID: <56212256.8090704@cumulusnetworks.com>
-References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
- <20151016115457.GE2194@nanopsycho.orion>
- <CALe+Z02xUZEeRMBfTneJaGFH0TQFoQt9WcJ67ogbQwXEs6p8Ew@mail.gmail.com>
- <56211FA7.6020107@cumulusnetworks.com>
- <CALe+Z02gaON+Zan0HbL6X3omwiVYEd4-uayA8sQ+BQmU3x7V0g@mail.gmail.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net 3/3] openvswitch: Serialize nested ct actions if provided
+Date: Fri, 16 Oct 2015 09:18:36 -0700
+Message-ID: <CANr6G5ycTDYZCh8KQm6kL_tu7f4n88Rd56oryxYWZOyc3L0OMQ@mail.gmail.com>
+References: <1444846249-52053-1-git-send-email-joestringer@nicira.com>
+ <1444846249-52053-4-git-send-email-joestringer@nicira.com> <CALnjE+qYzaGgxrM5KZWdWRiER213r_ja3iZh+PO+3fbXwi6BEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	fubar@us.ibm.com
-To: Jan Blunck <jblunck@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALe+Z02gaON+Zan0HbL6X3omwiVYEd4-uayA8sQ+BQmU3x7V0g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:33830 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751510AbbJPQS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 12:18:58 -0400
+Received: by ykfy204 with SMTP id y204so89562368ykf.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 09:18:57 -0700 (PDT)
+In-Reply-To: <CALnjE+qYzaGgxrM5KZWdWRiER213r_ja3iZh+PO+3fbXwi6BEg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/16/15 10:12 AM, Jan Blunck wrote:
-> On Fri, Oct 16, 2015 at 6:02 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> On 10/16/15 9:57 AM, Jan Blunck wrote:
->>>
->>>
->>> I don't think that enslaved ports should get network layer addresses.
->>> This is one example with a team device:
+On 15 October 2015 at 11:13, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Oct 14, 2015 at 11:10 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>> If userspace provides a ct action with no nested mark or label, then the
+>> storage for these fields is zeroed. Later when actions are requested,
+>> such zeroed fields are serialized even though userspace didn't
+>> originally specify them. Fix the behaviour by ensuring that no action is
+>> serialized in this case, and reject actions where userspace attempts to
+>> set these fields with mask=0. This should make netlink marshalling
+>> consistent across deserialization/reserialization.
 >>
+>> Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
+>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>> ---
+>>  net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
+>>  1 file changed, 20 insertions(+), 1 deletion(-)
 >>
->> for VRF devices we do want the enslaved links to have link local addresses.
+>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>> index 480dbb9095b7..ba29e6c2e0d4 100644
+>> --- a/net/openvswitch/conntrack.c
+>> +++ b/net/openvswitch/conntrack.c
+>> @@ -540,6 +540,16 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+>>         return 0;
+>>  }
 >>
+>> +static bool label_zero(const struct ovs_key_ct_labels *labels)
+>> +{
+>> +       int i;
+>> +
+>> +       for (i = 0; i < sizeof(*labels); i++)
+>> +               if (labels->ct_labels[i])
+>> +                       return false;
+>> +       return true;
+>> +}
+>> +
+> There is already function called labels_nonzero(), This can be reused
+> for labels check.
 >
-> That is interesting. As far I can see you are setting IFF_SLAVE in
-> do_vrf_add_slave() and therefore already stop IPv6 addrconf.
 >
+>>  static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+>>         [OVS_CT_ATTR_COMMIT]    = { .minlen = 0, .maxlen = 0 },
+>>         [OVS_CT_ATTR_ZONE]      = { .minlen = sizeof(u16),
+>> @@ -589,6 +599,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+>>                 case OVS_CT_ATTR_MARK: {
+>>                         struct md_mark *mark = nla_data(a);
+>>
+>> +                       if (!mark->mask) {
+>> +                               OVS_NLERR(log, "ct_mark mask cannot be 0");
+>> +                               return -EINVAL;
+>> +                       }
+>>                         info->mark = *mark;
+>>                         break;
+>>                 }
+>> @@ -597,6 +611,10 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+>>                 case OVS_CT_ATTR_LABELS: {
+>>                         struct md_labels *labels = nla_data(a);
+>>
+>> +                       if (label_zero(&labels->mask)) {
+>> +                               OVS_NLERR(log, "ct_labels mask cannot be 0");
+>> +                               return -EINVAL;
+>> +                       }
+>
+> After this flow install stage sanity check for labels, there is no
+> need for check in CONFIG_NF_CONNTRACK_LABELS action execution.
 
-Check net-next. That had to be removed to get IPv6 working.
+OK, thanks for the review. I'll fix these up.
