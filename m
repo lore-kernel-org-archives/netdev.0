@@ -1,235 +1,137 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/17] i40e/i40evf: moderate interrupts differently
-Date: Fri, 16 Oct 2015 05:10:19 -0700
-Message-ID: <1444997425-3396-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/17] i40e/i40evf: Drop useless "IN_NETPOLL" flag
+Date: Fri, 16 Oct 2015 05:10:10 -0700
+Message-ID: <1444997425-3396-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:56709 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:14653 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753636AbbJPMKb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:31 -0400
+	id S1754098AbbJPMKj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:39 -0400
 In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-The XL710 hardware has a different interrupt moderation design
-that can support a limit of total interrupts per second per
-vector, in addition to the "number of interrupts per second"
-controls already established in the driver.  This combination
-of hardware features allows us to set very low default latency
-settings but minimize the total CPU utilization by not
-making too many interrupts, should the user desire.
+The code in i40e and i40evf is using an "IN_NETPOLL" flag that has never
+added any value due to the fact that the Rx clean-up is handled in NAPI.
+As such the flag was set, the queue was scheduled via NAPI, and then polled
+from the netpoll controller and if any Rx packets were processed the were
+processed in the wrong context.
 
-The current driver implementation is still enabling the dynamic
-moderation in the driver, and only using the rx/tx-usecs
-limit in ethtool to limit the interrupt rate per second, by default.
+In addition the flag itself just added an unneeded conditional to the
+hot-path so it can safely be dropped and save us a few instructions.
 
-The new code implemented in this patch
-2) adds init/use of the new "Interrupt Limit" register
-3) adds ethtool knob to control/report the limits above
-
-Usage is ethtool -C ethx rx-usecs-high <value> Where <value> is number
-of microseconds to create a rate of 1/N interrupts per second,
-regardless of rx-usecs or tx-usecs values. Since there is a credit based
-scheme in the hardware, the rx-usecs and tx-usecs can be configured for
-very low latency for short bursts, but once the credit runs out the
-refill rate on the credits is limited by rx-usecs-high.
-
-Change-ID: I3a1075d3296123b0f4f50623c779b027af5b188d
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 24 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 10 +++++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    | 10 ++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h  | 10 ++++++++++
- 5 files changed, 52 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h        | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c   | 2 --
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 +------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 +------
+ drivers/net/ethernet/intel/i40evf/i40evf.h    | 2 --
+ 5 files changed, 2 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 1125464..ad48f52 100644
+index d587a05..91f8cbf 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -498,6 +498,7 @@ struct i40e_vsi {
- 	 */
- 	u16 rx_itr_setting;
- 	u16 tx_itr_setting;
-+	u16 int_rate_limit;  /* value in usecs */
- 
- 	u16 rss_table_size;
- 	u16 rss_size;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index cb88e7a..1a50068 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1845,6 +1845,14 @@ static int i40e_get_coalesce(struct net_device *netdev,
- 
- 	ec->rx_coalesce_usecs = vsi->rx_itr_setting & ~I40E_ITR_DYNAMIC;
- 	ec->tx_coalesce_usecs = vsi->tx_itr_setting & ~I40E_ITR_DYNAMIC;
-+	/* we use the _usecs_high to store/set the interrupt rate limit
-+	 * that the hardware supports, that almost but not quite
-+	 * fits the original intent of the ethtool variable,
-+	 * the rx_coalesce_usecs_high limits total interrupts
-+	 * per second from both tx/rx sources.
-+	 */
-+	ec->rx_coalesce_usecs_high = vsi->int_rate_limit;
-+	ec->tx_coalesce_usecs_high = vsi->int_rate_limit;
- 
- 	return 0;
- }
-@@ -1863,6 +1871,17 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
- 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
- 
-+	/* tx_coalesce_usecs_high is ignored, use rx-usecs-high instead */
-+	if (ec->tx_coalesce_usecs_high != vsi->int_rate_limit) {
-+		netif_info(pf, drv, netdev, "tx-usecs-high is not used, please program rx-usecs-high\n");
-+		return -EINVAL;
-+	}
-+
-+	if (ec->rx_coalesce_usecs_high >= INTRL_REG_TO_USEC(I40E_MAX_INTRL)) {
-+		netif_info(pf, drv, netdev, "Invalid value, rx-usecs-high range is 0-235\n");
-+		return -EINVAL;
-+	}
-+
- 	vector = vsi->base_vector;
- 	if ((ec->rx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
- 	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
-@@ -1876,6 +1895,8 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 		return -EINVAL;
- 	}
- 
-+	vsi->int_rate_limit = ec->rx_coalesce_usecs_high;
-+
- 	if ((ec->tx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
- 	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
- 		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
-@@ -1900,11 +1921,14 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
- 
- 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
-+		u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
-+
- 		q_vector = vsi->q_vectors[i];
- 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
- 		wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
- 		q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
- 		wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
-+		wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
- 		i40e_flush(hw);
- 	}
- 
+@@ -307,7 +307,6 @@ struct i40e_pf {
+ #ifdef I40E_FCOE
+ #define I40E_FLAG_FCOE_ENABLED			BIT_ULL(11)
+ #endif /* I40E_FCOE */
+-#define I40E_FLAG_IN_NETPOLL			BIT_ULL(12)
+ #define I40E_FLAG_16BYTE_RX_DESC_ENABLED	BIT_ULL(13)
+ #define I40E_FLAG_CLEAN_ADMINQ			BIT_ULL(14)
+ #define I40E_FLAG_FILTER_SYNC			BIT_ULL(15)
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d731095..722b0a1 100644
+index 5ed844b..389f110 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2901,11 +2901,9 @@ static int i40e_vsi_configure(struct i40e_vsi *vsi)
- static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
+@@ -3574,14 +3574,12 @@ static void i40e_netpoll(struct net_device *netdev)
+ 	if (test_bit(__I40E_DOWN, &vsi->state))
+ 		return;
+ 
+-	pf->flags |= I40E_FLAG_IN_NETPOLL;
+ 	if (pf->flags & I40E_FLAG_MSIX_ENABLED) {
+ 		for (i = 0; i < vsi->num_q_vectors; i++)
+ 			i40e_msix_clean_rings(0, vsi->q_vectors[i]);
+ 	} else {
+ 		i40e_intr(pf->pdev->irq, netdev);
+ 	}
+-	pf->flags &= ~I40E_FLAG_IN_NETPOLL;
+ }
+ #endif
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index b560e02..e1fac3b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1268,16 +1268,11 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+ 			     struct sk_buff *skb, u16 vlan_tag)
  {
- 	struct i40e_pf *pf = vsi->back;
--	struct i40e_q_vector *q_vector;
- 	struct i40e_hw *hw = &pf->hw;
- 	u16 vector;
- 	int i, q;
--	u32 val;
- 	u32 qp;
+ 	struct i40e_q_vector *q_vector = rx_ring->q_vector;
+-	struct i40e_vsi *vsi = rx_ring->vsi;
+-	u64 flags = vsi->back->flags;
  
- 	/* The interrupt indexing is offset by 1 in the PFINT_ITRn
-@@ -2915,7 +2913,8 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
- 	qp = vsi->base_queue;
- 	vector = vsi->base_vector;
- 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
--		q_vector = vsi->q_vectors[i];
-+		struct i40e_q_vector *q_vector = vsi->q_vectors[i];
-+
- 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
- 		q_vector->rx.latency_range = I40E_LOW_LATENCY;
- 		wr32(hw, I40E_PFINT_ITRN(I40E_RX_ITR, vector - 1),
-@@ -2924,10 +2923,14 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
- 		q_vector->tx.latency_range = I40E_LOW_LATENCY;
- 		wr32(hw, I40E_PFINT_ITRN(I40E_TX_ITR, vector - 1),
- 		     q_vector->tx.itr);
-+		wr32(hw, I40E_PFINT_RATEN(vector - 1),
-+		     INTRL_USEC_TO_REG(vsi->int_rate_limit));
+ 	if (vlan_tag & VLAN_VID_MASK)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
  
- 		/* Linked list for the queuepairs assigned to this vector */
- 		wr32(hw, I40E_PFINT_LNKLSTN(vector - 1), qp);
- 		for (q = 0; q < q_vector->num_ringpairs; q++) {
-+			u32 val;
-+
- 			val = I40E_QINT_RQCTL_CAUSE_ENA_MASK |
- 			      (I40E_RX_ITR << I40E_QINT_RQCTL_ITR_INDX_SHIFT)  |
- 			      (vector      << I40E_QINT_RQCTL_MSIX_INDX_SHIFT) |
-@@ -7040,6 +7043,7 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
- 	vsi->idx = vsi_idx;
- 	vsi->rx_itr_setting = pf->rx_itr_default;
- 	vsi->tx_itr_setting = pf->tx_itr_default;
-+	vsi->int_rate_limit = 0;
- 	vsi->rss_table_size = (vsi->type == I40E_VSI_MAIN) ?
- 				pf->rss_table_size : 64;
- 	vsi->netdev_registered = false;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 75cecfa..7c0ed84 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -35,6 +35,7 @@
- #define I40E_ITR_20K               0x0019
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
-+#define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
- #define I40E_ITR_RX_DEF            I40E_ITR_8K
- #define I40E_ITR_TX_DEF            I40E_ITR_4K
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
-@@ -44,6 +45,15 @@
- #define ITR_TO_REG(setting) ((setting & ~I40E_ITR_DYNAMIC) >> 1)
- #define ITR_IS_DYNAMIC(setting) (!!(setting & I40E_ITR_DYNAMIC))
- #define ITR_REG_TO_USEC(itr_reg) (itr_reg << 1)
-+/* 0x40 is the enable bit for interrupt rate limiting, and must be set if
-+ * the value of the rate limit is non-zero
-+ */
-+#define INTRL_ENA                  BIT(6)
-+#define INTRL_REG_TO_USEC(intrl) ((intrl & ~INTRL_ENA) << 2)
-+#define INTRL_USEC_TO_REG(set) ((set) ? ((set) >> 2) | INTRL_ENA : 0)
-+#define I40E_INTRL_8K              125     /* 8000 ints/sec */
-+#define I40E_INTRL_62K             16      /* 62500 ints/sec */
-+#define I40E_INTRL_83K             12      /* 83333 ints/sec */
+-	if (flags & I40E_FLAG_IN_NETPOLL)
+-		netif_rx(skb);
+-	else
+-		napi_gro_receive(&q_vector->napi, skb);
++	napi_gro_receive(&q_vector->napi, skb);
+ }
  
- #define I40E_QUEUE_END_OF_LIST 0x7FF
+ /**
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 1894cc8..5d3a8bd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -742,16 +742,11 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+ 			     struct sk_buff *skb, u16 vlan_tag)
+ {
+ 	struct i40e_q_vector *q_vector = rx_ring->q_vector;
+-	struct i40e_vsi *vsi = rx_ring->vsi;
+-	u64 flags = vsi->back->flags;
  
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 0c13ece..c4f5a4e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -35,6 +35,7 @@
- #define I40E_ITR_20K               0x0019
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
-+#define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
- #define I40E_ITR_RX_DEF            I40E_ITR_8K
- #define I40E_ITR_TX_DEF            I40E_ITR_4K
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
-@@ -44,6 +45,15 @@
- #define ITR_TO_REG(setting) ((setting & ~I40E_ITR_DYNAMIC) >> 1)
- #define ITR_IS_DYNAMIC(setting) (!!(setting & I40E_ITR_DYNAMIC))
- #define ITR_REG_TO_USEC(itr_reg) (itr_reg << 1)
-+/* 0x40 is the enable bit for interrupt rate limiting, and must be set if
-+ * the value of the rate limit is non-zero
-+ */
-+#define INTRL_ENA                  BIT(6)
-+#define INTRL_REG_TO_USEC(intrl) ((intrl & ~INTRL_ENA) << 2)
-+#define INTRL_USEC_TO_REG(set) ((set) ? ((set) >> 2) | INTRL_ENA : 0)
-+#define I40E_INTRL_8K              125     /* 8000 ints/sec */
-+#define I40E_INTRL_62K             16      /* 62500 ints/sec */
-+#define I40E_INTRL_83K             12      /* 83333 ints/sec */
+ 	if (vlan_tag & VLAN_VID_MASK)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
  
- #define I40E_QUEUE_END_OF_LIST 0x7FF
+-	if (flags & I40E_FLAG_IN_NETPOLL)
+-		netif_rx(skb);
+-	else
+-		napi_gro_receive(&q_vector->napi, skb);
++	napi_gro_receive(&q_vector->napi, skb);
+ }
  
+ /**
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 6f42711..c74f614 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -211,7 +211,6 @@ struct i40evf_adapter {
+ #define I40EVF_FLAG_RX_1BUF_CAPABLE              BIT(1)
+ #define I40EVF_FLAG_RX_PS_CAPABLE                BIT(2)
+ #define I40EVF_FLAG_RX_PS_ENABLED                BIT(3)
+-#define I40EVF_FLAG_IN_NETPOLL                   BIT(4)
+ #define I40EVF_FLAG_IMIR_ENABLED                 BIT(5)
+ #define I40EVF_FLAG_MQ_CAPABLE                   BIT(6)
+ #define I40EVF_FLAG_NEED_LINK_UPDATE             BIT(7)
+@@ -224,7 +223,6 @@ struct i40evf_adapter {
+ /* duplicates for common code */
+ #define I40E_FLAG_FDIR_ATR_ENABLED		 0
+ #define I40E_FLAG_DCB_ENABLED			 0
+-#define I40E_FLAG_IN_NETPOLL			 I40EVF_FLAG_IN_NETPOLL
+ #define I40E_FLAG_RX_CSUM_ENABLED                I40EVF_FLAG_RX_CSUM_ENABLED
+ #define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
+ #define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
 -- 
 2.4.3
