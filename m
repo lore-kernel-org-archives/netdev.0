@@ -1,61 +1,61 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: no addrconf for slave devices
-Date: Fri, 16 Oct 2015 14:19:14 +0200
-Message-ID: <1444997954.2885806.411975121.12F761E2@webmail.messagingengine.com>
-References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
- <20151016115457.GE2194@nanopsycho.orion>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next 3/4] sch_htb: update backlog as well
+Date: Fri, 16 Oct 2015 08:19:48 -0400
+Message-ID: <5620EB64.4010209@mojatatu.com>
+References: <1444675083-9825-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1444675083-9825-4-git-send-email-xiyou.wangcong@gmail.com>
+ <561E499D.7060402@mojatatu.com>
+ <CAM_iQpXsweCm+ETtHeNQFMoEJ7jGGSONG=MD6KX=+GHuBFvq2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fubar@us.ibm.com
-To: Jiri Pirko <jiri@resnulli.us>, Jan Blunck <jblunck@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151016115457.GE2194@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:36357 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932103AbbJPMTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:19:50 -0400
+Received: by ioii196 with SMTP id i196so121203247ioi.3
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:19:50 -0700 (PDT)
+In-Reply-To: <CAM_iQpXsweCm+ETtHeNQFMoEJ7jGGSONG=MD6KX=+GHuBFvq2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 16, 2015, at 13:54, Jiri Pirko wrote:
-> Fri, Oct 16, 2015 at 12:21:51PM CEST, jblunck@infradead.org wrote:
-> >If a device without the IFF_SLAVE flag set (e.g. team, bridge, openvswitch
-> >vport, batman) is enslaved and IPv6 is active then addrconf will be
-> >initiated and a link-local address is added to the slave interface.
-> >
-> >This patch alters the behavior so that addrconf will only run on the master
-> >device itself. This is achieved by checking the device tree instead of
-> >checking for a specific flag.
-> >
-> >Signed-off-by: Jan Blunck <jblunck@infradead.org>
-> >---
-> > net/ipv6/addrconf.c | 6 +++++-
-> > 1 file changed, 5 insertions(+), 1 deletion(-)
-> >
-> >diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> >index 9001133..26d61f0 100644
-> >--- a/net/ipv6/addrconf.c
-> >+++ b/net/ipv6/addrconf.c
-> >@@ -3141,8 +3141,12 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
-> > 
-> > 	case NETDEV_UP:
-> > 	case NETDEV_CHANGE:
-> >-		if (dev->flags & IFF_SLAVE)
-> >+		/* If a master is set stop IPv6 on this interface */
-> >+		if (netdev_master_upper_dev_get(dev)) {
-> >+			if (idev)
-> >+				addrconf_ifdown(dev, 1);
-> 
-> This breaks teamd if it's using NS/NA ping link-watch on link-local
-> addresses.
-> 
-> What is the reason for this patch? Does it recolve any issue you are
-> having?
+On 10/15/15 00:21, Cong Wang wrote:
+> On Wed, Oct 14, 2015 at 5:25 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> On 10/12/15 14:38, Cong Wang wrote:
+>>>
+>>> It is odd to see qlen!=0 but backlog==0, for a real example:
+>>>
+>>
+>> Backlog is a transient stat so a lot of times it should be 0. Only when
+>> the CPU is sending faster than the link can handle should you see
+>> the backlog grow (and eventually drain to 0).
+>
+> Of course. But in my case, we were sending a burst of traffic while
+> with a lower HTB bw limit, so we can consistently see backlog!=0
+> for many seconds.
+>
 
-I also feel uncomfortable with this change.
 
-We can probably never change this behavior, ever. User space might
-expect LL addresses on slave devices already. Same question as Jiri,
-what was the motivation for this patch?
+Depending on how much bandwidth you are allowing to be shaped,
+this observation is expected. HTB (and any non-work
+conserving qdisc) would keep packets backlogged for as long as you
+you are instructing it to keep them. If you are sending to the link
+faster than the shaping rate, qdisc backlog will grow and take a
+while to drain.
+[I have seen cases where actually the way the parameters are set
+is the problem (unfortunately userspace doesnt do a lot of checking
+for sanity).]
 
-Bye,
-Hannes
+Like i said earlier, the idea of keeping track of backlog is useful.
+I think the commit log threw me off.
+"It is odd to see qlen!=0 but backlog==0"
+If you change that commit log then:
+
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
