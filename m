@@ -1,93 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 18:43:51 +0200
-Message-ID: <1445013831.2945152.412200185.4C763002@webmail.messagingengine.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
- <1444991103.2861759.411876897.42C807BD@webmail.messagingengine.com>
- <56212366.4000307@plumgrid.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 16 Oct 2015 09:47:05 -0700
+Message-ID: <56212A09.5080206@caviumnetworks.com>
+References: <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch> <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, ebiederm@xmission.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56212366.4000307@plumgrid.com>
+In-Reply-To: <20151016155644.GJ10146@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexei,
+On 10/16/2015 08:56 AM, Andrew Lunn wrote:
+>> So I think I'll move to inspect what Florian had suggested, and that was to look
+>> at: drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
+>
+> I have a suspicion. If you look at the phy driver it does:
+>
+> static int ksz9021_config_init(struct phy_device *phydev)
+> {
+>          const struct device *dev = &phydev->dev;
+>          const struct device_node *of_node = dev->of_node;
+>
+>          if (!of_node && dev->parent->of_node)
+>                  of_node = dev->parent->of_node;
+>
 
-On Fri, Oct 16, 2015, at 18:18, Alexei Starovoitov wrote:
-> On 10/16/15 3:25 AM, Hannes Frederic Sowa wrote:
-> > Namespaces at some point dealt with the same problem, they nowadays use
-> > bind mounts of/proc/$$/ns/* to some place in the file hierarchy to keep
-> > the namespace alive. This at least allows someone to build up its own
-> > hierarchy with normal unix tools and not hidden inside a C-program. For
-> > filedescriptors we already have/proc/$$/fd/* but it seems that doesn't
-> > work out of the box nowadays.
-> 
-> bind mounting of /proc/../fd was initially proposed by Andy and we've
-> looked at it thoroughly, but after discussion with Eric it became
-> apparent that it doesn't fit here. At the end we need shell tools
-> to access maps.
+Maybe we need to walk up the hierarchy.
 
-Oh yes, I want shell tools for this very much! Maybe even that things
-like strings, grep etc. work. :)
+Perhaps something like:
 
-> Also I think you missed the hierarchy in this patch set _is_ built with
-> normal 'mkdir' and files are removed with 'rm'.
+const struct device *dev_walker;
 
-I did not miss that, I am just concerned that if the kernel does not
-enforce such a hierarchy automatically it won't really happen.
+dev_walker = &phydev->dev;
+do {
+    of_node = dev_walker->of_node;
+    dev_walker = dev_walker->parent;
+} while (!of_node && dev_walker);
 
-> The only thing that C does is BPF_PIN_FD of fd that was received from
-> bpf syscall. That's way cleaner api than doing bind mount from C
-> program.
+An alternative would be to assign the bus the same of_node as the bus 
+parent.
 
-I am with you there. Unfortunately we don't have a give "this fd a name"
-syscalls so far so I totally understand the decision here.
+If either approach works, you can add:
+  Acked-by: David Daney <david.daney@cavium.com>
 
-> We've considered letting open() of the file return bpf specific
-> anon-inode, but decided to reserve that for other more natural file
-> operations. Therefore BPF_NEW_FD is needed.
+to the patch that implements it.
 
-Can't this be overloaded somehow. You can use mknod for creation and
-open for regular file use. mknod is its own syscall.
-
-> > I don't know in terms of how many objects bpf should be able to handle
-> > and if such a bind-mount based solution would work, I guess not.
-> 
-> We definitely missed you at the last plumbers where it was discussed :)
-
-Yes. :(
-
-> > In my opinion I still favor a user space approach.
-> 
-> that's not acceptable for tracing use cases. No daemons allowed.
-
-Oh, tracing does not allow daemons. Why? I can only imagine embedded
-users, no?
-
-> > Subsystems which use
-> > ebpf in a way that no user space program needs to be running to control
-> > them would need to export the fds by itself. E.g. something like
-> > sysfs/kobject for tc? The hierarchy would then be in control of the
-> > subsystem which could also create a proper naming hierarchy or maybe
-> > even use an already given one. Do most other eBPF users really need to
-> > persist file descriptors somewhere without user space control and pick
-> > them up later?
-> 
-> I think it's way cleaner to have one way of solving it (like this patch
-> does) instead of asking every subsystem to solve it differently.
-> We've also looked at sysfs and it's ugly when it comes to removing,
-> since the user cannot use normal 'rm'.
-
-Ah, okay. Probably it would depend on some tc node always referencing
-the bpf entity. But I see that sysfs might become too problematic.
-
-Bye,
-Hannes
+>
+> In your case, you don't have a phy node in your device tree, so of_node
+> is NULL. So it looks in the parent device.
+>
+>      phylib: Make PHYs children of their MDIO bus, not the bus' parent.
+>
+> changed what the parent is. It is now the mdio device. Before, i
+> suspect it was the MAC. Hence it found your properties in the MAC
+> node.
+>
+> What i think you might want to do is change this code. Rather than
+> look a dev->parent->of_node; you might want
+> phydev->attached_dev->dev->of_node.
+>
+> This assumes the phy has been attached to the MAC. I've no idea of the
+> ordering, so maybe it has not been attached yet?
+>
+> dp83867.c has similar code. However quick grep did not find any
+> mainline users with properties in the MAC node. If that is true, i
+> would suggest removing the code looking in the parent for that phy
+> driver.
+>
+> 	Andrew
+>
