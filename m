@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] tipc: some link level
-	code improvements
-Date: Fri, 16 Oct 2015 00:17:19 -0700 (PDT)
-Message-ID: <20151016.001719.744328618811048501.davem@davemloft.net>
-References: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next v3] drivers/net: get rid of unnecessary
+ initializations in .get_drvinfo()
+Date: Fri, 16 Oct 2015 00:24:28 -0700 (PDT)
+Message-ID: <20151016.002428.1307280478503508475.davem@davemloft.net>
+References: <1444937332-26848-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1444935166-12745-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51631 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753061AbbJPHIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 03:08:19 -0400
+In-Reply-To: <1444937332-26848-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 15 Oct 2015 14:52:39 -0400
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu, 15 Oct 2015 21:28:52 +0200
 
-> Extensive testing has revealed some weaknesses and non-optimal solutions
-> in the link level code.
+> Many drivers initialize uselessly n_priv_flags, n_stats, testinfo_len,
+> eedump_len & regdump_len fields in their .get_drvinfo() ethtool op.
+> It's not necessary as these fields is filled in ethtool_get_drvinfo().
 > 
-> This commit series addresses those issues.
+> v2: removed unused variable
+> v3: removed another unused variable
+> 
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Series applied, thanks Jon.
-
-------------------------------------------------------------------------------
+Applied, thanks.
