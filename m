@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 14/16] mlxsw: reg: Add Switch Filtering Database Aging Time register definition
-Date: Fri, 16 Oct 2015 14:01:35 +0200
-Message-ID: <1444996897-2708-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 11/16] mlxsw: reg: Add Switch FID Management register definition
+Date: Fri, 16 Oct 2015 14:01:32 +0200
+Message-ID: <1444996897-2708-12-git-send-email-jiri@resnulli.us>
 References: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
@@ -11,79 +11,134 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sagir@mellanox.com, mattyk@mellanox.com, aviadr@mellanox.com
 To: netdev@vger.kernel.org, ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:38040 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753935AbbJPMB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:58 -0400
-Received: by wicll6 with SMTP id ll6so7355029wic.1
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:57 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36779 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752962AbbJPMBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 08:01:55 -0400
+Received: by wicgb1 with SMTP id gb1so6393214wic.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 05:01:54 -0700 (PDT)
 In-Reply-To: <1444996897-2708-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Add SFDAT which is used to control switch ageing time.
+Filtering identifiers (FIDs) are unique identifers of bridge instances
+in the hardware.
 
+Add the SFMR register, which is responsible for the creation and
+configuration of these FIDs.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 37 +++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 87 +++++++++++++++++++++++++++++++
+ 1 file changed, 87 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 8e1888b..d1c8eff 100644
+index bb0ad09..6f4a7b0 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -157,6 +157,41 @@ static inline void mlxsw_reg_sspr_pack(char *payload, u8 local_port)
- 	mlxsw_reg_sspr_system_port_set(payload, local_port);
+@@ -883,6 +883,91 @@ static inline void mlxsw_reg_spmlr_pack(char *payload, u8 local_port,
+ 	mlxsw_reg_spmlr_learn_mode_set(payload, mode);
  }
  
-+/* SFDAT - Switch Filtering Database Aging Time
-+ * --------------------------------------------
-+ * Controls the Switch aging time. Aging time is able to be set per Switch
-+ * Partition.
++/* SFMR - Switch FID Management Register
++ * -------------------------------------
++ * Creates and configures FIDs.
 + */
-+#define MLXSW_REG_SFDAT_ID 0x2009
-+#define MLXSW_REG_SFDAT_LEN 0x8
++#define MLXSW_REG_SFMR_ID 0x201F
++#define MLXSW_REG_SFMR_LEN 0x18
 +
-+static const struct mlxsw_reg_info mlxsw_reg_sfdat = {
-+	.id = MLXSW_REG_SFDAT_ID,
-+	.len = MLXSW_REG_SFDAT_LEN,
++static const struct mlxsw_reg_info mlxsw_reg_sfmr = {
++	.id = MLXSW_REG_SFMR_ID,
++	.len = MLXSW_REG_SFMR_LEN,
 +};
 +
-+/* reg_sfdat_swid
-+ * Switch partition ID.
++enum mlxsw_reg_sfmr_op {
++	MLXSW_REG_SFMR_OP_CREATE_FID,
++	MLXSW_REG_SFMR_OP_DESTROY_FID,
++};
++
++/* reg_sfmr_op
++ * Operation.
++ * 0 - Create or edit FID.
++ * 1 - Destroy FID.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, sfmr, op, 0x00, 24, 4);
++
++/* reg_sfmr_fid
++ * Filtering ID.
 + * Access: Index
 + */
-+MLXSW_ITEM32(reg, sfdat, swid, 0x00, 24, 8);
++MLXSW_ITEM32(reg, sfmr, fid, 0x00, 0, 16);
 +
-+/* reg_sfdat_age_time
-+ * Aging time in seconds
-+ * Min - 10 seconds
-+ * Max - 1,000,000 seconds
-+ * Default is 300 seconds.
++/* reg_sfmr_fid_offset
++ * FID offset.
++ * Used to point into the flooding table selected by SFGC register if
++ * the table is of type FID-Offset. Otherwise, this field is reserved.
 + * Access: RW
 + */
-+MLXSW_ITEM32(reg, sfdat, age_time, 0x04, 0, 20);
++MLXSW_ITEM32(reg, sfmr, fid_offset, 0x08, 0, 16);
 +
-+static inline void mlxsw_reg_sfdat_pack(char *payload, u32 age_time)
++/* reg_sfmr_vtfp
++ * Valid Tunnel Flood Pointer.
++ * If not set, then nve_tunnel_flood_ptr is reserved and considered NULL.
++ * Access: RW
++ *
++ * Note: Reserved for 802.1Q FIDs.
++ */
++MLXSW_ITEM32(reg, sfmr, vtfp, 0x0C, 31, 1);
++
++/* reg_sfmr_nve_tunnel_flood_ptr
++ * Underlay Flooding and BC Pointer.
++ * Used as a pointer to the first entry of the group based link lists of
++ * flooding or BC entries (for NVE tunnels).
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, sfmr, nve_tunnel_flood_ptr, 0x0C, 0, 24);
++
++/* reg_sfmr_vv
++ * VNI Valid.
++ * If not set, then vni is reserved.
++ * Access: RW
++ *
++ * Note: Reserved for 802.1Q FIDs.
++ */
++MLXSW_ITEM32(reg, sfmr, vv, 0x10, 31, 1);
++
++/* reg_sfmr_vni
++ * Virtual Network Identifier.
++ * Access: RW
++ *
++ * Note: A given VNI can only be assigned to one FID.
++ */
++MLXSW_ITEM32(reg, sfmr, vni, 0x10, 0, 24);
++
++static inline void mlxsw_reg_sfmr_pack(char *payload,
++				       enum mlxsw_reg_sfmr_op op, u16 fid,
++				       u16 fid_offset)
 +{
-+	MLXSW_REG_ZERO(sfdat, payload);
-+	mlxsw_reg_sfdat_swid_set(payload, 0);
-+	mlxsw_reg_sfdat_age_time_set(payload, age_time);
++	MLXSW_REG_ZERO(sfmr, payload);
++	mlxsw_reg_sfmr_op_set(payload, op);
++	mlxsw_reg_sfmr_fid_set(payload, fid);
++	mlxsw_reg_sfmr_fid_offset_set(payload, fid_offset);
++	mlxsw_reg_sfmr_vtfp_set(payload, false);
++	mlxsw_reg_sfmr_vv_set(payload, false);
 +}
 +
- /* SFD - Switch Filtering Database
-  * -------------------------------
-  * The following register defines the access to the filtering database.
-@@ -2259,6 +2294,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SPAD";
- 	case MLXSW_REG_SSPR_ID:
- 		return "SSPR";
-+	case MLXSW_REG_SFDAT_ID:
-+		return "SFDAT";
- 	case MLXSW_REG_SFD_ID:
- 		return "SFD";
- 	case MLXSW_REG_SFN_ID:
+ /* PMLP - Ports Module to Local Port Register
+  * ------------------------------------------
+  * Configures the assignment of modules to local ports.
+@@ -2061,6 +2146,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "SFTR";
+ 	case MLXSW_REG_SPMLR_ID:
+ 		return "SPMLR";
++	case MLXSW_REG_SFMR_ID:
++		return "SFMR";
+ 	case MLXSW_REG_PMLP_ID:
+ 		return "PMLP";
+ 	case MLXSW_REG_PMTU_ID:
 -- 
 1.9.3
