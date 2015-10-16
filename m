@@ -1,152 +1,57 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 1/2] drivers: net: xgene: Add support RGMII TX/RX delay configuration
-Date: Fri, 16 Oct 2015 13:35:51 -0700
-Message-ID: <1445027752-16982-2-git-send-email-isubramanian@apm.com>
-References: <1445027752-16982-1-git-send-email-isubramanian@apm.com>
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC device
+Date: Fri, 16 Oct 2015 22:49:04 +0200
+Message-ID: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35595 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbbJPUfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 16:35:31 -0400
-Received: by padcn9 with SMTP id cn9so14815094pad.2
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 13:35:30 -0700 (PDT)
-In-Reply-To: <1445027752-16982-1-git-send-email-isubramanian@apm.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:41999 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754389AbbJPUtN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 16:49:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add RGMII TX/RX delay configuration support. RGMII standard requires 2ns
-delay to help the RGMII bridge receiver to sample data correctly. If the
-default value does not provide proper centering of the data sample, the
-TX/RX delay parameters can be used to adjust accordingly.
+Commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+the bus' parent." broke finding PHY properties in the MAC device tree
+node. The parent device is now the MDIO bus, not the MAC. Use
+attached_dev towards the MAC device tree node.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   |  8 +++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 49 ++++++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  2 +
- 4 files changed, 59 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 652f218..33850a0 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -461,6 +461,7 @@ static void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
+Compile tested only.
+
+Dinh, please could you test it and report back if it works or not.
+
+ drivers/net/phy/micrel.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 499185eaf413..9e2083a1a5a9 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -25,6 +25,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/phy.h>
++#include <linux/netdevice.h>
+ #include <linux/micrel_phy.h>
+ #include <linux/of.h>
+ #include <linux/clk.h>
+@@ -340,8 +341,9 @@ static int ksz9021_config_init(struct phy_device *phydev)
+ 	const struct device *dev = &phydev->dev;
+ 	const struct device_node *of_node = dev->of_node;
  
- static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- {
-+	struct device *dev = &pdata->pdev->dev;
- 	u32 value, mc2;
- 	u32 intf_ctl, rgmii;
- 	u32 icm0, icm2;
-@@ -490,7 +491,12 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
- 	default:
- 		ENET_INTERFACE_MODE2_SET(&mc2, 2);
- 		intf_ctl |= ENET_GHD_MODE;
--		CFG_TXCLK_MUXSEL0_SET(&rgmii, 4);
-+
-+		if (dev->of_node) {
-+			CFG_TXCLK_MUXSEL0_SET(&rgmii, pdata->tx_delay);
-+			CFG_RXCLK_MUXSEL0_SET(&rgmii, pdata->rx_delay);
-+		}
-+
- 		xgene_enet_rd_csr(pdata, DEBUG_REG_ADDR, &value);
- 		value |= CFG_BYPASS_UNISEC_TX | CFG_BYPASS_UNISEC_RX;
- 		xgene_enet_wr_csr(pdata, DEBUG_REG_ADDR, value);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index ff05bbc..6dee73c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -144,6 +144,7 @@ enum xgene_enet_rm {
- #define CFG_BYPASS_UNISEC_RX		BIT(1)
- #define CFG_CLE_BYPASS_EN0		BIT(31)
- #define CFG_TXCLK_MUXSEL0_SET(dst, val)	xgene_set_bits(dst, val, 29, 3)
-+#define CFG_RXCLK_MUXSEL0_SET(dst, val)	xgene_set_bits(dst, val, 26, 3)
+-	if (!of_node && dev->parent->of_node)
+-		of_node = dev->parent->of_node;
++	if (!of_node && phydev->attached_dev &&
++	    phydev->attached_dev->dev.of_node)
++		of_node = phydev->attached_dev->dev.of_node;
  
- #define CFG_CLE_IP_PROTOCOL0_SET(dst, val)	xgene_set_bits(dst, val, 16, 2)
- #define CFG_CLE_DSTQID0_SET(dst, val)		xgene_set_bits(dst, val, 0, 12)
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6b1846d..ce10687 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1118,6 +1118,47 @@ static int xgene_get_port_id_dt(struct device *dev, struct xgene_enet_pdata *pda
- 	return ret;
- }
- 
-+static int xgene_get_tx_delay(struct xgene_enet_pdata *pdata)
-+{
-+	struct device *dev = &pdata->pdev->dev;
-+	int delay, ret;
-+
-+	ret = of_property_read_u32(dev->of_node, "tx-delay", &delay);
-+	if (ret) {
-+		pdata->tx_delay = 4;
-+		return 0;
-+	}
-+
-+	if (delay < 0 || delay > 7) {
-+		dev_err(dev, "Invalid tx-delay specified\n");
-+		return -EINVAL;
-+	}
-+
-+	pdata->tx_delay = delay;
-+
-+	return 0;
-+}
-+
-+static int xgene_get_rx_delay(struct xgene_enet_pdata *pdata)
-+{
-+	struct device *dev = &pdata->pdev->dev;
-+	int delay, ret;
-+
-+	ret = of_property_read_u32(dev->of_node, "rx-delay", &delay);
-+	if (ret) {
-+		pdata->rx_delay = 2;
-+		return 0;
-+	}
-+
-+	if (delay < 0 || delay > 7) {
-+		dev_err(dev, "Invalid rx-delay specified\n");
-+		return -EINVAL;
-+	}
-+
-+	pdata->rx_delay = delay;
-+
-+	return 0;
-+}
- 
- static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- {
-@@ -1194,6 +1235,14 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 		return -ENODEV;
- 	}
- 
-+	ret = xgene_get_tx_delay(pdata);
-+	if (ret)
-+		return ret;
-+
-+	ret = xgene_get_rx_delay(pdata);
-+	if (ret)
-+		return ret;
-+
- 	ret = platform_get_irq(pdev, 0);
- 	if (ret <= 0) {
- 		dev_err(dev, "Unable to get ENET Rx IRQ\n");
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index ff89a5d..a6e56b8 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -184,6 +184,8 @@ struct xgene_enet_pdata {
- 	u8 bp_bufnum;
- 	u16 ring_num;
- 	u32 mss;
-+	u8 tx_delay;
-+	u8 rx_delay;
- };
- 
- struct xgene_indirect_ctl {
+ 	if (of_node) {
+ 		ksz9021_load_values_from_of(phydev, of_node,
 -- 
-1.9.1
+2.5.1
