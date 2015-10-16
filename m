@@ -1,70 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/17] i40e: reset the invalid msg counter in vf when a valid msg is received
-Date: Fri, 16 Oct 2015 05:10:20 -0700
-Message-ID: <1444997425-3396-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/17] i40e: Recognize 1000Base_T_Optical phy type when link is up
+Date: Fri, 16 Oct 2015 05:10:22 -0700
+Message-ID: <1444997425-3396-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jingjing Wu <jingjing.wu@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:56709 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753784AbbJPMKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753813AbbJPMKc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Oct 2015 08:10:32 -0400
 In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jingjing Wu <jingjing.wu@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-When the number of invalid messages from a VF is exceeded, the VF
-will be disabled, due to the invalid messages.  This happens if
-other VF drivers (like DPDK) send a message through the driver's
-mailbox (aka virtchannel) interface, but the message is not
-supported by the i40e pf driver, such as CONFIG_PROMISCUOUS_MODE.
+1000Base_T_Optical got added to the function that figures out what
+is supported when link is down but not when link is up. Add it in there
+too so that we display the correct information.
 
-This patch changes the num_invalid_msgs in struct i40e_vf to record
-the continuous invalid msgs, and it will be reset when a valid msg
-is received.
-
-Change-ID: Iaec42fd3dcdd281476b3518be23261dd46fc3718
-Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I85ebcdfa7c02d898c44c673b1500552a53c8042e
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 ++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h | 3 ++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index fd99cd2..a35a204 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1102,6 +1102,8 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
- 		}
- 	} else {
- 		vf->num_valid_msgs++;
-+		/* reset the invalid counter, if a valid message is received. */
-+		vf->num_invalid_msgs = 0;
- 	}
- 
- 	aq_ret = i40e_aq_send_msg_to_vf(hw, abs_vf_id,	v_opcode, v_retval,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 7fe94e8..da44995 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -96,7 +96,8 @@ struct i40e_vf {
- 
- 	u8 num_queue_pairs;	/* num of qps assigned to VF vsis */
- 	u64 num_mdd_events;	/* num of mdd events detected */
--	u64 num_invalid_msgs;	/* num of malformed or invalid msgs detected */
-+	/* num of continuous malformed or invalid msgs detected */
-+	u64 num_invalid_msgs;
- 	u64 num_valid_msgs;	/* num of valid msgs detected */
- 
- 	unsigned long vf_caps;	/* vf's adv. capabilities */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 1a50068..767b1db 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -307,6 +307,12 @@ static void i40e_get_settings_link_up(struct i40e_hw *hw,
+ 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_1GB)
+ 			ecmd->advertising |= ADVERTISED_1000baseT_Full;
+ 		break;
++	case I40E_PHY_TYPE_1000BASE_T_OPTICAL:
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_1000baseT_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_1000baseT_Full;
++		break;
+ 	case I40E_PHY_TYPE_100BASE_TX:
+ 		ecmd->supported = SUPPORTED_Autoneg |
+ 				  SUPPORTED_100baseT_Full;
 -- 
 2.4.3
