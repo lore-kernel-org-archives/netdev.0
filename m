@@ -1,88 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 14:53:10 -0500
-Message-ID: <87y4f2io9l.fsf@x220.int.ebiederm.org>
-References: <cover.1444956943.git.daniel@iogearbox.net>
-	<ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
-	<1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
-	<5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
-	<87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Fri, 16 Oct 2015 13:24:16 -0700
+Message-ID: <56215CF0.6080905@caviumnetworks.com>
+References: <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch> <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch> <56212A09.5080206@caviumnetworks.com> <alpine.DEB.2.02.1510161407570.22838@linux-builds1> <20151016193854.GC28207@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56214FAC.5060704@plumgrid.com> (Alexei Starovoitov's message of
-	"Fri, 16 Oct 2015 12:27:40 -0700")
+In-Reply-To: <20151016193854.GC28207@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexei Starovoitov <ast@plumgrid.com> writes:
-
-> On 10/16/15 11:41 AM, Eric W. Biederman wrote:
-[...]
->> I am missing something.
+On 10/16/2015 12:38 PM, Andrew Lunn wrote:
+>>> Maybe we need to walk up the hierarchy.
+>>>
+>>> Perhaps something like:
+>>>
+>>> const struct device *dev_walker;
+>>>
+>>> dev_walker = &phydev->dev;
+>>> do {
+>>>     of_node = dev_walker->of_node;
+>>>     dev_walker = dev_walker->parent;
+>>> } while (!of_node && dev_walker);
+>>>
 >>
->> When I suggested using a filesystem it was my thought there would be
->> exactly one superblock per map, and the map would be specified at mount
->> time.  You clearly are not implementing that.
+>> The above code seems to have fixed the issue.
 >
-> I don't think it's practical to have sb per map, since that would mean
-> sb per prog and that won't scale.
+> What i don't like about this is that it allows you to put these
+> properties in the mdio device node. These are phy properties, not mdio
+> properties....
 
-What do you mean won't scale?  You want to have a name per map/prog so the
-basic complexity appears the same.  Is there some crucial interaction
-between the persistent dodads you are placing on a filesystem that I am
-missing?
+Yes, we know that the device tree is not correctly formed.
 
-Given the fact you don't normally need any persistence without a program
-I am puzzled why "scaling" is an issue of any kind.  This is for a
-comparitively rare case if I am not mistaken.
+You have a choice:
 
-> Also map today is an fd that belongs to a process. I cannot see
-> an api from C program to do 'mount of FD' that wouldn't look like
-> ugly hack.
+A) Fix the device tree and any code that may have to change to work with 
+a good device tree.
 
-mount -t bpffs ... -o fd=1234 
+B) Change the code to work with the screwy existing device tree.  The 
+above seems to work, other things may also be possible.
 
-That is not all convoluted or hacky.  Especially compared to some of the
-alternatives I am seeing.
+I can't really make any decisions as to what the best way to proceed is, 
+as I neither have the hardware in question, nor the time to work on it.
 
-It is no problem at all to wrap something like that in a nice function
-call that has the exact same complexity of use as any of the other
-options that are being explored to give something that starts out
-as a filedescriptor a name.
+David Daney
 
->> A filesystem per map makes sense as you have a key-value store with one
->> file per key.
->>
->> The idea is that something resembling your bpf_pin_fd function would be
->> the mount system call for the filesystem.
->>
->> The the keys in the map could be read by "ls /mountpoint/".
->> Key values could be inspected with "cat /mountpoint/key".
 >
-> yes. that is still the goal for follow up patches, but contained
-> within given bpffs. Something bpf_pin_fd-like command for bpf syscall
-> would create files for keys in a map and allow 'cat' via open/read.
-> Such api would be much cleaner from C app point of view.
-> Potentially we can allow mount of a file created via BPF_PIN_FD
-> that will expand into keys/values.
-> All of that are our future plans.
-> There, actually, the main contention point is 'how to represent keys
-> and values'. whether key is hex representation or we need some
-> pretty-printers via format string or via schema? etc, etc.
-> We tried few ideas of representing keys in our fuse implementations,
-> but don't have an agreement yet.
-
-My gut feel would be to keep it simple and use the same representation
-you use in your existing system calls.  Certainly ordinary filenames are
-keys of arbitrary binary data that can included everything except
-a '\0' byte.  That they are human readable is a nice convention, but not
-at all fundamental to what they are.
-
-Eric
+> If phydev->attached_dev->dev->of_node works, that would be my
+> preference.
+>
+>         Andrew
+>
