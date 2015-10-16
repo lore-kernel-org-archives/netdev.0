@@ -1,172 +1,52 @@
-From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
-Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
- in sunrpc
-Date: Fri, 16 Oct 2015 02:28:10 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A028786CB@BPXM09GP.gisp.nec.co.jp>
-References: <17EC94B0A072C34B8DCF0D30AD16044A0287864B@BPXM09GP.gisp.nec.co.jp>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] ip route get: change exit to return to support
+ batch commands
+Date: Thu, 15 Oct 2015 20:38:12 -0600
+Message-ID: <56206314.6020601@cumulusnetworks.com>
+References: <1444947830-19858-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0287864B-9lrffkYxhwTt6d3pZDjeaEtBU8KWyXPq@public.gmane.org>
-Content-Language: ja-JP
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36678 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751855AbbJPCiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 22:38:17 -0400
+Received: by pacfv9 with SMTP id fv9so6977208pac.3
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 19:38:16 -0700 (PDT)
+In-Reply-To: <1444947830-19858-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tatsukawa Kosuke wrote:
-> J. Bruce Fields wrote:
->> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
->>> Tatsukawa Kosuke wrote:
->>> > J. Bruce Fields wrote:
->>> >> Thanks for the detailed investigation.
->>> >> 
->>> >> I think it would be worth adding a comment if that might help someone
->>> >> having to reinvestigate this again some day.
->>> > 
->>> > It would be nice, but I find it difficult to write a comment in the
->>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
->>> > of how nfsd uses it, and the current implementation of the network code.
->>> > 
->>> > Personally, I would prefer removing the call to waitqueue_active() which
->>> > would make the memory barrier totally unnecessary at the cost of a
->>> > spin_lock + spin_unlock by unconditionally calling
->>> > wake_up_interruptible.
->>> 
->>> On second thought, the callbacks will be called frequently from the tcp
->>> code, so it wouldn't be a good idea.
->> 
->> So, I was even considering documenting it like this, if it's not
->> overkill.
->> 
->> Hmm... but if this is right, then we may as well ask why we're doing the
->> wakeups at all.  Might be educational to test the code with them
->> removed.
-> 
-> sk_write_space will be called in sock_wfree() with UDP/IP each time
-> kfree_skb() is called.  With TCP/IP, sk_write_space is only called if
-> SOCK_NOSPACE has been set.
-> 
-> sk_data_ready will be called in both tcp_rcv_established() for TCP/IP
-> and in sock_queue_rcv_skb() for UDP/IP.  The latter lacks a memory
-> barrier with sk_data_ready called right after __skb_queue_tail().
-> I think this hasn't caused any problems because sk_data_ready wasn't
-> used.
+Hi Roopa:
 
-Actually, svc_udp_data_ready() calls set_bit() which is an atomic
-operation.  So there won't be a problem unless svsk is NULL.
+On 10/15/15 4:23 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> replace exit with return -2 on rtnl_talk failure
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>   ip/iproute.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index da25548..b137f55 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -1643,7 +1643,7 @@ static int iproute_get(int argc, char **argv)
+>   		req.r.rtm_family = AF_INET;
+>
+>   	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
+> -		exit(2);
+> +		return -2;
+>
+>   	if (connected && !from_ok) {
+>   		struct rtmsg *r = NLMSG_DATA(&req.n);
+>
 
-
->> --b.
->> 
->> commit 0882cfeb39e0
->> Author: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Date:   Thu Oct 15 16:53:41 2015 -0400
->> 
->>     svcrpc: document lack of some memory barriers.
->>     
->>     Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
->>     here.  I think the code's correct, but it's probably worth documenting.
->>     
->>     Reported-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
->> 
->> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
->> index 856407fa085e..90480993ec4a 100644
->> --- a/net/sunrpc/svcsock.c
->> +++ b/net/sunrpc/svcsock.c
->> @@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
->>  	return svc_port_is_privileged(svc_addr(rqstp));
->>  }
->>  
->> +static void svc_no_smp_mb(void)
->> +{
->> +	/*
->> +	 * Kosuke Tatsukawa points out there should normally be an
->> +	 * smp_mb() at the callsites of this function.  (Either that or
->> +	 * we could just drop the waitqueue_active() checks.)
->> +	 *
->> +	 * It appears they aren't currently necessary, though, basically
->> +	 * because nfsd does non-blocking reads from these sockets, so
->> +	 * the only places we wait on this waitqueue is in sendpage and
->> +	 * sendmsg, which won't be waiting for wakeups on newly arrived
->> +	 * data.
->> +	 *
->> +	 * Maybe we should add the memory barriers anyway, but these are
->> +	 * hot paths so we'd need to be convinced there's no sigificant
->> +	 * penalty.
->> +	 */
->> +}
->> +
->>  /*
->>   * INET callback when data has been received on the socket.
->>   */
->> @@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
->>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
->>  		svc_xprt_enqueue(&svsk->sk_xprt);
->>  	}
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq))
->>  		wake_up_interruptible(wq);
->>  }
->> @@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
->>  		svc_xprt_enqueue(&svsk->sk_xprt);
->>  	}
->>  
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq)) {
->>  		dprintk("RPC svc_write_space: someone sleeping on %p\n",
->>  		       svsk);
->> @@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
->>  	}
->>  
->>  	wq = sk_sleep(sk);
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq))
->>  		wake_up_interruptible_all(wq);
->>  }
->> @@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
->>  		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
->>  		svc_xprt_enqueue(&svsk->sk_xprt);
->>  	}
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq))
->>  		wake_up_interruptible_all(wq);
->>  }
->> @@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
->>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
->>  		svc_xprt_enqueue(&svsk->sk_xprt);
->>  	}
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq))
->>  		wake_up_interruptible(wq);
->>  }
->> @@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
->>  	sk->sk_write_space = svsk->sk_owspace;
->>  
->>  	wq = sk_sleep(sk);
->> -	smp_mb();
->> +	svc_no_smp_mb();
->>  	if (wq && waitqueue_active(wq))
->>  		wake_up_interruptible(wq);
->>  }
----
-Kosuke TATSUKAWA  | 3rd IT Platform Department
-                  | IT Platform Division, NEC Corporation
-                  | tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Why return -2 vs exit(2)? What does the change mean to a user or the 
+functionality of ip?
