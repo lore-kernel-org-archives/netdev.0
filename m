@@ -1,66 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/17] i40e: Add support for non-willing Apps
-Date: Fri, 16 Oct 2015 05:10:18 -0700
-Message-ID: <1444997425-3396-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/17] i40evf: correctly populate vlan_features
+Date: Fri, 16 Oct 2015 05:10:21 -0700
+Message-ID: <1444997425-3396-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Bowers <gregory.j.bowers@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:56709 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:36264 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbbJPMKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:30 -0400
+	id S1753810AbbJPMKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:32 -0400
 In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Bowers <gregory.j.bowers@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Adds support for setting a new bit in the Set Local LLDP MIB AQ command
-Type field.  When set to 1, the bit indicates to FW that Apps should be
-treated as non-willing.  When 0, FW behaves as before.
+The vlan_features field was correctly being set to the same value as the
+netdev features field. However, this was being done before the features
+were actually being set up, leaving the vlan_features empty.
 
-Change-ID: I0d2101c1606c59c7188d3e6a0c7810e0f205233a
-Signed-off-by: Greg Bowers <gregory.j.bowers@intel.com>
+Also, after a reset, vlan_features will be incorrectly assigned the
+previous netdev feature flags, which can contain VLAN feature bits. This
+makes the VLAN code angry and will cause a stack dump.
+
+To fix these issues, set up the netdev features first, then mask out the
+VLAN feature bits when assigning vlan_features.
+
+Change-ID: Ib0548869dc83cf6a841cb8697dd94c12359ba4d2
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h | 7 +++++++
- drivers/net/ethernet/intel/i40e/i40e_type.h       | 2 ++
- 2 files changed, 9 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 02d5225..6584b6c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -2132,6 +2132,13 @@ I40E_CHECK_STRUCT_LEN(0x20, i40e_aqc_get_cee_dcb_cfg_resp);
- struct i40e_aqc_lldp_set_local_mib {
- #define SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT	0
- #define SET_LOCAL_MIB_AC_TYPE_DCBX_MASK	(1 << SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT)
-+#define SET_LOCAL_MIB_AC_TYPE_DCBX_MASK	(1 << \
-+					SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT)
-+#define SET_LOCAL_MIB_AC_TYPE_LOCAL_MIB	0x0
-+#define SET_LOCAL_MIB_AC_TYPE_NON_WILLING_APPS_SHIFT	(1)
-+#define SET_LOCAL_MIB_AC_TYPE_NON_WILLING_APPS_MASK	(1 << \
-+				SET_LOCAL_MIB_AC_TYPE_NON_WILLING_APPS_SHIFT)
-+#define SET_LOCAL_MIB_AC_TYPE_NON_WILLING_APPS		0x1
- 	u8	type;
- 	u8	reserved0;
- 	__le16	length;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 6f69576..9c4a457 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -475,6 +475,8 @@ struct i40e_dcbx_config {
- 	u8  dcbx_mode;
- #define I40E_DCBX_MODE_CEE	0x1
- #define I40E_DCBX_MODE_IEEE	0x2
-+	u8  app_mode;
-+#define I40E_DCBX_APPS_NON_WILLING	0x1
- 	u32 numapps;
- 	u32 tlv_status; /* CEE mode TLV status */
- 	struct i40e_dcb_ets_config etscfg;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 139801f..46af35f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2123,7 +2123,10 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 
+ 	if (adapter->vf_res->vf_offload_flags
+ 	    & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
+-		netdev->vlan_features = netdev->features;
++		netdev->vlan_features = netdev->features &
++					~(NETIF_F_HW_VLAN_CTAG_TX |
++					  NETIF_F_HW_VLAN_CTAG_RX |
++					  NETIF_F_HW_VLAN_CTAG_FILTER);
+ 		netdev->features |= NETIF_F_HW_VLAN_CTAG_TX |
+ 				    NETIF_F_HW_VLAN_CTAG_RX |
+ 				    NETIF_F_HW_VLAN_CTAG_FILTER;
 -- 
 2.4.3
