@@ -1,70 +1,49 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next 1/4] net_sched: introduce qdisc_replace() helper
-Date: Fri, 16 Oct 2015 07:51:45 -0400
-Message-ID: <5620E4D1.60403@mojatatu.com>
-References: <1444675083-9825-1-git-send-email-xiyou.wangcong@gmail.com>
- <1444675083-9825-2-git-send-email-xiyou.wangcong@gmail.com>
- <561E42DC.2080502@mojatatu.com>
- <CAM_iQpXyjg+d7idQBfmwX7PQgC5upaTC9327wPjMFVNNn=EAkQ@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] ipv6: no addrconf for slave devices
+Date: Fri, 16 Oct 2015 13:54:58 +0200
+Message-ID: <20151016115457.GE2194@nanopsycho.orion>
+References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35515 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbbJPLvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 07:51:48 -0400
-Received: by iofl186 with SMTP id l186so121156976iof.2
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 04:51:47 -0700 (PDT)
-In-Reply-To: <CAM_iQpXyjg+d7idQBfmwX7PQgC5upaTC9327wPjMFVNNn=EAkQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fubar@us.ibm.com
+To: Jan Blunck <jblunck@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/15/15 00:15, Cong Wang wrote:
-> On Wed, Oct 14, 2015 at 4:56 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 10/12/15 14:38, Cong Wang wrote:
->>>
->>> Remove nearly duplicated code and prepare for the following patch.
->>>
->>
->>
->> Cong - like Dave, I dont see equivalence in some of these
->> changes.
->> Example not sure how the qfq grafting invocation of
->> qfq_purge_queue fits in. There are a few others.
+Fri, Oct 16, 2015 at 12:21:51PM CEST, jblunck@infradead.org wrote:
+>If a device without the IFF_SLAVE flag set (e.g. team, bridge, openvswitch
+>vport, batman) is enslaved and IPv6 is active then addrconf will be
+>initiated and a link-local address is added to the slave interface.
 >
-> drr_purge_queue() and qfq_purge_queue() are both
-> qdisc_reset() + qdisc_tree_decrease_qlen():
+>This patch alters the behavior so that addrconf will only run on the master
+>device itself. This is achieved by checking the device tree instead of
+>checking for a specific flag.
 >
+>Signed-off-by: Jan Blunck <jblunck@infradead.org>
+>---
+> net/ipv6/addrconf.c | 6 +++++-
+> 1 file changed, 5 insertions(+), 1 deletion(-)
 >
-> static void drr_purge_queue(struct drr_class *cl)
-> {
->          unsigned int len = cl->qdisc->q.qlen;
->
->          qdisc_reset(cl->qdisc);
->          qdisc_tree_decrease_qlen(cl->qdisc, len);
-> }
->
-> static void qfq_purge_queue(struct qfq_class *cl)
-> {
->          unsigned int len = cl->qdisc->q.qlen;
->
->          qdisc_reset(cl->qdisc);
->          qdisc_tree_decrease_qlen(cl->qdisc, len);
-> }
->
-> Or you mean the order of calling them??
->
+>diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>index 9001133..26d61f0 100644
+>--- a/net/ipv6/addrconf.c
+>+++ b/net/ipv6/addrconf.c
+>@@ -3141,8 +3141,12 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+> 
+> 	case NETDEV_UP:
+> 	case NETDEV_CHANGE:
+>-		if (dev->flags & IFF_SLAVE)
+>+		/* If a master is set stop IPv6 on this interface */
+>+		if (netdev_master_upper_dev_get(dev)) {
+>+			if (idev)
+>+				addrconf_ifdown(dev, 1);
 
-I dont think the order is as important (although the way you have
-it seems to be the sanest).
+This breaks teamd if it's using NS/NA ping link-watch on link-local addresses.
 
-Thanks for clarifying Cong. I took a closer look and
-all looks good.
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+What is the reason for this patch? Does it recolve any issue you are
+having?
