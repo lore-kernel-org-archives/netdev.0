@@ -1,73 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/17] i40evf: Add support for netpoll
-Date: Fri, 16 Oct 2015 05:10:11 -0700
-Message-ID: <1444997425-3396-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/17] i40e: generate fewer startup messages
+Date: Fri, 16 Oct 2015 05:10:13 -0700
+Message-ID: <1444997425-3396-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:64539 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754110AbbJPMKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:39 -0400
+	id S1754132AbbJPMKk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:40 -0400
 In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Cut down on the number of startup log entries by putting a couple behind
+debug flags and combining a couple others into a single line.
+
+Change-ID: I708089f086308f84d43f8b6f0e8a634a02d058fb
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 26 +++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 20 ++++++++++++--------
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c     |  4 ++--
+ 4 files changed, 17 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 429a46c..139801f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -444,6 +444,29 @@ out:
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/**
-+ * i40evf_netpoll - A Polling 'interrupt' handler
-+ * @netdev: network interface device structure
-+ *
-+ * This is used by netconsole to send skbs without having to re-enable
-+ * interrupts.  It's not called while the normal interrupt routine is executing.
-+ **/
-+static void i40evf_netpoll(struct net_device *netdev)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	int q_vectors = adapter->num_msix_vectors - NONQ_VECS;
-+	int i;
-+
-+	/* if interface is down do nothing */
-+	if (test_bit(__I40E_DOWN, &adapter->vsi.state))
-+		return;
-+
-+	for (i = 0; i < q_vectors; i++)
-+		i40evf_msix_clean_rings(0, adapter->q_vector[i]);
-+}
-+
-+#endif
- /**
-  * i40evf_request_traffic_irqs - Initialize MSI-X interrupts
-  * @adapter: board private structure
-@@ -2049,6 +2072,9 @@ static const struct net_device_ops i40evf_netdev_ops = {
- 	.ndo_tx_timeout		= i40evf_tx_timeout,
- 	.ndo_vlan_rx_add_vid	= i40evf_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= i40evf_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= i40evf_netpoll,
-+#endif
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 91f8cbf..7aaead3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -582,10 +582,10 @@ struct i40e_device {
  };
  
  /**
+- * i40e_fw_version_str - format the FW and NVM version strings
++ * i40e_nvm_version_str - format the NVM version strings
+  * @hw: ptr to the hardware info
+  **/
+-static inline char *i40e_fw_version_str(struct i40e_hw *hw)
++static inline char *i40e_nvm_version_str(struct i40e_hw *hw)
+ {
+ 	static char buf[32];
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e7fd84c..e994f4a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1122,7 +1122,7 @@ static void i40e_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->driver, i40e_driver_name, sizeof(drvinfo->driver));
+ 	strlcpy(drvinfo->version, i40e_driver_version_str,
+ 		sizeof(drvinfo->version));
+-	strlcpy(drvinfo->fw_version, i40e_fw_version_str(&pf->hw),
++	strlcpy(drvinfo->fw_version, i40e_nvm_version_str(&pf->hw),
+ 		sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(pf->pdev),
+ 		sizeof(drvinfo->bus_info));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 389f110..d731095 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6218,8 +6218,9 @@ static void i40e_config_bridge_mode(struct i40e_veb *veb)
+ {
+ 	struct i40e_pf *pf = veb->pf;
+ 
+-	dev_info(&pf->pdev->dev, "enabling bridge mode: %s\n",
+-		 veb->bridge_mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
++	if (pf->hw.debug_mask & I40E_DEBUG_LAN)
++		dev_info(&pf->pdev->dev, "enabling bridge mode: %s\n",
++			 veb->bridge_mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
+ 	if (veb->bridge_mode & BRIDGE_MODE_VEPA)
+ 		i40e_disable_pf_switch_lb(pf);
+ 	else
+@@ -9923,6 +9924,10 @@ static void i40e_print_features(struct i40e_pf *pf)
+ 	if (pf->flags & I40E_FLAG_FCOE_ENABLED)
+ 		buf += sprintf(buf, "FCOE ");
+ #endif
++	if (pf->flags & I40E_FLAG_VEB_MODE_ENABLED)
++		buf += sprintf(buf, "VEB ");
++	else
++		buf += sprintf(buf, "VEPA ");
+ 
+ 	BUG_ON(buf > (string + INFO_STRING_LEN));
+ 	dev_info(&pf->pdev->dev, "%s\n", string);
+@@ -10062,13 +10067,12 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	pf->hw.fc.requested_mode = I40E_FC_NONE;
+ 
+ 	err = i40e_init_adminq(hw);
+-	dev_info(&pdev->dev, "%s\n", i40e_fw_version_str(hw));
+ 
+-	/* provide additional fw info, like api and ver */
+-	dev_info(&pdev->dev, "fw_version:%d.%d.%05d\n",
+-		 hw->aq.fw_maj_ver, hw->aq.fw_min_ver, hw->aq.fw_build);
+-	dev_info(&pdev->dev, "fw api version:%d.%d\n",
+-		 hw->aq.api_maj_ver, hw->aq.api_min_ver);
++	/* provide nvm, fw, api versions */
++	dev_info(&pdev->dev, "fw %d.%d.%05d api %d.%d nvm %s\n",
++		 hw->aq.fw_maj_ver, hw->aq.fw_min_ver, hw->aq.fw_build,
++		 hw->aq.api_maj_ver, hw->aq.api_min_ver,
++		 i40e_nvm_version_str(hw));
+ 
+ 	if (err) {
+ 		dev_info(&pdev->dev,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 552c84e..565ca7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -674,8 +674,8 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		struct timespec64 ts;
+ 		u32 regval;
+ 
+-		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
+-			 netdev->name);
++		if (pf->hw.debug_mask & I40E_DEBUG_LAN)
++			dev_info(&pf->pdev->dev, "PHC enabled\n");
+ 		pf->flags |= I40E_FLAG_PTP;
+ 
+ 		/* Ensure the clocks are running. */
 -- 
 2.4.3
