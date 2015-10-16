@@ -1,126 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/17][pull request] Intel Wired LAN Driver Updates 2015-10-16
-Date: Fri, 16 Oct 2015 05:10:08 -0700
-Message-ID: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next v2 17/17] i40e/i40evf: Bump i40e to 1.3.34 and i40evf to 1.3.21
+Date: Fri, 16 Oct 2015 05:10:25 -0700
+Message-ID: <1444997425-3396-18-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64539 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:58321 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753865AbbJPMKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 08:10:38 -0400
+	id S1753636AbbJPMKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 08:10:33 -0400
+In-Reply-To: <1444997425-3396-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000, e1000e, igb, igbvf, ixgbe, ixgbevf,
-i40e, i40evf and fm10k.
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Alex Duyck fixes the polling routine for i40e/i40evf were the NAPI budget
-for receive cleanup was being rounded up to 1 but the netpoll call was
-expecting no Rx to be processed as the budget passed was 0.  Also cleaned
-up IN_NETPOLL flag that was not adding any value due to the receive
-cleanup was handled in NAPI.  Added support for netpoll for i40evf as
-well.
+Bump.
 
-Jesse updates all of our drivers to use napi_complete_done() instead of
-napi_complete(), which allows us to use
-/sys/class/net/ethX/gro_flush_timeout.  Added ethtool support to control
-and report the new Interrupt Limit register, since the XL710 hardware
-has a different interrupt moderation design that can support a limit of
-total interrupts per second per vector.
+Change-ID: I7ec818a507554648675b9b245ced9e6b6bd9ed4e
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Shannon cleans up startup log entries to cut down the number by putting
-a couple behind debug flags and combining others into single line.  Added
-support to enable/disable printing VEB statistics via ethtool.
-
-Jingjing fixes a compile issue by adding const to functions that return
-strings that are not going to be modified.
-
-Greg Rose cleans up defines that were not used and were causing customer
-confusion.
-
-Greg Bowers adds support for setting a new bit in the Set Local LLDP MIB
-admin queue command Type field.
-
-Mitch fixes an issue where vlan_features field was set to the same value
-as netdev features field, but before the features were actually being
-set up, leaving the vlan_features empty.  Resolve the issue by setting
-up the netdev features first, then mask out the VLAN feature bits when
-assigning vlan_features.  Fixed VF init timing, where in some instances
-the VFs would fail to initialize the first time you loaded the driver.
-To correct this, increased the delay time for the init task and wait
-longer before giving up.
-
-v2: fix missing space in function header comment in patch 3, based on
-    feedback from Sergei Shtylyov.
-
-The following are changes since commit 51161aa98d0aa4eb20952e16d6c6dbb1d085330e:
-  net: Fix suspicious RCU usage in fib_rebalance
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Alexander Duyck (3):
-  i40e/i40evf: Fix handling of napi budget
-  i40e/i40evf: Drop useless "IN_NETPOLL" flag
-  i40evf: Add support for netpoll
-
-Catherine Sullivan (2):
-  i40e: Recognize 1000Base_T_Optical phy type when link is up
-  i40e/i40evf: Bump i40e to 1.3.34 and i40evf to 1.3.21
-
-Greg Bowers (1):
-  i40e: Add support for non-willing Apps
-
-Greg Rose (1):
-  i40e: Removed unused defines
-
-Jesse Brandeburg (2):
-  drivers/net/intel: use napi_complete_done()
-  i40e/i40evf: moderate interrupts differently
-
-Jingjing Wu (2):
-  i40e/i40evf: Fix compile issue related to const string
-  i40e: reset the invalid msg counter in vf when a valid msg is received
-
-Mitch Williams (3):
-  i40evf: correctly populate vlan_features
-  i40evf: relax and stagger init timing a bit
-  i40e: increase AQ work limit
-
-Shannon Nelson (3):
-  i40e: generate fewer startup messages
-  i40e: remove read/write failed messages from nvmupdate
-  i40e: priv flag for controlling VEB stats
-
- drivers/net/ethernet/intel/e1000/e1000_main.c      |  2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c         |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_main.c      | 21 ++++++----
- drivers/net/ethernet/intel/i40e/i40e.h             |  9 ++--
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  7 ++++
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 49 ++++++++++++++++++----
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 34 ++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 20 +++++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 10 +++++
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  2 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  2 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  5 +--
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  4 +-
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  4 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 20 +++++----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      | 10 +++++
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  4 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 37 ++++++++++++++--
- drivers/net/ethernet/intel/igb/igb_main.c          | 17 +++++---
- drivers/net/ethernet/intel/igbvf/netdev.c          |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 14 ++++---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 14 ++++---
- 26 files changed, 211 insertions(+), 92 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 722b0a1..87a5d09 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 28
++#define DRV_VERSION_BUILD 34
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 4f3d571..4c4340c 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "1.3.19"
++#define DRV_VERSION "1.3.21"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2015 Intel Corporation.";
 -- 
 2.4.3
