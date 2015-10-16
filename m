@@ -1,52 +1,50 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] ip route get: change exit to return to support
- batch commands
-Date: Thu, 15 Oct 2015 20:38:12 -0600
-Message-ID: <56206314.6020601@cumulusnetworks.com>
-References: <1444947830-19858-1-git-send-email-roopa@cumulusnetworks.com>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Thu, 15 Oct 2015 21:32:18 -0500
+Message-ID: <alpine.DEB.2.02.1510152102280.22844@linux-builds1>
+References: <561FF9E2.30102@opensource.altera.com> <56200687.9040903@gmail.com> <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com>
+ <56201AE7.2020103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36678 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751855AbbJPCiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2015 22:38:17 -0400
-Received: by pacfv9 with SMTP id fv9so6977208pac.3
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2015 19:38:16 -0700 (PDT)
-In-Reply-To: <1444947830-19858-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56201AE7.2020103@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Roopa:
+On Thu, 15 Oct 2015, Florian Fainelli wrote:
 
-On 10/15/15 4:23 PM, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> replace exit with return -2 on rtnl_talk failure
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->   ip/iproute.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index da25548..b137f55 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -1643,7 +1643,7 @@ static int iproute_get(int argc, char **argv)
->   		req.r.rtm_family = AF_INET;
->
->   	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
-> -		exit(2);
-> +		return -2;
->
->   	if (connected && !from_ok) {
->   		struct rtmsg *r = NLMSG_DATA(&req.n);
+> On 15/10/15 13:49, Dinh Nguyen wrote:
+> >>
+> >> Does this text change with and without the 8b63ec1837fa patch?
+> > 
+> > No, this text does not change with/without the 8b63ec1837fa patch.
+> 
+> Could you instrument mdiobus_scan(), get_phy_device() and
+> phy_device_create/register to see if the parent is NULL, non-NULL?
 >
 
-Why return -2 vs exit(2)? What does the change mean to a user or the 
-functionality of ip?
+Yes, I can do that.
+ 
+> So far, I cannot see what is wrong with David's changes, quite the
+> contrary, and if there was something wrong with the PHY device creation,
+> it should not get you that far.
+> 
+> You have not answered my previous question though, do you have PHY
+> fixups registered for that ID?
+
+By fixups, do you mean the skew values that are in the device tree?
+Those are the only fixups that I have the PHY.
+
+Another debugging point, the SoCFPGA board has a Micrel ksz9021 PHY attached
+to the ethernet port. What I'm seeing is that with 8b63ec1837fa patch, when
+the call to ksz9021_config_init() is made both of_node and dev->parent->of_node
+are NULL, without the patch the dev->parent->of_node is a valid pointer. Thus
+the skew values get programmed to the phy.
+
+BR,
+Dinh
