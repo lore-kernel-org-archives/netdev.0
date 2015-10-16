@@ -1,37 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 18:44:01 -0500
-Message-ID: <87mvviidku.fsf@x220.int.ebiederm.org>
-References: <cover.1444956943.git.daniel@iogearbox.net>
-	<ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
-	<1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
-	<5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
-	<87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
-	<87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC
+ device
+Date: Sat, 17 Oct 2015 01:54:08 +0200
+Message-ID: <20151016235408.GB28795@lunn.ch>
+References: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
+ <5621890E.8090704@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42423 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201AbbJPXyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 19:54:08 -0400
-In-Reply-To: <5621649A.80403@plumgrid.com> (Alexei Starovoitov's message of
-	"Fri, 16 Oct 2015 13:56:58 -0700")
+Received: from vps0.lunn.ch ([178.209.37.122]:42080 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751815AbbJPXyK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 19:54:10 -0400
+Content-Disposition: inline
+In-Reply-To: <5621890E.8090704@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexei Starovoitov <ast@plumgrid.com> writes:
+On Sat, Oct 17, 2015 at 02:32:30AM +0300, Sergei Shtylyov wrote:
+> On 10/16/2015 11:49 PM, Andrew Lunn wrote:
+> 
+> >Commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+> >the bus' parent." broke finding PHY properties in the MAC device tree
+> 
+>    You probably forgot to run checkpatch.pl on this patch, else it
+> would have complained about the commit citing style. It's <12-bit
+> SHA1> ("<summary line>").
 
-> We can argue about api for 2nd, whether it's mount with fd=1234 string
-> or else, but for the first mount style doesn't make sense.
+Actual, i did, and decided to ignore it. I'm quoting the regression
+report, which formats it that way. However i did deliberately use the
+correct format for the fixes: line, where it actually matters.
 
-Why does mount not make sense?  It is exactly what you are looking for
-so why does it not make sense?
+checkpatch is just a guide, not a rigid rule.
 
-Eric
+	   Andrew
