@@ -1,20 +1,23 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH iproute2] ip-address: fix oneline mode for interfaces with VF
-Date: Fri, 16 Oct 2015 12:34:05 +0200
-Message-ID: <1444991645-32062-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Phil@nwl.cc, "Sutter <phil"@nwl.cc
+Subject: [PATCH v2 iproute2] ip-address: fix oneline mode for interfaces with VF
+Date: Fri, 16 Oct 2015 12:38:33 +0200
+Message-ID: <1444991913-32225-1-git-send-email-phil@nwl.cc>
+References: <1444991645-32062-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:51088 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:51712 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753828AbbJPKeH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 06:34:07 -0400
+	id S1753839AbbJPKif (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 06:38:35 -0400
+In-Reply-To: <1444991645-32062-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changed since v1: Fix commit message - typo in From: header confused
+                  git-send-email.
 ---
  ip/ipaddress.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
