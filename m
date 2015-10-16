@@ -1,45 +1,54 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 19:56:49 +0200
-Message-ID: <56213A61.40509@iogearbox.net>
-References: <cover.1444956943.git.daniel@iogearbox.net> <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net> <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com> <5621371C.2000507@plumgrid.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: hix5hd2_gmac: avoid integer overload warning
+Date: Fri, 16 Oct 2015 11:04:14 -0700
+Message-ID: <1445018654.22921.41.camel@perches.com>
+References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
+	 <4752736.dePgPCNd9q@wuerfel>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBB97A6@AcuExch.aculab.com>
+	 <9667302.4m5v3ViVSt@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, ebiederm@xmission.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net
+Cc: David Laight <David.Laight@aculab.com>,
+	huangdaode <huangdaode@hisilicon.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+	"Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxarm@huawei.com" <linuxarm@huawei.com>,
+	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+	"kenneth-lee-2012@foxmail.com" <kenneth-lee-2012@foxmail.com>,
+	"xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+	"lisheng011@huawei.com" <lisheng011@huawei.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"lipeng321@huawei.com" <lipeng321@huawei.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5621371C.2000507@plumgrid.com>
+In-Reply-To: <9667302.4m5v3ViVSt@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/16/2015 07:42 PM, Alexei Starovoitov wrote:
-> On 10/16/15 10:21 AM, Hannes Frederic Sowa wrote:
->> Another question:
->> Should multiple mount of the filesystem result in an empty fs (a new
->> instance) or in one were one can see other ebpf-fs entities? I think
->> Daniel wanted to already use the mountpoint as some kind of hierarchy
->> delimiter. I would have used directories for that and multiple mounts
->> would then have resulted in the same content of the filesystem. IMHO
->> this would remove some ambiguity but then the question arises how this
->> is handled in a namespaced environment. Was there some specific reason
->> to do so?
->
-> That's an interesting question!
-> I think all mounts should be independent.
-> I can see tracing using one and networking using another one
-> with different hierarchies suitable for their own use cases.
-> What's an advantage to have the same content everywhere?
-> Feels harder to manage, since different users would need to
-> coordinate.
+On Fri, 2015-10-16 at 13:28 +0200, Arnd Bergmann wrote:
+> On Friday 16 October 2015 11:14:44 David Laight wrote:
+> > From: Arnd Bergmann
+> > > Sent: 16 October 2015 11:01
+> > > BITS_RX_EN is an 'unsigned long' constant, so the ones complement of that
+> > > has bits set that do not fit into a 32-bit variable on 64-bit architectures,
+> > > which causes a harmless gcc warning:
+> > ...
+> > >  static void hix5hd2_port_disable(struct hix5hd2_priv *priv)
+> > >  {
+> > > -     writel_relaxed(~(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
+> > > +     writel_relaxed(~(u32)(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
+> > >       writel_relaxed(0, priv->base + DESC_WR_RD_ENA);
+> > 
+> > ISTM that just means that the constants shouldn't be 'long'.
+> 
+> Right, but that would probably mean changing the BIT() macro or not using it
+> here. In the past I've argued against using that macro, but I've given
+> up that fight.
 
-I initially had it as a mount_single() file system, where I was thinking
-to have an entry under /sys/fs/bpf/, so all subsystems would work on top
-of that mount point, but for the same reasons above I lifted that restriction.
+Fight on... (Somebody must have gone to USC here)
 
-Cheers,
-Daniel
+There might be value in a BIT_U32 macro.
+Maybe BIT_U64 too.
