@@ -1,57 +1,97 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 0/9] netlink: strict attribute checking
- option
-Date: Fri, 16 Oct 2015 09:57:33 -0600
-Message-ID: <56211E6D.4070507@cumulusnetworks.com>
-References: <cover.1444926905.git.jbenc@redhat.com>
- <20151015.235007.973370825335101214.davem@davemloft.net>
- <20151016093945.54a6a7aa@griffin>
- <20151016.010644.2090038835491896678.davem@davemloft.net>
- <20151016100221.6fd5034f@griffin>
+From: Jan Blunck <jblunck@infradead.org>
+Subject: Re: [PATCH] ipv6: no addrconf for slave devices
+Date: Fri, 16 Oct 2015 17:57:44 +0200
+Message-ID: <CALe+Z02xUZEeRMBfTneJaGFH0TQFoQt9WcJ67ogbQwXEs6p8Ew@mail.gmail.com>
+References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
+	<20151016115457.GE2194@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: Jiri Benc <jbenc@redhat.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, fubar@us.ibm.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35933 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932677AbbJPP5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 11:57:36 -0400
-Received: by pacfv9 with SMTP id fv9so26377688pac.3
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 08:57:35 -0700 (PDT)
-In-Reply-To: <20151016100221.6fd5034f@griffin>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35751 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754033AbbJPP5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 11:57:46 -0400
+In-Reply-To: <20151016115457.GE2194@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/15 2:02 AM, Jiri Benc wrote:
-> On Fri, 16 Oct 2015 01:06:44 -0700 (PDT), David Miller wrote:
->> No, it's definitely not OK, because lwtunnel support exists in
->> Linus's tree.
+On Fri, Oct 16, 2015 at 1:54 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Oct 16, 2015 at 12:21:51PM CEST, jblunck@infradead.org wrote:
+>>If a device without the IFF_SLAVE flag set (e.g. team, bridge, openvswitch
+>>vport, batman) is enslaved and IPv6 is active then addrconf will be
+>>initiated and a link-local address is added to the slave interface.
 >>
->> And tools should be able to work on all kernels where lwtunnel support
->> is available.
+>>This patch alters the behavior so that addrconf will only run on the master
+>>device itself. This is achieved by checking the device tree instead of
+>>checking for a specific flag.
+>>
+>>Signed-off-by: Jan Blunck <jblunck@infradead.org>
+>>---
+>> net/ipv6/addrconf.c | 6 +++++-
+>> 1 file changed, 5 insertions(+), 1 deletion(-)
+>>
+>>diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>index 9001133..26d61f0 100644
+>>--- a/net/ipv6/addrconf.c
+>>+++ b/net/ipv6/addrconf.c
+>>@@ -3141,8 +3141,12 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>>
+>>       case NETDEV_UP:
+>>       case NETDEV_CHANGE:
+>>-              if (dev->flags & IFF_SLAVE)
+>>+              /* If a master is set stop IPv6 on this interface */
+>>+              if (netdev_master_upper_dev_get(dev)) {
+>>+                      if (idev)
+>>+                              addrconf_ifdown(dev, 1);
 >
-> You can consider the lwtunnels feature as not finished in the current
-> Linus's tree. It works, it won't change (thus anything using it in its
-> current form will continue to work in all the future kernels), but
-> mainstream tools won't make use of it until a kernel version later
-> which will get some additional support.
+> This breaks teamd if it's using NS/NA ping link-watch on link-local addresses.
 >
-> I don't think it's much of a problem and I don't think it is the first
-> time this would happen.
->
-> I'm afraid I don't have any solution that could do better.
+> What is the reason for this patch? Does it recolve any issue you are
+> having?
 
-What about a flag that requests the version from the relevant kernel 
-subsystem?
+I don't think that enslaved ports should get network layer addresses.
+This is one example with a team device:
 
-Generate the same initial netlink message -- e.g., type set to 
-RTM_NEWROUTE for example -- but with no attributes and the NLM_F_VERSION 
-flag set. Send the message using whatever socket protocol is relevant 
-for the command/query.
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+master team0 state UP group default qlen 1000
+    link/ether 52:54:00:ef:5f:a1 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::5054:ff:feef:5fa1/64 scope link
+       valid_lft forever preferred_lft forever
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+master team0 state UP group default qlen 1000
+    link/ether 52:54:00:ef:5f:a1 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::5054:ff:feef:5fa1/64 scope link
+       valid_lft forever preferred_lft forever
+6: team0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+state UP group default
+    link/ether 52:54:00:ef:5f:a1 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::5054:ff:feef:5fa1/64 scope link
+       valid_lft forever preferred_lft forever
 
-Then kernel side the message makes its way to the relevant handler, the 
-handler sees the flag asking for version and responds with its version. 
-The version would be local to the handler and is a means for telling 
-userspace what attributes it understands.
+All link-layer addresses are identical due to the fact that the link
+aggregation group is syncing the MAC addresses. Having the IPv6
+link-local address set in this case is pretty useless. The partner
+device is unable to differentiate if the port is addressed or the team
+device. Even if the addrconf started before the device was enslaved
+(and therefore at least one port got a different IPv6 link-local
+address than the link aggregation group) the partner device usually
+learns the address for the aggregated link.
+
+For LACP the standard states that one port should only bind to at most
+one aggregator. The additional IPv6 link-local address allows the port
+to be used by another stack besides the aggregator. Besides that, the
+distribution of any user traffic (e.g. ICMPv6) is forbidden in LACP
+before the partner aggregator signals being ready. So having the
+link-local traffic on the wire is clearly a violation of that.
+
+In other cases like openvswitch the link-local address is added to the
+system but it is not usable since the bridge port stays in state
+UNKNOWN.
+
+Regards,
+Jan
