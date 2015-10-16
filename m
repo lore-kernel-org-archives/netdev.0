@@ -1,39 +1,66 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v2 iproute2] ip-address: fix oneline mode for interfaces with VF
-Date: Fri, 16 Oct 2015 12:38:33 +0200
-Message-ID: <1444991913-32225-1-git-send-email-phil@nwl.cc>
-References: <1444991645-32062-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:51712 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753839AbbJPKif (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2015 06:38:35 -0400
-In-Reply-To: <1444991645-32062-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 1/1] xen-netfront: update num_queues to real created
+Date: Fri, 16 Oct 2015 11:56:57 +0100
+Message-ID: <20151016105657.GN32638@zion.uk.xensource.com>
+References: <561F10A7.80305@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>, Ian Campbell <ian.campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	<stable@vger.kernel.org>, David Vrabel <david.vrabel@citrix.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <561F10A7.80305@oracle.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-Changed since v1: Fix commit message - typo in From: header confused
-                  git-send-email.
----
- ip/ipaddress.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+CC David and Boris (Konrad was already a recipient).
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index e864ca6..f290205 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -345,7 +345,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	} else
- 		vf_linkstate = NULL;
- 
--	fprintf(fp, "\n    vf %d MAC %s", vf_mac->vf,
-+	fprintf(fp, "%s    vf %d MAC %s", _SL_, vf_mac->vf,
- 		ll_addr_n2a((unsigned char *)&vf_mac->mac,
- 		ETH_ALEN, 0, b1, sizeof(b1)));
- 	if (vf_vlan->vlan)
--- 
-2.5.0
+On Thu, Oct 15, 2015 at 10:34:15AM +0800, Joe Jin wrote:
+> Sometimes xennet_create_queues() may failed to created all requested
+> queues, we need to update num_queues to real created to avoid NULL
+> pointer dereference.
+> 
+> Signed-off-by: Joe Jin <joe.jin@oracle.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/xen-netfront.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index f821a97..d580aec 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1746,7 +1746,7 @@ static int xennet_create_queues(struct netfront_info *info,
+>  		dev_err(&info->netdev->dev, "no queues\n");
+>  		return -EINVAL;
+>  	}
+> -	return 0;
+> +	return num_queues;
+>  }
+>  
+>  /* Common code used when first setting up, and when resuming. */
+> @@ -1788,9 +1788,12 @@ static int talk_to_netback(struct xenbus_device *dev,
+>  	if (info->queues)
+>  		xennet_destroy_queues(info);
+>  
+> -	err = xennet_create_queues(info, num_queues);
+> -	if (err < 0)
+> +	/* Update queues number to real created */
+> +	num_queues = xennet_create_queues(info, num_queues);
+> +	if (num_queues < 0) {
+> +		err = num_queues;
+>  		goto destroy_ring;
+> +	}
+>  
+>  	/* Create shared ring, alloc event channel -- for each queue */
+>  	for (i = 0; i < num_queues; ++i) {
+> -- 
+> 1.7.1
