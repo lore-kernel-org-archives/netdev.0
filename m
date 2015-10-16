@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] ipv6: Initialize rt6_info properly in
- ip6_blackhole_route()
-Date: Fri, 16 Oct 2015 00:39:47 -0700 (PDT)
-Message-ID: <20151016.003947.1166514608710189826.davem@davemloft.net>
-References: <1444952398-1505791-1-git-send-email-kafai@fb.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2] ip monitor neigh: Change 'delete' to 'Deleted'
+ to be consistent with ip route
+Date: Fri, 16 Oct 2015 09:18:59 +0200
+Message-ID: <5620A4E3.1000202@6wind.com>
+References: <1444934863-12704-1-git-send-email-roopa@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: kafai@fb.com
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51767 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222AbbJPHXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 03:23:39 -0400
-In-Reply-To: <1444952398-1505791-1-git-send-email-kafai@fb.com>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:34266 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753602AbbJPHTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 03:19:03 -0400
+Received: by lfaz124 with SMTP id z124so72247259lfa.1
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 00:19:01 -0700 (PDT)
+In-Reply-To: <1444934863-12704-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Thu, 15 Oct 2015 16:39:56 -0700
+Le 15/10/2015 20:47, Roopa Prabhu a =C3=A9crit :
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> It helps to grep for one string "Deleted" when monitoring all events.
+>
+> Fixes: 6ea3ebafe077 ("iproute2: inform user when a neighbor is remove=
+d")
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-> This patchset ensures the rt6_info's fields are initialized properly
-> in ip6_blackhole_route() where xfrm_policy is the primarily user.
-> The first patch is a prep work.  The second patch is the fix.  It
-> fixes d52d3997f843 ("ipv6: Create percpu rt6_info").
-> 
-> Here is the oops reported by Phil Sutter <phil@nwl.cc>:
- ...
-
-Applied and queued up for -stable, thanks Martin.
+> ---
+> I am not sure if it is too late for this change. But, sending this pa=
+tch
+> out because it only affects ip monitor output
+Seems reasonable to me, but I let Stephen speaking at this.
