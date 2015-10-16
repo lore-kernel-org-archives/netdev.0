@@ -1,140 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 18:36:48 +0200
-Message-ID: <1445013408.2943971.412165665.3C995178@webmail.messagingengine.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
- <1444991103.2861759.411876897.42C807BD@webmail.messagingengine.com>
- <5620FD52.2060103@iogearbox.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] netfilter: turn NF_HOOK into an inline function
+Date: Fri, 16 Oct 2015 18:45:27 +0200
+Message-ID: <20151016164527.GA3601@salvia>
+References: <7665226.mEs2QJDTOT@wuerfel>
+ <87zizryjzs.fsf@x220.int.ebiederm.org>
+ <5713169.GvahoqQ9XY@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
-	tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5620FD52.2060103@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35077 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754186AbbJPQiY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 12:38:24 -0400
+Content-Disposition: inline
+In-Reply-To: <5713169.GvahoqQ9XY@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 16, 2015, at 15:36, Daniel Borkmann wrote:
-> On 10/16/2015 12:25 PM, Hannes Frederic Sowa wrote:
-> > On Fri, Oct 16, 2015, at 03:09, Daniel Borkmann wrote:
-> >> This eventually leads us to this patch, which implements a minimal
-> >> eBPF file system. The idea is a bit similar, but to the point that
-> >> these inodes reside at one or multiple mount points. A directory
-> >> hierarchy can be tailored to a specific application use-case from the
-> >> various subsystem users and maps/progs pinned inside it. Two new eBPF
-> >> commands (BPF_PIN_FD, BPF_NEW_FD) have been added to the syscall in
-> >> order to create one or multiple special inodes from an existing file
-> >> descriptor that points to a map/program (we call it eBPF fd pinning),
-> >> or to create a new file descriptor from an existing special inode.
-> >> BPF_PIN_FD requires CAP_SYS_ADMIN capabilities, whereas BPF_NEW_FD
-> >> can also be done unpriviledged when having appropriate permissions
-> >> to the path.
-> >
-> > In my opinion this is very un-unixiy, I have to say at least.
-> >
-> > Namespaces at some point dealt with the same problem, they nowadays use
-> > bind mounts of /proc/$$/ns/* to some place in the file hierarchy to keep
-> > the namespace alive. This at least allows someone to build up its own
-> > hierarchy with normal unix tools and not hidden inside a C-program. For
-> > filedescriptors we already have /proc/$$/fd/* but it seems that doesn't
-> > work out of the box nowadays.
+On Fri, Oct 09, 2015 at 08:45:42PM +0200, Arnd Bergmann wrote:
+> A recent change to the dst_output handling caused a new warning
+> when the call to NF_HOOK() is the only used of a local variable
+> passed as 'dev', and CONFIG_NETFILTER is disabled:
 > 
-> Yes, that doesn't work out of the box, but I also don't know how usable
-> that would really be. The idea is roughly rather similar to the paths
-> passed to bind(2)/connect(2) on Unix domain sockets, as mentioned. You
-> have a map/prog resource that you stick to a special inode so that you
-> can retrieve it at a later point in time from the same or different
-> processes through a new fd pointing to the resource from user side, so
-> that the bpf(2) syscall can be performed upon it.
+> net/ipv6/ip6_output.c: In function 'ip6_output':
+> net/ipv6/ip6_output.c:135:21: warning: unused variable 'dev' [-Wunused-variable]
 > 
-> With Unix tools, you could still create/remove a hierarchy or unlink
-> those that have maps/progs. You are correct that tools that don't
-> implement bpf(2) currently cannot access the content behind it, since
-> bpf(2) manages access to the data itself. I did like the 2nd idea though,
-> mentioned in the commit log, but don't know how flexible we are in
-> terms of adding S_IFBPF to the UAPI.
-
-I don't think it should be a problem. You referred to POSIX Standard in
-your other mail but I can't see any reason why not to establish a new
-file mode. Anyway, FreeBSD (e.g. whiteouts) and Solaris (e.g. Doors,
-Event Ports) are just examples of new modes being added.
-
-mknod /bpf/map/1 m 1 1
-
-:)
-
-Yes, maybe I think this is a better solution architectural instead of
-constructing a new filesystem.
-
-> > I don't know in terms of how many objects bpf should be able to handle
-> > and if such a bind-mount based solution would work, I guess not.
-> >
-> > In my opinion I still favor a user space approach. Subsystems which use
-> > ebpf in a way that no user space program needs to be running to control
-> > them would need to export the fds by itself. E.g. something like
-> > sysfs/kobject for tc? The hierarchy would then be in control of the
-> > subsystem which could also create a proper naming hierarchy or maybe
-> > even use an already given one. Do most other eBPF users really need to
-> > persist file descriptors somewhere without user space control and pick
-> > them up later?
+> The reason for this is that the NF_HOOK macro in this case does
+> not reference the variable at all, and the call to dev_net(dev)
+> got removed from the ip6_output function. To avoid that warning now
+> and in the future, this changes the macro into an equivalent
+> inline function, which tells the compiler that the variable is
+> passed correctly but still unused.
 > 
-> I was thinking about a strict predefined hierarchy dictated by the kernel
-> as well, but was then considering a more flexible approach that could be
-> tailored freely to various use cases. A predefined hierarchy would most
-> likely need to be resolved per subsystem and it's not really easy to map
-> this properly. F.e. if the kernel would try to provide unique ids (as
-> opposed to have a name or annotation member through the syscall), it
-> could end up being quite cryptic. If we let the users choose names, I'm
-> not sure if a single hierarchy level would be enough. Then, additionally
-> you have facilities like tail calls that eBPF programs could do.
+> The dn_forward function apparently had the same problem in
+> the past and added a local workaround that no longer works
+> with the inline function. In order to avoid a regression, we
+> have to also remove the #ifdef from decnet in the same patch.
 
-I don't think that most subsystems need to expose those file
-descriptors. Seccomp probably will have a supervisor process running and
-per aggregation will also have a user space process running keeping the
-fd alive. So it is all about tc/sched.
-
-And I am not sure if tc will really needs a filesystem to handle all
-this. The simplest approach is to just keep a name <-> fd mapping
-somewhere in the net/sched/ subsystem and use this for all tc users.
-Otherwise can we somehow Incorporate this in sysfs directory where we
-maybe create a kobject per installed filter, something along those
-lines.
-
-I see that tail calls makes this all very difficult to show which entity
-uses which ebpf entity in some way, as it looks like n:m relationships.
-
-> In such cases, one could even craft relationships where a (strict auto
-> generated) tree representation would not be sufficient (f.e.
-> recirculation
-> up to a certain depth). The tail called programs could be changed
-> atomically during runtime, etc. The other issue related to a per
-> subsystem
-> representation is that bpf(2) is the central management interface for
-> creating/accessing maps/progs, and each subsystem then has its own little
-> interface to "install" them internally (f.e. via netlink, setsockopt(2),
-> etc). That means, with tail calls, only the 'root' programs are installed
-> there and further transactions would be needed in order to make
-> individual
-> subsystems aware, so they could potentially generate some hierarchy;
-> don't
-> know, it seems rather complex.
-
-I understand, this is really not suitable to represent in its entirety
-in sysfs or any kind of hierarchical structure right now. Either we
-limit it somewhat (Alexei will certainly intervene here) or one of your
-filesystem approaches will win.
-
-But I still wonder why people are so against user space dependencies?
-
-Another idea that I discussed with Daniel just to have it publicly
-available: a userspace helper would be called for every ebpf entity
-change so it could mirror or keep track ebpf handles in user space. You
-can think along the lines of kernel/core_pattern. This would probably
-also depend on non-anon-inode usage of ebpf fds.
-
-Will have to think about that a bit more,
-Hannes
+Applied, thanks.
