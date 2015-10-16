@@ -1,76 +1,61 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH 1/1] xen-netfront: update num_queues to real created
-Date: Fri, 16 Oct 2015 08:15:32 -0400
-Message-ID: <5620EA64.50604@oracle.com>
-References: <561F10A7.80305@oracle.com>
- <20151016105657.GN32638@zion.uk.xensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: no addrconf for slave devices
+Date: Fri, 16 Oct 2015 14:19:14 +0200
+Message-ID: <1444997954.2885806.411975121.12F761E2@webmail.messagingengine.com>
+References: <1444990911-27458-1-git-send-email-jblunck@infradead.org>
+ <20151016115457.GE2194@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	stable@vger.kernel.org, David Vrabel <david.vrabel@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>, Joe Jin <joe.jin@oracle.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20151016105657.GN32638@zion.uk.xensource.com>
-Sender: stable-owner@vger.kernel.org
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fubar@us.ibm.com
+To: Jiri Pirko <jiri@resnulli.us>, Jan Blunck <jblunck@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151016115457.GE2194@nanopsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Oct 16, 2015, at 13:54, Jiri Pirko wrote:
+> Fri, Oct 16, 2015 at 12:21:51PM CEST, jblunck@infradead.org wrote:
+> >If a device without the IFF_SLAVE flag set (e.g. team, bridge, openvswitch
+> >vport, batman) is enslaved and IPv6 is active then addrconf will be
+> >initiated and a link-local address is added to the slave interface.
+> >
+> >This patch alters the behavior so that addrconf will only run on the master
+> >device itself. This is achieved by checking the device tree instead of
+> >checking for a specific flag.
+> >
+> >Signed-off-by: Jan Blunck <jblunck@infradead.org>
+> >---
+> > net/ipv6/addrconf.c | 6 +++++-
+> > 1 file changed, 5 insertions(+), 1 deletion(-)
+> >
+> >diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> >index 9001133..26d61f0 100644
+> >--- a/net/ipv6/addrconf.c
+> >+++ b/net/ipv6/addrconf.c
+> >@@ -3141,8 +3141,12 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+> > 
+> > 	case NETDEV_UP:
+> > 	case NETDEV_CHANGE:
+> >-		if (dev->flags & IFF_SLAVE)
+> >+		/* If a master is set stop IPv6 on this interface */
+> >+		if (netdev_master_upper_dev_get(dev)) {
+> >+			if (idev)
+> >+				addrconf_ifdown(dev, 1);
+> 
+> This breaks teamd if it's using NS/NA ping link-watch on link-local
+> addresses.
+> 
+> What is the reason for this patch? Does it recolve any issue you are
+> having?
 
+I also feel uncomfortable with this change.
 
-On 10/16/2015 06:56 AM, Wei Liu wrote:
-> CC David and Boris (Konrad was already a recipient).
->
-> On Thu, Oct 15, 2015 at 10:34:15AM +0800, Joe Jin wrote:
->> Sometimes xennet_create_queues() may failed to created all requested
->> queues, we need to update num_queues to real created to avoid NULL
->> pointer dereference.
->>
->> Signed-off-by: Joe Jin <joe.jin@oracle.com>
->> Cc: Wei Liu <wei.liu2@citrix.com>
->> Cc: Ian Campbell <ian.campbell@citrix.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> ---
->>   drivers/net/xen-netfront.c |    9 ++++++---
->>   1 files changed, 6 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->> index f821a97..d580aec 100644
->> --- a/drivers/net/xen-netfront.c
->> +++ b/drivers/net/xen-netfront.c
->> @@ -1746,7 +1746,7 @@ static int xennet_create_queues(struct netfront_info *info,
->>   		dev_err(&info->netdev->dev, "no queues\n");
->>   		return -EINVAL;
->>   	}
->> -	return 0;
->> +	return num_queues;
->>   }
->>   
->>   /* Common code used when first setting up, and when resuming. */
->> @@ -1788,9 +1788,12 @@ static int talk_to_netback(struct xenbus_device *dev,
->>   	if (info->queues)
->>   		xennet_destroy_queues(info);
->>   
->> -	err = xennet_create_queues(info, num_queues);
->> -	if (err < 0)
->> +	/* Update queues number to real created */
->> +	num_queues = xennet_create_queues(info, num_queues);
+We can probably never change this behavior, ever. User space might
+expect LL addresses on slave devices already. Same question as Jiri,
+what was the motivation for this patch?
 
-I think it would be more natural to have
-
-                     err = xennet_create_queues(info, &num_queues);
-
--boris
-
->> +	if (num_queues < 0) {
->> +		err = num_queues;
->>   		goto destroy_ring;
->> +	}
->>   
->>   	/* Create shared ring, alloc event channel -- for each queue */
->>   	for (i = 0; i < num_queues; ++i) {
->> -- 
->> 1.7.1
+Bye,
+Hannes
