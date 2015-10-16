@@ -1,107 +1,80 @@
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 2/6] arcnet: com20020: add enable and disable device on open/close
-Date: Fri, 16 Oct 2015 13:00:56 +0200
-Message-ID: <1444993260-9667-3-git-send-email-m.grzeschik@pengutronix.de>
-References: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
-Cc: joe@perches.com, netdev@vger.kernel.org, kernel@pengutronix.de
-To: davem@davemloft.net
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net] net: try harder to not reuse ifindex when moving interfaces
+Date: Fri, 16 Oct 2015 13:07:59 +0200
+Message-ID: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
+Cc: Thomas Haller <thaller@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:45895 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932213AbbJPLBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 07:01:14 -0400
-In-Reply-To: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
+Received: from mx1.redhat.com ([209.132.183.28]:33173 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751860AbbJPLIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2015 07:08:09 -0400
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (Postfix) with ESMTPS id 18AEA8EA37
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 11:08:09 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the driver to properly work with the linux netif
-interface. The controller gets enabled on open and disabled on close.
-Therefor it removes every bogus start of the xceiver. It only gets
-enabled on com20020_open and disabled on com20020_close.
+When moving interfaces to a different netns, the ifindex of the interface is
+kept if possible. However, this is not kept in sync with allocation of new
+interfaces in the target netns. While the ifindex will be skipped when
+creating a new interface in the netns, it will be reused when the old
+interface disappeared since.
 
-Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+This causes races for GUI tools in situations like this:
+
+1. create netns 'new_netns'
+2. in root netns, move the interface with ifindex 2 to new_netns
+3. in new_netns, delete the interface with ifindex 2
+4. in new_netns, create an interface - it will get ifindex 2
+
+Ensure that newly allocated interfaces in a netns get ifindex higher than
+any interface that has appeared in the netns. This of course does not fix
+the reuse problem for the applications; it just makes it less likely to be
+hit in common usage patterns.
+
+Reported-by: Thomas Haller <thaller@redhat.com>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/arcnet/com20020.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ net/core/dev.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
-index c82f323..436951b 100644
---- a/drivers/net/arcnet/com20020.c
-+++ b/drivers/net/arcnet/com20020.c
-@@ -118,7 +118,7 @@ int com20020_check(struct net_device *dev)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6bb6470f5b7b..e3d05c20f0ef 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6137,6 +6137,23 @@ static int dev_new_index(struct net *net)
  	}
- 
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* set node ID to 0x42 (but transmitter is disabled, so it's okay) */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(0x42, ioaddr, COM20020_REG_W_XREG);
-@@ -131,11 +131,6 @@ int com20020_check(struct net_device *dev)
- 	}
- 	arc_printk(D_INIT_REASONS, dev, "status after reset: %X\n", status);
- 
--	/* Enable TX */
--	lp->config |= TXENcfg;
--	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
--	arcnet_outb(arcnet_inb(ioaddr, 8), ioaddr, COM20020_REG_W_XREG);
--
- 	arcnet_outb(CFLAGScmd | RESETclear | CONFIGclear,
- 		    ioaddr, COM20020_REG_W_COMMAND);
- 	status = arcnet_inb(ioaddr, COM20020_REG_R_STATUS);
-@@ -169,9 +164,33 @@ static int com20020_set_hwaddr(struct net_device *dev, void *addr)
- 	return 0;
  }
  
-+int com20020_netdev_open(struct net_device *dev)
++/**
++ *	dev_update_index - update the ifindex used for allocation
++ *	@net: the applicable net namespace
++ *	@ifindex: the assigned ifindex
++ *
++ *	Updates the notion of currently allocated maximal ifindex to
++ *	decrease likelihood of ifindex reuse when the ifindex was assigned
++ *	by other means than calling dev_new_index (e.g. when moving
++ *	interface across net namespaces).  The caller must hold the rtnl
++ *	semaphore or the dev_base_lock.
++ */
++static void dev_update_index(struct net *net, int ifindex)
 +{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
-+
-+	lp->config |= TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+
-+	return arcnet_open(dev);
++	if (ifindex > net->ifindex)
++		net->ifindex = ifindex;
 +}
 +
-+int com20020_netdev_close(struct net_device *dev)
-+{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
-+
-+	arcnet_close(dev);
-+
-+	/* disable transmitter */
-+	lp->config &= ~TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+	return 0;
-+}
-+
- const struct net_device_ops com20020_netdev_ops = {
--	.ndo_open	= arcnet_open,
--	.ndo_stop	= arcnet_close,
-+	.ndo_open	= com20020_netdev_open,
-+	.ndo_stop	= com20020_netdev_close,
- 	.ndo_start_xmit = arcnet_send_packet,
- 	.ndo_tx_timeout = arcnet_timeout,
- 	.ndo_set_mac_address = com20020_set_hwaddr,
-@@ -215,7 +234,7 @@ int com20020_found(struct net_device *dev, int shared)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
- 	}
+ /* Delayed registration/unregisteration */
+ static LIST_HEAD(net_todo_list);
+ DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wq);
+@@ -7262,6 +7279,8 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	/* If there is an ifindex conflict assign a new one */
+ 	if (__dev_get_by_index(net, dev->ifindex))
+ 		dev->ifindex = dev_new_index(net);
++	else
++		dev_update_index(net, dev->ifindex);
  
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* Default 0x38 + register: Node ID */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(dev->dev_addr[0], ioaddr, COM20020_REG_W_XREG);
-@@ -274,7 +293,7 @@ static int com20020_reset(struct net_device *dev, int really_reset)
- 		   dev->name, arcnet_inb(ioaddr, COM20020_REG_R_STATUS));
- 
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2);
-+	lp->config |= (lp->timeout << 3) | (lp->backplane << 2);
- 	/* power-up defaults */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
+ 	/* Send a netdev-add uevent to the new namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
 -- 
-2.6.1
+1.8.3.1
