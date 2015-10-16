@@ -1,38 +1,76 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net RESEND 0/2] overflow-arith: begin to add support for overflow builtins functions
-Date: Fri, 16 Oct 2015 11:32:41 +0200
-Message-ID: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net RESEND 1/2] overflow-arith: begin to add support for overflow builtin functions
+Date: Fri, 16 Oct 2015 11:32:42 +0200
+Message-ID: <1444987963-15327-2-git-send-email-hannes@stressinduktion.org>
+References: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
 Cc: netdev@vger.kernel.org, dvyukov@google.com, davem@davemloft.net,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+The idea of the overflow-arith.h header is to collect overflow checking
+functions in one central place.
 
-I add a new header, linux/overflow-arith.h, as the central place to add
-overflow and wrap-around checking functions. The reason I am doing so
-is that it can make use of compiler supported builtin functions which
-can leverage hardware.
+If gcc compiler supports the __builtin_overflow_* builtins we use them
+because they might give better performance, otherwise the code falls
+back to normal overflow checking functions.
 
-As I need this for a fix in the ipv6 stack, which is also included in
-this series, I propose to add it sooner than later over Davem's net
-tree. This is also the reason why I start slowly with only the one
-function I need at this time.
+The builtin_overflow functions are supported by gcc-5 and clang. The
+matter of supporting clang is to just provide a corresponding
+CC_HAVE_BUILTIN_OVERFLOW, because the specific overflow checking builtins
+don't differ between gcc and clang.
 
-Thanks for reviewing!
+I just provide overflow_usub function here as I intend this to get merged
+into net, more functions will definitely follow as they are needed.
 
-Hannes Frederic Sowa (2):
-  overflow-arith: begin to add support for overflow builtin functions
-  ipv6: protect mtu calculation of wrap-around and infinite loop by
-    rounding issues
-
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
  include/linux/compiler-gcc.h   |  4 ++++
  include/linux/overflow-arith.h | 18 ++++++++++++++++++
- net/ipv6/ip6_output.c          |  6 +++++-
- 3 files changed, 27 insertions(+), 1 deletion(-)
+ 2 files changed, 22 insertions(+)
  create mode 100644 include/linux/overflow-arith.h
 
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index dfaa7b3..82c159e 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -237,6 +237,10 @@
+ #define KASAN_ABI_VERSION 3
+ #endif
+ 
++#if GCC_VERSION >= 50000
++#define CC_HAVE_BUILTIN_OVERFLOW
++#endif
++
+ #endif	/* gcc version >= 40000 specific checks */
+ 
+ #if !defined(__noclone)
+diff --git a/include/linux/overflow-arith.h b/include/linux/overflow-arith.h
+new file mode 100644
+index 0000000..e12ccf8
+--- /dev/null
++++ b/include/linux/overflow-arith.h
+@@ -0,0 +1,18 @@
++#pragma once
++
++#include <linux/kernel.h>
++
++#ifdef CC_HAVE_BUILTIN_OVERFLOW
++
++#define overflow_usub __builtin_usub_overflow
++
++#else
++
++static inline bool overflow_usub(unsigned int a, unsigned int b,
++				 unsigned int *res)
++{
++	*res = a - b;
++	return *res > a ? true : false;
++}
++
++#endif
 -- 
 2.4.3
