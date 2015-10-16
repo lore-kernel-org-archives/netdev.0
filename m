@@ -1,107 +1,83 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net v2] openvswitch: Allocate memory for ovs internal
- device stats.
-Date: Fri, 16 Oct 2015 12:20:29 -0700
-Message-ID: <CALnjE+qqB1rJSy6XmGjSAjHHDNwL=x3rc0RK-D259ru1LfNGTA@mail.gmail.com>
-References: <1444993620-19562-1-git-send-email-james.morse@arm.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Fri, 16 Oct 2015 12:27:40 -0700
+Message-ID: <56214FAC.5060704@plumgrid.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+ <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
+ <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
+ <87d1welkp8.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: James Morse <james.morse@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:32877 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbbJPTU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 15:20:29 -0400
-Received: by igbkq10 with SMTP id kq10so20511187igb.0
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 12:20:29 -0700 (PDT)
-In-Reply-To: <1444993620-19562-1-git-send-email-james.morse@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1welkp8.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 16, 2015 at 4:07 AM, James Morse <james.morse@arm.com> wrote:
-> "openvswitch: Remove vport stats" removed the per-vport statistics, in
-> order to use the netdev's statistics fields.
-> "openvswitch: Fix ovs_vport_get_stats()" fixed the export of these stats
-> to user-space, by using the provided netdev_ops to collate them - but ovs
-> internal devices still use an unallocated dev->tstats field to count
-> packets, which are no longer exported by this api.
+On 10/16/15 11:41 AM, Eric W. Biederman wrote:
+> Daniel Borkmann <daniel@iogearbox.net> writes:
 >
-> Allocate the dev->tstats field for ovs internal devices, and wire up
-> ndo_get_stats64 with the original implementation of
-> ovs_vport_get_stats().
+>> On 10/16/2015 07:42 PM, Alexei Starovoitov wrote:
+>>> On 10/16/15 10:21 AM, Hannes Frederic Sowa wrote:
+>>>> Another question:
+>>>> Should multiple mount of the filesystem result in an empty fs (a new
+>>>> instance) or in one were one can see other ebpf-fs entities? I think
+>>>> Daniel wanted to already use the mountpoint as some kind of hierarchy
+>>>> delimiter. I would have used directories for that and multiple mounts
+>>>> would then have resulted in the same content of the filesystem. IMHO
+>>>> this would remove some ambiguity but then the question arises how this
+>>>> is handled in a namespaced environment. Was there some specific reason
+>>>> to do so?
+>>>
+>>> That's an interesting question!
+>>> I think all mounts should be independent.
+>>> I can see tracing using one and networking using another one
+>>> with different hierarchies suitable for their own use cases.
+>>> What's an advantage to have the same content everywhere?
+>>> Feels harder to manage, since different users would need to
+>>> coordinate.
+>>
+>> I initially had it as a mount_single() file system, where I was thinking
+>> to have an entry under /sys/fs/bpf/, so all subsystems would work on top
+>> of that mount point, but for the same reasons above I lifted that restriction.
 >
-> On its own, "openvswitch: Fix ovs_vport_get_stats()" fixes the OOPs,
-> unmasking a full-on panic on arm64:
-> =============%<==============
-> [<ffffffbffc00ce4c>] internal_dev_recv+0xa8/0x170 [openvswitch]
-> [<ffffffbffc0008b4>] do_output.isra.31+0x60/0x19c [openvswitch]
-> [<ffffffbffc000bf8>] do_execute_actions+0x208/0x11c0 [openvswitch]
-> [<ffffffbffc001c78>] ovs_execute_actions+0xc8/0x238 [openvswitch]
-> [<ffffffbffc003dfc>] ovs_packet_cmd_execute+0x21c/0x288 [openvswitch]
-> [<ffffffc0005e8c5c>] genl_family_rcv_msg+0x1b0/0x310
-> [<ffffffc0005e8e60>] genl_rcv_msg+0xa4/0xe4
-> [<ffffffc0005e7ddc>] netlink_rcv_skb+0xb0/0xdc
-> [<ffffffc0005e8a94>] genl_rcv+0x38/0x50
-> [<ffffffc0005e76c0>] netlink_unicast+0x164/0x210
-> [<ffffffc0005e7b70>] netlink_sendmsg+0x304/0x368
-> [<ffffffc0005a21c0>] sock_sendmsg+0x30/0x4c
-> [SNIP]
-> Kernel panic - not syncing: Fatal exception in interrupt
-> =============%<==============
+> I am missing something.
 >
-> Fixes: 8c876639c985 ("openvswitch: Remove vport stats.")
-> Signed-off-by: James Morse <james.morse@arm.com>
->
-> ---
-> Hi netdev,
->
-> "openvswitch: Fix ovs_vport_get_stats()" [0], is an incomplete fix for the
-> issue in "openvswitch: Remove vport stats.". Use of an unallocated
-> dev->tstats remains for ovs internal devices, which causes a panic on arm64.
->
-> Change since v1:
-> * Removed superfluous rx/tx_dropped increment, already done by dev_get_stats().
->
-> Thanks!
->
-> James Morse
->
-> [0] https://patchwork.ozlabs.org/patch/525827/
->
->  net/openvswitch/vport-internal_dev.c | 40 +++++++++++++++++++++++++++++++++++-
->  1 file changed, 39 insertions(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-> index 388b8a6bf112..957fe715b544 100644
-> --- a/net/openvswitch/vport-internal_dev.c
-> +++ b/net/openvswitch/vport-internal_dev.c
-> @@ -106,12 +106,45 @@ static void internal_dev_destructor(struct net_device *dev)
->         free_netdev(dev);
->  }
->
-...
+> When I suggested using a filesystem it was my thought there would be
+> exactly one superblock per map, and the map would be specified at mount
+> time.  You clearly are not implementing that.
 
->  static const struct net_device_ops internal_dev_netdev_ops = {
->         .ndo_open = internal_dev_open,
->         .ndo_stop = internal_dev_stop,
->         .ndo_start_xmit = internal_dev_xmit,
->         .ndo_set_mac_address = eth_mac_addr,
->         .ndo_change_mtu = internal_dev_change_mtu,
-> +       .ndo_get_stats64 = internal_get_stats,
->  };
+I don't think it's practical to have sb per map, since that would mean
+sb per prog and that won't scale.
+Also map today is an fd that belongs to a process. I cannot see
+an api from C program to do 'mount of FD' that wouldn't look like
+ugly hack.
+
+> A filesystem per map makes sense as you have a key-value store with one
+> file per key.
 >
->  static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
-> @@ -161,6 +194,11 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
->                 err = -ENOMEM;
->                 goto error_free_vport;
->         }
-> +       vport->dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-> +       if (!vport->dev->tstats) {
-> +               err = -ENOMEM;
-> +               goto error_free_vport;
-> +       }
+> The idea is that something resembling your bpf_pin_fd function would be
+> the mount system call for the filesystem.
 >
-Exception handling code is not correct, needs to free netdev here.
+> The the keys in the map could be read by "ls /mountpoint/".
+> Key values could be inspected with "cat /mountpoint/key".
+
+yes. that is still the goal for follow up patches, but contained
+within given bpffs. Something bpf_pin_fd-like command for bpf syscall
+would create files for keys in a map and allow 'cat' via open/read.
+Such api would be much cleaner from C app point of view.
+Potentially we can allow mount of a file created via BPF_PIN_FD
+that will expand into keys/values.
+All of that are our future plans.
+There, actually, the main contention point is 'how to represent keys
+and values'. whether key is hex representation or we need some
+pretty-printers via format string or via schema? etc, etc.
+We tried few ideas of representing keys in our fuse implementations,
+but don't have an agreement yet.
