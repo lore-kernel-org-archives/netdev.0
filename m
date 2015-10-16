@@ -1,52 +1,164 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next 1/6] netfilter-ipv4: Line layout whitespace fixes
-Date: Fri, 16 Oct 2015 19:22:26 +0200
-Message-ID: <20151016172226.GB3346@salvia>
-References: <1444861028-21556-1-git-send-email-ipm@chirality.org.uk>
- <1444861028-21556-2-git-send-email-ipm@chirality.org.uk>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v5 3/8] switchdev: allow caller to explicitly
+ request attr_set as deferred
+Date: Fri, 16 Oct 2015 10:16:30 -0700
+Message-ID: <562130EE.3040000@gmail.com>
+References: <1444844455-12508-1-git-send-email-jiri@resnulli.us> <1444844455-12508-4-git-send-email-jiri@resnulli.us> <561FC472.5030506@gmail.com> <20151016082347.GC2194@nanopsycho.orion> <CAE4R7bDLSOTutnJ65nkFbHF-gC6euGTFwjuK2f-AXfjCZuEqqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Ian Morris <ipm@chirality.org.uk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444861028-21556-2-git-send-email-ipm@chirality.org.uk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	David Laight <David.Laight@aculab.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36058 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753745AbbJPRQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 13:16:48 -0400
+Received: by pacfv9 with SMTP id fv9so28091502pac.3
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 10:16:48 -0700 (PDT)
+In-Reply-To: <CAE4R7bDLSOTutnJ65nkFbHF-gC6euGTFwjuK2f-AXfjCZuEqqw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2015 at 11:17:03PM +0100, Ian Morris wrote:
-> Cleanses some whitespace issues by removing a leading space before a tab.
+On 15-10-16 09:20 AM, Scott Feldman wrote:
+> On Fri, Oct 16, 2015 at 1:23 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Oct 15, 2015 at 05:21:22PM CEST, john.fastabend@gmail.com wrote:
+>>> On 15-10-14 10:40 AM, Jiri Pirko wrote:
+>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>
+>>>> Caller should know if he can call attr_set directly (when holding RTNL)
+>>>> or if he has to defer the att_set processing for later.
+>>>>
+>>>> This also allows drivers to sleep inside attr_set and report operation
+>>>> status back to switchdev core. Switchdev core then warns if status is
+>>>> not ok, instead of silent errors happening in drivers.
+>>>>
+>>>> Benefit from newly introduced switchdev deferred ops infrastructure.
+>>>>
+>>>
+>>> A nit but the patch description should note your setting the defer bit
+>>> on the bridge set state.
+>>>
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>>>>  include/net/switchdev.h   |   1 +
+>>>>  net/bridge/br_stp.c       |   3 +-
+>>>>  net/switchdev/switchdev.c | 108 ++++++++++++++++++----------------------------
+>>>>  3 files changed, 46 insertions(+), 66 deletions(-)
+>>>>
+>>>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>>> index d1c7f90..f7de6f8 100644
+>>>> --- a/include/net/switchdev.h
+>>>> +++ b/include/net/switchdev.h
+>>>> @@ -17,6 +17,7 @@
+>>>>
+>>>>  #define SWITCHDEV_F_NO_RECURSE              BIT(0)
+>>>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP BIT(1)
+>>>> +#define SWITCHDEV_F_DEFER           BIT(2)
+>>>>
+>>>>  struct switchdev_trans_item {
+>>>>      struct list_head list;
+>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>>>> index db6d243de..80c34d7 100644
+>>>> --- a/net/bridge/br_stp.c
+>>>> +++ b/net/bridge/br_stp.c
+>>>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>>>  {
+>>>>      struct switchdev_attr attr = {
+>>>>              .id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>>>> +            .flags = SWITCHDEV_F_DEFER,
+>>>>              .u.stp_state = state,
+>>>>      };
+>>>
+>>>
+>>> This creates a possible race (with 6/8) I think, please check!
+>>
+>> Wait. This patch does not change the previous behaviour. Patch 6 does,
+>> so I don't understand why you are asking here. Confusing.
+>>
+>>
+>>>
+>>> In del_nbp() we call br_stp_disable_port() to set the port state
+>>> to BR_STATE_DISABLE and disabling learning events. But with this
+>>> patch it can be deferred. Also note the STP agent may be in userspace
+>>> which actually seems more likely the case because you likely want to
+>>> run some more modern variant of STP than the kernel supports.
+>>>
+>>> So at some point in the future the driver will turn off learning. At
+>>> the same time we call br_fdb_delete_by_port which calls a deferred
+>>> set of fdb deletes.
+>>>
+>>> I don't see how you guarantee learning is off before you start doing
+>>> the deletes here and possibly learning new addresses after the software
+>>> side believes the port is down.
+>>>
+>>> So
+>>>
+>>>   br_stp_disable_port
+>>>                           br_fdb_delete_by_port
+>>>                           {fdb_del_external_learn}
+>>>   [hw learns a fdb]
+>>>   [hw disables learning]
+>>>
+>>> What stops this from happening?
+>>
+>> Okay. This behaviour is the same as without the patchset. What would
+>> resolve the issue it to put switchdev_deferred_process() after
+>> br_stp_disable_port() and before br_fdb_delete_by_port() call.
+>> That would enforce stp change to happen in hw before fdbs are explicitly
+>> deleted. Sound good to you?
 > 
-> No changes detected by objdiff.
+> Doesn't HW already see things in the right order since items are
+> dequeued from the deferred list in the order queued?
 > 
-> Signed-off-by: Ian Morris <ipm@chirality.org.uk>
-> ---
->  net/ipv4/netfilter/ipt_ECN.c           | 2 +-
->  net/ipv4/netfilter/nf_nat_pptp.c       | 2 +-
->  net/ipv4/netfilter/nf_nat_snmp_basic.c | 2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/netfilter/ipt_ECN.c b/net/ipv4/netfilter/ipt_ECN.c
-> index 2707652..6592708 100644
-> --- a/net/ipv4/netfilter/ipt_ECN.c
-> +++ b/net/ipv4/netfilter/ipt_ECN.c
-> @@ -24,7 +24,7 @@ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
->  MODULE_DESCRIPTION("Xtables: Explicit Congestion Notification (ECN) flag modification");
->  
->  /* set ECT codepoint from IP header.
-> - * 	return false if there was an error. */
-> + *	return false if there was an error. */
 
-In netdev coding style we prefer for multiline comments:
+I just noticed there is the rtnl lock around the deferred process so
+this should mean only a single deferred task is run at a time. OK sort
+of a big hammer though.
 
-/* This is a comment blah blah blah blah blah blah blah blah blah blah blah blah
- * blah blah blah.
- */
++static void switchdev_deferred_process_work(struct work_struct *work)
++{
++	rtnl_lock();
++	switchdev_deferred_process();
++	rtnl_unlock();
++}
 
-For single line:
+But I don't see how this block of code works,
 
-/* This is a comment blah blah blah */
+        spin_lock_bh(&br->lock);
+        br_stp_disable_port(p);
+        spin_unlock_bh(&br->lock);
 
-This case, I suggest we can even get rid of that comment there since
-it's obvious what set_ect_ip() is doing by reading the function name
-and looking at what it returns.
+        br_ifinfo_notify(RTM_DELLINK, p);
+
+        list_del_rcu(&p->list);
+
+        nbp_vlan_flush(p);
+        br_fdb_delete_by_port(br, p, 0, 1);
+        switchdev_deferred_process();
+
+
+If you defer disabling learning then setup a bunch of deletes also
+deferred, what guarantees that learning was disabled before you setup
+the deferred fdb delete list?
+
+It seems you may call rocker_port_fdb_learn_work() after the
+br_fdb_delete_by_port call above but before the deferred learn disable
+call which would have disabled it. Also the rocker_port_fdb_learn_work
+queue is on a lw->work and doesn't use the same locking?
+
+Its sort of an interesting hieararchy of work queues being built up
+here. I'm being a bit overly paranoid at this point because I've seen
+some really ugly bugs around these types of things that are difficult
+to spot because they are correctness bugs instead of hard crashes.
+
+.John
