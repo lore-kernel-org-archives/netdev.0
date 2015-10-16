@@ -1,89 +1,107 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: SoCFPGA ethernet broken
-Date: Fri, 16 Oct 2015 14:10:02 -0500
-Message-ID: <alpine.DEB.2.02.1510161407570.22838@linux-builds1>
-References: <562005AD.8020903@opensource.altera.com> <56200BD7.8020505@gmail.com> <56200E15.9080603@caviumnetworks.com> <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1>
- <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch> <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch> <56212A09.5080206@caviumnetworks.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net v2] openvswitch: Allocate memory for ovs internal
+ device stats.
+Date: Fri, 16 Oct 2015 12:20:29 -0700
+Message-ID: <CALnjE+qqB1rJSy6XmGjSAjHHDNwL=x3rc0RK-D259ru1LfNGTA@mail.gmail.com>
+References: <1444993620-19562-1-git-send-email-james.morse@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
-	<netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56212A09.5080206@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: James Morse <james.morse@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:32877 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751602AbbJPTU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 15:20:29 -0400
+Received: by igbkq10 with SMTP id kq10so20511187igb.0
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 12:20:29 -0700 (PDT)
+In-Reply-To: <1444993620-19562-1-git-send-email-james.morse@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Oct 2015, David Daney wrote:
+On Fri, Oct 16, 2015 at 4:07 AM, James Morse <james.morse@arm.com> wrote:
+> "openvswitch: Remove vport stats" removed the per-vport statistics, in
+> order to use the netdev's statistics fields.
+> "openvswitch: Fix ovs_vport_get_stats()" fixed the export of these stats
+> to user-space, by using the provided netdev_ops to collate them - but ovs
+> internal devices still use an unallocated dev->tstats field to count
+> packets, which are no longer exported by this api.
+>
+> Allocate the dev->tstats field for ovs internal devices, and wire up
+> ndo_get_stats64 with the original implementation of
+> ovs_vport_get_stats().
+>
+> On its own, "openvswitch: Fix ovs_vport_get_stats()" fixes the OOPs,
+> unmasking a full-on panic on arm64:
+> =============%<==============
+> [<ffffffbffc00ce4c>] internal_dev_recv+0xa8/0x170 [openvswitch]
+> [<ffffffbffc0008b4>] do_output.isra.31+0x60/0x19c [openvswitch]
+> [<ffffffbffc000bf8>] do_execute_actions+0x208/0x11c0 [openvswitch]
+> [<ffffffbffc001c78>] ovs_execute_actions+0xc8/0x238 [openvswitch]
+> [<ffffffbffc003dfc>] ovs_packet_cmd_execute+0x21c/0x288 [openvswitch]
+> [<ffffffc0005e8c5c>] genl_family_rcv_msg+0x1b0/0x310
+> [<ffffffc0005e8e60>] genl_rcv_msg+0xa4/0xe4
+> [<ffffffc0005e7ddc>] netlink_rcv_skb+0xb0/0xdc
+> [<ffffffc0005e8a94>] genl_rcv+0x38/0x50
+> [<ffffffc0005e76c0>] netlink_unicast+0x164/0x210
+> [<ffffffc0005e7b70>] netlink_sendmsg+0x304/0x368
+> [<ffffffc0005a21c0>] sock_sendmsg+0x30/0x4c
+> [SNIP]
+> Kernel panic - not syncing: Fatal exception in interrupt
+> =============%<==============
+>
+> Fixes: 8c876639c985 ("openvswitch: Remove vport stats.")
+> Signed-off-by: James Morse <james.morse@arm.com>
+>
+> ---
+> Hi netdev,
+>
+> "openvswitch: Fix ovs_vport_get_stats()" [0], is an incomplete fix for the
+> issue in "openvswitch: Remove vport stats.". Use of an unallocated
+> dev->tstats remains for ovs internal devices, which causes a panic on arm64.
+>
+> Change since v1:
+> * Removed superfluous rx/tx_dropped increment, already done by dev_get_stats().
+>
+> Thanks!
+>
+> James Morse
+>
+> [0] https://patchwork.ozlabs.org/patch/525827/
+>
+>  net/openvswitch/vport-internal_dev.c | 40 +++++++++++++++++++++++++++++++++++-
+>  1 file changed, 39 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> index 388b8a6bf112..957fe715b544 100644
+> --- a/net/openvswitch/vport-internal_dev.c
+> +++ b/net/openvswitch/vport-internal_dev.c
+> @@ -106,12 +106,45 @@ static void internal_dev_destructor(struct net_device *dev)
+>         free_netdev(dev);
+>  }
+>
+...
 
-> On 10/16/2015 08:56 AM, Andrew Lunn wrote:
-> > > So I think I'll move to inspect what Florian had suggested, and that was
-> > > to look
-> > > at:
-> > > drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c::stmmac_mdio_register
-> > 
-> > I have a suspicion. If you look at the phy driver it does:
-> > 
-> > static int ksz9021_config_init(struct phy_device *phydev)
-> > {
-> >          const struct device *dev = &phydev->dev;
-> >          const struct device_node *of_node = dev->of_node;
-> > 
-> >          if (!of_node && dev->parent->of_node)
-> >                  of_node = dev->parent->of_node;
-> > 
-> 
-> Maybe we need to walk up the hierarchy.
-> 
-> Perhaps something like:
-> 
-> const struct device *dev_walker;
-> 
-> dev_walker = &phydev->dev;
-> do {
->    of_node = dev_walker->of_node;
->    dev_walker = dev_walker->parent;
-> } while (!of_node && dev_walker);
-> 
-
-The above code seems to have fixed the issue.
-
-> An alternative would be to assign the bus the same of_node as the bus parent.
-> 
-> If either approach works, you can add:
->  Acked-by: David Daney <david.daney@cavium.com>
-> 
-> to the patch that implements it.
-> 
-> > 
-> > In your case, you don't have a phy node in your device tree, so of_node
-> > is NULL. So it looks in the parent device.
-> > 
-> >      phylib: Make PHYs children of their MDIO bus, not the bus' parent.
-> > 
-> > changed what the parent is. It is now the mdio device. Before, i
-> > suspect it was the MAC. Hence it found your properties in the MAC
-> > node.
-> > 
-> > What i think you might want to do is change this code. Rather than
-> > look a dev->parent->of_node; you might want
-> > phydev->attached_dev->dev->of_node.
-> > 
-> > This assumes the phy has been attached to the MAC. I've no idea of the
-> > ordering, so maybe it has not been attached yet?
-> > 
-> > dp83867.c has similar code. However quick grep did not find any
-> > mainline users with properties in the MAC node. If that is true, i
-> > would suggest removing the code looking in the parent for that phy
-> > driver.
-> > 
-> > 	Andrew
-> > 
-> 
-> 
-
-BR,
-Dinh
+>  static const struct net_device_ops internal_dev_netdev_ops = {
+>         .ndo_open = internal_dev_open,
+>         .ndo_stop = internal_dev_stop,
+>         .ndo_start_xmit = internal_dev_xmit,
+>         .ndo_set_mac_address = eth_mac_addr,
+>         .ndo_change_mtu = internal_dev_change_mtu,
+> +       .ndo_get_stats64 = internal_get_stats,
+>  };
+>
+>  static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
+> @@ -161,6 +194,11 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
+>                 err = -ENOMEM;
+>                 goto error_free_vport;
+>         }
+> +       vport->dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+> +       if (!vport->dev->tstats) {
+> +               err = -ENOMEM;
+> +               goto error_free_vport;
+> +       }
+>
+Exception handling code is not correct, needs to free netdev here.
