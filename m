@@ -1,246 +1,221 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 7/7] tcp: use RACK to detect losses
-Date: Fri, 16 Oct 2015 21:57:47 -0700
-Message-ID: <1445057867-32257-8-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 6/7] tcp: track the packet timings in RACK
+Date: Fri, 16 Oct 2015 21:57:46 -0700
+Message-ID: <1445057867-32257-7-git-send-email-ycheng@google.com>
 References: <1445057867-32257-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Eric Dumazet <edumazet@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36591 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951AbbJQE6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 00:58:10 -0400
-Received: by pacfv9 with SMTP id fv9so40621025pac.3
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 21:58:10 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36580 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbbJQE6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 00:58:09 -0400
+Received: by pacfv9 with SMTP id fv9so40620720pac.3
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 21:58:09 -0700 (PDT)
 In-Reply-To: <1445057867-32257-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements the second half of RACK that uses the the most
-recent transmit time among all delivered packets to detect losses.
+This patch is the first half of the RACK loss recovery.
 
-tcp_rack_mark_lost() is called upon receiving a dubious ACK.
-It then checks if an not-yet-sacked packet was sent at least
-"reo_wnd" prior to the sent time of the most recently delivered.
-If so the packet is deemed lost.
+RACK loss recovery uses the notion of time instead
+of packet sequence (FACK) or counts (dupthresh). It's inspired by the
+previous FACK heuristic in tcp_mark_lost_retrans(): when a limited
+transmit (new data packet) is sacked, then current retransmitted
+sequence below the newly sacked sequence must been lost,
+since at least one round trip time has elapsed.
 
-The "reo_wnd" reordering window starts with 1msec for fast loss
-detection and changes to min-RTT/4 when reordering is observed.
-We found 1msec accommodates well on tiny degree of reordering
-(<3 pkts) on faster links. We use min-RTT instead of SRTT because
-reordering is more of a path property but SRTT can be inflated by
-self-inflicated congestion. The factor of 4 is borrowed from the
-delayed early retransmit and seems to work reasonably well.
+But it has several limitations:
+1) can't detect tail drops since it depends on limited transmit
+2) is disabled upon reordering (assumes no reordering)
+3) only enabled in fast recovery ut not timeout recovery
 
-Since RACK is still experimental, it is now used as a supplemental
-loss detection on top of existing algorithms. It is only effective
-after the fast recovery starts or after the timeout occurs. The
-fast recovery is still triggered by FACK and/or dupack threshold
-instead of RACK.
+RACK (Recently ACK) addresses these limitations with the notion
+of time instead: a packet P1 is lost if a later packet P2 is s/acked,
+as at least one round trip has passed.
 
-We introduce a new sysctl net.ipv4.tcp_recovery for future
-experiments of loss recoveries. For now RACK can be disabled by
-setting it to 0.
+Since RACK cares about the time sequence instead of the data sequence
+of packets, it can detect tail drops when later retransmission is
+s/acked while FACK or dupthresh can't. For reordering RACK uses a
+dynamically adjusted reordering window ("reo_wnd") to reduce false
+positives on ever (small) degree of reordering.
+
+This patch implements tcp_advanced_rack() which tracks the
+most recent transmission time among the packets that have been
+delivered (ACKed or SACKed) in tp->rack.mstamp. This timestamp
+is the key to determine which packet has been lost.
+
+Consider an example that the sender sends six packets:
+T1: P1 (lost)
+T2: P2
+T3: P3
+T4: P4
+T100: sack of P2. rack.mstamp = T2
+T101: retransmit P1
+T102: sack of P2,P3,P4. rack.mstamp = T4
+T205: ACK of P4 since the hole is repaired. rack.mstamp = T101
+
+We need to be careful about spurious retransmission because it may
+falsely advance tp->rack.mstamp by an RTT or an RTO, causing RACK
+to falsely mark all packets lost, just like a spurious timeout.
+
+We identify spurious retransmission by the ACK's TS echo value.
+If TS option is not applicable but the retransmission is acknowledged
+less than min-RTT ago, it is likely to be spurious. We refrain from
+using the transmission time of these spurious retransmissions.
+
+The second half is implemented in the next patch that marks packet
+lost using RACK timestamp.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- Documentation/networking/ip-sysctl.txt |  9 ++++
- include/net/tcp.h                      |  9 ++++
- net/ipv4/sysctl_net_ipv4.c             |  7 ++++
- net/ipv4/tcp_input.c                   |  9 +++-
- net/ipv4/tcp_recovery.c                | 77 ++++++++++++++++++++++++++++++++++
- 5 files changed, 109 insertions(+), 2 deletions(-)
+ include/linux/tcp.h      |  6 ++++++
+ include/net/tcp.h        |  5 +++++
+ net/ipv4/Makefile        |  1 +
+ net/ipv4/tcp_input.c     | 14 ++++++++++++++
+ net/ipv4/tcp_minisocks.c |  2 ++
+ net/ipv4/tcp_recovery.c  | 32 ++++++++++++++++++++++++++++++++
+ 6 files changed, 60 insertions(+)
+ create mode 100644 net/ipv4/tcp_recovery.c
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 502d6a5..85752c8 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -433,6 +433,15 @@ tcp_orphan_retries - INTEGER
- 	you should think about lowering this value, such sockets
- 	may consume significant resources. Cf. tcp_max_orphans.
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 8c54863..5dce970 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -194,6 +194,12 @@ struct tcp_sock {
+ 	u32	window_clamp;	/* Maximal window to advertise		*/
+ 	u32	rcv_ssthresh;	/* Current window clamp			*/
  
-+tcp_recovery - INTEGER
-+	This value is a bitmap to enable various experimental loss recovery
-+	features.
-+
-+	RACK: 0x1 enables the RACK loss detection for fast detection of lost
-+	      retransmissions and tail drops.
-+
-+	Default: 0x1
-+
- tcp_reordering - INTEGER
- 	Initial reordering level of packets in a TCP stream.
- 	TCP stack can then dynamically adjust flow reordering level
++	/* Information of the most recently (s)acked skb */
++	struct tcp_rack {
++		struct skb_mstamp mstamp; /* (Re)sent time of the skb */
++		u8 advanced; /* mstamp advanced since last lost marking */
++		u8 reord;    /* reordering detected */
++	} rack;
+ 	u16	advmss;		/* Advertised MSS			*/
+ 	u8	unused;
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index aee5f23..f615789 100644
+index 4575f0e..aee5f23 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -567,6 +567,7 @@ void tcp_resume_early_retransmit(struct sock *sk);
- void tcp_rearm_rto(struct sock *sk);
- void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req);
- void tcp_reset(struct sock *sk);
-+void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb);
+@@ -1750,6 +1750,11 @@ int tcpv4_offload_init(void);
+ void tcp_v4_init(void);
+ void tcp_init(void);
  
- /* tcp_timer.c */
- void tcp_init_xmit_timers(struct sock *);
-@@ -1752,6 +1753,14 @@ void tcp_init(void);
- 
- /* tcp_recovery.c */
- 
-+/* Flags to enable various loss recovery features. See below */
-+extern int sysctl_tcp_recovery;
++/* tcp_recovery.c */
 +
-+/* Use TCP RACK to detect (some) tail and retransmit losses */
-+#define TCP_RACK_LOST_RETRANS  0x1
++extern void tcp_rack_advance(struct tcp_sock *tp,
++			     const struct skb_mstamp *xmit_time, u8 sacked);
 +
-+extern int tcp_rack_mark_lost(struct sock *sk);
-+
- extern void tcp_rack_advance(struct tcp_sock *tp,
- 			     const struct skb_mstamp *xmit_time, u8 sacked);
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 13ab434..25300c5 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -496,6 +496,13 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
-+		.procname	= "tcp_recovery",
-+		.data		= &sysctl_tcp_recovery,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
- 		.procname	= "tcp_reordering",
- 		.data		= &sysctl_tcp_reordering,
- 		.maxlen		= sizeof(int),
+ /*
+  * Save and compile IPv4 options, return a pointer to it
+  */
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 89aacb6..c29809f 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -8,6 +8,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     inet_timewait_sock.o inet_connection_sock.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+ 	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
++	     tcp_recovery.o \
+ 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+ 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o \
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 21a9ea4..cf0f954 100644
+index c304b5f..21a9ea4 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -881,6 +881,7 @@ static void tcp_update_reordering(struct sock *sk, const int metric,
+@@ -1173,6 +1173,8 @@ static u8 tcp_sacktag_one(struct sock *sk,
+ 		return sacked;
  
- 	if (metric > 0)
- 		tcp_disable_early_retrans(tp);
-+	tp->rack.reord = 1;
+ 	if (!(sacked & TCPCB_SACKED_ACKED)) {
++		tcp_rack_advance(tp, xmit_time, sacked);
++
+ 		if (sacked & TCPCB_SACKED_RETRANS) {
+ 			/* If the segment is not tagged as lost,
+ 			 * we do not clear RETRANS, believing
+@@ -2256,6 +2258,16 @@ static bool tcp_tsopt_ecr_before(const struct tcp_sock *tp, u32 when)
+ 	       before(tp->rx_opt.rcv_tsecr, when);
  }
  
- /* This must be called before lost_out is incremented */
-@@ -906,8 +907,7 @@ static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
- 	}
- }
- 
--static void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp,
--					    struct sk_buff *skb)
-+void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
- {
- 	tcp_verify_retransmit_hint(tp, skb);
- 
-@@ -2806,6 +2806,11 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 		}
- 	}
- 
-+	/* Use RACK to detect loss */
-+	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS &&
-+	    tcp_rack_mark_lost(sk))
-+		flag |= FLAG_LOST_RETRANS;
-+
- 	/* E. Process state. */
- 	switch (icsk->icsk_ca_state) {
- 	case TCP_CA_Recovery:
-diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
-index 8f66a65..5353085 100644
---- a/net/ipv4/tcp_recovery.c
-+++ b/net/ipv4/tcp_recovery.c
-@@ -1,6 +1,83 @@
- #include <linux/tcp.h>
- #include <net/tcp.h>
- 
-+int sysctl_tcp_recovery __read_mostly = TCP_RACK_LOST_RETRANS;
-+
-+/* Marks a packet lost, if some packet sent later has been (s)acked.
-+ * The underlying idea is similar to the traditional dupthresh and FACK
-+ * but they look at different metrics:
-+ *
-+ * dupthresh: 3 OOO packets delivered (packet count)
-+ * FACK: sequence delta to highest sacked sequence (sequence space)
-+ * RACK: sent time delta to the latest delivered packet (time domain)
-+ *
-+ * The advantage of RACK is it applies to both original and retransmitted
-+ * packet and therefore is robust against tail losses. Another advantage
-+ * is being more resilient to reordering by simply allowing some
-+ * "settling delay", instead of tweaking the dupthresh.
-+ *
-+ * The current version is only used after recovery starts but can be
-+ * easily extended to detect the first loss.
++/* skb is spurious retransmitted if the returned timestamp echo
++ * reply is prior to the skb transmission time
 + */
-+int tcp_rack_mark_lost(struct sock *sk)
++static bool tcp_skb_spurious_retrans(const struct tcp_sock *tp,
++				     const struct sk_buff *skb)
 +{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct sk_buff *skb;
-+	u32 reo_wnd, prior_retrans = tp->retrans_out;
-+
-+	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
-+		return 0;
-+
-+	/* Reset the advanced flag to avoid unnecessary queue scanning */
-+	tp->rack.advanced = 0;
-+
-+	/* To be more reordering resilient, allow min_rtt/4 settling delay
-+	 * (lower-bounded to 1000uS). We use min_rtt instead of the smoothed
-+	 * RTT because reordering is often a path property and less related
-+	 * to queuing or delayed ACKs.
-+	 *
-+	 * TODO: measure and adapt to the observed reordering delay, and
-+	 * use a timer to retransmit like the delayed early retransmit.
-+	 */
-+	reo_wnd = 1000;
-+	if (tp->rack.reord && tcp_min_rtt(tp) != ~0U)
-+		reo_wnd = max(tcp_min_rtt(tp) >> 2, reo_wnd);
-+
-+	tcp_for_write_queue(skb, sk) {
-+		struct tcp_skb_cb *scb = TCP_SKB_CB(skb);
-+
-+		if (skb == tcp_send_head(sk))
-+			break;
-+
-+		/* Skip ones already (s)acked */
-+		if (!after(scb->end_seq, tp->snd_una) ||
-+		    scb->sacked & TCPCB_SACKED_ACKED)
-+			continue;
-+
-+		if (skb_mstamp_after(&tp->rack.mstamp, &skb->skb_mstamp)) {
-+
-+			if (skb_mstamp_us_delta(&tp->rack.mstamp,
-+						&skb->skb_mstamp) <= reo_wnd)
-+				continue;
-+
-+			/* skb is lost if packet sent later is sacked */
-+			tcp_skb_mark_lost_uncond_verify(tp, skb);
-+			if (scb->sacked & TCPCB_SACKED_RETRANS) {
-+				scb->sacked &= ~TCPCB_SACKED_RETRANS;
-+				tp->retrans_out -= tcp_skb_pcount(skb);
-+				NET_INC_STATS_BH(sock_net(sk),
-+						 LINUX_MIB_TCPLOSTRETRANSMIT);
-+			}
-+		} else if (!(scb->sacked & TCPCB_RETRANS)) {
-+			/* Original data are sent sequentially so stop early
-+			 * b/c the rest are all sent after rack_sent
-+			 */
-+			break;
-+		}
-+	}
-+	return prior_retrans - tp->retrans_out;
++	return (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS) &&
++	       tcp_tsopt_ecr_before(tp, tcp_skb_timestamp(skb));
 +}
 +
- /* Record the most recently (re)sent time among the (s)acked packets */
- void tcp_rack_advance(struct tcp_sock *tp,
- 		      const struct skb_mstamp *xmit_time, u8 sacked)
+ /* Nothing was retransmitted or returned timestamp is less
+  * than timestamp of the first retransmission.
+  */
+@@ -3135,6 +3147,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 
+ 		if (sacked & TCPCB_SACKED_ACKED)
+ 			tp->sacked_out -= acked_pcount;
++		else if (tcp_is_sack(tp) && !tcp_skb_spurious_retrans(tp, skb))
++			tcp_rack_advance(tp, &skb->skb_mstamp, sacked);
+ 		if (sacked & TCPCB_LOST)
+ 			tp->lost_out -= acked_pcount;
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index b875c28..1fd5d41 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -548,6 +548,8 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 		tcp_ecn_openreq_child(newtp, req);
+ 		newtp->fastopen_rsk = NULL;
+ 		newtp->syn_data_acked = 0;
++		newtp->rack.mstamp.v64 = 0;
++		newtp->rack.advanced = 0;
+ 
+ 		newtp->saved_syn = req->saved_syn;
+ 		req->saved_syn = NULL;
+diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+new file mode 100644
+index 0000000..8f66a65
+--- /dev/null
++++ b/net/ipv4/tcp_recovery.c
+@@ -0,0 +1,32 @@
++#include <linux/tcp.h>
++#include <net/tcp.h>
++
++/* Record the most recently (re)sent time among the (s)acked packets */
++void tcp_rack_advance(struct tcp_sock *tp,
++		      const struct skb_mstamp *xmit_time, u8 sacked)
++{
++	if (tp->rack.mstamp.v64 &&
++	    !skb_mstamp_after(xmit_time, &tp->rack.mstamp))
++		return;
++
++	if (sacked & TCPCB_RETRANS) {
++		struct skb_mstamp now;
++
++		/* If the sacked packet was retransmitted, it's ambiguous
++		 * whether the retransmission or the original (or the prior
++		 * retransmission) was sacked.
++		 *
++		 * If the original is lost, there is no ambiguity. Otherwise
++		 * we assume the original can be delayed up to aRTT + min_rtt.
++		 * the aRTT term is bounded by the fast recovery or timeout,
++		 * so it's at least one RTT (i.e., retransmission is at least
++		 * an RTT later).
++		 */
++		skb_mstamp_get(&now);
++		if (skb_mstamp_us_delta(&now, xmit_time) < tcp_min_rtt(tp))
++			return;
++	}
++
++	tp->rack.mstamp = *xmit_time;
++	tp->rack.advanced = 1;
++}
 -- 
 2.6.0.rc2.230.g3dd15c0
