@@ -1,92 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/17] i40e/i40evf: fix bug in throttle rate math
-Date: Fri, 16 Oct 2015 22:28:21 -0700
-Message-ID: <1445059711-45992-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/17] i40e: Move error message to debug level
+Date: Fri, 16 Oct 2015 22:28:28 -0700
+Message-ID: <1445059711-45992-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27590 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:25665 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752148AbbJQF2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 01:28:43 -0400
+	id S1751768AbbJQF2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 01:28:41 -0400
 In-Reply-To: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-The driver was using a value expressed in 2us increments
-for the divisor to figure out our bytes/usec values.
+There is an error coming back from get_phy_capabilities that does not
+seem to have any functional implications. We will continue looking into
+why this error message is occurring, but in the meantime, we will move it
+to debug to avoid confusion.
 
-Fix the usecs variable to contain a value in microseconds.
-
-Change-ID: I5c20493103c295d6f201947bb908add7040b7c41
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I9091754bf62c066ddedeb249923d85606e2d68ed
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 9 ++++++++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 9 ++++++++-
- 2 files changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 889d25d..c96e581 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -830,6 +830,7 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	enum i40e_latency_range new_latency_range = rc->latency_range;
- 	u32 new_itr = rc->itr;
- 	int bytes_per_int;
-+	int usecs;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 6e5f931..8fd26fd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -751,9 +751,9 @@ static int i40e_set_settings(struct net_device *netdev,
  
- 	if (rc->total_packets == 0 || !rc->itr)
- 		return false;
-@@ -838,8 +839,14 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	 *   0-10MB/s   lowest (100000 ints/s)
- 	 *  10-20MB/s   low    (20000 ints/s)
- 	 *  20-1249MB/s bulk   (8000 ints/s)
-+	 *
-+	 * The math works out because the divisor is in 10^(-6) which
-+	 * turns the bytes/us input value into MB/s values, but
-+	 * make sure to use usecs, as the register values written
-+	 * are in 2 usec increments in the ITR registers.
- 	 */
--	bytes_per_int = rc->total_bytes / rc->itr;
-+	usecs = (rc->itr << 1);
-+	bytes_per_int = rc->total_bytes / usecs;
- 	switch (new_latency_range) {
- 	case I40E_LOWEST_LATENCY:
- 		if (bytes_per_int > 10)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 597e096..7d98042 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -333,6 +333,7 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	enum i40e_latency_range new_latency_range = rc->latency_range;
- 	u32 new_itr = rc->itr;
- 	int bytes_per_int;
-+	int usecs;
+ 		status = i40e_update_link_info(hw);
+ 		if (status)
+-			netdev_info(netdev, "Updating link info failed with err %s aq_err %s\n",
+-				    i40e_stat_str(hw, status),
+-				    i40e_aq_str(hw, hw->aq.asq_last_status));
++			netdev_dbg(netdev, "Updating link info failed with err %s aq_err %s\n",
++				   i40e_stat_str(hw, status),
++				   i40e_aq_str(hw, hw->aq.asq_last_status));
  
- 	if (rc->total_packets == 0 || !rc->itr)
- 		return false;
-@@ -341,8 +342,14 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	 *   0-10MB/s   lowest (100000 ints/s)
- 	 *  10-20MB/s   low    (20000 ints/s)
- 	 *  20-1249MB/s bulk   (8000 ints/s)
-+	 *
-+	 * The math works out because the divisor is in 10^(-6) which
-+	 * turns the bytes/us input value into MB/s values, but
-+	 * make sure to use usecs, as the register values written
-+	 * are in 2 usec increments in the ITR registers.
- 	 */
--	bytes_per_int = rc->total_bytes / rc->itr;
-+	usecs = (rc->itr << 1);
-+	bytes_per_int = rc->total_bytes / usecs;
- 	switch (new_latency_range) {
- 	case I40E_LOWEST_LATENCY:
- 		if (bytes_per_int > 10)
+ 	} else {
+ 		netdev_info(netdev, "Nothing changed, exiting without setting anything.\n");
 -- 
 2.4.3
