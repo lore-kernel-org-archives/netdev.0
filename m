@@ -1,52 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/17] i40e: Move error message to debug level
-Date: Fri, 16 Oct 2015 22:28:28 -0700
-Message-ID: <1445059711-45992-15-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] tunnels: Don't require remote endpoint or ID during
+ creation.
+Date: Sat, 17 Oct 2015 09:45:31 +0200
+Message-ID: <20151017074531.GA13981@pox.localdomain>
+References: <1445038560-85471-1-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:25665 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768AbbJQF2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 01:28:41 -0400
-In-Reply-To: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:37012 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbbJQHpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 03:45:34 -0400
+Received: by wicfv8 with SMTP id fv8so17237089wic.0
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 00:45:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1445038560-85471-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+On 10/16/15 at 04:36pm, Jesse Gross wrote:
+> Before lightweight tunnels existed, it really didn't make sense to
+> create a tunnel that was not fully specified, such as without a
+> destination IP address - the resulting packets would go nowhere.
+> However, with lightweight tunnels, the opposite is true - it doesn't
+> make sense to require this information when it will be provided later
+> on by the route. This loosens the requirements for this information.
+> 
+> An alternative would be to allow the relaxed version only when
+> COLLECT_METADATA is enabled. However, since there are several
+> variations on this theme (such as NBMA tunnels in GRE), just dropping
+> the restrictions seems the most consistent across tunnels and with
+> the existing configuration.
+> 
+> CC: John Linville <linville@tuxdriver.com>
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-There is an error coming back from get_phy_capabilities that does not
-seem to have any functional implications. We will continue looking into
-why this error message is occurring, but in the meantime, we will move it
-to debug to avoid confusion.
+I left it like it was for VXLAN with the thought that you had
+specifically enable the metadata driven TX but I'm perfectly
+fine with this as well.
 
-Change-ID: I9091754bf62c066ddedeb249923d85606e2d68ed
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 6e5f931..8fd26fd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -751,9 +751,9 @@ static int i40e_set_settings(struct net_device *netdev,
- 
- 		status = i40e_update_link_info(hw);
- 		if (status)
--			netdev_info(netdev, "Updating link info failed with err %s aq_err %s\n",
--				    i40e_stat_str(hw, status),
--				    i40e_aq_str(hw, hw->aq.asq_last_status));
-+			netdev_dbg(netdev, "Updating link info failed with err %s aq_err %s\n",
-+				   i40e_stat_str(hw, status),
-+				   i40e_aq_str(hw, hw->aq.asq_last_status));
- 
- 	} else {
- 		netdev_info(netdev, "Nothing changed, exiting without setting anything.\n");
--- 
-2.4.3
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
