@@ -1,195 +1,44 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/35] netfilter: conntrack: fix crash on timeout object removal
-Date: Sat, 17 Oct 2015 13:32:48 +0200
-Message-ID: <1445081590-2924-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/35] netfilter: remove dead code
+Date: Sat, 17 Oct 2015 13:32:40 +0200
+Message-ID: <1445081590-2924-6-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48349 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752564AbbJQL0R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:17 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The object and module refcounts are updated for each conntrack template,
-however, if we delete the iptables rules and we flush the timeout
-database, we may end up with invalid references to timeout object that
-are just gone.
+From: Flavio Leitner <fbl@sysclose.org>
 
-Resolve this problem by setting the timeout reference to NULL when the
-custom timeout entry is removed from our base. This patch requires some
-RCU trickery to ensure safe pointer handling.
+Remove __nf_conntrack_find() from headers.
 
-This handling is similar to what we already do with conntrack helpers,
-the idea is to avoid bumping the timeout object reference counter from
-the packet path to avoid the cost of atomic ops.
-
-Reported-by: Stephen Hemminger <stephen@networkplumber.org>
+Fixes: dcd93ed4cd1 ("netfilter: nf_conntrack: remove dead code")
+Signed-off-by: Flavio Leitner <fbl@sysclose.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_timeout.h | 25 ++++++++++++++++-----
- net/netfilter/nf_conntrack_core.c            | 12 ++++++----
- net/netfilter/nfnetlink_cttimeout.c          | 33 ++++++++++++++++++++++++++++
- net/netfilter/xt_CT.c                        |  4 +++-
- 4 files changed, 63 insertions(+), 11 deletions(-)
+ include/net/netfilter/nf_conntrack.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_timeout.h b/include/net/netfilter/nf_conntrack_timeout.h
-index 6230871..f72be38 100644
---- a/include/net/netfilter/nf_conntrack_timeout.h
-+++ b/include/net/netfilter/nf_conntrack_timeout.h
-@@ -20,10 +20,20 @@ struct ctnl_timeout {
- };
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index d642f68..fde4068 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -183,10 +183,6 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
  
- struct nf_conn_timeout {
--	struct ctnl_timeout	*timeout;
-+	struct ctnl_timeout __rcu *timeout;
- };
+ void nf_ct_free_hashtable(void *hash, unsigned int size);
  
--#define NF_CT_TIMEOUT_EXT_DATA(__t) (unsigned int *) &((__t)->timeout->data)
-+static inline unsigned int *
-+nf_ct_timeout_data(struct nf_conn_timeout *t)
-+{
-+	struct ctnl_timeout *timeout;
-+
-+	timeout = rcu_dereference(t->timeout);
-+	if (timeout == NULL)
-+		return NULL;
-+
-+	return (unsigned int *)timeout->data;
-+}
+-struct nf_conntrack_tuple_hash *
+-__nf_conntrack_find(struct net *net, u16 zone,
+-		    const struct nf_conntrack_tuple *tuple);
+-
+ int nf_conntrack_hash_check_insert(struct nf_conn *ct);
+ bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
  
- static inline
- struct nf_conn_timeout *nf_ct_timeout_find(const struct nf_conn *ct)
-@@ -47,7 +57,7 @@ struct nf_conn_timeout *nf_ct_timeout_ext_add(struct nf_conn *ct,
- 	if (timeout_ext == NULL)
- 		return NULL;
- 
--	timeout_ext->timeout = timeout;
-+	rcu_assign_pointer(timeout_ext->timeout, timeout);
- 
- 	return timeout_ext;
- #else
-@@ -64,10 +74,13 @@ nf_ct_timeout_lookup(struct net *net, struct nf_conn *ct,
- 	unsigned int *timeouts;
- 
- 	timeout_ext = nf_ct_timeout_find(ct);
--	if (timeout_ext)
--		timeouts = NF_CT_TIMEOUT_EXT_DATA(timeout_ext);
--	else
-+	if (timeout_ext) {
-+		timeouts = nf_ct_timeout_data(timeout_ext);
-+		if (unlikely(!timeouts))
-+			timeouts = l4proto->get_timeouts(net);
-+	} else {
- 		timeouts = l4proto->get_timeouts(net);
-+	}
- 
- 	return timeouts;
- #else
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 09d1d19..3cb3cb8 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -940,10 +940,13 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	}
- 
- 	timeout_ext = tmpl ? nf_ct_timeout_find(tmpl) : NULL;
--	if (timeout_ext)
--		timeouts = NF_CT_TIMEOUT_EXT_DATA(timeout_ext);
--	else
-+	if (timeout_ext) {
-+		timeouts = nf_ct_timeout_data(timeout_ext);
-+		if (unlikely(!timeouts))
-+			timeouts = l4proto->get_timeouts(net);
-+	} else {
- 		timeouts = l4proto->get_timeouts(net);
-+	}
- 
- 	if (!l4proto->new(ct, skb, dataoff, timeouts)) {
- 		nf_conntrack_free(ct);
-@@ -952,7 +955,8 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	}
- 
- 	if (timeout_ext)
--		nf_ct_timeout_ext_add(ct, timeout_ext->timeout, GFP_ATOMIC);
-+		nf_ct_timeout_ext_add(ct, rcu_dereference(timeout_ext->timeout),
-+				      GFP_ATOMIC);
- 
- 	nf_ct_acct_ext_add(ct, GFP_ATOMIC);
- 	nf_ct_tstamp_ext_add(ct, GFP_ATOMIC);
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 476accd..5bda647 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -291,6 +291,34 @@ cttimeout_get_timeout(struct sock *ctnl, struct sk_buff *skb,
- 	return ret;
- }
- 
-+static void untimeout(struct nf_conntrack_tuple_hash *i,
-+		      struct ctnl_timeout *timeout)
-+{
-+	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(i);
-+	struct nf_conn_timeout *timeout_ext = nf_ct_timeout_find(ct);
-+
-+	if (timeout_ext && (!timeout || timeout_ext->timeout == timeout))
-+		RCU_INIT_POINTER(timeout_ext->timeout, NULL);
-+}
-+
-+static void ctnl_untimeout(struct ctnl_timeout *timeout)
-+{
-+	struct nf_conntrack_tuple_hash *h;
-+	const struct hlist_nulls_node *nn;
-+	int i;
-+
-+	local_bh_disable();
-+	for (i = 0; i < init_net.ct.htable_size; i++) {
-+		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
-+		if (i < init_net.ct.htable_size) {
-+			hlist_nulls_for_each_entry(h, nn, &init_net.ct.hash[i], hnnode)
-+				untimeout(h, timeout);
-+		}
-+		spin_unlock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
-+	}
-+	local_bh_enable();
-+}
-+
- /* try to delete object, fail if it is still in use. */
- static int ctnl_timeout_try_del(struct ctnl_timeout *timeout)
- {
-@@ -301,6 +329,7 @@ static int ctnl_timeout_try_del(struct ctnl_timeout *timeout)
- 		/* We are protected by nfnl mutex. */
- 		list_del_rcu(&timeout->head);
- 		nf_ct_l4proto_put(timeout->l4proto);
-+		ctnl_untimeout(timeout);
- 		kfree_rcu(timeout, rcu_head);
- 	} else {
- 		/* still in use, restore reference counter. */
-@@ -567,6 +596,10 @@ static void __exit cttimeout_exit(void)
- 	pr_info("cttimeout: unregistering from nfnetlink.\n");
- 
- 	nfnetlink_subsys_unregister(&cttimeout_subsys);
-+
-+	/* Make sure no conntrack objects refer to custom timeouts anymore. */
-+	ctnl_untimeout(NULL);
-+
- 	list_for_each_entry_safe(cur, tmp, &cttimeout_list, head) {
- 		list_del_rcu(&cur->head);
- 		/* We are sure that our objects have no clients at this point,
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index a03924c..e7ac07e 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -321,8 +321,10 @@ static void xt_ct_destroy_timeout(struct nf_conn *ct)
- 
- 	if (timeout_put) {
- 		timeout_ext = nf_ct_timeout_find(ct);
--		if (timeout_ext)
-+		if (timeout_ext) {
- 			timeout_put(timeout_ext->timeout);
-+			RCU_INIT_POINTER(timeout_ext->timeout, NULL);
-+		}
- 	}
- 	rcu_read_unlock();
- #endif
 -- 
 2.1.4
-
