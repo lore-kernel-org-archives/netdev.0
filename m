@@ -1,55 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 23/35] netfilter: ip6_tables: improve if statements
-Date: Sat, 17 Oct 2015 13:32:58 +0200
-Message-ID: <1445081590-2924-24-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/35] netfilter: nfqueue: don't use prev pointer
+Date: Sat, 17 Oct 2015 13:32:52 +0200
+Message-ID: <1445081590-2924-18-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48425 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48392 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752775AbbJQL01 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:27 -0400
+	id S1752712AbbJQL0X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:23 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Morris <ipm@chirality.org.uk>
+From: Florian Westphal <fw@strlen.de>
 
-Correct whitespace layout of if statements.
+Usage of -prev seems buggy.  While packet was out our hook cannot be
+removed but we have no way to know if the previous one is still valid.
 
-No changes detected by objdiff.
+So better not use ->prev at all.  Since NF_REPEAT just asks to invoke
+same hook function again, just do so, and continue with nf_interate
+if we get an ACCEPT verdict.
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+A side effect of this change is that if nf_reinject(NF_REPEAT) causes
+another REPEAT we will now drop the skb instead of a kernel loop.
+
+However, NF_REPEAT loops would be a bug so this should not happen anyway.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6_tables.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nf_queue.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index c57ddd3..99425cf 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -133,7 +133,7 @@ ip6_packet_match(const struct sk_buff *skb,
- /* ... might want to do something with class and flowlabel here ... */
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 34f628e..634d18e 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -192,10 +192,8 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 	nf_queue_entry_release_refs(entry);
  
- 	/* look for the desired protocol header */
--	if((ip6info->flags & IP6T_F_PROTO)) {
-+	if (ip6info->flags & IP6T_F_PROTO) {
- 		int protohdr;
- 		unsigned short _frag_off;
+ 	/* Continue traversal iff userspace said ok... */
+-	if (verdict == NF_REPEAT) {
+-		elem = list_entry(elem->list.prev, struct nf_hook_ops, list);
+-		verdict = NF_ACCEPT;
+-	}
++	if (verdict == NF_REPEAT)
++		verdict = elem->hook(elem->priv, skb, &entry->state);
  
-@@ -151,9 +151,9 @@ ip6_packet_match(const struct sk_buff *skb,
- 				ip6info->proto);
- 
- 		if (ip6info->proto == protohdr) {
--			if(ip6info->invflags & IP6T_INV_PROTO) {
-+			if (ip6info->invflags & IP6T_INV_PROTO)
- 				return false;
--			}
-+
- 			return true;
- 		}
- 
+ 	if (verdict == NF_ACCEPT) {
+ 		afinfo = nf_get_afinfo(entry->state.pf);
 -- 
 2.1.4
