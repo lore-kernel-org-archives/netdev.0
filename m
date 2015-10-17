@@ -1,94 +1,116 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: pull-request: wireless-drivers 2015-10-17
-Date: Sat, 17 Oct 2015 08:26:19 +0300
-Message-ID: <878u72gj5w.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/17][pull request] Intel Wired LAN Driver Updates 2015-10-16
+Date: Fri, 16 Oct 2015 22:28:14 -0700
+Message-ID: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:63385 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751252AbbJQF2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 01:28:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This series contains updates to i40e and i40evf only.
 
-few small fixes I would like to get to 4.3 still. Please let me know if
-there are any problems.
+Kiran adds a spinlock around code accessing VSI MAC filter list to
+ensure that we are synchronizing access to the filter list, otherwise
+we can end up with multiple accesses at the same time which can cause
+the VSI MAC filter list to get in an unstable or corrupted state.
 
-Kalle
+Jesse fixes overlong BIT defines, where the RSS enabling call were
+mistakenly missed.  Also fixes a bug where the enable function was
+enabling the interrupt twice while trying to update the two interrupt
+throttle rate thresholds for Rx and Tx, while refactoring the IRQ
+enable function to simplify reading the flow.  Addressed the high
+CPU utilization of some small streaming workloads that the driver should
+reduce CPU in.
 
-The following changes since commit 76d164f582150fd0259ec0fcbc485470bcd8033e:
+Anjali fixes two X722 issues with respect to EEPROM checksum verify and
+reading NVM version info.  Fixed where a mask value was accidentally
+replaced with a bit mask causing Flow Director sideband to be broken.
 
-  ath10k: fix DMA related firmware crashes on multiple devices (2015-09-26 20:48:25 +0300)
+Alex Duyck fixes areas of the drivers which run from hard interrupt
+context or with interrupts already disabled in netpoll, so use
+napi_schedule_irqoff() instead of napi_schedule().
 
-are available in the git repository at:
+Mitch fixes the VF drivers to not easily give up when it is not able
+to communicate with the PF driver.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-10-17
+Carolyn fixes a problem where our tools MAC loopback test, after driver
+unbind would fail because the hardware was configured for multiqueue and
+unbind operation did not clear this configuration.  Also fixed a issue
+where the NVMUpdate tool gets bad data from the PHY when using the PHY
+NVM feature because of contention on the MDIO interface from getting
+PHY capability calls from the driver during regular operations.
 
-for you to fetch changes up to de28a05ee28e36fa1fc68fcfc7c6cc1c6f7c270c:
+Catherine fixed an issue where we were checking if autoneg was allowed
+to change before checking if autoneg was changing, these checks need to
+be in the reverse order.
 
-  Merge tag 'iwlwifi-for-kalle-2015-10-05' of git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-10-07 11:12:01 +0300)
+Jean Sacren fixes up an function header comment to align the kernel-docs
+with the actual code.
 
-----------------------------------------------------------------
+The following are changes since commit 4be3158abe1e02d24f82b34101e41d662fae2185:
+  Merge branch 'mlxsw-spectrum'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
 
-iwlwifi:
+Alexander Duyck (1):
+  i40e/i40evf: use napi_schedule_irqoff()
 
-* mvm: flush fw_dump_wk when mvm fails to start
-* mvm: init card correctly on ctkill exit check
-* pci: add a few more PCI subvendor IDs for the 7265 series
-* fix firmware filename for 3160
-* mvm: clear csa countdown when AP is stopped
-* mvm: fix D3 firmware PN programming
-* dvm: fix D3 firmware PN programming
-* mvm: fix D3 CCMP TX PN assignment
+Anjali Singhai (1):
+  i40e: Fix basic support for X722 devices
 
-rtlwifi:
+Anjali Singhai Jain (1):
+  i40e/i40evf: Fix an accidental error with BIT_ULL replacement
 
-* rtl8821ae: Fix system lockups on boot
+Carolyn Wyborny (2):
+  i40e: Fix for Tools loopback test failing after driver load
+  i40e: fix for PHY NVM interaction problem
 
-----------------------------------------------------------------
-Andrei Otcheretianski (1):
-      iwlwifi: mvm: flush fw_dump_wk when mvm fails to start
+Catherine Sullivan (3):
+  i40e: Fix order of checks when enabling/disabling autoneg in ethtool
+  i40e: Move error message to debug level
+  i40e/i40evf: Bump i40e to 1.3.38 and i40evf to 1.3.25
 
-Arik Nemtsov (1):
-      iwlwifi: mvm: init card correctly on ctkill exit check
+Jean Sacren (2):
+  i40e: fix kernel-doc argument name
+  i40e: declare rather than initialize int object
 
-Avraham Stern (1):
-      iwlwifi: mvm: clear csa countdown when AP is stopped
+Jesse Brandeburg (5):
+  i40evf: fix overlong BIT defines
+  i40e/i40evf: refactor IRQ enable function
+  i40e/i40evf: fix bug in throttle rate math
+  i40e/i40evf: change dynamic interrupt thresholds
+  i40e/i40evf: adjust interrupt throttle less frequently
 
-Johannes Berg (4):
-      iwlwifi: mvm: fix D3 CCMP TX PN assignment
-      iwlwifi: dvm: fix D3 firmware PN programming
-      iwlwifi: mvm: fix D3 firmware PN programming
-      iwlwifi: fix firmware filename for 3160
+Kiran Patil (1):
+  i40e: Lock for VSI's MAC filter list
 
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2015-10-05' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+Mitch Williams (1):
+  i40evf: don't give up
 
-Larry Finger (1):
-      rtlwifi: rtl8821ae: Fix system lockups on boot
-
-Luca Coelho (1):
-      iwlwifi: pci: add a few more PCI subvendor IDs for the 7265 series
-
- drivers/net/wireless/iwlwifi/dvm/lib.c      |    2 +-
- drivers/net/wireless/iwlwifi/iwl-7000.c     |    2 +-
- drivers/net/wireless/iwlwifi/mvm/d3.c       |   27 +++++++++++----------------
- drivers/net/wireless/iwlwifi/mvm/fw.c       |    4 ++--
- drivers/net/wireless/iwlwifi/mvm/mac80211.c |    1 +
- drivers/net/wireless/iwlwifi/mvm/mvm.h      |    5 +++++
- drivers/net/wireless/iwlwifi/mvm/ops.c      |    1 +
- drivers/net/wireless/iwlwifi/pcie/drv.c     |    5 +++++
- drivers/net/wireless/rtlwifi/pci.h          |    2 ++
- drivers/net/wireless/rtlwifi/rtl8821ae/hw.c |   17 +++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8821ae/sw.c |    5 +++++
- drivers/net/wireless/rtlwifi/wifi.h         |    3 +++
- 12 files changed, 54 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |   4 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  17 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  35 ++-
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 347 +++++++++++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  31 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 166 ++++++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  26 +-
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |   5 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 163 ++++++----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  21 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   4 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |   2 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  13 +-
+ 16 files changed, 631 insertions(+), 219 deletions(-)
 
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.4.3
