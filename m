@@ -1,62 +1,119 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 19/35] netfilter: ip6_tables: function definition layout
-Date: Sat, 17 Oct 2015 13:32:54 +0200
-Message-ID: <1445081590-2924-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/35] netfilter: bridge: avoid unused label warning
+Date: Sat, 17 Oct 2015 13:32:50 +0200
+Message-ID: <1445081590-2924-16-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48403 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752740AbbJQL0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:24 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Morris <ipm@chirality.org.uk>
+From: Arnd Bergmann <arnd@arndb.de>
 
-Use tabs instead of spaces to indent second line of parameters in
-function definitions.
+With the ARM mini2440_defconfig, the bridge netfilter code gets
+built with both CONFIG_NF_DEFRAG_IPV4 and CONFIG_NF_DEFRAG_IPV6
+disabled, which leads to a harmless gcc warning:
 
-No changes detected by objdiff.
+net/bridge/br_netfilter_hooks.c: In function 'br_nf_dev_queue_xmit':
+net/bridge/br_netfilter_hooks.c:792:2: warning: label 'drop' defined but not used [-Wunused-label]
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+This gets rid of the warning by cleaning up the code to avoid
+the respective #ifdefs causing this problem, and replacing them
+with if(IS_ENABLED()) checks. I have verified that the resulting
+object code is unchanged, and an additional advantage is that
+we now get compile coverage of the unused functions in more
+configurations.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: dd302b59bde0 ("netfilter: bridge: don't leak skb in error paths")
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6_tables.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/bridge/br_netfilter_hooks.c | 16 ++++------------
+ 1 file changed, 4 insertions(+), 12 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 67a2821..0654312 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -816,7 +816,7 @@ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
-    newinfo) */
- static int
- translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
--                const struct ip6t_replace *repl)
-+		const struct ip6t_replace *repl)
- {
- 	struct ip6t_entry *iter;
- 	unsigned int i;
-@@ -1090,7 +1090,7 @@ static int compat_table_info(const struct xt_table_info *info,
- #endif
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 13f0367..18905d4 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -111,7 +111,6 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ /* largest possible L2 header, see br_nf_dev_queue_xmit() */
+ #define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
  
- static int get_info(struct net *net, void __user *user,
--                    const int *len, int compat)
-+		    const int *len, int compat)
- {
- 	char name[XT_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1152,7 +1152,7 @@ static int get_info(struct net *net, void __user *user,
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ struct brnf_frag_data {
+ 	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
+ 	u8 encap_size;
+@@ -121,7 +120,6 @@ struct brnf_frag_data {
+ };
  
- static int
- get_entries(struct net *net, struct ip6t_get_entries __user *uptr,
--            const int *len)
-+	    const int *len)
+ static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
+-#endif
+ 
+ static void nf_bridge_info_free(struct sk_buff *skb)
  {
- 	int ret;
- 	struct ip6t_get_entries get;
+@@ -666,7 +664,6 @@ static unsigned int br_nf_forward_arp(void *priv,
+ 	return NF_STOLEN;
+ }
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct brnf_frag_data *data;
+@@ -696,9 +693,7 @@ static int br_nf_push_frag_xmit_sk(struct sock *sk, struct sk_buff *skb)
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+ 	return br_nf_push_frag_xmit(net, sk, skb);
+ }
+-#endif
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+ static int
+ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 		  int (*output)(struct sock *, struct sk_buff *))
+@@ -716,7 +711,6 @@ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 
+ 	return ip_do_fragment(sk, skb, output);
+ }
+-#endif
+ 
+ static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
+ {
+@@ -739,11 +733,11 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 	nf_bridge = nf_bridge_info_get(skb);
+ 
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+ 	/* This is wrong! We should preserve the original fragment
+ 	 * boundaries by preserving frag_list rather than refragmenting.
+ 	 */
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) &&
++	    skb->protocol == htons(ETH_P_IP)) {
+ 		struct brnf_frag_data *data;
+ 
+ 		if (br_validate_ipv4(net, skb))
+@@ -765,9 +759,8 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 		return br_nf_ip_fragment(net, sk, skb, br_nf_push_frag_xmit_sk);
+ 	}
+-#endif
+-#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+-	if (skb->protocol == htons(ETH_P_IPV6)) {
++	if (IS_ENABLED(CONFIG_NF_DEFRAG_IPV6) &&
++	    skb->protocol == htons(ETH_P_IPV6)) {
+ 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+ 		struct brnf_frag_data *data;
+ 
+@@ -791,7 +784,6 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 		kfree_skb(skb);
+ 		return -EMSGSIZE;
+ 	}
+-#endif
+ 	nf_bridge_info_free(skb);
+ 	return br_dev_queue_push_xmit(net, sk, skb);
+  drop:
 -- 
 2.1.4
+
