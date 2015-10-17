@@ -1,23 +1,47 @@
-From: <Et3@leudh12.onmicrosoft.com>
-Subject: Good Day
-Date: Sat, 17 Oct 2015 02:54:49 -0500
-Message-ID: <BM1PR01MB033828960626C87719C735BCBF3C0@BM1PR01MB0338.INDPRD01.PROD.OUTLOOK.COM>
-Reply-To: <mcheung661@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <Et3@leudh12.onmicrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ma1ind01hn0223.outbound.protection.outlook.com ([104.47.100.223]:64902
-	"EHLO IND01-MA1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751168AbbJQIKY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 04:10:24 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 1/2] NFC: delete null dereference
+Date: Sat, 17 Oct 2015 11:32:19 +0200
+Message-ID: <1445074340-21955-2-git-send-email-Julia.Lawall@lip6.fr>
+References: <1445074340-21955-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1445074340-21955-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I need your assistance into this transaction.
+The exit label performs device_unlock(&dev->dev);, which will fail when dev
+is NULL, and nfc_put_device(dev);, which is not useful when dev is NULL, so
+just exit the function immediately.
 
-Regards,
-Mr. LEUNG Cheung
+Problem found using scripts/coccinelle/null/deref_null.cocci
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ net/nfc/netlink.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index 853172c..f040532 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -1109,10 +1109,8 @@ static int nfc_genl_llc_sdreq(struct sk_buff *skb, struct genl_info *info)
+ 	idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
+ 
+ 	dev = nfc_get_device(idx);
+-	if (!dev) {
+-		rc = -ENODEV;
+-		goto exit;
+-	}
++	if (!dev)
++		return -ENODEV;
+ 
+ 	device_lock(&dev->dev);
+ 
+
