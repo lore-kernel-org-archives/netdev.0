@@ -1,58 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/17] i40e: Fix for Tools loopback test failing after driver load
-Date: Fri, 16 Oct 2015 22:28:24 -0700
-Message-ID: <1445059711-45992-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 17/17] i40e/i40evf: Bump i40e to 1.3.38 and i40evf to 1.3.25
+Date: Fri, 16 Oct 2015 22:28:31 -0700
+Message-ID: <1445059711-45992-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27590 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:49921 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252AbbJQF2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 01:28:42 -0400
+	id S1751362AbbJQF2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 01:28:45 -0400
 In-Reply-To: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-This patch fixes a problem where our Tools MAC Loopback test, after
-driver unbind would fail.  This was because the hw was configured
-for multiqueue and unbind operation did not clear this configuration.
-The problem is fixed by resetting this configuration in i40e_remove.
+Bump.
 
-Change-ID: I130c05138319182ed1476d3a0b5222d6a6320af9
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: Id0a7ecaa491f88ce94c9eba4901e592a56044ee0
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b105da1..9b4fa3e 100644
+index 92b9d27..7af52d3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10650,6 +10650,7 @@ err_dma:
- static void i40e_remove(struct pci_dev *pdev)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 	i40e_status ret_code;
- 	int i;
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
-@@ -10657,6 +10658,10 @@ static void i40e_remove(struct pci_dev *pdev)
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 34
++#define DRV_VERSION_BUILD 38
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index a44a42b..10b2a4a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 	i40e_ptp_stop(pf);
- 
-+	/* Disable RSS in hw */
-+	wr32(hw, I40E_PFQF_HENA(0), 0);
-+	wr32(hw, I40E_PFQF_HENA(1), 0);
-+
- 	/* no more scheduling of any task */
- 	set_bit(__I40E_DOWN, &pf->state);
- 	del_timer_sync(&pf->service_timer);
+-#define DRV_VERSION "1.3.21"
++#define DRV_VERSION "1.3.25"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2015 Intel Corporation.";
 -- 
 2.4.3
