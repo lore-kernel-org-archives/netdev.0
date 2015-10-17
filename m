@@ -1,79 +1,91 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 20/35] netfilter: ipv6: code indentation
-Date: Sat, 17 Oct 2015 13:32:55 +0200
-Message-ID: <1445081590-2924-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 30/35] netfilter: turn NF_HOOK into an inline function
+Date: Sat, 17 Oct 2015 13:33:05 +0200
+Message-ID: <1445081590-2924-31-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48405 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48452 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752748AbbJQL0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:25 -0400
+	id S1752836AbbJQL0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:32 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Morris <ipm@chirality.org.uk>
+From: Arnd Bergmann <arnd@arndb.de>
 
-Use tabs instead of spaces to indent code.
+A recent change to the dst_output handling caused a new warning
+when the call to NF_HOOK() is the only used of a local variable
+passed as 'dev', and CONFIG_NETFILTER is disabled:
 
-No changes detected by objdiff.
+net/ipv6/ip6_output.c: In function 'ip6_output':
+net/ipv6/ip6_output.c:135:21: warning: unused variable 'dev' [-Wunused-variable]
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+The reason for this is that the NF_HOOK macro in this case does
+not reference the variable at all, and the call to dev_net(dev)
+got removed from the ip6_output function. To avoid that warning now
+and in the future, this changes the macro into an equivalent
+inline function, which tells the compiler that the variable is
+passed correctly but still unused.
+
+The dn_forward function apparently had the same problem in
+the past and added a local workaround that no longer works
+with the inline function. In order to avoid a regression, we
+have to also remove the #ifdef from decnet in the same patch.
+
+Fixes: ede2059dbaf9 ("dst: Pass net into dst->output")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6_tables.c           | 4 ++--
- net/ipv6/netfilter/ip6t_SYNPROXY.c        | 2 +-
- net/ipv6/netfilter/nft_chain_route_ipv6.c | 6 +++---
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ include/linux/netfilter.h | 19 +++++++++++++++++--
+ net/decnet/dn_route.c     |  2 --
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 0654312..62190c3 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -443,8 +443,8 @@ ip6t_do_table(struct sk_buff *skb,
- 			break;
- 	} while (!acpar.hotdrop);
- 
-- 	xt_write_recseq_end(addend);
-- 	local_bh_enable();
-+	xt_write_recseq_end(addend);
-+	local_bh_enable();
- 
- #ifdef DEBUG_ALLOW_ALL
- 	return NF_ACCEPT;
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index c235660..5312e9d 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -244,7 +244,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 	synproxy_build_options(nth, opts);
- 
- 	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
--	                  niph, nth, tcp_hdr_size);
-+			  niph, nth, tcp_hdr_size);
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index ef11e1d..0ad5567 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -346,8 +346,23 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
  }
  
- static bool
-diff --git a/net/ipv6/netfilter/nft_chain_route_ipv6.c b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-index 9df75bd..71d995f 100644
---- a/net/ipv6/netfilter/nft_chain_route_ipv6.c
-+++ b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-@@ -61,11 +61,11 @@ static const struct nf_chain_type nft_chain_route_ipv6 = {
- 	.name		= "route",
- 	.type		= NFT_CHAIN_T_ROUTE,
- 	.family		= NFPROTO_IPV6,
--        .owner		= THIS_MODULE,
-+	.owner		= THIS_MODULE,
- 	.hook_mask	= (1 << NF_INET_LOCAL_OUT),
- 	.hooks		= {
--                [NF_INET_LOCAL_OUT]	= nf_route_table_hook,
--        },
-+		[NF_INET_LOCAL_OUT]	= nf_route_table_hook,
-+	},
- };
+ #else /* !CONFIG_NETFILTER */
+-#define NF_HOOK(pf, hook, net, sk, skb, indev, outdev, okfn) (okfn)(net, sk, skb)
+-#define NF_HOOK_COND(pf, hook, net, sk, skb, indev, outdev, okfn, cond) (okfn)(net, sk, skb)
++static inline int
++NF_HOOK_COND(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
++	     struct sk_buff *skb, struct net_device *in, struct net_device *out,
++	     int (*okfn)(struct net *, struct sock *, struct sk_buff *),
++	     bool cond)
++{
++	return okfn(net, sk, skb);
++}
++
++static inline int
++NF_HOOK(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
++	struct sk_buff *skb, struct net_device *in, struct net_device *out,
++	int (*okfn)(struct net *, struct sock *, struct sk_buff *))
++{
++	return okfn(net, sk, skb);
++}
++
+ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
+ 			  struct sock *sk, struct sk_buff *skb,
+ 			  struct net_device *indev, struct net_device *outdev,
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index e930321..0c491fc 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -789,9 +789,7 @@ static int dn_forward(struct sk_buff *skb)
+ 	struct dn_dev *dn_db = rcu_dereference(dst->dev->dn_ptr);
+ 	struct dn_route *rt;
+ 	int header_len;
+-#ifdef CONFIG_NETFILTER
+ 	struct net_device *dev = skb->dev;
+-#endif
  
- static int __init nft_chain_route_init(void)
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto drop;
 -- 
 2.1.4
