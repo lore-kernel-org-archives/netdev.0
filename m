@@ -1,41 +1,35 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/35] netfilter: xt_CT: don't put back reference to timeout policy object
-Date: Sat, 17 Oct 2015 13:32:47 +0200
-Message-ID: <1445081590-2924-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/35] nfnetlink_cttimeout: add rcu_barrier() on module removal
+Date: Sat, 17 Oct 2015 13:32:49 +0200
+Message-ID: <1445081590-2924-15-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48366 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752624AbbJQL0U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:20 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On success, this shouldn't put back the timeout policy object, otherwise
-we may have module refcount overflow and we allow deletion of timeout
-that are still in use.
+Make sure kfree_rcu() released objects before leaving the module removal
+exit path.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_CT.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/netfilter/nfnetlink_cttimeout.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index faf32d8..a03924c 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -171,6 +171,9 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
- 	if (timeout_ext == NULL)
- 		ret = -ENOMEM;
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 5bda647..c7a2d0e 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -612,6 +612,7 @@ static void __exit cttimeout_exit(void)
+ 	RCU_INIT_POINTER(nf_ct_timeout_find_get_hook, NULL);
+ 	RCU_INIT_POINTER(nf_ct_timeout_put_hook, NULL);
+ #endif /* CONFIG_NF_CONNTRACK_TIMEOUT */
++	rcu_barrier();
+ }
  
-+	rcu_read_unlock();
-+	return ret;
-+
- err_put_timeout:
- 	__xt_ct_tg_timeout_put(timeout);
- out:
+ module_init(cttimeout_init);
 -- 
 2.1.4
+
