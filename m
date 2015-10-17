@@ -1,111 +1,120 @@
-From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Subject: [PATCH v2 2/2] net: phy: smsc: disable energy detect mode
-Date: Sat, 17 Oct 2015 06:04:36 +0200
-Message-ID: <1445054676-21523-3-git-send-email-hs@denx.de>
+From: Heiko Schocher <hs@denx.de>
+Subject: [PATCH v2 1/2] drivers: net: cpsw: add phy-handle parsing
+Date: Sat, 17 Oct 2015 06:04:35 +0200
+Message-ID: <1445054676-21523-2-git-send-email-hs__42022.4278969274$1445054821$gmane$org@denx.de>
 References: <1445054676-21523-1-git-send-email-hs@denx.de>
-Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445054676-21523-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Heiko Schocher <hs@denx.de>, Felipe Balbi <balbi@ti.com>,
+	"David S. Miller" <"davem@davemloft.net>, netdev"@vger.kernel.org>,
+	Tony Lindgren <tony@atomide.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:55576 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750772AbbJQEEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 00:04:55 -0400
+In-Reply-To: <1445054676-21523-1-git-send-email-hs@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On some boards the energy enable detect mode leads in
-trouble with some switches, so make the enabling of
-this mode configurable through DT.
+add the ability to parse "phy-handle". This
+is needed for phys, which have a DT node, and
+need to parse DT properties.
 
-Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Signed-off-by: Heiko Schocher <hs@denx.de>
 ---
 
-Changes in v2:
-- add comments from Florian Fainelli
-  - I did not change disable property name into enable
-    because I fear to break existing behaviour
-  - add smsc vendor prefix
-  - remove CONFIG_OF and use __maybe_unused
-  - introduce "phy-handle" ability into ti,cpsw
-    driver, so I can remove bogus:
-      if (!of_node && dev->parent->of_node)
-          of_node = dev->parent->of_node;
-    construct. Therefore new patch for the ti,cpsw
-    driver is necessary.
+Changes in v2: None
 
- .../devicetree/bindings/net/smsc-lan87xx.txt       | 24 ++++++++++++++++++++++
- drivers/net/phy/smsc.c                             | 19 ++++++++++++-----
- 2 files changed, 38 insertions(+), 5 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+ Documentation/devicetree/bindings/net/cpsw.txt |  1 +
+ drivers/net/ethernet/ti/cpsw.c                 | 15 +++++++++++----
+ 2 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/smsc-lan87xx.txt b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
-new file mode 100644
-index 0000000..974edd5
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
-@@ -0,0 +1,24 @@
-+SMSC LAN87xx Ethernet PHY
-+
-+Some boards require special tuning values. Configure them
-+through an Ethernet OF device node.
-+
-+Optional properties:
-+
-+- smsc,disable-energy-detect:
-+  If set, do not enable energy detect mode for the SMSC phy.
-+  default: enable energy detect mode
-+
-+Examples:
-+smsc phy with disabled energy detect mode on an am335x based board.
-+&davinci_mdio {
-+	pinctrl-names = "default", "sleep";
-+	pinctrl-0 = <&davinci_mdio_default>;
-+	pinctrl-1 = <&davinci_mdio_sleep>;
-+	status = "okay";
-+
-+	ethernetphy0: ethernet-phy@0 {
-+		reg = <0>;
-+		smsc,disable-energy-detect;
-+	};
-+};
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 70b0895..dc2da87 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -43,16 +43,25 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index a9df21a..a2cae4e 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -39,6 +39,7 @@ Required properties:
+ Optional properties:
+ - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
+ - mac-address		: See ethernet.txt file in the same directory
++- phy-handle		: See ethernet.txt file in the same directory
  
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
-+	int __maybe_unused len;
-+	struct device *dev __maybe_unused = &phydev->dev;
-+	struct device_node *of_node __maybe_unused = dev->of_node;
- 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+	int enable_energy = 1;
+ Note: "ti,hwmods" field is used to fetch the base address and irq
+ resources from TI, omap hwmod data base during device registration.
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 8fc90f1..874fb29 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -30,6 +30,7 @@
+ #include <linux/delay.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/of.h>
++#include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
+ #include <linux/if_vlan.h>
+@@ -365,6 +366,7 @@ struct cpsw_priv {
+ 	spinlock_t			lock;
+ 	struct platform_device		*pdev;
+ 	struct net_device		*ndev;
++	struct device_node		*phy_node;
+ 	struct napi_struct		napi_rx;
+ 	struct napi_struct		napi_tx;
+ 	struct device			*dev;
+@@ -1145,7 +1147,11 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 		cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+ 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
  
- 	if (rc < 0)
- 		return rc;
- 
--	/* Enable energy detect mode for this SMSC Transceivers */
--	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
--		       rc | MII_LAN83C185_EDPWRDOWN);
--	if (rc < 0)
--		return rc;
-+	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
-+		enable_energy = 0;
-+
-+	if (enable_energy) {
-+		/* Enable energy detect mode for this SMSC Transceivers */
-+		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+			       rc | MII_LAN83C185_EDPWRDOWN);
-+		if (rc < 0)
-+			return rc;
-+	}
- 
- 	return smsc_phy_ack_interrupt(phydev);
+-	slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
++	if (priv->phy_node)
++		slave->phy = of_phy_connect(priv->ndev, priv->phy_node,
++				 &cpsw_adjust_link, 0, slave->data->phy_if);
++	else
++		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+ 				 &cpsw_adjust_link, slave->data->phy_if);
+ 	if (IS_ERR(slave->phy)) {
+ 		dev_err(priv->dev, "phy %s not found on slave %d\n",
+@@ -1934,11 +1940,12 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+ 	slave->port_vlan = data->dual_emac_res_vlan;
  }
+ 
+-static int cpsw_probe_dt(struct cpsw_platform_data *data,
++static int cpsw_probe_dt(struct cpsw_priv *priv,
+ 			 struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
+ 	struct device_node *slave_node;
++	struct cpsw_platform_data *data = &priv->data;
+ 	int i = 0, ret;
+ 	u32 prop;
+ 
+@@ -2029,6 +2036,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		if (strcmp(slave_node->name, "slave"))
+ 			continue;
+ 
++		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
+ 			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
+@@ -2044,7 +2052,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		}
+ 		snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+ 			 PHY_ID_FMT, mdio->name, phyid);
+-
+ 		slave_data->phy_if = of_get_phy_mode(slave_node);
+ 		if (slave_data->phy_if < 0) {
+ 			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
+@@ -2240,7 +2247,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	/* Select default pin state */
+ 	pinctrl_pm_select_default_state(&pdev->dev);
+ 
+-	if (cpsw_probe_dt(&priv->data, pdev)) {
++	if (cpsw_probe_dt(priv, pdev)) {
+ 		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+ 		ret = -ENODEV;
+ 		goto clean_runtime_disable_ret;
 -- 
 2.1.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
