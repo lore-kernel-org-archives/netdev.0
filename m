@@ -1,82 +1,130 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 34/35] netfilter: ipv4: code indentation
-Date: Sat, 17 Oct 2015 13:33:09 +0200
-Message-ID: <1445081590-2924-35-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 28/35] netfilter: make nf_queue_entry_get_refs return void
+Date: Sat, 17 Oct 2015 13:33:03 +0200
+Message-ID: <1445081590-2924-29-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48469 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48443 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752874AbbJQL0e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:34 -0400
+	id S1752833AbbJQL0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:31 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Morris <ipm@chirality.org.uk>
+From: Florian Westphal <fw@strlen.de>
 
-Use tabs instead of spaces to indent code.
+We don't care if module is being unloaded anymore since hook unregister
+handling will destroy queue entries using that hook.
 
-No changes detected by objdiff.
-
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ip_tables.c        | 6 +++---
- net/ipv4/netfilter/ipt_SYNPROXY.c     | 2 +-
- net/ipv4/netfilter/iptable_security.c | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/netfilter/nf_queue.h |  2 +-
+ net/netfilter/core.c             |  2 --
+ net/netfilter/nf_queue.c         | 11 ++---------
+ net/netfilter/nfnetlink_queue.c  | 11 ++++-------
+ 4 files changed, 7 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 3991a87..b99affa 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -431,8 +431,8 @@ ipt_do_table(struct sk_buff *skb,
- 	} while (!acpar.hotdrop);
- 	pr_debug("Exiting %s; sp at %u\n", __func__, stackidx);
+diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+index e863585..9c5638a 100644
+--- a/include/net/netfilter/nf_queue.h
++++ b/include/net/netfilter/nf_queue.h
+@@ -32,7 +32,7 @@ void nf_register_queue_handler(const struct nf_queue_handler *qh);
+ void nf_unregister_queue_handler(void);
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
  
-- 	xt_write_recseq_end(addend);
-- 	local_bh_enable();
-+	xt_write_recseq_end(addend);
-+	local_bh_enable();
+-bool nf_queue_entry_get_refs(struct nf_queue_entry *entry);
++void nf_queue_entry_get_refs(struct nf_queue_entry *entry);
+ void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
  
- #ifdef DEBUG_ALLOW_ALL
- 	return NF_ACCEPT;
-@@ -484,7 +484,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 				unsigned int oldpos, size;
+ static inline void init_hashrandom(u32 *jhash_initval)
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 32a2894..09e661c 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -313,8 +313,6 @@ next_hook:
+ 		int err = nf_queue(skb, elem, state,
+ 				   verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+-			if (err == -ECANCELED)
+-				goto next_hook;
+ 			if (err == -ESRCH &&
+ 			   (verdict & NF_VERDICT_FLAG_QUEUE_BYPASS))
+ 				goto next_hook;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index eef1c50..efc9688 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -73,7 +73,7 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+ EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
  
- 				if ((strcmp(t->target.u.user.name,
--			    		    XT_STANDARD_TARGET) == 0) &&
-+					    XT_STANDARD_TARGET) == 0) &&
- 				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index f105b6f..a105836 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -231,7 +231,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 	synproxy_build_options(nth, opts);
+ /* Bump dev refs so they don't vanish while packet is out */
+-bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
++void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ {
+ 	struct nf_hook_state *state = &entry->state;
  
- 	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
--	                  niph, nth, tcp_hdr_size);
-+			  niph, nth, tcp_hdr_size);
+@@ -95,8 +95,6 @@ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ 			dev_hold(physdev);
+ 	}
+ #endif
+-
+-	return true;
+ }
+ EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+ 
+@@ -151,10 +149,7 @@ int nf_queue(struct sk_buff *skb,
+ 		.size	= sizeof(*entry) + afinfo->route_key_size,
+ 	};
+ 
+-	if (!nf_queue_entry_get_refs(entry)) {
+-		status = -ECANCELED;
+-		goto err_unlock;
+-	}
++	nf_queue_entry_get_refs(entry);
+ 	skb_dst_force(skb);
+ 	afinfo->saveroute(skb, entry);
+ 	status = qh->outfn(entry, queuenum);
+@@ -215,8 +210,6 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		err = nf_queue(skb, elem, &entry->state,
+ 			       verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+-			if (err == -ECANCELED)
+-				goto next_hook;
+ 			if (err == -ESRCH &&
+ 			   (verdict & NF_VERDICT_FLAG_QUEUE_BYPASS))
+ 				goto next_hook;
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index a659e57..7d81d28 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -606,12 +606,9 @@ static struct nf_queue_entry *
+ nf_queue_entry_dup(struct nf_queue_entry *e)
+ {
+ 	struct nf_queue_entry *entry = kmemdup(e, e->size, GFP_ATOMIC);
+-	if (entry) {
+-		if (nf_queue_entry_get_refs(entry))
+-			return entry;
+-		kfree(entry);
+-	}
+-	return NULL;
++	if (entry)
++		nf_queue_entry_get_refs(entry);
++	return entry;
  }
  
- static bool
-diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
-index f534e2f..c2e23d5 100644
---- a/net/ipv4/netfilter/iptable_security.c
-+++ b/net/ipv4/netfilter/iptable_security.c
-@@ -79,7 +79,7 @@ static int __init iptable_security_init(void)
- 	int ret;
- 
- 	ret = register_pernet_subsys(&iptable_security_net_ops);
--        if (ret < 0)
-+	if (ret < 0)
- 		return ret;
- 
- 	sectbl_ops = xt_hook_link(&security_table, iptable_security_hook);
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+@@ -706,7 +703,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	nf_bridge_adjust_skb_data(skb);
+ 	segs = skb_gso_segment(skb, 0);
+ 	/* Does not use PTR_ERR to limit the number of error codes that can be
+-	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to
++	 * returned by nf_queue.  For instance, callers rely on -ESRCH to
+ 	 * mean 'ignore this hook'.
+ 	 */
+ 	if (IS_ERR_OR_NULL(segs))
 -- 
 2.1.4
