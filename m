@@ -1,104 +1,55 @@
-From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Subject: Re: [PATCH] net: phy: smsc: disable energy detect mode
-Date: Sat, 17 Oct 2015 05:42:05 +0200
-Message-ID: <5621C38D.8010000@denx.de>
-References: <1444713189-23063-1-git-send-email-hs@denx.de>
- <561D5AC8.7040801@gmail.com> <561DD749.9000802@denx.de>
- <CAGVrzcZLTg_2tUCTyMkEF7y-Esh5ByZsputO6u41RLPizCcz+Q@mail.gmail.com>
-Reply-To: hs-ynQEQJNshbs@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGVrzcZLTg_2tUCTyMkEF7y-Esh5ByZsputO6u41RLPizCcz+Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Heiko Schocher <hs@denx.de>
+Subject: [PATCH v2 0/2] net, phy, smsc: add posibility to disable energy detect mode
+Date: Sat, 17 Oct 2015 06:04:34 +0200
+Message-ID: <1445054676-21523-1-git-send-email-hs@denx.de>
+Cc: Heiko Schocher <hs@denx.de>, devicetree@vger.kernel.org,
+	Felipe Balbi <balbi@ti.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Georg.Soffel@bosch-si.com, Tony Lindgren <tony@atomide.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Florian,
+On some boards the energy enable detect mode leads in
+trouble with some switches, so make the enabling of
+this mode configurable through DT.
+Therefore the property "smsc,disable-energy-detect" is
+introduced.
 
-Am 16.10.2015 um 18:27 schrieb Florian Fainelli:
-> 2015-10-13 21:17 GMT-07:00 Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>:
->> Hello Florian,
->>
->>
->> Am 13.10.2015 um 21:26 schrieb Florian Fainelli:
->>>
->>> On 12/10/15 22:13, Heiko Schocher wrote:
->>>>
->>>> On some boards the energy enable detect mode leads in
->>>> trouble with some switches, so make the enabling of
->>>> this mode configurable through DT.
->>>>
->>>> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
->>>> ---
->>>>
->>>>    .../devicetree/bindings/net/smsc-lan87xx.txt       | 19
->>>> +++++++++++++++++
->>>>    drivers/net/phy/smsc.c                             | 24
->>>> +++++++++++++++++-----
->>>>    2 files changed, 38 insertions(+), 5 deletions(-)
->>>>    create mode 100644
->>>> Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>>> b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>>> new file mode 100644
->>>> index 0000000..39aa1dc
->>>> --- /dev/null
->>>> +++ b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
->>>> @@ -0,0 +1,19 @@
->>>> +SMSC LAN87xx Ethernet PHY
->>>> +
->>>> +Some boards require special tuning values. Configure them
->>>> +through an Ethernet OF device node.
->>>> +
->>>> +Optional properties:
->>>> +
->>>> +- disable-energy-detect:
->>>> +  If set, do not enable energy detect mode for the SMSC phy.
->>>> +  default: enable energy detect mode
->>>
->>>
->>> Although energy detection is something that is implemented by many PHYs,
->>> I am not sure a generic property is suitable here, I would prefix that
->>> with the SMSC vendor prefix here to make it clear this only applies to
->>> this PHY.
->>
->>
->> Hmm... but all PHYs should be able to enable, disable it in some way, or?
->
-> It may not always be controlled directly at the PHY level, sometimes
-> this is something that needs cooperation with the Ethernet MAC as well
-> in case of integrated designs.
+Patch 1 introduces phy-handle support for the ti,cpsw
+driver. This is needed now for the smsc phy.
 
-Ah, ok!
+Patch 2 adds the disable energy mode functionality
+to the smsc phy
 
->>> Would not you want to make it a reverse property here though, something
->>> like this:
->>>
->>> smsc,energy-detect: boolean, when present indicates the PHY reliably
->>> supports energy detection
->>
->>
->> Yes, that was also my first thought, but currently, on this PHYs
->> energy detect mode is on ... and if I introduce such a property,
->> it will disable it for all existing boards, because property is
->> missing ... so, maybe I break boards ...
->
-> Fair enough, how about smsc,disabled-energy-detect or something like that then?
+Changes in v2:
+- add comments from Florian Fainelli
+  - I did not change disable property name into enable
+    because I fear to break existing behaviour
+  - add smsc vendor prefix
+  - remove CONFIG_OF and use __maybe_unused
+  - introduce "phy-handle" ability into ti,cpsw
+    driver, so I can remove bogus:
+      if (!of_node && dev->parent->of_node)
+          of_node = dev->parent->of_node;
+    construct. Therefore new patch for the ti,cpsw
+    driver is necessary.
 
-Yes, changed it to "smsc,disable-energy-detect"
+Heiko Schocher (2):
+  drivers: net: cpsw: add phy-handle parsing
+  net: phy: smsc: disable energy detect mode
 
-bye,
-Heiko
+ Documentation/devicetree/bindings/net/cpsw.txt     |  1 +
+ .../devicetree/bindings/net/smsc-lan87xx.txt       | 24 ++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw.c                     | 15 ++++++++++----
+ drivers/net/phy/smsc.c                             | 19 ++++++++++++-----
+ 4 files changed, 50 insertions(+), 9 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+
 -- 
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.0
