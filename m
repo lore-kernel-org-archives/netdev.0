@@ -1,49 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC
- device
-Date: Sat, 17 Oct 2015 17:38:59 +0200
-Message-ID: <20151017153859.GA4763@lunn.ch>
-References: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
- <alpine.DEB.2.02.1510161749490.25648@linux-builds1>
- <20151016235042.GA28795@lunn.ch>
- <alpine.DEB.2.02.1510170920160.12375@linux-builds1>
- <alpine.DEB.2.02.1510171004080.31606@linux-builds1>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: add pfmemalloc check in sk_add_backlog()
+Date: Sat, 17 Oct 2015 09:04:01 -0700
+Message-ID: <1445097841.30896.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150929.215607.1418732892830129304.davem@davemloft.net>
+	 <1445009918.25595.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151017.050217.2095893802539811948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Dinh Nguyen <dinguyen@opensource.altera.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42270 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752043AbbJQPjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 11:39:01 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1510171004080.31606@linux-builds1>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36656 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752528AbbJQQEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 12:04:04 -0400
+Received: by pacfv9 with SMTP id fv9so50903782pac.3
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 09:04:03 -0700 (PDT)
+In-Reply-To: <20151017.050217.2095893802539811948.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I've also tried creating a separate phy node in the DTS and have the EMAC
-> point the PHY with a 'phy = <&phy0>;', but that also didn't seem to work with
-> your patch.
+On Sat, 2015-10-17 at 05:02 -0700, David Miller wrote:
 
-Do you have the phy node as a child of the mdio node?
+> Sorry I've been meaning to go back and apply it properly.  I'll do that right
+> now...
+> 
+> There, done and properly queued up for -stable too. :)
+> 
 
-Picking a random example arch/arm/boot/dts/kirkwood-rd88f6192.dts 
-
-&mdio {
-        status = "okay";
-
-        ethphy0: ethernet-phy@8 {
-                reg = <8>;
-        };
-};
-
-&eth0 {
-        status = "okay";
-        ethernet0-port@0 {
-                phy-handle = <&ethphy0>;
-        };
-};
-
-	Andrew
+Perfect, thanks a lot David.
