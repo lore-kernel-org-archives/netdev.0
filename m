@@ -1,115 +1,63 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] intel: i40e: fix confused code
-Date: Sat, 17 Oct 2015 22:58:19 +0200
-Message-ID: <1445115499-28728-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/3] net: wireless: rt2x00: Space issue
+Date: Sat, 17 Oct 2015 22:06:43 +0100
+Message-ID: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
+Cc: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org,
+	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This code is pretty confused. The variable name 'bytes_not_copied'
-clearly indicates that the programmer knew the semantics of
-copy_{to,from}_user, but then the return value is checked for being
-negative and used as a -Exxx return value.
+Removed empty spaces before/after parenthesis
 
-I'm not sure this is the proper fix, but at least we get rid of the
-dead code which pretended to check for access faults.
-
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Signed-off-by: Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
-There are other things worth looking at. i40e_dbg_netdev_ops_buf is a
-static buffer of size 256, which can be filled from user space (in
-i40e_dbg_netdev_ops_write). That function correctly checks that the
-input is at most 255 bytes. However, in i40e_dbg_netdev_ops_read we
-snprintf() it along a device name (and some white space) into
-kmalloc'ed buffer, also of size 256. Hence the snprintf output can be
-truncated, but snprintf() returns the total size that would be
-generated - so when we then proceed to using that in copy_to_user(),
-we may actually copy from beyond the allocated buffer, hence leaking a
-little kernel data.
+ drivers/net/wireless/rt2x00/rt2x00.h | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-In i40e_dbg_command_write, we allocate a buffer based on count which
-is user-supplied. While kmalloc() refuses completely insane sizes, we
-may still allocate a few MB. Moreover, if allocation fails, returning
-'count' is rather odd; -ENOMEM would make more sense.
+diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
+index 3282ddb..6f8310a 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00.h
++++ b/drivers/net/wireless/rt2x00/rt2x00.h
+@@ -107,7 +107,7 @@
+  * amount of bytes needed to move the data.
+  */
+ #define ALIGN_SIZE(__skb, __header) \
+-	(  ((unsigned long)((__skb)->data + (__header))) & 3 )
++	(((unsigned long)((__skb)->data + (__header))) & 3)
+ 
+ /*
+  * Constants for extra TX headroom for alignment purposes.
+@@ -128,14 +128,14 @@
+ #define SLOT_TIME		20
+ #define SHORT_SLOT_TIME		9
+ #define SIFS			10
+-#define PIFS			( SIFS + SLOT_TIME )
+-#define SHORT_PIFS		( SIFS + SHORT_SLOT_TIME )
+-#define DIFS			( PIFS + SLOT_TIME )
+-#define SHORT_DIFS		( SHORT_PIFS + SHORT_SLOT_TIME )
+-#define EIFS			( SIFS + DIFS + \
+-				  GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10) )
+-#define SHORT_EIFS		( SIFS + SHORT_DIFS + \
+-				  GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10) )
++#define PIFS			(SIFS + SLOT_TIME)
++#define SHORT_PIFS		(SIFS + SHORT_SLOT_TIME)
++#define DIFS			(PIFS + SLOT_TIME)
++#define SHORT_DIFS		(SHORT_PIFS + SHORT_SLOT_TIME)
++#define EIFS			(SIFS + DIFS + \
++				  GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10))
++#define SHORT_EIFS		(SIFS + SHORT_DIFS + \
++				  GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10))
+ 
+ enum rt2x00_chip_intf {
+ 	RT2X00_CHIP_INTF_PCI,
 
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index d7c15d17faa6..e9ecd3f9cafe 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -103,8 +103,8 @@ static ssize_t i40e_dbg_dump_read(struct file *filp, char __user *buffer,
- 	len = min_t(int, count, (i40e_dbg_dump_data_len - *ppos));
- 
- 	bytes_not_copied = copy_to_user(buffer, &i40e_dbg_dump_buf[*ppos], len);
--	if (bytes_not_copied < 0)
--		return bytes_not_copied;
-+	if (bytes_not_copied)
-+		return -EFAULT;
- 
- 	*ppos += len;
- 	return len;
-@@ -353,8 +353,8 @@ static ssize_t i40e_dbg_command_read(struct file *filp, char __user *buffer,
- 	bytes_not_copied = copy_to_user(buffer, buf, len);
- 	kfree(buf);
- 
--	if (bytes_not_copied < 0)
--		return bytes_not_copied;
-+	if (bytes_not_copied)
-+		return -EFAULT;
- 
- 	*ppos = len;
- 	return len;
-@@ -995,12 +995,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 	if (!cmd_buf)
- 		return count;
- 	bytes_not_copied = copy_from_user(cmd_buf, buffer, count);
--	if (bytes_not_copied < 0) {
-+	if (bytes_not_copied) {
- 		kfree(cmd_buf);
--		return bytes_not_copied;
-+		return -EFAULT;
- 	}
--	if (bytes_not_copied > 0)
--		count -= bytes_not_copied;
- 	cmd_buf[count] = '\0';
- 
- 	cmd_buf_tmp = strchr(cmd_buf, '\n');
-@@ -2034,8 +2032,8 @@ static ssize_t i40e_dbg_netdev_ops_read(struct file *filp, char __user *buffer,
- 	bytes_not_copied = copy_to_user(buffer, buf, len);
- 	kfree(buf);
- 
--	if (bytes_not_copied < 0)
--		return bytes_not_copied;
-+	if (bytes_not_copied)
-+		return -EFAULT;
- 
- 	*ppos = len;
- 	return len;
-@@ -2068,10 +2066,8 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
- 	memset(i40e_dbg_netdev_ops_buf, 0, sizeof(i40e_dbg_netdev_ops_buf));
- 	bytes_not_copied = copy_from_user(i40e_dbg_netdev_ops_buf,
- 					  buffer, count);
--	if (bytes_not_copied < 0)
--		return bytes_not_copied;
--	else if (bytes_not_copied > 0)
--		count -= bytes_not_copied;
-+	if (bytes_not_copied)
-+		return -EFAULT;
- 	i40e_dbg_netdev_ops_buf[count] = '\0';
- 
- 	buf_tmp = strchr(i40e_dbg_netdev_ops_buf, '\n');
 -- 
 2.6.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
