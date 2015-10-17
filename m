@@ -1,45 +1,34 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] tunnels: Don't require remote endpoint or ID during
- creation.
-Date: Sat, 17 Oct 2015 09:45:31 +0200
-Message-ID: <20151017074531.GA13981@pox.localdomain>
-References: <1445038560-85471-1-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCHv2 net 1/3] openvswitch: Reject ct_state masks for unknown
+ bits
+Date: Sat, 17 Oct 2015 09:46:32 +0200
+Message-ID: <20151017074632.GB13981@pox.localdomain>
+References: <1445018901-18839-1-git-send-email-joestringer@nicira.com>
+ <1445018901-18839-2-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>
-To: Jesse Gross <jesse@nicira.com>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:37012 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbbJQHpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 03:45:34 -0400
-Received: by wicfv8 with SMTP id fv8so17237089wic.0
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 00:45:33 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:33449 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751666AbbJQHqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 03:46:34 -0400
+Received: by wijp11 with SMTP id p11so37189473wij.0
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 00:46:33 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1445038560-85471-1-git-send-email-jesse@nicira.com>
+In-Reply-To: <1445018901-18839-2-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/15 at 04:36pm, Jesse Gross wrote:
-> Before lightweight tunnels existed, it really didn't make sense to
-> create a tunnel that was not fully specified, such as without a
-> destination IP address - the resulting packets would go nowhere.
-> However, with lightweight tunnels, the opposite is true - it doesn't
-> make sense to require this information when it will be provided later
-> on by the route. This loosens the requirements for this information.
+On 10/16/15 at 11:08am, Joe Stringer wrote:
+> Currently, 0-bits are generated in ct_state where the bit position is
+> undefined, and matches are accepted on these bit-positions. If userspace
+> requests to match the 0-value for this bit then it may expect only a
+> subset of traffic to match this value, whereas currently all packets
+> will have this bit set to 0. Fix this by rejecting such masks.
 > 
-> An alternative would be to allow the relaxed version only when
-> COLLECT_METADATA is enabled. However, since there are several
-> variations on this theme (such as NBMA tunnels in GRE), just dropping
-> the restrictions seems the most consistent across tunnels and with
-> the existing configuration.
-> 
-> CC: John Linville <linville@tuxdriver.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-I left it like it was for VXLAN with the thought that you had
-specifically enable the metadata driven TX but I'm perfectly
-fine with this as well.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Thomas Graf <tgraf@suug.ch>
