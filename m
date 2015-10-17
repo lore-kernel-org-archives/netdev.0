@@ -1,21 +1,18 @@
 From: Paul McQuade <paulmcquad@gmail.com>
 Subject: [PATCH 3/3] net: wireless: rt2x00: Space Required
-Date: Sat, 17 Oct 2015 22:06:45 +0100
-Message-ID: <1445116005-28670-3-git-send-email-paulmcquad@gmail.com>
-References: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
+Date: Sat, 17 Oct 2015 22:11:23 +0100
+Message-ID: <1445116283-28748-1-git-send-email-paulmcquad@gmail.com>
 Cc: sgruszka@redhat.com, helmut.schaa@googlemail.com,
 	kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Paul McQuade <paulmcquad@gmail.com#>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: paulmcquad@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Space needed before open parenthesis
 
-Signed-off-by: Paul McQuade <paulmcquad@gmail.com>#
+Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
 ---
  drivers/net/wireless/rt2x00/rt2x00debug.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
