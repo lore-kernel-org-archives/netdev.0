@@ -1,33 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: add pfmemalloc check in sk_add_backlog()
-Date: Sat, 17 Oct 2015 09:04:01 -0700
-Message-ID: <1445097841.30896.4.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1443577945.32531.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150929.215607.1418732892830129304.davem@davemloft.net>
-	 <1445009918.25595.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151017.050217.2095893802539811948.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC device
+Date: Sat, 17 Oct 2015 10:38:43 -0700
+Message-ID: <CAGVrzcYbBaFqg5SVp7hKup9NErx+cm0vveRgb+FnA_erMBTp3A@mail.gmail.com>
+References: <1445028545-22599-1-git-send-email-andrew@lunn.ch>
+ <alpine.DEB.2.02.1510161749490.25648@linux-builds1> <20151016235042.GA28795@lunn.ch>
+ <alpine.DEB.2.02.1510170920160.12375@linux-builds1> <alpine.DEB.2.02.1510171004080.31606@linux-builds1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36656 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752528AbbJQQEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 12:04:04 -0400
-Received: by pacfv9 with SMTP id fv9so50903782pac.3
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 09:04:03 -0700 (PDT)
-In-Reply-To: <20151017.050217.2095893802539811948.davem@davemloft.net>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:35132 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753176AbbJQRjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 13:39:23 -0400
+Received: by igbkq10 with SMTP id kq10so32796664igb.0
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 10:39:23 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1510171004080.31606@linux-builds1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-10-17 at 05:02 -0700, David Miller wrote:
+2015-10-17 8:06 GMT-07:00 Dinh Nguyen <dinguyen@opensource.altera.com>:
+> On Sat, 17 Oct 2015, Dinh Nguyen wrote:
+>
+>> On Fri, 16 Oct 2015, Andrew Lunn wrote:
+>>
+>> > On Fri, Oct 16, 2015 at 05:58:41PM -0500, Dinh Nguyen wrote:
+>> > > On Fri, 16 Oct 2015, Andrew Lunn wrote:
+>> > >
+>> > > > Commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+>> > > > the bus' parent." broke finding PHY properties in the MAC device tree
+>> > > > node. The parent device is now the MDIO bus, not the MAC. Use
+>> > > > attached_dev towards the MAC device tree node.
+>> > > >
+>> > > > Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+>> > > > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+>> > > > ---
+>> > > >
+>> > > > Compile tested only.
+>> > > >
+>> > > > Dinh, please could you test it and report back if it works or not.
+>> > > >
+>> > >
+>> > > This patch did not seem to fix the problem. The following code did seem to
+>> > > fix the problem:
+>> > >
+>> > >   if (!of_node && dev->parent->of_node)
+>> > > -               of_node = dev->parent->of_node;
+>> > > +       do {
+>> > > +               of_node = dev->of_node;
+>> > > +               dev = dev->parent;
+>> > > +               i++;
+>> > > +       } while (!of_node && dev);
+>> >
+>> > This might fix the issue, but it has disadvantages. As i said before,
+>> > it allows people to place phy properties into the mdio device node. We
+>> > want to be reducing placing you can add phy properties, not adding
+>> > more.
+>> >
+>
+> I've also tried creating a separate phy node in the DTS and have the EMAC
+> point the PHY with a 'phy = <&phy0>;', but that also didn't seem to work with
+> your patch.
 
-> Sorry I've been meaning to go back and apply it properly.  I'll do that right
-> now...
-> 
-> There, done and properly queued up for -stable too. :)
-> 
+If you intend this to be a real phandle to a phy, it should be something like:
 
-Perfect, thanks a lot David.
+phy-handle = <&phy0>;
+
+'phy' is not a valid phandle property that stmmac recognizes
+
+Looking at stmmac and how the various dwmac-* probe the driver,
+SET_NETDEV_DEV() is what assigns the network device's device pointer,
+and that seems to be done correctly with the proper device argument.
+-- 
+Florian
