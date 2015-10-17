@@ -1,53 +1,103 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 22/35] netfilter: ip6_tables: ternary operator layout
-Date: Sat, 17 Oct 2015 13:32:57 +0200
-Message-ID: <1445081590-2924-23-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 26/35] netfilter: nfnetlink_log: validate dependencies to avoid breaking atomicity
+Date: Sat, 17 Oct 2015 13:33:01 +0200
+Message-ID: <1445081590-2924-27-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48420 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48437 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752631AbbJQL00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:26 -0400
+	id S1752806AbbJQL03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:29 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Morris <ipm@chirality.org.uk>
+From: Pablo Neira <pablo@netfilter.org>
 
-Correct whitespace layout of ternary operators in the netfilter-ipv6
-code.
+Check that dependencies are fulfilled before updating the logger
+instance, otherwise we can leave things in intermediate state on errors
+in nfulnl_recv_config().
 
-No changes detected by objdiff.
+[ Ken-ichirou reports that this is also fixing missing instance refcnt drop
+  on error introduced in his patch 914eebf2f434 ("netfilter: nfnetlink_log:
+  autoload nf_conntrack_netlink module NFQA_CFG_F_CONNTRACK config flag"). ]
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Tested-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
 ---
- net/ipv6/netfilter/ip6_tables.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nfnetlink_log.c | 43 ++++++++++++++++++++++++-------------------
+ 1 file changed, 24 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 62190c3..c57ddd3 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -117,7 +117,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 	if (FWINV(ret != 0, IP6T_INV_VIA_IN)) {
- 		dprintf("VIA in mismatch (%s vs %s).%s\n",
- 			indev, ip6info->iniface,
--			ip6info->invflags&IP6T_INV_VIA_IN ?" (INV)":"");
-+			ip6info->invflags & IP6T_INV_VIA_IN ? " (INV)" : "");
- 		return false;
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 2002d57..a5b9680 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -825,6 +825,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
+ 	struct net *net = sock_net(ctnl);
+ 	struct nfnl_log_net *log = nfnl_log_pernet(net);
+ 	int ret = 0;
++	u16 flags;
+ 
+ 	if (nfula[NFULA_CFG_CMD]) {
+ 		u_int8_t pf = nfmsg->nfgen_family;
+@@ -846,6 +847,28 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
+ 		goto out_put;
  	}
  
-@@ -126,7 +126,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 	if (FWINV(ret != 0, IP6T_INV_VIA_OUT)) {
- 		dprintf("VIA out mismatch (%s vs %s).%s\n",
- 			outdev, ip6info->outiface,
--			ip6info->invflags&IP6T_INV_VIA_OUT ?" (INV)":"");
-+			ip6info->invflags & IP6T_INV_VIA_OUT ? " (INV)" : "");
- 		return false;
++	/* Check if we support these flags in first place, dependencies should
++	 * be there too not to break atomicity.
++	 */
++	if (nfula[NFULA_CFG_FLAGS]) {
++		flags = ntohs(nla_get_be16(nfula[NFULA_CFG_FLAGS]));
++
++		if ((flags & NFULNL_CFG_F_CONNTRACK) &&
++		    !rcu_access_pointer(nfnl_ct_hook)) {
++#ifdef CONFIG_MODULES
++			nfnl_unlock(NFNL_SUBSYS_ULOG);
++			request_module("ip_conntrack_netlink");
++			nfnl_lock(NFNL_SUBSYS_ULOG);
++			if (rcu_access_pointer(nfnl_ct_hook)) {
++				ret = -EAGAIN;
++				goto out_put;
++			}
++#endif
++			ret = -EOPNOTSUPP;
++			goto out_put;
++		}
++	}
++
+ 	if (cmd != NULL) {
+ 		switch (cmd->command) {
+ 		case NFULNL_CFG_CMD_BIND:
+@@ -905,26 +928,8 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
+ 		nfulnl_set_qthresh(inst, ntohl(qthresh));
  	}
  
+-	if (nfula[NFULA_CFG_FLAGS]) {
+-		u16 flags = ntohs(nla_get_be16(nfula[NFULA_CFG_FLAGS]));
+-
+-		if (flags & NFULNL_CFG_F_CONNTRACK &&
+-		    !rcu_access_pointer(nfnl_ct_hook)) {
+-#ifdef CONFIG_MODULES
+-			nfnl_unlock(NFNL_SUBSYS_ULOG);
+-			request_module("ip_conntrack_netlink");
+-			nfnl_lock(NFNL_SUBSYS_ULOG);
+-			if (rcu_access_pointer(nfnl_ct_hook)) {
+-				ret = -EAGAIN;
+-				goto out;
+-			}
+-#endif
+-			ret = -EOPNOTSUPP;
+-			goto out;
+-		}
+-
++	if (nfula[NFULA_CFG_FLAGS])
+ 		nfulnl_set_flags(inst, flags);
+-	}
+ 
+ out_put:
+ 	instance_put(inst);
 -- 
 2.1.4
