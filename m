@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 01/17] i40e: Lock for VSI's MAC filter list
-Date: Sat, 17 Oct 2015 06:01:53 -0700 (PDT)
-Message-ID: <20151017.060153.830867376192459210.davem@davemloft.net>
-References: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1445059711-45992-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 00/35] Netfilter/IPVS updates for net-next
+Date: Sat, 17 Oct 2015 06:07:43 -0700 (PDT)
+Message-ID: <20151017.060743.10017622911100028.davem@davemloft.net>
+References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kiran.patil@intel.com, netdev@vger.kernel.org, nhorman@redhat.com,
-	sassmann@redhat.com, jogreene@redhat.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35934 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbbJQMpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 08:45:46 -0400
-In-Reply-To: <1445059711-45992-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 16 Oct 2015 22:28:15 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sat, 17 Oct 2015 13:32:35 +0200
 
->  
-> +	WARN(!spin_is_locked(&vsi->mac_filter_list_lock),
-> +	     "Missing mac_filter_list_lock\n");
-> +
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
 
-spin_is_locked() is, generally speaking, completely inappropriate to
-use in assertions.
+Pablo, this gives merge conflicts.
 
-Because, on uniprocessor builds, it always evalutes to zero.
+This is the second or third time in the past few pulls from you that
+there have been merge conflicts, even when I haven't made a single
+change between when you sent the pull request and when I try to
+integrate it into my tree.
+
+If you can't be certain there won't be merge conflicts, do a test
+pull into a clone of my tree to see what happens.
+
+Or, if you think the merge conflict is simple enough for me to deal
+with, mention and explain it in the header posting for the patch
+series.
+
+Please fix this up and resend your pull request.
+
+Thanks.
