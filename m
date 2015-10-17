@@ -1,55 +1,62 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/35] netfilter: nfqueue: don't use prev pointer
-Date: Sat, 17 Oct 2015 13:32:52 +0200
-Message-ID: <1445081590-2924-18-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 19/35] netfilter: ip6_tables: function definition layout
+Date: Sat, 17 Oct 2015 13:32:54 +0200
+Message-ID: <1445081590-2924-20-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48392 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48403 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752712AbbJQL0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:23 -0400
+	id S1752740AbbJQL0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:24 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Ian Morris <ipm@chirality.org.uk>
 
-Usage of -prev seems buggy.  While packet was out our hook cannot be
-removed but we have no way to know if the previous one is still valid.
+Use tabs instead of spaces to indent second line of parameters in
+function definitions.
 
-So better not use ->prev at all.  Since NF_REPEAT just asks to invoke
-same hook function again, just do so, and continue with nf_interate
-if we get an ACCEPT verdict.
+No changes detected by objdiff.
 
-A side effect of this change is that if nf_reinject(NF_REPEAT) causes
-another REPEAT we will now drop the skb instead of a kernel loop.
-
-However, NF_REPEAT loops would be a bug so this should not happen anyway.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_queue.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/ipv6/netfilter/ip6_tables.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 34f628e..634d18e 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -192,10 +192,8 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 	nf_queue_entry_release_refs(entry);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 67a2821..0654312 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -816,7 +816,7 @@ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
+    newinfo) */
+ static int
+ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
+-                const struct ip6t_replace *repl)
++		const struct ip6t_replace *repl)
+ {
+ 	struct ip6t_entry *iter;
+ 	unsigned int i;
+@@ -1090,7 +1090,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ #endif
  
- 	/* Continue traversal iff userspace said ok... */
--	if (verdict == NF_REPEAT) {
--		elem = list_entry(elem->list.prev, struct nf_hook_ops, list);
--		verdict = NF_ACCEPT;
--	}
-+	if (verdict == NF_REPEAT)
-+		verdict = elem->hook(elem->priv, skb, &entry->state);
+ static int get_info(struct net *net, void __user *user,
+-                    const int *len, int compat)
++		    const int *len, int compat)
+ {
+ 	char name[XT_TABLE_MAXNAMELEN];
+ 	struct xt_table *t;
+@@ -1152,7 +1152,7 @@ static int get_info(struct net *net, void __user *user,
  
- 	if (verdict == NF_ACCEPT) {
- 		afinfo = nf_get_afinfo(entry->state.pf);
+ static int
+ get_entries(struct net *net, struct ip6t_get_entries __user *uptr,
+-            const int *len)
++	    const int *len)
+ {
+ 	int ret;
+ 	struct ip6t_get_entries get;
 -- 
 2.1.4
