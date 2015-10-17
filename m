@@ -1,98 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: bcmgenet: Fix early link interrupt enabling
-Date: Sat, 17 Oct 2015 14:22:46 -0700
-Message-ID: <1445116966-27610-1-git-send-email-fainelli@broadcom.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Paul McQuade <paulmcquad@gmail.com>
+Subject: [PATCH 1/3] net: wireless: rsi: Coding Spaces
+Date: Sun, 18 Oct 2015 00:01:36 +0100
+Message-ID: <1445122898-5810-1-git-send-email-paulmcquad@gmail.com>
+Cc: kvalo@codeaurora.org, zajec5@gmail.com, johannes.berg@intel.com,
+	davem@davemloft.net, joe@perches.com, m@bues.ch,
+	mike.looijmans@topic.nl, cengelma@gmx.at, khoroshilov@ispras.ru,
+	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: paulmcquad@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34628 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880AbbJQVWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 17:22:49 -0400
-Received: by pasz6 with SMTP id z6so9890928pas.1
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 14:22:49 -0700 (PDT)
+Received: from mail-wi0-f194.google.com ([209.85.212.194]:33506 "EHLO
+	mail-wi0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbbJQXBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 19:01:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
+Removed space before that ','
 
-Link interrupts are enabled in init_umac(), which is too early for us to
-process them since we do not yet have a valid PHY device pointer. On
-BCM7425 chips for instance, we will crash calling phy_mac_interrupt()
-because phydev is NULL.
-
-Fix this by moving the link interrupts enabling in
-bcmgenet_netif_start(), under a specific function:
-bcmgenet_link_intr_enable() and while at it, update the comments
-surrounding the code.
-
-Fixes: 6cc8e6d4dcb36 ("net: bcmgenet: Delay PHY initialization to bcmgenet_open()")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
 ---
-Hi David,
+ drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 2 +-
+ drivers/net/wireless/rsi/rsi_mgmt.h         | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-This fixes a problem which is currently in v4.3-rcX, thank you!
-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |   32 +++++++++++++++++------
- 1 files changed, 23 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 3bc701e..1805541 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1683,6 +1683,24 @@ static void bcmgenet_intr_disable(struct bcmgenet_priv *priv)
- 	bcmgenet_intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
- }
- 
-+static void bcmgenet_link_intr_enable(struct bcmgenet_priv *priv)
-+{
-+	u32 int0_enable = 0;
-+
-+	/* Monitor cable plug/unplugged event for internal PHY, external PHY
-+	 * and MoCA PHY
-+	 */
-+	if (priv->internal_phy) {
-+		int0_enable |= UMAC_IRQ_LINK_EVENT;
-+	} else if (priv->ext_phy) {
-+		int0_enable |= UMAC_IRQ_LINK_EVENT;
-+	} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
-+		if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
-+			int0_enable |= UMAC_IRQ_LINK_EVENT;
-+	}
-+	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
-+}
-+
- static int init_umac(struct bcmgenet_priv *priv)
- {
- 	struct device *kdev = &priv->pdev->dev;
-@@ -1723,15 +1741,8 @@ static int init_umac(struct bcmgenet_priv *priv)
- 	/* Enable Tx default queue 16 interrupts */
- 	int0_enable |= UMAC_IRQ_TXDMA_DONE;
- 
--	/* Monitor cable plug/unplugged event for internal PHY */
--	if (priv->internal_phy) {
--		int0_enable |= UMAC_IRQ_LINK_EVENT;
--	} else if (priv->ext_phy) {
--		int0_enable |= UMAC_IRQ_LINK_EVENT;
--	} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
--		if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
--			int0_enable |= UMAC_IRQ_LINK_EVENT;
--
-+	/* Configure backpressure vectors for MoCA */
-+	if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
- 		reg = bcmgenet_bp_mc_get(priv);
- 		reg |= BIT(priv->hw_params->bp_in_en_shift);
- 
-@@ -2645,6 +2656,9 @@ static void bcmgenet_netif_start(struct net_device *dev)
- 
- 	netif_tx_start_all_queues(dev);
- 
-+	/* Monitor link interrupts now */
-+	bcmgenet_link_intr_enable(priv);
-+
- 	phy_start(priv->phydev);
- }
- 
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+index 40d7231..8fa241b 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+@@ -435,7 +435,7 @@ void rsi_interrupt_handler(struct rsi_hw *adapter)
+ 				} else {
+ 					rsi_dbg(ERR_ZONE,
+ 						"%s: Firmware Status is 0x%x\n",
+-						__func__ , fw_status);
++						__func__, fw_status);
+ 					rsi_sdio_ack_intr(common->priv,
+ 							  (1 << FW_ASSERT_IND));
+ 				}
+diff --git a/drivers/net/wireless/rsi/rsi_mgmt.h b/drivers/net/wireless/rsi/rsi_mgmt.h
+index 3741173..3d4eddd 100644
+--- a/drivers/net/wireless/rsi/rsi_mgmt.h
++++ b/drivers/net/wireless/rsi/rsi_mgmt.h
+@@ -173,9 +173,9 @@ enum cmd_frame_type {
+ 	AUTO_RATE_IND,
+ 	BOOTUP_PARAMS_REQUEST,
+ 	VAP_CAPABILITIES,
+-	EEPROM_READ_TYPE ,
++	EEPROM_READ_TYPE,
+ 	EEPROM_WRITE,
+-	GPIO_PIN_CONFIG ,
++	GPIO_PIN_CONFIG,
+ 	SET_RX_FILTER,
+ 	AMPDU_IND,
+ 	STATS_REQUEST_FRAME,
 -- 
-1.7.1
+2.6.1
