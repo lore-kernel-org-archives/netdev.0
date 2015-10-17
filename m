@@ -1,88 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] i40evf: fix overlong BIT defines
-Date: Fri, 16 Oct 2015 22:28:16 -0700
-Message-ID: <1445059711-45992-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/17] i40e/i40evf: use napi_schedule_irqoff()
+Date: Fri, 16 Oct 2015 22:28:18 -0700
+Message-ID: <1445059711-45992-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27590 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:25665 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752027AbbJQF2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752028AbbJQF2m (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 17 Oct 2015 01:28:42 -0400
 In-Reply-To: <1445059711-45992-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-The defines from the RSS enabling call were mistakenly
-missed in the patches to the i40e which should have been
-to i40evf as well.
+The i40e_intr and i40e/i40evf_msix_clean_rings functions run from hard
+interrupt context or with interrupts already disabled in netpoll.
 
-This is a follow up to (commit ed921559886dd40528) "fix
-32 bit build warnings".
+They can use napi_schedule_irqoff() instead of napi_schedule()
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_common.c |  5 -----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h   | 14 +++++++-------
- 2 files changed, 7 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 6 ++++--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 7435fb3..a4c5a49 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -443,9 +443,6 @@ static i40e_status i40e_aq_get_set_rss_lut(struct i40e_hw *hw,
- 					I40E_AQC_SET_RSS_LUT_TABLE_TYPE_SHIFT) &
- 					I40E_AQC_SET_RSS_LUT_TABLE_TYPE_MASK));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index aa2aafd..11dbb29 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3287,7 +3287,7 @@ static irqreturn_t i40e_msix_clean_rings(int irq, void *data)
+ 	if (!q_vector->tx.ring && !q_vector->rx.ring)
+ 		return IRQ_HANDLED;
  
--	cmd_resp->addr_high = cpu_to_le32(high_16_bits((u64)lut));
--	cmd_resp->addr_low = cpu_to_le32(lower_32_bits((u64)lut));
--
- 	status = i40evf_asq_send_command(hw, &desc, lut, lut_size, NULL);
+-	napi_schedule(&q_vector->napi);
++	napi_schedule_irqoff(&q_vector->napi);
  
- 	return status;
-@@ -520,8 +517,6 @@ static i40e_status i40e_aq_get_set_rss_key(struct i40e_hw *hw,
- 					  I40E_AQC_SET_RSS_KEY_VSI_ID_SHIFT) &
- 					  I40E_AQC_SET_RSS_KEY_VSI_ID_MASK));
- 	cmd_resp->vsi_id |= cpu_to_le16((u16)I40E_AQC_SET_RSS_KEY_VSI_VALID);
--	cmd_resp->addr_high = cpu_to_le32(high_16_bits((u64)key));
--	cmd_resp->addr_low = cpu_to_le32(lower_32_bits((u64)key));
+ 	return IRQ_HANDLED;
+ }
+@@ -3456,6 +3456,8 @@ static irqreturn_t i40e_intr(int irq, void *data)
  
- 	status = i40evf_asq_send_command(hw, &desc, key, key_size, NULL);
+ 	/* only q0 is used in MSI/Legacy mode, and none are used in MSIX */
+ 	if (icr0 & I40E_PFINT_ICR0_QUEUE_0_MASK) {
++		struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++		struct i40e_q_vector *q_vector = vsi->q_vectors[0];
  
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index c4f5a4e..03275eb 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -89,16 +89,16 @@ enum i40e_dyn_idx_t {
- 	BIT_ULL(I40E_FILTER_PCTYPE_L2_PAYLOAD))
+ 		/* temporarily disable queue cause for NAPI processing */
+ 		u32 qval = rd32(hw, I40E_QINT_RQCTL(0));
+@@ -3468,7 +3470,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 		wr32(hw, I40E_QINT_TQCTL(0), qval);
  
- #define I40E_DEFAULT_RSS_HENA_EXPANDED (I40E_DEFAULT_RSS_HENA | \
--		BIT(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK) | \
--		BIT(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
--		BIT(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
--		BIT(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK) | \
--		BIT(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
--		BIT(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP))
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK) | \
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK) | \
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
-+	BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP))
+ 		if (!test_bit(__I40E_DOWN, &pf->state))
+-			napi_schedule(&pf->vsi[pf->lan_vsi]->q_vectors[0]->napi);
++			napi_schedule_irqoff(&q_vector->napi);
+ 	}
  
- #define i40e_pf_get_default_rss_hena(pf) \
- 	(((pf)->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) ? \
--		I40E_DEFAULT_RSS_HENA_EXPANDED : I40E_DEFAULT_RSS_HENA)
-+	  I40E_DEFAULT_RSS_HENA_EXPANDED : I40E_DEFAULT_RSS_HENA)
+ 	if (icr0 & I40E_PFINT_ICR0_ADMINQ_MASK) {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 4c4340c..1dd5245 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -334,7 +334,7 @@ static irqreturn_t i40evf_msix_clean_rings(int irq, void *data)
+ 	if (!q_vector->tx.ring && !q_vector->rx.ring)
+ 		return IRQ_HANDLED;
  
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
+-	napi_schedule(&q_vector->napi);
++	napi_schedule_irqoff(&q_vector->napi);
+ 
+ 	return IRQ_HANDLED;
+ }
 -- 
 2.4.3
