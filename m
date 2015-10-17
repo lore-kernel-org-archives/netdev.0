@@ -1,103 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 26/35] netfilter: nfnetlink_log: validate dependencies to avoid breaking atomicity
-Date: Sat, 17 Oct 2015 13:33:01 +0200
-Message-ID: <1445081590-2924-27-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/35] netfilter: ipv6: pointer cast layout
+Date: Sat, 17 Oct 2015 13:32:59 +0200
+Message-ID: <1445081590-2924-25-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48437 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752806AbbJQL03 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2015 07:26:29 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira <pablo@netfilter.org>
+From: Ian Morris <ipm@chirality.org.uk>
 
-Check that dependencies are fulfilled before updating the logger
-instance, otherwise we can leave things in intermediate state on errors
-in nfulnl_recv_config().
+Correct whitespace layout of a pointer casting.
 
-[ Ken-ichirou reports that this is also fixing missing instance refcnt drop
-  on error introduced in his patch 914eebf2f434 ("netfilter: nfnetlink_log:
-  autoload nf_conntrack_netlink module NFQA_CFG_F_CONNTRACK config flag"). ]
+No changes detected by objdiff.
 
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Tested-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
 ---
- net/netfilter/nfnetlink_log.c | 43 ++++++++++++++++++++++++-------------------
- 1 file changed, 24 insertions(+), 19 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 2002d57..a5b9680 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -825,6 +825,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 	struct net *net = sock_net(ctnl);
- 	struct nfnl_log_net *log = nfnl_log_pernet(net);
- 	int ret = 0;
-+	u16 flags;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index cfcc71f..deab0a1 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -59,7 +59,7 @@ struct nf_ct_frag6_skb_cb
+ 	struct sk_buff		*orig;
+ };
  
- 	if (nfula[NFULA_CFG_CMD]) {
- 		u_int8_t pf = nfmsg->nfgen_family;
-@@ -846,6 +847,28 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 		goto out_put;
- 	}
+-#define NFCT_FRAG6_CB(skb)	((struct nf_ct_frag6_skb_cb*)((skb)->cb))
++#define NFCT_FRAG6_CB(skb)	((struct nf_ct_frag6_skb_cb *)((skb)->cb))
  
-+	/* Check if we support these flags in first place, dependencies should
-+	 * be there too not to break atomicity.
-+	 */
-+	if (nfula[NFULA_CFG_FLAGS]) {
-+		flags = ntohs(nla_get_be16(nfula[NFULA_CFG_FLAGS]));
-+
-+		if ((flags & NFULNL_CFG_F_CONNTRACK) &&
-+		    !rcu_access_pointer(nfnl_ct_hook)) {
-+#ifdef CONFIG_MODULES
-+			nfnl_unlock(NFNL_SUBSYS_ULOG);
-+			request_module("ip_conntrack_netlink");
-+			nfnl_lock(NFNL_SUBSYS_ULOG);
-+			if (rcu_access_pointer(nfnl_ct_hook)) {
-+				ret = -EAGAIN;
-+				goto out_put;
-+			}
-+#endif
-+			ret = -EOPNOTSUPP;
-+			goto out_put;
-+		}
-+	}
-+
- 	if (cmd != NULL) {
- 		switch (cmd->command) {
- 		case NFULNL_CFG_CMD_BIND:
-@@ -905,26 +928,8 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 		nfulnl_set_qthresh(inst, ntohl(qthresh));
- 	}
+ static struct inet_frags nf_frags;
  
--	if (nfula[NFULA_CFG_FLAGS]) {
--		u16 flags = ntohs(nla_get_be16(nfula[NFULA_CFG_FLAGS]));
--
--		if (flags & NFULNL_CFG_F_CONNTRACK &&
--		    !rcu_access_pointer(nfnl_ct_hook)) {
--#ifdef CONFIG_MODULES
--			nfnl_unlock(NFNL_SUBSYS_ULOG);
--			request_module("ip_conntrack_netlink");
--			nfnl_lock(NFNL_SUBSYS_ULOG);
--			if (rcu_access_pointer(nfnl_ct_hook)) {
--				ret = -EAGAIN;
--				goto out;
--			}
--#endif
--			ret = -EOPNOTSUPP;
--			goto out;
--		}
--
-+	if (nfula[NFULA_CFG_FLAGS])
- 		nfulnl_set_flags(inst, flags);
--	}
- 
- out_put:
- 	instance_put(inst);
 -- 
 2.1.4
+
