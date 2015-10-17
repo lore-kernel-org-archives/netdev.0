@@ -1,48 +1,62 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/35] netfilter: nfnetlink_queue: use y2038 safe timestamp
-Date: Sat, 17 Oct 2015 13:32:39 +0200
-Message-ID: <1445081590-2924-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/35] ipvs: Don't protect ip_vs_addr_is_unicast with CONFIG_SYSCTL
+Date: Sat, 17 Oct 2015 13:32:36 +0200
+Message-ID: <1445081590-2924-2-git-send-email-pablo@netfilter.org>
 References: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48318 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751480AbbJQL0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2015 07:26:12 -0400
 In-Reply-To: <1445081590-2924-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The __build_packet_message function fills a nfulnl_msg_packet_timestamp
-structure that uses 64-bit seconds and is therefore y2038 safe, but
-it uses an intermediate 'struct timespec' which is not.
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-This trivially changes the code to use 'struct timespec64' instead,
-to correct the result on 32-bit architectures.
+I arranged the code so that the compiler can remove the unecessary bits
+in ip_vs_leave when CONFIG_SYSCTL is unset, and removed an explicit
+CONFIG_SYSCTL.
 
-This is a copy and paste of Arnd's original patch for nfnetlink_log.
+Unfortunately when rebasing my work on top of that of Alex Gartrell I
+missed the fact that the newly added function ip_vs_addr_is_unicast was
+surrounded by CONFIG_SYSCTL.
 
-Suggested-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+So remove the now unnecessary CONFIG_SYSCTL guards around
+ip_vs_addr_is_unicast.  It is causing build failures today when
+CONFIG_SYSCTL is not selected and any self respecting compiler will
+notice that sysctl_cache_bypass is always false without CONFIG_SYSCTL
+and not include the logic from the function ip_vs_addr_is_unicast in
+the compiled code.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nfnetlink_queue.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index b1f1c74..0d2e856 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -500,9 +500,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 37dd77a..d08df43 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -547,7 +547,6 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	return cp;
+ }
  
- 	if (entskb->tstamp.tv64) {
- 		struct nfqnl_msg_packet_timestamp ts;
--		struct timeval tv = ktime_to_timeval(entskb->tstamp);
--		ts.sec = cpu_to_be64(tv.tv_sec);
--		ts.usec = cpu_to_be64(tv.tv_usec);
-+		struct timespec64 kts = ktime_to_timespec64(skb->tstamp);
-+
-+		ts.sec = cpu_to_be64(kts.tv_sec);
-+		ts.usec = cpu_to_be64(kts.tv_nsec / NSEC_PER_USEC);
+-#ifdef CONFIG_SYSCTL
+ static inline int ip_vs_addr_is_unicast(struct net *net, int af,
+ 					union nf_inet_addr *addr)
+ {
+@@ -557,7 +556,6 @@ static inline int ip_vs_addr_is_unicast(struct net *net, int af,
+ #endif
+ 	return (inet_addr_type(net, addr->ip) == RTN_UNICAST);
+ }
+-#endif
  
- 		if (nla_put(skb, NFQA_TIMESTAMP, sizeof(ts), &ts))
- 			goto nla_put_failure;
+ /*
+  *  Pass or drop the packet.
 -- 
 2.1.4
-
