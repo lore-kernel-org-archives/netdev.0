@@ -1,43 +1,104 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 16 Oct 2015 19:43:08 -0700
-Message-ID: <5621B5BC.8020204@plumgrid.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
- <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
- <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
- <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
- <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
- <87mvviidku.fsf@x220.int.ebiederm.org>
+From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Subject: Re: [PATCH] net: phy: smsc: disable energy detect mode
+Date: Sat, 17 Oct 2015 05:42:05 +0200
+Message-ID: <5621C38D.8010000@denx.de>
+References: <1444713189-23063-1-git-send-email-hs@denx.de>
+ <561D5AC8.7040801@gmail.com> <561DD749.9000802@denx.de>
+ <CAGVrzcZLTg_2tUCTyMkEF7y-Esh5ByZsputO6u41RLPizCcz+Q@mail.gmail.com>
+Reply-To: hs-ynQEQJNshbs@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35310 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbbJQCnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 22:43:10 -0400
-Received: by payp3 with SMTP id p3so5345464pay.2
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 19:43:10 -0700 (PDT)
-In-Reply-To: <87mvviidku.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGVrzcZLTg_2tUCTyMkEF7y-Esh5ByZsputO6u41RLPizCcz+Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/16/15 4:44 PM, Eric W. Biederman wrote:
-> Alexei Starovoitov <ast@plumgrid.com> writes:
->
->> We can argue about api for 2nd, whether it's mount with fd=1234 string
->> or else, but for the first mount style doesn't make sense.
->
-> Why does mount not make sense?  It is exactly what you are looking for
-> so why does it not make sense?
+Hello Florian,
 
-hmm, how do you get a new fd back after mounting it?
-Note, open cannot be overloaded, so we end up with BPF_NEW_FD anyway,
-but now it's more convoluted and empty mounts are everywhere.
+Am 16.10.2015 um 18:27 schrieb Florian Fainelli:
+> 2015-10-13 21:17 GMT-07:00 Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>:
+>> Hello Florian,
+>>
+>>
+>> Am 13.10.2015 um 21:26 schrieb Florian Fainelli:
+>>>
+>>> On 12/10/15 22:13, Heiko Schocher wrote:
+>>>>
+>>>> On some boards the energy enable detect mode leads in
+>>>> trouble with some switches, so make the enabling of
+>>>> this mode configurable through DT.
+>>>>
+>>>> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+>>>> ---
+>>>>
+>>>>    .../devicetree/bindings/net/smsc-lan87xx.txt       | 19
+>>>> +++++++++++++++++
+>>>>    drivers/net/phy/smsc.c                             | 24
+>>>> +++++++++++++++++-----
+>>>>    2 files changed, 38 insertions(+), 5 deletions(-)
+>>>>    create mode 100644
+>>>> Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+>>>> b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+>>>> new file mode 100644
+>>>> index 0000000..39aa1dc
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/smsc-lan87xx.txt
+>>>> @@ -0,0 +1,19 @@
+>>>> +SMSC LAN87xx Ethernet PHY
+>>>> +
+>>>> +Some boards require special tuning values. Configure them
+>>>> +through an Ethernet OF device node.
+>>>> +
+>>>> +Optional properties:
+>>>> +
+>>>> +- disable-energy-detect:
+>>>> +  If set, do not enable energy detect mode for the SMSC phy.
+>>>> +  default: enable energy detect mode
+>>>
+>>>
+>>> Although energy detection is something that is implemented by many PHYs,
+>>> I am not sure a generic property is suitable here, I would prefix that
+>>> with the SMSC vendor prefix here to make it clear this only applies to
+>>> this PHY.
+>>
+>>
+>> Hmm... but all PHYs should be able to enable, disable it in some way, or?
+>
+> It may not always be controlled directly at the PHY level, sometimes
+> this is something that needs cooperation with the Ethernet MAC as well
+> in case of integrated designs.
+
+Ah, ok!
+
+>>> Would not you want to make it a reverse property here though, something
+>>> like this:
+>>>
+>>> smsc,energy-detect: boolean, when present indicates the PHY reliably
+>>> supports energy detection
+>>
+>>
+>> Yes, that was also my first thought, but currently, on this PHYs
+>> energy detect mode is on ... and if I introduce such a property,
+>> it will disable it for all existing boards, because property is
+>> missing ... so, maybe I break boards ...
+>
+> Fair enough, how about smsc,disabled-energy-detect or something like that then?
+
+Yes, changed it to "smsc,disable-energy-detect"
+
+bye,
+Heiko
+-- 
+DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
