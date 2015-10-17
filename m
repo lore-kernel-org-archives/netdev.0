@@ -1,133 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v5 3/8] switchdev: allow caller to explicitly
- request attr_set as deferred
-Date: Fri, 16 Oct 2015 19:11:07 -0700
-Message-ID: <5621AE3B.2030601@gmail.com>
-References: <1444844455-12508-1-git-send-email-jiri@resnulli.us> <1444844455-12508-4-git-send-email-jiri@resnulli.us> <561FC472.5030506@gmail.com> <20151016082347.GC2194@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linux@roeck-us.net, vivien.didelot@savoirfairelinux.com,
-	andrew@lunn.ch, David.Laight@ACULAB.COM, stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36078 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432AbbJQCL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2015 22:11:29 -0400
-Received: by pacfv9 with SMTP id fv9so37921923pac.3
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2015 19:11:29 -0700 (PDT)
-In-Reply-To: <20151016082347.GC2194@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH v2 net-next] RDS: fix rds-ping deadlock over TCP transport
+Date: Fri, 16 Oct 2015 22:13:21 -0400
+Message-ID: <1445048001-1086-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org, sowmini.varadhan@oracle.com,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-10-16 01:23 AM, Jiri Pirko wrote:
-> Thu, Oct 15, 2015 at 05:21:22PM CEST, john.fastabend@gmail.com wrote:
->> On 15-10-14 10:40 AM, Jiri Pirko wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> Caller should know if he can call attr_set directly (when holding RTNL)
->>> or if he has to defer the att_set processing for later.
->>>
->>> This also allows drivers to sleep inside attr_set and report operation
->>> status back to switchdev core. Switchdev core then warns if status is
->>> not ok, instead of silent errors happening in drivers.
->>>
->>> Benefit from newly introduced switchdev deferred ops infrastructure.
->>>
->>
->> A nit but the patch description should note your setting the defer bit
->> on the bridge set state.
->>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>>  include/net/switchdev.h   |   1 +
->>>  net/bridge/br_stp.c       |   3 +-
->>>  net/switchdev/switchdev.c | 108 ++++++++++++++++++----------------------------
->>>  3 files changed, 46 insertions(+), 66 deletions(-)
->>>
->>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>> index d1c7f90..f7de6f8 100644
->>> --- a/include/net/switchdev.h
->>> +++ b/include/net/switchdev.h
->>> @@ -17,6 +17,7 @@
->>>  
->>>  #define SWITCHDEV_F_NO_RECURSE		BIT(0)
->>>  #define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
->>> +#define SWITCHDEV_F_DEFER		BIT(2)
->>>  
->>>  struct switchdev_trans_item {
->>>  	struct list_head list;
->>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->>> index db6d243de..80c34d7 100644
->>> --- a/net/bridge/br_stp.c
->>> +++ b/net/bridge/br_stp.c
->>> @@ -41,13 +41,14 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
->>>  {
->>>  	struct switchdev_attr attr = {
->>>  		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
->>> +		.flags = SWITCHDEV_F_DEFER,
->>>  		.u.stp_state = state,
->>>  	};
->>
->>
->> This creates a possible race (with 6/8) I think, please check!
-> 
-> Wait. This patch does not change the previous behaviour. Patch 6 does,
-> so I don't understand why you are asking here. Confusing.
-> 
+Sowmini found hang with rds-ping while testing RDS over TCP. Its
+a corner case and doesn't happen always. The issue is not reproducible
+with IB transport. Its clear from below dump why we see it with RDS TCP.
 
-Sorry if its confusing I keyed of the addition of the SWITCHDEV_F_DEFER
-here.
+ [<ffffffff8153b7e5>] do_tcp_setsockopt+0xb5/0x740
+ [<ffffffff8153bec4>] tcp_setsockopt+0x24/0x30
+ [<ffffffff814d57d4>] sock_common_setsockopt+0x14/0x20
+ [<ffffffffa096071d>] rds_tcp_xmit_prepare+0x5d/0x70 [rds_tcp]
+ [<ffffffffa093b5f7>] rds_send_xmit+0xd7/0x740 [rds]
+ [<ffffffffa093bda2>] rds_send_pong+0x142/0x180 [rds]
+ [<ffffffffa0939d34>] rds_recv_incoming+0x274/0x330 [rds]
+ [<ffffffff810815ae>] ? ttwu_queue+0x11e/0x130
+ [<ffffffff814dcacd>] ? skb_copy_bits+0x6d/0x2c0
+ [<ffffffffa0960350>] rds_tcp_data_recv+0x2f0/0x3d0 [rds_tcp]
+ [<ffffffff8153d836>] tcp_read_sock+0x96/0x1c0
+ [<ffffffffa0960060>] ? rds_tcp_recv_init+0x40/0x40 [rds_tcp]
+ [<ffffffff814d6a90>] ? sock_def_write_space+0xa0/0xa0
+ [<ffffffffa09604d1>] rds_tcp_data_ready+0xa1/0xf0 [rds_tcp]
+ [<ffffffff81545249>] tcp_data_queue+0x379/0x5b0
+ [<ffffffffa0960cdb>] ? rds_tcp_write_space+0xbb/0x110 [rds_tcp]
+ [<ffffffff81547fd2>] tcp_rcv_established+0x2e2/0x6e0
+ [<ffffffff81552602>] tcp_v4_do_rcv+0x122/0x220
+ [<ffffffff81553627>] tcp_v4_rcv+0x867/0x880
+ [<ffffffff8152e0b3>] ip_local_deliver_finish+0xa3/0x220
 
-> 
->>
->> In del_nbp() we call br_stp_disable_port() to set the port state
->> to BR_STATE_DISABLE and disabling learning events. But with this
->> patch it can be deferred. Also note the STP agent may be in userspace
->> which actually seems more likely the case because you likely want to
->> run some more modern variant of STP than the kernel supports.
->>
->> So at some point in the future the driver will turn off learning. At
->> the same time we call br_fdb_delete_by_port which calls a deferred
->> set of fdb deletes.
->>
->> I don't see how you guarantee learning is off before you start doing
->> the deletes here and possibly learning new addresses after the software
->> side believes the port is down.
->>
->> So
->>
->>   br_stp_disable_port
->>                           br_fdb_delete_by_port
->>                           {fdb_del_external_learn}
->>   [hw learns a fdb]
->>   [hw disables learning]
->>
->> What stops this from happening?
-> 
-> Okay. This behaviour is the same as without the patchset. What would
-> resolve the issue it to put switchdev_deferred_process() after
-> br_stp_disable_port() and before br_fdb_delete_by_port() call.
-> That would enforce stp change to happen in hw before fdbs are explicitly
-> deleted. Sound good to you?
+This happens because rds_send_xmit() chain wants to take
+sock_lock which is already taken by tcp_v4_rcv() on its
+way to rds_tcp_data_ready(). Commit db6526dcb51b ("RDS: use
+rds_send_xmit() state instead of RDS_LL_SEND_FULL") which
+was trying to opportunistically finish the send request
+in same thread context.
 
-OK so putting the switchdev_deferred_process() between the disable_port
-and the delete_by_port will enforce the stp change to happen in hw
-before the fdbs are explicitly deleted. I think this is minimally
-required. I don't like scattering these flush_workqueue() calls all
-over the place but I don't have any better ideas right now so sounds
-good enough.
+But because of above recursive lock hang with RDS TCP,
+the send work from rds_send_pong() needs to deferred to
+worker to avoid lock up. Given RDS ping is more of connectivity
+test than performance critical path, its should be ok even
+for transport like IB.
 
-But now I'm wondering if you can have a deferred fdb add in the rocker
-driver (rocker_port_fdb_learn_work) running in parallel with this that
-could happen after the delete and add a bogus fdb entry. I think you
-also need to have a flush in rocker_port_stp_update() to handle this
-case.
+Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by:  Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+v2: Dropped the confusing SEND_LL_FULL check from v1
 
-Also I agree these issues were not completely caused by your patches.
+ net/rds/send.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Thanks,
-John
+diff --git a/net/rds/send.c b/net/rds/send.c
+index ee49c25..827155c 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1182,9 +1182,8 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 	rds_stats_inc(s_send_queued);
+ 	rds_stats_inc(s_send_pong);
+ 
+-	ret = rds_send_xmit(conn);
+-	if (ret == -ENOMEM || ret == -EAGAIN)
+-		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
++	/* schedule the send work on rds_wq */
++	queue_delayed_work(rds_wq, &conn->c_send_w, 1);
+ 
+ 	rds_message_put(rm);
+ 	return 0;
+-- 
+1.9.1
