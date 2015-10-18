@@ -1,49 +1,64 @@
-From: Gao feng <omarapazanadi@gmail.com>
-Subject: [PATCH] vsock: fix missing cleanup when misc_register failed
-Date: Sun, 18 Oct 2015 21:53:11 +0800
-Message-ID: <1445176391-8730-1-git-send-email-omarapazanadi@gmail.com>
-Cc: Gao feng <omarapazanadi@gmail.com>
-To: netdev@vger.kernel.org
+From: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
+Subject: [PATCH net 1/2] net: mv643xx_eth: Ensure proper data alignment in TSO TX path
+Date: Sun, 18 Oct 2015 16:02:43 +0200
+Message-ID: <1445176964-22760-2-git-send-email-philipp@familie-kirchhofer.de>
+References: <1445176964-22760-1-git-send-email-philipp@familie-kirchhofer.de>
+Cc: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36790 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398AbbJRNxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 09:53:20 -0400
-Received: by pacfv9 with SMTP id fv9so67351779pac.3
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 06:53:20 -0700 (PDT)
+Received: from static.196.166.47.78.clients.your-server.de ([78.47.166.196]:42168
+	"EHLO vserver.familie-kirchhofer.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752439AbbJROIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 10:08:54 -0400
+In-Reply-To: <1445176964-22760-1-git-send-email-philipp@familie-kirchhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-reset transport and unlock if misc_register failed.
+The TX DMA engine requires that buffers with a size of 8 bytes or smaller
+must be 64 bit aligned. This requirement may be violated when doing TSO,
+as in this case larger skb frags can be broken up and transmitted in small
+parts with then inappropriate alignment.
 
-Signed-off-by: Gao feng <omarapazanadi@gmail.com>
+Fix this by checking for proper alignment before handing a buffer to the
+DMA engine. If the data is misaligned realign it by copying it into the
+TSO header data area.
+
+Signed-off-by: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
 ---
- net/vmw_vsock/af_vsock.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index df5fc6b..5f5fbed 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1948,7 +1948,7 @@ int __vsock_core_init(const struct vsock_transport *t, struct module *owner)
- 	err = misc_register(&vsock_device);
- 	if (err) {
- 		pr_err("Failed to register misc device\n");
--		return -ENOENT;
-+		goto err_reset_transport;
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index d52639b..68073bc 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -759,11 +759,23 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
+ 
+ 	desc->l4i_chk = 0;
+ 	desc->byte_cnt = length;
+-	desc->buf_ptr = dma_map_single(dev->dev.parent, data,
+-				       length, DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(dev->dev.parent, desc->buf_ptr))) {
+-		WARN(1, "dma_map_single failed!\n");
+-		return -ENOMEM;
++
++	if (length <= 8 && (uintptr_t)data & 0x7) {
++		/* Copy unaligned small data fragment to TSO header data area */
++		memcpy(txq->tso_hdrs + txq->tx_curr_desc * TSO_HEADER_SIZE,
++		       data, length);
++		desc->buf_ptr = txq->tso_hdrs_dma
++			+ txq->tx_curr_desc * TSO_HEADER_SIZE;
++	} else {
++		/* Alignment is okay, map buffer and hand off to hardware */
++		txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
++		desc->buf_ptr = dma_map_single(dev->dev.parent, data,
++			length, DMA_TO_DEVICE);
++		if (unlikely(dma_mapping_error(dev->dev.parent,
++					       desc->buf_ptr))) {
++			WARN(1, "dma_map_single failed!\n");
++			return -ENOMEM;
++		}
  	}
  
- 	err = proto_register(&vsock_proto, 1);	/* we want our slab */
-@@ -1969,8 +1969,9 @@ int __vsock_core_init(const struct vsock_transport *t, struct module *owner)
- 
- err_unregister_proto:
- 	proto_unregister(&vsock_proto);
--err_misc_deregister:
-+err_unregister_misc:
- 	misc_deregister(&vsock_device);
-+err_reset_transport:
- 	transport = NULL;
- err_busy:
- 	mutex_unlock(&vsock_register_mutex);
--- 
-2.4.3
+ 	cmd_sts = BUFFER_OWNED_BY_DMA;
