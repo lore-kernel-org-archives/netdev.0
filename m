@@ -1,22 +1,23 @@
-From: "Western Union" <drakhila@western.com>
-Subject: Re: Cash Awaiting Pick-Up
-Date: Sun, 18 Oct 2015 20:09:40 +0100
-Message-ID: <20151018190859.10D6C2323395@rivendel.securenet.com.mx>
-Reply-To: accountofficer3@qq.com
+From: <GG18@leucm1.onmicrosoft.com>
+Subject: Good Day
+Date: Sun, 18 Oct 2015 14:37:08 -0500
+Message-ID: <PN1PR01MB01271ED89DDBC8BDEBF9EF2DA43B0@PN1PR01MB0127.INDPRD01.PROD.OUTLOOK.COM>
+Reply-To: <mcheung661@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <drakhila@western.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <GG18@leucm1.onmicrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rivendel.securenet.com.mx ([174.37.76.211]:56697 "EHLO
-	rivendel.securenet.com.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbbJRUF6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 16:05:58 -0400
+Received: from mail-pu1apc01hn0225.outbound.protection.outlook.com ([104.47.126.225]:3529
+	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751003AbbJRUHn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 16:07:43 -0400
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is to re-notify you of the =A3500,000.00(POUNDS) That was deposite=
-d at western union office in your name is available for pickup. Contact=
- this email: accountofficer3@qq.com for your M.T.C.N Numbers. Contact P=
-erson: Mrs. Hillary Florence Email: accountofficer3@qq.com
+I need your assistance into this transaction.
+
+Regards,
+Mr. LEUNG Cheung
