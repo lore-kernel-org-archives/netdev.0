@@ -1,69 +1,56 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 3/9] net: fix trivial typos
-Date: Sun, 18 Oct 2015 23:31:09 +0800
-Message-ID: <5fea4cd474d5fe49688f88d91cdf5e8019844806.1445181079.git.geliangtang@163.com>
-References: <949f6f3c99f87b57666986dc9f2d1c916935e215.1445181079.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <949f6f3c99f87b57666986dc9f2d1c916935e215.1445181079.git.geliangtang@163.com>
-In-Reply-To: <557286dd38beb4d8d1be28e787ad89611e7cc077.1445181079.git.geliangtang@163.com>
-References: <949f6f3c99f87b57666986dc9f2d1c916935e215.1445181079.git.geliangtang@163.com> <557286dd38beb4d8d1be28e787ad89611e7cc077.1445181079.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <omarapazanadi@gmail.com>
+Subject: [PATCH v3] vsock: fix missing cleanup when misc_register failed
+Date: Sun, 18 Oct 2015 23:35:56 +0800
+Message-ID: <1445182556-24073-1-git-send-email-omarapazanadi@gmail.com>
+Cc: Gao feng <omarapazanadi@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36681 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752958AbbJRPgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 11:36:06 -0400
+Received: by pacfv9 with SMTP id fv9so68658393pac.3
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 08:36:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-s/regsiter/register/
+reset transport and unlock if misc_register failed.
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
+Signed-off-by: Gao feng <omarapazanadi@gmail.com>
 ---
- drivers/net/ethernet/amd/amd8111e.h           | 2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c | 2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.c    | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ net/vmw_vsock/af_vsock.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/amd8111e.h b/drivers/net/ethernet/amd/amd8111e.h
-index 7cdb185..d5e2b71 100644
---- a/drivers/net/ethernet/amd/amd8111e.h
-+++ b/drivers/net/ethernet/amd/amd8111e.h
-@@ -48,7 +48,7 @@ eg., if the value 10011010b is written into the least significant byte of a comm
- /* 32 bit registers */
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index df5fc6b..00e8a34 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1948,13 +1948,13 @@ int __vsock_core_init(const struct vsock_transport *t, struct module *owner)
+ 	err = misc_register(&vsock_device);
+ 	if (err) {
+ 		pr_err("Failed to register misc device\n");
+-		return -ENOENT;
++		goto err_reset_transport;
+ 	}
  
- #define  ASF_STAT		0x00	/* ASF status register */
--#define CHIPID			0x04	/* Chip ID regsiter */
-+#define CHIPID			0x04	/* Chip ID register */
- #define	MIB_DATA		0x10	/* MIB data register */
- #define MIB_ADDR		0x14	/* MIB address register */
- #define STAT0			0x30	/* Status0 register */
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index a8b80c5..73efdb0 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -307,7 +307,7 @@ void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel)
+ 	err = proto_register(&vsock_proto, 1);	/* we want our slab */
+ 	if (err) {
+ 		pr_err("Cannot register vsock protocol\n");
+-		goto err_misc_deregister;
++		goto err_deregister_misc;
+ 	}
  
- /*
-  * atl1c_read_phy_core
-- * core function to read register in PHY via MDIO control regsiter.
-+ * core function to read register in PHY via MDIO control register.
-  * ext: extension register (see IEEE 802.3)
-  * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
-  * reg: reg to read
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 23ec28f..ffc3a14 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -123,7 +123,7 @@ out:
-  *  @offset: register offset to be read
-  *  @data: pointer to the read data
-  *
-- *  Reads the MDI control regsiter in the PHY at offset and stores the
-+ *  Reads the MDI control register in the PHY at offset and stores the
-  *  information read to data.
-  **/
- s32 igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	err = sock_register(&vsock_family_ops);
+@@ -1969,8 +1969,9 @@ int __vsock_core_init(const struct vsock_transport *t, struct module *owner)
+ 
+ err_unregister_proto:
+ 	proto_unregister(&vsock_proto);
+-err_misc_deregister:
++err_deregister_misc:
+ 	misc_deregister(&vsock_device);
++err_reset_transport:
+ 	transport = NULL;
+ err_busy:
+ 	mutex_unlock(&vsock_register_mutex);
 -- 
-2.5.0
+2.4.3
