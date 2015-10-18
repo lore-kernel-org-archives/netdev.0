@@ -1,51 +1,33 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next 2/7] tcp: track min RTT using windowed min-filter
-Date: Sun, 18 Oct 2015 10:33:41 -0400
-Message-ID: <CADVnQyk1e+csk_kX3D+E2CCeBi3sAKGjePEn3bAWceVFNf02Fg@mail.gmail.com>
-References: <1445057867-32257-1-git-send-email-ycheng@google.com>
-	<1445057867-32257-3-git-send-email-ycheng@google.com>
-	<20151014092800.GA3748@mininet-vm>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Sun, 18 Oct 2015 17:03:16 +0200
+Message-ID: <5623B4B4.2010703@iogearbox.net>
+References: <cover.1444956943.git.daniel@iogearbox.net> <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net> <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com> <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net> <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com> <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com> <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com> <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Andrew Shewmaker <agshew@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:36452 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752837AbbJROdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 10:33:42 -0400
-Received: by obcqt19 with SMTP id qt19so43547872obc.3
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 07:33:42 -0700 (PDT)
-In-Reply-To: <20151014092800.GA3748@mininet-vm>
+Received: from www62.your-server.de ([213.133.104.62]:44457 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752766AbbJRPDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 11:03:44 -0400
+In-Reply-To: <562301F9.1030702@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2015 at 5:28 AM, Andrew Shewmaker <agshew@gmail.com> wrote:
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 38743e5..e177386 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
-> ...
->> @@ -2961,7 +3028,7 @@ void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
->>               rtt_us = skb_mstamp_us_delta(&now, &tcp_rsk(req)->snt_synack);
->>       }
->>
->> -     tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L);
->> +     tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L, rtt_us);
->>  }
->
-> This didn't apply to net-next for me. I see seq_rtt_us instead of
-> rtt_us and a check on the existence of tp->srtt_us. Maybe I've
-> misapplied the patch?
+On 10/18/2015 04:20 AM, Alexei Starovoitov wrote:
+...
+> that indeed sounds cleaner, less lines of code, no fs, etc, but
+> I don't see how it will work yet.
 
-This patch series applies cleanly for me against David Miller's
-net-next at SHA1 4be3158 (from Friday Oct 16). (Using "git am" on the
-mbox patches from http://patchwork.ozlabs.org/project/netdev/list/
-...)
+I'll have some code ready very soon to show the concept. Will post it here
+tonight, stay tuned. ;)
 
-On top of what SHA1 are you applying the series?
-
-neal
+Cheers,
+Daniel
