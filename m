@@ -1,32 +1,38 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/7] tty: Remove ASYNC_CLOSING checks in open()/hangup()
- methods
-Date: Sat, 17 Oct 2015 21:13:21 -0700
-Message-ID: <20151018041321.GA8229@kroah.com>
-References: <1444507257-7513-1-git-send-email-peter@hurleysoftware.com>
- <1444507257-7513-3-git-send-email-peter@hurleysoftware.com>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: [PATCH] net/phy: micrel: Follow attached_dev to get to the MAC
+ device
+Date: Sat, 17 Oct 2015 23:15:53 -0500
+Message-ID: <alpine.DEB.2.02.1510172314290.20377@linux-builds1>
+References: <1445028545-22599-1-git-send-email-andrew@lunn.ch> <alpine.DEB.2.02.1510161749490.25648@linux-builds1> <20151016235042.GA28795@lunn.ch> <alpine.DEB.2.02.1510170920160.12375@linux-builds1> <20151017204558.GA8727@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.cz>, Alan Cox <alan@linux.intel.com>,
-	David Laight <David.Laight@aculab.com>,
-	Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1444507257-7513-3-git-send-email-peter@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0077.outbound.protection.outlook.com ([157.56.111.77]:29376
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754470AbbJREWw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Oct 2015 00:22:52 -0400
+In-Reply-To: <20151017204558.GA8727@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 10, 2015 at 04:00:52PM -0400, Peter Hurley wrote:
+On Sat, 17 Oct 2015, Andrew Lunn wrote:
+
+> > Sure, will try to debug. It looks like phydev->attached_dev is valid, but
+> > phydev->attached_dev->dev.of_node is NULL.
 > 
-> Note: The ASYNC_CLOSING flag state is still maintained since several
-> bitrotting drivers use it for (dubious) other purposes.
+> Humm
+> 
+> phydev->attached_dev is a net_device, so should be the mac.  What
+> device is phydev->attached_dev->dev? Is it not the dev embedded in the
+> platform_device passed to socfpga_dwmac_probe()?
+>
 
-I think we should drop it, it's pointless and no one ever actually does
-anything with it.
+Yes, it looks like it is, the dev->of_node is valid in socfpga_dwmac_probe(),
+but it looks like of_node is getting lost somewhere. 
 
-thanks,
-
-greg k-h
+BR,
+Dinh
