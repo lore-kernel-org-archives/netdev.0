@@ -1,33 +1,61 @@
-From: SAMSUNG@vger.kernel.org
-Subject: Congratulations! You have made it...
-Date: Sun, 18 Oct 2015 02:00:46 +0100
-Message-ID: <HK2PR0301MB115684FE0309AA20DE4D8CD4B83B0@HK2PR0301MB1156.apcprd03.prod.outlook.com>
-Reply-To: <samsungwiner@gmail.com>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V17 0/3] openvswitch: Add support for
+	802.1ad
+Date: Sat, 17 Oct 2015 21:12:25 -0400
+Message-ID: <1445130748-27671-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sg2apc01hn0214.outbound.protection.outlook.com ([104.47.125.214]:10848
-	"EHLO APC01-SG2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751752AbbJRBBM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 21:01:12 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Dear Email account holder, 
-
-Congratulations, 
-
-Your E-mail address has won Five Hundred Thousand United States Dollars ($500,000.00 USD), in the just concluded October 2015 Samsung draw Giveaway held at NEW DELHI, INDIA. To claim your prize, send your Full Name, Phone Number, Address, State, Country, Age, Sex, Occupation and Winning Email address to our claims desk/collection agent Mr. Ryan Tyler at Email: samsungwiner@gmail.com
-
-Regards
-SAMSUNG ASIA
-SAMSUNG KOREA
-SAMSUNG INDIA.
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+VjE3LFYxNjogSW1wbGVtZW50IHJldmlld2VyJ3MgY29tbWVudHMuCgpWMTU6IEltcGxlbWVudCBy
+ZXZpZXdlciBjb21tZW50cy4KClYxNDogQWRkIG91dGVyIHRwaWQgdG8gZmxvd19rZXkKClYxMzog
+Rml4IGluY29ycmVjdCBlbmNvZGluZyBhbmQgZGVjb2Rpbmcgb2YgbmV0bGluayB0by9mcm9tIGtl
+eQphdHRyaWJ1dGVzLgoKVjEyOiBGaXggc29tZSBwcm9ibGVtcyBhbmQgaXNzdWVzIHBvaW50ZWQg
+b3V0IGJ5IHJldmlld2Vycy4gV2hlbiBwYXJzaW5nCm5ldGxpbmsgYXR0cmlidXRlcyBFdGhlciB0
+eXBlcyBvdGhlciB0aGVuIDB4ODhhOCBhcyBvdXRlciB0cGlkLgoKVjExOiBBZGQgaW5uZXIgdHBp
+ZCB0byBmbG93IGtleS4gRml4IHNlcGFyYXRlIGlubmVyIGVuY2FwIGF0dHJpYnV0ZQp3aGVuIHBh
+cnNpbmcgbmV0bGluayBhdHRyaWJ1dGVzLiBNZXJnZSAyIHBhdGNoZXMgdG8gY29uc29saWRhdGUK
+cWlucSBjaGFuZ2VzLgoKVjEwOiBJbXBsZW1lbnQgcmV2aWV3ZXIgY29tbWVudHM6IENvbnNvbGlk
+YXRlIHZsYW4gcGFyc2luZyBmdW5jdGlvbnMuClNwbGl0cyBuZXRsaW5rIHBhcnNpbmcgYW5kIGZs
+b3cgY29udmVyc2lvbiBpbnRvIGEgc2VwYXJhdGUgcGF0Y2guIFVzZXMKZG91YmxlIGVuY2FwIGF0
+dHJpYnV0ZSBlbmNhcHN1bGF0aW9uIGZvciA4MDIuMWFkLiAgTmV0bGluayBhdHRyaWJ1dGVzCm5v
+dyBsb29rIGxpa2UgdGhpczoKCiAgICBldGhfdHlwZSgweDg4YTgpLHZsYW4odmlkPTEwMCksZW5j
+YXAoZXRoX3R5cGUoMHg4MTAwKSwgdmxhbih2aWQ9MjAwKSwKICAgICAgICAgICAgICAgICAgICAg
+ICAgIGVuY2FwKGV0aF90eXBlKDB4MDgwMCksIC4uLikpCgpUaGUgZG91YmxlIGVuY2FwIGF0cmli
+dXRlcyBpbiB0aGlzIHZlcnNpb24gb2YgdGhlIHBhdGNoIGlzIGluY29tcGF0aWJsZSB3aXRoCm9s
+ZCB2ZXJzaW9ucyBvZiB0aGUgdXNlciBsZXZlbCA4MDIuMWFkIHBhdGNoLiBBIG5ldyB1c2VyIGxl
+dmVsIHBhdGNoIHdoaWNoCmlzIGFsc28gYmVpbmcgc3VibWl0dGVkIHNpbXVsdGFuZW91c2x5IHRv
+IG9wZW52c3dpdGNoIGRldiBtYWlsaW5nIGxpc3QuCgpWOTogIEluY2x1ZGVzIGNoYW5nZXMgc3Vn
+Z2VzdGVkIGJ5IHJldmlld2VycwoKVjg6ICBJbmNsdWRlcyBjaGFuZ2VzIHN1Z2dlc3RlZCBieSBy
+ZXZpZXdlcnMKClY3OiAgSW5jbHVkZXMgY2hhbmdlcyBzdWdnZXN0ZWQgYnkgcmV2aWV3ZXJzCgpW
+NjogIFJlYmFzZWQgdG8gbmV0LW5leHQKClY1OiAgVXNlIGVuY2Fwc3VsYXRlZCBhdHRyaWJ1dGVz
+CgoKRm9yIGRpc2N1c3Npb24sIGhpc3RvcnkgIGFuZCBwcmV2aW91cyB2ZXJzaW9ucyBvZiB0aGUg
+a2VybmVsIG1vZHVsZQpwYXRjaCBhbmQgdGhlIHVzZXIgY29kZSBwYXRjaCBzZWUgdGhlIE9WUyBk
+ZXYgbWFpbGluZyBsaXN0LApvcGVudnN3aXRjaC5vcmcvcGlwZXJtYWlsL2Rldi8uLgoKVGhvbWFz
+IEYgSGVyYmVydCAoMyk6CiAgb3BlbnZzd2l0Y2g6IDgwMi4xYWQgdWFwaSBjaGFuZ2VzLgogIENo
+ZWNrIGZvciB2bGFuIGV0aGVybmV0IHR5cGVzIGZvciA4MDIxLnEgb3IgODAyLjFhZAogIDgwMi4x
+QUQ6IEZsb3cgaGFuZGxpbmcsIGFjdGlvbnMsIHZsYW4gcGFyc2luZyBhbmQgbmV0bGluayBhdHRy
+aWJ1dGVzCgogaW5jbHVkZS9saW51eC9pZl92bGFuLmggICAgICAgICAgfCAgMTYgKysrKwogaW5j
+bHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMTcgKystLQogbmV0L29wZW52c3dpdGNo
+L2FjdGlvbnMuYyAgICAgICAgfCAgIDYgKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAg
+ICAgIHwgIDc2ICsrKysrKysrKysrKystLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAg
+ICAgICB8ICAgOCArLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jICAgfCAxNzIgKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tCiBuZXQvb3BlbnZzd2l0Y2gvdnBv
+cnQtbmV0ZGV2LmMgICB8ICAgNCArLQogNyBmaWxlcyBjaGFuZ2VkLCAyNTIgaW5zZXJ0aW9ucygr
+KSwgNDcgZGVsZXRpb25zKC0pCgotLSAKMi40LjMKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9y
+ZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
