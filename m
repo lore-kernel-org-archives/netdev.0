@@ -1,38 +1,37 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 3.19 and earlier] fib_rules: Fix dump_rules() not to exit
- early
-Date: Sat, 17 Oct 2015 17:12:37 -0700
-Message-ID: <20151018001237.GD18971@kroah.com>
-References: <1444066168-5566-1-git-send-email-roland@kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: e1000e: hard system lockup on Linux 4.2
+Date: Sat, 17 Oct 2015 17:39:09 -0700
+Message-ID: <20151018003909.GJ18971@kroah.com>
+References: <CAHmME9r9PbyqpRd6shT8Ep5WmLbUBv9dOdXRAzhGykgT0AM+sA@mail.gmail.com>
+ <8F4C390AFA9F4444A4AA77F4A3BEC78A059D9C26@HASMSX110.ger.corp.intel.com>
+ <CAHmME9rvnmdn-1Yy6jJYsY-4Ocb5bjimftRpMhxrmTYhOn07DA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>
-To: Roland Dreier <roland@kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
+Cc: "Avargil, Raanan" <raanan.avargil@intel.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1444066168-5566-1-git-send-email-roland@kernel.org>
-Sender: stable-owner@vger.kernel.org
+In-Reply-To: <CAHmME9rvnmdn-1Yy6jJYsY-4Ocb5bjimftRpMhxrmTYhOn07DA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 05, 2015 at 10:29:28AM -0700, Roland Dreier wrote:
-> From: Roland Dreier <roland@purestorage.com>
+On Mon, Oct 12, 2015 at 12:58:09PM +0200, Jason A. Donenfeld wrote:
 > 
-> Backports of 41fc014332d9 ("fib_rules: fix fib rule dumps across
-> multiple skbs") introduced a regression in "ip rule show" - it ends up
-> dumping the first rule over and over and never exiting, because 3.19
-> and earlier are missing commit 053c095a82cf ("netlink: make
-> nlmsg_end() and genlmsg_end() void"), so fib_nl_fill_rule() ends up
-> returning skb->len (i.e. > 0) in the success case.
+> On Oct 12, 2015 8:59 AM, "Avargil, Raanan" <raanan.avargil@intel.com> wrote:
+> >
+> > Your analysis is correct.
+> > Commit 37b12910dd11d9ab969f2c310dc9160b7f3e3405 fixes the lockup issue, and
+> according to my last check it is in 4.3-rc5.
 > 
-> Fix this by checking the return code for < 0 instead of != 0.
+> Cool okay.
+> But can we please get this patched marked for stable? It should be backported
+> to the upcoming 4.2.4.
 > 
-> Signed-off-by: Roland Dreier <roland@purestorage.com>
-> ---
-> Hi, this is needed for all stable trees earlier than 4.0 that have
-> picked up 41fc014332d9; so far looks like at least 3.10.y and 3.14.y
-> have made such releases.
 
-Thanks for this, now applied to 3.10 and 3.14-stable trees.
+Now applied, thanks.
 
 greg k-h
