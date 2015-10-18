@@ -1,37 +1,49 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: e1000e: hard system lockup on Linux 4.2
-Date: Sat, 17 Oct 2015 17:39:09 -0700
-Message-ID: <20151018003909.GJ18971@kroah.com>
-References: <CAHmME9r9PbyqpRd6shT8Ep5WmLbUBv9dOdXRAzhGykgT0AM+sA@mail.gmail.com>
- <8F4C390AFA9F4444A4AA77F4A3BEC78A059D9C26@HASMSX110.ger.corp.intel.com>
- <CAHmME9rvnmdn-1Yy6jJYsY-4Ocb5bjimftRpMhxrmTYhOn07DA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Avargil, Raanan" <raanan.avargil@intel.com>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHmME9rvnmdn-1Yy6jJYsY-4Ocb5bjimftRpMhxrmTYhOn07DA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Masashi Honma <masashi.honma@gmail.com>
+Subject: [PATCH] ipv6 route: Aggregate table getting code
+Date: Sun, 18 Oct 2015 09:51:39 +0900
+Message-ID: <1445129499-2496-1-git-send-email-masashi.honma@gmail.com>
+Cc: Masashi Honma <masashi.honma@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36804 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbbJRAvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2015 20:51:52 -0400
+Received: by pacfv9 with SMTP id fv9so57426678pac.3
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2015 17:51:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2015 at 12:58:09PM +0200, Jason A. Donenfeld wrote:
-> 
-> On Oct 12, 2015 8:59 AM, "Avargil, Raanan" <raanan.avargil@intel.com> wrote:
-> >
-> > Your analysis is correct.
-> > Commit 37b12910dd11d9ab969f2c310dc9160b7f3e3405 fixes the lockup issue, and
-> according to my last check it is in 4.3-rc5.
-> 
-> Cool okay.
-> But can we please get this patched marked for stable? It should be backported
-> to the upcoming 4.2.4.
-> 
+These lines could be aggregated to one line because fib6_new_table() calls
+fib6_get_table() inside on both cases CONFIG_IPV6_MULTIPLE_TABLES is enabled or
+not.
 
-Now applied, thanks.
+Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
+---
+ net/ipv6/route.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
 
-greg k-h
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index cb32ce2..1ff4130 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1778,16 +1778,7 @@ int ip6_route_info_create(struct fib6_config *cfg, struct rt6_info **rt_ret)
+ 		cfg->fc_metric = IP6_RT_PRIO_USER;
+ 
+ 	err = -ENOBUFS;
+-	if (cfg->fc_nlinfo.nlh &&
+-	    !(cfg->fc_nlinfo.nlh->nlmsg_flags & NLM_F_CREATE)) {
+-		table = fib6_get_table(net, cfg->fc_table);
+-		if (!table) {
+-			pr_warn("NLM_F_CREATE should be specified when creating new route\n");
+-			table = fib6_new_table(net, cfg->fc_table);
+-		}
+-	} else {
+-		table = fib6_new_table(net, cfg->fc_table);
+-	}
++	table = fib6_new_table(net, cfg->fc_table);
+ 
+ 	if (!table)
+ 		goto out;
+-- 
+1.9.1
