@@ -1,37 +1,48 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
- interfaces
-Date: Mon, 19 Oct 2015 08:36:10 -0700
-Message-ID: <20151019153609.GA19724@Alexeis-MBP.westell.com>
-References: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
- <20151018151157.GA19163@Alexeis-MBP.westell.com>
- <20151019110649.726f1fe0@griffin>
+From: Andreas Schwab <schwab@suse.de>
+Subject: [PATCH] net: cavium: change NET_VENDOR_CAVIUM to bool
+Date: Mon, 19 Oct 2015 17:37:13 +0200
+Message-ID: <mvmy4eyq386.fsf@hawking.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Haller <thaller@redhat.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34385 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754486AbbJSPgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 11:36:11 -0400
-Received: by padhk11 with SMTP id hk11so33085044pad.1
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 08:36:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20151019110649.726f1fe0@griffin>
+Received: from mx2.suse.de ([195.135.220.15]:35421 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753964AbbJSPhO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2015 11:37:14 -0400
+Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.220.254])
+	by mx2.suse.de (Postfix) with ESMTP id A1E1EAB1A
+	for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 15:37:12 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 19, 2015 at 11:06:49AM +0200, Jiri Benc wrote:
-> On Sun, 18 Oct 2015 08:11:58 -0700, Alexei Starovoitov wrote:
-> > it looks dangerous.
-> > Does it mean that 'for (4B) { create new dev; free old dev; }
-> > will keep incrementing that max index and dos it eventually?
-> 
-> This is not changed by this patch in any way. As for the current
-> behavior (with or without my patch), by creating and deleting an
-> interface, the max index indeed keeps incrementing. There's no DoS,
-> however, as the index simply wraps to 1 when reaching maxint. See
-> dev_new_index(). This is something I count on in this patch.
+CONFIG_NET_VENDOR_CAVIUM is only used to hide/show config options and to
+include subdirectories in the build, so it doesn't make sense to make it
+tristate.
 
-makes sense. thanks for explaining.
+Signed-off-by: Andreas Schwab <schwab@suse.de>
+---
+ drivers/net/ethernet/cavium/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 9b35d14..8fb84e6 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ 
+ config NET_VENDOR_CAVIUM
+-	tristate "Cavium ethernet drivers"
++	bool "Cavium ethernet drivers"
+ 	depends on PCI
+ 	default y
+ 	---help---
+-- 
+2.6.2
+
+
+-- 
+Andreas Schwab, SUSE Labs, schwab@suse.de
+GPG Key fingerprint = 0196 BAD8 1CE9 1970 F4BE  1748 E4D4 88E3 0EEA B9D7
+"And now for something completely different."
