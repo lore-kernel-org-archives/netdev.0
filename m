@@ -1,68 +1,106 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: conditionally expand buffer headroom over udp tunnel
-Date: Mon, 19 Oct 2015 11:43:11 -0400
-Message-ID: <1445269391-30333-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.xx.bhuvaragan@ericsson.com,
-	richard.alpe@ericsson.com, ying.xue@windriver.com,
-	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:21066 "EHLO
-	smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752150AbbJSPnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 11:43:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH v2] igb: improve handling of disconnected adapters
+Date: Mon, 19 Oct 2015 11:52:04 -0400
+Message-ID: <1445269924-26739-1-git-send-email-jarod@redhat.com>
+References: <1444716624.2870.14.camel@intel.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Mark Rustad <mark.d.rustad@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444716624.2870.14.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit d999297c3dbbe ("tipc: reduce locking scope during packet reception")
-we altered the packet retransmission function. Since then, when
-restransmitting packets, we create a clone of the original buffer
-using __pskb_copy(skb, MIN_H_SIZE), where MIN_H_SIZE is the size of
-the area we want to have copied, but also the smallest possible TIPC
-packet size. The value of MIN_H_SIZE is 24.
+Clean up array_rd32 so that it uses igb_rd32 the same as rd32, per the
+suggestion of Alexander Duyck, and use io_addr in more places, so that
+we don't have the need to call E1000_REMOVED (which simply looks for a
+null hw_addr) nearly as much.
 
-Unfortunately, __pskb_copy() also has the effect that the headroom
-of the cloned buffer takes the size MIN_H_SIZE. This is too small
-for carrying the packet over the UDP tunnel bearer, which requires
-a minimum headroom of 28 bytes. A change to just use pskb_copy()
-lets the clone inherit the original headroom of 80 bytes, but also
-assumes that the copied data area is of at least that size, something
-that is not always the case. So that is not a viable solution.
-
-We now fix this by adding a check for sufficient headroom in the
-transmit function of udp_media.c, and expanding it when necessary.
-
-Fixes: commit d999297c3dbbe ("tipc: reduce locking scope during packet reception")
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+CC: Mark Rustad <mark.d.rustad@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Alexander Duyck <alexander.duyck@gmail.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Acked-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- net/tipc/udp_media.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Note: this patch is rebased on Jeff's next-queue/dev-queue branch, which
+already had an earlier revision of this applied, so I've essentially
+reverted a2675ab and applied the revised version of this, squashed them
+together, and here is the end result, which matches the version Alex acked.
 
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index c170d31..6e648d9 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -52,6 +52,8 @@
- /* IANA assigned UDP port */
- #define UDP_PORT_DEFAULT	6118
+ drivers/net/ethernet/intel/igb/e1000_regs.h |  3 +--
+ drivers/net/ethernet/intel/igb/igb_main.c   | 15 ++-------------
+ 2 files changed, 3 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 0fdcd4d..21d9d02 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -386,8 +386,7 @@ do { \
+ #define array_wr32(reg, offset, value) \
+ 	wr32((reg) + ((offset) << 2), (value))
  
-+#define UDP_MIN_HEADROOM        28
-+
- static const struct nla_policy tipc_nl_udp_policy[TIPC_NLA_UDP_MAX + 1] = {
- 	[TIPC_NLA_UDP_UNSPEC]	= {.type = NLA_UNSPEC},
- 	[TIPC_NLA_UDP_LOCAL]	= {.type = NLA_BINARY,
-@@ -156,6 +158,9 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- 	struct sk_buff *clone;
- 	struct rtable *rt;
+-#define array_rd32(reg, offset) \
+-	(readl(hw->hw_addr + reg + ((offset) << 2)))
++#define array_rd32(reg, offset) (igb_rd32(hw, reg + ((offset) << 2)))
  
-+	if (skb_headroom(skb) < UDP_MIN_HEADROOM)
-+		pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-+
- 	clone = skb_clone(skb, GFP_ATOMIC);
- 	skb_set_inner_protocol(clone, htons(ETH_P_TIPC));
- 	ub = rcu_dereference_rtnl(b->media_ptr);
+ /* DMA Coalescing registers */
+ #define E1000_PCIEMISC	0x05BB8 /* PCIE misc config register */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 044a23e..68006a5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -954,17 +954,12 @@ static int igb_request_msix(struct igb_adapter *adapter)
+ 	if (err)
+ 		goto err_out;
+ 
+-	if (E1000_REMOVED(hw->hw_addr)) {
+-		err = -EIO;
+-		goto err_free;
+-	}
+-
+ 	for (i = 0; i < adapter->num_q_vectors; i++) {
+ 		struct igb_q_vector *q_vector = adapter->q_vector[i];
+ 
+ 		vector++;
+ 
+-		q_vector->itr_register = hw->hw_addr + E1000_EITR(vector);
++		q_vector->itr_register = adapter->io_addr + E1000_EITR(vector);
+ 
+ 		if (q_vector->rx.ring && q_vector->tx.ring)
+ 			sprintf(q_vector->name, "%s-TxRx-%u", netdev->name,
+@@ -1206,9 +1201,6 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
+ 	if (txr_count > 1 || rxr_count > 1)
+ 		return -ENOMEM;
+ 
+-	if (E1000_REMOVED(adapter->hw.hw_addr))
+-		return -EIO;
+-
+ 	ring_count = txr_count + rxr_count;
+ 	size = sizeof(struct igb_q_vector) +
+ 	       (sizeof(struct igb_ring) * ring_count);
+@@ -1238,7 +1230,7 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
+ 	q_vector->tx.work_limit = adapter->tx_work_limit;
+ 
+ 	/* initialize ITR configuration */
+-	q_vector->itr_register = adapter->hw.hw_addr + E1000_EITR(0);
++	q_vector->itr_register = adapter->io_addr + E1000_EITR(0);
+ 	q_vector->itr_val = IGB_START_ITR;
+ 
+ 	/* initialize pointer to rings */
+@@ -3281,9 +3273,6 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
+ 	u64 tdba = ring->dma;
+ 	int reg_idx = ring->reg_idx;
+ 
+-	if (E1000_REMOVED(adapter->io_addr))
+-		return;
+-
+ 	/* disable the queue */
+ 	wr32(E1000_TXDCTL(reg_idx), 0);
+ 	wrfl();
 -- 
-1.9.1
+1.8.3.1
