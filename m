@@ -1,247 +1,119 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/17] i40e/i40evf: adjust interrupt throttle less frequently
-Date: Mon, 19 Oct 2015 15:49:23 -0700
-Message-ID: <1445294971-44714-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/17] i40e: Fix basic support for X722 devices
+Date: Mon, 19 Oct 2015 15:49:17 -0700
+Message-ID: <1445294971-44714-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:49701 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751214AbbJSWtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2015 18:49:36 -0400
+	id S1750839AbbJSWte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2015 18:49:34 -0400
 In-Reply-To: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Anjali Singhai <anjali.singhai@intel.com>
 
-The adaptive ITR (interrupt throttle rate) algorithm was adjusting
-the hardware's interrupt rate too frequently.  This caused a lot
-of variation in the interrupt rate for fairly constant workloads.
+Acquire NVM, before issuing an AQ read nvm command for X722.
+We need to acquire the NVM before issuing an AQ read to the NVM
+otherwise we will get EBUSY from the FW. Also release when done.
 
-Change the code to have a counter and adjust only once every N
-number of interrupts.
+This fixes the two X722 issues with respect to eeprom checksum verify
+and reading NVM version info.
 
-Change-ID: I0460f1f86571037484eca5aca36ac4d889cb8389
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+With this patch in place, i40e driver will provide basic support
+for X722 devices.
+
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h          |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c     |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     | 22 ++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.h     |  4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 23 +++++++++++++++++++++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h   |  4 ++--
- drivers/net/ethernet/intel/i40evf/i40evf.h      |  2 ++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |  2 ++
- 8 files changed, 53 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c |  3 +++
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c    | 31 +++++++++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_type.h   |  3 +++
+ 3 files changed, 31 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index b7818be..7c2b2e8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -577,6 +577,8 @@ struct i40e_q_vector {
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
- 	char name[I40E_INT_NAME_STR_LEN];
- 	bool arm_wb_state;
-+#define ITR_COUNTDOWN_START 100
-+	u8 itr_countdown;	/* when 0 should adjust ITR */
- } ____cacheline_internodealigned_in_smp;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index daa6b17..7f456e9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -958,6 +958,9 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 	else
+ 		hw->pf_id = (u8)(func_rid & 0x7);
  
- /* lan device */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7d52092..e0142de 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3087,6 +3087,7 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
- 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
- 		struct i40e_q_vector *q_vector = vsi->q_vectors[i];
- 
-+		q_vector->itr_countdown = ITR_COUNTDOWN_START;
- 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
- 		q_vector->rx.latency_range = I40E_LOW_LATENCY;
- 		wr32(hw, I40E_PFINT_ITRN(I40E_RX_ITR, vector - 1),
-@@ -3182,6 +3183,7 @@ static void i40e_configure_msi_and_legacy(struct i40e_vsi *vsi)
- 	u32 val;
- 
- 	/* set the ITR configuration */
-+	q_vector->itr_countdown = ITR_COUNTDOWN_START;
- 	q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
- 	q_vector->rx.latency_range = I40E_LOW_LATENCY;
- 	wr32(hw, I40E_PFINT_ITR0(I40E_RX_ITR), q_vector->rx.itr);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 7aea143..006f0fb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -845,10 +845,12 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	 * The math works out because the divisor is in 10^(-6) which
- 	 * turns the bytes/us input value into MB/s values, but
- 	 * make sure to use usecs, as the register values written
--	 * are in 2 usec increments in the ITR registers.
-+	 * are in 2 usec increments in the ITR registers, and make sure
-+	 * to use the smoothed values that the countdown timer gives us.
- 	 */
--	usecs = (rc->itr << 1);
-+	usecs = (rc->itr << 1) * ITR_COUNTDOWN_START;
- 	bytes_per_int = rc->total_bytes / usecs;
++	if (hw->mac.type == I40E_MAC_X722)
++		hw->flags |= I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE;
 +
- 	switch (new_latency_range) {
- 	case I40E_LOWEST_LATENCY:
- 		if (bytes_per_int > 10)
-@@ -1806,8 +1808,17 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 
- 	vector = (q_vector->v_idx + vsi->base_vector);
- 
-+	/* avoid dynamic calculation if in countdown mode OR if
-+	 * all dynamic is disabled
-+	 */
- 	rxval = txval = i40e_buildreg_itr(I40E_ITR_NONE, 0);
- 
-+	if (q_vector->itr_countdown > 0 ||
-+	    (!ITR_IS_DYNAMIC(vsi->rx_itr_setting) &&
-+	     !ITR_IS_DYNAMIC(vsi->tx_itr_setting))) {
-+		goto enable_int;
+ 	status = i40e_init_nvm(hw);
+ 	return status;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 875a8cc..58e384a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -290,9 +290,18 @@ static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
+ i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
+ 			       u16 *data)
+ {
+-	if (hw->mac.type == I40E_MAC_X722)
+-		return i40e_read_nvm_word_aq(hw, offset, data);
+-	return i40e_read_nvm_word_srctl(hw, offset, data);
++	enum i40e_status_code ret_code = 0;
++
++	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE) {
++		ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
++		if (!ret_code) {
++			ret_code = i40e_read_nvm_word_aq(hw, offset, data);
++			i40e_release_nvm(hw);
++		}
++	} else {
++		ret_code = i40e_read_nvm_word_srctl(hw, offset, data);
 +	}
-+
- 	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting)) {
- 		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
- 		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
-@@ -1845,8 +1856,15 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 		wr32(hw, INTREG(vector - 1), rxval);
- 	}
- 
-+enable_int:
- 	if (!test_bit(__I40E_DOWN, &vsi->state))
- 		wr32(hw, INTREG(vector - 1), txval);
-+
-+	if (q_vector->itr_countdown)
-+		q_vector->itr_countdown--;
-+	else
-+		q_vector->itr_countdown = ITR_COUNTDOWN_START;
-+
++	return ret_code;
  }
  
  /**
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 0fe7eb7..6779fb7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -38,8 +38,8 @@
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
- #define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
--#define I40E_ITR_RX_DEF            I40E_ITR_8K
--#define I40E_ITR_TX_DEF            I40E_ITR_4K
-+#define I40E_ITR_RX_DEF            I40E_ITR_20K
-+#define I40E_ITR_TX_DEF            I40E_ITR_20K
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
- #define I40E_MIN_INT_RATE          250     /* ~= 1000000 / (I40E_MAX_ITR * 2) */
- #define I40E_MAX_INT_RATE          500000  /* == 1000000 / (I40E_MIN_ITR * 2) */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index d76fe4a..47e9a90 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -348,10 +348,12 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 	 * The math works out because the divisor is in 10^(-6) which
- 	 * turns the bytes/us input value into MB/s values, but
- 	 * make sure to use usecs, as the register values written
--	 * are in 2 usec increments in the ITR registers.
-+	 * are in 2 usec increments in the ITR registers, and make sure
-+	 * to use the smoothed values that the countdown timer gives us.
- 	 */
--	usecs = (rc->itr << 1);
-+	usecs = (rc->itr << 1) * ITR_COUNTDOWN_START;
- 	bytes_per_int = rc->total_bytes / usecs;
+@@ -397,9 +406,19 @@ read_nvm_buffer_aq_exit:
+ i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
+ 				 u16 *words, u16 *data)
+ {
+-	if (hw->mac.type == I40E_MAC_X722)
+-		return i40e_read_nvm_buffer_aq(hw, offset, words, data);
+-	return i40e_read_nvm_buffer_srctl(hw, offset, words, data);
++	enum i40e_status_code ret_code = 0;
 +
- 	switch (new_latency_range) {
- 	case I40E_LOWEST_LATENCY:
- 		if (bytes_per_int > 10)
-@@ -1245,8 +1247,18 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 	int vector;
- 
- 	vector = (q_vector->v_idx + vsi->base_vector);
-+
-+	/* avoid dynamic calculation if in countdown mode OR if
-+	 * all dynamic is disabled
-+	 */
- 	rxval = txval = i40e_buildreg_itr(I40E_ITR_NONE, 0);
- 
-+	if (q_vector->itr_countdown > 0 ||
-+	    (!ITR_IS_DYNAMIC(vsi->rx_itr_setting) &&
-+	     !ITR_IS_DYNAMIC(vsi->tx_itr_setting))) {
-+		goto enable_int;
++	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE) {
++		ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
++		if (!ret_code) {
++			ret_code = i40e_read_nvm_buffer_aq(hw, offset, words,
++							   data);
++			i40e_release_nvm(hw);
++		}
++	} else {
++		ret_code = i40e_read_nvm_buffer_srctl(hw, offset, words, data);
 +	}
-+
- 	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting)) {
- 		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
- 		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
-@@ -1282,8 +1294,15 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 		wr32(hw, INTREG(vector - 1), rxval);
- 	}
- 
-+enable_int:
- 	if (!test_bit(__I40E_DOWN, &vsi->state))
- 		wr32(hw, INTREG(vector - 1), txval);
-+
-+	if (q_vector->itr_countdown)
-+		q_vector->itr_countdown--;
-+	else
-+		q_vector->itr_countdown = ITR_COUNTDOWN_START;
-+
++	return ret_code;
  }
  
  /**
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index e2352b8..ebc1bf7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -38,8 +38,8 @@
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
- #define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
--#define I40E_ITR_RX_DEF            I40E_ITR_8K
--#define I40E_ITR_TX_DEF            I40E_ITR_4K
-+#define I40E_ITR_RX_DEF            I40E_ITR_20K
-+#define I40E_ITR_TX_DEF            I40E_ITR_20K
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
- #define I40E_MIN_INT_RATE          250     /* ~= 1000000 / (I40E_MAX_ITR * 2) */
- #define I40E_MAX_INT_RATE          500000  /* == 1000000 / (I40E_MIN_ITR * 2) */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 22841c6..22fc3d4 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -112,6 +112,8 @@ struct i40e_q_vector {
- 	struct i40e_ring_container tx;
- 	u32 ring_mask;
- 	u8 num_ringpairs;	/* total number of ring pairs in vector */
-+#define ITR_COUNTDOWN_START 100
-+	u8 itr_countdown;	/* when 0 or 1 update ITR */
- 	int v_idx;	  /* vector index in list */
- 	char name[IFNAMSIZ + 9];
- 	bool arm_wb_state;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index ce99790..a44a42b 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -357,6 +357,7 @@ i40evf_map_vector_to_rxq(struct i40evf_adapter *adapter, int v_idx, int r_idx)
- 	q_vector->rx.ring = rx_ring;
- 	q_vector->rx.count++;
- 	q_vector->rx.latency_range = I40E_LOW_LATENCY;
-+	q_vector->itr_countdown = ITR_COUNTDOWN_START;
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 9c4a457..f631ca0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -544,6 +544,9 @@ struct i40e_hw {
+ 	struct i40e_dcbx_config remote_dcbx_config; /* Peer Cfg */
+ 	struct i40e_dcbx_config desired_dcbx_config; /* CEE Desired Cfg */
  
- /**
-@@ -377,6 +378,7 @@ i40evf_map_vector_to_txq(struct i40evf_adapter *adapter, int v_idx, int t_idx)
- 	q_vector->tx.ring = tx_ring;
- 	q_vector->tx.count++;
- 	q_vector->tx.latency_range = I40E_LOW_LATENCY;
-+	q_vector->itr_countdown = ITR_COUNTDOWN_START;
- 	q_vector->num_ringpairs++;
- 	q_vector->ring_mask |= BIT(t_idx);
- }
++#define I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE BIT_ULL(0)
++	u64 flags;
++
+ 	/* debug mask */
+ 	u32 debug_mask;
+ 	char err_str[16];
 -- 
 2.4.3
