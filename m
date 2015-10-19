@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hisilicon: include linux/vmalloc.h in dsaf
-Date: Sun, 18 Oct 2015 19:59:13 -0700 (PDT)
-Message-ID: <20151018.195913.1990635897175690354.davem@davemloft.net>
+Subject: Re: [PATCH] net: hisilicon: add OF dependency
+Date: Sun, 18 Oct 2015 20:01:37 -0700 (PDT)
+Message-ID: <20151018.200137.982909998956019901.davem@davemloft.net>
 References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
-	<4903569.oS7BSflIyn@wuerfel>
+	<4665385.OoIztz6y5m@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -15,22 +15,31 @@ Cc: huangdaode@hisilicon.com, joe@perches.com, liguozhu@hisilicon.com,
 	lipeng321@huawei.com
 To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4903569.oS7BSflIyn@wuerfel>
+In-Reply-To: <4665385.OoIztz6y5m@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 16 Oct 2015 11:30:56 +0200
+Date: Fri, 16 Oct 2015 11:33:49 +0200
 
-> Some configurations fail to build the hns dsaf code because of
-> a missing header file:
+> The HNS MDIO driver fails to build on older ARM machines that are not
+> yet converted to CONFIG_OF:
 > 
-> ethernet/hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_init':
-> ethernet/hisilicon/hns/hns_dsaf_main.c:1096:2: error: implicit declaration of function 'vzalloc' [-Werror=implicit-function-declaration]
->   priv->soft_mac_tbl = vzalloc(sizeof(*priv->soft_mac_tbl)
+> drivers/net/ethernet/hisilicon/hns_mdio.c: In function 'hns_mdio_bus_name':
+> drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: error: 'OF_BAD_ADDR' undeclared (first use in this function)
+>   u64 taddr = OF_BAD_ADDR;
+>               ^
+> drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: note: each undeclared identifier is reported only once for each function it appears in
+> drivers/net/ethernet/hisilicon/hns_mdio.c:409:11: error: implicit declaration of function 'of_translate_address' [-Werror=implicit-function-declaration]
+>    taddr = of_translate_address(np, addr);
+>            ^
 > 
-> This adds the correct #include.
+> This clarifies the dependency to ensure we don't attempt to build these
+> drivers without CONFIG_OF, but also adds a COMPILE_TEST alternative to
+> give us better build coverage testing.
+> 
+> Build-tested on x86 as well to ensure this actually works.
 > 
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thank you.
+Applied.
