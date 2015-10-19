@@ -1,114 +1,58 @@
-From: yalin wang <yalin.wang2010@gmail.com>
-Subject: [RFC] bpf: change bpf syacall to use u64 temp variables
-Date: Mon, 19 Oct 2015 15:10:46 +0800
-Message-ID: <1445238646-9379-1-git-send-email-yalin.wang2010@gmail.com>
-Cc: yalin wang <yalin.wang2010@gmail.com>
-To: ast@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [GIT PULL] ARCNET: features and fixes
+Date: Mon, 19 Oct 2015 09:24:27 +0200
+Message-ID: <20151019072427.GB23038@pengutronix.de>
+References: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
+ <20151018.201942.595687134692884924.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: joe@perches.com, netdev@vger.kernel.org, kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:38516 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbbJSHYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 03:24:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20151018.201942.595687134692884924.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch change map_lookup_elem() and map_update_elem() function
-to use u64 temp variable if the key_size or value_size is less than
-u64, we don't need use kmalloc() for these small variables.
+Hi David,
 
-Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
----
- kernel/bpf/syscall.c | 30 ++++++++++++++++++++----------
- 1 file changed, 20 insertions(+), 10 deletions(-)
+On Sun, Oct 18, 2015 at 08:19:42PM -0700, David Miller wrote:
+> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> Date: Fri, 16 Oct 2015 13:00:54 +0200
+> 
+> > This series includes some small fixes. The main changes are the correct
+> > xceiver handling (enable/disable) of the com20020 cards. The driver now handles
+> > link status change detection. The EAE PCI-ARCNET cards now make use of the
+> > rotary encoded subdevice indexing and got support for led triggers on transmit
+> > and reconnection events.
+> 
+> If you mix features and bug fixes, then it's ambiguous which tree these
+> changes should go into.
+> 
+> If it's just fixes, then it's clearly 'net',
+> 
+> But once you add feature changes and cleanups, then 'net' is not
+> appropriate.
+> 
+> Please split this up properly and submit things targetting the
+> correct GIT tree.
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index f640e5f..c82d7bf 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -189,7 +189,8 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	void __user *uvalue = u64_to_ptr(attr->value);
- 	int ufd = attr->map_fd;
- 	struct bpf_map *map;
--	void *key, *value, *ptr;
-+	u64 key_buf, value_buf;
-+	void *key = &key_buf, *value = &value_buf, *ptr;
- 	struct fd f;
- 	int err;
- 
-@@ -202,7 +203,8 @@ static int map_lookup_elem(union bpf_attr *attr)
- 		return PTR_ERR(map);
- 
- 	err = -ENOMEM;
--	key = kmalloc(map->key_size, GFP_USER);
-+	if (map->key_size > sizeof(u64))
-+		key = kmalloc(map->key_size, GFP_USER);
- 	if (!key)
- 		goto err_put;
- 
-@@ -211,7 +213,8 @@ static int map_lookup_elem(union bpf_attr *attr)
- 		goto free_key;
- 
- 	err = -ENOMEM;
--	value = kmalloc(map->value_size, GFP_USER);
-+	if (map->value_size > sizeof(u64))
-+		value = kmalloc(map->value_size, GFP_USER);
- 	if (!value)
- 		goto free_key;
- 
-@@ -232,9 +235,11 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	err = 0;
- 
- free_value:
--	kfree(value);
-+	if (value != &value_buf)
-+		kfree(value);
- free_key:
--	kfree(key);
-+	if (key != &key_buf)
-+		kfree(key);
- err_put:
- 	fdput(f);
- 	return err;
-@@ -248,7 +253,8 @@ static int map_update_elem(union bpf_attr *attr)
- 	void __user *uvalue = u64_to_ptr(attr->value);
- 	int ufd = attr->map_fd;
- 	struct bpf_map *map;
--	void *key, *value;
-+	u64 key_buf, value_buf;
-+	void *key = &key_buf, *value = &value_buf;
- 	struct fd f;
- 	int err;
- 
-@@ -261,7 +267,8 @@ static int map_update_elem(union bpf_attr *attr)
- 		return PTR_ERR(map);
- 
- 	err = -ENOMEM;
--	key = kmalloc(map->key_size, GFP_USER);
-+	if (map->key_size > sizeof(u64))
-+		key = kmalloc(map->key_size, GFP_USER);
- 	if (!key)
- 		goto err_put;
- 
-@@ -270,7 +277,8 @@ static int map_update_elem(union bpf_attr *attr)
- 		goto free_key;
- 
- 	err = -ENOMEM;
--	value = kmalloc(map->value_size, GFP_USER);
-+	if (map->value_size > sizeof(u64))
-+		value = kmalloc(map->value_size, GFP_USER);
- 	if (!value)
- 		goto free_key;
- 
-@@ -286,9 +294,11 @@ static int map_update_elem(union bpf_attr *attr)
- 	rcu_read_unlock();
- 
- free_value:
--	kfree(value);
-+	if (value != &value_buf)
-+		kfree(value);
- free_key:
--	kfree(key);
-+	if (key != &key_buf)
-+		kfree(key);
- err_put:
- 	fdput(f);
- 	return err;
+OK. You are right. Regarding this series I was a little bit imprecise
+about the topic. Actually only the first patch is no fix but adds code
+simplification. I forget that one in the last pull request. The other
+four are all adding features. The whole series sits on top of net-next.
+
+Sorry for the confusion. I hope this series can be applied as is.
+
+Thanks,
+Michael
+
 -- 
-1.9.1
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
