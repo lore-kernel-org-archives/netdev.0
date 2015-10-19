@@ -1,58 +1,59 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net v3] openvswitch: Allocate memory for ovs
- internal device stats.
-Date: Mon, 19 Oct 2015 10:46:15 -0700
-Message-ID: <CALnjE+qN0qoN+TexzctkRY7jPRZ0ubBsfPJTBGkakU8B56WtOQ@mail.gmail.com>
-References: <1445268715-21661-1-git-send-email-james.morse@arm.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH v8 net-next 2/2] bonding: Simplify the xmit function for
+ modes that use xmit_hash
+Date: Mon, 19 Oct 2015 11:01:24 -0700
+Message-ID: <CAF2d9jhJzyH8iaXJJY81PQTCx1BeB2x16a0HBYbboQoLmsFY9Q@mail.gmail.com>
+References: <1412469901-27451-1-git-send-email-maheshb@google.com> <20151019163556.GK2288@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: James Morse <james.morse-5wv7dgnIgG8@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1445268715-21661-1-git-send-email-james.morse-5wv7dgnIgG8@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:33905 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbbJSSBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 14:01:44 -0400
+Received: by ykfy204 with SMTP id y204so150660696ykf.1
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 11:01:44 -0700 (PDT)
+In-Reply-To: <20151019163556.GK2288@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBPY3QgMTksIDIwMTUgYXQgODozMSBBTSwgSmFtZXMgTW9yc2UgPGphbWVzLm1vcnNl
-QGFybS5jb20+IHdyb3RlOgo+ICJvcGVudnN3aXRjaDogUmVtb3ZlIHZwb3J0IHN0YXRzIiByZW1v
-dmVkIHRoZSBwZXItdnBvcnQgc3RhdGlzdGljcywgaW4KPiBvcmRlciB0byB1c2UgdGhlIG5ldGRl
-didzIHN0YXRpc3RpY3MgZmllbGRzLgo+ICJvcGVudnN3aXRjaDogRml4IG92c192cG9ydF9nZXRf
-c3RhdHMoKSIgZml4ZWQgdGhlIGV4cG9ydCBvZiB0aGVzZSBzdGF0cwo+IHRvIHVzZXItc3BhY2Us
-IGJ5IHVzaW5nIHRoZSBwcm92aWRlZCBuZXRkZXZfb3BzIHRvIGNvbGxhdGUgdGhlbSAtIGJ1dCBv
-dnMKPiBpbnRlcm5hbCBkZXZpY2VzIHN0aWxsIHVzZSBhbiB1bmFsbG9jYXRlZCBkZXYtPnRzdGF0
-cyBmaWVsZCB0byBjb3VudAo+IHBhY2tldHMsIHdoaWNoIGFyZSBubyBsb25nZXIgZXhwb3J0ZWQg
-YnkgdGhpcyBhcGkuCj4KPiBBbGxvY2F0ZSB0aGUgZGV2LT50c3RhdHMgZmllbGQgZm9yIG92cyBp
-bnRlcm5hbCBkZXZpY2VzLCBhbmQgd2lyZSB1cAo+IG5kb19nZXRfc3RhdHM2NCB3aXRoIHRoZSBv
-cmlnaW5hbCBpbXBsZW1lbnRhdGlvbiBvZgo+IG92c192cG9ydF9nZXRfc3RhdHMoKS4KPgo+IE9u
-IGl0cyBvd24sICJvcGVudnN3aXRjaDogRml4IG92c192cG9ydF9nZXRfc3RhdHMoKSIgZml4ZXMg
-dGhlIE9PUHMsCj4gdW5tYXNraW5nIGEgZnVsbC1vbiBwYW5pYyBvbiBhcm02NDoKPiA9PT09PT09
-PT09PT09JTw9PT09PT09PT09PT09PQo+IFs8ZmZmZmZmYmZmYzAwY2U0Yz5dIGludGVybmFsX2Rl
-dl9yZWN2KzB4YTgvMHgxNzAgW29wZW52c3dpdGNoXQo+IFs8ZmZmZmZmYmZmYzAwMDhiND5dIGRv
-X291dHB1dC5pc3JhLjMxKzB4NjAvMHgxOWMgW29wZW52c3dpdGNoXQo+IFs8ZmZmZmZmYmZmYzAw
-MGJmOD5dIGRvX2V4ZWN1dGVfYWN0aW9ucysweDIwOC8weDExYzAgW29wZW52c3dpdGNoXQo+IFs8
-ZmZmZmZmYmZmYzAwMWM3OD5dIG92c19leGVjdXRlX2FjdGlvbnMrMHhjOC8weDIzOCBbb3BlbnZz
-d2l0Y2hdCj4gWzxmZmZmZmZiZmZjMDAzZGZjPl0gb3ZzX3BhY2tldF9jbWRfZXhlY3V0ZSsweDIx
-Yy8weDI4OCBbb3BlbnZzd2l0Y2hdCj4gWzxmZmZmZmZjMDAwNWU4YzVjPl0gZ2VubF9mYW1pbHlf
-cmN2X21zZysweDFiMC8weDMxMAo+IFs8ZmZmZmZmYzAwMDVlOGU2MD5dIGdlbmxfcmN2X21zZysw
-eGE0LzB4ZTQKPiBbPGZmZmZmZmMwMDA1ZTdkZGM+XSBuZXRsaW5rX3Jjdl9za2IrMHhiMC8weGRj
-Cj4gWzxmZmZmZmZjMDAwNWU4YTk0Pl0gZ2VubF9yY3YrMHgzOC8weDUwCj4gWzxmZmZmZmZjMDAw
-NWU3NmMwPl0gbmV0bGlua191bmljYXN0KzB4MTY0LzB4MjEwCj4gWzxmZmZmZmZjMDAwNWU3Yjcw
-Pl0gbmV0bGlua19zZW5kbXNnKzB4MzA0LzB4MzY4Cj4gWzxmZmZmZmZjMDAwNWEyMWMwPl0gc29j
-a19zZW5kbXNnKzB4MzAvMHg0Ywo+IFtTTklQXQo+IEtlcm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5n
-OiBGYXRhbCBleGNlcHRpb24gaW4gaW50ZXJydXB0Cj4gPT09PT09PT09PT09PSU8PT09PT09PT09
-PT09PT0KPgo+IEZpeGVzOiA4Yzg3NjYzOWM5ODUgKCJvcGVudnN3aXRjaDogUmVtb3ZlIHZwb3J0
-IHN0YXRzLiIpCj4gU2lnbmVkLW9mZi1ieTogSmFtZXMgTW9yc2UgPGphbWVzLm1vcnNlQGFybS5j
-b20+ClRoYW5rcyBmb3IgdGhlIGZpeAoKQWNrZWQtYnk6IFByYXZpbiBCIFNoZWxhciA8cHNoZWxh
-ckBuaWNpcmEuY29tPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
-dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Mon, Oct 19, 2015 at 9:35 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Sun, Oct 05, 2014 at 02:45:01AM CEST, maheshb@google.com wrote:
+>>Earlier change to use usable slave array for TLB mode had an additional
+>>performance advantage. So extending the same logic to all other modes
+>>that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
+>>Also consolidating this with the earlier TLB change.
+>>
+>>The main idea is to build the usable slaves array in the control path
+>>and use that array for slave selection during xmit operation.
+>>
+>>Measured performance in a setup with a bond of 4x1G NICs with 200
+>>instances of netperf for the modes involved (3ad, xor, tlb)
+>>cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
+>>
+>>Mode        TPS-Before   TPS-After
+>>
+>>802.3ad   : 468,694      493,101
+>>TLB (lb=0): 392,583      392,965
+>>XOR       : 475,696      484,517
+>
+> Looking over bonding code now and came across this commit. It gave me a
+> little headache. Why don't you guys just use team instead of doing
+> bonding megapatches like this? This is making bonding code even more
+> complicated (screwed-up) :/ I don't understand.
+
+Why are you looking at bonding to have headache in first place go use team. ;)
+
+The commit message was very clear about the intention and the purpose
+is to avoid list-traversal cost in fast path for modes that use
+xmit-hash. If you feel something is screwed-up please send a patch to
+fix it.
