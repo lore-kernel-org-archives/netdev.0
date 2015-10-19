@@ -1,78 +1,155 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net, can, ti_hecc: fix a run time warn_on.
-Date: Mon, 19 Oct 2015 08:34:11 +0200
-Message-ID: <56248EE3.4000103@pengutronix.de>
-References: <1445235739-26537-1-git-send-email-hs@denx.de>
+From: Heiko Schocher <hs@denx.de>
+Subject: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc controller
+Date: Mon, 19 Oct 2015 08:39:17 +0200
+Message-ID: <1445236757-29019-1-git-send-email-hs@denx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Ndgl41pM3l6T52adO9SGWPvSrEIUC3DV3"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Heiko Schocher <hs@denx.de>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Heiko Schocher <hs@denx.de>,
+	=?UTF-8?q?Beno=C3=AEt=20Cousson?= <bcousson@baylibre.com>,
+	Anant Gole <anantgole@ti.com>, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, Tony Lindgren <tony@atomide.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-omap@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1445235739-26537-1-git-send-email-hs@denx.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Ndgl41pM3l6T52adO9SGWPvSrEIUC3DV3
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+add DT support for the ti hecc controller, used on
+am3517 SoCs.
 
-On 10/19/2015 08:22 AM, Heiko Schocher wrote:
-> This patch fixes a warning in clk_enable by calling
-> clk_prepare_enable instead.
+Signed-off-by: Heiko Schocher <hs@denx.de>
+---
 
-What about the corresponding clk_disable_unprepare()?
+ .../devicetree/bindings/net/can/ti_hecc-can.txt    | 20 ++++++++++
+ arch/arm/boot/dts/am3517.dtsi                      | 13 +++++++
+ drivers/net/can/ti_hecc.c                          | 45 +++++++++++++++++++++-
+ 3 files changed, 76 insertions(+), 2 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
 
-Marc
+diff --git a/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
+new file mode 100644
+index 0000000..09fab59
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
+@@ -0,0 +1,20 @@
++* TI HECC CAN *
++
++Required properties:
++  - compatible: Should be "ti,hecc"
++  - reg: Should contain CAN controller registers location and length
++  - interrupts: Should contain IRQ line for the CAN controller
++
++Example:
++
++	can0: hecc@5c050000 {
++		compatible = "ti,hecc";
++		reg = <0x5c050000 0x4000>;
++		interrupts = <24>;
++		ti,hecc_scc_offset = <0>;
++		ti,hecc_scc_ram_offset = <0x3000>;
++		ti,hecc_ram_offset = <0x3000>;
++		ti,hecc_mbx_offset = <0x2000>;
++		ti,hecc_int_line = <0>;
++		ti,hecc_version = <1>;
++	};
+diff --git a/arch/arm/boot/dts/am3517.dtsi b/arch/arm/boot/dts/am3517.dtsi
+index 5e3f5e8..47bc429 100644
+--- a/arch/arm/boot/dts/am3517.dtsi
++++ b/arch/arm/boot/dts/am3517.dtsi
+@@ -25,6 +25,19 @@
+ 			interrupt-names = "mc";
+ 		};
+ 
++		can0: hecc@5c050000 {
++			compatible = "ti,hecc";
++			reg = <0x5c050000 0x4000>;
++			interrupts = <24>;
++			ti,hecc_scc_offset = <0>;
++			ti,hecc_scc_ram_offset = <0x3000>;
++			ti,hecc_ram_offset = <0x3000>;
++			ti,hecc_mbx_offset = <0x2000>;
++			ti,hecc_int_line = <0>;
++			ti,hecc_version = <1>;
++			status = "disabled";
++		};
++
+ 		davinci_emac: ethernet@0x5c000000 {
+ 			compatible = "ti,am3517-emac";
+ 			ti,hwmods = "davinci_emac";
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index c08e8ea..f1705d5 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -875,16 +875,56 @@ static const struct net_device_ops ti_hecc_netdev_ops = {
+ 	.ndo_change_mtu		= can_change_mtu,
+ };
+ 
++#if defined(CONFIG_OF)
++static const struct of_device_id ti_hecc_can_dt_ids[] = {
++	{
++		.compatible = "ti,hecc",
++	}, {
++		/* sentinel */
++	}
++};
++MODULE_DEVICE_TABLE(of, ti_hecc_can_dt_ids);
++#endif
++
++static const struct ti_hecc_platform_data
++*ti_hecc_can_get_driver_data(struct platform_device *pdev)
++{
++	if (pdev->dev.of_node) {
++		struct ti_hecc_platform_data *data;
++		struct device_node *np = pdev->dev.of_node;
++
++		data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
++		if (!data)
++			return NULL;
++
++		of_property_read_u32(np, "ti,hecc_scc_offset",
++				     &data->scc_hecc_offset);
++		of_property_read_u32(np, "ti,hecc_scc_ram_offset",
++				     &data->scc_ram_offset);
++		of_property_read_u32(np, "ti,hecc_ram_offset",
++				     &data->hecc_ram_offset);
++		of_property_read_u32(np, "ti,hecc_mbx_offset",
++				     &data->mbx_offset);
++		of_property_read_u32(np, "ti,hecc_int_line",
++				     &data->int_line);
++		of_property_read_u32(np, "ti,hecc_version",
++				     &data->version);
++		return data;
++	}
++	return (const struct ti_hecc_platform_data *)
++		dev_get_platdata(&pdev->dev);
++}
++
+ static int ti_hecc_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = (struct net_device *)0;
+ 	struct ti_hecc_priv *priv;
+-	struct ti_hecc_platform_data *pdata;
++	const struct ti_hecc_platform_data *pdata;
+ 	struct resource *mem, *irq;
+ 	void __iomem *addr;
+ 	int err = -ENODEV;
+ 
+-	pdata = dev_get_platdata(&pdev->dev);
++	pdata = ti_hecc_can_get_driver_data(pdev);
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "No platform data\n");
+ 		goto probe_exit;
+@@ -1040,6 +1080,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
+ static struct platform_driver ti_hecc_driver = {
+ 	.driver = {
+ 		.name    = DRV_NAME,
++		.of_match_table = of_match_ptr(ti_hecc_can_dt_ids),
+ 	},
+ 	.probe = ti_hecc_probe,
+ 	.remove = ti_hecc_remove,
+-- 
+2.1.0
 
->=20
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-> ---
->=20
->  drivers/net/can/ti_hecc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-> index cf345cb..c08e8ea 100644
-> --- a/drivers/net/can/ti_hecc.c
-> +++ b/drivers/net/can/ti_hecc.c
-> @@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pd=
-ev)
->  	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
->  		HECC_DEF_NAPI_WEIGHT);
-> =20
-> -	clk_enable(priv->clk);
-> +	clk_prepare_enable(priv->clk);
->  	err =3D register_candev(ndev);
->  	if (err) {
->  		dev_err(&pdev->dev, "register_candev() failed\n");
->=20
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---Ndgl41pM3l6T52adO9SGWPvSrEIUC3DV3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWJI7jAAoJEP5prqPJtc/Hj6oH/j17cxpogxqKys9avv3oj/+z
-l32c5Svz5h/Q4HxeGRiodsmTKycFQK1s2M/DQx643h1h33Zq0YKgV5BZqYrHjpfo
-aBZpsG7dlNsaDwqsOGp/bisXLT3zbh/ykv3iq6cOpG9mQYsih5TA28NBC+Z8JbOg
-s4fTk0QnaSwqpclfmeAM3IJ4bu+8vna0hfJRG+zkZSB5PApbt6qz6pv+tarCMm/T
-5WgOUx0l4B9Foq3Tvc+KibscTrAgksLAjfq5tV+rloKVoj7kFyniioWXYDsN+MVp
-HlaeZwAlsdAzbqm6mHdV41YSQtAyy1beMMxITBwhWp20PqlX3XvKKqakc8bodPQ=
-=7q9x
------END PGP SIGNATURE-----
-
---Ndgl41pM3l6T52adO9SGWPvSrEIUC3DV3--
