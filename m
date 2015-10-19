@@ -1,97 +1,124 @@
 From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH 3/3] CDC parser: add dependencies
-Date: Mon, 19 Oct 2015 13:48:41 +0200
-Message-ID: <1445255321-13029-4-git-send-email-oneukum@suse.com>
+Subject: [PATCH 1/3] cdc-acm: use the common parser for all CDC drivers
+Date: Mon, 19 Oct 2015 13:48:39 +0200
+Message-ID: <1445255321-13029-2-git-send-email-oneukum@suse.com>
 References: <1445255321-13029-1-git-send-email-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
+Cc: Oliver Neukum <oneukum@suse.de>, Oliver Neukum <oneukum@suse.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	gregKH@linuxfoundation.org, linuxusb-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:45115 "EHLO mx2.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:45100 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752401AbbJSLu2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2015 07:50:28 -0400
+	id S1752160AbbJSLuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2015 07:50:25 -0400
 In-Reply-To: <1445255321-13029-1-git-send-email-oneukum@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the common parser for CDC extra headers means
-that cdc-acm and cdc-wdm need to select usbnet
+From: Oliver Neukum <oneukum@suse.de>
+
+Use the common parser in CDC-ACM for code depuplication
 
 Signed-off-by: Oliver Neukum <oneukum@suse.com>
 ---
- drivers/net/usb/Kconfig   | 10 +++++-----
- drivers/usb/class/Kconfig |  2 ++
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/usb/class/cdc-acm.c | 66 +++++++--------------------------------------
+ 1 file changed, 9 insertions(+), 57 deletions(-)
 
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 3a8a36c..8cf0eba 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -262,7 +262,7 @@ config USB_NET_CDC_NCM
+diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
+index b30e742..d30e942 100644
+--- a/drivers/usb/class/cdc-acm.c
++++ b/drivers/usb/class/cdc-acm.c
+@@ -1075,6 +1075,7 @@ static int acm_write_buffers_alloc(struct acm *acm)
+ static int acm_probe(struct usb_interface *intf,
+ 		     const struct usb_device_id *id)
+ {
++	struct usb_cdc_parsed_header header;
+ 	struct usb_cdc_union_desc *union_header = NULL;
+ 	struct usb_cdc_country_functional_desc *cfd = NULL;
+ 	unsigned char *buffer = intf->altsetting->extra;
+@@ -1090,13 +1091,12 @@ static int acm_probe(struct usb_interface *intf,
+ 	int ctrlsize, readsize;
+ 	u8 *buf;
+ 	u8 ac_management_function = 0;
+-	u8 call_management_function = 0;
++	u8 call_management_function;
+ 	int call_interface_num = -1;
+ 	int data_interface_num = -1;
+ 	unsigned long quirks;
+ 	int num_rx_buf;
+ 	int i;
+-	unsigned int elength = 0;
+ 	int combined_interfaces = 0;
+ 	struct device *tty_dev;
+ 	int rv = -ENOMEM;
+@@ -1137,61 +1137,13 @@ static int acm_probe(struct usb_interface *intf,
+ 		}
+ 	}
  
- config USB_NET_HUAWEI_CDC_NCM
- 	tristate "Huawei NCM embedded AT channel support"
--	depends on USB_USBNET
-+	select USB_USBNET
- 	select USB_WDM
- 	select USB_NET_CDC_NCM
- 	help
-@@ -277,7 +277,7 @@ config USB_NET_HUAWEI_CDC_NCM
+-	while (buflen > 0) {
+-		elength = buffer[0];
+-		if (!elength) {
+-			dev_err(&intf->dev, "skipping garbage byte\n");
+-			elength = 1;
+-			goto next_desc;
+-		}
+-		if (buffer[1] != USB_DT_CS_INTERFACE) {
+-			dev_err(&intf->dev, "skipping garbage\n");
+-			goto next_desc;
+-		}
+-
+-		switch (buffer[2]) {
+-		case USB_CDC_UNION_TYPE: /* we've found it */
+-			if (elength < sizeof(struct usb_cdc_union_desc))
+-				goto next_desc;
+-			if (union_header) {
+-				dev_err(&intf->dev, "More than one "
+-					"union descriptor, skipping ...\n");
+-				goto next_desc;
+-			}
+-			union_header = (struct usb_cdc_union_desc *)buffer;
+-			break;
+-		case USB_CDC_COUNTRY_TYPE: /* export through sysfs*/
+-			if (elength < sizeof(struct usb_cdc_country_functional_desc))
+-				goto next_desc;
+-			cfd = (struct usb_cdc_country_functional_desc *)buffer;
+-			break;
+-		case USB_CDC_HEADER_TYPE: /* maybe check version */
+-			break; /* for now we ignore it */
+-		case USB_CDC_ACM_TYPE:
+-			if (elength < 4)
+-				goto next_desc;
+-			ac_management_function = buffer[3];
+-			break;
+-		case USB_CDC_CALL_MANAGEMENT_TYPE:
+-			if (elength < 5)
+-				goto next_desc;
+-			call_management_function = buffer[3];
+-			call_interface_num = buffer[4];
+-			break;
+-		default:
+-			/*
+-			 * there are LOTS more CDC descriptors that
+-			 * could legitimately be found here.
+-			 */
+-			dev_dbg(&intf->dev, "Ignoring descriptor: "
+-					"type %02x, length %ud\n",
+-					buffer[2], elength);
+-			break;
+-		}
+-next_desc:
+-		buflen -= elength;
+-		buffer += elength;
+-	}
++	cdc_parse_cdc_header(&header, intf, buffer, buflen);
++	union_header = header.usb_cdc_union_desc;
++	call_management_function = header.usb_cdc_call_mgmt_descriptor->bmCapabilities;
++	if (call_management_function)
++		call_interface_num = header.usb_cdc_call_mgmt_descriptor->bDataInterface;
++	ac_management_function = header.usb_cdc_acm_descriptor->bmCapabilities;
++	cfd = header.usb_cdc_country_functional_desc;
  
- config USB_NET_CDC_MBIM
- 	tristate "CDC MBIM support"
--	depends on USB_USBNET
-+	select USB_USBNET
- 	select USB_WDM
- 	select USB_NET_CDC_NCM
- 	help
-@@ -381,7 +381,7 @@ config USB_NET_MCS7830
- 
- config USB_NET_RNDIS_HOST
- 	tristate "Host for RNDIS and ActiveSync devices"
--	depends on USB_USBNET
-+	select USB_USBNET
- 	select USB_NET_CDCETHER
- 	help
- 	  This option enables hosting "Remote NDIS" USB networking links,
-@@ -466,7 +466,7 @@ config USB_KC2190
- 
- config USB_NET_ZAURUS
- 	tristate "Sharp Zaurus (stock ROMs) and compatible"
--	depends on USB_USBNET
-+	select USB_USBNET
- 	select USB_NET_CDCETHER
- 	select CRC32
- 	default y
-@@ -502,7 +502,7 @@ config USB_NET_KALMIA
- 
- config USB_NET_QMI_WWAN
- 	tristate "QMI WWAN driver for Qualcomm MSM based 3G and LTE modems"
--	depends on USB_USBNET
-+	select USB_USBNET
- 	select USB_WDM
- 	help
- 	  Support WWAN LTE/3G devices based on Qualcomm Mobile Data Modem
-diff --git a/drivers/usb/class/Kconfig b/drivers/usb/class/Kconfig
-index bb8b736..e3c05b2 100644
---- a/drivers/usb/class/Kconfig
-+++ b/drivers/usb/class/Kconfig
-@@ -6,6 +6,7 @@ comment "USB Device Class drivers"
- config USB_ACM
- 	tristate "USB Modem (CDC ACM) support"
- 	depends on TTY
-+	select USB_USBNET
- 	---help---
- 	  This driver supports USB modems and ISDN adapters which support the
- 	  Communication Device Class Abstract Control Model interface.
-@@ -29,6 +30,7 @@ config USB_PRINTER
- 
- config USB_WDM
- 	tristate "USB Wireless Device Management support"
-+	select USB_USBNET
- 	---help---
- 	  This driver supports the WMC Device Management functionality
- 	  of cell phones compliant to the CDC WMC specification. You can use
+ 	if (!union_header) {
+ 		if (call_interface_num > 0) {
 -- 
 2.1.4
