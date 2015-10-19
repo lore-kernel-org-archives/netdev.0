@@ -1,33 +1,42 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH v2 1/1] xen-netfront: update num_queues to real created
-Date: Mon, 19 Oct 2015 09:47:12 -0400
-Message-ID: <5624F460.90108@oracle.com>
-References: <5624818D.4010902@oracle.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] allow dctcp alpha to drop to zero
+Date: Mon, 19 Oct 2015 16:01:35 +0200
+Message-ID: <20151019140135.GF4386@breakpoint.cc>
+References: <20151019045908.GB11368@mininet-vm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	stable@vger.kernel.org
-To: Joe Jin <joe.jin@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	ian.campbell@citrix.com, wei.liu2@citrix.com,
-	"annie.li@oracle.com" <annie.li@oracle.com>, davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5624818D.4010902@oracle.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Glenn Judd <glenn.judd@morganstanley.com>
+To: Andrew Shewmaker <agshew@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34524 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751063AbbJSOBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 10:01:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20151019045908.GB11368@mininet-vm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2015 01:37 AM, Joe Jin wrote:
-> Sometimes xennet_create_queues() may failed to created all requested
-> queues, we need to update num_queues to real created to avoid NULL
-> pointer dereference.
->
-> Signed-off-by: Joe Jin <joe.jin@oracle.com>
-> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David S. Miller <davem@davemloft.net>
+Andrew Shewmaker <agshew@gmail.com> wrote:
+> If alpha is strictly reduced by alpha >> dctcp_shift_g and if alpha is less
+> than 1 << dctcp_shift_g, then alpha may never reach zero. For example,
+> given shift_g=4 and alpha=15, alpha >> dctcp_shift_g yields 0 and alpha
+> remains 15. The effect isn't noticeable in this case below cwnd=137, but
+> could gradually drive uncongested flows with leftover alpha down to
+> cwnd=137. A larger dctcp_shift_g would have a greater effect.
+> 
+> This change causes alpha=15 to drop to 0 instead of being decrementing by 1
+> as it would when alpha=16. However, it requires one less conditional to
+> implement since it doesn't have to guard against subtracting 1 from 0U. A
+> decay of 15 is not unreasonable since an equal or greater amount occurs at
+> alpha >= 240.
+> 
+> Signed-off-by: Andrew G. Shewmaker <agshew@gmail.com>
 
+Acked-by: Florian Westphal <fw@strlen.de>
 
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+[ cwnd=137 is quite large so I don't think its important enough for
+-stable ].
