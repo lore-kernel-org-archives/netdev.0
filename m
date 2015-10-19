@@ -1,55 +1,43 @@
-From: Andrew Shewmaker <agshew@gmail.com>
-Subject: [PATCH] allow dctcp alpha to drop to zero
-Date: Sun, 18 Oct 2015 21:59:08 -0700
-Message-ID: <20151019045908.GB11368@mininet-vm>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth 2015-10-16
+Date: Sun, 18 Oct 2015 22:23:55 -0700 (PDT)
+Message-ID: <20151018.222355.578335791465873276.davem@davemloft.net>
+References: <20151016142900.GA22587@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Glenn Judd <glenn.judd@morganstanley.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34982 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752907AbbJSE7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 00:59:12 -0400
-Received: by iofz202 with SMTP id z202so33867349iof.2
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 21:59:11 -0700 (PDT)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:49412 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799AbbJSFHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 01:07:40 -0400
+In-Reply-To: <20151016142900.GA22587@t440s.P-661HNU-F1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If alpha is strictly reduced by alpha >> dctcp_shift_g and if alpha is less
-than 1 << dctcp_shift_g, then alpha may never reach zero. For example,
-given shift_g=4 and alpha=15, alpha >> dctcp_shift_g yields 0 and alpha
-remains 15. The effect isn't noticeable in this case below cwnd=137, but
-could gradually drive uncongested flows with leftover alpha down to
-cwnd=137. A larger dctcp_shift_g would have a greater effect.
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Fri, 16 Oct 2015 17:29:00 +0300
 
-This change causes alpha=15 to drop to 0 instead of being decrementing by 1
-as it would when alpha=16. However, it requires one less conditional to
-implement since it doesn't have to guard against subtracting 1 from 0U. A
-decay of 15 is not unreasonable since an equal or greater amount occurs at
-alpha >= 240.
+> First of all, sorry for the late set of patches for the 4.3 cycle. We
+> just finished an intensive week of testing at the Bluetooth UnPlugFest
+> and discovered (and fixed) issues there. Unfortunately a few issues
+> affect 4.3-rc5 in a way that they break existing Bluetooth LE mouse and
+> keyboard support.
+> 
+> The regressions result from supporting LE privacy in conjunction with
+> scanning for Resolvable Private Addresses before connecting. A feature
+> that has been tested heavily (including automated unit tests), but sadly
+> some regressions slipped in. The UnPlugFest with its multitude of test
+> platforms is a good battle testing ground for uncovering every corner
+> case.
+> 
+> The patches in this pull request focus only on fixing the regressions in
+> 4.3-rc5. The patches look a bit larger since we also added comments in
+> the critical sections of the fixes to improve clarity.
+> 
+> I would appreciate if we can get these regression fixes to Linus
+> quickly. Please let me know if there are any issues pulling. Thanks.
 
-Signed-off-by: Andrew G. Shewmaker <agshew@gmail.com>
----
- net/ipv4/tcp_dctcp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_dctcp.c b/net/ipv4/tcp_dctcp.c
-index 7092a61..7e538f7 100644
---- a/net/ipv4/tcp_dctcp.c
-+++ b/net/ipv4/tcp_dctcp.c
-@@ -209,7 +209,7 @@ static void dctcp_update_alpha(struct sock *sk, u32 flags)
- 
- 		/* alpha = (1 - g) * alpha + g * F */
- 
--		alpha -= alpha >> dctcp_shift_g;
-+		alpha -= min_not_zero(alpha, alpha >> dctcp_shift_g);
- 		if (bytes_ecn) {
- 			/* If dctcp_shift_g == 1, a 32bit value would overflow
- 			 * after 8 Mbytes.
--- 
-1.9.1
+Ok, pulled, thanks Johan.
