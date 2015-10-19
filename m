@@ -1,36 +1,43 @@
-From: Gao feng <omarapazanadi@gmail.com>
-Subject: Re: [PATCH v3] vsock: fix missing cleanup when misc_register failed
-Date: Mon, 19 Oct 2015 10:06:25 +0800
-Message-ID: <CABxRWoOM7fRGC0=pSo1PoQdeF1FVcsReKSgSQysqeXY_+sLF6g@mail.gmail.com>
-References: <1445182556-24073-1-git-send-email-omarapazanadi@gmail.com>
-	<20151018.185013.1508341298626923808.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipconfig: send Client-identifier in DHCP
+ requests
+Date: Sun, 18 Oct 2015 19:24:21 -0700 (PDT)
+Message-ID: <20151018.192421.244456964087793743.davem@davemloft.net>
+References: <1444899276-21228-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35201 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035AbbJSCG1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 22:06:27 -0400
-Received: by wicll6 with SMTP id ll6so75565076wic.0
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 19:06:25 -0700 (PDT)
-In-Reply-To: <20151018.185013.1508341298626923808.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48679 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209AbbJSCIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 22:08:04 -0400
+In-Reply-To: <1444899276-21228-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm sorry too, fell free to ignore my patch, Thanks.
+From: roy.qing.li@gmail.com
+Date: Thu, 15 Oct 2015 16:54:36 +0800
 
-2015-10-19 9:50 GMT+08:00 David Miller <davem@davemloft.net>:
-> From: Gao feng <omarapazanadi@gmail.com>
-> Date: Sun, 18 Oct 2015 23:35:56 +0800
->
->> reset transport and unlock if misc_register failed.
->>
->> Signed-off-by: Gao feng <omarapazanadi@gmail.com>
->
-> It's extremely disappointing that it took you three revisions
-> just to put together a submission that actually compiles.
->
-> That shows me that you put a very low amount of care into your
-> submission, and if you don't care about your change why should I?
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> A dhcp server may provide parameters to a client from a pool of IP
+> addresses and using a shared rootfs, or provide a specific set of
+> parameters for a specific client, usually using the MAC address to
+> identify each client individually. The dhcp protocol also specifies
+> a client-id field which can be used to determine the correct
+> parameters to supply when no MAC address is available. There is
+> currently no way to tell the kernel to supply a specific client-id,
+> only the userspace dhcp clients support this feature, but this can
+> not be used when the network is needed before userspace is available
+> such as when the root filesystem is on NFS.
+> 
+> This patch is to be able to do something like "ip=dhcp,client_id_type,
+> client_id_value", as a kernel parameter to enable the kernel to
+> identify itself to the server.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+
+Looks good, applied, thanks.
