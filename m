@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tunnels: Don't require remote endpoint or ID
- during creation.
-Date: Sun, 18 Oct 2015 22:44:39 -0700 (PDT)
-Message-ID: <20151018.224439.2162951217660850579.davem@davemloft.net>
-References: <1445038560-85471-1-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH v2 net-next] RDS: fix rds-ping deadlock over TCP
+ transport
+Date: Sun, 18 Oct 2015 22:46:27 -0700 (PDT)
+Message-ID: <20151018.224627.1088014108100942192.davem@davemloft.net>
+References: <1445048001-1086-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49472 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbbJSF2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 01:28:21 -0400
-In-Reply-To: <1445038560-85471-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org, sowmini.varadhan@oracle.com
+To: santosh.shilimkar@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445048001-1086-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 16 Oct 2015 16:36:00 -0700
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Fri, 16 Oct 2015 22:13:21 -0400
 
-> Before lightweight tunnels existed, it really didn't make sense to
-> create a tunnel that was not fully specified, such as without a
-> destination IP address - the resulting packets would go nowhere.
-> However, with lightweight tunnels, the opposite is true - it doesn't
-> make sense to require this information when it will be provided later
-> on by the route. This loosens the requirements for this information.
+> Sowmini found hang with rds-ping while testing RDS over TCP. Its
+> a corner case and doesn't happen always. The issue is not reproducible
+> with IB transport. Its clear from below dump why we see it with RDS TCP.
+...
+> This happens because rds_send_xmit() chain wants to take
+> sock_lock which is already taken by tcp_v4_rcv() on its
+> way to rds_tcp_data_ready(). Commit db6526dcb51b ("RDS: use
+> rds_send_xmit() state instead of RDS_LL_SEND_FULL") which
+> was trying to opportunistically finish the send request
+> in same thread context.
 > 
-> An alternative would be to allow the relaxed version only when
-> COLLECT_METADATA is enabled. However, since there are several
-> variations on this theme (such as NBMA tunnels in GRE), just dropping
-> the restrictions seems the most consistent across tunnels and with
-> the existing configuration.
+> But because of above recursive lock hang with RDS TCP,
+> the send work from rds_send_pong() needs to deferred to
+> worker to avoid lock up. Given RDS ping is more of connectivity
+> test than performance critical path, its should be ok even
+> for transport like IB.
 > 
-> CC: John Linville <linville@tuxdriver.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Acked-by:  Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> ---
+> v2: Dropped the confusing SEND_LL_FULL check from v1
 
-Applied, thanks Jesse.
+Applied, thank you.
