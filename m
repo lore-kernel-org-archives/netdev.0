@@ -1,105 +1,49 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Mon, 19 Oct 2015 13:48:20 -0700
-Message-ID: <56255714.2070800@plumgrid.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
- <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
- <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
- <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
- <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com>
- <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
- <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net>
- <56240814.8020105@plumgrid.com>
- <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
- <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
- <562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
- <56253335.9000206@plumgrid.com>
- <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
- <562545AA.2080207@plumgrid.com>
- <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+From: Akemi Yagi <amyagi@gmail.com>
+Subject: Re: [PATCH v2 net-next] netfilter: ipset: Fixing unnamed union initg
+Date: Mon, 19 Oct 2015 13:51:19 -0700
+Message-ID: <CABA31DrViktaYpz3nO1G4TPGpovhZ+O1YfwhfQNm7d7XPsAcAA@mail.gmail.com>
+References: <1440222251-21132-1-git-send-email-eladr@mellanox.com>
+ <alpine.DEB.2.10.1508222006570.13403@blackhole.kfki.hu> <20150822184448.GA3610@salvia>
+ <20150828225943.GA22393@salvia> <CABA31DoF20veE1c_TxY_xZ=Zk0ThmwGCAthbLb8SJLu608rxHg@mail.gmail.com>
+ <CAHTgTXU+A6Rg8oT0iUDCyTCRtTbBWEe9oDxCY6fEFNj-1v1-xA@mail.gmail.com>
+ <CABA31DqmtsrK-O7j=X4mJYSBz2rMV28u0mZ=z2RWEJ4w8pTGBQ@mail.gmail.com> <20150913115201.GE3691@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:32871 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbbJSUsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 16:48:19 -0400
-Received: by pabrc13 with SMTP id rc13so200953093pab.0
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 13:48:18 -0700 (PDT)
-In-Reply-To: <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Elad Raz <eladr@mellanox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netfilter-devel@vger.kernel.org,
+	Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Patrick McHardy <kaber@trash.net>,
+	Sergey Popovich <popovich_sergei@mail.ua>,
+	Anton Danilov <littlesmilingcloud@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Alan Bartlett <ajb@elrepo.org>,
+	Vinson Lee <vlee@twopensource.com>, stable@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20150913115201.GE3691@salvia>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/19/15 1:03 PM, Hannes Frederic Sowa wrote:
+On Sun, Sep 13, 2015 at 4:52 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Sat, Sep 12, 2015 at 06:01:27PM -0700, Akemi Yagi wrote:
+>> Thanks to all for this effort. The patch is finally in the mainline
+>> kernel 4.3-rc1 released today. Now I wish backporting to the 4.2
+>> branch goes smoothly.
 >
-> I doubt it will stay a lightweight feature as it should not be in the
-> responsibility of user space to provide those debug facilities.
-
-It feels we're talking past each other.
-I want to solve 'persistent map' problem.
-debugging of maps/progs, hierarchy, etc are all nice to have,
-but different issues.
-In case of persistent maps I imagine unprivileged process would want
-to use it eventually as well, so this requirement already kills cdev
-approach for me, since I don't think we ever let unprivileged apps
-create cdev with syscall.
-
-> The bpf syscall is still used to create the pseudo nodes. If they should
-> be persistent they just get registered in the sysfs class hierarchy.
-
-nope. they should not. sysfs is debugging/tunning facility.
-There is absolutely no need for bpf to plug into sysfs.
-
->> Doing 'resource stats' via sysfs requires bpf to add to sysfs, which
->> is not this cdev approach.
+> It's on its path to 4.2:
 >
-> This is not yet part of the patch, but I think this would be added.
-> Daniel?
-
-please don't. I'm strongly against adding unnecessary bloat.
-
-> I don't think there are broad differences. But in case a namespaces uses
-> huge number of maps with tons of data, the admin in the initial
-> namespace might want to debug that without searching all mountpoints and
-> find dependencies between processes etc. IMHO sysfs approach can be
-> better extended here.
-
-sure, then we can force all bpffs to have the same hierarchy and mounted
-in /sys/kernel/bpf location. That would be the same.
-
-It feels you're pushing for cdev only because of that potential
-debugging need. Did you actually face that need? I didn't and
-don't like to add 'nice to have' feature until real need comes.
-
->> Also I don't buy the point of reinventing sysfs. bpffs is not doing
->> sysfs. I don't want to see _every_ bpf object in sysfs. It's way too
->> much overhead. Classic doesn't have sysfs and everyone have been
->> using it just fine.
+> http://patchwork.ozlabs.org/patch/516795/
 >
-> But classic bpf does not have persistence for maps and data. ;) There is
-> a 1:1 relationship between socket and bpf_prog for example.
+> so I think this will hit 4.2 soon. Thanks!
 
-single task in seccomp can have a chain of bpf progs, so hierarchy
-is already there.
+Yes, I finally see it in 4.2.4 to be released in the next few days.
 
-> But how can the filesystem be extended in terms of tunables and
-> information? File attributes? Wouldn't it need the same infrastructure
-> otherwise as sysfs? Some third-party lookup filesystem or ioctl? This
-> char dev approach also pins maps and progs while giving more policy in
-> hand of central user space programs we are currently using (udev,
-> systemd, whatever, etc.).
+Thank you,
 
-tunables for bpf maps? There are no such things today.
-I think you're implying that we can add rhashtable type of map, so
-admin can tune thresholds ? Ouch. I think if we add it, its parameters
-will be specified by the user that is creating the map only. There will
-be no tunables exposed to sysfs and there should be no way of creating
-maps via sysfs.
+Akemi
