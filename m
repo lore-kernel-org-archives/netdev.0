@@ -1,43 +1,43 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 2/2] xfrm: Fix unaligned access in xfrm_notify_sa() for DELSA
-Date: Mon, 19 Oct 2015 17:23:29 -0400
-Message-ID: <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
-References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
-Cc: herbert@gondor.apana.org.au, dhowells@redhat.com,
-	davem@davemloft.net, zohar@linux.vnet.ibm.com,
-	David.Woodhouse@intel.com, sowmini.varadhan@oracle.com,
-	steffen.klassert@secunet.com
-To: linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1445286755.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1445286755.git.sowmini.varadhan@oracle.com>
-References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
+Date: Mon, 19 Oct 2015 15:07:46 -0700
+Message-ID: <1445292466.7588.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
+	 <20151018222150.427d5311@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <prashant@broadcom.com>,
+	<eddie.wai@broadcom.com>, <huangjw@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:31562 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbbJSWJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 18:09:16 -0400
+In-Reply-To: <20151018222150.427d5311@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On sparc, deleting established SAs (e.g., by restarting ipsec
-at the peer) results in unaligned access messages via
-xfrm_del_sa -> km_state_notify -> xfrm_send_state_notify().
-Use an aligned pointer to xfrm_usersa_info for this case.
+On Sun, 2015-10-18 at 22:21 -0700, Stephen Hemminger wrote: 
+> On Sat, 17 Oct 2015 00:21:44 -0400
+> Michael Chan <mchan@broadcom.com> wrote:
+> 
+> > +static inline u32 bnxt_tx_avail(struct bnxt *bp, struct bnxt_tx_ring_info *txr)
+> > +{
+> > +	/* Tell compiler to fetch tx indices from memory. */
+> > +	barrier();
+> 
+> Actually, you are telling compiler not to reorder. Which may not
+> be sufficient on some platforms. 
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/xfrm/xfrm_user.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Only a compiler barrier is needed here to prevent the compiler from
+optimizing out the memory access of tx_prod and tx_cons, in case it
+thinks that it has those values in some registers.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index a8de9e3..158ef4a 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
- 		if (attr == NULL)
- 			goto out_free_skb;
- 
--		p = nla_data(attr);
-+		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
- 	}
- 	err = copy_to_user_state_extra(x, p, skb);
- 	if (err)
--- 
-1.7.1
+> 
+> 
+> > +	return bp->tx_ring_size -
+> > +		((txr->tx_prod - txr->tx_cons) & bp->tx_ring_mask);
+> > +}
