@@ -1,65 +1,61 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: SoCFPGA ethernet broken
-Date: Mon, 19 Oct 2015 10:14:21 -0500
-Message-ID: <alpine.DEB.2.02.1510190521370.27515@linux-builds1>
-References: <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch>
- <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch> <56212A09.5080206@caviumnetworks.com> <alpine.DEB.2.02.1510161407570.22838@linux-builds1> <20151016193854.GC28207@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Daney <ddaney@caviumnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
-	<peppe.cavallaro@st.com>, <srinivas.kandagatla@gmail.com>,
-	<maxime.coquelin@st.com>, <patrice.chotard@st.com>,
-	<heiko@sntech.de>, <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151016193854.GC28207@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: Really fix vti6 with oif in dst lookups
+Date: Mon, 19 Oct 2015 08:26:05 -0700
+Message-ID: <1445268365-23414-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: steffen.klassert@secunet.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36379 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbbJSP0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 11:26:13 -0400
+Received: by pacfv9 with SMTP id fv9so98542610pac.3
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 08:26:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+CC Giuseppe Cavallaro
-+CC STi and Rockchip Maintainers
+6e28b000825d ("net: Fix vti use case with oif in dst lookups for IPv6")
+is missing the checks on FLOWI_FLAG_SKIP_NH_OIF. Add them.
 
-This is approaching beyond my breadth of knowledge on this subject, so I just
-wanted to get some further insight.
+Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+This is needed for net in 4.3. 6e28b000825d was mistakenly created on
+top of the VRF patches which had this change. Steffen has confirmed
+VTI6 works with this change.
 
-On Fri, 16 Oct 2015, Andrew Lunn wrote:
+ net/ipv6/ip6_output.c | 3 ++-
+ net/ipv6/route.c      | 3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-> > > Maybe we need to walk up the hierarchy.
-> > > 
-> > > Perhaps something like:
-> > > 
-> > > const struct device *dev_walker;
-> > > 
-> > > dev_walker = &phydev->dev;
-> > > do {
-> > >    of_node = dev_walker->of_node;
-> > >    dev_walker = dev_walker->parent;
-> > > } while (!of_node && dev_walker);
-> > > 
-> > 
-> > The above code seems to have fixed the issue.
-> 
-> What i don't like about this is that it allows you to put these
-> properties in the mdio device node. These are phy properties, not mdio
-> properties....
->
-
-AFAICT, the stmmac driver is allowing for the phy node to be part of the mdio.
-In the function, stmmac_init_phy(), there is a separate check of a standalone
-phy_node, and the case where the phy is part of the mdio.
-
-commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
-the bus' parent." is now placing a hard requirement to have a PHY as a
-separate node. For now this is only breaking SoCFPGA, but perhaps might
-have affected STi41x and RockChip, but maybe haven't been spotted because
-perhaps the testing has the bootloader setting up the PHYs?
-
-> If phydev->attached_dev->dev->of_node works, that would be my
-> preference.
->
-
-BR,
-Dinh
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 61d403ee1031..d03d6da772f3 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -877,7 +877,8 @@ static struct dst_entry *ip6_sk_dst_check(struct sock *sk,
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	    ip6_rt_check(&rt->rt6i_src, &fl6->saddr, np->saddr_cache) ||
+ #endif
+-	    (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex)) {
++	   (!(fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF) &&
++	      (fl6->flowi6_oif && fl6->flowi6_oif != dst->dev->ifindex))) {
+ 		dst_release(dst);
+ 		dst = NULL;
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 968f31c01f89..be5d2879b5d8 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1068,6 +1068,9 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+ 	saved_fn = fn;
+ 
++	if (fl6->flowi6_flags & FLOWI_FLAG_SKIP_NH_OIF)
++		oif = 0;
++
+ redo_rt6_select:
+ 	rt = rt6_select(fn, oif, strict);
+ 	if (rt->rt6i_nsiblings)
+-- 
+1.9.1
