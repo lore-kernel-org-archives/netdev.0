@@ -1,122 +1,309 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Mon, 19 Oct 2015 09:59:38 -0700
-Message-ID: <20151019095938.72ea48e6@xeon-e3>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [RFC PATCH] RDS: convert bind hash table to re-sizable hashtable
+Date: Mon, 19 Oct 2015 10:03:19 -0700
+Message-ID: <56252257.3090508@oracle.com>
+References: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34281 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbbJSQ73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 12:59:29 -0400
-Received: by padhk11 with SMTP id hk11so34886543pad.1
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 09:59:28 -0700 (PDT)
-Received: from xeon-e3 (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by smtp.gmail.com with ESMTPSA id xm4sm37650639pab.27.2015.10.19.09.59.28
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 19 Oct 2015 09:59:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ssantosh@kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This looks like corner case, but worth forwarding.
+Hi David L,
 
-Begin forwarded message:
+On 10/14/2015 2:15 PM, Santosh Shilimkar wrote:
+> From: Santosh Shilimkar <ssantosh@kernel.org>
+>
+> To further improve the RDS connection scalabilty on massive systems
+> where number of sockets grows into tens of thousands  of sockets, there
+> is a need of larger bind hashtable. Pre-allocated 8K or 16K table is
+> not very flexible in terms of memory utilisation. The rhashtable
+> infrastructure gives us the flexibility to grow the hashtbable based
+> on use and also comes up with inbuilt efficient bucket(chain) handling.
+>
+> Cc: David Laight <David.Laight@ACULAB.COM>
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> ---
+> As promised in last series review, here is an RFC to conver RDS to make
+> use of re-sizable hash tables.
 
-Date: Mon, 19 Oct 2015 13:21:33 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
+Just want to check if you have any comments since you reviewed the
+earlier patch and suggested the rhash.
 
 
-https://bugzilla.kernel.org/show_bug.cgi?id=106241
-
-            Bug ID: 106241
-           Summary: shutdown(3)/close(3) behaviour is incorrect for
-                    sockets in accept(3)
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.10.0-229.14.1.el7.x86_64
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: Alan.Burlison@oracle.com
-        Regression: No
-
-Created attachment 190501
-  --> https://bugzilla.kernel.org/attachment.cgi?id=190501&action=edit
-Test program illustrating the problem
-
-The Linux behaviour in the current scenario is incorrect:
-
-1. ThreadA opens, binds, listens and accepts on a socket, waiting for
-connections.
-
-2. Some time later ThreadB calls shutdown on the socket ThreadA is waiting in
-accept on.
-
-Here is what happens:
-
-On Linux, the shutdown call in ThreadB succeeds and the accept call in ThreadA
-returns with EINVAL.
-
-On Solaris, the shutdown call in ThreadB fails and returns ENOTCONN. ThreadA
-continues to wait in accept.
-
-Relevant POSIX manpages:
-
-http://pubs.opengroup.org/onlinepubs/9699919799/functions/accept.html
-http://pubs.opengroup.org/onlinepubs/9699919799/functions/shutdown.html
-
-The POSIX shutdown manpage says:
-
-"The shutdown() function shall cause all or part of a full-duplex connection on
-the socket associated with the file descriptor socket to be shut down."
-...
-"[ENOTCONN] The socket is not connected."
-
-Page 229 & 303 of "UNIX System V Network Programming" say:
-
-"shutdown can only be called on sockets that have been previously connected"
-
-"The socket [passed to accept that] fd refers to does not participate in the
-connection. It remains available to receive further connect indications"
-
-That is pretty clear, sockets being waited on with accept are not connected by
-definition. Nor is it the accept socket connected when a client connects to it,
-it is the socket returned by accept that is connected to the client. Therefore
-the Solaris behaviour of failing the shutdown call is correct.
-
-In order to get the required behaviour of ThreadB causing ThreadA to exit the
-accept call with an error, the correct way is for ThreadB to call close on the
-socket that ThreadA is waiting on in accept.
-
-On Solaris, calling close in ThreadB succeeds, and the accept call in ThreadA
-fails and returns EBADF.
-
-On Linux, calling close in ThreadB succeeds but ThreadA continues to wait in
-accept until there is an incoming connection. That accept returns successfully.
-However subsequent accept calls on the same socket return EBADF.
-
-The Linux behaviour is fundamentally broken in three places:
-
-1. Allowing shutdown to succeed on an unconnected socket is incorrect.  
-
-2. Returning a successful accept on a closed file descriptor is incorrect,
-especially as future accept calls on the same socket fail.
-
-3. Once shutdown has been called on the socket, calling close on the socket
-fails with EBADF. That is incorrect, shutdown should just prevent further IO on
-the socket, it should not close it.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+>
+>   net/rds/af_rds.c |  10 ++++-
+>   net/rds/bind.c   | 127 ++++++++++++++++++++-----------------------------------
+>   net/rds/rds.h    |   7 ++-
+>   3 files changed, 58 insertions(+), 86 deletions(-)
+>
+> diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+> index 384ea1e..b5476aeb 100644
+> --- a/net/rds/af_rds.c
+> +++ b/net/rds/af_rds.c
+> @@ -573,6 +573,7 @@ static void rds_exit(void)
+>   	rds_threads_exit();
+>   	rds_stats_exit();
+>   	rds_page_exit();
+> +	rds_bind_lock_destroy();
+>   	rds_info_deregister_func(RDS_INFO_SOCKETS, rds_sock_info);
+>   	rds_info_deregister_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
+>   }
+> @@ -582,11 +583,14 @@ static int rds_init(void)
+>   {
+>   	int ret;
+>
+> -	rds_bind_lock_init();
+> +	ret = rds_bind_lock_init();
+> +	if (ret)
+> +		goto out;
+>
+>   	ret = rds_conn_init();
+>   	if (ret)
+> -		goto out;
+> +		goto out_bind;
+> +
+>   	ret = rds_threads_init();
+>   	if (ret)
+>   		goto out_conn;
+> @@ -620,6 +624,8 @@ out_conn:
+>   	rds_conn_exit();
+>   	rds_cong_exit();
+>   	rds_page_exit();
+> +out_bind:
+> +	rds_bind_lock_destroy();
+>   out:
+>   	return ret;
+>   }
+> diff --git a/net/rds/bind.c b/net/rds/bind.c
+> index bc6b93e..199e4cc 100644
+> --- a/net/rds/bind.c
+> +++ b/net/rds/bind.c
+> @@ -38,54 +38,18 @@
+>   #include <linux/ratelimit.h>
+>   #include "rds.h"
+>
+> -struct bind_bucket {
+> -	rwlock_t                lock;
+> -	struct hlist_head	head;
+> +static struct rhashtable bind_hash_table;
+> +
+> +static struct rhashtable_params ht_parms = {
+> +	.nelem_hint = 768,
+> +	.key_len = sizeof(u64),
+> +	.key_offset = offsetof(struct rds_sock, rs_bound_key),
+> +	.head_offset = offsetof(struct rds_sock, rs_bound_node),
+> +	.max_size = 16384,
+> +	.min_size = 1024,
+> +	.automatic_shrinking = true,
+>   };
+>
+> -#define BIND_HASH_SIZE 1024
+> -static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
+> -
+> -static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
+> -{
+> -	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+> -				  (BIND_HASH_SIZE - 1));
+> -}
+> -
+> -/* must hold either read or write lock (write lock for insert != NULL) */
+> -static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
+> -					__be32 addr, __be16 port,
+> -					struct rds_sock *insert)
+> -{
+> -	struct rds_sock *rs;
+> -	struct hlist_head *head = &bucket->head;
+> -	u64 cmp;
+> -	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
+> -
+> -	hlist_for_each_entry(rs, head, rs_bound_node) {
+> -		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+> -		      be16_to_cpu(rs->rs_bound_port);
+> -
+> -		if (cmp == needle) {
+> -			rds_sock_addref(rs);
+> -			return rs;
+> -		}
+> -	}
+> -
+> -	if (insert) {
+> -		/*
+> -		 * make sure our addr and port are set before
+> -		 * we are added to the list.
+> -		 */
+> -		insert->rs_bound_addr = addr;
+> -		insert->rs_bound_port = port;
+> -		rds_sock_addref(insert);
+> -
+> -		hlist_add_head(&insert->rs_bound_node, head);
+> -	}
+> -	return NULL;
+> -}
+> -
+>   /*
+>    * Return the rds_sock bound at the given local address.
+>    *
+> @@ -94,18 +58,14 @@ static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
+>    */
+>   struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+>   {
+> +	u64 key = ((u64)addr << 32) | port;
+>   	struct rds_sock *rs;
+> -	unsigned long flags;
+> -	struct bind_bucket *bucket = hash_to_bucket(addr, port);
+>
+> -	read_lock_irqsave(&bucket->lock, flags);
+> -	rs = rds_bind_lookup(bucket, addr, port, NULL);
+> -	read_unlock_irqrestore(&bucket->lock, flags);
+> -
+> -	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
+> -		rds_sock_put(rs);
+> +	rs = rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms);
+> +	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
+> +		rds_sock_addref(rs);
+> +	else
+>   		rs = NULL;
+> -	}
+>
+>   	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
+>   		ntohs(port));
+> @@ -116,10 +76,9 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
+>   /* returns -ve errno or +ve port */
+>   static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+>   {
+> -	unsigned long flags;
+>   	int ret = -EADDRINUSE;
+>   	u16 rover, last;
+> -	struct bind_bucket *bucket;
+> +	u64 key;
+>
+>   	if (*port != 0) {
+>   		rover = be16_to_cpu(*port);
+> @@ -130,23 +89,31 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+>   	}
+>
+>   	do {
+> -		struct rds_sock *rrs;
+>   		if (rover == 0)
+>   			rover++;
+>
+> -		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
+> -		write_lock_irqsave(&bucket->lock, flags);
+> -		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
+> -		write_unlock_irqrestore(&bucket->lock, flags);
+> -		if (!rrs) {
+> +		key = ((u64)addr << 32) | cpu_to_be16(rover);
+> +		if (rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms))
+> +			continue;
+> +
+> +		rs->rs_bound_key = key;
+> +		rs->rs_bound_addr = addr;
+> +		rs->rs_bound_port = cpu_to_be16(rover);
+> +		rs->rs_bound_node.next = NULL;
+> +		rds_sock_addref(rs);
+> +		if (!rhashtable_insert_fast(&bind_hash_table,
+> +					    &rs->rs_bound_node, ht_parms)) {
+>   			*port = rs->rs_bound_port;
+>   			ret = 0;
+>   			rdsdebug("rs %p binding to %pI4:%d\n",
+>   			  rs, &addr, (int)ntohs(*port));
+>   			break;
+>   		} else {
+> -			rds_sock_put(rrs);
+> +			rds_sock_put(rs);
+> +			ret = -ENOMEM;
+> +			break;
+>   		}
+> +
+>   	} while (rover++ != last);
+>
+>   	return ret;
+> @@ -154,23 +121,17 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
+>
+>   void rds_remove_bound(struct rds_sock *rs)
+>   {
+> -	unsigned long flags;
+> -	struct bind_bucket *bucket =
+> -		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
+> -
+> -	write_lock_irqsave(&bucket->lock, flags);
+>
+> -	if (rs->rs_bound_addr) {
+> -		rdsdebug("rs %p unbinding from %pI4:%d\n",
+> -		  rs, &rs->rs_bound_addr,
+> -		  ntohs(rs->rs_bound_port));
+> +	if (!rs->rs_bound_addr)
+> +		return;
+>
+> -		hlist_del_init(&rs->rs_bound_node);
+> -		rds_sock_put(rs);
+> -		rs->rs_bound_addr = 0;
+> -	}
+> +	rdsdebug("rs %p unbinding from %pI4:%d\n",
+> +		 rs, &rs->rs_bound_addr,
+> +		 ntohs(rs->rs_bound_port));
+>
+> -	write_unlock_irqrestore(&bucket->lock, flags);
+> +	rhashtable_remove_fast(&bind_hash_table, &rs->rs_bound_node, ht_parms);
+> +	rds_sock_put(rs);
+> +	rs->rs_bound_addr = 0;
+>   }
+>
+>   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+> @@ -217,10 +178,12 @@ out:
+>   	return ret;
+>   }
+>
+> -void rds_bind_lock_init(void)
+> +void rds_bind_lock_destroy(void)
+>   {
+> -	int i;
+> +	rhashtable_destroy(&bind_hash_table);
+> +}
+>
+> -	for (i = 0; i < BIND_HASH_SIZE; i++)
+> -		rwlock_init(&bind_hash_table[i].lock);
+> +int rds_bind_lock_init(void)
+> +{
+> +	return rhashtable_init(&bind_hash_table, &ht_parms);
+>   }
+> diff --git a/net/rds/rds.h b/net/rds/rds.h
+> index 121fb81..0068840 100644
+> --- a/net/rds/rds.h
+> +++ b/net/rds/rds.h
+> @@ -7,6 +7,7 @@
+>   #include <rdma/rdma_cm.h>
+>   #include <linux/mutex.h>
+>   #include <linux/rds.h>
+> +#include <linux/rhashtable.h>
+>
+>   #include "info.h"
+>
+> @@ -472,7 +473,8 @@ struct rds_sock {
+>   	 * bound_addr used for both incoming and outgoing, no INADDR_ANY
+>   	 * support.
+>   	 */
+> -	struct hlist_node	rs_bound_node;
+> +	struct rhash_head	rs_bound_node;
+> +	u64			rs_bound_key;
+>   	__be32			rs_bound_addr;
+>   	__be32			rs_conn_addr;
+>   	__be16			rs_bound_port;
+> @@ -603,7 +605,8 @@ extern wait_queue_head_t rds_poll_waitq;
+>   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
+>   void rds_remove_bound(struct rds_sock *rs);
+>   struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
+> -void rds_bind_lock_init(void);
+> +int rds_bind_lock_init(void);
+> +void rds_bind_lock_destroy(void);
+>
+>   /* cong.c */
+>   int rds_cong_get_maps(struct rds_connection *conn);
+>
