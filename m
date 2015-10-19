@@ -1,42 +1,33 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] allow dctcp alpha to drop to zero
-Date: Mon, 19 Oct 2015 16:01:35 +0200
-Message-ID: <20151019140135.GF4386@breakpoint.cc>
-References: <20151019045908.GB11368@mininet-vm>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] Adding switchdev ageing notification on port
+ bridged
+Date: Mon, 19 Oct 2015 16:07:17 +0200
+Message-ID: <20151019140717.GF2288@nanopsycho.orion>
+References: <1445258245-12601-1-git-send-email-eladr@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Glenn Judd <glenn.judd@morganstanley.com>
-To: Andrew Shewmaker <agshew@gmail.com>
+Cc: Jiri Pirko <jiri@mellanox.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Ido Schimmel <idosch@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Elad Raz <eladr@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34524 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751063AbbJSOBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 10:01:39 -0400
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:36855 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbbJSOHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 10:07:20 -0400
+Received: by wicfx6 with SMTP id fx6so7587302wic.1
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 07:07:19 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20151019045908.GB11368@mininet-vm>
+In-Reply-To: <1445258245-12601-1-git-send-email-eladr@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Shewmaker <agshew@gmail.com> wrote:
-> If alpha is strictly reduced by alpha >> dctcp_shift_g and if alpha is less
-> than 1 << dctcp_shift_g, then alpha may never reach zero. For example,
-> given shift_g=4 and alpha=15, alpha >> dctcp_shift_g yields 0 and alpha
-> remains 15. The effect isn't noticeable in this case below cwnd=137, but
-> could gradually drive uncongested flows with leftover alpha down to
-> cwnd=137. A larger dctcp_shift_g would have a greater effect.
-> 
-> This change causes alpha=15 to drop to 0 instead of being decrementing by 1
-> as it would when alpha=16. However, it requires one less conditional to
-> implement since it doesn't have to guard against subtracting 1 from 0U. A
-> decay of 15 is not unreasonable since an equal or greater amount occurs at
-> alpha >= 240.
-> 
-> Signed-off-by: Andrew G. Shewmaker <agshew@gmail.com>
+Mon, Oct 19, 2015 at 02:37:25PM CEST, eladr@mellanox.com wrote:
+>Configure ageing time to the HW for newly bridged device
+>
+>CC: Scott Feldman <sfeldma@gmail.com>
+>CC: Jiri Pirko <jiri@resnulli.us>
+>Signed-off-by: Elad Raz <eladr@mellanox.com>
 
-Acked-by: Florian Westphal <fw@strlen.de>
-
-[ cwnd=137 is quite large so I don't think its important enough for
--stable ].
+Acked-by: Jiri Pirko <jiri@mellanox.com>
