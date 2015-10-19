@@ -1,164 +1,82 @@
-From: Ronen Arad <ronen.arad@intel.com>
-Subject: [PATCH net-next v3] netlink: Rightsize IFLA_AF_SPEC size calculation
-Date: Mon, 19 Oct 2015 09:23:28 -0700
-Message-ID: <1445271808-9097-1-git-send-email-ronen.arad@intel.com>
-References: <1444888204-1954-1-git-send-email-ronen.arad@intel.com>
-Cc: Ronen Arad <ronen.arad@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:50565 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750876AbbJSQXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2015 12:23:37 -0400
-In-Reply-To: <1444888204-1954-1-git-send-email-ronen.arad@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] [net-next] net: Fix typo in 80211.xml
+Date: Tue, 20 Oct 2015 01:34:47 +0900
+Message-ID: <1445272487-26558-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: linux-kernel@vger.kernel.org, rdunlap@infradead.org,
+	netdev@vger.kernel.org, corbet@lwn.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-if_nlmsg_size() overestimates the minimum allocation size of netlink
-dump request (when called from rtnl_calcit()) or the size of the
-message (when called from rtnl_getlink()). This is because
-ext_filter_mask is not supported by rtnl_link_get_af_size() and
-rtnl_link_get_size().
+This patch fix spelling typos found in Documentation/
+DocBook/80211.xml.
+It is because this file was generated from comments in source,
+so I had to fix comments in source files.
 
-The over-estimation is significant when at least one netdev has many
-VLANs configured (8 bytes for each configured VLAN).
-
-This patch-set "rightsizes" the protocol specific attribute size
-calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
-and adding this a argument to get_link_af_size op in rtnl_af_ops.
-
-Bridge module already used filtering aware sizing for notifications.
-br_get_link_af_size_filtered() is consistent with the modified
-get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
-br_get_link_af_size() becomes unused and thus removed.
-
-Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 ---
- include/net/rtnetlink.h |  3 ++-
- net/bridge/br_netlink.c | 21 +--------------------
- net/core/rtnetlink.c    |  8 ++++----
- net/ipv4/devinet.c      |  4 ++--
- net/ipv6/addrconf.c     |  3 ++-
- 5 files changed, 11 insertions(+), 28 deletions(-)
+ include/net/cfg80211.h  | 2 +-
+ include/net/mac80211.h  | 6 +++---
+ net/mac80211/sta_info.h | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index aff6ceb..2f87c1b 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -124,7 +124,8 @@ struct rtnl_af_ops {
- 	int			(*fill_link_af)(struct sk_buff *skb,
- 						const struct net_device *dev,
- 						u32 ext_filter_mask);
--	size_t			(*get_link_af_size)(const struct net_device *dev);
-+	size_t			(*get_link_af_size)(const struct net_device *dev,
-+						    u32 ext_filter_mask);
- 
- 	int			(*validate_link_af)(const struct net_device *dev,
- 						    const struct nlattr *attr);
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 94b4de8..40197ff 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1214,29 +1214,10 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	return 0;
- }
- 
--static size_t br_get_link_af_size(const struct net_device *dev)
--{
--	struct net_bridge_port *p;
--	struct net_bridge *br;
--	int num_vlans = 0;
--
--	if (br_port_exists(dev)) {
--		p = br_port_get_rtnl(dev);
--		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
--						  RTEXT_FILTER_BRVLAN);
--	} else if (dev->priv_flags & IFF_EBRIDGE) {
--		br = netdev_priv(dev);
--		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
--						  RTEXT_FILTER_BRVLAN);
--	}
--
--	/* Each VLAN is returned in bridge_vlan_info along with flags */
--	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
--}
- 
- static struct rtnl_af_ops br_af_ops __read_mostly = {
- 	.family			= AF_BRIDGE,
--	.get_link_af_size	= br_get_link_af_size,
-+	.get_link_af_size	= br_get_link_af_size_filtered,
- };
- 
- struct rtnl_link_ops br_link_ops __read_mostly = {
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2477595..7c78b5a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -497,7 +497,8 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops)
- }
- EXPORT_SYMBOL_GPL(rtnl_af_unregister);
- 
--static size_t rtnl_link_get_af_size(const struct net_device *dev)
-+static size_t rtnl_link_get_af_size(const struct net_device *dev,
-+				    u32 ext_filter_mask)
- {
- 	struct rtnl_af_ops *af_ops;
- 	size_t size;
-@@ -509,7 +510,7 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev)
- 		if (af_ops->get_link_af_size) {
- 			/* AF_* + nested data */
- 			size += nla_total_size(sizeof(struct nlattr)) +
--				af_ops->get_link_af_size(dev);
-+				af_ops->get_link_af_size(dev, ext_filter_mask);
- 		}
- 	}
- 
-@@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
--	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-+	       + rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
- 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
-@@ -3443,4 +3444,3 @@ void __init rtnetlink_init(void)
- 	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
- 	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
- }
--
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7350084..cebd9d3 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1644,7 +1644,8 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
- }
- 
--static size_t inet_get_link_af_size(const struct net_device *dev)
-+static size_t inet_get_link_af_size(const struct net_device *dev,
-+				    u32 ext_filter_mask)
- {
- 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
- 
-@@ -2398,4 +2399,3 @@ void __init devinet_init(void)
- 	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
- 		      inet_netconf_dump_devconf, NULL);
- }
--
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f0326aa..0645fd1 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4786,7 +4786,8 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--static size_t inet6_get_link_af_size(const struct net_device *dev)
-+static size_t inet6_get_link_af_size(const struct net_device *dev,
-+				     u32 ext_filter_mask)
- {
- 	if (!__in6_dev_get(dev))
- 		return 0;
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 90332a1..7566265 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -2417,7 +2417,7 @@ struct cfg80211_qos_map {
+  * @set_coalesce: Set coalesce parameters.
+  *
+  * @channel_switch: initiate channel-switch procedure (with CSA). Driver is
+- *	responsible for veryfing if the switch is possible. Since this is
++ *	responsible for verifying if the switch is possible. Since this is
+  *	inherently tricky driver may decide to disconnect an interface later
+  *	with cfg80211_stop_iface(). This doesn't mean driver can accept
+  *	everything. It should do it's best to verify requests and reject them
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 4ec6fed..8f992ed 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -1169,7 +1169,7 @@ struct ieee80211_vendor_radiotap {
+  * @IEEE80211_CONF_PS: Enable 802.11 power save mode (managed mode only).
+  *	This is the power save mode defined by IEEE 802.11-2007 section 11.2,
+  *	meaning that the hardware still wakes up for beacons, is able to
+- *	transmit frames and receive the possible acknowledgment frames.
++ *	transmit frames and receive the possible acknowledgement frames.
+  *	Not to be confused with hardware specific wakeup/sleep states,
+  *	driver is responsible for that. See the section "Powersave support"
+  *	for more.
+@@ -1460,7 +1460,7 @@ struct wireless_dev *ieee80211_vif_to_wdev(struct ieee80211_vif *vif);
+  *	%IEEE80211_KEY_FLAG_SW_MGMT_TX flag to encrypt such frames in SW.
+  * @IEEE80211_KEY_FLAG_GENERATE_IV_MGMT: This flag should be set by the
+  *	driver for a CCMP/GCMP key to indicate that is requires IV generation
+- *	only for managment frames (MFP).
++ *	only for management frames (MFP).
+  * @IEEE80211_KEY_FLAG_RESERVE_TAILROOM: This flag should be set by the
+  *	driver for a key to indicate that sufficient tailroom must always
+  *	be reserved for ICV or MIC, even when HW encryption is enabled.
+@@ -5198,7 +5198,7 @@ static inline int rate_supported(struct ieee80211_sta *sta,
+  * @sta: &struct ieee80211_sta pointer to the target destination. Note
+  * 	that this may be null.
+  * @priv_sta: private rate control structure. This may be null.
+- * @txrc: rate control information we sholud populate for mac80211.
++ * @txrc: rate control information we should populate for mac80211.
+  */
+ bool rate_control_send_low(struct ieee80211_sta *sta,
+ 			   void *priv_sta,
+diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
+index d5ded87..185ef36 100644
+--- a/net/mac80211/sta_info.h
++++ b/net/mac80211/sta_info.h
+@@ -133,7 +133,7 @@ enum ieee80211_agg_stop_reason {
+  * @buf_size: reorder buffer size at receiver
+  * @failed_bar_ssn: ssn of the last failed BAR tx attempt
+  * @bar_pending: BAR needs to be re-sent
+- * @amsdu: support A-MSDU withing A-MDPU
++ * @amsdu: support A-MSDU within A-MDPU
+  *
+  * This structure's lifetime is managed by RCU, assignments to
+  * the array holding it must hold the aggregation mutex.
 -- 
-2.1.0
+2.6.2.195.g0c4dd78
