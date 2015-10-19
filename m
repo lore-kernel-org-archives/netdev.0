@@ -1,56 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] netlink: Trim skb to alloc size to avoid
- MSG_TRUNC
-Date: Sun, 18 Oct 2015 19:33:56 -0700 (PDT)
-Message-ID: <20151018.193356.1252632768047689966.davem@davemloft.net>
-References: <1444698923-13992-1-git-send-email-ronen.arad@intel.com>
-	<1444899317-3345-1-git-send-email-ronen.arad@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 1/1] net: phy: bcm-phy-lib: Fix module license issue
+Date: Sun, 18 Oct 2015 19:35:32 -0700 (PDT)
+Message-ID: <20151018.193532.1720599526781320491.davem@davemloft.net>
+References: <1444930633-23314-1-git-send-email-arunp@broadcom.com>
+	<1444930633-23314-2-git-send-email-arunp@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ronen.arad@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48707 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752114AbbJSCRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2015 22:17:39 -0400
-In-Reply-To: <1444899317-3345-1-git-send-email-ronen.arad@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1444930633-23314-2-git-send-email-arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ronen Arad <ronen.arad@intel.com>
-Date: Thu, 15 Oct 2015 01:55:17 -0700
+From: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Date: Thu, 15 Oct 2015 10:37:13 -0700
 
-> netlink_dump() allocates skb based on the calculated min_dump_alloc or
-> a per socket max_recvmsg_len.
-> min_alloc_size is maximum space required for any single netdev
-> attributes as calculated by rtnl_calcit().
-> max_recvmsg_len tracks the user provided buffer to netlink_recvmsg.
-> It is capped at 16KiB.
-> The intention is to avoid small allocations and to minimize the number
-> of calls required to obtain dump information for all net devices.
+> The 'bcm-phy-lib.c', added as a part of the commit
+> "net: phy: Add Broadcom phy library for common interfaces"
+> was missing the module license. This was causing an issue
+> when the library is built as a module; "module license
+> 'unspecified' taints kernel".
 > 
-> netlink_dump packs as many small messages as could fit within an skb
-> that was sized for the largest single netdev information. The actual
-> space available within an skb is larger than what is requested. It could
-> be much larger and up to near 2x with align to next power of 2 approach.
+> This patch fixes the issue by adding the module license,
+> author and description to the bcm-phy-lib.c file.
 > 
-> Allowing netlink_dump to use all the space available within the
-> allocated skb increases the buffer size a user has to provide to avoid
-> truncaion (i.e. MSG_TRUNG flag set).
-> 
-> It was observed that with many VLANs configured on at least one netdev,
-> a larger buffer of near 64KiB was necessary to avoid "Message truncated"
-> error in "ip link" or "bridge [-c[ompressvlans]] vlan show" when
-> min_alloc_size was only little over 32KiB.
-> 
-> This patch trims skb to allocated size in order to allow the user to
-> avoid truncation with more reasonable buffer size.
-> 
-> Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+> Fixes: a1cba5613edf5 ("net: phy: Add Broadcom phy library for
+> common interfaces")
+> Signed-off-by: Arun Parameswaran <arunp-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
-Getting spurious MSG_TRUNC is surely a bug, so I am going to apply
-this to 'net' as it is a genuine bug fix.
-
-Thanks.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
