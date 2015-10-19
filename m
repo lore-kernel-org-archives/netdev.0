@@ -1,66 +1,114 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv2 net 2/3] openvswitch: Treat IP_CT_RELATED as new
-Date: Mon, 19 Oct 2015 00:07:09 -0700
-Message-ID: <CANr6G5xmO6D0Yu0VXeaJLbO1aK2tQ5_vHUNRkawK1zNFMJz=aw@mail.gmail.com>
-References: <1445018901-18839-1-git-send-email-joestringer@nicira.com>
- <1445018901-18839-3-git-send-email-joestringer@nicira.com> <20151017075233.GC13981@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:34465 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209AbbJSHH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 03:07:29 -0400
-Received: by ykfy204 with SMTP id y204so134290344ykf.1
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 00:07:28 -0700 (PDT)
-In-Reply-To: <20151017075233.GC13981@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: yalin wang <yalin.wang2010@gmail.com>
+Subject: [RFC] bpf: change bpf syacall to use u64 temp variables
+Date: Mon, 19 Oct 2015 15:10:46 +0800
+Message-ID: <1445238646-9379-1-git-send-email-yalin.wang2010@gmail.com>
+Cc: yalin wang <yalin.wang2010@gmail.com>
+To: ast@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17 October 2015 at 00:52, Thomas Graf <tgraf@suug.ch> wrote:
-> On 10/16/15 at 11:08am, Joe Stringer wrote:
->> New, related connections are marked as such as part of ovs_ct_lookup(),
->> but they are not marked as "new" if the commit flag is used. Make this
->> consistent by treating IP_CT_RELATED as new as well.
->>
->> Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
->> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->> Acked-by: Pravin B Shelar <pshelar@nicira.com>
->> ---
->> v2: Acked.
->> ---
->>  net/openvswitch/conntrack.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->> index 80bf702715bb..480dbb9095b7 100644
->> --- a/net/openvswitch/conntrack.c
->> +++ b/net/openvswitch/conntrack.c
->> @@ -86,6 +86,8 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
->>               ct_state |= OVS_CS_F_ESTABLISHED;
->>               break;
->>       case IP_CT_RELATED:
->> +             ct_state |= OVS_CS_F_NEW;
->> +             /* Fall through */
->>       case IP_CT_RELATED_REPLY:
->>               ct_state |= OVS_CS_F_RELATED;
->>               break;
->
-> I'm probably missing something obvious. Why is the reply direction
-> not considered NEW? Wouldn't this consider an ICMPv6 as related+new
-> depending on simply the direction?
+This patch change map_lookup_elem() and map_update_elem() function
+to use u64 temp variable if the key_size or value_size is less than
+u64, we don't need use kmalloc() for these small variables.
 
-My thoughts were along the lines "If something is a reply, that
-implies that state is held, and therefore it cannot be NEW (where NEW
-means no state is available)". However, if you consider that the
-'related' connection is an independent connection with its own state,
-but the 'reply' bit refers to the original connection, my original
-premise breaks. Furthermore, looking at how it's used in netfilter
-core and the ICMP proto handler, it looks like both of these cases
-should be considered NEW. I can respin.
+Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
+---
+ kernel/bpf/syscall.c | 30 ++++++++++++++++++++----------
+ 1 file changed, 20 insertions(+), 10 deletions(-)
 
-Do you have a specific case in mind here? It would be useful for
-extending the OVS testsuite.
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index f640e5f..c82d7bf 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -189,7 +189,8 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 	void __user *uvalue = u64_to_ptr(attr->value);
+ 	int ufd = attr->map_fd;
+ 	struct bpf_map *map;
+-	void *key, *value, *ptr;
++	u64 key_buf, value_buf;
++	void *key = &key_buf, *value = &value_buf, *ptr;
+ 	struct fd f;
+ 	int err;
+ 
+@@ -202,7 +203,8 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 		return PTR_ERR(map);
+ 
+ 	err = -ENOMEM;
+-	key = kmalloc(map->key_size, GFP_USER);
++	if (map->key_size > sizeof(u64))
++		key = kmalloc(map->key_size, GFP_USER);
+ 	if (!key)
+ 		goto err_put;
+ 
+@@ -211,7 +213,8 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 		goto free_key;
+ 
+ 	err = -ENOMEM;
+-	value = kmalloc(map->value_size, GFP_USER);
++	if (map->value_size > sizeof(u64))
++		value = kmalloc(map->value_size, GFP_USER);
+ 	if (!value)
+ 		goto free_key;
+ 
+@@ -232,9 +235,11 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 	err = 0;
+ 
+ free_value:
+-	kfree(value);
++	if (value != &value_buf)
++		kfree(value);
+ free_key:
+-	kfree(key);
++	if (key != &key_buf)
++		kfree(key);
+ err_put:
+ 	fdput(f);
+ 	return err;
+@@ -248,7 +253,8 @@ static int map_update_elem(union bpf_attr *attr)
+ 	void __user *uvalue = u64_to_ptr(attr->value);
+ 	int ufd = attr->map_fd;
+ 	struct bpf_map *map;
+-	void *key, *value;
++	u64 key_buf, value_buf;
++	void *key = &key_buf, *value = &value_buf;
+ 	struct fd f;
+ 	int err;
+ 
+@@ -261,7 +267,8 @@ static int map_update_elem(union bpf_attr *attr)
+ 		return PTR_ERR(map);
+ 
+ 	err = -ENOMEM;
+-	key = kmalloc(map->key_size, GFP_USER);
++	if (map->key_size > sizeof(u64))
++		key = kmalloc(map->key_size, GFP_USER);
+ 	if (!key)
+ 		goto err_put;
+ 
+@@ -270,7 +277,8 @@ static int map_update_elem(union bpf_attr *attr)
+ 		goto free_key;
+ 
+ 	err = -ENOMEM;
+-	value = kmalloc(map->value_size, GFP_USER);
++	if (map->value_size > sizeof(u64))
++		value = kmalloc(map->value_size, GFP_USER);
+ 	if (!value)
+ 		goto free_key;
+ 
+@@ -286,9 +294,11 @@ static int map_update_elem(union bpf_attr *attr)
+ 	rcu_read_unlock();
+ 
+ free_value:
+-	kfree(value);
++	if (value != &value_buf)
++		kfree(value);
+ free_key:
+-	kfree(key);
++	if (key != &key_buf)
++		kfree(key);
+ err_put:
+ 	fdput(f);
+ 	return err;
+-- 
+1.9.1
