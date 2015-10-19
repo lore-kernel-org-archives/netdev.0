@@ -1,83 +1,65 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
-Date: Mon, 19 Oct 2015 11:07:40 -0400
-Message-ID: <5625073C.5010809@akamai.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
- <f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
- <87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
- <5612B9A9.8050301@akamai.com>
- <87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
- <561DCFA4.3010300@akamai.com>
- <87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
- <561F156E.9050905@akamai.com>
- <87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: SoCFPGA ethernet broken
+Date: Mon, 19 Oct 2015 10:14:21 -0500
+Message-ID: <alpine.DEB.2.02.1510190521370.27515@linux-builds1>
+References: <56201158.8040806@opensource.altera.com> <56201AE7.2020103@gmail.com> <alpine.DEB.2.02.1510152102280.22844@linux-builds1> <20151016033143.GA28207@lunn.ch> <alpine.DEB.2.02.1510160935310.22648@linux-builds1> <20151016150345.GI10146@lunn.ch>
+ <alpine.DEB.2.02.1510161027590.16637@linux-builds1> <20151016155644.GJ10146@lunn.ch> <56212A09.5080206@caviumnetworks.com> <alpine.DEB.2.02.1510161407570.22838@linux-builds1> <20151016193854.GC28207@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, minipli@googlemail.com,
-	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <david.daney@cavium.com>,
+	<peppe.cavallaro@st.com>, <srinivas.kandagatla@gmail.com>,
+	<maxime.coquelin@st.com>, <patrice.chotard@st.com>,
+	<heiko@sntech.de>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+In-Reply-To: <20151016193854.GC28207@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/18/2015 04:58 PM, Rainer Weikusat wrote:
++CC Giuseppe Cavallaro
++CC STi and Rockchip Maintainers
 
-[...]
+This is approaching beyond my breadth of knowledge on this subject, so I just
+wanted to get some further insight.
 
+On Fri, 16 Oct 2015, Andrew Lunn wrote:
+
+> > > Maybe we need to walk up the hierarchy.
+> > > 
+> > > Perhaps something like:
+> > > 
+> > > const struct device *dev_walker;
+> > > 
+> > > dev_walker = &phydev->dev;
+> > > do {
+> > >    of_node = dev_walker->of_node;
+> > >    dev_walker = dev_walker->parent;
+> > > } while (!of_node && dev_walker);
+> > > 
+> > 
+> > The above code seems to have fixed the issue.
 > 
-> The idea behind 'the wait queue' (insofar I'm aware of it) is that it
-> will be used as list of threads who need to be notified when the
-> associated event occurs. Since you seem to argue that the run-of-the-mill
-> algorithm is too slow for this particular case, is there anything to
-> back this up?
+> What i don't like about this is that it allows you to put these
+> properties in the mdio device node. These are phy properties, not mdio
+> properties....
 >
 
-Generally the poll() routines only add to a wait queue once at the
-beginning, and all subsequent calls to poll() simply check the wakeup
-conditions. So here you are proposing to add/remove to the wait queue on
-subsequent invocations of poll(). So the initial patch I did, continued
-in the usual pattern and only added once on registration or connect().
+AFAICT, the stmmac driver is allowing for the phy node to be part of the mdio.
+In the function, stmmac_init_phy(), there is a separate check of a standalone
+phy_node, and the case where the phy is part of the mdio.
 
-However, I do think that this is a special case since the registration
-is on a shared wait queue, and thus having a long list of registered
-waiters is going to affect all waiters. So I am fine with doing the
-add/removes in the poll() routine and I agree that the patch below is
-more compact that what I initially posted.
+commit "8b63ec1837fa phylib: Make PHYs children of their MDIO bus, not
+the bus' parent." is now placing a hard requirement to have a PHY as a
+separate node. For now this is only breaking SoCFPGA, but perhaps might
+have affected STi41x and RockChip, but maybe haven't been spotted because
+perhaps the testing has the bootloader setting up the PHYs?
 
-A couple of notes on your patch:
+> If phydev->attached_dev->dev->of_node works, that would be my
+> preference.
+>
 
-1)
-
-In unix_peer_wake_relay() function, 'sk_wq' is an __rcu pointer and thus
-it requires proper dereferencing. Something like:
-
-struct unix_sock *u;
-struct socket_wq *wq;
-
-u = container_of(wait, struct unix_sock, wait);
-rcu_read_lock();
-wq = rcu_dereference(u->sk.sk_wq);
-if (wq_has_sleeper(wq))
-	wake_up_interruptible_sync_poll(&wq->wait, key);
-rcu_read_unlock();
-
-
-2)
-
-For the case of epoll() in edge triggered mode we need to ensure that
-when we return -EAGAIN from unix_dgram_sendmsg() when unix_recvq_full()
-is true, we need to add a unix_peer_wake_connect() call to guarantee a
-wakeup. Otherwise, we are going to potentially hang there.
-
-With these changes (or tell me why they are not needed), I'm happy to
-ack this patch.
-
-Thanks,
-
--Jason
+BR,
+Dinh
