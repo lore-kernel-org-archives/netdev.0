@@ -1,367 +1,148 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/17] i40e/i40evf: refactor IRQ enable function
-Date: Mon, 19 Oct 2015 15:49:20 -0700
-Message-ID: <1445294971-44714-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:12471 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751151AbbJSWtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2015 18:49:36 -0400
-In-Reply-To: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Tue, 20 Oct 2015 01:02:49 +0200
+Message-ID: <1445295769.660392.414696249.0B413DF1@webmail.messagingengine.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
+ <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
+ <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
+ <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
+ <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com>
+ <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
+ <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net>
+ <56240814.8020105@plumgrid.com>
+ <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
+ <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
+ <562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
+ <56253335.9000206@plumgrid.com>
+ <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+ <562545AA.2080207@plumgrid.com>
+ <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+ <56255714.2070800@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56255714.2070800@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Hello Alexei,
 
-This change moves a multi-line register setting into a function
-which simplifies reading the flow of the enable function.
+On Mon, Oct 19, 2015, at 22:48, Alexei Starovoitov wrote:
+> On 10/19/15 1:03 PM, Hannes Frederic Sowa wrote:
+> >
+> > I doubt it will stay a lightweight feature as it should not be in the
+> > responsibility of user space to provide those debug facilities.
+> 
+> It feels we're talking past each other.
+> I want to solve 'persistent map' problem.
+> debugging of maps/progs, hierarchy, etc are all nice to have,
+> but different issues.
 
-This also fixes a bug where the enable function was enabling
-the interrupt twice while trying to update the two interrupt
-throttle rate thresholds for Rx and Tx.
+I understand that. Main problem is to persist fds with attached maps,
+sure.
 
-Change-ID: Ie308f9d0d48540204590cb9d7a5a7b1196f959bb
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 112 +++++++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 108 ++++++++++++++-----------
- 2 files changed, 128 insertions(+), 92 deletions(-)
+I am not a big fan of the kernel referencing or persisting resources on
+behalf of its own. IMHO they should be attached to user space programs.
+So I am still in favor for user space, but I see that most people are
+not comfortable with that. So a way to make this kind of persistence in
+the kernel as introspectable as possible is the main goal of the idea we
+are sharing here.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 512707c..889d25d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -815,6 +815,8 @@ void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-  * i40e_set_new_dynamic_itr - Find new ITR level
-  * @rc: structure containing ring performance data
-  *
-+ * Returns true if ITR changed, false if not
-+ *
-  * Stores a new ITR value based on packets and byte counts during
-  * the last interrupt.  The advantage of per interrupt computation
-  * is faster updates and more accurate ITR for the current traffic
-@@ -823,14 +825,14 @@ void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-  * testing data as well as attempting to minimize response time
-  * while increasing bulk throughput.
-  **/
--static void i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
-+static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- {
- 	enum i40e_latency_range new_latency_range = rc->latency_range;
- 	u32 new_itr = rc->itr;
- 	int bytes_per_int;
- 
- 	if (rc->total_packets == 0 || !rc->itr)
--		return;
-+		return false;
- 
- 	/* simple throttlerate management
- 	 *   0-10MB/s   lowest (100000 ints/s)
-@@ -874,11 +876,15 @@ static void i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 		break;
- 	}
- 
--	if (new_itr != rc->itr)
--		rc->itr = new_itr;
--
- 	rc->total_bytes = 0;
- 	rc->total_packets = 0;
-+
-+	if (new_itr != rc->itr) {
-+		rc->itr = new_itr;
-+		return true;
-+	}
-+
-+	return false;
- }
- 
- /**
-@@ -1747,6 +1753,21 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
- 	return total_rx_packets;
- }
- 
-+static u32 i40e_buildreg_itr(const int type, const u16 itr)
-+{
-+	u32 val;
-+
-+	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
-+	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
-+	      (type << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT) |
-+	      (itr << I40E_PFINT_DYN_CTLN_INTERVAL_SHIFT);
-+
-+	return val;
-+}
-+
-+/* a small macro to shorten up some long lines */
-+#define INTREG I40E_PFINT_DYN_CTLN
-+
- /**
-  * i40e_update_enable_itr - Update itr and re-enable MSIX interrupt
-  * @vsi: the VSI we care about
-@@ -1757,54 +1778,53 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 					  struct i40e_q_vector *q_vector)
- {
- 	struct i40e_hw *hw = &vsi->back->hw;
--	u16 old_itr;
-+	bool rx = false, tx = false;
-+	u32 rxval, txval;
- 	int vector;
--	u32 val;
- 
- 	vector = (q_vector->v_idx + vsi->base_vector);
-+
-+	rxval = txval = i40e_buildreg_itr(I40E_ITR_NONE, 0);
-+
- 	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting)) {
--		old_itr = q_vector->rx.itr;
--		i40e_set_new_dynamic_itr(&q_vector->rx);
--		if (old_itr != q_vector->rx.itr) {
--			val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
--			I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
--			(I40E_RX_ITR <<
--				I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT) |
--			(q_vector->rx.itr <<
--				I40E_PFINT_DYN_CTLN_INTERVAL_SHIFT);
--		} else {
--			val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
--			I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
--			(I40E_ITR_NONE <<
--				I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
--		}
--		if (!test_bit(__I40E_DOWN, &vsi->state))
--			wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
--	} else {
--		i40e_irq_dynamic_enable(vsi, q_vector->v_idx);
-+		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
-+		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
- 	}
-+
- 	if (ITR_IS_DYNAMIC(vsi->tx_itr_setting)) {
--		old_itr = q_vector->tx.itr;
--		i40e_set_new_dynamic_itr(&q_vector->tx);
--		if (old_itr != q_vector->tx.itr) {
--			val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
--				I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
--				(I40E_TX_ITR <<
--				   I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT) |
--				(q_vector->tx.itr <<
--				   I40E_PFINT_DYN_CTLN_INTERVAL_SHIFT);
--		} else {
--			val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
--				I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
--				(I40E_ITR_NONE <<
--				   I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
--		}
--		if (!test_bit(__I40E_DOWN, &vsi->state))
--			wr32(hw, I40E_PFINT_DYN_CTLN(q_vector->v_idx +
--			      vsi->base_vector - 1), val);
--	} else {
--		i40e_irq_dynamic_enable(vsi, q_vector->v_idx);
-+		tx = i40e_set_new_dynamic_itr(&q_vector->tx);
-+		txval = i40e_buildreg_itr(I40E_TX_ITR, q_vector->tx.itr);
- 	}
-+
-+	if (rx || tx) {
-+		/* get the higher of the two ITR adjustments and
-+		 * use the same value for both ITR registers
-+		 * when in adaptive mode (Rx and/or Tx)
-+		 */
-+		u16 itr = max(q_vector->tx.itr, q_vector->rx.itr);
-+
-+		q_vector->tx.itr = q_vector->rx.itr = itr;
-+		txval = i40e_buildreg_itr(I40E_TX_ITR, itr);
-+		tx = true;
-+		rxval = i40e_buildreg_itr(I40E_RX_ITR, itr);
-+		rx = true;
-+	}
-+
-+	/* only need to enable the interrupt once, but need
-+	 * to possibly update both ITR values
-+	 */
-+	if (rx) {
-+		/* set the INTENA_MSK_MASK so that this first write
-+		 * won't actually enable the interrupt, instead just
-+		 * updating the ITR (it's bit 31 PF and VF)
-+		 */
-+		rxval |= BIT(31);
-+		/* don't check _DOWN because interrupt isn't being enabled */
-+		wr32(hw, INTREG(vector - 1), rxval);
-+	}
-+
-+	if (!test_bit(__I40E_DOWN, &vsi->state))
-+		wr32(hw, INTREG(vector - 1), txval);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 97493a4..597e096 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -318,6 +318,8 @@ static void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector
-  * i40e_set_new_dynamic_itr - Find new ITR level
-  * @rc: structure containing ring performance data
-  *
-+ * Returns true if ITR changed, false if not
-+ *
-  * Stores a new ITR value based on packets and byte counts during
-  * the last interrupt.  The advantage of per interrupt computation
-  * is faster updates and more accurate ITR for the current traffic
-@@ -326,14 +328,14 @@ static void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector
-  * testing data as well as attempting to minimize response time
-  * while increasing bulk throughput.
-  **/
--static void i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
-+static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- {
- 	enum i40e_latency_range new_latency_range = rc->latency_range;
- 	u32 new_itr = rc->itr;
- 	int bytes_per_int;
- 
- 	if (rc->total_packets == 0 || !rc->itr)
--		return;
-+		return false;
- 
- 	/* simple throttlerate management
- 	 *   0-10MB/s   lowest (100000 ints/s)
-@@ -377,11 +379,15 @@ static void i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
- 		break;
- 	}
- 
--	if (new_itr != rc->itr)
--		rc->itr = new_itr;
--
- 	rc->total_bytes = 0;
- 	rc->total_packets = 0;
-+
-+	if (new_itr != rc->itr) {
-+		rc->itr = new_itr;
-+		return true;
-+	}
-+
-+	return false;
- }
- 
- /*
-@@ -1187,6 +1193,21 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
- 	return total_rx_packets;
- }
- 
-+static u32 i40e_buildreg_itr(const int type, const u16 itr)
-+{
-+	u32 val;
-+
-+	val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
-+	      I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
-+	      (type << I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
-+	      (itr << I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
-+
-+	return val;
-+}
-+
-+/* a small macro to shorten up some long lines */
-+#define INTREG I40E_VFINT_DYN_CTLN1
-+
- /**
-  * i40e_update_enable_itr - Update itr and re-enable MSIX interrupt
-  * @vsi: the VSI we care about
-@@ -1197,55 +1218,50 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
- 					  struct i40e_q_vector *q_vector)
- {
- 	struct i40e_hw *hw = &vsi->back->hw;
--	u16 old_itr;
-+	bool rx = false, tx = false;
-+	u32 rxval, txval;
- 	int vector;
--	u32 val;
- 
- 	vector = (q_vector->v_idx + vsi->base_vector);
-+	rxval = txval = i40e_buildreg_itr(I40E_ITR_NONE, 0);
-+
- 	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting)) {
--		old_itr = q_vector->rx.itr;
--		i40e_set_new_dynamic_itr(&q_vector->rx);
--		if (old_itr != q_vector->rx.itr) {
--			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
--			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
--			(I40E_RX_ITR <<
--				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
--			(q_vector->rx.itr <<
--				I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
--		} else {
--			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
--			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
--			(I40E_ITR_NONE <<
--				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
--		}
--		if (!test_bit(__I40E_DOWN, &vsi->state))
--			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
--	} else {
--		i40evf_irq_enable_queues(vsi->back, 1
--			<< q_vector->v_idx);
-+		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
-+		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
- 	}
- 	if (ITR_IS_DYNAMIC(vsi->tx_itr_setting)) {
--		old_itr = q_vector->tx.itr;
--		i40e_set_new_dynamic_itr(&q_vector->tx);
--		if (old_itr != q_vector->tx.itr) {
--			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
--				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
--				(I40E_TX_ITR <<
--				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
--				(q_vector->tx.itr <<
--				   I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
-+		tx = i40e_set_new_dynamic_itr(&q_vector->tx);
-+		txval = i40e_buildreg_itr(I40E_TX_ITR, q_vector->tx.itr);
-+	}
-+	if (rx || tx) {
-+		/* get the higher of the two ITR adjustments and
-+		 * use the same value for both ITR registers
-+		 * when in adaptive mode (Rx and/or Tx)
-+		 */
-+		u16 itr = max(q_vector->tx.itr, q_vector->rx.itr);
- 
--		} else {
--			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
--				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
--				(I40E_ITR_NONE <<
--				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
--		}
--		if (!test_bit(__I40E_DOWN, &vsi->state))
--			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
--	} else {
--		i40evf_irq_enable_queues(vsi->back, BIT(q_vector->v_idx));
-+		q_vector->tx.itr = q_vector->rx.itr = itr;
-+		txval = i40e_buildreg_itr(I40E_TX_ITR, itr);
-+		tx = true;
-+		rxval = i40e_buildreg_itr(I40E_RX_ITR, itr);
-+		rx = true;
- 	}
-+
-+	/* only need to enable the interrupt once, but need
-+	 * to possibly update both ITR values
-+	 */
-+	if (rx) {
-+		/* set the INTENA_MSK_MASK so that this first write
-+		 * won't actually enable the interrupt, instead just
-+		 * updating the ITR (it's bit 31 PF and VF)
-+		 */
-+		rxval |= BIT(31);
-+		/* don't check _DOWN because interrupt isn't being enabled */
-+		wr32(hw, INTREG(vector - 1), rxval);
-+	}
-+
-+	if (!test_bit(__I40E_DOWN, &vsi->state))
-+		wr32(hw, INTREG(vector - 1), txval);
- }
- 
- /**
--- 
-2.4.3
+I bet commercial software will make use of this ebpf framework, too. And
+the kernel always helped me and gave me a way to see what is going on,
+debug which part of my operating system universe interacts with which
+other part. Merely dropping file descriptors with data attached to them
+in an filesystem seems not to fulfill my need at all. I would love to
+see where resources are referenced and why, like I am nowadays.
+
+Btw.: has anybody had a look at kdbus if it allows user space to much
+more easily handle those file descriptors (as an alternative to
+af_unix). I haven't, yet.
+
+> In case of persistent maps I imagine unprivileged process would want
+> to use it eventually as well, so this requirement already kills cdev
+> approach for me, since I don't think we ever let unprivileged apps
+> create cdev with syscall.
+
+TTY code is creating nodes on behalf of users, I check if this could
+work for bpf cdevs as well.
+
+> > The bpf syscall is still used to create the pseudo nodes. If they should
+> > be persistent they just get registered in the sysfs class hierarchy.
+> 
+> nope. they should not. sysfs is debugging/tunning facility.
+> There is absolutely no need for bpf to plug into sysfs.
+> 
+> >> Doing 'resource stats' via sysfs requires bpf to add to sysfs, which
+> >> is not this cdev approach.
+> >
+> > This is not yet part of the patch, but I think this would be added.
+> > Daniel?
+> 
+> please don't. I'm strongly against adding unnecessary bloat.
+> 
+> > I don't think there are broad differences. But in case a namespaces uses
+> > huge number of maps with tons of data, the admin in the initial
+> > namespace might want to debug that without searching all mountpoints and
+> > find dependencies between processes etc. IMHO sysfs approach can be
+> > better extended here.
+> 
+> sure, then we can force all bpffs to have the same hierarchy and mounted
+> in /sys/kernel/bpf location. That would be the same.
+> 
+> It feels you're pushing for cdev only because of that potential
+> debugging need. Did you actually face that need? I didn't and
+> don't like to add 'nice to have' feature until real need comes.
+
+Given that we want to monitor the load of a hashmap for graphing
+purposes. Or liberate some hashmaps from its restriction on number of
+keys and make upper bounds configurable by admins who know the
+dimensions of their systems and not some software deep down buried in
+the bpf syscall where I might not have access to source code. In tc
+force e.g. hashmaps to do garbage collection because we cannot be sure
+that under DoS attacks user space clean up gets scheduled early enough
+if ebpf adds flows to hashtables. I do see need to expand and implement
+some kind of policy in the future.
+
+> >> Also I don't buy the point of reinventing sysfs. bpffs is not doing
+> >> sysfs. I don't want to see _every_ bpf object in sysfs. It's way too
+> >> much overhead. Classic doesn't have sysfs and everyone have been
+> >> using it just fine.
+> >
+> > But classic bpf does not have persistence for maps and data. ;) There is
+> > a 1:1 relationship between socket and bpf_prog for example.
+> 
+> single task in seccomp can have a chain of bpf progs, so hierarchy
+> is already there.
+
+And it would be great to inspect them.
+
+> > But how can the filesystem be extended in terms of tunables and
+> > information? File attributes? Wouldn't it need the same infrastructure
+> > otherwise as sysfs? Some third-party lookup filesystem or ioctl? This
+> > char dev approach also pins maps and progs while giving more policy in
+> > hand of central user space programs we are currently using (udev,
+> > systemd, whatever, etc.).
+> 
+> tunables for bpf maps? There are no such things today.
+> I think you're implying that we can add rhashtable type of map, so
+> admin can tune thresholds ? Ouch. I think if we add it, its parameters
+> will be specified by the user that is creating the map only. There will
+> be no tunables exposed to sysfs and there should be no way of creating
+> maps via sysfs.
+
+I am fine with creating maps only by bpf syscall. But to hide
+configuration details or at least not be really able to query them
+easily seems odd to me. If we go with the ebpffs how could those
+attributes be added?
+
+Thanks,
+Hannes
