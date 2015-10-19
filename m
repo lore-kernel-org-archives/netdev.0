@@ -1,68 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v8 net-next 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Mon, 19 Oct 2015 20:07:18 +0200
-Message-ID: <20151019180718.GA10106@nanopsycho.orion>
-References: <1412469901-27451-1-git-send-email-maheshb@google.com>
- <20151019163556.GK2288@nanopsycho.orion>
- <CAF2d9jhJzyH8iaXJJY81PQTCx1BeB2x16a0HBYbboQoLmsFY9Q@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] Adding switchdev ageing notification on port bridged
+Date: Mon, 19 Oct 2015 11:10:17 -0700
+Message-ID: <CAE4R7bCXt9RH=Jj6S_0xfR5uakWNFX1B4wHDk8q2WhO248Wbew@mail.gmail.com>
+References: <1445258245-12601-1-git-send-email-eladr@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Elad Raz <eladr@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:32908 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705AbbJSSHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 14:07:21 -0400
-Received: by lffv3 with SMTP id v3so117045250lff.0
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 11:07:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAF2d9jhJzyH8iaXJJY81PQTCx1BeB2x16a0HBYbboQoLmsFY9Q@mail.gmail.com>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:36472 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbbJSSKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 14:10:36 -0400
+Received: by obcqt19 with SMTP id qt19so68022573obc.3
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 11:10:36 -0700 (PDT)
+In-Reply-To: <1445258245-12601-1-git-send-email-eladr@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 19, 2015 at 08:01:24PM CEST, maheshb@google.com wrote:
->On Mon, Oct 19, 2015 at 9:35 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Sun, Oct 05, 2014 at 02:45:01AM CEST, maheshb@google.com wrote:
->>>Earlier change to use usable slave array for TLB mode had an additional
->>>performance advantage. So extending the same logic to all other modes
->>>that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
->>>Also consolidating this with the earlier TLB change.
->>>
->>>The main idea is to build the usable slaves array in the control path
->>>and use that array for slave selection during xmit operation.
->>>
->>>Measured performance in a setup with a bond of 4x1G NICs with 200
->>>instances of netperf for the modes involved (3ad, xor, tlb)
->>>cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
->>>
->>>Mode        TPS-Before   TPS-After
->>>
->>>802.3ad   : 468,694      493,101
->>>TLB (lb=0): 392,583      392,965
->>>XOR       : 475,696      484,517
->>
->> Looking over bonding code now and came across this commit. It gave me a
->> little headache. Why don't you guys just use team instead of doing
->> bonding megapatches like this? This is making bonding code even more
->> complicated (screwed-up) :/ I don't understand.
+On Mon, Oct 19, 2015 at 5:37 AM, Elad Raz <eladr@mellanox.com> wrote:
+> Configure ageing time to the HW for newly bridged device
 >
->Why are you looking at bonding to have headache in first place go use team. ;)
->
->The commit message was very clear about the intention and the purpose
->is to avoid list-traversal cost in fast path for modes that use
->xmit-hash. If you feel something is screwed-up please send a patch to
->fix it.
+> CC: Scott Feldman <sfeldma@gmail.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Elad Raz <eladr@mellanox.com>
 
-No, it's about the concept. You introduced something in bonding which
-team already has and made the code even more complicated and scary.
-I just don't understand why you didn't use team instead of this :/
-Just my 50 cents.
+Acked-by: Scott Feldman <sfeldma@gmail.com>
