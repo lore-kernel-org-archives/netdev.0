@@ -1,119 +1,90 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
- controller
-Date: Mon, 19 Oct 2015 09:31:11 +0200
-Message-ID: <56249C3F.3080000@pengutronix.de>
-References: <1445236757-29019-1-git-send-email-hs@denx.de>
- <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Mon, 19 Oct 2015 09:36:11 +0200
+Message-ID: <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+ <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
+ <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
+ <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
+ <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
+ <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com>
+ <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
+ <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net>
+ <56240814.8020105@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="RhfRqRK9DH9GN6VbLvL7VA3a5JxxOrk3j"
-Cc: linux-kernel@vger.kernel.org,
-	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson@baylibre.com>,
-	Anant Gole <anantgole@ti.com>, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Tony Lindgren <tony@atomide.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-omap@vger.kernel.org
-To: hs@denx.de, anton.a.glukhov@gmail.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56249B58.6090100@denx.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56240814.8020105@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---RhfRqRK9DH9GN6VbLvL7VA3a5JxxOrk3j
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On 10/19/2015 09:27 AM, Heiko Schocher wrote:
->>>   .../devicetree/bindings/net/can/ti_hecc-can.txt    | 20 ++++++++++
->>>   arch/arm/boot/dts/am3517.dtsi                      | 13 +++++++
->>>   drivers/net/can/ti_hecc.c                          | 45 +++++++++++=
-++++++++++-
->>>   3 files changed, 76 insertions(+), 2 deletions(-)
->>>   create mode 100644 Documentation/devicetree/bindings/net/can/ti_hec=
-c-can.txt
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/can/ti_hecc-can.tx=
-t b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
->>> new file mode 100644
->>> index 0000000..09fab59
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
->>> @@ -0,0 +1,20 @@
->>> +* TI HECC CAN *
->>> +
->>> +Required properties:
->>> +  - compatible: Should be "ti,hecc"
->>
->> We usually put the name of the first SoC this IP core appears in to th=
-e
->> compatible.
->=20
-> Ok, so "ti,am335xx-hecc" would be OK?
-> @Anton: you used "am35x" ... it should be "am35xx"
+On Sun, Oct 18, 2015, at 22:59, Alexei Starovoitov wrote:
+> On 10/18/15 9:49 AM, Daniel Borkmann wrote:
+> > Okay, I have pushed some rough working proof of concept here:
+> >
+> > https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=ebpf-fds-final5
+> >
+> > So the idea eventually had to be slightly modified after giving this
+> > further
+> > thoughts and is the following:
+> >
+> > We have 3 commands (BPF_DEV_CREATE, BPF_DEV_DESTROY, BPF_DEV_CONNECT), and
+> > related to that a bpf_attr extension with only a single __u32 fd member
+> > in it.
+> ...
+> > The nice thing about it is that you can create/unlink as many as you
+> > want, but
+> > when you remove the real device from an application via
+> > bpf_dev_destroy(fd),
+> > then all links disappear with it. Just like in the case of a normal
+> > device driver.
+> 
+> interesting idea!
+> What happens if user app creates a dev via bpf_dev_create(), exits and
+> then admin does rm of that dev ?
+> Looks like map/prog will leak ?
+> So the only proper way to delete such cdevs is via bpf_dev_destroy ?
 
-The "xx" is not okay. Give precisely the first SoC Version this IP core
-was implemented in.
+The mknod is not the holder but rather the kobject which should be
+represented in sysfs will be. So you can still get the map major:minor
+by looking up the /dev file in the correspdonding sysfs directory or I
+think we should provide a 'unbind' file, which will drop the kobject if
+the user writes a '1' to it.
 
->=20
->>> +  - reg: Should contain CAN controller registers location and length=
+> 
+> > On device creation, the kernel will return the minor number via bpf(2),
+> > so you
+> > can access the file easily, f.e. /dev/bpf/bpf_map<minor> resp.
+> > /dev/bpf/bpf_prog<minor>,
+> > and then move on with mknod(2) or symlink(2) from there if wished.
+> 
+> what if admin mknod in that dir with some arbitrary minor ?
 
->>> +  - interrupts: Should contain IRQ line for the CAN controller
->>
->> I'm missing the description of the ti,* properties. I think they are
->> required, too. Although the code doesn't enforce it.
->=20
-> Ok.
->=20
->>> +
->>> +Example:
->>> +
->>> +	can0: hecc@5c050000 {
->>> +		compatible =3D "ti,hecc";
->>> +		reg =3D <0x5c050000 0x4000>;
->>> +		interrupts =3D <24>;
->>> +		ti,hecc_scc_offset =3D <0>;
->>> +		ti,hecc_scc_ram_offset =3D <0x3000>;
->>> +		ti,hecc_ram_offset =3D <0x3000>;
->>> +		ti,hecc_mbx_offset =3D <0x2000>;
->>> +		ti,hecc_int_line =3D <0>;
->>> +		ti,hecc_version =3D <1>;
->>
->> Versioning in the OF world is done via the compatible. Are the offsets=
- a
->> per SoC parameter? I'm not sure if it's better to put
->> the offsets into the driver.
->=20
-> I am unsure here too..
+Basically, -EIO. :)
 
-The devicetree people will hopefully help here.
+> mknod will succeed, but it won't hold anything?
 
-regards,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+That is right now true for basically all mknod operations, which udev
+creates.
 
+> looks like bpf_dev_connect will handle it gracefully.
+> So these cdevs should only be created and destroyed via bpf syscall
+> and only sensible operations on them is open() to get fd and pass
+> to bpf_dev_connect and symlink. Anything else admin should be
+> careful not to do. Right?
 
---RhfRqRK9DH9GN6VbLvL7VA3a5JxxOrk3j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Besides maybe some statistics and other stuff in sysfs directory, no,
+that is all.
 
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWJJxAAAoJEP5prqPJtc/HVrsH/24NElJepIIymxz/kYbei8YI
-+mT6IWc3rULUVCEy+Lp92NcajDCIXIK/CFDqfavKYAkgvlqLOYxtKha9ZsXfEoW2
-YaxqB4lS2lrxlNniCWGRY+rIf7BsTTmRl5nZgAMueR/mvMIv8B/qGBStSPxp+LDJ
-As0TyzeF5fEDpvldsAZfBeniUX7xT+Be4C/t8V6335EdqqKHnnnmhNz1syNtA2of
-WDHwWCae+rngZw6am+FFhsDVlTRtD+OSjzC10U95FixOfaCgCX8SMp/PZOPKzVIV
-P8qKaup+ncljy3dwwIeHl2CAJM3zbY93v1mgRarPXivuX4OXXi6e/F7f0vbf+wc=
-=VWj/
------END PGP SIGNATURE-----
-
---RhfRqRK9DH9GN6VbLvL7VA3a5JxxOrk3j--
+Bye,
+Hannes
