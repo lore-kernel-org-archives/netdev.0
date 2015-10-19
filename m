@@ -1,309 +1,87 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [RFC PATCH] RDS: convert bind hash table to re-sizable hashtable
-Date: Mon, 19 Oct 2015 10:03:19 -0700
-Message-ID: <56252257.3090508@oracle.com>
-References: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Mon, 19 Oct 2015 19:37:07 +0200
+Message-ID: <56252A43.3000706@iogearbox.net>
+References: <cover.1444956943.git.daniel@iogearbox.net> <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net> <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com> <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net> <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com> <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com> <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com> <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com> <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com> <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net> <562518B8.2070401@plumgrid
+ .com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, ssantosh@kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444857331-4344-1-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <562518B8.2070401@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David L,
+On 10/19/2015 06:22 PM, Alexei Starovoitov wrote:
+> On 10/19/15 7:23 AM, Daniel Borkmann wrote:
+>>>> The mknod is not the holder but rather the kobject which should be
+>>>> represented in sysfs will be. So you can still get the map major:minor
+>>>> by looking up the /dev file in the correspdonding sysfs directory or I
+>>>> think we should provide a 'unbind' file, which will drop the kobject if
+>>>> the user writes a '1' to it.
+>>>
+>>> I agree, this could still be done.
+>
+> imo doing 'rm' is way cleaner then dealing with 'unbind' file.
 
-On 10/14/2015 2:15 PM, Santosh Shilimkar wrote:
-> From: Santosh Shilimkar <ssantosh@kernel.org>
->
-> To further improve the RDS connection scalabilty on massive systems
-> where number of sockets grows into tens of thousands  of sockets, there
-> is a need of larger bind hashtable. Pre-allocated 8K or 16K table is
-> not very flexible in terms of memory utilisation. The rhashtable
-> infrastructure gives us the flexibility to grow the hashtbable based
-> on use and also comes up with inbuilt efficient bucket(chain) handling.
->
-> Cc: David Laight <David.Laight@ACULAB.COM>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> ---
-> As promised in last series review, here is an RFC to conver RDS to make
-> use of re-sizable hash tables.
+Hmm, not sure, maybe this was misunderstood. It's not about files, but
+rather devices. Devices are decoupled.
 
-Just want to check if you have any comments since you reviewed the
-earlier patch and suggested the rhash.
+This unbind file is optional and could live under /sys/class/bpf/bpf_{map,
+prog}<X>/unbind for a device release. It's not strictly necessary for this
+to work, though, the management is, as explained, via bpf() syscall.
 
+>> As Hannes said, under /sys/class/bpf/ an admin can see all held nodes, so
+>> visibility is there for free at all times. The device management (creation/
+>> deletion) itself and the mknod's pointing to it are simply decoupled.
+>>
+>> This whole approach looks sound to me, also integrates nicely into the
+>> existing Linux facilities, and works on top of every fs supporting special
+>> files. Much cleaner than an extra file-system that would be required by a
+>> syscall in order to make the syscall work.
+>
+> thanks for the explanations. I think I got a complete picture now on
+> how such cdev will be used and I don't like it.
+> There is nothing in linux or any unix that creates thousands of cdevs
+> on the fly, but here user apps will create/destroy them back and forth
+> and they would need to do it quickly. Whole sysfs/kobj baggage is
 
->
->   net/rds/af_rds.c |  10 ++++-
->   net/rds/bind.c   | 127 ++++++++++++++++++++-----------------------------------
->   net/rds/rds.h    |   7 ++-
->   3 files changed, 58 insertions(+), 86 deletions(-)
->
-> diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-> index 384ea1e..b5476aeb 100644
-> --- a/net/rds/af_rds.c
-> +++ b/net/rds/af_rds.c
-> @@ -573,6 +573,7 @@ static void rds_exit(void)
->   	rds_threads_exit();
->   	rds_stats_exit();
->   	rds_page_exit();
-> +	rds_bind_lock_destroy();
->   	rds_info_deregister_func(RDS_INFO_SOCKETS, rds_sock_info);
->   	rds_info_deregister_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
->   }
-> @@ -582,11 +583,14 @@ static int rds_init(void)
->   {
->   	int ret;
->
-> -	rds_bind_lock_init();
-> +	ret = rds_bind_lock_init();
-> +	if (ret)
-> +		goto out;
->
->   	ret = rds_conn_init();
->   	if (ret)
-> -		goto out;
-> +		goto out_bind;
-> +
->   	ret = rds_threads_init();
->   	if (ret)
->   		goto out_conn;
-> @@ -620,6 +624,8 @@ out_conn:
->   	rds_conn_exit();
->   	rds_cong_exit();
->   	rds_page_exit();
-> +out_bind:
-> +	rds_bind_lock_destroy();
->   out:
->   	return ret;
->   }
-> diff --git a/net/rds/bind.c b/net/rds/bind.c
-> index bc6b93e..199e4cc 100644
-> --- a/net/rds/bind.c
-> +++ b/net/rds/bind.c
-> @@ -38,54 +38,18 @@
->   #include <linux/ratelimit.h>
->   #include "rds.h"
->
-> -struct bind_bucket {
-> -	rwlock_t                lock;
-> -	struct hlist_head	head;
-> +static struct rhashtable bind_hash_table;
-> +
-> +static struct rhashtable_params ht_parms = {
-> +	.nelem_hint = 768,
-> +	.key_len = sizeof(u64),
-> +	.key_offset = offsetof(struct rds_sock, rs_bound_key),
-> +	.head_offset = offsetof(struct rds_sock, rs_bound_node),
-> +	.max_size = 16384,
-> +	.min_size = 1024,
-> +	.automatic_shrinking = true,
->   };
->
-> -#define BIND_HASH_SIZE 1024
-> -static struct bind_bucket bind_hash_table[BIND_HASH_SIZE];
-> -
-> -static struct bind_bucket *hash_to_bucket(__be32 addr, __be16 port)
-> -{
-> -	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
-> -				  (BIND_HASH_SIZE - 1));
-> -}
-> -
-> -/* must hold either read or write lock (write lock for insert != NULL) */
-> -static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
-> -					__be32 addr, __be16 port,
-> -					struct rds_sock *insert)
-> -{
-> -	struct rds_sock *rs;
-> -	struct hlist_head *head = &bucket->head;
-> -	u64 cmp;
-> -	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
-> -
-> -	hlist_for_each_entry(rs, head, rs_bound_node) {
-> -		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
-> -		      be16_to_cpu(rs->rs_bound_port);
-> -
-> -		if (cmp == needle) {
-> -			rds_sock_addref(rs);
-> -			return rs;
-> -		}
-> -	}
-> -
-> -	if (insert) {
-> -		/*
-> -		 * make sure our addr and port are set before
-> -		 * we are added to the list.
-> -		 */
-> -		insert->rs_bound_addr = addr;
-> -		insert->rs_bound_port = port;
-> -		rds_sock_addref(insert);
-> -
-> -		hlist_add_head(&insert->rs_bound_node, head);
-> -	}
-> -	return NULL;
-> -}
-> -
->   /*
->    * Return the rds_sock bound at the given local address.
->    *
-> @@ -94,18 +58,14 @@ static struct rds_sock *rds_bind_lookup(struct bind_bucket *bucket,
->    */
->   struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
->   {
-> +	u64 key = ((u64)addr << 32) | port;
->   	struct rds_sock *rs;
-> -	unsigned long flags;
-> -	struct bind_bucket *bucket = hash_to_bucket(addr, port);
->
-> -	read_lock_irqsave(&bucket->lock, flags);
-> -	rs = rds_bind_lookup(bucket, addr, port, NULL);
-> -	read_unlock_irqrestore(&bucket->lock, flags);
-> -
-> -	if (rs && sock_flag(rds_rs_to_sk(rs), SOCK_DEAD)) {
-> -		rds_sock_put(rs);
-> +	rs = rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms);
-> +	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
-> +		rds_sock_addref(rs);
-> +	else
->   		rs = NULL;
-> -	}
->
->   	rdsdebug("returning rs %p for %pI4:%u\n", rs, &addr,
->   		ntohs(port));
-> @@ -116,10 +76,9 @@ struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
->   /* returns -ve errno or +ve port */
->   static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->   {
-> -	unsigned long flags;
->   	int ret = -EADDRINUSE;
->   	u16 rover, last;
-> -	struct bind_bucket *bucket;
-> +	u64 key;
->
->   	if (*port != 0) {
->   		rover = be16_to_cpu(*port);
-> @@ -130,23 +89,31 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->   	}
->
->   	do {
-> -		struct rds_sock *rrs;
->   		if (rover == 0)
->   			rover++;
->
-> -		bucket = hash_to_bucket(addr, cpu_to_be16(rover));
-> -		write_lock_irqsave(&bucket->lock, flags);
-> -		rrs = rds_bind_lookup(bucket, addr, cpu_to_be16(rover), rs);
-> -		write_unlock_irqrestore(&bucket->lock, flags);
-> -		if (!rrs) {
-> +		key = ((u64)addr << 32) | cpu_to_be16(rover);
-> +		if (rhashtable_lookup_fast(&bind_hash_table, &key, ht_parms))
-> +			continue;
-> +
-> +		rs->rs_bound_key = key;
-> +		rs->rs_bound_addr = addr;
-> +		rs->rs_bound_port = cpu_to_be16(rover);
-> +		rs->rs_bound_node.next = NULL;
-> +		rds_sock_addref(rs);
-> +		if (!rhashtable_insert_fast(&bind_hash_table,
-> +					    &rs->rs_bound_node, ht_parms)) {
->   			*port = rs->rs_bound_port;
->   			ret = 0;
->   			rdsdebug("rs %p binding to %pI4:%d\n",
->   			  rs, &addr, (int)ntohs(*port));
->   			break;
->   		} else {
-> -			rds_sock_put(rrs);
-> +			rds_sock_put(rs);
-> +			ret = -ENOMEM;
-> +			break;
->   		}
-> +
->   	} while (rover++ != last);
->
->   	return ret;
-> @@ -154,23 +121,17 @@ static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
->
->   void rds_remove_bound(struct rds_sock *rs)
->   {
-> -	unsigned long flags;
-> -	struct bind_bucket *bucket =
-> -		hash_to_bucket(rs->rs_bound_addr, rs->rs_bound_port);
-> -
-> -	write_lock_irqsave(&bucket->lock, flags);
->
-> -	if (rs->rs_bound_addr) {
-> -		rdsdebug("rs %p unbinding from %pI4:%d\n",
-> -		  rs, &rs->rs_bound_addr,
-> -		  ntohs(rs->rs_bound_port));
-> +	if (!rs->rs_bound_addr)
-> +		return;
->
-> -		hlist_del_init(&rs->rs_bound_node);
-> -		rds_sock_put(rs);
-> -		rs->rs_bound_addr = 0;
-> -	}
-> +	rdsdebug("rs %p unbinding from %pI4:%d\n",
-> +		 rs, &rs->rs_bound_addr,
-> +		 ntohs(rs->rs_bound_port));
->
-> -	write_unlock_irqrestore(&bucket->lock, flags);
-> +	rhashtable_remove_fast(&bind_hash_table, &rs->rs_bound_node, ht_parms);
-> +	rds_sock_put(rs);
-> +	rs->rs_bound_addr = 0;
->   }
->
->   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-> @@ -217,10 +178,12 @@ out:
->   	return ret;
->   }
->
-> -void rds_bind_lock_init(void)
-> +void rds_bind_lock_destroy(void)
->   {
-> -	int i;
-> +	rhashtable_destroy(&bind_hash_table);
-> +}
->
-> -	for (i = 0; i < BIND_HASH_SIZE; i++)
-> -		rwlock_init(&bind_hash_table[i].lock);
-> +int rds_bind_lock_init(void)
-> +{
-> +	return rhashtable_init(&bind_hash_table, &ht_parms);
->   }
-> diff --git a/net/rds/rds.h b/net/rds/rds.h
-> index 121fb81..0068840 100644
-> --- a/net/rds/rds.h
-> +++ b/net/rds/rds.h
-> @@ -7,6 +7,7 @@
->   #include <rdma/rdma_cm.h>
->   #include <linux/mutex.h>
->   #include <linux/rds.h>
-> +#include <linux/rhashtable.h>
->
->   #include "info.h"
->
-> @@ -472,7 +473,8 @@ struct rds_sock {
->   	 * bound_addr used for both incoming and outgoing, no INADDR_ANY
->   	 * support.
->   	 */
-> -	struct hlist_node	rs_bound_node;
-> +	struct rhash_head	rs_bound_node;
-> +	u64			rs_bound_key;
->   	__be32			rs_bound_addr;
->   	__be32			rs_conn_addr;
->   	__be16			rs_bound_port;
-> @@ -603,7 +605,8 @@ extern wait_queue_head_t rds_poll_waitq;
->   int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
->   void rds_remove_bound(struct rds_sock *rs);
->   struct rds_sock *rds_find_bound(__be32 addr, __be16 port);
-> -void rds_bind_lock_init(void);
-> +int rds_bind_lock_init(void);
-> +void rds_bind_lock_destroy(void);
->
->   /* cong.c */
->   int rds_cong_get_maps(struct rds_connection *conn);
->
+Well, you are talking about thousand maps and even root can create about
+5 maps and then will get an -EPERM. ;) Until an admin will figure out over
+couple of corners that ulimit -l needs to be adjusted ... ;)
+
+But more serious, can you elaborate what you mean?
+
+An eBPF program or map loading/destruction is *not* by any means to be
+considered fast-path. We currently hold a global mutex during loading.
+So, how can that be considered fast-path? Similarly, socket creation/
+destruction is also not fast-path, etc. Do you expect that applications
+would create/destroy these devices within milliseconds? I'd argue that
+something would be seriously wrong with that application, then. Such
+persistent maps are to be considered rather mid-long living objects in
+the system. The fast-path surely is the data-path of them.
+
+> completely unnecessary here. The kernel will consume more memory for
+> no real reason other than cdev are used to keep prog/maps around.
+
+I don't consider this a big issue, and well worth the trade-off. You'll
+have an infrastructure that integrates *nicely* into the *existing* kernel
+model *and* tooling with the proposed patch. This is a HUGE plus. The
+UAPI of this is simple and minimal. And to me, these are in-fact special
+files, not regular ones.
+
+> imo fs is cleaner and we can tailor it to be similar to cdev style.
+
+Really, IMHO I think this is over-designed, and much much more hacky. We
+design a whole new file system that works *exactly* like cdevs, takes
+likely more than twice the code and complexity to realize but just to
+save a few bytes ...? I don't understand that.
+
+Cheers,
+Daniel
