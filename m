@@ -1,7 +1,7 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 1/2] crypto/x509: Fix unaligned access in x509_get_sig_params()
-Date: Mon, 19 Oct 2015 17:23:28 -0400
-Message-ID: <288f39ff7c8b0bc60693e338fc8f6cea9008d443.1445286755.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 2/2] xfrm: Fix unaligned access in xfrm_notify_sa() for DELSA
+Date: Mon, 19 Oct 2015 17:23:29 -0400
+Message-ID: <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
 References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
 Cc: herbert@gondor.apana.org.au, dhowells@redhat.com,
 	davem@davemloft.net, zohar@linux.vnet.ibm.com,
@@ -16,38 +16,28 @@ References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-x509_get_sig_params() has the same code pattern as the one in
-pkcs7_verify() that is fixed by commit 62f57d05e287 ("crypto: pkcs7 - Fix
-unaligned access in pkcs7_verify()") so apply a similar fix here: make
-sure that desc is pointing at an algined value past the digest_size,
-and take alignment values into consideration when doing kzalloc()
+On sparc, deleting established SAs (e.g., by restarting ipsec
+at the peer) results in unaligned access messages via
+xfrm_del_sa -> km_state_notify -> xfrm_send_state_notify().
+Use an aligned pointer to xfrm_usersa_info for this case.
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- crypto/asymmetric_keys/x509_public_key.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ net/xfrm/xfrm_user.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/crypto/asymmetric_keys/x509_public_key.c b/crypto/asymmetric_keys/x509_public_key.c
-index 1970966..68c3c40 100644
---- a/crypto/asymmetric_keys/x509_public_key.c
-+++ b/crypto/asymmetric_keys/x509_public_key.c
-@@ -194,14 +194,15 @@ int x509_get_sig_params(struct x509_certificate *cert)
- 	 * digest storage space.
- 	 */
- 	ret = -ENOMEM;
--	digest = kzalloc(digest_size + desc_size, GFP_KERNEL);
-+	digest = kzalloc(ALIGN(digest_size, __alignof__(*desc)) + desc_size,
-+			 GFP_KERNEL);
- 	if (!digest)
- 		goto error;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index a8de9e3..158ef4a 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
+ 		if (attr == NULL)
+ 			goto out_free_skb;
  
- 	cert->sig.digest = digest;
- 	cert->sig.digest_size = digest_size;
- 
--	desc = digest + digest_size;
-+	desc = PTR_ALIGN(digest + digest_size, __alignof__(*desc));
- 	desc->tfm = tfm;
- 	desc->flags = CRYPTO_TFM_REQ_MAY_SLEEP;
- 
+-		p = nla_data(attr);
++		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
+ 	}
+ 	err = copy_to_user_state_extra(x, p, skb);
+ 	if (err)
 -- 
 1.7.1
