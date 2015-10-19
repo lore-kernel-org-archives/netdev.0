@@ -1,65 +1,164 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Mon, 19 Oct 2015 09:22:16 -0700
-Message-ID: <562518B8.2070401@plumgrid.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
- <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
- <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
- <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
- <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
- <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com>
- <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
- <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net>
- <56240814.8020105@plumgrid.com>
- <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
- <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5624FCDF.3090601@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ronen Arad <ronen.arad@intel.com>
+Subject: [PATCH net-next v3] netlink: Rightsize IFLA_AF_SPEC size calculation
+Date: Mon, 19 Oct 2015 09:23:28 -0700
+Message-ID: <1445271808-9097-1-git-send-email-ronen.arad@intel.com>
+References: <1444888204-1954-1-git-send-email-ronen.arad@intel.com>
+Cc: Ronen Arad <ronen.arad@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:50565 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750876AbbJSQXh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2015 12:23:37 -0400
+In-Reply-To: <1444888204-1954-1-git-send-email-ronen.arad@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/19/15 7:23 AM, Daniel Borkmann wrote:
->>> The mknod is not the holder but rather the kobject which should be
->>> represented in sysfs will be. So you can still get the map major:minor
->>> by looking up the /dev file in the correspdonding sysfs directory or I
->>> think we should provide a 'unbind' file, which will drop the kobject if
->>> the user writes a '1' to it.
->>
->> I agree, this could still be done.
+if_nlmsg_size() overestimates the minimum allocation size of netlink
+dump request (when called from rtnl_calcit()) or the size of the
+message (when called from rtnl_getlink()). This is because
+ext_filter_mask is not supported by rtnl_link_get_af_size() and
+rtnl_link_get_size().
 
-imo doing 'rm' is way cleaner then dealing with 'unbind' file.
+The over-estimation is significant when at least one netdev has many
+VLANs configured (8 bytes for each configured VLAN).
 
-> As Hannes said, under /sys/class/bpf/ an admin can see all held nodes, so
-> visibility is there for free at all times. The device management (creation/
-> deletion) itself and the mknod's pointing to it are simply decoupled.
->
-> This whole approach looks sound to me, also integrates nicely into the
-> existing Linux facilities, and works on top of every fs supporting special
-> files. Much cleaner than an extra file-system that would be required by a
-> syscall in order to make the syscall work.
+This patch-set "rightsizes" the protocol specific attribute size
+calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
+and adding this a argument to get_link_af_size op in rtnl_af_ops.
 
-thanks for the explanations. I think I got a complete picture now on
-how such cdev will be used and I don't like it.
-There is nothing in linux or any unix that creates thousands of cdevs
-on the fly, but here user apps will create/destroy them back and forth
-and they would need to do it quickly. Whole sysfs/kobj baggage is
-completely unnecessary here. The kernel will consume more memory for
-no real reason other than cdev are used to keep prog/maps around.
-imo fs is cleaner and we can tailor it to be similar to cdev style.
-For example we can make bpffs automount in /sys/kernel/bpf/ as standard
-location and have one directory structure for all mounts (like tracefs).
-Then within it have idr mechanism to crate bpf_progX and bpf_mapY
-special files via BPF_PIN_FD bpf syscall with single FD argument.
-At this point fs and cdev approach from user point of view look
-exactly the same, but overhead of fs is significantly lower,
-normal 'rm' works just fine and much faster.
+Bridge module already used filtering aware sizing for notifications.
+br_get_link_af_size_filtered() is consistent with the modified
+get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
+br_get_link_af_size() becomes unused and thus removed.
+
+Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+---
+ include/net/rtnetlink.h |  3 ++-
+ net/bridge/br_netlink.c | 21 +--------------------
+ net/core/rtnetlink.c    |  8 ++++----
+ net/ipv4/devinet.c      |  4 ++--
+ net/ipv6/addrconf.c     |  3 ++-
+ 5 files changed, 11 insertions(+), 28 deletions(-)
+
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index aff6ceb..2f87c1b 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -124,7 +124,8 @@ struct rtnl_af_ops {
+ 	int			(*fill_link_af)(struct sk_buff *skb,
+ 						const struct net_device *dev,
+ 						u32 ext_filter_mask);
+-	size_t			(*get_link_af_size)(const struct net_device *dev);
++	size_t			(*get_link_af_size)(const struct net_device *dev,
++						    u32 ext_filter_mask);
+ 
+ 	int			(*validate_link_af)(const struct net_device *dev,
+ 						    const struct nlattr *attr);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 94b4de8..40197ff 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -1214,29 +1214,10 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	return 0;
+ }
+ 
+-static size_t br_get_link_af_size(const struct net_device *dev)
+-{
+-	struct net_bridge_port *p;
+-	struct net_bridge *br;
+-	int num_vlans = 0;
+-
+-	if (br_port_exists(dev)) {
+-		p = br_port_get_rtnl(dev);
+-		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
+-						  RTEXT_FILTER_BRVLAN);
+-	} else if (dev->priv_flags & IFF_EBRIDGE) {
+-		br = netdev_priv(dev);
+-		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
+-						  RTEXT_FILTER_BRVLAN);
+-	}
+-
+-	/* Each VLAN is returned in bridge_vlan_info along with flags */
+-	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
+-}
+ 
+ static struct rtnl_af_ops br_af_ops __read_mostly = {
+ 	.family			= AF_BRIDGE,
+-	.get_link_af_size	= br_get_link_af_size,
++	.get_link_af_size	= br_get_link_af_size_filtered,
+ };
+ 
+ struct rtnl_link_ops br_link_ops __read_mostly = {
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2477595..7c78b5a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -497,7 +497,8 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(rtnl_af_unregister);
+ 
+-static size_t rtnl_link_get_af_size(const struct net_device *dev)
++static size_t rtnl_link_get_af_size(const struct net_device *dev,
++				    u32 ext_filter_mask)
+ {
+ 	struct rtnl_af_ops *af_ops;
+ 	size_t size;
+@@ -509,7 +510,7 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev)
+ 		if (af_ops->get_link_af_size) {
+ 			/* AF_* + nested data */
+ 			size += nla_total_size(sizeof(struct nlattr)) +
+-				af_ops->get_link_af_size(dev);
++				af_ops->get_link_af_size(dev, ext_filter_mask);
+ 		}
+ 	}
+ 
+@@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+-	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
++	       + rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+@@ -3443,4 +3444,3 @@ void __init rtnetlink_init(void)
+ 	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
+ 	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
+ }
+-
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 7350084..cebd9d3 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1644,7 +1644,8 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
+ }
+ 
+-static size_t inet_get_link_af_size(const struct net_device *dev)
++static size_t inet_get_link_af_size(const struct net_device *dev,
++				    u32 ext_filter_mask)
+ {
+ 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+ 
+@@ -2398,4 +2399,3 @@ void __init devinet_init(void)
+ 	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
+ 		      inet_netconf_dump_devconf, NULL);
+ }
+-
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f0326aa..0645fd1 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4786,7 +4786,8 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+-static size_t inet6_get_link_af_size(const struct net_device *dev)
++static size_t inet6_get_link_af_size(const struct net_device *dev,
++				     u32 ext_filter_mask)
+ {
+ 	if (!__in6_dev_get(dev))
+ 		return 0;
+-- 
+2.1.0
