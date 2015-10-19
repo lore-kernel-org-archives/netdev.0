@@ -1,37 +1,30 @@
-From: Insu Yun <wuninsu@gmail.com>
-Subject: [PATCH] nfc: free skb buffer using skb_free_datagram
-Date: Mon, 19 Oct 2015 15:59:17 +0000
-Message-ID: <1445270357-23785-1-git-send-email-wuninsu@gmail.com>
-Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
-	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
-To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	sameo@linux.intel.com, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+From: Paul McQuade <paulmcquad@gmail.com>
+Subject: [PATCH v2 0/3] Coding Style Cleanning
+Date: Mon, 19 Oct 2015 17:02:20 +0100
+Message-ID: <1445270543-2209-1-git-send-email-paulmcquad@gmail.com>
+Cc: kvalo@codeaurora.org, zajec5@gmail.com, davem@davemloft.net,
+	joe@perches.com, johannes.berg@intel.com, sd@queasysnail.net,
+	m@bues.ch, mike.looijmans@topic.nl, khoroshilov@ispras.ru,
+	cengelma@gmx.at, linux-wireless@vger.kernel.org,
+	b43-dev@lists.infradead.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
+To: paulmcquad@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Freeing sk_buff genereated by skb_recv_datagram is always by
-skb_free_datagram, not kfree_skb.
+Paul McQuade (3):
+  net: wireless: rsi: Coding Spaces
+  net: wireless: b43: Coding Style
+  net: wireless: b43: Statics are init to 0
 
-Signed-off-by: Insu Yun <wuninsu@gmail.com>
----
- net/nfc/llcp_sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/b43/main.c             | 8 ++++----
+ drivers/net/wireless/b43/main.h             | 2 +-
+ drivers/net/wireless/b43/phy_lp.c           | 2 +-
+ drivers/net/wireless/b43/xmit.h             | 2 +-
+ drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 2 +-
+ drivers/net/wireless/rsi/rsi_mgmt.h         | 4 ++--
+ 6 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-index b7de0da..15e681f 100644
---- a/net/nfc/llcp_sock.c
-+++ b/net/nfc/llcp_sock.c
-@@ -870,7 +870,7 @@ static int llcp_sock_recvmsg(struct socket *sock, struct msghdr *msg,
- 			}
- 		}
- 
--		kfree_skb(skb);
-+		skb_free_datagram(sk, skb);
- 	}
- 
- 	/* XXX Queue backlogged skbs */
 -- 
-1.9.1
+2.6.1
