@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 route: Aggregate table getting code
-Date: Sun, 18 Oct 2015 23:09:13 -0700 (PDT)
-Message-ID: <20151018.230913.533343373986091178.davem@davemloft.net>
-References: <1445129499-2496-1-git-send-email-masashi.honma@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: masashi.honma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49582 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751335AbbJSFwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 01:52:55 -0400
-In-Reply-To: <1445129499-2496-1-git-send-email-masashi.honma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heiko Schocher <hs@denx.de>
+Subject: [PATCH] net, can, ti_hecc: fix a run time warn_on.
+Date: Mon, 19 Oct 2015 08:22:18 +0200
+Message-ID: <1445235739-26537-1-git-send-email-hs@denx.de>
+Cc: Heiko Schocher <hs@denx.de>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Masashi Honma <masashi.honma@gmail.com>
-Date: Sun, 18 Oct 2015 09:51:39 +0900
+This patch fixes a warning in clk_enable by calling
+clk_prepare_enable instead.
 
-> These lines could be aggregated to one line because fib6_new_table() calls
-> fib6_get_table() inside on both cases CONFIG_IPV6_MULTIPLE_TABLES is enabled or
-> not.
-> 
-> Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
+Signed-off-by: Heiko Schocher <hs@denx.de>
+---
 
-This is not correct.
+ drivers/net/can/ti_hecc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The whole point of the test is so that the kernel log message
-warning for failing to provide NLM_F_CREATE can be printed
-in precisely the correct conditions.
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index cf345cb..c08e8ea 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
+ 		HECC_DEF_NAPI_WEIGHT);
+ 
+-	clk_enable(priv->clk);
++	clk_prepare_enable(priv->clk);
+ 	err = register_candev(ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "register_candev() failed\n");
+-- 
+2.1.0
+
