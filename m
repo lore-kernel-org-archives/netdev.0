@@ -1,37 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: do not set queue_mapping on SYNACK
-Date: Sun, 18 Oct 2015 22:26:15 -0700 (PDT)
-Message-ID: <20151018.222615.1410928614255717702.davem@davemloft.net>
-References: <1445025601.30896.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
+Date: Sun, 18 Oct 2015 22:17:56 -0700
+Message-ID: <20151018221756.37849ea3@xeon-e3>
+References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: <davem@davemloft.net>, <prashant@broadcom.com>,
+	<eddie.wai@broadcom.com>, <huangjw@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbbJSFJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 01:09:58 -0400
-In-Reply-To: <1445025601.30896.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35647 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbbJSFRq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 01:17:46 -0400
+Received: by pasz6 with SMTP id z6so18756233pas.2
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2015 22:17:45 -0700 (PDT)
+In-Reply-To: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 16 Oct 2015 13:00:01 -0700
+On Sat, 17 Oct 2015 00:21:44 -0400
+Michael Chan <mchan@broadcom.com> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> At the time of commit fff326990789 ("tcp: reflect SYN queue_mapping into
-> SYNACK packets") we had little ways to cope with SYN floods.
-> 
-> We no longer need to reflect incoming skb queue mappings, and instead
-> can pick a TX queue based on cpu cooking the SYNACK, with normal XPS
-> affinities.
-> 
-> Note that all SYNACK retransmits were picking TX queue 0, this no longer
-> is a win given that SYNACK rtx are now distributed on all cpus.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> +/* indexed by enum above */
+> +static struct {
+> +	char *name;
+> +} board_info[] = {
+> +	{ "Broadcom BCM57302 NetXtreme-C Single-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
+> +	{ "Broadcom BCM57304 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
+> +	{ "Broadcom BCM57404 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
+> +	{ "Broadcom BCM57406 NetXtreme-E Dual-port 10Gb Ethernet" },
+> +	{ "Broadcom BCM57304 NetXtreme-C Ethernet Virtual Function" },
+> +	{ "Broadcom BCM57404 NetXtreme-E Ethernet Virtual Function" },
+> +};
 
-Applied, thanks Eric.
+Tables like this should be declared const.
