@@ -1,46 +1,65 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
-Date: Mon, 19 Oct 2015 16:04:02 -0700
-Message-ID: <1445295842.7588.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
-	 <20151018221958.1b7b9d0d@xeon-e3>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv2 net 2/3] openvswitch: Treat IP_CT_RELATED as new
+Date: Mon, 19 Oct 2015 16:13:42 -0700
+Message-ID: <CANr6G5wLhz6UcBp0_a_cCnofJFyY43CU290Uu8+RKiDmUZccqA@mail.gmail.com>
+References: <1445018901-18839-1-git-send-email-joestringer@nicira.com>
+ <1445018901-18839-3-git-send-email-joestringer@nicira.com>
+ <20151017075233.GC13981@pox.localdomain> <CANr6G5xmO6D0Yu0VXeaJLbO1aK2tQ5_vHUNRkawK1zNFMJz=aw@mail.gmail.com>
+ <20151019090332.GA7104@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <prashant@broadcom.com>,
-	<eddie.wai@broadcom.com>, <huangjw@broadcom.com>,
-	<netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jrajahalme@nicira.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:6690 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbbJSXE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 19:04:29 -0400
-In-Reply-To: <20151018221958.1b7b9d0d@xeon-e3>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:36401 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138AbbJSXOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 19:14:03 -0400
+Received: by ykdz2 with SMTP id z2so392389ykd.3
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 16:14:02 -0700 (PDT)
+In-Reply-To: <20151019090332.GA7104@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-10-18 at 22:19 -0700, Stephen Hemminger wrote: 
-> On Sat, 17 Oct 2015 00:21:44 -0400
-> Michael Chan <mchan@broadcom.com> wrote:
-> 
-> > +static bool bnxt_vf_pciid(int idx)
-> > +{
-> > +	if (idx == BCM57304_VF || idx == BCM57404_VF)
-> > +		return true;
-> > +	return false;
-> > +}
-> > +
-> 
-> I prefer just returning result of logical operation
-> rather than adding unnecessary if statement.
-> And never use (signed) int when unsigned is the real
-> data type. Also avoid any unnecessary expansion of 16 bit
-> value.
-> 
-> static bool bnxt_vf_pciid(u16 idx)
-> {
-> 	return (idx == BCM57304_VF || idx == BCM57404_VF);
-> }
+On 19 October 2015 at 02:03, Thomas Graf <tgraf@suug.ch> wrote:
+> On 10/19/15 at 12:07am, Joe Stringer wrote:
+>> > I'm probably missing something obvious. Why is the reply direction
+>> > not considered NEW? Wouldn't this consider an ICMPv6 as related+new
+>> > depending on simply the direction?
+>>
+>> My thoughts were along the lines "If something is a reply, that
+>> implies that state is held, and therefore it cannot be NEW (where NEW
+>> means no state is available)". However, if you consider that the
+>> 'related' connection is an independent connection with its own state,
+>> but the 'reply' bit refers to the original connection, my original
+>> premise breaks. Furthermore, looking at how it's used in netfilter
+>> core and the ICMP proto handler, it looks like both of these cases
+>> should be considered NEW. I can respin.
+>>
+>> Do you have a specific case in mind here? It would be useful for
+>> extending the OVS testsuite.
+>
+> It's tricky. A typical use case would be an active FTP connection
+> where the data connection is established in the reply direction
+> and marked related if I'm not mistaken.
+>
+> OTOH, an ICMP sent in response should not be considered NEW. It
+> really depends on our definition of NEW towards the user.
 
-idx is actually type enum.  Other points well taken.
+ICMP and FTP are handled a bit differently: ICMP protocol handling is
+based on the original connection; however for expected connections
+like FTP data, there is a separate conntrack entry. I agree that for
+ICMP errors, they should not be NEW; but for active FTP connections,
+I'd expect the data connection to be NEW (if it wasn't already
+seen&established). Along these lines, my earlier assertion that the
+'reply' flag is based on the original connection is only applicable
+for ICMP responses, but not for FTP data connections.
+
+I think that the proper solution instead of this patch is to set NEW
+if !nf_ct_is_confirmed(ct). This is more accurately the meaning for
+'NEW' that we are actually trying to expose. As long as this is done
+before confirming the connection during a "commit", this will make the
+behaviour consistent with the lack of commit flag. I'm sending a
+patch. Thanks for the feedback!
