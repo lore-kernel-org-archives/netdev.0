@@ -1,47 +1,97 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/2] NFC: delete null dereference
-Date: Mon, 19 Oct 2015 15:57:50 +0300
-Message-ID: <20151019125750.GG7340@mwanda>
-References: <1445074340-21955-1-git-send-email-Julia.Lawall@lip6.fr>
- <1445074340-21955-2-git-send-email-Julia.Lawall@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	kernel-janitors@vger.kernel.org,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: extend broadcast link window size
+Date: Mon, 19 Oct 2015 09:21:37 -0400
+Message-ID: <1445260897-27445-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:29449 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbbJSM6c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 08:58:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1445074340-21955-2-git-send-email-Julia.Lawall@lip6.fr>
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:26086 "EHLO
+	smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753968AbbJSNWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 09:22:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The next goto after that is messed up as well:
+The default fix broadcast window size is currently set to 20 packets.
+This is a very low value, set at a time when we were still testing on
+10 Mb/s hubs, and a change to it is long overdue.
 
-  1056          dev = nfc_get_device(idx);
-  1057          if (!dev)
-  1058                  return -ENODEV;
-  1059  
-  1060          device_lock(&dev->dev);
-  1061  
-  1062          local = nfc_llcp_find_local(dev);
-  1063          if (!local) {
-  1064                  nfc_put_device(dev);
+Commit 7845989cb4b3da1db ("net: tipc: fix stall during bclink wakeup procedure")
+revealed a problem with this low value. For messages of importance LOW,
+the backlog queue limit will be  calculated to 30 packets, while a
+single, maximum sized message of 66000 bytes, carried across a 1500 MTU
+network consists of 46 packets.
 
-It should not call nfc_put_device() because that happens after goto
-exit.
+This leads to the following scenario (among others leading to the same
+situation):
 
-  1065                  rc = -ENODEV;
-  1066                  goto exit;
-  1067          }
+1: Msg 1 of 46 packets is sent. 20 packets go to the transmit queue, 26
+   packets to the backlog queue.
+2: Msg 2 of 46 packets is attempted sent, but rejected because there is
+   no more space in the backlog queue at this level. The sender is added
+   to the wakeup queue with a "pending packets chain size" number of 46.
+3: Some packets in the transmit queue are acked and released. We try to
+   wake up the sender, but the pending size of 46 is bigger than the LOW
+   wakeup limit of 30, so this doesn't happen.
+5: Subsequent acks releases all the remaining buffers. Each time we test
+   for the wakeup criteria and find that 46 still is larger than 30,
+   even after both the transmit and the backlog queues are empty.
+6: The sender is never woken up and given a chance to send its message.
+   He is stuck.
 
-regards,
-dan carpenter
+We could now loosen the wakeup criteria (used by link_prepare_wakeup())
+to become equal to the send criteria (used by tipc_link_xmit()), i.e.,
+by ignoring the "pending packets chain size" value altogether, or we can
+just increase the queue limits so that the criteria can be satisfied
+anyway. There are good reasons (potentially multiple waiting senders) to
+not opt for the former solution, so we choose the latter one.
+
+This commit fixes the problem by giving the broadcast link window a
+default value of 50 packets. We also introduce a new minimum link
+window size BCLINK_MIN_WIN of 32, which is enough to always avoid the
+described situation. Finally, in order to not break any existing users
+which may set the window explicitly, we enforce that the window is set
+to the new minimum value in case the user is trying to set it to
+anything lower.
+
+Fixes: 7845989cb4b3da1db ("net: tipc: fix stall during bclink wakeup procedure")
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/bcast.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 41042de..eadba62 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -42,7 +42,8 @@
+ #include "core.h"
+ 
+ #define	MAX_PKT_DEFAULT_MCAST	1500	/* bcast link max packet size (fixed) */
+-#define	BCLINK_WIN_DEFAULT	20	/* bcast link window size (default) */
++#define	BCLINK_WIN_DEFAULT	50	/* bcast link window size (default) */
++#define	BCLINK_WIN_MIN	        32	/* bcast minimum link window size */
+ 
+ const char tipc_bclink_name[] = "broadcast-link";
+ 
+@@ -908,9 +909,10 @@ int tipc_bclink_set_queue_limits(struct net *net, u32 limit)
+ 
+ 	if (!bcl)
+ 		return -ENOPROTOOPT;
+-	if ((limit < TIPC_MIN_LINK_WIN) || (limit > TIPC_MAX_LINK_WIN))
++	if (limit < BCLINK_WIN_MIN)
++		limit = BCLINK_WIN_MIN;
++	if (limit > TIPC_MAX_LINK_WIN)
+ 		return -EINVAL;
+-
+ 	tipc_bclink_lock(net);
+ 	tipc_link_set_queue_limits(bcl, limit);
+ 	tipc_bclink_unlock(net);
+-- 
+1.9.1
