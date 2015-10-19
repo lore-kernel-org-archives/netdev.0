@@ -1,99 +1,126 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next V17 3/3] 802.1AD: Flow handling, actions, vlan
- parsing and netlink attributes
-Date: Mon, 19 Oct 2015 11:28:05 -0700
-Message-ID: <CALnjE+p1NdBmSZiGoNHw1C_u+D7s1o=7U68WHpx=5t+PQB=92g@mail.gmail.com>
-References: <1445130748-27671-1-git-send-email-thomasfherbert@gmail.com>
-	<1445130748-27671-4-git-send-email-thomasfherbert@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Mon, 19 Oct 2015 20:46:25 +0200
+Message-ID: <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <ab1fceb2d68876d89bb2ebb3d2b45486d3cf2388.1444956943.git.daniel@iogearbox.net>
+ <1445016105.1251655.412231129.6574D430@webmail.messagingengine.com>
+ <5621371C.2000507@plumgrid.com> <56213A61.40509@iogearbox.net>
+ <87d1welkp8.fsf@x220.int.ebiederm.org> <56214FAC.5060704@plumgrid.com>
+ <87y4f2io9l.fsf@x220.int.ebiederm.org> <5621649A.80403@plumgrid.com>
+ <87mvviidku.fsf@x220.int.ebiederm.org> <5621B5BC.8020204@plumgrid.com>
+ <56223F00.5030203@iogearbox.net> <562301F9.1030702@plumgrid.com>
+ <5623B4B4.2010703@iogearbox.net> <5623CD8D.7000500@iogearbox.net>
+ <56240814.8020105@plumgrid.com>
+ <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
+ <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
+ <562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
+ <56253335.9000206@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas F Herbert <thomasfherbert@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:36326 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254AbbJSS2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 14:28:06 -0400
-Received: by ioll68 with SMTP id l68so43368140iol.3
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 11:28:06 -0700 (PDT)
-In-Reply-To: <1445130748-27671-4-git-send-email-thomasfherbert@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56253335.9000206@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 17, 2015 at 6:12 PM, Thomas F Herbert
-<thomasfherbert@gmail.com> wrote:
-> Add support for 802.1ad including the ability to push and pop double
-> tagged vlans. Add support for 802.1ad to netlink parsing and flow
-> conversion. Uses double nested encap attributes to represent double
-> tagged vlan. Inner TPID encoded along with ctci in nested attributes.
->
-> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
-> ---
->  net/openvswitch/actions.c      |   6 +-
->  net/openvswitch/flow.c         |  76 +++++++++++++-----
->  net/openvswitch/flow.h         |   8 +-
->  net/openvswitch/flow_netlink.c | 172 +++++++++++++++++++++++++++++++++++++----
->  net/openvswitch/vport-netdev.c |   4 +-
->  5 files changed, 227 insertions(+), 39 deletions(-)
->
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index 315f533..09cc1c9 100644
-...
+Hi,
 
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index c92d6a2..97a6d12 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-...
+On Mon, Oct 19, 2015, at 20:15, Alexei Starovoitov wrote:
+> On 10/19/15 10:37 AM, Daniel Borkmann wrote:
+> > An eBPF program or map loading/destruction is *not* by any means to be
+> > considered fast-path. We currently hold a global mutex during loading.
+> > So, how can that be considered fast-path? Similarly, socket creation/
+> > destruction is also not fast-path, etc. Do you expect that applications
+> > would create/destroy these devices within milliseconds? I'd argue that
+> > something would be seriously wrong with that application, then. Such
+> > persistent maps are to be considered rather mid-long living objects in
+> > the system. The fast-path surely is the data-path of them.
+> 
+> consider seccomp that loads several programs for every tab, then
+> container use case where we're loading two for each as well.
+> Who knows what use cases will come up in the future.
+> It's obviously not a fast path that is being hit million times a second,
+> but why add overhead when it's unnecessary?
 
-> @@ -1320,6 +1443,7 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
->  {
->         struct ovs_key_ethernet *eth_key;
->         struct nlattr *nla, *encap;
-> +       struct nlattr *in_encap = NULL;
->
->         if (nla_put_u32(skb, OVS_KEY_ATTR_RECIRC_ID, output->recirc_id))
->                 goto nla_put_failure;
-> @@ -1368,17 +1492,29 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
->         ether_addr_copy(eth_key->eth_src, output->eth.src);
->         ether_addr_copy(eth_key->eth_dst, output->eth.dst);
->
-> -       if (swkey->eth.tci || swkey->eth.type == htons(ETH_P_8021Q)) {
-> -               __be16 eth_type;
-> -               eth_type = !is_mask ? htons(ETH_P_8021Q) : htons(0xffff);
-> -               if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE, eth_type) ||
-> -                   nla_put_be16(skb, OVS_KEY_ATTR_VLAN, output->eth.tci))
-> +       if (swkey->eth.vlan.tci || eth_type_vlan(swkey->eth.type)) {
-> +               if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE,
-> +                                output->eth.vlan.tpid) ||
-> +                   nla_put_be16(skb, OVS_KEY_ATTR_VLAN, output->eth.vlan.tci))
->                         goto nla_put_failure;
->                 encap = nla_nest_start(skb, OVS_KEY_ATTR_ENCAP);
-> -               if (!swkey->eth.tci)
-> +               if (!swkey->eth.vlan.tci)
->                         goto unencap;
-> -       } else
-> +               if (swkey->eth.cvlan.tci) {
-> +                       /* Customer tci is nested but uses same key attribute.
-> +                        */
-> +                       if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE,
-> +                                        output->eth.cvlan.tpid) ||
-> +                           nla_put_be16(skb, OVS_KEY_ATTR_VLAN,
-> +                                        output->eth.cvlan.tci))
-> +                               goto nla_put_failure;
-> +                       in_encap = nla_nest_start(skb, OVS_KEY_ATTR_ENCAP);
-> +                       if (!swkey->eth.cvlan.tci)
-> +                               goto unencap;
-> +               }
-> +       } else {
->                 encap = NULL;
-> +       }
-After the vlan parsing changes, we need to encode cvlan in outer
-netlink attribute and then encode regular vlan. Currently we are
-reversing netlink encoding while sending back the vlan attributes.
-cvlan and vlan is independent, therefore we need to check
-swkey->eth.cvlan.tc outside of swkey->eth.vlan.tci block. Also
-redundant check for swkey->eth.cvlan.tci should be removed.
+But the browser using seccomp does not need persistent maps at all. It
+would merely create temporary maps without the overhead which are
+automatically released when the program finished. In no way should they
+be persistent but automatically garbage collected as soon as the
+supervisor process and its children die.
 
-Can you also post changes for userspace vswitchd so that I can try next patch.
+> >> completely unnecessary here. The kernel will consume more memory for
+> >> no real reason other than cdev are used to keep prog/maps around.
+> >
+> > I don't consider this a big issue, and well worth the trade-off. You'll
+> > have an infrastructure that integrates *nicely* into the *existing* kernel
+> > model *and* tooling with the proposed patch. This is a HUGE plus. The
+> > UAPI of this is simple and minimal. And to me, these are in-fact special
+> > files, not regular ones.
+> 
+> Seriously? Syscall to create/destory cdevs is a nice api?
+
+It is pretty normal to do. They don't use syscall but ioctl on a special
+pseudo device node (lvm2/device-mapper, tun, etc.). Same thing, very
+overloaded syscall. Also I don't see a reason to not make the creation
+possible via sysfs, which would be even nicer but not orthogonal to the
+current creation of maps, which is nowadays set in stone by uapi.
+
+> Not by any means. We can argue in circles, but it doesn't fit.
+> Using cdev to hold maps is a hack.
+> Telling kernel that fake device is created only to hold a map?
+> This fake device doesn't have any of the device properties.
+> Look at fops->open. Surely it's a smart trick, but it's not behaving
+> like device.
+> 
+> uapi for fs adds only two commands, whereas cdev needs three.
+> 
+> >> imo fs is cleaner and we can tailor it to be similar to cdev style.
+> >
+> > Really, IMHO I think this is over-designed, and much much more hacky. We
+> > design a whole new file system that works *exactly* like cdevs, takes
+> > likely more than twice the code and complexity to realize but just to
+> > save a few bytes ...? I don't understand that.
+> 
+> Let's argue with facts. Your fs patch 758 lines vs cdev 483.
+> In fs the cost is single alloc_inode(), whereas in cdev the struct cdev
+> and mutex will add to all maps and progs (even when they're not going
+> to be pinned), plus kobj allocation, plus gigantic struct device, plus
+> sysfs inodes, etc. Way more than few bytes of difference.
+
+sysfs already has infrastructure to ensure supportability and
+debugability. Dependency graphs can be created to see which programs
+depend on which bpf_progs. kobjects are singeltons in sysfs
+representation. If you have multiple ebpf filesystems, even maybe
+referencing the same hashtable with gigabytes of data multiple times,
+there needs to be some way to help administrators to check resource
+usage, statistics, tweak and tune the rhashtable. All this needs to be
+handled as well in the future. It doesn't really fit the filesystem
+model, but representing a kobject seems to be a good fit to me.
+
+Policy can be done by user space with help of udev. Selinux policies can
+easily being extended to allow specific domains access. Namespace
+"passthrough" is defined for devices already.
+
+> where do you see 'over-design' in fs? It's a straightforward code and
+> most of it is boilerplate like all other fs.
+> Kill rmdir/mkdir ops, term bit and options and the fs diff will shrink
+> by another 200+ lines.
+
+I don't think that only a filesystem will do it in the foreseeable
+future. You want to have tools like lsof reporting which map and which
+program has references to each other. Those file nodes will need more
+metadata attached in future anyway, so currently just comparing lines of
+codes seems not to be a good way for arguing.
+
+With filesystems suddenly a lot of other questions arise: selinux
+support, acls etc.
+
+Bye,
+Hannes
