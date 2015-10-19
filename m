@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hisilicon: add OF dependency
-Date: Sun, 18 Oct 2015 20:01:37 -0700 (PDT)
-Message-ID: <20151018.200137.982909998956019901.davem@davemloft.net>
+Subject: Re: [PATCH] net: hix5hd2_gmac: avoid integer overload warning
+Date: Sun, 18 Oct 2015 20:01:45 -0700 (PDT)
+Message-ID: <20151018.200145.258165069418211324.davem@davemloft.net>
 References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
-	<4665385.OoIztz6y5m@wuerfel>
+	<4752736.dePgPCNd9q@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -15,30 +15,22 @@ Cc: huangdaode@hisilicon.com, joe@perches.com, liguozhu@hisilicon.com,
 	lipeng321@huawei.com
 To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4665385.OoIztz6y5m@wuerfel>
+In-Reply-To: <4752736.dePgPCNd9q@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 16 Oct 2015 11:33:49 +0200
+Date: Fri, 16 Oct 2015 12:00:51 +0200
 
-> The HNS MDIO driver fails to build on older ARM machines that are not
-> yet converted to CONFIG_OF:
+> BITS_RX_EN is an 'unsigned long' constant, so the ones complement of that
+> has bits set that do not fit into a 32-bit variable on 64-bit architectures,
+> which causes a harmless gcc warning:
 > 
-> drivers/net/ethernet/hisilicon/hns_mdio.c: In function 'hns_mdio_bus_name':
-> drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: error: 'OF_BAD_ADDR' undeclared (first use in this function)
->   u64 taddr = OF_BAD_ADDR;
->               ^
-> drivers/net/ethernet/hisilicon/hns_mdio.c:405:14: note: each undeclared identifier is reported only once for each function it appears in
-> drivers/net/ethernet/hisilicon/hns_mdio.c:409:11: error: implicit declaration of function 'of_translate_address' [-Werror=implicit-function-declaration]
->    taddr = of_translate_address(np, addr);
->            ^
+> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c: In function 'hix5hd2_port_disable':
+> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c:374:2: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+>   writel_relaxed(~(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
 > 
-> This clarifies the dependency to ensure we don't attempt to build these
-> drivers without CONFIG_OF, but also adds a COMPILE_TEST alternative to
-> give us better build coverage testing.
-> 
-> Build-tested on x86 as well to ensure this actually works.
+> This adds a cast to (u32) to tell gcc that the code is indeed fine.
 > 
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
