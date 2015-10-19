@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] BPF updates
-Date: Sun, 18 Oct 2015 19:53:12 -0700 (PDT)
-Message-ID: <20151018.195312.1796620527740900344.davem@davemloft.net>
-References: <cover.1444956943.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v3 0/2] net: hisilicon fix some bugs in HNS
+ drivers
+Date: Sun, 18 Oct 2015 19:55:14 -0700 (PDT)
+Message-ID: <20151018.195514.1192644619878723072.davem@davemloft.net>
+References: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, viro@ZenIV.linux.org.uk, ebiederm@xmission.com,
-	tgraf@suug.ch, hannes@stressinduktion.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: arnd@arndb.de, joe@perches.com, liguozhu@hisilicon.com,
+	Yisen.Zhuang@huawei.com, netdev@vger.kernel.org,
+	linuxarm@huawei.com, salil.mehta@huawei.com,
+	kenneth-lee-2012@foxmail.com, xuwei5@hisilicon.com,
+	lisheng011@huawei.com, linux-kernel@vger.kernel.org,
+	lipeng321@huawei.com
+To: huangdaode@hisilicon.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1444956943.git.daniel@iogearbox.net>
+In-Reply-To: <1444967657-107994-1-git-send-email-huangdaode@hisilicon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 16 Oct 2015 03:09:21 +0200
+From: huangdaode <huangdaode@hisilicon.com>
+Date: Fri, 16 Oct 2015 11:54:15 +0800
 
-> This set adds support for persistent maps/progs. Please see
-> individual patches for further details.
-> 
-> A man-page update to bpf(2) will be sent afterwards, also a
-> iproute2 patch for support in tc.
-> 
-> Thanks!
+> This patchset fixes the two bugs in HNS driver, one is remove the hnae sysfs interface
+> according to the review comments from Arnd Bergmann <arnd@arndb.de>, another
+> is fixing the wrong mac_id judgement bug which is found during internal tests.
 
-It seems like the design here is still a little bit in flux, so I'm
-marking this as "changes requested" in patchwork.
-
-Thanks.
+Series applied, tanks.
