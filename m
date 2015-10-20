@@ -1,62 +1,53 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 11/17] i40e: Add promiscuous on VLAN support
-Date: Tue, 20 Oct 2015 15:31:42 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
-References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1444715598-20970-12-git-send-email-jeffrey.t.kirsher@intel.com>
- <20151013.041408.880270217805854932.davem@davemloft.net>
+From: "Anton.Glukhov" <anton.a.glukhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
+ controller
+Date: Tue, 20 Oct 2015 18:38:06 +0300
+Message-ID: <56265FDE.9050307@gmail.com>
+References: <1445236757-29019-1-git-send-email-hs@denx.de>
+ <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
+ <56249C3F.3080000@pengutronix.de> <56265661.7000509@gmail.com>
+ <56265852.6000601@pengutronix.de> <56265947.8050008@gmail.com>
+ <56265B55.2070203@pengutronix.de> <56265BC4.8080403@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Singhai, Anjali" <anjali.singhai@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:49108 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750832AbbJTPbr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:31:47 -0400
-In-Reply-To: <20151013.041408.880270217805854932.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+	Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, hs-ynQEQJNshbs@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56265BC4.8080403-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, October 13, 2015 4:14 AM
-> To: Kirsher, Jeffrey T
-> Cc: Rose, Gregory V; netdev@vger.kernel.org; nhorman@redhat.com;
-> sassmann@redhat.com; jogreene@redhat.com
-> Subject: Re: [net-next 11/17] i40e: Add promiscuous on VLAN support
+
+On 20.10.2015 18:20, Marc Kleine-Budde wrote:
+> On 10/20/2015 05:18 PM, Marc Kleine-Budde wrote:
+>> On 10/20/2015 05:09 PM, Anton.Glukhov wrote:
+>>>>> It's OMAP3 based arch, but HECC is implemented only in AM3505 and AM3517 SoCs.
+>>>>> So, I'm confused about what's "name" should I use.
+>>>>
+>>>> Which SoC was available first? Pick that.
+>>
+>>> What do you mean available? I know only that HECC appear in AM3505 and AM3517. Nowhere else.
+>>
+>> Available on the market. Which one was produced first or was soldered
+>> first to some PCB?
 > 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Mon, 12 Oct 2015 22:53:12 -0700
+> A colleague just looked it up, a AM3517 is a AM3505 with 3d graphics. So
+> pick AM3505.
+
+Ok, thank you for help!
+
 > 
-> > From: Greg Rose <gregory.v.rose@intel.com>
-> >
-> > NFV use cases require the ability to steer packets to VSIs by VLAN tag
-> > alone while being in promiscuous mode for multicast and unicast MAC
-> > addresses.  These two new functions support that ability.
-> >
-> > Change-ID: Ifef704b07e0ee8a39d3c351dbd5dc83bb2f63c45
-> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Marc
 > 
-> Nothing in the driver calls these functions.
-> 
-> Please do not add code or defines or facilities that are completely unused
-> in the upstream driver.
-
-The patch(es) that use these functions are not yet prepared.  We will wait until they're ready to submit these patches.  Sorry for the confusion but I was out on vacation and didn't have a chance to coordinate this with Jeff.
-
-Jeff,
-
-We needed the VF trust code in the kernel before we could add in these additional patches.  We can work with Anjali to get those now that the VF trust feature is in the kernel.
-
-- Greg
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
