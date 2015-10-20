@@ -1,30 +1,55 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv3 net 3/4] openvswitch: Mark connections new when not confirmed.
-Date: Tue, 20 Oct 2015 15:07:38 -0700
-Message-ID: <CALnjE+qBx3OJ0RKFhnhLX7Z2_=MO8aFM5jeBoJ+PL7coUx=ctQ@mail.gmail.com>
-References: <1445307540-6786-1-git-send-email-joestringer@nicira.com>
-	<1445307540-6786-3-git-send-email-joestringer@nicira.com>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC PATCH 1/5] netfilter: Remove IP_CT_NEW_REPLY
+	definition.
+Date: Tue, 20 Oct 2015 15:20:25 -0700
+Message-ID: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	Jarno Rajahalme <jrajahalme@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:37587 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754291AbbJTWHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 18:07:38 -0400
-Received: by igbhv6 with SMTP id hv6so25159263igb.0
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 15:07:38 -0700 (PDT)
-In-Reply-To: <1445307540-6786-3-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 19, 2015 at 7:18 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> New, related connections are marked as such as part of ovs_ct_lookup(),
-> but they are not marked as "new" if the commit flag is used. Make this
-> consistent by setting the "new" flag whenever !nf_ct_is_confirmed(ct).
->
-> Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+UmVtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05FV19SRVBMWSBhcyBpdCBkb2VzIG5vdCBt
+YWtlIHNlbnNlLgpUaGlzIGFsbG93cyB0aGUgZGVmaW5pdGlvbiBvZiBJUF9DVF9OVU1CRVIgdG8g
+YmUgc2ltcGxpZmllZCBhcyB3ZWxsLgoKU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxq
+cmFqYWhhbG1lQG5pY2lyYS5jb20+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfY29tbW9uLmggfCA3ICsrKystLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJh
+Y2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgMiAtLQogMiBmaWxlcyBjaGFuZ2VkLCA0IGlu
+c2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xp
+bnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggYi9pbmNsdWRlL3VhcGkvbGludXgv
+bmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21tb24uaAppbmRleCAzMTlmNDcxLi5lMGFlYmM4IDEw
+MDY0NAotLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21t
+b24uaAorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21t
+b24uaApAQCAtMjAsOSArMjAsMTAgQEAgZW51bSBpcF9jb25udHJhY2tfaW5mbyB7CiAKIAlJUF9D
+VF9FU1RBQkxJU0hFRF9SRVBMWSA9IElQX0NUX0VTVEFCTElTSEVEICsgSVBfQ1RfSVNfUkVQTFks
+CiAJSVBfQ1RfUkVMQVRFRF9SRVBMWSA9IElQX0NUX1JFTEFURUQgKyBJUF9DVF9JU19SRVBMWSwK
+LQlJUF9DVF9ORVdfUkVQTFkgPSBJUF9DVF9ORVcgKyBJUF9DVF9JU19SRVBMWSwJCi0JLyogTnVt
+YmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVzIChubyBORVcgaW4gcmVwbHkgZGlybikuICovCi0J
+SVBfQ1RfTlVNQkVSID0gSVBfQ1RfSVNfUkVQTFkgKiAyIC0gMQorCS8qIE5vIElQX0NUX05FV19S
+RVBMWSAqLworCisJLyogTnVtYmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVzLiAqLworCUlQX0NU
+X05VTUJFUgogfTsKIAogI2RlZmluZSBORl9DVF9TVEFURV9JTlZBTElEX0JJVAkJCSgxIDw8IDAp
+CmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZzd2l0
+Y2gvY29ubnRyYWNrLmMKaW5kZXggYWQ2MTQyNi4uMDk3YWNlNCAxMDA2NDQKLS0tIGEvbmV0L29w
+ZW52c3dpdGNoL2Nvbm50cmFjay5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwpA
+QCAtNzMsNyArNzMsNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dldF9zdGF0ZShlbnVtIGlwX2Nvbm50
+cmFja19pbmZvIGN0aW5mbykKIAlzd2l0Y2ggKGN0aW5mbykgewogCWNhc2UgSVBfQ1RfRVNUQUJM
+SVNIRURfUkVQTFk6CiAJY2FzZSBJUF9DVF9SRUxBVEVEX1JFUExZOgotCWNhc2UgSVBfQ1RfTkVX
+X1JFUExZOgogCQljdF9zdGF0ZSB8PSBPVlNfQ1NfRl9SRVBMWV9ESVI7CiAJCWJyZWFrOwogCWRl
+ZmF1bHQ6CkBAIC05MCw3ICs4OSw2IEBAIHN0YXRpYyB1OCBvdnNfY3RfZ2V0X3N0YXRlKGVudW0g
+aXBfY29ubnRyYWNrX2luZm8gY3RpbmZvKQogCQljdF9zdGF0ZSB8PSBPVlNfQ1NfRl9SRUxBVEVE
+OwogCQlicmVhazsKIAljYXNlIElQX0NUX05FVzoKLQljYXNlIElQX0NUX05FV19SRVBMWToKIAkJ
+Y3Rfc3RhdGUgfD0gT1ZTX0NTX0ZfTkVXOwogCQlicmVhazsKIAlkZWZhdWx0OgotLSAKMi4xLjQK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
