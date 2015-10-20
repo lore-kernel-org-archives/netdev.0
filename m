@@ -1,76 +1,48 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Tue, 20 Oct 2015 14:45:58 +0100
-Message-ID: <56264596.90104@oracle.com>
-References: <20151019095938.72ea48e6@xeon-e3>	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>	 <562594E1.8040403@oracle.com>	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>	 <56261092.7080003@oracle.com> <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/2] net: mdio-gpio: move platform data header
+Date: Tue, 20 Oct 2015 10:08:59 -0400
+Message-ID: <1445350139-2527-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1445350139-2527-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:19226 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155AbbJTNqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 09:46:05 -0400
-In-Reply-To: <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:33590 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752257AbbJTOR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 10:17:28 -0400
+In-Reply-To: <1445350139-2527-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/10/2015 14:19, Eric Dumazet wrote:
+This header file only contains the platform data structure definition,
+so move it to the include/linux/platform_data/ directory.
 
->> That may be how Linux implements accept(), but I don't see anything
->> about refcounting in the POSIX spec for accept().
->
-> That's an internal implementation detail. POSIX does not document linux
-> kernel overall design and specific tricks.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/phy/mdio-gpio.c                   | 2 +-
+ include/linux/{ => platform_data}/mdio-gpio.h | 0
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+ rename include/linux/{ => platform_data}/mdio-gpio.h (100%)
 
-No, neither does it document Solaris kernel design, or *BSD design, or 
-Windows design. It does however specify what the externally observable 
-behaviour has to be in order to be POSIX compliant.
-
-> linux is GPL, while Solaris is proprietary code. There is quite a
-> difference, and we do not want to copy Solaris behavior. We want our own
-> way, practical, and good enough.
-
-I don't see what the licensing terms of particular implementations have 
-to do with POSIX, indeed as far as I can tell POSIX says nothing at all 
-about the subject. It's therefore not pertinent to this discussion.
-
-I'm not expecting Linux to copy every Solaris behaviour, if I was I 
-might for example be suggesting that Linux dropped support for the 
-SO_RCVTIMEO and SO_SNDTIMEO setsockopt() options on AF_UNIX sockets, 
-because Solaris doesn't currently implement those options. That would 
-clearly be a ridiculous stance for me to take, what I've actually done 
-is logged a bug against Solaris because it's clearly something we need 
-to fix.
-
-What I do think is reasonable is that if Linux claims POSIX conformance 
-then it either conforms or documents the variant behaviour and as I've 
-said I don't believe is does conform in the case of shutdown().
-
-> If POSIX makes sense we try to be compliant. If not, we do not.
-
-That's one possible design option. However in this case the Linux 
-manpage claims the Linux behaviour is POSIX compliant and as far as I 
-can tell it isn't. As I've already said several times, I agree there's 
-probably not much that can be done about it without causing breakage, 
-which is why I suggested simply documenting the behaviour may be the 
-best option.
-
-And I still haven't seen any reasoning behind the Linux close() and 
-poll() behaviour on sockets that are in the listen state.
-
-> If you are interested, take a look at fs/* code, and try to implement
-> your proposal and keep good performance.
->
-> You might find a clever way, without infringing prior art. We did not
-> yet.
-
-I might, but contractually I can't, unfortunately.
-
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 3bc9f03..95f51d7 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -25,7 +25,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/platform_device.h>
+ #include <linux/gpio.h>
+-#include <linux/mdio-gpio.h>
++#include <linux/platform_data/mdio-gpio.h>
+ 
+ #include <linux/of_gpio.h>
+ #include <linux/of_mdio.h>
+diff --git a/include/linux/mdio-gpio.h b/include/linux/platform_data/mdio-gpio.h
+similarity index 100%
+rename from include/linux/mdio-gpio.h
+rename to include/linux/platform_data/mdio-gpio.h
 -- 
-Alan Burlison
---
+2.6.1
