@@ -1,88 +1,47 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
-Date: Tue, 20 Oct 2015 21:11:19 +0200
-Message-ID: <562691D7.30602@pengutronix.de>
-References: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
- <562653CD.5040101@pengutronix.de> <56266C0B.1040006@gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Tue, 20 Oct 2015 21:11:21 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1510202107410.8159@nanos>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <alpine.DEB.2.11.1510132116480.25029@nanos> <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com> <alpine.DEB.2.11.1510151014330.3960@nanos>
+ <op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com> <CALAqxLXu_C8sWaKyxqXJPFV+m5Zdk=4q4s7O6NoLR1B8bbyuxg@mail.gmail.com> <20151020085408.GA2542@netboy> <alpine.DEB.2.11.1510201246250.3982@nanos> <20151020115113.GA23428@netboy>
+ <20151020145523.GA5207@netboy>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL"
-Cc: hs@denx.de, netdev@vger.kernel.org
-To: "Anton.Glukhov" <anton.a.glukhov@gmail.com>,
-	linux-can@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: John Stultz <john.stultz@linaro.org>,
+	Christopher Hall <christopher.s.hall@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, kevin.b.stanton@intel.com
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:44120 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbbJTTL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 15:11:28 -0400
-In-Reply-To: <56266C0B.1040006@gmail.com>
+Received: from www.linutronix.de ([62.245.132.108]:52036 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751578AbbJTTMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 15:12:16 -0400
+In-Reply-To: <20151020145523.GA5207@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, 20 Oct 2015, Richard Cochran wrote:
+> On Tue, Oct 20, 2015 at 01:51:13PM +0200, Richard Cochran wrote:
+> > You can, in fact, achieve "proper" correlation by sampling.  As John
+> > said, the question is whether the method in the patch set "measurably
+> > improves the error" over using another, simpler method.
+> 
+> Here is a short example to put some numbers on the expected error.
+> Let the driver sample at an interval of 1 ms.  If the system time's
+> frequency hasn't changed between two samples, A and B, then the driver
+> may interpolate without introducing any error.
 
-On 10/20/2015 06:30 PM, Anton.Glukhov wrote:
->>> +	clk_disable_unprepare(priv->clk);
->>> +	priv->clk =3D NULL;
->>>  	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
->>>  	iounmap(priv->base);
->>>  	release_mem_region(res->start, resource_size(res));
->>> @@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_devi=
-ce *pdev, pm_message_t state)
->>>  	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->>>  	priv->can.state =3D CAN_STATE_SLEEPING;
->>> =20
->>> -	clk_disable(priv->clk);
->>> +	clk_disable_unprepare(priv->clk);
->>> =20
->>>  	return 0;
->>>  }
->>> @@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_devic=
-e *pdev)
->>>  	struct net_device *dev =3D platform_get_drvdata(pdev);
->>>  	struct ti_hecc_priv *priv =3D netdev_priv(dev);
->>> =20
->>> -	clk_enable(priv->clk);
->>> +	clk_prepare_enable(priv->clk);
->>
->> please add error checking.
->>
->=20
-> Why it wasn't added with clk_enable? Is it bug? I'm confused here, beca=
-use in so many drivers
-> there is no checking err after clk_enable or clk_prepare_enable. Maybe =
-I missed something...
-> Could you clarify this part please?
+Darn, we don't want to have that kind of sampling in every driver
+which has this kind of problem even if it looks like the simpler
+choice for this particular use case. This is going to be something
+which next generation chips will have on more than just the audio
+interface and we realy want to have a generic solution for this.
 
-I wouldn't call it a bug in the original driver, it probably slipped
-through the review or I didn't know better.
+Thanks,
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWJpHXAAoJEP5prqPJtc/HZXgH/0nG4Ba0nCHUN6oMG4W4Sb/p
-72TS/EjeOiMmZsp33R2tyq0qm5i557cBkIcM3QG9i3MXC9Vf7zneIYfkbYi8dBTo
-PB7DghpG7qjNq+g99ouDCpDzxwZrHq5pbYqiQH0CuJXInMdGHTvwfrwPdufttsZh
-x1CMCGudEI0BZaGpTcX5WKaMA64XApBt0s3ftNIk+VuD71pvBLVkesO9QecldjyH
-M8HJYuXZj2n4XfZECv2cBgUJ9K7pcFB3rlUb4Pwf4Yr6vQ3XOIe4jNNHaoiPA6S2
-XZfUUY46gLx+V8sIz4OQaZfDsyOQ+nE6m84ewnKSKMJdQCijR8x/xRuqEgvxpR4=
-=7AqL
------END PGP SIGNATURE-----
-
---c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL--
+	tglx
