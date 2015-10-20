@@ -1,115 +1,106 @@
-From: "Anton.Glukhov" <anton.a.glukhov@gmail.com>
-Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
- controller
-Date: Tue, 20 Oct 2015 18:09:59 +0300
-Message-ID: <56265947.8050008@gmail.com>
-References: <1445236757-29019-1-git-send-email-hs@denx.de>
- <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
- <56249C3F.3080000@pengutronix.de> <56265661.7000509@gmail.com>
- <56265852.6000601@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson@baylibre.com>,
-	Anant Gole <anantgole@ti.com>, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Tony Lindgren <tony@atomide.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-omap@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>, hs@denx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56265852.6000601@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH 2/2] geneve: handle ipv6 priority like ipv4 tos
+Date: Tue, 20 Oct 2015 11:11:06 -0400
+Message-ID: <1445353866-32710-2-git-send-email-linville@tuxdriver.com>
+References: <1443638045-27229-1-git-send-email-linville@tuxdriver.com>
+ <1445353866-32710-1-git-send-email-linville@tuxdriver.com>
+Cc: Dave Miller <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39386 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752269AbbJTPP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:15:27 -0400
+In-Reply-To: <1445353866-32710-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Other callers of udp_tunnel6_xmit_skb just pass 0 for the prio
+argument.  Jesse Gross <jesse@nicira.com> suggested that prio is really
+the same as IPv4's tos and should be handled the same, so this is my
+interpretation of that suggestion.
 
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Reported-by: Jesse Gross <jesse@nicira.com>
+---
+ drivers/net/geneve.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-On 20.10.2015 18:05, Marc Kleine-Budde wrote:
-> On 10/20/2015 04:57 PM, Anton.Glukhov wrote:
->> Hello Marc, Heiko!
->> I'm sorry for the delay!
->>
->> On 19.10.2015 10:31, Marc Kleine-Budde wrote:
->>> On 10/19/2015 09:27 AM, Heiko Schocher wrote:
->>>>>>   .../devicetree/bindings/net/can/ti_hecc-can.txt    | 20 ++++++++++
->>>>>>   arch/arm/boot/dts/am3517.dtsi                      | 13 +++++++
->>>>>>   drivers/net/can/ti_hecc.c                          | 45 +++++++++++++++++++++-
->>>>>>   3 files changed, 76 insertions(+), 2 deletions(-)
->>>>>>   create mode 100644 Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
->>>>>>
->>>>>> diff --git a/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
->>>>>> new file mode 100644
->>>>>> index 0000000..09fab59
->>>>>> --- /dev/null
->>>>>> +++ b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
->>>>>> @@ -0,0 +1,20 @@
->>>>>> +* TI HECC CAN *
->>>>>> +
->>>>>> +Required properties:
->>>>>> +  - compatible: Should be "ti,hecc"
->>>>>
->>>>> We usually put the name of the first SoC this IP core appears in to the
->>>>> compatible.
->>>>
->>>> Ok, so "ti,am335xx-hecc" would be OK?
->>>> @Anton: you used "am35x" ... it should be "am35xx"
->>>
->>> The "xx" is not okay. Give precisely the first SoC Version this IP core
->>> was implemented in.
->>>
->>
->> It's OMAP3 based arch, but HECC is implemented only in AM3505 and AM3517 SoCs.
->> So, I'm confused about what's "name" should I use.
-> 
-> Which SoC was available first? Pick that.
-> 
-
-What do you mean available? I know only that HECC appear in AM3505 and AM3517. Nowhere else.
-
->>>>>> +  - reg: Should contain CAN controller registers location and length
->>>>>> +  - interrupts: Should contain IRQ line for the CAN controller
->>>>>
->>>>> I'm missing the description of the ti,* properties. I think they are
->>>>> required, too. Although the code doesn't enforce it.
->>>>
->>>> Ok.
->>>>
->>>>>> +
->>>>>> +Example:
->>>>>> +
->>>>>> +	can0: hecc@5c050000 {
->>>>>> +		compatible = "ti,hecc";
->>>>>> +		reg = <0x5c050000 0x4000>;
->>>>>> +		interrupts = <24>;
->>>>>> +		ti,hecc_scc_offset = <0>;
->>>>>> +		ti,hecc_scc_ram_offset = <0x3000>;
->>>>>> +		ti,hecc_ram_offset = <0x3000>;
->>>>>> +		ti,hecc_mbx_offset = <0x2000>;
->>>>>> +		ti,hecc_int_line = <0>;
->>>>>> +		ti,hecc_version = <1>;
->>>>>
->>>>> Versioning in the OF world is done via the compatible. Are the offsets a
->>>>> per SoC parameter? I'm not sure if it's better to put
->>>>> the offsets into the driver.
->>>>
->>>> I am unsure here too..
->>>
->>> The devicetree people will hopefully help here.
->>>
->>
->> I added offsets here just make it consistent with platform data in machine file.
->> Actually it seems that it's not necessary to put offsets in DT file and I can move it to driver.
->> But again, it was added to keep consistency.
-> 
-> The DT is supposed to be OS independent, copying from platform data to
-> DT is sometimes not the best way to go. Make yourself heard on the
-> devicetree mailinglist and figure out what's the best way to go here.
-> 
-> Are the offsets for the AM3505 and AM3517 identical?
-
-Yes, absolutely, and there is no HECC module in another SoCs. Ok, anyway I'll try to figure out what should we use here.
-
-> 
-> Marc
-> 
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 217b472ab9e7..cef71bdda13d 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -748,6 +748,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
+ 	struct geneve_dev *geneve = netdev_priv(dev);
+ 	struct geneve_sock *gs6 = geneve->sock6;
+ 	struct dst_entry *dst = NULL;
++	__u8 prio;
+ 
+ 	memset(fl6, 0, sizeof(*fl6));
+ 	fl6->flowi6_mark = skb->mark;
+@@ -756,7 +757,16 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
+ 	if (info) {
+ 		fl6->daddr = info->key.u.ipv6.dst;
+ 		fl6->saddr = info->key.u.ipv6.src;
++		fl6->flowi6_tos = RT_TOS(info->key.tos);
+ 	} else {
++		prio = geneve->tos;
++		if (prio == 1) {
++			const struct iphdr *iip = ip_hdr(skb);
++
++			prio = ip_tunnel_get_dsfield(iip, skb);
++		}
++
++		fl6->flowi6_tos = RT_TOS(prio);
+ 		fl6->daddr = geneve->remote.sin6.sin6_addr;
+ 	}
+ 
+@@ -876,8 +886,9 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 	struct geneve_dev *geneve = netdev_priv(dev);
+ 	struct geneve_sock *gs6 = geneve->sock6;
+ 	struct dst_entry *dst = NULL;
++	const struct iphdr *iip; /* interior IP header */
+ 	struct flowi6 fl6;
+-	__u8 ttl;
++	__u8 prio, ttl;
+ 	__be16 sport;
+ 	bool udp_csum;
+ 	int err;
+@@ -906,6 +917,8 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
+ 	skb_reset_mac_header(skb);
+ 
++	iip = ip_hdr(skb);
++
+ 	if (info) {
+ 		const struct ip_tunnel_key *key = &info->key;
+ 		u8 *opts = NULL;
+@@ -922,6 +935,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 		if (unlikely(err))
+ 			goto err;
+ 
++		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
+ 		ttl = key->ttl;
+ 	} else {
+ 		udp_csum = false;
+@@ -930,13 +944,14 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 		if (unlikely(err))
+ 			goto err;
+ 
++		prio = ip_tunnel_ecn_encap(fl6.flowi6_tos, iip, skb);
+ 		ttl = geneve->ttl;
+ 		if (!ttl && ipv6_addr_is_multicast(&fl6.daddr))
+ 			ttl = 1;
+ 		ttl = ttl ? : ip6_dst_hoplimit(dst);
+ 	}
+ 	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
+-				   &fl6.saddr, &fl6.daddr, 0, ttl,
++				   &fl6.saddr, &fl6.daddr, prio, ttl,
+ 				   sport, geneve->dst_port, !udp_csum);
+ 
+ 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+-- 
+2.4.3
