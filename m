@@ -1,49 +1,52 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] usbnet: removed USB_USBNET as a config option
-Date: Tue, 20 Oct 2015 13:03:22 +0200
-Message-ID: <87fv15u7id.fsf@nemi.mork.no>
-References: <1445257387-4278-1-git-send-email-oneukum@suse.com>
-	<87oafuu0ru.fsf@nemi.mork.no> <1445322539.2246.1.camel@suse.com>
-	<87k2qiszfv.fsf@nemi.mork.no> <1445336670.2246.11.camel@suse.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Tue, 20 Oct 2015 04:24:19 -0700 (PDT)
+Message-ID: <20151020.042419.299487241092379193.davem@davemloft.net>
+References: <562594E1.8040403@oracle.com>
+	<1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	<56261092.7080003@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Alan.Burlison@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:37248 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386AbbJTLDj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 07:03:39 -0400
-In-Reply-To: <1445336670.2246.11.camel@suse.com> (Oliver Neukum's message of
-	"Tue, 20 Oct 2015 12:24:30 +0200")
+Received: from shards.monkeyblade.net ([149.20.54.216]:60150 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750796AbbJTLH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 07:07:58 -0400
+In-Reply-To: <56261092.7080003@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.com> writes:
-> On Tue, 2015-10-20 at 10:43 +0200, Bj=C3=B8rn Mork wrote:
->
->> So we might need to move cdc_parse_cdc_header() out of usbnet.c afte=
-r
->> all. Keeping it there creates an unnecessary "select" mess.  But I d=
-on't
->> know where to put it...  Either a common CDC helper module or the US=
-B
->> core I guess.
->
-> A common module means that the overhead of a module would be incurred=
-=2E
-> Do you have any other candidates that could go into a common helper
-> module?
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Date: Tue, 20 Oct 2015 10:59:46 +0100
 
-Not anything that matters. Some of the CDC notification handling could
-maybe be shared by using a shoehorn on it, but I think that would make
-the code less maintainable so it is not a good idea.
+> The bug goes into quite some detail about how Solaris behaves. The
+> issue here is that we have two implementations, Linux and Solaris,
+> both claiming to be POSIX-conformant but both showing different
+> behaviour. There's a discussion to be had about the whys and
+> wherefores of that difference, but saying that you don't want to know
+> how Solaris behaves isn't really going to help move the conversation
+> along.
 
-So, no, I don't have any other candidates. "usbcore" looks like the bes=
-t
-place for this function, if that is acceptable to Greg.
+With two decades of precendence, applications will need to find a way
+to cope with the behavior on every existing Linux kernel out there.
 
+Even if we were to propose something here and change things, it won't
+be available on real sites for 6 months at a minimum, and only a an
+extremely small fraction of actual machines.
 
+It's more practical for userspace to cope with the bahvior.  This is
+simply because coping with current behavior will work on every Linux
+kernel on the planet, and also it won't require us to potentially
+break any existing setups.
 
-Bj=C3=B8rn
+This to me matters more than any squabbling over semantics or who
+really implements POSIX correctly or not.  That simply does not matter
+at all.
+
+It especially does not matter as far as I and millions of existing
+socket apps out there are concerned.
