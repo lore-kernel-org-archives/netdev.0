@@ -1,59 +1,71 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 4/4] netfilter: ipv6: avoid nf_iterate recursion
-Date: Tue, 20 Oct 2015 10:18:37 +0200
-Message-ID: <20151020081837.GI4386@breakpoint.cc>
-References: <1445112865-31523-1-git-send-email-fw@strlen.de>
- <1445112865-31523-5-git-send-email-fw@strlen.de>
- <CANr6G5z3SYGo-f7OmKwncHFK0M01YkeWk2W9tPcQWX3LV5NEEA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andy Zhou <azhou@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CANr6G5z3SYGo-f7OmKwncHFK0M01YkeWk2W9tPcQWX3LV5NEEA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ipv4: implement support for NOPREFIXROUTE ifa flag for ipv4 address
+Date: Tue, 20 Oct 2015 10:28:45 +0200
+Message-ID: <7decee4d1d1b71142460e604af6d15f0847ecd2d.1445329646.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55189 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752551AbbJTIaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Oct 2015 04:30:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Stringer <joestringer@nicira.com> wrote:
-> On 17 October 2015 at 13:14, Florian Westphal <fw@strlen.de> wrote:
-> > @@ -606,19 +599,22 @@ struct sk_buff *nf_ct_frag6_gather(struct net *net, struct sk_buff *skb, u32 use
-> >                 spin_unlock_bh(&fq->q.lock);
-> >                 pr_debug("Can't insert skb to queue\n");
-> >                 inet_frag_put(&fq->q, &nf_frags);
-> > -               return skb;
-> > +               return -EINVAL;
-> >         }
-> >
-> > +       /* after queue has assumed skb ownership, only 0 or -EINPROGRESS
-> > +        * must be returned.
-> > +        */
-> > +       ret = -EINPROGRESS;
-> >         if (fq->q.flags == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
-> > -           fq->q.meat == fq->q.len) {
-> > -               ret_skb = nf_ct_frag6_reasm(fq, skb, dev);
-> > -               if (ret_skb == NULL)
-> > -                       pr_debug("Can't reassemble fragmented packets\n");
-> > -       }
-> > +           fq->q.meat == fq->q.len &&
-> > +           nf_ct_frag6_reasm(fq, skb, dev))
-> > +               ret = 0;
-> > +
-> >         spin_unlock_bh(&fq->q.lock);
-> >
-> >         inet_frag_put(&fq->q, &nf_frags);
-> > -       return ret_skb;
-> > +       return ret;
-> >  }
-> >  EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
-> 
-> Minor nit below, feel free to disregard if it misses some code style
-> guideline. The lock/unlock reads easier to me if the
-> unlocking/frag_put is grouped together, something like the following
-> incremental:
+Currently adding a new ipv4 address always cause the creation of the
+related network route, with default metric. When a host has multiple
+interfaces on the same network, multiple routes with the same metric
+are created.
 
-I like it, will change it for v2.
+If the userspace wants to set specific metric on each routes, i.e.
+giving better metric to ethernet links in respect to Wi-Fi ones,
+the network routes must be deleted and recreated, which is error-prone.
 
-Thanks!
+This patch implements the support for IFA_F_NOPREFIXROUTE for ipv4
+address. When an address is added with such flag set, no associated
+network route is created, no network route is deleted when
+said IP is gone and it's up to the user space manage such route.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/fib_frontend.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index d7c2bb0..e786873 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -867,9 +867,10 @@ void fib_add_ifaddr(struct in_ifaddr *ifa)
+ 
+ 	if (!ipv4_is_zeronet(prefix) && !(ifa->ifa_flags & IFA_F_SECONDARY) &&
+ 	    (prefix != addr || ifa->ifa_prefixlen < 32)) {
+-		fib_magic(RTM_NEWROUTE,
+-			  dev->flags & IFF_LOOPBACK ? RTN_LOCAL : RTN_UNICAST,
+-			  prefix, ifa->ifa_prefixlen, prim);
++		if (!(ifa->ifa_flags & IFA_F_NOPREFIXROUTE))
++			fib_magic(RTM_NEWROUTE,
++				  dev->flags & IFF_LOOPBACK ? RTN_LOCAL : RTN_UNICAST,
++				  prefix, ifa->ifa_prefixlen, prim);
+ 
+ 		/* Add network specific broadcasts, when it takes a sense */
+ 		if (ifa->ifa_prefixlen < 31) {
+@@ -914,9 +915,10 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
+ 		}
+ 	} else if (!ipv4_is_zeronet(any) &&
+ 		   (any != ifa->ifa_local || ifa->ifa_prefixlen < 32)) {
+-		fib_magic(RTM_DELROUTE,
+-			  dev->flags & IFF_LOOPBACK ? RTN_LOCAL : RTN_UNICAST,
+-			  any, ifa->ifa_prefixlen, prim);
++		if (!(ifa->ifa_flags & IFA_F_NOPREFIXROUTE))
++			fib_magic(RTM_DELROUTE,
++				  dev->flags & IFF_LOOPBACK ? RTN_LOCAL : RTN_UNICAST,
++				  any, ifa->ifa_prefixlen, prim);
+ 		subnet = 1;
+ 	}
+ 
+-- 
+1.8.3.1
