@@ -1,73 +1,164 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 11/17] i40e: Add promiscuous on VLAN support
-Date: Tue, 20 Oct 2015 20:54:45 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A078942ABD6@ORSMSX108.amr.corp.intel.com>
-References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1444715598-20970-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20151013.041408.880270217805854932.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
- <CAJ3xEMiuRfA=0Kn4DYnow_mftGu4CuqW4AVGTi5CehRiMCkxqA@mail.gmail.com>
+From: "Andrew F. Davis" <afd@ti.com>
+Subject: [PATCH] net: phy: dp83848: Add TI DP83848 Ethernet PHY
+Date: Tue, 20 Oct 2015 16:28:57 -0500
+Message-ID: <1445376537-9291-1-git-send-email-afd@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Singhai, Anjali" <anjali.singhai@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31284 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751540AbbJTUzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Oct 2015 16:55:15 -0400
-In-Reply-To: <CAJ3xEMiuRfA=0Kn4DYnow_mftGu4CuqW4AVGTi5CehRiMCkxqA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"Andrew F. Davis" <afd@ti.com>, Dan Murphy <dmurphy@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPciBHZXJsaXR6IFttYWlsdG86
-Z2VybGl0ei5vckBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMjAsIDIwMTUg
-ODo0NyBBTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBEYXZpZCBNaWxsZXI7IEtpcnNo
-ZXIsIEplZmZyZXkgVDsgU2luZ2hhaSwgQW5qYWxpOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBuaG9ybWFuQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207DQo+IGpvZ3JlZW5lQHJl
-ZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAxMS8xN10gaTQwZTogQWRkIHByb21p
-c2N1b3VzIG9uIFZMQU4gc3VwcG9ydA0KPiANCj4gT24gVHVlLCBPY3QgMjAsIDIwMTUgYXQgNjoz
-MSBQTSwgUm9zZSwgR3JlZ29yeSBWDQo+IDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+IHdyb3Rl
-Og0KPiANCj4gPj4gPiBORlYgdXNlIGNhc2VzIHJlcXVpcmUgdGhlIGFiaWxpdHkgdG8gc3RlZXIg
-cGFja2V0cyB0byBWU0lzIGJ5IFZMQU4NCj4gPj4gPiB0YWcgYWxvbmUgd2hpbGUgYmVpbmcgaW4g
-cHJvbWlzY3VvdXMgbW9kZSBmb3IgbXVsdGljYXN0IGFuZCB1bmljYXN0DQo+ID4+ID4gTUFDIGFk
-ZHJlc3Nlcy4gIFRoZXNlIHR3byBuZXcgZnVuY3Rpb25zIHN1cHBvcnQgdGhhdCBhYmlsaXR5Lg0K
-PiA+PiA+DQo+ID4+ID4gQ2hhbmdlLUlEOiBJZmVmNzA0YjA3ZTBlZThhMzlkM2MzNTFkYmQ1ZGM4
-M2JiMmY2M2M0NQ0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJv
-c2VAaW50ZWwuY29tPg0KPiA+PiA+IFRlc3RlZC1ieTogQW5kcmV3IEJvd2VycyA8YW5kcmV3eC5i
-b3dlcnNAaW50ZWwuY29tPg0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVm
-ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiANCj4gPiBUaGUgcGF0Y2goZXMpIHRoYXQgdXNl
-IHRoZXNlIGZ1bmN0aW9ucyBhcmUgbm90IHlldCBwcmVwYXJlZC4gIFdlIHdpbGwNCj4gd2FpdCB1
-bnRpbCB0aGV5J3JlIHJlYWR5IHRvIHN1Ym1pdCB0aGVzZSBwYXRjaGVzLiAgU29ycnkgZm9yIHRo
-ZSBjb25mdXNpb24NCj4gYnV0IEkgd2FzIG91dCBvbiB2YWNhdGlvbiBhbmQgZGlkbid0IGhhdmUg
-YSBjaGFuY2UgdG8gY29vcmRpbmF0ZSB0aGlzIHdpdGgNCj4gSmVmZi4NCj4gDQo+ID4gV2UgbmVl
-ZGVkIHRoZSBWRiB0cnVzdCBjb2RlIGluIHRoZSBrZXJuZWwgYmVmb3JlIHdlIGNvdWxkIGFkZCBp
-biB0aGVzZQ0KPiBhZGRpdGlvbmFsIHBhdGNoZXMuICBXZSBjYW4gd29yayB3aXRoIEFuamFsaSB0
-byBnZXQgdGhvc2Ugbm93IHRoYXQgdGhlIFZGDQo+IHRydXN0IGZlYXR1cmUgaXMgaW4gdGhlIGtl
-cm5lbC4NCj4gDQo+IENhbiB5b3UgcGxlYXNlIGV4cGxhaW4geW91ciBkZXNpZ24gZm9yIHN1cHBv
-cnRpbmcgVkYgcHJvbWlzY3VvdXMgbW9kZT8NCg0KU3VyZS4NCg0KVXAgdW50aWwgbm93IEludGVs
-IFNSLUlPViBWRiBkcml2ZXJzIGhhdmUgbm90IGJlZW4gYWxsb3dlZCB0byBlbnRlciBwcm9taXNj
-dW91cyBtb2RlIGR1ZSB0byBzZWN1cml0eSBpc3N1ZXMuICBOb3cgdGhhdCB0aGUgUEYgZHJpdmVy
-IHN1cHBvcnRzIHRoZSBuZXRkZXYgb3AgdG8gc2V0IGEgVkYgYXMgInRydXN0ZWQiIHdlIHdpbGwg
-YWRkIGNvZGUgdG8gdGhlIFZGIGRyaXZlciB0byByZXF1ZXN0IHByb21pc2N1b3VzIG1vZGUgaWYg
-YXNrZWQgdG8gZW50ZXIgcHJvbWlzY3VvdXMgbW9kZSBieSB0aGUgT1MgbmV0d29yayBzdGFjaywg
-SUZGX1BST01JU0MuIElmIHRoZSBWRiBoYXMgYmVlbiBjb25maWd1cmVkIGFzIHRydXN0ZWQgdGhy
-b3VnaCB0aGUgUEYgZHJpdmVyIHRoZW4gdGhlIFBGIGRyaXZlciB3aWxsIGdvIGFoZWFkIGFuZCBj
-b25maWd1cmUgdGhlIFZGIGZvciBwcm9taXNjdW91cyBtb2RlIG9wZXJhdGlvbi4gIEl0IHdpbGwg
-YmUgZnVsbCBwcm9taXNjdW91cyBtb2RlIHVubGVzcyB0aGUgdXNlciBoYXMgY29uZmlndXJlZCBW
-TEFOIGZpbHRlcnMuICBJbiB0aGF0IGNhc2UgdGhlIHByb21pc2N1b3VzIG1vZGUgd2lsbCBhZmZl
-Y3QgTUFDIGFkZHJlc3NlcyBidXQgd2lsbCBzdGlsbCB1c2UgVkxBTiB0YWdzIHRvIHN0ZWVyIHRy
-YWZmaWMgdG8gdGhlIGNvcnJlY3QgVkYocykuDQoNClRoaXMgd2lsbCBhbGxvdyBhIFZGIHRvIGFj
-Y2VwdCBhbnkgcGFja2V0IG9uIGEgVkxBTiByZWdhcmRsZXNzIG9mIHRoZSBNQUMgZGVzdGluYXRp
-b24gYWRkcmVzcyBhbmQgYW1vdW50cyB0byBWTEFOIHRhZyBwYWNrZXQgc3RlZXJpbmcuICBUaGVy
-ZSBhcmUgTkZWIHVzZSBjYXNlcyBmb3IgdGhpcyB0eXBlIG9mIG9wZXJhdGlvbi4NCg0KSSBob3Bl
-IHRoaXMgYW5zd2VycyB5b3VyIHF1ZXN0aW9uLiAgSWYgbm90IEknZCBiZSBoYXBweSB0byBwcm92
-aWRlIG1vcmUgZGV0YWlscy4NCg0KLSBHcmVnDQoNCg==
+Add support for the TI DP83848 Ethernet PHY device.
+
+The DP83848 is a highly reliable, feature rich, IEEE 802.3 compliant
+single port 10/100 Mb/s Ethernet Physical Layer Transceiver supporting
+the MII and RMII interfaces.
+
+Signed-off-by: Andrew F. Davis <afd@ti.com>
+Signed-off-by: Dan Murphy <dmurphy@ti.com>
+---
+ drivers/net/phy/Kconfig   |  5 +++
+ drivers/net/phy/Makefile  |  1 +
+ drivers/net/phy/dp83848.c | 99 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 105 insertions(+)
+ create mode 100644 drivers/net/phy/dp83848.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index c5ad98a..12fa29a 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -122,6 +122,11 @@ config MICREL_PHY
+ 	---help---
+ 	  Supports the KSZ9021, VSC8201, KS8001 PHYs.
+ 
++config DP83848_PHY
++	tristate "Driver for Texas Instruments DP83848 PHY"
++	---help---
++	  Supports the DP83848 PHY.
++
+ config DP83867_PHY
+ 	tristate "Drivers for Texas Instruments DP83867 Gigabit PHY"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 87f079c..b748224 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
+ obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
+ obj-$(CONFIG_NATIONAL_PHY)	+= national.o
+ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
++obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+ obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
+ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+ obj-$(CONFIG_MICREL_PHY)	+= micrel.o
+diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+new file mode 100644
+index 0000000..5ce9bef
+--- /dev/null
++++ b/drivers/net/phy/dp83848.c
+@@ -0,0 +1,99 @@
++/*
++ * Driver for the Texas Instruments DP83848 PHY
++ *
++ * Copyright (C) 2015 Texas Instruments Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define DP83848_PHY_ID			0x20005c90
++
++/* Registers */
++#define DP83848_MICR			0x11
++#define DP83848_MISR			0x12
++
++/* MICR Register Fields */
++#define DP83848_MICR_INT_OE		BIT(0) /* Interrupt Output Enable */
++#define DP83848_MICR_INTEN		BIT(1) /* Interrupt Enable */
++
++/* MISR Register Fields */
++#define DP83848_MISR_RHF_INT_EN		BIT(0) /* Receive Error Counter */
++#define DP83848_MISR_FHF_INT_EN		BIT(1) /* False Carrier Counter */
++#define DP83848_MISR_ANC_INT_EN		BIT(2) /* Auto-negotiation complete */
++#define DP83848_MISR_DUP_INT_EN		BIT(3) /* Duplex Status */
++#define DP83848_MISR_SPD_INT_EN		BIT(4) /* Speed status */
++#define DP83848_MISR_LINK_INT_EN	BIT(5) /* Link status */
++#define DP83848_MISR_ED_INT_EN		BIT(6) /* Energy detect */
++#define DP83848_MISR_LQM_INT_EN		BIT(7) /* Link Quality Monitor */
++
++static int dp83848_ack_interrupt(struct phy_device *phydev)
++{
++	int err = phy_read(phydev, DP83848_MISR);
++
++	return err < 0 ? err : 0;
++}
++
++static int dp83848_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
++		err = phy_write(phydev, DP83848_MICR,
++				DP83848_MICR_INT_OE |
++				DP83848_MICR_INTEN);
++		if (err < 0)
++			return err;
++
++		return phy_write(phydev, DP83848_MISR,
++				 DP83848_MISR_ANC_INT_EN |
++				 DP83848_MISR_DUP_INT_EN |
++				 DP83848_MISR_SPD_INT_EN |
++				 DP83848_MISR_LINK_INT_EN);
++	}
++
++	return phy_write(phydev, DP83848_MICR, 0x0);
++}
++
++static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
++	{ DP83848_PHY_ID, 0xfffffff0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
++
++static struct phy_driver dp83848_driver[] = {
++	{
++		.phy_id		= DP83848_PHY_ID,
++		.phy_id_mask	= 0xfffffff0,
++		.name		= "TI DP83848",
++		.features	= PHY_BASIC_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++
++		.soft_reset	= genphy_soft_reset,
++		.config_init	= genphy_config_init,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.config_aneg	= genphy_config_aneg,
++		.read_status	= genphy_read_status,
++
++		/* IRQ related */
++		.ack_interrupt	= dp83848_ack_interrupt,
++		.config_intr	= dp83848_config_intr,
++
++		.driver		= { .owner = THIS_MODULE, },
++	},
++};
++module_phy_driver(dp83848_driver);
++
++MODULE_DESCRIPTION("Texas Instruments DP83848 PHY driver");
++MODULE_AUTHOR("Andrew F. Davis <afd@ti.com");
++MODULE_LICENSE("GPL");
+-- 
+1.9.1
