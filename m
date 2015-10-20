@@ -1,97 +1,74 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH resend] net: sun4i-emac: Properly free resources
- on probe failure and remove
-Date: Tue, 20 Oct 2015 10:42:24 +0200
-Message-ID: <1445330544-6968-2-git-send-email-hdegoede@redhat.com>
-References: <1445330544-6968-1-git-send-email-hdegoede@redhat.com>
-Reply-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usbnet: removed USB_USBNET as a config option
+Date: Tue, 20 Oct 2015 10:43:00 +0200
+Message-ID: <87k2qiszfv.fsf@nemi.mork.no>
+References: <1445257387-4278-1-git-send-email-oneukum@suse.com>
+	<87oafuu0ru.fsf@nemi.mork.no> <1445322539.2246.1.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-        Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBDRZXY4CYYORB674S6YQKGQEYW2FVTQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1445330544-6968-1-git-send-email-hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:58297 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753511AbbJTInS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 04:43:18 -0400
+In-Reply-To: <1445322539.2246.1.camel@suse.com> (Oliver Neukum's message of
+	"Tue, 20 Oct 2015 08:28:59 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix sun4i-emac not releasing the following resources:
--iomapped memory not released on probe-failure nor on remove
--clock not getting disabled on probe-failure nor on remove
--sram not being released on remove
+Oliver Neukum <oneukum@suse.com> writes:
+> On Mon, 2015-10-19 at 21:16 +0200, Bj=C3=B8rn Mork wrote:
+>
+>> This looks incomplete.
+>
+> Yes, it is against the earlier patch set which introduces the CDC
+> parser in cdc-acm and cdc-wdm. In hindsight I should have reversed
+> the order of patches.
 
-And while at it also add error checking to the clk_prepare_enable call
-done on probe.
+Ah, right, I see.
 
-Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/allwinner/sun4i-emac.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+But that patch has it's own set of problems, as pointed out by the test
+robot:
 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 48ce83e..8d50314 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -847,21 +847,25 @@ static int emac_probe(struct platform_device *pdev)
- 	if (ndev->irq == -ENXIO) {
- 		netdev_err(ndev, "No irq resource\n");
- 		ret = ndev->irq;
--		goto out;
-+		goto out_iounmap;
- 	}
- 
- 	db->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(db->clk)) {
- 		ret = PTR_ERR(db->clk);
--		goto out;
-+		goto out_iounmap;
- 	}
- 
--	clk_prepare_enable(db->clk);
-+	ret = clk_prepare_enable(db->clk);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Error couldn't enable clock (%d)\n", ret);
-+		goto out_iounmap;
-+	}
- 
- 	ret = sunxi_sram_claim(&pdev->dev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "Error couldn't map SRAM to device\n");
--		goto out;
-+		goto out_clk_disable_unprepare;
- 	}
- 
- 	db->phy_node = of_parse_phandle(np, "phy", 0);
-@@ -910,6 +914,10 @@ static int emac_probe(struct platform_device *pdev)
- 
- out_release_sram:
- 	sunxi_sram_release(&pdev->dev);
-+out_clk_disable_unprepare:
-+	clk_disable_unprepare(db->clk);
-+out_iounmap:
-+	iounmap(db->membase);
- out:
- 	dev_err(db->dev, "not found (%d).\n", ret);
- 
-@@ -921,8 +929,12 @@ out:
- static int emac_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct emac_board_info *db = netdev_priv(ndev);
- 
- 	unregister_netdev(ndev);
-+	sunxi_sram_release(&pdev->dev);
-+	clk_disable_unprepare(db->clk);
-+	iounmap(db->membase);
- 	free_netdev(ndev);
- 
- 	dev_dbg(&pdev->dev, "released and freed device\n");
--- 
-2.5.0
+All the USBNET based minidrivers (as well as the USB_USBNET
+infrastructure itself) are protected by
+
+menuconfig USB_NET_DRIVERS
+        tristate "USB Network Adapters"
+        default USB if USB
+        depends on USB && NET
+
+if USB_NET_DRIVERS
+=2E.
+
+
+but USB_ACM and USB_WDM don't have similar protection.  So you'll have
+to make them select NET and USB_NET_DRIVERS too.
+
+Selecting NET is going to be messy.  It already selects 3 other symbols=
+,
+which you'll have to add as well.  And I have a feeling that the list o=
+f
+NET dependencies might grow, which probably explains why there currentl=
+y
+are no "select NET"'s in the kernel. So "select NET" is most likely out
+of the question.  And I don't think we want to make USB_ACM or USB_WDM
+depend on NET either.  It will not make sense to anyone attempting to
+select these drivers, resulting in infinite confusion.
+
+So we might need to move cdc_parse_cdc_header() out of usbnet.c after
+all. Keeping it there creates an unnecessary "select" mess.  But I don'=
+t
+know where to put it...  Either a common CDC helper module or the USB
+core I guess.
+
+Sorry for not bringing this up earlier. I know you asked specifically
+about this. I obviously didn't think it thoroughly through before.
+
+
+
+
+Bj=C3=B8rn
