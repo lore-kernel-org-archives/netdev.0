@@ -1,142 +1,73 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Re: [Bug] Linux 4.1.9, NULL pointer dereference in
- pppoe_release+0x120/0x150
-Date: Tue, 20 Oct 2015 20:06:40 +0000
-Message-ID: <1445371600.4157.10.camel@mattb-dl>
-References: <56261EC0.2080807@seti.kr.ua>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
+Date: Tue, 20 Oct 2015 16:13:26 -0400
+Message-ID: <20151020201326.GF23569@tuxdriver.com>
+References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "nitr0@seti.kr.ua" <nitr0@seti.kr.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, prashant@broadcom.com, eddie.wai@broadcom.com,
+	huangjw@broadcom.com, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:56214 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbbJTUGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:06:48 -0400
-In-Reply-To: <56261EC0.2080807@seti.kr.ua>
-Content-Language: en-US
-Content-ID: <8535F42DD4548A49A998DFBA94995BAC@atlnz.lc>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44762 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbbJTUPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:15:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE1LTEwLTIwIGF0IDE0OjAwICswMzAwLCBBbmRyZXcgd3JvdGU6DQo+IEhpLg0K
-PiANCj4gQWZ0ZXIgQlJBUyBzb2Z0d2FyZSB1cGdyYWRpbmcgKFBQUG9FIGRhZW1vbiArIGtlcm5l
-bCBmcm9tIDMuMi54IHRvIA0KPiA0LjEueCkgSSBoYXZlIGRpZmZlcmVudCBrZXJuZWwgYnVncy9j
-cmFzaGVzIC0gc29tZSBvZiB0aGVtIGRvbid0IGh1cnQgDQo+IHN5c3RlbSwgb3RoZXIgY3Jhc2hl
-cyAtIGNhdXNlIG5ldHdvcmsgc3Vic3lzdGVtIGxvY2t1cCAoY29tbWFuZHMgbGlrZSANCj4gJ2lw
-IGEnIGp1c3QgaHVuZ3M7IGFuZCBzb21ldGltZXMgZXZlbiAncmVib290IC1mJyBkb2Vzbid0IGhl
-bHApLg0KPiANCj4gSXQgc2VlbXMgbGlrZSB0aGVyZSdzIGEgc2ltaWxhciB0cm91YmxlOiANCj4g
-aHR0cDovL3Blcm1hbGluay5nbWFuZS5vcmcvZ21hbmUubGludXgucHBwLzQ0MTANCj4gDQo+IEhl
-cmUncyBvbmUgb2Ygc3VjaCBjcmFzaGVzOg0KPiANCj4gWzk4MTk5LjYwNTEyMF0gQlVHOiB1bmFi
-bGUgdG8gaGFuZGxlIGtlcm5lbCBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UgYXQgDQo+IDAwMDAw
-MjgwDQo+IFs5ODE5OS42MDUyMTldIElQOiBbPGY5YTAzNTgwPl0gcHBwb2VfcmVsZWFzZSsweDEy
-MC8weDE1MCBbcHBwb2VdDQo+IFs5ODE5OS42MDUyNzVdICpwZHB0ID0gMDAwMDAwMDAzNDVjNTAw
-MSAqcGRlID0gMDAwMDAwMDAwMDAwMDAwMA0KPiBbOTgxOTkuNjA1MzM1XSBPb3BzOiAwMDAwIFsj
-MV0gU01QDQo+IFs5ODE5OS42MDUzODFdIE1vZHVsZXMgbGlua2VkIGluOiBhY3RfbWlycmVkIHBw
-cG9lIHBwcG94IHBwcF9nZW5lcmljIA0KPiBzbGhjIGlwdGFibGVfZmlsdGVyIHh0X2xlbmd0aCB4
-dF9UQ1BNU1MgeHRfdGNwdWRwIHh0X21hcmsgeHRfZHNjcCANCj4gaXB0YWJsZV9tYW5nbGUgaXBf
-dGFibGVzIHhfdGFibGVzIGlwdjYgc2NoX3NmcSBzY2hfaHRiIGNsc191MzIgDQo+IHNjaF9pbmdy
-ZXNzIHNjaF9wcmlvIHNjaF90YmYgY2xzX2Zsb3cgY2xzX2Z3IGFjdF9wb2xpY2UgaWZiIDgwMjFx
-IG1ycCANCj4gZ2FycCBzdHAgbGxjIHNvZnRkb2cgcGFycG9ydF9wYyBwYXJwb3J0IGFjcGlfY3B1
-ZnJlcSBwcm9jZXNzb3IgDQo+IHRoZXJtYWxfc3lzIGkyY19waWl4NCBpMmNfY29yZSBpZ2IoTykg
-c3A1MTAwX3RjbyBrMTB0ZW1wIGh3bW9uIG9oY2lfcGNpIA0KPiBvaGNpX2hjZCBkY2EgcHRwIHBw
-c19jb3JlIHNkX21vZCBwYXRhX2FjcGkgcGNzcGtyIHBhdGFfYXRpaXhwIGFoY2kgDQo+IGxpYmFo
-Y2kgYXRhX2dlbmVyaWMgbGliYXRhIGVoY2lfcGNpIGVoY2lfaGNkIHVzYmNvcmUgc2NzaV9tb2Qg
-dXNiX2NvbW1vbiANCj4gZXh0NCBtYmNhY2hlIGpiZDIgY3JjMTYgdmZhdCBmYXQgaXNvZnMNCj4g
-Wzk4MTk5LjYwNTg1OF0gQ1BVOiAyIFBJRDogNTY5MSBDb21tOiBhY2NlbC1wcHBkIFRhaW50ZWQ6
-IEcgICAgICAgICAgIA0KPiBPICAgIDQuMS45LWk2ODYgIzENCj4gWzk4MTk5LjYwNTk0Ml0gSGFy
-ZHdhcmUgbmFtZTogTUlDUk8tU1RBUiBJTlRFUk5BVElPTkFMIENPLixMVEQgDQo+IE1TLTc1OTYv
-NzYwR00tRTUxKE1TLTc1OTYpLCBCSU9TIFYzLjMgMDEvMTIvMjAxMg0KPiBbOTgxOTkuNjA2MDI3
-XSB0YXNrOiBmNDdiMDAwMCB0aTogZGVkZmMwMDAgdGFzay50aTogZGVkZmMwMDANCj4gWzk4MTk5
-LjYwNjA3M10gRUlQOiAwMDYwOls8ZjlhMDM1ODA+XSBFRkxBR1M6IDAwMjEwMjQ2IENQVTogMg0K
-PiBbOTgxOTkuNjA2MTIwXSBFSVAgaXMgYXQgcHBwb2VfcmVsZWFzZSsweDEyMC8weDE1MCBbcHBw
-b2VdDQo+IFs5ODE5OS42MDYxNjVdIEVBWDogMDAwMDAwMDAgRUJYOiBkNTA2YzQwMCBFQ1g6IDAw
-MDAwMDAwIEVEWDogZmZmZmZlMDENCj4gWzk4MTk5LjYwNjIxMF0gRVNJOiBmMjI4ZDgwMCBFREk6
-IGYyMjhkODFjIEVCUDogZGVkZmRmNDggRVNQOiBkZWRmZGYyYw0KPiBbOTgxOTkuNjA2MjU2XSAg
-RFM6IDAwN2IgRVM6IDAwN2IgRlM6IDAwZDggR1M6IDAwMzMgU1M6IDAwNjgNCj4gWzk4MTk5LjYw
-NjMwMV0gQ1IwOiA4MDA1MDAzYiBDUjI6IDAwMDAwMjgwIENSMzogMzJlMzg3NjAgQ1I0OiAwMDAw
-MDZmMA0KPiBbOTgxOTkuNjA2MzQ0XSBTdGFjazoNCj4gWzk4MTk5LjYwNjM4NV0gIGUwZmNkYzA4
-IGY1YWEwOWEwIDAwMDAwMDA4IGYyMjhkODFjIGYyMjhkODAwIGY5YTAzY2MwIA0KPiBmMjI4ZDgx
-YyBkZWRmZGY2MA0KPiBbOTgxOTkuNjA2NDgwXSAgYzEyZjRmNzAgZjUyZTIxOTAgMDAwMDAwMDAg
-ZTBmY2RjMDAgMDAwMDAwMDggZGVkZmRmNjggDQo+IGMxMmY0ZmYwIGRlZGZkZjk0DQo+IFs5ODE5
-OS42MDY1NzRdICBjMTEzOWRjNCAwMDAwMDAwMSAwMDAwMDAwMCAwMDAwMDAwMCBlMGZjZGMwOCBm
-MjMxZGM4MCANCj4gZjUyZTIxOTAgZjQ3YjAzYzANCj4gWzk4MTk5LjYwNjY2OF0gQ2FsbCBUcmFj
-ZToNCj4gWzk4MTk5LjYwNjcxN10gIFs8YzEyZjRmNzA+XSA/IHNvY2tfcmVsZWFzZSsweDIwLzB4
-OTANCj4gWzk4MTk5LjYwNjc2M10gIFs8YzEyZjRmZjA+XSA/IHNvY2tfY2xvc2UrMHgxMC8weDIw
-DQo+IFs5ODE5OS42MDY4MTBdICBbPGMxMTM5ZGM0Pl0gPyBfX2ZwdXQrMHg4NC8weDFiMA0KPiBb
-OTgxOTkuNjA2ODU3XSAgWzxjMTA2M2M3MT5dID8gdGFza193b3JrX3J1bisweDkxLzB4ZDANCj4g
-Wzk4MTk5LjYwNjkwM10gIFs8YzEzYmFkMTU+XSA/IHdvcmtfbm90aWZ5c2lnKzB4MTYvMHgxZA0K
-PiBbOTgxOTkuNjA2OTQ2XSBDb2RlOiA1ZSA1ZiA1ZCBjMyA4ZCBiNCAyNiAwMCAwMCAwMCAwMCA4
-OSBkOCBlOCAyOSA2NCA4ZiANCj4gYzcgMzEgYzAgODMgYzQgMTAgNWIgNWUgNWYgNWQgYzMgOGQg
-YjQgMjYgMDAgMDAgMDAgMDAgOGIgODMgZjggMDEgMDAgMDAgDQo+IDMxIGM5IDw4Yj4gODAgODAg
-MDIgMDAgMDAgNjQgZmYgMDggODkgOGIgZjggMDEgMDAgMDAgZTkgMGEgZmYgZmYgZmYgODkNCj4g
-Wzk4MTk5LjYwNzE4MF0gRUlQOiBbPGY5YTAzNTgwPl0gcHBwb2VfcmVsZWFzZSsweDEyMC8weDE1
-MCBbcHBwb2VdIA0KPiBTUzpFU1AgMDA2ODpkZWRmZGYyYw0KPiBbOTgxOTkuNjA3MjY3XSBDUjI6
-IDAwMDAwMDAwMDAwMDAyODANCj4gWzk4MTk5LjYwNzcwMV0gLS0tWyBlbmQgdHJhY2UgNjFhOTFh
-Mjk4NzZjMTZiOSBdLS0tDQo+IFs5ODIzMi42MTIxOTNdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBr
-ZXJuZWwgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0IA0KPiAwMDAwMDI4MA0KPiBbOTgyMzIu
-NjEyMzQzXSBJUDogWzxmOWEwMzU4MD5dIHBwcG9lX3JlbGVhc2UrMHgxMjAvMHgxNTAgW3BwcG9l
-XQ0KPiBbOTgyMzIuNjEyNDU1XSAqcGRwdCA9IDAwMDAwMDAwMzQ1YzUwMDEgKnBkZSA9IDAwMDAw
-MDAwMDAwMDAwMDANCj4gWzk4MjMyLjYxMjU5MV0gT29wczogMDAwMCBbIzJdIFNNUA0KPiBbOTgy
-MzIuNjEyNzIyXSBNb2R1bGVzIGxpbmtlZCBpbjogYWN0X21pcnJlZCBwcHBvZSBwcHBveCBwcHBf
-Z2VuZXJpYyANCj4gc2xoYyBpcHRhYmxlX2ZpbHRlciB4dF9sZW5ndGggeHRfVENQTVNTIHh0X3Rj
-cHVkcCB4dF9tYXJrIHh0X2RzY3AgDQo+IGlwdGFibGVfbWFuZ2xlIGlwX3RhYmxlcyB4X3RhYmxl
-cyBpcHY2IHNjaF9zZnEgc2NoX2h0YiBjbHNfdTMyIA0KPiBzY2hfaW5ncmVzcyBzY2hfcHJpbyBz
-Y2hfdGJmIGNsc19mbG93IGNsc19mdyBhY3RfcG9saWNlIGlmYiA4MDIxcSBtcnAgDQo+IGdhcnAg
-c3RwIGxsYyBzb2Z0ZG9nIHBhcnBvcnRfcGMgcGFycG9ydCBhY3BpX2NwdWZyZXEgcHJvY2Vzc29y
-IA0KPiB0aGVybWFsX3N5cyBpMmNfcGlpeDQgaTJjX2NvcmUgaWdiKE8pIHNwNTEwMF90Y28gazEw
-dGVtcCBod21vbiBvaGNpX3BjaSANCj4gb2hjaV9oY2QgZGNhIHB0cCBwcHNfY29yZSBzZF9tb2Qg
-cGF0YV9hY3BpIHBjc3BrciBwYXRhX2F0aWl4cCBhaGNpIA0KPiBsaWJhaGNpIGF0YV9nZW5lcmlj
-IGxpYmF0YSBlaGNpX3BjaSBlaGNpX2hjZCB1c2Jjb3JlIHNjc2lfbW9kIHVzYl9jb21tb24gDQo+
-IGV4dDQgbWJjYWNoZSBqYmQyIGNyYzE2IHZmYXQgZmF0IGlzb2ZzDQo+IFs5ODIzMi42MTUxODJd
-IENQVTogMSBQSUQ6IDIxMjEgQ29tbTogYWNjZWwtcHBwZCBUYWludGVkOiBHIEQgICAgTyAgICAN
-Cj4gNC4xLjktaTY4NiAjMQ0KPiBbOTgyMzIuNjE1Mjk0XSBIYXJkd2FyZSBuYW1lOiBNSUNSTy1T
-VEFSIElOVEVSTkFUSU9OQUwgQ08uLExURCANCj4gTVMtNzU5Ni83NjBHTS1FNTEoTVMtNzU5Niks
-IEJJT1MgVjMuMyAwMS8xMi8yMDEyDQo+IFs5ODIzMi42MTU0MDddIHRhc2s6IGY0OTY2ZDgwIHRp
-OiBkZTJkMjAwMCB0YXNrLnRpOiBkZTJkMjAwMA0KPiBbOTgyMzIuNjE1NDgzXSBFSVA6IDAwNjA6
-WzxmOWEwMzU4MD5dIEVGTEFHUzogMDAyMTAyNDYgQ1BVOiAxDQo+IFs5ODIzMi42MTU1NjBdIEVJ
-UCBpcyBhdCBwcHBvZV9yZWxlYXNlKzB4MTIwLzB4MTUwIFtwcHBvZV0NCj4gWzk4MjMyLjYxNTYz
-NF0gRUFYOiAwMDAwMDAwMCBFQlg6IGQ0OGJmMDAwIEVDWDogMDAwMDAwMDAgRURYOiBmZmZmZmUw
-MQ0KPiBbOTgyMzIuNjE1NzA4XSBFU0k6IGYyMjZjYTgwIEVESTogZjIyNmNhOWMgRUJQOiBkZTJk
-M2Y0OCBFU1A6IGRlMmQzZjJjDQo+IFs5ODIzMi42MTU3OTNdICBEUzogMDA3YiBFUzogMDA3YiBG
-UzogMDBkOCBHUzogMDAzMyBTUzogMDA2OA0KPiBbOTgyMzIuNjE1ODY3XSBDUjA6IDgwMDUwMDNi
-IENSMjogMDAwMDAyODAgQ1IzOiAzMmUzODc2MCBDUjQ6IDAwMDAwNmYwDQo+IFs5ODIzMi42MTU5
-NDBdIFN0YWNrOg0KPiBbOTgyMzIuNjE2MDA4XSAgZjQwZTZjMDggZjVkMDJjYzAgMDAwMDAwMDgg
-ZjIyNmNhOWMgZjIyNmNhODAgZjlhMDNjYzAgDQo+IGYyMjZjYTljIGRlMmQzZjYwDQo+IFs5ODIz
-Mi42MTYzNjNdICBjMTJmNGY3MCBmNTJlMjE5MCAwMDAwMDAwMCBmNDBlNmMwMCAwMDAwMDAwOCBk
-ZTJkM2Y2OCANCj4gYzEyZjRmZjAgZGUyZDNmOTQNCj4gWzk4MjMyLjYxNjcxNl0gIGMxMTM5ZGM0
-IDAwMDAwMDAxIDAwMDAwMDAwIDAwMDAwMDAwIGY0MGU2YzA4IGYyMmM5NTgwIA0KPiBmNTJlMjE5
-MCBmNDk2NzE0MA0KPiBbOTgyMzIuNjE3MDY5XSBDYWxsIFRyYWNlOg0KPiBbOTgyMzIuNjE3MTQ3
-XSAgWzxjMTJmNGY3MD5dID8gc29ja19yZWxlYXNlKzB4MjAvMHg5MA0KPiBbOTgyMzIuNjE3MjIx
-XSAgWzxjMTJmNGZmMD5dID8gc29ja19jbG9zZSsweDEwLzB4MjANCj4gWzk4MjMyLjYxNzI5Nl0g
-IFs8YzExMzlkYzQ+XSA/IF9fZnB1dCsweDg0LzB4MWIwDQo+IFs5ODIzMi42MTczNzNdICBbPGMx
-MDYzYzcxPl0gPyB0YXNrX3dvcmtfcnVuKzB4OTEvMHhkMA0KPiBbOTgyMzIuNjE3NDQ5XSAgWzxj
-MTNiYWQxNT5dID8gd29ya19ub3RpZnlzaWcrMHgxNi8weDFkDQo+IFs5ODIzMi42MTc1MzNdIENv
-ZGU6IDVlIDVmIDVkIGMzIDhkIGI0IDI2IDAwIDAwIDAwIDAwIDg5IGQ4IGU4IDI5IDY0IDhmIA0K
-PiBjNyAzMSBjMCA4MyBjNCAxMCA1YiA1ZSA1ZiA1ZCBjMyA4ZCBiNCAyNiAwMCAwMCAwMCAwMCA4
-YiA4MyBmOCAwMSAwMCAwMCANCj4gMzEgYzkgPDhiPiA4MCA4MCAwMiAwMCAwMCA2NCBmZiAwOCA4
-OSA4YiBmOCAwMSAwMCAwMCBlOSAwYSBmZiBmZiBmZiA4OQ0KPiBbOTgyMzIuNjE5NjYyXSBFSVA6
-IFs8ZjlhMDM1ODA+XSBwcHBvZV9yZWxlYXNlKzB4MTIwLzB4MTUwIFtwcHBvZV0gDQo+IFNTOkVT
-UCAwMDY4OmRlMmQzZjJjDQo+IFs5ODIzMi42MTk4MzhdIENSMjogMDAwMDAwMDAwMDAwMDI4MA0K
-PiBbOTgyMzIuNjIwNDA5XSAtLS1bIGVuZCB0cmFjZSA2MWE5MWEyOTg3NmMxNmJhIF0tLS0NCj4g
-DQo+IEhlcmUncyBidWcgcGxhY2U6DQo+IChnZGIpIGxpc3QgKnBwcG9lX3JlbGVhc2UrMHgxMjAN
-Cj4gMHgxNTgwIGlzIGluIHBwcG9lX3JlbGVhc2UgDQo+ICgvdmFyL3Rlc3Rwb2ludC9MRUFGLW5l
-dy9zb3VyY2UvaTQ4Ni11bmtub3duLWxpbnV4LXVjbGliYy9saW51eC9saW51eC00LjEvZHJpdmVy
-cy9uZXQvcHBwL3BwcG9lLmM6NTk0KS4NCj4gNTg5ICAgICAgICB9DQo+IDU5MA0KPiA1OTEgICAg
-ICAgIHBvID0gcHBwb3hfc2soc2spOw0KPiA1OTINCj4gNTkzICAgICAgICBpZiAoc2stPnNrX3N0
-YXRlICYgKFBQUE9YX0NPTk5FQ1RFRCB8IFBQUE9YX0JPVU5EIHwgDQo+IFBQUE9YX1pPTUJJRSkp
-IHsNCj4gNTk0ICAgICAgICAgICAgZGV2X3B1dChwby0+cHBwb2VfZGV2KTsNCj4gNTk1ICAgICAg
-ICAgICAgcG8tPnBwcG9lX2RldiA9IE5VTEw7DQo+IDU5NiAgICAgICAgfQ0KPiA1OTcNCj4gNTk4
-ICAgICAgICBwcHBveF91bmJpbmRfc29jayhzayk7DQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmli
-ZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0K
-PiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBN
-b3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1p
-bmZvLmh0bWwNCg0KSGksDQoNClRoaXMgYnVnIGlzIGJlaW5nIHdvcmtlZCBvbiBhbmQgZGlzY3Vz
-c2VkIGluIHRoZSBtYWlsaW5nIHRocmVhZCB0aXRsZWQNCiJbUEFUQ0ggbmV0XSBwcHA6IGRvbid0
-IG92ZXJyaWRlIHNrLT5za19zdGF0ZSBpbiBwcHBvZV9mbHVzaF9kZXYoKSINCg0KaHR0cDovL3d3
-dy5zcGluaWNzLm5ldC9saXN0cy9uZXRkZXYvbXNnMzQ1NTI4Lmh0bWwNCg0KT25lIHBhdGNoIGhh
-cyBhbHJlYWR5IGJlZW4gc3VibWl0dGVkLCBzZWUgY29tbWl0DQplNjc0MDE2NWI4ZjdmMDZkOGNh
-ZWUwZmNlYWIzZmI5ZDc5MGE2ZmVkDQoNClRoZSBzZWNvbmQgYW5kIChob3BlZnVsbHkpIGZpbmFs
-IHBhdGNoICh3aGljaCB5b3UgY2FuIHNlZSBpbiB0aGUgbWFpbGluZw0KbGlzdCB0aHJlYWQpIGlz
-IGN1cnJlbnRseSBiZWluZyB0ZXN0ZWQuDQoNClJlZ2FyZHMsDQpNYXR0DQoNCg==
+On Sat, Oct 17, 2015 at 12:21:44AM -0400, Michael Chan wrote:
+> Broadcom ethernet driver for the new family of NetXtreme-C/E
+> ethernet devices.
+> 
+> v3:
+>   - Fixed 2 more sparse warnings.
+>   - Removed some unused structures in .h files.
+> 
+> v2:
+>   - Fixed all kbuild test robot reported warnings.
+>   - Fixed many of the checkpatch.pl errors and warnings.
+>   - Fixed the Kconfig description.
+> 
+> Acked-by: Eddie Wai <eddie.wai@broadcom.com>
+> Acked-by: Jeffrey Huang <huangjw@broadcom.com>
+> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/Kconfig              |   19 +
+>  drivers/net/ethernet/broadcom/Makefile             |    1 +
+>  drivers/net/ethernet/broadcom/bnxt/Makefile        |    4 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.c          | 5821 ++++++++++++++++++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.h          |  994 ++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c  | 1150 ++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h  |   18 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_fw_hdr.h   |  104 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h      | 4046 ++++++++++++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_nvm_defs.h |   59 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  787 +++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |   22 +
+>  12 files changed, 13025 insertions(+)
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/Makefile
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt.c
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt.h
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_fw_hdr.h
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_nvm_defs.h
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
+
+Well, it's a big one!  But overall I'd say it looks pretty good...
+
+I agree with Stephen's style comments, and there are a couple of
+strings that are crazy long -- not just a source readability problem,
+but things that would be hard to digest in a log as well.  If you
+address those then I'll be happy to ACK it.
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
