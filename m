@@ -1,73 +1,148 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH v2] ixgbe: Reset interface after enabling SR-IOV
-Date: Tue, 20 Oct 2015 13:28:17 -0700
-Message-ID: <20151020202715.2955.88128.stgit@ahduyck-vm-fedora22>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next V17 3/3] 802.1AD: Flow handling,
+ actions, vlan parsing and netlink attributes
+Date: Tue, 20 Oct 2015 13:34:46 -0700
+Message-ID: <CALnjE+rjNNwvuRRa2hktwHukTvnTx=AC4PegiAvwOT9UGtZKFw@mail.gmail.com>
+References: <1445130748-27671-1-git-send-email-thomasfherbert@gmail.com>
+ <1445130748-27671-4-git-send-email-thomasfherbert@gmail.com>
+ <CALnjE+p1NdBmSZiGoNHw1C_u+D7s1o=7U68WHpx=5t+PQB=92g@mail.gmail.com>
+ <56264F12.1050004@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34881 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789AbbJTU2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:28:18 -0400
-Received: by pasz6 with SMTP id z6so31054748pas.2
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 13:28:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <56264F12.1050004-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Enabling SR-IOV and then bringing the interface up was resulting in the PF
-MAC addresses getting into a bad state.  Specifically the MAC address was
-enabled for both VF 0 and the PF.  This resulted in some odd behaviors such
-as VF 0 receiving a copy of the PFs traffic, which in turn enables the
-ability for VF 0 to spoof the PF.
-
-A workaround for this issue appears to be to bring up the interface first
-and then enable SR-IOV as this way the reset is then triggered in the
-existing code.
-
-In order to correct this I have added a change to ixgbe_setup_tc where if
-the interface is down we still will at least call ixgbe_reset so that the
-MAC addresses for the device are reset to the correct pools.
-
-Steps to reproduce issue:
-modprobe ixgbe
-echo 7 > /sys/bus/pci/devices/0000\:01\:00.1/sriov_numvfs
-ifconfig enp1s0f1 up
-ethregs -s 1:00.1 | grep MPSAR | grep -v 00000000
-
-Result:
-	MPSAR[0]               00000081
-	MPSAR[254]             00000001
-
-Expected Result, behavior after patch:
-	MPSAR[0]               00000080
-	MPSAR[254]             00000080
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
-
-This is also a candidate for stable going back to 3.9 kernel as that
-appears to be where the code for using ixgbe_setup_tc as a part of the
-SR-IOV initialization was introduced.
-
-v2: Replaced dev with adapter as parameter for ixgbe_reset().
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 191003901adb..7831346b483d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7912,6 +7912,9 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	 */
- 	if (netif_running(dev))
- 		ixgbe_close(dev);
-+	else
-+		ixgbe_reset(adapter);
-+
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
- #ifdef CONFIG_IXGBE_DCB
+T24gVHVlLCBPY3QgMjAsIDIwMTUgYXQgNzoyNiBBTSwgVGhvbWFzIEYgSGVyYmVydAo8dGhvbWFz
+ZmhlcmJlcnRAZ21haWwuY29tPiB3cm90ZToKPiBPbiAxMC8xOS8xNSAyOjI4IFBNLCBQcmF2aW4g
+U2hlbGFyIHdyb3RlOgo+Pgo+PiBPbiBTYXQsIE9jdCAxNywgMjAxNSBhdCA2OjEyIFBNLCBUaG9t
+YXMgRiBIZXJiZXJ0Cj4+IDx0aG9tYXNmaGVyYmVydEBnbWFpbC5jb20+IHdyb3RlOgo+Pj4KPj4+
+IEFkZCBzdXBwb3J0IGZvciA4MDIuMWFkIGluY2x1ZGluZyB0aGUgYWJpbGl0eSB0byBwdXNoIGFu
+ZCBwb3AgZG91YmxlCj4+PiB0YWdnZWQgdmxhbnMuIEFkZCBzdXBwb3J0IGZvciA4MDIuMWFkIHRv
+IG5ldGxpbmsgcGFyc2luZyBhbmQgZmxvdwo+Pj4gY29udmVyc2lvbi4gVXNlcyBkb3VibGUgbmVz
+dGVkIGVuY2FwIGF0dHJpYnV0ZXMgdG8gcmVwcmVzZW50IGRvdWJsZQo+Pj4gdGFnZ2VkIHZsYW4u
+IElubmVyIFRQSUQgZW5jb2RlZCBhbG9uZyB3aXRoIGN0Y2kgaW4gbmVzdGVkIGF0dHJpYnV0ZXMu
+Cj4+Pgo+Pj4gU2lnbmVkLW9mZi1ieTogVGhvbWFzIEYgSGVyYmVydCA8dGhvbWFzZmhlcmJlcnRA
+Z21haWwuY29tPgo+Pj4gLS0tCj4+PiAgIG5ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgICAgICB8
+ICAgNiArLQo+Pj4gICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAgICAgfCAgNzYgKysrKysr
+KysrKysrKy0tLS0tCj4+PiAgIG5ldC9vcGVudnN3aXRjaC9mbG93LmggICAgICAgICB8ICAgOCAr
+LQo+Pj4gICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAxNzIKPj4+ICsrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tCj4+PiAgIG5ldC9vcGVudnN3aXRjaC92
+cG9ydC1uZXRkZXYuYyB8ICAgNCArLQo+Pj4gICA1IGZpbGVzIGNoYW5nZWQsIDIyNyBpbnNlcnRp
+b25zKCspLCAzOSBkZWxldGlvbnMoLSkKPj4+Cj4+PiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dp
+dGNoL2FjdGlvbnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPj4+IGluZGV4IDMxNWY1
+MzMuLjA5Y2MxYzkgMTAwNjQ0Cj4+Cj4+IC4uLgo+Pgo+Pj4gZGlmZiAtLWdpdCBhL25ldC9vcGVu
+dnN3aXRjaC9mbG93X25ldGxpbmsuYwo+Pj4gYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5r
+LmMKPj4+IGluZGV4IGM5MmQ2YTIuLjk3YTZkMTIgMTAwNjQ0Cj4+PiAtLS0gYS9uZXQvb3BlbnZz
+d2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
+bmsuYwo+Pgo+PiAuLi4KPj4KPj4+IEBAIC0xMzIwLDYgKzE0NDMsNyBAQCBzdGF0aWMgaW50IF9f
+b3ZzX25sYV9wdXRfa2V5KGNvbnN0IHN0cnVjdAo+Pj4gc3dfZmxvd19rZXkgKnN3a2V5LAo+Pj4g
+ICB7Cj4+PiAgICAgICAgICBzdHJ1Y3Qgb3ZzX2tleV9ldGhlcm5ldCAqZXRoX2tleTsKPj4+ICAg
+ICAgICAgIHN0cnVjdCBubGF0dHIgKm5sYSwgKmVuY2FwOwo+Pj4gKyAgICAgICBzdHJ1Y3Qgbmxh
+dHRyICppbl9lbmNhcCA9IE5VTEw7Cj4+Pgo+Pj4gICAgICAgICAgaWYgKG5sYV9wdXRfdTMyKHNr
+YiwgT1ZTX0tFWV9BVFRSX1JFQ0lSQ19JRCwgb3V0cHV0LT5yZWNpcmNfaWQpKQo+Pj4gICAgICAg
+ICAgICAgICAgICBnb3RvIG5sYV9wdXRfZmFpbHVyZTsKPj4+IEBAIC0xMzY4LDE3ICsxNDkyLDI5
+IEBAIHN0YXRpYyBpbnQgX19vdnNfbmxhX3B1dF9rZXkoY29uc3Qgc3RydWN0Cj4+PiBzd19mbG93
+X2tleSAqc3drZXksCj4+PiAgICAgICAgICBldGhlcl9hZGRyX2NvcHkoZXRoX2tleS0+ZXRoX3Ny
+Yywgb3V0cHV0LT5ldGguc3JjKTsKPj4+ICAgICAgICAgIGV0aGVyX2FkZHJfY29weShldGhfa2V5
+LT5ldGhfZHN0LCBvdXRwdXQtPmV0aC5kc3QpOwo+Pj4KPj4+IC0gICAgICAgaWYgKHN3a2V5LT5l
+dGgudGNpIHx8IHN3a2V5LT5ldGgudHlwZSA9PSBodG9ucyhFVEhfUF84MDIxUSkpIHsKPj4+IC0g
+ICAgICAgICAgICAgICBfX2JlMTYgZXRoX3R5cGU7Cj4+PiAtICAgICAgICAgICAgICAgZXRoX3R5
+cGUgPSAhaXNfbWFzayA/IGh0b25zKEVUSF9QXzgwMjFRKSA6IGh0b25zKDB4ZmZmZik7Cj4+PiAt
+ICAgICAgICAgICAgICAgaWYgKG5sYV9wdXRfYmUxNihza2IsIE9WU19LRVlfQVRUUl9FVEhFUlRZ
+UEUsIGV0aF90eXBlKQo+Pj4gfHwKPj4+IC0gICAgICAgICAgICAgICAgICAgbmxhX3B1dF9iZTE2
+KHNrYiwgT1ZTX0tFWV9BVFRSX1ZMQU4sCj4+PiBvdXRwdXQtPmV0aC50Y2kpKQo+Pj4gKyAgICAg
+ICBpZiAoc3drZXktPmV0aC52bGFuLnRjaSB8fCBldGhfdHlwZV92bGFuKHN3a2V5LT5ldGgudHlw
+ZSkpIHsKPj4+ICsgICAgICAgICAgICAgICBpZiAobmxhX3B1dF9iZTE2KHNrYiwgT1ZTX0tFWV9B
+VFRSX0VUSEVSVFlQRSwKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG91dHB1
+dC0+ZXRoLnZsYW4udHBpZCkgfHwKPj4+ICsgICAgICAgICAgICAgICAgICAgbmxhX3B1dF9iZTE2
+KHNrYiwgT1ZTX0tFWV9BVFRSX1ZMQU4sCj4+PiBvdXRwdXQtPmV0aC52bGFuLnRjaSkpCj4+PiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgZ290byBubGFfcHV0X2ZhaWx1cmU7Cj4+PiAgICAgICAg
+ICAgICAgICAgIGVuY2FwID0gbmxhX25lc3Rfc3RhcnQoc2tiLCBPVlNfS0VZX0FUVFJfRU5DQVAp
+Owo+Pj4gLSAgICAgICAgICAgICAgIGlmICghc3drZXktPmV0aC50Y2kpCj4+PiArICAgICAgICAg
+ICAgICAgaWYgKCFzd2tleS0+ZXRoLnZsYW4udGNpKQo+Pj4gICAgICAgICAgICAgICAgICAgICAg
+ICAgIGdvdG8gdW5lbmNhcDsKPj4+IC0gICAgICAgfSBlbHNlCj4+PiArICAgICAgICAgICAgICAg
+aWYgKHN3a2V5LT5ldGguY3ZsYW4udGNpKSB7Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICAv
+KiBDdXN0b21lciB0Y2kgaXMgbmVzdGVkIGJ1dCB1c2VzIHNhbWUga2V5Cj4+PiBhdHRyaWJ1dGUu
+Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgKi8KPj4+ICsgICAgICAgICAgICAgICAgICAg
+ICAgIGlmIChubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFLAo+Pj4gKyAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdXRwdXQtPmV0aC5jdmxhbi50
+cGlkKSB8fAo+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgIG5sYV9wdXRfYmUxNihza2Is
+IE9WU19LRVlfQVRUUl9WTEFOLAo+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICBvdXRwdXQtPmV0aC5jdmxhbi50Y2kpKQo+Pj4gKyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICBnb3RvIG5sYV9wdXRfZmFpbHVyZTsKPj4+ICsgICAgICAgICAgICAgICAgICAg
+ICAgIGluX2VuY2FwID0gbmxhX25lc3Rfc3RhcnQoc2tiLAo+Pj4gT1ZTX0tFWV9BVFRSX0VOQ0FQ
+KTsKPj4+ICsgICAgICAgICAgICAgICAgICAgICAgIGlmICghc3drZXktPmV0aC5jdmxhbi50Y2kp
+Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGdvdG8gdW5lbmNhcDsKPj4+ICsg
+ICAgICAgICAgICAgICB9Cj4+PiArICAgICAgIH0gZWxzZSB7Cj4+PiAgICAgICAgICAgICAgICAg
+IGVuY2FwID0gTlVMTDsKPj4+ICsgICAgICAgfQo+Pgo+PiBBZnRlciB0aGUgdmxhbiBwYXJzaW5n
+IGNoYW5nZXMsIHdlIG5lZWQgdG8gZW5jb2RlIGN2bGFuIGluIG91dGVyCj4+IG5ldGxpbmsgYXR0
+cmlidXRlIGFuZCB0aGVuIGVuY29kZSByZWd1bGFyIHZsYW4uCj4KPiBJIGRvbid0IHVuZGVyc3Rh
+bmQgdGhpcy4gY3ZsYW4gaXMgaW5uZXIgdmxhbiwgd2h5IHdvdWxkIGl0IGJlIGVuY29kZWQgaW4K
+PiBvdXRlciB2bGFuIHdpdGhvdXQgdGhlIDJuZCBsYXllciBvZiBlbmNhcHN1bGF0aW9uPwo+Ckxl
+dHMgc3RhcnQgd2l0aCBkb3VibGUgdGFnZ2VkIHBhY2tldC4KcGFja2V0OiBldGgsIHZsYW4gMTAs
+IGlubmVyIHZsYW4gMjAsIGlwLgpmbG93IGtleSB3b3VsZCBiZToKZmxvd19rZXk6IHZsYW4gPSAx
+MCwgY3ZsYW4gPSAyMApUaGF0IHdvdWxkIGdldCBzZXJpYWxpemUgb3ZlciBuZXRsaW5rIGxpa2U6
+CmV0aF90eXBlKDB4ODEwMCksdmxhbih2aWQ9MTAscGNwPTApLGVuY2FwKGV0aF90eXBlKDB4ODEw
+MCksdmxhbih2aWQ9MjAscGNwPTApLAplbmNhcChldGhfdHlwZSgweDA4MDApLGlwdjQoZnJhZz1u
+bykpLi4uClNvIGZhciBsb29rcyBnb29kLgoKTm93IHVzZXJzcGFjZSBzZW5kcyBiYWNrIHNhbWUg
+a2V5IGFuZCBpbnN0YWxscyBmbG93IGluIGtlcm5lbApkYXRhcGF0aC4gQnV0IG92c19ubGFfZ2V0
+X21hdGNoKCkgcGFyc2VzIG5ldGluayBrZXkgYW5kIHNldHMgdmxhbiBpbgpyZXZlcnNlIG9yZGVy
+LiBBZnRlciBwYXJzaW5nIG5ldGxpbmsgaW4gb3ZzX25sYV9nZXRfbWF0Y2goKSB2bGFucwpmbG93
+LWtleSB3b3VsZCBsb29rIGxpa2U6CmZsb3dfa2V5OiB2bGFuID0gMjAsIGN2bGFuID0gMTAuIFRo
+aXMgaXMgbm90IHdoYXQgd2Ugc3RhcnRlZCB3aXRoLgoKTm93IEkgdGhpbmsgcmF0aGVyIHRoYW4g
+Zml4aW5nIF9fb3ZzX25sYV9wdXRfa2V5ICgpLCB3ZSBuZWVkIHRvIGZpeApvdnNfbmxhX2dldF9t
+YXRjaCgpIHRvIGtlZXAgdmxhbiBvcmRlci4KSSBhbHNvIG5vdGljZWQgdGhhdCBldGgudmxhbi50
+cGlkIGlzIG5ldmVyIGluaXRpYWxpemVkIGZyb20gbmV0bGluayBhdHRyaWJ1dGVzLgpDYWxsIHRv
+IHBhcnNlX2Zsb3dfbmxhdHRycyAgaW4gcGFyc2Vfdmxhbl9mcm9tX25sYXR0cnMoKSBoYXMgbm8g
+ZWZmZWN0CnNvIGl0IHNob3VsZCBiZSByZW1vdmVkLgoKCj4gT25lIHRoaW5rIEkgc2VlIEkgc2hv
+dWxkIGhhdmUgZG9uZSBpcyBjaGVjayBmb3IgZXRoX3R5cGVfdmxhbigpIG9uIHRoZSBpbm5lcgo+
+IHRhZyBhcyB3ZWxsLgo+Pgo+PiBDdXJyZW50bHkgd2UgYXJlCj4+IHJldmVyc2luZyBuZXRsaW5r
+IGVuY29kaW5nIHdoaWxlIHNlbmRpbmcgYmFjayB0aGUgdmxhbiBhdHRyaWJ1dGVzLgo+PiBjdmxh
+biBhbmQgdmxhbiBpcyBpbmRlcGVuZGVudCwKPgo+IEFyZSB5b3UgdGFsa2luZyBhYm91dCBhIGNv
+cm5lciBjYXNlIHdoZXJlIHRoZSBpbmNvbWluZyBwYWNrZXQgaGFzIGFuIGlubmVyCj4gdmxhbiBi
+dXQgbm8gb3V0ZXIgdmxOPwo+Pgpub3BlLCB0aGlzIGlzIHVzdWFsIGNhc2UuCgo+PiB0aGVyZWZv
+cmUgd2UgbmVlZCB0byBjaGVjawo+PiBzd2tleS0+ZXRoLmN2bGFuLnRjIG91dHNpZGUgb2Ygc3dr
+ZXktPmV0aC52bGFuLnRjaSBibG9jay4gQWxzbwo+PiByZWR1bmRhbnQgY2hlY2sgZm9yIHN3a2V5
+LT5ldGguY3ZsYW4udGNpIHNob3VsZCBiZSByZW1vdmVkCj4KPiBJIG11c3QgYmUgbWlzc2luZyBz
+b21ldGhpbmcgYmVjYXVzZSBJIGRvbid0IHVuZGVyc3RhbmQgdGhpcyBlaXRoZXIuIEZpcnN0IG15
+Cj4gcGF0Y2ggZW5jb2RlcyB0aGUgb3V0ZXIgdmxhbiBhbmQgdGhlbiBzZXRzIHRoZSBlbmNhcCBi
+aXQgYW5kIHRoZW4gZW5jb2Rlcwo+IHRoZSBpbm5lciB2bGFuLiBUaGUgZW5jb2Rpbmcgc2hvd3Mg
+dXAgY29ycmVjdGx5IGluIHVzZXIgc3BhY2UuCj4+Ck9uY2Ugb3ZzX25sYV9nZXRfbWF0Y2goKSBp
+cyBmaXhlZCwgdGhlcmUgaXMgbm8gbmVlZCB0byBjaGFuZ2UgdGhpcwpmdW5jdGlvbiB0byBmaXgg
+dGhhdCBvcmRlcmluZy4KCkkgd2FzIHRhbGtpbmcgYWJvdXQgZm9sbG93aW5nIHJlZHVuZGFudCBj
+aGVjazoKCiAgICAgICAgICAgICAgICBpZiAoc3drZXktPmV0aC5jdmxhbi50Y2kpIHsKICAgICAg
+ICAgICAgICAgICAgICAgICAgLyogQ3VzdG9tZXIgdGNpIGlzIG5lc3RlZCBidXQgdXNlcyBzYW1l
+IGtleSBhdHRyaWJ1dGUuCiAgICAgICAgICAgICAgICAgICAgICAgICAqLwogICAgICAgICAgICAg
+ICAgICAgICAgICBpZiAobmxhX3B1dF9iZTE2KHNrYiwgT1ZTX0tFWV9BVFRSX0VUSEVSVFlQRSwK
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdXRwdXQtPmV0aC5jdmxh
+bi50cGlkKSB8fAogICAgICAgICAgICAgICAgICAgICAgICAgICAgbmxhX3B1dF9iZTE2KHNrYiwg
+T1ZTX0tFWV9BVFRSX1ZMQU4sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgb3V0cHV0LT5ldGguY3ZsYW4udGNpKSkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICBnb3RvIG5sYV9wdXRfZmFpbHVyZTsKICAgICAgICAgICAgICAgICAgICAgICAgaW5fZW5jYXAg
+PSBubGFfbmVzdF9zdGFydChza2IsIE9WU19LRVlfQVRUUl9FTkNBUCk7Cj4+Pj4+Pj4+ICAgICAg
+ICAgICAgICAgaWYgKCFzd2tleS0+ZXRoLmN2bGFuLnRjaSkgIDw8PDw8PDw8PDw8PDwKICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICBnb3RvIHVuZW5jYXA7CiAgICAgICAgICAgICAgICB9
+Cgo+Pgo+PiBDYW4geW91IGFsc28gcG9zdCBjaGFuZ2VzIGZvciB1c2Vyc3BhY2UgdnN3aXRjaGQg
+c28gdGhhdCBJIGNhbiB0cnkgbmV4dAo+PiBwYXRjaC4KPgo+IEkgcG9zdGVkIGEgcGF0Y2ggZm9y
+IHVzZXIgc3BhY2UgKFYxNCkgdG8gb3ZzIGRldiBvbiBPY3RvYmVyIDJuZC4gSSBoYXZlbid0Cj4g
+bWFkZSBhbnkgY2hhbmdlcyBzaW5jZSB0aGVuLgo+IGh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvcGlw
+ZXJtYWlsL2Rldi8yMDE1LU9jdG9iZXIvMDYwODc0Lmh0bWwKPgpUaGF0IHBhdGNoIGRvZXMgbm90
+IGFwcGx5IG9uIE9WUyBtYXN0ZXIuIFlvdSBjb3VsZCBhbHNvIHNlbmQgbWUgbGluawp0byBvdnMg
+dXNlcnBzYWNlIGdpdGh1YiByZXBvIHdpdGggdGhlc2UgcGF0Y2hlcyBhcHBsaWVkIHNvIHRoYXQg
+SSBjYW4KdHJ5IGtlcm5lbCBkYXRhcGF0aCBjaGFuZ2VzLgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
+aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
