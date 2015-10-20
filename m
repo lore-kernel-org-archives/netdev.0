@@ -1,36 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH resend 0/1] net: sun4i-emac: Properly free
- resources on probe failure
-Date: Tue, 20 Oct 2015 04:17:20 -0700 (PDT)
-Message-ID: <20151020.041720.1990087005815931941.davem@davemloft.net>
-References: <1445330544-6968-1-git-send-email-hdegoede@redhat.com>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] net: Really fix vti6 with oif in dst lookups
+Date: Tue, 20 Oct 2015 13:01:11 +0200
+Message-ID: <20151020110111.GL7701@secunet.com>
+References: <1445268365-23414-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-sunxi+bncBDCIDJ4RTAOBB4N5TCYQKGQEHP34RGA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1445330544-6968-1-git-send-email-hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:42918 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751651AbbJTLBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Oct 2015 07:01:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1445268365-23414-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 20 Oct 2015 10:42:23 +0200
+On Mon, Oct 19, 2015 at 08:26:05AM -0700, David Ahern wrote:
+> 6e28b000825d ("net: Fix vti use case with oif in dst lookups for IPv6")
+> is missing the checks on FLOWI_FLAG_SKIP_NH_OIF. Add them.
 > 
-> IIRC you said you would pick this up, but I'm not seeing it in
-> net-next, hence this resend.
+> Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> This is needed for net in 4.3. 6e28b000825d was mistakenly created on
+> top of the VRF patches which had this change. Steffen has confirmed
+> VTI6 works with this change.
 
-If it's not in my tree, and it's not active on patchwork, you really
-have to resend your patches.
-
-Asking me to dig into submissions made some time in the past doesn't
-really work, sorry.
- 
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
