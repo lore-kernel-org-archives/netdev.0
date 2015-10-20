@@ -1,157 +1,88 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Tue, 20 Oct 2015 13:56:40 -0500
-Message-ID: <87io61fjx3.fsf@x220.int.ebiederm.org>
-References: <cover.1444956943.git.daniel@iogearbox.net>
-	<5621B5BC.8020204@plumgrid.com> <56223F00.5030203@iogearbox.net>
-	<562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>
-	<5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>
-	<1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
-	<5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
-	<562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
-	<56253335.9000206@plumgrid.com>
-	<1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
-	<562545AA.2080207@plumgrid.com>
-	<1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
-	<56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>
-	<56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>
-	<56267FAF.60206@plumgrid.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
+Date: Tue, 20 Oct 2015 21:11:19 +0200
+Message-ID: <562691D7.30602@pengutronix.de>
+References: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
+ <562653CD.5040101@pengutronix.de> <56266C0B.1040006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56267FAF.60206@plumgrid.com> (Alexei Starovoitov's message of
-	"Tue, 20 Oct 2015 10:53:51 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL"
+Cc: hs@denx.de, netdev@vger.kernel.org
+To: "Anton.Glukhov" <anton.a.glukhov@gmail.com>,
+	linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:44120 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbbJTTL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 15:11:28 -0400
+In-Reply-To: <56266C0B.1040006@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexei Starovoitov <ast@plumgrid.com> writes:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> On 10/20/15 1:46 AM, Daniel Borkmann wrote:
->>> as we discussed in this thread and earlier during plumbers I think
->>> it would be good to expose key/values somehow in this fs.
->>> 'how' is a big question.
+On 10/20/2015 06:30 PM, Anton.Glukhov wrote:
+>>> +	clk_disable_unprepare(priv->clk);
+>>> +	priv->clk =3D NULL;
+>>>  	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>>>  	iounmap(priv->base);
+>>>  	release_mem_region(res->start, resource_size(res));
+>>> @@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_devi=
+ce *pdev, pm_message_t state)
+>>>  	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+>>>  	priv->can.state =3D CAN_STATE_SLEEPING;
+>>> =20
+>>> -	clk_disable(priv->clk);
+>>> +	clk_disable_unprepare(priv->clk);
+>>> =20
+>>>  	return 0;
+>>>  }
+>>> @@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_devic=
+e *pdev)
+>>>  	struct net_device *dev =3D platform_get_drvdata(pdev);
+>>>  	struct ti_hecc_priv *priv =3D netdev_priv(dev);
+>>> =20
+>>> -	clk_enable(priv->clk);
+>>> +	clk_prepare_enable(priv->clk);
 >>
->> Yes, it is a big question, and probably best left to the domain-specific
->> application itself, which can already dump the map nowadays via bpf(2)
->> syscall. You can add bindings to various languages to make it available
->> elsewhere as well.
+>> please add error checking.
 >>
->> Or, you have a user space 'bpf' tool that can connect to any map that is
->> being exposed with whatever model, and have modular pretty printers in
->> user space somewhere located as shared objects, they could get auto-loaded
->> in the background. Maps could get an annotation attached as an attribute
->> during creation that is being exposed somewhere, so it can be mapped to
->> a pretty printer shared object. This would better be solved in user space
->> entirely, in my opinion, why should the kernel add complexity for this
->> when this is so much user-space application specific anyway?
->>
->> As we all agreed, looking into key/values via shell is a rare event and
->> not needed most of the times. It comes with it's own problems (f.e. think
->> of dumping a possible rhashtable map with key/values as files). But even
->> iff we'd want to stick this into files by all means, fusefs can do this
->> specific job entirely in user space _plus_ fetching these shared objects
->> for pretty printers etc, all we need for this is to add this annotation/
->> mapping attribute somewhere to bpf_maps and that's all it takes.
->>
->> This question is no doubt independant of the fd pinning mechanism, but as
->> I said, I don't think sticking this into the kernel is a good idea. Why
->> would that be the kernel's job?
->
-> agree with all of the concerns above. I said it would be good for
-> kernel to expose key/values and I still think it would be a useful
-> feature. Regardless whether kernel does it or not in the future,
-> the point was 'IF we want kernel to do it then bpf FS is the right way'.
->
->> In the other email, you are mentioning fdinfo. fdinfo can be done for any
->> map/prog already today by just adding the right .show_fdinfo() callback to
->> bpf_map_fops and bpf_prog_fops, so we let the anon-inodes that we already
->> use today to do this job for free and such debugging info can be inspected
->> through procfs already. This is common practice, f.e. look at timerfd,
->> signalfd and others.
->
-> I know. That's exactly what I proposed, but again the point was
-> that fdinfo of regular FDs should match in style to pinned FDs,
-> 'cat /sys/kernel/bpf/.../map5' should be similar to
-> 'cat /proc/.../fdinfo/5'
-> and 'cat /sys/kernel/bpf...' you can only cleanly do with bpffs.
->
->>> But regardless which path we take, sysfs is too rigid.
->>> For the sake of argument say we do every key as a new file in bpffs.
->>> It's not very scalable, but comparing to sysfs it's better
->>> (resource wise).
->>
->> I doubt this is scaleable at all, no matter if its sysfs or a own custom
->> fs. How should that work. You have a map with possibly thousands or
->> millions
->> of entries. Are these files to be generated on the fly like in procfs as
->> soon as you enter that directory? Or as a one-time snapshot (but then
->> the user mights want to create various snapshots)? There might be new
->> map elements as building blocks in the future such as pipes, ring buffers
->> etc. How are they being dumped as files?
->
-> you're arguing that keys as files are not scalable. sure.
-> See what I said above "it's not very scalable"
-> The point is that fs approach is more flexible comparing to cdev.
->
->>> not everything in unix is a model that should be followed.
->>> af_unix with name[0]!=0 is a bad api that wasn't thought through.
->>> Thankfully Linux improved it with abstract names that don't use
->>> special files.
->>> bpf maps obviously is not an IPC (either pinned or not).
->>
->> So, if this pinning facility is unprivileged and available for *all*
->> applications, then applications can in-fact use eBPF maps (w/o any
->> other aides such as Unix domain sockets to transfer fds) among themselves
->> to exchange state via bpf(2) syscall. It doesn't need a corresponding
->> program.
->
-> Obviously I know that, but it doesn't make it an IPC.
-> Just because two processes can talk to each other via normal tcpip it
-> doesn't make tcpip an IPC mechanism.
-> The point is "just because two processes can communicate with each
-> other via X (bpf maps) we are not going to optimize (or make
-> architectural decisions in X) just for this use case". It's a job of
-> generic IPC and we have enough of them already.
->
->> Okay, sure, but then having a mount_single() and separating users and
->> namespaces is still not being resolved, as you've noticed.
->
-> yes and that's what I proposed to do:
-> Tweaking this FS patch to do mount_single() and define directory
-> structure is the best way forward.
->
->> So, if you distribute the names through the kernel and dictate a strict
->> hierarchy, then we'll end up with a similar model that cdevs resolve.
->
-> yes. exactly.
-> but comparing to cdev, it will be:
-> - cheaper for kernel to keep (memory wise)
-> - faster to pin FDs
-> - do normal 'rm' to destroy
-> - possible to extend to unprivileged users
-> - possible to add fdinfo (same output for pinned and normal fd)
-> - possible to expose key/value
->
-> I'm puzzled how you can keep arguing in favor of cdev when it's
-> obviously deficient comparing to fs and fs has no disadvantages.
-> Looks like we can only resolve it over beer.
-> How about we setup a public hangout ? Today or tomorrow?
+>=20
+> Why it wasn't added with clk_enable? Is it bug? I'm confused here, beca=
+use in so many drivers
+> there is no checking err after clk_enable or clk_prepare_enable. Maybe =
+I missed something...
+> Could you clarify this part please?
 
-Just FYI:  Using a device for this kind of interface is pretty
-much a non-starter as that quickly gets you into situations where
-things do not work in containers.  If someone gets a version of device
-namespaces past GregKH it might be up for discussion to use character
-devices.
+I wouldn't call it a bug in the original driver, it probably slipped
+through the review or I didn't know better.
 
-But really device nodes are a technology that is slowly being changed to
-support hotplug.  Nothing you are doing seems to match up well with
-devices.  So for an interface that you want ordinary applications to use
-character devices are a bad bad fit.
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Eric
+
+--c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWJpHXAAoJEP5prqPJtc/HZXgH/0nG4Ba0nCHUN6oMG4W4Sb/p
+72TS/EjeOiMmZsp33R2tyq0qm5i557cBkIcM3QG9i3MXC9Vf7zneIYfkbYi8dBTo
+PB7DghpG7qjNq+g99ouDCpDzxwZrHq5pbYqiQH0CuJXInMdGHTvwfrwPdufttsZh
+x1CMCGudEI0BZaGpTcX5WKaMA64XApBt0s3ftNIk+VuD71pvBLVkesO9QecldjyH
+M8HJYuXZj2n4XfZECv2cBgUJ9K7pcFB3rlUb4Pwf4Yr6vQ3XOIe4jNNHaoiPA6S2
+XZfUUY46gLx+V8sIz4OQaZfDsyOQ+nE6m84ewnKSKMJdQCijR8x/xRuqEgvxpR4=
+=7AqL
+-----END PGP SIGNATURE-----
+
+--c288c2gQfuAXuBbpIA9sxW3ITIwavfeDL--
