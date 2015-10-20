@@ -1,48 +1,62 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 11/17] i40e: Add promiscuous on VLAN support
-Date: Tue, 20 Oct 2015 18:46:35 +0300
-Message-ID: <CAJ3xEMiuRfA=0Kn4DYnow_mftGu4CuqW4AVGTi5CehRiMCkxqA@mail.gmail.com>
-References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1444715598-20970-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20151013.041408.880270217805854932.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
+Date: Tue, 20 Oct 2015 15:47:53 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBBC7E7@AcuExch.aculab.com>
+References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
+ <20151018221958.1b7b9d0d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Singhai, Anjali" <anjali.singhai@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"prashant@broadcom.com" <prashant@broadcom.com>,
+	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>,
+	"huangjw@broadcom.com" <huangjw@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Stephen Hemminger' <stephen@networkplumber.org>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:36245 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbbJTPqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:46:36 -0400
-Received: by igdg1 with SMTP id g1so65918268igd.1
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 08:46:35 -0700 (PDT)
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
+Received: from smtp-out6.electric.net ([192.162.217.184]:56046 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037AbbJTPth convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:49:37 -0400
+In-Reply-To: <20151018221958.1b7b9d0d@xeon-e3>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2015 at 6:31 PM, Rose, Gregory V
-<gregory.v.rose@intel.com> wrote:
+From: Stephen Hemminger
+...
+> On Sat, 17 Oct 2015 00:21:44 -0400
+> Michael Chan <mchan@broadcom.com> wrote:
+> 
+> > +static bool bnxt_vf_pciid(int idx)
+> > +{
+> > +	if (idx == BCM57304_VF || idx == BCM57404_VF)
+> > +		return true;
+> > +	return false;
+> > +}
+> > +
+> 
+> I prefer just returning result of logical operation
+> rather than adding unnecessary if statement.
+> And never use (signed) int when unsigned is the real
+> data type. Also avoid any unnecessary expansion of 16 bit
+> value.
 
->> > NFV use cases require the ability to steer packets to VSIs by VLAN tag
->> > alone while being in promiscuous mode for multicast and unicast MAC
->> > addresses.  These two new functions support that ability.
->> >
->> > Change-ID: Ifef704b07e0ee8a39d3c351dbd5dc83bb2f63c45
->> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
->> > Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
->> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Actually 16-bit (and 8-bit) values always have to be extended to 'int'
+before any arithmetic operations.
+On systems with 16-bit arithmetic instructions (like x86) the
+compiler can only use them if it can determine that result would be
+the same (as if they were extended).
 
-> The patch(es) that use these functions are not yet prepared.  We will wait until they're ready to submit these patches.  Sorry for the confusion but I was out on vacation and didn't have a chance to coordinate this with Jeff.
+This can mean a lot of extra instructions if you do arithmetic
+on 16-bit values the compiler is holding in registers.
 
-> We needed the VF trust code in the kernel before we could add in these additional patches.  We can work with Anjali to get those now that the VF trust feature is in the kernel.
+Similarly using 16-bit values as function parameters/results
+can require additional masking instructions.
 
-Can you please explain your design for supporting VF promiscuous mode?
+IMHO This really all means that you should use [unsigned] int for
+local variables even when the domain of the value is known
+to be much smaller.
 
-Or.
+	David
