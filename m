@@ -1,71 +1,73 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 0/4] netfilter: rework netfilter ipv6 defrag
-Date: Tue, 20 Oct 2015 22:53:07 +0200
-Message-ID: <20151020205306.GK4386@breakpoint.cc>
-References: <1445112865-31523-1-git-send-email-fw@strlen.de>
- <CANr6G5zvmj_tL5Pt6-70GQ4dTJXLewX9A4uMGC_0OFzXYQVdew@mail.gmail.com>
- <20151020081716.GH4386@breakpoint.cc>
- <CANr6G5xW7m2SXFiU22pFVD6uvDj5ymX=jZkRJk2vMYQoJykvLw@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 11/17] i40e: Add promiscuous on VLAN support
+Date: Tue, 20 Oct 2015 20:54:45 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A078942ABD6@ORSMSX108.amr.corp.intel.com>
+References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1444715598-20970-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20151013.041408.880270217805854932.davem@davemloft.net>
+	<C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
+ <CAJ3xEMiuRfA=0Kn4DYnow_mftGu4CuqW4AVGTi5CehRiMCkxqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andy Zhou <azhou@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CANr6G5xW7m2SXFiU22pFVD6uvDj5ymX=jZkRJk2vMYQoJykvLw@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Singhai, Anjali" <anjali.singhai@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:31284 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751540AbbJTUzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Oct 2015 16:55:15 -0400
+In-Reply-To: <CAJ3xEMiuRfA=0Kn4DYnow_mftGu4CuqW4AVGTi5CehRiMCkxqA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Stringer <joestringer@nicira.com> wrote:
-> > Good point.  No, I don't.  Any suggestions?
-> > I can try to just re-target -nf tree (sans patch #2).  Pablo?
-> 
-> The smallest change seems to be adding the nf_ct_frag6_consume_orig()
-> call to OVS, plus the morph logic from patch 3. Alternatively if Pablo
-> is fine with having the series re-targeted, then that sounds
-> reasonable to me too.
-
-Pablo, your call.
-
-I would suggest to re-target patches #1 and #3 to nf tree, I can do
-this, just let me know.
-
-Alternative is to just add the nf_ct_frag6_consume_orig call to
-openvswitch and handle that via net tree.
-
-I can then wait for that change to pop up in nf-next and just resend
-this series (which will then undo that change).
-
-Let me know, thanks!
-
-> > ipv4 side seems broken as well (ip_defrag frees skb on errors other than
-> > -EINPROGRESS, so it looks like we will double-free in
-> > do_execute_actions)
-> 
-> Oh dear. Thanks for the report. I propose wrapping the ip_defrag()
-> with an skb_get()/skb_consume() as this seems to require the least
-> invasive changes:
-> 
-> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-> index a5ec34f8502f..0d2d24c99fd5 100644
-> --- a/net/openvswitch/conntrack.c
-> +++ b/net/openvswitch/conntrack.c
-> @@ -303,7 +303,11 @@ static int handle_fragments(struct net *net,
-> struct sw_flow_key *key,
->                 int err;
-> 
->                 memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-> +
-> +               skb_get(skb);
->                 err = ip_defrag(skb, user);
-> +               if (!err || err == -EINPROGRESS)
-> +                       consume_skb(skb);
->                 if (err)
->                         return err;
-
-Indeed, that seems like the least invasive change.
-
-Feel free to submit this to -net, there is no dependency on any of the
-other changes.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPciBHZXJsaXR6IFttYWlsdG86
+Z2VybGl0ei5vckBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMjAsIDIwMTUg
+ODo0NyBBTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBEYXZpZCBNaWxsZXI7IEtpcnNo
+ZXIsIEplZmZyZXkgVDsgU2luZ2hhaSwgQW5qYWxpOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBuaG9ybWFuQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207DQo+IGpvZ3JlZW5lQHJl
+ZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAxMS8xN10gaTQwZTogQWRkIHByb21p
+c2N1b3VzIG9uIFZMQU4gc3VwcG9ydA0KPiANCj4gT24gVHVlLCBPY3QgMjAsIDIwMTUgYXQgNjoz
+MSBQTSwgUm9zZSwgR3JlZ29yeSBWDQo+IDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+IHdyb3Rl
+Og0KPiANCj4gPj4gPiBORlYgdXNlIGNhc2VzIHJlcXVpcmUgdGhlIGFiaWxpdHkgdG8gc3RlZXIg
+cGFja2V0cyB0byBWU0lzIGJ5IFZMQU4NCj4gPj4gPiB0YWcgYWxvbmUgd2hpbGUgYmVpbmcgaW4g
+cHJvbWlzY3VvdXMgbW9kZSBmb3IgbXVsdGljYXN0IGFuZCB1bmljYXN0DQo+ID4+ID4gTUFDIGFk
+ZHJlc3Nlcy4gIFRoZXNlIHR3byBuZXcgZnVuY3Rpb25zIHN1cHBvcnQgdGhhdCBhYmlsaXR5Lg0K
+PiA+PiA+DQo+ID4+ID4gQ2hhbmdlLUlEOiBJZmVmNzA0YjA3ZTBlZThhMzlkM2MzNTFkYmQ1ZGM4
+M2JiMmY2M2M0NQ0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJv
+c2VAaW50ZWwuY29tPg0KPiA+PiA+IFRlc3RlZC1ieTogQW5kcmV3IEJvd2VycyA8YW5kcmV3eC5i
+b3dlcnNAaW50ZWwuY29tPg0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiANCj4gPiBUaGUgcGF0Y2goZXMpIHRoYXQgdXNl
+IHRoZXNlIGZ1bmN0aW9ucyBhcmUgbm90IHlldCBwcmVwYXJlZC4gIFdlIHdpbGwNCj4gd2FpdCB1
+bnRpbCB0aGV5J3JlIHJlYWR5IHRvIHN1Ym1pdCB0aGVzZSBwYXRjaGVzLiAgU29ycnkgZm9yIHRo
+ZSBjb25mdXNpb24NCj4gYnV0IEkgd2FzIG91dCBvbiB2YWNhdGlvbiBhbmQgZGlkbid0IGhhdmUg
+YSBjaGFuY2UgdG8gY29vcmRpbmF0ZSB0aGlzIHdpdGgNCj4gSmVmZi4NCj4gDQo+ID4gV2UgbmVl
+ZGVkIHRoZSBWRiB0cnVzdCBjb2RlIGluIHRoZSBrZXJuZWwgYmVmb3JlIHdlIGNvdWxkIGFkZCBp
+biB0aGVzZQ0KPiBhZGRpdGlvbmFsIHBhdGNoZXMuICBXZSBjYW4gd29yayB3aXRoIEFuamFsaSB0
+byBnZXQgdGhvc2Ugbm93IHRoYXQgdGhlIFZGDQo+IHRydXN0IGZlYXR1cmUgaXMgaW4gdGhlIGtl
+cm5lbC4NCj4gDQo+IENhbiB5b3UgcGxlYXNlIGV4cGxhaW4geW91ciBkZXNpZ24gZm9yIHN1cHBv
+cnRpbmcgVkYgcHJvbWlzY3VvdXMgbW9kZT8NCg0KU3VyZS4NCg0KVXAgdW50aWwgbm93IEludGVs
+IFNSLUlPViBWRiBkcml2ZXJzIGhhdmUgbm90IGJlZW4gYWxsb3dlZCB0byBlbnRlciBwcm9taXNj
+dW91cyBtb2RlIGR1ZSB0byBzZWN1cml0eSBpc3N1ZXMuICBOb3cgdGhhdCB0aGUgUEYgZHJpdmVy
+IHN1cHBvcnRzIHRoZSBuZXRkZXYgb3AgdG8gc2V0IGEgVkYgYXMgInRydXN0ZWQiIHdlIHdpbGwg
+YWRkIGNvZGUgdG8gdGhlIFZGIGRyaXZlciB0byByZXF1ZXN0IHByb21pc2N1b3VzIG1vZGUgaWYg
+YXNrZWQgdG8gZW50ZXIgcHJvbWlzY3VvdXMgbW9kZSBieSB0aGUgT1MgbmV0d29yayBzdGFjaywg
+SUZGX1BST01JU0MuIElmIHRoZSBWRiBoYXMgYmVlbiBjb25maWd1cmVkIGFzIHRydXN0ZWQgdGhy
+b3VnaCB0aGUgUEYgZHJpdmVyIHRoZW4gdGhlIFBGIGRyaXZlciB3aWxsIGdvIGFoZWFkIGFuZCBj
+b25maWd1cmUgdGhlIFZGIGZvciBwcm9taXNjdW91cyBtb2RlIG9wZXJhdGlvbi4gIEl0IHdpbGwg
+YmUgZnVsbCBwcm9taXNjdW91cyBtb2RlIHVubGVzcyB0aGUgdXNlciBoYXMgY29uZmlndXJlZCBW
+TEFOIGZpbHRlcnMuICBJbiB0aGF0IGNhc2UgdGhlIHByb21pc2N1b3VzIG1vZGUgd2lsbCBhZmZl
+Y3QgTUFDIGFkZHJlc3NlcyBidXQgd2lsbCBzdGlsbCB1c2UgVkxBTiB0YWdzIHRvIHN0ZWVyIHRy
+YWZmaWMgdG8gdGhlIGNvcnJlY3QgVkYocykuDQoNClRoaXMgd2lsbCBhbGxvdyBhIFZGIHRvIGFj
+Y2VwdCBhbnkgcGFja2V0IG9uIGEgVkxBTiByZWdhcmRsZXNzIG9mIHRoZSBNQUMgZGVzdGluYXRp
+b24gYWRkcmVzcyBhbmQgYW1vdW50cyB0byBWTEFOIHRhZyBwYWNrZXQgc3RlZXJpbmcuICBUaGVy
+ZSBhcmUgTkZWIHVzZSBjYXNlcyBmb3IgdGhpcyB0eXBlIG9mIG9wZXJhdGlvbi4NCg0KSSBob3Bl
+IHRoaXMgYW5zd2VycyB5b3VyIHF1ZXN0aW9uLiAgSWYgbm90IEknZCBiZSBoYXBweSB0byBwcm92
+aWRlIG1vcmUgZGV0YWlscy4NCg0KLSBHcmVnDQoNCg==
