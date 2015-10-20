@@ -1,7 +1,8 @@
 From: Salil <salil.mehta@huawei.com>
-Subject: [PATCH net-next 0/4] net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
-Date: Tue, 20 Oct 2015 23:01:14 +0800
-Message-ID: <1445353278-130498-1-git-send-email-salil.mehta@huawei.com>
+Subject: [PATCH net-next 4/4] net:hns: Add the init code to disable Hip06 "Hardware VLAN assist"
+Date: Tue, 20 Oct 2015 23:01:18 +0800
+Message-ID: <1445353278-130498-5-git-send-email-salil.mehta@huawei.com>
+References: <1445353278-130498-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
@@ -16,60 +17,61 @@ To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
 	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
 	<linuxarm@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:11541 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751195AbbJTOr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 10:47:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445353278-130498-1-git-send-email-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Salil Mehta <salil.mehta@huawei.com>
 
-This patch-set adds support of new Hisilicon Hip06 SoC to the existing
-(already part of net-next) HNS ethernet driver for Hip05 SoC. Hip06 is
-a multi-core SoC and is a derivative of Hip05 SoC with lots of new
-hardware featres supported like RSS, TSO, hardware VLAN assist etc. 
+This patch adds the initializzation code to disable the hardware
+vlan support for VLAN Tag stripping by default for now.
 
-The changes in the driver are mainly due to following:
- 1) changes in the DMA descriptor provided by the Hip06 ethernet 
-    hardware. These changes need to co-exist with already present
-    Hip05 DMA descriptor and its operating functions. The decision
-    to choose the correct type of DMA descriptor is taken dynamically
-    depending upon the version of the hardware (i.e. V1/hip05 or
-    V2/hip06, see alredy existing hisilicon-hns-nic.txt binding file
-    for the detailed description version and naming).
- 2) To support new features added to the Hip06 ethernet hardware:
-    a. RSS (Receive Side Scaling)
-    b. TSO (TCP Segment Offload)
-    c. Hardware VLAN support (currently we are initializing hardware
-       to not assist in stripping the vlan tag at hardware level.
-       Proper supoort of this feature and ethtool would come after
-       these patches have been accepted)
+Proper support of "hardware VLAN assitance" feature would
+soon come in the next coming patches.
 
-Kindly note that, this patchset has been based on net-next which
-already has Hip05 ethernet driver changes.
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |    7 +++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |    1 +
+ 2 files changed, 8 insertions(+)
 
-Salil Mehta (4):
-  net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
-  net:hns: Add Hip06 "RSS(Receive Side Scaling)" support to HNS Driver
-  net:hns: Add Hip06 "TSO(TCP Segment Offload)" support HNS Driver
-  net:hns: Add the init code to disable Hip06 "Hardware VLAN assist"
-
- drivers/net/ethernet/hisilicon/hns/hnae.h          |   58 ++-
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  119 +++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  154 ++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    5 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |    6 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   91 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   33 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |   68 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |    8 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   83 +++-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  440 ++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   12 +
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |   71 +++-
- 13 files changed, 1003 insertions(+), 145 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 6eb4816..85526f1 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -188,6 +188,11 @@ static void hns_ppe_cnt_clr_ce(struct hns_ppe_cb *ppe_cb)
+ 			 PPE_CNT_CLR_CE_B, 1);
+ }
+ 
++static void hns_ppe_set_vlan_strip(struct hns_ppe_cb *ppe_cb, int en)
++{
++	dsaf_write_dev(ppe_cb, PPEV2_VLAN_STRIP_EN_REG, en);
++}
++
+ /**
+  * hns_ppe_checksum_hw - set ppe checksum caculate
+  * @ppe_device: ppe device
+@@ -357,6 +362,8 @@ static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
+ 	hns_ppe_cnt_clr_ce(ppe_cb);
+ 
+ 	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
++		hns_ppe_set_vlan_strip(ppe_cb, 0);
++
+ 		hns_ppe_set_rss_key(ppe_cb, rss_key);
+ 
+ 		for (i = 0; i < HNS_PPEV2_RSS_IND_TBL_SIZE; i++)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index cbfba30..d3c61b6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -317,6 +317,7 @@
+ #define PPE_CFG_PARSE_TAG_REG			0x94
+ #define PPE_CFG_PRO_CHECK_EN_REG		0x98
+ #define PPEV2_CFG_TSO_EN_REG                    0xA0
++#define PPEV2_VLAN_STRIP_EN_REG                 0xAC
+ #define PPE_INTEN_REG				0x100
+ #define PPE_RINT_REG				0x104
+ #define PPE_INTSTS_REG				0x108
 -- 
 1.7.9.5
