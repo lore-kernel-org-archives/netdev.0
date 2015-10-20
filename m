@@ -1,86 +1,46 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
-Date: Tue, 20 Oct 2015 23:29:00 +0100
-Message-ID: <87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
-	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
-	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
-	<5612B9A9.8050301@akamai.com>
-	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
-	<561DCFA4.3010300@akamai.com>
-	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
-	<561F156E.9050905@akamai.com>
-	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
-	<5625073C.5010809@akamai.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Tue, 20 Oct 2015 15:53:02 -0700
+Message-ID: <5626C5CE.8080809@plumgrid.com>
+References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
+ <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, minipli@googlemail.com,
-	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Jason Baron <jbaron@akamai.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
+	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
+	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
+	daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5625073C.5010809@akamai.com> (Jason Baron's message of "Mon, 19
-	Oct 2015 11:07:40 -0400")
+In-Reply-To: <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jason Baron <jbaron@akamai.com> writes:
-> On 10/18/2015 04:58 PM, Rainer Weikusat wrote:
+On 10/20/15 12:22 AM, Kaixu Xia wrote:
+> diff --git a/kernel/events/core.c b/kernel/events/core.c
+> index b11756f..5219635 100644
+> --- a/kernel/events/core.c
+> +++ b/kernel/events/core.c
+> @@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
+>   		irq_work_queue(&event->pending);
+>   	}
 >
-> [...]
->
->> 
->> The idea behind 'the wait queue' (insofar I'm aware of it) is that it
->> will be used as list of threads who need to be notified when the
->> associated event occurs. Since you seem to argue that the run-of-the-mill
->> algorithm is too slow for this particular case, is there anything to
->> back this up?
->>
->
-> Generally the poll() routines only add to a wait queue once at the
-> beginning, and all subsequent calls to poll() simply check the wakeup
-> conditions. So here you are proposing to add/remove to the wait queue on
-> subsequent invocations of poll(). So the initial patch I did, continued
-> in the usual pattern and only added once on registration or connect().
+> +	if (unlikely(!atomic_read(&event->soft_enable)))
+> +		return 0;
+> +
+>   	if (event->overflow_handler)
+>   		event->overflow_handler(event, data, regs);
+>   	else
 
-The code uses the private member of a wait_queue_t to record if it the
-add_wait_queue was already executed so the add/remove will only happen
-if the wakeup condition changed in the meantime (which usually ought to
-be the case, though). As far as I understand this, this really only
-makes a difference for epoll as only epoll will keep everything on the
-wait queues managed by it between 'polling calls'. In order to support
-epoll-style wait queue management outside of epoll, the poll management
-code would need to execute a cleanup callback instead of just the setup
-callback it already executes.
+Peter,
+does this part look right or it should be moved right after
+if (unlikely(!is_sampling_event(event)))
+                 return 0;
+or even to other function?
 
-> 1)
->
-> In unix_peer_wake_relay() function, 'sk_wq' is an __rcu pointer and thus
-> it requires proper dereferencing. Something like:
->
-> struct unix_sock *u;
-> struct socket_wq *wq;
->
-> u = container_of(wait, struct unix_sock, wait);
-> rcu_read_lock();
-> wq = rcu_dereference(u->sk.sk_wq);
-> if (wq_has_sleeper(wq))
-> 	wake_up_interruptible_sync_poll(&wq->wait, key);
-> rcu_read_unlock();
-
-I think this may be unecessary but I need more time to check this than
-the odd "half an hour after work after 11pm [UK time]" I could put into
-this today.
-
-> 2)
->
-> For the case of epoll() in edge triggered mode we need to ensure that
-> when we return -EAGAIN from unix_dgram_sendmsg() when unix_recvq_full()
-> is true, we need to add a unix_peer_wake_connect() call to guarantee a
-> wakeup. Otherwise, we are going to potentially hang there.
-
-I consider this necessary.
+It feels to me that it should be moved, since we probably don't
+want to active throttling, period adjust and event_limit for events
+that are in soft_disabled state.
