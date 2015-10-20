@@ -1,53 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
- incorrect for sockets in accept(3)
-Date: Tue, 20 Oct 2015 08:30:27 -0700
-Message-ID: <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151019095938.72ea48e6@xeon-e3>
-	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <562594E1.8040403@oracle.com>
-	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56261092.7080003@oracle.com>
-	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56264596.90104@oracle.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 11/17] i40e: Add promiscuous on VLAN support
+Date: Tue, 20 Oct 2015 15:31:42 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789429C4D@ORSMSX108.amr.corp.intel.com>
+References: <1444715598-20970-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1444715598-20970-12-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20151013.041408.880270217805854932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Singhai, Anjali" <anjali.singhai@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34544 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbbJTPa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:30:29 -0400
-Received: by padhk11 with SMTP id hk11so24660637pad.1
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 08:30:29 -0700 (PDT)
-In-Reply-To: <56264596.90104@oracle.com>
+Received: from mga09.intel.com ([134.134.136.24]:49108 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750832AbbJTPbr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:31:47 -0400
+In-Reply-To: <20151013.041408.880270217805854932.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-10-20 at 14:45 +0100, Alan Burlison wrote:
 
-> And I still haven't seen any reasoning behind the Linux close() and 
-> poll() behaviour on sockets that are in the listen state.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, October 13, 2015 4:14 AM
+> To: Kirsher, Jeffrey T
+> Cc: Rose, Gregory V; netdev@vger.kernel.org; nhorman@redhat.com;
+> sassmann@redhat.com; jogreene@redhat.com
+> Subject: Re: [net-next 11/17] i40e: Add promiscuous on VLAN support
+> 
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Mon, 12 Oct 2015 22:53:12 -0700
+> 
+> > From: Greg Rose <gregory.v.rose@intel.com>
+> >
+> > NFV use cases require the ability to steer packets to VSIs by VLAN tag
+> > alone while being in promiscuous mode for multicast and unicast MAC
+> > addresses.  These two new functions support that ability.
+> >
+> > Change-ID: Ifef704b07e0ee8a39d3c351dbd5dc83bb2f63c45
+> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> Nothing in the driver calls these functions.
+> 
+> Please do not add code or defines or facilities that are completely unused
+> in the upstream driver.
 
-Same answer.
+The patch(es) that use these functions are not yet prepared.  We will wait until they're ready to submit these patches.  Sorry for the confusion but I was out on vacation and didn't have a chance to coordinate this with Jeff.
 
-A close() does _not_ wakeup an accept() or a poll() (this is exactly the
-same problem), or any blocking system call using the same 'file'
+Jeff,
 
-This is the choice Linus Torvalds and Al Viro did years ago.
+We needed the VF trust code in the kernel before we could add in these additional patches.  We can work with Anjali to get those now that the VF trust feature is in the kernel.
 
-It is set in stone, unless someone comes up with a very nice patch set,
-that does not break existing applications.
-
-close() man page states :
-
-NOTES
-      It  is  probably unwise to close file descriptors while they may be in
-      use by system calls in other threads in the  same  process.   Since  a
-      file  descriptor may be reused, there are some obscure race conditions
-      that may cause unintended side effects.
-
-You are in this grey zone.
+- Greg
