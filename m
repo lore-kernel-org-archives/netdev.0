@@ -1,65 +1,111 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 1/6] net: dsa: add port_fdb_dump function
-Date: Tue, 20 Oct 2015 12:17:21 -0400
-Message-ID: <1445357846-25720-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Anton.Glukhov" <anton.a.glukhov@gmail.com>
+Subject: Re: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
+Date: Tue, 20 Oct 2015 19:30:03 +0300
+Message-ID: <56266C0B.1040006@gmail.com>
+References: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
+ <562653CD.5040101@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: hs@denx.de, netdev@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <562653CD.5040101@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all switch chips support a Get Next operation to iterate on its FDB.
-So add a more simple port_fdb_dump function for them.
+Thank you for review Marc!
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/dsa.h | 4 ++++
- net/dsa/slave.c   | 3 +++
- 2 files changed, 7 insertions(+)
+On 20.10.2015 17:46, Marc Kleine-Budde wrote:
+> On 10/20/2015 04:39 PM, Anton Glukhov wrote:
+>> This patch fixes a warning in clk_enable by calling
+>> clk_prepare_enable instead.
+>>
+>> Signed-off-by: Heiko Schocher <hs@denx.de>
+>> Signed-off-by: Anton Glukhov <anton.a.glukhov@gmail.com>
+>> ---
+>>  drivers/net/can/ti_hecc.c | 13 +++++++------
+>>  1 file changed, 7 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+>> index cf345cb..77dd170 100644
+>> --- a/drivers/net/can/ti_hecc.c
+>> +++ b/drivers/net/can/ti_hecc.c
+>> @@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
+>>  	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
+>>  		HECC_DEF_NAPI_WEIGHT);
+>>  
+>> -	clk_enable(priv->clk);
+>> +	clk_prepare_enable(priv->clk);
+> 
+> please add error checking
+> 
+>>  	err = register_candev(ndev);
+>>  	if (err) {
+>>  		dev_err(&pdev->dev, "register_candev() failed\n");
+>> @@ -966,7 +966,8 @@ static int ti_hecc_probe(struct platform_device *pdev)
+>>  	return 0;
+>>  
+>>  probe_exit_clk:
+>> -	clk_put(priv->clk);
+> 
+> Why do you remove the clk_put()?
+> 
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index e005886..0cfa44a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -198,6 +198,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- }
- 
- struct switchdev_trans;
-+struct switchdev_obj;
- struct switchdev_obj_port_fdb;
- 
- struct dsa_switch_driver {
-@@ -330,6 +331,9 @@ struct dsa_switch_driver {
- 	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
- 				    unsigned char *addr, u16 *vid,
- 				    bool *is_static);
-+	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
-+				 struct switchdev_obj_port_fdb *fdb,
-+				 int (*cb)(struct switchdev_obj *obj));
- };
- 
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b0b8da0..d76e62b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -382,6 +382,9 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
- 	u16 vid = 0;
- 	int ret;
- 
-+	if (ds->drv->port_fdb_dump)
-+		return ds->drv->port_fdb_dump(ds, p->port, fdb, cb);
-+
- 	if (!ds->drv->port_fdb_getnext)
- 		return -EOPNOTSUPP;
- 
--- 
-2.6.1
+My fault. I'll fix it in ver3.
+
+>> +	clk_disable_unprepare(priv->clk);
+>> +	priv->clk = NULL;
+> 
+> The NULLing of priv->clk is not needed.
+> 
+>>  probe_exit_candev:
+>>  	free_candev(ndev);
+>>  probe_exit_iounmap:
+>> @@ -984,8 +985,8 @@ static int ti_hecc_remove(struct platform_device *pdev)
+>>  	struct ti_hecc_priv *priv = netdev_priv(ndev);
+>>  
+>>  	unregister_candev(ndev);
+>> -	clk_disable(priv->clk);
+>> -	clk_put(priv->clk);
+> 
+> Why do you remoe the clk_put()?
+> 
+>> +	clk_disable_unprepare(priv->clk);
+>> +	priv->clk = NULL;
+>>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>>  	iounmap(priv->base);
+>>  	release_mem_region(res->start, resource_size(res));
+>> @@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
+>>  	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+>>  	priv->can.state = CAN_STATE_SLEEPING;
+>>  
+>> -	clk_disable(priv->clk);
+>> +	clk_disable_unprepare(priv->clk);
+>>  
+>>  	return 0;
+>>  }
+>> @@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
+>>  	struct net_device *dev = platform_get_drvdata(pdev);
+>>  	struct ti_hecc_priv *priv = netdev_priv(dev);
+>>  
+>> -	clk_enable(priv->clk);
+>> +	clk_prepare_enable(priv->clk);
+> 
+> please add error checking.
+> 
+
+Why it wasn't added with clk_enable? Is it bug? I'm confused here, because in so many drivers
+there is no checking err after clk_enable or clk_prepare_enable. Maybe I missed something...
+Could you clarify this part please?
+
+>>  
+>>  	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+>>  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+>>
+> 
+> Marc
+> 
+
+regards,
+Anton
