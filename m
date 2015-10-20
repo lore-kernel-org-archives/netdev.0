@@ -1,111 +1,120 @@
-From: "Anton.Glukhov" <anton.a.glukhov@gmail.com>
-Subject: Re: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
-Date: Tue, 20 Oct 2015 19:30:03 +0300
-Message-ID: <56266C0B.1040006@gmail.com>
-References: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
- <562653CD.5040101@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: hs@denx.de, netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <562653CD.5040101@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH-v2 2/2] mac80211: ensure association req uses configured ratemask.
+Date: Tue, 20 Oct 2015 10:22:30 -0700
+Message-ID: <1445361750-24707-2-git-send-email-greearb@candelatech.com>
+References: <1445361750-24707-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:58215 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752091AbbJTRWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 13:22:44 -0400
+In-Reply-To: <1445361750-24707-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thank you for review Marc!
+From: Ben Greear <greearb@candelatech.com>
 
-On 20.10.2015 17:46, Marc Kleine-Budde wrote:
-> On 10/20/2015 04:39 PM, Anton Glukhov wrote:
->> This patch fixes a warning in clk_enable by calling
->> clk_prepare_enable instead.
->>
->> Signed-off-by: Heiko Schocher <hs@denx.de>
->> Signed-off-by: Anton Glukhov <anton.a.glukhov@gmail.com>
->> ---
->>  drivers/net/can/ti_hecc.c | 13 +++++++------
->>  1 file changed, 7 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
->> index cf345cb..77dd170 100644
->> --- a/drivers/net/can/ti_hecc.c
->> +++ b/drivers/net/can/ti_hecc.c
->> @@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
->>  	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
->>  		HECC_DEF_NAPI_WEIGHT);
->>  
->> -	clk_enable(priv->clk);
->> +	clk_prepare_enable(priv->clk);
-> 
-> please add error checking
-> 
->>  	err = register_candev(ndev);
->>  	if (err) {
->>  		dev_err(&pdev->dev, "register_candev() failed\n");
->> @@ -966,7 +966,8 @@ static int ti_hecc_probe(struct platform_device *pdev)
->>  	return 0;
->>  
->>  probe_exit_clk:
->> -	clk_put(priv->clk);
-> 
-> Why do you remove the clk_put()?
-> 
+When sending the association request, pay attention to the
+legacy rates configured by the user, and do not advertise support
+for any that are not configured.
 
-My fault. I'll fix it in ver3.
+This makes the assoc request packet look more correct when
+making modern hardware act like a /b mode station, for instance.
 
->> +	clk_disable_unprepare(priv->clk);
->> +	priv->clk = NULL;
-> 
-> The NULLing of priv->clk is not needed.
-> 
->>  probe_exit_candev:
->>  	free_candev(ndev);
->>  probe_exit_iounmap:
->> @@ -984,8 +985,8 @@ static int ti_hecc_remove(struct platform_device *pdev)
->>  	struct ti_hecc_priv *priv = netdev_priv(ndev);
->>  
->>  	unregister_candev(ndev);
->> -	clk_disable(priv->clk);
->> -	clk_put(priv->clk);
-> 
-> Why do you remoe the clk_put()?
-> 
->> +	clk_disable_unprepare(priv->clk);
->> +	priv->clk = NULL;
->>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->>  	iounmap(priv->base);
->>  	release_mem_region(res->start, resource_size(res));
->> @@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
->>  	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->>  	priv->can.state = CAN_STATE_SLEEPING;
->>  
->> -	clk_disable(priv->clk);
->> +	clk_disable_unprepare(priv->clk);
->>  
->>  	return 0;
->>  }
->> @@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
->>  	struct net_device *dev = platform_get_drvdata(pdev);
->>  	struct ti_hecc_priv *priv = netdev_priv(dev);
->>  
->> -	clk_enable(priv->clk);
->> +	clk_prepare_enable(priv->clk);
-> 
-> please add error checking.
-> 
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ net/mac80211/ieee80211_i.h |  2 +-
+ net/mac80211/mlme.c        | 49 ++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 48 insertions(+), 3 deletions(-)
 
-Why it wasn't added with clk_enable? Is it bug? I'm confused here, because in so many drivers
-there is no checking err after clk_enable or clk_prepare_enable. Maybe I missed something...
-Could you clarify this part please?
-
->>  
->>  	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->>  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
->>
-> 
-> Marc
-> 
-
-regards,
-Anton
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 5e43e99..e9fcdc2 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -383,7 +383,7 @@ struct ieee80211_mgd_auth_data {
+ 
+ struct ieee80211_mgd_assoc_data {
+ 	struct cfg80211_bss *bss;
+-	const u8 *supp_rates;
++	u8 supp_rates[IEEE80211_MAX_SUPP_RATES];
+ 
+ 	unsigned long timeout;
+ 	int tries;
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 9651e92..fdcf863 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -635,6 +635,8 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
+ 						     assoc_data->supp_rates_len,
+ 						     &rates);
+ 	} else {
++		u32 msk = sdata->cfg_advert_bitrate_mask.control[chan->band].legacy;
++
+ 		/*
+ 		 * In case AP not provide any supported rates information
+ 		 * before association, we send information element(s) with
+@@ -645,6 +647,9 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
+ 			if ((rate_flags & sband->bitrates[i].flags)
+ 			    != rate_flags)
+ 				continue;
++			if (sdata->cfg_advert_bitrate_mask_set &&
++			    (!(msk & (1 << i))))
++				continue;
+ 			rates |= BIT(i);
+ 			rates_len++;
+ 		}
+@@ -4840,8 +4845,48 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
+ 		sdata->smps_mode = ifmgd->req_smps;
+ 
+ 	assoc_data->capability = req->bss->capability;
+-	assoc_data->supp_rates = bss->supp_rates;
+-	assoc_data->supp_rates_len = bss->supp_rates_len;
++	if (sdata->cfg_advert_bitrate_mask_set) {
++		int band = req->bss->channel->band;
++		u32 msk = sdata->cfg_advert_bitrate_mask.control[band].legacy;
++		u8 all_rates[12] = { 2, 4, 11, 22,
++				     12, 18, 24, 36, 48, 72, 96, 108 };
++		int i;
++		int q = 0;
++
++		/* Skip CCK rates for 5Ghz band */
++		if (band == IEEE80211_BAND_5GHZ)
++			msk = msk << 4;
++
++#if 0
++		pr_err("mgt-assoc, band: %d msk: 0x%x  bss-rates-len: %d\n",
++		       band, msk, (int)(bss->supp_rates_len));
++		for (i = 0; i < bss->supp_rates_len; i++) {
++			pr_err("bss rate[%d] = %d (0x%x)\n",
++			       i, bss->supp_rates[i], bss->supp_rates[i]);
++		}
++#endif
++		for (i = 0; i < 12; i++) {
++			int j;
++
++			if (!(msk & (1 << i)))
++				break;
++
++			for (j = 0; j < bss->supp_rates_len; j++) {
++				/* Mask out the 'basic-rate' flag, 0x80 */
++				if ((bss->supp_rates[j] & 0x7f) == all_rates[i]) {
++					assoc_data->supp_rates[q] =
++						bss->supp_rates[j];
++					q++;
++					break;
++				}
++			}
++		}
++		assoc_data->supp_rates_len = q;
++	} else {
++		memcpy(assoc_data->supp_rates, bss->supp_rates,
++		       bss->supp_rates_len);
++		assoc_data->supp_rates_len = bss->supp_rates_len;
++	}
+ 
+ 	rcu_read_lock();
+ 	ht_ie = ieee80211_bss_get_ie(req->bss, WLAN_EID_HT_OPERATION);
+-- 
+2.4.3
