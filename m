@@ -1,131 +1,75 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
-Date: Tue, 20 Oct 2015 16:46:37 +0200
-Message-ID: <562653CD.5040101@pengutronix.de>
-References: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
+From: Salil <salil.mehta@huawei.com>
+Subject: [PATCH net-next 0/4] net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+Date: Tue, 20 Oct 2015 23:01:14 +0800
+Message-ID: <1445353278-130498-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="cw15kantm8NdNV84hnhbiqAQxq5cWcd7I"
-Cc: hs@denx.de, netdev@vger.kernel.org
-To: Anton Glukhov <anton.a.glukhov@gmail.com>,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
+	<mark.rutland@arm.com>, <paul.gortmaker@windriver.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>, <arnd@arndb.de>,
+	<liguozhu@hisilicon.com>, <yisen.zhuang@huawei.com>,
+	<dingtianhong@huawei.com>, <zhangfei.gao@linaro.org>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<salil.mehta@huawei.com>, <mehta.salil.lnk@gmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:11541 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751195AbbJTOr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 10:47:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---cw15kantm8NdNV84hnhbiqAQxq5cWcd7I
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+From: Salil Mehta <salil.mehta@huawei.com>
 
-On 10/20/2015 04:39 PM, Anton Glukhov wrote:
-> This patch fixes a warning in clk_enable by calling
-> clk_prepare_enable instead.
->=20
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-> Signed-off-by: Anton Glukhov <anton.a.glukhov@gmail.com>
-> ---
->  drivers/net/can/ti_hecc.c | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
->=20
-> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-> index cf345cb..77dd170 100644
-> --- a/drivers/net/can/ti_hecc.c
-> +++ b/drivers/net/can/ti_hecc.c
-> @@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pd=
-ev)
->  	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
->  		HECC_DEF_NAPI_WEIGHT);
-> =20
-> -	clk_enable(priv->clk);
-> +	clk_prepare_enable(priv->clk);
+This patch-set adds support of new Hisilicon Hip06 SoC to the existing
+(already part of net-next) HNS ethernet driver for Hip05 SoC. Hip06 is
+a multi-core SoC and is a derivative of Hip05 SoC with lots of new
+hardware featres supported like RSS, TSO, hardware VLAN assist etc. 
 
-please add error checking
+The changes in the driver are mainly due to following:
+ 1) changes in the DMA descriptor provided by the Hip06 ethernet 
+    hardware. These changes need to co-exist with already present
+    Hip05 DMA descriptor and its operating functions. The decision
+    to choose the correct type of DMA descriptor is taken dynamically
+    depending upon the version of the hardware (i.e. V1/hip05 or
+    V2/hip06, see alredy existing hisilicon-hns-nic.txt binding file
+    for the detailed description version and naming).
+ 2) To support new features added to the Hip06 ethernet hardware:
+    a. RSS (Receive Side Scaling)
+    b. TSO (TCP Segment Offload)
+    c. Hardware VLAN support (currently we are initializing hardware
+       to not assist in stripping the vlan tag at hardware level.
+       Proper supoort of this feature and ethtool would come after
+       these patches have been accepted)
 
->  	err =3D register_candev(ndev);
->  	if (err) {
->  		dev_err(&pdev->dev, "register_candev() failed\n");
-> @@ -966,7 +966,8 @@ static int ti_hecc_probe(struct platform_device *pd=
-ev)
->  	return 0;
-> =20
->  probe_exit_clk:
-> -	clk_put(priv->clk);
+Kindly note that, this patchset has been based on net-next which
+already has Hip05 ethernet driver changes.
 
-Why do you remove the clk_put()?
+Salil Mehta (4):
+  net:hns: Add support of Hip06 SoC to the Hislicon Network Subsystem
+  net:hns: Add Hip06 "RSS(Receive Side Scaling)" support to HNS Driver
+  net:hns: Add Hip06 "TSO(TCP Segment Offload)" support HNS Driver
+  net:hns: Add the init code to disable Hip06 "Hardware VLAN assist"
 
-> +	clk_disable_unprepare(priv->clk);
-> +	priv->clk =3D NULL;
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |   58 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  119 +++++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  154 ++++++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    5 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |    6 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   91 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   33 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |   68 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |    8 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   83 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  440 ++++++++++++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |   12 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |   71 +++-
+ 13 files changed, 1003 insertions(+), 145 deletions(-)
 
-The NULLing of priv->clk is not needed.
-
->  probe_exit_candev:
->  	free_candev(ndev);
->  probe_exit_iounmap:
-> @@ -984,8 +985,8 @@ static int ti_hecc_remove(struct platform_device *p=
-dev)
->  	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> =20
->  	unregister_candev(ndev);
-> -	clk_disable(priv->clk);
-> -	clk_put(priv->clk);
-
-Why do you remoe the clk_put()?
-
-> +	clk_disable_unprepare(priv->clk);
-> +	priv->clk =3D NULL;
->  	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
->  	iounmap(priv->base);
->  	release_mem_region(res->start, resource_size(res));
-> @@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_device=
- *pdev, pm_message_t state)
->  	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->  	priv->can.state =3D CAN_STATE_SLEEPING;
-> =20
-> -	clk_disable(priv->clk);
-> +	clk_disable_unprepare(priv->clk);
-> =20
->  	return 0;
->  }
-> @@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_device =
-*pdev)
->  	struct net_device *dev =3D platform_get_drvdata(pdev);
->  	struct ti_hecc_priv *priv =3D netdev_priv(dev);
-> =20
-> -	clk_enable(priv->clk);
-> +	clk_prepare_enable(priv->clk);
-
-please add error checking.
-
-> =20
->  	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->  	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
->=20
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---cw15kantm8NdNV84hnhbiqAQxq5cWcd7I
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWJlPNAAoJEP5prqPJtc/H1e0H/RljxRTb1Bkphpe+CrVw33gf
-VvN6SsgFuslESrJjFUiqsiBi28Q/mdxMCwixD6yzYd6virc+o8QYzzMFNei5cZPh
-5bKdiSweBVzOGQszCdlTDIk2KxCHZZ/oj1drvHAm/tfSnLRfn+7gzc/DwCPoi+uf
-ENul+4vOS3O9BGANpL+oaW/g8DhJuYNUg+t7u+HbXd0qZgJGKms3qrdKOyT+XRwj
-vmUUiQ2479vUztkZlj+OqY1T5JoU2SaHQ+d+Dx7Hdw39EJJwWwc82YrmKsM6QbrF
-0Gz/nihL07erl/+Jdm65xJz5h6/LiQVOmCmcqHrGD3ec5UkOdhixDSCCbP6uTl4=
-=1IiJ
------END PGP SIGNATURE-----
-
---cw15kantm8NdNV84hnhbiqAQxq5cWcd7I--
+-- 
+1.7.9.5
