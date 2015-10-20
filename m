@@ -1,82 +1,91 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH nf-next 0/4] netfilter: rework netfilter ipv6 defrag
-Date: Tue, 20 Oct 2015 11:43:18 -0700
-Message-ID: <CANr6G5xW7m2SXFiU22pFVD6uvDj5ymX=jZkRJk2vMYQoJykvLw@mail.gmail.com>
-References: <1445112865-31523-1-git-send-email-fw@strlen.de>
- <CANr6G5zvmj_tL5Pt6-70GQ4dTJXLewX9A4uMGC_0OFzXYQVdew@mail.gmail.com> <20151020081716.GH4386@breakpoint.cc>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Tue, 20 Oct 2015 11:44:51 -0700
+Message-ID: <56268BA3.8020705@plumgrid.com>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+ <56214FAC.5060704@plumgrid.com> <87y4f2io9l.fsf@x220.int.ebiederm.org>
+ <5621649A.80403@plumgrid.com> <87mvviidku.fsf@x220.int.ebiederm.org>
+ <5621B5BC.8020204@plumgrid.com> <56223F00.5030203@iogearbox.net>
+ <562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>
+ <5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>
+ <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
+ <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
+ <562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
+ <56253335.9000206@plumgrid.com>
+ <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+ <562545AA.2080207@plumgrid.com>
+ <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+ <56255714.2070800@plumgrid.com>
+ <1445295769.660392.414696249.0B413DF1@webmail.messagingengine.com>
+ <56259438.3080308@plumgrid.com>
+ <1445335671.822349.415077537.0691ED4C@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andy Zhou <azhou@nicira.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20151020081716.GH4386@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445335671.822349.415077537.0691ED4C@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20 October 2015 at 01:17, Florian Westphal <fw@strlen.de> wrote:
-> Joe Stringer <joestringer@nicira.com> wrote:
->> On 17 October 2015 at 13:14, Florian Westphal <fw@strlen.de> wrote:
->> > [ CC netdev since patch #2 isn't nf-specific.  Dave, if you want
->> >   I can resubmit that one after the next nf-pull request; let me know if
->> >   you would prefer that ].
->> >
->> > Openvswitch seems broken wrt. to defragmentation, it doesn't call
->> > nf_ct_frag6_consume_orig to free the original fragments.
->>
->> This will need to be fixed for 'net' as well, do you have a path in
->> mind for that?
->
-> Good point.  No, I don't.  Any suggestions?
-> I can try to just re-target -nf tree (sans patch #2).  Pablo?
+On 10/20/15 3:07 AM, Hannes Frederic Sowa wrote:
+> <off-topic>
+> Just a pretty obvious idea is accurate sampling of flows.
+> </off-topic>
 
-The smallest change seems to be adding the nf_ct_frag6_consume_orig()
-call to OVS, plus the morph logic from patch 3. Alternatively if Pablo
-is fine with having the series re-targeted, then that sounds
-reasonable to me too.
+ok, so you want to time out flows. Makes sense, but it should be
+done by user space with little or none help from the kernel.
 
-> ipv4 side seems broken as well (ip_defrag frees skb on errors other than
-> -EINPROGRESS, so it looks like we will double-free in
-> do_execute_actions)
+> fdinfo tells me where my position in a file is and which locks the file
+> have?
 
-Oh dear. Thanks for the report. I propose wrapping the ip_defrag()
-with an skb_get()/skb_consume() as this seems to require the least
-invasive changes:
+obviously not. see the example fdinfo from the other email.
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index a5ec34f8502f..0d2d24c99fd5 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -303,7 +303,11 @@ static int handle_fragments(struct net *net,
-struct sw_flow_key *key,
-                int err;
+> So far, if someone wants to delve into the details of a map my approach
+> would be to take the file descriptor and make it persistence. I have to
+> think about that some more.
 
-                memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+
-+               skb_get(skb);
-                err = ip_defrag(skb, user);
-+               if (!err || err == -EINPROGRESS)
-+                       consume_skb(skb);
-                if (err)
-                        return err;
+nope. you cannot do that. admin should never interfere with running
+process this way.
 
-I don't have a test environment to verify this at the moment though.
-Let me know if you'll take this with your patch series or if you'd
-like me to send it out.
+> Yes, absolutely and I am absolutely against pretty printing key values
+> in kernel domain.
 
->> Patch 3 when taken independently from patch 4 hides user-visible error
->> codes on the OVS side. The OVS conntrack action hides -EINPROGRESS
->> from userspace, treating it as a successful execution. All other
->> errors are returned up. With that patch, all errors will be hidden. I
->> see that it's fixed in Patch 4, so maybe it's not a biggie but those
->> two patches should be tightly coupled.
->
-> You're right, we can't signal "skb unchanged".  I guess one could
-> just test wheter skb is a fragment and -EINVAL if it is, not sure
-> if its worth doing given that such test would be removed again
-> by the very next patch?
+let's table that part. I think it can be useful, but it's
+irrelevant for this discussion.
 
-On second thought, this would only affect 'net', and if we're
-considering the solution for that tree too then it really doesn't
-matter.
+> So cat-ing them will produce text output with some details about the
+> map? This is what I wanted to avoid. The concept with symlinks and small
+> files seems much cleaner and nicer to me. Also you cannot add writable
+> attributes to this filesystem or you overload stuff heavily?
+
+nope. no writeable stuff. fdinfo is read-only.
+
+> It is not a tree but a graph, sure, that's why sysfs allows to break the
+> cyclic dependencies and create symlinks (see holders/ directories). ;)
+
+that's an obvious example of another resource waste.
+You can do that for real devices, but for thousands of maps and programs
+it is really a waste.
+
+> And if you implement the same set of features IMHO you basically
+> re-implement sysfs. In the beginning we just expose the basic maps and
+> there won't be any features in sysfs, but it will be cheap to have
+> read/write flags on maps etc. etc. (I don't know what people will come
+> up with, yet.). In my opinion those are clearly attributes of a map and
+> should be defined and managed alongside with their holders.
+
+nope. bpf syscall is the only interface to access maps.
+if we expose them in bpffs it will be read-only for debugging only.
+
+> The pinfd feature will provide the future infrastructure alongside to
+> make this usable, so I think it is worth spending time to think about
+> it.
+
+yes. but since we're going in circles, let's have a 'beer call' to
+resolve it :)
