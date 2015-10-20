@@ -1,83 +1,86 @@
-From: Jarno Rajahalme <jrajahalme@nicira.com>
-Subject: Re: [RFC PATCH 1/5] netfilter: Remove IP_CT_NEW_REPLY definition.
-Date: Tue, 20 Oct 2015 15:28:18 -0700
-Message-ID: <1C66DF30-22EB-49A4-A561-4EF7E2B84A74@nicira.com>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dev@openvswitch.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36191 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753429AbbJTW2U convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 18:28:20 -0400
-Received: by pacfv9 with SMTP id fv9so34798439pac.3
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 15:28:19 -0700 (PDT)
-In-Reply-To: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
+Date: Tue, 20 Oct 2015 23:29:00 +0100
+Message-ID: <87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
+References: <cover.1443817522.git.jbaron@akamai.com>
+	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
+	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
+	<5612B9A9.8050301@akamai.com>
+	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
+	<561DCFA4.3010300@akamai.com>
+	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
+	<561F156E.9050905@akamai.com>
+	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
+	<5625073C.5010809@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, minipli@googlemail.com,
+	normalperson@yhbt.net, eric.dumazet@gmail.com,
+	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
+	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
+	torvalds@linux-foundation.org, peterz@infradead.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5625073C.5010809@akamai.com> (Jason Baron's message of "Mon, 19
+	Oct 2015 11:07:40 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I missed the =E2=80=9Cnet-next=E2=80=9D label from the title, sorry for=
- that.
+Jason Baron <jbaron@akamai.com> writes:
+> On 10/18/2015 04:58 PM, Rainer Weikusat wrote:
+>
+> [...]
+>
+>> 
+>> The idea behind 'the wait queue' (insofar I'm aware of it) is that it
+>> will be used as list of threads who need to be notified when the
+>> associated event occurs. Since you seem to argue that the run-of-the-mill
+>> algorithm is too slow for this particular case, is there anything to
+>> back this up?
+>>
+>
+> Generally the poll() routines only add to a wait queue once at the
+> beginning, and all subsequent calls to poll() simply check the wakeup
+> conditions. So here you are proposing to add/remove to the wait queue on
+> subsequent invocations of poll(). So the initial patch I did, continued
+> in the usual pattern and only added once on registration or connect().
 
-  Jarno
+The code uses the private member of a wait_queue_t to record if it the
+add_wait_queue was already executed so the add/remove will only happen
+if the wakeup condition changed in the meantime (which usually ought to
+be the case, though). As far as I understand this, this really only
+makes a difference for epoll as only epoll will keep everything on the
+wait queues managed by it between 'polling calls'. In order to support
+epoll-style wait queue management outside of epoll, the poll management
+code would need to execute a cleanup callback instead of just the setup
+callback it already executes.
 
-> On Oct 20, 2015, at 3:20 PM, Jarno Rajahalme <jrajahalme@nicira.com> =
-wrote:
->=20
-> Remove the definition of IP_CT_NEW_REPLY as it does not make sense.
-> This allows the definition of IP_CT_NUMBER to be simplified as well.
->=20
-> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> ---
-> include/uapi/linux/netfilter/nf_conntrack_common.h | 7 ++++---
-> net/openvswitch/conntrack.c                        | 2 --
-> 2 files changed, 4 insertions(+), 5 deletions(-)
->=20
-> diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/inc=
-lude/uapi/linux/netfilter/nf_conntrack_common.h
-> index 319f471..e0aebc8 100644
-> --- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-> +++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-> @@ -20,9 +20,10 @@ enum ip_conntrack_info {
->=20
-> 	IP_CT_ESTABLISHED_REPLY =3D IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
-> 	IP_CT_RELATED_REPLY =3D IP_CT_RELATED + IP_CT_IS_REPLY,
-> -	IP_CT_NEW_REPLY =3D IP_CT_NEW + IP_CT_IS_REPLY,=09
-> -	/* Number of distinct IP_CT types (no NEW in reply dirn). */
-> -	IP_CT_NUMBER =3D IP_CT_IS_REPLY * 2 - 1
-> +	/* No IP_CT_NEW_REPLY */
-> +
-> +	/* Number of distinct IP_CT types. */
-> +	IP_CT_NUMBER
-> };
->=20
-> #define NF_CT_STATE_INVALID_BIT			(1 << 0)
-> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.=
-c
-> index ad61426..097ace4 100644
-> --- a/net/openvswitch/conntrack.c
-> +++ b/net/openvswitch/conntrack.c
-> @@ -73,7 +73,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info c=
-tinfo)
-> 	switch (ctinfo) {
-> 	case IP_CT_ESTABLISHED_REPLY:
-> 	case IP_CT_RELATED_REPLY:
-> -	case IP_CT_NEW_REPLY:
-> 		ct_state |=3D OVS_CS_F_REPLY_DIR;
-> 		break;
-> 	default:
-> @@ -90,7 +89,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info c=
-tinfo)
-> 		ct_state |=3D OVS_CS_F_RELATED;
-> 		break;
-> 	case IP_CT_NEW:
-> -	case IP_CT_NEW_REPLY:
-> 		ct_state |=3D OVS_CS_F_NEW;
-> 		break;
-> 	default:
-> --=20
-> 2.1.4
->=20
+> 1)
+>
+> In unix_peer_wake_relay() function, 'sk_wq' is an __rcu pointer and thus
+> it requires proper dereferencing. Something like:
+>
+> struct unix_sock *u;
+> struct socket_wq *wq;
+>
+> u = container_of(wait, struct unix_sock, wait);
+> rcu_read_lock();
+> wq = rcu_dereference(u->sk.sk_wq);
+> if (wq_has_sleeper(wq))
+> 	wake_up_interruptible_sync_poll(&wq->wait, key);
+> rcu_read_unlock();
+
+I think this may be unecessary but I need more time to check this than
+the odd "half an hour after work after 11pm [UK time]" I could put into
+this today.
+
+> 2)
+>
+> For the case of epoll() in edge triggered mode we need to ensure that
+> when we return -EAGAIN from unix_dgram_sendmsg() when unix_recvq_full()
+> is true, we need to add a unix_peer_wake_connect() call to guarantee a
+> wakeup. Otherwise, we are going to potentially hang there.
+
+I consider this necessary.
