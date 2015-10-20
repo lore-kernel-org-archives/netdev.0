@@ -1,47 +1,54 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
-Date: Tue, 20 Oct 2015 21:11:21 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1510202107410.8159@nanos>
-References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <alpine.DEB.2.11.1510132116480.25029@nanos> <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com> <alpine.DEB.2.11.1510151014330.3960@nanos>
- <op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com> <CALAqxLXu_C8sWaKyxqXJPFV+m5Zdk=4q4s7O6NoLR1B8bbyuxg@mail.gmail.com> <20151020085408.GA2542@netboy> <alpine.DEB.2.11.1510201246250.3982@nanos> <20151020115113.GA23428@netboy>
- <20151020145523.GA5207@netboy>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: John Stultz <john.stultz@linaro.org>,
-	Christopher Hall <christopher.s.hall@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, kevin.b.stanton@intel.com
-To: Richard Cochran <richardcochran@gmail.com>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next 1/3] switchdev: fix: erasing too much of vlan obj when handling multiple vlan specs
+Date: Tue, 20 Oct 2015 12:36:37 -0700
+Message-ID: <1445369799-2345-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, siva.mannem.lnx@gmail.com,
+	vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:52036 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578AbbJTTMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 15:12:16 -0400
-In-Reply-To: <20151020145523.GA5207@netboy>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33887 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbbJTTd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 15:33:57 -0400
+Received: by padhk11 with SMTP id hk11so29994026pad.1
+        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 12:33:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Oct 2015, Richard Cochran wrote:
-> On Tue, Oct 20, 2015 at 01:51:13PM +0200, Richard Cochran wrote:
-> > You can, in fact, achieve "proper" correlation by sampling.  As John
-> > said, the question is whether the method in the patch set "measurably
-> > improves the error" over using another, simpler method.
-> 
-> Here is a short example to put some numbers on the expected error.
-> Let the driver sample at an interval of 1 ms.  If the system time's
-> frequency hasn't changed between two samples, A and B, then the driver
-> may interpolate without introducing any error.
+From: Scott Feldman <sfeldma@gmail.com>
 
-Darn, we don't want to have that kind of sampling in every driver
-which has this kind of problem even if it looks like the simpler
-choice for this particular use case. This is going to be something
-which next generation chips will have on more than just the audio
-interface and we realy want to have a generic solution for this.
+When adding vlans with multiple IFLA_BRIDGE_VLAN_INFO attrs set in AFSPEC,
+we would wipe the vlan obj struct after the first IFLA_BRIDGE_VLAN_INFO.
+Fix this by only clearing what's necessary on each IFLA_BRIDGE_VLAN_INFO
+iteration.
 
-Thanks,
+Fixes: 9e8f4a54 ("switchdev: push object ID back to object structure")
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ net/switchdev/switchdev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	tglx
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 73e3895..56d8479 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -863,7 +863,7 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+ 			err = f(dev, &vlan.obj);
+ 			if (err)
+ 				return err;
+-			memset(&vlan, 0, sizeof(vlan));
++			vlan.vid_begin = 0;
+ 		} else {
+ 			if (vlan.vid_begin)
+ 				return -EINVAL;
+@@ -872,7 +872,7 @@ static int switchdev_port_br_afspec(struct net_device *dev,
+ 			err = f(dev, &vlan.obj);
+ 			if (err)
+ 				return err;
+-			memset(&vlan, 0, sizeof(vlan));
++			vlan.vid_begin = 0;
+ 		}
+ 	}
+ 
+-- 
+1.7.10.4
