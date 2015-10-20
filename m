@@ -1,75 +1,69 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
- controller
-Date: Tue, 20 Oct 2015 17:20:36 +0200
-Message-ID: <56265BC4.8080403@pengutronix.de>
-References: <1445236757-29019-1-git-send-email-hs@denx.de>
- <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
- <56249C3F.3080000@pengutronix.de> <56265661.7000509@gmail.com>
- <56265852.6000601@pengutronix.de> <56265947.8050008@gmail.com>
- <56265B55.2070203@pengutronix.de>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH] intel: i40e: fix confused code
+Date: Tue, 20 Oct 2015 15:27:12 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFA5229@fmsmsx115.amr.corp.intel.com>
+References: <1445115499-28728-1-git-send-email-linux@rasmusvillemoes.dk>
+	<FC41C24E35F18A40888AACA1A36F3E418AFA4A68@fmsmsx115.amr.corp.intel.com>
+ <87wpuim2c9.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="U4N3LwP0TtCQv4oPeFGde3Nt3bNSuGJ3i"
-Cc: linux-kernel@vger.kernel.org,
-	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson@baylibre.com>,
-	Anant Gole <anantgole@ti.com>, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Tony Lindgren <tony@atomide.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-omap@vger.kernel.org
-To: "Anton.Glukhov" <anton.a.glukhov@gmail.com>, hs@denx.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56265B55.2070203@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:11298 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752205AbbJTP1h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:27:37 -0400
+In-Reply-To: <87wpuim2c9.fsf@rasmusvillemoes.dk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---U4N3LwP0TtCQv4oPeFGde3Nt3bNSuGJ3i
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+> From: Rasmus Villemoes [mailto:linux@rasmusvillemoes.dk]
+> Sent: Tuesday, October 20, 2015 12:22 AM
+> 
+> On Mon, Oct 19 2015, "Nelson, Shannon" <shannon.nelson@intel.com> wrote:
+> 
+> >> From: Rasmus Villemoes [mailto:linux@rasmusvillemoes.dk]
+> >> Sent: Saturday, October 17, 2015 1:58 PM
+> >> Subject: [PATCH] intel: i40e: fix confused code
+> >>
+> >> This code is pretty confused. The variable name 'bytes_not_copied'
+> >> clearly indicates that the programmer knew the semantics of
+> >> copy_{to,from}_user, but then the return value is checked for being
+> >> negative and used as a -Exxx return value.
+> >>
+> >> I'm not sure this is the proper fix, but at least we get rid of the
+> >> dead code which pretended to check for access faults.
+> >>
+> >> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> >
+> > I believe this patch is unnecessary: if the value is negative, then it
+> > already is an error code giving some potentially useful information.
+> > When I dig into the copy_to_user() code, I see in the comments for
+> > put_user() that -EFAULT is the error being returned.
+> 
+> Thanks, this was precisely the kind of confusion I'm talking about:
+> copy_{from,to}_user _never_ returns a negative value. It returns
+> precisely what the very explicit variable name hints.
+> 
+> This is in contrast to the single-scalar functions get_user/put_user,
+> which do return -EFAULT for error and 0 for success.
+> 
+> (See also lines 479-519 of Documentation/DocBook/kernel-hacking.tmpl).
 
-On 10/20/2015 05:18 PM, Marc Kleine-Budde wrote:
-> On 10/20/2015 05:09 PM, Anton.Glukhov wrote:
->>>> It's OMAP3 based arch, but HECC is implemented only in AM3505 and AM=
-3517 SoCs.
->>>> So, I'm confused about what's "name" should I use.
->>>
->>> Which SoC was available first? Pick that.
->=20
->> What do you mean available? I know only that HECC appear in AM3505 and=
- AM3517. Nowhere else.
->=20
-> Available on the market. Which one was produced first or was soldered
-> first to some PCB?
+I like the comment about the moronic interface for copy_to/from_user...
 
-A colleague just looked it up, a AM3517 is a AM3505 with 3d graphics. So
-pick AM3505.
+Yes, I see where I turned left instead of right.  This would be good to fix up.
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---U4N3LwP0TtCQv4oPeFGde3Nt3bNSuGJ3i
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWJlvEAAoJEP5prqPJtc/H1pUH+wU1Ei8QoFxN8lEQ6sFEyjLW
-ZSJ3Dhpf8jkSwhi8LkLBo2Sv9yI4/22LNkuiKI8jf7qi3xD6pMPinooIHxaswD1O
-/Aw+yWRXq5pjHzSKeDTgIOSWQr4AFp3RvHEMpYap1A2BqcdUsxi/c+0E41VDZOhA
-ccDTuXezFcXgKFZhi3dFhfDAIuQxLQ3RuDB7UFFtyY/zMB9nbV49p2JiIaoOJuwX
-po8qUu1eJyA2qHdtmw0c1xalti+HqtYkcQGtk2PclBE/wiyoWWuL8zv9lvhXZnG+
-kzUXOmezsyBmT9bqeDtb591r0/j4n0R4OGfFtkAGK8OnQTDe+AXzwnumEioYwTs=
-=fH6R
------END PGP SIGNATURE-----
-
---U4N3LwP0TtCQv4oPeFGde3Nt3bNSuGJ3i--
+sln
