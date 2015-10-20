@@ -1,50 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: fastopen: limit max_qlen
-Date: Tue, 20 Oct 2015 13:17:40 -0700
-Message-ID: <1445372260.22974.38.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net PATCH v2] ixgbe: Reset interface after enabling SR-IOV
+Date: Tue, 20 Oct 2015 13:28:17 -0700
+Message-ID: <20151020202715.2955.88128.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34922 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbbJTURm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:17:42 -0400
-Received: by pasz6 with SMTP id z6so30836096pas.2
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 13:17:42 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34881 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751789AbbJTU2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:28:18 -0400
+Received: by pasz6 with SMTP id z6so31054748pas.2
+        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 13:28:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Enabling SR-IOV and then bringing the interface up was resulting in the PF
+MAC addresses getting into a bad state.  Specifically the MAC address was
+enabled for both VF 0 and the PF.  This resulted in some odd behaviors such
+as VF 0 receiving a copy of the PFs traffic, which in turn enables the
+ability for VF 0 to spoof the PF.
 
-Allowing an application to set whatever limit for
-the list of recently RST fastopen sessions [1] is not wise,
-as it open ways to deplete kernel memory.
+A workaround for this issue appears to be to bring up the interface first
+and then enable SR-IOV as this way the reset is then triggered in the
+existing code.
 
-Cap the user provided limit by somaxconn sysctl,
-like listen() backlog.
+In order to correct this I have added a change to ixgbe_setup_tc where if
+the interface is down we still will at least call ixgbe_reset so that the
+MAC addresses for the device are reset to the correct pools.
 
-[1] https://tools.ietf.org/html/rfc7413#section-5.1
+Steps to reproduce issue:
+modprobe ixgbe
+echo 7 > /sys/bus/pci/devices/0000\:01\:00.1/sriov_numvfs
+ifconfig enp1s0f1 up
+ethregs -s 1:00.1 | grep MPSAR | grep -v 00000000
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Result:
+	MPSAR[0]               00000081
+	MPSAR[254]             00000001
+
+Expected Result, behavior after patch:
+	MPSAR[0]               00000080
+	MPSAR[254]             00000080
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- include/linux/tcp.h |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 86a7edaa6797..80ba0f7c0518 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -385,8 +385,9 @@ static inline bool tcp_passive_fastopen(const struct sock *sk)
- static inline void fastopen_queue_tune(struct sock *sk, int backlog)
- {
- 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
-+	int somaxconn = READ_ONCE(sock_net(sk)->core.sysctl_somaxconn);
+This is also a candidate for stable going back to 3.9 kernel as that
+appears to be where the code for using ixgbe_setup_tc as a part of the
+SR-IOV initialization was introduced.
+
+v2: Replaced dev with adapter as parameter for ixgbe_reset().
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 191003901adb..7831346b483d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7912,6 +7912,9 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ 	 */
+ 	if (netif_running(dev))
+ 		ixgbe_close(dev);
++	else
++		ixgbe_reset(adapter);
++
+ 	ixgbe_clear_interrupt_scheme(adapter);
  
--	queue->fastopenq.max_qlen = backlog;
-+	queue->fastopenq.max_qlen = min_t(unsigned int, backlog, somaxconn);
- }
- 
- static inline void tcp_saved_syn_free(struct tcp_sock *tp)
+ #ifdef CONFIG_IXGBE_DCB
