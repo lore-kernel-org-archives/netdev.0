@@ -1,69 +1,53 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [PATCH] intel: i40e: fix confused code
-Date: Tue, 20 Oct 2015 15:27:12 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFA5229@fmsmsx115.amr.corp.intel.com>
-References: <1445115499-28728-1-git-send-email-linux@rasmusvillemoes.dk>
-	<FC41C24E35F18A40888AACA1A36F3E418AFA4A68@fmsmsx115.amr.corp.intel.com>
- <87wpuim2c9.fsf@rasmusvillemoes.dk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
+ incorrect for sockets in accept(3)
+Date: Tue, 20 Oct 2015 08:30:27 -0700
+Message-ID: <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151019095938.72ea48e6@xeon-e3>
+	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <562594E1.8040403@oracle.com>
+	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <56261092.7080003@oracle.com>
+	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <56264596.90104@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Alan Burlison <Alan.Burlison@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:11298 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752205AbbJTP1h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:27:37 -0400
-In-Reply-To: <87wpuim2c9.fsf@rasmusvillemoes.dk>
-Content-Language: en-US
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34544 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079AbbJTPa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:30:29 -0400
+Received: by padhk11 with SMTP id hk11so24660637pad.1
+        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 08:30:29 -0700 (PDT)
+In-Reply-To: <56264596.90104@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Rasmus Villemoes [mailto:linux@rasmusvillemoes.dk]
-> Sent: Tuesday, October 20, 2015 12:22 AM
-> 
-> On Mon, Oct 19 2015, "Nelson, Shannon" <shannon.nelson@intel.com> wrote:
-> 
-> >> From: Rasmus Villemoes [mailto:linux@rasmusvillemoes.dk]
-> >> Sent: Saturday, October 17, 2015 1:58 PM
-> >> Subject: [PATCH] intel: i40e: fix confused code
-> >>
-> >> This code is pretty confused. The variable name 'bytes_not_copied'
-> >> clearly indicates that the programmer knew the semantics of
-> >> copy_{to,from}_user, but then the return value is checked for being
-> >> negative and used as a -Exxx return value.
-> >>
-> >> I'm not sure this is the proper fix, but at least we get rid of the
-> >> dead code which pretended to check for access faults.
-> >>
-> >> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> >
-> > I believe this patch is unnecessary: if the value is negative, then it
-> > already is an error code giving some potentially useful information.
-> > When I dig into the copy_to_user() code, I see in the comments for
-> > put_user() that -EFAULT is the error being returned.
-> 
-> Thanks, this was precisely the kind of confusion I'm talking about:
-> copy_{from,to}_user _never_ returns a negative value. It returns
-> precisely what the very explicit variable name hints.
-> 
-> This is in contrast to the single-scalar functions get_user/put_user,
-> which do return -EFAULT for error and 0 for success.
-> 
-> (See also lines 479-519 of Documentation/DocBook/kernel-hacking.tmpl).
+On Tue, 2015-10-20 at 14:45 +0100, Alan Burlison wrote:
 
-I like the comment about the moronic interface for copy_to/from_user...
+> And I still haven't seen any reasoning behind the Linux close() and 
+> poll() behaviour on sockets that are in the listen state.
 
-Yes, I see where I turned left instead of right.  This would be good to fix up.
+Same answer.
 
-sln
+A close() does _not_ wakeup an accept() or a poll() (this is exactly the
+same problem), or any blocking system call using the same 'file'
+
+This is the choice Linus Torvalds and Al Viro did years ago.
+
+It is set in stone, unless someone comes up with a very nice patch set,
+that does not break existing applications.
+
+close() man page states :
+
+NOTES
+      It  is  probably unwise to close file descriptors while they may be in
+      use by system calls in other threads in the  same  process.   Since  a
+      file  descriptor may be reused, there are some obscure race conditions
+      that may cause unintended side effects.
+
+You are in this grey zone.
