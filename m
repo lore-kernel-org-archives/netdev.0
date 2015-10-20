@@ -1,58 +1,101 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] ipv6: don't use CHECKSUM_PARTIAL on MSG_MORE/UDP_CORK
- sockets
-Date: Tue, 20 Oct 2015 10:55:40 -0400
-Message-ID: <562655EC.6060107@gmail.com>
-References: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
+From: "Anton.Glukhov" <anton.a.glukhov@gmail.com>
+Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
+ controller
+Date: Tue, 20 Oct 2015 17:57:37 +0300
+Message-ID: <56265661.7000509@gmail.com>
+References: <1445236757-29019-1-git-send-email-hs@denx.de>
+ <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
+ <56249C3F.3080000@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: sd@quesysnail.net, bcodding@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:33201 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752220AbbJTOzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 10:55:42 -0400
-Received: by qgeo38 with SMTP id o38so17225807qge.0
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 07:55:42 -0700 (PDT)
-In-Reply-To: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson@baylibre.com>,
+	Anant Gole <anantgole@ti.com>, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Tony Lindgren <tony@atomide.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-omap@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>, hs@denx.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <56249C3F.3080000@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/20/2015 10:38 AM, Hannes Frederic Sowa wrote:
-> MSG_MORE might cause the packet to get fragmented in the end when
-> passed down to the flush function and the transhdrlen check alone is
-> not sufficient to protect against fragmentation. Instead check if the
-> socket user intends to add more data to the socket on the first packet.
-> 
-> This broke checksum calculation for UDPv6 for NFS protocols.
-> 
-> Fixes: 32dce968dd987 ("ipv6: Allow for partial checksums on non-ufo packets")
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
+Hello Marc, Heiko!
+I'm sorry for the delay!
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
-> Tested-by: Sabrina Dubroca <sd@quesysnail.net>
-> Tested-by: Benjamin Coddington <bcodding@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_output.c | 1 +
->  1 file changed, 1 insertion(+)
+On 19.10.2015 10:31, Marc Kleine-Budde wrote:
+> On 10/19/2015 09:27 AM, Heiko Schocher wrote:
+>>>>   .../devicetree/bindings/net/can/ti_hecc-can.txt    | 20 ++++++++++
+>>>>   arch/arm/boot/dts/am3517.dtsi                      | 13 +++++++
+>>>>   drivers/net/can/ti_hecc.c                          | 45 +++++++++++++++++++++-
+>>>>   3 files changed, 76 insertions(+), 2 deletions(-)
+>>>>   create mode 100644 Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
+>>>> new file mode 100644
+>>>> index 0000000..09fab59
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/can/ti_hecc-can.txt
+>>>> @@ -0,0 +1,20 @@
+>>>> +* TI HECC CAN *
+>>>> +
+>>>> +Required properties:
+>>>> +  - compatible: Should be "ti,hecc"
+>>>
+>>> We usually put the name of the first SoC this IP core appears in to the
+>>> compatible.
+>>
+>> Ok, so "ti,am335xx-hecc" would be OK?
+>> @Anton: you used "am35x" ... it should be "am35xx"
 > 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 61d403e..95c5780 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1317,6 +1317,7 @@ emsgsize:
->  	 * sums only work when transhdrlen is set.
->  	 */
->  	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
-> +	    !(flags & MSG_MORE) &&
->  	    length + fragheaderlen < mtu &&
->  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
->  	    !exthdrlen)
+> The "xx" is not okay. Give precisely the first SoC Version this IP core
+> was implemented in.
 > 
+
+It's OMAP3 based arch, but HECC is implemented only in AM3505 and AM3517 SoCs.
+So, I'm confused about what's "name" should I use.
+
+>>
+>>>> +  - reg: Should contain CAN controller registers location and length
+>>>> +  - interrupts: Should contain IRQ line for the CAN controller
+>>>
+>>> I'm missing the description of the ti,* properties. I think they are
+>>> required, too. Although the code doesn't enforce it.
+>>
+>> Ok.
+>>
+>>>> +
+>>>> +Example:
+>>>> +
+>>>> +	can0: hecc@5c050000 {
+>>>> +		compatible = "ti,hecc";
+>>>> +		reg = <0x5c050000 0x4000>;
+>>>> +		interrupts = <24>;
+>>>> +		ti,hecc_scc_offset = <0>;
+>>>> +		ti,hecc_scc_ram_offset = <0x3000>;
+>>>> +		ti,hecc_ram_offset = <0x3000>;
+>>>> +		ti,hecc_mbx_offset = <0x2000>;
+>>>> +		ti,hecc_int_line = <0>;
+>>>> +		ti,hecc_version = <1>;
+>>>
+>>> Versioning in the OF world is done via the compatible. Are the offsets a
+>>> per SoC parameter? I'm not sure if it's better to put
+>>> the offsets into the driver.
+>>
+>> I am unsure here too..
+> 
+> The devicetree people will hopefully help here.
+> 
+
+I added offsets here just make it consistent with platform data in machine file.
+Actually it seems that it's not necessary to put offsets in DT file and I can move it to driver.
+But again, it was added to keep consistency.
+
+> regards,
+> Marc
+> 
+
+regards,
+Anton
