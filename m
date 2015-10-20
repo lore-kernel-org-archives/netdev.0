@@ -1,62 +1,113 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: dummy: add more features
-Date: Mon, 19 Oct 2015 20:17:59 -0700
-Message-ID: <1445311079.30896.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Mon, 19 Oct 2015 20:40:17 -0700
+Message-ID: <1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
+	 <1438621878-1113072-4-git-send-email-tom@herbertland.com>
+	 <CAEP_g=8tCkyRfPYARV4pqA7g0w6tQvioTnWLtFescv+3OS4JLw@mail.gmail.com>
+	 <1445009029.25595.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: Jerry Chu <hkchu@google.com>, JesseGross <jesse@nicira.com>,
+	Tom Herbert <tom@herbertland.com>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+	Wolfgang Walter <linux@stwm.de>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33781 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbbJTDSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 23:18:01 -0400
-Received: by pabrc13 with SMTP id rc13so6449037pab.0
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 20:18:01 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35479 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbbJTDkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 23:40:19 -0400
+Received: by pasz6 with SMTP id z6so6941519pas.2
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 20:40:19 -0700 (PDT)
+In-Reply-To: <1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-While testing my SIT/GRO patch using netfilter TEE module and a dummy
-device, I found some features were missing :
+Tom Herbert added SIT support to GRO with commit
+19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
+later reverted by Herbert Xu.
 
-TSO IPv6, UFO, and encapsulated traffic.
+The problem came because Tom patch was building GRO
+packets without proper meta data : If packets were locally
+delivered, we would not care.
 
-ethtool -k dummy0 now gives :
-...
-tcp-segmentation-offload: on
-	tx-tcp-segmentation: on
-	tx-tcp-ecn-segmentation: on
-	tx-tcp6-segmentation: on
-udp-fragmentation-offload: on
-...
-tx-gre-segmentation: on
-tx-ipip-segmentation: on
-tx-sit-segmentation: on
-tx-udp_tnl-segmentation: on
+But if packets needed to be forwarded, GSO engine was not
+able to segment individual segments.
+
+With the following patch, we correctly set skb->encapsulation
+and inner network header. We also update gso_type.
+
+Tested:
+
+Server :
+netserver
+modprobe dummy
+ifconfig dummy0 8.0.0.1 netmask 255.255.255.0 up
+arp -s 8.0.0.100 4e:32:51:04:47:e5
+iptables -I INPUT -s 10.246.7.151 -j TEE --gateway 8.0.0.100
+ifconfig sixtofour0
+sixtofour0 Link encap:IPv6-in-IPv4  
+          inet6 addr: 2002:af6:798::1/128 Scope:Global
+          inet6 addr: 2002:af6:798::/128 Scope:Global
+          UP RUNNING NOARP  MTU:1480  Metric:1
+          RX packets:411169 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:409414 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:20319631739 (20.3 GB)  TX bytes:29529556 (29.5 MB)
+
+Client :
+netperf -H 2002:af6:798::1 -l 1000 &
+
+Checked on server traffic copied on dummy0 and verify segments were
+properly rebuilt, with proper IP headers, TCP checksums...
+
+tcpdump on eth0 shows proper GRO aggregation takes place.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/dummy.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/ipv6/ip6_offload.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index 815eb94990f5..69fc8409a973 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -147,8 +147,12 @@ static void dummy_setup(struct net_device *dev)
- 	dev->flags |= IFF_NOARP;
- 	dev->flags &= ~IFF_MULTICAST;
- 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
--	dev->features	|= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO;
-+	dev->features	|= NETIF_F_SG | NETIF_F_FRAGLIST;
-+	dev->features	|= NETIF_F_ALL_TSO | NETIF_F_UFO;
- 	dev->features	|= NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_LLTX;
-+	dev->features	|= NETIF_F_GSO_ENCAP_ALL;
-+	dev->hw_features |= dev->features;
-+	dev->hw_enc_features |= dev->features;
- 	eth_hw_addr_random(dev);
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 08b62047c67f..eeca943f12dc 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -264,6 +264,9 @@ static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
+ 	struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
+ 	int err = -ENOSYS;
+ 
++	if (skb->encapsulation)
++		skb_set_inner_network_header(skb, nhoff);
++
+ 	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
+ 
+ 	rcu_read_lock();
+@@ -280,6 +283,13 @@ out_unlock:
+ 	return err;
  }
+ 
++static int sit_gro_complete(struct sk_buff *skb, int nhoff)
++{
++	skb->encapsulation = 1;
++	skb_shinfo(skb)->gso_type |= SKB_GSO_SIT;
++	return ipv6_gro_complete(skb, nhoff);
++}
++
+ static struct packet_offload ipv6_packet_offload __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_IPV6),
+ 	.callbacks = {
+@@ -292,6 +302,8 @@ static struct packet_offload ipv6_packet_offload __read_mostly = {
+ static const struct net_offload sit_offload = {
+ 	.callbacks = {
+ 		.gso_segment	= ipv6_gso_segment,
++		.gro_receive    = ipv6_gro_receive,
++		.gro_complete   = sit_gro_complete,
+ 	},
+ };
  
