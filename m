@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 5/6] net: dsa: mv88e6xxx: remove port_fdb_getnext
-Date: Tue, 20 Oct 2015 12:17:25 -0400
-Message-ID: <1445357846-25720-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 3/6] net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
+Date: Tue, 20 Oct 2015 12:17:23 -0400
+Message-ID: <1445357846-25720-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -11,149 +11,60 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Jiri Pirko <jiri@resnulli.us>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:39741 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751867AbbJTQ1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 12:27:32 -0400
 In-Reply-To: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that port_fdb_dump is implemented and even simpler, get rid of
-port_fdb_getnext.
+There is no need to write the MAC address before every Get Next
+operation, since ATU MAC registers are not cleared between calls.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Move the _mv88e6xxx_atu_mac_write call outside of _mv88e6xxx_atu_getnext
+so future code could call ATU Get Next multiple times and save a few
+register access.
 ---
- drivers/net/dsa/mv88e6171.c |  1 -
- drivers/net/dsa/mv88e6352.c |  1 -
- drivers/net/dsa/mv88e6xxx.c | 73 ---------------------------------------------
- drivers/net/dsa/mv88e6xxx.h |  2 --
- 4 files changed, 77 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 489deb8..2c8eb6f 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -122,7 +122,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 6b8fd24..cbf4dd8 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -349,7 +349,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6d74d75..dea31b4 100644
+index 5b58323..1d4be00 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1559,33 +1559,6 @@ unlock:
- 	return err;
+@@ -1751,7 +1751,6 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
  }
  
--static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
--				       struct mv88e6xxx_vtu_stu_entry *entry)
--{
--	int err;
--
--	do {
--		if (vid == 4095)
--			return -ENOENT;
--
--		err = _mv88e6xxx_vtu_vid_write(ds, vid);
--		if (err)
--			return err;
--
--		err = _mv88e6xxx_vtu_getnext(ds, entry);
--		if (err)
--			return err;
--
--		if (!entry->valid)
--			return -ENOENT;
--
--		vid = entry->vid;
--	} while (entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED &&
--		 entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED);
--
--	return 0;
--}
--
- int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
- 			   unsigned long *ports, unsigned long *untagged)
+ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+-				  const unsigned char *addr,
+ 				  struct mv88e6xxx_atu_entry *entry)
  {
-@@ -1864,52 +1837,6 @@ unlock:
- 	return err;
- }
+ 	struct mv88e6xxx_atu_entry next = { 0 };
+@@ -1763,10 +1762,6 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	if (ret < 0)
+ 		return ret;
  
--/* get next entry for port */
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct mv88e6xxx_atu_entry next;
--	u16 fid = *vid; /* We use one FID per VLAN */
--	int ret;
+-	ret = _mv88e6xxx_atu_mac_write(ds, addr);
+-	if (ret < 0)
+-		return ret;
 -
--	mutex_lock(&ps->smi_mutex);
--
--	do {
--		if (is_broadcast_ether_addr(addr)) {
--			struct mv88e6xxx_vtu_stu_entry vtu;
--
--			ret = _mv88e6xxx_port_vtu_getnext(ds, port, *vid, &vtu);
--			if (ret < 0)
--				goto unlock;
--
--			*vid = vtu.vid;
--			fid = vtu.fid;
--		}
--
--		ret = _mv88e6xxx_atu_mac_write(ds, addr);
--		if (ret < 0)
--			goto unlock;
--
--		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
--		if (ret < 0)
--			goto unlock;
--
--		ether_addr_copy(addr, next.mac);
--
--		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			continue;
--	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
--
--	*is_static = next.state == (is_multicast_ether_addr(addr) ?
--				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
--				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
--unlock:
--	mutex_unlock(&ps->smi_mutex);
--
--	return ret;
--}
--
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
- 	struct mv88e6xxx_priv_state *ps;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index b422a5e..f78d45c 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -478,8 +478,6 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb);
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static);
- int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 			    struct switchdev_obj_port_fdb *fdb,
- 			    int (*cb)(struct switchdev_obj *obj));
+ 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1827,7 +1822,11 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			fid = vtu.fid;
+ 		}
+ 
+-		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
++		ret = _mv88e6xxx_atu_mac_write(ds, addr);
++		if (ret < 0)
++			goto unlock;
++
++		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
+ 		if (ret < 0)
+ 			goto unlock;
+ 
 -- 
 2.6.1
