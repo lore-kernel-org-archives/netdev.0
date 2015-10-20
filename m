@@ -1,35 +1,29 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv3 net 3/4] openvswitch: Mark connections new when not
- confirmed.
-Date: Tue, 20 Oct 2015 10:41:26 +0200
-Message-ID: <20151020084126.GB25435@pox.localdomain>
-References: <1445307540-6786-1-git-send-email-joestringer@nicira.com>
- <1445307540-6786-3-git-send-email-joestringer@nicira.com>
+From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH resend 0/1] net: sun4i-emac: Properly free
+ resources on probe failure
+Date: Tue, 20 Oct 2015 10:42:23 +0200
+Message-ID: <1445330544-6968-1-git-send-email-hdegoede@redhat.com>
+Reply-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, jrajahalme@nicira.com
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:34832 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932097AbbJTIl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 04:41:29 -0400
-Received: by wicll6 with SMTP id ll6so34230916wic.0
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 01:41:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1445307540-6786-3-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-sunxi+bncBDRZXY4CYYORB574S6YQKGQEYD5IVKA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On 10/19/15 at 07:18pm, Joe Stringer wrote:
-> New, related connections are marked as such as part of ovs_ct_lookup(),
-> but they are not marked as "new" if the commit flag is used. Make this
-> consistent by setting the "new" flag whenever !nf_ct_is_confirmed(ct).
-> 
-> Reported-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> v2: Acked.
-> v3: Took a different approach to fixing the issue.
+Hi Davem,
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+IIRC you said you would pick this up, but I'm not seeing it in net-next,
+hence this resend.
+
+Regards,
+
+Hans
