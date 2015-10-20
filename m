@@ -1,57 +1,63 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
-Date: Tue, 20 Oct 2015 16:09:48 -0400
-Message-ID: <20151020200948.GE23569@tuxdriver.com>
-References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Tue, 20 Oct 2015 13:16:29 -0700
+Message-ID: <CALAqxLXGnzwH5OgDCyggzxbao7UvS6_SOtVVkNVmjrsrOL-YBw@mail.gmail.com>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+	<1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+	<alpine.DEB.2.11.1510132116480.25029@nanos>
+	<op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com>
+	<alpine.DEB.2.11.1510151014330.3960@nanos>
+	<op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com>
+	<CALAqxLXu_C8sWaKyxqXJPFV+m5Zdk=4q4s7O6NoLR1B8bbyuxg@mail.gmail.com>
+	<20151020085408.GA2542@netboy>
+	<alpine.DEB.2.11.1510201246250.3982@nanos>
+	<20151020115113.GA23428@netboy>
+	<20151020145523.GA5207@netboy>
+	<alpine.DEB.2.11.1510202107410.8159@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, prashant@broadcom.com, eddie.wai@broadcom.com,
-	huangjw@broadcom.com, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44760 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621AbbJTUPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 16:15:16 -0400
-Content-Disposition: inline
-In-Reply-To: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Christopher Hall <christopher.s.hall@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, kevin.b.stanton@intel.com
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1510202107410.8159@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 17, 2015 at 12:21:44AM -0400, Michael Chan wrote:
-> Broadcom ethernet driver for the new family of NetXtreme-C/E
-> ethernet devices.
-> 
-> v3:
->   - Fixed 2 more sparse warnings.
->   - Removed some unused structures in .h files.
-> 
-> v2:
->   - Fixed all kbuild test robot reported warnings.
->   - Fixed many of the checkpatch.pl errors and warnings.
->   - Fixed the Kconfig description.
-> 
-> Acked-by: Eddie Wai <eddie.wai@broadcom.com>
-> Acked-by: Jeffrey Huang <huangjw@broadcom.com>
-> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+On Tue, Oct 20, 2015 at 12:11 PM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> On Tue, 20 Oct 2015, Richard Cochran wrote:
+>> On Tue, Oct 20, 2015 at 01:51:13PM +0200, Richard Cochran wrote:
+>> > You can, in fact, achieve "proper" correlation by sampling.  As John
+>> > said, the question is whether the method in the patch set "measurably
+>> > improves the error" over using another, simpler method.
+>>
+>> Here is a short example to put some numbers on the expected error.
+>> Let the driver sample at an interval of 1 ms.  If the system time's
+>> frequency hasn't changed between two samples, A and B, then the driver
+>> may interpolate without introducing any error.
+>
+> Darn, we don't want to have that kind of sampling in every driver
+> which has this kind of problem even if it looks like the simpler
+> choice for this particular use case. This is going to be something
+> which next generation chips will have on more than just the audio
+> interface and we realy want to have a generic solution for this.
 
-...
+I sort of agree with Richard that the timekeeper history approach
+doesn't seem like a generic solution here.
 
-> +		if (netif_msg_drv(bp))
-> +			netdev_info(bp->dev, "[%d]: tx{fw_ring: %d prod: %x cons: %x} rx{fw_ring: %d prod: %x} rx_agg{fw_ring: %d agg_prod: %x sw_agg_prod: %x} cp{fw_ring: %d raw_cons: %x}\n",
-> +				    i, txr->tx_ring_struct.fw_ring_id,
-> +				    txr->tx_prod, txr->tx_cons,
-> +				    rxr->rx_ring_struct.fw_ring_id,
-> +				    rxr->rx_prod,
-> +				    rxr->rx_agg_ring_struct.fw_ring_id,
-> +				    rxr->rx_agg_prod, rxr->rx_sw_agg_prod,
-> +				    cpr->cp_ring_struct.fw_ring_id,
-> +				    cpr->cp_raw_cons);
+And again, you seem to be speaking with a bigger picture in mind that
+at least I don't yet share (apologies for being thick headed here).
+Being able to have various hardware sharing a time base is quite
+useful, and methods for correlating timestamps together are useful.
+But I don't yet really understand why its important that we can
+translate a hardware timestamp from some time in the past to the
+correct system time in the past without error.
 
-Another big string -- perhaps a few \n's are in order?
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+thanks
+-john
