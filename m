@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 6/6] net: dsa: remove port_fdb_getnext
-Date: Tue, 20 Oct 2015 12:17:26 -0400
-Message-ID: <1445357846-25720-7-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 0/6] net: dsa: implement port_fdb_dump in drivers
+Date: Tue, 20 Oct 2015 12:17:20 -0400
+Message-ID: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -12,72 +11,34 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445357846-25720-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No driver implements port_fdb_getnext anymore, and port_fdb_dump is
-preferred anyway, so remove this function from DSA.
+Not all switch chips provide a Get Next kind of operation to dump FDB entries.
+It is preferred to let the driver handle the dump operation the way it works
+best for the chip. Thus, drop port_fdb_getnext and implement the port_fdb_dump
+operation in DSA, which pushes the switchdev FDB dump callback down to the
+drivers. mv88e6xxx is the only driver affected and is updated accordingly.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/dsa.h |  3 ---
- net/dsa/slave.c   | 25 +------------------------
- 2 files changed, 1 insertion(+), 27 deletions(-)
+v2 -> v3: opencode switchdev_obj_dump_cb_t to avoid multiple typedef
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 0cfa44a..98ccbde 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -328,9 +328,6 @@ struct dsa_switch_driver {
- 				struct switchdev_trans *trans);
- 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_fdb *fdb);
--	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
--				    unsigned char *addr, u16 *vid,
--				    bool *is_static);
- 	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_fdb *fdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d76e62b..481754e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -378,34 +378,11 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
--	unsigned char addr[ETH_ALEN] = { 0 };
--	u16 vid = 0;
--	int ret;
- 
- 	if (ds->drv->port_fdb_dump)
- 		return ds->drv->port_fdb_dump(ds, p->port, fdb, cb);
- 
--	if (!ds->drv->port_fdb_getnext)
--		return -EOPNOTSUPP;
--
--	for (;;) {
--		bool is_static;
--
--		ret = ds->drv->port_fdb_getnext(ds, p->port, addr, &vid,
--						&is_static);
--		if (ret < 0)
--			break;
--
--		ether_addr_copy(fdb->addr, addr);
--		fdb->vid = vid;
--		fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
--
--		ret = cb(&fdb->obj);
--		if (ret < 0)
--			break;
--	}
--
--	return ret == -ENOENT ? 0 : ret;
-+	return -EOPNOTSUPP;
- }
- 
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+v1 -> v2: fix a few "return err" instead of "goto unlock" in mv88e6xxx.c
+
+Vivien Didelot (6):
+  net: dsa: add port_fdb_dump function
+  net: dsa: mv88e6xxx: write VID outside of VTU Get Next code
+  net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
+  net: dsa: mv88e6xxx: implement port_fdb_dump
+  net: dsa: mv88e6xxx: remove port_fdb_getnext
+  net: dsa: remove port_fdb_getnext
+
+ drivers/net/dsa/mv88e6171.c |   2 +-
+ drivers/net/dsa/mv88e6352.c |   2 +-
+ drivers/net/dsa/mv88e6xxx.c | 138 ++++++++++++++++++++++++--------------------
+ drivers/net/dsa/mv88e6xxx.h |   5 +-
+ include/net/dsa.h           |   7 ++-
+ net/dsa/slave.c             |  26 +--------
+ 6 files changed, 88 insertions(+), 92 deletions(-)
+
 -- 
 2.6.1
