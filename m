@@ -1,62 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3] bnxt_en: New Broadcom ethernet driver.
-Date: Tue, 20 Oct 2015 15:47:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBBC7E7@AcuExch.aculab.com>
-References: <1445055704-6103-1-git-send-email-mchan@broadcom.com>
- <20151018221958.1b7b9d0d@xeon-e3>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next 1/4] net:hns: Add support of Hip06 SoC to the
+ Hislicon Network Subsystem
+Date: Tue, 20 Oct 2015 23:54:56 +0800
+Message-ID: <201510202306.WYUMdngA%fengguang.wu@intel.com>
+References: <1445353278-130498-2-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"prashant@broadcom.com" <prashant@broadcom.com>,
-	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>,
-	"huangjw@broadcom.com" <huangjw@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Stephen Hemminger' <stephen@networkplumber.org>,
-	Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:56046 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037AbbJTPth convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:49:37 -0400
-In-Reply-To: <20151018221958.1b7b9d0d@xeon-e3>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, davem@davemloft.net, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	paul.gortmaker@windriver.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, catalin.marinas@arm.com, will.deacon@arm.com,
+	arnd@arndb.de, liguozhu@hisilicon.com, yisen.zhuang@huawei.com,
+	dingtianhong@huawei.com, zhangfei.gao@linaro.org,
+	huangdaode@hisilicon.com, kenneth-lee-2012@foxmail.com,
+	salil.mehta@huawei.com, mehta.salil.lnk@gmail.com,
+	xuwei5@hisilicon.com, lisheng011@huawei.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linuxarm@huawei.com, yankejian <yankejian@huawei.com>,
+	lipeng <lipeng321@huawei.com>
+To: Salil <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445353278-130498-2-git-send-email-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger
-...
-> On Sat, 17 Oct 2015 00:21:44 -0400
-> Michael Chan <mchan@broadcom.com> wrote:
-> 
-> > +static bool bnxt_vf_pciid(int idx)
-> > +{
-> > +	if (idx == BCM57304_VF || idx == BCM57404_VF)
-> > +		return true;
-> > +	return false;
-> > +}
-> > +
-> 
-> I prefer just returning result of logical operation
-> rather than adding unnecessary if statement.
-> And never use (signed) int when unsigned is the real
-> data type. Also avoid any unnecessary expansion of 16 bit
-> value.
+Hi Salil,
 
-Actually 16-bit (and 8-bit) values always have to be extended to 'int'
-before any arithmetic operations.
-On systems with 16-bit arithmetic instructions (like x86) the
-compiler can only use them if it can determine that result would be
-the same (as if they were extended).
+[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
 
-This can mean a lot of extra instructions if you do arithmetic
-on 16-bit values the compiler is holding in registers.
+url:    https://github.com/0day-ci/linux/commits/Salil/net-hns-Add-support-of-Hip06-SoC-to-the-Hislicon-Network-Subsystem/20151020-225151
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
 
-Similarly using 16-bit values as function parameters/results
-can require additional masking instructions.
 
-IMHO This really all means that you should use [unsigned] int for
-local variables even when the domain of the value is known
-to be much smaller.
+sparse warnings: (new ones prefixed by >>)
 
-	David
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:110:20: sparse: symbol 'hns_ae_get_handle' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:297:6: sparse: symbol 'hns_ae_stop' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:328:6: sparse: symbol 'hns_ae_toggle_ring_irq' was not declared. Should it be static?
+>> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:340:6: sparse: symbol 'hns_aev2_toggle_ring_irq' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:500:6: sparse: symbol 'hns_ae_update_stats' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:583:6: sparse: symbol 'hns_ae_get_stats' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:615:6: sparse: symbol 'hns_ae_get_strings' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:647:5: sparse: symbol 'hns_ae_get_sset_count' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:685:6: sparse: symbol 'hns_ae_update_led_status' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:696:5: sparse: symbol 'hns_ae_cpld_set_led_id' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:708:6: sparse: symbol 'hns_ae_get_regs' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:735:5: sparse: symbol 'hns_ae_get_regs_len' was not declared. Should it be static?
+--
+   drivers/net/ethernet/hisilicon/hns/hnae.h:601:31: sparse: cast to restricted __le64
+   drivers/net/ethernet/hisilicon/hns/hnae.h:594:31: sparse: cast to restricted __le64
+   drivers/net/ethernet/hisilicon/hns/hns_enet.c:962:6: sparse: symbol 'hns_nic_update_stats' was not declared. Should it be static?
+>> drivers/net/ethernet/hisilicon/hns/hns_enet.c:998:6: sparse: symbol 'hns_set_irq_affinity' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_enet.c:1260:6: sparse: symbol 'hns_nic_poll_controller' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_enet.c:1331:6: sparse: symbol 'hns_set_multicast_list' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_enet.c:1349:6: sparse: symbol 'hns_nic_set_rx_mode' was not declared. Should it be static?
+   drivers/net/ethernet/hisilicon/hns/hns_enet.c:1364:26: sparse: symbol 'hns_nic_get_stats64' was not declared. Should it be static?
+
+Please review and possibly fold the followup patch.
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
