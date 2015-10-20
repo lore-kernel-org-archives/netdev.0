@@ -1,53 +1,46 @@
-From: "Anton.Glukhov" <anton.a.glukhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net, can, ti_hecc: add DT support for the ti,hecc
- controller
-Date: Tue, 20 Oct 2015 18:38:06 +0300
-Message-ID: <56265FDE.9050307@gmail.com>
-References: <1445236757-29019-1-git-send-email-hs@denx.de>
- <56249491.4020009@pengutronix.de> <56249B58.6090100@denx.de>
- <56249C3F.3080000@pengutronix.de> <56265661.7000509@gmail.com>
- <56265852.6000601@pengutronix.de> <56265947.8050008@gmail.com>
- <56265B55.2070203@pengutronix.de> <56265BC4.8080403@pengutronix.de>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH] intel: i40e: fix confused code
+Date: Tue, 20 Oct 2015 15:39:21 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFA524B@fmsmsx115.amr.corp.intel.com>
+References: <1445115499-28728-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?Q?Beno=c3=aet_Cousson?= <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-	Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, hs-ynQEQJNshbs@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56265BC4.8080403-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:57042 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750785AbbJTPjo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 11:39:44 -0400
+In-Reply-To: <1445115499-28728-1-git-send-email-linux@rasmusvillemoes.dk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 20.10.2015 18:20, Marc Kleine-Budde wrote:
-> On 10/20/2015 05:18 PM, Marc Kleine-Budde wrote:
->> On 10/20/2015 05:09 PM, Anton.Glukhov wrote:
->>>>> It's OMAP3 based arch, but HECC is implemented only in AM3505 and AM3517 SoCs.
->>>>> So, I'm confused about what's "name" should I use.
->>>>
->>>> Which SoC was available first? Pick that.
->>
->>> What do you mean available? I know only that HECC appear in AM3505 and AM3517. Nowhere else.
->>
->> Available on the market. Which one was produced first or was soldered
->> first to some PCB?
+> -----Original Message-----
+> From: Rasmus Villemoes [mailto:linux@rasmusvillemoes.dk]
+> Sent: Saturday, October 17, 2015 1:58 PM
+> Subject: [PATCH] intel: i40e: fix confused code
 > 
-> A colleague just looked it up, a AM3517 is a AM3505 with 3d graphics. So
-> pick AM3505.
-
-Ok, thank you for help!
-
+> This code is pretty confused. The variable name 'bytes_not_copied'
+> clearly indicates that the programmer knew the semantics of
+> copy_{to,from}_user, but then the return value is checked for being
+> negative and used as a -Exxx return value.
 > 
-> Marc
+> I'm not sure this is the proper fix, but at least we get rid of the
+> dead code which pretended to check for access faults.
 > 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> ---
+
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
