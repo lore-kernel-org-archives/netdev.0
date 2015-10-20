@@ -1,48 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv6: don't use CHECKSUM_PARTIAL on MSG_MORE/UDP_CORK sockets
-Date: Tue, 20 Oct 2015 16:38:42 +0200
-Message-ID: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
-Cc: sd@quesysnail.net, bcodding@redhat.com, vyasevich@gmail.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:59348 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751299AbbJTOjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 10:39:00 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9EFF820AC6
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 10:38:49 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anton Glukhov <anton.a.glukhov@gmail.com>
+Subject: [PATCH v2] net, can, ti_hecc: fix a run time warn_on.
+Date: Tue, 20 Oct 2015 17:39:28 +0300
+Message-ID: <1445351968-18956-1-git-send-email-anton.a.glukhov@gmail.com>
+Cc: mkl@pengutronix.de, hs@denx.de, netdev@vger.kernel.org,
+	Anton Glukhov <anton.a.glukhov@gmail.com>
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MSG_MORE might cause the packet to get fragmented in the end when
-passed down to the flush function and the transhdrlen check alone is
-not sufficient to protect against fragmentation. Instead check if the
-socket user intends to add more data to the socket on the first packet.
+This patch fixes a warning in clk_enable by calling
+clk_prepare_enable instead.
 
-This broke checksum calculation for UDPv6 for NFS protocols.
-
-Fixes: 32dce968dd987 ("ipv6: Allow for partial checksums on non-ufo packets")
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Tested-by: Sabrina Dubroca <sd@quesysnail.net>
-Tested-by: Benjamin Coddington <bcodding@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Heiko Schocher <hs@denx.de>
+Signed-off-by: Anton Glukhov <anton.a.glukhov@gmail.com>
 ---
- net/ipv6/ip6_output.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/can/ti_hecc.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 61d403e..95c5780 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1317,6 +1317,7 @@ emsgsize:
- 	 * sums only work when transhdrlen is set.
- 	 */
- 	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
-+	    !(flags & MSG_MORE) &&
- 	    length + fragheaderlen < mtu &&
- 	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
- 	    !exthdrlen)
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index cf345cb..77dd170 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -951,7 +951,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
+ 		HECC_DEF_NAPI_WEIGHT);
+ 
+-	clk_enable(priv->clk);
++	clk_prepare_enable(priv->clk);
+ 	err = register_candev(ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "register_candev() failed\n");
+@@ -966,7 +966,8 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ probe_exit_clk:
+-	clk_put(priv->clk);
++	clk_disable_unprepare(priv->clk);
++	priv->clk = NULL;
+ probe_exit_candev:
+ 	free_candev(ndev);
+ probe_exit_iounmap:
+@@ -984,8 +985,8 @@ static int ti_hecc_remove(struct platform_device *pdev)
+ 	struct ti_hecc_priv *priv = netdev_priv(ndev);
+ 
+ 	unregister_candev(ndev);
+-	clk_disable(priv->clk);
+-	clk_put(priv->clk);
++	clk_disable_unprepare(priv->clk);
++	priv->clk = NULL;
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	iounmap(priv->base);
+ 	release_mem_region(res->start, resource_size(res));
+@@ -1009,7 +1010,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
+ 	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_SLEEPING;
+ 
+-	clk_disable(priv->clk);
++	clk_disable_unprepare(priv->clk);
+ 
+ 	return 0;
+ }
+@@ -1019,7 +1020,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct ti_hecc_priv *priv = netdev_priv(dev);
+ 
+-	clk_enable(priv->clk);
++	clk_prepare_enable(priv->clk);
+ 
+ 	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 -- 
-2.4.3
+1.9.1
+
