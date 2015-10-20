@@ -1,55 +1,89 @@
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH 1/5] netfilter: Remove IP_CT_NEW_REPLY
-	definition.
-Date: Tue, 20 Oct 2015 15:20:25 -0700
-Message-ID: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: [RFC PATCH 2/5] netfilter: Factor out nf_ct_get_info().
+Date: Tue, 20 Oct 2015 15:20:26 -0700
+Message-ID: <1445379629-112880-2-git-send-email-jrajahalme@nicira.com>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+Cc: dev@openvswitch.org, jrajahalme@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36824 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161AbbJTWU4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 18:20:56 -0400
+Received: by pacfv9 with SMTP id fv9so34638416pac.3
+        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 15:20:56 -0700 (PDT)
+In-Reply-To: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-UmVtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05FV19SRVBMWSBhcyBpdCBkb2VzIG5vdCBt
-YWtlIHNlbnNlLgpUaGlzIGFsbG93cyB0aGUgZGVmaW5pdGlvbiBvZiBJUF9DVF9OVU1CRVIgdG8g
-YmUgc2ltcGxpZmllZCBhcyB3ZWxsLgoKU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxq
-cmFqYWhhbG1lQG5pY2lyYS5jb20+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
-Zl9jb25udHJhY2tfY29tbW9uLmggfCA3ICsrKystLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJh
-Y2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgMiAtLQogMiBmaWxlcyBjaGFuZ2VkLCA0IGlu
-c2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xp
-bnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggYi9pbmNsdWRlL3VhcGkvbGludXgv
-bmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21tb24uaAppbmRleCAzMTlmNDcxLi5lMGFlYmM4IDEw
-MDY0NAotLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21t
-b24uaAorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21t
-b24uaApAQCAtMjAsOSArMjAsMTAgQEAgZW51bSBpcF9jb25udHJhY2tfaW5mbyB7CiAKIAlJUF9D
-VF9FU1RBQkxJU0hFRF9SRVBMWSA9IElQX0NUX0VTVEFCTElTSEVEICsgSVBfQ1RfSVNfUkVQTFks
-CiAJSVBfQ1RfUkVMQVRFRF9SRVBMWSA9IElQX0NUX1JFTEFURUQgKyBJUF9DVF9JU19SRVBMWSwK
-LQlJUF9DVF9ORVdfUkVQTFkgPSBJUF9DVF9ORVcgKyBJUF9DVF9JU19SRVBMWSwJCi0JLyogTnVt
-YmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVzIChubyBORVcgaW4gcmVwbHkgZGlybikuICovCi0J
-SVBfQ1RfTlVNQkVSID0gSVBfQ1RfSVNfUkVQTFkgKiAyIC0gMQorCS8qIE5vIElQX0NUX05FV19S
-RVBMWSAqLworCisJLyogTnVtYmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVzLiAqLworCUlQX0NU
-X05VTUJFUgogfTsKIAogI2RlZmluZSBORl9DVF9TVEFURV9JTlZBTElEX0JJVAkJCSgxIDw8IDAp
-CmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZzd2l0
-Y2gvY29ubnRyYWNrLmMKaW5kZXggYWQ2MTQyNi4uMDk3YWNlNCAxMDA2NDQKLS0tIGEvbmV0L29w
-ZW52c3dpdGNoL2Nvbm50cmFjay5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwpA
-QCAtNzMsNyArNzMsNiBAQCBzdGF0aWMgdTggb3ZzX2N0X2dldF9zdGF0ZShlbnVtIGlwX2Nvbm50
-cmFja19pbmZvIGN0aW5mbykKIAlzd2l0Y2ggKGN0aW5mbykgewogCWNhc2UgSVBfQ1RfRVNUQUJM
-SVNIRURfUkVQTFk6CiAJY2FzZSBJUF9DVF9SRUxBVEVEX1JFUExZOgotCWNhc2UgSVBfQ1RfTkVX
-X1JFUExZOgogCQljdF9zdGF0ZSB8PSBPVlNfQ1NfRl9SRVBMWV9ESVI7CiAJCWJyZWFrOwogCWRl
-ZmF1bHQ6CkBAIC05MCw3ICs4OSw2IEBAIHN0YXRpYyB1OCBvdnNfY3RfZ2V0X3N0YXRlKGVudW0g
-aXBfY29ubnRyYWNrX2luZm8gY3RpbmZvKQogCQljdF9zdGF0ZSB8PSBPVlNfQ1NfRl9SRUxBVEVE
-OwogCQlicmVhazsKIAljYXNlIElQX0NUX05FVzoKLQljYXNlIElQX0NUX05FV19SRVBMWToKIAkJ
-Y3Rfc3RhdGUgfD0gT1ZTX0NTX0ZfTkVXOwogCQlicmVhazsKIAlkZWZhdWx0OgotLSAKMi4xLjQK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
-aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
-YW4vbGlzdGluZm8vZGV2Cg==
+Define a new inline function to map conntrack status to enum
+ip_conntrack_info.  This removes the need to otherwise duplicate this
+code in a later patch.
+
+Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
+---
+ include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
+ net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
+ 2 files changed, 18 insertions(+), 19 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index fde4068..b3de10e 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
+ 			    tuplehash[hash->tuple.dst.dir]);
+ }
+ 
++static inline enum ip_conntrack_info
++nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
++{
++	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
++
++	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
++		return IP_CT_ESTABLISHED_REPLY;
++	/* Once we've had two way comms, always ESTABLISHED. */
++	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
++		return IP_CT_ESTABLISHED;
++	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
++		return IP_CT_RELATED;
++	return IP_CT_NEW;
++}
++
+ static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+ {
+ 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3cb3cb8..70ddbd8 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1056,25 +1056,9 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+ 
+ 	/* It exists; we have (non-exclusive) reference. */
+-	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+-		*ctinfo = IP_CT_ESTABLISHED_REPLY;
+-		/* Please set reply bit if this packet OK */
+-		*set_reply = 1;
+-	} else {
+-		/* Once we've had two way comms, always ESTABLISHED. */
+-		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+-			*ctinfo = IP_CT_ESTABLISHED;
+-		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: related packet for %p\n",
+-				 ct);
+-			*ctinfo = IP_CT_RELATED;
+-		} else {
+-			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+-			*ctinfo = IP_CT_NEW;
+-		}
+-		*set_reply = 0;
+-	}
++	*ctinfo = nf_ct_get_info(h);
++	*set_reply = NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY;
++
+ 	skb->nfct = &ct->ct_general;
+ 	skb->nfctinfo = *ctinfo;
+ 	return ct;
+-- 
+2.1.4
