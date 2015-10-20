@@ -1,144 +1,491 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Tue, 20 Oct 2015 10:53:51 -0700
-Message-ID: <56267FAF.60206@plumgrid.com>
-References: <cover.1444956943.git.daniel@iogearbox.net>
- <56213A61.40509@iogearbox.net> <87d1welkp8.fsf@x220.int.ebiederm.org>
- <56214FAC.5060704@plumgrid.com> <87y4f2io9l.fsf@x220.int.ebiederm.org>
- <5621649A.80403@plumgrid.com> <87mvviidku.fsf@x220.int.ebiederm.org>
- <5621B5BC.8020204@plumgrid.com> <56223F00.5030203@iogearbox.net>
- <562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>
- <5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>
- <1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
- <5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
- <562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
- <56253335.9000206@plumgrid.com>
- <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
- <562545AA.2080207@plumgrid.com>
- <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
- <56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>
- <56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5625FF71.8020304@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa node
+Date: Tue, 20 Oct 2015 10:58:33 -0700
+Message-ID: <EDC4CBA7-1E5A-47B6-9F45-8365840F4E53@nicira.com>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz> <5612DCC8.4040605@gmail.com> <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com> <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com> <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com> <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com> <CAEP_g=8TTh7pQL_DadBPdhfat+gd_XizGJqWK2wvHvo7oy6WaQ@mail.gmail.com> <3C0B7B0E-FDF9-45F5-9CA4-6A8D3CBB2E5C@nicira.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: multipart/alternative; boundary="Apple-Mail=_BB35E7E7-EB72-44AF-9EB7-532F232A6917"
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+ Vlastimil Babka <vbabka@suse.cz>,
+ Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+ "dev@openvswitch.org" <dev@openvswitch.org>,
+ Pravin Shelar <pshelar@nicira.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ netdev <netdev@vger.kernel.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ linux-mm@kvack.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <3C0B7B0E-FDF9-45F5-9CA4-6A8D3CBB2E5C@nicira.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 10/20/15 1:46 AM, Daniel Borkmann wrote:
->> as we discussed in this thread and earlier during plumbers I think
->> it would be good to expose key/values somehow in this fs.
->> 'how' is a big question.
->
-> Yes, it is a big question, and probably best left to the domain-specific
-> application itself, which can already dump the map nowadays via bpf(2)
-> syscall. You can add bindings to various languages to make it available
-> elsewhere as well.
->
-> Or, you have a user space 'bpf' tool that can connect to any map that is
-> being exposed with whatever model, and have modular pretty printers in
-> user space somewhere located as shared objects, they could get auto-loaded
-> in the background. Maps could get an annotation attached as an attribute
-> during creation that is being exposed somewhere, so it can be mapped to
-> a pretty printer shared object. This would better be solved in user space
-> entirely, in my opinion, why should the kernel add complexity for this
-> when this is so much user-space application specific anyway?
->
-> As we all agreed, looking into key/values via shell is a rare event and
-> not needed most of the times. It comes with it's own problems (f.e. think
-> of dumping a possible rhashtable map with key/values as files). But even
-> iff we'd want to stick this into files by all means, fusefs can do this
-> specific job entirely in user space _plus_ fetching these shared objects
-> for pretty printers etc, all we need for this is to add this annotation/
-> mapping attribute somewhere to bpf_maps and that's all it takes.
->
-> This question is no doubt independant of the fd pinning mechanism, but as
-> I said, I don't think sticking this into the kernel is a good idea. Why
-> would that be the kernel's job?
 
-agree with all of the concerns above. I said it would be good for
-kernel to expose key/values and I still think it would be a useful
-feature. Regardless whether kernel does it or not in the future,
-the point was 'IF we want kernel to do it then bpf FS is the right way'.
+--Apple-Mail=_BB35E7E7-EB72-44AF-9EB7-532F232A6917
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=utf-8
 
-> In the other email, you are mentioning fdinfo. fdinfo can be done for any
-> map/prog already today by just adding the right .show_fdinfo() callback to
-> bpf_map_fops and bpf_prog_fops, so we let the anon-inodes that we already
-> use today to do this job for free and such debugging info can be inspected
-> through procfs already. This is common practice, f.e. look at timerfd,
-> signalfd and others.
 
-I know. That's exactly what I proposed, but again the point was
-that fdinfo of regular FDs should match in style to pinned FDs,
-'cat /sys/kernel/bpf/.../map5' should be similar to
-'cat /proc/.../fdinfo/5'
-and 'cat /sys/kernel/bpf...' you can only cleanly do with bpffs.
+> On Oct 9, 2015, at 5:02 PM, Jarno Rajahalme <jrajahalme@nicira.com> =
+wrote:
+>=20
+>=20
+>> On Oct 9, 2015, at 3:11 PM, Jesse Gross <jesse@nicira.com =
+<mailto:jesse@nicira.com>> wrote:
+>>=20
+>> On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme =
+<jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>> wrote:
+>>>=20
+>>> On Oct 8, 2015, at 4:03 PM, Jesse Gross <jesse@nicira.com =
+<mailto:jesse@nicira.com>> wrote:
+>>>=20
+>>> On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme =
+<jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>>
+>>> wrote:
+>>>=20
+>>>=20
+>>> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com =
+<mailto:jesse@nicira.com>> wrote:
+>>>=20
+>>> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+>>> <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> =
+wrote:
+>>>=20
+>>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>>>=20
+>>>=20
+>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>>>=20
+>>>=20
+>>> When openvswitch tries allocate memory from offline numa node 0:
+>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | =
+__GFP_ZERO,
+>>> 0)
+>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES || =
+!node_online(nid))
+>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in =
+linux/gfp.h
+>>> This patch disables numa affinity in this case.
+>>>=20
+>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru =
+<mailto:khlebnikov@yandex-team.ru>>
+>>>=20
+>>>=20
+>>>=20
+>>> ...
+>>>=20
+>>> diff --git a/net/openvswitch/flow_table.c =
+b/net/openvswitch/flow_table.c
+>>> index f2ea83ba4763..c7f74aab34b9 100644
+>>> --- a/net/openvswitch/flow_table.c
+>>> +++ b/net/openvswitch/flow_table.c
+>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>>=20
+>>>    /* Initialize the default stat node. */
+>>>    stats =3D kmem_cache_alloc_node(flow_stats_cache,
+>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
+>>> +                      GFP_KERNEL | __GFP_ZERO,
+>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>>>=20
+>>>=20
+>>>=20
+>>> Stupid question: can node 0 become offline between this check, and =
+the
+>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>>>=20
+>>>=20
+>>>=20
+>>> Another question to ask would be is it possible for node 0 to be =
+online, but
+>>> be a memoryless node?
+>>>=20
+>>> I would say you are better off just making this call =
+kmem_cache_alloc.  I
+>>> don't see anything that indicates the memory has to come from node =
+0, so
+>>> adding the extra overhead doesn't provide any value.
+>>>=20
+>>>=20
+>>> I agree that this at least makes me wonder, though I actually have
+>>> concerns in the opposite direction - I see assumptions about this
+>>> being on node 0 in net/openvswitch/flow.c.
+>>>=20
+>>> Jarno, since you original wrote this code, can you take a look to =
+see
+>>> if everything still makes sense?
+>>>=20
+>>>=20
+>>> We keep the pre-allocated stats node at array index 0, which is =
+initially
+>>> used by all CPUs, but if CPUs from multiple numa nodes start =
+updating the
+>>> stats, we allocate additional stats nodes (up to one per numa node), =
+and the
+>>> CPUs on node 0 keep using the preallocated entry. If stats cannot be
+>>> allocated from CPUs local node, then those CPUs keep using the entry =
+at
+>>> index 0. Currently the code in net/openvswitch/flow.c will try to =
+allocate
+>>> the local memory repeatedly, which may not be optimal when there is =
+no
+>>> memory at the local node.
+>>>=20
+>>> Allocating the memory for the index 0 from other than node 0, as =
+discussed
+>>> here, just means that the CPUs on node 0 will keep on using =
+non-local memory
+>>> for stats. In a scenario where there are CPUs on two nodes (0, 1), =
+but only
+>>> the node 1 has memory, a shared flow entry will still end up having =
+separate
+>>> memory allocated for both nodes, but both of the nodes would be at =
+node 1.
+>>> However, there is still a high likelihood that the memory =
+allocations would
+>>> not share a cache line, which should prevent the nodes from =
+invalidating
+>>> each other=E2=80=99s caches. Based on this I do not see a problem =
+relaxing the
+>>> memory allocation for the default stats node. If node 0 has memory, =
+however,
+>>> it would be better to allocate the memory from node 0.
+>>>=20
+>>>=20
+>>> Thanks for going through all of that.
+>>>=20
+>>> It seems like the question that is being raised is whether it =
+actually
+>>> makes sense to try to get the initial memory on node 0, especially
+>>> since it seems to introduce some corner cases? Is there any reason =
+why
+>>> the flow is more likely to hit node 0 than a randomly chosen one?
+>>> (Assuming that this is a multinode system, otherwise it's kind of a
+>>> moot point.) We could have a separate pointer to the default =
+allocated
+>>> memory, so it wouldn't conflict with memory that was intentionally
+>>> allocated for node 0.
+>>>=20
+>>>=20
+>>> It would still be preferable to know from which node the default =
+stats node
+>>> was allocated, and store it in the appropriate pointer in the array. =
+We
+>>> could then add a new =E2=80=9Cdefault stats node index=E2=80=9D that =
+would be used to locate
+>>> the node in the array of pointers we already have. That way we would =
+avoid
+>>> extra allocation and processing of the default stats node.
+>>=20
+>> I agree, that sounds reasonable to me. Will you make that change?
+>>=20
+>> Besides eliminating corner cases, it might help performance in some
+>> cases too by avoiding stressing memory bandwidth on node 0.
+>=20
 
->> But regardless which path we take, sysfs is too rigid.
->> For the sake of argument say we do every key as a new file in bpffs.
->> It's not very scalable, but comparing to sysfs it's better
->> (resource wise).
->
-> I doubt this is scaleable at all, no matter if its sysfs or a own custom
-> fs. How should that work. You have a map with possibly thousands or
-> millions
-> of entries. Are these files to be generated on the fly like in procfs as
-> soon as you enter that directory? Or as a one-time snapshot (but then
-> the user mights want to create various snapshots)? There might be new
-> map elements as building blocks in the future such as pipes, ring buffers
-> etc. How are they being dumped as files?
+According to the comment above kmem_cache_alloc_node(), =
+kmem_cache_alloc_node() should not BUG_ON/WARN_ON in this case:
+> /**
+>  * kmem_cache_alloc_node - Allocate an object on the specified node
+>  * @cachep: The cache to allocate from.
+>  * @flags: See kmalloc().
+>  * @nodeid: node number of the target node.
+>  *
+>  * Identical to kmem_cache_alloc but it will allocate memory on the =
+given
+>  * node, which can improve the performance for cpu bound structures.
+>  *
+>  * Fallback to other node is possible if __GFP_THISNODE is not set.
+>  */
+See also this from cpuset.c:
 
-you're arguing that keys as files are not scalable. sure.
-See what I said above "it's not very scalable"
-The point is that fs approach is more flexible comparing to cdev.
+> /**
+>  * cpuset_mem_spread_node() - On which node to begin search for a file =
+page
+>  * cpuset_slab_spread_node() - On which node to begin search for a =
+slab page
+>  *
+>  * If a task is marked PF_SPREAD_PAGE or PF_SPREAD_SLAB (as for
+>  * tasks in a cpuset with is_spread_page or is_spread_slab set),
+>  * and if the memory allocation used cpuset_mem_spread_node()
+>  * to determine on which node to start looking, as it will for
+>  * certain page cache or slab cache pages such as used for file
+>  * system buffers and inode caches, then instead of starting on the
+>  * local node to look for a free page, rather spread the starting
+>  * node around the tasks mems_allowed nodes.
+>  *
+>  * We don't have to worry about the returned node being offline
+>  * because "it can't happen", and even if it did, it would be ok.
+>  *
+>  * The routines calling guarantee_online_mems() are careful to
+>  * only set nodes in task->mems_allowed that are online.  So it
+>  * should not be possible for the following code to return an
+>  * offline node.  But if it did, that would be ok, as this routine
+>  * is not returning the node where the allocation must be, only
+>  * the node where the search should start.  The zonelist passed to
+>  * __alloc_pages() will include all nodes.  If the slab allocator
+>  * is passed an offline node, it will fall back to the local node.
+>  * See kmem_cache_alloc_node().
+>  */
 
->> not everything in unix is a model that should be followed.
->> af_unix with name[0]!=0 is a bad api that wasn't thought through.
->> Thankfully Linux improved it with abstract names that don't use
->> special files.
->> bpf maps obviously is not an IPC (either pinned or not).
->
-> So, if this pinning facility is unprivileged and available for *all*
-> applications, then applications can in-fact use eBPF maps (w/o any
-> other aides such as Unix domain sockets to transfer fds) among themselves
-> to exchange state via bpf(2) syscall. It doesn't need a corresponding
-> program.
 
-Obviously I know that, but it doesn't make it an IPC.
-Just because two processes can talk to each other via normal tcpip it
-doesn't make tcpip an IPC mechanism.
-The point is "just because two processes can communicate with each
-other via X (bpf maps) we are not going to optimize (or make
-architectural decisions in X) just for this use case". It's a job of
-generic IPC and we have enough of them already.
+Based on this it seems this is a bug in the memory allocator, it =
+probably should not be calling alloc_pages_exact_node() when =
+__GFP_THISNODE is not set?
 
-> Okay, sure, but then having a mount_single() and separating users and
-> namespaces is still not being resolved, as you've noticed.
+  Jarno
 
-yes and that's what I proposed to do:
-Tweaking this FS patch to do mount_single() and define directory
-structure is the best way forward.
 
-> So, if you distribute the names through the kernel and dictate a strict
-> hierarchy, then we'll end up with a similar model that cdevs resolve.
+--Apple-Mail=_BB35E7E7-EB72-44AF-9EB7-532F232A6917
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html;
+	charset=utf-8
 
-yes. exactly.
-but comparing to cdev, it will be:
-- cheaper for kernel to keep (memory wise)
-- faster to pin FDs
-- do normal 'rm' to destroy
-- possible to extend to unprivileged users
-- possible to add fdinfo (same output for pinned and normal fd)
-- possible to expose key/value
+<html><head><meta http-equiv=3D"Content-Type" content=3D"text/html =
+charset=3Dutf-8"></head><body style=3D"word-wrap: break-word; =
+-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;" =
+class=3D""><br class=3D""><div><blockquote type=3D"cite" class=3D""><div =
+class=3D"">On Oct 9, 2015, at 5:02 PM, Jarno Rajahalme &lt;<a =
+href=3D"mailto:jrajahalme@nicira.com" =
+class=3D"">jrajahalme@nicira.com</a>&gt; wrote:</div><br =
+class=3D"Apple-interchange-newline"><div class=3D""><meta =
+http-equiv=3D"Content-Type" content=3D"text/html charset=3Dutf-8" =
+class=3D""><div style=3D"word-wrap: break-word; -webkit-nbsp-mode: =
+space; -webkit-line-break: after-white-space;" class=3D""><br =
+class=3D""><div class=3D""><blockquote type=3D"cite" class=3D""><div =
+class=3D"">On Oct 9, 2015, at 3:11 PM, Jesse Gross &lt;<a =
+href=3D"mailto:jesse@nicira.com" class=3D"">jesse@nicira.com</a>&gt; =
+wrote:</div><br class=3D"Apple-interchange-newline"><div class=3D""><span =
+style=3D"font-family: Helvetica; font-size: 12px; font-style: normal; =
+font-variant: normal; font-weight: normal; letter-spacing: normal; =
+line-height: normal; orphans: auto; text-align: start; text-indent: 0px; =
+text-transform: none; white-space: normal; widows: auto; word-spacing: =
+0px; -webkit-text-stroke-width: 0px; float: none; display: inline =
+!important;" class=3D"">On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme =
+&lt;</span><a href=3D"mailto:jrajahalme@nicira.com" style=3D"font-family: =
+Helvetica; font-size: 12px; font-style: normal; font-variant: normal; =
+font-weight: normal; letter-spacing: normal; line-height: normal; =
+orphans: auto; text-align: start; text-indent: 0px; text-transform: =
+none; white-space: normal; widows: auto; word-spacing: 0px; =
+-webkit-text-stroke-width: 0px;" class=3D"">jrajahalme@nicira.com</a><span=
+ style=3D"font-family: Helvetica; font-size: 12px; font-style: normal; =
+font-variant: normal; font-weight: normal; letter-spacing: normal; =
+line-height: normal; orphans: auto; text-align: start; text-indent: 0px; =
+text-transform: none; white-space: normal; widows: auto; word-spacing: =
+0px; -webkit-text-stroke-width: 0px; float: none; display: inline =
+!important;" class=3D"">&gt; wrote:</span><br style=3D"font-family: =
+Helvetica; font-size: 12px; font-style: normal; font-variant: normal; =
+font-weight: normal; letter-spacing: normal; line-height: normal; =
+orphans: auto; text-align: start; text-indent: 0px; text-transform: =
+none; white-space: normal; widows: auto; word-spacing: 0px; =
+-webkit-text-stroke-width: 0px;" class=3D""><blockquote type=3D"cite" =
+style=3D"font-family: Helvetica; font-size: 12px; font-style: normal; =
+font-variant: normal; font-weight: normal; letter-spacing: normal; =
+line-height: normal; orphans: auto; text-align: start; text-indent: 0px; =
+text-transform: none; white-space: normal; widows: auto; word-spacing: =
+0px; -webkit-text-stroke-width: 0px;" class=3D""><br class=3D"">On Oct =
+8, 2015, at 4:03 PM, Jesse Gross &lt;<a href=3D"mailto:jesse@nicira.com" =
+class=3D"">jesse@nicira.com</a>&gt; wrote:<br class=3D""><br class=3D"">On=
+ Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme &lt;<a =
+href=3D"mailto:jrajahalme@nicira.com" =
+class=3D"">jrajahalme@nicira.com</a>&gt;<br class=3D"">wrote:<br =
+class=3D""><br class=3D""><br class=3D"">On Oct 6, 2015, at 6:01 PM, =
+Jesse Gross &lt;<a href=3D"mailto:jesse@nicira.com" =
+class=3D"">jesse@nicira.com</a>&gt; wrote:<br class=3D""><br class=3D"">On=
+ Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck<br class=3D"">&lt;<a =
+href=3D"mailto:alexander.duyck@gmail.com" =
+class=3D"">alexander.duyck@gmail.com</a>&gt; wrote:<br class=3D""><br =
+class=3D"">On 10/05/2015 06:59 AM, Vlastimil Babka wrote:<br =
+class=3D""><br class=3D""><br class=3D"">On 10/02/2015 12:18 PM, =
+Konstantin Khlebnikov wrote:<br class=3D""><br class=3D""><br =
+class=3D"">When openvswitch tries allocate memory from offline numa node =
+0:<br class=3D"">stats =3D kmem_cache_alloc_node(flow_stats_cache, =
+GFP_KERNEL | __GFP_ZERO,<br class=3D"">0)<br class=3D"">It catches =
+VM_BUG_ON(nid &lt; 0 || nid &gt;=3D MAX_NUMNODES || =
+!node_online(nid))<br class=3D"">[ replaced with =
+VM_WARN_ON(!node_online(nid)) recently ] in linux/gfp.h<br class=3D"">This=
+ patch disables numa affinity in this case.<br class=3D""><br =
+class=3D"">Signed-off-by: Konstantin Khlebnikov &lt;<a =
+href=3D"mailto:khlebnikov@yandex-team.ru" =
+class=3D"">khlebnikov@yandex-team.ru</a>&gt;<br class=3D""><br =
+class=3D""><br class=3D""><br class=3D"">...<br class=3D""><br =
+class=3D"">diff --git a/net/openvswitch/flow_table.c =
+b/net/openvswitch/flow_table.c<br class=3D"">index =
+f2ea83ba4763..c7f74aab34b9 100644<br class=3D"">--- =
+a/net/openvswitch/flow_table.c<br class=3D"">+++ =
+b/net/openvswitch/flow_table.c<br class=3D"">@@ -93,7 +93,8 @@ struct =
+sw_flow *ovs_flow_alloc(void)<br class=3D""><br =
+class=3D"">&nbsp;&nbsp;&nbsp;/* Initialize the default stat node. */<br =
+class=3D"">&nbsp;&nbsp;&nbsp;stats =3D =
+kmem_cache_alloc_node(flow_stats_cache,<br class=3D"">- =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GFP_KERNEL | =
+__GFP_ZERO, 0);<br class=3D"">+ =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GFP_KERNEL | =
+__GFP_ZERO,<br class=3D"">+ =
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;node_online(0) ? 0 : =
+NUMA_NO_NODE);<br class=3D""><br class=3D""><br class=3D""><br =
+class=3D"">Stupid question: can node 0 become offline between this =
+check, and the<br class=3D"">VM_WARN_ON? :) BTW what kind of system has =
+node 0 offline?<br class=3D""><br class=3D""><br class=3D""><br =
+class=3D"">Another question to ask would be is it possible for node 0 to =
+be online, but<br class=3D"">be a memoryless node?<br class=3D""><br =
+class=3D"">I would say you are better off just making this call =
+kmem_cache_alloc. &nbsp;I<br class=3D"">don't see anything that =
+indicates the memory has to come from node 0, so<br class=3D"">adding =
+the extra overhead doesn't provide any value.<br class=3D""><br =
+class=3D""><br class=3D"">I agree that this at least makes me wonder, =
+though I actually have<br class=3D"">concerns in the opposite direction =
+- I see assumptions about this<br class=3D"">being on node 0 in =
+net/openvswitch/flow.c.<br class=3D""><br class=3D"">Jarno, since you =
+original wrote this code, can you take a look to see<br class=3D"">if =
+everything still makes sense?<br class=3D""><br class=3D""><br =
+class=3D"">We keep the pre-allocated stats node at array index 0, which =
+is initially<br class=3D"">used by all CPUs, but if CPUs from multiple =
+numa nodes start updating the<br class=3D"">stats, we allocate =
+additional stats nodes (up to one per numa node), and the<br =
+class=3D"">CPUs on node 0 keep using the preallocated entry. If stats =
+cannot be<br class=3D"">allocated from CPUs local node, then those CPUs =
+keep using the entry at<br class=3D"">index 0. Currently the code in =
+net/openvswitch/flow.c will try to allocate<br class=3D"">the local =
+memory repeatedly, which may not be optimal when there is no<br =
+class=3D"">memory at the local node.<br class=3D""><br =
+class=3D"">Allocating the memory for the index 0 from other than node 0, =
+as discussed<br class=3D"">here, just means that the CPUs on node 0 will =
+keep on using non-local memory<br class=3D"">for stats. In a scenario =
+where there are CPUs on two nodes (0, 1), but only<br class=3D"">the =
+node 1 has memory, a shared flow entry will still end up having =
+separate<br class=3D"">memory allocated for both nodes, but both of the =
+nodes would be at node 1.<br class=3D"">However, there is still a high =
+likelihood that the memory allocations would<br class=3D"">not share a =
+cache line, which should prevent the nodes from invalidating<br =
+class=3D"">each other=E2=80=99s caches. Based on this I do not see a =
+problem relaxing the<br class=3D"">memory allocation for the default =
+stats node. If node 0 has memory, however,<br class=3D"">it would be =
+better to allocate the memory from node 0.<br class=3D""><br =
+class=3D""><br class=3D"">Thanks for going through all of that.<br =
+class=3D""><br class=3D"">It seems like the question that is being =
+raised is whether it actually<br class=3D"">makes sense to try to get =
+the initial memory on node 0, especially<br class=3D"">since it seems to =
+introduce some corner cases? Is there any reason why<br class=3D"">the =
+flow is more likely to hit node 0 than a randomly chosen one?<br =
+class=3D"">(Assuming that this is a multinode system, otherwise it's =
+kind of a<br class=3D"">moot point.) We could have a separate pointer to =
+the default allocated<br class=3D"">memory, so it wouldn't conflict with =
+memory that was intentionally<br class=3D"">allocated for node 0.<br =
+class=3D""><br class=3D""><br class=3D"">It would still be preferable to =
+know from which node the default stats node<br class=3D"">was allocated, =
+and store it in the appropriate pointer in the array. We<br =
+class=3D"">could then add a new =E2=80=9Cdefault stats node index=E2=80=9D=
+ that would be used to locate<br class=3D"">the node in the array of =
+pointers we already have. That way we would avoid<br class=3D"">extra =
+allocation and processing of the default stats node.<br =
+class=3D""></blockquote><br style=3D"font-family: Helvetica; font-size: =
+12px; font-style: normal; font-variant: normal; font-weight: normal; =
+letter-spacing: normal; line-height: normal; orphans: auto; text-align: =
+start; text-indent: 0px; text-transform: none; white-space: normal; =
+widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;" =
+class=3D""><span style=3D"font-family: Helvetica; font-size: 12px; =
+font-style: normal; font-variant: normal; font-weight: normal; =
+letter-spacing: normal; line-height: normal; orphans: auto; text-align: =
+start; text-indent: 0px; text-transform: none; white-space: normal; =
+widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px; float: =
+none; display: inline !important;" class=3D"">I agree, that sounds =
+reasonable to me. Will you make that change?</span><br =
+style=3D"font-family: Helvetica; font-size: 12px; font-style: normal; =
+font-variant: normal; font-weight: normal; letter-spacing: normal; =
+line-height: normal; orphans: auto; text-align: start; text-indent: 0px; =
+text-transform: none; white-space: normal; widows: auto; word-spacing: =
+0px; -webkit-text-stroke-width: 0px;" class=3D""><br style=3D"font-family:=
+ Helvetica; font-size: 12px; font-style: normal; font-variant: normal; =
+font-weight: normal; letter-spacing: normal; line-height: normal; =
+orphans: auto; text-align: start; text-indent: 0px; text-transform: =
+none; white-space: normal; widows: auto; word-spacing: 0px; =
+-webkit-text-stroke-width: 0px;" class=3D""><span style=3D"font-family: =
+Helvetica; font-size: 12px; font-style: normal; font-variant: normal; =
+font-weight: normal; letter-spacing: normal; line-height: normal; =
+orphans: auto; text-align: start; text-indent: 0px; text-transform: =
+none; white-space: normal; widows: auto; word-spacing: 0px; =
+-webkit-text-stroke-width: 0px; float: none; display: inline =
+!important;" class=3D"">Besides eliminating corner cases, it might help =
+performance in some</span><br style=3D"font-family: Helvetica; =
+font-size: 12px; font-style: normal; font-variant: normal; font-weight: =
+normal; letter-spacing: normal; line-height: normal; orphans: auto; =
+text-align: start; text-indent: 0px; text-transform: none; white-space: =
+normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: =
+0px;" class=3D""><span style=3D"font-family: Helvetica; font-size: 12px; =
+font-style: normal; font-variant: normal; font-weight: normal; =
+letter-spacing: normal; line-height: normal; orphans: auto; text-align: =
+start; text-indent: 0px; text-transform: none; white-space: normal; =
+widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px; float: =
+none; display: inline !important;" class=3D"">cases too by avoiding =
+stressing memory bandwidth on node 0.</span></div></blockquote></div><br =
+class=3D""></div></div></blockquote><div><br =
+class=3D""></div><div>According to the comment above =
+kmem_cache_alloc_node(), kmem_cache_alloc_node() should not =
+BUG_ON/WARN_ON in this case:</div><div><blockquote type=3D"cite" =
+class=3D""><pre class=3D""><b class=3D""><i class=3D"">/**</i></b>
+<b class=3D""><i class=3D""> * kmem_cache_alloc_node - Allocate an =
+object on the specified node</i></b>
+<b class=3D""><i class=3D""> * @cachep: The cache to allocate =
+from.</i></b>
+<b class=3D""><i class=3D""> * @flags: See kmalloc().</i></b>
+<b class=3D""><i class=3D""> * @nodeid: node number of the target =
+node.</i></b>
+<b class=3D""><i class=3D""> *</i></b>
+<b class=3D""><i class=3D""> * Identical to kmem_cache_alloc but it will =
+allocate memory on the given</i></b>
+<b class=3D""><i class=3D""> * node, which can improve the performance =
+for cpu bound structures.</i></b>
+<b class=3D""><i class=3D""> *</i></b>
+<b class=3D""><i class=3D""> * Fallback to other node is possible if =
+__GFP_THISNODE is not set.</i></b>
+<b class=3D""><i class=3D""> */</i></b></pre></blockquote><div =
+class=3D"">See also this from cpuset.c:</div><div class=3D""><br =
+class=3D""></div><div class=3D""><blockquote type=3D"cite" class=3D""><div=
+ class=3D"">/**</div><div class=3D"">&nbsp;* cpuset_mem_spread_node() - =
+On which node to begin search for a file page</div><div class=3D"">&nbsp;*=
+ cpuset_slab_spread_node() - On which node to begin search for a slab =
+page</div><div class=3D"">&nbsp;*</div><div class=3D"">&nbsp;* If a task =
+is marked PF_SPREAD_PAGE or PF_SPREAD_SLAB (as for</div><div =
+class=3D"">&nbsp;* tasks in a cpuset with is_spread_page or =
+is_spread_slab set),</div><div class=3D"">&nbsp;* and if the memory =
+allocation used cpuset_mem_spread_node()</div><div class=3D"">&nbsp;* to =
+determine on which node to start looking, as it will for</div><div =
+class=3D"">&nbsp;* certain page cache or slab cache pages such as used =
+for file</div><div class=3D"">&nbsp;* system buffers and inode caches, =
+then instead of starting on the</div><div class=3D"">&nbsp;* local node =
+to look for a free page, rather spread the starting</div><div =
+class=3D"">&nbsp;* node around the tasks mems_allowed nodes.</div><div =
+class=3D"">&nbsp;*</div><div class=3D"">&nbsp;* We don't have to worry =
+about the returned node being offline</div><div class=3D"">&nbsp;* =
+because "it can't happen", and even if it did, it would be ok.</div><div =
+class=3D"">&nbsp;*</div><div class=3D"">&nbsp;* The routines calling =
+guarantee_online_mems() are careful to</div><div class=3D"">&nbsp;* only =
+set nodes in task-&gt;mems_allowed that are online. &nbsp;So =
+it</div><div class=3D"">&nbsp;* should not be possible for the following =
+code to return an</div><div class=3D"">&nbsp;* offline node. &nbsp;But =
+if it did, that would be ok, as this routine</div><div class=3D"">&nbsp;* =
+is not returning the node where the allocation must be, only</div><div =
+class=3D"">&nbsp;* the node where the search should start. &nbsp;The =
+zonelist passed to</div><div class=3D"">&nbsp;* __alloc_pages() will =
+include all nodes. &nbsp;If the slab allocator</div><div =
+class=3D"">&nbsp;* is passed an offline node, it will fall back to the =
+local node.</div><div class=3D"">&nbsp;* See =
+kmem_cache_alloc_node().</div><div =
+class=3D"">&nbsp;*/</div></blockquote></div><div class=3D""><br =
+class=3D""></div><div class=3D"">Based on this it seems this is a bug in =
+the memory allocator, it probably should not be calling =
+alloc_pages_exact_node() when&nbsp;__GFP_THISNODE is not set?</div><div =
+class=3D""><br class=3D""></div><div class=3D"">&nbsp; Jarno</div><div =
+class=3D""><br class=3D""></div></div></div></body></html>=
 
-I'm puzzled how you can keep arguing in favor of cdev when it's
-obviously deficient comparing to fs and fs has no disadvantages.
-Looks like we can only resolve it over beer.
-How about we setup a public hangout ? Today or tomorrow?
+--Apple-Mail=_BB35E7E7-EB72-44AF-9EB7-532F232A6917--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
