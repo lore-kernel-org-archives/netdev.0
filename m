@@ -1,145 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
- incorrect for sockets in accept(3)
-Date: Mon, 19 Oct 2015 16:33:04 -0700
-Message-ID: <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151019095938.72ea48e6@xeon-e3>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Mon, 19 Oct 2015 17:18:39 -0700
+Message-ID: <op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com>
+ <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1510132116480.25029@nanos>
+ <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com>
+ <alpine.DEB.2.11.1510151014330.3960@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alan.Burlison@oracle.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34223 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbbJSXdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2015 19:33:06 -0400
-Received: by padhk11 with SMTP id hk11so852674pad.1
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2015 16:33:06 -0700 (PDT)
-In-Reply-To: <20151019095938.72ea48e6@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, peterz@infradead.org, x86@kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.b.stanton@intel.com
+To: "Thomas Gleixner" <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1510151014330.3960@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-10-19 at 09:59 -0700, Stephen Hemminger wrote:
-> This looks like corner case, but worth forwarding.
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 19 Oct 2015 13:21:33 +0000
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-> Subject: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=106241
-> 
->             Bug ID: 106241
->            Summary: shutdown(3)/close(3) behaviour is incorrect for
->                     sockets in accept(3)
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.10.0-229.14.1.el7.x86_64
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->           Assignee: shemminger@linux-foundation.org
->           Reporter: Alan.Burlison@oracle.com
->         Regression: No
-> 
-> Created attachment 190501
->   --> https://bugzilla.kernel.org/attachment.cgi?id=190501&action=edit
-> Test program illustrating the problem
-> 
-> The Linux behaviour in the current scenario is incorrect:
-> 
-> 1. ThreadA opens, binds, listens and accepts on a socket, waiting for
-> connections.
-> 
-> 2. Some time later ThreadB calls shutdown on the socket ThreadA is waiting in
-> accept on.
-> 
-> Here is what happens:
-> 
-> On Linux, the shutdown call in ThreadB succeeds and the accept call in ThreadA
-> returns with EINVAL.
-> 
-> On Solaris, the shutdown call in ThreadB fails and returns ENOTCONN. ThreadA
-> continues to wait in accept.
-> 
-> Relevant POSIX manpages:
-> 
-> http://pubs.opengroup.org/onlinepubs/9699919799/functions/accept.html
-> http://pubs.opengroup.org/onlinepubs/9699919799/functions/shutdown.html
-> 
-> The POSIX shutdown manpage says:
-> 
-> "The shutdown() function shall cause all or part of a full-duplex connection on
-> the socket associated with the file descriptor socket to be shut down."
-> ...
-> "[ENOTCONN] The socket is not connected."
-> 
-> Page 229 & 303 of "UNIX System V Network Programming" say:
-> 
-> "shutdown can only be called on sockets that have been previously connected"
-> 
-> "The socket [passed to accept that] fd refers to does not participate in the
-> connection. It remains available to receive further connect indications"
-> 
-> That is pretty clear, sockets being waited on with accept are not connected by
-> definition. Nor is it the accept socket connected when a client connects to it,
-> it is the socket returned by accept that is connected to the client. Therefore
-> the Solaris behaviour of failing the shutdown call is correct.
-> 
-> In order to get the required behaviour of ThreadB causing ThreadA to exit the
-> accept call with an error, the correct way is for ThreadB to call close on the
-> socket that ThreadA is waiting on in accept.
-> 
-> On Solaris, calling close in ThreadB succeeds, and the accept call in ThreadA
-> fails and returns EBADF.
-> 
-> On Linux, calling close in ThreadB succeeds but ThreadA continues to wait in
-> accept until there is an incoming connection. That accept returns successfully.
-> However subsequent accept calls on the same socket return EBADF.
-> 
-> The Linux behaviour is fundamentally broken in three places:
-> 
-> 1. Allowing shutdown to succeed on an unconnected socket is incorrect.  
-> 
-> 2. Returning a successful accept on a closed file descriptor is incorrect,
-> especially as future accept calls on the same socket fail.
-> 
-> 3. Once shutdown has been called on the socket, calling close on the socket
-> fails with EBADF. That is incorrect, shutdown should just prevent further IO on
-> the socket, it should not close it.
-> 
+Thomas,
 
-It looks it is a long standing problem, right ?
+On Thu, 15 Oct 2015 01:15:57 -0700, Thomas Gleixner <tglx@linutronix.de>  
+wrote:
+>> >
+>> > > +#define SHADOW_HISTORY_DEPTH 7
+>> >
+>> > And that number is 7 because?
+>>
+>> Due to power of 2 it will be 8 instead. As above the useful history is  
+>> 8-2*1
+>> ms (1 ms is the minimum jiffy length).  Array size 4 would not be enough
+>> history for the DSP which requires 4 ms of history, in the worst case.
+>
+> And how exactly becomes 7 magically 8?
 
-inet_shutdown() has this very specific comment from beginning of git
-tree :
+I'm making the array size a power of two, per your suggestion.
 
-        switch (sk->sk_state) {
-...
-        /* Remaining two branches are temporary solution for missing
-         * close() in multithreaded environment. It is _not_ a good idea,
-         * but we have no choice until close() is repaired at VFS level.
-         */
-        case TCP_LISTEN:
-                if (!(how & RCV_SHUTDOWN))
-                        break;
-                /* Fall through */
-        case TCP_SYN_SENT:
-                err = sk->sk_prot->disconnect(sk, O_NONBLOCK);
-                sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
-                break;
-        }
+In my view, the candidate array sizes are 4 and 8.  But the DSP driver  
+code requires that it be at least 8.  Here is my reasoning:
 
-Claiming Solaris does it differently is kind of moot.
-linux is not Solaris.
+The number of shadow_timekeeper array elements that contain useful history  
+is n-2 where n is the size of the shadow_timekeeper array.  This is true  
+because shadow_timekeeper[shadow_index] is a copy of tk_core.timekeeper  
+(this isn't history).  The next entry of the shadow_timekeeper array may  
+be in-flight and contain invalid information, because update_wall_time()  
+makes changes to the next entry of shadow timekeeper outside of the  
+sequence lock.  If that occurs, get_correlated_timestamp() would not be  
+notified of this change through a change in sequence number.
 
-Unless proven a real problem (and not only by trying to backport from Solaris to linux),
-we'll probably wont change this.
+Combining these two requirements, the candidate array sizes and their  
+effective history sizes is:
+
+Array Size   Effective History (in elements)
+==========   ===============================
+4            2				
+8            6
+16           14
+
+update_wall_clock() checks that the number of elapsed cycles is >=  
+tk->cycle_interval before performing any updates to shadow_timekeeper.   
+The minimum cycle count (and minimum time) that is contained in each  
+history element is equal to cycle_interval which represents a time period  
+of 1/HZ seconds.  The smallest configurable period for cycle_interval is 1  
+ms (in cycles).  Each history element, therefore, is guaranteed to contain  
+1 ms of history for all kernel configurations.  For correct operation of  
+the DSP using the proposed ART->system time API we need at least 4 ms of  
+history.  To guarantee this much history is available, the array size  
+needs to be 8.
+
+Array Size   Minimum Effective History (in ms)
+==========   =================================
+4            2				
+8            6    <----
+16           14
+
+Does this make sense for the choice of array size 8?
+
+> Make it a seperate function which can hand in the information and
+> leave the PTP specific sample/conversion function alone.
+
+OK.  The audio driver code will conform to the original correlated  
+clocksource API.
+
+FYI, I will be away from work and email until 10/28.  Any responses will  
+be delayed until then.
+
+Thanks,
+Chris
