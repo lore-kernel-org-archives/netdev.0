@@ -1,49 +1,33 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] usbnet: removed USB_USBNET as a config option
-Date: Tue, 20 Oct 2015 08:28:59 +0200
-Message-ID: <1445322539.2246.1.camel@suse.com>
-References: <1445257387-4278-1-git-send-email-oneukum@suse.com>
-	 <87oafuu0ru.fsf@nemi.mork.no>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 241/245]
+ drivers/net/ethernet/hisilicon/hns/hnae.c:442:1-3: WARNING: PTR_ERR_OR_ZERO
+ can be used
+Date: Tue, 20 Oct 2015 14:56:00 +0800
+Message-ID: <201510201454.XwPbNrDe%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:55726 "EHLO mx2.suse.de"
+Received: from mga14.intel.com ([192.55.52.115]:11007 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941AbbJTGa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Oct 2015 02:30:57 -0400
-In-Reply-To: <87oafuu0ru.fsf@nemi.mork.no>
+	id S1751051AbbJTG51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Oct 2015 02:57:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-10-19 at 21:16 +0200, Bj=C3=B8rn Mork wrote:
-> Oliver Neukum <oneukum@suse.com> writes:
->=20
-> > usbnet drives no devices of its own. It makes more sense to
-> > select it whenever a driver for actual hardware that needs
-> > it is chosen rather than offer it as an option of its own.
-> >
-> > Signed-off-by: Oliver Neukum <oneukum@suse.com>
-> > ---
-> >  drivers/net/usb/Kconfig | 75 +++++++++++++++----------------------=
-------------
-> >  1 file changed, 23 insertions(+), 52 deletions(-)
-> >
-> > diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> > index 8cf0eba..0cf45ab 100644
-> > --- a/drivers/net/usb/Kconfig
-> > +++ b/drivers/net/usb/Kconfig
-> > @@ -119,42 +119,12 @@ config USB_LAN78XX
-> >  	  module will be called lan78xx.
-> > =20
->=20
-> This looks incomplete.
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   7b4b000951f09cfe3604a6fdf5469894b4e75adb
+commit: 876133d3161dcb743983d1f9e5bf247aea2fb0f1 [241/245] net: hisilicon: add OF dependency
 
-Yes, it is against the earlier patch set which introduces the CDC
-parser in cdc-acm and cdc-wdm. In hindsight I should have reversed
-the order of patches.
 
-	Regards
-		Oliver
+coccinelle warnings: (new ones prefixed by >>)
+
+>> drivers/net/ethernet/hisilicon/hns/hnae.c:442:1-3: WARNING: PTR_ERR_OR_ZERO can be used
+
+Please review and possibly fold the followup patch.
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
