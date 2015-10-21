@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 13/15] net: wireless: brcm80211: Remove unneeded variable ret_code returning 0
-Date: Wed, 21 Oct 2015 20:25:35 +0530
-Message-ID: <1445439337-19055-14-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 14/15] net: wireless: ath: Remove unneeded variable ret returning 0
+Date: Wed, 21 Oct 2015 20:25:36 +0530
+Message-ID: <1445439337-19055-15-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,47 +18,39 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the brcmsmac/stf.c that fixes up warning caught by
+This patch is to the ath5k/eeprom.c that fixes up warning caught by
 coccicheck:
 
--Unneeded variable: "ret_code". Return "0" on line 328
+-Unneeded variable: "ret". Return "0" on line 1733
 
-Remove unneccesary variable ret_code created to return zero.
+Remove unneccesary variable ret created to return zero.
 
-Siged-off-by: Punit Vara <punitvara@gmail.com>
+Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/brcm80211/brcmsmac/stf.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/wireless/ath/ath5k/eeprom.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/stf.c b/drivers/net/wireless/brcm80211/brcmsmac/stf.c
-index dd91627..71ddf42 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/stf.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/stf.c
-@@ -306,7 +306,6 @@ int brcms_c_stf_txchain_set(struct brcms_c_info *wlc, s32 int_val, bool force)
-  */
- int brcms_c_stf_ss_update(struct brcms_c_info *wlc, struct brcms_band *band)
- {
--	int ret_code = 0;
- 	u8 prev_stf_ss;
- 	u8 upd_stf_ss;
+diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c b/drivers/net/wireless/ath/ath5k/eeprom.c
+index 94d34ee..673ab8d 100644
+--- a/drivers/net/wireless/ath/ath5k/eeprom.c
++++ b/drivers/net/wireless/ath/ath5k/eeprom.c
+@@ -1707,7 +1707,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
+ 	struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
+ 	u32 offset;
+ 	u16 val;
+-	int ret = 0, i;
++	int i;
  
-@@ -325,7 +324,7 @@ int brcms_c_stf_ss_update(struct brcms_c_info *wlc, struct brcms_band *band)
- 				    PHY_TXC1_MODE_SISO : PHY_TXC1_MODE_CDD;
- 	} else {
- 		if (wlc->band != band)
--			return ret_code;
-+			return 0;
- 		upd_stf_ss = (wlc->stf->txstreams == 1) ?
- 				PHY_TXC1_MODE_SISO : band->band_stf_ss_mode;
- 	}
-@@ -334,7 +333,7 @@ int brcms_c_stf_ss_update(struct brcms_c_info *wlc, struct brcms_band *band)
- 		brcms_b_band_stf_ss_set(wlc->hw, upd_stf_ss);
+ 	offset = AR5K_EEPROM_CTL(ee->ee_version) +
+ 				AR5K_EEPROM_N_CTLS(ee->ee_version);
+@@ -1730,7 +1730,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
+ 		}
  	}
  
--	return ret_code;
+-	return ret;
 +	return 0;
  }
  
- int brcms_c_stf_attach(struct brcms_c_info *wlc)
+ 
 -- 
 2.5.3
