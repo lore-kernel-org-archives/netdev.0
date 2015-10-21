@@ -1,50 +1,97 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 21 Oct 2015 22:28:28 +0100
-Message-ID: <20151021212827.GN22011@ZenIV.linux.org.uk>
-References: <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151021034950.GL22011@ZenIV.linux.org.uk>
- <5627A37B.4090208@oracle.com>
- <20151021.083008.1870598627666404990.davem@davemloft.net>
- <201510211604.t9LG4r9A005345@room101.nl.oracle.com>
- <1445462310.22974.84.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Casper.Dik@oracle.com, David Miller <davem@davemloft.net>,
-	Alan.Burlison@oracle.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:57605 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbbJUV2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 17:28:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1445462310.22974.84.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: fix bpf_perf_event_read() helper
+Date: Wed, 21 Oct 2015 14:36:53 -0700
+Message-ID: <1445463413-13293-1-git-send-email-ast@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 21, 2015 at 02:18:30PM -0700, Eric Dumazet wrote:
-> On Wed, 2015-10-21 at 18:04 +0200, Casper.Dik@oracle.com wrote:
-> 
-> > It is only expensive within the process itself. 
-> 
-> thread synchro would require additional barriers to maintain this state,
-> for a very unlikely case.
-> 
-> The atomic_{inc|dec}() on file refcount are already a problem.
+Fix safety checks for bpf_perf_event_read():
+- only !inherited and !pmu->count events can be added to perf_event_array map
+  (do this check statically at map insertion time)
+- dynamically check that event is local
+Otherwise buggy bpf program can cause kernel splat.
 
-To be fair, this would avoid at least _that_ - file refcount updates would
-be less frequent.  However, unlike file->f_count, *descriptor* refcounts
-would be much harder to keep in different cachelines.
+Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+This patch is on top of
+http://patchwork.ozlabs.org/patch/533585/
+to avoid conflicts.
+Even in the worst case the crash is not possible.
+Only warn_on_once, so imo net-next is ok.
 
-> We certainly do not use/take a lock to find a file pointer into file
-> descriptor table.
-> 
-> (This lock is only used at open() or close() time)
+ kernel/bpf/arraymap.c |   10 ++++++----
+ kernel/events/core.c  |   13 ++++++++-----
+ 2 files changed, 14 insertions(+), 9 deletions(-)
 
-as well as dup2() and friends, of course.  But yes, we are pretty careful
-about avoiding non-local stores on the normal "get file by descriptor" path -
-in case of non-shared descriptor table we don't do them at all, and in case
-of shared one we only modify refcount in struct file.
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index e3cfe46b074f..4cd1287ea1a3 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -294,10 +294,12 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
+ 	if (IS_ERR(attr))
+ 		return (void *)attr;
+ 
+-	if (attr->type != PERF_TYPE_RAW &&
+-	    !(attr->type == PERF_TYPE_SOFTWARE &&
+-	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+-	    attr->type != PERF_TYPE_HARDWARE) {
++	if ((attr->type != PERF_TYPE_RAW &&
++	     !(attr->type == PERF_TYPE_SOFTWARE &&
++	       attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
++	     attr->type != PERF_TYPE_HARDWARE) ||
++	    event->attr.inherit ||
++	    event->pmu->count) {
+ 		perf_event_release_kernel(event);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 64754bfecd70..639392d2b5c9 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -3258,7 +3258,7 @@ static inline u64 perf_event_count(struct perf_event *event)
+ u64 perf_event_read_local(struct perf_event *event)
+ {
+ 	unsigned long flags;
+-	u64 val;
++	u64 val = -EINVAL;
+ 
+ 	/*
+ 	 * Disabling interrupts avoids all counter scheduling (context
+@@ -3267,12 +3267,14 @@ u64 perf_event_read_local(struct perf_event *event)
+ 	local_irq_save(flags);
+ 
+ 	/* If this is a per-task event, it must be for current */
+-	WARN_ON_ONCE((event->attach_state & PERF_ATTACH_TASK) &&
+-		     event->hw.target != current);
++	if ((event->attach_state & PERF_ATTACH_TASK) &&
++	    event->hw.target != current)
++		goto out;
+ 
+ 	/* If this is a per-CPU event, it must be for this CPU */
+-	WARN_ON_ONCE(!(event->attach_state & PERF_ATTACH_TASK) &&
+-		     event->cpu != smp_processor_id());
++	if (!(event->attach_state & PERF_ATTACH_TASK) &&
++	    event->cpu != smp_processor_id())
++		goto out;
+ 
+ 	/*
+ 	 * It must not be an event with inherit set, we cannot read
+@@ -3295,6 +3297,7 @@ u64 perf_event_read_local(struct perf_event *event)
+ 		event->pmu->read(event);
+ 
+ 	val = local64_read(&event->count);
++out:
+ 	local_irq_restore(flags);
+ 
+ 	return val;
+-- 
+1.7.9.5
