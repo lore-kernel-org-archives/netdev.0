@@ -1,397 +1,232 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
-Date: Wed, 21 Oct 2015 12:59:16 +0200
-Message-ID: <20151021105916.GB15766@pox.localdomain>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output() helper
+Date: Wed, 21 Oct 2015 19:05:28 +0800
+Message-ID: <56277178.4080207@huawei.com>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org> <1445396556-4854-3-git-send-email-ast@kernel.org> <56276261.7010201@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	netfilter-devel@vger.kernel.org
-To: Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 10/20/15 at 03:20pm, Jarno Rajahalme wrote:
-> Extend OVS conntrack interface to cover NAT.  New nested
-> OVS_CT_ATTR_NAT may be used to include NAT with a CT action.  A bare
-> OVS_CT_ATTR_NAT only mangles existing connections.  If
-> OVS_NAT_ATTR_SRC or OVS_NAT_ATTR_DST is included within the nested
-> attributes, new (non-committed/non-confirmed) connections are mangled
-> according to the rest of the nested attributes.
-> 
-> This work extends on a branch by Thomas Graf at
-> https://github.com/tgraf/ovs/tree/nat.
-> 
-> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-
-Awesome work. This is a great start.
-
-There are some, probably unintended, unrelated style changes. More
-comments below.
-
-> +enum ovs_nat_attr {
-> +	OVS_NAT_ATTR_UNSPEC,
-> +	OVS_NAT_ATTR_SRC,
-> +	OVS_NAT_ATTR_DST,
-> +	OVS_NAT_ATTR_IP_MIN,
-> +	OVS_NAT_ATTR_IP_MAX,
-> +	OVS_NAT_ATTR_PROTO_MIN,
-> +	OVS_NAT_ATTR_PROTO_MAX,
-> +	OVS_NAT_ATTR_PERSISTENT,
-> +	OVS_NAT_ATTR_PROTO_HASH,
-> +	OVS_NAT_ATTR_PROTO_RANDOM,
-
-Simplify this with an OVS_NAT_ATTR_FLAGS?
-
-> @@ -137,11 +159,17 @@ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
->  	ovs_ct_get_label(ct, &key->ct.label);
->  }
->  
-> -/* Update 'key' based on skb->nfct. If 'post_ct' is true, then OVS has
-> - * previously sent the packet to conntrack via the ct action.
-> +/* Update 'key' based on skb->nfct.  If 'post_ct' is true, then OVS has
-> + * previously sent the packet to conntrack via the ct action.  If
-> + * 'keep_nat_flags' is true, the existing NAT flags retained, else they are
-> + * initialized from the connection status.
->   */
->  static void ovs_ct_update_key(const struct sk_buff *skb,
-> -			      struct sw_flow_key *key, bool post_ct)
-> +			      struct sw_flow_key *key, bool post_ct
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +			      , bool keep_nat_flags
-> +#endif
-> +			      )
-
-I suggest keeping the argument even for !CONFIG_NF_NAT_NEEDED. This
-unclutters the call sites of this function. An ifdef inside the
-keep_nat_flags branch should be enough. The compiler will optimize
-the code away and it's much prettier to read.
-
->  {
->  	const struct nf_conntrack_zone *zone = &nf_ct_zone_dflt;
->  	enum ip_conntrack_info ctinfo;
-> @@ -151,8 +179,20 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
->  	ct = nf_ct_get(skb, &ctinfo);
->  	if (ct) {
->  		state = ovs_ct_get_state(ctinfo);
-> +		/* OVS persists the related flag for the duration of the
-> +		 * connection. */
->  		if (ct->master)
->  			state |= OVS_CS_F_RELATED;
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +		if (keep_nat_flags)
-> +			state |= key->ct.state & OVS_CS_F_NAT_MASK;
-> +		else {
-> +			if (ct->status & IPS_SRC_NAT)
-> +				state |= OVS_CS_F_SRC_NAT;
-> +			if (ct->status & IPS_DST_NAT)
-> +				state |= OVS_CS_F_DST_NAT;
-> +		}
-> +#endif
->  		zone = nf_ct_zone(ct);
->  	} else if (post_ct) {
->  		state = OVS_CS_F_TRACKED | OVS_CS_F_INVALID;
-> @@ -291,7 +337,16 @@ static int ovs_ct_helper(struct sk_buff *skb, u16 proto)
->  		return NF_DROP;
->  	}
->  
-> -	return helper->help(skb, protoff, ct, ctinfo);
-> +	if (helper->help(skb, protoff, ct, ctinfo) != NF_ACCEPT)
-> +		return NF_DROP;
-
-Return the returned value here instead of hardcoding NF_DROP?
-
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +	/* Adjust seqs after helper. */
-
-A comment on why this is needed would be helpful.
-
-> +	if (test_bit(IPS_SEQ_ADJUST_BIT, &ct->status)
-> +	    && !nf_ct_seq_adjust(skb, ct, ctinfo, protoff))
-> +		return NF_DROP;
-> +#endif
-> +	return NF_ACCEPT;
-
-> @@ -377,7 +432,211 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
->  	return true;
->  }
->  
-> -static int __ovs_ct_lookup(struct net *net, const struct sw_flow_key *key,
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +/* Modeled after nf_nat_ipv[46]_fn().
-> + * range is only used for new, uninitialized NAT state.
-> + * Returns either NF_ACCEPT or NF_DROP. */
-> +static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
-> +			      enum ip_conntrack_info ctinfo,
-> +			      const struct nf_nat_range *range,
-> +			      enum nf_nat_manip_type maniptype)
-> +{
-> +	int hooknum, nh_off, err = NF_ACCEPT;
-> +
-> +	nh_off = skb_network_offset(skb);
-> +	skb_pull(skb, nh_off);
-> +
-> +	/* See HOOK2MANIP(). */
-> +	if (maniptype == NF_NAT_MANIP_SRC)
-> +		hooknum = NF_INET_LOCAL_IN; /* Source NAT */
-> +	else
-> +		hooknum = NF_INET_LOCAL_OUT; /* Destination NAT */
-> +
-> +	switch (ctinfo) {
-> +	case IP_CT_RELATED:
-> +	case IP_CT_RELATED_REPLY:
-> +		if (skb->protocol == htons(ETH_P_IP)
-> +		    && ip_hdr(skb)->protocol == IPPROTO_ICMP) {
-> +			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
-> +							   hooknum))
-> +				err = NF_DROP;
-> +			goto push;
-> +		} else if (skb->protocol == htons(ETH_P_IPV6)) {
-> +			__be16 frag_off;
-> +			u8 nexthdr = ipv6_hdr(skb)->nexthdr;
-> +			int hdrlen = ipv6_skip_exthdr(skb,
-> +						      sizeof(struct ipv6hdr),
-> +						      &nexthdr, &frag_off);
-> +
-> +			if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
-> +				if (!nf_nat_icmpv6_reply_translation(skb, ct,
-> +								     ctinfo,
-> +								     hooknum,
-> +								     hdrlen))
-> +					err = NF_DROP;
-> +				goto push;
-> +			}
-> +		}
-> +		/* Non-ICMP, fall thru to initialize if needed. */
-> +	case IP_CT_NEW:
-> +		/* Seen it before?  This can happen for loopback, retrans,
-> +		 * or local packets.
-> +		 */
-> +		if (!nf_nat_initialized(ct, maniptype)) {
-
-Explicit unlikely()?
-
-> +			/* Initialize according to the NAT action. */
-> +			err = (range && range->flags & NF_NAT_RANGE_MAP_IPS)
-> +				/* Action is set up to establish a new
-> +				 * mapping */
-> +				? nf_nat_setup_info(ct, range, maniptype)
-> +				: nf_nat_alloc_null_binding(ct, hooknum);
-> +		}
-> +		break;
-> +
-> +	case IP_CT_ESTABLISHED:
-> +	case IP_CT_ESTABLISHED_REPLY:
-> +		break;
-> +
-> +	default:
-> +		err = NF_DROP;
-> +		goto push;
-> +	}
-> +
-> +	if (err == NF_ACCEPT)
-> +		err = nf_nat_packet(ct, ctinfo, hooknum, skb);
-
-If you goto push on init failure (IP_CT_NEW branch), then this
-conditional is no longer needed and a more straight forward exception
-handling is seen.
-
-> +push:
-> +	skb_push(skb, nh_off);
-> +
-> +	return err;
-> +}
-
-> +/* Returns NF_DROP if the packet should be dropped, NF_ACCEPT otherwise.
-> + * This action can be used to both NAT and reverse NAT, however, reverse NAT
-> + * can also be done with the conntrack action. */
-> +static int ovs_ct_nat(struct net *net, struct sw_flow_key *key,
-> +		      const struct ovs_conntrack_info *info,
-> +		      struct sk_buff *skb)
-> +{
-> +	enum nf_nat_manip_type maniptype;
-> +	enum ip_conntrack_info ctinfo;
-> +	struct nf_conn *ct;
-> +	int err;
-> +
-> +	/* No NAT action or already NATed? */
-> +	if (!(info->flags & OVS_CT_F_NAT_MASK)
-> +	    || key->ct.state & OVS_CS_F_NAT_MASK)
-> +		return NF_ACCEPT;
-> +
-> +	ct = nf_ct_get(skb, &ctinfo);
-> +	/* Check if an existing conntrack entry may be found for this skb.
-> +	 * This happens when we lose the ct entry pointer due to an upcall.
-> +	 * Don't lookup invalid connections. */
-> +	if (!ct && key->ct.state & OVS_CS_F_TRACKED
-> +	    && !(key->ct.state & OVS_CS_F_INVALID))
-> +		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
-> +					  &ctinfo);
-> +	if (!ct || nf_ct_is_untracked(ct))
-> +		/* A NAT action may only be performed on tracked packets. */
-> +		return NF_ACCEPT;
-
-Braces
-
-> +	/* Add NAT extension if not commited yet. */
-> +	if (!nf_ct_is_confirmed(ct)) {
-> +		if (!nf_ct_nat_ext_add(ct))
-> +			return NF_ACCEPT;   /* Can't NAT. */
-> +	}
-
-&&
-
-> +	/* Determine NAT type.
-> +	 * Check if the NAT type can be deduced from the tracked connection.
-> +	 * Make sure expected traffic is NATted only when commiting. */
-> +	if (info->flags & OVS_CT_F_NAT && ctinfo != IP_CT_NEW
-> +	    && ct->status & IPS_NAT_MASK
-> +	    && (!(ct->status & IPS_EXPECTED_BIT)
-> +		|| info->flags & OVS_CT_F_COMMIT)) {
-> +		/* NAT an established or related connection like before. */
-> +		if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY)
-> +			/* This is the REPLY direction for a connection
-> +			 * for which NAT was applied in the forward
-> +			 * direction.  Do the reverse NAT. */
-> +			maniptype = ct->status & IPS_SRC_NAT
-> +				? NF_NAT_MANIP_DST : NF_NAT_MANIP_SRC;
-> +		else
-> +			maniptype = ct->status & IPS_SRC_NAT
-> +				? NF_NAT_MANIP_SRC : NF_NAT_MANIP_DST;
-> +	}
-> +	else if (info->flags & OVS_CT_F_SRC_NAT)
-> +		maniptype = NF_NAT_MANIP_SRC;
-> +	else if (info->flags & OVS_CT_F_DST_NAT)
-> +		maniptype = NF_NAT_MANIP_DST;
-> +	else
-> +		return NF_ACCEPT; /* Connection is not NATed. */
-> +
-> +	err = ovs_ct_nat_execute(skb, ct, ctinfo, &info->range, maniptype);
-> +
-> +	/* Mark NAT done if successful. */
-> +	if (err == NF_ACCEPT)
-> +		key->ct.state |= (maniptype == NF_NAT_MANIP_SRC)
-> +			? OVS_CS_F_SRC_NAT : OVS_CS_F_DST_NAT;
-> +	return err;
-> +}
-> +#endif
-> +
-> +static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
->  			   const struct ovs_conntrack_info *info,
->  			   struct sk_buff *skb)
->  {
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: He Kuang <hekuang@huawei.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:60365 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbbJULGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 07:06:44 -0400
+In-Reply-To: <56276261.7010201@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> @@ -538,6 +819,131 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +static int parse_nat(const struct nlattr *attr,
-> +		     struct ovs_conntrack_info *info, bool log)
-> +{
-> +	struct nlattr *a;
-> +	int rem;
-> +	bool have_ip_max = false;
-> +	bool have_proto_max = false;
-> +	bool ip_vers = (info->family == NFPROTO_IPV6);
-> +
-> +	nla_for_each_nested(a, attr, rem) {
-> +		static const u16 ovs_nat_attr_lens[OVS_NAT_ATTR_MAX + 1][2] = {
-> +			[OVS_NAT_ATTR_SRC] = {0, 0},
-> +			[OVS_NAT_ATTR_DST] = {0, 0},
-> +			[OVS_NAT_ATTR_IP_MIN] = {sizeof(struct in_addr),
-> +						 sizeof(struct in6_addr)},
-> +			[OVS_NAT_ATTR_IP_MAX] = {sizeof(struct in_addr),
-> +						 sizeof(struct in6_addr)},
-> +			[OVS_NAT_ATTR_PROTO_MIN] = {sizeof(u16),sizeof(u16)},
-> +			[OVS_NAT_ATTR_PROTO_MAX] = {sizeof(u16),sizeof(u16)},
-> +			[OVS_NAT_ATTR_PERSISTENT] = {0, 0},
-> +			[OVS_NAT_ATTR_PROTO_HASH] = {0, 0},
-> +			[OVS_NAT_ATTR_PROTO_RANDOM] = {0, 0},
-> +		};
-> +		int type = nla_type(a);
-> +
-> +		if (type > OVS_NAT_ATTR_MAX) {
-> +			OVS_NLERR(log, "Unknown nat attribute (type=%d, max=%d).\n",
-> +			type, OVS_NAT_ATTR_MAX);
 
-Formatting
+On 2015/10/21 18:01, He Kuang wrote:
+> hi, Alexei
+>
+> I've tested the sample in next patch and it works well. I think more 
+> work on
+> the perf side needs to be done for parsing PERF_COUNT_SW_BPF_OUTPUT 
+> event type,
+> are you working on that?
+>
+> Thank you.
 
-> +			return -EINVAL;
-> +		}
-> +
-> +		case OVS_NAT_ATTR_IP_MIN:
-> +			nla_memcpy(&info->range.min_addr, a, nla_len(a));
+We need to add something into parse-event.y/l to let it know the new 
+software event.
+We can do this simple task. However, as I gussed before, perf is unable 
+to print
+this new event so there is some work need to be done to let 'perf 
+report' and
+'perf script' know it.
 
-The length attribute should be sizeof of min_addr like for max_addr
-below.
+One thing I can still remember is finding a way to inject format 
+information through
+those output so 'perf script' and 'perf data convert --to-ctf' can 
+decode the raw data
+without extra work. Can you remember that we have discussed a solution 
+which connects
+debuginfo and output raw data using a builtin function in LLVM/clang? We 
+already have
+clang/LLVM patch on it, but on perf side I haven't do start working on 
+it. I think we can
+make perf output raw data hexadamically at first.
 
-> +			info->range.flags |= NF_NAT_RANGE_MAP_IPS;
-> +			break;
-> +
-> +		case OVS_NAT_ATTR_IP_MAX:
-> +			have_ip_max = true;
-> +			nla_memcpy(&info->range.max_addr, a,
-> +				   sizeof(info->range.max_addr));
-> +			info->range.flags |= NF_NAT_RANGE_MAP_IPS;
-> +			break;
-> +
-> +	}
+I'll do the above work and put related patch at the end of my eBPF 
+patchset because
+they shouldn't be merged until this patchset upstreamed.
 
->  static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
->  	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0,
->  				    .maxlen = 0 },
-> @@ -548,7 +954,11 @@ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
->  	[OVS_CT_ATTR_LABEL]	= { .minlen = sizeof(struct md_label),
->  				    .maxlen = sizeof(struct md_label) },
->  	[OVS_CT_ATTR_HELPER]	= { .minlen = 1,
-> -				    .maxlen = NF_CT_HELPER_NAME_LEN }
-> +				    .maxlen = NF_CT_HELPER_NAME_LEN },
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +	[OVS_CT_ATTR_NAT]	= { .minlen = 0,
-> +				    .maxlen = 96 }
-> +#endif
+Thank you.
 
-Is the 96 a temporary hack here?
-
-> @@ -607,6 +1017,14 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
->  				return -EINVAL;
->  			}
->  			break;
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +		case OVS_CT_ATTR_NAT: {
-> +			int err = parse_nat(a, info, log);
-> +			if (err)
-> +				return err;
-> +			break;
-> +		}
-> +#endif
-
-We should probably bark if user space provides a OVS_CT_ATTR_NAT but the
-kernel is compiled without support for it.
-
-> +#ifdef CONFIG_NF_NAT_NEEDED
-> +static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
-> +			       struct sk_buff *skb)
-> +{
-> +	struct nlattr *start;
-> +
-> +	start = nla_nest_start(skb, OVS_CT_ATTR_NAT);
-> +	if (!start)
-> +		return false;
-> +
-> +	if (info->flags & OVS_CT_F_SRC_NAT) {
-> +		if (nla_put_flag(skb, OVS_NAT_ATTR_SRC))
-> +			return false;
-> +	} else if (info->flags & OVS_CT_F_DST_NAT) {
-> +		if (nla_put_flag(skb, OVS_NAT_ATTR_DST))
-> +			return false;
-> +	} else {
-> +		goto out;
-
-Is the empty nested attribute intended here?
+>
+> On 2015/10/21 11:02, Alexei Starovoitov wrote:
+>> This helper is used to send raw data from eBPF program into
+>> special PERF_TYPE_SOFTWARE/PERF_COUNT_SW_BPF_OUTPUT perf_event.
+>> User space needs to perf_event_open() it (either for one or all cpus) 
+>> and
+>> store FD into perf_event_array (similar to bpf_perf_event_read() helper)
+>> before eBPF program can send data into it.
+>>
+>> Today the programs triggered by kprobe collect the data and either store
+>> it into the maps or print it via bpf_trace_printk() where latter is 
+>> the debug
+>> facility and not suitable to stream the data. This new helper replaces
+>> such bpf_trace_printk() usage and allows programs to have dedicated
+>> channel into user space for post-processing of the raw data collected.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>> ---
+>>   include/uapi/linux/bpf.h        |   11 ++++++++++
+>>   include/uapi/linux/perf_event.h |    1 +
+>>   kernel/bpf/arraymap.c           |    2 ++
+>>   kernel/bpf/verifier.c           |    3 ++-
+>>   kernel/trace/bpf_trace.c        |   46 
+>> +++++++++++++++++++++++++++++++++++++++
+>>   5 files changed, 62 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+>> index 564f1f091991..2e032426cfb7 100644
+>> --- a/include/uapi/linux/bpf.h
+>> +++ b/include/uapi/linux/bpf.h
+>> @@ -287,6 +287,17 @@ enum bpf_func_id {
+>>        * Return: realm if != 0
+>>        */
+>>       BPF_FUNC_get_route_realm,
+>> +
+>> +    /**
+>> +     * bpf_perf_event_output(ctx, map, index, data, size) - output 
+>> perf raw sample
+>> +     * @ctx: struct pt_regs*
+>> +     * @map: pointer to perf_event_array map
+>> +     * @index: index of event in the map
+>> +     * @data: data on stack to be output as raw data
+>> +     * @size: size of data
+>> +     * Return: 0 on success
+>> +     */
+>> +    BPF_FUNC_perf_event_output,
+>>       __BPF_FUNC_MAX_ID,
+>>   };
+>>
+>> diff --git a/include/uapi/linux/perf_event.h 
+>> b/include/uapi/linux/perf_event.h
+>> index 2881145cda86..d3c417615361 100644
+>> --- a/include/uapi/linux/perf_event.h
+>> +++ b/include/uapi/linux/perf_event.h
+>> @@ -110,6 +110,7 @@ enum perf_sw_ids {
+>>       PERF_COUNT_SW_ALIGNMENT_FAULTS        = 7,
+>>       PERF_COUNT_SW_EMULATION_FAULTS        = 8,
+>>       PERF_COUNT_SW_DUMMY            = 9,
+>> +    PERF_COUNT_SW_BPF_OUTPUT        = 10,
+>>
+>>       PERF_COUNT_SW_MAX,            /* non-ABI */
+>>   };
+>> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+>> index f2d9e698c753..e3cfe46b074f 100644
+>> --- a/kernel/bpf/arraymap.c
+>> +++ b/kernel/bpf/arraymap.c
+>> @@ -295,6 +295,8 @@ static void *perf_event_fd_array_get_ptr(struct 
+>> bpf_map *map, int fd)
+>>           return (void *)attr;
+>>
+>>       if (attr->type != PERF_TYPE_RAW &&
+>> +        !(attr->type == PERF_TYPE_SOFTWARE &&
+>> +          attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+>>           attr->type != PERF_TYPE_HARDWARE) {
+>>           perf_event_release_kernel(event);
+>>           return ERR_PTR(-EINVAL);
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index 1d6b97be79e1..b56cf51f8d42 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -245,6 +245,7 @@ static const struct {
+>>   } func_limit[] = {
+>>       {BPF_MAP_TYPE_PROG_ARRAY, BPF_FUNC_tail_call},
+>>       {BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_read},
+>> +    {BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_output},
+>>   };
+>>
+>>   static void print_verifier_state(struct verifier_env *env)
+>> @@ -910,7 +911,7 @@ static int check_map_func_compatibility(struct 
+>> bpf_map *map, int func_id)
+>>            * don't allow any other map type to be passed into
+>>            * the special func;
+>>            */
+>> -        if (bool_map != bool_func)
+>> +        if (bool_func && bool_map != bool_func)
+>>               return -EINVAL;
+>>       }
+>>
+>> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+>> index 0fe96c7c8803..47febbe7998e 100644
+>> --- a/kernel/trace/bpf_trace.c
+>> +++ b/kernel/trace/bpf_trace.c
+>> @@ -215,6 +215,50 @@ const struct bpf_func_proto 
+>> bpf_perf_event_read_proto = {
+>>       .arg2_type    = ARG_ANYTHING,
+>>   };
+>>
+>> +static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, 
+>> u64 size)
+>> +{
+>> +    struct pt_regs *regs = (struct pt_regs *) (long) r1;
+>> +    struct bpf_map *map = (struct bpf_map *) (long) r2;
+>> +    struct bpf_array *array = container_of(map, struct bpf_array, map);
+>> +    void *data = (void *) (long) r4;
+>> +    struct perf_sample_data sample_data;
+>> +    struct perf_event *event;
+>> +    struct perf_raw_record raw = {
+>> +        .size = size,
+>> +        .data = data,
+>> +    };
+>> +
+>> +    if (unlikely(index >= array->map.max_entries))
+>> +        return -E2BIG;
+>> +
+>> +    event = (struct perf_event *)array->ptrs[index];
+>> +    if (unlikely(!event))
+>> +        return -ENOENT;
+>> +
+>> +    if (unlikely(event->attr.type != PERF_TYPE_SOFTWARE ||
+>> +             event->attr.config != PERF_COUNT_SW_BPF_OUTPUT))
+>> +        return -EINVAL;
+>> +
+>> +    if (unlikely(event->oncpu != smp_processor_id()))
+>> +        return -EOPNOTSUPP;
+>> +
+>> +    perf_sample_data_init(&sample_data, 0, 0);
+>> +    sample_data.raw = &raw;
+>> +    perf_event_output(event, &sample_data, regs);
+>> +    return 0;
+>> +}
+>> +
+>> +static const struct bpf_func_proto bpf_perf_event_output_proto = {
+>> +    .func        = bpf_perf_event_output,
+>> +    .gpl_only    = false,
+>> +    .ret_type    = RET_INTEGER,
+>> +    .arg1_type    = ARG_PTR_TO_CTX,
+>> +    .arg2_type    = ARG_CONST_MAP_PTR,
+>> +    .arg3_type    = ARG_ANYTHING,
+>> +    .arg4_type    = ARG_PTR_TO_STACK,
+>> +    .arg5_type    = ARG_CONST_STACK_SIZE,
+>> +};
+>> +
+>>   static const struct bpf_func_proto *kprobe_prog_func_proto(enum 
+>> bpf_func_id func_id)
+>>   {
+>>       switch (func_id) {
+>> @@ -242,6 +286,8 @@ static const struct bpf_func_proto 
+>> *kprobe_prog_func_proto(enum bpf_func_id func
+>>           return &bpf_get_smp_processor_id_proto;
+>>       case BPF_FUNC_perf_event_read:
+>>           return &bpf_perf_event_read_proto;
+>> +    case BPF_FUNC_perf_event_output:
+>> +        return &bpf_perf_event_output_proto;
+>>       default:
+>>           return NULL;
+>>       }
+>>
+>
