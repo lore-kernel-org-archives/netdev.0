@@ -1,58 +1,212 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
-Date: Wed, 21 Oct 2015 14:53:20 -0700
-Message-ID: <20151021215320.GB23371@roeck-us.net>
-References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
- <4129407.LpDXnpSZOL@wuerfel>
- <5627C549.9080600@roeck-us.net>
- <5243548.YbVhhU6W8t@wuerfel>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 10/12] IXGBEVF: Add lock to protect tx/rx ring
+ operation
+Date: Wed, 21 Oct 2015 14:55:54 -0700
+Message-ID: <562809EA.2070601@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <1445445464-5056-11-git-send-email-tianyu.lan@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Lan Tianyu <tianyu.lan@intel.com>, bhelgaas@google.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
+	pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5243548.YbVhhU6W8t@wuerfel>
+In-Reply-To: <1445445464-5056-11-git-send-email-tianyu.lan@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 21, 2015 at 09:11:53PM +0200, Arnd Bergmann wrote:
-> On Wednesday 21 October 2015 10:03:05 Guenter Roeck wrote:
-> > >
-> > > Something like this?
-> > >
-> > > static inline u64 of_translate_address(struct device_node *np, const __be32 *addr)
-> > > {
-> > > #if defined(CONFIG_SPARC) || defined(CONFIG_M68K)
-> > >       int pna = of_n_addr_cells(np);
-> > >       u64 ret = be32_to_cpu(addr[pna - 1]);
-> > >
-> > >       if (pna > 1)
-> > >               ret += (u64)be32_to_cpu(addr[pna - 2]) << 32;
-> > >
-> > >       return ret;
-> > 
-> > That suggests that sparc would need a translation after all, which
-> > seems to contradict what David said earlier.
-> 
-> No, not a translation: the value is used without any offset that
-> factors in the location of the bus, the above is just the shortest
-> possible way to read the 64-bit number from a big-endian property
-> of variable length.
-> 
-Out of my realm .. David would have to comment on that.
+On 10/21/2015 09:37 AM, Lan Tianyu wrote:
+> Ring shifting during restoring VF function maybe race with original
+> ring operation(transmit/receive package). This patch is to add tx/rx
+> lock to protect ring related data.
+>
+> Signed-off-by: Lan Tianyu <tianyu.lan@intel.com>
+> ---
+>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 ++
+>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 28 ++++++++++++++++++++---
+>   2 files changed, 27 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> index 6eab402e..3a748c8 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> @@ -448,6 +448,8 @@ struct ixgbevf_adapter {
+>
+>   	spinlock_t mbx_lock;
+>   	unsigned long last_reset;
+> +	spinlock_t mg_rx_lock;
+> +	spinlock_t mg_tx_lock;
+>   };
+>
 
-> > Anyway, if it gets that complicated, I think we should stick with
-> > just returning OF_BAD_ADDR. The above really suggests the need for
-> > an architecture specific solution.
-> 
-> Probably no harm in this really: the far more common
-> of_address_to_resource() and of_iomap() helpers are equally
-> broken on SPARC and we just return a runtime error for those
-> as well without CONFIG_OF_ADDRESS rather than breaking the build.
-> 
-Agreed. Given this, returning OF_BAD_ADDR sounds like a better choice.
+Really, a shared lock for all of the Rx or Tx rings?  This is going to 
+kill any chance at performance.  Especially since just recently the VFs 
+got support for RSS.
 
-Thanks,
-Guenter
+To top it off it also means we cannot clean Tx while adding new buffers 
+which will kill Tx performance.
+
+The other concern I have is what is supposed to prevent the hardware 
+from accessing the rings while you are reading?  I suspect nothing so I 
+don't see how this helps anything.
+
+I would honestly say you are better off just giving up on all of the 
+data stored in the descriptor rings rather than trying to restore them. 
+  Yes you are going to lose a few packets but you don't have the risk 
+for races that this code introduces.
+
+>   enum ixbgevf_state_t {
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> index 15ec361..04b6ce7 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> @@ -227,8 +227,10 @@ static u64 ixgbevf_get_tx_completed(struct ixgbevf_ring *ring)
+>
+>   int ixgbevf_tx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   {
+> +	struct ixgbevf_adapter *adapter = netdev_priv(r->netdev);
+>   	struct ixgbevf_tx_buffer *tx_buffer = NULL;
+>   	static union ixgbevf_desc *tx_desc = NULL;
+> +	unsigned long flags;
+>
+>   	tx_buffer = vmalloc(sizeof(struct ixgbevf_tx_buffer) * (r->count));
+>   	if (!tx_buffer)
+> @@ -238,6 +240,7 @@ int ixgbevf_tx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   	if (!tx_desc)
+>   		return -ENOMEM;
+>
+> +	spin_lock_irqsave(&adapter->mg_tx_lock, flags);
+>   	memcpy(tx_desc, r->desc, sizeof(union ixgbevf_desc) * r->count);
+>   	memcpy(r->desc, &tx_desc[head], sizeof(union ixgbevf_desc) * (r->count - head));
+>   	memcpy(&r->desc[r->count - head], tx_desc, sizeof(union ixgbevf_desc) * head);
+> @@ -256,6 +259,8 @@ int ixgbevf_tx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   	else
+>   		r->next_to_use += (r->count - head);
+>
+> +	spin_unlock_irqrestore(&adapter->mg_tx_lock, flags);
+> +
+>   	vfree(tx_buffer);
+>   	vfree(tx_desc);
+>   	return 0;
+> @@ -263,8 +268,10 @@ int ixgbevf_tx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>
+>   int ixgbevf_rx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   {
+> +	struct ixgbevf_adapter *adapter = netdev_priv(r->netdev);
+>   	struct ixgbevf_rx_buffer *rx_buffer = NULL;
+>   	static union ixgbevf_desc *rx_desc = NULL;
+> +	unsigned long flags;	
+>
+>   	rx_buffer = vmalloc(sizeof(struct ixgbevf_rx_buffer) * (r->count));
+>   	if (!rx_buffer)
+> @@ -274,6 +281,7 @@ int ixgbevf_rx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   	if (!rx_desc)
+>   		return -ENOMEM;
+>
+> +	spin_lock_irqsave(&adapter->mg_rx_lock, flags);
+>   	memcpy(rx_desc, r->desc, sizeof(union ixgbevf_desc) * (r->count));
+>   	memcpy(r->desc, &rx_desc[head], sizeof(union ixgbevf_desc) * (r->count - head));
+>   	memcpy(&r->desc[r->count - head], rx_desc, sizeof(union ixgbevf_desc) * head);
+> @@ -291,6 +299,7 @@ int ixgbevf_rx_ring_shift(struct ixgbevf_ring *r, u32 head)
+>   		r->next_to_use -= head;
+>   	else
+>   		r->next_to_use += (r->count - head);
+> +	spin_unlock_irqrestore(&adapter->mg_rx_lock, flags);
+>
+>   	vfree(rx_buffer);
+>   	vfree(rx_desc);
+> @@ -377,6 +386,8 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+>   	if (test_bit(__IXGBEVF_DOWN, &adapter->state))
+>   		return true;
+>
+> +	spin_lock(&adapter->mg_tx_lock);
+> +	i = tx_ring->next_to_clean;
+>   	tx_buffer = &tx_ring->tx_buffer_info[i];
+>   	tx_desc = IXGBEVF_TX_DESC(tx_ring, i);
+>   	i -= tx_ring->count;
+> @@ -471,6 +482,8 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+>   	q_vector->tx.total_bytes += total_bytes;
+>   	q_vector->tx.total_packets += total_packets;
+>
+> +	spin_unlock(&adapter->mg_tx_lock);
+> +
+>   	if (check_for_tx_hang(tx_ring) && ixgbevf_check_tx_hang(tx_ring)) {
+>   		struct ixgbe_hw *hw = &adapter->hw;
+>   		union ixgbe_adv_tx_desc *eop_desc;
+> @@ -999,10 +1012,12 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+>   				struct ixgbevf_ring *rx_ring,
+>   				int budget)
+>   {
+> +	struct ixgbevf_adapter *adapter = netdev_priv(rx_ring->netdev);
+>   	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+>   	u16 cleaned_count = ixgbevf_desc_unused(rx_ring);
+>   	struct sk_buff *skb = rx_ring->skb;
+>
+> +	spin_lock(&adapter->mg_rx_lock);
+>   	while (likely(total_rx_packets < budget)) {
+>   		union ixgbe_adv_rx_desc *rx_desc;
+>
+> @@ -1078,6 +1093,7 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+>   	q_vector->rx.total_packets += total_rx_packets;
+>   	q_vector->rx.total_bytes += total_rx_bytes;
+>
+> +	spin_unlock(&adapter->mg_rx_lock);
+>   	return total_rx_packets;
+>   }
+>
+> @@ -3572,14 +3588,17 @@ static void ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+>   	struct ixgbevf_tx_buffer *tx_buffer;
+>   	union ixgbe_adv_tx_desc *tx_desc;
+>   	struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0];
+> +	struct ixgbevf_adapter *adapter = netdev_priv(tx_ring->netdev);
+>   	unsigned int data_len = skb->data_len;
+>   	unsigned int size = skb_headlen(skb);
+>   	unsigned int paylen = skb->len - hdr_len;
+> +	unsigned long flags;
+>   	u32 tx_flags = first->tx_flags;
+>   	__le32 cmd_type;
+> -	u16 i = tx_ring->next_to_use;
+> -	u16 start;
+> +	u16 i, start;
+>
+> +	spin_lock_irqsave(&adapter->mg_tx_lock, flags);
+> +	i = tx_ring->next_to_use;
+>   	tx_desc = IXGBEVF_TX_DESC(tx_ring, i);
+>
+>   	ixgbevf_tx_olinfo_status(tx_desc, tx_flags, paylen);
+> @@ -3673,7 +3692,7 @@ static void ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+>
+>   	/* notify HW of packet */
+>   	ixgbevf_write_tail(tx_ring, i);
+> -
+> +	spin_unlock_irqrestore(&adapter->mg_tx_lock, flags);
+>   	return;
+>   dma_error:
+>   	dev_err(tx_ring->dev, "TX DMA map failed\n");
+> @@ -3690,6 +3709,7 @@ dma_error:
+>   	}
+>
+>   	tx_ring->next_to_use = i;
+> +	spin_unlock_irqrestore(&adapter->mg_tx_lock, flags);
+>   }
+>
+>   static int __ixgbevf_maybe_stop_tx(struct ixgbevf_ring *tx_ring, int size)
+> @@ -4188,6 +4208,8 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>   		break;
+>   	}
+>
+> +	spin_lock_init(&adapter->mg_tx_lock);
+> +	spin_lock_init(&adapter->mg_rx_lock);
+>   	return 0;
+>
+>   err_register:
+>
