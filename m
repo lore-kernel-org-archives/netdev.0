@@ -1,67 +1,52 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
- xfrm_notify_sa() for DELSA
-Date: Wed, 21 Oct 2015 08:36:28 -0400
-Message-ID: <20151021123628.GP6948@oracle.com>
-References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
- <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
- <20151021065704.GM7701@secunet.com>
- <20151021105442.GM6948@oracle.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: don't use CHECKSUM_PARTIAL on MSG_MORE/UDP_CORK
+ sockets
+Date: Wed, 21 Oct 2015 14:52:33 +0200
+Message-ID: <1445431953.1205852.416263057.606CE717@webmail.messagingengine.com>
+References: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
+ <5626B4A3.6080900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	dhowells@redhat.com, davem@davemloft.net, zohar@linux.vnet.ibm.com,
-	David.Woodhouse@intel.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151021105442.GM6948@oracle.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: sd@quesysnail.net, bcodding@redhat.com
+To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49889 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752971AbbJUMwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 08:52:34 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id A75A3204B9
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 08:52:33 -0400 (EDT)
+In-Reply-To: <5626B4A3.6080900@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (10/21/15 06:54), Sowmini Varadhan wrote:
-> But __alignof__(*p) is 8 on sparc, and without the patch I get
-> all types of unaligned access. So what do you suggest as the fix?
+On Tue, Oct 20, 2015, at 23:39, Vlad Yasevich wrote:
+> I am now wondering if this might be UFO related instead and looking for a
+> nic that
+> has UFO support.
 
-Even though the alignment is, in fact, 8 (and that comes from
-struct xfrm_lifetime_cfg), if uspace is firmly attached to the 4 byte
-alignment, I think we can retain that behavior and still avoid
-unaligned access in the kernel with the following (admittedly ugly hack).
-Can you please take a look? I tested it with 'ip x m' and a transport 
-mode tunnel on my sparc.
+I doubt that.
 
+We overallocate memory first time in ip6_append_data because we are in
+MSG_MORE mode. Then, in my case the second write only copies data into
+the first skb on the write queue, no skb is appended to frags_list. So
+udp6_hwcsum_outgoing doesn't clean up the flags, either.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 158ef4a..ca4e7f0 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2620,7 +2620,7 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
- {
-        struct net *net = xs_net(x);
--       struct xfrm_usersa_info *p;
-+       struct xfrm_usersa_info *p, tmp;
-        struct xfrm_usersa_id *id;
-        struct nlmsghdr *nlh;
-        struct sk_buff *skb;
-@@ -2659,11 +2659,16 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
-                if (attr == NULL)
-                        goto out_free_skb;
- 
--               p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
-+               p = nla_data(attr);
-+               err = copy_to_user_state_extra(x, &tmp, skb);
-+               if (err)
-+                       goto out_free_skb;
-+               memcpy((u8 *)p, &tmp, sizeof(tmp));
-+       } else {
-+               err = copy_to_user_state_extra(x, p, skb);
-+               if (err)
-+                       goto out_free_skb;
-        }
--       err = copy_to_user_state_extra(x, p, skb);
--       if (err)
--               goto out_free_skb;
- 
-        nlmsg_end(skb, nlh);
+We can improve the check if we fragment an ipv6 skb in ip6_append_mode
+in net-next, I agree. But I still see this fix suitable for 'net' tree.
+
+We could also improve udp6_hwcsum_outgoing to check if our packets get
+fragmented and fall back to the clean-up path. But I think this kind of
+optimization should go into net-next, too.
+
+Currently the check made sure we don't use PARTIAL on skbs which could
+fragment. MSG_MORE somehow circumvented that check, so I think the fix
+is good to go. We certainly can try to improve PARTIAL checksums for
+fragmented packets.
+
+What do you think?
+
+Bye,
+Hannes
