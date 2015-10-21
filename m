@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 08/15] net: wireless: simplify return flow for usb_control_msg
-Date: Wed, 21 Oct 2015 20:25:30 +0530
-Message-ID: <1445439337-19055-9-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 09/15] net: wireless: simplify return flow for zd1201_setconfig16
+Date: Wed, 21 Oct 2015 20:25:31 +0530
+Message-ID: <1445439337-19055-10-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,36 +18,39 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the at76c50x-usb.c file that fixes up warning
+This patch is to the zd1201.c file that fixes up warning
 reported by coccicheck:
 
-WARNING: end returns can be simplified if negative or 0 value
+WARNING: end returns can be simplified and declaration on line 1658 can
+be dropped
 
 Prefer direct return value instead of writing 2-3 more sentence.
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/at76c50x-usb.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/wireless/zd1201.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index dab2513..09427f6 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -544,13 +544,10 @@ static void at76_ledtrig_tx_activity(void)
- static int at76_remap(struct usb_device *udev)
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+index 6f5c793..d9e67d9 100644
+--- a/drivers/net/wireless/zd1201.c
++++ b/drivers/net/wireless/zd1201.c
+@@ -1655,15 +1655,11 @@ static int zd1201_set_maxassoc(struct net_device *dev,
+     struct iw_request_info *info, struct iw_param *rrq, char *extra)
  {
- 	int ret;
--	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
-+	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
- 			      USB_TYPE_VENDOR | USB_DIR_OUT |
- 			      USB_RECIP_INTERFACE, 0, 0, NULL, 0,
- 			      USB_CTRL_GET_TIMEOUT);
--	if (ret < 0)
--		return ret;
+ 	struct zd1201 *zd = netdev_priv(dev);
+-	int err;
+ 
+ 	if (!zd->ap)
+ 		return -EOPNOTSUPP;
+ 
+-	err = zd1201_setconfig16(zd, ZD1201_RID_CNFMAXASSOCSTATIONS, rrq->value);
+-	if (err)
+-		return err;
 -	return 0;
++	return zd1201_setconfig16(zd, ZD1201_RID_CNFMAXASSOCSTATIONS, rrq->value);
  }
  
- static int at76_get_op_mode(struct usb_device *udev)
+ static int zd1201_get_maxassoc(struct net_device *dev,
 -- 
 2.5.3
