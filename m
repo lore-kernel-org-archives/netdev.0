@@ -1,51 +1,33 @@
-From: Michal Marek <mmarek@suse.com>
-Subject: Re: [PATCH 9/9] treewide: Remove newlines inside DEFINE_PER_CPU()
- macros
-Date: Wed, 21 Oct 2015 21:52:45 +0200
-Message-ID: <5627ED0D.20308@suse.com>
-References: <1444940195-28272-1-git-send-email-mmarek@suse.com>
- <1444940195-28272-10-git-send-email-mmarek@suse.com>
- <5627E73B.9000502@redhat.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Wed, 21 Oct 2015 13:04:41 -0700
+Message-ID: <5627EFD9.9050805@plumgrid.com>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
+ <56276261.7010201@huawei.com> <56277178.4080207@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-ia64@vger.kernel.org, xen-devel@lists.xenproject.org,
-	linux-acpi@vger.kernel.org, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
-To: Prarit Bhargava <prarit@redhat.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <5627E73B.9000502@redhat.com>
-Sender: linux-kbuild-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56277178.4080207@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dne 21.10.2015 v 21:27 Prarit Bhargava napsal(a):
-> On 10/15/2015 04:16 PM, Michal Marek wrote:
->> Otherwise make tags can't parse them:
->>
->> ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
->> ctags: Warning: drivers/xen/events/events_2l.c:41: null expansion of name pattern "\1"
->> ctags: Warning: drivers/acpi/processor_idle.c:64: null expansion of name pattern "\1"
->> ctags: Warning: kernel/locking/lockdep.c:153: null expansion of name pattern "\1"
->> ctags: Warning: kernel/workqueue.c:305: null expansion of name pattern "\1"
->> ctags: Warning: kernel/rcu/rcutorture.c:133: null expansion of name pattern "\1"
->> ctags: Warning: kernel/rcu/rcutorture.c:135: null expansion of name pattern "\1"
->> ctags: Warning: net/rds/page.c:45: null expansion of name pattern "\1"
->> ctags: Warning: net/ipv4/syncookies.c:53: null expansion of name pattern "\1"
->> ctags: Warning: net/ipv6/syncookies.c:44: null expansion of name pattern "\1"
-> 
-> I guarantee you're going to end up fixing this issue over and over again as more
-> code is added in.
+On 10/21/15 4:05 AM, Wangnan (F) wrote:
+> I think we can
+> make perf output raw data hexadamically at first.
 
-This is certainly going to happen, but it should be quickly spotted by
-anybody running make tags on linux-next. And 10 instances since the
-beginning of git is not too many.
-
-
-> OOC, why not fix ctags to recognize newlines?
-
-It's not ctags itself parsing the DEFINE_PER_CPU() macro, but a
-user-supplied regex specified on commandline. Which can only operate on
-single lines.
-
-Michal
+that would be my suggestion as well.
+print it as hex first and when llvm type info is available you can teach
+perf to be smarter.
+We're working on support for this feature in iovisor/bcc
+without requiring extra llvm work, since we can generate
+python classes on the fly from C code of bpf program.
