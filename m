@@ -1,37 +1,94 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 3/3] switchdev: split switchdev_attr into
- individual structs
-Date: Wed, 21 Oct 2015 09:49:17 +0200
-Message-ID: <20151021074917.GD2210@nanopsycho.orion>
-References: <1445369799-2345-1-git-send-email-sfeldma@gmail.com>
- <1445369799-2345-3-git-send-email-sfeldma@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [MM PATCH V4 6/6] slub: optimize bulk slowpath free by detached
+ freelist
+Date: Wed, 21 Oct 2015 09:57:09 +0200
+Message-ID: <20151021095709.167e58d2@redhat.com>
+References: <20150929154605.14465.98995.stgit@canyon>
+	<20150929154822.14465.50207.stgit@canyon>
+	<20151014051524.GA29286@js1304-P5Q-DELUXE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, siva.mannem.lnx@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:38123 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621AbbJUHtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 03:49:20 -0400
-Received: by wicll6 with SMTP id ll6so61439123wic.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 00:49:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1445369799-2345-3-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+        Christoph
+ Lameter <cl@linux.com>, netdev@vger.kernel.org,
+        Alexander Duyck
+ <alexander.duyck@gmail.com>,
+        Pekka Enberg <penberg@kernel.org>,
+        David
+ Rientjes <rientjes@google.com>, brouer@redhat.com
+To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151014051524.GA29286@js1304-P5Q-DELUXE>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 20, 2015 at 09:36:39PM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->This was already done for switchdev_objs.   Changing switchdev_attrs to new
->style makes switchdev API consistent for both attrs and objs.
->
->No functional changes here.
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+On Wed, 14 Oct 2015 14:15:25 +0900
+Joonsoo Kim <iamjoonsoo.kim@lge.com> wrote:
 
-This was on my todo list. Thanks for taking care of this.
+> On Tue, Sep 29, 2015 at 05:48:26PM +0200, Jesper Dangaard Brouer wrote:
+> > This change focus on improving the speed of object freeing in the
+> > "slowpath" of kmem_cache_free_bulk.
+> > 
+> > The calls slab_free (fastpath) and __slab_free (slowpath) have been
+> > extended with support for bulk free, which amortize the overhead of
+> > the (locked) cmpxchg_double.
+> > 
+> > To use the new bulking feature, we build what I call a detached
+> > freelist.  The detached freelist takes advantage of three properties:
+> > 
+> >  1) the free function call owns the object that is about to be freed,
+> >     thus writing into this memory is synchronization-free.
+> > 
+> >  2) many freelist's can co-exist side-by-side in the same slab-page
+> >     each with a separate head pointer.
+> > 
+> >  3) it is the visibility of the head pointer that needs synchronization.
+> > 
+> > Given these properties, the brilliant part is that the detached
+> > freelist can be constructed without any need for synchronization.  The
+> > freelist is constructed directly in the page objects, without any
+> > synchronization needed.  The detached freelist is allocated on the
+> > stack of the function call kmem_cache_free_bulk.  Thus, the freelist
+> > head pointer is not visible to other CPUs.
+> > 
+> > All objects in a SLUB freelist must belong to the same slab-page.
+> > Thus, constructing the detached freelist is about matching objects
+> > that belong to the same slab-page.  The bulk free array is scanned is
+> > a progressive manor with a limited look-ahead facility.
+[...]
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+
+> Hello, Jesper.
+> 
+> AFAIK, it is uncommon to clear pointer to object in argument array.
+> At least, it is better to comment it on somewhere.
+
+In this case, I think clearing the array is a good thing, as
+using/referencing objects after they have been free'ed is a bug (which
+can be hard to detect).
+
+> Or, how about removing  lookahead facility? Does it have real benefit?
+
+In my earlier patch series I had a version with and without lookahead
+facility.  Just so I could benchmark the difference.  With Alex'es help
+we/I tuned the code with the lookahead feature to be just as fast.
+Thus, I merged the two patches. (Also did testing for worstcase [1])
+
+I do wonder if the lookahead have any real benefit.  In micro
+benchmarking it might be "just-as-fast", but I do suspect (just the code
+size increase) it can affect real use-cases... Should we remove it?
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/slab_bulk_test03.c
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
