@@ -1,44 +1,62 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 0/4] netfilter: rework netfilter ipv6 defrag
-Date: Wed, 21 Oct 2015 16:50:48 +0200
-Message-ID: <20151021145048.GC31323@breakpoint.cc>
-References: <1445112865-31523-1-git-send-email-fw@strlen.de>
- <CANr6G5zvmj_tL5Pt6-70GQ4dTJXLewX9A4uMGC_0OFzXYQVdew@mail.gmail.com>
- <20151020081716.GH4386@breakpoint.cc>
- <CANr6G5xW7m2SXFiU22pFVD6uvDj5ymX=jZkRJk2vMYQoJykvLw@mail.gmail.com>
- <20151020205306.GK4386@breakpoint.cc>
- <20151021124245.GA10299@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Joe Stringer <joestringer@nicira.com>,
-	netfilter-devel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andy Zhou <azhou@nicira.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39915 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750905AbbJUOuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 10:50:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20151021124245.GA10299@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Punit Vara <punitvara@gmail.com>
+Subject: [PATCH 00/15] Fix warnings reported by coccicheck
+Date: Wed, 21 Oct 2015 20:25:22 +0530
+Message-ID: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
+Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
+	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
+	sgruszka@redhat.com, brudley@broadcom.com, arend@broadcom.com,
+	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
+	mcgrof@do-not-panic.com, k.eugene.e@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, wcn36xx@lists.infradead.org,
+	johannes.berg@intel.com, meuleman@broadcom.com,
+	Punit Vara <punitvara@gmail.com>
+To: kvalo@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > I can then wait for that change to pop up in nf-next and just resend
-> > this series (which will then undo that change).
-> 
-> I'd rather get things fixes for the existing code. This would also
-> allow simple passing back to -stable, then we can move forward discuss
-> and review your rework with sufficient time.
+Fix various warning reported by coccicheck:
 
-Joe, could you take care of this and submit a OVS fix to net tree?
+make coccicheck M=drivers/net/wireless
 
-(just add that call to nf_ct_frag6_consume_orig and take
- the morph change directly into the OVS callpath)
 
-I will then resubmit all of this at some later point.
+Punit Vara (15):
+  net: wireless: ath: use | instead of + for summing bitmasks
+  net: wireless: ath: Remove unnecessary semicolon
+  net: wireless: ath: Remove unnecessary semicolon
+  net: wireless: ipw2x00: use | instead of + for summing bitmasks
+  net: wireless: ti: Return flow can be simplified for
+    wl1271_cmd_interrogate
+  net: wireless: rtwifi: Remove duplicated arguments to |
+  net: wireless: brcm80211: Remove duplicated arguments to |
+  net: wireless: simplify return flow for usb_msg_control
+  net: wireless: simplify return flow for zd1201_setconfig16
+  net: wireless: ath: simplify return flow for
+    carl9170_regwrite_result()
+  net: wireless: iwlegacy: Remove unneeded variable ret
+  net: wireless: brcm80211: Remove unneeded variable which return 0
+  net: wireless: brcm80211: Remove unneeded variable ret_code returning
+    0
+  net: wireless: ath: Remove unneeded variable ret returning 0
+  net: wireless: ath: Remove unneeded variable ret returning 0
 
-Thanks.
+ drivers/net/wireless/at76c50x-usb.c               |  5 +----
+ drivers/net/wireless/ath/ath10k/htt_rx.c          |  2 +-
+ drivers/net/wireless/ath/ath10k/pci.c             | 10 +++++-----
+ drivers/net/wireless/ath/ath10k/wmi.h             |  2 +-
+ drivers/net/wireless/ath/ath5k/eeprom.c           |  4 ++--
+ drivers/net/wireless/ath/carl9170/phy.c           |  7 +------
+ drivers/net/wireless/ath/wcn36xx/main.c           |  3 +--
+ drivers/net/wireless/brcm80211/brcmsmac/channel.c |  1 -
+ drivers/net/wireless/brcm80211/brcmsmac/main.c    |  3 +--
+ drivers/net/wireless/brcm80211/brcmsmac/stf.c     |  5 ++---
+ drivers/net/wireless/ipw2x00/libipw_rx.c          |  4 ++--
+ drivers/net/wireless/iwlegacy/3945-mac.c          |  5 +----
+ drivers/net/wireless/rtlwifi/debug.c              |  6 +++---
+ drivers/net/wireless/ti/wlcore/acx.c              |  6 +-----
+ drivers/net/wireless/zd1201.c                     |  6 +-----
+ 15 files changed, 23 insertions(+), 46 deletions(-)
+
+--
+2.5.3
