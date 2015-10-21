@@ -1,36 +1,97 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC PATCH 4/5] openvswitch: conntrack netlink API updates.
-Date: Wed, 21 Oct 2015 12:41:33 +0200
-Message-ID: <20151021104133.GA2135@salvia>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-4-git-send-email-jrajahalme@nicira.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next 4/8] xen-netback: accept an L4 or L3 skb hash value from the frontend
+Date: Wed, 21 Oct 2015 11:36:21 +0100
+Message-ID: <1445423785-4654-5-git-send-email-paul.durrant@citrix.com>
+References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	netfilter-devel@vger.kernel.org
-To: Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1445379629-112880-4-git-send-email-jrajahalme@nicira.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:45975 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752174AbbJUKhA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2015 06:37:00 -0400
+In-Reply-To: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2015 at 03:20:28PM -0700, Jarno Rajahalme wrote:
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index 77850f1..1e6c2ac 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -291,7 +291,7 @@ size_t ovs_key_attr_size(void)
->  		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
->  		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
->  		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
-> -		+ nla_total_size(1)   /* OVS_KEY_ATTR_CT_STATE */
-> +		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_STATE */
->  		+ nla_total_size(2)   /* OVS_KEY_ATTR_CT_ZONE */
->  		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
->  		+ nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABEL */
+This patch adds an indication that netback is capable of handling hash
+values passed from the frontend (see netif.h for details), and the code
+necessary to process the additional xen_netif_extra_info segment and
+set a hash on the skb.
 
-This is very strange.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+---
+ drivers/net/xen-netback/netback.c | 25 +++++++++++++++++++++++++
+ drivers/net/xen-netback/xenbus.c  |  8 ++++++++
+ 2 files changed, 33 insertions(+)
 
-You're changing the size of the netlink attribute, this will break
-existing userspace applications.
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 9f0c9f5..3799b5a 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1383,6 +1383,28 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 			}
+ 		}
+ 
++		if (extras[XEN_NETIF_EXTRA_TYPE_HASH - 1].type) {
++			struct xen_netif_extra_info *extra;
++			u32 hash = *(u32 *)extra->u.hash.value;
++
++			extra = &extras[XEN_NETIF_EXTRA_TYPE_HASH - 1];
++
++			switch (extra->u.hash.type) {
++			case XEN_NETIF_HASH_TYPE_TCPV4:
++			case XEN_NETIF_HASH_TYPE_TCPV6:
++				skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
++				break;
++
++			case XEN_NETIF_HASH_TYPE_IPV4:
++			case XEN_NETIF_HASH_TYPE_IPV6:
++				skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
++				break;
++
++			default:
++				break;
++			}
++		}
++
+ 		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
+ 
+ 		__skb_put(skb, data_len);
+@@ -1416,6 +1438,9 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 		if (extras[XEN_NETIF_EXTRA_TYPE_GSO - 1].type)
+ 			queue->pending_tx_info[pending_idx].extra_count++;
+ 
++		if (extras[XEN_NETIF_EXTRA_TYPE_HASH - 1].type)
++			queue->pending_tx_info[pending_idx].extra_count++;
++
+ 		queue->pending_cons++;
+ 
+ 		gop = xenvif_get_requests(queue, skb, txfrags, gop,
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 929a6e7..2fa8a16 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -335,6 +335,14 @@ static int netback_probe(struct xenbus_device *dev,
+ 			goto abort_transaction;
+ 		}
+ 
++		/* We support hash values. */
++		err = xenbus_printf(xbt, dev->nodename,
++				    "feature-hash", "%d", 1);
++		if (err) {
++			message = "writing feature-hash";
++			goto abort_transaction;
++		}
++
+ 		err = xenbus_transaction_end(xbt, 0);
+ 	} while (err == -EAGAIN);
+ 
+-- 
+2.1.4
