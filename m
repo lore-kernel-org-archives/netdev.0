@@ -1,31 +1,38 @@
-From: WEIR@vger.kernel.org, FOUNDATION@vger.kernel.org
-Subject: GREETINGS TO YOU
-Date: Wed, 21 Oct 2015 14:43:45 +0100
-Message-ID: <AM2PR05MB06751BBC9FC2458275B9B62DB8380@AM2PR05MB0675.eurprd05.prod.outlook.com>
-Reply-To: <weirfoundationorg@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Wed, 21 Oct 2015 15:49:51 +0200
+Message-ID: <20151021134951.GH3604@twins.programming.kicks-ass.net>
+References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
+ <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
+ <5626C5CE.8080809@plumgrid.com>
+ <20151021091254.GF2881@worktop.programming.kicks-ass.net>
+ <56276968.6070604@huawei.com>
+ <20151021113316.GM17308@twins.programming.kicks-ass.net>
+ <56277BCE.6030400@huawei.com>
+ <20151021121713.GC3604@twins.programming.kicks-ass.net>
+ <56279634.5000606@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1hn0252.outbound.protection.outlook.com ([157.56.112.252]:21145
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750877AbbJUNpn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:45:43 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56279634.5000606@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You have Been Issued with the SUM of 1.1 Million Euro from the Weir Family Donation.Kindly get in Touch with your details Following:
+On Wed, Oct 21, 2015 at 09:42:12PM +0800, Wangnan (F) wrote:
+> How can an eBPF program access a !local event:
+> 
+> when creating perf event array we don't care which perf event
+> is for which CPU, so perf program can access any perf event in
+> that array.
 
-Full Names ... Address: Phone No: Country ... Age .... ..
-
-Check Link HTTP://www.bbc.com/news/uk-scotland-glasgow-west-18801698
-
-We await your reply.
-Chris and Colin Weir
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+So what is stopping the eBPF thing from calling perf_event_read_local()
+on a !local event and triggering a kernel splat?
