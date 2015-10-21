@@ -1,7 +1,7 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next 6/8] xen-netback: pass an L4 or L3 skb hash value to the frontend
-Date: Wed, 21 Oct 2015 11:36:23 +0100
-Message-ID: <1445423785-4654-7-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next 7/8] xen-netback: add support for a multi-queue hash mapping table
+Date: Wed, 21 Oct 2015 11:36:24 +0100
+Message-ID: <1445423785-4654-8-git-send-email-paul.durrant@citrix.com>
 References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,179 +10,289 @@ Cc: Paul Durrant <paul.durrant@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:45975 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:51211 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174AbbJUKhG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752832AbbJUKhG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 21 Oct 2015 06:37:06 -0400
 In-Reply-To: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the frontend indicates it's capable (see netif.h for details) and an
-skb has an L4 or L3 hash value then pass the value to the frontend in
-a xen_netif_extra_info segment.
+Advertise the capability to handle a hash mapping specified by the
+frontend (see netif.h for details).
+
+Add an ndo_select() entry point so that, of the frontend does specify a
+hash mapping, the skb hash is extracted and mapped to a queue. If no
+mapping is specified then the fallback queue selection function is
+called so there is no change in behaviour.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 Cc: Ian Campbell <ian.campbell@citrix.com>
 Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/xen-netback/common.h  |  1 +
- drivers/net/xen-netback/netback.c | 85 +++++++++++++++++++++++++++++++--------
- drivers/net/xen-netback/xenbus.c  |  5 +++
- 3 files changed, 75 insertions(+), 16 deletions(-)
+ drivers/net/xen-netback/common.h    |   7 ++
+ drivers/net/xen-netback/interface.c |  14 ++++
+ drivers/net/xen-netback/xenbus.c    | 154 ++++++++++++++++++++++++++++++------
+ 3 files changed, 152 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ce40bd7..1bce5a5 100644
+index 1bce5a5..23f2275 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -229,6 +229,7 @@ struct xenvif {
- 	u8 ip_csum:1;
- 	u8 ipv6_csum:1;
- 	u8 multicast_control:1;
-+	u8 hash_extra:1;
+@@ -212,6 +212,8 @@ struct xenvif_mcast_addr {
  
- 	/* Is this interface disabled? True when backend discovers
- 	 * frontend is rogue.
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 3799b5a..68994f9 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -152,10 +152,17 @@ static inline pending_ring_idx_t pending_index(unsigned i)
+ #define XEN_NETBK_MCAST_MAX 64
  
- static int xenvif_rx_ring_slots_needed(struct xenvif *vif)
- {
--	if (vif->gso_mask)
--		return DIV_ROUND_UP(vif->dev->gso_max_size, PAGE_SIZE) + 1;
-+	int needed;
++#define XEN_NETBK_MAX_HASH_MAPPING_SIZE 128
 +
-+	if (vif->gso_mask || vif->gso_prefix_mask)
-+		needed = DIV_ROUND_UP(vif->dev->gso_max_size, PAGE_SIZE) + 1;
- 	else
--		return DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-+		needed = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-+
-+	if (vif->hash_extra)
-+		needed++;
-+
-+	return needed;
+ struct xenvif {
+ 	/* Unique identifier for this interface. */
+ 	domid_t          domid;
+@@ -244,7 +246,12 @@ struct xenvif {
+ 	unsigned int num_queues; /* active queues, resource allocated */
+ 	unsigned int stalled_queues;
+ 
++	struct {
++		unsigned int table[XEN_NETBK_MAX_HASH_MAPPING_SIZE];
++		unsigned int length;
++	} hash_mapping;
+ 	struct xenbus_watch credit_watch;
++	struct xenbus_watch hash_mapping_watch;
+ 
+ 	spinlock_t lock;
+ 
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index e7bd63e..0c7da7b 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -142,6 +142,19 @@ void xenvif_wake_queue(struct xenvif_queue *queue)
+ 	netif_tx_wake_queue(netdev_get_tx_queue(dev, id));
  }
  
- static bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue)
-@@ -304,12 +311,23 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
- 		BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
- 
- 		if (npo->copy_off == MAX_BUFFER_OFFSET) {
--			/* Leave a gap for the GSO descriptor. */
--			if (*head && ((1 << gso_type) & vif->gso_mask))
--				queue->rx.req_cons++;
-+			if (*head) {
-+				*head = 0;
++static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
++			       void *accel_priv,
++			       select_queue_fallback_t fallback)
++{
++	struct xenvif *vif = netdev_priv(dev);
 +
-+				/* Leave a gap for the GSO descriptor. */
-+				if ((1 << gso_type) & vif->gso_mask)
-+					queue->rx.req_cons++;
++	if (vif->hash_mapping.length == 0)
++		return fallback(dev, skb) % dev->real_num_tx_queues;
 +
-+				/* Leave a gap for the hash extra
-+				 * segment.
-+				 */
-+				if (vif->hash_extra &&
-+				    (skb->protocol == htons(ETH_P_IP) ||
-+				     skb->protocol == htons(ETH_P_IPV6)))
-+					queue->rx.req_cons++;
-+			}
- 
- 			meta = get_next_rx_buffer(queue, npo);
--			*head = 0;
- 		}
- 
- 		bytes = PAGE_SIZE - offset;
-@@ -521,6 +539,7 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 	while ((skb = __skb_dequeue(&rxq)) != NULL) {
- 		struct xenvif *vif = queue->vif;
- 		int gso_type = XEN_NETIF_GSO_TYPE_NONE;
-+		struct xen_netif_extra_info *extra = NULL;
- 
- 		if (skb_is_gso(skb)) {
- 			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-@@ -569,20 +588,54 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 					flags);
- 
- 		if ((1 << gso_type) & vif->gso_mask) {
--			struct xen_netif_extra_info *gso =
--				(struct xen_netif_extra_info *)
-+			resp->flags |= XEN_NETRXF_extra_info;
++	return vif->hash_mapping.table[skb_get_hash_raw(skb) %
++				       vif->hash_mapping.length];
++}
 +
-+			extra = (struct xen_netif_extra_info *)
- 				RING_GET_RESPONSE(&queue->rx,
- 						  queue->rx.rsp_prod_pvt++);
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+@@ -386,6 +399,7 @@ static const struct ethtool_ops xenvif_ethtool_ops = {
+ };
  
--			resp->flags |= XEN_NETRXF_extra_info;
-+			extra->u.gso.type = gso_type;
-+			extra->u.gso.size = skb_shinfo(skb)->gso_size;
-+			extra->u.gso.pad = 0;
-+			extra->u.gso.features = 0;
-+
-+			extra->type = XEN_NETIF_EXTRA_TYPE_GSO;
-+			extra->flags = 0;
-+		}
-+
-+		if (vif->hash_extra &&
-+		    (skb->protocol == htons(ETH_P_IP) ||
-+		     skb->protocol == htons(ETH_P_IPV6))) {
-+			if (resp->flags & XEN_NETRXF_extra_info)
-+				extra->flags |= XEN_NETIF_EXTRA_FLAG_MORE;
-+			else
-+				resp->flags |= XEN_NETRXF_extra_info;
- 
--			gso->u.gso.type = gso_type;
--			gso->u.gso.size = skb_shinfo(skb)->gso_size;
--			gso->u.gso.pad = 0;
--			gso->u.gso.features = 0;
-+			extra = (struct xen_netif_extra_info *)
-+				RING_GET_RESPONSE(&queue->rx,
-+						  queue->rx.rsp_prod_pvt++);
-+
-+			if (skb_hash_type(skb) == PKT_HASH_TYPE_L4) {
-+				extra->u.hash.type =
-+					skb->protocol == htons(ETH_P_IP) ?
-+					XEN_NETIF_HASH_TYPE_TCPV4 :
-+					XEN_NETIF_HASH_TYPE_TCPV6;
-+				*(uint32_t *)extra->u.hash.value =
-+					skb_get_hash_raw(skb);
-+			} else if (skb_hash_type(skb) == PKT_HASH_TYPE_L3) {
-+				extra->u.hash.type =
-+					skb->protocol == htons(ETH_P_IP) ?
-+					XEN_NETIF_HASH_TYPE_IPV4 :
-+					XEN_NETIF_HASH_TYPE_IPV6;
-+				*(uint32_t *)extra->u.hash.value =
-+					skb_get_hash_raw(skb);
-+			} else {
-+				extra->u.hash.type = XEN_NETIF_HASH_TYPE_NONE;
-+				*(uint32_t *)extra->u.hash.value = 0;
-+			}
- 
--			gso->type = XEN_NETIF_EXTRA_TYPE_GSO;
--			gso->flags = 0;
-+			extra->type = XEN_NETIF_EXTRA_TYPE_HASH;
-+			extra->flags = 0;
- 		}
- 
- 		xenvif_add_frag_responses(queue, status,
+ static const struct net_device_ops xenvif_netdev_ops = {
++	.ndo_select_queue = xenvif_select_queue,
+ 	.ndo_start_xmit	= xenvif_start_xmit,
+ 	.ndo_get_stats	= xenvif_get_stats,
+ 	.ndo_open	= xenvif_open,
 diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 2fa8a16..a31bcee 100644
+index a31bcee..f5ed945 100644
 --- a/drivers/net/xen-netback/xenbus.c
 +++ b/drivers/net/xen-netback/xenbus.c
-@@ -1037,6 +1037,11 @@ static int read_xenbus_vif_flags(struct backend_info *be)
- 		val = 0;
- 	vif->multicast_control = !!val;
+@@ -367,6 +367,13 @@ static int netback_probe(struct xenbus_device *dev,
+ 	if (err)
+ 		pr_debug("Error writing multi-queue-max-queues\n");
  
-+	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-hash",
-+			 "%d", &val) < 0)
-+		val = 0;
-+	vif->hash_extra = !!val;
++	/* Multi-queue mapping support: This is an optional feature. */
++	err = xenbus_printf(XBT_NIL, dev->nodename,
++			    "multi-queue-max-hash-mapping-length", "%u",
++			    XEN_NETBK_MAX_HASH_MAPPING_SIZE);
++	if (err)
++		pr_debug("Error writing multi-queue-max-hash-mapping-length\n");
 +
- 	return 0;
+ 	script = xenbus_read(XBT_NIL, dev->nodename, "script", NULL);
+ 	if (IS_ERR(script)) {
+ 		err = PTR_ERR(script);
+@@ -691,38 +698,139 @@ static void xen_net_rate_changed(struct xenbus_watch *watch,
+ 	}
  }
  
+-static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
++static void xen_net_read_multi_queue_hash_mapping(struct xenvif *vif)
++{
++	struct xenbus_device *dev = xenvif_to_xenbus_device(vif);
++	char *str, *token;
++	unsigned int *table;
++	unsigned int n, i;
++
++	str = xenbus_read(XBT_NIL, dev->otherend,
++			  "multi-queue-hash-mapping", NULL);
++	if (IS_ERR(str))
++		goto fail1;
++
++	table = kcalloc(ARRAY_SIZE(vif->hash_mapping.table),
++			sizeof(unsigned int),
++			GFP_KERNEL);
++	if (!table) {
++		pr_err("%s: failed to allocate mapping table\n",
++		       dev->nodename);
++		goto fail2;
++	}
++
++	n = 0;
++	while ((token = strsep(&str, ",")) != NULL) {
++		int rc;
++
++		if (n >= ARRAY_SIZE(vif->hash_mapping.table)) {
++			pr_err("%s: mapping table too big\n",
++			       dev->nodename);
++			goto fail3;
++		}
++
++		rc = kstrtouint(token, 0, &table[n]);
++		if (rc < 0) {
++			pr_err("%s: invalid mapping table value (%s at index %u)\n",
++			       dev->nodename, token, n);
++			goto fail3;
++		}
++
++		n++;
++	}
++
++	if (n == 0) {
++		pr_err("%s: invalid mapping table\n", dev->nodename);
++		goto fail3;
++	}
++
++	vif->hash_mapping.length = n;
++
++	for (i = 0; i < n; i++)
++		vif->hash_mapping.table[i] =
++			(table[i] < vif->num_queues) ? table[i] : 0;
++
++	kfree(table);
++	kfree(str);
++	return;
++
++fail3:
++	kfree(table);
++fail2:
++	kfree(str);
++fail1:
++	vif->hash_mapping.length = 0;
++}
++
++static void xen_hash_mapping_changed(struct xenbus_watch *watch,
++				     const char **vec, unsigned int len)
++{
++	struct xenvif *vif = container_of(watch, struct xenvif,
++					  hash_mapping_watch);
++
++	xen_net_read_multi_queue_hash_mapping(vif);
++}
++
++static int xenvif_register_watch(const char *prefix, const char *name,
++				 void (*callback)(struct xenbus_watch *,
++						  const char **vec,
++						  unsigned int len),
++				 struct xenbus_watch *watch)
+ {
+-	int err = 0;
++	unsigned int len;
+ 	char *node;
+-	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
++	int err;
+ 
+-	if (vif->credit_watch.node)
++	if (watch->node)
+ 		return -EADDRINUSE;
+ 
+-	node = kmalloc(maxlen, GFP_KERNEL);
++	len = strlen(prefix) + 1 + strlen(name) + 1;
++
++	node = kmalloc(len, GFP_KERNEL);
+ 	if (!node)
+ 		return -ENOMEM;
+-	snprintf(node, maxlen, "%s/rate", dev->nodename);
+-	vif->credit_watch.node = node;
+-	vif->credit_watch.callback = xen_net_rate_changed;
+-	err = register_xenbus_watch(&vif->credit_watch);
++
++	snprintf(node, len, "%s/%s", prefix, name);
++	watch->node = node;
++	watch->callback = callback;
++	err = register_xenbus_watch(watch);
+ 	if (err) {
+-		pr_err("Failed to set watcher %s\n", vif->credit_watch.node);
++		pr_err("Failed to set watch %s\n", node);
+ 		kfree(node);
+-		vif->credit_watch.node = NULL;
+-		vif->credit_watch.callback = NULL;
++		watch->node = NULL;
++		watch->callback = NULL;
+ 	}
+ 	return err;
+ }
+ 
++static void xenvif_unregister_watch(struct xenbus_watch *watch)
++{
++	if (!watch->node)
++		return;
++
++	unregister_xenbus_watch(watch);
++	kfree(watch->node);
++
++	watch->node = NULL;
++	watch->callback = NULL;
++}
++
++static void xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
++{
++	xenvif_register_watch(dev->nodename, "rate",
++			      xen_net_rate_changed,
++			      &vif->credit_watch);
++
++	xenvif_register_watch(dev->otherend,
++			      "multi-queue-hash-mapping",
++			      xen_hash_mapping_changed,
++			      &vif->hash_mapping_watch);
++}
++
+ static void xen_unregister_watchers(struct xenvif *vif)
+ {
+-	if (vif->credit_watch.node) {
+-		unregister_xenbus_watch(&vif->credit_watch);
+-		kfree(vif->credit_watch.node);
+-		vif->credit_watch.node = NULL;
+-	}
++	xenvif_unregister_watch(&vif->hash_mapping_watch);
++	xenvif_unregister_watch(&vif->credit_watch);
+ }
+ 
+ static void unregister_hotplug_status_watch(struct backend_info *be)
+@@ -782,6 +890,12 @@ static void connect(struct backend_info *be)
+ 		return;
+ 	}
+ 
++	/* Use the number of queues requested by the frontend */
++	be->vif->queues = vzalloc(requested_num_queues *
++				  sizeof(struct xenvif_queue));
++	be->vif->num_queues = requested_num_queues;
++	be->vif->stalled_queues = requested_num_queues;
++
+ 	err = xen_net_read_mac(dev, be->vif->fe_dev_addr);
+ 	if (err) {
+ 		xenbus_dev_fatal(dev, err, "parsing %s/mac", dev->nodename);
+@@ -793,12 +907,6 @@ static void connect(struct backend_info *be)
+ 	xen_register_watchers(dev, be->vif);
+ 	read_xenbus_vif_flags(be);
+ 
+-	/* Use the number of queues requested by the frontend */
+-	be->vif->queues = vzalloc(requested_num_queues *
+-				  sizeof(struct xenvif_queue));
+-	be->vif->num_queues = requested_num_queues;
+-	be->vif->stalled_queues = requested_num_queues;
+-
+ 	for (queue_index = 0; queue_index < requested_num_queues; ++queue_index) {
+ 		queue = &be->vif->queues[queue_index];
+ 		queue->vif = be->vif;
 -- 
 2.1.4
