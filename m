@@ -1,46 +1,30 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
- maps trace data output when perf sampling
-Date: Wed, 21 Oct 2015 14:17:13 +0200
-Message-ID: <20151021121713.GC3604@twins.programming.kicks-ass.net>
-References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
- <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
- <5626C5CE.8080809@plumgrid.com>
- <20151021091254.GF2881@worktop.programming.kicks-ass.net>
- <56276968.6070604@huawei.com>
- <20151021113316.GM17308@twins.programming.kicks-ass.net>
- <56277BCE.6030400@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiakaixu <xiakaixu@huawei.com>,
-	Alexei Starovoitov <ast@plumgrid.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56277BCE.6030400@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Karsten Keil <keil@b1-systems.de>
+Subject: [PATCH 0/2] Fix potential NULL pointer access and memory leak in ISDN layer2 functions
+Date: Wed, 21 Oct 2015 14:18:37 +0200
+Message-ID: <1445429919-22924-1-git-send-email-keil@b1-systems.de>
+Cc: Karsten Keil <keil@b1-systems.de>, isdn@linux-pingi.de,
+	netdev@vger.kernel.org, wuninsu@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.b1-systems.de ([84.200.69.220]:57422 "EHLO
+	mx1.b1-systems.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbbJUMYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 08:24:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2015 at 07:49:34PM +0800, Wangnan (F) wrote:
-> If our task is sampling cycle events during a function is running,
-> and if two cores start that function overlap:
-> 
-> Time:   ...................A
-> Core 0: sys_write----\
->                       \
->                        \
-> Core 1:             sys_write%return
-> Core 2: ................sys_write
-> 
-> Then without counter at time A it is highly possible that
-> BPF program on core 1 and core 2 get conflict with each other.
-> The final result is we make some of those events be turned on
-> and others turned off. Using atomic counter can avoid this
-> problem.
+Insu Yun did brinup the issue with not checking the skb_clone() return
+value in the layer2 I-frame ull functions.
+This series fix the issue in a way which avoid protocol violations/data loss
+on a temporary memory shortage.
 
-But but, how and why can an eBPF program access a !local event? I
-thought we had hard restrictions on that.
+Karsten Keil (2):
+  ISDN: fix OOM condition for sending queued I-Frames
+  mISDN: fix OOM condition for sending queued I-Frames
+
+ drivers/isdn/hisax/isdnl2.c | 20 +++++++----------
+ drivers/isdn/mISDN/layer2.c | 54 +++++++++++++++++----------------------------
+ 2 files changed, 28 insertions(+), 46 deletions(-)
+
+-- 
+2.1.4
