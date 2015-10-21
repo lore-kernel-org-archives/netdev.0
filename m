@@ -1,58 +1,44 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
-Date: Wed, 21 Oct 2015 16:42:12 +0200
-Message-ID: <20151021144212.GB31323@breakpoint.cc>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
- <20151021093459.GA31323@breakpoint.cc>
- <20151021113054.GB17991@pox.localdomain>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
+ interfaces
+Date: Wed, 21 Oct 2015 16:46:13 +0200
+Message-ID: <20151021164613.24650836@griffin>
+References: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
+	<20151021.074332.1709904332480699231.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	netdev@vger.kernel.org, dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, thaller@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39898 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755055AbbJUOmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 10:42:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20151021113054.GB17991@pox.localdomain>
+Received: from mx1.redhat.com ([209.132.183.28]:40916 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751996AbbJUOqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2015 10:46:16 -0400
+In-Reply-To: <20151021.074332.1709904332480699231.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf <tgraf@suug.ch> wrote:
-> On 10/21/15 at 11:34am, Florian Westphal wrote:
-> > Jarno Rajahalme <jrajahalme@nicira.com> wrote:
-> > >  #define OVS_CS_F_REPLY_DIR         0x08 /* Flow is in the reply direction. */
-> > >  #define OVS_CS_F_INVALID           0x10 /* Could not track connection. */
-> > >  #define OVS_CS_F_TRACKED           0x20 /* Conntrack has occurred. */
-> > > +#define OVS_CS_F_SRC_NAT           0x40 /* Packet's source address/port was
-> > > +					   mangled by NAT. */
-> > > +#define OVS_CS_F_DST_NAT           0x80 /* Packet's destination address/port
-> > > +					   was mangled by NAT. */
-> > 
-> > I'm blind -- how does ovs deal with change of output device and the
-> > ether dst mac as result of a l3 dst translation?
-> 
-> I assume you are referring to rewriting of L2 and the forwarding decision
-> after NAT. As NAT is performed in combination with conntrack, the packet
-> is recirculated and hits the flow table again after NAT. That 2nd
-> stage flow must take are of performing L3 by rewriting L2, decrementing
-> TTL, etc.
+On Wed, 21 Oct 2015 07:43:32 -0700 (PDT), David Miller wrote:
+> Fix the real problem, then come talk to us.
 
-> Is this what you are referring to?
+I don't think the real problem is fixable, given that any kind of
+unique non-settable identifier would break CRIU. And anything settable
+will have the exact same problem. All we can do is narrowing the race
+window.
 
-Yes, exactly, thanks for answering my question.
+For example, we could always alloc a new ifindex when moving interfaces
+between name spaces. That would be probably the tiniest race window we
+could get to (still not zero!) but I guess it would break apps that
+assume that ifindex doesn't change when moving interfaces between name
+spaces (which is not true, such apps are already broken, they just
+happen to work in 99% of cases). The second best solution that doesn't
+break those apps at the cost of leaving the race window wider, is this
+patch.
 
-[ in classic bridge netfilter this requires route lookup & neigh stunts
-  to deal with the consequences of dnat, i.e.
+But whatever, I don't care enough about this.
 
-- route says dst is reachable via some other interface not part of
-bridge
-- route says that dst is localhost
-- route says its on same bridge, but neigh has no idea what the new
-dst mac address is,etc.
+ Jiri
 
-I was kinda disappointed to not see similar tur^W hacks ;)
+-- 
+Jiri Benc
