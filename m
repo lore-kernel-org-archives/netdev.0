@@ -1,32 +1,42 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 2/3] switchdev: fix: pass correct obj size
- when deferring obj add/del
-Date: Wed, 21 Oct 2015 19:15:18 +0200
-Message-ID: <20151021171518.GG2210@nanopsycho.orion>
-References: <1445446821-26147-1-git-send-email-sfeldma@gmail.com>
- <1445446821-26147-2-git-send-email-sfeldma@gmail.com>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next 2/6] arcnet: com20020: add enable and disable
+ device on open/close
+Date: Thu, 22 Oct 2015 01:18:53 +0800
+Message-ID: <201510220121.IavQe5iv%fengguang.wu@intel.com>
+References: <1445442332-10625-3-git-send-email-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
+Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
+	kernel@pengutronix.de
+To: Michael Grzeschik <m.grzeschik@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36948 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752016AbbJURPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 13:15:21 -0400
-Received: by wicfv8 with SMTP id fv8so85176770wic.0
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 10:15:19 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:9896 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751236AbbJURQB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2015 13:16:01 -0400
 Content-Disposition: inline
-In-Reply-To: <1445446821-26147-2-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <1445442332-10625-3-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 21, 2015 at 07:00:20PM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->Fixes: 4d429c5dd ("switchdev: introduce possibility to defer obj_add/del")
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Hi Michael,
 
-Looks fine now, thanks Scott!
+[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+url:    https://github.com/0day-ci/linux/commits/Michael-Grzeschik/arcnet-move-dev_free_skb-to-its-only-user/20151021-235034
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
+
+
+sparse warnings: (new ones prefixed by >>)
+
+>> drivers/net/arcnet/com20020.c:167:5: sparse: symbol 'com20020_netdev_open' was not declared. Should it be static?
+>> drivers/net/arcnet/com20020.c:178:5: sparse: symbol 'com20020_netdev_close' was not declared. Should it be static?
+
+Please review and possibly fold the followup patch.
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
