@@ -1,34 +1,21 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2/2] geneve: handle ipv6 priority like ipv4 tos
-Date: Wed, 21 Oct 2015 13:13:39 +0800
-Message-ID: <CAEP_g=91tQh6x4FWe5euddtS-Apv1Wm2Z4YupF7cGMnoV3bpVg@mail.gmail.com>
-References: <1443638045-27229-1-git-send-email-linville@tuxdriver.com>
- <1445353866-32710-1-git-send-email-linville@tuxdriver.com> <1445353866-32710-2-git-send-email-linville@tuxdriver.com>
+From: Born@vger.kernel.org, Hook@vger.kernel.org
+Subject: my subject
+Date: Wed, 21 Oct 2015 06:40:42 +0100
+Message-ID: <DB5PR07MB087138CBE50AA016ABA0A99FB8380@DB5PR07MB0871.eurprd07.prod.outlook.com>
+Reply-To: <sungsloanfirm2@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jiri Benc <jbenc@redhat.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:36823 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbbJUFOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 01:14:01 -0400
-Received: by lffz202 with SMTP id z202so15583381lff.3
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 22:13:59 -0700 (PDT)
-In-Reply-To: <1445353866-32710-2-git-send-email-linville@tuxdriver.com>
+Received: from mail-am1hn0249.outbound.protection.outlook.com ([157.56.112.249]:16771
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751106AbbJUFlC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 01:41:02 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2015 at 11:11 PM, John W. Linville
-<linville@tuxdriver.com> wrote:
-> Other callers of udp_tunnel6_xmit_skb just pass 0 for the prio
-> argument.  Jesse Gross <jesse@nicira.com> suggested that prio is really
-> the same as IPv4's tos and should be handled the same, so this is my
-> interpretation of that suggestion.
->
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> Reported-by: Jesse Gross <jesse@nicira.com>
 
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+Do you need a loan at 2.5%? If yes reply us for more details: sungsloanfirm2@hotmail.com   
