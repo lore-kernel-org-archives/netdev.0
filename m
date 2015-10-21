@@ -1,62 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
- incorrect for sockets in accept(3)
-Date: Wed, 21 Oct 2015 06:29:44 -0700
-Message-ID: <1445434184.22974.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151019095938.72ea48e6@xeon-e3>
-	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <562594E1.8040403@oracle.com>
-	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56261092.7080003@oracle.com>
-	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56264596.90104@oracle.com>
-	 <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5626887D.5050308@oracle.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>
-	 <56276DA2.8010905@oracle.com>
-	 <1445426932.22974.43.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56278D3D.1010608@oracle.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Wed, 21 Oct 2015 21:42:12 +0800
+Message-ID: <56279634.5000606@huawei.com>
+References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com> <1445325735-121694-2-git-send-email-xiakaixu@huawei.com> <5626C5CE.8080809@plumgrid.com> <20151021091254.GF2881@worktop.programming.kicks-ass.net> <56276968.6070604@huawei.com> <20151021113316.GM17308@twins.programming.kicks-ass.net> <56277BCE.6030400@huawei.com> <20151021121713.GC3604@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alan Burlison <Alan.Burlison@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33836 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbbJUN3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:29:46 -0400
-Received: by padhk11 with SMTP id hk11so55315495pad.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 06:29:46 -0700 (PDT)
-In-Reply-To: <56278D3D.1010608@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Wed, 2015-10-21 at 14:03 +0100, Alan Burlison wrote:
-> On 21/10/2015 12:28, Eric Dumazet wrote:
-> 
-> > This works for me. Please double check your programs
-> 
-> I have just done so, it works as you say for AF_INET sockets but if you 
-> switch to AF_UNIX sockets it does the wrong thing in the way I described.
-> 
-
-Oh well. Please try the following :
+Cc: xiakaixu <xiakaixu@huawei.com>, <davem@davemloft.net>,
+	<acme@kernel.org>, <mingo@redhat.com>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>, <linux-kernel@vger.kernel.org>,
+	<pi3orama@163.com>, <hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151021121713.GC3604@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 94f658235fb4..24dec8bb571d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -328,7 +328,8 @@ found:
- 
- static inline int unix_writable(struct sock *sk)
- {
--	return (atomic_read(&sk->sk_wmem_alloc) << 2) <= sk->sk_sndbuf;
-+	return sk->sk_state != TCP_LISTEN &&
-+	       (atomic_read(&sk->sk_wmem_alloc) << 2) <= sk->sk_sndbuf;
- }
- 
- static void unix_write_space(struct sock *sk)
+
+On 2015/10/21 20:17, Peter Zijlstra wrote:
+> On Wed, Oct 21, 2015 at 07:49:34PM +0800, Wangnan (F) wrote:
+>> If our task is sampling cycle events during a function is running,
+>> and if two cores start that function overlap:
+>>
+>> Time:   ...................A
+>> Core 0: sys_write----\
+>>                        \
+>>                         \
+>> Core 1:             sys_write%return
+>> Core 2: ................sys_write
+>>
+>> Then without counter at time A it is highly possible that
+>> BPF program on core 1 and core 2 get conflict with each other.
+>> The final result is we make some of those events be turned on
+>> and others turned off. Using atomic counter can avoid this
+>> problem.
+> But but, how and why can an eBPF program access a !local event? I
+> thought we had hard restrictions on that.
+
+How can an eBPF program access a !local event:
+
+when creating perf event array we don't care which perf event
+is for which CPU, so perf program can access any perf event in
+that array. Which is straightforward. And in soft
+disabling/enabling, what need to be done is an atomic
+operation on something in 'perf_event' structure, which is safe
+enough.
+
+Why we need an eBPF program access a !local event:
+
+I think I have explained why we need an eBPF program to access
+a !local event. In summary, without this ability we can't
+speak in user's language because they are focus on higher level
+principles (display refreshing, application booting, http
+processing...) and 'on which CPU' is not in their dictionaries most
+of the time. Without cross-core soft-enabling/disabling it is hard
+to translate requirements like "start sampling when display refreshing
+begin" and "stop sampling when application booted" into eBPF programs
+and perf cmdline. Don't you think it is useful for reducing sampling
+data and needs to be considered?
+
+One alternative solution I can image is to attach a BPF program
+at sampling like kprobe, and return 0 if we don't want sampling
+take action. Thought? Actually speaking I don't like it very much
+because the principle of soft-disable is much simpler and safe, but
+if you really like it I think we can try.
+
+Do you think soft-disable/enable perf events on other cores makes
+any real problem?
+
+Thank you.
