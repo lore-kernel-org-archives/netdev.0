@@ -1,57 +1,49 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
  xfrm_notify_sa() for DELSA
-Date: Wed, 21 Oct 2015 06:10:43 -0700 (PDT)
-Message-ID: <20151021.061043.723408372175418569.davem@davemloft.net>
-References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
-	<65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
+Date: Wed, 21 Oct 2015 06:17:37 -0700 (PDT)
+Message-ID: <20151021.061737.817854527348057019.davem@davemloft.net>
+References: <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
 	<20151021065704.GM7701@secunet.com>
+	<20151021105442.GM6948@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, linux-crypto@vger.kernel.org,
+Cc: steffen.klassert@secunet.com, linux-crypto@vger.kernel.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	herbert@gondor.apana.org.au, dhowells@redhat.com,
 	zohar@linux.vnet.ibm.com, David.Woodhouse@intel.com
-To: steffen.klassert@secunet.com
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20151021065704.GM7701@secunet.com>
+In-Reply-To: <20151021105442.GM6948@oracle.com>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 21 Oct 2015 08:57:04 +0200
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 21 Oct 2015 06:54:42 -0400
 
-> On Mon, Oct 19, 2015 at 05:23:29PM -0400, Sowmini Varadhan wrote:
->> On sparc, deleting established SAs (e.g., by restarting ipsec
->> at the peer) results in unaligned access messages via
->> xfrm_del_sa -> km_state_notify -> xfrm_send_state_notify().
->> Use an aligned pointer to xfrm_usersa_info for this case.
+> On (10/21/15 08:57), Steffen Klassert wrote:
+>> > --- a/net/xfrm/xfrm_user.c
+>> > +++ b/net/xfrm/xfrm_user.c
+>> > @@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
+>> >  		if (attr == NULL)
+>> >  			goto out_free_skb;
+>> >  
+>> > -		p = nla_data(attr);
+>> > +		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
 >> 
->> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
->> ---
->>  net/xfrm/xfrm_user.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
+>> Hm, this breaks userspace notifications on 64-bit systems.
+>> Userspace expects this to be aligned to 4, with your patch
+>> it is aligned to 8 on 64-bit.
 >> 
->> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
->> index a8de9e3..158ef4a 100644
->> --- a/net/xfrm/xfrm_user.c
->> +++ b/net/xfrm/xfrm_user.c
->> @@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
->>  		if (attr == NULL)
->>  			goto out_free_skb;
->>  
->> -		p = nla_data(attr);
->> +		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
+>> Without your patch I get the correct notification when deleting a SA:
+>> 
 > 
-> Hm, this breaks userspace notifications on 64-bit systems.
-> Userspace expects this to be aligned to 4, with your patch
-> it is aligned to 8 on 64-bit.
+> But __alignof__(*p) is 8 on sparc, and without the patch I get
+> all types of unaligned access. So what do you suggest as the fix?
 
-That's correct, netlink attributes are fundamentally only 4 byte
-aligned and this cannot be changed.  nla_data() is exactly
-where the attribute must be placed, aligned or not.
+The accesses have to be done using something like get_unaligned() and
+put_unaligned().
 
-The only workaround is, when designing netlink attributes.  Various
-netlink libraries have workarounds for accessing, for example, 64-bit
-stats which are going to be unaligned in netlink messages.
+Sorry, but the protocol is set in stone and this is unfortunately how
+it is.
