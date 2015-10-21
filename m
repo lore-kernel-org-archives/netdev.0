@@ -1,74 +1,114 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Wed, 21 Oct 2015 15:44:37 -0700
-Message-ID: <56281555.3030504@plumgrid.com>
-References: <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
- <562545AA.2080207@plumgrid.com>
- <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
- <56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>
- <56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>
- <56267FAF.60206@plumgrid.com> <87io61fjx3.fsf@x220.int.ebiederm.org>
- <5627AC79.5000704@iogearbox.net> <20151021183447.GC23554@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: Thomas Graf <tgraf@suug.ch>, Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151021183447.GC23554@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Wed, 21 Oct 2015 15:58:03 -0700
+Message-ID: <1445468283-4592-1-git-send-email-ast@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33742 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754663AbbJUW6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 18:58:11 -0400
+Received: by pabrc13 with SMTP id rc13so67270244pab.0
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 15:58:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/21/15 11:34 AM, Thomas Graf wrote:
->> So far, during this discussion, it was proposed to modify the file system
->> >to a single-mount one and to stick this under/sys/kernel/bpf/. This
->> >will not have "real" namespace support either, but it was proposed to
->> >have a following structure:
->> >
->> >   /sys/kernel/bpf/username/<optional_dirs_mkdir_by_user>/progX
-> This would probably work as you would typically map the ebpf map
-> using -v like this to give a stable path:
->
->          docker run -v /sys/kernel/bpf/foo/maps/progX:/map proX
+Fix safety checks for bpf_perf_event_read():
+- only non-inherited events can be added to perf_event_array map
+  (do this check statically at map insertion time)
+- dynamically check that event is local and !pmu->count
+Otherwise buggy bpf program can cause kernel splat.
 
-yep
-tracefs works inside docker the same way.
-May be we should let users pick names similar to this fs patch to make
-the above easier to use.
-Also from bpf syscall point of the user shouldn't see
-/sys/kernel/bpf/user/ prefix. Only 'optional_dirs_mkdir_by_user/name'
-when doing pin/new_fd.
-May be prog type should be a fixed part of the path as well.
+Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+v1->v2: fix compile in case of !CONFIG_PERF_EVENTS
 
->> >Together with device cgroups for containers, it would allow scenarios where
->> >you can have:
->> >
->> >   * eBPF (map/prog) device pass-through so a map/prog could even be shared out
->> >     from the initial namespace into individual ones/all (one could possibly
->> >     extend such maps as read-only for these consumers).
->> >   * eBPF device creation for unprivileged users with permissions being set
->> >     accordingly (as in fs case).
->> >   * Since cgroup controller can also do wildcards on major/minors, we could
->> >     make that further fine-grained.
->> >   * eBPF device creation can also be enforced by the cgroup controller to be
->> >     entirely disallowed for a specific container.
+This patch is on top of
+http://patchwork.ozlabs.org/patch/533585/
+to avoid conflicts.
+Even in the worst case the crash is not possible.
+Only warn_on_once, so imo net-next is ok.
 
-none of the above is practical. It can be demoed in a canned
-environment, but it's a complete mismatch of apis. cgroup/dev is a
-static config, whereas bpf-cdev is dynamic (with minors out of idr for
-all users) When you have to hack drivers/base/core.c to get there it
-should have been a warning sign that something is wrong with
-this cdev approach.
+ kernel/bpf/arraymap.c |    9 +++++----
+ kernel/events/core.c  |   16 ++++++++++------
+ 2 files changed, 15 insertions(+), 10 deletions(-)
 
-> I've read the discussion passively and my take away is that, frankly,
-> I think the differences are somewhat minor. Both architectures can
-> scale to what we need. Both will do the job. I'm slightly worried about
-> exposing uAPI as a FS, I think that didn't work too well for sysfs. It's
-> pretty much a define the format once and never touch it again kind of
-> deal.
-
-It's even worse in cdev style since it piggy backs on sysfs.
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index e3cfe46b074f..75529cc94304 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -294,10 +294,11 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
+ 	if (IS_ERR(attr))
+ 		return (void *)attr;
+ 
+-	if (attr->type != PERF_TYPE_RAW &&
+-	    !(attr->type == PERF_TYPE_SOFTWARE &&
+-	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+-	    attr->type != PERF_TYPE_HARDWARE) {
++	if ((attr->type != PERF_TYPE_RAW &&
++	     !(attr->type == PERF_TYPE_SOFTWARE &&
++	       attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
++	     attr->type != PERF_TYPE_HARDWARE) ||
++	    attr->inherit) {
+ 		perf_event_release_kernel(event);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 64754bfecd70..0b6333265872 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -3258,7 +3258,7 @@ static inline u64 perf_event_count(struct perf_event *event)
+ u64 perf_event_read_local(struct perf_event *event)
+ {
+ 	unsigned long flags;
+-	u64 val;
++	u64 val = -EINVAL;
+ 
+ 	/*
+ 	 * Disabling interrupts avoids all counter scheduling (context
+@@ -3267,12 +3267,14 @@ u64 perf_event_read_local(struct perf_event *event)
+ 	local_irq_save(flags);
+ 
+ 	/* If this is a per-task event, it must be for current */
+-	WARN_ON_ONCE((event->attach_state & PERF_ATTACH_TASK) &&
+-		     event->hw.target != current);
++	if ((event->attach_state & PERF_ATTACH_TASK) &&
++	    event->hw.target != current)
++		goto out;
+ 
+ 	/* If this is a per-CPU event, it must be for this CPU */
+-	WARN_ON_ONCE(!(event->attach_state & PERF_ATTACH_TASK) &&
+-		     event->cpu != smp_processor_id());
++	if (!(event->attach_state & PERF_ATTACH_TASK) &&
++	    event->cpu != smp_processor_id())
++		goto out;
+ 
+ 	/*
+ 	 * It must not be an event with inherit set, we cannot read
+@@ -3284,7 +3286,8 @@ u64 perf_event_read_local(struct perf_event *event)
+ 	 * It must not have a pmu::count method, those are not
+ 	 * NMI safe.
+ 	 */
+-	WARN_ON_ONCE(event->pmu->count);
++	if (event->pmu->count)
++		goto out;
+ 
+ 	/*
+ 	 * If the event is currently on this CPU, its either a per-task event,
+@@ -3295,6 +3298,7 @@ u64 perf_event_read_local(struct perf_event *event)
+ 		event->pmu->read(event);
+ 
+ 	val = local64_read(&event->count);
++out:
+ 	local_irq_restore(flags);
+ 
+ 	return val;
+-- 
+1.7.9.5
