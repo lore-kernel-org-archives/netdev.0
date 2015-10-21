@@ -1,52 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: don't use CHECKSUM_PARTIAL on MSG_MORE/UDP_CORK
- sockets
-Date: Wed, 21 Oct 2015 14:52:33 +0200
-Message-ID: <1445431953.1205852.416263057.606CE717@webmail.messagingengine.com>
-References: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
- <5626B4A3.6080900@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
+ xfrm_notify_sa() for DELSA
+Date: Wed, 21 Oct 2015 06:10:43 -0700 (PDT)
+Message-ID: <20151021.061043.723408372175418569.davem@davemloft.net>
+References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
+	<65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
+	<20151021065704.GM7701@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sd@quesysnail.net, bcodding@redhat.com
-To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49889 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752971AbbJUMwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 08:52:34 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id A75A3204B9
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 08:52:33 -0400 (EDT)
-In-Reply-To: <5626B4A3.6080900@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sowmini.varadhan@oracle.com, linux-crypto@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, dhowells@redhat.com,
+	zohar@linux.vnet.ibm.com, David.Woodhouse@intel.com
+To: steffen.klassert@secunet.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20151021065704.GM7701@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 20, 2015, at 23:39, Vlad Yasevich wrote:
-> I am now wondering if this might be UFO related instead and looking for a
-> nic that
-> has UFO support.
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 21 Oct 2015 08:57:04 +0200
 
-I doubt that.
+> On Mon, Oct 19, 2015 at 05:23:29PM -0400, Sowmini Varadhan wrote:
+>> On sparc, deleting established SAs (e.g., by restarting ipsec
+>> at the peer) results in unaligned access messages via
+>> xfrm_del_sa -> km_state_notify -> xfrm_send_state_notify().
+>> Use an aligned pointer to xfrm_usersa_info for this case.
+>> 
+>> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>> ---
+>>  net/xfrm/xfrm_user.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>> 
+>> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+>> index a8de9e3..158ef4a 100644
+>> --- a/net/xfrm/xfrm_user.c
+>> +++ b/net/xfrm/xfrm_user.c
+>> @@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
+>>  		if (attr == NULL)
+>>  			goto out_free_skb;
+>>  
+>> -		p = nla_data(attr);
+>> +		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
+> 
+> Hm, this breaks userspace notifications on 64-bit systems.
+> Userspace expects this to be aligned to 4, with your patch
+> it is aligned to 8 on 64-bit.
 
-We overallocate memory first time in ip6_append_data because we are in
-MSG_MORE mode. Then, in my case the second write only copies data into
-the first skb on the write queue, no skb is appended to frags_list. So
-udp6_hwcsum_outgoing doesn't clean up the flags, either.
+That's correct, netlink attributes are fundamentally only 4 byte
+aligned and this cannot be changed.  nla_data() is exactly
+where the attribute must be placed, aligned or not.
 
-We can improve the check if we fragment an ipv6 skb in ip6_append_mode
-in net-next, I agree. But I still see this fix suitable for 'net' tree.
-
-We could also improve udp6_hwcsum_outgoing to check if our packets get
-fragmented and fall back to the clean-up path. But I think this kind of
-optimization should go into net-next, too.
-
-Currently the check made sure we don't use PARTIAL on skbs which could
-fragment. MSG_MORE somehow circumvented that check, so I think the fix
-is good to go. We certainly can try to improve PARTIAL checksums for
-fragmented packets.
-
-What do you think?
-
-Bye,
-Hannes
+The only workaround is, when designing netlink attributes.  Various
+netlink libraries have workarounds for accessing, for example, 64-bit
+stats which are going to be unaligned in netlink messages.
