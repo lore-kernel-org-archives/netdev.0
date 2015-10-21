@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 02/15] net: wireless: ath: Remove unnecessary semicolon
-Date: Wed, 21 Oct 2015 20:25:24 +0530
-Message-ID: <1445439337-19055-3-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 06/15] net: wireless: rtwifi: Remove duplicated arguments to |
+Date: Wed, 21 Oct 2015 20:25:28 +0530
+Message-ID: <1445439337-19055-7-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,28 +18,35 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the htt_rx.c that removes unneeded semicolon which is
-reported by coccicheck.
+Remove uncessary repeated arguments COMP_EFUSE, COMP_REGD, COMP_CHAN
+ with OR(|)
 
-Here semicolon just create empty statement so please remote it.
+This is patch to the debug.c file that removes following warning
+reported by coccicheck:
+
+-duplicated argument to & or |
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/rtlwifi/debug.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-index 1b7a043..002a633 100644
---- a/drivers/net/wireless/ath/ath10k/htt_rx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
-@@ -2077,7 +2077,7 @@ void ath10k_htt_t2h_msg_handler(struct ath10k *ar, struct sk_buff *skb)
- 		ath10k_dbg_dump(ar, ATH10K_DBG_HTT_DUMP, NULL, "htt event: ",
- 				skb->data, skb->len);
- 		break;
--	};
-+	}
+diff --git a/drivers/net/wireless/rtlwifi/debug.c b/drivers/net/wireless/rtlwifi/debug.c
+index fd25aba..b8f5540 100644
+--- a/drivers/net/wireless/rtlwifi/debug.c
++++ b/drivers/net/wireless/rtlwifi/debug.c
+@@ -37,9 +37,9 @@ void rtl_dbgp_flag_init(struct ieee80211_hw *hw)
+ 	    COMP_BEACON | COMP_RATE | COMP_RXDESC | COMP_DIG | COMP_TXAGC |
+ 	    COMP_POWER | COMP_POWER_TRACKING | COMP_BB_POWERSAVING | COMP_SWAS |
+ 	    COMP_RF | COMP_TURBO | COMP_RATR | COMP_CMD |
+-	    COMP_EFUSE | COMP_QOS | COMP_MAC80211 | COMP_REGD | COMP_CHAN |
+-	    COMP_EASY_CONCURRENT | COMP_EFUSE | COMP_QOS | COMP_MAC80211 |
+-	    COMP_REGD | COMP_CHAN | COMP_BT_COEXIST;
++	    COMP_EFUSE | COMP_QOS | COMP_MAC80211 | COMP_CHAN |
++	    COMP_EASY_CONCURRENT | COMP_QOS | COMP_MAC80211 |
++	    COMP_REGD | COMP_BT_COEXIST;
  
- 	/* Free the indication buffer */
- 	dev_kfree_skb_any(skb);
+ 
+ 	for (i = 0; i < DBGP_TYPE_MAX; i++)
 -- 
 2.5.3
