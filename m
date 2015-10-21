@@ -1,77 +1,267 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [RFC PATCH 2/5] netfilter: Factor out
-	nf_ct_get_info().
-Date: Wed, 21 Oct 2015 10:50:23 +0200
-Message-ID: <20151021085023.GA15766@pox.localdomain>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-2-git-send-email-jrajahalme@nicira.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa
+ node
+Date: Wed, 21 Oct 2015 10:55:12 +0200
+Message-ID: <562752F0.1020502@suse.cz>
+References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
+ <5612DCC8.4040605@gmail.com>
+ <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
+ <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
+ <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
+ <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
+ <CAEP_g=8TTh7pQL_DadBPdhfat+gd_XizGJqWK2wvHvo7oy6WaQ@mail.gmail.com>
+ <3C0B7B0E-FDF9-45F5-9CA4-6A8D3CBB2E5C@nicira.com>
+ <EDC4CBA7-1E5A-47B6-9F45-8365840F4E53@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1445379629-112880-2-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+ Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+ "dev@openvswitch.org" <dev@openvswitch.org>,
+ Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
+ netdev <netdev@vger.kernel.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ linux-mm@kvack.org, Pekka Enberg <penberg@kernel.org>,
+ Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>
+To: Jarno Rajahalme <jrajahalme@nicira.com>, Jesse Gross <jesse@nicira.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <EDC4CBA7-1E5A-47B6-9F45-8365840F4E53@nicira.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-T24gMTAvMjAvMTUgYXQgMDM6MjBwbSwgSmFybm8gUmFqYWhhbG1lIHdyb3RlOgo+IERlZmluZSBh
-IG5ldyBpbmxpbmUgZnVuY3Rpb24gdG8gbWFwIGNvbm50cmFjayBzdGF0dXMgdG8gZW51bQo+IGlw
-X2Nvbm50cmFja19pbmZvLiAgVGhpcyByZW1vdmVzIHRoZSBuZWVkIHRvIG90aGVyd2lzZSBkdXBs
-aWNhdGUgdGhpcwo+IGNvZGUgaW4gYSBsYXRlciBwYXRjaC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBK
-YXJubyBSYWphaGFsbWUgPGpyYWphaGFsbWVAbmljaXJhLmNvbT4KCkxHVE0KCj4gLS0tCj4gIGlu
-Y2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaCB8IDE1ICsrKysrKysrKysrKysrKwo+
-ICBuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMgICAgfCAyMiArKystLS0tLS0tLS0t
-LS0tLS0tLS0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMTggaW5zZXJ0aW9ucygrKSwgMTkgZGVsZXRp
-b25zKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJh
-Y2suaCBiL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaAo+IGluZGV4IGZkZTQw
-NjguLmIzZGUxMGUgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50
-cmFjay5oCj4gKysrIGIvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oCj4gQEAg
-LTEyNSw2ICsxMjUsMjEgQEAgbmZfY3RfdHVwbGVoYXNoX3RvX2N0cmFjayhjb25zdCBzdHJ1Y3Qg
-bmZfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmhhc2gpCj4gIAkJCSAgICB0dXBsZWhhc2hbaGFzaC0+
-dHVwbGUuZHN0LmRpcl0pOwo+ICB9Cj4gIAo+ICtzdGF0aWMgaW5saW5lIGVudW0gaXBfY29ubnRy
-YWNrX2luZm8KPiArbmZfY3RfZ2V0X2luZm8oY29uc3Qgc3RydWN0IG5mX2Nvbm50cmFja190dXBs
-ZV9oYXNoICpoKQo+ICt7Cj4gKwljb25zdCBzdHJ1Y3QgbmZfY29ubiAqY3QgPSBuZl9jdF90dXBs
-ZWhhc2hfdG9fY3RyYWNrKGgpOwo+ICsKPiArCWlmIChORl9DVF9ESVJFQ1RJT04oaCkgPT0gSVBf
-Q1RfRElSX1JFUExZKQo+ICsJCXJldHVybiBJUF9DVF9FU1RBQkxJU0hFRF9SRVBMWTsKPiArCS8q
-IE9uY2Ugd2UndmUgaGFkIHR3byB3YXkgY29tbXMsIGFsd2F5cyBFU1RBQkxJU0hFRC4gKi8KPiAr
-CWlmICh0ZXN0X2JpdChJUFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3RhdHVzKSkKPiArCQlyZXR1
-cm4gSVBfQ1RfRVNUQUJMSVNIRUQ7Cj4gKwlpZiAodGVzdF9iaXQoSVBTX0VYUEVDVEVEX0JJVCwg
-JmN0LT5zdGF0dXMpKQo+ICsJCXJldHVybiBJUF9DVF9SRUxBVEVEOwo+ICsJcmV0dXJuIElQX0NU
-X05FVzsKPiArfQo+ICsKPiAgc3RhdGljIGlubGluZSB1X2ludDE2X3QgbmZfY3RfbDNudW0oY29u
-c3Qgc3RydWN0IG5mX2Nvbm4gKmN0KQo+ICB7Cj4gIAlyZXR1cm4gY3QtPnR1cGxlaGFzaFtJUF9D
-VF9ESVJfT1JJR0lOQUxdLnR1cGxlLnNyYy5sM251bTsKPiBkaWZmIC0tZ2l0IGEvbmV0L25ldGZp
-bHRlci9uZl9jb25udHJhY2tfY29yZS5jIGIvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29y
-ZS5jCj4gaW5kZXggM2NiM2NiOC4uNzBkZGJkOCAxMDA2NDQKPiAtLS0gYS9uZXQvbmV0ZmlsdGVy
-L25mX2Nvbm50cmFja19jb3JlLmMKPiArKysgYi9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19j
-b3JlLmMKPiBAQCAtMTA1NiwyNSArMTA1Niw5IEBAIHJlc29sdmVfbm9ybWFsX2N0KHN0cnVjdCBu
-ZXQgKm5ldCwgc3RydWN0IG5mX2Nvbm4gKnRtcGwsCj4gIAljdCA9IG5mX2N0X3R1cGxlaGFzaF90
-b19jdHJhY2soaCk7Cj4gIAo+ICAJLyogSXQgZXhpc3RzOyB3ZSBoYXZlIChub24tZXhjbHVzaXZl
-KSByZWZlcmVuY2UuICovCj4gLQlpZiAoTkZfQ1RfRElSRUNUSU9OKGgpID09IElQX0NUX0RJUl9S
-RVBMWSkgewo+IC0JCSpjdGluZm8gPSBJUF9DVF9FU1RBQkxJU0hFRF9SRVBMWTsKPiAtCQkvKiBQ
-bGVhc2Ugc2V0IHJlcGx5IGJpdCBpZiB0aGlzIHBhY2tldCBPSyAqLwo+IC0JCSpzZXRfcmVwbHkg
-PSAxOwo+IC0JfSBlbHNlIHsKPiAtCQkvKiBPbmNlIHdlJ3ZlIGhhZCB0d28gd2F5IGNvbW1zLCBh
-bHdheXMgRVNUQUJMSVNIRUQuICovCj4gLQkJaWYgKHRlc3RfYml0KElQU19TRUVOX1JFUExZX0JJ
-VCwgJmN0LT5zdGF0dXMpKSB7Cj4gLQkJCXByX2RlYnVnKCJuZl9jb25udHJhY2tfaW46IG5vcm1h
-bCBwYWNrZXQgZm9yICVwXG4iLCBjdCk7Cj4gLQkJCSpjdGluZm8gPSBJUF9DVF9FU1RBQkxJU0hF
-RDsKPiAtCQl9IGVsc2UgaWYgKHRlc3RfYml0KElQU19FWFBFQ1RFRF9CSVQsICZjdC0+c3RhdHVz
-KSkgewo+IC0JCQlwcl9kZWJ1ZygibmZfY29ubnRyYWNrX2luOiByZWxhdGVkIHBhY2tldCBmb3Ig
-JXBcbiIsCj4gLQkJCQkgY3QpOwo+IC0JCQkqY3RpbmZvID0gSVBfQ1RfUkVMQVRFRDsKPiAtCQl9
-IGVsc2Ugewo+IC0JCQlwcl9kZWJ1ZygibmZfY29ubnRyYWNrX2luOiBuZXcgcGFja2V0IGZvciAl
-cFxuIiwgY3QpOwo+IC0JCQkqY3RpbmZvID0gSVBfQ1RfTkVXOwo+IC0JCX0KPiAtCQkqc2V0X3Jl
-cGx5ID0gMDsKPiAtCX0KPiArCSpjdGluZm8gPSBuZl9jdF9nZXRfaW5mbyhoKTsKPiArCSpzZXRf
-cmVwbHkgPSBORl9DVF9ESVJFQ1RJT04oaCkgPT0gSVBfQ1RfRElSX1JFUExZOwo+ICsKPiAgCXNr
-Yi0+bmZjdCA9ICZjdC0+Y3RfZ2VuZXJhbDsKPiAgCXNrYi0+bmZjdGluZm8gPSAqY3RpbmZvOwo+
-ICAJcmV0dXJuIGN0OwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
-dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 10/20/2015 07:58 PM, Jarno Rajahalme wrote:
+>
+>> On Oct 9, 2015, at 5:02 PM, Jarno Rajahalme <jrajahalme@nicira.com
+>> <mailto:jrajahalme@nicira.com>> wrote:
+>>
+>>
+>>> On Oct 9, 2015, at 3:11 PM, Jesse Gross <jesse@nicira.com
+>>> <mailto:jesse@nicira.com>> wrote:
+>>>
+>>> On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme
+>>> <jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>> wrote:
+>>>>
+>>>> On Oct 8, 2015, at 4:03 PM, Jesse Gross <jesse@nicira.com
+>>>> <mailto:jesse@nicira.com>> wrote:
+>>>>
+>>>> On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme
+>>>> <jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>>
+>>>> wrote:
+>>>>
+>>>>
+>>>> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com
+>>>> <mailto:jesse@nicira.com>> wrote:
+>>>>
+>>>> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
+>>>> <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote=
+:
+>>>>
+>>>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
+>>>>
+>>>>
+>>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
+>>>>
+>>>>
+>>>> When openvswitch tries allocate memory from offline numa node 0:
+>>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP=
+_ZERO,
+>>>> 0)
+>>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES ||
+>>>> !node_online(nid))
+>>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gf=
+p.h
+>>>> This patch disables numa affinity in this case.
+>>>>
+>>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru
+>>>> <mailto:khlebnikov@yandex-team.ru>>
+>>>>
+>>>>
+>>>>
+>>>> ...
+>>>>
+>>>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_tab=
+le.c
+>>>> index f2ea83ba4763..c7f74aab34b9 100644
+>>>> --- a/net/openvswitch/flow_table.c
+>>>> +++ b/net/openvswitch/flow_table.c
+>>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>>>
+>>>>    /* Initialize the default stat node. */
+>>>>    stats =3D kmem_cache_alloc_node(flow_stats_cache,
+>>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
+>>>> +                      GFP_KERNEL | __GFP_ZERO,
+>>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
+>>>>
+>>>>
+>>>>
+>>>> Stupid question: can node 0 become offline between this check, and t=
+he
+>>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
+>>>>
+>>>>
+>>>>
+>>>> Another question to ask would be is it possible for node 0 to be
+>>>> online, but
+>>>> be a memoryless node?
+>>>>
+>>>> I would say you are better off just making this call
+>>>> kmem_cache_alloc.  I
+>>>> don't see anything that indicates the memory has to come from node 0=
+, so
+>>>> adding the extra overhead doesn't provide any value.
+>>>>
+>>>>
+>>>> I agree that this at least makes me wonder, though I actually have
+>>>> concerns in the opposite direction - I see assumptions about this
+>>>> being on node 0 in net/openvswitch/flow.c.
+>>>>
+>>>> Jarno, since you original wrote this code, can you take a look to se=
+e
+>>>> if everything still makes sense?
+>>>>
+>>>>
+>>>> We keep the pre-allocated stats node at array index 0, which is
+>>>> initially
+>>>> used by all CPUs, but if CPUs from multiple numa nodes start
+>>>> updating the
+>>>> stats, we allocate additional stats nodes (up to one per numa node),
+>>>> and the
+>>>> CPUs on node 0 keep using the preallocated entry. If stats cannot be
+>>>> allocated from CPUs local node, then those CPUs keep using the entry=
+ at
+>>>> index 0. Currently the code in net/openvswitch/flow.c will try to
+>>>> allocate
+>>>> the local memory repeatedly, which may not be optimal when there is =
+no
+>>>> memory at the local node.
+>>>>
+>>>> Allocating the memory for the index 0 from other than node 0, as
+>>>> discussed
+>>>> here, just means that the CPUs on node 0 will keep on using
+>>>> non-local memory
+>>>> for stats. In a scenario where there are CPUs on two nodes (0, 1),
+>>>> but only
+>>>> the node 1 has memory, a shared flow entry will still end up having
+>>>> separate
+>>>> memory allocated for both nodes, but both of the nodes would be at
+>>>> node 1.
+>>>> However, there is still a high likelihood that the memory
+>>>> allocations would
+>>>> not share a cache line, which should prevent the nodes from invalida=
+ting
+>>>> each other=E2=80=99s caches. Based on this I do not see a problem re=
+laxing the
+>>>> memory allocation for the default stats node. If node 0 has memory,
+>>>> however,
+>>>> it would be better to allocate the memory from node 0.
+>>>>
+>>>>
+>>>> Thanks for going through all of that.
+>>>>
+>>>> It seems like the question that is being raised is whether it actual=
+ly
+>>>> makes sense to try to get the initial memory on node 0, especially
+>>>> since it seems to introduce some corner cases? Is there any reason w=
+hy
+>>>> the flow is more likely to hit node 0 than a randomly chosen one?
+>>>> (Assuming that this is a multinode system, otherwise it's kind of a
+>>>> moot point.) We could have a separate pointer to the default allocat=
+ed
+>>>> memory, so it wouldn't conflict with memory that was intentionally
+>>>> allocated for node 0.
+>>>>
+>>>>
+>>>> It would still be preferable to know from which node the default
+>>>> stats node
+>>>> was allocated, and store it in the appropriate pointer in the array.=
+ We
+>>>> could then add a new =E2=80=9Cdefault stats node index=E2=80=9D that=
+ would be used
+>>>> to locate
+>>>> the node in the array of pointers we already have. That way we would
+>>>> avoid
+>>>> extra allocation and processing of the default stats node.
+>>>
+>>> I agree, that sounds reasonable to me. Will you make that change?
+>>>
+>>> Besides eliminating corner cases, it might help performance in some
+>>> cases too by avoiding stressing memory bandwidth on node 0.
+>>
+>
+> According to the comment above kmem_cache_alloc_node(),
+> kmem_cache_alloc_node() should not BUG_ON/WARN_ON in this case:
+>> *//**/*
+>> */* kmem_cache_alloc_node - Allocate an object on the specified node/*
+>> */* @cachep: The cache to allocate from./*
+>> */* @flags: See kmalloc()./*
+>> */* @nodeid: node number of the target node./*
+>> */*/*
+>> */* Identical to kmem_cache_alloc but it will allocate memory on the
+>> given/*
+>> */* node, which can improve the performance for cpu bound structures./=
+*
+>> */*/*
+>> */* Fallback to other node is possible if __GFP_THISNODE is not set./*
+>> */*//*
+> See also this from cpuset.c:
+>
+>> /**
+>>  * cpuset_mem_spread_node() - On which node to begin search for a file
+>> page
+>>  * cpuset_slab_spread_node() - On which node to begin search for a
+>> slab page
+>>  *
+>>  * If a task is marked PF_SPREAD_PAGE or PF_SPREAD_SLAB (as for
+>>  * tasks in a cpuset with is_spread_page or is_spread_slab set),
+>>  * and if the memory allocation used cpuset_mem_spread_node()
+>>  * to determine on which node to start looking, as it will for
+>>  * certain page cache or slab cache pages such as used for file
+>>  * system buffers and inode caches, then instead of starting on the
+>>  * local node to look for a free page, rather spread the starting
+>>  * node around the tasks mems_allowed nodes.
+>>  *
+>>  * We don't have to worry about the returned node being offline
+>>  * because "it can't happen", and even if it did, it would be ok.
+>>  *
+>>  * The routines calling guarantee_online_mems() are careful to
+>>  * only set nodes in task->mems_allowed that are online.  So it
+>>  * should not be possible for the following code to return an
+>>  * offline node.  But if it did, that would be ok, as this routine
+>>  * is not returning the node where the allocation must be, only
+>>  * the node where the search should start.  The zonelist passed to
+>>  * __alloc_pages() will include all nodes.  If the slab allocator
+>>  * is passed an offline node, it will fall back to the local node.
+
+OK, this is probably only true without __GFP_THISNODE.
+
+>>  * See kmem_cache_alloc_node().
+>>  */
+>
+> Based on this it seems this is a bug in the memory allocator, it
+> probably should not be calling alloc_pages_exact_node()
+
+alloc_pages_exact_node() doesn't exist anymore in 4.3-rcX
+
+So what exact problem do you think there is? What I can see is that:
+- cpuset_slab_spread_node() says it shouldn't return offline node, but=20
+asserts that if it happens anyway, slab will fall back
+- slab.c calls the spread_node function from alternate_node_alloc() and=20
+then passes the nodeid to ____cache_alloc_node(), which calls=20
+cache_grow() with __GFP_THISNODE, which eventually calls=20
+__alloc_pages_node() and VM_WARN_ON() may happen for an offline node,=20
+and also with __GFP_THISNODE the allocation will fail... but then a=20
+fallback_alloc() occurs.
+
+So the issue is a potential VM_WARN_ON when/if cpuset_slab_spread_node()=20
+fails to guarantee the node is online?
+
+> when __GFP_THISNODE is not set?
+>
+>    Jarno
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
