@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
- interfaces
-Date: Wed, 21 Oct 2015 08:32:14 -0700 (PDT)
-Message-ID: <20151021.083214.534622235927401863.davem@davemloft.net>
-References: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
-	<20151021.074332.1709904332480699231.davem@davemloft.net>
-	<20151021164613.24650836@griffin>
+Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
+Date: Wed, 21 Oct 2015 08:33:11 -0700 (PDT)
+Message-ID: <20151021.083311.2193871332944250588.davem@davemloft.net>
+References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
+	<5587575.y3COavlu1k@wuerfel>
+	<5627A792.3020201@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thaller@redhat.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44959 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755677AbbJUPPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 11:15:48 -0400
-In-Reply-To: <20151021164613.24650836@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5627A792.3020201@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 21 Oct 2015 16:46:13 +0200
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 21 Oct 2015 07:56:18 -0700
 
-> For example, we could always alloc a new ifindex when moving interfaces
-> between name spaces. That would be probably the tiniest race window we
-> could get to (still not zero!) but I guess it would break apps that
-> assume that ifindex doesn't change when moving interfaces between name
-> spaces (which is not true, such apps are already broken, they just
-> happen to work in 99% of cases). The second best solution that doesn't
-> break those apps at the cost of leaving the race window wider, is this
-> patch.
+>> @@ -57,6 +57,11 @@ extern int of_dma_get_range(struct device_node *np,
+>> u64 *dma_addr,
+>>   				u64 *paddr, u64 *size);
+>>   extern bool of_dma_is_coherent(struct device_node *np);
+>>   #else /* CONFIG_OF_ADDRESS */
+>> +static inline u64 of_translate_address(struct device_node *np, const
+>> __be32 *addr)
+>> +{
+>> +	return 0;
+> 
+> Maybe return OF_BAD_ADDR ?
 
-As you say the apps are broken, so file a bug and have them fixed.
-
-The assumption is clearly invalid, so apps cannot make such an
-assumption.
+The thing to really do on sparc, is just return the address raw untranslated
+because that just works.
