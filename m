@@ -1,68 +1,39 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 4/6] arcnet: com20020-pci: add rotary index
- support
-Date: Thu, 22 Oct 2015 01:27:29 +0800
-Message-ID: <201510220135.3nIResfo%fengguang.wu@intel.com>
-References: <1445442332-10625-5-git-send-email-m.grzeschik@pengutronix.de>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Wed, 21 Oct 2015 10:26:21 -0700
+Message-ID: <5627CABD.7030609@plumgrid.com>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
+ <20151021120636.GB3604@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36699 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750844AbbJURYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2015 13:24:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1445442332-10625-5-git-send-email-m.grzeschik@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151021120636.GB3604@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+On 10/21/15 5:06 AM, Peter Zijlstra wrote:
+>>   	PERF_COUNT_SW_DUMMY			= 9,
+>> >+	PERF_COUNT_SW_BPF_OUTPUT		= 10,
+>> >
+>> >  	PERF_COUNT_SW_MAX,			/* non-ABI */
+>> >  };
+> Do you really need the new type? Can't you use DUMMY for this?
 
-[auto build test WARNING on net-next/master -- if it's inappropriate base, please suggest rules for selecting the more suitable base]
-
-url:    https://github.com/0day-ci/linux/commits/Michael-Grzeschik/arcnet-move-dev_free_skb-to-its-only-user/20151021-235034
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
-
-
-sparse warnings: (new ones prefixed by >>)
-
->> drivers/net/arcnet/com20020-pci.c:101:17: sparse: dereference of noderef expression
-   drivers/net/arcnet/com20020-pci.c:152:36: sparse: dereference of noderef expression
-
-vim +101 drivers/net/arcnet/com20020-pci.c
-
-    85	
-    86		ci = (struct com20020_pci_card_info *)id->driver_data;
-    87		priv->ci = ci;
-    88		mm = &ci->misc_map;
-    89	
-    90		INIT_LIST_HEAD(&priv->list_dev);
-    91	
-    92		if (mm->size) {
-    93			ioaddr = pci_resource_start(pdev, mm->bar) + mm->offset;
-    94			r = devm_request_region(&pdev->dev, ioaddr, mm->size,
-    95						"com20020-pci");
-    96			if (!r) {
-    97				pr_err("IO region %xh-%xh already allocated.\n",
-    98				       ioaddr, ioaddr + mm->size - 1);
-    99				return -EBUSY;
-   100			}
- > 101			priv->misc = ioaddr;
-   102		}
-   103	
-   104		for (i = 0; i < ci->devcount; i++) {
-   105			struct com20020_pci_channel_map *cm = &ci->chan_map_tbl[i];
-   106			struct com20020_dev *card;
-   107	
-   108			dev = alloc_arcdev(device);
-   109			if (!dev) {
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+It works fine with dummy, but user space code looked odd when
+it perf_event_open-s dummy events and starts reading them.
+So I thought either to add alias:
+PERF_COUNT_SW_BPF_OUTPUT = PERF_COUNT_SW_DUMMY
+or
+add new number like I did above.
+New number is cheap and I saw that dummy used for probing,
+so went with new number to disambiguate.
