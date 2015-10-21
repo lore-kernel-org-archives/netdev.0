@@ -1,90 +1,73 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
-Date: Wed, 21 Oct 2015 07:56:18 -0700
-Message-ID: <5627A792.3020201@roeck-us.net>
-References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
- <5587575.y3COavlu1k@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Punit Vara <punitvara@gmail.com>
+Subject: [PATCH 01/15] net: wireless: ath: use | instead of + for summing bitmasks
+Date: Wed, 21 Oct 2015 20:25:23 +0530
+Message-ID: <1445439337-19055-2-git-send-email-punitvara@gmail.com>
+References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
+Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
+	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
+	sgruszka@redhat.com, brudley@broadcom.com, arend@broadcom.com,
+	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
+	mcgrof@do-not-panic.com, k.eugene.e@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, wcn36xx@lists.infradead.org,
+	johannes.berg@intel.com, meuleman@broadcom.com,
+	Punit Vara <punitvara@gmail.com>
+To: kvalo@qca.qualcomm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5587575.y3COavlu1k@wuerfel>
+In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
+This patch is to the ath10k/pci.h file that fixes following warning
+ reported by coccicheck:
 
-On 10/21/2015 07:39 AM, Arnd Bergmann wrote:
-> On Wednesday 21 October 2015 07:29:33 Guenter Roeck wrote:
->> The Hisilicon network driver does not build for Sparc. Enabling
->> COMPILE_TEST for it causes Sparc allmodconfig/allyesconfig builds
->> to fail with
->>
->> drivers/net/ethernet/hisilicon/hns_mdio.c: In function 'hns_mdio_bus_name':
->> drivers/net/ethernet/hisilicon/hns_mdio.c:409:3: error:
->>                  implicit declaration of function 'of_translate_address'
->
-> I see.
->
->> Fixes: 876133d3161d ("net: hisilicon: add OF dependency")
->> Cc: Arnd Bergmann <arnd@arndb.de>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
->>   drivers/net/ethernet/hisilicon/Kconfig | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
->> index f250dec488fd..413935085591 100644
->> --- a/drivers/net/ethernet/hisilicon/Kconfig
->> +++ b/drivers/net/ethernet/hisilicon/Kconfig
->> @@ -5,7 +5,7 @@
->>   config NET_VENDOR_HISILICON
->>          bool "Hisilicon devices"
->>          default y
->> -       depends on OF && (ARM || ARM64 || COMPILE_TEST)
->> +       depends on OF && (ARM || ARM64 || COMPILE_TEST) && !SPARC
->>          ---help---
->>            If you have a network (Ethernet) card belonging to this class, say Y.
->
-> This looks fragile to me. Checking the declaration of of_translate_address,
-> I see now that it actually depends on CONFIG_OF_ADDRESS, which is defined using
-> "depends on !SPARC && HAS_IOMEM". This means we would get the same problem on
-> SCORE, Tile, and UML.
->
-> How about this version?
->
-> diff --git a/include/linux/of_address.h b/include/linux/of_address.h
-> index d88e81be6368..f2f7986cac45 100644
-> --- a/include/linux/of_address.h
-> +++ b/include/linux/of_address.h
-> @@ -57,6 +57,11 @@ extern int of_dma_get_range(struct device_node *np, u64 *dma_addr,
->   				u64 *paddr, u64 *size);
->   extern bool of_dma_is_coherent(struct device_node *np);
->   #else /* CONFIG_OF_ADDRESS */
-> +static inline u64 of_translate_address(struct device_node *np, const __be32 *addr)
-> +{
-> +	return 0;
+WARNING: sum of probable bitmasks, consider |
 
-Maybe return OF_BAD_ADDR ?
+I have replaced + with OR operator | for summing bitmasks
 
-> +}
-> +
->   static inline struct device_node *of_find_matching_node_by_address(
->   					struct device_node *from,
->   					const struct of_device_id *matches,
->
->
-> It looks like it's in line with the other wrappers here. Alternatively,
-> we could decide to use CONFIG_OF_ADDRESS instead of CONFIG_OF as the dependency.
->
-You are right, both of those would be better than my patch.
-My preference would be to introduce the dummy function. This would solve
-the problem for good (it isn't the first time this happens).
+Signed-off-by: Punit Vara <punitvara@gmail.com>
+---
+ drivers/net/wireless/ath/ath10k/pci.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Are you going to submit that patch ?
-
-Thanks,
-Guenter
+diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
+index 1046ab6..165a318 100644
+--- a/drivers/net/wireless/ath/ath10k/pci.c
++++ b/drivers/net/wireless/ath/ath10k/pci.c
+@@ -775,7 +775,7 @@ static u32 ath10k_pci_targ_cpu_to_ce_addr(struct ath10k *ar, u32 addr)
+ 	switch (ar->hw_rev) {
+ 	case ATH10K_HW_QCA988X:
+ 	case ATH10K_HW_QCA6174:
+-		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
++		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
+ 					  CORE_CTRL_ADDRESS) &
+ 		       0x7ff) << 21;
+ 		break;
+@@ -1443,10 +1443,10 @@ static void ath10k_pci_irq_msi_fw_mask(struct ath10k *ar)
+ 	switch (ar->hw_rev) {
+ 	case ATH10K_HW_QCA988X:
+ 	case ATH10K_HW_QCA6174:
+-		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
++		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
+ 					CORE_CTRL_ADDRESS);
+ 		val &= ~CORE_CTRL_PCIE_REG_31_MASK;
+-		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS +
++		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS |
+ 				   CORE_CTRL_ADDRESS, val);
+ 		break;
+ 	case ATH10K_HW_QCA99X0:
+@@ -1464,10 +1464,10 @@ static void ath10k_pci_irq_msi_fw_unmask(struct ath10k *ar)
+ 	switch (ar->hw_rev) {
+ 	case ATH10K_HW_QCA988X:
+ 	case ATH10K_HW_QCA6174:
+-		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
++		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
+ 					CORE_CTRL_ADDRESS);
+ 		val |= CORE_CTRL_PCIE_REG_31_MASK;
+-		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS +
++		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS |
+ 				   CORE_CTRL_ADDRESS, val);
+ 		break;
+ 	case ATH10K_HW_QCA99X0:
+-- 
+2.5.3
