@@ -1,69 +1,68 @@
-From: Michael Thompson <mthompson@switchways.com>
-Subject: VMware Users List
-Date: Wed, 21 Oct 2015 13:43:34 -0400
-Message-ID: <5627CEC6.3020703@switchways.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 01/12] PCI: Add virtfn_index for struct pci_device
+Date: Wed, 21 Oct 2015 11:07:22 -0700
+Message-ID: <5627D45A.4040502@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <1445445464-5056-2-git-send-email-tianyu.lan@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33918 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847AbbJUSGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 14:06:36 -0400
-Received: by padhk11 with SMTP id hk11so61272636pad.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 11:06:36 -0700 (PDT)
-Received: from [127.0.0.1] ([103.6.157.158])
-        by smtp.gmail.com with ESMTPSA id zk9sm10324451pac.7.2015.10.21.11.06.34
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 21 Oct 2015 11:06:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Lan Tianyu <tianyu.lan@intel.com>, bhelgaas@google.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
+	pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445445464-5056-2-git-send-email-tianyu.lan@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/21/2015 09:37 AM, Lan Tianyu wrote:
+> Add "virtfn_index" member in the struct pci_device to record VF sequence
+> of PF. This will be used in the VF sysfs node handle.
+>
+> Signed-off-by: Lan Tianyu <tianyu.lan@intel.com>
+> ---
+>   drivers/pci/iov.c   | 1 +
+>   include/linux/pci.h | 1 +
+>   2 files changed, 2 insertions(+)
+>
+> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+> index ee0ebff..065b6bb 100644
+> --- a/drivers/pci/iov.c
+> +++ b/drivers/pci/iov.c
+> @@ -136,6 +136,7 @@ static int virtfn_add(struct pci_dev *dev, int id, int reset)
+>   	virtfn->physfn = pci_dev_get(dev);
+>   	virtfn->is_virtfn = 1;
+>   	virtfn->multifunction = 0;
+> +	virtfn->virtfn_index = id;
+>   
+>   	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
+>   		res = &dev->resource[i + PCI_IOV_RESOURCES];
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 353db8d..85c5531 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -356,6 +356,7 @@ struct pci_dev {
+>   	unsigned int	io_window_1k:1;	/* Intel P2P bridge 1K I/O windows */
+>   	unsigned int	irq_managed:1;
+>   	pci_dev_flags_t dev_flags;
+> +	unsigned int	virtfn_index;
+>   	atomic_t	enable_cnt;	/* pci_enable_device has been called */
+>   
+>   	u32		saved_config_space[16]; /* config space saved at suspend time */
+>
 
-Hi,
+Can't you just calculate the VF index based on the VF BDF number 
+combined with the information in the PF BDF number and VF 
+offset/stride?  Seems kind of pointless to add a variable that is only 
+used by one driver and is in a slowpath when you can just calculate it 
+pretty quickly.
 
-Hope this email finds you well!
-
-Would you be interested in reaching out to "VMware Users List=E2=80=9D =
-for across USA with opt-in verified contact information?
-
-We also have the list of  VMware Clusters, VMware Distributed Resource =
-Scheduler (DRS), VMware ESX Server, VMware Fusion, VMware GSX Server, V=
-Mware Server, VMware Site Recovery Manager (SRM), VMware ThinApp, VMwar=
-e vCenter, VMware vCenter Converter, VMware vCenter Lab Manager, VMware=
- vCloud, VMware vFabric GemFire, VMware View, VMware Virtual Infrastruc=
-ture, VMware vMotion, VMware vShield, VMware vSphere, VMware Workstatio=
-n, Avaya List, Adobe List, Barracuda List, BMC List, Cisco List, Citrix=
- List, EMC List, HP List, HP List, Infor List, Java List, Juniper List,=
- Microsoft List, Netapp List, Netsuite List, Nortel List, Novell List, =
-Oracle List, Sage List, Salesforce List, SAP List, Siemens List, Symant=
-ec List, and many more...
-
-Our Data fields on each record contains: Company, Name, First Name, Las=
-t Name, Title, HQ Phone, Direct No, Email, Address1, Address2, City, St=
-ate, Zip, Country, Industry, Revenue, Employees, IT Budget, IT Employee=
-s, Website, Technology, Company HQ Address1, Company HQ Address2, Compa=
-ny HQ City, Company HQ State, Company HQ Zip, Company HQ Country and Li=
-nked-in link.
-
-All the contacts are opt-in verified, 100% permission based and can be =
-used for unlimited  multi-channel marketing.
-
-If you can let me know target criteria, I can get back to you with prop=
-er response.
-
-Look forward to your prompt response.
-
-Best Regards,
-Michael Thompson
-
-Reply =E2=80=9CLeave-out=E2=80=9D if you do not wish to receive emails =
-from us.
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+- Alex
