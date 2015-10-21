@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output() helper
-Date: Tue, 20 Oct 2015 20:02:34 -0700
-Message-ID: <1445396556-4854-3-git-send-email-ast@kernel.org>
+Subject: [PATCH net-next 3/3] samples: bpf: add bpf_perf_event_output example
+Date: Tue, 20 Oct 2015 20:02:35 -0700
+Message-ID: <1445396556-4854-4-git-send-email-ast@kernel.org>
 References: <1445396556-4854-1-git-send-email-ast@kernel.org>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
@@ -15,158 +15,318 @@ In-Reply-To: <1445396556-4854-1-git-send-email-ast@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This helper is used to send raw data from eBPF program into
-special PERF_TYPE_SOFTWARE/PERF_COUNT_SW_BPF_OUTPUT perf_event.
-User space needs to perf_event_open() it (either for one or all cpus) and
-store FD into perf_event_array (similar to bpf_perf_event_read() helper)
-before eBPF program can send data into it.
+Performance test and example of bpf_perf_event_output().
+kprobe is attached to sys_write() and trivial bpf program streams
+pid+cookie into userspace via PERF_COUNT_SW_BPF_OUTPUT event.
 
-Today the programs triggered by kprobe collect the data and either store
-it into the maps or print it via bpf_trace_printk() where latter is the debug
-facility and not suitable to stream the data. This new helper replaces
-such bpf_trace_printk() usage and allows programs to have dedicated
-channel into user space for post-processing of the raw data collected.
+Usage:
+$ sudo ./bld_x64/samples/bpf/trace_output
+recv 2968913 events per sec
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/uapi/linux/bpf.h        |   11 ++++++++++
- include/uapi/linux/perf_event.h |    1 +
- kernel/bpf/arraymap.c           |    2 ++
- kernel/bpf/verifier.c           |    3 ++-
- kernel/trace/bpf_trace.c        |   46 +++++++++++++++++++++++++++++++++++++++
- 5 files changed, 62 insertions(+), 1 deletion(-)
+ samples/bpf/Makefile            |    7 ++
+ samples/bpf/bpf_helpers.h       |    2 +
+ samples/bpf/trace_output_kern.c |   31 +++++++
+ samples/bpf/trace_output_user.c |  196 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 236 insertions(+)
+ create mode 100644 samples/bpf/trace_output_kern.c
+ create mode 100644 samples/bpf/trace_output_user.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 564f1f091991..2e032426cfb7 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -287,6 +287,17 @@ enum bpf_func_id {
- 	 * Return: realm if != 0
- 	 */
- 	BPF_FUNC_get_route_realm,
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 63e7d50e6a4f..b30514514e37 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -13,6 +13,7 @@ hostprogs-y += tracex3
+ hostprogs-y += tracex4
+ hostprogs-y += tracex5
+ hostprogs-y += tracex6
++hostprogs-y += trace_output
+ hostprogs-y += lathist
+ 
+ test_verifier-objs := test_verifier.o libbpf.o
+@@ -27,6 +28,7 @@ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+ tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
+ tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
++trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ 
+ # Tell kbuild to always build the programs
+@@ -40,6 +42,7 @@ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
+ always += tracex6_kern.o
++always += trace_output_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
+ 
+@@ -55,6 +58,7 @@ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
++HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+ 
+ # point this to your LLVM backend with bpf support
+@@ -64,3 +68,6 @@ $(obj)/%.o: $(src)/%.c
+ 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+ 		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+ 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
++	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
++		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=asm -o $@.s
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 21aa1b44c30c..b35c21e0b43f 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -37,6 +37,8 @@ static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
+ 	(void *) BPF_FUNC_clone_redirect;
+ static int (*bpf_redirect)(int ifindex, int flags) =
+ 	(void *) BPF_FUNC_redirect;
++static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data, int size) =
++	(void *) BPF_FUNC_perf_event_output;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
+diff --git a/samples/bpf/trace_output_kern.c b/samples/bpf/trace_output_kern.c
+new file mode 100644
+index 000000000000..8d8d1ec429eb
+--- /dev/null
++++ b/samples/bpf/trace_output_kern.c
+@@ -0,0 +1,31 @@
++#include <linux/ptrace.h>
++#include <linux/version.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
 +
-+	/**
-+	 * bpf_perf_event_output(ctx, map, index, data, size) - output perf raw sample
-+	 * @ctx: struct pt_regs*
-+	 * @map: pointer to perf_event_array map
-+	 * @index: index of event in the map
-+	 * @data: data on stack to be output as raw data
-+	 * @size: size of data
-+	 * Return: 0 on success
-+	 */
-+	BPF_FUNC_perf_event_output,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/include/uapi/linux/perf_event.h b/include/uapi/linux/perf_event.h
-index 2881145cda86..d3c417615361 100644
---- a/include/uapi/linux/perf_event.h
-+++ b/include/uapi/linux/perf_event.h
-@@ -110,6 +110,7 @@ enum perf_sw_ids {
- 	PERF_COUNT_SW_ALIGNMENT_FAULTS		= 7,
- 	PERF_COUNT_SW_EMULATION_FAULTS		= 8,
- 	PERF_COUNT_SW_DUMMY			= 9,
-+	PERF_COUNT_SW_BPF_OUTPUT		= 10,
- 
- 	PERF_COUNT_SW_MAX,			/* non-ABI */
- };
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index f2d9e698c753..e3cfe46b074f 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -295,6 +295,8 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
- 		return (void *)attr;
- 
- 	if (attr->type != PERF_TYPE_RAW &&
-+	    !(attr->type == PERF_TYPE_SOFTWARE &&
-+	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
- 	    attr->type != PERF_TYPE_HARDWARE) {
- 		perf_event_release_kernel(event);
- 		return ERR_PTR(-EINVAL);
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 1d6b97be79e1..b56cf51f8d42 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -245,6 +245,7 @@ static const struct {
- } func_limit[] = {
- 	{BPF_MAP_TYPE_PROG_ARRAY, BPF_FUNC_tail_call},
- 	{BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_read},
-+	{BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_output},
- };
- 
- static void print_verifier_state(struct verifier_env *env)
-@@ -910,7 +911,7 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		 * don't allow any other map type to be passed into
- 		 * the special func;
- 		 */
--		if (bool_map != bool_func)
-+		if (bool_func && bool_map != bool_func)
- 			return -EINVAL;
- 	}
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 0fe96c7c8803..47febbe7998e 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -215,6 +215,50 @@ const struct bpf_func_proto bpf_perf_event_read_proto = {
- 	.arg2_type	= ARG_ANYTHING,
- };
- 
-+static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
++	.key_size = sizeof(int),
++	.value_size = sizeof(u32),
++	.max_entries = 2,
++};
++
++SEC("kprobe/sys_write")
++int bpf_prog1(struct pt_regs *ctx)
 +{
-+	struct pt_regs *regs = (struct pt_regs *) (long) r1;
-+	struct bpf_map *map = (struct bpf_map *) (long) r2;
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	void *data = (void *) (long) r4;
-+	struct perf_sample_data sample_data;
-+	struct perf_event *event;
-+	struct perf_raw_record raw = {
-+		.size = size,
-+		.data = data,
-+	};
++	struct S {
++		u64 pid;
++		u64 cookie;
++	} data;
 +
-+	if (unlikely(index >= array->map.max_entries))
-+		return -E2BIG;
++	memset(&data, 0, sizeof(data));
++	data.pid = bpf_get_current_pid_tgid();
++	data.cookie = 0x12345678;
 +
-+	event = (struct perf_event *)array->ptrs[index];
-+	if (unlikely(!event))
-+		return -ENOENT;
++	bpf_perf_event_output(ctx, &my_map, 0, &data, sizeof(data));
 +
-+	if (unlikely(event->attr.type != PERF_TYPE_SOFTWARE ||
-+		     event->attr.config != PERF_COUNT_SW_BPF_OUTPUT))
-+		return -EINVAL;
-+
-+	if (unlikely(event->oncpu != smp_processor_id()))
-+		return -EOPNOTSUPP;
-+
-+	perf_sample_data_init(&sample_data, 0, 0);
-+	sample_data.raw = &raw;
-+	perf_event_output(event, &sample_data, regs);
 +	return 0;
 +}
 +
-+static const struct bpf_func_proto bpf_perf_event_output_proto = {
-+	.func		= bpf_perf_event_output,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_CONST_MAP_PTR,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_PTR_TO_STACK,
-+	.arg5_type	= ARG_CONST_STACK_SIZE,
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/trace_output_user.c b/samples/bpf/trace_output_user.c
+new file mode 100644
+index 000000000000..661a7d052f2c
+--- /dev/null
++++ b/samples/bpf/trace_output_user.c
+@@ -0,0 +1,196 @@
++/* This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include <stdbool.h>
++#include <string.h>
++#include <fcntl.h>
++#include <poll.h>
++#include <sys/ioctl.h>
++#include <linux/perf_event.h>
++#include <linux/bpf.h>
++#include <errno.h>
++#include <assert.h>
++#include <sys/syscall.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <time.h>
++#include <signal.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++static int pmu_fd;
++
++int page_size;
++int page_cnt = 8;
++volatile struct perf_event_mmap_page *header;
++
++typedef void (*print_fn)(void *data, int size);
++
++static int perf_event_mmap(int fd)
++{
++	void *base;
++	int mmap_size;
++
++	page_size = getpagesize();
++	mmap_size = page_size * (page_cnt + 1);
++
++	base = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++	if (base == MAP_FAILED) {
++		printf("mmap err\n");
++		return -1;
++	}
++
++	header = base;
++	return 0;
++}
++
++static int perf_event_poll(int fd)
++{
++	struct pollfd pfd = { .fd = fd, .events = POLLIN };
++
++	return poll(&pfd, 1, 1000);
++}
++
++struct perf_event_sample {
++	struct perf_event_header header;
++	__u32 size;
++	char data[];
 +};
 +
- static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -242,6 +286,8 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
- 		return &bpf_get_smp_processor_id_proto;
- 	case BPF_FUNC_perf_event_read:
- 		return &bpf_perf_event_read_proto;
-+	case BPF_FUNC_perf_event_output:
-+		return &bpf_perf_event_output_proto;
- 	default:
- 		return NULL;
- 	}
++void perf_event_read(print_fn fn)
++{
++	__u64 data_tail = header->data_tail;
++	__u64 data_head = header->data_head;
++	__u64 buffer_size = page_cnt * page_size;
++	void *base, *begin, *end;
++	char buf[256];
++
++	asm volatile("" ::: "memory"); /* in real code it should be smp_rmb() */
++	if (data_head == data_tail)
++		return;
++
++	base = ((char *)header) + page_size;
++
++	begin = base + data_tail % buffer_size;
++	end = base + data_head % buffer_size;
++
++	while (begin != end) {
++		struct perf_event_sample *e;
++
++		e = begin;
++		if (begin + e->header.size > base + buffer_size) {
++			long len = base + buffer_size - begin;
++
++			assert(len < e->header.size);
++			memcpy(buf, begin, len);
++			memcpy(buf + len, base, e->header.size - len);
++			e = (void *) buf;
++			begin = base + e->header.size - len;
++		} else if (begin + e->header.size == base + buffer_size) {
++			begin = base;
++		} else {
++			begin += e->header.size;
++		}
++
++		if (e->header.type == PERF_RECORD_SAMPLE) {
++			fn(e->data, e->size);
++		} else if (e->header.type == PERF_RECORD_LOST) {
++			struct {
++				struct perf_event_header header;
++				__u64 id;
++				__u64 lost;
++			} *lost = (void *) e;
++			printf("lost %lld events\n", lost->lost);
++		} else {
++			printf("unknown event type=%d size=%d\n",
++			       e->header.type, e->header.size);
++		}
++	}
++
++	__sync_synchronize(); /* smp_mb() */
++	header->data_tail = data_head;
++}
++
++static __u64 time_get_ns(void)
++{
++	struct timespec ts;
++
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++}
++
++static __u64 start_time;
++
++#define MAX_CNT 100000ll
++
++static void print_bpf_output(void *data, int size)
++{
++	static __u64 cnt;
++	struct {
++		__u64 pid;
++		__u64 cookie;
++	} *e = data;
++
++	if (e->cookie != 0x12345678) {
++		printf("BUG pid %llx cookie %llx sized %d\n",
++		       e->pid, e->cookie, size);
++		kill(0, SIGINT);
++	}
++
++	cnt++;
++
++	if (cnt == MAX_CNT) {
++		printf("recv %lld events per sec\n",
++		       MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++		kill(0, SIGINT);
++	}
++}
++
++static void test_bpf_perf_event(void)
++{
++	struct perf_event_attr attr = {
++		.sample_type = PERF_SAMPLE_RAW,
++		.type = PERF_TYPE_SOFTWARE,
++		.config = PERF_COUNT_SW_BPF_OUTPUT,
++	};
++	int key = 0;
++
++	pmu_fd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
++
++	assert(pmu_fd >= 0);
++	assert(bpf_update_elem(map_fd[0], &key, &pmu_fd, BPF_ANY) == 0);
++	ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0);
++}
++
++int main(int argc, char **argv)
++{
++	char filename[256];
++	FILE *f;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	test_bpf_perf_event();
++
++	if (perf_event_mmap(pmu_fd) < 0)
++		return 1;
++
++	f = popen("taskset 1 dd if=/dev/zero of=/dev/null", "r");
++	(void) f;
++
++	start_time = time_get_ns();
++	for (;;) {
++		perf_event_poll(pmu_fd);
++		perf_event_read(print_bpf_output);
++	}
++
++	return 0;
++}
 -- 
 1.7.9.5
