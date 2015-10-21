@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bcm63xx_enet: check 1000BASE-T advertisement
- configuration
-Date: Wed, 21 Oct 2015 06:37:10 -0700 (PDT)
-Message-ID: <20151021.063710.39524773982732550.davem@davemloft.net>
-References: <562005D6.30204@simon.arlott.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/2] net, phy, smsc: add posibility to disable
+ energy detect mode
+Date: Wed, 21 Oct 2015 06:42:58 -0700 (PDT)
+Message-ID: <20151021.064258.171088607791931068.davem@davemloft.net>
+References: <1445054676-21523-1-git-send-email-hs@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: simon@fire.lp0.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755037AbbJUNUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:20:45 -0400
-In-Reply-To: <562005D6.30204@simon.arlott.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	balbi-l0cyMroinI0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Georg.Soffel-k21M0aUVSxZWk0Htik3J/w@public.gmane.org, tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org,
+	lsorense-1wCw9BSqJbv44Nm34jS7GywD8/FfD2ys@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org,
+	richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: hs-ynQEQJNshbs@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1445054676-21523-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Arlott <simon@fire.lp0.eu>
-Date: Thu, 15 Oct 2015 21:00:22 +0100
+From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Date: Sat, 17 Oct 2015 06:04:34 +0200
 
-> If a gigabit ethernet PHY is connected to a fast ethernet MAC,
-> then it can detect 1000 support from the partner but not use it.
+> On some boards the energy enable detect mode leads in
+> trouble with some switches, so make the enabling of
+> this mode configurable through DT.
+> Therefore the property "smsc,disable-energy-detect" is
+> introduced.
 > 
-> This results in a forced speed of 1000 and RX/TX failure.
+> Patch 1 introduces phy-handle support for the ti,cpsw
+> driver. This is needed now for the smsc phy.
 > 
-> Check for 1000BASE-T support and then check the advertisement
-> configuration before setting the MAC speed to 1000mbit.
-> 
-> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+> Patch 2 adds the disable energy mode functionality
+> to the smsc phy
 
-Applied, thanks.
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
