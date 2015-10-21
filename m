@@ -1,19 +1,18 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH v2 08/15] net: wireless: simplify return flow for usb_control_msg
-Date: Thu, 22 Oct 2015 00:37:08 +0530
-Message-ID: <1445454428-12331-2-git-send-email-punitvara@gmail.com>
-References: <1445454428-12331-1-git-send-email-punitvara@gmail.com>
+Subject: [PATCH v2 05/15] net: wireless: ti: Return flow can be simplified for wl1271_cmd_interrogate
+Date: Thu, 22 Oct 2015 00:37:07 +0530
+Message-ID: <1445454428-12331-1-git-send-email-punitvara@gmail.com>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, jslaby@suse.cz, lkp@intel.com,
 	Punit Vara <punitvara@gmail.com>
 To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445454428-12331-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-remove int ret suggested by Jiri Slaby
-This patch is to the at76c50x-usb.c file that fixes up warning
+Remove int ret suggested by kbuild test robot
+
+This patch is to the wlcore/acx.c file that fixes up warning
 reported by coccicheck:
 
 WARNING: end returns can be simplified if negative or 0 value
@@ -22,28 +21,30 @@ Prefer direct return value instead of writing 2-3 more sentence.
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/at76c50x-usb.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/wireless/ti/wlcore/acx.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index dab2513..b4aa062 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -543,14 +543,10 @@ static void at76_ledtrig_tx_activity(void)
- 
- static int at76_remap(struct usb_device *udev)
+diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
+index f28fa3b..6b566d9 100644
+--- a/drivers/net/wireless/ti/wlcore/acx.c
++++ b/drivers/net/wireless/ti/wlcore/acx.c
+@@ -158,16 +158,11 @@ out:
+ int wl1271_acx_mem_map(struct wl1271 *wl, struct acx_header *mem_map,
+ 		       size_t len)
  {
 -	int ret;
--	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
-+	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
- 			      USB_TYPE_VENDOR | USB_DIR_OUT |
- 			      USB_RECIP_INTERFACE, 0, 0, NULL, 0,
- 			      USB_CTRL_GET_TIMEOUT);
+ 
+ 	wl1271_debug(DEBUG_ACX, "acx mem map");
+ 
+-	ret = wl1271_cmd_interrogate(wl, ACX_MEM_MAP, mem_map,
++	return wl1271_cmd_interrogate(wl, ACX_MEM_MAP, mem_map,
+ 				     sizeof(struct acx_header), len);
 -	if (ret < 0)
 -		return ret;
+-
 -	return 0;
  }
  
- static int at76_get_op_mode(struct usb_device *udev)
+ int wl1271_acx_rx_msdu_life_time(struct wl1271 *wl)
 -- 
 2.5.3
