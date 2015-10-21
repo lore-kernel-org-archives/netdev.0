@@ -1,232 +1,61 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output() helper
-Date: Wed, 21 Oct 2015 19:05:28 +0800
-Message-ID: <56277178.4080207@huawei.com>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org> <1445396556-4854-3-git-send-email-ast@kernel.org> <56276261.7010201@huawei.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH 4/5] openvswitch: conntrack netlink API updates.
+Date: Wed, 21 Oct 2015 13:18:59 +0200
+Message-ID: <20151021111859.GA17991@pox.localdomain>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+ <1445379629-112880-4-git-send-email-jrajahalme@nicira.com>
+ <20151021104133.GA2135@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: He Kuang <hekuang@huawei.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:60365 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbbJULGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 07:06:44 -0400
-In-Reply-To: <56276261.7010201@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarno Rajahalme <jrajahalme@nicira.com>, netdev@vger.kernel.org,
+	dev@openvswitch.org, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151021104133.GA2135@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/21/15 at 12:41pm, Pablo Neira Ayuso wrote:
+> On Tue, Oct 20, 2015 at 03:20:28PM -0700, Jarno Rajahalme wrote:
+> > diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> > index 77850f1..1e6c2ac 100644
+> > --- a/net/openvswitch/flow_netlink.c
+> > +++ b/net/openvswitch/flow_netlink.c
+> > @@ -291,7 +291,7 @@ size_t ovs_key_attr_size(void)
+> >  		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
+> >  		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
+> >  		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
+> > -		+ nla_total_size(1)   /* OVS_KEY_ATTR_CT_STATE */
+> > +		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_STATE */
+> >  		+ nla_total_size(2)   /* OVS_KEY_ATTR_CT_ZONE */
+> >  		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
+> >  		+ nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABEL */
+> 
+> This is very strange.
+> 
+> You're changing the size of the netlink attribute, this will break
+> existing userspace applications.
 
+This seems to be a temporary forward port of the following commit. The
+change is backwards compatible.
 
-On 2015/10/21 18:01, He Kuang wrote:
-> hi, Alexei
->
-> I've tested the sample in next patch and it works well. I think more 
-> work on
-> the perf side needs to be done for parsing PERF_COUNT_SW_BPF_OUTPUT 
-> event type,
-> are you working on that?
->
-> Thank you.
+commit fbccce5965a58d56aaed9e9acd1bec75d8a66e87
+Author: Joe Stringer <joestringer@nicira.com>
+Date:   Tue Oct 6 11:00:00 2015 -0700
 
-We need to add something into parse-event.y/l to let it know the new 
-software event.
-We can do this simple task. However, as I gussed before, perf is unable 
-to print
-this new event so there is some work need to be done to let 'perf 
-report' and
-'perf script' know it.
+    openvswitch: Extend ct_state match field to 32 bits
 
-One thing I can still remember is finding a way to inject format 
-information through
-those output so 'perf script' and 'perf data convert --to-ctf' can 
-decode the raw data
-without extra work. Can you remember that we have discussed a solution 
-which connects
-debuginfo and output raw data using a builtin function in LLVM/clang? We 
-already have
-clang/LLVM patch on it, but on perf side I haven't do start working on 
-it. I think we can
-make perf output raw data hexadamically at first.
+    The ct_state field was initially added as an 8-bit field, however six of
+    the bits are already being used and use cases are already starting to
+    appear that may push the limits of this field. This patch extends the
+    field to 32 bits while retaining the internal representation of 8 bits.
+    This should cover forward compatibility of the ABI for the foreseeable
+    future.
 
-I'll do the above work and put related patch at the end of my eBPF 
-patchset because
-they shouldn't be merged until this patchset upstreamed.
+    This patch also reorders the OVS_CS_F_* bits to be sequential.
 
-Thank you.
-
->
-> On 2015/10/21 11:02, Alexei Starovoitov wrote:
->> This helper is used to send raw data from eBPF program into
->> special PERF_TYPE_SOFTWARE/PERF_COUNT_SW_BPF_OUTPUT perf_event.
->> User space needs to perf_event_open() it (either for one or all cpus) 
->> and
->> store FD into perf_event_array (similar to bpf_perf_event_read() helper)
->> before eBPF program can send data into it.
->>
->> Today the programs triggered by kprobe collect the data and either store
->> it into the maps or print it via bpf_trace_printk() where latter is 
->> the debug
->> facility and not suitable to stream the data. This new helper replaces
->> such bpf_trace_printk() usage and allows programs to have dedicated
->> channel into user space for post-processing of the raw data collected.
->>
->> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
->> ---
->>   include/uapi/linux/bpf.h        |   11 ++++++++++
->>   include/uapi/linux/perf_event.h |    1 +
->>   kernel/bpf/arraymap.c           |    2 ++
->>   kernel/bpf/verifier.c           |    3 ++-
->>   kernel/trace/bpf_trace.c        |   46 
->> +++++++++++++++++++++++++++++++++++++++
->>   5 files changed, 62 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->> index 564f1f091991..2e032426cfb7 100644
->> --- a/include/uapi/linux/bpf.h
->> +++ b/include/uapi/linux/bpf.h
->> @@ -287,6 +287,17 @@ enum bpf_func_id {
->>        * Return: realm if != 0
->>        */
->>       BPF_FUNC_get_route_realm,
->> +
->> +    /**
->> +     * bpf_perf_event_output(ctx, map, index, data, size) - output 
->> perf raw sample
->> +     * @ctx: struct pt_regs*
->> +     * @map: pointer to perf_event_array map
->> +     * @index: index of event in the map
->> +     * @data: data on stack to be output as raw data
->> +     * @size: size of data
->> +     * Return: 0 on success
->> +     */
->> +    BPF_FUNC_perf_event_output,
->>       __BPF_FUNC_MAX_ID,
->>   };
->>
->> diff --git a/include/uapi/linux/perf_event.h 
->> b/include/uapi/linux/perf_event.h
->> index 2881145cda86..d3c417615361 100644
->> --- a/include/uapi/linux/perf_event.h
->> +++ b/include/uapi/linux/perf_event.h
->> @@ -110,6 +110,7 @@ enum perf_sw_ids {
->>       PERF_COUNT_SW_ALIGNMENT_FAULTS        = 7,
->>       PERF_COUNT_SW_EMULATION_FAULTS        = 8,
->>       PERF_COUNT_SW_DUMMY            = 9,
->> +    PERF_COUNT_SW_BPF_OUTPUT        = 10,
->>
->>       PERF_COUNT_SW_MAX,            /* non-ABI */
->>   };
->> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
->> index f2d9e698c753..e3cfe46b074f 100644
->> --- a/kernel/bpf/arraymap.c
->> +++ b/kernel/bpf/arraymap.c
->> @@ -295,6 +295,8 @@ static void *perf_event_fd_array_get_ptr(struct 
->> bpf_map *map, int fd)
->>           return (void *)attr;
->>
->>       if (attr->type != PERF_TYPE_RAW &&
->> +        !(attr->type == PERF_TYPE_SOFTWARE &&
->> +          attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
->>           attr->type != PERF_TYPE_HARDWARE) {
->>           perf_event_release_kernel(event);
->>           return ERR_PTR(-EINVAL);
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index 1d6b97be79e1..b56cf51f8d42 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
->> @@ -245,6 +245,7 @@ static const struct {
->>   } func_limit[] = {
->>       {BPF_MAP_TYPE_PROG_ARRAY, BPF_FUNC_tail_call},
->>       {BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_read},
->> +    {BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_FUNC_perf_event_output},
->>   };
->>
->>   static void print_verifier_state(struct verifier_env *env)
->> @@ -910,7 +911,7 @@ static int check_map_func_compatibility(struct 
->> bpf_map *map, int func_id)
->>            * don't allow any other map type to be passed into
->>            * the special func;
->>            */
->> -        if (bool_map != bool_func)
->> +        if (bool_func && bool_map != bool_func)
->>               return -EINVAL;
->>       }
->>
->> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
->> index 0fe96c7c8803..47febbe7998e 100644
->> --- a/kernel/trace/bpf_trace.c
->> +++ b/kernel/trace/bpf_trace.c
->> @@ -215,6 +215,50 @@ const struct bpf_func_proto 
->> bpf_perf_event_read_proto = {
->>       .arg2_type    = ARG_ANYTHING,
->>   };
->>
->> +static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, 
->> u64 size)
->> +{
->> +    struct pt_regs *regs = (struct pt_regs *) (long) r1;
->> +    struct bpf_map *map = (struct bpf_map *) (long) r2;
->> +    struct bpf_array *array = container_of(map, struct bpf_array, map);
->> +    void *data = (void *) (long) r4;
->> +    struct perf_sample_data sample_data;
->> +    struct perf_event *event;
->> +    struct perf_raw_record raw = {
->> +        .size = size,
->> +        .data = data,
->> +    };
->> +
->> +    if (unlikely(index >= array->map.max_entries))
->> +        return -E2BIG;
->> +
->> +    event = (struct perf_event *)array->ptrs[index];
->> +    if (unlikely(!event))
->> +        return -ENOENT;
->> +
->> +    if (unlikely(event->attr.type != PERF_TYPE_SOFTWARE ||
->> +             event->attr.config != PERF_COUNT_SW_BPF_OUTPUT))
->> +        return -EINVAL;
->> +
->> +    if (unlikely(event->oncpu != smp_processor_id()))
->> +        return -EOPNOTSUPP;
->> +
->> +    perf_sample_data_init(&sample_data, 0, 0);
->> +    sample_data.raw = &raw;
->> +    perf_event_output(event, &sample_data, regs);
->> +    return 0;
->> +}
->> +
->> +static const struct bpf_func_proto bpf_perf_event_output_proto = {
->> +    .func        = bpf_perf_event_output,
->> +    .gpl_only    = false,
->> +    .ret_type    = RET_INTEGER,
->> +    .arg1_type    = ARG_PTR_TO_CTX,
->> +    .arg2_type    = ARG_CONST_MAP_PTR,
->> +    .arg3_type    = ARG_ANYTHING,
->> +    .arg4_type    = ARG_PTR_TO_STACK,
->> +    .arg5_type    = ARG_CONST_STACK_SIZE,
->> +};
->> +
->>   static const struct bpf_func_proto *kprobe_prog_func_proto(enum 
->> bpf_func_id func_id)
->>   {
->>       switch (func_id) {
->> @@ -242,6 +286,8 @@ static const struct bpf_func_proto 
->> *kprobe_prog_func_proto(enum bpf_func_id func
->>           return &bpf_get_smp_processor_id_proto;
->>       case BPF_FUNC_perf_event_read:
->>           return &bpf_perf_event_read_proto;
->> +    case BPF_FUNC_perf_event_output:
->> +        return &bpf_perf_event_output_proto;
->>       default:
->>           return NULL;
->>       }
->>
->
+    Suggested-by: Jarno Rajahalme <jrajahalme@nicira.com>
+    Signed-off-by: Joe Stringer <joestringer@nicira.com>
+    Acked-by: Pravin B Shelar <pshelar@nicira.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
