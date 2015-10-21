@@ -1,37 +1,81 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
- interfaces
-Date: Wed, 21 Oct 2015 17:25:02 +0200
-Message-ID: <20151021172502.63220dbb@griffin>
-References: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
-	<20151021.074332.1709904332480699231.davem@davemloft.net>
-	<20151021164613.24650836@griffin>
-	<20151021.083214.534622235927401863.davem@davemloft.net>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH] net: dsa: mv88e6060: Fix false positive lockdep splat
+Date: Wed, 21 Oct 2015 17:37:45 +0200
+Message-ID: <5627B149.6030109@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thaller@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57081 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754915AbbJUPZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2015 11:25:06 -0400
-In-Reply-To: <20151021.083214.534622235927401863.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Oct 2015 08:32:14 -0700 (PDT), David Miller wrote:
-> As you say the apps are broken, so file a bug and have them fixed.
-> 
-> The assumption is clearly invalid, so apps cannot make such an
-> assumption.
+Like the change made for mv88e6xxx, use mutex_lock_nested() to avoid
+lockdep to give false positives because of nested MDIO busses.
 
-Does it mean you would be okay with a patch that always allocates and
-assigns a new ifindex in the target netns when interface is moved
-between name spaces?
+The false positive was observed using a mv88e6060 from a TI816X SoC.
 
- Jiri
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/dsa/mv88e6060.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index c29aebe..b1db460 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -19,14 +19,24 @@
+ #define REG_PORT(p)		(8 + (p))
+ #define REG_GLOBAL		0x0f
+
++/* MDIO bus access can be nested in the case of PHYs connected to the
++ * internal MDIO bus of the switch, which is accessed via MDIO bus of
++ * the Ethernet interface. Avoid lockdep false positives by using
++ * mutex_lock_nested().
++ */
+ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+ {
++	int ret;
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+
+ 	if (bus == NULL)
+ 		return -EINVAL;
+
+-	return mdiobus_read(bus, ds->pd->sw_addr + addr, reg);
++	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
++	ret = bus->read(bus, ds->pd->sw_addr, reg);
++	mutex_unlock(&bus->mdio_lock);
++
++	return ret;
+ }
+
+ #define REG_READ(addr, reg)					\
+@@ -42,12 +52,17 @@ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+
+ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ {
++	int ret;
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
+
+ 	if (bus == NULL)
+ 		return -EINVAL;
+
+-	return mdiobus_write(bus, ds->pd->sw_addr + addr, reg, val);
++	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
++	ret = bus->write(bus, ds->pd->sw_addr, reg, val);
++	mutex_unlock(&bus->mdio_lock);
++
++	return ret;
+ }
+
+ #define REG_WRITE(addr, reg, val)				\
 -- 
-Jiri Benc
+1.9.1
