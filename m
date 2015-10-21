@@ -1,107 +1,126 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH net-next 2/6] arcnet: com20020: add enable and disable device on open/close
-Date: Wed, 21 Oct 2015 17:45:28 +0200
-Message-ID: <1445442332-10625-3-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH net-next 4/6] arcnet: com20020-pci: add rotary index support
+Date: Wed, 21 Oct 2015 17:45:30 +0200
+Message-ID: <1445442332-10625-5-git-send-email-m.grzeschik@pengutronix.de>
 References: <1445442332-10625-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56969 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56278 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbbJUPpp (ORCPT
+	with ESMTP id S1751939AbbJUPpp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 11:45:45 -0400
 In-Reply-To: <1445442332-10625-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the driver to properly work with the linux netif
-interface. The controller gets enabled on open and disabled on close.
-Therefor it removes every bogus start of the xceiver. It only gets
-enabled on com20020_open and disabled on com20020_close.
+The EAE PLX-PCI card has a special rotary encoder
+to configure the address of every card individually.
+We take this information for the initial setup of
+the cards dev_id.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/com20020.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ drivers/net/arcnet/com20020-pci.c | 33 +++++++++++++++++++++++++++++++++
+ drivers/net/arcnet/com20020.h     |  4 ++++
+ 2 files changed, 37 insertions(+)
 
-diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
-index c82f323..436951b 100644
---- a/drivers/net/arcnet/com20020.c
-+++ b/drivers/net/arcnet/com20020.c
-@@ -118,7 +118,7 @@ int com20020_check(struct net_device *dev)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
- 	}
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index e3b7c14e..637a611 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -68,6 +68,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 			     const struct pci_device_id *id)
+ {
+ 	struct com20020_pci_card_info *ci;
++	struct com20020_pci_channel_map *mm;
+ 	struct net_device *dev;
+ 	struct arcnet_local *lp;
+ 	struct com20020_priv *priv;
+@@ -84,9 +85,22 @@ static int com20020pci_probe(struct pci_dev *pdev,
  
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* set node ID to 0x42 (but transmitter is disabled, so it's okay) */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(0x42, ioaddr, COM20020_REG_W_XREG);
-@@ -131,11 +131,6 @@ int com20020_check(struct net_device *dev)
- 	}
- 	arc_printk(D_INIT_REASONS, dev, "status after reset: %X\n", status);
+ 	ci = (struct com20020_pci_card_info *)id->driver_data;
+ 	priv->ci = ci;
++	mm = &ci->misc_map;
  
--	/* Enable TX */
--	lp->config |= TXENcfg;
--	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
--	arcnet_outb(arcnet_inb(ioaddr, 8), ioaddr, COM20020_REG_W_XREG);
--
- 	arcnet_outb(CFLAGScmd | RESETclear | CONFIGclear,
- 		    ioaddr, COM20020_REG_W_COMMAND);
- 	status = arcnet_inb(ioaddr, COM20020_REG_R_STATUS);
-@@ -169,9 +164,33 @@ static int com20020_set_hwaddr(struct net_device *dev, void *addr)
- 	return 0;
- }
+ 	INIT_LIST_HEAD(&priv->list_dev);
  
-+int com20020_netdev_open(struct net_device *dev)
-+{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
++	if (mm->size) {
++		ioaddr = pci_resource_start(pdev, mm->bar) + mm->offset;
++		r = devm_request_region(&pdev->dev, ioaddr, mm->size,
++					"com20020-pci");
++		if (!r) {
++			pr_err("IO region %xh-%xh already allocated.\n",
++			       ioaddr, ioaddr + mm->size - 1);
++			return -EBUSY;
++		}
++		priv->misc = ioaddr;
++	}
 +
-+	lp->config |= TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+
-+	return arcnet_open(dev);
-+}
-+
-+int com20020_netdev_close(struct net_device *dev)
-+{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
-+
-+	arcnet_close(dev);
-+
-+	/* disable transmitter */
-+	lp->config &= ~TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+	return 0;
-+}
-+
- const struct net_device_ops com20020_netdev_ops = {
--	.ndo_open	= arcnet_open,
--	.ndo_stop	= arcnet_close,
-+	.ndo_open	= com20020_netdev_open,
-+	.ndo_stop	= com20020_netdev_close,
- 	.ndo_start_xmit = arcnet_send_packet,
- 	.ndo_tx_timeout = arcnet_timeout,
- 	.ndo_set_mac_address = com20020_set_hwaddr,
-@@ -215,7 +234,7 @@ int com20020_found(struct net_device *dev, int shared)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
- 	}
+ 	for (i = 0; i < ci->devcount; i++) {
+ 		struct com20020_pci_channel_map *cm = &ci->chan_map_tbl[i];
+ 		struct com20020_dev *card;
+@@ -132,6 +146,13 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 		lp->timeout = timeout;
+ 		lp->hw.owner = THIS_MODULE;
  
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* Default 0x38 + register: Node ID */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(dev->dev_addr[0], ioaddr, COM20020_REG_W_XREG);
-@@ -274,7 +293,7 @@ static int com20020_reset(struct net_device *dev, int really_reset)
- 		   dev->name, arcnet_inb(ioaddr, COM20020_REG_R_STATUS));
++		/* Get the dev_id from the PLX rotary coder */
++		if (!strncmp(ci->name, "EAE PLX-PCI MA1", 15))
++			dev->dev_id = 0xc;
++		dev->dev_id ^= inb(priv->misc + ci->rotary) >> 4;
++
++		snprintf(dev->name, sizeof(dev->name), "arc%d-%d", dev->dev_id, i);
++
+ 		if (arcnet_inb(ioaddr, COM20020_REG_R_STATUS) == 0xFF) {
+ 			pr_err("IO address %Xh is empty!\n", ioaddr);
+ 			ret = -EIO;
+@@ -235,6 +256,12 @@ static struct com20020_pci_card_info card_info_eae_arc1 = {
+ 			.size = 0x08,
+ 		},
+ 	},
++	.misc_map = {
++		.bar = 2,
++		.offset = 0x10,
++		.size = 0x04,
++	},
++	.rotary = 0x0,
+ 	.flags = ARC_CAN_10MBIT,
+ };
  
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2);
-+	lp->config |= (lp->timeout << 3) | (lp->backplane << 2);
- 	/* power-up defaults */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
+@@ -252,6 +279,12 @@ static struct com20020_pci_card_info card_info_eae_ma1 = {
+ 			.size = 0x08,
+ 		}
+ 	},
++	.misc_map = {
++		.bar = 2,
++		.offset = 0x10,
++		.size = 0x04,
++	},
++	.rotary = 0x0,
+ 	.flags = ARC_CAN_10MBIT,
+ };
+ 
+diff --git a/drivers/net/arcnet/com20020.h b/drivers/net/arcnet/com20020.h
+index 22a460f..4363b65 100644
+--- a/drivers/net/arcnet/com20020.h
++++ b/drivers/net/arcnet/com20020.h
+@@ -47,6 +47,9 @@ struct com20020_pci_card_info {
+ 	int devcount;
+ 
+ 	struct com20020_pci_channel_map chan_map_tbl[PLX_PCI_MAX_CARDS];
++	struct com20020_pci_channel_map misc_map;
++
++	int rotary;
+ 
+ 	unsigned int flags;
+ };
+@@ -54,6 +57,7 @@ struct com20020_pci_card_info {
+ struct com20020_priv {
+ 	struct com20020_pci_card_info *ci;
+ 	struct list_head list_dev;
++	int __iomem misc;
+ };
+ 
+ struct com20020_dev {
 -- 
 2.6.1
