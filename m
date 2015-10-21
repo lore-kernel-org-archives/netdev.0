@@ -1,63 +1,52 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH v2 1/3] unix: fix use-after-free in unix_dgram_poll()
-Date: Wed, 21 Oct 2015 18:34:12 +0100
-Message-ID: <87d1w8f7mz.fsf@doppelsaurus.mobileactivedefense.com>
-References: <cover.1443817522.git.jbaron@akamai.com>
-	<f4e283269e7063317956ea1de6fdc58449ee75cd.1443817522.git.jbaron@akamai.com>
-	<87bncdxool.fsf@doppelsaurus.mobileactivedefense.com>
-	<5612B9A9.8050301@akamai.com>
-	<87lhb7sttz.fsf@doppelsaurus.mobileactivedefense.com>
-	<561DCFA4.3010300@akamai.com>
-	<87d1wh8hqh.fsf@doppelsaurus.mobileactivedefense.com>
-	<561F156E.9050905@akamai.com>
-	<87fv17x59w.fsf@doppelsaurus.mobileactivedefense.com>
-	<5625073C.5010809@akamai.com>
-	<87vba1i383.fsf@doppelsaurus.mobileactivedefense.com>
+From: punit vara <punitvara@gmail.com>
+Subject: Re: [PATCH 08/15] net: wireless: simplify return flow for usb_control_msg
+Date: Wed, 21 Oct 2015 23:35:06 +0530
+Message-ID: <CABXAfNJwZV7u9ZGF4p3--mz1gnLGnGVmcAJnq7o9H_jheD9r5w@mail.gmail.com>
+References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
+	<1445439337-19055-9-git-send-email-punitvara@gmail.com>
+	<5627A88F.3030608@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, minipli@googlemail.com,
-	normalperson@yhbt.net, eric.dumazet@gmail.com,
-	viro@zeniv.linux.org.uk, davidel@xmailserver.org,
-	dave@stgolabs.net, olivier@mauras.ch, pageexec@freemail.hu,
-	torvalds@linux-foundation.org, peterz@infradead.org
-To: Jason Baron <jbaron@akamai.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vba1i383.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Tue, 20 Oct 2015 23:29:00 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>, stas.yakovlev@gmail.com,
+	chaoming_li@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	sgruszka@redhat.com, brudley@broadcom.com, arend@broadcom.com,
+	John Linville <linville@tuxdriver.com>,
+	Nick Kossifidis <mickflemm@gmail.com>, mcgrof@do-not-panic.com,
+	Eugene Krasnikov <k.eugene.e@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, wcn36xx@lists.infradead.org,
+	johannes.berg@intel.com, meuleman@broadcom.com
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:34603 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404AbbJUSFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 14:05:07 -0400
+In-Reply-To: <5627A88F.3030608@suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
-> Jason Baron <jbaron@akamai.com> writes:
->> On 10/18/2015 04:58 PM, Rainer Weikusat wrote:
-
-[...]
-
->> 1)
->>
->> In unix_peer_wake_relay() function, 'sk_wq' is an __rcu pointer and thus
->> it requires proper dereferencing. Something like:
->>
->> struct unix_sock *u;
->> struct socket_wq *wq;
->>
->> u = container_of(wait, struct unix_sock, wait);
->> rcu_read_lock();
->> wq = rcu_dereference(u->sk.sk_wq);
->> if (wq_has_sleeper(wq))
->> 	wake_up_interruptible_sync_poll(&wq->wait, key);
->> rcu_read_unlock();
+On Wed, Oct 21, 2015 at 8:30 PM, Jiri Slaby <jslaby@suse.cz> wrote:
+> On 10/21/2015, 04:55 PM, Punit Vara wrote:
+>> @@ -544,13 +544,10 @@ static void at76_ledtrig_tx_activity(void)
+>>  static int at76_remap(struct usb_device *udev)
+>>  {
+>>       int ret;
+>> -     ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
+>> +     return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x0a,
+>>                             USB_TYPE_VENDOR | USB_DIR_OUT |
+>>                             USB_RECIP_INTERFACE, 0, 0, NULL, 0,
+>>                             USB_CTRL_GET_TIMEOUT);
+>> -     if (ret < 0)
+>> -             return ret;
+>> -     return 0;
 >
-> I think this may be unecessary
-
-I consider this unnecessary now.
-
-Rationale: The wait queue is allocated and freed in tandem with the
-socket inode which means it will remain allocated until after the
-protocol release function (unix_release with the bulk of the
-implementation being in unix_release_sock) returned. As the connection
-with the other socket is broken in unix_release_sock, any relayed wake
-up must have completed before this time (since both operations take
-place while holding the same wait queue lock).
+> ret is now unused, right?
+>
+> --
+> js
+> suse labs
+Oppp..Sorry I have missed int ret to remove . I will resend the
+updated patch soon
