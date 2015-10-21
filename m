@@ -1,62 +1,56 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 net-next] xfrm: Fix unaligned access to stats in
- copy_to_user_state()
-Date: Wed, 21 Oct 2015 11:48:25 -0400
-Message-ID: <20151021154722.GA14667@oracle.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
+Date: Wed, 21 Oct 2015 17:57:24 +0200
+Message-ID: <4129407.LpDXnpSZOL@wuerfel>
+References: <1445437773-23261-1-git-send-email-linux@roeck-us.net> <5627A792.3020201@roeck-us.net> <20151021.083311.2193871332944250588.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net
-To: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux@roeck-us.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20151021.083311.2193871332944250588.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 21 October 2015 08:33:11 David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Wed, 21 Oct 2015 07:56:18 -0700
+> 
+> >> @@ -57,6 +57,11 @@ extern int of_dma_get_range(struct device_node *np,
+> >> u64 *dma_addr,
+> >>                              u64 *paddr, u64 *size);
+> >>   extern bool of_dma_is_coherent(struct device_node *np);
+> >>   #else /* CONFIG_OF_ADDRESS */
+> >> +static inline u64 of_translate_address(struct device_node *np, const
+> >> __be32 *addr)
+> >> +{
+> >> +    return 0;
+> > 
+> > Maybe return OF_BAD_ADDR ?
+> 
+> The thing to really do on sparc, is just return the address raw untranslated
+> because that just works.
+> 
 
-On sparc, deleting established SAs (e.g., by restarting ipsec)
-results in unaligned access messages via xfrm_del_sa -> 
-km_state_notify -> xfrm_send_state_notify().
+We still need to check #address-cells, right?
 
-Even though struct xfrm_usersa_info is aligned on 8-byte boundaries,
-netlink attributes are fundamentally only 4 byte aligned, and this
-cannot be changed for nla_data() that is passed up to userspace.
-As a result, the put_unaligned() macro needs to be used to
-set up potentially unaligned fields such as the xfrm_stats in
-copy_to_user_state()
+Something like this?
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-v2: review comment from thread: cannot use PTR_ALIGN as this would break
-    userspace assumptions about 4 byte alignment. Use *_unaligned() macros
-    as needed, instead.
+static inline u64 of_translate_address(struct device_node *np, const __be32 *addr)
+{
+#if defined(CONFIG_SPARC) || defined(CONFIG_M68K)
+	int pna = of_n_addr_cells(np);
+	u64 ret = be32_to_cpu(addr[pna - 1]);
 
- net/xfrm/xfrm_user.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+	if (pna > 1)
+		ret += (u64)be32_to_cpu(addr[pna - 2]) << 32;
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index a8de9e3..639e0d5 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -31,6 +31,7 @@
- #if IS_ENABLED(CONFIG_IPV6)
- #include <linux/in6.h>
- #endif
-+#include <asm/unaligned.h>
- 
- static int verify_one_alg(struct nlattr **attrs, enum xfrm_attr_type_t type)
- {
-@@ -728,7 +729,9 @@ static void copy_to_user_state(struct xfrm_state *x, struct xfrm_usersa_info *p)
- 	memcpy(&p->sel, &x->sel, sizeof(p->sel));
- 	memcpy(&p->lft, &x->lft, sizeof(p->lft));
- 	memcpy(&p->curlft, &x->curlft, sizeof(p->curlft));
--	memcpy(&p->stats, &x->stats, sizeof(p->stats));
-+	put_unaligned(x->stats.replay_window, &p->stats.replay_window);
-+	put_unaligned(x->stats.replay, &p->stats.replay);
-+	put_unaligned(x->stats.integrity_failed, &p->stats.integrity_failed);
- 	memcpy(&p->saddr, &x->props.saddr, sizeof(p->saddr));
- 	p->mode = x->props.mode;
- 	p->replay_window = x->props.replay_window;
--- 
-1.7.1
+	return ret;
+#else
+	return OF_BAD_ADDR;
+#endif
+}
+
+	Arnd
