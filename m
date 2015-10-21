@@ -1,54 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC PATCH 2/5] netfilter: Factor out nf_ct_get_info().
-Date: Wed, 21 Oct 2015 12:45:56 +0200
-Message-ID: <20151021104556.GC2135@salvia>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-2-git-send-email-jrajahalme@nicira.com>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 21 Oct 2015 11:49:06 +0100
+Message-ID: <56276DA2.8010905@oracle.com>
+References: <20151019095938.72ea48e6@xeon-e3>	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>	 <562594E1.8040403@oracle.com>	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>	 <56261092.7080003@oracle.com>	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <56264596.90104@oracle.com> <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com> <5626887D.5050308@oracle.com> <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	netfilter-devel@vger.kernel.org
-To: Jarno Rajahalme <jrajahalme@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1445379629-112880-2-git-send-email-jrajahalme@nicira.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34544 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbbJUKtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 06:49:20 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2015 at 03:20:26PM -0700, Jarno Rajahalme wrote:
-> Define a new inline function to map conntrack status to enum
-> ip_conntrack_info.  This removes the need to otherwise duplicate this
-> code in a later patch.
+On 21/10/2015 11:25, David Laight wrote:
 
-Where is that later patch that justifies this update?
+>> The problem with poll() is that it returns immediately when passed a FD
+>> that is in the listening state. rather than waiting until there's an
+>> incoming connection to handle. As I said, that means you can't use
+>> poll() to multiplex between read/write/accept sockets.
+>
+> That seems to work for me...
 
-> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> ---
->  include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
->  net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
->  2 files changed, 18 insertions(+), 19 deletions(-)
-> 
-> diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-> index fde4068..b3de10e 100644
-> --- a/include/net/netfilter/nf_conntrack.h
-> +++ b/include/net/netfilter/nf_conntrack.h
-> @@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
->  			    tuplehash[hash->tuple.dst.dir]);
->  }
->  
-> +static inline enum ip_conntrack_info
-> +nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
-> +{
-> +	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-> +
-> +	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
-> +		return IP_CT_ESTABLISHED_REPLY;
-> +	/* Once we've had two way comms, always ESTABLISHED. */
-> +	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
-> +		return IP_CT_ESTABLISHED;
-> +	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
-> +		return IP_CT_RELATED;
-> +	return IP_CT_NEW;
-> +}
+In my test case I was setting all the available event bits in 
+pollfd.events to see what came back. With poll() on a listen() socket 
+you get an immediate return with bits set in revents indicating the 
+socket is available for output, which of course it isn't. Indeed an 
+attempt to write to it fails. If you remove the output event bits in 
+pollfd.events then the poll() waits as expected until there's an 
+incoming connection on the socket.
 
-I would really like to see how you want to use this.
+I suppose one answer is "Well, don't do that then" but returning an 
+output indication on a socket that's in listen() seems rather odd.
+
+With POLLOUT|POLLWRNORM|POLLWRBAND:
+
+main: polling #1
+[returns immediately]
+main: poll #1: Success
+poll fd: 0 revents: POLLOUT POLLWRBAND
+main: write #1: Transport endpoint is not connected
+
+Without POLLOUT|POLLWRNORM|POLLWRBAND:
+
+main: polling #1
+[waits for connection]
+main: poll #1: Success
+poll fd: 0 revents: POLLIN POLLRDNORM
+
+-- 
+Alan Burlison
+--
