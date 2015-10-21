@@ -1,58 +1,97 @@
-From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
-Date: Wed, 21 Oct 2015 11:34:59 +0200
-Message-ID: <20151021093459.GA31323@breakpoint.cc>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
+From: yankejian <yankejian@huawei.com>
+Subject: [PATCH net-next] net: hisilicon: deals with the sub ctrl by syscon
+Date: Wed, 21 Oct 2015 17:57:44 +0800
+Message-ID: <1445421464-238140-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1445379629-112880-5-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <liguozhu@huawei.com>, <yisen.zhuang@huawei.com>,
+	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+	<yankejian@huawei.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SmFybm8gUmFqYWhhbG1lIDxqcmFqYWhhbG1lQG5pY2lyYS5jb20+IHdyb3RlOgo+IEV4dGVuZCBP
-VlMgY29ubnRyYWNrIGludGVyZmFjZSB0byBjb3ZlciBOQVQuICBOZXcgbmVzdGVkCj4gT1ZTX0NU
-X0FUVFJfTkFUIG1heSBiZSB1c2VkIHRvIGluY2x1ZGUgTkFUIHdpdGggYSBDVCBhY3Rpb24uICBB
-IGJhcmUKPiBPVlNfQ1RfQVRUUl9OQVQgb25seSBtYW5nbGVzIGV4aXN0aW5nIGNvbm5lY3Rpb25z
-LiAgSWYKPiBPVlNfTkFUX0FUVFJfU1JDIG9yIE9WU19OQVRfQVRUUl9EU1QgaXMgaW5jbHVkZWQg
-d2l0aGluIHRoZSBuZXN0ZWQKPiBhdHRyaWJ1dGVzLCBuZXcgKG5vbi1jb21taXR0ZWQvbm9uLWNv
-bmZpcm1lZCkgY29ubmVjdGlvbnMgYXJlIG1hbmdsZWQKPiBhY2NvcmRpbmcgdG8gdGhlIHJlc3Qg
-b2YgdGhlIG5lc3RlZCBhdHRyaWJ1dGVzLgo+IAo+IFRoaXMgd29yayBleHRlbmRzIG9uIGEgYnJh
-bmNoIGJ5IFRob21hcyBHcmFmIGF0Cj4gaHR0cHM6Ly9naXRodWIuY29tL3RncmFmL292cy90cmVl
-L25hdC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGpyYWphaGFsbWVAbmlj
-aXJhLmNvbT4KPiAtLS0KPiAgaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgNDgg
-KysrLQo+ICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICAyNSArLQo+ICBuZXQv
-b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICB8IDU0MyArKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKystLS0KPiAgbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5oICAgICAgfCAg
-IDIgKwo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgICB8ICAxMSArLQo+ICA1IGZp
-bGVzIGNoYW5nZWQsIDU4MCBpbnNlcnRpb25zKCspLCA0OSBkZWxldGlvbnMoLSkKPiAKPiBkaWZm
-IC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggYi9pbmNsdWRlL3VhcGkv
-bGludXgvb3BlbnZzd2l0Y2guaAo+IGluZGV4IDA5OGQ4YjUuLjlkNjM0NzIgMTAwNjQ0Cj4gLS0t
-IGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmgKPiArKysgYi9pbmNsdWRlL3VhcGkv
-bGludXgvb3BlbnZzd2l0Y2guaAo+IEBAIC00NTQsNiArNDU0LDEyIEBAIHN0cnVjdCBvdnNfa2V5
-X2N0X2xhYmVsIHsKPiAgI2RlZmluZSBPVlNfQ1NfRl9SRVBMWV9ESVIgICAgICAgICAweDA4IC8q
-IEZsb3cgaXMgaW4gdGhlIHJlcGx5IGRpcmVjdGlvbi4gKi8KPiAgI2RlZmluZSBPVlNfQ1NfRl9J
-TlZBTElEICAgICAgICAgICAweDEwIC8qIENvdWxkIG5vdCB0cmFjayBjb25uZWN0aW9uLiAqLwo+
-ICAjZGVmaW5lIE9WU19DU19GX1RSQUNLRUQgICAgICAgICAgIDB4MjAgLyogQ29ubnRyYWNrIGhh
-cyBvY2N1cnJlZC4gKi8KPiArI2RlZmluZSBPVlNfQ1NfRl9TUkNfTkFUICAgICAgICAgICAweDQw
-IC8qIFBhY2tldCdzIHNvdXJjZSBhZGRyZXNzL3BvcnQgd2FzCj4gKwkJCQkJICAgbWFuZ2xlZCBi
-eSBOQVQuICovCj4gKyNkZWZpbmUgT1ZTX0NTX0ZfRFNUX05BVCAgICAgICAgICAgMHg4MCAvKiBQ
-YWNrZXQncyBkZXN0aW5hdGlvbiBhZGRyZXNzL3BvcnQKPiArCQkJCQkgICB3YXMgbWFuZ2xlZCBi
-eSBOQVQuICovCgpJJ20gYmxpbmQgLS0gaG93IGRvZXMgb3ZzIGRlYWwgd2l0aCBjaGFuZ2Ugb2Yg
-b3V0cHV0IGRldmljZSBhbmQgdGhlCmV0aGVyIGRzdCBtYWMgYXMgcmVzdWx0IG9mIGEgbDMgZHN0
-IHRyYW5zbGF0aW9uPwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
-dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+  the global Soc configuration is treated by syscon, and sub ctrl bus is
+Soc bus. it has to be treated by syscon.
+
+Signed-off-by: yankejian <yankejian@huawei.com>
+Signed-off-by: lisheng <lisheng011@huawei.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index e4ec52a..37491c8 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -11,6 +11,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+ #include <linux/kernel.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/netdevice.h>
+@@ -20,6 +21,7 @@
+ #include <linux/of_platform.h>
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <linux/spinlock_types.h>
+ 
+ #define MDIO_DRV_NAME "Hi-HNS_MDIO"
+@@ -36,7 +38,7 @@
+ 
+ struct hns_mdio_device {
+ 	void *vbase;		/* mdio reg base address */
+-	void *sys_vbase;
++	struct regmap *subctrl_vbase;
+ };
+ 
+ /* mdio reg */
+@@ -155,10 +157,10 @@ static int mdio_sc_cfg_reg_write(struct hns_mdio_device *mdio_dev,
+ 	u32 time_cnt;
+ 	u32 reg_value;
+ 
+-	mdio_write_reg((void *)mdio_dev->sys_vbase, cfg_reg, set_val);
++	regmap_write(mdio_dev->subctrl_vbase, cfg_reg, set_val);
+ 
+ 	for (time_cnt = MDIO_TIMEOUT; time_cnt; time_cnt--) {
+-		reg_value = mdio_read_reg((void *)mdio_dev->sys_vbase, st_reg);
++		regmap_read(mdio_dev->subctrl_vbase, st_reg, &reg_value);
+ 		reg_value &= st_msk;
+ 		if ((!!check_st) == (!!reg_value))
+ 			break;
+@@ -352,7 +354,7 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
+ 	int ret;
+ 
+-	if (!mdio_dev->sys_vbase) {
++	if (!mdio_dev->subctrl_vbase) {
+ 		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
+ 		return -ENODEV;
+ 	}
+@@ -455,13 +457,12 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-	mdio_dev->sys_vbase = devm_ioremap_resource(&pdev->dev, res);
+-	if (IS_ERR(mdio_dev->sys_vbase)) {
+-		ret = PTR_ERR(mdio_dev->sys_vbase);
+-		return ret;
++	mdio_dev->subctrl_vbase =
++		syscon_node_to_regmap(of_parse_phandle(np, "subctrl_vbase", 0));
++	if (IS_ERR(mdio_dev->subctrl_vbase)) {
++		dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
++		mdio_dev->subctrl_vbase = NULL;
+ 	}
+-
+ 	new_bus->irq = devm_kcalloc(&pdev->dev, PHY_MAX_ADDR,
+ 				    sizeof(int), GFP_KERNEL);
+ 	if (!new_bus->irq)
+-- 
+1.9.1
