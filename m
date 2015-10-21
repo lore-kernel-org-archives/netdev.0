@@ -1,46 +1,60 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH -next] net: hisilicon: Never build on SPARC
-Date: Wed, 21 Oct 2015 07:29:33 -0700
-Message-ID: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>,
-	Arnd Bergmann <arnd@arndb.de>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] ARCNET: features and fixes
+Date: Wed, 21 Oct 2015 07:46:53 -0700 (PDT)
+Message-ID: <20151021.074653.1524280036733030215.davem@davemloft.net>
+References: <1444993260-9667-1-git-send-email-m.grzeschik@pengutronix.de>
+	<20151018.201942.595687134692884924.davem@davemloft.net>
+	<20151019072427.GB23038@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, netdev@vger.kernel.org, kernel@pengutronix.de
+To: mgr@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:53652 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755200AbbJUO3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 10:29:37 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:44529 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752971AbbJUOa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 10:30:28 -0400
+In-Reply-To: <20151019072427.GB23038@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Hisilicon network driver does not build for Sparc. Enabling
-COMPILE_TEST for it causes Sparc allmodconfig/allyesconfig builds
-to fail with
+From: Michael Grzeschik <mgr@pengutronix.de>
+Date: Mon, 19 Oct 2015 09:24:27 +0200
 
-drivers/net/ethernet/hisilicon/hns_mdio.c: In function 'hns_mdio_bus_name':
-drivers/net/ethernet/hisilicon/hns_mdio.c:409:3: error:
-		implicit declaration of function 'of_translate_address'
+> Hi David,
+> 
+> On Sun, Oct 18, 2015 at 08:19:42PM -0700, David Miller wrote:
+>> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+>> Date: Fri, 16 Oct 2015 13:00:54 +0200
+>> 
+>> > This series includes some small fixes. The main changes are the correct
+>> > xceiver handling (enable/disable) of the com20020 cards. The driver now handles
+>> > link status change detection. The EAE PCI-ARCNET cards now make use of the
+>> > rotary encoded subdevice indexing and got support for led triggers on transmit
+>> > and reconnection events.
+>> 
+>> If you mix features and bug fixes, then it's ambiguous which tree these
+>> changes should go into.
+>> 
+>> If it's just fixes, then it's clearly 'net',
+>> 
+>> But once you add feature changes and cleanups, then 'net' is not
+>> appropriate.
+>> 
+>> Please split this up properly and submit things targetting the
+>> correct GIT tree.
+> 
+> OK. You are right. Regarding this series I was a little bit imprecise
+> about the topic. Actually only the first patch is no fix but adds code
+> simplification. I forget that one in the last pull request. The other
+> four are all adding features. The whole series sits on top of net-next.
+> 
+> Sorry for the confusion. I hope this series can be applied as is.
 
-Fixes: 876133d3161d ("net: hisilicon: add OF dependency")
-Cc: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/ethernet/hisilicon/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Please repost the series with the target tree properly specified in
+your subject lines, the correct indication is:
 
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index f250dec488fd..413935085591 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_HISILICON
- 	bool "Hisilicon devices"
- 	default y
--	depends on OF && (ARM || ARM64 || COMPILE_TEST)
-+	depends on OF && (ARM || ARM64 || COMPILE_TEST) && !SPARC
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
--- 
-2.1.4
+	Subject: [PATCH net-next n/m] ...
+
+Thanks.
