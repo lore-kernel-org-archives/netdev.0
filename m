@@ -1,33 +1,57 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
- helper
-Date: Wed, 21 Oct 2015 13:04:41 -0700
-Message-ID: <5627EFD9.9050805@plumgrid.com>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
- <1445396556-4854-3-git-send-email-ast@kernel.org>
- <56276261.7010201@huawei.com> <56277178.4080207@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56277178.4080207@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 1/5] netfilter: Remove IP_CT_NEW_REPLY
+	definition.
+Date: Wed, 21 Oct 2015 13:15:37 -0700
+Message-ID: <B6033DCD-F46E-4416-9844-CF663215559A@nicira.com>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+ <20151021083323.GB15539@pox.localdomain>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20151021083323.GB15539-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 10/21/15 4:05 AM, Wangnan (F) wrote:
-> I think we can
-> make perf output raw data hexadamically at first.
-
-that would be my suggestion as well.
-print it as hex first and when llvm type info is available you can teach
-perf to be smarter.
-We're working on support for this feature in iovisor/bcc
-without requiring extra llvm work, since we can generate
-python classes on the fly from C code of bpf program.
+Cj4gT24gT2N0IDIxLCAyMDE1LCBhdCAxOjMzIEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5j
+aD4gd3JvdGU6Cj4gCj4gW0NvcHlpbmcgbmV0ZmlsdGVyLWRldmVsXQo+IAo+IE9uIDEwLzIwLzE1
+IGF0IDAzOjIwcG0sIEphcm5vIFJhamFoYWxtZSB3cm90ZToKPj4gUmVtb3ZlIHRoZSBkZWZpbml0
+aW9uIG9mIElQX0NUX05FV19SRVBMWSBhcyBpdCBkb2VzIG5vdCBtYWtlIHNlbnNlLgo+PiBUaGlz
+IGFsbG93cyB0aGUgZGVmaW5pdGlvbiBvZiBJUF9DVF9OVU1CRVIgdG8gYmUgc2ltcGxpZmllZCBh
+cyB3ZWxsLgo+PiAKPj4gU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxqcmFqYWhhbG1l
+QG5pY2lyYS5jb20+Cj4+IC0tLQo+PiBpbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nv
+bm50cmFja19jb21tb24uaCB8IDcgKysrKy0tLQo+PiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNr
+LmMgICAgICAgICAgICAgICAgICAgICAgICB8IDIgLS0KPj4gMiBmaWxlcyBjaGFuZ2VkLCA0IGlu
+c2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCj4+IAo+PiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS91
+YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggYi9pbmNsdWRlL3VhcGkv
+bGludXgvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb21tb24uaAo+PiBpbmRleCAzMTlmNDcxLi5l
+MGFlYmM4IDEwMDY0NAo+PiAtLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25mX2Nv
+bm50cmFja19jb21tb24uaAo+PiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVyL25m
+X2Nvbm50cmFja19jb21tb24uaAo+PiBAQCAtMjAsOSArMjAsMTAgQEAgZW51bSBpcF9jb25udHJh
+Y2tfaW5mbyB7Cj4+IAo+PiAJSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFkgPSBJUF9DVF9FU1RBQkxJ
+U0hFRCArIElQX0NUX0lTX1JFUExZLAo+PiAJSVBfQ1RfUkVMQVRFRF9SRVBMWSA9IElQX0NUX1JF
+TEFURUQgKyBJUF9DVF9JU19SRVBMWSwKPj4gLQlJUF9DVF9ORVdfUkVQTFkgPSBJUF9DVF9ORVcg
+KyBJUF9DVF9JU19SRVBMWSwJCj4+IC0JLyogTnVtYmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVz
+IChubyBORVcgaW4gcmVwbHkgZGlybikuICovCj4+IC0JSVBfQ1RfTlVNQkVSID0gSVBfQ1RfSVNf
+UkVQTFkgKiAyIC0gMQo+PiArCS8qIE5vIElQX0NUX05FV19SRVBMWSAqLwo+PiArCj4+ICsJLyog
+TnVtYmVyIG9mIGRpc3RpbmN0IElQX0NUIHR5cGVzLiAqLwo+PiArCUlQX0NUX05VTUJFUgo+PiB9
+Owo+IAo+IEkgdW5kZXJzdGFuZCB3aGF0IHlvdSBhcmUgZG9pbmcgaGVyZSBidXQgdGhpcyBpcyBw
+YXJ0IG9mIHRoZSBwdWJsaXNoZWQKPiBVQVBJIGFuZCByZW1vdmluZyB0aGlzIG1pZ2h0IGJyZWFr
+IGNvbXBpbGF0aW9uIG9mIGEgdXNlciBhcHBsaWNhdGlvbgo+IGV2ZW4gaWYgdGhlIGRlZmluaXRp
+b24gaXMgbm90IHVzZWQgcmlnaHQgbm93LiBJdCdzIHByb2JhYmx5IHNhZmVyIHRvCj4gbGVhdmUg
+dGhlIGRlZmluaXRpb24gYW5kIG9ic29sZXRlIGl0IHdpdGggYSBjb21tZW50LgoKT0suIEkgc2hv
+dWxkIHByb2JhYmx5IHNlcGFyYXRlIHRoZSBuZXRsaW5rIGFuZCBvcGVudnN3aXRjaCBjaGFuZ2Vz
+IHRvIHNlcGFyYXRlIHBhdGNoZXMgYXMgd2VsbD8KCiAgSmFybm8KCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52
+c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
