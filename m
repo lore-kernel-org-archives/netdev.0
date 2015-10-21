@@ -1,35 +1,27 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
- xfrm_notify_sa() for DELSA
-Date: Wed, 21 Oct 2015 09:11:43 -0400
-Message-ID: <20151021131143.GQ6948@oracle.com>
-References: <20151021065704.GM7701@secunet.com>
- <20151021105442.GM6948@oracle.com>
- <20151021123628.GP6948@oracle.com>
- <20151021.062213.273447452472704627.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/17][pull request] Intel Wired LAN Driver
+ Updates 2015-10-19
+Date: Wed, 21 Oct 2015 06:30:20 -0700 (PDT)
+Message-ID: <20151021.063020.1608979915258281180.davem@davemloft.net>
+References: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, linux-crypto@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, dhowells@redhat.com,
-	zohar@linux.vnet.ibm.com, David.Woodhouse@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151021.062213.273447452472704627.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43867 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbbJUNN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:13:56 -0400
+In-Reply-To: <1445294971-44714-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (10/21/15 06:22), David Miller wrote:
-> memcpy() _never_ works for avoiding unaligned accessed.
-> 
-> I repeat, no matter what you do, no matter what kinds of casts or
-> fancy typing you use, memcpy() _never_ works for this purpose.
-  :
-> There is one and only one portable way to access unaligned data,
-> and that is with the get_unaligned() and put_unaligned() helpers.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 19 Oct 2015 15:49:14 -0700
 
-ok. I'll fix it up to use the *_unaligned functions and resend this 
-out later today.
+> This series contains updates to i40e and i40evf only.
 
---Sowmini
+Pulled, thanks Jeff.
