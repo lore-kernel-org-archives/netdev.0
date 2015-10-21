@@ -1,68 +1,65 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/8] cxgb4: Restore L1 cfg, if FW rejects new L1 cfg settings
-Date: Wed, 21 Oct 2015 14:39:52 +0530
-Message-ID: <1445418597-771-4-git-send-email-hariprasad@chelsio.com>
-References: <1445418597-771-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.115.98]:8012 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754102AbbJUJKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 05:10:03 -0400
-In-Reply-To: <1445418597-771-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Wed, 21 Oct 2015 11:12:54 +0200
+Message-ID: <20151021091254.GF2881@worktop.programming.kicks-ass.net>
+References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
+ <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
+ <5626C5CE.8080809@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net, wangnan0@huawei.com,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5626C5CE.8080809@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the ethtool set_settings() routine we need to remember our old L1
-Configuration in case the firmware rejects the request and then restore
-that.
+On Tue, Oct 20, 2015 at 03:53:02PM -0700, Alexei Starovoitov wrote:
+> On 10/20/15 12:22 AM, Kaixu Xia wrote:
+> >diff --git a/kernel/events/core.c b/kernel/events/core.c
+> >index b11756f..5219635 100644
+> >--- a/kernel/events/core.c
+> >+++ b/kernel/events/core.c
+> >@@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
+> >  		irq_work_queue(&event->pending);
+> >  	}
+> >
+> >+	if (unlikely(!atomic_read(&event->soft_enable)))
+> >+		return 0;
+> >+
+> >  	if (event->overflow_handler)
+> >  		event->overflow_handler(event, data, regs);
+> >  	else
+> 
+> Peter,
+> does this part look right or it should be moved right after
+> if (unlikely(!is_sampling_event(event)))
+>                 return 0;
+> or even to other function?
+> 
+> It feels to me that it should be moved, since we probably don't
+> want to active throttling, period adjust and event_limit for events
+> that are in soft_disabled state.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+Depends on what its meant to do. As long as you let the interrupt
+happen, I think we should in fact do those things (maybe not the
+event_limit), but period adjustment and esp. throttling are important
+when the event is enabled.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index 1487c57..b7b8c46 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -612,6 +612,8 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct port_info *p = netdev_priv(dev);
- 	struct link_config *lc = &p->link_cfg;
- 	u32 speed = ethtool_cmd_speed(cmd);
-+	struct link_config old_lc;
-+	int ret;
- 
- 	if (cmd->duplex != DUPLEX_FULL)     /* only full-duplex supported */
- 		return -EINVAL;
-@@ -626,6 +628,7 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		return -EINVAL;
- 	}
- 
-+	old_lc = *lc;
- 	if (cmd->autoneg == AUTONEG_DISABLE) {
- 		cap = speed_to_caps(speed);
- 
-@@ -642,10 +645,14 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	}
- 	lc->autoneg = cmd->autoneg;
- 
--	if (netif_running(dev))
--		return t4_link_l1cfg(p->adapter, p->adapter->pf, p->tx_chan,
--				     lc);
--	return 0;
-+	/* If the firmware rejects the Link Configuration request, back out
-+	 * the changes and report the error.
-+	 */
-+	ret = t4_link_l1cfg(p->adapter, p->adapter->mbox, p->tx_chan, lc);
-+	if (ret)
-+		*lc = old_lc;
-+
-+	return ret;
- }
- 
- static void get_pauseparam(struct net_device *dev,
--- 
-2.3.4
+If you want to actually disable the event: pmu->stop() will make it
+stop, and you can restart using pmu->start().
+
+And I suppose you can wrap that with a counter if you need nesting.
+
+I'm not sure if any of that is a viable solution, because the patch
+description is somewhat short on the problem statement.
+
+As is, I'm not too charmed with the patch, but lacking a better
+understanding of what exactly we're trying to achieve I'm struggling
+with proposing alternatives.
