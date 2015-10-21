@@ -1,54 +1,54 @@
-From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 12/15] net: wireless: brcm80211: Remove unneeded variable which return 0
-Date: Wed, 21 Oct 2015 20:25:34 +0530
-Message-ID: <1445439337-19055-13-git-send-email-punitvara@gmail.com>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: [PATCH 01/15] net: wireless: ath: use | instead of + for summing
+ bitmasks
+Date: Wed, 21 Oct 2015 16:58:48 +0200
+Message-ID: <5627A828.9000009@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
+ <1445439337-19055-2-git-send-email-punitvara@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: 7bit
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
 	sgruszka@redhat.com, brudley@broadcom.com, arend@broadcom.com,
-	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
+	linville@tuxdriver.com, mickflemm@gmail.com,
 	mcgrof@do-not-panic.com, k.eugene.e@gmail.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	brcm80211-dev-list@broadcom.com, wcn36xx@lists.infradead.org,
-	johannes.berg@intel.com, meuleman@broadcom.com,
-	Punit Vara <punitvara@gmail.com>
-To: kvalo@qca.qualcomm.com
+	johannes.berg@intel.com, meuleman@broadcom.com
+To: Punit Vara <punitvara@gmail.com>, kvalo@qca.qualcomm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
+In-Reply-To: <1445439337-19055-2-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is patch to the brcmsmac/main.c that removes unnecessary variable
-which was declared to return zero.
+On 10/21/2015, 04:55 PM, Punit Vara wrote:
+> This patch is to the ath10k/pci.h file that fixes following warning
+>  reported by coccicheck:
+> 
+> WARNING: sum of probable bitmasks, consider |
+> 
+> I have replaced + with OR operator | for summing bitmasks
+> 
+> Signed-off-by: Punit Vara <punitvara@gmail.com>
+> ---
+>  drivers/net/wireless/ath/ath10k/pci.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
+> index 1046ab6..165a318 100644
+> --- a/drivers/net/wireless/ath/ath10k/pci.c
+> +++ b/drivers/net/wireless/ath/ath10k/pci.c
+> @@ -775,7 +775,7 @@ static u32 ath10k_pci_targ_cpu_to_ce_addr(struct ath10k *ar, u32 addr)
+>  	switch (ar->hw_rev) {
+>  	case ATH10K_HW_QCA988X:
+>  	case ATH10K_HW_QCA6174:
+> -		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
+> +		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
+>  					  CORE_CTRL_ADDRESS) &
 
-This patch fixes up warning reported by coccicheck:
--Unneeded variable: "err". Return "0" on line 3788
+Could you explain where exactly are 2 bitmasks here?
 
-Signed-off-by: Punit Vara <punitvara@gmail.com>
----
- drivers/net/wireless/brcm80211/brcmsmac/main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-index 9728be0..9d717b6 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-@@ -3777,7 +3777,6 @@ static void brcms_c_set_ps_ctrl(struct brcms_c_info *wlc)
-  */
- static int brcms_c_set_mac(struct brcms_bss_cfg *bsscfg)
- {
--	int err = 0;
- 	struct brcms_c_info *wlc = bsscfg->wlc;
- 
- 	/* enter the MAC addr into the RXE match registers */
-@@ -3785,7 +3784,7 @@ static int brcms_c_set_mac(struct brcms_bss_cfg *bsscfg)
- 
- 	brcms_c_ampdu_macaddr_upd(wlc);
- 
--	return err;
-+	return 0;
- }
- 
- /* Write the BSS config's BSSID address to core (set_bssid in d11procs.tcl).
+thanks,
 -- 
-2.5.3
+js
