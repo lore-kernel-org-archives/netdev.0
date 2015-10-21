@@ -1,42 +1,44 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] openvswitch: Fix incorrect type use.
-Date: Wed, 21 Oct 2015 13:30:01 +0200
-Message-ID: <20151021133001.5e5af057@griffin>
-References: <1445399266-2034-1-git-send-email-pshelar@nicira.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
+Date: Wed, 21 Oct 2015 13:30:54 +0200
+Message-ID: <20151021113054.GB17991@pox.localdomain>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+ <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
+ <20151021093459.GA31323@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarno Rajahalme <jrajahalme@nicira.com>, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60470 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753956AbbJULaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2015 07:30:04 -0400
-In-Reply-To: <1445399266-2034-1-git-send-email-pshelar@nicira.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38614 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753801AbbJULa4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 07:30:56 -0400
+Received: by wicll6 with SMTP id ll6so69657150wic.1
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 04:30:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20151021093459.GA31323@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Oct 2015 20:47:46 -0700, Pravin B Shelar wrote:
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -548,11 +548,11 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
->  			      struct sw_flow_match *match, bool is_mask,
->  			      bool log)
->  {
-> +	bool ttl = false, ipv4 = false, ipv6 = false;
-> +	__be16 tun_flags = 0;
-> +	int opts_type = 0;
->  	struct nlattr *a;
->  	int rem;
-> -	bool ttl = false;
-> -	__be16 tun_flags = 0, ipv4 = false, ipv6 = false;
-> -	int opts_type = 0;
+On 10/21/15 at 11:34am, Florian Westphal wrote:
+> Jarno Rajahalme <jrajahalme@nicira.com> wrote:
+> >  #define OVS_CS_F_REPLY_DIR         0x08 /* Flow is in the reply direction. */
+> >  #define OVS_CS_F_INVALID           0x10 /* Could not track connection. */
+> >  #define OVS_CS_F_TRACKED           0x20 /* Conntrack has occurred. */
+> > +#define OVS_CS_F_SRC_NAT           0x40 /* Packet's source address/port was
+> > +					   mangled by NAT. */
+> > +#define OVS_CS_F_DST_NAT           0x80 /* Packet's destination address/port
+> > +					   was mangled by NAT. */
+> 
+> I'm blind -- how does ovs deal with change of output device and the
+> ether dst mac as result of a l3 dst translation?
 
-Seems that I appended the variables to a wrong line during one of the
-rebases. Thanks for fixing this.
+I assume you are referring to rewriting of L2 and the forwarding decision
+after NAT. As NAT is performed in combination with conntrack, the packet
+is recirculated and hits the flow table again after NAT. That 2nd
+stage flow must take are of performing L3 by rewriting L2, decrementing
+TTL, etc.
 
-Acked-by: Jiri Benc <jbenc@redhat.com>
-
--- 
-Jiri Benc
+Is this what you are referring to?
