@@ -1,79 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy: micrel: Add workaround for bad autoneg
-Date: Wed, 21 Oct 2015 12:20:21 -0700
-Message-ID: <CAGVrzcZNcvkw_egX0rAOe_CZnrQj8pDONJDr973Dw-ec1Ce91g@mail.gmail.com>
-References: <1445455024-5519-1-git-send-email-nathan.sullivan@ni.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH 9/9] treewide: Remove newlines inside DEFINE_PER_CPU()
+ macros
+Date: Wed, 21 Oct 2015 15:27:55 -0400
+Message-ID: <5627E73B.9000502@redhat.com>
+References: <1444940195-28272-1-git-send-email-mmarek@suse.com> <1444940195-28272-10-git-send-email-mmarek@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nathan Sullivan <nathan.sullivan@ni.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445455024-5519-1-git-send-email-nathan.sullivan@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
+	xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org
+To: Michal Marek <mmarek@suse.com>, linux-kbuild@vger.kernel.org
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <1444940195-28272-10-git-send-email-mmarek@suse.com>
+Sender: linux-ia64-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2015-10-21 12:17 GMT-07:00 Nathan Sullivan <nathan.sullivan@ni.com>:
-> Very rarely, the KSZ9031 will appear to complete autonegotiation, but
-> will drop all traffic afterwards.  When this happens, the idle error
-> count will read 0xFF after autonegotiation completes.  Reset the PHY
-> when in that state.
->
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+On 10/15/2015 04:16 PM, Michal Marek wrote:
+> Otherwise make tags can't parse them:
+> 
+> ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
+> ctags: Warning: drivers/xen/events/events_2l.c:41: null expansion of name pattern "\1"
+> ctags: Warning: drivers/acpi/processor_idle.c:64: null expansion of name pattern "\1"
+> ctags: Warning: kernel/locking/lockdep.c:153: null expansion of name pattern "\1"
+> ctags: Warning: kernel/workqueue.c:305: null expansion of name pattern "\1"
+> ctags: Warning: kernel/rcu/rcutorture.c:133: null expansion of name pattern "\1"
+> ctags: Warning: kernel/rcu/rcutorture.c:135: null expansion of name pattern "\1"
+> ctags: Warning: net/rds/page.c:45: null expansion of name pattern "\1"
+> ctags: Warning: net/ipv4/syncookies.c:53: null expansion of name pattern "\1"
+> ctags: Warning: net/ipv6/syncookies.c:44: null expansion of name pattern "\1"
+> 
+> Cc: linux-ia64@vger.kernel.org
+> Cc: xen-devel@lists.xenproject.org
+> Cc: linux-acpi@vger.kernel.org
+> Cc: rds-devel@oss.oracle.com
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Michal Marek <mmarek@suse.com>
 > ---
->  drivers/net/phy/micrel.c |   23 ++++++++++++++++++++++-
->  1 file changed, 22 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 499185e..cf6312f 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -514,6 +514,27 @@ static int ksz8873mll_read_status(struct phy_device *phydev)
->         return 0;
->  }
->
-> +static int ksz9031_read_status(struct phy_device *phydev)
-> +{
-> +       int err;
-> +       int regval;
-> +
-> +       err = genphy_read_status(phydev);
-> +       if (err)
-> +               return err;
-> +
-> +       /* Make sure the PHY is not broken. Read idle error count,
-> +        * and reset the PHY if it is maxed out.
-> +        */
-> +       regval = phy_read(phydev, MII_STAT1000);
-> +       if ((regval & 0xFF) == 0xFF) {
+>  arch/ia64/kernel/smp.c         | 3 +--
+>  drivers/acpi/processor_idle.c  | 3 +--
+>  drivers/xen/events/events_2l.c | 3 +--
+>  kernel/locking/lockdep.c       | 3 +--
+>  kernel/rcu/rcutorture.c        | 6 ++----
+>  kernel/workqueue.c             | 3 +--
+>  net/ipv4/syncookies.c          | 3 +--
+>  net/ipv6/syncookies.c          | 3 +--
+>  net/rds/page.c                 | 3 +--
+>  9 files changed, 10 insertions(+), 20 deletions(-)
+> 
+> diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+> index 7f706d4f84f7..1dcfe29d8a42 100644
+> --- a/arch/ia64/kernel/smp.c
+> +++ b/arch/ia64/kernel/smp.c
+> @@ -57,8 +57,7 @@ static struct local_tlb_flush_counts {
+>  	unsigned int count;
+>  } __attribute__((__aligned__(32))) local_tlb_flush_counts[NR_CPUS];
+>  
+> -static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
+> -				     shadow_flush_counts);
+> +static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS], shadow_flush_counts);
+>  
 
-Don't you also need to set phydev->state to PHY_READY here to force
-the state machine to restart?
+I guarantee you're going to end up fixing this issue over and over again as more
+code is added in.
 
-> +               phy_init_hw(phydev);
-> +               phydev->link = 0;
-> +       }
-> +
-> +       return 0;
-> +}
-> +
->  static int ksz8873mll_config_aneg(struct phy_device *phydev)
->  {
->         return 0;
-> @@ -772,7 +793,7 @@ static struct phy_driver ksphy_driver[] = {
->         .driver_data    = &ksz9021_type,
->         .config_init    = ksz9031_config_init,
->         .config_aneg    = genphy_config_aneg,
-> -       .read_status    = genphy_read_status,
-> +       .read_status    = ksz9031_read_status,
->         .ack_interrupt  = kszphy_ack_interrupt,
->         .config_intr    = kszphy_config_intr,
->         .suspend        = genphy_suspend,
-> --
-> 1.7.10.4
->
+OOC, why not fix ctags to recognize newlines?
 
+P.
 
-
--- 
-Florian
