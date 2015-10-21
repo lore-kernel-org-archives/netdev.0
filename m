@@ -1,40 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 21 Oct 2015 14:18:30 -0700
-Message-ID: <1445462310.22974.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com>
-	 <20151021.083008.1870598627666404990.davem@davemloft.net>
-	  <201510211604.t9LG4r9A005345@room101.nl.oracle.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: linux 3.4.43 : kernel crash at __nf_conntrack_confirm
+Date: Wed, 21 Oct 2015 23:19:11 +0200
+Message-ID: <20151021211911.GD31323@breakpoint.cc>
+References: <CAOxq_8PF91fpX9jYTgBbXnOVeVfSu3tytu-3P_Zr5OodGRoz+g@mail.gmail.com>
+ <CAOxq_8Pt7VMwkV8+wdjS9vj=-L0L8Xxkd3Beit0zZN_oR6ixhw@mail.gmail.com>
+ <20151018080702.GA14564@breakpoint.cc>
+ <CAOxq_8P9Qgy5+qWNCHtbG8qJwfdKSO3ZiDWoQW_6BVS-+hcTRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Alan.Burlison@oracle.com,
-	viro@ZenIV.linux.org.uk, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Casper.Dik@oracle.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ani Sinha <ani@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34619 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822AbbJUVSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 17:18:32 -0400
-Received: by padhk11 with SMTP id hk11so65296364pad.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 14:18:31 -0700 (PDT)
-In-Reply-To: <201510211604.t9LG4r9A005345@room101.nl.oracle.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40960 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755259AbbJUVTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 17:19:18 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOxq_8P9Qgy5+qWNCHtbG8qJwfdKSO3ZiDWoQW_6BVS-+hcTRA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-21 at 18:04 +0200, Casper.Dik@oracle.com wrote:
+Ani Sinha <ani@arista.com> wrote:
+> >> > commit c6825c0976fa7893692e0e43b09740b419b23c09
+> >> > Author: Andrey Vagin <avagin@openvz.org>
+> >> > Date:   Wed Jan 29 19:34:14 2014 +0100
+> >> >      netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
+> >> >
+> >> > and a followup patch :
+> >> >
+> >> > commit e53376bef2cd97d3e3f61fdc677fb8da7d03d0da
+> >> > Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> >> > Date:   Mon Feb 3 20:01:53 2014 +0100
+> >> >         netfilter: nf_conntrack: don't release a conntrack with non-zero refcnt
+> >> >
+> >
+> > These for instance fix such bugs.
+> 
+> So since both these patches were not backported to 3.4 series and
+> since now we have evidence of a crash that points to issues which the
+> patches fix, should we consider backporting the above patches to 3.4?
 
-> It is only expensive within the process itself. 
-
-thread synchro would require additional barriers to maintain this state,
-for a very unlikely case.
-
-The atomic_{inc|dec}() on file refcount are already a problem.
-
-We certainly do not use/take a lock to find a file pointer into file
-descriptor table.
-
-(This lock is only used at open() or close() time)
+Yes.
