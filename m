@@ -1,65 +1,58 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
- maps trace data output when perf sampling
-Date: Wed, 21 Oct 2015 11:12:54 +0200
-Message-ID: <20151021091254.GF2881@worktop.programming.kicks-ass.net>
-References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
- <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
- <5626C5CE.8080809@plumgrid.com>
+From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
+Date: Wed, 21 Oct 2015 11:34:59 +0200
+Message-ID: <20151021093459.GA31323@breakpoint.cc>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+ <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net, wangnan0@huawei.com,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5626C5CE.8080809@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1445379629-112880-5-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 20, 2015 at 03:53:02PM -0700, Alexei Starovoitov wrote:
-> On 10/20/15 12:22 AM, Kaixu Xia wrote:
-> >diff --git a/kernel/events/core.c b/kernel/events/core.c
-> >index b11756f..5219635 100644
-> >--- a/kernel/events/core.c
-> >+++ b/kernel/events/core.c
-> >@@ -6337,6 +6337,9 @@ static int __perf_event_overflow(struct perf_event *event,
-> >  		irq_work_queue(&event->pending);
-> >  	}
-> >
-> >+	if (unlikely(!atomic_read(&event->soft_enable)))
-> >+		return 0;
-> >+
-> >  	if (event->overflow_handler)
-> >  		event->overflow_handler(event, data, regs);
-> >  	else
-> 
-> Peter,
-> does this part look right or it should be moved right after
-> if (unlikely(!is_sampling_event(event)))
->                 return 0;
-> or even to other function?
-> 
-> It feels to me that it should be moved, since we probably don't
-> want to active throttling, period adjust and event_limit for events
-> that are in soft_disabled state.
-
-Depends on what its meant to do. As long as you let the interrupt
-happen, I think we should in fact do those things (maybe not the
-event_limit), but period adjustment and esp. throttling are important
-when the event is enabled.
-
-If you want to actually disable the event: pmu->stop() will make it
-stop, and you can restart using pmu->start().
-
-And I suppose you can wrap that with a counter if you need nesting.
-
-I'm not sure if any of that is a viable solution, because the patch
-description is somewhat short on the problem statement.
-
-As is, I'm not too charmed with the patch, but lacking a better
-understanding of what exactly we're trying to achieve I'm struggling
-with proposing alternatives.
+SmFybm8gUmFqYWhhbG1lIDxqcmFqYWhhbG1lQG5pY2lyYS5jb20+IHdyb3RlOgo+IEV4dGVuZCBP
+VlMgY29ubnRyYWNrIGludGVyZmFjZSB0byBjb3ZlciBOQVQuICBOZXcgbmVzdGVkCj4gT1ZTX0NU
+X0FUVFJfTkFUIG1heSBiZSB1c2VkIHRvIGluY2x1ZGUgTkFUIHdpdGggYSBDVCBhY3Rpb24uICBB
+IGJhcmUKPiBPVlNfQ1RfQVRUUl9OQVQgb25seSBtYW5nbGVzIGV4aXN0aW5nIGNvbm5lY3Rpb25z
+LiAgSWYKPiBPVlNfTkFUX0FUVFJfU1JDIG9yIE9WU19OQVRfQVRUUl9EU1QgaXMgaW5jbHVkZWQg
+d2l0aGluIHRoZSBuZXN0ZWQKPiBhdHRyaWJ1dGVzLCBuZXcgKG5vbi1jb21taXR0ZWQvbm9uLWNv
+bmZpcm1lZCkgY29ubmVjdGlvbnMgYXJlIG1hbmdsZWQKPiBhY2NvcmRpbmcgdG8gdGhlIHJlc3Qg
+b2YgdGhlIG5lc3RlZCBhdHRyaWJ1dGVzLgo+IAo+IFRoaXMgd29yayBleHRlbmRzIG9uIGEgYnJh
+bmNoIGJ5IFRob21hcyBHcmFmIGF0Cj4gaHR0cHM6Ly9naXRodWIuY29tL3RncmFmL292cy90cmVl
+L25hdC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGpyYWphaGFsbWVAbmlj
+aXJhLmNvbT4KPiAtLS0KPiAgaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgNDgg
+KysrLQo+ICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICAyNSArLQo+ICBuZXQv
+b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICB8IDU0MyArKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKystLS0KPiAgbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5oICAgICAgfCAg
+IDIgKwo+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgICB8ICAxMSArLQo+ICA1IGZp
+bGVzIGNoYW5nZWQsIDU4MCBpbnNlcnRpb25zKCspLCA0OSBkZWxldGlvbnMoLSkKPiAKPiBkaWZm
+IC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggYi9pbmNsdWRlL3VhcGkv
+bGludXgvb3BlbnZzd2l0Y2guaAo+IGluZGV4IDA5OGQ4YjUuLjlkNjM0NzIgMTAwNjQ0Cj4gLS0t
+IGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmgKPiArKysgYi9pbmNsdWRlL3VhcGkv
+bGludXgvb3BlbnZzd2l0Y2guaAo+IEBAIC00NTQsNiArNDU0LDEyIEBAIHN0cnVjdCBvdnNfa2V5
+X2N0X2xhYmVsIHsKPiAgI2RlZmluZSBPVlNfQ1NfRl9SRVBMWV9ESVIgICAgICAgICAweDA4IC8q
+IEZsb3cgaXMgaW4gdGhlIHJlcGx5IGRpcmVjdGlvbi4gKi8KPiAgI2RlZmluZSBPVlNfQ1NfRl9J
+TlZBTElEICAgICAgICAgICAweDEwIC8qIENvdWxkIG5vdCB0cmFjayBjb25uZWN0aW9uLiAqLwo+
+ICAjZGVmaW5lIE9WU19DU19GX1RSQUNLRUQgICAgICAgICAgIDB4MjAgLyogQ29ubnRyYWNrIGhh
+cyBvY2N1cnJlZC4gKi8KPiArI2RlZmluZSBPVlNfQ1NfRl9TUkNfTkFUICAgICAgICAgICAweDQw
+IC8qIFBhY2tldCdzIHNvdXJjZSBhZGRyZXNzL3BvcnQgd2FzCj4gKwkJCQkJICAgbWFuZ2xlZCBi
+eSBOQVQuICovCj4gKyNkZWZpbmUgT1ZTX0NTX0ZfRFNUX05BVCAgICAgICAgICAgMHg4MCAvKiBQ
+YWNrZXQncyBkZXN0aW5hdGlvbiBhZGRyZXNzL3BvcnQKPiArCQkJCQkgICB3YXMgbWFuZ2xlZCBi
+eSBOQVQuICovCgpJJ20gYmxpbmQgLS0gaG93IGRvZXMgb3ZzIGRlYWwgd2l0aCBjaGFuZ2Ugb2Yg
+b3V0cHV0IGRldmljZSBhbmQgdGhlCmV0aGVyIGRzdCBtYWMgYXMgcmVzdWx0IG9mIGEgbDMgZHN0
+IHRyYW5zbGF0aW9uPwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
+dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
