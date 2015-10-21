@@ -1,49 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
- xfrm_notify_sa() for DELSA
-Date: Wed, 21 Oct 2015 06:17:37 -0700 (PDT)
-Message-ID: <20151021.061737.817854527348057019.davem@davemloft.net>
-References: <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
-	<20151021065704.GM7701@secunet.com>
-	<20151021105442.GM6948@oracle.com>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Wed, 21 Oct 2015 14:03:57 +0100
+Message-ID: <56278D3D.1010608@oracle.com>
+References: <20151019095938.72ea48e6@xeon-e3>	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>	 <562594E1.8040403@oracle.com>	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>	 <56261092.7080003@oracle.com>	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <56264596.90104@oracle.com>	 <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com>	 <5626887D.5050308@oracle.com>	 <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>	 <56276DA2.8010905@oracle.com> <1445426932.22974.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, linux-crypto@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, dhowells@redhat.com,
-	zohar@linux.vnet.ibm.com, David.Woodhouse@intel.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20151021105442.GM6948@oracle.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43882 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753329AbbJUNEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:04:07 -0400
+In-Reply-To: <1445426932.22974.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed, 21 Oct 2015 06:54:42 -0400
+On 21/10/2015 12:28, Eric Dumazet wrote:
 
-> On (10/21/15 08:57), Steffen Klassert wrote:
->> > --- a/net/xfrm/xfrm_user.c
->> > +++ b/net/xfrm/xfrm_user.c
->> > @@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
->> >  		if (attr == NULL)
->> >  			goto out_free_skb;
->> >  
->> > -		p = nla_data(attr);
->> > +		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
->> 
->> Hm, this breaks userspace notifications on 64-bit systems.
->> Userspace expects this to be aligned to 4, with your patch
->> it is aligned to 8 on 64-bit.
->> 
->> Without your patch I get the correct notification when deleting a SA:
->> 
-> 
-> But __alignof__(*p) is 8 on sparc, and without the patch I get
-> all types of unaligned access. So what do you suggest as the fix?
+> This works for me. Please double check your programs
 
-The accesses have to be done using something like get_unaligned() and
-put_unaligned().
+I have just done so, it works as you say for AF_INET sockets but if you 
+switch to AF_UNIX sockets it does the wrong thing in the way I described.
 
-Sorry, but the protocol is set in stone and this is unfortunately how
-it is.
+-- 
+Alan Burlison
+--
