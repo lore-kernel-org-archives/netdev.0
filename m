@@ -1,236 +1,167 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next] openvswitch: Use dev_queue_xmit for vport send.
-Date: Tue, 20 Oct 2015 23:00:10 -0700
-Message-ID: <1445407210-3898-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [PATCH net-next v3] netlink: Rightsize IFLA_AF_SPEC size calculation
+Date: Tue, 20 Oct 2015 23:31:42 -0700
+Message-ID: <5627314E.5030801@intel.com>
+References: <1444888204-1954-1-git-send-email-ronen.arad@intel.com> <1445271808-9097-1-git-send-email-ronen.arad@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Ronen Arad <ronen.arad@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34265 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912AbbJUGAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 02:00:16 -0400
-Received: by padhk11 with SMTP id hk11so44596368pad.1
-        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 23:00:15 -0700 (PDT)
+Received: from mga03.intel.com ([134.134.136.65]:10797 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751182AbbJUGbn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2015 02:31:43 -0400
+In-Reply-To: <1445271808-9097-1-git-send-email-ronen.arad@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With use of lwtunnel, we can directly call dev_queue_xmit()
-rather than calling netdev vport send operation.
-Following change make tunnel vport code bit cleaner.
+On 10/19/2015 9:23 AM, Ronen Arad wrote:
+> if_nlmsg_size() overestimates the minimum allocation size of netlink
+> dump request (when called from rtnl_calcit()) or the size of the
+> message (when called from rtnl_getlink()). This is because
+> ext_filter_mask is not supported by rtnl_link_get_af_size() and
+> rtnl_link_get_size().
+>
+> The over-estimation is significant when at least one netdev has many
+> VLANs configured (8 bytes for each configured VLAN).
+>
+> This patch-set "rightsizes" the protocol specific attribute size
+> calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
+> and adding this a argument to get_link_af_size op in rtnl_af_ops.
+>
+> Bridge module already used filtering aware sizing for notifications.
+> br_get_link_af_size_filtered() is consistent with the modified
+> get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
+> br_get_link_af_size() becomes unused and thus removed.
+>
+> Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/vport-geneve.c       |    2 +-
- net/openvswitch/vport-gre.c          |    2 +-
- net/openvswitch/vport-internal_dev.c |    8 ++++----
- net/openvswitch/vport-netdev.c       |   33 +--------------------------------
- net/openvswitch/vport-netdev.h       |    1 -
- net/openvswitch/vport-vxlan.c        |    2 +-
- net/openvswitch/vport.c              |   30 ++++++++++++++++++++++++++++++
- net/openvswitch/vport.h              |    7 ++-----
- 8 files changed, 40 insertions(+), 45 deletions(-)
-
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 2735e9c..7a568ca 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -128,7 +128,7 @@ static struct vport_ops ovs_geneve_vport_ops = {
- 	.create		= geneve_create,
- 	.destroy	= ovs_netdev_tunnel_destroy,
- 	.get_options	= geneve_get_options,
--	.send		= ovs_netdev_send,
-+	.send		= dev_queue_xmit,
- 	.owner          = THIS_MODULE,
- 	.get_egress_tun_info	= geneve_get_egress_tun_info,
- };
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 4d24481..cdb758a 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -94,7 +94,7 @@ static int gre_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
- static struct vport_ops ovs_gre_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_GRE,
- 	.create		= gre_create,
--	.send		= ovs_netdev_send,
-+	.send		= dev_queue_xmit,
- 	.get_egress_tun_info	= gre_get_egress_tun_info,
- 	.destroy	= ovs_netdev_tunnel_destroy,
- 	.owner		= THIS_MODULE,
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 388b8a6..7f0a8bd 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -202,22 +202,21 @@ static void internal_dev_destroy(struct vport *vport)
- 	rtnl_unlock();
- }
- 
--static void internal_dev_recv(struct vport *vport, struct sk_buff *skb)
-+static netdev_tx_t internal_dev_recv(struct sk_buff *skb)
- {
--	struct net_device *netdev = vport->dev;
-+	struct net_device *netdev = skb->dev;
- 	struct pcpu_sw_netstats *stats;
- 
- 	if (unlikely(!(netdev->flags & IFF_UP))) {
- 		kfree_skb(skb);
- 		netdev->stats.rx_dropped++;
--		return;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	skb_dst_drop(skb);
- 	nf_reset(skb);
- 	secpath_reset(skb);
- 
--	skb->dev = netdev;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->protocol = eth_type_trans(skb, netdev);
- 	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
-@@ -229,6 +228,7 @@ static void internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- 	u64_stats_update_end(&stats->syncp);
- 
- 	netif_rx(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static struct vport_ops ovs_internal_vport_ops = {
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index f7e8dcc..b327368 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -190,37 +190,6 @@ void ovs_netdev_tunnel_destroy(struct vport *vport)
- }
- EXPORT_SYMBOL_GPL(ovs_netdev_tunnel_destroy);
- 
--static unsigned int packet_length(const struct sk_buff *skb)
--{
--	unsigned int length = skb->len - ETH_HLEN;
--
--	if (skb->protocol == htons(ETH_P_8021Q))
--		length -= VLAN_HLEN;
--
--	return length;
--}
--
--void ovs_netdev_send(struct vport *vport, struct sk_buff *skb)
--{
--	int mtu = vport->dev->mtu;
--
--	if (unlikely(packet_length(skb) > mtu && !skb_is_gso(skb))) {
--		net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
--				     vport->dev->name,
--				     packet_length(skb), mtu);
--		vport->dev->stats.tx_errors++;
--		goto drop;
--	}
--
--	skb->dev = vport->dev;
--	dev_queue_xmit(skb);
--	return;
--
--drop:
--	kfree_skb(skb);
--}
--EXPORT_SYMBOL_GPL(ovs_netdev_send);
--
- /* Returns null if this device is not attached to a datapath. */
- struct vport *ovs_netdev_get_vport(struct net_device *dev)
- {
-@@ -235,7 +204,7 @@ static struct vport_ops ovs_netdev_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_NETDEV,
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
--	.send		= ovs_netdev_send,
-+	.send		= dev_queue_xmit,
- };
- 
- int __init ovs_netdev_init(void)
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index bf22fce..19e29c1 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -27,7 +27,6 @@
- struct vport *ovs_netdev_get_vport(struct net_device *dev);
- 
- struct vport *ovs_netdev_link(struct vport *vport, const char *name);
--void ovs_netdev_send(struct vport *vport, struct sk_buff *skb);
- void ovs_netdev_detach_dev(struct vport *);
- 
- int __init ovs_netdev_init(void);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index fb3cdb8..6f70071 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -170,7 +170,7 @@ static struct vport_ops ovs_vxlan_netdev_vport_ops = {
- 	.create			= vxlan_create,
- 	.destroy		= ovs_netdev_tunnel_destroy,
- 	.get_options		= vxlan_get_options,
--	.send			= ovs_netdev_send,
-+	.send			= dev_queue_xmit,
- 	.get_egress_tun_info	= vxlan_get_egress_tun_info,
- };
- 
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 12a36ac..ef19d0b 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -537,3 +537,33 @@ int ovs_vport_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
- 
- 	return vport->ops->get_egress_tun_info(vport, skb, upcall);
- }
-+
-+static unsigned int packet_length(const struct sk_buff *skb)
-+{
-+	unsigned int length = skb->len - ETH_HLEN;
-+
-+	if (skb->protocol == htons(ETH_P_8021Q))
-+		length -= VLAN_HLEN;
-+
-+	return length;
-+}
-+
-+void ovs_vport_send(struct vport *vport, struct sk_buff *skb)
-+{
-+	int mtu = vport->dev->mtu;
-+
-+	if (unlikely(packet_length(skb) > mtu && !skb_is_gso(skb))) {
-+		net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
-+				     vport->dev->name,
-+				     packet_length(skb), mtu);
-+		vport->dev->stats.tx_errors++;
-+		goto drop;
-+	}
-+
-+	skb->dev = vport->dev;
-+	vport->ops->send(skb);
-+	return;
-+
-+drop:
-+	kfree_skb(skb);
-+}
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index a413f3a..885607f 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -153,7 +153,7 @@ struct vport_ops {
- 	int (*set_options)(struct vport *, struct nlattr *);
- 	int (*get_options)(const struct vport *, struct sk_buff *);
- 
--	void (*send)(struct vport *, struct sk_buff *);
-+	netdev_tx_t (*send) (struct sk_buff *skb);
- 	int (*get_egress_tun_info)(struct vport *, struct sk_buff *,
- 				   struct dp_upcall_info *upcall);
- 
-@@ -234,9 +234,6 @@ static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
- 	return rt;
- }
- 
--static inline void ovs_vport_send(struct vport *vport, struct sk_buff *skb)
--{
--	vport->ops->send(vport, skb);
--}
-+void ovs_vport_send(struct vport *vport, struct sk_buff *skb);
- 
- #endif /* vport.h */
--- 
-1.7.1
+> ---
+>   include/net/rtnetlink.h |  3 ++-
+>   net/bridge/br_netlink.c | 21 +--------------------
+>   net/core/rtnetlink.c    |  8 ++++----
+>   net/ipv4/devinet.c      |  4 ++--
+>   net/ipv6/addrconf.c     |  3 ++-
+>   5 files changed, 11 insertions(+), 28 deletions(-)
+>
+> diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+> index aff6ceb..2f87c1b 100644
+> --- a/include/net/rtnetlink.h
+> +++ b/include/net/rtnetlink.h
+> @@ -124,7 +124,8 @@ struct rtnl_af_ops {
+>   	int			(*fill_link_af)(struct sk_buff *skb,
+>   						const struct net_device *dev,
+>   						u32 ext_filter_mask);
+> -	size_t			(*get_link_af_size)(const struct net_device *dev);
+> +	size_t			(*get_link_af_size)(const struct net_device *dev,
+> +						    u32 ext_filter_mask);
+>   
+>   	int			(*validate_link_af)(const struct net_device *dev,
+>   						    const struct nlattr *attr);
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 94b4de8..40197ff 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -1214,29 +1214,10 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+>   	return 0;
+>   }
+>   
+> -static size_t br_get_link_af_size(const struct net_device *dev)
+> -{
+> -	struct net_bridge_port *p;
+> -	struct net_bridge *br;
+> -	int num_vlans = 0;
+> -
+> -	if (br_port_exists(dev)) {
+> -		p = br_port_get_rtnl(dev);
+> -		num_vlans = br_get_num_vlan_infos(nbp_vlan_group(p),
+> -						  RTEXT_FILTER_BRVLAN);
+> -	} else if (dev->priv_flags & IFF_EBRIDGE) {
+> -		br = netdev_priv(dev);
+> -		num_vlans = br_get_num_vlan_infos(br_vlan_group(br),
+> -						  RTEXT_FILTER_BRVLAN);
+> -	}
+> -
+> -	/* Each VLAN is returned in bridge_vlan_info along with flags */
+> -	return num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
+> -}
+>   
+>   static struct rtnl_af_ops br_af_ops __read_mostly = {
+>   	.family			= AF_BRIDGE,
+> -	.get_link_af_size	= br_get_link_af_size,
+> +	.get_link_af_size	= br_get_link_af_size_filtered,
+>   };
+>   
+>   struct rtnl_link_ops br_link_ops __read_mostly = {
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 2477595..7c78b5a 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -497,7 +497,8 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops)
+>   }
+>   EXPORT_SYMBOL_GPL(rtnl_af_unregister);
+>   
+> -static size_t rtnl_link_get_af_size(const struct net_device *dev)
+> +static size_t rtnl_link_get_af_size(const struct net_device *dev,
+> +				    u32 ext_filter_mask)
+>   {
+>   	struct rtnl_af_ops *af_ops;
+>   	size_t size;
+> @@ -509,7 +510,7 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev)
+>   		if (af_ops->get_link_af_size) {
+>   			/* AF_* + nested data */
+>   			size += nla_total_size(sizeof(struct nlattr)) +
+> -				af_ops->get_link_af_size(dev);
+> +				af_ops->get_link_af_size(dev, ext_filter_mask);
+>   		}
+>   	}
+>   
+> @@ -900,7 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+>   	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+>   	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+>   	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+> -	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+> +	       + rtnl_link_get_af_size(dev, ext_filter_mask) /* IFLA_AF_SPEC */
+>   	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+>   	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+>   	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+> @@ -3443,4 +3444,3 @@ void __init rtnetlink_init(void)
+>   	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
+>   	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
+>   }
+> -
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 7350084..cebd9d3 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -1644,7 +1644,8 @@ errout:
+>   		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
+>   }
+>   
+> -static size_t inet_get_link_af_size(const struct net_device *dev)
+> +static size_t inet_get_link_af_size(const struct net_device *dev,
+> +				    u32 ext_filter_mask)
+>   {
+>   	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+>   
+> @@ -2398,4 +2399,3 @@ void __init devinet_init(void)
+>   	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
+>   		      inet_netconf_dump_devconf, NULL);
+>   }
+> -
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index f0326aa..0645fd1 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -4786,7 +4786,8 @@ nla_put_failure:
+>   	return -EMSGSIZE;
+>   }
+>   
+> -static size_t inet6_get_link_af_size(const struct net_device *dev)
+> +static size_t inet6_get_link_af_size(const struct net_device *dev,
+> +				     u32 ext_filter_mask)
+>   {
+>   	if (!__in6_dev_get(dev))
+>   		return 0;
