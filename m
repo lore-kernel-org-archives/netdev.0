@@ -1,184 +1,131 @@
-From: Casper.Dik@oracle.com
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Wed, 21 Oct 2015 22:33:04 +0200
-Message-ID: <201510212033.t9LKX4G8007718@room101.nl.oracle.com>
-References: <20151019095938.72ea48e6@xeon-e3> <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com> <562594E1.8040403@oracle.com> <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com> <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 05/12] IXGBE: Add new sysfs interface
+	of "notify_vf"
+Date: Wed, 21 Oct 2015 13:52:48 -0700
+Message-ID: <5627FB20.3020003@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+	<1445445464-5056-6-git-send-email-tianyu.lan@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:47723 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756157AbbJUUp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 16:45:59 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9LKjwQr020178
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 20:45:59 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9LKaGWa004834
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 20:45:58 GMT
-In-Reply-To: <20151021185104.GM22011@ZenIV.linux.org.uk> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Lan Tianyu <tianyu.lan@intel.com>, bhelgaas@google.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	eddie.dong@intel.com, nrupal.jani@intel.com, yang.z.zhang@intel.com,
+	agraf@suse.de, kvm@vger.kernel.org, pbonzini@redhat.com,
+	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
+	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	matthew.vick@intel.com, mitch.a.williams@intel.com,
+	netdev@vger.kernel.org, shannon.nelson@intel.com
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+In-Reply-To: <1445445464-5056-6-git-send-email-tianyu.lan@intel.com>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+List-Id: netdev.vger.kernel.org
 
-
->On Wed, Oct 21, 2015 at 03:38:51PM +0100, Alan Burlison wrote:
+On 10/21/2015 09:37 AM, Lan Tianyu wrote:
+> This patch is to add new sysfs interface of "notify_vf" under sysfs
+> directory of VF PCI device for Qemu to notify VF when migration status
+> is changed.
 >
->> >There's going to be a notion of "last close"; that's what this refcount is
->> >about and _that_ is more than implementation detail.
->> 
->> Yes, POSIX distinguishes between "file descriptor" and "file
->> description" (ugh!) and the close() page says:
+> Signed-off-by: Lan Tianyu <tianyu.lan@intel.com>
+> ---
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 30 ++++++++++++++++++++++++++
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  4 ++++
+>   2 files changed, 34 insertions(+)
 >
->Would've been better if they went for something like "IO channel" for
->the latter ;-/
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> index e247d67..5cc7817 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -217,10 +217,37 @@ static ssize_t ixgbe_store_state_in_pf(struct device *dev,
+>   	return count;
+>   }
+>   
+> +static ssize_t ixgbe_store_notify_vf(struct device *dev,
+> +				       struct device_attribute *attr,
+> +				       const char *buf, size_t count)
+> +{
+> +	struct ixgbe_adapter *adapter = to_adapter(dev);
+> +	struct ixgbe_hw *hw = &adapter->hw;
+> +	struct pci_dev *vf_pdev = to_pci_dev(dev);
+> +	int vfn = vf_pdev->virtfn_index;
+> +	u32 ivar;
+> +
+> +	/* Enable VF mailbox irq first */
+> +	IXGBE_WRITE_REG(hw, IXGBE_PVTEIMS(vfn), 0x4);
+> +	IXGBE_WRITE_REG(hw, IXGBE_PVTEIAM(vfn), 0x4);
+> +	IXGBE_WRITE_REG(hw, IXGBE_PVTEIAC(vfn), 0x4);
+> +
+> +	ivar = IXGBE_READ_REG(hw, IXGBE_PVTIVAR_MISC(vfn));
+> +	ivar &= ~0xFF;
+> +	ivar |= 0x2 | IXGBE_IVAR_ALLOC_VAL;
+> +	IXGBE_WRITE_REG(hw, IXGBE_PVTIVAR_MISC(vfn), ivar);
+> +
+> +	ixgbe_ping_vf(adapter, vfn);
+> +	return count;
+> +}
+> +
 
-Or at least some other word.  A file descriptor is just an index to
-a list of file pointers (and wasn't named so?)
+NAK, this won't fly.  You can't just go in from the PF and enable 
+interrupts on the VF hoping they are configured well enough to handle an 
+interrupt you decide to trigger from them.
 
->> "When all file descriptors associated with an open file description
->> have been closed, the open file description shall be freed."
->
->BTW, is SCM_RIGHTS outside of scope?  They do mention it in one place
->only:
->| Ancillary data is also possible at the socket level. The <sys/socket.h>
->| header shall define the following symbolic constant for use as the cmsg_type
->| value when cmsg_level is SOL_SOCKET:
->|
->| SCM_RIGHTS
->|     Indicates that the data array contains the access rights to be sent or
->| received.
->
->with no further details whatsoever.  It's been there since at least 4.3-Reno;
->does anybody still use the older variant (->msg_accrights, that is)?  IIRC,
->there was some crap circa 2.6 when Solaris used to do ->msg_accrights for
->descriptor-passing, but more or less current versions appear to support
->SCM_RIGHTS...  In any case, descriptor-passing had been there in some form
->since at least '83 (the old variant is already present in 4.2) and considering
->it out-of-scope for POSIX is bloody ridiculous, IMO.
+Also have you even considered the MSI-X configuration on the VF?  I 
+haven't seen anything anywhere that would have migrated the VF's MSI-X 
+configuration from BAR 3 on one system to the new system.
 
-SCM_RIGHTS was introduced as part of the POSIX standardization of BSD 
-sockets.  Looks like they became part of Solaris 2.6, but the default
-was non-standard sockets so you may easily find msg->accrights but not
-SCM_RIGHTS.
+>   static struct device_attribute ixgbe_per_state_in_pf_attribute =
+>   	__ATTR(state_in_pf, S_IRUGO | S_IWUSR,
+>   		ixgbe_show_state_in_pf, ixgbe_store_state_in_pf);
+>   
+> +static struct device_attribute ixgbe_per_notify_vf_attribute =
+> +	__ATTR(notify_vf, S_IWUSR, NULL, ixgbe_store_notify_vf);
+> +
+>   void ixgbe_add_vf_attrib(struct ixgbe_adapter *adapter)
+>   {
+>   	struct pci_dev *pdev = adapter->pdev;
+> @@ -241,6 +268,8 @@ void ixgbe_add_vf_attrib(struct ixgbe_adapter *adapter)
+>   		if (vfdev->is_virtfn) {
+>   			ret = device_create_file(&vfdev->dev,
+>   					&ixgbe_per_state_in_pf_attribute);
+> +			ret |= device_create_file(&vfdev->dev,
+> +					&ixgbe_per_notify_vf_attribute);
+>   			if (ret)
+>   				pr_warn("Unable to add VF attribute for dev %s,\n",
+>   					dev_name(&vfdev->dev));
+> @@ -269,6 +298,7 @@ void ixgbe_remove_vf_attrib(struct ixgbe_adapter *adapter)
+>   	while (vfdev) {
+>   		if (vfdev->is_virtfn) {
+>   			device_remove_file(&vfdev->dev, &ixgbe_per_state_in_pf_attribute);
+> +			device_remove_file(&vfdev->dev, &ixgbe_per_notify_vf_attribute);
+>   		}
+>   
+>   		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
 
-msg_accrights is what was introduced in BSD in likely the first 
-implementation of socket-based file descriptor passing.
+More driver specific sysfs.  This needs to be moved out of the driver if 
+this is to be considered anything more than a proof of concept.
 
-SysV has its own file descriptor passing on file descriptors passing.
-
-But that interface is too much ad-hoc, so SCM_RIGHTS is a standardizations 
-allowing multiple types of messages to be send around
-
->Unless they want to consider in-flight descriptor-passing datagrams as
->collections of file descriptors, the quoted sentence is seriously misleading.
->And then there's mmap(), which they do kinda-sorta mention...
-
-Well, a file descriptor really only exists in the context of a process; 
-in-flight it is no longer a file descriptor as there process context with 
-a file descriptor table; so pointers to file descriptions are passed 
-around.
-
->> >In other words, is that destruction of
->> >	* any descriptor refering to this socket [utterly insane for obvious
->> >reasons]
->> >	* the last descriptor refering to this socket (modulo descriptor
->> >passing, etc.) [a bitch to implement, unless we treat a syscall in progress
->> >as keeping the opened file open], or
->> >	* _the_ descriptor used to issue accept(2) [a bitch to implement,
->> >with a lot of fun races in an already race-prone area]?
->> 
->> From reading the POSIX close() page I believe the second option is
->> the correct one.
->
->Er...  So fd2 = dup(fd);accept(fd)/close(fd) should *not* trigger that
->behaviour, in your opinion?  Because fd is sure as hell not the last
->descriptor refering to that socket - fd2 remains alive and well.
->
->Behaviour you describe below matches the _third_ option.
-
->> >BTW, for real fun, consider this:
->> >7)
->> >// fd is a socket
->> >fd2 = dup(fd);
->> >in thread A: accept(fd);
->> >in thread B: accept(fd);
->> >in thread C: accept(fd2);
->> >in thread D: close(fd);
->> >
->> >Which threads (if any), should get hit where it hurts?
->> 
->> A & B should return from the accept with an error. C should
->> continue. Which is what happens on Solaris.
->
->> To this end each thread keeps a list of file descriptors
->> in use by the current active system call.
->
->Yecchhhh...  How much cross-CPU traffic does that cause on
->multithread processes?  Not on close(2), on maintaining the
->descriptor use counts through the normal syscalls.
-
-In the Solaris implementation is pretty much what we do;
-but there is no much cross-CPU traffic.  Of course, you will need
-to keep locks in the file descriptor table if only to find
-the actual file pointer.
-
-The work is done only in the case of a badly written application
-where close is required to hunt down all threads currently using
-the specific file descriptor.
-
->> When a file descriptor is closed and this file descriptor
->> is marked as being in use by other threads, the kernel
->> will search all threads to see which have this file descriptor
->> listed as in use. For each such thread, the kernel tells
->> the thread that its active fds list is now stale and, if
->> possible, makes the thread run.
->>
->> While this algorithm is pretty expensive, it is not often invoked.
->
->Sure, but the upkeep of data structures it would need is there
->whether you actually end up triggering it or not.  Both in
->memory footprint and in cacheline pingpong...
-
-Most of the work on using a file descriptor is local to the thread.
-
->Besides, the list of threads using given descriptor table also needs
->to be maintained, unless you scan *all* threads in the system (which
->would be quite a fun wrt latency and affect a lot more than just the
->process doing something dumb and rare).
-
-In Solaris all threads using the same file descriptor table are all the 
-threads in the same process.  This is typical for Unix but it is not what 
-we have in Linux, or so I'm told.   So we already have that particular
-list of threads.
-
->BTW, speaking of fun races: AFAICS, NetBSD dup2() isn't atomic.  It
->calls fd_close() outside of ->fd_lock (has to, since fd_close() is
->grabbing that itself), so another thread doing e.g.  fcntl(newfd, F_GETFD)
->in the middle of dup2(oldfd, newfd) might end up with EBADF, even though
->both before and after dup2() newfd had been open.  What's worse,
->thread A:
->	fd1 = open("foo", ...);
->	fd2 = open("bar", ...);
->	...
->	dup2(fd1, fd2);
->thread B:
->	fd = open("baz", ...);
->might, AFAICS, end up with fd == fd2 and refering to foo instead of baz.
->All it takes is the last open() managing to grab ->fd_lock just as fd_close()
->from dup2() has dropped it.  Which is an unexpected behaviour, to put it
->mildly, no matter how much standard lawyering one applies...
-
-It could happen even when the implementation does not have any races; but 
-I think you're saying that you know that the open call in thread B 
-comes after the open to fd2, then fd != fd2.
-
-This looks indeed like a bug.
-
-Casper
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> index dd6ba59..c6ddb66 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> @@ -2302,6 +2302,10 @@ enum {
+>   #define IXGBE_PVFTDT(P)		(0x06018 + (0x40 * (P)))
+>   #define IXGBE_PVFTDWBAL(P)	(0x06038 + (0x40 * (P)))
+>   #define IXGBE_PVFTDWBAH(P)	(0x0603C + (0x40 * (P)))
+> +#define IXGBE_PVTEIMS(P)	(0x00D00 + (4 * (P)))
+> +#define IXGBE_PVTIVAR_MISC(P)	(0x04E00 + (4 * (P)))
+> +#define IXGBE_PVTEIAC(P)       (0x00F00 + (4 * P))
+> +#define IXGBE_PVTEIAM(P)       (0x04D00 + (4 * P))
+>   
+>   #define IXGBE_PVFTDWBALn(q_per_pool, vf_number, vf_q_index) \
+>   		(IXGBE_PVFTDWBAL((q_per_pool)*(vf_number) + (vf_q_index)))
