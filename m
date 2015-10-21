@@ -1,249 +1,107 @@
-From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC v3 2/2] iwlwifi: mvm: send large SKBs to the transport
-Date: Wed, 21 Oct 2015 21:34:24 +0300
-Message-ID: <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
-References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445452464-19525-1-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Wed, 21 Oct 2015 20:34:47 +0200
+Message-ID: <20151021183447.GC23554@pox.localdomain>
+References: <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+ <562545AA.2080207@plumgrid.com>
+ <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+ <56255714.2070800@plumgrid.com>
+ <56256BF9.1090500@iogearbox.net>
+ <56258B11.9080505@plumgrid.com>
+ <5625FF71.8020304@iogearbox.net>
+ <56267FAF.60206@plumgrid.com>
+ <87io61fjx3.fsf@x220.int.ebiederm.org>
+ <5627AC79.5000704@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:34494 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753232AbbJUSev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 14:34:51 -0400
+Received: by wikq8 with SMTP id q8so106703223wik.1
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 11:34:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5627AC79.5000704@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that PCIe knows how to create A-MSDUs, use this
-capability and prepare SKBs that are large enough to
-build an A-MSDU.
-Advertise TSO support towards the network stack and
-segment the packet with gso_size set to be the maximal
-A-MSDU length (after having taken the headers to be added
-into account) to make sure that the skb that is passed
-down to the transport are not longer than the maximal
-A-MSDU allowed.
+On 10/21/15 at 05:17pm, Daniel Borkmann wrote:
+> On 10/20/2015 08:56 PM, Eric W. Biederman wrote:
+> ...
+> >Just FYI:  Using a device for this kind of interface is pretty
+> >much a non-starter as that quickly gets you into situations where
+> >things do not work in containers.  If someone gets a version of device
+> >namespaces past GregKH it might be up for discussion to use character
+> >devices.
+> 
+> Okay, you are referring to this discussion here:
+> 
+>   http://thread.gmane.org/gmane.linux.kernel.containers/26760
+> 
+> What had been mentioned earlier in this thread was to have a namespace
+> pass-through facility enforced by device cgroups we have in the kernel,
+> which is one out of various means used to enforce policy today by
+> deployment systems such as docker, for example. But more below.
+> 
+> I think this all depends on the kind of expectations we have, where all
+> this is going. In the original proposal, it was agreed to have the
+> operation that creates a node as 'capable(CAP_SYS_ADMIN)'-only (in the
+> way like most of the rest of eBPF is restricted), and based on the use
+> case we distribute such objects to unprivileged applications. But I
+> understand that it seems the trend lately to lift eBPF restrictions at
+> some point anyway, and thus the CAP_SYS_ADMIN is suddenly irrelevant
+> again. Fair enough.
+> 
+> Don't get me wrong, I really don't mind if it will be some version of
+> this fs patch or whatever architecture else we find consensus on, I
+> think this discussion is merely trying to evaluate/discuss on what seems
+> to be a good fit, also in terms of future requirements and integration.
+> 
+> So far, during this discussion, it was proposed to modify the file system
+> to a single-mount one and to stick this under /sys/kernel/bpf/. This
+> will not have "real" namespace support either, but it was proposed to
+> have a following structure:
+> 
+>   /sys/kernel/bpf/username/<optional_dirs_mkdir_by_user>/progX
 
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/iwlwifi/mvm/tx.c | 143 ++++++++++++++++++++++++++++++++--
- 1 file changed, 135 insertions(+), 8 deletions(-)
+This would probably work as you would typically map the ebpf map
+using -v like this to give a stable path:
 
-diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/iwlwifi/mvm/tx.c
-index be9d7e4..4f23149 100644
---- a/drivers/net/wireless/iwlwifi/mvm/tx.c
-+++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
-@@ -65,6 +65,7 @@
- #include <linux/ieee80211.h>
- #include <linux/etherdevice.h>
- #include <linux/tcp.h>
-+#include <net/ip.h>
+        docker run -v /sys/kernel/bpf/foo/maps/progX:/map proX
  
- #include "iwl-trans.h"
- #include "iwl-eeprom-parse.h"
-@@ -181,7 +182,8 @@ void iwl_mvm_set_tx_cmd(struct iwl_mvm *mvm, struct sk_buff *skb,
- 
- 	tx_cmd->tx_flags = cpu_to_le32(tx_flags);
- 	/* Total # bytes to be transmitted */
--	tx_cmd->len = cpu_to_le16((u16)skb->len);
-+	tx_cmd->len = cpu_to_le16((u16)skb->len +
-+		(uintptr_t)info->driver_data[0]);
- 	tx_cmd->next_frame_len = 0;
- 	tx_cmd->life_time = cpu_to_le32(TX_CMD_LIFE_TIME_INFINITE);
- 	tx_cmd->sta_id = sta_id;
-@@ -356,7 +358,6 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
- 
- 	memset(&info->status, 0, sizeof(info->status));
- 
--	info->driver_data[0] = NULL;
- 	info->driver_data[1] = dev_cmd;
- 
- 	return dev_cmd;
-@@ -379,6 +380,9 @@ int iwl_mvm_tx_skb_non_sta(struct iwl_mvm *mvm, struct sk_buff *skb)
- 			  info->hw_queue != info->control.vif->cab_queue)))
- 		return -1;
- 
-+	/* This holds the amsdu headers length */
-+	info->driver_data[0] = (void *)(uintptr_t)0;
-+
- 	/*
- 	 * IWL_MVM_OFFCHANNEL_QUEUE is used for ROC packets that can be used
- 	 * in 2 different types of vifs, P2P & STATION. P2P uses the offchannel
-@@ -435,29 +439,148 @@ int iwl_mvm_tx_skb_non_sta(struct iwl_mvm *mvm, struct sk_buff *skb)
- 	return 0;
- }
- 
--static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
-+static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb,
- 			  struct ieee80211_sta *sta,
- 			  struct sk_buff_head *mpdus_skb)
- {
-+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-+	struct ieee80211_hdr *hdr = (void *)skb->data;
-+	unsigned int mss = skb_shinfo(skb)->gso_size;
- 	struct sk_buff *tmp, *next;
--	char cb[sizeof(skb_gso->cb)];
-+	char cb[sizeof(skb->cb)];
-+	unsigned int num_subframes, tcp_payload_len, subf_len;
-+	u16 amsdu_add, snap_ip_tcp, pad, i = 0;
-+
-+	snap_ip_tcp = 8 + skb_transport_header(skb) - skb_network_header(skb) +
-+		tcp_hdrlen(skb);
-+
-+	if (!sta->max_amsdu_len ||
-+	    !ieee80211_is_data_qos(hdr->frame_control)) {
-+		num_subframes = 1;
-+		/* TODO: for the compiler... */
-+		pad = 0;
-+		goto segment;
-+	}
-+
-+	/*
-+	 * Limit A-MSDU in A-MPDU to 4095 bytes when VHT is not
-+	 * supported. This is a spec requirement (IEEE 802.11-2015
-+	 * section 8.7.3 NOTE 3).
-+	 */
-+
-+	/* TODO: for now, disable A-MSDU inside AMPDU */
-+	if (info->flags & IEEE80211_TX_CTL_AMPDU) {
-+		num_subframes = 1;
-+		/* TODO: for the compiler... */
-+		pad = 0;
-+		goto segment;
-+	}
-+
-+	/* Sub frame header + SNAP + IP header + TCP header + MSS */
-+	subf_len = sizeof(struct ethhdr) + snap_ip_tcp + mss;
-+	pad = (4 - subf_len) & 0x3;
-+
-+	/*
-+	 * If we have N subframes in the A-MSDU, then the A-MSDU's size is
-+	 * N * subf_len + (N - 1) * pad.
-+	 */
-+	num_subframes = (sta->max_amsdu_len + pad) / (subf_len + pad);
-+	if (num_subframes > 1) {
-+		u8 *qc = ieee80211_get_qos_ctl((void *)skb->data);
-+
-+		*qc |= IEEE80211_QOS_CTL_A_MSDU_PRESENT;
-+	}
-+
-+	tcp_payload_len = skb_tail_pointer(skb) - skb_transport_header(skb) -
-+		tcp_hdrlen(skb) + skb->data_len;
-+
-+	/*
-+	 * Make sure we have enough TBs for the A-MSDU:
-+	 *	2 for each subframe
-+	 *	1 more for each fragment
-+	 *	1 more for the potential data in the header
-+	 */
-+	num_subframes =
-+		min_t(unsigned int, num_subframes,
-+		      (mvm->trans->max_skb_frags - 1 -
-+		       skb_shinfo(skb)->nr_frags) / 2);
-+
-+	/* This skb fits in one single A-MSDU */
-+	if (num_subframes * mss >= tcp_payload_len) {
-+		/*
-+		 * Compute the length of all the data added for the A-MSDU.
-+		 * This will be used to compute the length to write in the TX
-+		 * command. We have: SNAP + IP + TCP for n -1 subframes and
-+		 * ETH header for n subframes. Note that the original skb
-+		 * already had one set of SNAP / IP / TCP headers.
-+		 */
-+		num_subframes = DIV_ROUND_UP(tcp_payload_len, mss);
-+		info = IEEE80211_SKB_CB(skb);
-+		amsdu_add = num_subframes * sizeof(struct ethhdr) +
-+			(num_subframes - 1) * (snap_ip_tcp + pad);
-+		/* This holds the amsdu headers length */
-+		info->driver_data[0] = (void *)(uintptr_t)amsdu_add;
-+
-+		__skb_queue_tail(mpdus_skb, skb);
-+		return 0;
-+	}
-+
-+	/*
-+	 * Trick the segmentation function to make it
-+	 * create SKBs that can fit into one A-MSDU.
-+	 */
-+segment:
-+	skb_shinfo(skb)->gso_size = num_subframes * mss;
-+	memcpy(cb, skb->cb, sizeof(cb));
- 
--	memcpy(cb, skb_gso->cb, sizeof(cb));
--	next = skb_gso_segment(skb_gso, 0);
--	if (IS_ERR(next))
-+	next = skb_gso_segment(skb,
-+			       mvm->hw->netdev_features & ~NETIF_F_ALL_TSO);
-+	if (WARN_ON_ONCE(IS_ERR(next)))
- 		return -EINVAL;
- 	else if (next)
--		consume_skb(skb_gso);
-+		consume_skb(skb);
- 
- 	while (next) {
- 		tmp = next;
- 		next = tmp->next;
-+
- 		memcpy(tmp->cb, cb, sizeof(tmp->cb));
-+		/*
-+		 * Compute the length of all the data added for the A-MSDU.
-+		 * This will be used to compute the length to write in the TX
-+		 * command. We have: SNAP + IP + TCP for n -1 subframes and
-+		 * ETH header for n subframes.
-+		 */
-+		tcp_payload_len = skb_tail_pointer(tmp) -
-+			skb_transport_header(tmp) -
-+			tcp_hdrlen(tmp) + tmp->data_len;
-+
-+		if (skb->protocol == htons(ETH_P_IP)) {
-+			ip_hdr(tmp)->id = ip_hdr(skb)->id;
-+			be16_add_cpu(&ip_hdr(tmp)->id, i * num_subframes);
-+		}
-+
-+		if (tcp_payload_len > mss) {
-+			num_subframes = DIV_ROUND_UP(tcp_payload_len, mss);
-+			info = IEEE80211_SKB_CB(tmp);
-+			amsdu_add = num_subframes * sizeof(struct ethhdr) +
-+				(num_subframes - 1) * (snap_ip_tcp + pad);
-+			info->driver_data[0] = (void *)(uintptr_t)amsdu_add;
-+			skb_shinfo(tmp)->gso_size = mss;
-+		} else {
-+			u8 *qc = ieee80211_get_qos_ctl((void *)tmp->data);
-+
-+			if (skb->protocol == htons(ETH_P_IP))
-+				ip_send_check(ip_hdr(tmp));
-+			*qc &= ~IEEE80211_QOS_CTL_A_MSDU_PRESENT;
-+			skb_shinfo(tmp)->gso_size = 0;
-+		}
- 
- 		tmp->prev = NULL;
- 		tmp->next = NULL;
- 
- 		__skb_queue_tail(mpdus_skb, tmp);
-+		i++;
- 	}
- 
- 	return 0;
-@@ -567,6 +690,7 @@ int iwl_mvm_tx_skb(struct iwl_mvm *mvm, struct sk_buff *skb,
- 		   struct ieee80211_sta *sta)
- {
- 	struct iwl_mvm_sta *mvmsta = iwl_mvm_sta_from_mac80211(sta);
-+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
- 	struct sk_buff_head mpdus_skbs;
- 	unsigned int payload_len;
- 	int ret;
-@@ -577,6 +701,9 @@ int iwl_mvm_tx_skb(struct iwl_mvm *mvm, struct sk_buff *skb,
- 	if (WARN_ON_ONCE(mvmsta->sta_id == IWL_MVM_STATION_COUNT))
- 		return -1;
- 
-+	/* This holds the amsdu headers length */
-+	info->driver_data[0] = (void *)(uintptr_t)0;
-+
- 	payload_len = skb_tail_pointer(skb) - skb_transport_header(skb) -
- 		tcp_hdrlen(skb) + skb->data_len;
- 
--- 
-2.1.4
+> So, the file system will have kind of a user home-directory for each user
+> to isolate through permissions, if I understood correctly.
+> 
+> If we really want to go this route, then I think there are no big stones
+> in the way for the other model either. It should look roughly drafted like
+> the below.
+> 
+> Together with device cgroups for containers, it would allow scenarios where
+> you can have:
+> 
+>   * eBPF (map/prog) device pass-through so a map/prog could even be shared out
+>     from the initial namespace into individual ones/all (one could possibly
+>     extend such maps as read-only for these consumers).
+>   * eBPF device creation for unprivileged users with permissions being set
+>     accordingly (as in fs case).
+>   * Since cgroup controller can also do wildcards on major/minors, we could
+>     make that further fine-grained.
+>   * eBPF device creation can also be enforced by the cgroup controller to be
+>     entirely disallowed for a specific container.
+> 
+> (An admin can determine the dynamically created major f.e. under /proc/devices.)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've read the discussion passively and my take away is that, frankly,
+I think the differences are somewhat minor. Both architectures can
+scale to what we need. Both will do the job. I'm slightly worried about
+exposing uAPI as a FS, I think that didn't work too well for sysfs. It's
+pretty much a define the format once and never touch it again kind of
+deal.
