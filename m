@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 03/15] net: wireless: ath: Remove unnecessary semicolon
-Date: Wed, 21 Oct 2015 20:25:25 +0530
-Message-ID: <1445439337-19055-4-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 04/15] net: wireless: ipw2x00: use | instead of + for summing bitmasks
+Date: Wed, 21 Oct 2015 20:25:26 +0530
+Message-ID: <1445439337-19055-5-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,28 +18,39 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the ath10k/wmi.h that removes unneeded semicolon which
- is reported by coccicheck.
+This patch is to the libipw_rx.c file that fixes following warning
+reported by coccicheck:
 
-Here semicolon just create empty statement so please remote it.
+WARNING: sum of probable bitmasks, consider |
+
+I have replaced + with OR operator | for summing bitmasks
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/ath/ath10k/wmi.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/ipw2x00/libipw_rx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/wmi.h b/drivers/net/wireless/ath/ath10k/wmi.h
-index 52d3503..21d5b6b 100644
---- a/drivers/net/wireless/ath/ath10k/wmi.h
-+++ b/drivers/net/wireless/ath/ath10k/wmi.h
-@@ -1675,7 +1675,7 @@ static inline const char *ath10k_wmi_phymode_str(enum wmi_phy_mode mode)
- 
- 		/* no default handler to allow compiler to check that the
- 		 * enum is fully handled */
--	};
-+	}
- 
- 	return "<unknown>";
- }
+diff --git a/drivers/net/wireless/ipw2x00/libipw_rx.c b/drivers/net/wireless/ipw2x00/libipw_rx.c
+index cef7f7d..310b2ff 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_rx.c
++++ b/drivers/net/wireless/ipw2x00/libipw_rx.c
+@@ -875,7 +875,7 @@ void libipw_rx_any(struct libipw_device *ieee,
+ 	case IW_MODE_ADHOC:
+ 		/* our BSS and not from/to DS */
+ 		if (ether_addr_equal(hdr->addr3, ieee->bssid))
+-		if ((fc & (IEEE80211_FCTL_TODS+IEEE80211_FCTL_FROMDS)) == 0) {
++		if ((fc & (IEEE80211_FCTL_TODS | IEEE80211_FCTL_FROMDS)) == 0) {
+ 			/* promisc: get all */
+ 			if (ieee->dev->flags & IFF_PROMISC)
+ 				is_packet_for_us = 1;
+@@ -890,7 +890,7 @@ void libipw_rx_any(struct libipw_device *ieee,
+ 	case IW_MODE_INFRA:
+ 		/* our BSS (== from our AP) and from DS */
+ 		if (ether_addr_equal(hdr->addr2, ieee->bssid))
+-		if ((fc & (IEEE80211_FCTL_TODS+IEEE80211_FCTL_FROMDS)) == IEEE80211_FCTL_FROMDS) {
++		if ((fc & (IEEE80211_FCTL_TODS | IEEE80211_FCTL_FROMDS)) == IEEE80211_FCTL_FROMDS) {
+ 			/* promisc: get all */
+ 			if (ieee->dev->flags & IFF_PROMISC)
+ 				is_packet_for_us = 1;
 -- 
 2.5.3
