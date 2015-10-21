@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 14/15] net: wireless: ath: Remove unneeded variable ret returning 0
-Date: Wed, 21 Oct 2015 20:25:36 +0530
-Message-ID: <1445439337-19055-15-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 15/15] net: wireless: ath: Remove unneeded variable ret returning 0
+Date: Wed, 21 Oct 2015 20:25:37 +0530
+Message-ID: <1445439337-19055-16-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -21,36 +21,35 @@ List-Id: netdev.vger.kernel.org
 This patch is to the ath5k/eeprom.c that fixes up warning caught by
 coccicheck:
 
--Unneeded variable: "ret". Return "0" on line 1733
+Unneeded variable: "ret". Return "0" on line 980
 
-Remove unneccesary variable ret created to return zero.
+Remove unneeded variable ret created to return zero.
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/ath/ath5k/eeprom.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c b/drivers/net/wireless/ath/ath5k/eeprom.c
-index 94d34ee..673ab8d 100644
---- a/drivers/net/wireless/ath/ath5k/eeprom.c
-+++ b/drivers/net/wireless/ath/ath5k/eeprom.c
-@@ -1707,7 +1707,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
- 	struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
- 	u32 offset;
- 	u16 val;
--	int ret = 0, i;
-+	int i;
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 7c169ab..82982d5 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -935,7 +935,6 @@ static const struct ieee80211_ops wcn36xx_ops = {
  
- 	offset = AR5K_EEPROM_CTL(ee->ee_version) +
- 				AR5K_EEPROM_N_CTLS(ee->ee_version);
-@@ -1730,7 +1730,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
- 		}
- 	}
+ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ {
+-	int ret = 0;
+ 
+ 	static const u32 cipher_suites[] = {
+ 		WLAN_CIPHER_SUITE_WEP40,
+@@ -977,7 +976,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	wcn->hw->sta_data_size = sizeof(struct wcn36xx_sta);
+ 	wcn->hw->vif_data_size = sizeof(struct wcn36xx_vif);
  
 -	return ret;
 +	return 0;
  }
  
- 
+ static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
 -- 
 2.5.3
