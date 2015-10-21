@@ -1,114 +1,99 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Wed, 21 Oct 2015 15:58:03 -0700
-Message-ID: <1445468283-4592-1-git-send-email-ast@kernel.org>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33742 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663AbbJUW6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 18:58:11 -0400
-Received: by pabrc13 with SMTP id rc13so67270244pab.0
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 15:58:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV NIC
+Date: Wed, 21 Oct 2015 16:26:47 -0700
+Message-ID: <56281F37.1050506@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
+ <1445455227.4059.867.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lan Tianyu <tianyu.lan@intel.com>,
+	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
+	<mst@redhat.com>, bhelgaas@google.com, carolyn.wyborny@intel.com,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
+	Paolo Bonzini <pbonzini@redhat.com>, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	john.ronciak@intel.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: Alex Williamson <alex.williamson@redhat.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1445455227.4059.867.camel@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix safety checks for bpf_perf_event_read():
-- only non-inherited events can be added to perf_event_array map
-  (do this check statically at map insertion time)
-- dynamically check that event is local and !pmu->count
-Otherwise buggy bpf program can cause kernel splat.
+On 10/21/2015 12:20 PM, Alex Williamson wrote:
+> On Wed, 2015-10-21 at 21:45 +0300, Or Gerlitz wrote:
+>> On Wed, Oct 21, 2015 at 7:37 PM, Lan Tianyu <tianyu.lan@intel.com> wrote:
+>>> This patchset is to propose a new solution to add live migration support
+>>> for 82599 SRIOV network card.
+>>
+>>> In our solution, we prefer to put all device specific operation into VF and
+>>> PF driver and make code in the Qemu more general.
+>>
+>> [...]
+>>
+>>> Service down time test
+>>> So far, we tested migration between two laptops with 82599 nic which
+>>> are connected to a gigabit switch. Ping VF in the 0.001s interval
+>>> during migration on the host of source side. It service down
+>>> time is about 180ms.
+>>
+>> So... what would you expect service down wise for the following
+>> solution which is zero touch and I think should work for any VF
+>> driver:
+>>
+>> on host A: unplug the VM and conduct live migration to host B ala the
+>> no-SRIOV case.
+>
+> The trouble here is that the VF needs to be unplugged prior to the start
+> of migration because we can't do effective dirty page tracking while the
+> device is connected and doing DMA.  So the downtime, assuming we're
+> counting only VF connectivity, is dependent on memory size, rate of
+> dirtying, and network bandwidth; seconds for small guests, minutes or
+> more (maybe much, much more) for large guests.
 
-Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
-v1->v2: fix compile in case of !CONFIG_PERF_EVENTS
+The question of dirty page tracking though should be pretty simple.  We 
+start the Tx packets out as dirty so we don't need to add anything 
+there.  It seems like the Rx data and Tx/Rx descriptor rings are the issue.
 
-This patch is on top of
-http://patchwork.ozlabs.org/patch/533585/
-to avoid conflicts.
-Even in the worst case the crash is not possible.
-Only warn_on_once, so imo net-next is ok.
+> This is why the typical VF agnostic approach here is to using bonding
+> and fail over to a emulated device during migration, so performance
+> suffers, but downtime is something acceptable.
+>
+> If we want the ability to defer the VF unplug until just before the
+> final stages of the migration, we need the VF to participate in dirty
+> page tracking.  Here it's done via an enlightened guest driver.  Alex
+> Graf presented a solution using a device specific enlightenment in QEMU.
+> Otherwise we'd need hardware support from the IOMMU.
 
- kernel/bpf/arraymap.c |    9 +++++----
- kernel/events/core.c  |   16 ++++++++++------
- 2 files changed, 15 insertions(+), 10 deletions(-)
+My only real complaint with this patch series is that it seems like 
+there was to much focus on instrumenting the driver instead of providing 
+the code necessary to enable a driver ecosystem that enables migration.
 
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index e3cfe46b074f..75529cc94304 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -294,10 +294,11 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
- 	if (IS_ERR(attr))
- 		return (void *)attr;
- 
--	if (attr->type != PERF_TYPE_RAW &&
--	    !(attr->type == PERF_TYPE_SOFTWARE &&
--	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
--	    attr->type != PERF_TYPE_HARDWARE) {
-+	if ((attr->type != PERF_TYPE_RAW &&
-+	     !(attr->type == PERF_TYPE_SOFTWARE &&
-+	       attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
-+	     attr->type != PERF_TYPE_HARDWARE) ||
-+	    attr->inherit) {
- 		perf_event_release_kernel(event);
- 		return ERR_PTR(-EINVAL);
- 	}
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 64754bfecd70..0b6333265872 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -3258,7 +3258,7 @@ static inline u64 perf_event_count(struct perf_event *event)
- u64 perf_event_read_local(struct perf_event *event)
- {
- 	unsigned long flags;
--	u64 val;
-+	u64 val = -EINVAL;
- 
- 	/*
- 	 * Disabling interrupts avoids all counter scheduling (context
-@@ -3267,12 +3267,14 @@ u64 perf_event_read_local(struct perf_event *event)
- 	local_irq_save(flags);
- 
- 	/* If this is a per-task event, it must be for current */
--	WARN_ON_ONCE((event->attach_state & PERF_ATTACH_TASK) &&
--		     event->hw.target != current);
-+	if ((event->attach_state & PERF_ATTACH_TASK) &&
-+	    event->hw.target != current)
-+		goto out;
- 
- 	/* If this is a per-CPU event, it must be for this CPU */
--	WARN_ON_ONCE(!(event->attach_state & PERF_ATTACH_TASK) &&
--		     event->cpu != smp_processor_id());
-+	if (!(event->attach_state & PERF_ATTACH_TASK) &&
-+	    event->cpu != smp_processor_id())
-+		goto out;
- 
- 	/*
- 	 * It must not be an event with inherit set, we cannot read
-@@ -3284,7 +3286,8 @@ u64 perf_event_read_local(struct perf_event *event)
- 	 * It must not have a pmu::count method, those are not
- 	 * NMI safe.
- 	 */
--	WARN_ON_ONCE(event->pmu->count);
-+	if (event->pmu->count)
-+		goto out;
- 
- 	/*
- 	 * If the event is currently on this CPU, its either a per-task event,
-@@ -3295,6 +3298,7 @@ u64 perf_event_read_local(struct perf_event *event)
- 		event->pmu->read(event);
- 
- 	val = local64_read(&event->count);
-+out:
- 	local_irq_restore(flags);
- 
- 	return val;
--- 
-1.7.9.5
+I don't know if what we need is a full hardware IOMMU.  It seems like a 
+good way to take care of the need to flag dirty pages for DMA capable 
+devices would be to add functionality to the dma_map_ops calls 
+sync_{sg|single}for_cpu and unmap_{page|sg} so that they would take care 
+of mapping the pages as dirty for us when needed.  We could probably 
+make do with just a few tweaks to existing API in order to make this work.
+
+As far as the descriptor rings I would argue they are invalid as soon as 
+we migrate.  The problem is there is no way to guarantee ordering as we 
+cannot pre-emptively mark an Rx data buffer as being a dirty page when 
+we haven't even looked at the Rx descriptor for the given buffer yet. 
+Tx has similar issues as we cannot guarantee the Tx will disable itself 
+after a complete frame.  As such I would say the moment we migrate we 
+should just give up on the frames that are still in the descriptor 
+rings, drop them, and then start over with fresh rings.
+
+- Alex
