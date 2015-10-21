@@ -1,60 +1,45 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 21 Oct 2015 11:49:06 +0100
-Message-ID: <56276DA2.8010905@oracle.com>
-References: <20151019095938.72ea48e6@xeon-e3>	 <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>	 <562594E1.8040403@oracle.com>	 <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>	 <56261092.7080003@oracle.com>	 <1445347173.22974.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <56264596.90104@oracle.com> <1445355027.22974.22.camel@edumazet-glaptop2.roam.corp.google.com> <5626887D.5050308@oracle.com> <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next 2/2] xfrm: Fix unaligned access in
+ xfrm_notify_sa() for DELSA
+Date: Wed, 21 Oct 2015 06:54:42 -0400
+Message-ID: <20151021105442.GM6948@oracle.com>
+References: <cover.1445286755.git.sowmini.varadhan@oracle.com>
+ <65f37efeff5af105c89493dda4f38c61e4cd495f.1445286755.git.sowmini.varadhan@oracle.com>
+ <20151021065704.GM7701@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34544 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbbJUKtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 06:49:20 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBBD206@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	dhowells@redhat.com, davem@davemloft.net, zohar@linux.vnet.ibm.com,
+	David.Woodhouse@intel.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151021065704.GM7701@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21/10/2015 11:25, David Laight wrote:
+On (10/21/15 08:57), Steffen Klassert wrote:
+> > --- a/net/xfrm/xfrm_user.c
+> > +++ b/net/xfrm/xfrm_user.c
+> > @@ -2659,7 +2659,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
+> >  		if (attr == NULL)
+> >  			goto out_free_skb;
+> >  
+> > -		p = nla_data(attr);
+> > +		p = PTR_ALIGN(nla_data(attr), __alignof__(*p));
+> 
+> Hm, this breaks userspace notifications on 64-bit systems.
+> Userspace expects this to be aligned to 4, with your patch
+> it is aligned to 8 on 64-bit.
+> 
+> Without your patch I get the correct notification when deleting a SA:
+> 
 
->> The problem with poll() is that it returns immediately when passed a FD
->> that is in the listening state. rather than waiting until there's an
->> incoming connection to handle. As I said, that means you can't use
->> poll() to multiplex between read/write/accept sockets.
->
-> That seems to work for me...
+But __alignof__(*p) is 8 on sparc, and without the patch I get
+all types of unaligned access. So what do you suggest as the fix?
 
-In my test case I was setting all the available event bits in 
-pollfd.events to see what came back. With poll() on a listen() socket 
-you get an immediate return with bits set in revents indicating the 
-socket is available for output, which of course it isn't. Indeed an 
-attempt to write to it fails. If you remove the output event bits in 
-pollfd.events then the poll() waits as expected until there's an 
-incoming connection on the socket.
+(and openswan/pluto dont flag any errors with the patch, which is
+a separate bug).
 
-I suppose one answer is "Well, don't do that then" but returning an 
-output indication on a socket that's in listen() seems rather odd.
-
-With POLLOUT|POLLWRNORM|POLLWRBAND:
-
-main: polling #1
-[returns immediately]
-main: poll #1: Success
-poll fd: 0 revents: POLLOUT POLLWRBAND
-main: write #1: Transport endpoint is not connected
-
-Without POLLOUT|POLLWRNORM|POLLWRBAND:
-
-main: polling #1
-[waits for connection]
-main: poll #1: Success
-poll fd: 0 revents: POLLIN POLLRDNORM
-
--- 
-Alan Burlison
---
+--Sowmini
