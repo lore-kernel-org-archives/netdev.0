@@ -1,63 +1,92 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH] netlink: fix locking around NETLINK_LIST_MEMBERSHIPS
-Date: Wed, 21 Oct 2015 11:47:43 +0200
-Message-ID: <1445420863-1476-1-git-send-email-dh.herrmann@gmail.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	"# 4 . 2+" <stable@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: don't use CHECKSUM_PARTIAL on MSG_MORE/UDP_CORK
+ sockets
+Date: Wed, 21 Oct 2015 11:51:26 +0200
+Message-ID: <1445421086.1167705.416135513.62D75196@webmail.messagingengine.com>
+References: <1445351922-8463-1-git-send-email-hannes@stressinduktion.org>
+ <5626B4A3.6080900@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: sd@quesysnail.net, bcodding@redhat.com
+To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:32851 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753868AbbJUJv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 05:51:26 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 56CFB202B8
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 05:51:26 -0400 (EDT)
+In-Reply-To: <5626B4A3.6080900@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, NETLINK_LIST_MEMBERSHIPS grabs the netlink table while copying
-the membership state to user-space. However, grabing the netlink table is
-effectively a write_lock_irq(), and as such we should not be triggering
-page-faults in the critical section.
+Hi Vlad,
 
-This can be easily reproduced by the following snippet:
-    int s = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-    void *p = mmap(0, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-    int r = getsockopt(s, 0x10e, 9, p, (void*)((char*)p + 4092));
+On Tue, Oct 20, 2015, at 23:39, Vlad Yasevich wrote:
+> On 10/20/2015 10:38 AM, Hannes Frederic Sowa wrote:
+> > MSG_MORE might cause the packet to get fragmented in the end when
+> > passed down to the flush function and the transhdrlen check alone is
+> > not sufficient to protect against fragmentation. Instead check if the
+> > socket user intends to add more data to the socket on the first packet.
+> > 
+> > This broke checksum calculation for UDPv6 for NFS protocols.
+> > 
+> > Fixes: 32dce968dd987 ("ipv6: Allow for partial checksums on non-ufo packets")
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Tested-by: Sabrina Dubroca <sd@quesysnail.net>
+> > Tested-by: Benjamin Coddington <bcodding@redhat.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> >  net/ipv6/ip6_output.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> > index 61d403e..95c5780 100644
+> > --- a/net/ipv6/ip6_output.c
+> > +++ b/net/ipv6/ip6_output.c
+> > @@ -1317,6 +1317,7 @@ emsgsize:
+> >  	 * sums only work when transhdrlen is set.
+> >  	 */
+> >  	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
+> > +	    !(flags & MSG_MORE) &&
+> >  	    length + fragheaderlen < mtu &&
+> >  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+> >  	    !exthdrlen)
+> > 
+> 
+> Hmm... so while this solves this problem by simply avoiding the
+> combination of
+> skb #1 having CHECKSUM_PARTIAL and others having CHECKSUM_NONE, I think
+> the actual
+> problem is a bit deeper.
+> The above combination seems to work for me since udp6_hwcsum_outgoing()
+> corrects
+> the checksum.  However, my testing so far has been on nics that have
+> NETIF_F_V6_CSUM,
+> but without UFO support.
 
-This should work just fine, but currently triggers EFAULT and a possible
-WARN_ON below handle_mm_fault().
+With nfs tests we never branch into setting up or extending an UDP UFO
+packet, also because on the test system UFO is disabled on all
+interfaces.
 
-Fix this by reducing locking of NETLINK_LIST_MEMBERSHIPS to a read-side
-lock. The write-lock was overkill in the first place, and the read-lock
-allows page-faults just fine.
+I thought about relaxing this check in future when we simply make sure
+we don't do fragmentation based based on the length while taking all
+fragments into account.
 
-Cc: <stable@vger.kernel.org> # 4.2+
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
----
- net/netlink/af_netlink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> On such systems a simple test of using MSG_MORE an IPv6 udp socket
+> sending 200 bytes
+> followed by 2000 bytes works correctly.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 8f060d7..2389602 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2371,7 +2371,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 		int pos, idx, shift;
- 
- 		err = 0;
--		netlink_table_grab();
-+		netlink_lock_table();
- 		for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
- 			if (len - pos < sizeof(u32))
- 				break;
-@@ -2386,7 +2386,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 		}
- 		if (put_user(ALIGN(nlk->ngroups / 8, sizeof(u32)), optlen))
- 			err = -EFAULT;
--		netlink_table_ungrab();
-+		netlink_unlock_table();
- 		break;
- 	}
- 	case NETLINK_CAP_ACK:
--- 
-2.6.1
+Did you make sure it actually fragmented and the checksums are correct?
+
+> I am now wondering if this might be UFO related instead and looking for a
+> nic that
+> has UFO support.
+
+So far as I can see it has nothing to do with UFO. I will do more
+investigation now. Thanks for bringing this up!
+
+Bye,
+Hannes
