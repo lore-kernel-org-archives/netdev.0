@@ -1,65 +1,70 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
- maps trace data output when perf sampling
-Date: Wed, 21 Oct 2015 18:57:58 +0200
-Message-ID: <20151021165758.GK3604@twins.programming.kicks-ass.net>
-References: <20151021091254.GF2881@worktop.programming.kicks-ass.net>
- <56276968.6070604@huawei.com>
- <20151021113316.GM17308@twins.programming.kicks-ass.net>
- <56277BCE.6030400@huawei.com>
- <20151021121713.GC3604@twins.programming.kicks-ass.net>
- <56279634.5000606@huawei.com>
- <20151021134951.GH3604@twins.programming.kicks-ass.net>
- <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
- <20151021140921.GI3604@twins.programming.kicks-ass.net>
- <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next] net: hisilicon: Never build on SPARC
+Date: Wed, 21 Oct 2015 10:03:05 -0700
+Message-ID: <5627C549.9080600@roeck-us.net>
+References: <1445437773-23261-1-git-send-email-linux@roeck-us.net>
+ <5627A792.3020201@roeck-us.net>
+ <20151021.083311.2193871332944250588.davem@davemloft.net>
+ <4129407.LpDXnpSZOL@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Wangnan (F)" <wangnan0@huawei.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net,
-	linux-kernel@vger.kernel.org, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: pi3orama <pi3orama@163.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+In-Reply-To: <4129407.LpDXnpSZOL@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 21, 2015 at 11:06:47PM +0800, pi3orama wrote:
-> > So explain; how does this eBPF stuff work.
-> 
-> I think I get your point this time, and let me explain the eBPF stuff to you.
-> 
-> You are aware that BPF programmer can break the system in this way:
-> 
-> A=get_non_local_perf_event()
-> perf_event_read_local(A)
-> BOOM!
-> 
-> However the above logic is impossible because BPF program can't work this
-> way.
-> 
-> First of all, it is impossible for a BPF program directly invoke a
-> kernel function.  Doesn't like kernel module, BPF program can only
-> invoke functions designed for them, like what this patch does. So the
-> ability of BPF programs is strictly restricted by kernel. If we don't
-> allow BPF program call perf_event_read_local() across core, we can
-> check this and return error in function we provide for them.
-> 
-> Second: there's no way for a BPF program directly access a perf event.
-> All perf events have to be wrapped by a map and be accessed by BPF
-> functions described above. We don't allow BPF program fetch array
-> element from that map. So pointers of perf event is safely protected
-> from BPF program.
-> 
-> In summary, your either-or logic doesn't hold in BPF world. A BPF
-> program can only access perf event in a highly restricted way. We
-> don't allow it calling perf_event_read_local() across core, so it
-> can't.
+On 10/21/2015 08:57 AM, Arnd Bergmann wrote:
+> On Wednesday 21 October 2015 08:33:11 David Miller wrote:
+>> From: Guenter Roeck <linux@roeck-us.net>
+>> Date: Wed, 21 Oct 2015 07:56:18 -0700
+>>
+>>>> @@ -57,6 +57,11 @@ extern int of_dma_get_range(struct device_node *np,
+>>>> u64 *dma_addr,
+>>>>                               u64 *paddr, u64 *size);
+>>>>    extern bool of_dma_is_coherent(struct device_node *np);
+>>>>    #else /* CONFIG_OF_ADDRESS */
+>>>> +static inline u64 of_translate_address(struct device_node *np, const
+>>>> __be32 *addr)
+>>>> +{
+>>>> +    return 0;
+>>>
+>>> Maybe return OF_BAD_ADDR ?
+>>
+>> The thing to really do on sparc, is just return the address raw untranslated
+>> because that just works.
+>>
+>
+> We still need to check #address-cells, right?
+>
+> Something like this?
+>
+> static inline u64 of_translate_address(struct device_node *np, const __be32 *addr)
+> {
+> #if defined(CONFIG_SPARC) || defined(CONFIG_M68K)
+> 	int pna = of_n_addr_cells(np);
+> 	u64 ret = be32_to_cpu(addr[pna - 1]);
+>
+> 	if (pna > 1)
+> 		ret += (u64)be32_to_cpu(addr[pna - 2]) << 32;
+>
+> 	return ret;
 
-Urgh, that's still horridly inconsistent. Can we please come up with a
-consistent interface to perf?
+That suggests that sparc would need a translation after all, which
+seems to contradict what David said earlier.
+
+Anyway, if it gets that complicated, I think we should stick with
+just returning OF_BAD_ADDR. The above really suggests the need for
+an architecture specific solution.
+
+Guenter
+
+> #else
+> 	return OF_BAD_ADDR;
+> #endif
+> }
+>
+> 	Arnd
+>
