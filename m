@@ -1,70 +1,51 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH 9/9] treewide: Remove newlines inside DEFINE_PER_CPU()
- macros
-Date: Wed, 21 Oct 2015 15:27:55 -0400
-Message-ID: <5627E73B.9000502@redhat.com>
-References: <1444940195-28272-1-git-send-email-mmarek@suse.com> <1444940195-28272-10-git-send-email-mmarek@suse.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Wed, 21 Oct 2015 21:33:17 +0200
+Message-ID: <20151021193317.GF2508@worktop.programming.kicks-ass.net>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
+ <20151021120636.GB3604@twins.programming.kicks-ass.net>
+ <5627CABD.7030609@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: Michal Marek <mmarek@suse.com>, linux-kbuild@vger.kernel.org
-Return-path: <linux-ia64-owner@vger.kernel.org>
-In-Reply-To: <1444940195-28272-10-git-send-email-mmarek@suse.com>
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:37679 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752198AbbJUTdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 15:33:07 -0400
+Content-Disposition: inline
+In-Reply-To: <5627CABD.7030609@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2015 04:16 PM, Michal Marek wrote:
-> Otherwise make tags can't parse them:
+On Wed, Oct 21, 2015 at 10:26:21AM -0700, Alexei Starovoitov wrote:
+> On 10/21/15 5:06 AM, Peter Zijlstra wrote:
+> >>  	PERF_COUNT_SW_DUMMY			= 9,
+> >>>+	PERF_COUNT_SW_BPF_OUTPUT		= 10,
+> >>>
+> >>>  	PERF_COUNT_SW_MAX,			/* non-ABI */
+> >>>  };
+> >Do you really need the new type? Can't you use DUMMY for this?
 > 
-> ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
-> ctags: Warning: drivers/xen/events/events_2l.c:41: null expansion of name pattern "\1"
-> ctags: Warning: drivers/acpi/processor_idle.c:64: null expansion of name pattern "\1"
-> ctags: Warning: kernel/locking/lockdep.c:153: null expansion of name pattern "\1"
-> ctags: Warning: kernel/workqueue.c:305: null expansion of name pattern "\1"
-> ctags: Warning: kernel/rcu/rcutorture.c:133: null expansion of name pattern "\1"
-> ctags: Warning: kernel/rcu/rcutorture.c:135: null expansion of name pattern "\1"
-> ctags: Warning: net/rds/page.c:45: null expansion of name pattern "\1"
-> ctags: Warning: net/ipv4/syncookies.c:53: null expansion of name pattern "\1"
-> ctags: Warning: net/ipv6/syncookies.c:44: null expansion of name pattern "\1"
-> 
-> Cc: linux-ia64@vger.kernel.org
-> Cc: xen-devel@lists.xenproject.org
-> Cc: linux-acpi@vger.kernel.org
-> Cc: rds-devel@oss.oracle.com
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Michal Marek <mmarek@suse.com>
-> ---
->  arch/ia64/kernel/smp.c         | 3 +--
->  drivers/acpi/processor_idle.c  | 3 +--
->  drivers/xen/events/events_2l.c | 3 +--
->  kernel/locking/lockdep.c       | 3 +--
->  kernel/rcu/rcutorture.c        | 6 ++----
->  kernel/workqueue.c             | 3 +--
->  net/ipv4/syncookies.c          | 3 +--
->  net/ipv6/syncookies.c          | 3 +--
->  net/rds/page.c                 | 3 +--
->  9 files changed, 10 insertions(+), 20 deletions(-)
-> 
-> diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-> index 7f706d4f84f7..1dcfe29d8a42 100644
-> --- a/arch/ia64/kernel/smp.c
-> +++ b/arch/ia64/kernel/smp.c
-> @@ -57,8 +57,7 @@ static struct local_tlb_flush_counts {
->  	unsigned int count;
->  } __attribute__((__aligned__(32))) local_tlb_flush_counts[NR_CPUS];
->  
-> -static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
-> -				     shadow_flush_counts);
-> +static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS], shadow_flush_counts);
->  
+> It works fine with dummy, but user space code looked odd when
+> it perf_event_open-s dummy events and starts reading them.
+> So I thought either to add alias:
+> PERF_COUNT_SW_BPF_OUTPUT = PERF_COUNT_SW_DUMMY
+> or
+> add new number like I did above.
+> New number is cheap and I saw that dummy used for probing,
+> so went with new number to disambiguate.
 
-I guarantee you're going to end up fixing this issue over and over again as more
-code is added in.
+Ah, ok. It wasn't clear to me why you needed another number.
 
-OOC, why not fix ctags to recognize newlines?
-
-P.
-
+The SW numbers add some extra (unused) data size to the kernel as a
+number of arrays are sized by them, but one more should not hurt (too)
+much.
