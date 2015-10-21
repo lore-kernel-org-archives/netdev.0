@@ -1,10 +1,10 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 11/15] net: wireless: iwlegacy: Remove unneeded variable
- ret
-Date: Thu, 22 Oct 2015 00:45:41 +0300
-Message-ID: <56280785.4050503@cogentembedded.com>
+Subject: Re: [PATCH 15/15] net: wireless: ath: Remove unneeded variable ret
+ returning 0
+Date: Thu, 22 Oct 2015 00:46:47 +0300
+Message-ID: <562807C7.2020701@cogentembedded.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
- <1445439337-19055-12-git-send-email-punitvara@gmail.com>
+ <1445439337-19055-16-git-send-email-punitvara@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -18,40 +18,39 @@ Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	johannes.berg@intel.com, meuleman@broadcom.com
 To: Punit Vara <punitvara@gmail.com>, kvalo@qca.qualcomm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445439337-19055-12-git-send-email-punitvara@gmail.com>
+In-Reply-To: <1445439337-19055-16-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 10/21/2015 05:55 PM, Punit Vara wrote:
 
-> This patch is to the 3945-mac.c file that fixes up following warning
-> by coccicheck:
+> This patch is to the ath5k/eeprom.c that fixes up warning caught by
+> coccicheck:
 >
-> drivers/net/wireless/iwlegacy/3945-mac.c:247:5-8: Unneeded variable:
-> "ret". Return "- EOPNOTSUPP" on line 249
+> Unneeded variable: "ret". Return "0" on line 980
 >
-> Return -EOPNOTSUPP directly instead of return using ret
+> Remove unneeded variable ret created to return zero.
 >
 > Signed-off-by: Punit Vara <punitvara@gmail.com>
 > ---
->   drivers/net/wireless/iwlegacy/3945-mac.c | 5 +----
->   1 file changed, 1 insertion(+), 4 deletions(-)
+>   drivers/net/wireless/ath/wcn36xx/main.c | 3 +--
+>   1 file changed, 1 insertion(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c b/drivers/net/wireless/iwlegacy/3945-mac.c
-> index af1b3e6..ff4dc44 100644
-> --- a/drivers/net/wireless/iwlegacy/3945-mac.c
-> +++ b/drivers/net/wireless/iwlegacy/3945-mac.c
+> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+> index 7c169ab..82982d5 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/main.c
+> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
+> @@ -935,7 +935,6 @@ static const struct ieee80211_ops wcn36xx_ops = {
+>
+>   static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+>   {
+> -	int ret = 0;
+>
+
+   This empty line should be removed too.
+
+>   	static const u32 cipher_suites[] = {
+>   		WLAN_CIPHER_SUITE_WEP40,
 [...]
-> @@ -529,7 +527,6 @@ il3945_tx_skb(struct il_priv *il,
->   		if (unlikely(tid >= MAX_TID_COUNT))
->   			goto drop;
->   	}
-> -
-
-    Unrelated whitespace change.
-
->   	/* Descriptor for chosen Tx queue */
->   	txq = &il->txq[txq_id];
->   	q = &txq->q;
 
 MBR, Sergei
