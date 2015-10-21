@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 01/15] net: wireless: ath: use | instead of + for summing bitmasks
-Date: Wed, 21 Oct 2015 20:25:23 +0530
-Message-ID: <1445439337-19055-2-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 03/15] net: wireless: ath: Remove unnecessary semicolon
+Date: Wed, 21 Oct 2015 20:25:25 +0530
+Message-ID: <1445439337-19055-4-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,56 +18,28 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the ath10k/pci.h file that fixes following warning
- reported by coccicheck:
+This patch is to the ath10k/wmi.h that removes unneeded semicolon which
+ is reported by coccicheck.
 
-WARNING: sum of probable bitmasks, consider |
-
-I have replaced + with OR operator | for summing bitmasks
+Here semicolon just create empty statement so please remote it.
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/ath/ath10k/pci.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/wireless/ath/ath10k/wmi.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index 1046ab6..165a318 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -775,7 +775,7 @@ static u32 ath10k_pci_targ_cpu_to_ce_addr(struct ath10k *ar, u32 addr)
- 	switch (ar->hw_rev) {
- 	case ATH10K_HW_QCA988X:
- 	case ATH10K_HW_QCA6174:
--		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
-+		val = (ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
- 					  CORE_CTRL_ADDRESS) &
- 		       0x7ff) << 21;
- 		break;
-@@ -1443,10 +1443,10 @@ static void ath10k_pci_irq_msi_fw_mask(struct ath10k *ar)
- 	switch (ar->hw_rev) {
- 	case ATH10K_HW_QCA988X:
- 	case ATH10K_HW_QCA6174:
--		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
-+		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
- 					CORE_CTRL_ADDRESS);
- 		val &= ~CORE_CTRL_PCIE_REG_31_MASK;
--		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS +
-+		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS |
- 				   CORE_CTRL_ADDRESS, val);
- 		break;
- 	case ATH10K_HW_QCA99X0:
-@@ -1464,10 +1464,10 @@ static void ath10k_pci_irq_msi_fw_unmask(struct ath10k *ar)
- 	switch (ar->hw_rev) {
- 	case ATH10K_HW_QCA988X:
- 	case ATH10K_HW_QCA6174:
--		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS +
-+		val = ath10k_pci_read32(ar, SOC_CORE_BASE_ADDRESS |
- 					CORE_CTRL_ADDRESS);
- 		val |= CORE_CTRL_PCIE_REG_31_MASK;
--		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS +
-+		ath10k_pci_write32(ar, SOC_CORE_BASE_ADDRESS |
- 				   CORE_CTRL_ADDRESS, val);
- 		break;
- 	case ATH10K_HW_QCA99X0:
+diff --git a/drivers/net/wireless/ath/ath10k/wmi.h b/drivers/net/wireless/ath/ath10k/wmi.h
+index 52d3503..21d5b6b 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi.h
++++ b/drivers/net/wireless/ath/ath10k/wmi.h
+@@ -1675,7 +1675,7 @@ static inline const char *ath10k_wmi_phymode_str(enum wmi_phy_mode mode)
+ 
+ 		/* no default handler to allow compiler to check that the
+ 		 * enum is fully handled */
+-	};
++	}
+ 
+ 	return "<unknown>";
+ }
 -- 
 2.5.3
