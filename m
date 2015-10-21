@@ -1,7 +1,7 @@
 From: Punit Vara <punitvara@gmail.com>
-Subject: [PATCH 04/15] net: wireless: ipw2x00: use | instead of + for summing bitmasks
-Date: Wed, 21 Oct 2015 20:25:26 +0530
-Message-ID: <1445439337-19055-5-git-send-email-punitvara@gmail.com>
+Subject: [PATCH 02/15] net: wireless: ath: Remove unnecessary semicolon
+Date: Wed, 21 Oct 2015 20:25:24 +0530
+Message-ID: <1445439337-19055-3-git-send-email-punitvara@gmail.com>
 References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Cc: stas.yakovlev@gmail.com, chaoming_li@realsil.com.cn,
 	Larry.Finger@lwfinger.net, chunkeey@googlemail.com,
@@ -18,39 +18,28 @@ In-Reply-To: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to the libipw_rx.c file that fixes following warning
-reported by coccicheck:
+This patch is to the htt_rx.c that removes unneeded semicolon which is
+reported by coccicheck.
 
-WARNING: sum of probable bitmasks, consider |
-
-I have replaced + with OR operator | for summing bitmasks
+Here semicolon just create empty statement so please remote it.
 
 Signed-off-by: Punit Vara <punitvara@gmail.com>
 ---
- drivers/net/wireless/ipw2x00/libipw_rx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ipw2x00/libipw_rx.c b/drivers/net/wireless/ipw2x00/libipw_rx.c
-index cef7f7d..310b2ff 100644
---- a/drivers/net/wireless/ipw2x00/libipw_rx.c
-+++ b/drivers/net/wireless/ipw2x00/libipw_rx.c
-@@ -875,7 +875,7 @@ void libipw_rx_any(struct libipw_device *ieee,
- 	case IW_MODE_ADHOC:
- 		/* our BSS and not from/to DS */
- 		if (ether_addr_equal(hdr->addr3, ieee->bssid))
--		if ((fc & (IEEE80211_FCTL_TODS+IEEE80211_FCTL_FROMDS)) == 0) {
-+		if ((fc & (IEEE80211_FCTL_TODS | IEEE80211_FCTL_FROMDS)) == 0) {
- 			/* promisc: get all */
- 			if (ieee->dev->flags & IFF_PROMISC)
- 				is_packet_for_us = 1;
-@@ -890,7 +890,7 @@ void libipw_rx_any(struct libipw_device *ieee,
- 	case IW_MODE_INFRA:
- 		/* our BSS (== from our AP) and from DS */
- 		if (ether_addr_equal(hdr->addr2, ieee->bssid))
--		if ((fc & (IEEE80211_FCTL_TODS+IEEE80211_FCTL_FROMDS)) == IEEE80211_FCTL_FROMDS) {
-+		if ((fc & (IEEE80211_FCTL_TODS | IEEE80211_FCTL_FROMDS)) == IEEE80211_FCTL_FROMDS) {
- 			/* promisc: get all */
- 			if (ieee->dev->flags & IFF_PROMISC)
- 				is_packet_for_us = 1;
+diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
+index 1b7a043..002a633 100644
+--- a/drivers/net/wireless/ath/ath10k/htt_rx.c
++++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
+@@ -2077,7 +2077,7 @@ void ath10k_htt_t2h_msg_handler(struct ath10k *ar, struct sk_buff *skb)
+ 		ath10k_dbg_dump(ar, ATH10K_DBG_HTT_DUMP, NULL, "htt event: ",
+ 				skb->data, skb->len);
+ 		break;
+-	};
++	}
+ 
+ 	/* Free the indication buffer */
+ 	dev_kfree_skb_any(skb);
 -- 
 2.5.3
