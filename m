@@ -1,60 +1,48 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next 1/3] perf: pad raw data samples automatically
-Date: Tue, 20 Oct 2015 20:02:33 -0700
-Message-ID: <1445396556-4854-2-git-send-email-ast@kernel.org>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445396556-4854-1-git-send-email-ast@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next] openvswitch: Fix incorrect type use.
+Date: Tue, 20 Oct 2015 20:47:46 -0700
+Message-ID: <1445399266-2034-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35780 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751578AbbJUDrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2015 23:47:52 -0400
+Received: by pasz6 with SMTP id z6so41149888pas.2
+        for <netdev@vger.kernel.org>; Tue, 20 Oct 2015 20:47:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of WARN_ON in perf_event_output() on unpaded raw samples,
-pad them automatically.
+Patch fixes following sparse warning.
+net/openvswitch/flow_netlink.c:583:30: warning: incorrect type in assignment (different base types)
+net/openvswitch/flow_netlink.c:583:30:    expected restricted __be16 [usertype] ipv4
+net/openvswitch/flow_netlink.c:583:30:    got int
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Fixes: 6b26ba3a7d ("openvswitch: netlink attributes for IPv6 tunneling")
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- kernel/events/core.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+ net/openvswitch/flow_netlink.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index b11756f9b6dc..64754bfecd70 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -5286,9 +5286,15 @@ void perf_output_sample(struct perf_output_handle *handle,
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 6799c8d..80e1f09 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -548,11 +548,11 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
+ 			      struct sw_flow_match *match, bool is_mask,
+ 			      bool log)
+ {
++	bool ttl = false, ipv4 = false, ipv6 = false;
++	__be16 tun_flags = 0;
++	int opts_type = 0;
+ 	struct nlattr *a;
+ 	int rem;
+-	bool ttl = false;
+-	__be16 tun_flags = 0, ipv4 = false, ipv6 = false;
+-	int opts_type = 0;
  
- 	if (sample_type & PERF_SAMPLE_RAW) {
- 		if (data->raw) {
--			perf_output_put(handle, data->raw->size);
--			__output_copy(handle, data->raw->data,
--					   data->raw->size);
-+			u32 raw_size = data->raw->size;
-+			u32 real_size = round_up(raw_size + sizeof(u32),
-+						 sizeof(u64)) - sizeof(u32);
-+			u64 zero = 0;
-+
-+			perf_output_put(handle, real_size);
-+			__output_copy(handle, data->raw->data, raw_size);
-+			if (real_size - raw_size)
-+				__output_copy(handle, &zero, real_size - raw_size);
- 		} else {
- 			struct {
- 				u32	size;
-@@ -5420,8 +5426,7 @@ void perf_prepare_sample(struct perf_event_header *header,
- 		else
- 			size += sizeof(u32);
- 
--		WARN_ON_ONCE(size & (sizeof(u64)-1));
--		header->size += size;
-+		header->size += round_up(size, sizeof(u64));
- 	}
- 
- 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
+ 	nla_for_each_nested(a, attr, rem) {
+ 		int type = nla_type(a);
 -- 
-1.7.9.5
+1.7.1
