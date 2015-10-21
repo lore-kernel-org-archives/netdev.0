@@ -1,51 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
- helper
-Date: Wed, 21 Oct 2015 21:33:17 +0200
-Message-ID: <20151021193317.GF2508@worktop.programming.kicks-ass.net>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
- <1445396556-4854-3-git-send-email-ast@kernel.org>
- <20151021120636.GB3604@twins.programming.kicks-ass.net>
- <5627CABD.7030609@plumgrid.com>
+From: Ani Sinha <ani@arista.com>
+Subject: Re: linux 3.4.43 : kernel crash at __nf_conntrack_confirm
+Date: Wed, 21 Oct 2015 12:35:10 -0700
+Message-ID: <CAOxq_8P9Qgy5+qWNCHtbG8qJwfdKSO3ZiDWoQW_6BVS-+hcTRA@mail.gmail.com>
+References: <CAOxq_8PF91fpX9jYTgBbXnOVeVfSu3tytu-3P_Zr5OodGRoz+g@mail.gmail.com>
+ <CAOxq_8Pt7VMwkV8+wdjS9vj=-L0L8Xxkd3Beit0zZN_oR6ixhw@mail.gmail.com> <20151018080702.GA14564@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37679 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752198AbbJUTdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 15:33:07 -0400
-Content-Disposition: inline
-In-Reply-To: <5627CABD.7030609@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20151018080702.GA14564@breakpoint.cc>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 21, 2015 at 10:26:21AM -0700, Alexei Starovoitov wrote:
-> On 10/21/15 5:06 AM, Peter Zijlstra wrote:
-> >>  	PERF_COUNT_SW_DUMMY			= 9,
-> >>>+	PERF_COUNT_SW_BPF_OUTPUT		= 10,
-> >>>
-> >>>  	PERF_COUNT_SW_MAX,			/* non-ABI */
-> >>>  };
-> >Do you really need the new type? Can't you use DUMMY for this?
-> 
-> It works fine with dummy, but user space code looked odd when
-> it perf_event_open-s dummy events and starts reading them.
-> So I thought either to add alias:
-> PERF_COUNT_SW_BPF_OUTPUT = PERF_COUNT_SW_DUMMY
-> or
-> add new number like I did above.
-> New number is cheap and I saw that dummy used for probing,
-> so went with new number to disambiguate.
+On Sun, Oct 18, 2015 at 1:07 AM, Florian Westphal <fw@strlen.de> wrote:
+> Ani Sinha <ani@arista.com> wrote:
+>> Coming back to this crash, I see something interesting in the
+>> conntrack code in linux 3.4.109 (a supported kernel version). I see
+>> that the hash table manipulations are protected by a spinlock. Also
+>> lookups/reads are protected by RCU. However allocation and
+>> deallocation of conntrack objects happen outside of both the locks.
+>> It seems to me that a conntrack object can be deallocated and a new
+>> object can be allocated and initialized within the same RCU grace
+>> period, while the hash table is being read.
+>
+> Yes.  We need to use SLAB_DESTROY_BY_RCU instead of kfree_rcu because
+> there could be hundreds of thousands of alloc/free pairs within a short
+> time period.
+>
+>> It looks like a bug to me.
+>
+> No, as long as readers detect object reuse.
+>
+>> > Looking upstream, I see a couple of patches which fixes race condition
+>> > around the use of the conntrack hash table with RCU (lock free read)
+>> > primitives :
+>> >
+>> > commit c6825c0976fa7893692e0e43b09740b419b23c09
+>> > Author: Andrey Vagin <avagin@openvz.org>
+>> > Date:   Wed Jan 29 19:34:14 2014 +0100
+>> >      netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
+>> >
+>> > and a followup patch :
+>> >
+>> > commit e53376bef2cd97d3e3f61fdc677fb8da7d03d0da
+>> > Author: Pablo Neira Ayuso <pablo@netfilter.org>
+>> > Date:   Mon Feb 3 20:01:53 2014 +0100
+>> >         netfilter: nf_conntrack: don't release a conntrack with non-zero refcnt
+>> >
+>
+> These for instance fix such bugs.
 
-Ah, ok. It wasn't clear to me why you needed another number.
-
-The SW numbers add some extra (unused) data size to the kernel as a
-number of arrays are sized by them, but one more should not hurt (too)
-much.
+So since both these patches were not backported to 3.4 series and
+since now we have evidence of a crash that points to issues which the
+patches fix, should we consider backporting the above patches to 3.4?
