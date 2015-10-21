@@ -1,47 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: linux 3.4.43 : kernel crash at __nf_conntrack_confirm
-Date: Wed, 21 Oct 2015 23:19:11 +0200
-Message-ID: <20151021211911.GD31323@breakpoint.cc>
-References: <CAOxq_8PF91fpX9jYTgBbXnOVeVfSu3tytu-3P_Zr5OodGRoz+g@mail.gmail.com>
- <CAOxq_8Pt7VMwkV8+wdjS9vj=-L0L8Xxkd3Beit0zZN_oR6ixhw@mail.gmail.com>
- <20151018080702.GA14564@breakpoint.cc>
- <CAOxq_8P9Qgy5+qWNCHtbG8qJwfdKSO3ZiDWoQW_6BVS-+hcTRA@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Wed, 21 Oct 2015 14:19:49 -0700
+Message-ID: <56280175.8060404@plumgrid.com>
+References: <20151021091254.GF2881@worktop.programming.kicks-ass.net>
+ <56276968.6070604@huawei.com>
+ <20151021113316.GM17308@twins.programming.kicks-ass.net>
+ <56277BCE.6030400@huawei.com>
+ <20151021121713.GC3604@twins.programming.kicks-ass.net>
+ <56279634.5000606@huawei.com>
+ <20151021134951.GH3604@twins.programming.kicks-ass.net>
+ <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
+ <20151021140921.GI3604@twins.programming.kicks-ass.net>
+ <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+ <20151021165758.GK3604@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ani Sinha <ani@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40960 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755259AbbJUVTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 17:19:18 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOxq_8P9Qgy5+qWNCHtbG8qJwfdKSO3ZiDWoQW_6BVS-+hcTRA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Wangnan (F)" <wangnan0@huawei.com>,
+	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net,
+	linux-kernel@vger.kernel.org, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, pi3orama <pi3orama@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151021165758.GK3604@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ani Sinha <ani@arista.com> wrote:
-> >> > commit c6825c0976fa7893692e0e43b09740b419b23c09
-> >> > Author: Andrey Vagin <avagin@openvz.org>
-> >> > Date:   Wed Jan 29 19:34:14 2014 +0100
-> >> >      netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
-> >> >
-> >> > and a followup patch :
-> >> >
-> >> > commit e53376bef2cd97d3e3f61fdc677fb8da7d03d0da
-> >> > Author: Pablo Neira Ayuso <pablo@netfilter.org>
-> >> > Date:   Mon Feb 3 20:01:53 2014 +0100
-> >> >         netfilter: nf_conntrack: don't release a conntrack with non-zero refcnt
-> >> >
-> >
-> > These for instance fix such bugs.
-> 
-> So since both these patches were not backported to 3.4 series and
-> since now we have evidence of a crash that points to issues which the
-> patches fix, should we consider backporting the above patches to 3.4?
+On 10/21/15 9:57 AM, Peter Zijlstra wrote:
+>> In summary, your either-or logic doesn't hold in BPF world. A BPF
+>> >program can only access perf event in a highly restricted way. We
+>> >don't allow it calling perf_event_read_local() across core, so it
+>> >can't.
 
-Yes.
+That's actually broken. My fault as well, since I didn't review that
+patch carefully enough. Will send a fix in a second.
+No matter what bpf program does that should never be a kernel splat.
+
+> Urgh, that's still horridly inconsistent. Can we please come up with a
+> consistent interface to perf?
+
+I had the same concerns during v1-v4 series of this set.
+My suggestion was to do ioctl(enable/disable) of events from userspace
+after receiving notification from kernel via my bpf_perf_event_output()
+helper.
+Wangnan's argument was that display refresh happens often and it's fast,
+so the time taken by user space to enable events on all cpus is too
+slow and ioctl does ipi and disturbs other cpus even more.
+So soft_disable done by the program to enable/disable particular events
+on all cpus kinda makes sense.
