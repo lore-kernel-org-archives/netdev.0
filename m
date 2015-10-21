@@ -1,97 +1,63 @@
-From: yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next] net: hisilicon: deals with the sub ctrl by syscon
-Date: Wed, 21 Oct 2015 17:57:44 +0800
-Message-ID: <1445421464-238140-1-git-send-email-yankejian@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: <liguozhu@huawei.com>, <yisen.zhuang@huawei.com>,
-	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-	<yankejian@huawei.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH] netlink: fix locking around NETLINK_LIST_MEMBERSHIPS
+Date: Wed, 21 Oct 2015 11:47:43 +0200
+Message-ID: <1445420863-1476-1-git-send-email-dh.herrmann@gmail.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	"# 4 . 2+" <stable@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  the global Soc configuration is treated by syscon, and sub ctrl bus is
-Soc bus. it has to be treated by syscon.
+Currently, NETLINK_LIST_MEMBERSHIPS grabs the netlink table while copying
+the membership state to user-space. However, grabing the netlink table is
+effectively a write_lock_irq(), and as such we should not be triggering
+page-faults in the critical section.
 
-Signed-off-by: yankejian <yankejian@huawei.com>
-Signed-off-by: lisheng <lisheng011@huawei.com>
-Signed-off-by: lipeng <lipeng321@huawei.com>
+This can be easily reproduced by the following snippet:
+    int s = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    void *p = mmap(0, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+    int r = getsockopt(s, 0x10e, 9, p, (void*)((char*)p + 4092));
+
+This should work just fine, but currently triggers EFAULT and a possible
+WARN_ON below handle_mm_fault().
+
+Fix this by reducing locking of NETLINK_LIST_MEMBERSHIPS to a read-side
+lock. The write-lock was overkill in the first place, and the read-lock
+allows page-faults just fine.
+
+Cc: <stable@vger.kernel.org> # 4.2+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
 ---
- drivers/net/ethernet/hisilicon/hns_mdio.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+ net/netlink/af_netlink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index e4ec52a..37491c8 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -11,6 +11,7 @@
- #include <linux/etherdevice.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/mfd/syscon.h>
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <linux/netdevice.h>
-@@ -20,6 +21,7 @@
- #include <linux/of_platform.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-+#include <linux/regmap.h>
- #include <linux/spinlock_types.h>
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 8f060d7..2389602 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2371,7 +2371,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 		int pos, idx, shift;
  
- #define MDIO_DRV_NAME "Hi-HNS_MDIO"
-@@ -36,7 +38,7 @@
- 
- struct hns_mdio_device {
- 	void *vbase;		/* mdio reg base address */
--	void *sys_vbase;
-+	struct regmap *subctrl_vbase;
- };
- 
- /* mdio reg */
-@@ -155,10 +157,10 @@ static int mdio_sc_cfg_reg_write(struct hns_mdio_device *mdio_dev,
- 	u32 time_cnt;
- 	u32 reg_value;
- 
--	mdio_write_reg((void *)mdio_dev->sys_vbase, cfg_reg, set_val);
-+	regmap_write(mdio_dev->subctrl_vbase, cfg_reg, set_val);
- 
- 	for (time_cnt = MDIO_TIMEOUT; time_cnt; time_cnt--) {
--		reg_value = mdio_read_reg((void *)mdio_dev->sys_vbase, st_reg);
-+		regmap_read(mdio_dev->subctrl_vbase, st_reg, &reg_value);
- 		reg_value &= st_msk;
- 		if ((!!check_st) == (!!reg_value))
- 			break;
-@@ -352,7 +354,7 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
- 	int ret;
- 
--	if (!mdio_dev->sys_vbase) {
-+	if (!mdio_dev->subctrl_vbase) {
- 		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
- 		return -ENODEV;
+ 		err = 0;
+-		netlink_table_grab();
++		netlink_lock_table();
+ 		for (pos = 0; pos * 8 < nlk->ngroups; pos += sizeof(u32)) {
+ 			if (len - pos < sizeof(u32))
+ 				break;
+@@ -2386,7 +2386,7 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 		}
+ 		if (put_user(ALIGN(nlk->ngroups / 8, sizeof(u32)), optlen))
+ 			err = -EFAULT;
+-		netlink_table_ungrab();
++		netlink_unlock_table();
+ 		break;
  	}
-@@ -455,13 +457,12 @@ static int hns_mdio_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
--	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	mdio_dev->sys_vbase = devm_ioremap_resource(&pdev->dev, res);
--	if (IS_ERR(mdio_dev->sys_vbase)) {
--		ret = PTR_ERR(mdio_dev->sys_vbase);
--		return ret;
-+	mdio_dev->subctrl_vbase =
-+		syscon_node_to_regmap(of_parse_phandle(np, "subctrl_vbase", 0));
-+	if (IS_ERR(mdio_dev->subctrl_vbase)) {
-+		dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
-+		mdio_dev->subctrl_vbase = NULL;
- 	}
--
- 	new_bus->irq = devm_kcalloc(&pdev->dev, PHY_MAX_ADDR,
- 				    sizeof(int), GFP_KERNEL);
- 	if (!new_bus->irq)
+ 	case NETLINK_CAP_ACK:
 -- 
-1.9.1
+2.6.1
