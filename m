@@ -1,267 +1,43 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [ovs-dev] [PATCH] ovs: do not allocate memory from offline numa
- node
-Date: Wed, 21 Oct 2015 10:55:12 +0200
-Message-ID: <562752F0.1020502@suse.cz>
-References: <20151002101822.12499.27658.stgit@buzz> <56128238.8010305@suse.cz>
- <5612DCC8.4040605@gmail.com>
- <CAEP_g=9JB2GptbZn9ayTPRGPbuOvVujCQ1Hui7fOijUX10HURg@mail.gmail.com>
- <FB2084BE-D591-415F-BA39-DFE82FE6FC30@nicira.com>
- <CAEP_g=9bqj_CKMTvd4dHTS+J82u7idtqa_PFA9=-CmO2ZcUMow@mail.gmail.com>
- <ECF39603-F56D-483A-A398-480C28C93F97@nicira.com>
- <CAEP_g=8TTh7pQL_DadBPdhfat+gd_XizGJqWK2wvHvo7oy6WaQ@mail.gmail.com>
- <3C0B7B0E-FDF9-45F5-9CA4-6A8D3CBB2E5C@nicira.com>
- <EDC4CBA7-1E5A-47B6-9F45-8365840F4E53@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
- Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
- "dev@openvswitch.org" <dev@openvswitch.org>,
- Pravin Shelar <pshelar@nicira.com>, "David S. Miller" <davem@davemloft.net>,
- netdev <netdev@vger.kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- linux-mm@kvack.org, Pekka Enberg <penberg@kernel.org>,
- Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>
-To: Jarno Rajahalme <jrajahalme@nicira.com>, Jesse Gross <jesse@nicira.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <EDC4CBA7-1E5A-47B6-9F45-8365840F4E53@nicira.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/8] cxgb4: Don't disallow turning off auto-negotiation
+Date: Wed, 21 Oct 2015 14:39:51 +0530
+Message-ID: <1445418597-771-3-git-send-email-hariprasad@chelsio.com>
+References: <1445418597-771-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.115.98]:13110 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754087AbbJUJKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 05:10:03 -0400
+In-Reply-To: <1445418597-771-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2015 07:58 PM, Jarno Rajahalme wrote:
->
->> On Oct 9, 2015, at 5:02 PM, Jarno Rajahalme <jrajahalme@nicira.com
->> <mailto:jrajahalme@nicira.com>> wrote:
->>
->>
->>> On Oct 9, 2015, at 3:11 PM, Jesse Gross <jesse@nicira.com
->>> <mailto:jesse@nicira.com>> wrote:
->>>
->>> On Fri, Oct 9, 2015 at 8:54 AM, Jarno Rajahalme
->>> <jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>> wrote:
->>>>
->>>> On Oct 8, 2015, at 4:03 PM, Jesse Gross <jesse@nicira.com
->>>> <mailto:jesse@nicira.com>> wrote:
->>>>
->>>> On Wed, Oct 7, 2015 at 10:47 AM, Jarno Rajahalme
->>>> <jrajahalme@nicira.com <mailto:jrajahalme@nicira.com>>
->>>> wrote:
->>>>
->>>>
->>>> On Oct 6, 2015, at 6:01 PM, Jesse Gross <jesse@nicira.com
->>>> <mailto:jesse@nicira.com>> wrote:
->>>>
->>>> On Mon, Oct 5, 2015 at 1:25 PM, Alexander Duyck
->>>> <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote=
-:
->>>>
->>>> On 10/05/2015 06:59 AM, Vlastimil Babka wrote:
->>>>
->>>>
->>>> On 10/02/2015 12:18 PM, Konstantin Khlebnikov wrote:
->>>>
->>>>
->>>> When openvswitch tries allocate memory from offline numa node 0:
->>>> stats =3D kmem_cache_alloc_node(flow_stats_cache, GFP_KERNEL | __GFP=
-_ZERO,
->>>> 0)
->>>> It catches VM_BUG_ON(nid < 0 || nid >=3D MAX_NUMNODES ||
->>>> !node_online(nid))
->>>> [ replaced with VM_WARN_ON(!node_online(nid)) recently ] in linux/gf=
-p.h
->>>> This patch disables numa affinity in this case.
->>>>
->>>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru
->>>> <mailto:khlebnikov@yandex-team.ru>>
->>>>
->>>>
->>>>
->>>> ...
->>>>
->>>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_tab=
-le.c
->>>> index f2ea83ba4763..c7f74aab34b9 100644
->>>> --- a/net/openvswitch/flow_table.c
->>>> +++ b/net/openvswitch/flow_table.c
->>>> @@ -93,7 +93,8 @@ struct sw_flow *ovs_flow_alloc(void)
->>>>
->>>>    /* Initialize the default stat node. */
->>>>    stats =3D kmem_cache_alloc_node(flow_stats_cache,
->>>> -                      GFP_KERNEL | __GFP_ZERO, 0);
->>>> +                      GFP_KERNEL | __GFP_ZERO,
->>>> +                      node_online(0) ? 0 : NUMA_NO_NODE);
->>>>
->>>>
->>>>
->>>> Stupid question: can node 0 become offline between this check, and t=
-he
->>>> VM_WARN_ON? :) BTW what kind of system has node 0 offline?
->>>>
->>>>
->>>>
->>>> Another question to ask would be is it possible for node 0 to be
->>>> online, but
->>>> be a memoryless node?
->>>>
->>>> I would say you are better off just making this call
->>>> kmem_cache_alloc.  I
->>>> don't see anything that indicates the memory has to come from node 0=
-, so
->>>> adding the extra overhead doesn't provide any value.
->>>>
->>>>
->>>> I agree that this at least makes me wonder, though I actually have
->>>> concerns in the opposite direction - I see assumptions about this
->>>> being on node 0 in net/openvswitch/flow.c.
->>>>
->>>> Jarno, since you original wrote this code, can you take a look to se=
-e
->>>> if everything still makes sense?
->>>>
->>>>
->>>> We keep the pre-allocated stats node at array index 0, which is
->>>> initially
->>>> used by all CPUs, but if CPUs from multiple numa nodes start
->>>> updating the
->>>> stats, we allocate additional stats nodes (up to one per numa node),
->>>> and the
->>>> CPUs on node 0 keep using the preallocated entry. If stats cannot be
->>>> allocated from CPUs local node, then those CPUs keep using the entry=
- at
->>>> index 0. Currently the code in net/openvswitch/flow.c will try to
->>>> allocate
->>>> the local memory repeatedly, which may not be optimal when there is =
-no
->>>> memory at the local node.
->>>>
->>>> Allocating the memory for the index 0 from other than node 0, as
->>>> discussed
->>>> here, just means that the CPUs on node 0 will keep on using
->>>> non-local memory
->>>> for stats. In a scenario where there are CPUs on two nodes (0, 1),
->>>> but only
->>>> the node 1 has memory, a shared flow entry will still end up having
->>>> separate
->>>> memory allocated for both nodes, but both of the nodes would be at
->>>> node 1.
->>>> However, there is still a high likelihood that the memory
->>>> allocations would
->>>> not share a cache line, which should prevent the nodes from invalida=
-ting
->>>> each other=E2=80=99s caches. Based on this I do not see a problem re=
-laxing the
->>>> memory allocation for the default stats node. If node 0 has memory,
->>>> however,
->>>> it would be better to allocate the memory from node 0.
->>>>
->>>>
->>>> Thanks for going through all of that.
->>>>
->>>> It seems like the question that is being raised is whether it actual=
-ly
->>>> makes sense to try to get the initial memory on node 0, especially
->>>> since it seems to introduce some corner cases? Is there any reason w=
-hy
->>>> the flow is more likely to hit node 0 than a randomly chosen one?
->>>> (Assuming that this is a multinode system, otherwise it's kind of a
->>>> moot point.) We could have a separate pointer to the default allocat=
-ed
->>>> memory, so it wouldn't conflict with memory that was intentionally
->>>> allocated for node 0.
->>>>
->>>>
->>>> It would still be preferable to know from which node the default
->>>> stats node
->>>> was allocated, and store it in the appropriate pointer in the array.=
- We
->>>> could then add a new =E2=80=9Cdefault stats node index=E2=80=9D that=
- would be used
->>>> to locate
->>>> the node in the array of pointers we already have. That way we would
->>>> avoid
->>>> extra allocation and processing of the default stats node.
->>>
->>> I agree, that sounds reasonable to me. Will you make that change?
->>>
->>> Besides eliminating corner cases, it might help performance in some
->>> cases too by avoiding stressing memory bandwidth on node 0.
->>
->
-> According to the comment above kmem_cache_alloc_node(),
-> kmem_cache_alloc_node() should not BUG_ON/WARN_ON in this case:
->> *//**/*
->> */* kmem_cache_alloc_node - Allocate an object on the specified node/*
->> */* @cachep: The cache to allocate from./*
->> */* @flags: See kmalloc()./*
->> */* @nodeid: node number of the target node./*
->> */*/*
->> */* Identical to kmem_cache_alloc but it will allocate memory on the
->> given/*
->> */* node, which can improve the performance for cpu bound structures./=
-*
->> */*/*
->> */* Fallback to other node is possible if __GFP_THISNODE is not set./*
->> */*//*
-> See also this from cpuset.c:
->
->> /**
->>  * cpuset_mem_spread_node() - On which node to begin search for a file
->> page
->>  * cpuset_slab_spread_node() - On which node to begin search for a
->> slab page
->>  *
->>  * If a task is marked PF_SPREAD_PAGE or PF_SPREAD_SLAB (as for
->>  * tasks in a cpuset with is_spread_page or is_spread_slab set),
->>  * and if the memory allocation used cpuset_mem_spread_node()
->>  * to determine on which node to start looking, as it will for
->>  * certain page cache or slab cache pages such as used for file
->>  * system buffers and inode caches, then instead of starting on the
->>  * local node to look for a free page, rather spread the starting
->>  * node around the tasks mems_allowed nodes.
->>  *
->>  * We don't have to worry about the returned node being offline
->>  * because "it can't happen", and even if it did, it would be ok.
->>  *
->>  * The routines calling guarantee_online_mems() are careful to
->>  * only set nodes in task->mems_allowed that are online.  So it
->>  * should not be possible for the following code to return an
->>  * offline node.  But if it did, that would be ok, as this routine
->>  * is not returning the node where the allocation must be, only
->>  * the node where the search should start.  The zonelist passed to
->>  * __alloc_pages() will include all nodes.  If the slab allocator
->>  * is passed an offline node, it will fall back to the local node.
+For {1, 10, 40} Gb/s. Prohibiting turning off autonegotiation isn't anywhere
+in the standard.
 
-OK, this is probably only true without __GFP_THISNODE.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
->>  * See kmem_cache_alloc_node().
->>  */
->
-> Based on this it seems this is a bug in the memory allocator, it
-> probably should not be calling alloc_pages_exact_node()
-
-alloc_pages_exact_node() doesn't exist anymore in 4.3-rcX
-
-So what exact problem do you think there is? What I can see is that:
-- cpuset_slab_spread_node() says it shouldn't return offline node, but=20
-asserts that if it happens anyway, slab will fall back
-- slab.c calls the spread_node function from alternate_node_alloc() and=20
-then passes the nodeid to ____cache_alloc_node(), which calls=20
-cache_grow() with __GFP_THISNODE, which eventually calls=20
-__alloc_pages_node() and VM_WARN_ON() may happen for an offline node,=20
-and also with __GFP_THISNODE the allocation will fail... but then a=20
-fallback_alloc() occurs.
-
-So the issue is a potential VM_WARN_ON when/if cpuset_slab_spread_node()=20
-fails to guarantee the node is online?
-
-> when __GFP_THISNODE is not set?
->
->    Jarno
->
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index 1127642..1487c57 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -629,10 +629,7 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	if (cmd->autoneg == AUTONEG_DISABLE) {
+ 		cap = speed_to_caps(speed);
+ 
+-		if (!(lc->supported & cap) ||
+-		    (speed == 1000) ||
+-		    (speed == 10000) ||
+-		    (speed == 40000))
++		if (!(lc->supported & cap))
+ 			return -EINVAL;
+ 		lc->requested_speed = cap;
+ 		lc->advertising = 0;
+-- 
+2.3.4
