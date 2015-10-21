@@ -1,313 +1,77 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 1/2] iwlwifi: pcie: allow to build an A-MSDU using TSO
- core
-Date: Wed, 21 Oct 2015 16:30:11 -0700
-Message-ID: <1445470211.22974.86.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1445452464-19525-2-git-send-email-emmanuel.grumbach@intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH 5/5] openvswitch: Interface with NAT.
+Date: Thu, 22 Oct 2015 01:30:59 +0200
+Message-ID: <20151021233059.GE23554@pox.localdomain>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
+ <1445379629-112880-5-git-send-email-jrajahalme@nicira.com>
+ <20151021105916.GB15766@pox.localdomain>
+ <FB21AAF8-5C91-41C8-96DC-E5EE0C02CFE4@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org
-To: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445452464-19525-2-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	netfilter-devel@vger.kernel.org
+To: Jarno Rajahalme <jrajahalme@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35406 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbbJUXbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 19:31:01 -0400
+Received: by wicll6 with SMTP id ll6so112295964wic.0
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 16:31:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <FB21AAF8-5C91-41C8-96DC-E5EE0C02CFE4@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-21 at 21:34 +0300, Emmanuel Grumbach wrote:
-> When the op_mode sends an skb whose payload is bigger than
-> MSS, PCIe will create an A-MSDU out of it. PCIe assumes
-> that the skb that is coming from the op_mode can fit in one
-> A-MSDU. It is the op_mode's responsibility to make sure
-> that this guarantee holds.
+On 10/21/15 at 02:04pm, Jarno Rajahalme wrote:
 > 
-> Additional headers need to be built for the subframes.
-> The TSO core code takes care of the IP / TCP headers and
-> the driver takes care of the 802.11 subframe headers.
+> > On Oct 21, 2015, at 3:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> > Simplify this with an OVS_NAT_ATTR_FLAGS?
 > 
-> These headers are stored on a per-cpu page that is re-used
-> for all the packets handled on that same CPU. Each skb
-> holds a reference to that page and releases the page when
-> it is reclaimed. When the page gets full, it is released
-> and a new one is allocated.
+> The use of separate flag attributes was actually intentional, as it makes the interface easier to understand, and code also easier to read.
+
+OK, either is fine with me.
+
+> >> +					  &ctinfo);
+> >> +	if (!ct || nf_ct_is_untracked(ct))
+> >> +		/* A NAT action may only be performed on tracked packets. */
+> >> +		return NF_ACCEPT;
+> > 
+> > Braces
+> > 
 > 
-> Since any SKB that doesn't go through the fast-xmit path
-> of mac80211 will be segmented, we can assume here that the
-> packet is not WEP / TKIP and has a proper SNAP header.
+> Needed due to the comment?
+
+The compiler would be fine but most other places like this seem to
+put braces on for this single comment + single statement case.
+
+> >> +		if (type > OVS_NAT_ATTR_MAX) {
+> >> +			OVS_NLERR(log, "Unknown nat attribute (type=%d, max=%d).\n",
+> >> +			type, OVS_NAT_ATTR_MAX);
+> > 
+> > Formatting
 > 
-> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/wireless/iwlwifi/iwl-devtrace-data.h |  16 ++
->  drivers/net/wireless/iwlwifi/iwl-trans.h         |   6 +-
->  drivers/net/wireless/iwlwifi/pcie/internal.h     |   7 +
->  drivers/net/wireless/iwlwifi/pcie/trans.c        |  20 +-
->  drivers/net/wireless/iwlwifi/pcie/tx.c           | 286 ++++++++++++++++++++++-
->  5 files changed, 329 insertions(+), 6 deletions(-)
+> Not readily apparent what you mean here, care to elaborate?
+
+The argument list should be indented up to the (.
+
+> >> +#ifdef CONFIG_NF_NAT_NEEDED
+> >> +	[OVS_CT_ATTR_NAT]	= { .minlen = 0,
+> >> +				    .maxlen = 96 }
+> >> +#endif
+> > 
+> > Is the 96 a temporary hack here?
+> > 
 > 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-devtrace-data.h b/drivers/net/wireless/iwlwifi/iwl-devtrace-data.h
-> index 71a78ce..59d9edf 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-devtrace-data.h
-> +++ b/drivers/net/wireless/iwlwifi/iwl-devtrace-data.h
-> @@ -51,6 +51,22 @@ TRACE_EVENT(iwlwifi_dev_tx_data,
->  	TP_printk("[%s] TX frame data", __get_str(dev))
->  );
->  
-> +TRACE_EVENT(iwlwifi_dev_tx_tso_chunk,
-> +	TP_PROTO(const struct device *dev,
-> +		 u8 *data_src, size_t data_len),
-> +	TP_ARGS(dev, data_src, data_len),
-> +	TP_STRUCT__entry(
-> +		DEV_ENTRY
-> +
-> +		__dynamic_array(u8, data, data_len)
-> +	),
-> +	TP_fast_assign(
-> +		DEV_ASSIGN;
-> +		memcpy(__get_dynamic_array(data), data_src, data_len);
-> +	),
-> +	TP_printk("[%s] TX frame data", __get_str(dev))
-> +);
-> +
->  TRACE_EVENT(iwlwifi_dev_rx_data,
->  	TP_PROTO(const struct device *dev,
->  		 const struct iwl_trans *trans,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-trans.h b/drivers/net/wireless/iwlwifi/iwl-trans.h
-> index 0ceff69..6919243 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-trans.h
-> +++ b/drivers/net/wireless/iwlwifi/iwl-trans.h
-> @@ -379,7 +379,11 @@ static inline void iwl_free_rxb(struct iwl_rx_cmd_buffer *r)
->  }
->  
->  #define MAX_NO_RECLAIM_CMDS	6
-> -
-> +/*
-> + * The first entry in driver_data array in ieee80211_tx_info
-> + * that can be used by the transport.
-> + */
-> +#define IWL_FIRST_DRIVER_DATA 2
->  #define IWL_MASK(lo, hi) ((1 << (hi)) | ((1 << (hi)) - (1 << (lo))))
->  
->  /*
-> diff --git a/drivers/net/wireless/iwlwifi/pcie/internal.h b/drivers/net/wireless/iwlwifi/pcie/internal.h
-> index be168d1..7da5643 100644
-> --- a/drivers/net/wireless/iwlwifi/pcie/internal.h
-> +++ b/drivers/net/wireless/iwlwifi/pcie/internal.h
-> @@ -295,6 +295,11 @@ iwl_pcie_get_scratchbuf_dma(struct iwl_txq *txq, int idx)
->  	       sizeof(struct iwl_pcie_txq_scratch_buf) * idx;
->  }
->  
-> +struct iwl_tso_hdr_page {
-> +	struct page *page;
-> +	u8 *pos;
-> +};
-> +
->  /**
->   * struct iwl_trans_pcie - PCIe transport specific data
->   * @rxq: all the RX queue data
-> @@ -332,6 +337,8 @@ struct iwl_trans_pcie {
->  	struct net_device napi_dev;
->  	struct napi_struct napi;
->  
-> +	struct __percpu iwl_tso_hdr_page *tso_hdr_page;
-> +
->  	/* INT ICT Table */
->  	__le32 *ict_tbl;
->  	dma_addr_t ict_tbl_dma;
-> diff --git a/drivers/net/wireless/iwlwifi/pcie/trans.c b/drivers/net/wireless/iwlwifi/pcie/trans.c
-> index a275318..5bd678b 100644
-> --- a/drivers/net/wireless/iwlwifi/pcie/trans.c
-> +++ b/drivers/net/wireless/iwlwifi/pcie/trans.c
-> @@ -1601,6 +1601,7 @@ static void iwl_trans_pcie_configure(struct iwl_trans *trans,
->  void iwl_trans_pcie_free(struct iwl_trans *trans)
->  {
->  	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-> +	int i;
->  
->  #ifdef CPTCFG_IWLWIFI_PLATFORM_DATA
->  	/* Make sure the device is on before calling pci functions again.
-> @@ -1631,6 +1632,15 @@ void iwl_trans_pcie_free(struct iwl_trans *trans)
->  
->  	iwl_pcie_free_fw_monitor(trans);
->  
-> +	for_each_possible_cpu(i) {
-> +		struct iwl_tso_hdr_page *p =
-> +			per_cpu_ptr(trans_pcie->tso_hdr_page, i);
-> +
-> +		if (p->page)
-> +			__free_pages(p->page, 0);
-> +	}
-> +
-> +	free_percpu(trans_pcie->tso_hdr_page);
->  	iwl_trans_free(trans);
->  }
->  
-> @@ -2822,7 +2832,7 @@ struct iwl_trans *iwl_trans_pcie_alloc(struct pci_dev *pdev,
->  	struct iwl_trans_pcie *trans_pcie;
->  	struct iwl_trans *trans;
->  	u16 pci_cmd;
-> -	int ret;
-> +	int i, ret;
->  
->  	trans = iwl_trans_alloc(sizeof(struct iwl_trans_pcie),
->  				&pdev->dev, cfg, &trans_ops_pcie, 0);
-> @@ -2839,6 +2849,14 @@ struct iwl_trans *iwl_trans_pcie_alloc(struct pci_dev *pdev,
->  	spin_lock_init(&trans_pcie->ref_lock);
->  	mutex_init(&trans_pcie->mutex);
->  	init_waitqueue_head(&trans_pcie->ucode_write_waitq);
-> +	trans_pcie->tso_hdr_page = alloc_percpu(struct iwl_tso_hdr_page);
+> It is not an exact value. It is much better than my temporary hack of 512 was. As trailing garbage is checked for, I???m not sure if this should be very accurately calculated? Maybe it would be better to disable the length checks for this altogether?
 
-This allocation can fail.
-You must test the return value and abort the operation.
+I would just drop the maxlen then. The nested content should be
+verified separately anyway later on.
 
+> > We should probably bark if user space provides a OVS_CT_ATTR_NAT but the
+> > kernel is compiled without support for it.
+> > 
+> 
+> We do issue -EINVAL and log ???Unknown conntrack attr??? in that case.
 
-> +	for_each_possible_cpu(i) {
-> +		struct iwl_tso_hdr_page *p =
-> +			per_cpu_ptr(trans_pcie->tso_hdr_page, i);
-> +
-> +		memset(p, 0, sizeof(*p));
-
-Not needed : alloc_percpu() puts zero on all the allocated memory (for
-all possible cpus)
-
-> +	}
-> +
->  
->  	ret = pci_enable_device(pdev);
->  	if (ret)
-> diff --git a/drivers/net/wireless/iwlwifi/pcie/tx.c b/drivers/net/wireless/iwlwifi/pcie/tx.c
-> index c8f3967..14d7218 100644
-> --- a/drivers/net/wireless/iwlwifi/pcie/tx.c
-> +++ b/drivers/net/wireless/iwlwifi/pcie/tx.c
-> @@ -30,6 +30,7 @@
->  #include <linux/etherdevice.h>
->  #include <linux/slab.h>
->  #include <linux/sched.h>
-> +#include <net/tso.h>
->  
->  #include "iwl-debug.h"
->  #include "iwl-csr.h"
-> @@ -592,8 +593,19 @@ static void iwl_pcie_txq_unmap(struct iwl_trans *trans, int txq_id)
->  
->  	spin_lock_bh(&txq->lock);
->  	while (q->write_ptr != q->read_ptr) {
-> +		struct sk_buff *skb = txq->entries[q->read_ptr].skb;
-> +		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-> +
->  		IWL_DEBUG_TX_REPLY(trans, "Q %d Free %d\n",
->  				   txq_id, q->read_ptr);
-> +
-> +		if (info->driver_data[IWL_FIRST_DRIVER_DATA]) {
-> +			struct page *page =
-> +				info->driver_data[IWL_FIRST_DRIVER_DATA];
-> +			__free_pages(page, 0);
-> +			info->driver_data[IWL_FIRST_DRIVER_DATA] = NULL;
-> +		}
-> +
->  		iwl_pcie_txq_free_tfd(trans, txq);
->  		q->read_ptr = iwl_queue_inc_wrap(q->read_ptr);
->  	}
-> @@ -1011,11 +1023,20 @@ void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
->  	for (;
->  	     q->read_ptr != tfd_num;
->  	     q->read_ptr = iwl_queue_inc_wrap(q->read_ptr)) {
-> +		struct sk_buff *skb = txq->entries[txq->q.read_ptr].skb;
-> +		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
->  
-> -		if (WARN_ON_ONCE(txq->entries[txq->q.read_ptr].skb == NULL))
-> +		if (WARN_ON_ONCE(skb == NULL))
->  			continue;
->  
-> -		__skb_queue_tail(skbs, txq->entries[txq->q.read_ptr].skb);
-
-
-You probably could use a helper, as you use this construct multiple
-times :
-> +		if (info->driver_data[IWL_FIRST_DRIVER_DATA]) {
-> +			struct page *page =
-> +				info->driver_data[IWL_FIRST_DRIVER_DATA];
-> +			__free_pages(page, 0);
-> +			info->driver_data[IWL_FIRST_DRIVER_DATA] = NULL;
-> +		}
-
-> +
-> +		__skb_queue_tail(skbs, skb);
->  
->  		txq->entries[txq->q.read_ptr].skb = NULL;
->  
-> @@ -1881,6 +1902,256 @@ static int iwl_fill_data_tbs(struct iwl_trans *trans, struct sk_buff *skb,
->  	return 0;
->  }
-
-
-> +
-> +static void iwl_compute_pseudo_hdr_csum(void *iph, struct tcphdr *tcph,
-> +					bool ipv6, unsigned int len)
-> +{
-> +	if (ipv6) {
-> +		struct ipv6hdr *iphv6 = iph;
-> +
-> +		tcph->check = ~csum_ipv6_magic(&iphv6->saddr, &iphv6->daddr,
-> +					       len + tcph->doff * 4,
-> +					       IPPROTO_TCP, 0);
-> +	} else {
-> +		struct iphdr *iphv4 = iph;
-> +
-> +		ip_send_check(iphv4);
-> +		tcph->check = ~csum_tcpudp_magic(iphv4->saddr, iphv4->daddr,
-> +						 len + tcph->doff * 4,
-> +						 IPPROTO_TCP, 0);
-> +	}
-> +}
-> +
-> +static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
-> +				   struct iwl_txq *txq, u8 hdr_len,
-> +				   struct iwl_cmd_meta *out_meta,
-> +				   struct iwl_device_cmd *dev_cmd, u16 tb1_len)
-> +{
-> +	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-> +	struct iwl_trans_pcie *trans_pcie = txq->trans_pcie;
-> +	const struct ieee80211_hdr *hdr = (void *)skb->data;
-> +	unsigned int snap_ip_tcp_hdrlen, ip_hdrlen, total_len, hdr_room;
-> +	unsigned int mss = skb_shinfo(skb)->gso_size;
-> +	struct iwl_queue *q = &txq->q;
-> +	u16 length, iv_len, amsdu_pad;
-> +	u8 *start_hdr;
-> +	struct iwl_tso_hdr_page *hdr_page;
-> +	int ret;
-> +	struct tso_t tso;
-> +
-> +	/* if the packet is protected, then it must be CCMP or GCMP */
-> +	BUILD_BUG_ON(IEEE80211_CCMP_HDR_LEN != IEEE80211_GCMP_HDR_LEN);
-> +	iv_len = ieee80211_has_protected(hdr->frame_control) ?
-> +		IEEE80211_CCMP_HDR_LEN : 0;
-> +
-> +	trace_iwlwifi_dev_tx(trans->dev, skb,
-> +			     &txq->tfds[txq->q.write_ptr],
-> +			     sizeof(struct iwl_tfd),
-> +			     &dev_cmd->hdr, IWL_HCMD_SCRATCHBUF_SIZE + tb1_len,
-> +			     NULL, 0);
-> +
-> +	/*
-> +	 * Pull the ieee80211 header + IV to be able to use TSO core,
-> +	 * we will restore it for the tx_status flow.
-> +	 */
-> +	skb_pull(skb, hdr_len + iv_len);
-> +	ip_hdrlen = skb_transport_header(skb) - skb_network_header(skb);
-> +	snap_ip_tcp_hdrlen =
-> +		IEEE80211_CCMP_HDR_LEN + ip_hdrlen + tcp_hdrlen(skb);
-> +	total_len = skb->len - snap_ip_tcp_hdrlen;
-> +	amsdu_pad = 0;
-> +
-> +	/* total amount of header we may need for this A-MSDU */
-> +	hdr_room = DIV_ROUND_UP(total_len, mss) *
-> +		(3 + snap_ip_tcp_hdrlen + sizeof(struct ethhdr)) + iv_len;
-
-Can't this exceed PAGE_SIZE eventually, with very small mss ?
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Misread then, sorry.
