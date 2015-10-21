@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
- interfaces
-Date: Wed, 21 Oct 2015 07:43:32 -0700 (PDT)
-Message-ID: <20151021.074332.1709904332480699231.davem@davemloft.net>
-References: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
+Subject: Re: [PATCH v2 1/1] xen-netfront: update num_queues to real created
+Date: Wed, 21 Oct 2015 07:45:52 -0700 (PDT)
+Message-ID: <20151021.074552.2288341578443947313.davem@davemloft.net>
+References: <5624818D.4010902@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thaller@redhat.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44470 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754532AbbJUO1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 10:27:08 -0400
-In-Reply-To: <294c7a9df554506e684adbeb9bbed070e6fed260.1444993627.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: boris.ostrovsky@oracle.com, konrad.wilk@oracle.com,
+	ian.campbell@citrix.com, wei.liu2@citrix.com, annie.li@oracle.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	stable@vger.kernel.org
+To: joe.jin@oracle.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5624818D.4010902@oracle.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Fri, 16 Oct 2015 13:07:59 +0200
+From: Joe Jin <joe.jin@oracle.com>
+Date: Mon, 19 Oct 2015 13:37:17 +0800
 
-> This of course does not fix the reuse problem for the applications;
-> it just makes it less likely to be hit in common usage patterns.
+> Sometimes xennet_create_queues() may failed to created all requested
+> queues, we need to update num_queues to real created to avoid NULL
+> pointer dereference.
+> 
+> Signed-off-by: Joe Jin <joe.jin@oracle.com>
 
-Not only does this not fix the problem, it makes the incentive to fix
-that problem much smaller.
-
-Therefore I am not applying this patch, sorry.
-
-Fix the real problem, then come talk to us.
+Applied.
