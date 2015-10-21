@@ -1,83 +1,36 @@
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH 2/5] netfilter: Factor out
-	nf_ct_get_info().
-Date: Wed, 21 Oct 2015 13:43:34 -0700
-Message-ID: <2EDB7DE6-EAC8-40D3-9438-03A70CADFF71@nicira.com>
-References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com>
- <1445379629-112880-2-git-send-email-jrajahalme@nicira.com>
- <20151021104556.GC2135@salvia>
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Subject: Re: [RFC PATCH 3/5] netfilter: Allow calling into nat helper without skb_dst.
+Date: Wed, 21 Oct 2015 13:44:34 -0700
+Message-ID: <D79451E8-3017-43B6-A140-116AFA800524@nicira.com>
+References: <1445379629-112880-1-git-send-email-jrajahalme@nicira.com> <1445379629-112880-3-git-send-email-jrajahalme@nicira.com> <20151021104414.GB2135@salvia>
 Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20151021104556.GC2135@salvia>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35362 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755421AbbJUUog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 16:44:36 -0400
+Received: by pasz6 with SMTP id z6so64460622pas.2
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 13:44:35 -0700 (PDT)
+In-Reply-To: <20151021104414.GB2135@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cj4gT24gT2N0IDIxLCAyMDE1LCBhdCAzOjQ1IEFNLCBQYWJsbyBOZWlyYSBBeXVzbyA8cGFibG9A
-bmV0ZmlsdGVyLm9yZz4gd3JvdGU6Cj4gCj4gT24gVHVlLCBPY3QgMjAsIDIwMTUgYXQgMDM6MjA6
-MjZQTSAtMDcwMCwgSmFybm8gUmFqYWhhbG1lIHdyb3RlOgo+PiBEZWZpbmUgYSBuZXcgaW5saW5l
-IGZ1bmN0aW9uIHRvIG1hcCBjb25udHJhY2sgc3RhdHVzIHRvIGVudW0KPj4gaXBfY29ubnRyYWNr
-X2luZm8uICBUaGlzIHJlbW92ZXMgdGhlIG5lZWQgdG8gb3RoZXJ3aXNlIGR1cGxpY2F0ZSB0aGlz
-Cj4+IGNvZGUgaW4gYSBsYXRlciBwYXRjaC4KPiAKPiBXaGVyZSBpcyB0aGF0IGxhdGVyIHBhdGNo
-IHRoYXQganVzdGlmaWVzIHRoaXMgdXBkYXRlPwo+IAoKSXQgaXMgaW4gcGF0Y2ggNS81LCBvdnNf
-Y3RfZmluZF9leGlzdGluZygpLiBUaGUgaW50ZW50IGl0IHRvIGxvY2F0ZSBhbiBleGlzdGluZyBj
-b25udHJhY2sgZW50cnkgd2l0aG91dCBtb2RpZnlpbmcgaXQsIGlmIHN1Y2ggYW4gZW50cnkgZXhp
-c3RzLiBUaGlzIGlzIG5lZWRlZCBpbiBhIGNhc2Ugd2hlcmUgd2UgZmlyc3QgZ28gdGhyb3VnaCB0
-aGUgY29ubnRyYWNrIChjYWxsaW5nIG5mX2Nvbm50cmFja19pbiksIHRoZW4gcmVjaXJjdWxhdGUg
-KHRvIG1hdGNoIG9uIHRoZSBzdGF0ZSBiaXRzKSwgYnV0IGRvIG5vdCBmaW5kIGEgbWF0Y2hpbmcg
-ZmxvdyBlbnRyeSBpbiB0aGUgZmxvdyB0YWJsZS4gSW4gdGhpcyBjYXNlIHdlIGlzc3VlIGFuIHVw
-Y2FsbCBhbmQgbGV0IHRoZSBPVlMgdXNlcnNwYWNlIGNvbXB1dGUgYSBuZXcgZmxvdyBlbnRyeS4g
-V2hlbiB0aGUgcGFja2V0IGdldHMgYmFjayB0byBrZXJuZWwgd2UgaGF2ZSBsb3N0IHRoZSBza2Ig
-KGFzIHdlIGRvIG5vdCBidWZmZXIgaXQgaW4gdGhlIGtlcm5lbCBhZnRlciBpc3N1aW5nIHRoZSB1
-cGNhbGwpLiBvdnNfY3RfZmluZF9leGlzdGluZygpIGNhbiB0aGVuIGJlIHVzZWQgdG8gcG9wdWxh
-dGUgdGhlIG5mY3QgYW5kIG5mY3RpbmZvIGZpZWxkcyBvZiB0aGUgbmV3IHNrYiwgYXMgaWYgdGhp
-cyBza2IgaGFkIGdvbmUgdGhyb3VnaCB0aGUgbmZfY29ubnRyYWNrX2luKCkgY2FsbC4gVGhpcyBh
-bGxvd3MgdXMgdG8gcGFzcyB0aGUgcGFja2V0IHRocm91Z2ggTkFUIGFmdGVyIHN1Y2ggYW4gdXBj
-YWxsIHdpdGhvdXQgcGFzc2luZyB0aGUgcGFja2V0IHRocm91Z2ggbmZfY29ubnRyYWNrX2luKCkg
-dHdpY2UuCgpvdnNfY3RfZmluZF9leGlzdGluZygpIGlzIGludGVuZGVkIHRvIGJlIHVzZWQgb25s
-eSB3aGVuIHdlIGhhdmUgZXZpZGVuY2UgaW4gdGhlIE9WUyBmbG93IGtleSB0aGF0IHRoZSBwYWNr
-ZXQgYWN0dWFsbHkgd2VudCB0aHJvdWdoIG5mX2Nvbm50cmFja19pbigpIHByaW9yIHRvIHRoZSB1
-cGNhbGwuIEluIHRoZSBjdXJyZW50IHZlcnNpb24gb2YgdGhlIHBhdGNoZXMgSSBkbyBub3QgaGF2
-ZSBhIHRlc3QgY2FzZSBmb3IgdGhpcywgYW5kIEkgaW50ZW5kIHRvIHNlcGFyYXRlIG91dCB0aGlz
-IGNoYW5nZSBpbnRvIGEgc2VwYXJhdGUgcGF0Y2ggYmVmb3JlIHRoZSBOQVQgcGF0Y2ggZm9yIHRo
-ZSBuZXh0IChub24tUkZDKSB2ZXJzaW9uLgoKSSBjb3VsZCBpbXBsZW1lbnQgb3ZzX2N0X2ZpbmRf
-ZXhpc3RpbmcoKSB1c2luZyBleHBvcnRlZCBjb25udHJhY2sgQVBJcyBhcGFydCBmcm9tIHRoaXMg
-bWFwcGluZyBmcm9tIGNvbm50cmFjayBzdGF0dXMgdG8gZW51bSBpcF9jb25udHJhY2tfaW5mby4g
-b3ZzX2N0X2ZpbmRfZXhpc3RpbmcoKSBpcyBpbiBubyB3YXkgT1ZTIHNwZWNpZmljLCB0aG91Z2gs
-IHNvIGl0IGNvdWxkIGJlIGFkZGVkIHRvIHRoZSBjb25udHJhY2sgcHJvcGVyIGFzIHdlbGwsIGlm
-IHNvIGRlc2lyZWQuCgogIEphcm5vCgo+PiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUg
-PGpyYWphaGFsbWVAbmljaXJhLmNvbT4KPj4gLS0tCj4+IGluY2x1ZGUvbmV0L25ldGZpbHRlci9u
-Zl9jb25udHJhY2suaCB8IDE1ICsrKysrKysrKysrKysrKwo+PiBuZXQvbmV0ZmlsdGVyL25mX2Nv
-bm50cmFja19jb3JlLmMgICAgfCAyMiArKystLS0tLS0tLS0tLS0tLS0tLS0tCj4+IDIgZmlsZXMg
-Y2hhbmdlZCwgMTggaW5zZXJ0aW9ucygrKSwgMTkgZGVsZXRpb25zKC0pCj4+IAo+PiBkaWZmIC0t
-Z2l0IGEvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oIGIvaW5jbHVkZS9uZXQv
-bmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oCj4+IGluZGV4IGZkZTQwNjguLmIzZGUxMGUgMTAwNjQ0
-Cj4+IC0tLSBhL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaAo+PiArKysgYi9p
-bmNsdWRlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrLmgKPj4gQEAgLTEyNSw2ICsxMjUsMjEg
-QEAgbmZfY3RfdHVwbGVoYXNoX3RvX2N0cmFjayhjb25zdCBzdHJ1Y3QgbmZfY29ubnRyYWNrX3R1
-cGxlX2hhc2ggKmhhc2gpCj4+IAkJCSAgICB0dXBsZWhhc2hbaGFzaC0+dHVwbGUuZHN0LmRpcl0p
-Owo+PiB9Cj4+IAo+PiArc3RhdGljIGlubGluZSBlbnVtIGlwX2Nvbm50cmFja19pbmZvCj4+ICtu
-Zl9jdF9nZXRfaW5mbyhjb25zdCBzdHJ1Y3QgbmZfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmgpCj4+
-ICt7Cj4+ICsJY29uc3Qgc3RydWN0IG5mX2Nvbm4gKmN0ID0gbmZfY3RfdHVwbGVoYXNoX3RvX2N0
-cmFjayhoKTsKPj4gKwo+PiArCWlmIChORl9DVF9ESVJFQ1RJT04oaCkgPT0gSVBfQ1RfRElSX1JF
-UExZKQo+PiArCQlyZXR1cm4gSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFk7Cj4+ICsJLyogT25jZSB3
-ZSd2ZSBoYWQgdHdvIHdheSBjb21tcywgYWx3YXlzIEVTVEFCTElTSEVELiAqLwo+PiArCWlmICh0
-ZXN0X2JpdChJUFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3RhdHVzKSkKPj4gKwkJcmV0dXJuIElQ
-X0NUX0VTVEFCTElTSEVEOwo+PiArCWlmICh0ZXN0X2JpdChJUFNfRVhQRUNURURfQklULCAmY3Qt
-PnN0YXR1cykpCj4+ICsJCXJldHVybiBJUF9DVF9SRUxBVEVEOwo+PiArCXJldHVybiBJUF9DVF9O
-RVc7Cj4+ICt9Cj4gCj4gSSB3b3VsZCByZWFsbHkgbGlrZSB0byBzZWUgaG93IHlvdSB3YW50IHRv
-IHVzZSB0aGlzLgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
-aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+
+> On Oct 21, 2015, at 3:44 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> 
+> On Tue, Oct 20, 2015 at 03:20:27PM -0700, Jarno Rajahalme wrote:
+>> NAT checksum recalculation code assumed existence of skb_dst, which
+>> becomes a problem for a later patch in the series.  Simplify this by
+>> removing the checks, as the checksum will be dealt with later in the
+>> stack.
+> 
+> Please, resubmit netfilter patches to netfilter-devel@vger.kernel.org
+
+Will do.
+
+  Jarno
