@@ -1,67 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] RACK loss detection
-Date: Wed, 21 Oct 2015 07:01:56 -0700 (PDT)
-Message-ID: <20151021.070156.1837430079059548315.davem@davemloft.net>
-References: <1445057867-32257-1-git-send-email-ycheng@google.com>
+From: WEIR@vger.kernel.org, FOUNDATION@vger.kernel.org
+Subject: GREETINGS TO YOU
+Date: Wed, 21 Oct 2015 14:43:45 +0100
+Message-ID: <AM2PR05MB06751BBC9FC2458275B9B62DB8380@AM2PR05MB0675.eurprd05.prod.outlook.com>
+Reply-To: <weirfoundationorg@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ycheng@google.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44115 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753745AbbJUNpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:45:38 -0400
-In-Reply-To: <1445057867-32257-1-git-send-email-ycheng@google.com>
+Received: from mail-am1hn0252.outbound.protection.outlook.com ([157.56.112.252]:21145
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750877AbbJUNpn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 09:45:43 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Fri, 16 Oct 2015 21:57:40 -0700
+You have Been Issued with the SUM of 1.1 Million Euro from the Weir Family Donation.Kindly get in Touch with your details Following:
 
-> RACK (Recent ACK) loss recovery uses the notion of time instead of
-> packet sequence (FACK) or counts (dupthresh).
-> 
-> It's inspired by the FACK heuristic in tcp_mark_lost_retrans(): when a
-> limited transmit (new data packet) is sacked in recovery, then any
-> retransmission sent before that newly sacked packet was sent must have
-> been lost, since at least one round trip time has elapsed.
-> 
-> But that existing heuristic from tcp_mark_lost_retrans()
-> has several limitations:
->   1) it can't detect tail drops since it depends on limited transmit
->   2) it's disabled upon reordering (assumes no reordering)
->   3) it's only enabled in fast recovery but not timeout recovery
-> 
-> RACK addresses these limitations with a core idea: an unacknowledged
-> packet P1 is deemed lost if a packet P2 that was sent later is is
-> s/acked, since at least one round trip has passed.
-> 
-> Since RACK cares about the time sequence instead of the data sequence
-> of packets, it can detect tail drops when a later retransmission is
-> s/acked, while FACK or dupthresh can't. For reordering RACK uses a
-> dynamically adjusted reordering window ("reo_wnd") to reduce false
-> positives on ever (small) degree of reordering, similar to the delayed
-> Early Retransmit.
-> 
-> In the current patch set RACK is only a supplemental loss detection
-> and does not trigger fast recovery. However we are developing RACK
-> to replace or consolidate FACK/dupthresh, early retransmit, and
-> thin-dupack. These heuristics all implicitly bear the time notion.
-> For example, the delayed Early Retransmit is simply applying RACK
-> to trigger the fast recovery with small inflight.
-> 
-> RACK requires measuring the minimum RTT. Tracking a global min is less
-> robust due to traffic engineering pathing changes. Therefore it uses a
-> windowed filter by Kathleen Nichols. The min RTT can also be useful
-> for various other purposes like congestion control or stat monitoring.
-> 
-> This patch has been used on Google servers for well over 1 year. RACK
-> has also been implemented in the QUIC protocol. We are submitting an
-> IETF draft as well.
+Full Names ... Address: Phone No: Country ... Age .... ..
 
-This looks really great, in fact in my eyes the entire series is
-justified merely by patch #3 :-)
+Check Link HTTP://www.bbc.com/news/uk-scotland-glasgow-west-18801698
 
-Series applied, thanks.
+We await your reply.
+Chris and Colin Weir
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
