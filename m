@@ -1,62 +1,74 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 21 Oct 2015 23:28:34 +0100
-Message-ID: <56281192.20606@oracle.com>
-References: <20151019095938.72ea48e6@xeon-e3> <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com> <562594E1.8040403@oracle.com> <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com> <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Wed, 21 Oct 2015 15:44:37 -0700
+Message-ID: <56281555.3030504@plumgrid.com>
+References: <1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+ <562545AA.2080207@plumgrid.com>
+ <1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+ <56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>
+ <56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>
+ <56267FAF.60206@plumgrid.com> <87io61fjx3.fsf@x220.int.ebiederm.org>
+ <5627AC79.5000704@iogearbox.net> <20151021183447.GC23554@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org,
-	Casper Dik <casper.dik@oracle.com>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26470 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663AbbJUW2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 18:28:44 -0400
-In-Reply-To: <20151021185104.GM22011@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Thomas Graf <tgraf@suug.ch>, Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151021183447.GC23554@pox.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21/10/2015 19:51, Al Viro wrote:
-
-> BTW, is SCM_RIGHTS outside of scope?  They do mention it in one place
-> only:
-> | Ancillary data is also possible at the socket level. The <sys/socket.h>
-> | header shall define the following symbolic constant for use as the cmsg_type
-> | value when cmsg_level is SOL_SOCKET:
-> |
-> | SCM_RIGHTS
-> |     Indicates that the data array contains the access rights to be sent or
-> | received.
-
-That's still exactly the same in Issue 7, Technical Corrigenda 2 which 
-is in final review at the moment.
-
->>> In other words, is that destruction of
->>> 	* any descriptor refering to this socket [utterly insane for obvious
->>> reasons]
->>> 	* the last descriptor refering to this socket (modulo descriptor
->>> passing, etc.) [a bitch to implement, unless we treat a syscall in progress
->>> as keeping the opened file open], or
->>> 	* _the_ descriptor used to issue accept(2) [a bitch to implement,
->>> with a lot of fun races in an already race-prone area]?
->>
->>  From reading the POSIX close() page I believe the second option is
->> the correct one.
+On 10/21/15 11:34 AM, Thomas Graf wrote:
+>> So far, during this discussion, it was proposed to modify the file system
+>> >to a single-mount one and to stick this under/sys/kernel/bpf/. This
+>> >will not have "real" namespace support either, but it was proposed to
+>> >have a following structure:
+>> >
+>> >   /sys/kernel/bpf/username/<optional_dirs_mkdir_by_user>/progX
+> This would probably work as you would typically map the ebpf map
+> using -v like this to give a stable path:
 >
-> Er...  So fd2 = dup(fd);accept(fd)/close(fd) should *not* trigger that
-> behaviour, in your opinion?  Because fd is sure as hell not the last
-> descriptor refering to that socket - fd2 remains alive and well.
->
-> Behaviour you describe below matches the _third_ option.
+>          docker run -v /sys/kernel/bpf/foo/maps/progX:/map proX
 
-Ah, I wasn't 100% sure what the intended difference between #2 and #3 
-was TBH, it does sound like I meant #3, yes :-)
+yep
+tracefs works inside docker the same way.
+May be we should let users pick names similar to this fs patch to make
+the above easier to use.
+Also from bpf syscall point of the user shouldn't see
+/sys/kernel/bpf/user/ prefix. Only 'optional_dirs_mkdir_by_user/name'
+when doing pin/new_fd.
+May be prog type should be a fixed part of the path as well.
 
--- 
-Alan Burlison
---
+>> >Together with device cgroups for containers, it would allow scenarios where
+>> >you can have:
+>> >
+>> >   * eBPF (map/prog) device pass-through so a map/prog could even be shared out
+>> >     from the initial namespace into individual ones/all (one could possibly
+>> >     extend such maps as read-only for these consumers).
+>> >   * eBPF device creation for unprivileged users with permissions being set
+>> >     accordingly (as in fs case).
+>> >   * Since cgroup controller can also do wildcards on major/minors, we could
+>> >     make that further fine-grained.
+>> >   * eBPF device creation can also be enforced by the cgroup controller to be
+>> >     entirely disallowed for a specific container.
+
+none of the above is practical. It can be demoed in a canned
+environment, but it's a complete mismatch of apis. cgroup/dev is a
+static config, whereas bpf-cdev is dynamic (with minors out of idr for
+all users) When you have to hack drivers/base/core.c to get there it
+should have been a warning sign that something is wrong with
+this cdev approach.
+
+> I've read the discussion passively and my take away is that, frankly,
+> I think the differences are somewhat minor. Both architectures can
+> scale to what we need. Both will do the job. I'm slightly worried about
+> exposing uAPI as a FS, I think that didn't work too well for sysfs. It's
+> pretty much a define the format once and never touch it again kind of
+> deal.
+
+It's even worse in cdev style since it piggy backs on sysfs.
