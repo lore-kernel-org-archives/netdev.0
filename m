@@ -1,306 +1,221 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next 5/8] skbuff: store hash type in socket buffer...
-Date: Wed, 21 Oct 2015 11:36:22 +0100
-Message-ID: <1445423785-4654-6-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next 2/8] xen-netback: remove GSO information from xenvif_rx_meta
+Date: Wed, 21 Oct 2015 11:36:19 +0100
+Message-ID: <1445423785-4654-3-git-send-email-paul.durrant@citrix.com>
 References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Durrant <paul.durrant@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
 To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:9593 "EHLO SMTP.CITRIX.COM"
+Received: from smtp02.citrix.com ([66.165.176.63]:4864 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752455AbbJUKhD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2015 06:37:03 -0400
+	id S1752215AbbJUKhB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2015 06:37:01 -0400
 In-Reply-To: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-...rather than a boolean merely indicating a canonical L4 hash.
+The code in net_rx_action() that builds rx responses has direct access
+to the skb so there is no need to copy this information into the meta
+structure.
 
-skb_set_hash() takes a hash type (from enum pkt_hash_types) as an
-argument but information is lost since only a single bit in the skb
-stores whether that hash type is PKT_HASH_TYPE_L4 or not.
-
-By using two bits it's possible to store the complete hash type
-information for use by drivers, such as xen-netback when forwarding
-network packets to VM frontend drivers.
+This patch removes the extraneous fields, saves space in the array and
+removes many lines of code.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/bonding/bond_main.c |  2 +-
- include/linux/skbuff.h          | 53 ++++++++++++++++++++++++++++-------------
- include/net/flow_dissector.h    |  5 ++++
- include/net/sock.h              |  2 +-
- include/trace/events/net.h      |  2 +-
- net/core/flow_dissector.c       | 27 ++++++++++++++++-----
- 6 files changed, 65 insertions(+), 26 deletions(-)
+ drivers/net/xen-netback/common.h  |  2 --
+ drivers/net/xen-netback/netback.c | 75 +++++++++++++++------------------------
+ 2 files changed, 29 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d0f23cd..abf9c3f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3137,7 +3137,7 @@ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
- 	u32 hash;
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
--	    skb->l4_hash)
-+	    skb_has_l4_hash(skb))
- 		return skb->hash;
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4398411..30e1e60 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -506,8 +506,7 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
-  *	@xmit_more: More SKBs are pending for this queue
-  *	@ndisc_nodetype: router type (from link layer)
-  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
-- *	@l4_hash: indicate hash is a canonical 4-tuple hash over transport
-- *		ports.
-+ *	@hash_type: indicates type of hash (see enum pkt_hash_types below)
-  *	@sw_hash: indicates hash was computed in software stack
-  *	@wifi_acked_valid: wifi_acked was set
-  *	@wifi_acked: whether frame was acked on wifi or not
-@@ -612,10 +611,10 @@ struct sk_buff {
- 	__u8			nf_trace:1;
- 	__u8			ip_summed:2;
- 	__u8			ooo_okay:1;
--	__u8			l4_hash:1;
- 	__u8			sw_hash:1;
- 	__u8			wifi_acked_valid:1;
- 	__u8			wifi_acked:1;
-+	/* 1 bit hole */
- 
- 	__u8			no_fcs:1;
- 	/* Indicates the inner headers are valid in the skbuff. */
-@@ -632,7 +631,8 @@ struct sk_buff {
- 	__u8			ipvs_property:1;
- 	__u8			inner_protocol_type:1;
- 	__u8			remcsum_offload:1;
--	/* 3 or 5 bit hole */
-+	__u8			hash_type:2;
-+	/* 1 or 3 bit hole */
- 
- #ifdef CONFIG_NET_SCHED
- 	__u16			tc_index;	/* traffic control index */
-@@ -941,19 +941,35 @@ static inline void skb_clear_hash(struct sk_buff *skb)
- {
- 	skb->hash = 0;
- 	skb->sw_hash = 0;
--	skb->l4_hash = 0;
-+	skb->hash_type = 0;
-+}
-+
-+static inline enum pkt_hash_types skb_hash_type(struct sk_buff *skb)
-+{
-+	return skb->hash_type;
-+}
-+
-+static inline bool skb_has_l4_hash(struct sk_buff *skb)
-+{
-+	return skb_hash_type(skb) == PKT_HASH_TYPE_L4;
-+}
-+
-+static inline bool skb_has_sw_hash(struct sk_buff *skb)
-+{
-+	return !!skb->sw_hash;
- }
- 
- static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
- {
--	if (!skb->l4_hash)
-+	if (!skb_has_l4_hash(skb))
- 		skb_clear_hash(skb);
- }
- 
- static inline void
--__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw, bool is_l4)
-+__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw,
-+	       enum pkt_hash_types type)
- {
--	skb->l4_hash = is_l4;
-+	skb->hash_type = type;
- 	skb->sw_hash = is_sw;
- 	skb->hash = hash;
- }
-@@ -962,13 +978,13 @@ static inline void
- skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
- {
- 	/* Used by drivers to set hash from HW */
--	__skb_set_hash(skb, hash, false, type == PKT_HASH_TYPE_L4);
-+	__skb_set_hash(skb, hash, false, type);
- }
- 
- static inline void
--__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, bool is_l4)
-+__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
- {
--	__skb_set_hash(skb, hash, true, is_l4);
-+	__skb_set_hash(skb, hash, true, type);
- }
- 
- void __skb_get_hash(struct sk_buff *skb);
-@@ -1021,9 +1037,10 @@ static inline bool skb_flow_dissect_flow_keys_buf(struct flow_keys *flow,
- 				  data, proto, nhoff, hlen, flags);
- }
- 
-+
- static inline __u32 skb_get_hash(struct sk_buff *skb)
- {
--	if (!skb->l4_hash && !skb->sw_hash)
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb))
- 		__skb_get_hash(skb);
- 
- 	return skb->hash;
-@@ -1033,11 +1050,12 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6);
- 
- static inline __u32 skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
- {
--	if (!skb->l4_hash && !skb->sw_hash) {
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
- 		struct flow_keys keys;
- 		__u32 hash = __get_hash_from_flowi6(fl6, &keys);
- 
--		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
-+				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 	}
- 
- 	return skb->hash;
-@@ -1047,11 +1065,12 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl);
- 
- static inline __u32 skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
- {
--	if (!skb->l4_hash && !skb->sw_hash) {
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
- 		struct flow_keys keys;
- 		__u32 hash = __get_hash_from_flowi4(fl4, &keys);
- 
--		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
-+				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 	}
- 
- 	return skb->hash;
-@@ -1068,7 +1087,7 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
- {
- 	to->hash = from->hash;
- 	to->sw_hash = from->sw_hash;
--	to->l4_hash = from->l4_hash;
-+	to->hash_type = from->hash_type;
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index a7bf747..136ace1 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -70,8 +70,6 @@ struct pending_tx_info {
+ struct xenvif_rx_meta {
+ 	int id;
+ 	int size;
+-	int gso_type;
+-	int gso_size;
  };
  
- static inline void skb_sender_cpu_clear(struct sk_buff *skb)
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 8c8548c..418b8c5 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -182,6 +182,11 @@ static inline bool flow_keys_have_l4(struct flow_keys *keys)
- 	return (keys->ports.ports || keys->tags.flow_label);
- }
+ #define GSO_BIT(type) \
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index ec98d43..27c6779 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -263,8 +263,6 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif_queue *queue,
+ 	req = RING_GET_REQUEST(&queue->rx, queue->rx.req_cons++);
  
-+static inline bool flow_keys_have_l3(struct flow_keys *keys)
-+{
-+	return !!keys->control.addr_type;
-+}
-+
- u32 flow_hash_from_keys(struct flow_keys *keys);
+ 	meta = npo->meta + npo->meta_prod++;
+-	meta->gso_type = XEN_NETIF_GSO_TYPE_NONE;
+-	meta->gso_size = 0;
+ 	meta->size = 0;
+ 	meta->id = req->id;
  
- #endif
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 64a7545..b9f68db 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1938,7 +1938,7 @@ static inline void sock_poll_wait(struct file *filp,
- static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
+@@ -281,12 +279,13 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif_queue *queue,
+ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb,
+ 				 struct netrx_pending_operations *npo,
+ 				 struct page *page, unsigned long size,
+-				 unsigned long offset, int *head)
++				 unsigned long offset, int *head,
++				 int gso_type)
  {
- 	if (sk->sk_txhash) {
--		skb->l4_hash = 1;
-+		skb->hash_type = PKT_HASH_TYPE_L4;
- 		skb->hash = sk->sk_txhash;
++	struct xenvif *vif = queue->vif;
+ 	struct gnttab_copy *copy_gop;
+ 	struct xenvif_rx_meta *meta;
+ 	unsigned long bytes;
+-	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
+ 
+ 	/* Data must not cross a page boundary. */
+ 	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+@@ -303,8 +302,14 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+ 		BUG_ON(offset >= PAGE_SIZE);
+ 		BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
+ 
+-		if (npo->copy_off == MAX_BUFFER_OFFSET)
++		if (npo->copy_off == MAX_BUFFER_OFFSET) {
++			/* Leave a gap for the GSO descriptor. */
++			if (*head && ((1 << gso_type) & vif->gso_mask))
++				queue->rx.req_cons++;
++
+ 			meta = get_next_rx_buffer(queue, npo);
++			*head = 0;
++		}
+ 
+ 		bytes = PAGE_SIZE - offset;
+ 		if (bytes > size)
+@@ -345,20 +350,6 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+ 			page++;
+ 			offset = 0;
+ 		}
+-
+-		/* Leave a gap for the GSO descriptor. */
+-		if (skb_is_gso(skb)) {
+-			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+-				gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+-			else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+-				gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+-		}
+-
+-		if (*head && ((1 << gso_type) & queue->vif->gso_mask))
+-			queue->rx.req_cons++;
+-
+-		*head = 0; /* There must be something in this buffer now. */
+-
  	}
  }
-diff --git a/include/trace/events/net.h b/include/trace/events/net.h
-index 49cc7c3..25e7979 100644
---- a/include/trace/events/net.h
-+++ b/include/trace/events/net.h
-@@ -180,7 +180,7 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
- 		__entry->protocol = ntohs(skb->protocol);
- 		__entry->ip_summed = skb->ip_summed;
- 		__entry->hash = skb->hash;
--		__entry->l4_hash = skb->l4_hash;
-+		__entry->l4_hash = skb->hash_type == PKT_HASH_TYPE_L4;
- 		__entry->len = skb->len;
- 		__entry->data_len = skb->data_len;
- 		__entry->truesize = skb->truesize;
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d79699c..956208b 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -658,17 +658,30 @@ EXPORT_SYMBOL(make_flow_keys_digest);
-  *
-  * This function calculates a flow hash based on src/dst addresses
-  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
-- * on success, zero indicates no valid hash.  Also, sets l4_hash in skb
-- * if hash is a canonical 4-tuple hash over transport ports.
-+ * on success, zero indicates no valid hash in which case the hash type
-+ * is set to NONE. If the hash is a canonical 4-tuple hash over transport
-+ * ports then type is set to L4. If the hash did not include transport
-+ * then type is set to L3, otherwise it is assumed to be L2 only.
-  */
- void __skb_get_hash(struct sk_buff *skb)
- {
- 	struct flow_keys keys;
-+	u32 hash;
-+	enum pkt_hash_types type;
  
- 	__flow_hash_secret_init();
+@@ -402,27 +393,11 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	if ((1 << gso_type) & vif->gso_prefix_mask) {
+ 		req = RING_GET_REQUEST(&queue->rx, queue->rx.req_cons++);
+ 		meta = npo->meta + npo->meta_prod++;
+-		meta->gso_type = gso_type;
+-		meta->gso_size = skb_shinfo(skb)->gso_size;
+ 		meta->size = 0;
+ 		meta->id = req->id;
+ 	}
  
--	__skb_set_sw_hash(skb, ___skb_get_hash(skb, &keys, hashrnd),
--			  flow_keys_have_l4(&keys));
-+	hash = ___skb_get_hash(skb, &keys, hashrnd);
-+	if (hash == 0)
-+		type = PKT_HASH_TYPE_NONE;
-+	else if (flow_keys_have_l4(&keys))
-+		type = PKT_HASH_TYPE_L4;
-+	else if (flow_keys_have_l3(&keys))
-+		type = PKT_HASH_TYPE_L3;
-+	else
-+		type = PKT_HASH_TYPE_L2;
+-	req = RING_GET_REQUEST(&queue->rx, queue->rx.req_cons++);
+-	meta = npo->meta + npo->meta_prod++;
+-
+-	if ((1 << gso_type) & vif->gso_mask) {
+-		meta->gso_type = gso_type;
+-		meta->gso_size = skb_shinfo(skb)->gso_size;
+-	} else {
+-		meta->gso_type = XEN_NETIF_GSO_TYPE_NONE;
+-		meta->gso_size = 0;
+-	}
+-
+-	meta->size = 0;
+-	meta->id = req->id;
+-	npo->copy_off = 0;
+-	npo->copy_gref = req->gref;
++	get_next_rx_buffer(queue, npo);
+ 
+ 	data = skb->data;
+ 	while (data < skb_tail_pointer(skb)) {
+@@ -433,7 +408,8 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 			len = skb_tail_pointer(skb) - data;
+ 
+ 		xenvif_gop_frag_copy(queue, skb, npo,
+-				     virt_to_page(data), len, offset, &head);
++				     virt_to_page(data), len, offset, &head,
++				     gso_type);
+ 		data += len;
+ 	}
+ 
+@@ -442,7 +418,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
+ 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
+ 				     skb_shinfo(skb)->frags[i].page_offset,
+-				     &head);
++				     &head, gso_type);
+ 	}
+ 
+ 	return npo->meta_prod - old_meta_prod;
+@@ -542,15 +518,23 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 	gnttab_batch_copy(queue->grant_copy_op, npo.copy_prod);
+ 
+ 	while ((skb = __skb_dequeue(&rxq)) != NULL) {
++		struct xenvif *vif = queue->vif;
++		int gso_type = XEN_NETIF_GSO_TYPE_NONE;
 +
-+	__skb_set_sw_hash(skb, hash, type);
- }
- EXPORT_SYMBOL(__skb_get_hash);
++		if (skb_is_gso(skb)) {
++			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
++				gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
++			else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++				gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
++		}
  
-@@ -698,7 +711,8 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
- 	keys.basic.ip_proto = fl6->flowi6_proto;
+-		if ((1 << queue->meta[npo.meta_cons].gso_type) &
+-		    queue->vif->gso_prefix_mask) {
++		if ((1 << gso_type) & vif->gso_prefix_mask) {
+ 			resp = RING_GET_RESPONSE(&queue->rx,
+ 						 queue->rx.rsp_prod_pvt++);
  
- 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
--			  flow_keys_have_l4(&keys));
-+			  flow_keys_have_l4(&keys) ?
-+			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 			resp->flags = XEN_NETRXF_gso_prefix | XEN_NETRXF_more_data;
  
- 	return skb->hash;
- }
-@@ -719,7 +733,8 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
- 	keys.basic.ip_proto = fl4->flowi4_proto;
+-			resp->offset = queue->meta[npo.meta_cons].gso_size;
++			resp->offset = skb_shinfo(skb)->gso_size;
+ 			resp->id = queue->meta[npo.meta_cons].id;
+ 			resp->status = XENVIF_RX_CB(skb)->meta_slots_used;
  
- 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
--			  flow_keys_have_l4(&keys));
-+			  flow_keys_have_l4(&keys) ?
-+			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+@@ -562,7 +546,7 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 		queue->stats.tx_bytes += skb->len;
+ 		queue->stats.tx_packets++;
  
- 	return skb->hash;
- }
+-		status = xenvif_check_gop(queue->vif,
++		status = xenvif_check_gop(vif,
+ 					  XENVIF_RX_CB(skb)->meta_slots_used,
+ 					  &npo);
+ 
+@@ -583,8 +567,7 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 					queue->meta[npo.meta_cons].size,
+ 					flags);
+ 
+-		if ((1 << queue->meta[npo.meta_cons].gso_type) &
+-		    queue->vif->gso_mask) {
++		if ((1 << gso_type) & vif->gso_mask) {
+ 			struct xen_netif_extra_info *gso =
+ 				(struct xen_netif_extra_info *)
+ 				RING_GET_RESPONSE(&queue->rx,
+@@ -592,8 +575,8 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 
+ 			resp->flags |= XEN_NETRXF_extra_info;
+ 
+-			gso->u.gso.type = queue->meta[npo.meta_cons].gso_type;
+-			gso->u.gso.size = queue->meta[npo.meta_cons].gso_size;
++			gso->u.gso.type = gso_type;
++			gso->u.gso.size = skb_shinfo(skb)->gso_size;
+ 			gso->u.gso.pad = 0;
+ 			gso->u.gso.features = 0;
+ 
 -- 
 2.1.4
