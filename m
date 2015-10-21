@@ -1,77 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/3] switchdev: fix: pass correct obj size when
- deferring obj add
-Date: Wed, 21 Oct 2015 09:40:40 +0200
-Message-ID: <20151021074040.GB2210@nanopsycho.orion>
-References: <1445369799-2345-1-git-send-email-sfeldma@gmail.com>
- <1445369799-2345-2-git-send-email-sfeldma@gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v4 1/4] Produce system time from correlated clocksource
+Date: Wed, 21 Oct 2015 09:44:10 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1510210941130.4000@nanos>
+References: <1444675522-4198-1-git-send-email-christopher.s.hall@intel.com> <1444675522-4198-2-git-send-email-christopher.s.hall@intel.com> <alpine.DEB.2.11.1510132116480.25029@nanos> <op.x6iyd7gq1774gr@chall-mobl2.amr.corp.intel.com> <alpine.DEB.2.11.1510151014330.3960@nanos>
+ <op.x6r25dza1774gr@chall-mobl2.amr.corp.intel.com> <CALAqxLXu_C8sWaKyxqXJPFV+m5Zdk=4q4s7O6NoLR1B8bbyuxg@mail.gmail.com> <20151020085408.GA2542@netboy> <alpine.DEB.2.11.1510201246250.3982@nanos> <20151020115113.GA23428@netboy> <20151020145523.GA5207@netboy>
+ <alpine.DEB.2.11.1510202107410.8159@nanos> <CALAqxLXGnzwH5OgDCyggzxbao7UvS6_SOtVVkNVmjrsrOL-YBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, siva.mannem.lnx@gmail.com,
-	vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:34069 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbbJUHkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 03:40:43 -0400
-Received: by wikq8 with SMTP id q8so80016538wik.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 00:40:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1445369799-2345-2-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Christopher Hall <christopher.s.hall@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, kevin.b.stanton@intel.com
+To: John Stultz <john.stultz@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALAqxLXGnzwH5OgDCyggzxbao7UvS6_SOtVVkNVmjrsrOL-YBw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 20, 2015 at 09:36:38PM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->Fixes: 0bc05d585d ("switchdev: allow caller to explicitly request attr_set as deferred")
+On Tue, 20 Oct 2015, John Stultz wrote:
 
-This "fixes" is wrong. Should be:
-4d429c5ddc5128fccd3048059ae26bb39f0d8284
-"switchdev: introduce possibility to defer obj_add/del"
-
-
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> net/switchdev/switchdev.c |   19 ++++++++++++++++++-
-> 1 file changed, 18 insertions(+), 1 deletion(-)
->
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index 56d8479..be8ced1 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -489,7 +489,24 @@ static void switchdev_port_obj_del_deferred(struct net_device *dev,
-> static int switchdev_port_obj_del_defer(struct net_device *dev,
-> 					const struct switchdev_obj *obj)
-> {
->-	return switchdev_deferred_enqueue(dev, obj, sizeof(*obj),
->+	size_t size = 0;
->+
->+	switch (obj->id) {
->+	case SWITCHDEV_OBJ_ID_PORT_VLAN:
->+		size = sizeof(struct switchdev_obj_port_vlan);
->+		break;
->+	case SWITCHDEV_OBJ_ID_IPV4_FIB:
->+		size = sizeof(struct switchdev_obj_ipv4_fib);
->+		break;
->+	case SWITCHDEV_OBJ_ID_PORT_FDB:
->+		size = sizeof(struct switchdev_obj_port_fdb);
->+		break;
->+	default:
->+		WARN_ON(!size);
->+		return -EINVAL;
->+	}
->+
->+	return switchdev_deferred_enqueue(dev, obj, size,
-> 					  switchdev_port_obj_del_deferred);
-
-we need this for add as well. Perhaps some generic helper to get size of
-obj?
-
-
-> }
+> On Tue, Oct 20, 2015 at 12:11 PM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> > On Tue, 20 Oct 2015, Richard Cochran wrote:
+> >> On Tue, Oct 20, 2015 at 01:51:13PM +0200, Richard Cochran wrote:
+> >> > You can, in fact, achieve "proper" correlation by sampling.  As John
+> >> > said, the question is whether the method in the patch set "measurably
+> >> > improves the error" over using another, simpler method.
+> >>
+> >> Here is a short example to put some numbers on the expected error.
+> >> Let the driver sample at an interval of 1 ms.  If the system time's
+> >> frequency hasn't changed between two samples, A and B, then the driver
+> >> may interpolate without introducing any error.
+> >
+> > Darn, we don't want to have that kind of sampling in every driver
+> > which has this kind of problem even if it looks like the simpler
+> > choice for this particular use case. This is going to be something
+> > which next generation chips will have on more than just the audio
+> > interface and we realy want to have a generic solution for this.
 > 
->-- 
->1.7.10.4
->
+> I sort of agree with Richard that the timekeeper history approach
+> doesn't seem like a generic solution here.
+ 
+I'm not pushing that approach. I just want a generic facility of some
+sort to solve that.
+
+> And again, you seem to be speaking with a bigger picture in mind that
+> at least I don't yet share (apologies for being thick headed here).
+> Being able to have various hardware sharing a time base is quite
+> useful, and methods for correlating timestamps together are useful.
+> But I don't yet really understand why its important that we can
+> translate a hardware timestamp from some time in the past to the
+> correct system time in the past without error.
+
+If your device can only provide timestamps from the past, then having
+access to the history is important if you want to have precise
+correlation.
+
+Thanks,
+
+	tglx
