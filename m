@@ -1,83 +1,77 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/2] can: xilinx: use readl/writel instead of
- ioread/iowrite
-Date: Thu, 22 Oct 2015 10:21:58 +0200
-Message-ID: <56289CA6.1060809@pengutronix.de>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
- <4061693.oBld7AKBIp@wuerfel>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="ICgIedgXSlQiUJe8nlqTNpLTb9SJkhO1m"
-Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	anirudh@xilinx.com, wg@grandegger.com, michal.simek@xilinx.com,
-	soren.brinkmann@xilinx.com, appanad@xilinx.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-can@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4061693.oBld7AKBIp@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Haller <thaller@redhat.com>
+Subject: [PATCH iproute2] ip-address: properly display zero IPv4 peer address
+Date: Thu, 22 Oct 2015 10:34:28 +0200
+Message-ID: <1445502868-29474-1-git-send-email-thaller@redhat.com>
+Cc: Thomas Haller <thaller@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39057 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751523AbbJVIed (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2015 04:34:33 -0400
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (Postfix) with ESMTPS id 4DABCC075D95
+	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 08:34:33 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---ICgIedgXSlQiUJe8nlqTNpLTb9SJkhO1m
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Kernel allows for zero IPv4 peer addresses (IFA_ADDRESS):
 
-On 10/22/2015 10:14 AM, Arnd Bergmann wrote:
-> On Thursday 22 October 2015 10:16:02 Kedareswara rao Appana wrote:
->> The driver only supports memory-mapped I/O [by ioremap()],
->> so readl/writel is actually the right thing to do, IMO.
->> During the validation of this driver or IP on ARM 64-bit processor
->> while sending lot of packets observed that the tx packet drop with iow=
-rite
->> Putting the barriers for each tx fifo register write fixes this issue
->> Instead of barriers using writel also fixed this issue.
->>
->> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
->=20
-> The two should really do the same thing: iowrite32() is just a static i=
-nline
-> calling writel() on both ARM32 and ARM64. On which kernel version did y=
-ou
-> observe the difference? It's possible that an older version used
-> CONFIG_GENERIC_IOMAP, which made this slightly more expensive.
->=20
-> If there are barriers that you want to get rid of for performance reaso=
-ns,
-> you should use writel_relaxed(), but be careful to synchronize them cor=
-rectly
-> with regard to DMA. It should be fine in this driver, as it does not
-> perform any DMA, but be aware that there is no big-endian version of
-> writel_relaxed() at the moment.
+   ip address add 192.168.5.1 peer 0.0.0.0/24 dev dummy
 
-We don't have DMA in CAN drivers, but usually a certain write triggers
-sending. Do we need a barrier before triggering the sending?
+which is distinct from a usual address like:
 
-Marc
+   ip address add 192.168.5.1/24 dev dummy
+   ip address add 192.168.5.1 peer 192.168.5.1/24 dev dummy
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+For IPv4, a missing IFA_ADDRESS attribute means that the peer
+is 0.0.0.0. See inet_fill_ifaddr(), which does:
 
+  if ((ifa->ifa_address &&
+       nla_put_in_addr(skb, IFA_ADDRESS, ifa->ifa_address)) ||
 
---ICgIedgXSlQiUJe8nlqTNpLTb9SJkhO1m
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Signed-off-by: Thomas Haller <thaller@redhat.com>
+---
+ ip/ipaddress.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWKJypAAoJEP5prqPJtc/HxDUH/2hcfIW1UucgyZbBuoaVEmxb
-n6VHHI1k6HTh1wEEI79yZD0p9tDXqD/JSxXcXyeLN0gqikuxT1oTnKQm0RO/lV0+
-PqTfbE9Km2t34dcwt3QN+B7uJY85A+ze8+yStWjHsykoZQ3U4AWBQ3EsBSVdaZqD
-7jyLgZREnyudNMxbLGt7TeV3VfGNuCRfiDsABtqwFWnRF1+HImqCYcnONBuy2mnz
-Dah78qS8JVp4mLOYF8bP3IHgYebGyKF6zMXUczna8mRrTHhX0eHS7ir9O9VrgoDp
-lr8fWql5b+cs3nTjCq/ZpKvZR0l3CZm5R5/Wqo+C6O7kKE+9PAj7lm8k+IXGuUM=
-=bfxn
------END PGP SIGNATURE-----
-
---ICgIedgXSlQiUJe8nlqTNpLTb9SJkhO1m--
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index f290205..6fc4520 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -949,7 +949,8 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 
+ 	if (!rta_tb[IFA_LOCAL])
+ 		rta_tb[IFA_LOCAL] = rta_tb[IFA_ADDRESS];
+-	if (!rta_tb[IFA_ADDRESS])
++	if (!rta_tb[IFA_ADDRESS] &&
++	    ifa->ifa_family != AF_INET)
+ 		rta_tb[IFA_ADDRESS] = rta_tb[IFA_LOCAL];
+ 
+ 	if (filter.ifindex && filter.ifindex != ifa->ifa_index)
+@@ -1034,16 +1035,18 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 						RTA_DATA(rta_tb[IFA_LOCAL]),
+ 						abuf, sizeof(abuf)));
+ 
+-		if (rta_tb[IFA_ADDRESS] == NULL ||
++		if (rta_tb[IFA_ADDRESS] != NULL &&
+ 		    memcmp(RTA_DATA(rta_tb[IFA_ADDRESS]), RTA_DATA(rta_tb[IFA_LOCAL]),
+ 			   ifa->ifa_family == AF_INET ? 4 : 16) == 0) {
+ 			fprintf(fp, "/%d ", ifa->ifa_prefixlen);
+ 		} else {
+ 			fprintf(fp, " peer %s/%d ",
+-				format_host(ifa->ifa_family,
+-					    RTA_PAYLOAD(rta_tb[IFA_ADDRESS]),
+-					    RTA_DATA(rta_tb[IFA_ADDRESS]),
+-					    abuf, sizeof(abuf)),
++				rta_tb[IFA_ADDRESS]
++					? format_host(ifa->ifa_family,
++						      RTA_PAYLOAD(rta_tb[IFA_ADDRESS]),
++						      RTA_DATA(rta_tb[IFA_ADDRESS]),
++						      abuf, sizeof(abuf))
++					: "0.0.0.0",
+ 				ifa->ifa_prefixlen);
+ 		}
+ 	}
+-- 
+2.4.3
