@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 4/6] net: dsa: mv88e6xxx: implement port_fdb_dump
-Date: Thu, 22 Oct 2015 09:34:41 -0400
-Message-ID: <1445520883-13287-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 1/6] net: dsa: add port_fdb_dump function
+Date: Thu, 22 Oct 2015 09:34:38 -0400
+Message-ID: <1445520883-13287-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,129 +16,50 @@ In-Reply-To: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement the port_fdb_dump DSA operation.
+Not all switch chips support a Get Next operation to iterate on its FDB.
+So add a more simple port_fdb_dump function for them.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6171.c |  1 +
- drivers/net/dsa/mv88e6352.c |  1 +
- drivers/net/dsa/mv88e6xxx.c | 65 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  3 +++
- 4 files changed, 70 insertions(+)
+ include/net/dsa.h | 4 ++++
+ net/dsa/slave.c   | 3 +++
+ 2 files changed, 7 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index dfca352..489deb8 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -123,6 +123,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
- 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
-+	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6171");
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 796fdcb..6b8fd24 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -350,6 +350,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
- 	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
-+	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
- MODULE_ALIAS("platform:mv88e6172");
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 86cbb67..8d0acf3 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1799,6 +1799,71 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
- 	return 0;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index e005886..0cfa44a 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -198,6 +198,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
  }
  
-+int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
-+			    struct switchdev_obj_port_fdb *fdb,
-+			    int (*cb)(struct switchdev_obj *obj))
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_stu_entry vlan = {
-+		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
-+	};
-+	int err;
+ struct switchdev_trans;
++struct switchdev_obj;
+ struct switchdev_obj_port_fdb;
+ 
+ struct dsa_switch_driver {
+@@ -330,6 +331,9 @@ struct dsa_switch_driver {
+ 	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
+ 				    unsigned char *addr, u16 *vid,
+ 				    bool *is_static);
++	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
++				 struct switchdev_obj_port_fdb *fdb,
++				 int (*cb)(struct switchdev_obj *obj));
+ };
+ 
+ void register_switch_driver(struct dsa_switch_driver *type);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index b0b8da0..d76e62b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -382,6 +382,9 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
+ 	u16 vid = 0;
+ 	int ret;
+ 
++	if (ds->drv->port_fdb_dump)
++		return ds->drv->port_fdb_dump(ds, p->port, fdb, cb);
 +
-+	mutex_lock(&ps->smi_mutex);
-+
-+	err = _mv88e6xxx_vtu_vid_write(ds, vlan.vid);
-+	if (err)
-+		goto unlock;
-+
-+	do {
-+		struct mv88e6xxx_atu_entry addr = {
-+			.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-+		};
-+
-+		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
-+		if (err)
-+			goto unlock;
-+
-+		if (!vlan.valid)
-+			break;
-+
-+		err = _mv88e6xxx_atu_mac_write(ds, addr.mac);
-+		if (err)
-+			goto unlock;
-+
-+		do {
-+			err = _mv88e6xxx_atu_getnext(ds, vlan.fid, &addr);
-+			if (err)
-+				goto unlock;
-+
-+			if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
-+				break;
-+
-+			if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
-+				bool is_static = addr.state ==
-+					(is_multicast_ether_addr(addr.mac) ?
-+					 GLOBAL_ATU_DATA_STATE_MC_STATIC :
-+					 GLOBAL_ATU_DATA_STATE_UC_STATIC);
-+
-+				fdb->vid = vlan.vid;
-+				ether_addr_copy(fdb->addr, addr.mac);
-+				fdb->ndm_state = is_static ? NUD_NOARP :
-+					NUD_REACHABLE;
-+
-+				err = cb(&fdb->obj);
-+				if (err)
-+					goto unlock;
-+			}
-+		} while (!is_broadcast_ether_addr(addr.mac));
-+
-+	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
-+
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return err;
-+}
-+
- /* get next entry for port */
- int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, u16 *vid, bool *is_static)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 4ba69f3..3c9cfde 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -476,6 +476,9 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb);
- int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, u16 *vid, bool *is_static);
-+int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
-+			    struct switchdev_obj_port_fdb *fdb,
-+			    int (*cb)(struct switchdev_obj *obj));
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val);
+ 	if (!ds->drv->port_fdb_getnext)
+ 		return -EOPNOTSUPP;
+ 
 -- 
 2.6.1
