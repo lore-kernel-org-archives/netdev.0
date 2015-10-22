@@ -1,39 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH resend] net: sun4i-emac: Properly free
- resources on probe failure and remove
-Date: Wed, 21 Oct 2015 19:48:26 -0700 (PDT)
-Message-ID: <20151021.194826.782971305803462043.davem@davemloft.net>
-References: <1445330544-6968-1-git-send-email-hdegoede@redhat.com>
-	<1445330544-6968-2-git-send-email-hdegoede@redhat.com>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] ARM: gemini: remove unnecessary mdio-gpio
+ includes
+Date: Wed, 21 Oct 2015 19:50:55 -0700 (PDT)
+Message-ID: <20151021.195055.697782375960817477.davem@davemloft.net>
+References: <1445350139-2527-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-sunxi+bncBDCIDJ4RTAOBBIEVUGYQKGQEPSPLZLA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1445330544-6968-2-git-send-email-hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, f.fainelli@gmail.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445350139-2527-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 20 Oct 2015 10:42:24 +0200
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 20 Oct 2015 10:08:58 -0400
 
-> Fix sun4i-emac not releasing the following resources:
-> -iomapped memory not released on probe-failure nor on remove
-> -clock not getting disabled on probe-failure nor on remove
-> -sram not being released on remove
+> Remove the inclusion of linux/mdio-gpio.h in nas4220b, wbd111 and wbd222
+> boards since mdio-gpio is not used.
 > 
-> And while at it also add error checking to the clk_prepare_enable call
-> done on probe.
-> 
-> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Applied.
