@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Fix potential NULL pointer access and memory leak
- in ISDN layer2 functions
-Date: Thu, 22 Oct 2015 07:24:08 -0700 (PDT)
-Message-ID: <20151022.072408.3523117912468128.davem@davemloft.net>
-References: <1445429919-22924-1-git-send-email-keil@b1-systems.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211-next 2015-10-21
+Date: Thu, 22 Oct 2015 07:29:19 -0700 (PDT)
+Message-ID: <20151022.072919.1996665963889101709.davem@davemloft.net>
+References: <1445440026.4558.62.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org, wuninsu@gmail.com
-To: keil@b1-systems.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54375 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756888AbbJVOHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 10:07:41 -0400
-In-Reply-To: <1445429919-22924-1-git-send-email-keil@b1-systems.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1445440026.4558.62.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <keil@b1-systems.de>
-Date: Wed, 21 Oct 2015 14:18:37 +0200
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 21 Oct 2015 17:07:06 +0200
 
-> Insu Yun did brinup the issue with not checking the skb_clone() return
-> value in the layer2 I-frame ull functions.
-> This series fix the issue in a way which avoid protocol violations/data loss
-> on a temporary memory shortage.
+> Here's another, likely final, pull request for -next. I finally caved
+> in and cleaned up the regulatory code a bit, which is the bulk of the
+> changes.
+> 
+> There's a new Kconfig which allows turning off CRDA, but it's hidden
+> behind having the internal regdb enabled, which in turn is hidden
+> behind EXPERT, so hopefully you won't even see that :) (although I am
+> hoping to get rid of the internal regdb sooner rather than later)
+> 
+> Let me know if you see any problems.
 
-Series applied, thanks Karsten.
+Pulled, thanks a lot Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
