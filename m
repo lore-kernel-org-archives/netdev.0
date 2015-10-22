@@ -1,53 +1,44 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Thu, 22 Oct 2015 20:30:36 +0800
-Message-ID: <5628D6EC.3040606@huawei.com>
-References: <1445468283-4592-1-git-send-email-ast@kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Qemu-devel] [RFC Patch 00/12] IXGBE: Add live migration support
+ for SRIOV NIC
+Date: Thu, 22 Oct 2015 15:32:52 +0300
+Message-ID: <20151022123252.GA19940@redhat.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
+ <1445455227.4059.867.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>, He Kuang <hekuang@huawei.com>,
-	Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, emil.s.tantilov@intel.com,
+	kvm@vger.kernel.org, linux-pci@vger.kernel.org,
+	qemu-devel@nongnu.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	carolyn.wyborny@intel.com,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>, agraf@suse.de,
+	matthew.vick@intel.com, intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	yang.z.zhang@intel.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	nrupal.jani@intel.com, bhelgaas@google.com,
+	Lan Tianyu <tianyu.lan@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	eddie.dong@intel.com, Linux Kernel <linux-kernel@vger.kernel.org>,
+	john.ronciak@intel.com, Paolo Bonzini <pbonzini@redhat.com>
+To: Alex Williamson <alex.williamson@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445468283-4592-1-git-send-email-ast@kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445455227.4059.867.camel@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Oct 21, 2015 at 01:20:27PM -0600, Alex Williamson wrote:
+> The trouble here is that the VF needs to be unplugged prior to the start
+> of migration because we can't do effective dirty page tracking while the
+> device is connected and doing DMA.
 
+That's exactly what patch 12/12 is trying to accomplish.
 
-On 2015/10/22 6:58, Alexei Starovoitov wrote:
+I do see some problems with it, but I also suggested some solutions.
 
-[SNIP]
-> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-> index e3cfe46b074f..75529cc94304 100644
-> --- a/kernel/bpf/arraymap.c
-> +++ b/kernel/bpf/arraymap.c
-> @@ -294,10 +294,11 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
->   	if (IS_ERR(attr))
->   		return (void *)attr;
->   
-> -	if (attr->type != PERF_TYPE_RAW &&
-> -	    !(attr->type == PERF_TYPE_SOFTWARE &&
-> -	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
-> -	    attr->type != PERF_TYPE_HARDWARE) {
-> +	if ((attr->type != PERF_TYPE_RAW &&
-> +	     !(attr->type == PERF_TYPE_SOFTWARE &&
-> +	       attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
-> +	     attr->type != PERF_TYPE_HARDWARE) ||
-> +	    attr->inherit) {
->   		perf_event_release_kernel(event);
->   		return ERR_PTR(-EINVAL);
->   	}
-
-I have a question on inherit, not related to this patch:
-Is it safe for perf to disable attr->inherit if the event is system wide?
-I haven't read relate code completely. In my current knowledge the behavior
-of a system wide perf event should be same whether inherit is set or not.
-Is that true?
-
-Thank you.
+-- 
+MST
