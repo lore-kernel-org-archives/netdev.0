@@ -1,7 +1,7 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 6/8] mm: vmscan: simplify memcg vs. global shrinker invocation
-Date: Thu, 22 Oct 2015 00:21:34 -0400
-Message-ID: <1445487696-21545-7-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 8/8] mm: memcontrol: hook up vmpressure to socket pressure
+Date: Thu, 22 Oct 2015 00:21:36 -0400
+Message-ID: <1445487696-21545-9-git-send-email-hannes@cmpxchg.org>
 References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
 Cc: Michal Hocko <mhocko@suse.cz>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
@@ -17,89 +17,162 @@ In-Reply-To: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Letting shrink_slab() handle the root_mem_cgroup, and implicitely the
-!CONFIG_MEMCG case, allows shrink_zone() to invoke the shrinkers
-unconditionally from within the memcg iteration loop.
+Let the networking stack know when a memcg is under reclaim pressure,
+so it can shrink its transmit windows accordingly.
+
+Whenever the reclaim efficiency of a memcg's LRU lists drops low
+enough for a MEDIUM or HIGH vmpressure event to occur, assert a
+pressure state in the socket and tcp memory code that tells it to
+reduce memory usage in sockets associated with said memory cgroup.
+
+vmpressure events are edge triggered, so for hysteresis assert socket
+pressure for a second to allow for subsequent vmpressure events to
+occur before letting the socket code return to normal.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 ---
- include/linux/memcontrol.h |  2 ++
- mm/vmscan.c                | 31 ++++++++++++++++---------------
- 2 files changed, 18 insertions(+), 15 deletions(-)
+ include/linux/memcontrol.h |  9 +++++++++
+ include/net/sock.h         |  4 ++++
+ include/net/tcp.h          |  4 ++++
+ mm/memcontrol.c            |  1 +
+ mm/vmpressure.c            | 29 ++++++++++++++++++++++++-----
+ 5 files changed, 42 insertions(+), 5 deletions(-)
 
 diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 6f1e0f8..d66ae18 100644
+index d66ae18..b9990f7 100644
 --- a/include/linux/memcontrol.h
 +++ b/include/linux/memcontrol.h
-@@ -482,6 +482,8 @@ void mem_cgroup_split_huge_fixup(struct page *head);
- #else /* CONFIG_MEMCG */
- struct mem_cgroup;
+@@ -246,6 +246,7 @@ struct mem_cgroup {
  
-+#define root_mem_cgroup NULL
+ #ifdef CONFIG_INET
+ 	struct work_struct socket_work;
++	unsigned long socket_pressure;
+ #endif
+ 
+ 	/* List of events which userspace want to receive */
+@@ -696,6 +697,10 @@ void sock_update_memcg(struct sock *sk);
+ void sock_release_memcg(struct sock *sk);
+ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
++static inline bool mem_cgroup_socket_pressure(struct mem_cgroup *memcg)
++{
++	return time_before(jiffies, memcg->socket_pressure);
++}
+ #else
+ static inline bool mem_cgroup_do_sockets(void)
+ {
+@@ -716,6 +721,10 @@ static inline void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg,
+ 					     unsigned int nr_pages)
+ {
+ }
++static inline bool mem_cgroup_socket_pressure(struct mem_cgroup *memcg)
++{
++	return false;
++}
+ #endif /* CONFIG_INET */
+ 
+ #ifdef CONFIG_MEMCG_KMEM
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 67795fc..22bfb9c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1087,6 +1087,10 @@ static inline bool sk_has_memory_pressure(const struct sock *sk)
+ 
+ static inline bool sk_under_memory_pressure(const struct sock *sk)
+ {
++	if (mem_cgroup_do_sockets() && sk->sk_memcg &&
++	    mem_cgroup_socket_pressure(sk->sk_memcg))
++		return true;
 +
- static inline void mem_cgroup_events(struct mem_cgroup *memcg,
- 				     enum mem_cgroup_events_index idx,
- 				     unsigned int nr)
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 9b52ecf..ecc2125 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -411,6 +411,10 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
- 	struct shrinker *shrinker;
- 	unsigned long freed = 0;
+ 	if (!sk->sk_prot->memory_pressure)
+ 		return false;
  
-+	/* Global shrinker mode */
-+	if (memcg == root_mem_cgroup)
-+		memcg = NULL;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 77b6c7e..c7d342c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -291,6 +291,10 @@ extern int tcp_memory_pressure;
+ /* optimized version of sk_under_memory_pressure() for TCP sockets */
+ static inline bool tcp_under_memory_pressure(const struct sock *sk)
+ {
++	if (mem_cgroup_do_sockets() && sk->sk_memcg &&
++	    mem_cgroup_socket_pressure(sk->sk_memcg))
++		return true;
 +
- 	if (memcg && !memcg_kmem_is_active(memcg))
- 		return 0;
+ 	return tcp_memory_pressure;
+ }
+ /*
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index cb1d6aa..2e09def 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -4178,6 +4178,7 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ #endif
+ #ifdef CONFIG_INET
+ 	INIT_WORK(&memcg->socket_work, socket_work_func);
++	memcg->socket_pressure = jiffies;
+ #endif
+ 	return &memcg->css;
  
-@@ -2417,11 +2421,22 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
- 			zone_lru_pages += lru_pages;
+diff --git a/mm/vmpressure.c b/mm/vmpressure.c
+index 4c25e62..f64c0e1 100644
+--- a/mm/vmpressure.c
++++ b/mm/vmpressure.c
+@@ -137,14 +137,11 @@ struct vmpressure_event {
+ };
  
--			if (memcg && is_classzone)
-+			/*
-+			 * Shrink the slab caches in the same proportion that
-+			 * the eligible LRU pages were scanned.
-+			 */
-+			if (is_classzone) {
- 				shrink_slab(sc->gfp_mask, zone_to_nid(zone),
- 					    memcg, sc->nr_scanned - scanned,
- 					    lru_pages);
+ static bool vmpressure_event(struct vmpressure *vmpr,
+-			     unsigned long scanned, unsigned long reclaimed)
++			     enum vmpressure_levels level)
+ {
+ 	struct vmpressure_event *ev;
+-	enum vmpressure_levels level;
+ 	bool signalled = false;
  
-+				if (reclaim_state) {
-+					sc->nr_reclaimed +=
-+						reclaim_state->reclaimed_slab;
-+					reclaim_state->reclaimed_slab = 0;
-+				}
-+			}
-+
- 			/*
- 			 * Direct reclaim and kswapd have to scan all memory
- 			 * cgroups to fulfill the overall scan target for the
-@@ -2439,20 +2454,6 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
- 			}
- 		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
- 
--		/*
--		 * Shrink the slab caches in the same proportion that
--		 * the eligible LRU pages were scanned.
--		 */
--		if (global_reclaim(sc) && is_classzone)
--			shrink_slab(sc->gfp_mask, zone_to_nid(zone), NULL,
--				    sc->nr_scanned - nr_scanned,
--				    zone_lru_pages);
+-	level = vmpressure_calc_level(scanned, reclaimed);
 -
--		if (reclaim_state) {
--			sc->nr_reclaimed += reclaim_state->reclaimed_slab;
--			reclaim_state->reclaimed_slab = 0;
--		}
--
- 		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
- 			   sc->nr_scanned - nr_scanned,
- 			   sc->nr_reclaimed - nr_reclaimed);
+ 	mutex_lock(&vmpr->events_lock);
+ 
+ 	list_for_each_entry(ev, &vmpr->events, node) {
+@@ -162,6 +159,7 @@ static bool vmpressure_event(struct vmpressure *vmpr,
+ static void vmpressure_work_fn(struct work_struct *work)
+ {
+ 	struct vmpressure *vmpr = work_to_vmpressure(work);
++	enum vmpressure_levels level;
+ 	unsigned long scanned;
+ 	unsigned long reclaimed;
+ 
+@@ -185,8 +183,29 @@ static void vmpressure_work_fn(struct work_struct *work)
+ 	vmpr->reclaimed = 0;
+ 	spin_unlock(&vmpr->sr_lock);
+ 
++	level = vmpressure_calc_level(scanned, reclaimed);
++
++	if (level > VMPRESSURE_LOW) {
++		struct mem_cgroup *memcg;
++		/*
++		 * Let the socket buffer allocator know that we are
++		 * having trouble reclaiming LRU pages.
++		 *
++		 * For hysteresis, keep the pressure state asserted
++		 * for a second in which subsequent pressure events
++		 * can occur.
++		 *
++		 * XXX: is vmpressure a global feature or part of
++		 * memcg? There shouldn't be anything memcg-specific
++		 * about exporting reclaim success ratios from the VM.
++		 */
++		memcg = container_of(vmpr, struct mem_cgroup, vmpressure);
++		if (memcg != root_mem_cgroup)
++			memcg->socket_pressure = jiffies + HZ;
++	}
++
+ 	do {
+-		if (vmpressure_event(vmpr, scanned, reclaimed))
++		if (vmpressure_event(vmpr, level))
+ 			break;
+ 		/*
+ 		 * If not handled, propagate the event upward into the
 -- 
 2.6.1
 
