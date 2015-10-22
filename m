@@ -1,8 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 06/16] tipc: make struct tipc_link generic to support broadcast
-Date: Thu, 22 Oct 2015 08:51:38 -0400
-Message-ID: <1445518308-26200-7-git-send-email-jon.maloy@ericsson.com>
-References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 00/16] tipc: improve broadcast implementation
+Date: Thu, 22 Oct 2015 08:51:32 -0400
+Message-ID: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	parthasarathy.xx.bhuvaragan@ericsson.com,
@@ -11,213 +10,80 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:34288 "EHLO
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:34167 "EHLO
 	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757052AbbJVMwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:52:42 -0400
-In-Reply-To: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
+	by vger.kernel.org with ESMTP id S1755856AbbJVMwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:52:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Realizing that unicast is just a special case of broadcast, we also see
-that we can go in the other direction, i.e., that modest changes to the
-current unicast link can make it generic enough to support broadcast.
+The TIPC broadcast link implementation is currently complex and hard to
+follow. It also incurs some amount of code and structure duplication,
+something that can be reduced significantly with a little effort.
 
-The following changes are introduced here:
+This commit series introduces a number of improvements which address
+both the locking structure, the code/structure duplication issue, and
+the overall readbility of the code.
 
-- A new counter ("ackers") in struct tipc_link, to indicate how many
-  peers need to ack a packet before it can be released.
-- A corresponding counter in the skb user area, to keep track of how
-  many peers a are left to ack before a buffer can be released.
-- A new counter ("acked"), to keep persistent track of how far a peer
-  has acked at the moment, i.e., where in the transmission queue to
-  start updating buffers when the next ack arrives. This is to avoid
-  double acknowledgements from a peer, with inadvertent relase of
-  packets as a result.
-- A more generic tipc_link_retrans() function, where retransmit starts
-  from a given sequence number, instead of the first packet in the
-  transmision queue. This is to minimize the number of retransmitted
-  packets on the broadcast media.
+The series consists of three main parts:
 
-When the new functionality is taken into use in the next commits,
-we expect it to have minimal effect on unicast mode performance.
+1-7: Adaptation to the new link structure, and preparation for the next
+     step. In particular, we want the broadcast transmission link to
+     have a life cycle that is longer than any of its potential (unicast
+     and broadcast receive links) users. This eliminates the need to
+     always test for the presence of this link before accessing it.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/link.c | 38 ++++++++++++++++++++++++++------------
- net/tipc/link.h |  7 +++++++
- net/tipc/msg.h  |  1 +
- 3 files changed, 34 insertions(+), 12 deletions(-)
+8-10: This is what is really new in this series. Commit #9 is by far
+      the largest and most important one, because it moves most of
+      the broadcast functionality into link.c, partially reusing the
+      fields and functionality of the unicast link. The removal of
+      the "node_map" infrastructure in commit #10 is also an important
+      achievement.
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index f0cf768..dfc738e 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -221,6 +221,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
- 	l->mtu = mtu;
- 	l->priority = priority;
- 	tipc_link_set_queue_limits(l, window);
-+	l->ackers = 1;
- 	l->inputq = inputq;
- 	l->namedq = namedq;
- 	l->state = LINK_RESETTING;
-@@ -647,6 +648,7 @@ void tipc_link_reset(struct tipc_link *l)
- 	l->rcv_unacked = 0;
- 	l->snd_nxt = 1;
- 	l->rcv_nxt = 1;
-+	l->acked = 0;
- 	l->silent_intv_cnt = 0;
- 	l->stats.recv_info = 0;
- 	l->stale_count = 0;
-@@ -769,6 +771,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 			__skb_dequeue(list);
- 			__skb_queue_tail(transmq, skb);
- 			__skb_queue_tail(xmitq, _skb);
-+			TIPC_SKB_CB(skb)->ackers = l->ackers;
- 			l->rcv_unacked = 0;
- 			seqno++;
- 			continue;
-@@ -829,6 +832,7 @@ void tipc_link_push_packets(struct tipc_link *link)
- 		skb = __skb_dequeue(&link->backlogq);
- 		if (!skb)
- 			break;
-+		TIPC_SKB_CB(skb)->ackers = link->ackers;
- 		msg = buf_msg(skb);
- 		link->backlog[msg_importance(msg)].len--;
- 		msg_set_ack(msg, ack);
-@@ -862,6 +866,7 @@ void tipc_link_advance_backlog(struct tipc_link *l, struct sk_buff_head *xmitq)
- 		l->backlog[msg_importance(hdr)].len--;
- 		__skb_queue_tail(&l->transmq, skb);
- 		__skb_queue_tail(xmitq, _skb);
-+		TIPC_SKB_CB(skb)->ackers = l->ackers;
- 		msg_set_ack(hdr, ack);
- 		msg_set_seqno(hdr, seqno);
- 		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
-@@ -947,11 +952,13 @@ void tipc_link_retransmit(struct tipc_link *l_ptr, struct sk_buff *skb,
- 	}
- }
- 
--static int tipc_link_retransm(struct tipc_link *l, int retransm,
--			      struct sk_buff_head *xmitq)
-+int tipc_link_retrans(struct tipc_link *l, u16 from, u16 to,
-+		      struct sk_buff_head *xmitq)
- {
- 	struct sk_buff *_skb, *skb = skb_peek(&l->transmq);
- 	struct tipc_msg *hdr;
-+	u16 ack = l->rcv_nxt - 1;
-+	u16 bc_ack = l->owner->bclink.last_in;
- 
- 	if (!skb)
- 		return 0;
-@@ -964,19 +971,25 @@ static int tipc_link_retransm(struct tipc_link *l, int retransm,
- 		link_retransmit_failure(l, skb);
- 		return tipc_link_fsm_evt(l, LINK_FAILURE_EVT);
- 	}
-+
-+	/* Move forward to where retransmission should start */
- 	skb_queue_walk(&l->transmq, skb) {
--		if (!retransm)
--			return 0;
-+		if (!less(buf_seqno(skb), from))
-+			break;
-+	}
-+
-+	skb_queue_walk_from(&l->transmq, skb) {
-+		if (more(buf_seqno(skb), to))
-+			break;
- 		hdr = buf_msg(skb);
- 		_skb = __pskb_copy(skb, MIN_H_SIZE, GFP_ATOMIC);
- 		if (!_skb)
- 			return 0;
- 		hdr = buf_msg(_skb);
--		msg_set_ack(hdr, l->rcv_nxt - 1);
--		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
-+		msg_set_ack(hdr, ack);
-+		msg_set_bcast_ack(hdr, bc_ack);
- 		_skb->priority = TC_PRIO_CONTROL;
- 		__skb_queue_tail(xmitq, _skb);
--		retransm--;
- 		l->stats.retransmitted++;
- 	}
- 	return 0;
-@@ -1390,7 +1403,8 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- {
- 	struct tipc_msg *hdr = buf_msg(skb);
- 	u16 rcvgap = 0;
--	u16 nacked_gap = msg_seq_gap(hdr);
-+	u16 ack = msg_ack(hdr);
-+	u16 gap = msg_seq_gap(hdr);
- 	u16 peers_snd_nxt =  msg_next_sent(hdr);
- 	u16 peers_tol = msg_link_tolerance(hdr);
- 	u16 peers_prio = msg_linkprio(hdr);
-@@ -1469,11 +1483,11 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		if (rcvgap || (msg_probe(hdr)))
- 			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
- 						  0, 0, xmitq);
--		tipc_link_release_pkts(l, msg_ack(hdr));
-+		tipc_link_release_pkts(l, ack);
- 
- 		/* If NACK, retransmit will now start at right position */
--		if (nacked_gap) {
--			rc = tipc_link_retransm(l, nacked_gap, xmitq);
-+		if (gap) {
-+			rc = tipc_link_retrans(l, ack + 1, ack + gap, xmitq);
- 			l->stats.recv_nacks++;
- 		}
- 
-@@ -1550,7 +1564,7 @@ static void link_reset_statistics(struct tipc_link *l_ptr)
- static void link_print(struct tipc_link *l, const char *str)
- {
- 	struct sk_buff *hskb = skb_peek(&l->transmq);
--	u16 head = hskb ? msg_seqno(buf_msg(hskb)) : l->snd_nxt;
-+	u16 head = hskb ? msg_seqno(buf_msg(hskb)) : l->snd_nxt - 1;
- 	u16 tail = l->snd_nxt - 1;
- 
- 	pr_info("%s Link <%s> state %x\n", str, l->name, l->state);
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 9e4e367..be24d1f 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -134,6 +134,8 @@ struct tipc_stats {
-  * @snt_nxt: next sequence number to use for outbound messages
-  * @last_retransmitted: sequence number of most recently retransmitted message
-  * @stale_count: # of identical retransmit requests made by peer
-+ * @ackers: # of peers that needs to ack each packet before it can be released
-+ * @acked: # last packet acked by a certain peer. Used for broadcast.
-  * @rcv_nxt: next sequence number to expect for inbound messages
-  * @deferred_queue: deferred queue saved OOS b'cast message received from node
-  * @unacked_window: # of inbound messages rx'd without ack'ing back to peer
-@@ -143,6 +145,7 @@ struct tipc_stats {
-  * @wakeupq: linked list of wakeup msgs waiting for link congestion to abate
-  * @long_msg_seq_no: next identifier to use for outbound fragmented messages
-  * @reasm_buf: head of partially reassembled inbound message fragments
-+ * @bc_rcvr: marks that this is a broadcast receiver link
-  * @stats: collects statistics regarding link activity
-  */
- struct tipc_link {
-@@ -201,6 +204,10 @@ struct tipc_link {
- 	/* Fragmentation/reassembly */
- 	struct sk_buff *reasm_buf;
- 
-+	/* Broadcast */
-+	u16 ackers;
-+	u16 acked;
-+
- 	/* Statistics */
- 	struct tipc_stats stats;
- };
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 9f0ef54..799782c 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -112,6 +112,7 @@ struct tipc_skb_cb {
- 	bool wakeup_pending;
- 	u16 chain_sz;
- 	u16 chain_imp;
-+	u16 ackers;
- };
- 
- #define TIPC_SKB_CB(__skb) ((struct tipc_skb_cb *)&((__skb)->cb[0]))
+11-16: Some improvements leveraging the changes made in the previous
+       commits.
+
+The series needs commit 53387c4e22ac ("tipc: extend broadcast link window size")
+and commit e53567948f82 ("tipc: conditionally expand buffer headroom over udp tunnel")
+which are both present in 'net' but not yet in 'net-next', to apply cleanly.
+
+
+Jon Maloy (16):
+  tipc: move bcast definitions to bcast.c
+  tipc: move broadcast link lock to struct tipc_net
+  tipc: create broadcast transmission link at namespace init
+  tipc: make link implementation independent from struct tipc_bearer
+  tipc: use explicit allocation of broadcast send link
+  tipc: make struct tipc_link generic to support broadcast
+  tipc: let broadcast transmission use new link transmit function
+  tipc: introduce capability bit for broadcast synchronization
+  tipc: let broadcast packet reception use new link receive function
+  tipc: simplify bearer level broadcast
+  tipc: introduce jumbo frame support for broadcast
+  tipc: let neighbor discoverer tranmsit consumable buffers
+  tipc: eliminate redundant buffer cloning at transmission
+  tipc: eliminate link's reference to owner node
+  tipc: ensure binding table initial distribution is sent via first link
+  tipc: clean up unused code and structures
+
+ net/tipc/bcast.c      | 988 ++++++++++++--------------------------------------
+ net/tipc/bcast.h      | 122 ++-----
+ net/tipc/bearer.c     |  94 +++--
+ net/tipc/bearer.h     |   9 +-
+ net/tipc/core.c       |   9 +
+ net/tipc/core.h       |  12 +-
+ net/tipc/discover.c   |  28 +-
+ net/tipc/link.c       | 775 +++++++++++++++++++++------------------
+ net/tipc/link.h       |  76 ++--
+ net/tipc/msg.c        |  20 +-
+ net/tipc/msg.h        |   8 +-
+ net/tipc/name_distr.c |   4 +-
+ net/tipc/net.c        |   6 +-
+ net/tipc/node.c       | 184 ++++++----
+ net/tipc/node.h       |  41 +--
+ net/tipc/socket.c     |   4 +-
+ net/tipc/udp_media.c  |  12 +-
+ 17 files changed, 1005 insertions(+), 1387 deletions(-)
+
 -- 
 1.9.1
