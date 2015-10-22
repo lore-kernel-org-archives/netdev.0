@@ -1,32 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Wed, 21 Oct 2015 18:29:55 -0700 (PDT)
-Message-ID: <20151021.182955.1434243485706993231.davem@davemloft.net>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk>
-	<5627A37B.4090208@oracle.com>
-	<20151021185104.GM22011@ZenIV.linux.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH for-next 0/2] RDMA/cxgb4: Add iWARP support for T6
+ adapter
+Date: Wed, 21 Oct 2015 18:34:31 -0700 (PDT)
+Message-ID: <20151021.183431.1463568413293645593.davem@davemloft.net>
+References: <1443008967-8942-1-git-send-email-hariprasad@chelsio.com>
+	<003201d1050f$b4b7d590$1e2780b0$@opengridcomputing.com>
+	<5627FC8A.7000308@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alan.Burlison@oracle.com, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org, casper.dik@oracle.com
-To: viro@ZenIV.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49571 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023AbbJVBNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 21:13:37 -0400
-In-Reply-To: <20151021185104.GM22011@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5627FC8A.7000308-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Wed, 21 Oct 2015 19:51:04 +0100
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 21 Oct 2015 16:58:50 -0400
 
-> Sure, but the upkeep of data structures it would need is there
-> whether you actually end up triggering it or not.  Both in
-> memory footprint and in cacheline pingpong...
+> Probably.  Unless David objects, I'll queue them up.
 
-+1
+No objection from me.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
