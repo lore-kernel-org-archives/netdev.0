@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH v3 1/2] net: mvneta: add ethtool statistics
-Date: Thu, 22 Oct 2015 18:37:30 +0100
-Message-ID: <E1ZpJnu-0001yK-V5@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH v3 2/2] net: mvneta: Fix clearing of MIB statistics
+Date: Thu, 22 Oct 2015 18:37:36 +0100
+Message-ID: <E1ZpJo0-0001yQ-2a@rmk-PC.arm.linux.org.uk>
 References: <20151022173711.GA23501@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,163 +10,75 @@ Cc: Andrew Lunn <andrew@lunn.ch>, Marcin Wojtas <mw@semihalf.com>,
 	netdev@vger.kernel.org
 To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:56578 "EHLO
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:56582 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757896AbbJVRhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 13:37:36 -0400
+	with ESMTP id S1757896AbbJVRhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 13:37:41 -0400
 In-Reply-To: <20151022173711.GA23501@n2100.arm.linux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the ethtool statistic interface, returning the full set
-of statistics which both Armada 370, 38x and Armada XP can support.
+From: Andrew Lunn <andrew@lunn.ch>
 
-Tested-by: Andrew Lunn <andrew@lunn.ch>
+The existing function to clear the MIB statatistics was using the
+wrong address for the registers. Also, the counters would of been
+cleared when the interface was brought up, not during the
+probe. Fix both of these.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 108 ++++++++++++++++++++++++++++++++++
- 1 file changed, 108 insertions(+)
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 514df76fc70f..69d80ca4fba2 100644
+index 69d80ca4fba2..8829c481fe1b 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -277,6 +277,50 @@
- 
- #define MVNETA_RX_BUF_SIZE(pkt_size)   ((pkt_size) + NET_SKB_PAD)
- 
-+struct mvneta_statistic {
-+	unsigned short offset;
-+	unsigned short type;
-+	const char name[ETH_GSTRING_LEN];
-+};
-+
-+#define T_REG_32	32
-+#define T_REG_64	64
-+
-+static const struct mvneta_statistic mvneta_statistics[] = {
-+	{ 0x3000, T_REG_64, "good_octets_received", },
-+	{ 0x3010, T_REG_32, "good_frames_received", },
-+	{ 0x3008, T_REG_32, "bad_octets_received", },
-+	{ 0x3014, T_REG_32, "bad_frames_received", },
-+	{ 0x3018, T_REG_32, "broadcast_frames_received", },
-+	{ 0x301c, T_REG_32, "multicast_frames_received", },
-+	{ 0x3050, T_REG_32, "unrec_mac_control_received", },
-+	{ 0x3058, T_REG_32, "good_fc_received", },
-+	{ 0x305c, T_REG_32, "bad_fc_received", },
-+	{ 0x3060, T_REG_32, "undersize_received", },
-+	{ 0x3064, T_REG_32, "fragments_received", },
-+	{ 0x3068, T_REG_32, "oversize_received", },
-+	{ 0x306c, T_REG_32, "jabber_received", },
-+	{ 0x3070, T_REG_32, "mac_receive_error", },
-+	{ 0x3074, T_REG_32, "bad_crc_event", },
-+	{ 0x3078, T_REG_32, "collision", },
-+	{ 0x307c, T_REG_32, "late_collision", },
-+	{ 0x2484, T_REG_32, "rx_discard", },
-+	{ 0x2488, T_REG_32, "rx_overrun", },
-+	{ 0x3020, T_REG_32, "frames_64_octets", },
-+	{ 0x3024, T_REG_32, "frames_65_to_127_octets", },
-+	{ 0x3028, T_REG_32, "frames_128_to_255_octets", },
-+	{ 0x302c, T_REG_32, "frames_256_to_511_octets", },
-+	{ 0x3030, T_REG_32, "frames_512_to_1023_octets", },
-+	{ 0x3034, T_REG_32, "frames_1024_to_max_octets", },
-+	{ 0x3038, T_REG_64, "good_octets_sent", },
-+	{ 0x3040, T_REG_32, "good_frames_sent", },
-+	{ 0x3044, T_REG_32, "excessive_collision", },
-+	{ 0x3048, T_REG_32, "multicast_frames_sent", },
-+	{ 0x304c, T_REG_32, "broadcast_frames_sent", },
-+	{ 0x3054, T_REG_32, "fc_sent", },
-+	{ 0x300c, T_REG_32, "internal_mac_transmit_err", },
-+};
-+
- struct mvneta_pcpu_stats {
- 	struct	u64_stats_sync syncp;
- 	u64	rx_packets;
-@@ -312,6 +356,8 @@ struct mvneta_port {
- 	unsigned int speed;
- 	unsigned int tx_csum_limit;
- 	int use_inband_status:1;
-+
-+	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -2875,6 +2921,65 @@ static int mvneta_ethtool_set_ringparam(struct net_device *dev,
- 	return 0;
+@@ -100,6 +100,8 @@
+ #define MVNETA_TXQ_CMD                           0x2448
+ #define      MVNETA_TXQ_DISABLE_SHIFT            8
+ #define      MVNETA_TXQ_ENABLE_MASK              0x000000ff
++#define MVNETA_RX_DISCARD_FRAME_COUNT		 0x2484
++#define MVNETA_OVERRUN_FRAME_COUNT		 0x2488
+ #define MVNETA_GMAC_CLOCK_DIVIDER                0x24f4
+ #define      MVNETA_GMAC_1MS_CLOCK_ENABLE        BIT(31)
+ #define MVNETA_ACC_MODE                          0x2500
+@@ -191,7 +193,7 @@
+ #define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
+ #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+ #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+-#define MVNETA_MIB_COUNTERS_BASE                 0x3080
++#define MVNETA_MIB_COUNTERS_BASE                 0x3000
+ #define      MVNETA_MIB_LATE_COLLISION           0x7c
+ #define MVNETA_DA_FILT_SPEC_MCAST                0x3400
+ #define MVNETA_DA_FILT_OTH_MCAST                 0x3500
+@@ -564,6 +566,8 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
+ 	/* Perform dummy reads from MIB counters */
+ 	for (i = 0; i < MVNETA_MIB_LATE_COLLISION; i += 4)
+ 		dummy = mvreg_read(pp, (MVNETA_MIB_COUNTERS_BASE + i));
++	dummy = mvreg_read(pp, MVNETA_RX_DISCARD_FRAME_COUNT);
++	dummy = mvreg_read(pp, MVNETA_OVERRUN_FRAME_COUNT);
  }
  
-+static void mvneta_ethtool_get_strings(struct net_device *netdev, u32 sset,
-+				       u8 *data)
-+{
-+	if (sset == ETH_SS_STATS) {
-+		int i;
-+
-+		for (i = 0; i < ARRAY_SIZE(mvneta_statistics); i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       mvneta_statistics[i].name, ETH_GSTRING_LEN);
-+	}
-+}
-+
-+static void mvneta_ethtool_update_stats(struct mvneta_port *pp)
-+{
-+	const struct mvneta_statistic *s;
-+	void __iomem *base = pp->base;
-+	u32 high, low, val;
-+	int i;
-+
-+	for (i = 0, s = mvneta_statistics;
-+	     s < mvneta_statistics + ARRAY_SIZE(mvneta_statistics);
-+	     s++, i++) {
-+		val = 0;
-+
-+		switch (s->type) {
-+		case T_REG_32:
-+			val = readl_relaxed(base + s->offset);
-+			break;
-+		case T_REG_64:
-+			/* Docs say to read low 32-bit then high */
-+			low = readl_relaxed(base + s->offset);
-+			high = readl_relaxed(base + s->offset + 4);
-+			val = (u64)high << 32 | low;
-+			break;
-+		}
-+
-+		pp->ethtool_stats[i] += val;
-+	}
-+}
-+
-+static void mvneta_ethtool_get_stats(struct net_device *dev,
-+				     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
-+	int i;
-+
-+	mvneta_ethtool_update_stats(pp);
-+
-+	for (i = 0; i < ARRAY_SIZE(mvneta_statistics); i++)
-+		*data++ = pp->ethtool_stats[i];
-+}
-+
-+static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
-+{
-+	if (sset == ETH_SS_STATS)
-+		return ARRAY_SIZE(mvneta_statistics);
-+	return -EOPNOTSUPP;
-+}
-+
- static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_open            = mvneta_open,
- 	.ndo_stop            = mvneta_stop,
-@@ -2896,6 +3001,9 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
- 	.get_drvinfo    = mvneta_ethtool_get_drvinfo,
- 	.get_ringparam  = mvneta_ethtool_get_ringparam,
- 	.set_ringparam	= mvneta_ethtool_set_ringparam,
-+	.get_strings	= mvneta_ethtool_get_strings,
-+	.get_ethtool_stats = mvneta_ethtool_get_stats,
-+	.get_sset_count	= mvneta_ethtool_get_sset_count,
- };
+ /* Get System Network Statistics */
+@@ -792,7 +796,6 @@ static void mvneta_port_up(struct mvneta_port *pp)
+ 	u32 q_map;
  
- /* Initialize hw */
+ 	/* Enable all initialized TXs. */
+-	mvneta_mib_counters_clear(pp);
+ 	q_map = 0;
+ 	for (queue = 0; queue < txq_number; queue++) {
+ 		struct mvneta_tx_queue *txq = &pp->txqs[queue];
+@@ -1076,6 +1079,8 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	mvreg_write(pp, MVNETA_INTR_ENABLE,
+ 		    (MVNETA_RXQ_INTR_ENABLE_ALL_MASK
+ 		     | MVNETA_TXQ_INTR_ENABLE_ALL_MASK));
++
++	mvneta_mib_counters_clear(pp);
+ }
+ 
+ /* Set max sizes for tx queues */
 -- 
 2.1.0
