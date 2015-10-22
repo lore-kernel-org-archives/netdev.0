@@ -1,56 +1,54 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Wed, 21 Oct 2015 22:00:12 -0700
-Message-ID: <56286D5C.2060009@plumgrid.com>
-References: <1445468283-4592-1-git-send-email-ast@kernel.org>
- <56286ACD.3060604@huawei.com>
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Subject: [PATCH 2/2] can: xilinx: fix bug in bus error handling
+Date: Thu, 22 Oct 2015 10:16:03 +0530
+Message-ID: <1445489163-11045-2-git-send-email-appanad__49468.8057843179$1445490170$gmane$org@xilinx.com>
+References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34607 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbbJVFAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 01:00:16 -0400
-Received: by padhk11 with SMTP id hk11so76041609pad.1
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 22:00:15 -0700 (PDT)
-In-Reply-To: <56286ACD.3060604@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>
+To: <anirudh@xilinx.com>, <wg@grandegger.com>, <mkl@pengutronix.de>,
+	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
+	<appanad@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/21/15 9:49 PM, Wangnan (F) wrote:
-> After applying this patch I'm unable to use perf passing perf_event
-> again like this:
+Simply resetting the peripheral on bus off condition is not enough,
+Because we also need to re-initialize the whole device.
+This patch fixes this issue.
 
-please do not top post and trim your replies.
+Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+---
+ drivers/net/can/xilinx_can.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
->   # perf record -a -e evt=cycles -e
-> ./test_config_map.c/maps.pmu_map.event=evt/ --exclude-perf ls
->
-> With -v it output:
->
-> ...
-> adding perf_bpf_probe:func_write
-> adding perf_bpf_probe:func_write to 0x367d6a0
-> add bpf event perf_bpf_probe:func_write_return and attach bpf program 6
-> adding perf_bpf_probe:func_write_return
-> adding perf_bpf_probe:func_write_return to 0x3a7fc40
-> mmap size 528384B
-> ERROR: failed to insert value to pmu_map[0]
-> ERROR: Apply config to BPF failed: Invalid option for map, add -v to see
-> detail
-> Opening /sys/kernel/debug/tracing//kprobe_events write=
-> ...
->
-> Looks like perf sets attr.inherit for cycles? I'll look into this problem.
-
-yes. that's perf default.
-How did it even work before?!
-I was testing with your samples/bpf/tracex6 that sets inherit to zero.
+diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
+index 055d6f3..9aeb85f 100644
+--- a/drivers/net/can/xilinx_can.c
++++ b/drivers/net/can/xilinx_can.c
+@@ -529,6 +529,8 @@ static int xcan_rx(struct net_device *ndev)
+ 	return 1;
+ }
+ 
++static void xcan_chip_stop(struct net_device *ndev);
++
+ /**
+  * xcan_err_interrupt - error frame Isr
+  * @ndev:	net_device pointer
+@@ -558,8 +560,9 @@ static void xcan_err_interrupt(struct net_device *ndev, u32 isr)
+ 	if (isr & XCAN_IXR_BSOFF_MASK) {
+ 		priv->can.state = CAN_STATE_BUS_OFF;
+ 		priv->can.can_stats.bus_off++;
+-		/* Leave device in Config Mode in bus-off state */
+-		priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_RESET_MASK);
++		/* Re-initialize the whole device in bus-off state */
++		xcan_chip_stop(ndev);
++		xcan_chip_start(ndev);
+ 		can_bus_off(ndev);
+ 		if (skb)
+ 			cf->can_id |= CAN_ERR_BUSOFF;
+-- 
+2.1.2
