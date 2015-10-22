@@ -1,64 +1,60 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 3/8] net: consolidate memcg socket buffer tracking and
- accounting
-Date: Thu, 22 Oct 2015 15:09:43 -0400
-Message-ID: <20151022190943.GA20871@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-4-git-send-email-hannes@cmpxchg.org>
- <20151022184612.GN18351@esperanza>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Thu, 22 Oct 2015 14:35:14 -0500
+Message-ID: <87a8rabsst.fsf@x220.int.ebiederm.org>
+References: <cover.1444956943.git.daniel@iogearbox.net>
+	<562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>
+	<5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>
+	<1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>
+	<5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>
+	<562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>
+	<56253335.9000206@plumgrid.com>
+	<1445280385.602530.414418777.63627F89@webmail.messagingengine.com>
+	<562545AA.2080207@plumgrid.com>
+	<1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>
+	<56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>
+	<56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>
+	<56267FAF.60206@plumgrid.com> <87io61fjx3.fsf@x220.int.ebiederm.org>
+	<5627AC79.5000704@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151022184612.GN18351@esperanza>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5627AC79.5000704@iogearbox.net> (Daniel Borkmann's message of
+	"Wed, 21 Oct 2015 17:17:13 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 09:46:12PM +0300, Vladimir Davydov wrote:
-> On Thu, Oct 22, 2015 at 12:21:31AM -0400, Johannes Weiner wrote:
-> > The tcp memory controller has extensive provisions for future memory
-> > accounting interfaces that won't materialize after all. Cut the code
-> > base down to what's actually used, now and in the likely future.
-> > 
-> > - There won't be any different protocol counters in the future, so a
-> >   direct sock->sk_memcg linkage is enough. This eliminates a lot of
-> >   callback maze and boilerplate code, and restores most of the socket
-> >   allocation code to pre-tcp_memcontrol state.
-> > 
-> > - There won't be a tcp control soft limit, so integrating the memcg
-> 
-> In fact, the code is ready for the "soft" limit (I mean min, pressure,
-> max tuple), it just lacks a knob.
+Daniel Borkmann <daniel@iogearbox.net> writes:
 
-Yeah, but that's not going to materialize if the entire interface for
-dedicated tcp throttling is considered obsolete.
+> On 10/20/2015 08:56 PM, Eric W. Biederman wrote:
+> ...
+>> Just FYI:  Using a device for this kind of interface is pretty
+>> much a non-starter as that quickly gets you into situations where
+>> things do not work in containers.  If someone gets a version of device
+>> namespaces past GregKH it might be up for discussion to use character
+>> devices.
+>
+> Okay, you are referring to this discussion here:
+>
+>   http://thread.gmane.org/gmane.linux.kernel.containers/26760
 
-> > @@ -1136,9 +1090,6 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
-> >  	if (!sk->sk_prot->memory_pressure)
-> >  		return false;
-> >  
-> > -	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
-> > -		return !!sk->sk_cgrp->memory_pressure;
-> > -
-> 
-> AFAIU, now we won't shrink the window on hitting the limit, i.e. this
-> patch subtly changes the behavior of the existing knobs, potentially
-> breaking them.
+That is a piece of it.  It is an old old discussion (which generally has
+been handled poorly).  For the forseeable future device namespaces have
+a firm NACK by GregKH.  Which means that dynamic character device based
+interfaces do not work in containers.  Which means if you are not
+talking about physical hardware, character devices are a poor fit.
 
-Hm, but there is no grace period in which something meaningful could
-happen with the window shrinking, is there? Any buffer allocation is
-still going to fail hard.
+Making a character based interface for eBPF not workable.
 
-I don't see how this would change anything in practice.
+Eric
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+p.s.  There are plenty of reasons (even if privilege remains a
+      requirement) to ask how can this functionality be used in a
+      container.  If for no other reason than sandboxing privileged
+      applications is typically a good idea.
