@@ -1,62 +1,44 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
- helper
-Date: Thu, 22 Oct 2015 15:59:30 +0200
-Message-ID: <20151022135930.GN3604@twins.programming.kicks-ass.net>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
- <1445396556-4854-3-git-send-email-ast@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netlink: fix locking around NETLINK_LIST_MEMBERSHIPS
+Date: Thu, 22 Oct 2015 07:19:10 -0700 (PDT)
+Message-ID: <20151022.071910.1647968553018138414.davem@davemloft.net>
+References: <1445420863-1476-1-git-send-email-dh.herrmann@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1445396556-4854-3-git-send-email-ast@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dvyukov@google.com, edumazet@google.com,
+	torvalds@linux-foundation.org, stable@vger.kernel.org
+To: dh.herrmann@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54293 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755305AbbJVOCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 10:02:43 -0400
+In-Reply-To: <1445420863-1476-1-git-send-email-dh.herrmann@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2015 at 08:02:34PM -0700, Alexei Starovoitov wrote:
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -215,6 +215,50 @@ const struct bpf_func_proto bpf_perf_event_read_proto = {
->  	.arg2_type	= ARG_ANYTHING,
->  };
->  
-> +static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
-> +{
-> +	struct pt_regs *regs = (struct pt_regs *) (long) r1;
-> +	struct bpf_map *map = (struct bpf_map *) (long) r2;
-> +	struct bpf_array *array = container_of(map, struct bpf_array, map);
-> +	void *data = (void *) (long) r4;
-> +	struct perf_sample_data sample_data;
-> +	struct perf_event *event;
-> +	struct perf_raw_record raw = {
-> +		.size = size,
-> +		.data = data,
-> +	};
-> +
-> +	if (unlikely(index >= array->map.max_entries))
-> +		return -E2BIG;
-> +
-> +	event = (struct perf_event *)array->ptrs[index];
-> +	if (unlikely(!event))
-> +		return -ENOENT;
-> +
-> +	if (unlikely(event->attr.type != PERF_TYPE_SOFTWARE ||
-> +		     event->attr.config != PERF_COUNT_SW_BPF_OUTPUT))
-> +		return -EINVAL;
-> +
-> +	if (unlikely(event->oncpu != smp_processor_id()))
-> +		return -EOPNOTSUPP;
-> +
-> +	perf_sample_data_init(&sample_data, 0, 0);
-> +	sample_data.raw = &raw;
-> +	perf_event_output(event, &sample_data, regs);
-> +	return 0;
-> +}
+From: David Herrmann <dh.herrmann@gmail.com>
+Date: Wed, 21 Oct 2015 11:47:43 +0200
 
-Note that this function also very much requires event to be local.
+> Currently, NETLINK_LIST_MEMBERSHIPS grabs the netlink table while copying
+> the membership state to user-space. However, grabing the netlink table is
+> effectively a write_lock_irq(), and as such we should not be triggering
+> page-faults in the critical section.
+> 
+> This can be easily reproduced by the following snippet:
+>     int s = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+>     void *p = mmap(0, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+>     int r = getsockopt(s, 0x10e, 9, p, (void*)((char*)p + 4092));
+> 
+> This should work just fine, but currently triggers EFAULT and a possible
+> WARN_ON below handle_mm_fault().
+> 
+> Fix this by reducing locking of NETLINK_LIST_MEMBERSHIPS to a read-side
+> lock. The write-lock was overkill in the first place, and the read-lock
+> allows page-faults just fine.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+
+Applied and queued up for -stable, thanks.
