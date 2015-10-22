@@ -1,85 +1,75 @@
-From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
-Subject: Re: [PATCH v3 1/1] eventfd: implementation of EFD_MASK flag
-Date: Thu, 22 Oct 2015 16:47:03 +0900
-Message-ID: <56289477.6090007@igel.co.jp>
-References: <1444873328-8466-1-git-send-email-dhobsong@igel.co.jp>
- <1444873328-8466-2-git-send-email-dhobsong@igel.co.jp>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Thu, 22 Oct 2015 15:51:37 +0800
+Message-ID: <56289589.1030008@huawei.com>
+References: <20151021113316.GM17308@twins.programming.kicks-ass.net> <56277BCE.6030400@huawei.com> <20151021121713.GC3604@twins.programming.kicks-ass.net> <56279634.5000606@huawei.com> <20151021134951.GH3604@twins.programming.kicks-ass.net> <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com> <20151021140921.GI3604@twins.programming.kicks-ass.net> <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com> <20151021165758.GK3604@twins.programming.kicks-ass.net> <56284E03.1020008@huawei.com> <20151022073959.GA18791@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	David.Laight@aculab.com
-To: viro@zeniv.linux.org.uk, sustrik@250bpm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36163 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755346AbbJVHrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 03:47:09 -0400
-Received: by pacfv9 with SMTP id fv9so83515950pac.3
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 00:47:08 -0700 (PDT)
-In-Reply-To: <1444873328-8466-2-git-send-email-dhobsong@igel.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <peterz@infradead.org>, pi3orama <pi3orama@163.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	xiakaixu <xiakaixu@huawei.com>, <davem@davemloft.net>,
+	<acme@kernel.org>, <mingo@redhat.com>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>, <linux-kernel@vger.kernel.org>,
+	<hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151022073959.GA18791@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
 
-> diff --git a/include/linux/eventfd.h b/include/linux/eventfd.h
-> index ff0b981..87de343 100644
-> --- a/include/linux/eventfd.h
-> +++ b/include/linux/eventfd.h
-<snip>
->  
-> -/*
-> - * CAREFUL: Check include/uapi/asm-generic/fcntl.h when defining
-> - * new flags, since they might collide with O_* ones. We want
-> - * to re-use O_* flags that couldn't possibly have a meaning
-> - * from eventfd, in order to leave a free define-space for
-> - * shared O_* flags.
-> - */
-> -#define EFD_SEMAPHORE (1 << 0)
-> -#define EFD_CLOEXEC O_CLOEXEC
-> -#define EFD_NONBLOCK O_NONBLOCK
-> -
-> -#define EFD_SHARED_FCNTL_FLAGS (O_CLOEXEC | O_NONBLOCK)
-> -#define EFD_FLAGS_SET (EFD_SHARED_FCNTL_FLAGS | EFD_SEMAPHORE)
-> -
->  struct file;
->  
->  #ifdef CONFIG_EVENTFD
-> diff --git a/include/uapi/linux/eventfd.h b/include/uapi/linux/eventfd.h
-> new file mode 100644
-> index 0000000..097dcad
-> --- /dev/null
-> +++ b/include/uapi/linux/eventfd.h
-> @@ -0,0 +1,33 @@
-<snip>
-> +
-> +/*
-> + * CAREFUL: Check include/asm-generic/fcntl.h when defining
-> + * new flags, since they might collide with O_* ones. We want
-> + * to re-use O_* flags that couldn't possibly have a meaning
-> + * from eventfd, in order to leave a free define-space for
-> + * shared O_* flags.
-> + */
-> +
-> +/* Provide semaphore-like semantics for reads from the eventfd. */
-> +#define EFD_SEMAPHORE (1 << 0)
-> +/* Provide event mask semantics for the eventfd. */
-> +#define EFD_MASK (1 << 1)
-> +/*  Set the close-on-exec (FD_CLOEXEC) flag on the eventfd. */
-> +#define EFD_CLOEXEC O_CLOEXEC
-> +/*  Create the eventfd in non-blocking mode. */
-> +#define EFD_NONBLOCK O_NONBLOCK
-> +#endif /* _UAPI_LINUX_EVENTFD_H */
-> 
 
-Since the latest version of this patch adds only the EFD_MASK definition
-to the eventfd header, I was wondering if it was really
-necessary/recommended to move the definitions from linux/eventfd.h to
-linux/uapi/eventfd.h.  From my understanding, the EFD_SEMAPHORE (and now
-EFD_MASK) define(s) are provided to user space from the libc headers
-only. Any advice would be greatly appreciated.
+On 2015/10/22 15:39, Ingo Molnar wrote:
+> * Wangnan (F) <wangnan0@huawei.com> wrote:
+>
+[SNIP]
+>>
+>> In summary, your either-or logic doesn't hold in BPF world. A BPF
+>> program can only access perf event in a highly restricted way. We
+>> don't allow it calling perf_event_read_local() across core, so it
+>> can't.
+>>> Urgh, that's still horridly inconsistent. Can we please come up with a
+>>> consistent interface to perf?
+>> BPF program and kernel module are two different worlds as I said before.
+>>
+>> I don't think making them to share a common interface is a good idea because
+>> such sharing will give BPF programs too much freedom than it really need, then
+>> it will be hard prevent them to do something bad. If we really need kernel
+>> interface, I think what we need is kernel module, not BPF program.
+> What do you mean, as this does not parse for me.
 
-Thank you,
-Damian
+Because I'm not very sure what the meaning of "inconsistent" in
+Peter's words...
+
+I think what Peter want us to do is to provide similar (consistent) 
+interface
+between kernel and eBPF that, if kernel reads from a perf_event through
+perf_event_read_local(struct perf_event *), BPF program should
+do this work with similar code, or at least similar logic, so
+we need to create handler for a perf event, and provide a BPF function
+called BPF_FUNC_perf_event_read_local then pass such handler to it.
+
+I don't think like this because if we want kernel interface we'd
+better use kernel module, not eBPF so I mentioned kernel module here.
+
+Ingo, do you think BPF inerface should be *consistent* with anything?
+
+Thank you.
+
+> We obviously can (and very likely should) make certain perf functionality
+> available to BPF programs.
+>
+> It should still be a well defined yet flexible iterface, with safe behavior,
+> obviously - all in line with existing BPF sandboxing principles.
+>
+> 'Kernel modules' don't enter this consideration at all, not sure why you mention
+> them - all this functionality is also available if CONFIG_MODULES is turned off
+> completely.
+>
+> Thanks,
+>
+> 	Ingo
+>
