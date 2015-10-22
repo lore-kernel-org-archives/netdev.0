@@ -1,65 +1,52 @@
-From: punit vara <punitvara@gmail.com>
-Subject: Re: [PATCH 15/15] net: wireless: ath: Remove unneeded variable ret
- returning 0
-Date: Thu, 22 Oct 2015 23:53:20 +0530
-Message-ID: <CABXAfNLa8yrFXuTZrrsLWSO+GPgJN2JUYQTpiWhqgZY2zDh75g@mail.gmail.com>
-References: <1445439337-19055-1-git-send-email-punitvara@gmail.com>
-	<1445439337-19055-16-git-send-email-punitvara@gmail.com>
-	<562807C7.2020701@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>, stas.yakovlev@gmail.com,
-	chaoming_li@realsil.com.cn,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	sgruszka@redhat.com, brudley@broadcom.com, arend@broadcom.com,
-	John Linville <linville@tuxdriver.com>, jirislaby@gmail.com,
-	Nick Kossifidis <mickflemm@gmail.com>, mcgrof@do-not-panic.com,
-	Eugene Krasnikov <k.eugene.e@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, wcn36xx@lists.infradead.org,
-	"Berg, Johannes" <johannes.berg@intel.com>, meuleman@broadcom.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Punit Vara <punitvara@gmail.com>
+Subject: [PATCH v3 14/15] net: wireless: ath: Remove unneeded variable ret returning 0
+Date: Thu, 22 Oct 2015 23:56:03 +0530
+Message-ID: <1445538363-2893-1-git-send-email-punitvara@gmail.com>
+Cc: mickflemm@gmail.com, mcgrof@do-not-panic.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Punit Vara <punitvara@gmail.com>
+To: jirislaby@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562807C7.2020701@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 3:16 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 10/21/2015 05:55 PM, Punit Vara wrote:
->
->> This patch is to the ath5k/eeprom.c that fixes up warning caught by
->> coccicheck:
->>
->> Unneeded variable: "ret". Return "0" on line 980
->>
->> Remove unneeded variable ret created to return zero.
->>
->> Signed-off-by: Punit Vara <punitvara@gmail.com>
->> ---
->>   drivers/net/wireless/ath/wcn36xx/main.c | 3 +--
->>   1 file changed, 1 insertion(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c
->> b/drivers/net/wireless/ath/wcn36xx/main.c
->> index 7c169ab..82982d5 100644
->> --- a/drivers/net/wireless/ath/wcn36xx/main.c
->> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
->> @@ -935,7 +935,6 @@ static const struct ieee80211_ops wcn36xx_ops = {
->>
->>   static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
->>   {
->> -       int ret = 0;
->>
->
->   This empty line should be removed too.
->
->>         static const u32 cipher_suites[] = {
->>                 WLAN_CIPHER_SUITE_WEP40,
->
-> [...]
->
-> MBR, Sergei
->
-I have resend this patch as you said Sergei . Thanks for feedback ..
+This patch is to the ath5k/eeprom.c that fixes up warning caught by
+coccicheck:
+
+-Unneeded variable: "ret". Return "0" on line 1733
+
+Remove unneccesary variable ret created to return zero.
+
+Also removed empty line suggested by Sergei
+ 
+Signed-off-by: Punit Vara <punitvara@gmail.com>
+---
+ drivers/net/wireless/ath/ath5k/eeprom.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c b/drivers/net/wireless/ath/ath5k/eeprom.c
+index 94d34ee..0c82ea5 100644
+--- a/drivers/net/wireless/ath/ath5k/eeprom.c
++++ b/drivers/net/wireless/ath/ath5k/eeprom.c
+@@ -1707,8 +1707,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
+ 	struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
+ 	u32 offset;
+ 	u16 val;
+-	int ret = 0, i;
+-
++	int i;
+ 	offset = AR5K_EEPROM_CTL(ee->ee_version) +
+ 				AR5K_EEPROM_N_CTLS(ee->ee_version);
+ 
+@@ -1730,7 +1729,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
+ 		}
+ 	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ 
+-- 
+2.5.3
