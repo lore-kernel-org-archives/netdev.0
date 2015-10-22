@@ -1,68 +1,85 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000: free skb when returning on
- -ENOMEM error
-Date: Thu, 22 Oct 2015 08:59:27 -0700
-Message-ID: <562907DF.3070404@gmail.com>
-References: <1445527642-15567-1-git-send-email-Jason@zx2c4.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [Resend PATCHv2 net-next] net: mvneta: Fix clearing of MIB statistics
+Date: Thu, 22 Oct 2015 18:11:12 +0200
+Message-ID: <1445530272-12608-1-git-send-email-andrew@lunn.ch>
+Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev <netdev@vger.kernel.org>, mw@semihalf.com,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33986 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964880AbbJVP7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 11:59:30 -0400
-In-Reply-To: <1445527642-15567-1-git-send-email-Jason@zx2c4.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:40100 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756978AbbJVQLe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2015 12:11:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2015 08:27 AM, Jason A. Donenfeld wrote:
-> eth_skb_pad returns 0 if it was successful, or -ENOMEM if it was not. In
-> that case, this function exits early. Some early exits return with
-> NETDEV_TX_BUSY, which queues the skb up to be tried again, and so the
-> skb should not be freed. Other early exits return with NETDEV_TX_OK,
-> like this one, in which case it's imperative that the skb is freed,
-> since it is not queued back up. In this case, upon receiving -ENOMEM
-> from eth_skb_pad, the function exits early with NETDEV_TX_OK, but
-> forgets to free the skb. This patch fixes that.
->
-> In a low memory situation, in which the GFP_ATOMIC allocation from
-> eth_skb_pad fails, if a network device is transmitting repeatedly, this
-> bug could lead to rapidly leaking memory that could only be recovered by
-> a reboot or crash.
->
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> ---
->   drivers/net/ethernet/intel/e1000/e1000_main.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> index 74dc150..0d6b4c8 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -3130,8 +3130,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
->   	 * packets may get corrupted during padding by HW.
->   	 * To WA this issue, pad all small packets manually.
->   	 */
-> -	if (eth_skb_pad(skb))
-> +	if (eth_skb_pad(skb)) {
-> +		dev_kfree_skb_any(skb);
->   		return NETDEV_TX_OK;
-> +	}
->
->   	mss = skb_shinfo(skb)->gso_size;
->   	/* The controller does a simple calculation to
->
+The existing function to clear the MIB statatistics was using the
+wrong address for the registers. Also, the counters would of been
+cleared when the interface was brought up, not during the
+probe. Fix both of these.
 
-This patch makes no sense.  The function eth_skb_pad will have freed the 
-skb if it is returning an error value.  As such there is nothing to 
-free.  The code was correct before.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+v2: Clear two other counters which are outside the normal range of
+    registers.
 
-- Alex
+To apply cleanly, this patch requires Russell Kings patch adding
+ethtool statistics. Without it, some fuzz will be required.
+
+Resend because i forgot to Cc: netdev.
+---
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 9f048ba92d0e..6660793eb94b 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -100,6 +100,8 @@
+ #define MVNETA_TXQ_CMD                           0x2448
+ #define      MVNETA_TXQ_DISABLE_SHIFT            8
+ #define      MVNETA_TXQ_ENABLE_MASK              0x000000ff
++#define MVNETA_RX_DISCARD_FRAME_COUNT		 0x2484
++#define MVNETA_OVERRUN_FRAME_COUNT		 0x2488
+ #define MVNETA_GMAC_CLOCK_DIVIDER                0x24f4
+ #define      MVNETA_GMAC_1MS_CLOCK_ENABLE        BIT(31)
+ #define MVNETA_ACC_MODE                          0x2500
+@@ -191,7 +193,7 @@
+ #define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
+ #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+ #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+-#define MVNETA_MIB_COUNTERS_BASE                 0x3080
++#define MVNETA_MIB_COUNTERS_BASE                 0x3000
+ #define      MVNETA_MIB_LATE_COLLISION           0x7c
+ #define MVNETA_DA_FILT_SPEC_MCAST                0x3400
+ #define MVNETA_DA_FILT_OTH_MCAST                 0x3500
+@@ -564,6 +566,8 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
+ 	/* Perform dummy reads from MIB counters */
+ 	for (i = 0; i < MVNETA_MIB_LATE_COLLISION; i += 4)
+ 		dummy = mvreg_read(pp, (MVNETA_MIB_COUNTERS_BASE + i));
++	dummy = mvreg_read(pp, MVNETA_RX_DISCARD_FRAME_COUNT);
++	dummy = mvreg_read(pp, MVNETA_OVERRUN_FRAME_COUNT);
+ }
+ 
+ /* Get System Network Statistics */
+@@ -792,7 +796,6 @@ static void mvneta_port_up(struct mvneta_port *pp)
+ 	u32 q_map;
+ 
+ 	/* Enable all initialized TXs. */
+-	mvneta_mib_counters_clear(pp);
+ 	q_map = 0;
+ 	for (queue = 0; queue < txq_number; queue++) {
+ 		struct mvneta_tx_queue *txq = &pp->txqs[queue];
+@@ -1076,6 +1079,8 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	mvreg_write(pp, MVNETA_INTR_ENABLE,
+ 		    (MVNETA_RXQ_INTR_ENABLE_ALL_MASK
+ 		     | MVNETA_TXQ_INTR_ENABLE_ALL_MASK));
++
++	mvneta_mib_counters_clear(pp);
+ }
+ 
+ /* Set max sizes for tx queues */
+-- 
+2.5.1
