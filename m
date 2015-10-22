@@ -1,56 +1,68 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV
- NIC
-Date: Thu, 22 Oct 2015 10:17:30 -0600
-Message-ID: <1445530650.5050.19.camel@redhat.com>
-References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
-	 <CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
-	 <1445455227.4059.867.camel@redhat.com>
-	 <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Lan Tianyu <tianyu.lan@intel.com>,
-	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
-	<mst@redhat.com>, Bjorn Helgaas <bhelgaas@google.com>,
-	carolyn.wyborny@intel.com,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	eddie.dong@intel.com, nrupal.jani@intel.com,
-	yang.z.zhang@intel.com, Alexander Graf <agraf@suse.de>,
-	kvm@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>,
-	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	john.ronciak@intel.com,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kernel.org, matthew.vick@intel.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Mans Rullgard <mans-2StjZFpD7GcAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 1/2] devicetree: add binding for Aurora VLSI NB8800 Ethernet controller
+Date: Thu, 22 Oct 2015 17:28:49 +0100
+Message-ID: <1445531330-17461-1-git-send-email-mans@mansr.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-10-22 at 18:58 +0300, Or Gerlitz wrote:
-> On Wed, Oct 21, 2015 at 10:20 PM, Alex Williamson
-> <alex.williamson@redhat.com> wrote:
-> 
-> > This is why the typical VF agnostic approach here is to using bonding
-> > and fail over to a emulated device during migration, so performance
-> > suffers, but downtime is something acceptable.
-> 
-> bonding in the VM isn't a zero touch solution, right? is it really acceptable?
+This adds a binding for the Aurora VLSI NB8800 Ethernet controller
+using the "aurora,nb8800" compatible string.  When used in Sigma
+Designs chips a few additional control registers are available.
+This variant is indicated by the "sigma,smp8640-ethernet" compatible
+string.
 
-The bonding solution requires configuring the bond in the guest and
-doing the hot unplug/re-plug around migration.  It's zero touch in that
-it works on current code with any PF/VF, but it's certainly not zero
-configuration in the guest.  Is what acceptable?  The configuration?
-The performance?  The downtime?  I don't think we can hope to improve on
-the downtime of an emulated device, but obviously the configuration and
-performance are not always acceptable or we wouldn't be seeing so many
-people working on migration of assigned devices.  Thanks,
+Signed-off-by: Mans Rullgard <mans-2StjZFpD7GcAvxtiuMwx3w@public.gmane.org>
+---
+Changes:
+- correct order of compatible strings
+---
+ .../devicetree/bindings/net/aurora,nb8800.txt      | 26 ++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/aurora,nb8800.txt
 
-Alex
+diff --git a/Documentation/devicetree/bindings/net/aurora,nb8800.txt b/Documentation/devicetree/bindings/net/aurora,nb8800.txt
+new file mode 100644
+index 0000000..cf7108d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/aurora,nb8800.txt
+@@ -0,0 +1,26 @@
++* Aurora VLSI AU-NB8800 Ethernet controller
++
++Required properties:
++- compatible: Should be "sigma,smp8640-ethernet", "aurora,nb8800"
++	The former indicates presence of extra features added by Sigma Designs.
++- reg: Should be MMIO address space of the device
++- interrupts: Should contain the interrupt specifier for the device
++- interrupt-parent: Should be a phandle for the interrupt controller
++- clocks: Should be a phandle for the clock for the device
++
++Common properties described in ethernet.txt:
++- local-mac-address
++- mac-address
++- max-speed
++- phy-mode
++
++Example:
++
++ethernet@26000 {
++	compatible = "aurora,nb8800";
++	reg = <0x10000 0x800>;
++	interrupts = <42>;
++	clocks = <&sys_clk>;
++	max-speed = <1000>;
++	phy-connection-type = "rgmii";
++};
+-- 
+2.5.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
