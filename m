@@ -1,46 +1,39 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 22 Oct 2015 12:58:49 +0100
-Message-ID: <5628CF79.2000507@oracle.com>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk>	 <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk>	 <20151021.182955.1434243485706993231.davem@davemloft.net>	 <5628636E.1020107@oracle.com>	  <201510220615.t9M6FL2d017592@room101.nl.oracle.com> <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v3 2/2] iwlwifi: mvm: send large SKBs to the transport
+Date: Thu, 22 Oct 2015 05:03:26 -0700
+Message-ID: <1445515406.22974.107.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Eric Dumazet <eric.dumazet@gmail.com>, Casper.Dik@oracle.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	sara.sharon@intel.com, ido@wizery.com
+To: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46217 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbbJVL7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 07:59:05 -0400
-In-Reply-To: <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35806 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757257AbbJVMD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:03:29 -0400
+In-Reply-To: <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/10/2015 12:30, Eric Dumazet wrote:
+On Wed, 2015-10-21 at 21:34 +0300, Emmanuel Grumbach wrote:
+> +
+> +		if (skb->protocol == htons(ETH_P_IP)) {
+> +			ip_hdr(tmp)->id = ip_hdr(skb)->id;
 
-> We absolutely do not _want_ to do this just so that linux becomes slower
-> to the point Solaris can compete, or you guys can avoid some work.
+Too late, you already called consume_skb(skb).
+So this is a potential use after free.
 
-Sentiments such as that really have no place in a discussion that's been 
-focussed primarily on the behaviour of interfaces, albeit with 
-digressions into the potential performance impacts. The discussion has 
-been cordial and I for one appreciate Al Viro's posts on the subject, 
-from which I've leaned a lot. Can we please keep it that way? Thanks.
+> +			be16_add_cpu(&ip_hdr(tmp)->id, i * num_subframes);
+> +		}
+> +
 
-> close(fd) is very far from knowing a file is a 'listener' or even a
-> 'socket' without extra cache line misses.
->
-> To force a close of an accept() or whatever blocking socket related
-> system call a shutdown() makes a lot of sense.
->
-> This would have zero additional overhead for the fast path.
 
-Yes, that would I believe be a significant improvement.
+I would use 
 
--- 
-Alan Burlison
---
+base_id = ip_hdr(skb)->id; // before the consume_skb(skb)
+
+ip_hdr(tmp)->id = htons(base_id + i * num_subframes);
