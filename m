@@ -1,55 +1,92 @@
-From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Subject: [PATCH 2/2] can: xilinx: fix bug in bus error handling
-Date: Thu, 22 Oct 2015 10:16:03 +0530
-Message-ID: <1445489163-11045-2-git-send-email-appanad__32848.1829994873$1445490178$gmane$org@xilinx.com>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v7 00/10] Add new drivers: qed & qede
+Date: Thu, 22 Oct 2015 08:06:47 +0300
+Message-ID: <1445490417-8845-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: <anirudh@xilinx.com>, <wg@grandegger.com>, <mkl@pengutronix.de>,
-	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
-	<appanad@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <Ariel.Elior@qlogic.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62836 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750993AbbJVFHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 01:07:32 -0400
+Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
+	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t9M54AlE025824
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 22:07:31 -0700
+Received: from avcashub1.qlogic.com (avcashub2.qlogic.com [198.70.193.116])
+	by mx0a-0016ce01.pphosted.com with ESMTP id 1xpdg10y0u-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 22:07:31 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simply resetting the peripheral on bus off condition is not enough,
-Because we also need to re-initialize the whole device.
-This patch fixes this issue.
+From: Ariel Elior <Ariel.Elior@qlogic.com>
 
-Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
----
- drivers/net/can/xilinx_can.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+This series implements the driver set for Qlogic's new QL4xxx series.
+These are 10/20/25/40/50/100 Gig capable converged nics, supporting
+ethernet (obviously), iscsi, fcoe, roce and iwarp protocols.
 
-diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-index 055d6f3..9aeb85f 100644
---- a/drivers/net/can/xilinx_can.c
-+++ b/drivers/net/can/xilinx_can.c
-@@ -529,6 +529,8 @@ static int xcan_rx(struct net_device *ndev)
- 	return 1;
- }
- 
-+static void xcan_chip_stop(struct net_device *ndev);
-+
- /**
-  * xcan_err_interrupt - error frame Isr
-  * @ndev:	net_device pointer
-@@ -558,8 +560,9 @@ static void xcan_err_interrupt(struct net_device *ndev, u32 isr)
- 	if (isr & XCAN_IXR_BSOFF_MASK) {
- 		priv->can.state = CAN_STATE_BUS_OFF;
- 		priv->can.can_stats.bus_off++;
--		/* Leave device in Config Mode in bus-off state */
--		priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_RESET_MASK);
-+		/* Re-initialize the whole device in bus-off state */
-+		xcan_chip_stop(ndev);
-+		xcan_chip_start(ndev);
- 		can_bus_off(ndev);
- 		if (skb)
- 			cf->can_id |= CAN_ERR_BUSOFF;
--- 
-2.1.2
+The overall driver design includes a common module ('qed') and protocol
+specific dependent modules for ethernet ('qede'), fcoe ('qedf'),
+iscsi ('qedi') and roce ('qedr').
+The common module contains all of the common logic, e.g. initialization,
+cleanup, infrastructure for interrupt handling, link management, slowpath
+etc. as well as protocol agnostic features, and supplying an abstraction
+layer for other modules.
+The protocol specific modules can be compiled and operated independently
+of each other, with the exception of the rdma modules which are dependent
+on the ethernet module, in accordance with the kernel rdma stack design.
 
+This series only adds the core and ethernet modules, with basic L2
+capabilities. Future series will add the rest of the modules and enhance
+the L2 functionality.
+
+Ths patch series is constructed of the following patches:
+qed:  Add module with basic common support
+qed:  Add basic L2 interface
+qede: Add basic Network driver
+qed:  Add slowpath L2 support
+qede: Add basic network device support
+qede: Add classification configuration
+qed:  Add link support
+qede: Add support for link
+qed:  Add statistics support
+qede: Add basic ethtool support
+
+This project is a team effort, thanks go to Yuval Mintz, Dmitry Kravkov,
+Michal Kalderon, Tomer Tayar, Manish Chopra, Sudarsana Kalluru,
+Rajesh Borundia, Sony Chacko, Artum Zolotushko, Harish Patil, Rasesh Mody,
+Sergey Ukhterov and Elad Manela, as well as former team members,
+Eilon Greenstein and Shmulik Ravid.
+
+Changes from previos version:
+-----------------------------
+
+>From Version 6:
+  - Reduced the number of arguments for functions with exceptionally
+    high number of parameters.
+
+>From Version 5:
+  - Style change and fixes [mostly in patches 1, 4 and 7].
+    Thanks go to Francois Romieu, a mere mortal. ;-)
+
+>From Version 4:
+  - Drop dependency for x86_64.
+
+>From Version 3:
+  - Limit support of initial submission to x86_64.
+  - Fix endian problems appearing via sparse [although no BE support yet].
+  - Fix small issues suggested by the kbuild test robot.
+
+>From Version 2:
+  - Removed U64_{HI,LO}; Using {upper,lower}_32_bits instead.
+  - Use regular napi weight definition.
+  - [We still use the __le variants for variables, since we didn't get
+     a reply regarding the change into non-user API types].
+
+>From Version 1:
+  - Removed private license file; Instead revised comments at source headers.
+
+Thanks,
+Ariel Elior
