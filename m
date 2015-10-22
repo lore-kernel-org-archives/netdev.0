@@ -1,30 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH for-next 0/2] RDMA/cxgb4: Add iWARP support for T6
- adapter
-Date: Wed, 21 Oct 2015 18:34:31 -0700 (PDT)
-Message-ID: <20151021.183431.1463568413293645593.davem@davemloft.net>
-References: <1443008967-8942-1-git-send-email-hariprasad@chelsio.com>
-	<003201d1050f$b4b7d590$1e2780b0$@opengridcomputing.com>
-	<5627FC8A.7000308@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] ARCNET: code simplification and features
+Date: Wed, 21 Oct 2015 18:37:51 -0700 (PDT)
+Message-ID: <20151021.183751.1656152603570952326.davem@davemloft.net>
+References: <1445442332-10625-1-git-send-email-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5627FC8A.7000308-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: m.grzeschik@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49655 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755327AbbJVBVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 21:21:25 -0400
+In-Reply-To: <1445442332-10625-1-git-send-email-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 21 Oct 2015 16:58:50 -0400
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Wed, 21 Oct 2015 17:45:26 +0200
 
-> Probably.  Unless David objects, I'll queue them up.
+> This series includes code simplifaction. The main changes are the correct
+> xceiver handling (enable/disable) of the com20020 cards. The driver now handles
+> link status change detection. The EAE PCI-ARCNET cards now make use of the
+> rotary encoded subdevice indexing and got support for led triggers on transmit
+> and reconnection events.
 
-No objection from me.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please fix the problems found by the kbuild test robot, thanks.
