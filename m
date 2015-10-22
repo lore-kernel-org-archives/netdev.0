@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipvlan: read direct ifindex instead of iflink
-Date: Thu, 22 Oct 2015 06:39:35 -0700 (PDT)
-Message-ID: <20151022.063935.2080435401442263071.davem@davemloft.net>
-References: <20151020234732.GA16302@gmail.com>
+Subject: Re: [PATCH net-next 0/3] bpf_perf_event_output helper
+Date: Thu, 22 Oct 2015 06:42:52 -0700 (PDT)
+Message-ID: <20151022.064252.1128486997660707405.davem@davemloft.net>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com
-To: bblanco@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53977 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757629AbbJVNXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 09:23:08 -0400
-In-Reply-To: <20151020234732.GA16302@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@kernel.org, a.p.zijlstra@chello.nl, wangnan0@huawei.com,
+	hekuang@huawei.com, acme@infradead.org, daniel@iogearbox.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445396556-4854-1-git-send-email-ast@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brenden Blanco <bblanco@plumgrid.com>
-Date: Tue, 20 Oct 2015 16:47:33 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 20 Oct 2015 20:02:32 -0700
 
-> In the ipv4 outbound path of an ipvlan device in l3 mode, the ifindex is
-> being grabbed from dev_get_iflink. This works for the physical device
-> case, since as the documentation of that function notes: "Physical
-> interfaces have the same 'ifindex' and 'iflink' values.".  However, if
-> the master device is a veth, and the pairs are in separate net
-> namespaces, the route lookup will fail with -ENODEV due to outer veth
-> pair being in a separate namespace from the ipvlan master/routing
-> namespace.
+> Over the last year there were multiple attempts to let eBPF programs
+> output data into perf events by He Kuang and Wangnan.
+> The last one was:
+> https://lkml.org/lkml/2015/7/20/736
+> It was almost perfect with exception that all bpf programs would sent
+> data into one global perf_event.
+> This patch set takes different approach by letting user space
+> open independent PERF_COUNT_SW_BPF_OUTPUT events, so that program
+> output won't collide.
 > 
->   ns0    |   ns1    |   ns2
->  veth0a--|--veth0b--|--ipvl0
-> 
-> In ipvlan_process_v4_outbound(), a packet sent from ipvl0 in the above
-> configuration will pass fl.flowi4_oif == veth0a to
-> ip_route_output_flow(), but *net == ns1.
-> 
-> Notice also that ipv6 processing is not using iflink. Since there is a
-> discrepancy in usage, fixup both v4 and v6 case to use local dev
-> variable.
-> 
-> Tested this with l3 ipvlan on top of veth, as well as with single
-> physical interface in the top namespace.
-> 
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> Wangnan is working on corresponding perf patches.
 
-Applied, thanks Brenden.
+Series applied, thanks.
