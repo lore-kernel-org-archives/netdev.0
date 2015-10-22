@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 14/16] tipc: eliminate link's
-	reference to owner node
-Date: Thu, 22 Oct 2015 08:51:46 -0400
-Message-ID: <1445518308-26200-15-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 10/16] tipc: simplify bearer
+	level broadcast
+Date: Thu, 22 Oct 2015 08:51:42 -0400
+Message-ID: <1445518308-26200-11-git-send-email-jon.maloy@ericsson.com>
 References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,237 +23,427 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-With the recent commit series, we have established a one-way dependency
-between the link aggregation (struct tipc_node) instances and their
-pertaining tipc_link instances. This has enabled quite significant code
-and structure simplifications.
+Until now, we have been keeping track of the exact set of broadcast
+destinations though the help structure tipc_node_map. This leads us to
+have to maintain a whole infrastructure for supporting this, including
+a pseudo-bearer and a number of functions to manipulate both the bearers
+and the node map correctly. Apart from the complexity, this approach is
+also limiting, as struct tipc_node_map only can support cluster local
+broadcast if we want to avoid it becoming excessively large. We want to
+eliminate this limitation, in order to enable introduction of scoped
+multicast in the future.
 
-In this commit, we eliminate the field 'owner', which points to an
-instance of struct tipc_node, from struct tipc_link, and replace it with
-a pointer to struct net, which is the only external reference now needed
-by a link instance.
+A closer analysis reveals that it is unnecessary maintaining this "full
+set" overview; it is sufficient to keep a counter per bearer, indicating
+how many nodes can be reached via this bearer at the moment. The protocol
+is now robust enough to handle transitional discrepancies between the
+nominal number of reachable destinations, as expected by the broadcast
+protocol itself, and the number which is actually reachable at the
+moment. The initial broadcast synchronization, in conjunction with the
+retransmission mechanism, ensures that all packets will eventually be
+acknowledged by the correct set of destinations.
+
+This commit introduces these changes.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c |  2 +-
- net/tipc/link.c  | 31 +++++++++++++++++--------------
- net/tipc/link.h  | 11 ++++++-----
- net/tipc/node.c  |  7 +++++--
- 4 files changed, 29 insertions(+), 22 deletions(-)
+ net/tipc/bcast.c  | 143 +++++++++++++++++++++++++++++++++++++++++-------------
+ net/tipc/bcast.h  |   8 +--
+ net/tipc/bearer.c |  35 ++++++++++---
+ net/tipc/bearer.h |   3 ++
+ net/tipc/node.c   |   7 ++-
+ 5 files changed, 151 insertions(+), 45 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index d8c399d..c012ce9 100644
+index ea28c29..74ee09a 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -1226,7 +1226,7 @@ int tipc_bcast_init(struct net *net)
- 	spin_lock_init(&tipc_net(net)->bclock);
- 	bb->node.net = net;
+@@ -90,10 +90,12 @@ struct tipc_bcbearer {
  
--	if (!tipc_link_bc_create(&bb->node, 0, 0,
-+	if (!tipc_link_bc_create(net, 0, 0,
- 				 U16_MAX,
- 				 BCLINK_WIN_DEFAULT,
- 				 0,
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 7d3b6e7..819fb71 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -175,9 +175,12 @@ bool link_is_bc_rcvlink(struct tipc_link *l)
+ /**
+  * struct tipc_bc_base - link used for broadcast messages
+- * @link: (non-standard) broadcast link structure
++ * @link: broadcast send link structure
+  * @node: (non-standard) node structure representing b'cast link's peer node
+  * @bcast_nodes: map of broadcast-capable nodes
+  * @retransmit_to: node that most recently requested a retransmit
++ * @dest_nnt: array indicating number of reachable destinations per bearer
++ * @bearers: array of bearers, sorted by number of reachable destinations
+  *
+  * Handles sequence numbering, fragmentation, bundling, etc.
+  */
+@@ -103,6 +105,8 @@ struct tipc_bc_base {
+ 	struct sk_buff_head arrvq;
+ 	struct sk_buff_head inputq;
+ 	struct sk_buff_head namedq;
++	int dests[MAX_BEARERS];
++	int primary_bearer;
+ 	struct tipc_node_map bcast_nodes;
+ 	struct tipc_node *retransmit_to;
+ };
+@@ -164,6 +168,52 @@ static void bcbuf_decr_acks(struct sk_buff *buf)
+ 	bcbuf_set_acks(buf, bcbuf_acks(buf) - 1);
+ }
  
- int tipc_link_is_active(struct tipc_link *l)
- {
--	struct tipc_node *n = l->owner;
-+	return l->active;
-+}
- 
--	return (node_active_link(n, 0) == l) || (node_active_link(n, 1) == l);
-+void tipc_link_set_active(struct tipc_link *l, bool active)
++/* tipc_bcbase_select_primary(): find a bearer with links to all destinations,
++ *                               if any, and make it primary bearer
++ */
++static void tipc_bcbase_select_primary(struct net *net)
 +{
-+	l->active = active;
- }
- 
- void tipc_link_add_bc_peer(struct tipc_link *snd_l,
-@@ -250,7 +253,7 @@ static u32 link_own_addr(struct tipc_link *l)
-  *
-  * Returns true if link was created, otherwise false
-  */
--bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
-+bool tipc_link_create(struct net *net, char *if_name, int bearer_id,
- 		      int tolerance, char net_plane, u32 mtu, int priority,
- 		      int window, u32 session, u32 ownnode, u32 peer,
- 		      u16 peer_caps,
-@@ -284,7 +287,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
- 	l->addr = peer;
- 	l->peer_caps = peer_caps;
- 	l->media_addr = maddr;
--	l->owner = n;
-+	l->net = net;
- 	l->peer_session = WILDCARD_SESSION;
- 	l->bearer_id = bearer_id;
- 	l->tolerance = tolerance;
-@@ -318,7 +321,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
-  *
-  * Returns true if link was created, otherwise false
-  */
--bool tipc_link_bc_create(struct tipc_node *n, u32 ownnode, u32 peer,
-+bool tipc_link_bc_create(struct net *net, u32 ownnode, u32 peer,
- 			 int mtu, int window, u16 peer_caps,
- 			 struct sk_buff_head *inputq,
- 			 struct sk_buff_head *namedq,
-@@ -327,7 +330,7 @@ bool tipc_link_bc_create(struct tipc_node *n, u32 ownnode, u32 peer,
++	struct tipc_bc_base *bb = tipc_bc_base(net);
++	int all_dests =  tipc_link_bc_peers(bb->link);
++	int i;
++
++	bb->primary_bearer = INVALID_BEARER_ID;
++
++	if (!all_dests)
++		return;
++
++	for (i = 0; i < MAX_BEARERS; i++) {
++		if (bb->dests[i] < all_dests)
++			continue;
++
++		bb->primary_bearer = i;
++
++		/* Reduce risk that all nodes select same primary */
++		if ((i ^ tipc_own_addr(net)) & 1)
++			break;
++	}
++}
++
++void tipc_bcast_inc_bearer_dst_cnt(struct net *net, int bearer_id)
++{
++	struct tipc_bc_base *bb = tipc_bc_base(net);
++
++	tipc_bcast_lock(net);
++	bb->dests[bearer_id]++;
++	tipc_bcbase_select_primary(net);
++	tipc_bcast_unlock(net);
++}
++
++void tipc_bcast_dec_bearer_dst_cnt(struct net *net, int bearer_id)
++{
++	struct tipc_bc_base *bb = tipc_bc_base(net);
++
++	tipc_bcast_lock(net);
++	bb->dests[bearer_id]--;
++	tipc_bcbase_select_primary(net);
++	tipc_bcast_unlock(net);
++}
++
+ static void bclink_set_last_sent(struct net *net)
  {
- 	struct tipc_link *l;
- 
--	if (!tipc_link_create(n, "", MAX_BEARERS, 0, 'Z', mtu, 0, window,
-+	if (!tipc_link_create(net, "", MAX_BEARERS, 0, 'Z', mtu, 0, window,
- 			      0, ownnode, peer, peer_caps, NULL, bc_sndlink,
- 			      NULL, inputq, namedq, link))
- 		return false;
-@@ -889,10 +892,10 @@ void tipc_link_push_packets(struct tipc_link *link)
- 		msg_set_ack(msg, ack);
- 		msg_set_seqno(msg, seqno);
- 		seqno = mod(seqno + 1);
--		msg_set_bcast_ack(msg, link->owner->bclink.last_in);
-+		/* msg_set_bcast_ack(msg, link->owner->bclink.last_in); */
- 		link->rcv_unacked = 0;
- 		__skb_queue_tail(&link->transmq, skb);
--		tipc_bearer_send(link->owner->net, link->bearer_id,
-+		tipc_bearer_send(link->net, link->bearer_id,
- 				 skb, link->media_addr);
- 	}
- 	link->snd_nxt = seqno;
-@@ -966,8 +969,8 @@ void tipc_link_retransmit(struct tipc_link *l_ptr, struct sk_buff *skb,
- 			break;
- 		msg = buf_msg(skb);
- 		msg_set_ack(msg, mod(l_ptr->rcv_nxt - 1));
--		msg_set_bcast_ack(msg, l_ptr->owner->bclink.last_in);
--		tipc_bearer_send(l_ptr->owner->net, l_ptr->bearer_id, skb,
-+		/* msg_set_bcast_ack(msg, l_ptr->owner->bclink.last_in); */
-+		tipc_bearer_send(l_ptr->net, l_ptr->bearer_id, skb,
- 				 l_ptr->media_addr);
- 		retransmits--;
- 		l_ptr->stats.retransmitted++;
-@@ -1102,9 +1105,9 @@ static int tipc_link_input(struct tipc_link *l, struct sk_buff *skb,
- 		}
- 		return 0;
- 	} else if (usr == BCAST_PROTOCOL) {
--		tipc_bcast_lock(l->owner->net);
-+		tipc_bcast_lock(l->net);
- 		tipc_link_bc_init_rcv(l->bc_rcvlink, hdr);
--		tipc_bcast_unlock(l->owner->net);
-+		tipc_bcast_unlock(l->net);
- 	}
- drop:
- 	kfree_skb(skb);
-@@ -1300,7 +1303,7 @@ void tipc_link_proto_xmit(struct tipc_link *l, u32 msg_typ, int probe_msg,
- 	skb = __skb_dequeue(&xmitq);
- 	if (!skb)
- 		return;
--	tipc_bearer_xmit_skb(l->owner->net, l->bearer_id, skb, l->media_addr);
-+	tipc_bearer_xmit_skb(l->net, l->bearer_id, skb, l->media_addr);
- 	l->rcv_unacked = 0;
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+@@ -439,6 +489,51 @@ static void bclink_peek_nack(struct net *net, struct tipc_msg *msg)
+ 	tipc_node_put(n_ptr);
  }
  
-@@ -2004,7 +2007,7 @@ static int __tipc_nl_add_link(struct net *net, struct tipc_nl_msg *msg,
- 	if (tipc_link_is_up(link))
- 		if (nla_put_flag(msg->skb, TIPC_NLA_LINK_UP))
- 			goto attr_msg_full;
--	if (tipc_link_is_active(link))
-+	if (link->active)
- 		if (nla_put_flag(msg->skb, TIPC_NLA_LINK_ACTIVE))
- 			goto attr_msg_full;
++/* tipc_bcbase_xmit - broadcast a packet queue across one or more bearers
++ *
++ * Note that number of reachable destinations, as indicated in the dests[]
++ * array, may transitionally differ from the number of destinations indicated
++ * in each sent buffer. We can sustain this. Excess destination nodes will
++ * drop and never acknowledge the unexpected packets, and missing destinations
++ * will either require retransmission (if they are just about to be added to
++ * the bearer), or be removed from the buffer's 'ackers' counter (if they
++ * just went down)
++ */
++static void tipc_bcbase_xmit(struct net *net, struct sk_buff_head *xmitq)
++{
++	int bearer_id;
++	struct tipc_bc_base *bb = tipc_bc_base(net);
++	struct sk_buff *skb, *_skb;
++	struct sk_buff_head _xmitq;
++
++	if (skb_queue_empty(xmitq))
++		return;
++
++	/* The typical case: at least one bearer has links to all nodes */
++	bearer_id = bb->primary_bearer;
++	if (bearer_id >= 0) {
++		tipc_bearer_bc_xmit(net, bearer_id, xmitq);
++		return;
++	}
++
++	/* We have to transmit across all bearers */
++	skb_queue_head_init(&_xmitq);
++	for (bearer_id = 0; bearer_id < MAX_BEARERS; bearer_id++) {
++		if (!bb->dests[bearer_id])
++			continue;
++
++		skb_queue_walk(xmitq, skb) {
++			_skb = pskb_copy_for_clone(skb, GFP_ATOMIC);
++			if (!_skb)
++				break;
++			__skb_queue_tail(&_xmitq, _skb);
++		}
++		tipc_bearer_bc_xmit(net, bearer_id, &_xmitq);
++	}
++	__skb_queue_purge(xmitq);
++	__skb_queue_purge(&_xmitq);
++}
++
+ /* tipc_bcast_xmit - deliver buffer chain to all nodes in cluster
+  *                    and to identified node local sockets
+  * @net: the applicable net namespace
+@@ -463,7 +558,6 @@ int tipc_bcast_xmit(struct net *net, struct sk_buff_head *list)
+ 	tipc_bcast_lock(net);
+ 	if (tipc_link_bc_peers(l))
+ 		rc = tipc_link_xmit(l, list, &xmitq);
+-	bclink_set_last_sent(net);
+ 	tipc_bcast_unlock(net);
  
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 9b5198e9..eb1d7f9 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -111,7 +111,7 @@ struct tipc_stats {
-  * @name: link name character string
-  * @media_addr: media address to use when sending messages over link
-  * @timer: link timer
-- * @owner: pointer to peer node
-+ * @net: pointer to namespace struct
-  * @refcnt: reference counter for permanent references (owner node & timer)
-  * @peer_session: link session # being used by peer end of link
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-@@ -154,7 +154,7 @@ struct tipc_link {
- 	u32 addr;
- 	char name[TIPC_MAX_LINK_NAME];
- 	struct tipc_media_addr *media_addr;
--	struct tipc_node *owner;
-+	struct net *net;
+ 	/* Don't send to local node if adding to link failed */
+@@ -473,7 +567,7 @@ int tipc_bcast_xmit(struct net *net, struct sk_buff_head *list)
+ 	}
  
- 	/* Management and link supervision data */
- 	u32 peer_session;
-@@ -165,6 +165,7 @@ struct tipc_link {
- 	u32 abort_limit;
- 	u32 state;
- 	u16 peer_caps;
-+	bool active;
- 	u32 silent_intv_cnt;
- 	struct {
- 		unchar hdr[INT_H_SIZE];
-@@ -219,7 +220,7 @@ struct tipc_link {
- 	struct tipc_stats stats;
+ 	/* Broadcast to all nodes, inluding local node */
+-	tipc_bcbearer_xmit(net, &xmitq);
++	tipc_bcbase_xmit(net, &xmitq);
+ 	tipc_sk_mcast_rcv(net, &rcvq, &inputq);
+ 	__skb_queue_purge(list);
+ 	return 0;
+@@ -504,8 +598,7 @@ int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb)
+ 		rc = tipc_link_rcv(l, skb, NULL);
+ 	tipc_bcast_unlock(net);
+ 
+-	if (!skb_queue_empty(&xmitq))
+-		tipc_bcbearer_xmit(net, &xmitq);
++	tipc_bcbase_xmit(net, &xmitq);
+ 
+ 	/* Any socket wakeup messages ? */
+ 	if (!skb_queue_empty(inputq))
+@@ -529,7 +622,7 @@ void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked)
+ 	tipc_link_bc_ack_rcv(l, acked, &xmitq);
+ 	tipc_bcast_unlock(net);
+ 
+-	tipc_bcbearer_xmit(net, &xmitq);
++	tipc_bcbase_xmit(net, &xmitq);
+ 
+ 	/* Any socket wakeup messages ? */
+ 	if (!skb_queue_empty(inputq))
+@@ -557,7 +650,7 @@ void tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
+ 	}
+ 	tipc_bcast_unlock(net);
+ 
+-	tipc_bcbearer_xmit(net, &xmitq);
++	tipc_bcbase_xmit(net, &xmitq);
+ 
+ 	/* Any socket wakeup messages ? */
+ 	if (!skb_queue_empty(inputq))
+@@ -568,38 +661,35 @@ void tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
+  *
+  * RCU is locked, node lock is set
+  */
+-void tipc_bcast_add_peer(struct net *net, u32 addr, struct tipc_link *uc_l,
++void tipc_bcast_add_peer(struct net *net, struct tipc_link *uc_l,
+ 			 struct sk_buff_head *xmitq)
+ {
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_link *snd_l = tipc_bc_sndlink(net);
+ 
+-	tipc_bclink_lock(net);
+-	tipc_nmap_add(&tn->bcbase->bcast_nodes, addr);
++	tipc_bcast_lock(net);
+ 	tipc_link_add_bc_peer(snd_l, uc_l, xmitq);
+-	tipc_bclink_unlock(net);
++	tipc_bcbase_select_primary(net);
++	tipc_bcast_unlock(net);
+ }
+ 
+ /* tipc_bcast_remove_peer - remove a peer node from broadcast link and bearer
+  *
+  * RCU is locked, node lock is set
+  */
+-void tipc_bcast_remove_peer(struct net *net, u32 addr,
+-			    struct tipc_link *rcv_l)
++void tipc_bcast_remove_peer(struct net *net, struct tipc_link *rcv_l)
+ {
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct sk_buff_head *inputq = &tipc_bc_base(net)->inputq;
+ 	struct tipc_link *snd_l = tipc_bc_sndlink(net);
++	struct sk_buff_head *inputq = &tipc_bc_base(net)->inputq;
+ 	struct sk_buff_head xmitq;
+ 
+ 	__skb_queue_head_init(&xmitq);
+ 
+-	tipc_bclink_lock(net);
+-	tipc_nmap_remove(&tn->bcbase->bcast_nodes, addr);
++	tipc_bcast_lock(net);
+ 	tipc_link_remove_bc_peer(snd_l, rcv_l, &xmitq);
+-	tipc_bclink_unlock(net);
++	tipc_bcbase_select_primary(net);
++	tipc_bcast_unlock(net);
+ 
+-	tipc_bcbearer_xmit(net, &xmitq);
++	tipc_bcbase_xmit(net, &xmitq);
+ 
+ 	/* Any socket wakeup messages ? */
+ 	if (!skb_queue_empty(inputq))
+@@ -869,19 +959,6 @@ static int tipc_bcbearer_send(struct net *net, struct sk_buff *buf,
+ 	return 0;
+ }
+ 
+-static void tipc_bcbearer_xmit(struct net *net, struct sk_buff_head *xmitq)
+-{
+-	struct sk_buff *skb, *tmp;
+-
+-	skb_queue_walk_safe(xmitq, skb, tmp) {
+-		__skb_dequeue(xmitq);
+-		tipc_bcbearer_send(net, skb, NULL, NULL);
+-
+-		/* Until we remove cloning in tipc_l2_send_msg(): */
+-		kfree_skb(skb);
+-	}
+-}
+-
+ /**
+  * tipc_bcbearer_sort - create sets of bearer pairs used by broadcast bearer
+  */
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index 568a57c..76b747a 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -47,11 +47,11 @@ struct tipc_node_map;
+ int tipc_bcast_init(struct net *net);
+ void tipc_bcast_reinit(struct net *net);
+ void tipc_bcast_stop(struct net *net);
+-void tipc_bcast_add_peer(struct net *net, u32 addr,
+-			 struct tipc_link *l,
++void tipc_bcast_add_peer(struct net *net, struct tipc_link *l,
+ 			 struct sk_buff_head *xmitq);
+-void tipc_bcast_remove_peer(struct net *net, u32 addr,
+-			    struct tipc_link *rcv_bcl);
++void tipc_bcast_remove_peer(struct net *net, struct tipc_link *rcv_bcl);
++void tipc_bcast_inc_bearer_dst_cnt(struct net *net, int bearer_id);
++void tipc_bcast_dec_bearer_dst_cnt(struct net *net, int bearer_id);
+ struct tipc_node *tipc_bclink_retransmit_to(struct net *tn);
+ void tipc_bclink_acknowledge(struct tipc_node *n_ptr, u32 acked);
+ void tipc_bclink_rcv(struct net *net, struct sk_buff *buf);
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 82b2786..62f47ec 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -193,10 +193,8 @@ void tipc_bearer_add_dest(struct net *net, u32 bearer_id, u32 dest)
+ 
+ 	rcu_read_lock();
+ 	b_ptr = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (b_ptr) {
+-		tipc_bcbearer_sort(net, &b_ptr->nodes, dest, true);
++	if (b_ptr)
+ 		tipc_disc_add_dest(b_ptr->link_req);
+-	}
+ 	rcu_read_unlock();
+ }
+ 
+@@ -207,10 +205,8 @@ void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest)
+ 
+ 	rcu_read_lock();
+ 	b_ptr = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (b_ptr) {
+-		tipc_bcbearer_sort(net, &b_ptr->nodes, dest, false);
++	if (b_ptr)
+ 		tipc_disc_remove_dest(b_ptr->link_req);
+-	}
+ 	rcu_read_unlock();
+ }
+ 
+@@ -494,6 +490,33 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 	rcu_read_unlock();
+ }
+ 
++/* tipc_bearer_bc_xmit() - broadcast buffers to all destinations
++ */
++void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
++			 struct sk_buff_head *xmitq)
++{
++	struct tipc_net *tn = tipc_net(net);
++	int net_id = tn->net_id;
++	struct tipc_bearer *b;
++	struct sk_buff *skb, *tmp;
++	struct tipc_msg *hdr;
++
++	rcu_read_lock();
++	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
++	if (likely(b)) {
++		skb_queue_walk_safe(xmitq, skb, tmp) {
++			hdr = buf_msg(skb);
++			msg_set_non_seq(hdr, 1);
++			msg_set_mc_netid(hdr, net_id);
++			__skb_dequeue(xmitq);
++			b->media->send_msg(net, skb, b, &b->bcast_addr);
++			/* Until we remove cloning in tipc_l2_send_msg(): */
++			kfree_skb(skb);
++		}
++	}
++	rcu_read_unlock();
++}
++
+ /**
+  * tipc_l2_rcv_msg - handle incoming TIPC message from an interface
+  * @buf: the received packet
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 6426f24..9fc1e07 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -163,6 +163,7 @@ struct tipc_bearer {
+ 	u32 identity;
+ 	struct tipc_link_req *link_req;
+ 	char net_plane;
++	int node_cnt;
+ 	struct tipc_node_map nodes;
  };
  
--bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
-+bool tipc_link_create(struct net *net, char *if_name, int bearer_id,
- 		      int tolerance, char net_plane, u32 mtu, int priority,
- 		      int window, u32 session, u32 ownnode, u32 peer,
- 		      u16 peer_caps,
-@@ -229,7 +230,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
- 		      struct sk_buff_head *inputq,
- 		      struct sk_buff_head *namedq,
- 		      struct tipc_link **link);
--bool tipc_link_bc_create(struct tipc_node *n, u32 ownnode, u32 peer,
-+bool tipc_link_bc_create(struct net *net, u32 ownnode, u32 peer,
- 			 int mtu, int window, u16 peer_caps,
- 			 struct sk_buff_head *inputq,
- 			 struct sk_buff_head *namedq,
-@@ -247,7 +248,7 @@ bool tipc_link_is_establishing(struct tipc_link *l);
- bool tipc_link_is_synching(struct tipc_link *l);
- bool tipc_link_is_failingover(struct tipc_link *l);
- bool tipc_link_is_blocked(struct tipc_link *l);
--int tipc_link_is_active(struct tipc_link *l_ptr);
-+void tipc_link_set_active(struct tipc_link *l, bool active);
- void tipc_link_purge_queues(struct tipc_link *l_ptr);
- void tipc_link_purge_backlog(struct tipc_link *l);
- void tipc_link_reset(struct tipc_link *l_ptr);
+@@ -220,5 +221,7 @@ void tipc_bearer_send(struct net *net, u32 bearer_id, struct sk_buff *buf,
+ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 		      struct sk_buff_head *xmitq,
+ 		      struct tipc_media_addr *dst);
++void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
++			 struct sk_buff_head *xmitq);
+ 
+ #endif	/* _TIPC_BEARER_H */
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index b274390..eb739d2 100644
+index cd92455..b274390 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -178,7 +178,7 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
- 	n_ptr->signature = INVALID_NODE_SIG;
- 	n_ptr->active_links[0] = INVALID_BEARER_ID;
- 	n_ptr->active_links[1] = INVALID_BEARER_ID;
--	if (!tipc_link_bc_create(n_ptr, tipc_own_addr(net), n_ptr->addr,
-+	if (!tipc_link_bc_create(net, tipc_own_addr(net), n_ptr->addr,
- 				 U16_MAX, tipc_bc_sndlink(net)->window,
- 				 n_ptr->capabilities,
- 				 &n_ptr->bc_entry.inputq1,
-@@ -366,7 +366,10 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 		pr_debug("Old link <%s> becomes standby\n", ol->name);
- 		*slot0 = bearer_id;
+@@ -346,6 +346,7 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
+ 	n->links[bearer_id].mtu = nl->mtu - INT_H_SIZE;
+ 
+ 	tipc_bearer_add_dest(n->net, bearer_id, n->addr);
++	tipc_bcast_inc_bearer_dst_cnt(n->net, bearer_id);
+ 
+ 	pr_debug("Established link <%s> on network plane %c\n",
+ 		 nl->name, nl->net_plane);
+@@ -356,7 +357,7 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
  		*slot1 = bearer_id;
-+		tipc_link_set_active(nl, true);
-+		tipc_link_set_active(ol, false);
- 	} else if (nl->priority == ol->priority) {
-+		tipc_link_set_active(nl, true);
- 		*slot0 = bearer_id;
- 	} else {
- 		pr_debug("New link <%s> is standby\n", nl->name);
-@@ -599,7 +602,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 			goto exit;
- 		}
- 		if_name = strchr(b->name, ':') + 1;
--		if (!tipc_link_create(n, if_name, b->identity, b->tolerance,
-+		if (!tipc_link_create(net, if_name, b->identity, b->tolerance,
- 				      b->net_plane, b->mtu, b->priority,
- 				      b->window, mod(tipc_net(net)->random),
- 				      tipc_own_addr(net), onode,
+ 		tipc_node_fsm_evt(n, SELF_ESTABL_CONTACT_EVT);
+ 		n->action_flags |= TIPC_NOTIFY_NODE_UP;
+-		tipc_bcast_add_peer(n->net, n->addr, nl, xmitq);
++		tipc_bcast_add_peer(n->net, nl, xmitq);
+ 		return;
+ 	}
+ 
+@@ -443,8 +444,10 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
+ 		tipc_link_build_reset_msg(l, xmitq);
+ 		*maddr = &n->links[*bearer_id].maddr;
+ 		node_lost_contact(n, &le->inputq);
++		tipc_bcast_dec_bearer_dst_cnt(n->net, *bearer_id);
+ 		return;
+ 	}
++	tipc_bcast_dec_bearer_dst_cnt(n->net, *bearer_id);
+ 
+ 	/* There is still a working link => initiate failover */
+ 	tnl = node_active_link(n, 0);
+@@ -860,7 +863,7 @@ static void node_lost_contact(struct tipc_node *n,
+ 		 tipc_addr_string_fill(addr_string, n->addr));
+ 
+ 	/* Clean up broadcast state */
+-	tipc_bcast_remove_peer(n->net, n->addr, n->bc_entry.link);
++	tipc_bcast_remove_peer(n->net, n->bc_entry.link);
+ 
+ 	/* Abort any ongoing link failover */
+ 	for (i = 0; i < MAX_BEARERS; i++) {
 -- 
 1.9.1
 
