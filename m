@@ -1,7 +1,7 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 4/8] mm: memcontrol: prepare for unified hierarchy socket accounting
-Date: Thu, 22 Oct 2015 00:21:32 -0400
-Message-ID: <1445487696-21545-5-git-send-email-hannes@cmpxchg.org>
+Subject: [PATCH 2/8] mm: memcontrol: export root_mem_cgroup
+Date: Thu, 22 Oct 2015 00:21:30 -0400
+Message-ID: <1445487696-21545-3-git-send-email-hannes@cmpxchg.org>
 References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
 Cc: Michal Hocko <mhocko@suse.cz>,
 	Vladimir Davydov <vdavydov@virtuozzo.com>,
@@ -17,168 +17,67 @@ In-Reply-To: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The unified hierarchy memory controller will account socket
-memory. Move the infrastructure functions accordingly.
+A later patch will need this symbol in files other than memcontrol.c,
+so export it now and replace mem_cgroup_root_css at the same time.
 
 Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 ---
- mm/memcontrol.c | 136 ++++++++++++++++++++++++++++----------------------------
- 1 file changed, 68 insertions(+), 68 deletions(-)
+ include/linux/memcontrol.h | 3 ++-
+ mm/backing-dev.c           | 2 +-
+ mm/memcontrol.c            | 5 ++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 805da1f..19ff87b 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -275,7 +275,8 @@ struct mem_cgroup {
+ 	struct mem_cgroup_per_node *nodeinfo[0];
+ 	/* WARNING: nodeinfo must be the last member here */
+ };
+-extern struct cgroup_subsys_state *mem_cgroup_root_css;
++
++extern struct mem_cgroup *root_mem_cgroup;
+ 
+ /**
+  * mem_cgroup_events - count memory events against a cgroup
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index 095b23b..73ab967 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -702,7 +702,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
+ 
+ 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
+ 	if (!ret) {
+-		bdi->wb.memcg_css = mem_cgroup_root_css;
++		bdi->wb.memcg_css = &root_mem_cgroup->css;
+ 		bdi->wb.blkcg_css = blkcg_root_css;
+ 	}
+ 	return ret;
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index c41e6d7..3789050 100644
+index a8ccdbc..e54f434 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -287,74 +287,6 @@ static inline struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
- 	return mem_cgroup_from_css(css);
- }
+@@ -76,9 +76,9 @@
+ struct cgroup_subsys memory_cgrp_subsys __read_mostly;
+ EXPORT_SYMBOL(memory_cgrp_subsys);
  
--/* Writing them here to avoid exposing memcg's inner layout */
--#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
--
--DEFINE_STATIC_KEY_FALSE(mem_cgroup_sockets);
--
--void sock_update_memcg(struct sock *sk)
--{
--	struct mem_cgroup *memcg;
--	/*
--	 * Socket cloning can throw us here with sk_cgrp already
--	 * filled. It won't however, necessarily happen from
--	 * process context. So the test for root memcg given
--	 * the current task's memcg won't help us in this case.
--	 *
--	 * Respecting the original socket's memcg is a better
--	 * decision in this case.
--	 */
--	if (sk->sk_memcg) {
--		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
--		css_get(&sk->sk_memcg->css);
--		return;
--	}
--
--	rcu_read_lock();
--	memcg = mem_cgroup_from_task(current);
--	if (css_tryget_online(&memcg->css))
--		sk->sk_memcg = memcg;
--	rcu_read_unlock();
--}
--EXPORT_SYMBOL(sock_update_memcg);
--
--void sock_release_memcg(struct sock *sk)
--{
--	if (sk->sk_memcg)
--		css_put(&sk->sk_memcg->css);
--}
--
--/**
-- * mem_cgroup_charge_skmem - charge socket memory
-- * @memcg: memcg to charge
-- * @nr_pages: number of pages to charge
-- *
-- * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-- * the memcg's configured limit, %false if the charge had to be forced.
-- */
--bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	struct page_counter *counter;
--
--	if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter))
--		return true;
--
--	page_counter_charge(&memcg->skmem, nr_pages);
--	return false;
--}
--
--/**
-- * mem_cgroup_uncharge_skmem - uncharge socket memory
-- * @memcg: memcg to uncharge
-- * @nr_pages: number of pages to uncharge
-- */
--void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
--{
--	page_counter_uncharge(&memcg->skmem, nr_pages);
--}
--
--#endif
--
- #ifdef CONFIG_MEMCG_KMEM
- /*
-  * This will be the memcg's index in each cache's ->memcg_params.memcg_caches.
-@@ -5521,6 +5453,74 @@ void mem_cgroup_replace_page(struct page *oldpage, struct page *newpage)
- 	commit_charge(newpage, memcg, true);
- }
++struct mem_cgroup *root_mem_cgroup __read_mostly;
++
+ #define MEM_CGROUP_RECLAIM_RETRIES	5
+-static struct mem_cgroup *root_mem_cgroup __read_mostly;
+-struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
  
-+/* Writing them here to avoid exposing memcg's inner layout */
-+#if defined(CONFIG_INET) && defined(CONFIG_MEMCG_KMEM)
-+
-+DEFINE_STATIC_KEY_FALSE(mem_cgroup_sockets);
-+
-+void sock_update_memcg(struct sock *sk)
-+{
-+	struct mem_cgroup *memcg;
-+	/*
-+	 * Socket cloning can throw us here with sk_cgrp already
-+	 * filled. It won't however, necessarily happen from
-+	 * process context. So the test for root memcg given
-+	 * the current task's memcg won't help us in this case.
-+	 *
-+	 * Respecting the original socket's memcg is a better
-+	 * decision in this case.
-+	 */
-+	if (sk->sk_memcg) {
-+		BUG_ON(mem_cgroup_is_root(sk->sk_memcg));
-+		css_get(&sk->sk_memcg->css);
-+		return;
-+	}
-+
-+	rcu_read_lock();
-+	memcg = mem_cgroup_from_task(current);
-+	if (css_tryget_online(&memcg->css))
-+		sk->sk_memcg = memcg;
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL(sock_update_memcg);
-+
-+void sock_release_memcg(struct sock *sk)
-+{
-+	if (sk->sk_memcg)
-+		css_put(&sk->sk_memcg->css);
-+}
-+
-+/**
-+ * mem_cgroup_charge_skmem - charge socket memory
-+ * @memcg: memcg to charge
-+ * @nr_pages: number of pages to charge
-+ *
-+ * Charges @nr_pages to @memcg. Returns %true if the charge fit within
-+ * the memcg's configured limit, %false if the charge had to be forced.
-+ */
-+bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	struct page_counter *counter;
-+
-+	if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter))
-+		return true;
-+
-+	page_counter_charge(&memcg->skmem, nr_pages);
-+	return false;
-+}
-+
-+/**
-+ * mem_cgroup_uncharge_skmem - uncharge socket memory
-+ * @memcg: memcg to uncharge
-+ * @nr_pages: number of pages to uncharge
-+ */
-+void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
-+{
-+	page_counter_uncharge(&memcg->skmem, nr_pages);
-+}
-+
-+#endif
-+
- /*
-  * subsys_initcall() for memory controller.
-  *
+ /* Whether the swap controller is active */
+ #ifdef CONFIG_MEMCG_SWAP
+@@ -4213,7 +4213,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ 	/* root ? */
+ 	if (parent_css == NULL) {
+ 		root_mem_cgroup = memcg;
+-		mem_cgroup_root_css = &memcg->css;
+ 		page_counter_init(&memcg->memory, NULL);
+ 		memcg->high = PAGE_COUNTER_MAX;
+ 		memcg->soft_limit = PAGE_COUNTER_MAX;
 -- 
 2.6.1
 
