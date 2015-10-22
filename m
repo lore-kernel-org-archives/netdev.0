@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
 Subject: Re: [PATCH] net: dsa: mv88e6060: Fix false positive lockdep splat
-Date: Thu, 22 Oct 2015 10:08:01 +0200
-Message-ID: <56289961.5090603@baylibre.com>
+Date: Thu, 22 Oct 2015 10:08:07 +0200
+Message-ID: <56289967.6010909@baylibre.com>
 References: <5627B149.6030109@baylibre.com> <20151021161416.GG17207@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
@@ -38,7 +38,7 @@ On 10/21/2015 06:14 PM, Andrew Lunn wrote:
 > 
 Well, mdio-mux also calls switch_fn inside the mdio_lock, clean refactoring
 would introduce a separate lock and call the nested variants.
-Is that ok ? Can someone test mdio-mux is I make the change ?
+Is that ok ? Can someone test mdio-mux if I make the change ?
 
 
 Neil
