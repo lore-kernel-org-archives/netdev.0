@@ -1,38 +1,41 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Thu, 22 Oct 2015 08:53:00 -0700
-Message-ID: <5629065C.6020103@plumgrid.com>
-References: <1445468283-4592-1-git-send-email-ast@kernel.org>
- <20151022135745.GM3604@twins.programming.kicks-ass.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV NIC
+Date: Thu, 22 Oct 2015 18:58:58 +0300
+Message-ID: <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+	<CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
+	<1445455227.4059.867.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151022135745.GM3604@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Lan Tianyu <tianyu.lan@intel.com>,
+	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
+	<mst@redhat.com>, Bjorn Helgaas <bhelgaas@google.com>,
+	carolyn.wyborny@intel.com,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, Alexander Graf <agraf@suse.de>,
+	kvm@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>,
+	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	john.ronciak@intel.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1445455227.4059.867.camel@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/22/15 6:57 AM, Peter Zijlstra wrote:
-> On Wed, Oct 21, 2015 at 03:58:03PM -0700, Alexei Starovoitov wrote:
->> diff --git a/kernel/events/core.c b/kernel/events/core.c
->> index 64754bfecd70..0b6333265872 100644
->> --- a/kernel/events/core.c
->> +++ b/kernel/events/core.c
->> @@ -3258,7 +3258,7 @@ static inline u64 perf_event_count(struct perf_event *event)
->>   u64 perf_event_read_local(struct perf_event *event)
->>   {
->>   	unsigned long flags;
->> -	u64 val;
->> +	u64 val = -EINVAL;
->
-> No, you cannot do this, -EINVAL is a valid count value. You simply must
-> not call this function on !local events, ever.
+On Wed, Oct 21, 2015 at 10:20 PM, Alex Williamson
+<alex.williamson@redhat.com> wrote:
 
-agree. Will keep perf_event_read_local() as-is and do all safety
-checks on bpf side.
+> This is why the typical VF agnostic approach here is to using bonding
+> and fail over to a emulated device during migration, so performance
+> suffers, but downtime is something acceptable.
+
+bonding in the VM isn't a zero touch solution, right? is it really acceptable?
