@@ -1,62 +1,128 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
- maps trace data output when perf sampling
-Date: Wed, 21 Oct 2015 20:26:53 -0700
-Message-ID: <5628577D.4030300@plumgrid.com>
-References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com>
- <1445325735-121694-2-git-send-email-xiakaixu@huawei.com>
- <5626C5CE.8080809@plumgrid.com>
- <20151021091254.GF2881@worktop.programming.kicks-ass.net>
- <56276968.6070604@huawei.com>
- <20151021113316.GM17308@twins.programming.kicks-ass.net>
- <56277BCE.6030400@huawei.com>
- <20151021121713.GC3604@twins.programming.kicks-ass.net>
- <56279634.5000606@huawei.com> <5628423B.4010504@huawei.com>
- <5628535F.5060505@plumgrid.com> <56285410.3060505@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>,
-	Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56285410.3060505@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] net: sysctl: fix a kmemleak warning
+Date: Thu, 22 Oct 2015 11:27:12 +0800
+Message-ID: <1445484432-17673-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:59439 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756669AbbJVD1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 23:27:14 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.134])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id t9M3RCcH003470
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 20:27:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/21/15 8:12 PM, Wangnan (F) wrote:
->
->
-> On 2015/10/22 11:09, Alexei Starovoitov wrote:
->> On 10/21/15 6:56 PM, Wangnan (F) wrote:
->>>> One alternative solution I can image is to attach a BPF program
->>>> at sampling like kprobe, and return 0 if we don't want sampling
->>>> take action. Thought?
->>>
->>> Do you think attaching BPF programs to sampling is an acceptable idea?
->>
->> If you mean to extend 'filter' concept to sampling events?
->> So instead of soft_disable of non-local events, you'll attach bpf
->> program to sampling events and use map lookup to decide whether
->> to filter out or not such sampling event?
->
-> Yes.
->
->> What pt_regs would be in such case?
->>
->
-> Sampling is based on interruption. We can use pt_reg captured by the IRQ
-> handler,
-> or we can simply pass NULL to those BPF program.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-NULL is obviously not ok. Try to answer yourself 'why it's not'.
-Clean implementation should add single 'if (..->prog)' to event sampling
-critical path. Please don't rush it and think it through.
-but the first thing first, please see my fix for bpf_perf_event_read:
-http://patchwork.ozlabs.org/patch/534120/
-and ack it if it makes sense.
-we need to make sure existing stuff is solid, before going further.
+the returned buffer of register_sysctl() is stored into net_header
+variable, but net_header is not used after, and compiler maybe
+optimise the variable out, and lead kmemleak reported the below warning
+
+	comm "swapper/0", pid 1, jiffies 4294937448 (age 267.270s)
+	hex dump (first 32 bytes):
+	90 38 8b 01 c0 ff ff ff 00 00 00 00 01 00 00 00 .8..............
+	01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+	backtrace:
+	[<ffffffc00020f134>] create_object+0x10c/0x2a0
+	[<ffffffc00070ff44>] kmemleak_alloc+0x54/0xa0
+	[<ffffffc0001fe378>] __kmalloc+0x1f8/0x4f8
+	[<ffffffc00028e984>] __register_sysctl_table+0x64/0x5a0
+	[<ffffffc00028eef0>] register_sysctl+0x30/0x40
+	[<ffffffc00099c304>] net_sysctl_init+0x20/0x58
+	[<ffffffc000994dd8>] sock_init+0x10/0xb0
+	[<ffffffc0000842e0>] do_one_initcall+0x90/0x1b8
+	[<ffffffc000966bac>] kernel_init_freeable+0x218/0x2f0
+	[<ffffffc00070ed6c>] kernel_init+0x1c/0xe8
+	[<ffffffc000083bfc>] ret_from_fork+0xc/0x50
+	[<ffffffffffffffff>] 0xffffffffffffffff <<end check kmemleak>>
+
+Before fix, the objdump result on ARM64:
+0000000000000000 <net_sysctl_init>:
+   0:   a9be7bfd        stp     x29, x30, [sp,#-32]!
+   4:   90000001        adrp    x1, 0 <net_sysctl_init>
+   8:   90000000        adrp    x0, 0 <net_sysctl_init>
+   c:   910003fd        mov     x29, sp
+  10:   91000021        add     x1, x1, #0x0
+  14:   91000000        add     x0, x0, #0x0
+  18:   a90153f3        stp     x19, x20, [sp,#16]
+  1c:   12800174        mov     w20, #0xfffffff4                // #-12
+  20:   94000000        bl      0 <register_sysctl>
+  24:   b4000120        cbz     x0, 48 <net_sysctl_init+0x48>
+  28:   90000013        adrp    x19, 0 <net_sysctl_init>
+  2c:   91000273        add     x19, x19, #0x0
+  30:   9101a260        add     x0, x19, #0x68
+  34:   94000000        bl      0 <register_pernet_subsys>
+  38:   2a0003f4        mov     w20, w0
+  3c:   35000060        cbnz    w0, 48 <net_sysctl_init+0x48>
+  40:   aa1303e0        mov     x0, x19
+  44:   94000000        bl      0 <register_sysctl_root>
+  48:   2a1403e0        mov     w0, w20
+  4c:   a94153f3        ldp     x19, x20, [sp,#16]
+  50:   a8c27bfd        ldp     x29, x30, [sp],#32
+  54:   d65f03c0        ret
+After:
+0000000000000000 <net_sysctl_init>:
+   0:   a9bd7bfd        stp     x29, x30, [sp,#-48]!
+   4:   90000000        adrp    x0, 0 <net_sysctl_init>
+   8:   910003fd        mov     x29, sp
+   c:   a90153f3        stp     x19, x20, [sp,#16]
+  10:   90000013        adrp    x19, 0 <net_sysctl_init>
+  14:   91000000        add     x0, x0, #0x0
+  18:   91000273        add     x19, x19, #0x0
+  1c:   f90013f5        str     x21, [sp,#32]
+  20:   aa1303e1        mov     x1, x19
+  24:   12800175        mov     w21, #0xfffffff4                // #-12
+  28:   94000000        bl      0 <register_sysctl>
+  2c:   f9002260        str     x0, [x19,#64]
+  30:   b40001c0        cbz     x0, 68 <net_sysctl_init+0x68>
+  34:   90000014        adrp    x20, 0 <net_sysctl_init>
+  38:   91000294        add     x20, x20, #0x0
+  3c:   9101a280        add     x0, x20, #0x68
+  40:   94000000        bl      0 <register_pernet_subsys>
+  44:   2a0003f5        mov     w21, w0
+  48:   35000080        cbnz    w0, 58 <net_sysctl_init+0x58>
+  4c:   aa1403e0        mov     x0, x20
+  50:   94000000        bl      0 <register_sysctl_root>
+  54:   14000005        b       68 <net_sysctl_init+0x68>
+  58:   f9402260        ldr     x0, [x19,#64]
+  5c:   94000000        bl      0 <unregister_sysctl_table>
+  60:   f9402260        ldr     x0, [x19,#64]
+  64:   94000000        bl      0 <kfree>
+  68:   2a1503e0        mov     w0, w21
+  6c:   f94013f5        ldr     x21, [sp,#32]
+  70:   a94153f3        ldp     x19, x20, [sp,#16]
+  74:   a8c37bfd        ldp     x29, x30, [sp],#48
+  78:   d65f03c0        ret
+
+Add the possible error handle to free the net_header to remove the
+kmemleak warning
+
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/sysctl_net.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index e7000be..a5372d2 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -94,10 +94,14 @@ __init int net_sysctl_init(void)
+ 		goto out;
+ 	ret = register_pernet_subsys(&sysctl_pernet_ops);
+ 	if (ret)
+-		goto out;
++		goto out1;
+ 	register_sysctl_root(&net_sysctl_root);
+ out:
+ 	return ret;
++out1:
++	unregister_sysctl_table(net_header);
++	kfree(net_header);
++	goto out;
+ }
+ 
+ struct ctl_table_header *register_net_sysctl(struct net *net,
+-- 
+2.1.4
