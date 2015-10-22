@@ -1,7 +1,7 @@
 From: Robert Dolca <robert.dolca@intel.com>
-Subject: [PATCH v4 03/10] nfc: nci: Introduce new core opcodes
-Date: Thu, 22 Oct 2015 12:11:35 +0300
-Message-ID: <1445505102-16639-4-git-send-email-robert.dolca@intel.com>
+Subject: [PATCH v4 04/10] nfc: nci: Do not call post_setup when setup fails
+Date: Thu, 22 Oct 2015 12:11:36 +0300
+Message-ID: <1445505102-16639-5-git-send-email-robert.dolca@intel.com>
 References: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
 Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org,
@@ -17,43 +17,29 @@ In-Reply-To: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add NCI_OP_CORE_GET_CONFIG_CMD, NCI_OP_CORE_GET_CONFIG_RSP
-and NCI_OP_CORE_RESET_NTF.
+The driver should know that it can continue with post setup where
+setup left off. Being able to execute post_setup when setup fails may
+force the developer to keep this state in the driver.
 
 Signed-off-by: Robert Dolca <robert.dolca@intel.com>
 ---
- include/net/nfc/nci.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/nfc/nci/core.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/net/nfc/nci.h b/include/net/nfc/nci.h
-index 75d2e18..b495825 100644
---- a/include/net/nfc/nci.h
-+++ b/include/net/nfc/nci.h
-@@ -315,6 +315,8 @@ struct nci_nfcee_mode_set_cmd {
- 	__u8	nfcee_mode;
- } __packed;
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 0909720..5362d8f 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -402,9 +402,8 @@ static int nci_open_device(struct nci_dev *ndev)
+ 				   msecs_to_jiffies(NCI_INIT_TIMEOUT));
+ 	}
  
-+#define NCI_OP_CORE_GET_CONFIG_CMD	nci_opcode_pack(NCI_GID_CORE, 0x03)
-+
- /* ----------------------- */
- /* ---- NCI Responses ---- */
- /* ----------------------- */
-@@ -375,6 +377,9 @@ struct nci_nfcee_discover_rsp {
- } __packed;
+-	if (ndev->ops->post_setup) {
++	if (!rc && ndev->ops->post_setup)
+ 		rc = ndev->ops->post_setup(ndev);
+-	}
  
- #define NCI_OP_NFCEE_MODE_SET_RSP nci_opcode_pack(NCI_GID_NFCEE_MGMT, 0x01)
-+
-+#define NCI_OP_CORE_GET_CONFIG_RSP	nci_opcode_pack(NCI_GID_CORE, 0x03)
-+
- /* --------------------------- */
- /* ---- NCI Notifications ---- */
- /* --------------------------- */
-@@ -528,4 +533,6 @@ struct nci_nfcee_discover_ntf {
- 	struct nci_nfcee_information_tlv	information_tlv;
- } __packed;
- 
-+#define NCI_OP_CORE_RESET_NTF		nci_opcode_pack(NCI_GID_CORE, 0x00)
-+
- #endif /* __NCI_H */
+ 	if (!rc) {
+ 		rc = __nci_request(ndev, nci_init_complete_req, 0,
 -- 
 1.9.1
