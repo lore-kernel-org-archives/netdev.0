@@ -1,36 +1,50 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [RFC v3 2/2] iwlwifi: mvm: send large SKBs to the transport
-Date: Thu, 22 Oct 2015 12:07:59 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8AC94B@hasmsx107.ger.corp.intel.com>
-References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
- <1445515406.22974.107.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 22 Oct 2015 05:10:58 -0700
+Message-ID: <1445515858.22974.113.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151021034950.GL22011@ZenIV.linux.org.uk>
+	 <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk>
+	 <20151021.182955.1434243485706993231.davem@davemloft.net>
+	 <5628636E.1020107@oracle.com>
+	 <201510220615.t9M6FL2d017592@room101.nl.oracle.com>
+	 <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5628CF79.2000507@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445515406.22974.107.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, David Miller <davem@davemloft.net>,
+	viro@ZenIV.linux.org.uk, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
+To: Alan Burlison <Alan.Burlison@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35328 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757202AbbJVMLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:11:00 -0400
+Received: by pasz6 with SMTP id z6so85595513pas.2
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 05:11:00 -0700 (PDT)
+In-Reply-To: <5628CF79.2000507@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gT24gV2VkLCAyMDE1LTEwLTIxIGF0IDIxOjM0ICswMzAwLCBFbW1hbnVlbCBHcnVtYmFj
-aCB3cm90ZToNCj4gPiArDQo+ID4gKwkJaWYgKHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1Bf
-SVApKSB7DQo+ID4gKwkJCWlwX2hkcih0bXApLT5pZCA9IGlwX2hkcihza2IpLT5pZDsNCj4gDQo+
-IFRvbyBsYXRlLCB5b3UgYWxyZWFkeSBjYWxsZWQgY29uc3VtZV9za2Ioc2tiKS4NCj4gU28gdGhp
-cyBpcyBhIHBvdGVudGlhbCB1c2UgYWZ0ZXIgZnJlZS4NCg0KT3VjaCAtIHRoYW5rcyBmb3IgY2F0
-Y2hpbmcgdGhpcyENCg0KPiANCj4gPiArCQkJYmUxNl9hZGRfY3B1KCZpcF9oZHIodG1wKS0+aWQs
-IGkgKg0KPiBudW1fc3ViZnJhbWVzKTsNCj4gPiArCQl9DQo+ID4gKw0KPiANCj4gDQo+IEkgd291
-bGQgdXNlDQo+IGJhc2VfaWQgPSBpcF9oZHIoc2tiKS0+aWQ7IC8vIGJlZm9yZSB0aGUgY29uc3Vt
-ZV9za2Ioc2tiKQ0KPiBpcF9oZHIodG1wKS0+aWQgPSBodG9ucyhiYXNlX2lkICsgaSAqIG51bV9z
-dWJmcmFtZXMpOw0KPiANClN1cmUgLSBJIHdpbGwuDQoNCkkgd2lsbCBzZW5kIGEgdjQgd2l0aCB0
-aGUgZml4ZXMuDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2015-10-22 at 12:58 +0100, Alan Burlison wrote:
+> On 22/10/2015 12:30, Eric Dumazet wrote:
+> 
+> > We absolutely do not _want_ to do this just so that linux becomes slower
+> > to the point Solaris can compete, or you guys can avoid some work.
+> 
+> Sentiments such as that really have no place in a discussion that's been 
+> focussed primarily on the behaviour of interfaces, albeit with 
+> digressions into the potential performance impacts. The discussion has 
+> been cordial and I for one appreciate Al Viro's posts on the subject, 
+> from which I've leaned a lot. Can we please keep it that way? Thanks.
+
+Certainly not.
+
+I am a major linux networking developper and wont accept linux is
+hijacked by guys who never contributed to it, just so it meets their
+unreasonable expectations.
+
+We absolutely care about performance. And I do not care you focus on
+POSIX crap.
