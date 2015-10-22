@@ -1,56 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 2/2] vhost_net: basic polling support
-Date: Thu, 22 Oct 2015 19:16:02 +0300
-Message-ID: <20151022191456-mutt-send-email-mst@redhat.com>
-References: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
- <1445491649-62614-2-git-send-email-jasowang@redhat.com>
- <20151022113824-mutt-send-email-mst@redhat.com>
- <562904D9.9080109@hpe.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV
+ NIC
+Date: Thu, 22 Oct 2015 10:17:30 -0600
+Message-ID: <1445530650.5050.19.camel@redhat.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+	 <CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
+	 <1445455227.4059.867.camel@redhat.com>
+	 <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rick Jones <rick.jones2@hpe.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <562904D9.9080109@hpe.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Lan Tianyu <tianyu.lan@intel.com>,
+	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
+	<mst@redhat.com>, Bjorn Helgaas <bhelgaas@google.com>,
+	carolyn.wyborny@intel.com,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, Alexander Graf <agraf@suse.de>,
+	kvm@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>,
+	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	john.ronciak@intel.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 08:46:33AM -0700, Rick Jones wrote:
-> On 10/22/2015 02:33 AM, Michael S. Tsirkin wrote:
-> >On Thu, Oct 22, 2015 at 01:27:29AM -0400, Jason Wang wrote:
-> >>This patch tries to poll for new added tx buffer for a while at the
-> >>end of tx processing. The maximum time spent on polling were limited
-> >>through a module parameter. To avoid block rx, the loop will end it
-> >>there's new other works queued on vhost so in fact socket receive
-> >>queue is also be polled.
-> >>
-> >>busyloop_timeout = 50 gives us following improvement on TCP_RR test:
-> >>
-> >>size/session/+thu%/+normalize%
-> >>     1/     1/   +5%/  -20%
-> >>     1/    50/  +17%/   +3%
-> >
-> >Is there a measureable increase in cpu utilization
-> >with busyloop_timeout = 0?
+On Thu, 2015-10-22 at 18:58 +0300, Or Gerlitz wrote:
+> On Wed, Oct 21, 2015 at 10:20 PM, Alex Williamson
+> <alex.williamson@redhat.com> wrote:
 > 
-> And since a netperf TCP_RR test is involved, be careful about what netperf
-> reports for CPU util if that increase isn't in the context of the guest OS.
+> > This is why the typical VF agnostic approach here is to using bonding
+> > and fail over to a emulated device during migration, so performance
+> > suffers, but downtime is something acceptable.
 > 
-> For completeness, looking at the effect on TCP_STREAM and TCP_MAERTS,
-> aggregate _RR and even aggregate _RR/packets per second for many VMs on the
-> same system would be in order.
-> 
-> happy benchmarking,
-> 
-> rick jones
+> bonding in the VM isn't a zero touch solution, right? is it really acceptable?
 
-Absolutely, merging a new kernel API just for a specific
-benchmark doesn't make sense.
-I'm guessing this is just an early RFC, a fuller submission
-will probably include more numbers.
+The bonding solution requires configuring the bond in the guest and
+doing the hot unplug/re-plug around migration.  It's zero touch in that
+it works on current code with any PF/VF, but it's certainly not zero
+configuration in the guest.  Is what acceptable?  The configuration?
+The performance?  The downtime?  I don't think we can hope to improve on
+the downtime of an emulated device, but obviously the configuration and
+performance are not always acceptable or we wouldn't be seeing so many
+people working on migration of assigned devices.  Thanks,
 
--- 
-MST
+Alex
