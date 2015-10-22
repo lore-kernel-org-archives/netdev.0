@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/4] xfrm6: Fix ICMPv6 and MH header checks in _decode_session6
-Date: Thu, 22 Oct 2015 08:07:17 +0200
-Message-ID: <1445494039-2612-3-git-send-email-steffen.klassert@secunet.com>
-References: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2015-10-22
+Date: Thu, 22 Oct 2015 08:07:15 +0200
+Message-ID: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,56 +9,66 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50530 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:50518 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751381AbbJVGH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2015 02:07:29 -0400
-In-Reply-To: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
+	id S1751295AbbJVGH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2015 02:07:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mathias Krause <mathias.krause@secunet.com>
+1) Fix IPsec pre-encap fragmentation for GSO packets.
+   From Herbert Xu.
 
-Ensure there's enough data left prior calling pskb_may_pull(). If
-skb->data was already advanced, we'll call pskb_may_pull() with a
-negative value converted to unsigned int -- leading to a huge
-positive value. That won't matter in practice as pskb_may_pull()
-will likely fail in this case, but it leads to underflow reports on
-kernels handling such kind of over-/underflows, e.g. a PaX enabled
-kernel instrumented with the size_overflow plugin.
+2) Fix some header checks in _decode_session6.
+   We skip the header informations if the data pointer points
+   already behind the header in question for some protocols.
+   This is because we call pskb_may_pull with a negative value
+   converted to unsigened int from pskb_may_pull in this case.
+   Skipping the header informations can lead to incorrect policy
+   lookups. From Mathias Krause.
 
-Reported-by: satmd <satmd@lain.at>
-Reported-and-tested-by: Marcin Jurkowski <marcin1j@gmail.com>
-Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
-Cc: PaX Team <pageexec@freemail.hu>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/xfrm6_policy.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+3) Allow to change the replay threshold and expiry timer of a
+   state without having to set other attributes like replay
+   counter and byte lifetime. Changing these other attributes
+   may break the SA. From Michael Rossberg.
 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 30caa28..f10b940 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -178,7 +178,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 			return;
- 
- 		case IPPROTO_ICMPV6:
--			if (!onlyproto && pskb_may_pull(skb, nh + offset + 2 - skb->data)) {
-+			if (!onlyproto && (nh + offset + 2 < skb->data ||
-+			    pskb_may_pull(skb, nh + offset + 2 - skb->data))) {
- 				u8 *icmp;
- 
- 				nh = skb_network_header(skb);
-@@ -192,7 +193,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- #if IS_ENABLED(CONFIG_IPV6_MIP6)
- 		case IPPROTO_MH:
- 			offset += ipv6_optlen(exthdr);
--			if (!onlyproto && pskb_may_pull(skb, nh + offset + 3 - skb->data)) {
-+			if (!onlyproto && (nh + offset + 3 < skb->data ||
-+			    pskb_may_pull(skb, nh + offset + 3 - skb->data))) {
- 				struct ip6_mh *mh;
- 
- 				nh = skb_network_header(skb);
--- 
-1.9.1
+4) Fix pmtu discovery for local generated packets.
+   We may fail dispatch to the inner address family.
+   As a reault, the local error handler is not called
+   and the mtu value is not reported back to userspace.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit 724a7636ad026a3a68f3fc626ccd04111f65cfd9:
+
+  Merge branch 'sctp-fixes' (2015-09-03 15:43:06 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
+
+for you to fetch changes up to ca064bd89363a6e7e71b1c5226ff1b718957a9d4:
+
+  xfrm: Fix pmtu discovery for local generated packets. (2015-10-19 10:30:05 +0200)
+
+----------------------------------------------------------------
+Herbert Xu (1):
+      ipv6: Fix IPsec pre-encap fragmentation check
+
+Mathias Krause (1):
+      xfrm6: Fix ICMPv6 and MH header checks in _decode_session6
+
+Michael Rossberg (1):
+      xfrm: Fix state threshold configuration from userspace
+
+Steffen Klassert (1):
+      xfrm: Fix pmtu discovery for local generated packets.
+
+ net/ipv4/xfrm4_output.c |  2 ++
+ net/ipv6/xfrm6_output.c | 18 ++++++++++++------
+ net/ipv6/xfrm6_policy.c |  6 ++++--
+ net/xfrm/xfrm_user.c    |  4 +++-
+ 4 files changed, 21 insertions(+), 9 deletions(-)
