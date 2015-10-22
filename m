@@ -1,8 +1,8 @@
 From: "Wangnan (F)" <wangnan0@huawei.com>
 Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Thu, 22 Oct 2015 13:30:02 +0800
-Message-ID: <5628745A.4080204@huawei.com>
-References: <1445468283-4592-1-git-send-email-ast@kernel.org> <56286ACD.3060604@huawei.com> <56286D5C.2060009@plumgrid.com>
+Date: Thu, 22 Oct 2015 13:31:17 +0800
+Message-ID: <562874A5.1050307@huawei.com>
+References: <1445468283-4592-1-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -14,59 +14,53 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 To: Alexei Starovoitov <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56286D5C.2060009@plumgrid.com>
+In-Reply-To: <1445468283-4592-1-git-send-email-ast@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2015/10/22 13:00, Alexei Starovoitov wrote:
-> On 10/21/15 9:49 PM, Wangnan (F) wrote:
->> After applying this patch I'm unable to use perf passing perf_event
->> again like this:
+On 2015/10/22 6:58, Alexei Starovoitov wrote:
+> Fix safety checks for bpf_perf_event_read():
+> - only non-inherited events can be added to perf_event_array map
+>    (do this check statically at map insertion time)
+> - dynamically check that event is local and !pmu->count
+> Otherwise buggy bpf program can cause kernel splat.
 >
-> please do not top post and trim your replies.
+> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+> v1->v2: fix compile in case of !CONFIG_PERF_EVENTS
 >
->>   # perf record -a -e evt=cycles -e
->> ./test_config_map.c/maps.pmu_map.event=evt/ --exclude-perf ls
->>
->> With -v it output:
->>
->> ...
->> adding perf_bpf_probe:func_write
->> adding perf_bpf_probe:func_write to 0x367d6a0
->> add bpf event perf_bpf_probe:func_write_return and attach bpf program 6
->> adding perf_bpf_probe:func_write_return
->> adding perf_bpf_probe:func_write_return to 0x3a7fc40
->> mmap size 528384B
->> ERROR: failed to insert value to pmu_map[0]
->> ERROR: Apply config to BPF failed: Invalid option for map, add -v to see
->> detail
->> Opening /sys/kernel/debug/tracing//kprobe_events write=
->> ...
->>
->> Looks like perf sets attr.inherit for cycles? I'll look into this 
->> problem.
+> This patch is on top of
+> http://patchwork.ozlabs.org/patch/533585/
+> to avoid conflicts.
+> Even in the worst case the crash is not possible.
+> Only warn_on_once, so imo net-next is ok.
 >
-> yes. that's perf default.
-> How did it even work before?!
-> I was testing with your samples/bpf/tracex6 that sets inherit to zero.
+>   kernel/bpf/arraymap.c |    9 +++++----
+>   kernel/events/core.c  |   16 ++++++++++------
+>   2 files changed, 15 insertions(+), 10 deletions(-)
 >
+> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+> index e3cfe46b074f..75529cc94304 100644
+> --- a/kernel/bpf/arraymap.c
+> +++ b/kernel/bpf/arraymap.c
+> @@ -294,10 +294,11 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
+>   	if (IS_ERR(attr))
+>   		return (void *)attr;
+>   
+> -	if (attr->type != PERF_TYPE_RAW &&
+> -	    !(attr->type == PERF_TYPE_SOFTWARE &&
+> -	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+> -	    attr->type != PERF_TYPE_HARDWARE) {
+> +	if ((attr->type != PERF_TYPE_RAW &&
+> +	     !(attr->type == PERF_TYPE_SOFTWARE &&
+> +	       attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+> +	     attr->type != PERF_TYPE_HARDWARE) ||
+> +	    attr->inherit) {
 
-Tested perf record -i option and it works for me:
-
-# echo "" > /sys/kernel/debug/tracing/trace
-# perf record -i -a -e evt=cycles -e 
-./test_config_map.c/maps.pmu_map.event=evt/ --exclude-perf ls
-# cat /sys/kernel/debug/tracing/trace  | grep ls
-               ls-8227  [001] dN..  2526.184611: : pmu inc: 82270
-               ls-8227  [001] dN..  2526.184626: : pmu inc: 40951
-               ls-8227  [001] dN..  2526.184642: : pmu inc: 50659
-               ls-8227  [001] dN..  2526.184657: : pmu inc: 43511
-               ls-8227  [001] dN..  2526.184675: : pmu inc: 56921
-...
-And no warning message found in dmesg.
-
-So I think your fix is good, we should improve perf.
+This 'if' statement is so complex. What about using a inline function 
+instead?
 
 Thank you.
