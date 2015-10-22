@@ -1,7 +1,7 @@
 From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
 Subject: [PATCH 2/2] can: xilinx: fix bug in bus error handling
 Date: Thu, 22 Oct 2015 10:16:03 +0530
-Message-ID: <1445489163-11045-2-git-send-email-appanad__586.218506987457$1445490176$gmane$org@xilinx.com>
+Message-ID: <1445489163-11045-2-git-send-email-appanad__32848.1829994873$1445490178$gmane$org@xilinx.com>
 References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,15 +11,10 @@ Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 To: <anirudh@xilinx.com>, <wg@grandegger.com>, <mkl@pengutronix.de>,
 	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
 	<appanad@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0096.outbound.protection.outlook.com ([207.46.100.96]:2528
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750732AbbJVFCY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2015 01:02:24 -0400
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Simply resetting the peripheral on bus off condition is not enough,
 Because we also need to re-initialize the whole device.
@@ -57,3 +52,4 @@ index 055d6f3..9aeb85f 100644
  			cf->can_id |= CAN_ERR_BUSOFF;
 -- 
 2.1.2
+
