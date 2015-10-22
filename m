@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bpf_perf_event_output helper
-Date: Thu, 22 Oct 2015 06:42:52 -0700 (PDT)
-Message-ID: <20151022.064252.1128486997660707405.davem@davemloft.net>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+Subject: Re: [PATCH net-next] openvswitch: Fix incorrect type use.
+Date: Thu, 22 Oct 2015 06:46:42 -0700 (PDT)
+Message-ID: <20151022.064642.782712229052859611.davem@davemloft.net>
+References: <1445399266-2034-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, a.p.zijlstra@chello.nl, wangnan0@huawei.com,
-	hekuang@huawei.com, acme@infradead.org, daniel@iogearbox.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445396556-4854-1-git-send-email-ast@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54046 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755988AbbJVNaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 09:30:15 -0400
+In-Reply-To: <1445399266-2034-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 20 Oct 2015 20:02:32 -0700
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 20 Oct 2015 20:47:46 -0700
 
-> Over the last year there were multiple attempts to let eBPF programs
-> output data into perf events by He Kuang and Wangnan.
-> The last one was:
-> https://lkml.org/lkml/2015/7/20/736
-> It was almost perfect with exception that all bpf programs would sent
-> data into one global perf_event.
-> This patch set takes different approach by letting user space
-> open independent PERF_COUNT_SW_BPF_OUTPUT events, so that program
-> output won't collide.
+> Patch fixes following sparse warning.
+> net/openvswitch/flow_netlink.c:583:30: warning: incorrect type in assignment (different base types)
+> net/openvswitch/flow_netlink.c:583:30:    expected restricted __be16 [usertype] ipv4
+> net/openvswitch/flow_netlink.c:583:30:    got int
 > 
-> Wangnan is working on corresponding perf patches.
+> Fixes: 6b26ba3a7d ("openvswitch: netlink attributes for IPv6 tunneling")
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Series applied, thanks.
+Applied.
