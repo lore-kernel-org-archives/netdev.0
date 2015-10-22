@@ -1,68 +1,65 @@
-From: Casper.Dik@oracle.com
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Thu, 22 Oct 2015 20:24:51 +0200
-Message-ID: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net> <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk> <20151022060304.GQ22011@ZenIV.linux.org.uk> <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
+ hierarchy
+Date: Thu, 22 Oct 2015 21:45:10 +0300
+Message-ID: <20151022184509.GM18351@esperanza>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:32175 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757917AbbJVSlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 14:41:01 -0400
-Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9MIexDo029605
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 18:41:00 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by userv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9MIS4Q5020340
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 18:40:59 GMT
-In-Reply-To: <20151022172146.GS22011@ZenIV.linux.org.uk> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>, Andrew Morton
+	<akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.cz>, Tejun Heo
+	<tj@kernel.org>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+Hi Johannes,
 
->On Thu, Oct 22, 2015 at 08:34:19AM +0200, Casper.Dik@oracle.com wrote:
->> 
->> 
->> >And I'm really curious about the things Solaris would do with dup2() there.
->> >Does it take into account the possibility of new accept() coming just as
->> >dup2() is trying to terminate the ongoing ones?  Is there a window when
->> >descriptor-to-file lookups would fail?  Looks like a race/deadlock country...
->> 
->> Solaris does not "terminate" threads, instead it tells them that the
->> file descriptor information used is stale and wkae's up the thread.
->
->Sorry, lousy wording - I meant "terminate syscall in another thread".
->Better yet, make that "what happens if new accept(newfd) comes while dup2()
->waits for affected syscalls in other threads to finish"?  Assuming it
->does wait, that is..
+On Thu, Oct 22, 2015 at 12:21:28AM -0400, Johannes Weiner wrote:
+...
+> Patch #5 adds accounting and tracking of socket memory to the unified
+> hierarchy memory controller, as described above. It uses the existing
+> per-cpu charge caches and triggers high limit reclaim asynchroneously.
+> 
+> Patch #8 uses the vmpressure extension to equalize pressure between
+> the pages tracked natively by the VM and socket buffer pages. As the
+> pool is shared, it makes sense that while natively tracked pages are
+> under duress the network transmit windows are also not increased.
 
-No there is no such window; the accept() call either returns EBADF
-(dup2()) wins the race or it returns a new file descriptor (and dup2()
-then closes the listening descriptor).
+First of all, I've no experience in networking, so I'm likely to be
+mistaken. Nevertheless I beg to disagree that this patch set is a step
+in the right direction. Here goes why.
 
-One or the other.
+I admit that your idea to get rid of explicit tcp window control knobs
+and size it dynamically basing on memory pressure instead does sound
+tempting, but I don't think it'd always work. The problem is that in
+contrast to, say, dcache, we can't shrink tcp buffers AFAIU, we can only
+stop growing them. Now suppose a system hasn't experienced memory
+pressure for a while. If we don't have explicit tcp window limit, tcp
+buffers on such a system might have eaten almost all available memory
+(because of network load/problems). If a user workload that needs a
+significant amount of memory is started suddenly then, the network code
+will receive a notification and surely stop growing buffers, but all
+those buffers accumulated won't disappear instantly. As a result, the
+workload might be unable to find enough free memory and have no choice
+but invoke OOM killer. This looks unexpected from the user POV.
 
->While we are at it, what's the relative order of record locks removal
->and switching the meaning of newfd?  In our kernel it happens *after*
->the switchover (i.e. if another thread is waiting for a record lock held on
->any alias of newfd and we do dup2(oldfd, newfd), the waiter will not see
->the state with newfd still refering to what it used to; note that waiter
->might be using any descriptor refering to the file newfd used to refer
->to, so it won't be affected by the "wake those who had the meaning of
->their arguments change" side of things).
+That said, I think we do need per memcg tcp window control similar to
+what we have system-wide. In other words, Glauber's work makes sense to
+me. You might want to point me at my RFC patch where I proposed to
+revert it (https://lkml.org/lkml/2014/9/12/401). Well, I've changed my
+mind since then. Now I think I was mistaken, luckily I was stopped.
+However, I may be mistaken again :-)
 
-The external behaviour atomic; you cannot distinguish the order
-between the closing of the original file (and waking up other threads
-waiting for a record lock) or changing the file referenced by that newfd.
+Thanks,
+Vladimir
 
-But this not include a global or process specific lock.
-
-Casper
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
