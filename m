@@ -1,50 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 22 Oct 2015 05:10:58 -0700
-Message-ID: <1445515858.22974.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk>
-	 <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk>
-	 <20151021.182955.1434243485706993231.davem@davemloft.net>
-	 <5628636E.1020107@oracle.com>
-	 <201510220615.t9M6FL2d017592@room101.nl.oracle.com>
-	 <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5628CF79.2000507@oracle.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH 9/9] treewide: Remove newlines inside DEFINE_PER_CPU()
+ macros
+Date: Thu, 22 Oct 2015 08:14:42 -0400
+Message-ID: <5628D332.9030304@redhat.com>
+References: <1444940195-28272-1-git-send-email-mmarek@suse.com> <1444940195-28272-10-git-send-email-mmarek@suse.com> <5627E73B.9000502@redhat.com> <5627ED0D.20308@suse.com> <5628C913.10800@redhat.com> <5628D148.7000102@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Casper.Dik@oracle.com, David Miller <davem@davemloft.net>,
-	viro@ZenIV.linux.org.uk, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35328 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757202AbbJVMLA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:11:00 -0400
-Received: by pasz6 with SMTP id z6so85595513pas.2
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 05:11:00 -0700 (PDT)
-In-Reply-To: <5628CF79.2000507@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-ia64@vger.kernel.org, xen-devel@lists.xenproject.org,
+	linux-acpi@vger.kernel.org, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
+To: Michal Marek <mmarek@suse.com>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <5628D148.7000102@suse.com>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-10-22 at 12:58 +0100, Alan Burlison wrote:
-> On 22/10/2015 12:30, Eric Dumazet wrote:
+
+
+On 10/22/2015 08:06 AM, Michal Marek wrote:
+> On 2015-10-22 13:31, Prarit Bhargava wrote:
+>>
+>>
+>> On 10/21/2015 03:52 PM, Michal Marek wrote:
+>>> Dne 21.10.2015 v 21:27 Prarit Bhargava napsal(a):
+>>>> On 10/15/2015 04:16 PM, Michal Marek wrote:
+>>>>> Otherwise make tags can't parse them:
+>>>>>
+>>>>> ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
+>>>>> ctags: Warning: drivers/xen/events/events_2l.c:41: null expansion of name pattern "\1"
+>>>>> ctags: Warning: drivers/acpi/processor_idle.c:64: null expansion of name pattern "\1"
+>>>>> ctags: Warning: kernel/locking/lockdep.c:153: null expansion of name pattern "\1"
+>>>>> ctags: Warning: kernel/workqueue.c:305: null expansion of name pattern "\1"
+>>>>> ctags: Warning: kernel/rcu/rcutorture.c:133: null expansion of name pattern "\1"
+>>>>> ctags: Warning: kernel/rcu/rcutorture.c:135: null expansion of name pattern "\1"
+>>>>> ctags: Warning: net/rds/page.c:45: null expansion of name pattern "\1"
+>>>>> ctags: Warning: net/ipv4/syncookies.c:53: null expansion of name pattern "\1"
+>>>>> ctags: Warning: net/ipv6/syncookies.c:44: null expansion of name pattern "\1"
+>>>>
+>>>> I guarantee you're going to end up fixing this issue over and over again as more
+>>>> code is added in.
+>>>
+>>> This is certainly going to happen, but it should be quickly spotted by
+>>> anybody running make tags on linux-next. And 10 instances since the
+>>> beginning of git is not too many.
+>>
+>> Not everyone uses 'make tags'.  'make cscope' exists and functions correctly ;)
 > 
-> > We absolutely do not _want_ to do this just so that linux becomes slower
-> > to the point Solaris can compete, or you guys can avoid some work.
+> cscope works, but unfortunately it cannot be extended to understand the
+> preprocessor constructs. But it does not suffer from the problem at
+> hand, obviously.
 > 
-> Sentiments such as that really have no place in a discussion that's been 
-> focussed primarily on the behaviour of interfaces, albeit with 
-> digressions into the potential performance impacts. The discussion has 
-> been cordial and I for one appreciate Al Viro's posts on the subject, 
-> from which I've leaned a lot. Can we please keep it that way? Thanks.
+> 
+>>> It's not ctags itself parsing the DEFINE_PER_CPU() macro, but a
+>>> user-supplied regex specified on commandline. Which can only operate on
+>>> single lines.
+>>>
+>>
+>> What's the regex?
+> 
+> See
+> https://lkml.kernel.org/r/1444940195-28272-9-git-send-email-mmarek@suse.com
+> 
+> It used to require a closing parenthesis, so it would not match the
+> multiline macro invocations at all. Now it matches them, but ctags
+> correctly warns that the empty string is probably not what we intended
+> to match.
 
-Certainly not.
+It seems wrong to change kernel code, not for a bug, but for a userspace search.
 
-I am a major linux networking developper and wont accept linux is
-hijacked by guys who never contributed to it, just so it meets their
-unreasonable expectations.
+P.
 
-We absolutely care about performance. And I do not care you focus on
-POSIX crap.
+> 
+> Michal
+> 
