@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 02/16] tipc: move broadcast link
-	lock to struct tipc_net
-Date: Thu, 22 Oct 2015 08:51:34 -0400
-Message-ID: <1445518308-26200-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 08/16] tipc: introduce capability
+	bit for broadcast synchronization
+Date: Thu, 22 Oct 2015 08:51:40 -0400
+Message-ID: <1445518308-26200-9-git-send-email-jon.maloy@ericsson.com>
 References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,100 +23,169 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The broadcast lock will need to be acquired outside bcast.c in a later
-commit. For this reason, we move the lock to struct tipc_net. Consistent
-with the changes in the previous commit, we also introducee two new
-functions tipc_bcast_lock() and tipc_bcast_unlock(). The code that is
-currently using tipc_bclink_lock()/unlock() will be phased out during
-the coming commits in this series.
+Until now, we have tried to support both the newer, dedicated broadcast
+synchronization mechanism along with the older, less safe, RESET_MSG/
+ACTIVATE_MSG based one. The latter method has turned out to be a hazard
+in a highly dynamic cluster, so we find it safer to disable it completely
+when we find that the former mechanism is supported by the peer node.
+
+For this purpose, we now introduce a new capabability bit,
+TIPC_BCAST_SYNCH, to inform any peer nodes that dedicated broadcast
+syncronization is supported by the present node. The new bit is conveyed
+between peers in the 'capabilities' field of neighbor discovery messages.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c | 12 +++---------
- net/tipc/bcast.h | 10 ++++++++++
- net/tipc/core.h  |  1 +
- 3 files changed, 14 insertions(+), 9 deletions(-)
+ net/tipc/bcast.c    | 1 +
+ net/tipc/discover.c | 2 +-
+ net/tipc/link.c     | 7 +++++--
+ net/tipc/link.h     | 6 ++++--
+ net/tipc/node.c     | 6 ++++--
+ net/tipc/node.h     | 8 ++++++++
+ 6 files changed, 23 insertions(+), 7 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2c5f544..ebf4fd7 100644
+index 08d64e7..7fdf895 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -90,7 +90,6 @@ struct tipc_bcbearer {
+@@ -1045,6 +1045,7 @@ int tipc_bcast_init(struct net *net)
+ 	if (!tipc_link_bc_create(&bb->node,
+ 				 MAX_PKT_DEFAULT_MCAST,
+ 				 BCLINK_WIN_DEFAULT,
++				 0,
+ 				 &bb->inputq,
+ 				 &bb->namedq,
+ 				 &l))
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index d14e0a4..6cd36f9 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -89,7 +89,7 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
+ 		      MAX_H_SIZE, dest_domain);
+ 	msg_set_non_seq(msg, 1);
+ 	msg_set_node_sig(msg, tn->random);
+-	msg_set_node_capabilities(msg, 0);
++	msg_set_node_capabilities(msg, TIPC_NODE_CAPABILITIES);
+ 	msg_set_dest_domain(msg, dest_domain);
+ 	msg_set_bc_netid(msg, tn->net_id);
+ 	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 363da5f..6a1a9d9 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -191,6 +191,7 @@ static u32 link_own_addr(struct tipc_link *l)
+  * @session: session to be used by link
+  * @ownnode: identity of own node
+  * @peer: node id of peer node
++ * @peer_caps: bitmap describing peer node capabilities
+  * @maddr: media address to be used
+  * @inputq: queue to put messages ready for delivery
+  * @namedq: queue to put binding table update messages ready for delivery
+@@ -201,7 +202,7 @@ static u32 link_own_addr(struct tipc_link *l)
+ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
+ 		      int tolerance, char net_plane, u32 mtu, int priority,
+ 		      int window, u32 session, u32 ownnode, u32 peer,
+-		      struct tipc_media_addr *maddr,
++		      u16 peer_caps, struct tipc_media_addr *maddr,
+ 		      struct sk_buff_head *inputq, struct sk_buff_head *namedq,
+ 		      struct tipc_link **link)
+ {
+@@ -226,6 +227,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
+ 	strcpy((char *)msg_data(hdr), if_name);
  
- /**
-  * struct tipc_bc_base - link used for broadcast messages
-- * @lock: spinlock governing access to structure
-  * @link: (non-standard) broadcast link structure
-  * @node: (non-standard) node structure representing b'cast link's peer node
-  * @bcast_nodes: map of broadcast-capable nodes
-@@ -99,7 +98,6 @@ struct tipc_bcbearer {
-  * Handles sequence numbering, fragmentation, bundling, etc.
+ 	l->addr = peer;
++	l->peer_caps = peer_caps;
+ 	l->media_addr = maddr;
+ 	l->owner = n;
+ 	l->peer_session = WILDCARD_SESSION;
+@@ -260,6 +262,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
+  * Returns true if link was created, otherwise false
   */
- struct tipc_bc_base {
--	spinlock_t lock; /* spinlock protecting broadcast structs */
- 	struct tipc_link link;
- 	struct tipc_node node;
- 	struct sk_buff_head arrvq;
-@@ -124,16 +122,12 @@ static void tipc_nmap_add(struct tipc_node_map *nm_ptr, u32 node);
- static void tipc_nmap_remove(struct tipc_node_map *nm_ptr, u32 node);
- static void tipc_bclink_lock(struct net *net)
- {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--
--	spin_lock_bh(&tn->bcbase->lock);
-+	tipc_bcast_lock(net);
- }
+ bool tipc_link_bc_create(struct tipc_node *n, int mtu, int window,
++			 u16 peer_caps,
+ 			 struct sk_buff_head *inputq,
+ 			 struct sk_buff_head *namedq,
+ 			 struct tipc_link **link)
+@@ -267,7 +270,7 @@ bool tipc_link_bc_create(struct tipc_node *n, int mtu, int window,
+ 	struct tipc_link *l;
  
- static void tipc_bclink_unlock(struct net *net)
- {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--
--	spin_unlock_bh(&tn->bcbase->lock);
-+	tipc_bcast_unlock(net);
- }
+ 	if (!tipc_link_create(n, "", MAX_BEARERS, 0, 'Z', mtu, 0, window,
+-			      0, 0, 0, NULL, inputq, namedq, link))
++			      0, 0, 0, peer_caps, NULL, inputq, namedq, link))
+ 		return false;
  
- void tipc_bclink_input(struct net *net)
-@@ -1031,7 +1025,7 @@ int tipc_bcast_init(struct net *net)
- 	bcbearer->media.send_msg = tipc_bcbearer_send;
- 	sprintf(bcbearer->media.name, "tipc-broadcast");
+ 	l = *link;
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 9c4acc2..d23329d 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -119,6 +119,7 @@ struct tipc_stats {
+  * @keepalive_intv: link keepalive timer interval
+  * @abort_limit: # of unacknowledged continuity probes needed to reset link
+  * @state: current state of link FSM
++ * @peer_caps: bitmap describing capabilities of peer node
+  * @silent_intv_cnt: # of timer intervals without any reception from peer
+  * @proto_msg: template for control messages generated by link
+  * @pmsg: convenience pointer to "proto_msg" field
+@@ -162,6 +163,7 @@ struct tipc_link {
+ 	unsigned long keepalive_intv;
+ 	u32 abort_limit;
+ 	u32 state;
++	u16 peer_caps;
+ 	u32 silent_intv_cnt;
+ 	struct {
+ 		unchar hdr[INT_H_SIZE];
+@@ -215,11 +217,11 @@ struct tipc_link {
+ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
+ 		      int tolerance, char net_plane, u32 mtu, int priority,
+ 		      int window, u32 session, u32 ownnode, u32 peer,
+-		      struct tipc_media_addr *maddr,
++		      u16 peer_caps, struct tipc_media_addr *maddr,
+ 		      struct sk_buff_head *inputq, struct sk_buff_head *namedq,
+ 		      struct tipc_link **link);
+ bool tipc_link_bc_create(struct tipc_node *n, int mtu, int window,
+-			 struct sk_buff_head *inputq,
++			 u16 peer_caps, struct sk_buff_head *inputq,
+ 			 struct sk_buff_head *namedq,
+ 			 struct tipc_link **link);
+ void tipc_link_tnl_prepare(struct tipc_link *l, struct tipc_link *tnl,
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index d3f7ca2..28bcd7b 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -584,8 +584,10 @@ void tipc_node_check_dest(struct net *net, u32 onode,
+ 		if (!tipc_link_create(n, if_name, b->identity, b->tolerance,
+ 				      b->net_plane, b->mtu, b->priority,
+ 				      b->window, mod(tipc_net(net)->random),
+-				      tipc_own_addr(net), onode, &le->maddr,
+-				      &le->inputq, &n->bclink.namedq, &l)) {
++				      tipc_own_addr(net), onode,
++				      n->capabilities,
++				      &le->maddr, &le->inputq,
++				      &n->bclink.namedq, &l)) {
+ 			*respond = false;
+ 			goto exit;
+ 		}
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 344b3e7..1465774 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -62,6 +62,14 @@ enum {
+ 	TIPC_BCAST_RESET		= (1 << 10)
+ };
  
--	spin_lock_init(&bclink->lock);
-+	spin_lock_init(&tipc_net(net)->bclock);
- 	__skb_queue_head_init(&bcl->transmq);
- 	__skb_queue_head_init(&bcl->backlogq);
- 	__skb_queue_head_init(&bcl->deferdq);
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index d379b0a..eac912a 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -69,4 +69,14 @@ int tipc_nl_bc_link_set(struct net *net, struct nlattr *attrs[]);
- void tipc_bclink_input(struct net *net);
- void tipc_bclink_sync_state(struct tipc_node *n, struct tipc_msg *msg);
- 
-+static inline void tipc_bcast_lock(struct net *net)
-+{
-+	spin_lock_bh(&tipc_net(net)->bclock);
-+}
++/* Optional capabilities supported by this code version
++ */
++enum {
++	TIPC_BCAST_SYNCH = (1 << 1)
++};
 +
-+static inline void tipc_bcast_unlock(struct net *net)
-+{
-+	spin_unlock_bh(&tipc_net(net)->bclock);
-+}
++#define TIPC_NODE_CAPABILITIES TIPC_BCAST_SYNCH
 +
- #endif
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index e4e9a56..645dcac 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -93,6 +93,7 @@ struct tipc_net {
- 	struct tipc_bearer __rcu *bearer_list[MAX_BEARERS + 1];
- 
- 	/* Broadcast link */
-+	spinlock_t bclock;
- 	struct tipc_bcbearer *bcbearer;
- 	struct tipc_bc_base *bcbase;
- 	struct tipc_link *bcl;
+ /**
+  * struct tipc_node_bclink - TIPC node bclink structure
+  * @acked: sequence # of last outbound b'cast message acknowledged by node
 -- 
 1.9.1
 
