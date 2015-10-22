@@ -1,77 +1,70 @@
-From: Thomas Haller <thaller@redhat.com>
-Subject: [PATCH iproute2] ip-address: properly display zero IPv4 peer address
-Date: Thu, 22 Oct 2015 10:34:28 +0200
-Message-ID: <1445502868-29474-1-git-send-email-thaller@redhat.com>
-Cc: Thomas Haller <thaller@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39057 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751523AbbJVIed (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2015 04:34:33 -0400
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	by mx1.redhat.com (Postfix) with ESMTPS id 4DABCC075D95
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 08:34:33 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH 1/2] can: xilinx: use readl/writel instead of
+ ioread/iowrite
+Date: Thu, 22 Oct 2015 08:34:53 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A4F2CDB@XAP-PVEXMBX01.xlnx.xilinx.com>
+References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
+ <4061693.oBld7AKBIp@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Anirudha Sarangi <anirudh@xilinx.com>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4061693.oBld7AKBIp@wuerfel>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kernel allows for zero IPv4 peer addresses (IFA_ADDRESS):
+Hi Arnd,	
 
-   ip address add 192.168.5.1 peer 0.0.0.0/24 dev dummy
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd@arndb.de]
+> Sent: Thursday, October 22, 2015 1:45 PM
+> To: linux-arm-kernel@lists.infradead.org
+> Cc: Appana Durga Kedareswara Rao; Anirudha Sarangi; wg@grandegger.com;
+> mkl@pengutronix.de; Michal Simek; Soren Brinkmann; Appana Durga
+> Kedareswara Rao; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-
+> can@vger.kernel.org
+> Subject: Re: [PATCH 1/2] can: xilinx: use readl/writel instead of ioread/iowrite
+> 
+> On Thursday 22 October 2015 10:16:02 Kedareswara rao Appana wrote:
+> > The driver only supports memory-mapped I/O [by ioremap()], so
+> > readl/writel is actually the right thing to do, IMO.
+> > During the validation of this driver or IP on ARM 64-bit processor
+> > while sending lot of packets observed that the tx packet drop with
+> > iowrite Putting the barriers for each tx fifo register write fixes
+> > this issue Instead of barriers using writel also fixed this issue.
+> >
+> > Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> 
+> The two should really do the same thing: iowrite32() is just a static inline calling
+> writel() on both ARM32 and ARM64. On which kernel version did you observe the
+> difference? It's possible that an older version used CONFIG_GENERIC_IOMAP,
+> which made this slightly more expensive.
 
-which is distinct from a usual address like:
+I observed this issue with the 4.0.0 kernel version
 
-   ip address add 192.168.5.1/24 dev dummy
-   ip address add 192.168.5.1 peer 192.168.5.1/24 dev dummy
+> 
+> If there are barriers that you want to get rid of for performance reasons, you
+> should use writel_relaxed(), but be careful to synchronize them correctly with
+> regard to DMA. It should be fine in this driver, as it does not perform any DMA,
+> but be aware that there is no big-endian version of
+> writel_relaxed() at the moment.
 
-For IPv4, a missing IFA_ADDRESS attribute means that the peer
-is 0.0.0.0. See inet_fill_ifaddr(), which does:
+There is no DMA in CAN for this IP.
 
-  if ((ifa->ifa_address &&
-       nla_put_in_addr(skb, IFA_ADDRESS, ifa->ifa_address)) ||
+Regards,
+Kedar.
 
-Signed-off-by: Thomas Haller <thaller@redhat.com>
----
- ip/ipaddress.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index f290205..6fc4520 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -949,7 +949,8 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 
- 	if (!rta_tb[IFA_LOCAL])
- 		rta_tb[IFA_LOCAL] = rta_tb[IFA_ADDRESS];
--	if (!rta_tb[IFA_ADDRESS])
-+	if (!rta_tb[IFA_ADDRESS] &&
-+	    ifa->ifa_family != AF_INET)
- 		rta_tb[IFA_ADDRESS] = rta_tb[IFA_LOCAL];
- 
- 	if (filter.ifindex && filter.ifindex != ifa->ifa_index)
-@@ -1034,16 +1035,18 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 						RTA_DATA(rta_tb[IFA_LOCAL]),
- 						abuf, sizeof(abuf)));
- 
--		if (rta_tb[IFA_ADDRESS] == NULL ||
-+		if (rta_tb[IFA_ADDRESS] != NULL &&
- 		    memcmp(RTA_DATA(rta_tb[IFA_ADDRESS]), RTA_DATA(rta_tb[IFA_LOCAL]),
- 			   ifa->ifa_family == AF_INET ? 4 : 16) == 0) {
- 			fprintf(fp, "/%d ", ifa->ifa_prefixlen);
- 		} else {
- 			fprintf(fp, " peer %s/%d ",
--				format_host(ifa->ifa_family,
--					    RTA_PAYLOAD(rta_tb[IFA_ADDRESS]),
--					    RTA_DATA(rta_tb[IFA_ADDRESS]),
--					    abuf, sizeof(abuf)),
-+				rta_tb[IFA_ADDRESS]
-+					? format_host(ifa->ifa_family,
-+						      RTA_PAYLOAD(rta_tb[IFA_ADDRESS]),
-+						      RTA_DATA(rta_tb[IFA_ADDRESS]),
-+						      abuf, sizeof(abuf))
-+					: "0.0.0.0",
- 				ifa->ifa_prefixlen);
- 		}
- 	}
--- 
-2.4.3
+> 
+> 	Arnd
