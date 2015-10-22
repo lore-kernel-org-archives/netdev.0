@@ -1,55 +1,66 @@
-From: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Subject: Re: [PATCH 7/8] mm: vmscan: report vmpressure at the level of
- reclaim activity
-Date: Thu, 22 Oct 2015 21:48:53 +0300
-Message-ID: <20151022184852.GP18351@esperanza>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-8-git-send-email-hannes@cmpxchg.org>
+From: punit vara <punitvara@gmail.com>
+Subject: Re: [PATCH v3 14/15] net: wireless: ath: Remove unneeded variable ret
+ returning 0
+Date: Fri, 23 Oct 2015 00:23:38 +0530
+Message-ID: <CABXAfNJt4xOhyq1RkN7hNrajqaXLJmU42arydG8Z1KWVsPJ1uQ@mail.gmail.com>
+References: <1445538363-2893-1-git-send-email-punitvara@gmail.com>
+	<56292C55.4030706@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1445487696-21545-8-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: jirislaby@gmail.com, Nick Kossifidis <mickflemm@gmail.com>,
+	mcgrof@do-not-panic.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56292C55.4030706@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 12:21:35AM -0400, Johannes Weiner wrote:
-...
-> @@ -2437,6 +2439,10 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  				}
->  			}
->  
-> +			vmpressure(sc->gfp_mask, memcg,
-> +				   sc->nr_scanned - scanned,
-> +				   sc->nr_reclaimed - reclaimed);
-> +
->  			/*
->  			 * Direct reclaim and kswapd have to scan all memory
->  			 * cgroups to fulfill the overall scan target for the
-> @@ -2454,10 +2460,6 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			}
->  		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
->  
-> -		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
-> -			   sc->nr_scanned - nr_scanned,
-> -			   sc->nr_reclaimed - nr_reclaimed);
-> -
->  		if (sc->nr_reclaimed - nr_reclaimed)
->  			reclaimable = true;
->  
+On Fri, Oct 23, 2015 at 12:05 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 10/22/2015 09:26 PM, Punit Vara wrote:
+>
+>> This patch is to the ath5k/eeprom.c that fixes up warning caught by
+>> coccicheck:
+>>
+>> -Unneeded variable: "ret". Return "0" on line 1733
+>>
+>> Remove unneccesary variable ret created to return zero.
+>>
+>> Also removed empty line suggested by Sergei
+>>
+>> Signed-off-by: Punit Vara <punitvara@gmail.com>
+>> ---
+>>   drivers/net/wireless/ath/ath5k/eeprom.c | 5 ++---
+>>   1 file changed, 2 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c
+>> b/drivers/net/wireless/ath/ath5k/eeprom.c
+>> index 94d34ee..0c82ea5 100644
+>> --- a/drivers/net/wireless/ath/ath5k/eeprom.c
+>> +++ b/drivers/net/wireless/ath/ath5k/eeprom.c
+>> @@ -1707,8 +1707,7 @@ ath5k_eeprom_read_spur_chans(struct ath5k_hw *ah)
+>>         struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
+>>         u32 offset;
+>>         u16 val;
+>> -       int ret = 0, i;
+>> -
+>
+>
+>    No, this one shouldn't have been removed. There should an empty line
+> between the declarations and the statements.
+>
+>> +       int i;
+>>         offset = AR5K_EEPROM_CTL(ee->ee_version) +
+>>                                 AR5K_EEPROM_N_CTLS(ee->ee_version);
+>>
+>
+> MBR, Sergei
+>
 
-I may be mistaken, but AFAIU this patch subtly changes the behavior of
-vmpressure visible from the userspace: w/o this patch a userspace
-process will only receive a notification for a memory cgroup only if
-*this* memory cgroup calls reclaimer; with this patch userspace
-notification will be issued even if reclaimer is invoked by any cgroup
-up the hierarchy.
-
-Thanks,
-Vladimir
+I have resent patch with update but I cant see it in my mailbox I dont
+know Why.. Sorry if You are getting mail more time. I am sending final
+version v5 as last.Please sorry for inconvenience
