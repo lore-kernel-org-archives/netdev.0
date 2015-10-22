@@ -1,371 +1,126 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: remove debugfs interface
-Date: Thu, 22 Oct 2015 16:54:31 -0400
-Message-ID: <1445547271-28003-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: sh_eth.c::sh_eth_rx(): mdp->rx_skbuff[entry] can be NULL
+Date: Fri, 23 Oct 2015 00:17:54 +0300
+Message-ID: <56295282.7070202@cogentembedded.com>
+References: <87oafusy11.wl@dns1.atmark-techno.com>
+ <5626A881.2080701@cogentembedded.com> <87eggosmvk.wl@dns1.atmark-techno.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yasushi SHOJI <yashi@atmark-techno.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:34506 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964833AbbJVVSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 17:18:00 -0400
+Received: by lfaz124 with SMTP id z124so63035754lfa.1
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 14:17:58 -0700 (PDT)
+In-Reply-To: <87eggosmvk.wl@dns1.atmark-techno.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is preferable to have a common debugfs interface for DSA or switchdev
-instead of a driver specific one. Thus remove the mv88e6xxx debug code.
+Hello.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 291 --------------------------------------------
- drivers/net/dsa/mv88e6xxx.h |   2 -
- 2 files changed, 293 deletions(-)
+On 10/21/2015 10:26 AM, Yasushi SHOJI wrote:
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 39664d8..7af9630 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -11,7 +11,6 @@
-  * (at your option) any later version.
-  */
- 
--#include <linux/debugfs.h>
- #include <linux/delay.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
-@@ -21,7 +20,6 @@
- #include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
--#include <linux/seq_file.h>
- #include <net/dsa.h>
- #include <net/switchdev.h>
- #include "mv88e6xxx.h"
-@@ -876,13 +874,6 @@ static int _mv88e6xxx_atu_wait(struct dsa_switch *ds)
- 			       GLOBAL_ATU_OP_BUSY);
- }
- 
--/* Must be called with SMI lock held */
--static int _mv88e6xxx_scratch_wait(struct dsa_switch *ds)
--{
--	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_SCRATCH_MISC,
--			       GLOBAL2_SCRATCH_BUSY);
--}
--
- /* Must be called with SMI mutex held */
- static int _mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int addr,
- 					int regnum)
-@@ -2107,273 +2098,9 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
- 	return 0;
- }
- 
--static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
--{
--	struct dsa_switch *ds = s->private;
--
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int reg, port;
--
--	seq_puts(s, "    GLOBAL GLOBAL2 ");
--	for (port = 0 ; port < ps->num_ports; port++)
--		seq_printf(s, " %2d  ", port);
--	seq_puts(s, "\n");
--
--	for (reg = 0; reg < 32; reg++) {
--		seq_printf(s, "%2x: ", reg);
--		seq_printf(s, " %4x    %4x  ",
--			   mv88e6xxx_reg_read(ds, REG_GLOBAL, reg),
--			   mv88e6xxx_reg_read(ds, REG_GLOBAL2, reg));
--
--		for (port = 0 ; port < ps->num_ports; port++)
--			seq_printf(s, "%4x ",
--				   mv88e6xxx_reg_read(ds, REG_PORT(port), reg));
--		seq_puts(s, "\n");
--	}
--
--	return 0;
--}
--
--static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, mv88e6xxx_regs_show, inode->i_private);
--}
--
--static const struct file_operations mv88e6xxx_regs_fops = {
--	.open   = mv88e6xxx_regs_open,
--	.read   = seq_read,
--	.llseek = no_llseek,
--	.release = single_release,
--	.owner  = THIS_MODULE,
--};
--
--static void mv88e6xxx_atu_show_header(struct seq_file *s)
--{
--	seq_puts(s, "DB   T/P  Vec State Addr\n");
--}
--
--static void mv88e6xxx_atu_show_entry(struct seq_file *s, int dbnum,
--				     unsigned char *addr, int data)
--{
--	bool trunk = !!(data & GLOBAL_ATU_DATA_TRUNK);
--	int portvec = ((data & GLOBAL_ATU_DATA_PORT_VECTOR_MASK) >>
--		       GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT);
--	int state = data & GLOBAL_ATU_DATA_STATE_MASK;
--
--	seq_printf(s, "%03x %5s %10pb   %x   %pM\n",
--		   dbnum, (trunk ? "Trunk" : "Port"), &portvec, state, addr);
--}
--
--static int mv88e6xxx_atu_show_db(struct seq_file *s, struct dsa_switch *ds,
--				 int dbnum)
--{
--	unsigned char bcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
--	unsigned char addr[6];
--	int ret, data, state;
--
--	ret = _mv88e6xxx_atu_mac_write(ds, bcast);
--	if (ret < 0)
--		return ret;
--
--	do {
--		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID,
--					   dbnum);
--		if (ret < 0)
--			return ret;
--
--		ret = _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_GET_NEXT_DB);
--		if (ret < 0)
--			return ret;
--
--		data = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
--		if (data < 0)
--			return data;
--
--		state = data & GLOBAL_ATU_DATA_STATE_MASK;
--		if (state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			break;
--		ret = _mv88e6xxx_atu_mac_read(ds, addr);
--		if (ret < 0)
--			return ret;
--		mv88e6xxx_atu_show_entry(s, dbnum, addr, data);
--	} while (state != GLOBAL_ATU_DATA_STATE_UNUSED);
--
--	return 0;
--}
--
--static int mv88e6xxx_atu_show(struct seq_file *s, void *p)
--{
--	struct dsa_switch *ds = s->private;
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int dbnum;
--
--	mv88e6xxx_atu_show_header(s);
--
--	for (dbnum = 0; dbnum < 255; dbnum++) {
--		mutex_lock(&ps->smi_mutex);
--		mv88e6xxx_atu_show_db(s, ds, dbnum);
--		mutex_unlock(&ps->smi_mutex);
--	}
--
--	return 0;
--}
--
--static int mv88e6xxx_atu_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, mv88e6xxx_atu_show, inode->i_private);
--}
--
--static const struct file_operations mv88e6xxx_atu_fops = {
--	.open   = mv88e6xxx_atu_open,
--	.read   = seq_read,
--	.llseek = no_llseek,
--	.release = single_release,
--	.owner  = THIS_MODULE,
--};
--
--static void mv88e6xxx_stats_show_header(struct seq_file *s,
--					struct mv88e6xxx_priv_state *ps)
--{
--	int port;
--
--	seq_puts(s, "      Statistic       ");
--	for (port = 0 ; port < ps->num_ports; port++)
--		seq_printf(s, "Port %2d  ", port);
--	seq_puts(s, "\n");
--}
--
--static int mv88e6xxx_stats_show(struct seq_file *s, void *p)
--{
--	struct dsa_switch *ds = s->private;
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct mv88e6xxx_hw_stat *stats = mv88e6xxx_hw_stats;
--	int port, stat, max_stats;
--	uint64_t value;
--
--	if (have_sw_in_discards(ds))
--		max_stats = ARRAY_SIZE(mv88e6xxx_hw_stats);
--	else
--		max_stats = ARRAY_SIZE(mv88e6xxx_hw_stats) - 3;
--
--	mv88e6xxx_stats_show_header(s, ps);
--
--	mutex_lock(&ps->smi_mutex);
--
--	for (stat = 0; stat < max_stats; stat++) {
--		seq_printf(s, "%19s: ", stats[stat].string);
--		for (port = 0 ; port < ps->num_ports; port++) {
--			_mv88e6xxx_stats_snapshot(ds, port);
--			value = _mv88e6xxx_get_ethtool_stat(ds, stat, stats,
--							    port);
--			seq_printf(s, "%8llu ", value);
--		}
--		seq_puts(s, "\n");
--	}
--	mutex_unlock(&ps->smi_mutex);
--
--	return 0;
--}
--
--static int mv88e6xxx_stats_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, mv88e6xxx_stats_show, inode->i_private);
--}
--
--static const struct file_operations mv88e6xxx_stats_fops = {
--	.open   = mv88e6xxx_stats_open,
--	.read   = seq_read,
--	.llseek = no_llseek,
--	.release = single_release,
--	.owner  = THIS_MODULE,
--};
--
--static int mv88e6xxx_device_map_show(struct seq_file *s, void *p)
--{
--	struct dsa_switch *ds = s->private;
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int target, ret;
--
--	seq_puts(s, "Target Port\n");
--
--	mutex_lock(&ps->smi_mutex);
--	for (target = 0; target < 32; target++) {
--		ret = _mv88e6xxx_reg_write(
--			ds, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING,
--			target << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT);
--		if (ret < 0)
--			goto out;
--		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2,
--					  GLOBAL2_DEVICE_MAPPING);
--		seq_printf(s, "  %2d   %2d\n", target,
--			   ret & GLOBAL2_DEVICE_MAPPING_PORT_MASK);
--	}
--out:
--	mutex_unlock(&ps->smi_mutex);
--
--	return 0;
--}
--
--static int mv88e6xxx_device_map_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, mv88e6xxx_device_map_show, inode->i_private);
--}
--
--static const struct file_operations mv88e6xxx_device_map_fops = {
--	.open   = mv88e6xxx_device_map_open,
--	.read   = seq_read,
--	.llseek = no_llseek,
--	.release = single_release,
--	.owner  = THIS_MODULE,
--};
--
--static int mv88e6xxx_scratch_show(struct seq_file *s, void *p)
--{
--	struct dsa_switch *ds = s->private;
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int reg, ret;
--
--	seq_puts(s, "Register Value\n");
--
--	mutex_lock(&ps->smi_mutex);
--	for (reg = 0; reg < 0x80; reg++) {
--		ret = _mv88e6xxx_reg_write(
--			ds, REG_GLOBAL2, GLOBAL2_SCRATCH_MISC,
--			reg << GLOBAL2_SCRATCH_REGISTER_SHIFT);
--		if (ret < 0)
--			goto out;
--
--		ret = _mv88e6xxx_scratch_wait(ds);
--		if (ret < 0)
--			goto out;
--
--		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2,
--					  GLOBAL2_SCRATCH_MISC);
--		seq_printf(s, "  %2x   %2x\n", reg,
--			   ret & GLOBAL2_SCRATCH_VALUE_MASK);
--	}
--out:
--	mutex_unlock(&ps->smi_mutex);
--
--	return 0;
--}
--
--static int mv88e6xxx_scratch_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, mv88e6xxx_scratch_show, inode->i_private);
--}
--
--static const struct file_operations mv88e6xxx_scratch_fops = {
--	.open   = mv88e6xxx_scratch_open,
--	.read   = seq_read,
--	.llseek = no_llseek,
--	.release = single_release,
--	.owner  = THIS_MODULE,
--};
--
- int mv88e6xxx_setup_common(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	char *name;
- 
- 	mutex_init(&ps->smi_mutex);
- 
-@@ -2381,24 +2108,6 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 
- 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
- 
--	name = kasprintf(GFP_KERNEL, "dsa%d", ds->index);
--	ps->dbgfs = debugfs_create_dir(name, NULL);
--	kfree(name);
--
--	debugfs_create_file("regs", S_IRUGO, ps->dbgfs, ds,
--			    &mv88e6xxx_regs_fops);
--
--	debugfs_create_file("atu", S_IRUGO, ps->dbgfs, ds,
--			    &mv88e6xxx_atu_fops);
--
--	debugfs_create_file("stats", S_IRUGO, ps->dbgfs, ds,
--			    &mv88e6xxx_stats_fops);
--
--	debugfs_create_file("device_map", S_IRUGO, ps->dbgfs, ds,
--			    &mv88e6xxx_device_map_fops);
--
--	debugfs_create_file("scratch", S_IRUGO, ps->dbgfs, ds,
--			    &mv88e6xxx_scratch_fops);
- 	return 0;
- }
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 430de4f..6f9ed5d 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -406,8 +406,6 @@ struct mv88e6xxx_priv_state {
- 	u8 port_state[DSA_MAX_PORTS];
- 
- 	struct work_struct bridge_work;
--
--	struct dentry *dbgfs;
- };
- 
- struct mv88e6xxx_hw_stat {
--- 
-2.6.1
+> Thank your for your reply.
+
+    Not at all, I'm virtually a maintainer for that driver now, so trying to 
+filter out the related mails even if I don't have time to read thru all the 
+netdev mail.
+
+>> On 10/19/2015 06:01 PM, Yasushi SHOJI wrote:
+>>
+>>> I'm not that familiar with this code base so I'm note including any
+>>> patch yet.  I appreciate if someone with insight in this code give a
+>>> quick look and tell me that it's a real one or not.  if this is a real
+>>> case, I can take a deep look.
+>>
+>>     If you got the oops, it's real. Thanks for the reporting. I guess I
+>> should check the new ravb driver as well...
+>>     Do you want to try fixing the bug yourself?
+
+> Sure.  I can dive in to this.  I appreciate if someone who has worked
+> on sh_eth.c give me some design advises or tell me the initial design
+> thoughts / what was the intention when allocation if failed.
+
+    Hm, well, I seem to have some time to spend on fixing the issues in this 
+driver (I noticed a couple while doing the AVB driver), so spending time on 
+your "education" would seem somewhat inefficient... :-)
+
+> My idea right now is to simply invalidate the descriptor when
+> netdev_alloc_skb() failed.
+
+    Well, it depends. If you're talking about the second loop in sh_eth_rx(), 
+that seems a good idea (and it's what I've done for the dma_mapping_error() 
+case in the ravb driver -- I just set the descriptor's data size field to 0). 
+The OOM case seems to have been un-addressed in both drivers so far... If we 
+take sh_eth_ring_format(), I believe the best course of action is to just fail 
+on OOM since the driver doesn't correctly handle that case anyway AFAIR; and 
+that was implemented in the ravb driver.
+
+> When next packet arrived, in near future,
+> the driver can try again to allocate the buffer and update the
+> corresponding descriptor if succeeds.
+
+    It would be too late, unless you still mean the RX refilling loop in this 
+function.
+
+> If memory is not yet available
+> when the controller is trying to use the invalid descriptor, the
+> controller will see it and DMA will stop.
+
+    That means leaving RACT=0 and that's what the driver is even doing...
+    Hm, then I don't understand how the error you've described can occur, 
+unless we encounter OOM during sh_eth_ring_format()...
+
+> Is it acceptable path to go?
+
+    I'm not seeing a bug in this function, perhaps I'm missing something?
+
+> Here is how I understand this driver:
+
+[...]
+
+> The driver utilizes array of sk_buffs for tx and rx.  For rx, the
+> driver has an array of pointers of sk_buffs, rx_skbuff[]. This
+> rx_skbuff[] is filled with sk_buffs in sh_eth_ring_format() which is
+> called when the driver is open()ed.
+>
+> The controller, the driver is targeted to, is GETHER.
+
+    Well, it depends on your SoC, it may be 100 Mbps Ether.
+
+> A receive descriptor corresponds to one sk_buff.  The controller
+> expects array of descriptors in the system memory and treat it as a
+> ring, meaning that the controller process each descriptor one by one.
+> Once the controller finished the last descriptor, it will go back to
+> the first one.
+
+    Yes, it seems a correct description.
+
+> To achieve zero copy, the driver push the sk_buffs filled with
+> received packet to the netdev core with netif_receive_skb() then
+> netdev_alloc_skb() sk_buffs in the sh_eth_rx(), the poll method of the
+> driver, and update the corresponding descriptor.
+
+> If the allocation failed, it just leave the function, leaving old
+> pointer in the descriptor as is.
+
+    Yes, but note that it also leaves RACT=0, which basically means an invalid 
+descriptor, encountering which the reception should just stop.
+
+> In some future, the controller will
+> access the descriptor and writes to the old memory address. (I haven't
+> checked the state of bits in the descriptor yet)
+
+   Check it.
+
+> BTW, if any one has a bit of time, I have questions regarding to the
+> atomic allocation:
+
+    Sorry, I'm constantly short of time. Someone else will have to answer 
+that. :-)
+
+MBR, Sergei
