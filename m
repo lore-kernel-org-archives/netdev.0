@@ -1,39 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v3 2/2] iwlwifi: mvm: send large SKBs to the transport
-Date: Thu, 22 Oct 2015 05:03:26 -0700
-Message-ID: <1445515406.22974.107.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: mv88e6060: Fix false positive lockdep splat
+Date: Thu, 22 Oct 2015 14:06:07 +0200
+Message-ID: <20151022120607.GD1985@lunn.ch>
+References: <5627B149.6030109@baylibre.com>
+ <20151021161416.GG17207@lunn.ch>
+ <56289967.6010909@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	sara.sharon@intel.com, ido@wizery.com
-To: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35806 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757257AbbJVMD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:03:29 -0400
-In-Reply-To: <1445452464-19525-3-git-send-email-emmanuel.grumbach@intel.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:35795 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750978AbbJVMGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2015 08:06:22 -0400
+Content-Disposition: inline
+In-Reply-To: <56289967.6010909@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-10-21 at 21:34 +0300, Emmanuel Grumbach wrote:
-> +
-> +		if (skb->protocol == htons(ETH_P_IP)) {
-> +			ip_hdr(tmp)->id = ip_hdr(skb)->id;
+> Well, mdio-mux also calls switch_fn inside the mdio_lock, clean refactoring
+> would introduce a separate lock and call the nested variants.
+> Is that ok ? Can someone test mdio-mux if I make the change ?
 
-Too late, you already called consume_skb(skb).
-So this is a potential use after free.
+Hi Neil
 
-> +			be16_add_cpu(&ip_hdr(tmp)->id, i * num_subframes);
-> +		}
-> +
+I would not touch mdio-mux. As you said, it does more than lock, read,
+unlock. It is not something sufficiently generic to place into shared
+code.
 
-
-I would use 
-
-base_id = ip_hdr(skb)->id; // before the consume_skb(skb)
-
-ip_hdr(tmp)->id = htons(base_id + i * num_subframes);
+	Andrew
