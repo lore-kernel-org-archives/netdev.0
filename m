@@ -1,132 +1,197 @@
-From: Alan Burlison <Alan.Burlison@oracle.com>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 22 Oct 2015 11:55:42 +0100
-Message-ID: <5628C0AE.2020508@oracle.com>
-References: <20151019095938.72ea48e6@xeon-e3> <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com> <562594E1.8040403@oracle.com> <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com> <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk> <201510212033.t9LKX4G8007718@room101.nl.oracle.com> <20151022042100.GO22011@ZenIV.linux.org.uk>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2015-10-22
+Date: Thu, 22 Oct 2015 13:54:55 +0300
+Message-ID: <20151022105455.GA17775@t440s.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>, Casper.Dik@oracle.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="UugvWAfsgieZRqgk"
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50094 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbbJVKzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 06:55:54 -0400
-In-Reply-To: <20151022042100.GO22011@ZenIV.linux.org.uk>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:35068 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756631AbbJVK4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 06:56:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/10/2015 05:21, Al Viro wrote:
 
->> Most of the work on using a file descriptor is local to the thread.
->
-> Using - sure, but what of cacheline dirtied every time you resolve a
-> descriptor to file reference?
+--UugvWAfsgieZRqgk
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Don't you have to do that anyway, to do anything useful with the file?
+Hi Dave,
 
-> How much does it cover and to what
-> degree is that local to thread?  When it's a refcount inside struct file -
-> no big deal, we'll be reading the same cacheline anyway and unless several
-> threads are pounding on the same file with syscalls at the same time,
-> that won't be a big deal.  But when refcounts are associated with
-> descriptors...
+Here's probably the last bluetooth-next pull request for 4.4. Among
+several other changes it contains the rest of the fixes & cleanups from
+the Bluetooth UnplugFest (that didn't need to be hurried to 4.3).
 
-There is a refcount in the struct held in the per-process list of open 
-files and the 'slow path' processing is only taken if there's more than 
-one LWP in the process that's accessing the file.
+ - Refactoring & cleanups to 6lowpan code
+ - New USB ids for two Atheros controllers and BCM43142A0 from Broadcom
+ - Fix (quirk) for broken Broadcom BCM2045 controllers
+ - Support for latest Apple controllers
+ - Improvements to the vendor diagnostic message support
 
-> In case of Linux we have two bitmaps and an array of pointers associated
-> with descriptor table.  They grow on demand (in parallel)
-> 	* reserving a descriptor is done under ->file_lock (dropped/regained
-> around memory allocation if we end up expanding the sucker, actual reassignment
-> of pointers to array/bitmaps is under that spinlock)
-> 	* installing a pointer is lockless (we wait for ongoing resize to
-> settle, RCU takes care of the rest)
-> 	* grabbing a file by index is lockless as well
-> 	* removing a pointer is under ->file_lock, so's replacing it by dup2().
+Please let me know if there are any issues pulling. Thanks.
 
-Is that table per-process or global?
+Johan
 
-> The point is, dup2() over _unused_ descriptor is inherently racy, but dup2()
-> over a descriptor we'd opened and kept open should be safe.  As it is,
-> their implementation boils down to "userland must do process-wide exclusion
-> between *any* dup2() and all syscalls that might create a new descriptor -
-> open()/pipe()/socket()/accept()/recvmsg()/dup()/etc".  At the very least,
-> it's a big QoI problem, especially since such userland exclusion would have
-> to be taken around the operations that can block for a long time.  Sure,
-> POSIX wording regarding dup2 is so weak that this behaviour can be argued
-> to be compliant, but... replacement of the opened file associated with
-> newfd really ought to be atomic to be of any use for multithreaded processes.
+---
+The following changes since commit 26440c835f8b1a491e2704118ac55bf87334366c:
 
-There's existing language in the Issue 7 dup2() description that says 
-dup2() has to be atomic:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-10-20=
+ 06:08:27 -0700)
 
-"the dup2( ) function provides unique services, as no other
-interface is able to atomically replace an existing file descriptor."
+are available in the git repository at:
 
-And there is some new language in Issue 7 Technical Corrigenda 2 that 
-reinforces that, when it's talking about reassignment of 
-stdin/stdout/stderr:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.gi=
+t for-upstream
 
-"Furthermore, a close() followed by a reopen operation (e.g. open(), 
-dup() etc) is not atomic; dup2() should be used to change standard file 
-descriptors."
+for you to fetch changes up to 13972adc3240ea8b18b44906b819c622941a64b6:
 
-I don't think that it's possible to claim that a non-atomic dup2() is 
-POSIX-compliant.
+  Bluetooth: Increase minor version of core module (2015-10-22 13:37:26 +03=
+00)
 
-> IOW, if newfd is an opened descriptor prior to dup2() and no other thread
-> attempts to close it by any means, there should be no window during which
-> it would appear to be not opened.  Linux and FreeBSD satisfy that; OpenBSD
-> seems to do the same, from the quick look.  NetBSD doesn't, no idea about
-> Solaris.  FWIW, older NetBSD implementation (prior to "File descriptor changes,
-> discussed on tech-kern:" back in 2008) used to behave like OpenBSD one; it
-> had fixed a lot of crap, so it's entirely possible that OpenBSD simply has
-> kept the old implementation, with tons of other races in that area, but this
-> dup2() race got introduced in that rewrite.
+----------------------------------------------------------------
+Alexander Aring (13):
+      mac802154: llsec: use kzfree
+      bluetooth: 6lowpan: use lowpan dispatch helpers
+      6lowpan: introduce LOWPAN_IPHC_MAX_HC_BUF_LEN
+      6lowpan: cleanup lowpan_header_compress
+      6lowpan: cleanup lowpan_header_decompress
+      6lowpan: remove lowpan_fetch_skb_u8
+      6lowpan: nhc: move iphc manipulation out of nhc
+      6lowpan: move IPHC functionality defines
+      6lowpan: remove lowpan_is_addr_broadcast
+      6lowpan: iphc: change define values
+      6lowpan: rework tc and flow label handling
+      6lowpan: put mcast compression in an own function
+      ieee802154: 6lowpan: fix memory leak
 
-Related to dup2(), there's some rather surprising behaviour on Linux. 
-Here's the scenario:
+Arnd Bergmann (1):
+      Bluetooth: bpa10x: fix BT_HCIUART dependency
 
-----------
-ThreadA opens, listens and accepts on socket fd1, waiting for incoming 
-connections.
+Dan Carpenter (1):
+      Bluetooth: hci_bcm: checking for ERR_PTR instead of NULL
 
-ThreadB waits for a while, then opens normal file fd2 for read/write.
-ThreadB uses dup2 to make fd1 a clone of fd2.
-ThreadB closes fd2.
+David Herrmann (1):
+      Bluetooth: hidp: fix device disconnect on idle timeout
 
-ThreadA remains sat in accept on fd1 which is now a plain file, not a 
-socket.
+Dean Jenkins (3):
+      Bluetooth: Unwind l2cap_sock_shutdown()
+      Bluetooth: Reorganize mutex lock in l2cap_sock_shutdown()
+      Bluetooth: l2cap_disconnection_req priority over shutdown
 
-ThreadB writes to fd1, the result of which appears in the file, so fd1 
-is indeed operating as a plain file.
+Dmitry Tunin (2):
+      Bluetooth: ath3k: Add new AR3012 0930:021c id
+      Bluetooth: ath3k: Add support of AR3012 0cf3:817b device
 
-ThreadB exits. ThreadA is still sat in accept on fd1.
+Johan Hedberg (16):
+      Bluetooth: Don't use remote address type to decide IRK persistency
+      Bluetooth: Fix removing connection parameters when unpairing
+      Bluetooth: Fix missing hdev locking for LE scan cleanup
+      Bluetooth: Add le_addr_type() helper function
+      Bluetooth: Add hci_conn_hash_lookup_le() helper function
+      Bluetooth: Use hci_conn_hash_lookup_le() when possible
+      Bluetooth: 6lowpan: Use hci_conn_hash_lookup_le() when possible
+      Bluetooth: Remove unnecessary indentation in unpair_device()
+      Bluetooth: Add hdev helper variable to hci_le_create_connection_cancel
+      Bluetooth: Remove redundant (and possibly wrong) flag clearing
+      Bluetooth: Remove unnecessary hci_explicit_connect_lookup function
+      Bluetooth: Disable auto-connection parameters when unpairing
+      Bluetooth: Fix crash in SMP when unpairing
+      Bluetooth: Introduce hci_req helper to abort a connection
+      Bluetooth: Take advantage of connection abort helpers
+      Bluetooth: Make hci_disconnect() behave correctly for all states
 
-A connection is made to fd1 by another process. The accept call succeeds 
-and returns the incoming  connection. fd1 is still operating as a 
-socket, even though it's now actually a plain file.
-----------
+Marcel Holtmann (21):
+      Bluetooth: bpa10x: Fix missing BT_HCIUART dependency
+      Bluetooth: btusb: Add support for Broadcom LM_DIAG interface
+      Bluetooth: btintel: Add support for enabling tracing functionality
+      Bluetooth: Remove quirk for HCI_VENDOR_PKT filter handling
+      Bluetooth: Restrict valid packet types via HCI_CHANNEL_RAW
+      Bluetooth: Queue diagnostic messages together with HCI packets
+      Bluetooth: btusb: Print information of Intel SfP lock states
+      Bluetooth: Add new quirk for non-persistent diagnostic settings
+      Bluetooth: btintel: Set quirk for non-persistent diagnostic settings
+      Bluetooth: btintel: Add diagnostic support for older controllers
+      Bluetooth: btusb: Mark BCM2045 devices to have broken link key comman=
+ds
+      Bluetooth: btbcm: Fix firmware version number calculation
+      Bluetooth: btbcm: Read USB product information for Apple devices
+      Bluetooth: Add support setup stage internal notification event
+      Bluetooth: btusb: Set early vendor info for Intel and Broadcom
+      Bluetooth: btusb: Add support for latest Apple controllers
+      Bluetooth: hci_uart: Provide initial manufacturer information
+      Bluetooth: Introduce driver specific post init callback
+      Bluetooth: btusb: Set manufacturer for Intel bootloader devices
+      Bluetooth: btintel: Enable extra Intel vendor events
+      Bluetooth: Increase minor version of core module
 
-I assume this is another consequence of the fact that threads waiting in 
-accept don't get a notification if the fd they are using is closed, 
-either directly by a call to close or by a syscall such as dup2. Not 
-waking up other threads on a fd when it is closed seems like it's 
-undesirable behaviour.
+Santtu Rekil=E4 (1):
+      Bluetooth: btusb: Add support for Foxconn/Lenovo BCM43142A0 (105b:e06=
+5)
 
-I can see the reasoning behind allowing shutdown to be used to do such a 
-wakeup even if that's not POSIX-compliant - it may make it slightly 
-easier for applications avoid fd recycling races. However the current 
-situation is that shutdown is the *only* way to perform such a wakeup - 
-simply closing the fd has no effect on any other threads. That seems 
-incorrect.
+ drivers/bluetooth/Kconfig        |   2 +-
+ drivers/bluetooth/ath3k.c        |   4 +
+ drivers/bluetooth/btbcm.c        |  17 +-
+ drivers/bluetooth/btintel.c      | 127 +++++++
+ drivers/bluetooth/btintel.h      |  24 ++
+ drivers/bluetooth/btusb.c        | 306 ++++++++++++++++-
+ drivers/bluetooth/hci_ath.c      |   1 +
+ drivers/bluetooth/hci_bcm.c      |   5 +-
+ drivers/bluetooth/hci_intel.c    |   2 +
+ drivers/bluetooth/hci_ldisc.c    |   7 +
+ drivers/bluetooth/hci_qca.c      |   1 +
+ drivers/bluetooth/hci_uart.h     |   1 +
+ include/net/6lowpan.h            | 222 ++++---------
+ include/net/bluetooth/hci.h      |  10 +
+ include/net/bluetooth/hci_core.h |  31 +-
+ include/net/mac802154.h          |  10 +
+ net/6lowpan/iphc.c               | 677 ++++++++++++++++++++++++++---------=
+---
+ net/6lowpan/nhc.c                |  16 +-
+ net/6lowpan/nhc.h                |  12 +-
+ net/6lowpan/nhc_udp.c            |  22 +-
+ net/bluetooth/6lowpan.c          |  82 ++---
+ net/bluetooth/af_bluetooth.c     |   2 +-
+ net/bluetooth/hci_conn.c         | 167 ++++------
+ net/bluetooth/hci_core.c         |  52 +--
+ net/bluetooth/hci_event.c        |   3 +-
+ net/bluetooth/hci_request.c      |  93 ++++++
+ net/bluetooth/hci_request.h      |   4 +
+ net/bluetooth/hci_sock.c         |  40 ++-
+ net/bluetooth/hidp/core.c        |  14 +
+ net/bluetooth/l2cap_sock.c       |  71 ++--
+ net/bluetooth/mgmt.c             | 178 ++++------
+ net/bluetooth/smp.c              |  60 +++-
+ net/bluetooth/smp.h              |   1 +
+ net/ieee802154/6lowpan/rx.c      |  39 +--
+ net/ieee802154/6lowpan/tx.c      |   7 +-
+ net/mac802154/llsec.c            |  20 +-
+ 36 files changed, 1533 insertions(+), 797 deletions(-)
 
--- 
-Alan Burlison
---
+--UugvWAfsgieZRqgk
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWKMB/AAoJECQj9vv5qNQSXRIQAKbW6Z+fSZcfNOdDRSXz/jfj
+dam49zOX6nLD/4S0i8FBjRth+7p9gAIcA1aWdvDnO4HtcddMdOGuXRAICinvQRV8
+JRAjKOiBL3VWQ6ijOLZdSooQE+Qsrzct0/wKCfjm7RGDQSYmEAExk8kEs3u5lsOz
+J9Z9DuPAuRdYiNGdlyfvffRKSWFtXvA+9W2pXAqbI/areiVvFYG+xOsW/Iu3TM7B
+bRm0mtMaydTWymYgixpKO1UIbLcB8nUFHyfG3a/JleqRY2I0S09p/Uhn2gj8kfW1
+mnGa0ikeuEVYSxhxw9awjMOhCeIuoPz/U1yDj0q7AWPEt6OdP4fyEoGZXh0q4tpW
++vIFO70vtqEXSvYRJeDWVkrGPyE91D8BoQYeHaHaEYztCszJk+NN6ElcqF0qCZ9Z
+cAmQ0l77qGdE4KEguqg2dVny+K10PMyudYkYdlQmM4/jXvk6HTf+j/iRp0Nz828c
+g29HcdhRcPfYBY7214p8wzMNeY9OF3v+xl6GBVNdWXM+27pfzuW3PBBPIHLEh8hY
+kcFYkqsvkuXciJm22sAe03kPxxrDfC5V7kYtYYXlutf49Qtl76hGYVAS6eMccNwZ
+JRX7s2WGBePUd5GPlRQqDWbgLtO2v8S4quEs7Y7Jxel5mBYlReYsdMoBu11/Nj2A
+WASZFSMZavol09lgM9zm
+=6FrJ
+-----END PGP SIGNATURE-----
+
+--UugvWAfsgieZRqgk--
