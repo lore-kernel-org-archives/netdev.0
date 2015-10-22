@@ -1,46 +1,62 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH 2/2] can: xilinx: fix bug in bus error handling
-Date: Thu, 22 Oct 2015 09:33:15 -0700
-Message-ID: <20151022163315.GI5257@xsjsorenbubuntu>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
- <1445489163-11045-2-git-send-email-appanad@xilinx.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] net: try harder to not reuse ifindex when moving
+ interfaces
+Date: Thu, 22 Oct 2015 18:45:58 +0200
+Message-ID: <20151022164558.GH23554@pox.localdomain>
+References: <20151021164613.24650836@griffin>
+ <20151021.083214.534622235927401863.davem@davemloft.net>
+ <20151021172502.63220dbb@griffin>
+ <20151021.085635.1582760365341524949.davem@davemloft.net>
+ <1445447578.1265325.416533273.3D5599FD@webmail.messagingengine.com>
+ <5628F81D.1070009@6wind.com>
+ <20151022170100.1e45a8b8@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <anirudh@xilinx.com>, <wg@grandegger.com>, <mkl@pengutronix.de>,
-	<michal.simek@xilinx.com>, <appanad@xilinx.com>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	thaller@redhat.com
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37782 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbbJVQqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 12:46:01 -0400
+Received: by wicfv8 with SMTP id fv8so128970123wic.0
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 09:45:59 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1445489163-11045-2-git-send-email-appanad@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20151022170100.1e45a8b8@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-10-22 at 10:16AM +0530, Kedareswara rao Appana wrote:
-> Simply resetting the peripheral on bus off condition is not enough,
-> Because we also need to re-initialize the whole device.
-> This patch fixes this issue.
->=20
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> ---
->  drivers/net/can/xilinx_can.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_ca=
-n.c
-> index 055d6f3..9aeb85f 100644
-> --- a/drivers/net/can/xilinx_can.c
-> +++ b/drivers/net/can/xilinx_can.c
-> @@ -529,6 +529,8 @@ static int xcan_rx(struct net_device *ndev)
->  	return 1;
->  }
-> =20
-> +static void xcan_chip_stop(struct net_device *ndev);
+On 10/22/15 at 05:00pm, Jiri Benc wrote:
+> On Thu, 22 Oct 2015 16:52:13 +0200, Nicolas Dichtel wrote:
+> > With the proposed scenario:
+> > 1. create netns 'new_netns'
+> > 2. in root netns, move the interface with ifindex 2 to new_netns
+> > 3. in new_netns, delete the interface with ifindex 2
+> > 4. in new_netns, create an interface - it will get ifindex 2
+> > 
+> > Operation 2 and 4 are done by dev_change_net_namespace() under rtnl_lock().
+> > RTM_DELLINK(root netns) and RTM_NEWLINK(new_netns) are sent by this function.
+> > It means that operation 3 has been done before and that RTM_DELLINK(new_netns)
+> > has been sent before.
+> 
+> Imagine the application trying to configure the interface with ifindex 2
+> after your step 2. It constructs a netlink message and sends it to the
+> kernel; but while doing so, steps 3 and 4 happen. Now the application
+> ends up configuring a different interface than it intended to. After
+> that, it polls the netlink socket and receives the notifications about
+> interface disappearing and a new one appearing.
+> 
+> I don't see any way the user space application can prevent this. There
+> will always be a race between receiving netlink notifications and
+> sending config requests.
+> 
+> I guess Thomas Haller can elaborate more as he ran into this.
 
-Isn't it possible to move the function and avoid the forward
-declaration?
-
-	S=C3=B6ren
+I understand the race but when does it occur? Whoever creates
+the original interface owns it and is responsible for its
+lifecycle. *Iff* for some reason multiple entities manipulate
+the interface, then it's probably a lot safer to just use flock
+or something similar to serialize access entirely in user space.
