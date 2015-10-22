@@ -1,45 +1,168 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC Patch 05/12] IXGBE: Add new sysfs interface
- of "notify_vf"
-Date: Thu, 22 Oct 2015 15:51:51 +0300
-Message-ID: <20151022155111-mutt-send-email-mst@redhat.com>
-References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
-	<1445445464-5056-6-git-send-email-tianyu.lan@intel.com>
-	<5627FB20.3020003@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, kvm@vger.kernel.org, linux-pci@vger.kernel.org,
-	qemu-devel@nongnu.org, jesse.brandeburg@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	agraf@suse.de, matthew.vick@intel.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	yang.z.zhang@intel.com, mitch.a.williams@intel.com,
-	nrupal.jani@intel.com, bhelgaas@google.com,
-	Lan Tianyu <tianyu.lan@intel.com>, netdev@vger.kernel.org,
-	shannon.nelson@intel.com, eddie.dong@intel.com,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com, pbonzini@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-Content-Disposition: inline
-In-Reply-To: <5627FB20.3020003@gmail.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 03/16] tipc: create broadcast transmission link at namespace init
+Date: Thu, 22 Oct 2015 08:51:35 -0400
+Message-ID: <1445518308-26200-4-git-send-email-jon.maloy@ericsson.com>
+References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:34243 "EHLO
+	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757409AbbJVMwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:52:34 -0400
+In-Reply-To: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2015 at 01:52:48PM -0700, Alexander Duyck wrote:
-> Also have you even considered the MSI-X configuration on the VF?  I haven't
-> seen anything anywhere that would have migrated the VF's MSI-X configuration
-> from BAR 3 on one system to the new system.
+The broadcast transmission link is currently instantiated when the
+network subsystem is started, i.e., on order from user space via netlink.
 
-Hypervisors do this for virtual devices so they can do this
-for physical devices too.
+This forces the broadcast transmission code to do unnecessary tests for
+the existence of the transmission link, as well in single mode node as
+in network mode.
 
+In this commit, we do instead create the link during initialization of
+the name space, and remove it when it is stopped. The fact that the
+transmission link now has a guaranteed longer life cycle than any of its
+potential clients paves the way for further code simplifcations
+and optimizations.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/bcast.c | 15 +++++++++++++--
+ net/tipc/bcast.h |  1 +
+ net/tipc/core.c  |  9 +++++++++
+ net/tipc/net.c   |  6 +-----
+ 4 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index ebf4fd7..c6f0d1d 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -106,6 +106,11 @@ struct tipc_bc_base {
+ 	struct tipc_node *retransmit_to;
+ };
+ 
++static struct tipc_bc_base *tipc_bc_base(struct net *net)
++{
++	return tipc_net(net)->bcbase;
++}
++
+ /**
+  * tipc_nmap_equal - test for equality of node maps
+  */
+@@ -1041,7 +1046,7 @@ int tipc_bcast_init(struct net *net)
+ 	bcl->bearer_id = MAX_BEARERS;
+ 	rcu_assign_pointer(tn->bearer_list[MAX_BEARERS], &bcbearer->bearer);
+ 	bcl->pmsg = (struct tipc_msg *)&bcl->proto_msg;
+-	msg_set_prevnode(bcl->pmsg, tn->own_addr);
++
+ 	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
+ 	tn->bcbearer = bcbearer;
+ 	tn->bcbase = bclink;
+@@ -1049,6 +1054,13 @@ int tipc_bcast_init(struct net *net)
+ 	return 0;
+ }
+ 
++void tipc_bcast_reinit(struct net *net)
++{
++	struct tipc_bc_base *b = tipc_bc_base(net);
++
++	msg_set_prevnode(b->link.pmsg, tipc_own_addr(net));
++}
++
+ void tipc_bcast_stop(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+@@ -1056,7 +1068,6 @@ void tipc_bcast_stop(struct net *net)
+ 	tipc_bclink_lock(net);
+ 	tipc_link_purge_queues(tn->bcl);
+ 	tipc_bclink_unlock(net);
+-
+ 	RCU_INIT_POINTER(tn->bearer_list[BCBEARER], NULL);
+ 	synchronize_net();
+ 	kfree(tn->bcbearer);
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index eac912a..041935d 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -47,6 +47,7 @@ struct tipc_node_map;
+ extern const char tipc_bclink_name[];
+ 
+ int tipc_bcast_init(struct net *net);
++void tipc_bcast_reinit(struct net *net);
+ void tipc_bcast_stop(struct net *net);
+ void tipc_bclink_add_node(struct net *net, u32 addr);
+ void tipc_bclink_remove_node(struct net *net, u32 addr);
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 005ba5e..03a8428 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -42,6 +42,7 @@
+ #include "bearer.h"
+ #include "net.h"
+ #include "socket.h"
++#include "bcast.h"
+ 
+ #include <linux/module.h>
+ 
+@@ -71,8 +72,15 @@ static int __net_init tipc_init_net(struct net *net)
+ 	err = tipc_topsrv_start(net);
+ 	if (err)
+ 		goto out_subscr;
++
++	err = tipc_bcast_init(net);
++	if (err)
++		goto out_bclink;
++
+ 	return 0;
+ 
++out_bclink:
++	tipc_bcast_stop(net);
+ out_subscr:
+ 	tipc_nametbl_stop(net);
+ out_nametbl:
+@@ -85,6 +93,7 @@ static void __net_exit tipc_exit_net(struct net *net)
+ {
+ 	tipc_topsrv_stop(net);
+ 	tipc_net_stop(net);
++	tipc_bcast_stop(net);
+ 	tipc_nametbl_stop(net);
+ 	tipc_sk_rht_destroy(net);
+ }
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index dc623d5..77bf911 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -112,14 +112,11 @@ int tipc_net_start(struct net *net, u32 addr)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	char addr_string[16];
+-	int res;
+ 
+ 	tn->own_addr = addr;
+ 	tipc_named_reinit(net);
+ 	tipc_sk_reinit(net);
+-	res = tipc_bcast_init(net);
+-	if (res)
+-		return res;
++	tipc_bcast_reinit(net);
+ 
+ 	tipc_nametbl_publish(net, TIPC_CFG_SRV, tn->own_addr, tn->own_addr,
+ 			     TIPC_ZONE_SCOPE, 0, tn->own_addr);
+@@ -142,7 +139,6 @@ void tipc_net_stop(struct net *net)
+ 			      tn->own_addr);
+ 	rtnl_lock();
+ 	tipc_bearer_stop(net);
+-	tipc_bcast_stop(net);
+ 	tipc_node_stop(net);
+ 	rtnl_unlock();
+ 
 -- 
-MST
+1.9.1
