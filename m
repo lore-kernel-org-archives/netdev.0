@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: hisilicon: deals with the sub ctrl by
- syscon
-Date: Thu, 22 Oct 2015 07:20:05 -0700 (PDT)
-Message-ID: <20151022.072005.867458819587525446.davem@davemloft.net>
-References: <1445421464-238140-1-git-send-email-yankejian@huawei.com>
+Subject: Re: [PATCH] VSOCK: sock_put wasn't safe to call in interrupt
+ context
+Date: Thu, 22 Oct 2015 07:21:39 -0700 (PDT)
+Message-ID: <20151022.072139.454804647788377055.davem@davemloft.net>
+References: <1445428436-52369-1-git-send-email-jhansen@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: liguozhu@huawei.com, yisen.zhuang@huawei.com,
-	huangdaode@hisilicon.com, lipeng321@huawei.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: yankejian@huawei.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, pv-drivers@vmware.com
+To: jhansen@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445421464-238140-1-git-send-email-yankejian@huawei.com>
+In-Reply-To: <1445428436-52369-1-git-send-email-jhansen@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: yankejian <yankejian@huawei.com>
-Date: Wed, 21 Oct 2015 17:57:44 +0800
+From: Jorgen Hansen <jhansen@vmware.com>
+Date: Wed, 21 Oct 2015 04:53:56 -0700
 
->   the global Soc configuration is treated by syscon, and sub ctrl bus is
-> Soc bus. it has to be treated by syscon.
+> In the vsock vmci_transport driver, sock_put wasn't safe to call
+> in interrupt context, since that may call the vsock destructor
+> which in turn calls several functions that should only be called
+> from process context. This change defers the callling of these
+> functions  to a worker thread. All these functions were
+> deallocation of resources related to the transport itself.
 > 
-> Signed-off-by: yankejian <yankejian@huawei.com>
-> Signed-off-by: lisheng <lisheng011@huawei.com>
-> Signed-off-by: lipeng <lipeng321@huawei.com>
+> Furthermore, an unused callback was removed to simplify the
+> cleanup.
+> 
+> Multiple customers have been hitting this issue when using
+> VMware tools on vSphere 2015.
+> 
+> Also added a version to the vmci transport module (starting from
+> 1.0.2.0-k since up until now it appears that this module was
+> sharing version with vsock that is currently at 1.0.1.0-k).
+> 
+> Reviewed-by: Aditya Asarwade <asarwade@vmware.com>
+> Reviewed-by: Thomas Hellstrom <thellstrom@vmware.com>
+> Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
 
 Applied, thanks.
