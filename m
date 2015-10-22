@@ -1,61 +1,51 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
- hierarchy
-Date: Thu, 22 Oct 2015 21:47:57 +0300
-Message-ID: <20151022184757.GO18351@esperanza>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Johannes Weiner <hannes@cmpxchg.org>
+From: Punit Vara <punitvara@gmail.com>
+Subject: [PATCH v4 14/15] net: wireless: ath: Remove unneeded variable ret returning 0
+Date: Fri, 23 Oct 2015 00:17:50 +0530
+Message-ID: <1445539670-4018-1-git-send-email-punitvara@gmail.com>
+Cc: mickflemm@gmail.com, mcgrof@do-not-panic.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Punit Vara <punitvara@gmail.com>
+To: jirislaby@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 12:21:33AM -0400, Johannes Weiner wrote:
-...
-> @@ -5500,13 +5524,38 @@ void sock_release_memcg(struct sock *sk)
->   */
->  bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages)
->  {
-> +	unsigned int batch = max(CHARGE_BATCH, nr_pages);
->  	struct page_counter *counter;
-> +	bool force = false;
->  
-> -	if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter))
-> +	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys)) {
-> +		if (page_counter_try_charge(&memcg->skmem, nr_pages, &counter))
-> +			return true;
-> +		page_counter_charge(&memcg->skmem, nr_pages);
-> +		return false;
-> +	}
-> +
-> +	if (consume_stock(memcg, nr_pages))
->  		return true;
-> +retry:
-> +	if (page_counter_try_charge(&memcg->memory, batch, &counter))
-> +		goto done;
+Remove black line suggested by Sergei
 
-Currently, we use memcg->memory only for charging memory pages. Besides,
-every page charged to this counter (including kmem) has ->mem_cgroup
-field set appropriately. This looks consistent and nice. As an extra
-benefit, we can track all pages charged to a memory cgroup via
-/proc/kapgecgroup.
+This patch is to the ath5k/eeprom.c that fixes up warning caught by
+coccicheck:
 
-Now, you charge "window size" to it, which AFAIU isn't necessarily equal
-to the amount of memory actually consumed by the cgroup for socket
-buffers. I think this looks ugly and inconsistent with the existing
-behavior. I agree that we need to charge socker buffers to ->memory, but
-IMO we should do that per each skb page, using memcg_kmem_charge_kmem
-somewhere in alloc_skb_with_frags invoking the reclaimer just as we do
-for kmalloc, while tcp window size control should stay aside.
+Unneeded variable: "ret". Return "0" on line 980
 
-Thanks,
-Vladimir
+Remove unneeded variable ret created to return zero.
+
+Signed-off-by: Punit Vara <punitvara@gmail.com>
+---
+ drivers/net/wireless/ath/wcn36xx/main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 900e72a..94bcc08 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -935,8 +935,6 @@ static const struct ieee80211_ops wcn36xx_ops = {
+ 
+ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ {
+-	int ret = 0;
+-
+ 	static const u32 cipher_suites[] = {
+ 		WLAN_CIPHER_SUITE_WEP40,
+ 		WLAN_CIPHER_SUITE_WEP104,
+@@ -977,7 +975,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	wcn->hw->sta_data_size = sizeof(struct wcn36xx_sta);
+ 	wcn->hw->vif_data_size = sizeof(struct wcn36xx_vif);
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
+-- 
+2.5.3
