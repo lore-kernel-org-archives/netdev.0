@@ -1,96 +1,78 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/4] ipv6: Fix IPsec pre-encap fragmentation check
-Date: Thu, 22 Oct 2015 08:07:16 +0200
-Message-ID: <1445494039-2612-2-git-send-email-steffen.klassert@secunet.com>
-References: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: Re: [RFC v3 1/2] iwlwifi: pcie: allow to build an A-MSDU using TSO
+ core
+Date: Thu, 22 Oct 2015 06:07:42 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8AB4C7@hasmsx107.ger.corp.intel.com>
+References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
+ <1445452464-19525-2-git-send-email-emmanuel.grumbach@intel.com>
+ <1445470211.22974.86.camel@edumazet-glaptop2.roam.corp.google.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB32E8AB280@hasmsx107.ger.corp.intel.com>
+ <1445480807.22974.91.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sharon, Sara" <sara.sharon@intel.com>,
+	"ido@wizery.com" <ido@wizery.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50521 "EHLO a.mx.secunet.com"
+Received: from mga01.intel.com ([192.55.52.88]:39603 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751367AbbJVGH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2015 02:07:28 -0400
-In-Reply-To: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
+	id S1756482AbbJVGHr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 02:07:47 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
 
-The IPv6 IPsec pre-encap path performs fragmentation for tunnel-mode
-packets.  That is, we perform fragmentation pre-encap rather than
-post-encap.
 
-A check was added later to ensure that proper MTU information is
-passed back for locally generated traffic.  Unfortunately this
-check was performed on all IPsec packets, including transport-mode
-packets.
+On 10/22/2015 05:27 AM, Eric Dumazet wrote:
+> On Thu, 2015-10-22 at 00:14 +0000, Grumbach, Emmanuel wrote:
+> 
+>>
+>> Well. I guess I should at least check, but even with very small MSS, our
+>> device supports up to 20 pointers for the same 802.11 packet: 2 are for
+>> metadata. So basically, so leaves me only 18 pointers. for each MSS I
+>> need at least 2 (one for the headers and one for the payload), so I will
+>> have at most 9 of these for one packet, even with a tiny MSS.
+>>
+> 
+> I did not see in your patch where you made the checks about 18 segs in a
+> TSO packet ?
 
-What's more, the check failed to take GSO into account.
+It is in the other patch: iwlwifi: mvm: send large SKBs to the transport
+mvm is the op_mode and the op_mode needs to make sure that the payload
+fits in one 802.11 packet AND it doesn't exhaust the number of pointers.
+I'll add a comment here.
 
-The end result is that transport-mode GSO packets get dropped at
-the check.
+> 
+>> I agree that all this should be added to the code in a comment.
+>> Speaking of which...
+>> int tso_count_descs(struct sk_buff *skb)
+>> {
+>>         /* The Marvell Way */
+>>         return skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
+>> }
+>>
+>> What if there is some payload in the header?
+>> To me it sounds safer to return:
+>>
+>> skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags + 1;
+>>
+>> or maybe to test if there is some payload in the header and then add 1?
+>> If there is payload in the header, it should be considered as another
+>> frag, shouldn't it?
+> 
+> Minimal count is gso_segs (one per MSS)
+> 
+> Then you have to add extra for the cases we have a mss spanning a frag
+> in skb.
+> 
+> Thats a max of (skb_shinfo(skb)->nr_frags - 1) + (data_in_head() ? 1 :
+> 0);
+> So I believe formula would be correct.
+> 
 
-This patch fixes it by moving the tunnel mode check forward as well
-as adding the GSO check.
-
-Fixes: dd767856a36e ("xfrm6: Don't call icmpv6_send on local error")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/xfrm6_output.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 09c76a7..be033f2 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -136,6 +136,7 @@ static int __xfrm6_output(struct sock *sk, struct sk_buff *skb)
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct xfrm_state *x = dst->xfrm;
- 	int mtu;
-+	bool toobig;
- 
- #ifdef CONFIG_NETFILTER
- 	if (!x) {
-@@ -144,25 +145,29 @@ static int __xfrm6_output(struct sock *sk, struct sk_buff *skb)
- 	}
- #endif
- 
-+	if (x->props.mode != XFRM_MODE_TUNNEL)
-+		goto skip_frag;
-+
- 	if (skb->protocol == htons(ETH_P_IPV6))
- 		mtu = ip6_skb_dst_mtu(skb);
- 	else
- 		mtu = dst_mtu(skb_dst(skb));
- 
--	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
-+	toobig = skb->len > mtu && !skb_is_gso(skb);
-+
-+	if (toobig && xfrm6_local_dontfrag(skb)) {
- 		xfrm6_local_rxpmtu(skb, mtu);
- 		return -EMSGSIZE;
--	} else if (!skb->ignore_df && skb->len > mtu && skb->sk) {
-+	} else if (!skb->ignore_df && toobig && skb->sk) {
- 		xfrm_local_error(skb, mtu);
- 		return -EMSGSIZE;
- 	}
- 
--	if (x->props.mode == XFRM_MODE_TUNNEL &&
--	    ((skb->len > mtu && !skb_is_gso(skb)) ||
--		dst_allfrag(skb_dst(skb)))) {
-+	if (toobig || dst_allfrag(skb_dst(skb)))
- 		return ip6_fragment(sk, skb,
- 				    x->outer_mode->afinfo->output_finish);
--	}
-+
-+skip_frag:
- 	return x->outer_mode->afinfo->output_finish(sk, skb);
- }
- 
--- 
-1.9.1
+I needed a piece of paper and a few drawings to understand you are
+right... :)
