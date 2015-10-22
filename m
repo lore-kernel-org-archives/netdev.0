@@ -1,36 +1,62 @@
-From: Punit Vara <punitvara-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v5 14/15] net: wireless: ath: Remove unneeded variable ret returning 0
-Date: Fri, 23 Oct 2015 00:27:34 +0530
-Message-ID: <1445540254-4207-1-git-send-email-punitvara@gmail.com>
-Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Punit Vara <punitvara-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 8/8] mm: memcontrol: hook up vmpressure to socket pressure
+Date: Thu, 22 Oct 2015 21:57:47 +0300
+Message-ID: <20151022185747.GQ18351@esperanza>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-9-git-send-email-hannes@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Hocko <mhocko@suse.cz>, Tejun Heo <tj@kernel.org>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445487696-21545-9-git-send-email-hannes@cmpxchg.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove empty line suggested by Sergei
+On Thu, Oct 22, 2015 at 12:21:36AM -0400, Johannes Weiner wrote:
+...
+> @@ -185,8 +183,29 @@ static void vmpressure_work_fn(struct work_struct *work)
+>  	vmpr->reclaimed = 0;
+>  	spin_unlock(&vmpr->sr_lock);
+>  
+> +	level = vmpressure_calc_level(scanned, reclaimed);
+> +
+> +	if (level > VMPRESSURE_LOW) {
 
-This patch is to the ath5k/eeprom.c that fixes up warning caught by
-coccicheck:
+So we start socket_pressure at MEDIUM. Why not at LOW or CRITICAL?
 
-Unneeded variable: "ret". Return "0" on line 980
+> +		struct mem_cgroup *memcg;
+> +		/*
+> +		 * Let the socket buffer allocator know that we are
+> +		 * having trouble reclaiming LRU pages.
+> +		 *
+> +		 * For hysteresis, keep the pressure state asserted
+> +		 * for a second in which subsequent pressure events
+> +		 * can occur.
+> +		 *
+> +		 * XXX: is vmpressure a global feature or part of
+> +		 * memcg? There shouldn't be anything memcg-specific
+> +		 * about exporting reclaim success ratios from the VM.
+> +		 */
+> +		memcg = container_of(vmpr, struct mem_cgroup, vmpressure);
+> +		if (memcg != root_mem_cgroup)
+> +			memcg->socket_pressure = jiffies + HZ;
 
-Remove unneeded variable ret created to return zero.
+Why 1 second?
 
-Signed-off-by: Punit Vara <punitvara-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/ath/wcn36xx/main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Thanks,
+Vladimir
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index 900e72a..94bcc08 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -935,8 +935,6 @@ static const struct ieee80211_ops wcn36xx_ops = {
- 
- static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
- {
--	int ret = 0;
+> +	}
+> +
+>  	do {
+> -		if (vmpressure_event(vmpr, scanned, reclaimed))
+> +		if (vmpressure_event(vmpr, level))
+>  			break;
+>  		/*
+>  		 * If not handled, propagate the event upward into the
