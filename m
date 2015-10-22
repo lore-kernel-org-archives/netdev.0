@@ -1,51 +1,63 @@
-From: Casper.Dik@oracle.com
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Thu, 22 Oct 2015 21:51:05 +0200
-Message-ID: <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net> <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk> <20151022060304.GQ22011@ZenIV.linux.org.uk> <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk> <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: of_mdiobus_register_phy() and deferred probe
+Date: Thu, 22 Oct 2015 23:07:30 +0300
+Message-ID: <56294202.5020507@cogentembedded.com>
+References: <CAMuHMdX+_0Cf0VwmKDtcfMNwaPEN5jvjZQUXg6MKMJa+cvYz3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh+dt@kernel.org>,
+	Frank Rowand <frowand.list@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:51021 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965337AbbJVUHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 16:07:08 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9MK77kh029202
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 20:07:07 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9MJsG7O001210
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 20:07:06 GMT
-In-Reply-To: <20151022190701.GV22011@ZenIV.linux.org.uk> 
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:36595 "EHLO
+	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964902AbbJVUHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 16:07:35 -0400
+Received: by lffz202 with SMTP id z202so61250470lff.3
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 13:07:33 -0700 (PDT)
+In-Reply-To: <CAMuHMdX+_0Cf0VwmKDtcfMNwaPEN5jvjZQUXg6MKMJa+cvYz3w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
->On Thu, Oct 22, 2015 at 08:24:51PM +0200, Casper.Dik@oracle.com wrote:
+On 10/22/2015 04:31 PM, Geert Uytterhoeven wrote:
+
+> Due to a probe deferral of an interrupt controller[1], the Micrel
+> Ethernet PHY on
+> r8a7791/koelsch started failing to get its IRQ:
 >
->> The external behaviour atomic; you cannot distinguish the order
->> between the closing of the original file (and waking up other threads
->> waiting for a record lock) or changing the file referenced by that newfd.
->> 
->> But this not include a global or process specific lock.
+>      no irq domain found for /interrupt-controller@e61c0000 !
 >
->Interesting...  Do you mean that decriptor-to-file lookup blocks until that
->rundown finishes?
+> However, of_mdiobus_register_phy() uses irq_of_parse_and_map(), which plainly
+> ignores EPROBE_DEFER, and it just continues.
+>
+> Later I get:
+>
+>      sh-eth ee700000.ethernet eth0: attached PHY 1 (IRQ -1) to driver
+> Micrel KSZ8041RNLI
+>
+> instead of
+>
+>      sh-eth ee700000.ethernet eth0: attached PHY 1 (IRQ 408) to driver
+> Micrel KSZ8041RNLI
+>
+> Ethernet still works, as the interrupt seems to be unneeded(?).
 
-For that particular file descriptor, yes.  (I'm assuming you mean the 
-Solaris kernel running down all lwps who have a system in progress on that 
-particular file descriptor).  All other fd to file lookups are not blocked 
-at all by this locking.
+    Yes, the phylib uses PHY polling anyway, IRQ isn't strictly necessary.
 
-It should be clear that any such occurrences are application errors and 
-should be hardly ever seen in practice.  It is also known when this is 
-needed so it is hardly even attempted.
+> Has anyone already looked into fixing of_mdio to handle deferred probing?
 
-Casper
+    It's the first time I hear about that. Will have to look into this...
+
+> Gr{oetje,eeting}s,
+>                          Geert
+
+MBR, Sergei
