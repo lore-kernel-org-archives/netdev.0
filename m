@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 0/6] net: dsa: implement port_fdb_dump in drivers
-Date: Thu, 22 Oct 2015 09:34:37 -0400
-Message-ID: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 2/6] net: dsa: mv88e6xxx: write VID outside of VTU Get Next code
+Date: Thu, 22 Oct 2015 09:34:39 -0400
+Message-ID: <1445520883-13287-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -11,37 +12,106 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all switch chips provide a Get Next kind of operation to dump FDB entries.
-It is preferred to let the driver handle the dump operation the way it works
-best for the chip. Thus, drop port_fdb_getnext and implement the port_fdb_dump
-operation in DSA, which pushes the switchdev FDB dump callback down to the
-drivers. mv88e6xxx is the only driver affected and is updated accordingly.
+There is no need to write the VLAN ID before every Get Next operation,
+since the VTU VID register is not cleared between calls.
 
-v3 -> v4: fix rejects on latest net-next
+Move the VID write call in a _mv88e6xxx_vtu_vid_write function outside
+of _mv88e6xxx_vtu_getnext so future code could call VTU Get Next
+multiple times and save a few register accesses.
 
-v2 -> v3: opencode switchdev_obj_dump_cb_t to avoid multiple typedef;
-          use ether_addr_copy in fdb_dump
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 39 +++++++++++++++++++++++++++++----------
+ 1 file changed, 29 insertions(+), 10 deletions(-)
 
-v1 -> v2: fix a few "return err" instead of "goto unlock" in mv88e6xxx.c
-
-Vivien Didelot (6):
-  net: dsa: add port_fdb_dump function
-  net: dsa: mv88e6xxx: write VID outside of VTU Get Next code
-  net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
-  net: dsa: mv88e6xxx: implement port_fdb_dump
-  net: dsa: mv88e6xxx: remove port_fdb_getnext
-  net: dsa: remove port_fdb_getnext
-
- drivers/net/dsa/mv88e6171.c |   2 +-
- drivers/net/dsa/mv88e6352.c |   2 +-
- drivers/net/dsa/mv88e6xxx.c | 132 ++++++++++++++++++++++++--------------------
- drivers/net/dsa/mv88e6xxx.h |   5 +-
- include/net/dsa.h           |   7 ++-
- net/dsa/slave.c             |  26 +--------
- 6 files changed, 83 insertions(+), 91 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 4591240..4b6baa6 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1259,7 +1259,13 @@ static int _mv88e6xxx_vtu_stu_data_write(struct dsa_switch *ds,
+ 	return 0;
+ }
+ 
+-static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
++static int _mv88e6xxx_vtu_vid_write(struct dsa_switch *ds, u16 vid)
++{
++	return _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
++				    vid & GLOBAL_VTU_VID_MASK);
++}
++
++static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
+ 				  struct mv88e6xxx_vtu_stu_entry *entry)
+ {
+ 	struct mv88e6xxx_vtu_stu_entry next = { 0 };
+@@ -1269,11 +1275,6 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_VID,
+-				   vid & GLOBAL_VTU_VID_MASK);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_GET_NEXT);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1485,7 +1486,12 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
+ 	int err;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	err = _mv88e6xxx_vtu_getnext(ds, vid - 1, &vlan);
++
++	err = _mv88e6xxx_vtu_vid_write(ds, vid - 1);
++	if (err)
++		goto unlock;
++
++	err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+ 	if (err)
+ 		goto unlock;
+ 
+@@ -1514,7 +1520,11 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	err = _mv88e6xxx_vtu_getnext(ds, vid - 1, &vlan);
++	err = _mv88e6xxx_vtu_vid_write(ds, vid - 1);
++	if (err)
++		goto unlock;
++
++	err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+ 	if (err)
+ 		goto unlock;
+ 
+@@ -1558,7 +1568,11 @@ static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
+ 		if (vid == 4095)
+ 			return -ENOENT;
+ 
+-		err = _mv88e6xxx_vtu_getnext(ds, vid, entry);
++		err = _mv88e6xxx_vtu_vid_write(ds, vid);
++		if (err)
++			return err;
++
++		err = _mv88e6xxx_vtu_getnext(ds, entry);
+ 		if (err)
+ 			return err;
+ 
+@@ -1584,7 +1598,12 @@ int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+ 		return -ENOENT;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	err = _mv88e6xxx_vtu_getnext(ds, *vid, &next);
++	err = _mv88e6xxx_vtu_vid_write(ds, *vid);
++	if (err)
++		goto unlock;
++
++	err = _mv88e6xxx_vtu_getnext(ds, &next);
++unlock:
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	if (err)
 -- 
 2.6.1
