@@ -1,72 +1,133 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 1/2] vhost: introduce vhost_has_work()
-Date: Thu, 22 Oct 2015 11:38:18 +0300
-Message-ID: <20151022113740-mutt-send-email-mst@redhat.com>
-References: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH 2/3] net: dsa: Make mv88e6xxx use nested mdiobus read/write
+Date: Thu, 22 Oct 2015 10:37:53 +0200
+Message-ID: <5628A061.2050103@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 01:27:28AM -0400, Jason Wang wrote:
-> This path introduces a helper which can give a hint for whether or not
-> there's a work queued in the work list.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/vhost.c | 6 ++++++
->  drivers/vhost/vhost.h | 1 +
->  2 files changed, 7 insertions(+)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index eec2f11..d42d11e 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -245,6 +245,12 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
->  }
->  EXPORT_SYMBOL_GPL(vhost_work_queue);
->  
-> +bool vhost_has_work(struct vhost_dev *dev)
-> +{
-> +	return !list_empty(&dev->work_list);
-> +}
-> +EXPORT_SYMBOL_GPL(vhost_has_work);
-> +
->  void vhost_poll_queue(struct vhost_poll *poll)
->  {
->  	vhost_work_queue(poll->dev, &poll->work);
+Make the mv88e6xxx driver use the previously introduced nested
+variants of mdiobus_read/write functions.
 
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 46 +++++++++------------------------------------
+ 1 file changed, 9 insertions(+), 37 deletions(-)
 
-This doesn't take a lock so it's unreliable.
-I think it's ok in this case since it's just
-an optimization - but pls document this.
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 4591240..e3cc66e 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -26,34 +26,6 @@
+ #include <net/switchdev.h>
+ #include "mv88e6xxx.h"
 
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 4772862..ea0327d 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -37,6 +37,7 @@ struct vhost_poll {
->  
->  void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
->  void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
-> +bool vhost_has_work(struct vhost_dev *dev);
->  
->  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  		     unsigned long mask, struct vhost_dev *dev);
-> -- 
-> 1.8.3.1
+-/* MDIO bus access can be nested in the case of PHYs connected to the
+- * internal MDIO bus of the switch, which is accessed via MDIO bus of
+- * the Ethernet interface. Avoid lockdep false positives by using
+- * mutex_lock_nested().
+- */
+-static int mv88e6xxx_mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
+-{
+-	int ret;
+-
+-	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
+-	ret = bus->read(bus, addr, regnum);
+-	mutex_unlock(&bus->mdio_lock);
+-
+-	return ret;
+-}
+-
+-static int mv88e6xxx_mdiobus_write(struct mii_bus *bus, int addr, u32 regnum,
+-				   u16 val)
+-{
+-	int ret;
+-
+-	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
+-	ret = bus->write(bus, addr, regnum, val);
+-	mutex_unlock(&bus->mdio_lock);
+-
+-	return ret;
+-}
+-
+ /* If the switch's ADDR[4:0] strap pins are strapped to zero, it will
+  * use all 32 SMI bus addresses on its SMI bus, and all switch registers
+  * will be directly accessible on some {device address,register address}
+@@ -68,7 +40,7 @@ static int mv88e6xxx_reg_wait_ready(struct mii_bus *bus, int sw_addr)
+ 	int i;
+
+ 	for (i = 0; i < 16; i++) {
+-		ret = mv88e6xxx_mdiobus_read(bus, sw_addr, SMI_CMD);
++		ret = mdiobus_read_nested(bus, sw_addr, SMI_CMD);
+ 		if (ret < 0)
+ 			return ret;
+
+@@ -84,7 +56,7 @@ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg)
+ 	int ret;
+
+ 	if (sw_addr == 0)
+-		return mv88e6xxx_mdiobus_read(bus, addr, reg);
++		return mdiobus_read_nested(bus, addr, reg);
+
+ 	/* Wait for the bus to become free. */
+ 	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
+@@ -92,8 +64,8 @@ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg)
+ 		return ret;
+
+ 	/* Transmit the read command. */
+-	ret = mv88e6xxx_mdiobus_write(bus, sw_addr, SMI_CMD,
+-				      SMI_CMD_OP_22_READ | (addr << 5) | reg);
++	ret = mdiobus_write_nested(bus, sw_addr, SMI_CMD,
++				   SMI_CMD_OP_22_READ | (addr << 5) | reg);
+ 	if (ret < 0)
+ 		return ret;
+
+@@ -103,7 +75,7 @@ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg)
+ 		return ret;
+
+ 	/* Read the data. */
+-	ret = mv88e6xxx_mdiobus_read(bus, sw_addr, SMI_DATA);
++	ret = mdiobus_read_nested(bus, sw_addr, SMI_DATA);
+ 	if (ret < 0)
+ 		return ret;
+
+@@ -147,7 +119,7 @@ int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
+ 	int ret;
+
+ 	if (sw_addr == 0)
+-		return mv88e6xxx_mdiobus_write(bus, addr, reg, val);
++		return mdiobus_write_nested(bus, addr, reg, val);
+
+ 	/* Wait for the bus to become free. */
+ 	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
+@@ -155,13 +127,13 @@ int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
+ 		return ret;
+
+ 	/* Transmit the data to write. */
+-	ret = mv88e6xxx_mdiobus_write(bus, sw_addr, SMI_DATA, val);
++	ret = mdiobus_write_nested(bus, sw_addr, SMI_DATA, val);
+ 	if (ret < 0)
+ 		return ret;
+
+ 	/* Transmit the write command. */
+-	ret = mv88e6xxx_mdiobus_write(bus, sw_addr, SMI_CMD,
+-				      SMI_CMD_OP_22_WRITE | (addr << 5) | reg);
++	ret = mdiobus_write_nested(bus, sw_addr, SMI_CMD,
++				   SMI_CMD_OP_22_WRITE | (addr << 5) | reg);
+ 	if (ret < 0)
+ 		return ret;
+
+-- 
+1.9.1
