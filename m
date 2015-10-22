@@ -1,28 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] xen-netback/core: packet hashing
-Date: Thu, 22 Oct 2015 07:15:13 -0700 (PDT)
-Message-ID: <20151022.071513.1802223326387772273.davem@davemloft.net>
-References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Thu, 22 Oct 2015 15:59:30 +0200
+Message-ID: <20151022135930.GN3604@twins.programming.kicks-ass.net>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: paul.durrant@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54253 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757761AbbJVN6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 09:58:46 -0400
-In-Reply-To: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445396556-4854-3-git-send-email-ast@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Wed, 21 Oct 2015 11:36:17 +0100
+On Tue, Oct 20, 2015 at 08:02:34PM -0700, Alexei Starovoitov wrote:
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -215,6 +215,50 @@ const struct bpf_func_proto bpf_perf_event_read_proto = {
+>  	.arg2_type	= ARG_ANYTHING,
+>  };
+>  
+> +static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
+> +{
+> +	struct pt_regs *regs = (struct pt_regs *) (long) r1;
+> +	struct bpf_map *map = (struct bpf_map *) (long) r2;
+> +	struct bpf_array *array = container_of(map, struct bpf_array, map);
+> +	void *data = (void *) (long) r4;
+> +	struct perf_sample_data sample_data;
+> +	struct perf_event *event;
+> +	struct perf_raw_record raw = {
+> +		.size = size,
+> +		.data = data,
+> +	};
+> +
+> +	if (unlikely(index >= array->map.max_entries))
+> +		return -E2BIG;
+> +
+> +	event = (struct perf_event *)array->ptrs[index];
+> +	if (unlikely(!event))
+> +		return -ENOENT;
+> +
+> +	if (unlikely(event->attr.type != PERF_TYPE_SOFTWARE ||
+> +		     event->attr.config != PERF_COUNT_SW_BPF_OUTPUT))
+> +		return -EINVAL;
+> +
+> +	if (unlikely(event->oncpu != smp_processor_id()))
+> +		return -EOPNOTSUPP;
+> +
+> +	perf_sample_data_init(&sample_data, 0, 0);
+> +	sample_data.raw = &raw;
+> +	perf_event_output(event, &sample_data, regs);
+> +	return 0;
+> +}
 
-> This series adds xen-netback support for hash negotiation with a frontend
-> driver, and an implementation of toeplitz hashing as the initial negotiable
-> algorithm.
-
-I'd definitely like to see some XEN networking experts review this
-before I apply it.
+Note that this function also very much requires event to be local.
