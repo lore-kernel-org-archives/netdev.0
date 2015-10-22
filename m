@@ -1,45 +1,72 @@
-From: Robert Dolca <robert.dolca@intel.com>
-Subject: [PATCH v4 04/10] nfc: nci: Do not call post_setup when setup fails
-Date: Thu, 22 Oct 2015 12:11:36 +0300
-Message-ID: <1445505102-16639-5-git-send-email-robert.dolca@intel.com>
+From: Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v4 09/10] nfc: nci: add nci_get_conn_info_by_id function
+Date: Thu, 22 Oct 2015 12:11:41 +0300
+Message-ID: <1445505102-16639-10-git-send-email-robert.dolca@intel.com>
 References: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Christophe Ricard <christophe.ricard@gmail.com>,
-	Robert Dolca <robert.dolca@intel.com>
-To: linux-nfc@lists.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Robert Dolca <robert.dolca@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Robert Dolca <robert.dolca-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1445505102-16639-1-git-send-email-robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The driver should know that it can continue with post setup where
-setup left off. Being able to execute post_setup when setup fails may
-force the developer to keep this state in the driver.
+This functin takes as a parameter a pointer to the nci_dev struct and
+the first byte from the values of the first domain specific parameter that
+was used for the connection creation.
 
-Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+Signed-off-by: Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- net/nfc/nci/core.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/net/nfc/nci_core.h |  1 +
+ net/nfc/nci/core.c         | 13 +++++++++++++
+ 2 files changed, 14 insertions(+)
 
+diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
+index 5daf004..0569cb2 100644
+--- a/include/net/nfc/nci_core.h
++++ b/include/net/nfc/nci_core.h
+@@ -374,6 +374,7 @@ void nci_clear_target_list(struct nci_dev *ndev);
+ void nci_req_complete(struct nci_dev *ndev, int result);
+ struct nci_conn_info *nci_get_conn_info_by_conn_id(struct nci_dev *ndev,
+ 						   int conn_id);
++int nci_get_conn_info_by_id(struct nci_dev *ndev, u8 id);
+ 
+ /* ----- NCI status code ----- */
+ int nci_to_errno(__u8 code);
 diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-index 0909720..5362d8f 100644
+index 9d5f7a2..75bda34 100644
 --- a/net/nfc/nci/core.c
 +++ b/net/nfc/nci/core.c
-@@ -402,9 +402,8 @@ static int nci_open_device(struct nci_dev *ndev)
- 				   msecs_to_jiffies(NCI_INIT_TIMEOUT));
- 	}
+@@ -64,6 +64,19 @@ struct nci_conn_info *nci_get_conn_info_by_conn_id(struct nci_dev *ndev,
+ 	return NULL;
+ }
  
--	if (ndev->ops->post_setup) {
-+	if (!rc && ndev->ops->post_setup)
- 		rc = ndev->ops->post_setup(ndev);
--	}
++int nci_get_conn_info_by_id(struct nci_dev *ndev, u8 id)
++{
++	struct nci_conn_info *conn_info;
++
++	list_for_each_entry(conn_info, &ndev->conn_info_list, list) {
++		if (conn_info->id == id)
++			return conn_info->conn_id;
++	}
++
++	return -EINVAL;
++}
++EXPORT_SYMBOL(nci_get_conn_info_by_id);
++
+ /* ---- NCI requests ---- */
  
- 	if (!rc) {
- 		rc = __nci_request(ndev, nci_init_complete_req, 0,
+ void nci_req_complete(struct nci_dev *ndev, int result)
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
