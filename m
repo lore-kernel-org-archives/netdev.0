@@ -1,182 +1,223 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 04/16] tipc: make link
-	implementation independent from struct tipc_bearer
-Date: Thu, 22 Oct 2015 08:51:36 -0400
-Message-ID: <1445518308-26200-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 06/16] tipc: make struct tipc_link generic to support broadcast
+Date: Thu, 22 Oct 2015 08:51:38 -0400
+Message-ID: <1445518308-26200-7-git-send-email-jon.maloy@ericsson.com>
 References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:34288 "EHLO
+	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757052AbbJVMwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 08:52:42 -0400
 In-Reply-To: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In reality, the link implementation is already independent from
-struct tipc_bearer, in that it doesn't store any reference to it.
-However, we still pass on a pointer to a bearer instance in the
-function tipc_link_create(), just to have it extract some
-initialization information from it.
+Realizing that unicast is just a special case of broadcast, we also see
+that we can go in the other direction, i.e., that modest changes to the
+current unicast link can make it generic enough to support broadcast.
 
-I later commits, we need to create instances of tipc_link without
-having any associated struct tipc_bearer. To facilitate this, we
-want to extract the initialization data already in the creator
-function in node.c, before calling tipc_link_create(), and pass
-this info on as individual parameters in the call.
+The following changes are introduced here:
 
-This commit introduces this change.
+- A new counter ("ackers") in struct tipc_link, to indicate how many
+  peers need to ack a packet before it can be released.
+- A corresponding counter in the skb user area, to keep track of how
+  many peers a are left to ack before a buffer can be released.
+- A new counter ("acked"), to keep persistent track of how far a peer
+  has acked at the moment, i.e., where in the transmission queue to
+  start updating buffers when the next ack arrives. This is to avoid
+  double acknowledgements from a peer, with inadvertent relase of
+  packets as a result.
+- A more generic tipc_link_retrans() function, where retransmit starts
+  from a given sequence number, instead of the first packet in the
+  transmision queue. This is to minimize the number of retransmitted
+  packets on the broadcast media.
+
+When the new functionality is taken into use in the next commits,
+we expect it to have minimal effect on unicast mode performance.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c | 47 +++++++++++++++++++++++++++--------------------
- net/tipc/link.h |  6 ++++--
- net/tipc/node.c |  6 +++++-
- 3 files changed, 36 insertions(+), 23 deletions(-)
+ net/tipc/link.c | 38 ++++++++++++++++++++++++++------------
+ net/tipc/link.h |  7 +++++++
+ net/tipc/msg.h  |  1 +
+ 3 files changed, 34 insertions(+), 12 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index ff9b0b9..0d8fdc8 100644
+index f0cf768..dfc738e 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -165,9 +165,16 @@ static u32 link_own_addr(struct tipc_link *l)
- /**
-  * tipc_link_create - create a new link
-  * @n: pointer to associated node
-- * @b: pointer to associated bearer
-+ * @if_name: associated interface name
-+ * @bearer_id: id (index) of associated bearer
-+ * @tolerance: link tolerance to be used by link
-+ * @net_plane: network plane (A,B,c..) this link belongs to
-+ * @mtu: mtu to be advertised by link
-+ * @priority: priority to be used by link
-+ * @window: send window to be used by link
-+ * @session: session to be used by link
-  * @ownnode: identity of own node
-- * @peer: identity of peer node
-+ * @peer: node id of peer node
-  * @maddr: media address to be used
-  * @inputq: queue to put messages ready for delivery
-  * @namedq: queue to put binding table update messages ready for delivery
-@@ -175,47 +182,47 @@ static u32 link_own_addr(struct tipc_link *l)
-  *
-  * Returns true if link was created, otherwise false
-  */
--bool tipc_link_create(struct tipc_node *n, struct tipc_bearer *b, u32 session,
--		      u32 ownnode, u32 peer, struct tipc_media_addr *maddr,
-+bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
-+		      int tolerance, char net_plane, u32 mtu, int priority,
-+		      int window, u32 session, u32 ownnode, u32 peer,
-+		      struct tipc_media_addr *maddr,
- 		      struct sk_buff_head *inputq, struct sk_buff_head *namedq,
- 		      struct tipc_link **link)
- {
- 	struct tipc_link *l;
- 	struct tipc_msg *hdr;
--	char *if_name;
- 
- 	l = kzalloc(sizeof(*l), GFP_ATOMIC);
- 	if (!l)
- 		return false;
- 	*link = l;
-+	l->pmsg = (struct tipc_msg *)&l->proto_msg;
-+	hdr = l->pmsg;
-+	tipc_msg_init(ownnode, hdr, LINK_PROTOCOL, RESET_MSG, INT_H_SIZE, peer);
-+	msg_set_size(hdr, sizeof(l->proto_msg));
-+	msg_set_session(hdr, session);
-+	msg_set_bearer_id(hdr, l->bearer_id);
- 
- 	/* Note: peer i/f name is completed by reset/activate message */
--	if_name = strchr(b->name, ':') + 1;
- 	sprintf(l->name, "%u.%u.%u:%s-%u.%u.%u:unknown",
- 		tipc_zone(ownnode), tipc_cluster(ownnode), tipc_node(ownnode),
- 		if_name, tipc_zone(peer), tipc_cluster(peer), tipc_node(peer));
-+	strcpy((char *)msg_data(hdr), if_name);
- 
- 	l->addr = peer;
- 	l->media_addr = maddr;
- 	l->owner = n;
- 	l->peer_session = WILDCARD_SESSION;
--	l->bearer_id = b->identity;
--	l->tolerance = b->tolerance;
--	l->net_plane = b->net_plane;
--	l->advertised_mtu = b->mtu;
--	l->mtu = b->mtu;
--	l->priority = b->priority;
--	tipc_link_set_queue_limits(l, b->window);
-+	l->bearer_id = bearer_id;
-+	l->tolerance = tolerance;
-+	l->net_plane = net_plane;
-+	l->advertised_mtu = mtu;
-+	l->mtu = mtu;
-+	l->priority = priority;
-+	tipc_link_set_queue_limits(l, window);
+@@ -221,6 +221,7 @@ bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
+ 	l->mtu = mtu;
+ 	l->priority = priority;
+ 	tipc_link_set_queue_limits(l, window);
++	l->ackers = 1;
  	l->inputq = inputq;
  	l->namedq = namedq;
  	l->state = LINK_RESETTING;
--	l->pmsg = (struct tipc_msg *)&l->proto_msg;
--	hdr = l->pmsg;
--	tipc_msg_init(ownnode, hdr, LINK_PROTOCOL, RESET_MSG, INT_H_SIZE, peer);
--	msg_set_size(hdr, sizeof(l->proto_msg));
--	msg_set_session(hdr, session);
--	msg_set_bearer_id(hdr, l->bearer_id);
--	strcpy((char *)msg_data(hdr), if_name);
- 	__skb_queue_head_init(&l->transmq);
- 	__skb_queue_head_init(&l->backlogq);
- 	__skb_queue_head_init(&l->deferdq);
+@@ -647,6 +648,7 @@ void tipc_link_reset(struct tipc_link *l)
+ 	l->rcv_unacked = 0;
+ 	l->snd_nxt = 1;
+ 	l->rcv_nxt = 1;
++	l->acked = 0;
+ 	l->silent_intv_cnt = 0;
+ 	l->stats.recv_info = 0;
+ 	l->stale_count = 0;
+@@ -769,6 +771,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
+ 			__skb_dequeue(list);
+ 			__skb_queue_tail(transmq, skb);
+ 			__skb_queue_tail(xmitq, _skb);
++			TIPC_SKB_CB(skb)->ackers = l->ackers;
+ 			l->rcv_unacked = 0;
+ 			seqno++;
+ 			continue;
+@@ -829,6 +832,7 @@ void tipc_link_push_packets(struct tipc_link *link)
+ 		skb = __skb_dequeue(&link->backlogq);
+ 		if (!skb)
+ 			break;
++		TIPC_SKB_CB(skb)->ackers = link->ackers;
+ 		msg = buf_msg(skb);
+ 		link->backlog[msg_importance(msg)].len--;
+ 		msg_set_ack(msg, ack);
+@@ -862,6 +866,7 @@ void tipc_link_advance_backlog(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 		l->backlog[msg_importance(hdr)].len--;
+ 		__skb_queue_tail(&l->transmq, skb);
+ 		__skb_queue_tail(xmitq, _skb);
++		TIPC_SKB_CB(skb)->ackers = l->ackers;
+ 		msg_set_ack(hdr, ack);
+ 		msg_set_seqno(hdr, seqno);
+ 		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
+@@ -947,11 +952,13 @@ void tipc_link_retransmit(struct tipc_link *l_ptr, struct sk_buff *skb,
+ 	}
+ }
+ 
+-static int tipc_link_retransm(struct tipc_link *l, int retransm,
+-			      struct sk_buff_head *xmitq)
++int tipc_link_retrans(struct tipc_link *l, u16 from, u16 to,
++		      struct sk_buff_head *xmitq)
+ {
+ 	struct sk_buff *_skb, *skb = skb_peek(&l->transmq);
+ 	struct tipc_msg *hdr;
++	u16 ack = l->rcv_nxt - 1;
++	u16 bc_ack = l->owner->bclink.last_in;
+ 
+ 	if (!skb)
+ 		return 0;
+@@ -964,19 +971,25 @@ static int tipc_link_retransm(struct tipc_link *l, int retransm,
+ 		link_retransmit_failure(l, skb);
+ 		return tipc_link_fsm_evt(l, LINK_FAILURE_EVT);
+ 	}
++
++	/* Move forward to where retransmission should start */
+ 	skb_queue_walk(&l->transmq, skb) {
+-		if (!retransm)
+-			return 0;
++		if (!less(buf_seqno(skb), from))
++			break;
++	}
++
++	skb_queue_walk_from(&l->transmq, skb) {
++		if (more(buf_seqno(skb), to))
++			break;
+ 		hdr = buf_msg(skb);
+ 		_skb = __pskb_copy(skb, MIN_H_SIZE, GFP_ATOMIC);
+ 		if (!_skb)
+ 			return 0;
+ 		hdr = buf_msg(_skb);
+-		msg_set_ack(hdr, l->rcv_nxt - 1);
+-		msg_set_bcast_ack(hdr, l->owner->bclink.last_in);
++		msg_set_ack(hdr, ack);
++		msg_set_bcast_ack(hdr, bc_ack);
+ 		_skb->priority = TC_PRIO_CONTROL;
+ 		__skb_queue_tail(xmitq, _skb);
+-		retransm--;
+ 		l->stats.retransmitted++;
+ 	}
+ 	return 0;
+@@ -1390,7 +1403,8 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ {
+ 	struct tipc_msg *hdr = buf_msg(skb);
+ 	u16 rcvgap = 0;
+-	u16 nacked_gap = msg_seq_gap(hdr);
++	u16 ack = msg_ack(hdr);
++	u16 gap = msg_seq_gap(hdr);
+ 	u16 peers_snd_nxt =  msg_next_sent(hdr);
+ 	u16 peers_tol = msg_link_tolerance(hdr);
+ 	u16 peers_prio = msg_linkprio(hdr);
+@@ -1469,11 +1483,11 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 		if (rcvgap || (msg_probe(hdr)))
+ 			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
+ 						  0, 0, xmitq);
+-		tipc_link_release_pkts(l, msg_ack(hdr));
++		tipc_link_release_pkts(l, ack);
+ 
+ 		/* If NACK, retransmit will now start at right position */
+-		if (nacked_gap) {
+-			rc = tipc_link_retransm(l, nacked_gap, xmitq);
++		if (gap) {
++			rc = tipc_link_retrans(l, ack + 1, ack + gap, xmitq);
+ 			l->stats.recv_nacks++;
+ 		}
+ 
+@@ -1550,7 +1564,7 @@ static void link_reset_statistics(struct tipc_link *l_ptr)
+ static void link_print(struct tipc_link *l, const char *str)
+ {
+ 	struct sk_buff *hskb = skb_peek(&l->transmq);
+-	u16 head = hskb ? msg_seqno(buf_msg(hskb)) : l->snd_nxt;
++	u16 head = hskb ? msg_seqno(buf_msg(hskb)) : l->snd_nxt - 1;
+ 	u16 tail = l->snd_nxt - 1;
+ 
+ 	pr_info("%s Link <%s> state %x\n", str, l->name, l->state);
 diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 0201212..06bf66d 100644
+index 9e4e367..be24d1f 100644
 --- a/net/tipc/link.h
 +++ b/net/tipc/link.h
-@@ -205,8 +205,10 @@ struct tipc_link {
+@@ -134,6 +134,8 @@ struct tipc_stats {
+  * @snt_nxt: next sequence number to use for outbound messages
+  * @last_retransmitted: sequence number of most recently retransmitted message
+  * @stale_count: # of identical retransmit requests made by peer
++ * @ackers: # of peers that needs to ack each packet before it can be released
++ * @acked: # last packet acked by a certain peer. Used for broadcast.
+  * @rcv_nxt: next sequence number to expect for inbound messages
+  * @deferred_queue: deferred queue saved OOS b'cast message received from node
+  * @unacked_window: # of inbound messages rx'd without ack'ing back to peer
+@@ -143,6 +145,7 @@ struct tipc_stats {
+  * @wakeupq: linked list of wakeup msgs waiting for link congestion to abate
+  * @long_msg_seq_no: next identifier to use for outbound fragmented messages
+  * @reasm_buf: head of partially reassembled inbound message fragments
++ * @bc_rcvr: marks that this is a broadcast receiver link
+  * @stats: collects statistics regarding link activity
+  */
+ struct tipc_link {
+@@ -201,6 +204,10 @@ struct tipc_link {
+ 	/* Fragmentation/reassembly */
+ 	struct sk_buff *reasm_buf;
+ 
++	/* Broadcast */
++	u16 ackers;
++	u16 acked;
++
+ 	/* Statistics */
  	struct tipc_stats stats;
  };
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 9f0ef54..799782c 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -112,6 +112,7 @@ struct tipc_skb_cb {
+ 	bool wakeup_pending;
+ 	u16 chain_sz;
+ 	u16 chain_imp;
++	u16 ackers;
+ };
  
--bool tipc_link_create(struct tipc_node *n, struct tipc_bearer *b, u32 session,
--		      u32 ownnode, u32 peer, struct tipc_media_addr *maddr,
-+bool tipc_link_create(struct tipc_node *n, char *if_name, int bearer_id,
-+		      int tolerance, char net_plane, u32 mtu, int priority,
-+		      int window, u32 session, u32 ownnode, u32 peer,
-+		      struct tipc_media_addr *maddr,
- 		      struct sk_buff_head *inputq, struct sk_buff_head *namedq,
- 		      struct tipc_link **link);
- void tipc_link_tnl_prepare(struct tipc_link *l, struct tipc_link *tnl,
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 2670751..d3f7ca2 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -493,6 +493,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 	bool link_up = false;
- 	bool accept_addr = false;
- 	bool reset = true;
-+	char *if_name;
- 
- 	*dupl_addr = false;
- 	*respond = false;
-@@ -579,7 +580,10 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 			pr_warn("Cannot establish 3rd link to %x\n", n->addr);
- 			goto exit;
- 		}
--		if (!tipc_link_create(n, b, mod(tipc_net(net)->random),
-+		if_name = strchr(b->name, ':') + 1;
-+		if (!tipc_link_create(n, if_name, b->identity, b->tolerance,
-+				      b->net_plane, b->mtu, b->priority,
-+				      b->window, mod(tipc_net(net)->random),
- 				      tipc_own_addr(net), onode, &le->maddr,
- 				      &le->inputq, &n->bclink.namedq, &l)) {
- 			*respond = false;
+ #define TIPC_SKB_CB(__skb) ((struct tipc_skb_cb *)&((__skb)->cb[0]))
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
