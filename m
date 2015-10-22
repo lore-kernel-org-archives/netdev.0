@@ -1,34 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211-next 2015-10-21
-Date: Thu, 22 Oct 2015 07:29:19 -0700 (PDT)
-Message-ID: <20151022.072919.1996665963889101709.davem@davemloft.net>
-References: <1445440026.4558.62.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: Dont add RT6_LOOKUP_F_IFACE flag if saddr
+ set
+Date: Thu, 22 Oct 2015 07:36:38 -0700 (PDT)
+Message-ID: <20151022.073638.400620848586030811.davem@davemloft.net>
+References: <1445442142-19881-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445440026.4558.62.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, thehajime@gmail.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54456 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757631AbbJVOUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 10:20:11 -0400
+In-Reply-To: <1445442142-19881-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 21 Oct 2015 17:07:06 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 21 Oct 2015 08:42:22 -0700
 
-> Here's another, likely final, pull request for -next. I finally caved
-> in and cleaned up the regulatory code a bit, which is the bulk of the
-> changes.
+> 741a11d9e410 ("net: ipv6: Add RT6_LOOKUP_F_IFACE flag if oif is set")
+> adds the RT6_LOOKUP_F_IFACE flag to make device index mismatch fatal if
+> oif is given. Hajime reported that this change breaks the Mobile IPv6
+> use case that wants to force the message through one interface yet use
+> the source address from another interface. Handle this case by only
+> adding the flag if oif is set and saddr is not set.
 > 
-> There's a new Kconfig which allows turning off CRDA, but it's hidden
-> behind having the internal regdb enabled, which in turn is hidden
-> behind EXPERT, so hopefully you won't even see that :) (although I am
-> hoping to get rid of the internal regdb sooner rather than later)
-> 
-> Let me know if you see any problems.
+> Fixes: 741a11d9e410 ("net: ipv6: Add RT6_LOOKUP_F_IFACE flag if oif is set")
+> Cc: Hajime Tazaki <thehajime@gmail.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Pulled, thanks a lot Johannes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks David.
