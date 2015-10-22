@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 1/6] net: dsa: add port_fdb_dump function
-Date: Thu, 22 Oct 2015 09:34:38 -0400
-Message-ID: <1445520883-13287-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 3/6] net: dsa: mv88e6xxx: write MAC outside of ATU Get Next code
+Date: Thu, 22 Oct 2015 09:34:40 -0400
+Message-ID: <1445520883-13287-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,50 +16,51 @@ In-Reply-To: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all switch chips support a Get Next operation to iterate on its FDB.
-So add a more simple port_fdb_dump function for them.
+There is no need to write the MAC address before every Get Next
+operation, since ATU MAC registers are not cleared between calls.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Move the _mv88e6xxx_atu_mac_write call outside of _mv88e6xxx_atu_getnext
+so future code could call ATU Get Next multiple times and save a few
+register access.
 ---
- include/net/dsa.h | 4 ++++
- net/dsa/slave.c   | 3 +++
- 2 files changed, 7 insertions(+)
+ drivers/net/dsa/mv88e6xxx.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index e005886..0cfa44a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -198,6 +198,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 4b6baa6..86cbb67 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1751,7 +1751,6 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
  }
  
- struct switchdev_trans;
-+struct switchdev_obj;
- struct switchdev_obj_port_fdb;
+ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+-				  const unsigned char *addr,
+ 				  struct mv88e6xxx_atu_entry *entry)
+ {
+ 	struct mv88e6xxx_atu_entry next = { 0 };
+@@ -1763,10 +1762,6 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	if (ret < 0)
+ 		return ret;
  
- struct dsa_switch_driver {
-@@ -330,6 +331,9 @@ struct dsa_switch_driver {
- 	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
- 				    unsigned char *addr, u16 *vid,
- 				    bool *is_static);
-+	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
-+				 struct switchdev_obj_port_fdb *fdb,
-+				 int (*cb)(struct switchdev_obj *obj));
- };
+-	ret = _mv88e6xxx_atu_mac_write(ds, addr);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1827,7 +1822,11 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 			fid = vtu.fid;
+ 		}
  
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b0b8da0..d76e62b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -382,6 +382,9 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
- 	u16 vid = 0;
- 	int ret;
- 
-+	if (ds->drv->port_fdb_dump)
-+		return ds->drv->port_fdb_dump(ds, p->port, fdb, cb);
+-		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
++		ret = _mv88e6xxx_atu_mac_write(ds, addr);
++		if (ret < 0)
++			goto unlock;
 +
- 	if (!ds->drv->port_fdb_getnext)
- 		return -EOPNOTSUPP;
++		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
+ 		if (ret < 0)
+ 			goto unlock;
  
 -- 
 2.6.1
