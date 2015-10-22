@@ -1,98 +1,41 @@
-From: Robert Dolca <robert.dolca@intel.com>
-Subject: [PATCH v4 05/10] nfc: nci: Introduce nci_core_cmd
-Date: Thu, 22 Oct 2015 12:11:37 +0300
-Message-ID: <1445505102-16639-6-git-send-email-robert.dolca@intel.com>
-References: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Christophe Ricard <christophe.ricard@gmail.com>,
-	Robert Dolca <robert.dolca@intel.com>
-To: linux-nfc@lists.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Robert Dolca <robert.dolca@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Thu, 22 Oct 2015 11:24:00 +0200
+Message-ID: <20151022092400.GL2508@worktop.programming.kicks-ass.net>
+References: <20151021121713.GC3604@twins.programming.kicks-ass.net>
+ <56279634.5000606@huawei.com>
+ <20151021134951.GH3604@twins.programming.kicks-ass.net>
+ <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
+ <20151021140921.GI3604@twins.programming.kicks-ass.net>
+ <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+ <20151021165758.GK3604@twins.programming.kicks-ass.net>
+ <56284E03.1020008@huawei.com>
+ <20151022073959.GA18791@gmail.com>
+ <56289589.1030008@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>, pi3orama <pi3orama@163.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net,
+	linux-kernel@vger.kernel.org, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445505102-16639-1-git-send-email-robert.dolca@intel.com>
+Content-Disposition: inline
+In-Reply-To: <56289589.1030008@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This allows sending core commands from the driver. The driver should be
-able to send NCI core commands like CORE_GET_CONFIG_CMD.
+On Thu, Oct 22, 2015 at 03:51:37PM +0800, Wangnan (F) wrote:
+> Because I'm not very sure what the meaning of "inconsistent" in
+> Peter's words...
 
-Signed-off-by: Robert Dolca <robert.dolca@intel.com>
----
- include/net/nfc/nci_core.h |  1 +
- net/nfc/nci/core.c         | 24 +++++++++++++++++++-----
- 2 files changed, 20 insertions(+), 5 deletions(-)
+What's inconsistent is that some perf actions can be done only on local
+events while others can be done on !local.
 
-diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
-index aaada20..4ca1b6d 100644
---- a/include/net/nfc/nci_core.h
-+++ b/include/net/nfc/nci_core.h
-@@ -278,6 +278,7 @@ int nci_request(struct nci_dev *ndev,
- 			    unsigned long opt),
- 		unsigned long opt, __u32 timeout);
- int nci_prop_cmd(struct nci_dev *ndev, __u8 oid, size_t len, __u8 *payload);
-+int nci_core_cmd(struct nci_dev *ndev, __u16 opcode, size_t len, __u8 *payload);
- int nci_core_reset(struct nci_dev *ndev);
- int nci_core_init(struct nci_dev *ndev);
- 
-diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-index 5362d8f..5b4f48a 100644
---- a/net/nfc/nci/core.c
-+++ b/net/nfc/nci/core.c
-@@ -325,32 +325,46 @@ static void nci_rf_deactivate_req(struct nci_dev *ndev, unsigned long opt)
- 		     sizeof(struct nci_rf_deactivate_cmd), &cmd);
- }
- 
--struct nci_prop_cmd_param {
-+struct nci_cmd_param {
- 	__u16 opcode;
- 	size_t len;
- 	__u8 *payload;
- };
- 
--static void nci_prop_cmd_req(struct nci_dev *ndev, unsigned long opt)
-+static void nci_generic_req(struct nci_dev *ndev, unsigned long opt)
- {
--	struct nci_prop_cmd_param *param = (struct nci_prop_cmd_param *)opt;
-+	struct nci_cmd_param *param =
-+		(struct nci_cmd_param *)opt;
- 
- 	nci_send_cmd(ndev, param->opcode, param->len, param->payload);
- }
- 
- int nci_prop_cmd(struct nci_dev *ndev, __u8 oid, size_t len, __u8 *payload)
- {
--	struct nci_prop_cmd_param param;
-+	struct nci_cmd_param param;
- 
- 	param.opcode = nci_opcode_pack(NCI_GID_PROPRIETARY, oid);
- 	param.len = len;
- 	param.payload = payload;
- 
--	return __nci_request(ndev, nci_prop_cmd_req, (unsigned long)&param,
-+	return __nci_request(ndev, nci_generic_req, (unsigned long)&param,
- 			     msecs_to_jiffies(NCI_CMD_TIMEOUT));
- }
- EXPORT_SYMBOL(nci_prop_cmd);
- 
-+int nci_core_cmd(struct nci_dev *ndev, __u16 opcode, size_t len, __u8 *payload)
-+{
-+	struct nci_cmd_param param;
-+
-+	param.opcode = opcode;
-+	param.len = len;
-+	param.payload = payload;
-+
-+	return __nci_request(ndev, nci_generic_req, (unsigned long)&param,
-+			     msecs_to_jiffies(NCI_CMD_TIMEOUT));
-+}
-+EXPORT_SYMBOL(nci_core_cmd);
-+
- int nci_core_reset(struct nci_dev *ndev)
- {
- 	return __nci_request(ndev, nci_reset_req, 0,
--- 
-1.9.1
+And I can't say I particularly like having to pass in events from
+userspace, but I think that Alexei convinced me that it made some sense
+at some point in time.
