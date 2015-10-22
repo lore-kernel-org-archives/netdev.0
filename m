@@ -1,83 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v4 0/2] mpls: multipath support
-Date: Wed, 21 Oct 2015 23:04:32 -0500
-Message-ID: <87zizbczvz.fsf@x220.int.ebiederm.org>
-References: <1445217645-42885-1-git-send-email-roopa@cumulusnetworks.com>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 22 Oct 2015 05:17:50 +0100
+Message-ID: <5628636E.1020107@oracle.com>
+References: <20151021034950.GL22011@ZenIV.linux.org.uk>	<5627A37B.4090208@oracle.com>	<20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org, rshearma@brocade.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org,
+	casper.dik@oracle.com
+To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:49218 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbbJVEMo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 00:12:44 -0400
-In-Reply-To: <1445217645-42885-1-git-send-email-roopa@cumulusnetworks.com>
-	(Roopa Prabhu's message of "Sun, 18 Oct 2015 18:20:43 -0700")
+Received: from userp1040.oracle.com ([156.151.31.81]:49399 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751295AbbJVER7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 00:17:59 -0400
+In-Reply-To: <20151021.182955.1434243485706993231.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roopa Prabhu <roopa@cumulusnetworks.com> writes:
+On 22/10/2015 02:29, David Miller wrote:
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> Date: Wed, 21 Oct 2015 19:51:04 +0100
 >
-> This patch adds support for MPLS multipath routes.
+>> Sure, but the upkeep of data structures it would need is there
+>> whether you actually end up triggering it or not.  Both in
+>> memory footprint and in cacheline pingpong...
 >
-> Includes following changes to support multipath:
-> - splits struct mpls_route into 'struct mpls_route + struct mpls_nh'.
->
-> - struct mpls_nh represents a mpls nexthop label forwarding entry
->
-> - Adds support to parse/fill RTA_MULTIPATH netlink attribute for
-> multipath routes similar to ipv4/v6 fib
->
-> - In the process of restructuring, this patch also consistently changes all
-> labels to u8
->
-> $ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
-> 		nexthop as 700 via inet 10.1.1.6 dev swp2 \
-> 		nexthop as 800 via inet 40.1.1.2 dev swp3
->
-> $ip  -f mpls route show
-> 100 
-> 	nexthop as to 200 via inet 10.1.1.2  dev swp1
-> 	nexthop as to 700 via inet 10.1.1.6  dev swp2
-> 	nexthop as to 800 via inet 40.1.1.2  dev swp3
->
-> Roopa Prabhu (1):
->   mpls: multipath support
->
-> Robert Shearman (1):
->   mpls: flow-based multipath selection
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> ----
-> v2:
-> 	- Incorporate some feedback from Robert:
-> 		use dynamic allocation (list) instead of static allocation
-> 		for nexthops
-> v3:
-> 	- Move back to arrays (same as v1), also suggested by Eric Biederman
->
-> v4:
-> 	- address a few comments from Eric Biederman
-> 	Plan to address the following pending comments in incremental patches after this
-> 	infrastructure changes go in.
-> 	- Move VIA size to 16 bytes
-> 	- use ipv6 flow label in ecmp calculations
-> 	- dead route handling during multipath route selection (I had planned this in
-> 	an incremental patch initially).
+> +1
 
-I don't see anything problematic in the patches the worst
-I found is dead code and we can delete that later so
-for purposes of moving forward I say:
+It's been said that the current mechanisms in Linux & some BSD variants 
+can be subject to races, and the behaviour exhibited doesn't conform to 
+POSIX, for example requiring the use of shutdown() on unconnected 
+sockets because close() doesn't kick off other threads accept()ing on 
+the same fd. I'd be interested to hear if there's a better and more 
+performant way of handling the situation that doesn't involve doing the 
+sort of bookkeeping Casper described,.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+To quote one of my colleague's favourite sayings: Performance is a goal, 
+correctness is a constraint.
 
-That said we really need dead path handling.  Without handling paths
-that go dead this functionality really is pretty much broken.  So if you
-can't get that by the merge window we will need to apply a patch to
-disable processing of the RTA_MULTIPATH netlink attribute.
-
-Eric
+-- 
+Alan Burlison
+--
