@@ -1,56 +1,46 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: Re: [RFC v4 1/2] iwlwifi: pcie: allow to build an A-MSDU using TSO
- core
-Date: Thu, 22 Oct 2015 14:29:39 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8ACBF7@hasmsx107.ger.corp.intel.com>
-References: <1445519232-11111-1-git-send-email-emmanuel.grumbach@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2015-10-22
+Date: Thu, 22 Oct 2015 07:47:12 -0700 (PDT)
+Message-ID: <20151022.074712.1584968096853138087.davem@davemloft.net>
+References: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sharon, Sara" <sara.sharon@intel.com>,
-	"ido@wizery.com" <ido@wizery.com>
-To: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:46412 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757887AbbJVO3o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 10:29:44 -0400
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:54521 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756713AbbJVOar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 10:30:47 -0400
+In-Reply-To: <1445494039-2612-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 22 Oct 2015 08:07:15 +0200
 
+> 1) Fix IPsec pre-encap fragmentation for GSO packets.
+>    From Herbert Xu.
+> 
+> 2) Fix some header checks in _decode_session6.
+>    We skip the header informations if the data pointer points
+>    already behind the header in question for some protocols.
+>    This is because we call pskb_may_pull with a negative value
+>    converted to unsigened int from pskb_may_pull in this case.
+>    Skipping the header informations can lead to incorrect policy
+>    lookups. From Mathias Krause.
+> 
+> 3) Allow to change the replay threshold and expiry timer of a
+>    state without having to set other attributes like replay
+>    counter and byte lifetime. Changing these other attributes
+>    may break the SA. From Michael Rossberg.
+> 
+> 4) Fix pmtu discovery for local generated packets.
+>    We may fail dispatch to the inner address family.
+>    As a reault, the local error handler is not called
+>    and the mtu value is not reported back to userspace.
+> 
+> Please pull or let me know if there are problems.
 
-On 10/22/2015 04:08 PM, Grumbach, Emmanuel wrote:
-> When the op_mode sends an skb whose payload is bigger than
-> MSS, PCIe will create an A-MSDU out of it. PCIe assumes
-> that the skb that is coming from the op_mode can fit in one
-> A-MSDU. It is the op_mode's responsibility to make sure
-> that this guarantee holds.
-> 
-> Additional headers need to be built for the subframes.
-> The TSO core code takes care of the IP / TCP headers and
-> the driver takes care of the 802.11 subframe headers.
-> 
-> These headers are stored on a per-cpu page that is re-used
-> for all the packets handled on that same CPU. Each skb
-> holds a reference to that page and releases the page when
-> it is reclaimed. When the page gets full, it is released
-> and a new one is allocated.
-> 
-> Since any SKB that doesn't go through the fast-xmit path
-> of mac80211 will be segmented, we can assume here that the
-> packet is not WEP / TKIP and has a proper SNAP header.
-> 
-> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-> ---
-> v4: * Create a helper to free the skb's ref to the hdr page
->     * add comment on that clarifies that the headers fit in a page
->     * return -ENOMEM if the per_cpu variable allocation failed
->     * don't zero the per_cpu struct after allocation
-> ---
-
-Meh... Someone internally founds a few bugs... Don't waste your time on
-this one. V5 will come later tonight.
+Pulled, thanks a lot Steffen.
