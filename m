@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Netfilter fixes for net
-Date: Wed, 21 Oct 2015 19:27:18 -0700 (PDT)
-Message-ID: <20151021.192718.591664957813117408.davem@davemloft.net>
-References: <1445278975-2412-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] tcp: remove improper preemption check in
+ tcp_xmit_probe_skb()
+Date: Wed, 21 Oct 2015 19:30:59 -0700 (PDT)
+Message-ID: <20151021.193059.700841656233671580.davem@davemloft.net>
+References: <1445287894-2248-1-git-send-email-renatow@taghos.com.br>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1445278975-2412-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, xemul@parallels.com,
+	renatow@taghos.com.br
+To: renatowestphal@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49941 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456AbbJVCOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 22:14:33 -0400
+In-Reply-To: <1445287894-2248-1-git-send-email-renatow@taghos.com.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 19 Oct 2015 20:22:51 +0200
+From: Renato Westphal <renatowestphal@gmail.com>
+Date: Mon, 19 Oct 2015 18:51:34 -0200
 
-> The following patchset contains four Netfilter fixes for net, they are:
+> Commit e520af48c7e5a introduced the following bug when setting the
+> TCP_REPAIR sockoption:
+ ...
+> Since tcp_xmit_probe_skb() can be called from process context, use
+> NET_INC_STATS() instead of NET_INC_STATS_BH().
 > 
-> 1) Fix Kconfig dependencies of new nf_dup_ipv4 and nf_dup_ipv6.
-> 
-> 2) Remove bogus test nh_scope in IPv4 rpfilter match that is breaking
->    --accept-local, from Xin Long.
-> 
-> 3) Wait for RCU grace period after dropping the pending packets in the
->    nfqueue, from Florian Westphal.
-> 
-> 4) Fix sleeping allocation while holding spin_lock_bh, from Nikolay Borisov.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Signed-off-by: Renato Westphal <renatow@taghos.com.br>
 
-Pulled, thanks a lot Pablo.
+Applied and queued up for -stable, thanks.
