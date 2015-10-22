@@ -1,76 +1,119 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH 1/2] can: xilinx: use readl/writel instead of
- ioread/iowrite
-Date: Thu, 22 Oct 2015 08:39:46 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A4F2CEB@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
- <4061693.oBld7AKBIp@wuerfel> <56289CA6.1060809@pengutronix.de>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH 1/3] net: phy: Add nested variants of mdiobus read/write
+Date: Thu, 22 Oct 2015 10:37:49 +0200
+Message-ID: <5628A05D.3020104@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	Michal Simek <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0068.outbound.protection.outlook.com ([157.56.111.68]:60542
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932473AbbJVIjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2015 04:39:53 -0400
-In-Reply-To: <56289CA6.1060809@pengutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
-ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogVGh1cnNkYXks
-IE9jdG9iZXIgMjIsIDIwMTUgMTo1MiBQTQ0KPiBUbzogQXJuZCBCZXJnbWFubjsgbGludXgtYXJt
-LWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnDQo+IENjOiBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dh
-cmEgUmFvOyBBbmlydWRoYSBTYXJhbmdpOyB3Z0BncmFuZGVnZ2VyLmNvbTsNCj4gTWljaGFsIFNp
-bWVrOyBTb3JlbiBCcmlua21hbm47IEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW87DQo+IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4
-LQ0KPiBjYW5Admdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBjYW46
-IHhpbGlueDogdXNlIHJlYWRsL3dyaXRlbCBpbnN0ZWFkIG9mIGlvcmVhZC9pb3dyaXRlDQo+IA0K
-PiBPbiAxMC8yMi8yMDE1IDEwOjE0IEFNLCBBcm5kIEJlcmdtYW5uIHdyb3RlOg0KPiA+IE9uIFRo
-dXJzZGF5IDIyIE9jdG9iZXIgMjAxNSAxMDoxNjowMiBLZWRhcmVzd2FyYSByYW8gQXBwYW5hIHdy
-b3RlOg0KPiA+PiBUaGUgZHJpdmVyIG9ubHkgc3VwcG9ydHMgbWVtb3J5LW1hcHBlZCBJL08gW2J5
-IGlvcmVtYXAoKV0sIHNvDQo+ID4+IHJlYWRsL3dyaXRlbCBpcyBhY3R1YWxseSB0aGUgcmlnaHQg
-dGhpbmcgdG8gZG8sIElNTy4NCj4gPj4gRHVyaW5nIHRoZSB2YWxpZGF0aW9uIG9mIHRoaXMgZHJp
-dmVyIG9yIElQIG9uIEFSTSA2NC1iaXQgcHJvY2Vzc29yDQo+ID4+IHdoaWxlIHNlbmRpbmcgbG90
-IG9mIHBhY2tldHMgb2JzZXJ2ZWQgdGhhdCB0aGUgdHggcGFja2V0IGRyb3Agd2l0aA0KPiA+PiBp
-b3dyaXRlIFB1dHRpbmcgdGhlIGJhcnJpZXJzIGZvciBlYWNoIHR4IGZpZm8gcmVnaXN0ZXIgd3Jp
-dGUgZml4ZXMNCj4gPj4gdGhpcyBpc3N1ZSBJbnN0ZWFkIG9mIGJhcnJpZXJzIHVzaW5nIHdyaXRl
-bCBhbHNvIGZpeGVkIHRoaXMgaXNzdWUuDQo+ID4+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IEtlZGFy
-ZXN3YXJhIHJhbyBBcHBhbmEgPGFwcGFuYWRAeGlsaW54LmNvbT4NCj4gPg0KPiA+IFRoZSB0d28g
-c2hvdWxkIHJlYWxseSBkbyB0aGUgc2FtZSB0aGluZzogaW93cml0ZTMyKCkgaXMganVzdCBhIHN0
-YXRpYw0KPiA+IGlubGluZSBjYWxsaW5nIHdyaXRlbCgpIG9uIGJvdGggQVJNMzIgYW5kIEFSTTY0
-LiBPbiB3aGljaCBrZXJuZWwNCj4gPiB2ZXJzaW9uIGRpZCB5b3Ugb2JzZXJ2ZSB0aGUgZGlmZmVy
-ZW5jZT8gSXQncyBwb3NzaWJsZSB0aGF0IGFuIG9sZGVyDQo+ID4gdmVyc2lvbiB1c2VkIENPTkZJ
-R19HRU5FUklDX0lPTUFQLCB3aGljaCBtYWRlIHRoaXMgc2xpZ2h0bHkgbW9yZQ0KPiBleHBlbnNp
-dmUuDQo+ID4NCj4gPiBJZiB0aGVyZSBhcmUgYmFycmllcnMgdGhhdCB5b3Ugd2FudCB0byBnZXQg
-cmlkIG9mIGZvciBwZXJmb3JtYW5jZQ0KPiA+IHJlYXNvbnMsIHlvdSBzaG91bGQgdXNlIHdyaXRl
-bF9yZWxheGVkKCksIGJ1dCBiZSBjYXJlZnVsIHRvDQo+ID4gc3luY2hyb25pemUgdGhlbSBjb3Jy
-ZWN0bHkgd2l0aCByZWdhcmQgdG8gRE1BLiBJdCBzaG91bGQgYmUgZmluZSBpbg0KPiA+IHRoaXMg
-ZHJpdmVyLCBhcyBpdCBkb2VzIG5vdCBwZXJmb3JtIGFueSBETUEsIGJ1dCBiZSBhd2FyZSB0aGF0
-IHRoZXJlDQo+ID4gaXMgbm8gYmlnLWVuZGlhbiB2ZXJzaW9uIG9mDQo+ID4gd3JpdGVsX3JlbGF4
-ZWQoKSBhdCB0aGUgbW9tZW50Lg0KPiANCj4gV2UgZG9uJ3QgaGF2ZSBETUEgaW4gQ0FOIGRyaXZl
-cnMsIGJ1dCB1c3VhbGx5IGEgY2VydGFpbiB3cml0ZSB0cmlnZ2VycyBzZW5kaW5nLg0KPiBEbyB3
-ZSBuZWVkIGEgYmFycmllciBiZWZvcmUgdHJpZ2dlcmluZyB0aGUgc2VuZGluZz8NCg0KWWVzIER1
-cmluZyB2YWxpZGF0aW9uIG9mIHRoaXMgSVAgb24gQVJNIDY0IGJpdCBwcm9jZXNzb3Igd2l0aCB1
-c2luZyBpb3dyaXRlMzIoKSBhbmQgc2VuZGluZyBhIGxvdCBvZiBwYWNrZXRzIGl0IHJlcXVpcmVz
-IGJhcnJpZXJzIGJlZm9yZSB0cmlnZ2VyaW5nIHRoZSBzZW5kLg0KV2l0aCB1c2luZyB3cml0ZWwo
-KSBiYXJyaWVycyBhcmUgbm90IG5lZWRlZC4NCg0KUmVnYXJkcywNCktlZGFyLg0KDQo+IA0KPiBN
-YXJjDQo+IA0KPiAtLQ0KPiBQZW5ndXRyb25peCBlLksuICAgICAgICAgICAgICAgICAgfCBNYXJj
-IEtsZWluZS1CdWRkZSAgICAgICAgICAgfA0KPiBJbmR1c3RyaWFsIExpbnV4IFNvbHV0aW9ucyAg
-ICAgICAgfCBQaG9uZTogKzQ5LTIzMS0yODI2LTkyNCAgICAgfA0KPiBWZXJ0cmV0dW5nIFdlc3Qv
-RG9ydG11bmQgICAgICAgICAgfCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LTU1NTUgfA0KPiBBbXRz
-Z2VyaWNodCBIaWxkZXNoZWltLCBIUkEgMjY4NiAgfCBodHRwOi8vd3d3LnBlbmd1dHJvbml4LmRl
-ICAgfA0KDQo=
+Since nested variants of mdiobus_read/write are used in multiple
+drivers, add nested variants in the mdiobus core.
+
+Suggested-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ drivers/net/phy/mdio_bus.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/phy.h        |  2 ++
+ 2 files changed, 57 insertions(+)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 12f44c5..88cb459 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -372,6 +372,33 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
+ EXPORT_SYMBOL(mdiobus_scan);
+
+ /**
++ * mdiobus_read_nested - Nested version of the mdiobus_read function
++ * @bus: the mii_bus struct
++ * @addr: the phy address
++ * @regnum: register number to read
++ *
++ * In case of nested MDIO bus access avoid lockdep false positives by
++ * using mutex_lock_nested().
++ *
++ * NOTE: MUST NOT be called from interrupt context,
++ * because the bus read/write functions may wait for an interrupt
++ * to conclude the operation.
++ */
++int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
++{
++	int retval;
++
++	BUG_ON(in_interrupt());
++
++	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
++	retval = bus->read(bus, addr, regnum);
++	mutex_unlock(&bus->mdio_lock);
++
++	return retval;
++}
++EXPORT_SYMBOL(mdiobus_read_nested);
++
++/**
+  * mdiobus_read - Convenience function for reading a given MII mgmt register
+  * @bus: the mii_bus struct
+  * @addr: the phy address
+@@ -396,6 +423,34 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
+ EXPORT_SYMBOL(mdiobus_read);
+
+ /**
++ * mdiobus_write_nested - Nested version of the mdiobus_write function
++ * @bus: the mii_bus struct
++ * @addr: the phy address
++ * @regnum: register number to write
++ * @val: value to write to @regnum
++ *
++ * In case of nested MDIO bus access avoid lockdep false positives by
++ * using mutex_lock_nested().
++ *
++ * NOTE: MUST NOT be called from interrupt context,
++ * because the bus read/write functions may wait for an interrupt
++ * to conclude the operation.
++ */
++int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
++{
++	int err;
++
++	BUG_ON(in_interrupt());
++
++	mutex_lock_nested(&bus->mdio_lock, SINGLE_DEPTH_NESTING);
++	err = bus->write(bus, addr, regnum, val);
++	mutex_unlock(&bus->mdio_lock);
++
++	return err;
++}
++EXPORT_SYMBOL(mdiobus_write_nested);
++
++/**
+  * mdiobus_write - Convenience function for writing a given MII mgmt register
+  * @bus: the mii_bus struct
+  * @addr: the phy address
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 4c477e6..05fde31 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -213,7 +213,9 @@ static inline struct mii_bus *devm_mdiobus_alloc(struct device *dev)
+ void devm_mdiobus_free(struct device *dev, struct mii_bus *bus);
+ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
+ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
++int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum);
+ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
++int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val);
+
+
+ #define PHY_INTERRUPT_DISABLED	0x0
+-- 
+1.9.1
