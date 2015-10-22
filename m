@@ -1,182 +1,72 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 1/2] iwlwifi: pcie: allow to build an A-MSDU using TSO
- core
-Date: Thu, 22 Oct 2015 00:14:37 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8AB280@hasmsx107.ger.corp.intel.com>
-References: <1445452464-19525-1-git-send-email-emmanuel.grumbach@intel.com>
- <1445452464-19525-2-git-send-email-emmanuel.grumbach@intel.com>
- <1445470211.22974.86.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
+ pppoe_flush_dev()
+Date: Thu, 22 Oct 2015 00:14:57 +0000
+Message-ID: <1445472897.4157.38.camel@mattb-dl>
+References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
+	 <7045c1dad4647944f61c958511d45fcd@visp.net.lb>
+	 <20151002175426.GE2911@alphalink.fr>
+	 <356ca8b8094bb2460c0182c00e120378@visp.net.lb>
+	 <20151005120844.GF2911@alphalink.fr> <20151007121232.GF2882@alphalink.fr>
+	 <85baa6ab4293c475d0b4b26192694239@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "core@irc.lg.ua" <core@irc.lg.ua>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"paulus@samba.org" <paulus@samba.org>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
+To: "nuclearcat@nuclearcat.com" <nuclearcat@nuclearcat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:33200 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752885AbbJVAPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 20:15:12 -0400
+In-Reply-To: <85baa6ab4293c475d0b4b26192694239@visp.net.lb>
 Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-ID: <B8BEFC5B7F226147A4D67D8F2C2B3E59@atlnz.lc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-On 10/22/2015 02:30 AM, Eric Dumazet wrote:
-> On Wed, 2015-10-21 at 21:34 +0300, Emmanuel Grumbach wrote:
->> When the op_mode sends an skb whose payload is bigger than
->> MSS, PCIe will create an A-MSDU out of it. PCIe assumes
->> that the skb that is coming from the op_mode can fit in one
->> A-MSDU. It is the op_mode's responsibility to make sure
->> that this guarantee holds.
->>
->> Additional headers need to be built for the subframes.
->> The TSO core code takes care of the IP / TCP headers and
->> the driver takes care of the 802.11 subframe headers.
->>
->> These headers are stored on a per-cpu page that is re-used
->> for all the packets handled on that same CPU. Each skb
->> holds a reference to that page and releases the page when
->> it is reclaimed. When the page gets full, it is released
->> and a new one is allocated.
->>
->> Since any SKB that doesn't go through the fast-xmit path
->> of mac80211 will be segmented, we can assume here that the
->> packet is not WEP / TKIP and has a proper SNAP header.
->>
->> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-[snip]
-
->> @@ -2839,6 +2849,14 @@ struct iwl_trans *iwl_trans_pcie_alloc(struct pci_dev *pdev,
->>  	spin_lock_init(&trans_pcie->ref_lock);
->>  	mutex_init(&trans_pcie->mutex);
->>  	init_waitqueue_head(&trans_pcie->ucode_write_waitq);
->> +	trans_pcie->tso_hdr_page = alloc_percpu(struct iwl_tso_hdr_page);
-> 
-> This allocation can fail.
-> You must test the return value and abort the operation.
-> 
-> 
-
-Yeah sure. Thanks.
-
->> +	for_each_possible_cpu(i) {
->> +		struct iwl_tso_hdr_page *p =
->> +			per_cpu_ptr(trans_pcie->tso_hdr_page, i);
->> +
->> +		memset(p, 0, sizeof(*p));
-> 
-> Not needed : alloc_percpu() puts zero on all the allocated memory (for
-> all possible cpus)
-
-Good to know.
-
-> 
->> +	}
->> +
->>  
->>  	ret = pci_enable_device(pdev);
->>  	if (ret)
->> diff --git a/drivers/net/wireless/iwlwifi/pcie/tx.c b/drivers/net/wireless/iwlwifi/pcie/tx.c
->> index c8f3967..14d7218 100644
->> --- a/drivers/net/wireless/iwlwifi/pcie/tx.c
->> +++ b/drivers/net/wireless/iwlwifi/pcie/tx.c
->> @@ -30,6 +30,7 @@
->>  #include <linux/etherdevice.h>
->>  #include <linux/slab.h>
->>  #include <linux/sched.h>
->> +#include <net/tso.h>
->>  
->>  #include "iwl-debug.h"
->>  #include "iwl-csr.h"
->> @@ -592,8 +593,19 @@ static void iwl_pcie_txq_unmap(struct iwl_trans *trans, int txq_id)
->>  
->>  	spin_lock_bh(&txq->lock);
->>  	while (q->write_ptr != q->read_ptr) {
->> +		struct sk_buff *skb = txq->entries[q->read_ptr].skb;
->> +		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
->> +
->>  		IWL_DEBUG_TX_REPLY(trans, "Q %d Free %d\n",
->>  				   txq_id, q->read_ptr);
->> +
->> +		if (info->driver_data[IWL_FIRST_DRIVER_DATA]) {
->> +			struct page *page =
->> +				info->driver_data[IWL_FIRST_DRIVER_DATA];
->> +			__free_pages(page, 0);
->> +			info->driver_data[IWL_FIRST_DRIVER_DATA] = NULL;
->> +		}
->> +
->>  		iwl_pcie_txq_free_tfd(trans, txq);
->>  		q->read_ptr = iwl_queue_inc_wrap(q->read_ptr);
->>  	}
->> @@ -1011,11 +1023,20 @@ void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
->>  	for (;
->>  	     q->read_ptr != tfd_num;
->>  	     q->read_ptr = iwl_queue_inc_wrap(q->read_ptr)) {
->> +		struct sk_buff *skb = txq->entries[txq->q.read_ptr].skb;
->> +		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
->>  
->> -		if (WARN_ON_ONCE(txq->entries[txq->q.read_ptr].skb == NULL))
->> +		if (WARN_ON_ONCE(skb == NULL))
->>  			continue;
->>  
->> -		__skb_queue_tail(skbs, txq->entries[txq->q.read_ptr].skb);
-> 
-> 
-> You probably could use a helper, as you use this construct multiple
-> times :
->> +		if (info->driver_data[IWL_FIRST_DRIVER_DATA]) {
->> +			struct page *page =
->> +				info->driver_data[IWL_FIRST_DRIVER_DATA];
->> +			__free_pages(page, 0);
->> +			info->driver_data[IWL_FIRST_DRIVER_DATA] = NULL;
->> +		}
-> 
-
-Good idea.
-
->> +
->> +	/*
->> +	 * Pull the ieee80211 header + IV to be able to use TSO core,
->> +	 * we will restore it for the tx_status flow.
->> +	 */
->> +	skb_pull(skb, hdr_len + iv_len);
->> +	ip_hdrlen = skb_transport_header(skb) - skb_network_header(skb);
->> +	snap_ip_tcp_hdrlen =
->> +		IEEE80211_CCMP_HDR_LEN + ip_hdrlen + tcp_hdrlen(skb);
->> +	total_len = skb->len - snap_ip_tcp_hdrlen;
->> +	amsdu_pad = 0;
->> +
->> +	/* total amount of header we may need for this A-MSDU */
->> +	hdr_room = DIV_ROUND_UP(total_len, mss) *
->> +		(3 + snap_ip_tcp_hdrlen + sizeof(struct ethhdr)) + iv_len;
-> 
-> Can't this exceed PAGE_SIZE eventually, with very small mss ?
-> 
-
-Well. I guess I should at least check, but even with very small MSS, our
-device supports up to 20 pointers for the same 802.11 packet: 2 are for
-metadata. So basically, so leaves me only 18 pointers. for each MSS I
-need at least 2 (one for the headers and one for the payload), so I will
-have at most 9 of these for one packet, even with a tiny MSS.
-
-I agree that all this should be added to the code in a comment.
-Speaking of which...
-int tso_count_descs(struct sk_buff *skb)
-{
-        /* The Marvell Way */
-        return skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
-}
-
-What if there is some payload in the header?
-To me it sounds safer to return:
-
-skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags + 1;
-
-or maybe to test if there is some payload in the header and then add 1?
-If there is payload in the header, it should be considered as another
-frag, shouldn't it?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gVHVlLCAyMDE1LTEwLTEzIGF0IDA1OjEzICswMzAwLCBEZW55cyBGZWRvcnlzaGNoZW5rbyB3
+cm90ZToNCj4gT24gMjAxNS0xMC0wNyAxNToxMiwgR3VpbGxhdW1lIE5hdWx0IHdyb3RlOg0KPiA+
+IE9uIE1vbiwgT2N0IDA1LCAyMDE1IGF0IDAyOjA4OjQ0UE0gKzAyMDAsIEd1aWxsYXVtZSBOYXVs
+dCB3cm90ZToNCj4gPj4gIAlpZiAocG8pIHsNCj4gPj4gIAkJc3RydWN0IHNvY2sgKnNrID0gc2tf
+cHBwb3gocG8pOw0KPiA+PiANCj4gPj4gLQkJYmhfbG9ja19zb2NrKHNrKTsNCj4gPj4gLQ0KPiA+
+PiAtCQkvKiBJZiB0aGUgdXNlciBoYXMgbG9ja2VkIHRoZSBzb2NrZXQsIGp1c3QgaWdub3JlDQo+
+ID4+IC0JCSAqIHRoZSBwYWNrZXQuICBXaXRoIHRoZSB3YXkgdHdvIHJjdiBwcm90b2NvbHMgaG9v
+ayBpbnRvDQo+ID4+IC0JCSAqIG9uZSBzb2NrZXQgZmFtaWx5IHR5cGUsIHdlIGNhbm5vdCAoZWFz
+aWx5KSBkaXN0aW5ndWlzaA0KPiA+PiAtCQkgKiB3aGF0IGtpbmQgb2YgU0tCIGl0IGlzIGR1cmlu
+ZyBiYWNrbG9nIHJjdi4NCj4gPj4gLQkJICovDQo+ID4+IC0JCWlmIChzb2NrX293bmVkX2J5X3Vz
+ZXIoc2spID09IDApIHsNCj4gPj4gLQkJCS8qIFdlJ3JlIG5vIGxvbmdlciBjb25uZWN0IGF0IHRo
+ZSBQUFBPRSBsYXllciwNCj4gPj4gLQkJCSAqIGFuZCBtdXN0IHdhaXQgZm9yIHBwcCBjaGFubmVs
+IHRvIGRpc2Nvbm5lY3QgdXMuDQo+ID4+IC0JCQkgKi8NCj4gPj4gLQkJCXNrLT5za19zdGF0ZSA9
+IFBQUE9YX1pPTUJJRTsNCj4gPj4gLQkJfQ0KPiA+PiAtDQo+ID4+IC0JCWJoX3VubG9ja19zb2Nr
+KHNrKTsNCj4gPj4gIAkJaWYgKCFzY2hlZHVsZV93b3JrKCZwby0+cHJvdG8ucHBwb2UucGFkdF93
+b3JrKSkNCj4gPj4gIAkJCXNvY2tfcHV0KHNrKTsNCj4gPj4gIAl9DQo+ID4+IA0KPiA+IEZpbmFs
+bHksIEkgdGhpbmsgSSdsbCBrZWVwIHRoaXMgYXBwcm9hY2ggZm9yIG5ldC1uZXh0LCB0byBjb21w
+bGV0ZWx5DQo+ID4gcmVtb3ZlIFBQUE9YX1pPTUJJRS4NCj4gPiBGb3Igbm93LCBsZXQncyBqdXN0
+IGF2b2lkIGFueSBhc3N1bXB0aW9uIGFib3V0IHRoZSByZWxhdGlvbnNoaXAgYmV0d2Vlbg0KPiA+
+IHRoZSBQUFBPWF9aT01CSUUgc3RhdGUgYW5kIHRoZSB2YWx1ZSBvZiBwby0+cHBwb2VfZGV2LCBh
+cyBzdWdnZXN0ZWQgYnkNCj4gPiBNYXR0Lg0KPiA+IA0KPiA+IERlbnlzLCBjYW4geW91IGxldCBt
+ZSBrbm93IGlmIHlvdXIgaXNzdWUgZ29lcyBhd2F5IHdpdGggdGhlIGZvbGxvd2luZw0KPiA+IHBh
+dGNoPw0KPiA+IC0tLQ0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHAvcHBwb2UuYyBi
+L2RyaXZlcnMvbmV0L3BwcC9wcHBvZS5jDQo+ID4gaW5kZXggMmVkNzUwNi4uNWUwYjQzMiAxMDA2
+NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9wcHAvcHBwb2UuYw0KPiA+ICsrKyBiL2RyaXZlcnMv
+bmV0L3BwcC9wcHBvZS5jDQo+ID4gQEAgLTU4OSw3ICs1ODksNyBAQCBzdGF0aWMgaW50IHBwcG9l
+X3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykNCj4gPiANCj4gPiAgCXBvID0gcHBwb3hfc2so
+c2spOw0KPiA+IA0KPiA+IC0JaWYgKHNrLT5za19zdGF0ZSAmIChQUFBPWF9DT05ORUNURUQgfCBQ
+UFBPWF9CT1VORCB8IFBQUE9YX1pPTUJJRSkpIHsNCj4gPiArCWlmIChwby0+cHBwb2VfZGV2KSB7
+DQo+ID4gIAkJZGV2X3B1dChwby0+cHBwb2VfZGV2KTsNCj4gPiAgCQlwby0+cHBwb2VfZGV2ID0g
+TlVMTDsNCj4gPiAgCX0NCj4gSSBqdXN0IGdvdCBPSyB0byB1cGdyYWRlIHNlcnZlciB5ZXN0ZXJk
+YXksIGZvciBub3cgYXJvdW5kIDEyIGhvdXJzIA0KPiB3b3JraW5nIGZpbmUuIEkgbmVlZCAxLTIg
+bW9yZSBkYXlzLCBhbmQgbWF5YmUgd2lsbCB1cGdyYWRlIGZldyBtb3JlIA0KPiBzZXJ2ZXJzIHRv
+IHNheSBmb3Igc3VyZSwgaWYgaXQgaXMgb2sgb3Igbm90Lg0KPiBTb3JyeSBmb3IgZGVsYXksIGp1
+c3QgaXQgaXMgcHJvZHVjdGlvbiBzZXJ2ZXJzIGFuZCBhdCBjdXJyZW50IHNpdHVhdGlvbiANCj4g
+dGhleSBjYW5ub3QgdG9sZXJhdGUgc2lnbmlmaWNhbnQgZG93bnRpbWUuDQo+IA0KQW55IHVwZGF0
+ZSBvbiB3aGV0aGVyIHRoaXMgaXNzdWUgaXMgZml4ZWQgd2l0aCB0aGUgc3VnZ2VzdGVkIHBhdGNo
+Pw0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAi
+dW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jk
+b21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdl
+ci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
