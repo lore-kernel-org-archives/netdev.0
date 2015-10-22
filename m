@@ -1,42 +1,48 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Thu, 22 Oct 2015 20:07:01 +0100
-Message-ID: <20151022190701.GV22011@ZenIV.linux.org.uk>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk>
- <5627A37B.4090208@oracle.com>
- <20151021185104.GM22011@ZenIV.linux.org.uk>
- <20151021.182955.1434243485706993231.davem@davemloft.net>
- <5628636E.1020107@oracle.com>
- <20151022044458.GP22011@ZenIV.linux.org.uk>
- <20151022060304.GQ22011@ZenIV.linux.org.uk>
- <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
- <20151022172146.GS22011@ZenIV.linux.org.uk>
- <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Casper.Dik@oracle.com
+From: jon@ringle.org
+Subject: [PATCH net-next] net: encx24j600: Fix mask to update LED configuration
+Date: Thu, 22 Oct 2015 15:09:04 -0400
+Message-ID: <1445540944-13894-1-git-send-email-jon@ringle.org>
+Cc: Jon Ringle <jringle@gridpoint.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:38135 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753070AbbJVTHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 15:07:07 -0400
-Content-Disposition: inline
-In-Reply-To: <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:36501 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbbJVTJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 15:09:08 -0400
+Received: by qkca6 with SMTP id a6so58528258qkc.3
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 12:09:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2015 at 08:24:51PM +0200, Casper.Dik@oracle.com wrote:
+From: Jon Ringle <jringle@gridpoint.com>
 
-> The external behaviour atomic; you cannot distinguish the order
-> between the closing of the original file (and waking up other threads
-> waiting for a record lock) or changing the file referenced by that newfd.
-> 
-> But this not include a global or process specific lock.
+This fixes the mask used to update the LED configuration so that it clears
+the necessary bits as well as setting the bits according to the mask.
+Also reverse the LED configuration to show the Link state + collisions in
+LEDA and the Link state + TX/RX events in LEDB.
 
-Interesting...  Do you mean that decriptor-to-file lookup blocks until that
-rundown finishes?
+Signed-off-by: Jon Ringle <jringle@gridpoint.com>
+---
+ drivers/net/ethernet/microchip/encx24j600.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
+index e1329d9..bf08ce2 100644
+--- a/drivers/net/ethernet/microchip/encx24j600.c
++++ b/drivers/net/ethernet/microchip/encx24j600.c
+@@ -617,10 +617,10 @@ static int encx24j600_hw_init(struct encx24j600_priv *priv)
+ 		   (eidled & REVID_MASK) >> REVID_SHIFT);
+ 
+ 	/* PHY Leds: link status,
+-	 * LEDA: Link + transmit/receive events
+-	 * LEDB: Link State + colision events
++	 * LEDA: Link State + collision events
++	 * LEDB: Link State + transmit/receive events
+ 	 */
+-	encx24j600_update_reg(priv, EIDLED, 0xbc00, 0xbc00);
++	encx24j600_update_reg(priv, EIDLED, 0xff00, 0xcb00);
+ 
+ 	/* Loopback disabled */
+ 	encx24j600_write_reg(priv, MACON1, 0x9);
+-- 
+2.4.1
