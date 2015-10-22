@@ -1,41 +1,68 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV NIC
-Date: Thu, 22 Oct 2015 18:58:58 +0300
-Message-ID: <CAJ3xEMhgzfbGf-3Z7GJGxg5VqbWGyKqoTt6c4C54sDNehdXVMg@mail.gmail.com>
-References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
-	<CAJ3xEMiStMJdGjgO9=MQrhLpBo8ZiTRoOL_P=aC9kyrNi91FSw@mail.gmail.com>
-	<1445455227.4059.867.camel@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] e1000: free skb when returning on
+ -ENOMEM error
+Date: Thu, 22 Oct 2015 08:59:27 -0700
+Message-ID: <562907DF.3070404@gmail.com>
+References: <1445527642-15567-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Lan Tianyu <tianyu.lan@intel.com>,
-	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
-	<mst@redhat.com>, Bjorn Helgaas <bhelgaas@google.com>,
-	carolyn.wyborny@intel.com,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	eddie.dong@intel.com, nrupal.jani@intel.com,
-	yang.z.zhang@intel.com, Alexander Graf <agraf@suse.de>,
-	kvm@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>,
-	qemu-devel@nongnu.org, emil.s.tantilov@intel.com,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	john.ronciak@intel.com,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kernel.org, matthew.vick@intel.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: Alex Williamson <alex.williamson@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1445455227.4059.867.camel@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33986 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964880AbbJVP7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 11:59:30 -0400
+In-Reply-To: <1445527642-15567-1-git-send-email-Jason@zx2c4.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2015 at 10:20 PM, Alex Williamson
-<alex.williamson@redhat.com> wrote:
+On 10/22/2015 08:27 AM, Jason A. Donenfeld wrote:
+> eth_skb_pad returns 0 if it was successful, or -ENOMEM if it was not. In
+> that case, this function exits early. Some early exits return with
+> NETDEV_TX_BUSY, which queues the skb up to be tried again, and so the
+> skb should not be freed. Other early exits return with NETDEV_TX_OK,
+> like this one, in which case it's imperative that the skb is freed,
+> since it is not queued back up. In this case, upon receiving -ENOMEM
+> from eth_skb_pad, the function exits early with NETDEV_TX_OK, but
+> forgets to free the skb. This patch fixes that.
+>
+> In a low memory situation, in which the GFP_ATOMIC allocation from
+> eth_skb_pad fails, if a network device is transmitting repeatedly, this
+> bug could lead to rapidly leaking memory that could only be recovered by
+> a reboot or crash.
+>
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> ---
+>   drivers/net/ethernet/intel/e1000/e1000_main.c | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> index 74dc150..0d6b4c8 100644
+> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> @@ -3130,8 +3130,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+>   	 * packets may get corrupted during padding by HW.
+>   	 * To WA this issue, pad all small packets manually.
+>   	 */
+> -	if (eth_skb_pad(skb))
+> +	if (eth_skb_pad(skb)) {
+> +		dev_kfree_skb_any(skb);
+>   		return NETDEV_TX_OK;
+> +	}
+>
+>   	mss = skb_shinfo(skb)->gso_size;
+>   	/* The controller does a simple calculation to
+>
 
-> This is why the typical VF agnostic approach here is to using bonding
-> and fail over to a emulated device during migration, so performance
-> suffers, but downtime is something acceptable.
+This patch makes no sense.  The function eth_skb_pad will have freed the 
+skb if it is returning an error value.  As such there is nothing to 
+free.  The code was correct before.
 
-bonding in the VM isn't a zero touch solution, right? is it really acceptable?
+- Alex
