@@ -1,101 +1,72 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next RFC 2/2] vhost_net: basic polling support
-Date: Thu, 22 Oct 2015 01:27:29 -0400
-Message-ID: <1445491649-62614-2-git-send-email-jasowang@redhat.com>
-References: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Thu, 22 Oct 2015 13:30:02 +0800
+Message-ID: <5628745A.4080204@huawei.com>
+References: <1445468283-4592-1-git-send-email-ast@kernel.org> <56286ACD.3060604@huawei.com> <56286D5C.2060009@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
+	"Daniel Borkmann" <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56286D5C.2060009@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch tries to poll for new added tx buffer for a while at the
-end of tx processing. The maximum time spent on polling were limited
-through a module parameter. To avoid block rx, the loop will end it
-there's new other works queued on vhost so in fact socket receive
-queue is also be polled.
 
-busyloop_timeout = 50 gives us following improvement on TCP_RR test:
 
-size/session/+thu%/+normalize%
-    1/     1/   +5%/  -20%
-    1/    50/  +17%/   +3%
+On 2015/10/22 13:00, Alexei Starovoitov wrote:
+> On 10/21/15 9:49 PM, Wangnan (F) wrote:
+>> After applying this patch I'm unable to use perf passing perf_event
+>> again like this:
+>
+> please do not top post and trim your replies.
+>
+>>   # perf record -a -e evt=cycles -e
+>> ./test_config_map.c/maps.pmu_map.event=evt/ --exclude-perf ls
+>>
+>> With -v it output:
+>>
+>> ...
+>> adding perf_bpf_probe:func_write
+>> adding perf_bpf_probe:func_write to 0x367d6a0
+>> add bpf event perf_bpf_probe:func_write_return and attach bpf program 6
+>> adding perf_bpf_probe:func_write_return
+>> adding perf_bpf_probe:func_write_return to 0x3a7fc40
+>> mmap size 528384B
+>> ERROR: failed to insert value to pmu_map[0]
+>> ERROR: Apply config to BPF failed: Invalid option for map, add -v to see
+>> detail
+>> Opening /sys/kernel/debug/tracing//kprobe_events write=
+>> ...
+>>
+>> Looks like perf sets attr.inherit for cycles? I'll look into this 
+>> problem.
+>
+> yes. that's perf default.
+> How did it even work before?!
+> I was testing with your samples/bpf/tracex6 that sets inherit to zero.
+>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+Tested perf record -i option and it works for me:
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 9eda69e..bbb522a 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -31,7 +31,9 @@
- #include "vhost.h"
- 
- static int experimental_zcopytx = 1;
-+static int busyloop_timeout = 50;
- module_param(experimental_zcopytx, int, 0444);
-+module_param(busyloop_timeout, int, 0444);
- MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
- 		                       " 1 -Enable; 0 - Disable");
- 
-@@ -287,12 +289,23 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
- 	rcu_read_unlock_bh();
- }
- 
-+static bool tx_can_busy_poll(struct vhost_dev *dev,
-+			     unsigned long endtime)
-+{
-+	unsigned long now = local_clock() >> 10;
-+
-+	return busyloop_timeout && !need_resched() &&
-+	       !time_after(now, endtime) && !vhost_has_work(dev) &&
-+	       single_task_running();
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_tx(struct vhost_net *net)
- {
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
- 	struct vhost_virtqueue *vq = &nvq->vq;
-+	unsigned long endtime;
- 	unsigned out, in;
- 	int head;
- 	struct msghdr msg = {
-@@ -331,6 +344,8 @@ static void handle_tx(struct vhost_net *net)
- 			      % UIO_MAXIOV == nvq->done_idx))
- 			break;
- 
-+		endtime  = (local_clock() >> 10) + busyloop_timeout;
-+again:
- 		head = vhost_get_vq_desc(vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
- 					 &out, &in,
-@@ -340,6 +355,10 @@ static void handle_tx(struct vhost_net *net)
- 			break;
- 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
- 		if (head == vq->num) {
-+			if (tx_can_busy_poll(vq->dev, endtime)) {
-+				cpu_relax();
-+				goto again;
-+			}
- 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
- 				vhost_disable_notify(&net->dev, vq);
- 				continue;
--- 
-1.8.3.1
+# echo "" > /sys/kernel/debug/tracing/trace
+# perf record -i -a -e evt=cycles -e 
+./test_config_map.c/maps.pmu_map.event=evt/ --exclude-perf ls
+# cat /sys/kernel/debug/tracing/trace  | grep ls
+               ls-8227  [001] dN..  2526.184611: : pmu inc: 82270
+               ls-8227  [001] dN..  2526.184626: : pmu inc: 40951
+               ls-8227  [001] dN..  2526.184642: : pmu inc: 50659
+               ls-8227  [001] dN..  2526.184657: : pmu inc: 43511
+               ls-8227  [001] dN..  2526.184675: : pmu inc: 56921
+...
+And no warning message found in dmesg.
+
+So I think your fix is good, we should improve perf.
+
+Thank you.
