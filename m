@@ -1,45 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] netlink: Rightsize IFLA_AF_SPEC size
- calculation
-Date: Wed, 21 Oct 2015 19:15:32 -0700 (PDT)
-Message-ID: <20151021.191532.1097000872602164221.davem@davemloft.net>
-References: <1444888204-1954-1-git-send-email-ronen.arad@intel.com>
-	<1445271808-9097-1-git-send-email-ronen.arad@intel.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Thu, 22 Oct 2015 09:56:11 +0800
+Message-ID: <5628423B.4010504@huawei.com>
+References: <1445325735-121694-1-git-send-email-xiakaixu@huawei.com> <1445325735-121694-2-git-send-email-xiakaixu@huawei.com> <5626C5CE.8080809@plumgrid.com> <20151021091254.GF2881@worktop.programming.kicks-ass.net> <56276968.6070604@huawei.com> <20151021113316.GM17308@twins.programming.kicks-ass.net> <56277BCE.6030400@huawei.com> <20151021121713.GC3604@twins.programming.kicks-ass.net> <56279634.5000606@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ronen.arad@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49879 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932382AbbJVB7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 21:59:05 -0400
-In-Reply-To: <1445271808-9097-1-git-send-email-ronen.arad@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xiakaixu <xiakaixu@huawei.com>, <davem@davemloft.net>,
+	<acme@kernel.org>, <mingo@redhat.com>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>, <linux-kernel@vger.kernel.org>,
+	<pi3orama@163.com>, <hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56279634.5000606@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ronen Arad <ronen.arad@intel.com>
-Date: Mon, 19 Oct 2015 09:23:28 -0700
+Hi Alexei,
 
-> if_nlmsg_size() overestimates the minimum allocation size of netlink
-> dump request (when called from rtnl_calcit()) or the size of the
-> message (when called from rtnl_getlink()). This is because
-> ext_filter_mask is not supported by rtnl_link_get_af_size() and
-> rtnl_link_get_size().
-> 
-> The over-estimation is significant when at least one netdev has many
-> VLANs configured (8 bytes for each configured VLAN).
-> 
-> This patch-set "rightsizes" the protocol specific attribute size
-> calculation by propagating ext_filter_mask to rtnl_link_get_af_size()
-> and adding this a argument to get_link_af_size op in rtnl_af_ops.
-> 
-> Bridge module already used filtering aware sizing for notifications.
-> br_get_link_af_size_filtered() is consistent with the modified
-> get_link_af_size op so it replaces br_get_link_af_size() in br_af_ops.
-> br_get_link_af_size() becomes unused and thus removed.
-> 
-> Signed-off-by: Ronen Arad <ronen.arad@intel.com>
+On 2015/10/21 21:42, Wangnan (F) wrote:
+>
+>
+> One alternative solution I can image is to attach a BPF program
+> at sampling like kprobe, and return 0 if we don't want sampling
+> take action. Thought?
 
-Applied, thanks.
+Do you think attaching BPF programs to sampling is an acceptable idea?
+
+Thank you.
+
+> Actually speaking I don't like it very much
+> because the principle of soft-disable is much simpler and safe, but
+> if you really like it I think we can try.
