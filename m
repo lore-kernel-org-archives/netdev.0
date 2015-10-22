@@ -1,193 +1,42 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 11/16] tipc: introduce jumbo
-	frame support for broadcast
-Date: Thu, 22 Oct 2015 08:51:43 -0400
-Message-ID: <1445518308-26200-12-git-send-email-jon.maloy@ericsson.com>
-References: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Qemu-devel] [RFC Patch 00/12] IXGBE: Add live migration support
+ for SRIOV NIC
+Date: Thu, 22 Oct 2015 15:55:34 +0300
+Message-ID: <20151022155234-mutt-send-email-mst@redhat.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1445518308-26200-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: bhelgaas@google.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, eddie.dong@intel.com,
+	nrupal.jani@intel.com, yang.z.zhang@intel.com, agraf@suse.de,
+	kvm@vger.kernel.org, pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
+To: Lan Tianyu <tianyu.lan@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Until now, we have only been supporting a fix MTU size of 1500 bytes
-for all broadcast media, irrespective of their actual capability.
+On Thu, Oct 22, 2015 at 12:37:32AM +0800, Lan Tianyu wrote:
+> This patchset is to propose a new solution to add live migration support for 82599
+> SRIOV network card.
+> 
+> Im our solution, we prefer to put all device specific operation into VF and
+> PF driver and make code in the Qemu more general.
 
-We now make the broadcast MTU adaptable to the carrying media, i.e.,
-we use the smallest MTU supported by any of the interfaces attached
-to TIPC.
+Adding code to VF driver makes sense.  However, adding code to PF driver
+is problematic: PF and VF run within different environments, you can't
+assume PF and VF drivers are the same version.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/bcast.c  | 15 +++++++++++----
- net/tipc/bcast.h  |  2 +-
- net/tipc/bearer.c | 13 +++++++++++++
- net/tipc/bearer.h |  1 +
- net/tipc/link.c   | 10 ++++++++++
- net/tipc/link.h   |  2 ++
- net/tipc/socket.c |  2 +-
- 7 files changed, 39 insertions(+), 6 deletions(-)
+I guess that would be acceptable if these messages make
+it into the official intel spec, along with
+hardware registers.
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 74ee09a..d8c399d 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -148,9 +148,9 @@ void tipc_bclink_input(struct net *net)
- 	tipc_sk_mcast_rcv(net, &tn->bcbase->arrvq, &tn->bcbase->inputq);
- }
- 
--uint  tipc_bcast_get_mtu(void)
-+int tipc_bcast_get_mtu(struct net *net)
- {
--	return MAX_PKT_DEFAULT_MCAST;
-+	return tipc_link_mtu(tipc_bc_sndlink(net));
- }
- 
- static u16 bcbuf_acks(struct sk_buff *skb)
-@@ -175,7 +175,7 @@ static void tipc_bcbase_select_primary(struct net *net)
- {
- 	struct tipc_bc_base *bb = tipc_bc_base(net);
- 	int all_dests =  tipc_link_bc_peers(bb->link);
--	int i;
-+	int i, mtu;
- 
- 	bb->primary_bearer = INVALID_BEARER_ID;
- 
-@@ -183,6 +183,13 @@ static void tipc_bcbase_select_primary(struct net *net)
- 		return;
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
-+		if (!bb->dests[i])
-+			continue;
-+
-+		mtu = tipc_bearer_mtu(net, i);
-+		if (mtu < tipc_link_mtu(bb->link))
-+			tipc_link_set_mtu(bb->link, mtu);
-+
- 		if (bb->dests[i] < all_dests)
- 			continue;
- 
-@@ -1220,7 +1227,7 @@ int tipc_bcast_init(struct net *net)
- 	bb->node.net = net;
- 
- 	if (!tipc_link_bc_create(&bb->node, 0, 0,
--				 MAX_PKT_DEFAULT_MCAST,
-+				 U16_MAX,
- 				 BCLINK_WIN_DEFAULT,
- 				 0,
- 				 &bb->inputq,
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 76b747a..0cc7220 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -63,7 +63,7 @@ void tipc_bcbearer_sort(struct net *net, struct tipc_node_map *nm_ptr,
- 			u32 node, bool action);
- int  tipc_bclink_reset_stats(struct net *net);
- int  tipc_bclink_set_queue_limits(struct net *net, u32 limit);
--uint  tipc_bcast_get_mtu(void);
-+int  tipc_bcast_get_mtu(struct net *net);
- int tipc_bcast_xmit(struct net *net, struct sk_buff_head *list);
- int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb);
- void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked);
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 62f47ec..b39f631 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -464,6 +464,19 @@ void tipc_bearer_send(struct net *net, u32 bearer_id, struct sk_buff *buf,
- 	rcu_read_unlock();
- }
- 
-+int tipc_bearer_mtu(struct net *net, u32 bearer_id)
-+{
-+	int mtu = 0;
-+	struct tipc_bearer *b;
-+
-+	rcu_read_lock();
-+	b = rcu_dereference_rtnl(tipc_net(net)->bearer_list[bearer_id]);
-+	if (b)
-+		mtu = b->mtu;
-+	rcu_read_unlock();
-+	return mtu;
-+}
-+
- /* tipc_bearer_xmit() -send buffer to destination over bearer
-  */
- void tipc_bearer_xmit(struct net *net, u32 bearer_id,
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 9fc1e07..2ba8a7e 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -218,6 +218,7 @@ void tipc_bearer_cleanup(void);
- void tipc_bearer_stop(struct net *net);
- void tipc_bearer_send(struct net *net, u32 bearer_id, struct sk_buff *buf,
- 		      struct tipc_media_addr *dest);
-+int tipc_bearer_mtu(struct net *net, u32 bearer_id);
- void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- 		      struct sk_buff_head *xmitq,
- 		      struct tipc_media_addr *dst);
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index ff725c3..3b98f8e 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -212,6 +212,16 @@ int tipc_link_bc_peers(struct tipc_link *l)
- 	return l->ackers;
- }
- 
-+void tipc_link_set_mtu(struct tipc_link *l, int mtu)
-+{
-+	l->mtu = mtu;
-+}
-+
-+int tipc_link_mtu(struct tipc_link *l)
-+{
-+	return l->mtu;
-+}
-+
- static u32 link_own_addr(struct tipc_link *l)
- {
- 	return msg_prevnode(l->pmsg);
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 28a6396..9b5198e9 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -281,6 +281,8 @@ void tipc_link_remove_bc_peer(struct tipc_link *snd_l,
- 			      struct tipc_link *rcv_l,
- 			      struct sk_buff_head *xmitq);
- int tipc_link_bc_peers(struct tipc_link *l);
-+void tipc_link_set_mtu(struct tipc_link *l, int mtu);
-+int tipc_link_mtu(struct tipc_link *l);
- void tipc_link_bc_ack_rcv(struct tipc_link *l, u16 acked,
- 			  struct sk_buff_head *xmitq);
- void tipc_link_build_bc_sync_msg(struct tipc_link *l,
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index e2e35b7..552dbab 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -689,7 +689,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 	msg_set_hdr_sz(mhdr, MCAST_H_SIZE);
- 
- new_mtu:
--	mtu = tipc_bcast_get_mtu();
-+	mtu = tipc_bcast_get_mtu(net);
- 	rc = tipc_msg_build(mhdr, msg, 0, dsz, mtu, pktchain);
- 	if (unlikely(rc < 0))
- 		return rc;
 -- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+MST
