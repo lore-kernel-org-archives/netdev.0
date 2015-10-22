@@ -1,42 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net v3] openvswitch: Allocate memory for ovs
- internal device stats.
-Date: Wed, 21 Oct 2015 19:07:28 -0700 (PDT)
-Message-ID: <20151021.190728.758804935928190351.davem@davemloft.net>
-References: <1445268715-21661-1-git-send-email-james.morse@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] tipc: allow non-linear first fragment buffer
+Date: Wed, 21 Oct 2015 19:09:16 -0700 (PDT)
+Message-ID: <20151021.190916.2205639791964404669.davem@davemloft.net>
+References: <1445268780-29020-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: james.morse-5wv7dgnIgG8@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1445268715-21661-1-git-send-email-james.morse-5wv7dgnIgG8@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.xx.bhuvaragan@ericsson.com,
+	richard.alpe@ericsson.com, ying.xue@windriver.com,
+	maloy@donjonn.com, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49829 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753523AbbJVBwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 21:52:50 -0400
+In-Reply-To: <1445268780-29020-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmFtZXMgTW9yc2UgPGphbWVzLm1vcnNlQGFybS5jb20+CkRhdGU6IE1vbiwgMTkgT2N0
-IDIwMTUgMTY6MzE6NTUgKzAxMDAKCj4gIm9wZW52c3dpdGNoOiBSZW1vdmUgdnBvcnQgc3RhdHMi
-IHJlbW92ZWQgdGhlIHBlci12cG9ydCBzdGF0aXN0aWNzLCBpbgo+IG9yZGVyIHRvIHVzZSB0aGUg
-bmV0ZGV2J3Mgc3RhdGlzdGljcyBmaWVsZHMuCj4gIm9wZW52c3dpdGNoOiBGaXggb3ZzX3Zwb3J0
-X2dldF9zdGF0cygpIiBmaXhlZCB0aGUgZXhwb3J0IG9mIHRoZXNlIHN0YXRzCj4gdG8gdXNlci1z
-cGFjZSwgYnkgdXNpbmcgdGhlIHByb3ZpZGVkIG5ldGRldl9vcHMgdG8gY29sbGF0ZSB0aGVtIC0g
-YnV0IG92cwo+IGludGVybmFsIGRldmljZXMgc3RpbGwgdXNlIGFuIHVuYWxsb2NhdGVkIGRldi0+
-dHN0YXRzIGZpZWxkIHRvIGNvdW50Cj4gcGFja2V0cywgd2hpY2ggYXJlIG5vIGxvbmdlciBleHBv
-cnRlZCBieSB0aGlzIGFwaS4KPiAKPiBBbGxvY2F0ZSB0aGUgZGV2LT50c3RhdHMgZmllbGQgZm9y
-IG92cyBpbnRlcm5hbCBkZXZpY2VzLCBhbmQgd2lyZSB1cAo+IG5kb19nZXRfc3RhdHM2NCB3aXRo
-IHRoZSBvcmlnaW5hbCBpbXBsZW1lbnRhdGlvbiBvZgo+IG92c192cG9ydF9nZXRfc3RhdHMoKS4K
-PiAKPiBPbiBpdHMgb3duLCAib3BlbnZzd2l0Y2g6IEZpeCBvdnNfdnBvcnRfZ2V0X3N0YXRzKCki
-IGZpeGVzIHRoZSBPT1BzLAo+IHVubWFza2luZyBhIGZ1bGwtb24gcGFuaWMgb24gYXJtNjQ6Ci4u
-Lgo+IEZpeGVzOiA4Yzg3NjYzOWM5ODUgKCJvcGVudnN3aXRjaDogUmVtb3ZlIHZwb3J0IHN0YXRz
-LiIpCj4gU2lnbmVkLW9mZi1ieTogSmFtZXMgTW9yc2UgPGphbWVzLm1vcnNlQGFybS5jb20+CgpB
-cHBsaWVkLCB0aGFua3MuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
-d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Mon, 19 Oct 2015 11:33:00 -0400
+
+> The current code for message reassembly is erroneously assuming that
+> the the first arriving fragment buffer always is linear, and then goes
+> ahead resetting the fragment list of that buffer in anticipation of
+> more arriving fragments.
+> 
+> However, if the buffer already happens to be non-linear, we will
+> inadvertently drop the already attached fragment list, and later
+> on trig a BUG() in __pskb_pull_tail().
+> 
+> We see this happen when running fragmented TIPC multicast across UDP,
+> something made possible since
+> commit d0f91938bede ("tipc: add ip/udp media type")
+> 
+> We fix this by not resetting the fragment list when the buffer is non-
+> linear, and by initiatlizing our private fragment list tail pointer to
+> the tail of the existing fragment list.
+> 
+> Fixes: commit d0f91938bede ("tipc: add ip/udp media type")
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+
+Applied and queued up for -stable, thanks.
