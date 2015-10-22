@@ -1,44 +1,54 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH 3/3] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Thu, 22 Oct 2015 18:18:31 +0100
-Message-ID: <yw1xmvvag6u0.fsf@unicorn.mansr.com>
-References: <1445522558-5808-1-git-send-email-mans@mansr.com>
-	<1445522558-5808-3-git-send-email-mans@mansr.com>
-	<20151022.074116.2063486490315211774.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 22 Oct 2015 18:21:46 +0100
+Message-ID: <20151022172146.GS22011@ZenIV.linux.org.uk>
+References: <20151021034950.GL22011@ZenIV.linux.org.uk>
+ <5627A37B.4090208@oracle.com>
+ <20151021185104.GM22011@ZenIV.linux.org.uk>
+ <20151021.182955.1434243485706993231.davem@davemloft.net>
+ <5628636E.1020107@oracle.com>
+ <20151022044458.GP22011@ZenIV.linux.org.uk>
+ <20151022060304.GQ22011@ZenIV.linux.org.uk>
+ <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Burlison <Alan.Burlison@oracle.com>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	dholland-tech@netbsd.org
+To: Casper.Dik@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:42141 "EHLO unicorn.mansr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756880AbbJVRSe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 13:18:34 -0400
-In-Reply-To: <20151022.074116.2063486490315211774.davem@davemloft.net> (David
-	Miller's message of "Thu, 22 Oct 2015 07:41:16 -0700 (PDT)")
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37557 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755280AbbJVRVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 13:21:51 -0400
+Content-Disposition: inline
+In-Reply-To: <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Thu, Oct 22, 2015 at 08:34:19AM +0200, Casper.Dik@oracle.com wrote:
+> 
+> 
+> >And I'm really curious about the things Solaris would do with dup2() there.
+> >Does it take into account the possibility of new accept() coming just as
+> >dup2() is trying to terminate the ongoing ones?  Is there a window when
+> >descriptor-to-file lookups would fail?  Looks like a race/deadlock country...
+> 
+> Solaris does not "terminate" threads, instead it tells them that the
+> file descriptor information used is stale and wkae's up the thread.
 
-> From: Mans Rullgard <mans@mansr.com>
-> Date: Thu, 22 Oct 2015 15:02:38 +0100
->
->> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
->> It is an almost complete rewrite of a driver originally found in
->> a Sigma Designs 2.6.22 tree.
->>=20
->> Signed-off-by: Mans Rullgard <mans@mansr.com>
->
-> The netdev list is going to have to see patches #1 and #2 as well as
-> your cover letter in order to review and integrate this driver
-> properly.
+Sorry, lousy wording - I meant "terminate syscall in another thread".
+Better yet, make that "what happens if new accept(newfd) comes while dup2()
+waits for affected syscalls in other threads to finish"?  Assuming it
+does wait, that is...
 
-Patch 1 only added the "aurora" DT vendor prefix.  Patch 2 was the DT
-binding for this device.  I'll include netdev when I send an updated
-version.
-
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+While we are at it, what's the relative order of record locks removal
+and switching the meaning of newfd?  In our kernel it happens *after*
+the switchover (i.e. if another thread is waiting for a record lock held on
+any alias of newfd and we do dup2(oldfd, newfd), the waiter will not see
+the state with newfd still refering to what it used to; note that waiter
+might be using any descriptor refering to the file newfd used to refer
+to, so it won't be affected by the "wake those who had the meaning of
+their arguments change" side of things).
