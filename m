@@ -1,159 +1,37 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 5/6] net: dsa: mv88e6xxx: remove port_fdb_getnext
-Date: Thu, 22 Oct 2015 09:34:42 -0400
-Message-ID: <1445520883-13287-6-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445520883-13287-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4] bnxt_en: New Broadcom ethernet driver.
+Date: Thu, 22 Oct 2015 07:02:54 -0700 (PDT)
+Message-ID: <20151022.070254.273038937417064562.davem@davemloft.net>
+References: <1445413508-14932-1-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: prashant@broadcom.com, eddie.wai@broadcom.com,
+	huangjw@broadcom.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54182 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754728AbbJVNq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 09:46:27 -0400
+In-Reply-To: <1445413508-14932-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that port_fdb_dump is implemented and even simpler, get rid of
-port_fdb_getnext.
+From: Michael Chan <mchan@broadcom.com>
+Date: Wed, 21 Oct 2015 03:45:08 -0400
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6171.c |  1 -
- drivers/net/dsa/mv88e6352.c |  1 -
- drivers/net/dsa/mv88e6xxx.c | 73 ---------------------------------------------
- drivers/net/dsa/mv88e6xxx.h |  2 --
- 4 files changed, 77 deletions(-)
+> Broadcom ethernet driver for the new family of NetXtreme-C/E
+> ethernet devices.
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 489deb8..2c8eb6f 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -122,7 +122,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 6b8fd24..cbf4dd8 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -349,7 +349,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
--	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
- };
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 8d0acf3..39664d8 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1559,33 +1559,6 @@ unlock:
- 	return err;
- }
- 
--static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
--				       struct mv88e6xxx_vtu_stu_entry *entry)
--{
--	int err;
--
--	do {
--		if (vid == 4095)
--			return -ENOENT;
--
--		err = _mv88e6xxx_vtu_vid_write(ds, vid);
--		if (err)
--			return err;
--
--		err = _mv88e6xxx_vtu_getnext(ds, entry);
--		if (err)
--			return err;
--
--		if (!entry->valid)
--			return -ENOENT;
--
--		vid = entry->vid;
--	} while (entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED &&
--		 entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED);
--
--	return 0;
--}
--
- int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
- 			   unsigned long *ports, unsigned long *untagged)
- {
-@@ -1864,52 +1837,6 @@ unlock:
- 	return err;
- }
- 
--/* get next entry for port */
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct mv88e6xxx_atu_entry next;
--	u16 fid = *vid; /* We use one FID per VLAN */
--	int ret;
--
--	mutex_lock(&ps->smi_mutex);
--
--	do {
--		if (is_broadcast_ether_addr(addr)) {
--			struct mv88e6xxx_vtu_stu_entry vtu;
--
--			ret = _mv88e6xxx_port_vtu_getnext(ds, port, *vid, &vtu);
--			if (ret < 0)
--				goto unlock;
--
--			*vid = vtu.vid;
--			fid = vtu.fid;
--		}
--
--		ret = _mv88e6xxx_atu_mac_write(ds, addr);
--		if (ret < 0)
--			goto unlock;
--
--		ret = _mv88e6xxx_atu_getnext(ds, fid, &next);
--		if (ret < 0)
--			goto unlock;
--
--		ether_addr_copy(addr, next.mac);
--
--		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			continue;
--	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
--
--	*is_static = next.state == (is_multicast_ether_addr(addr) ?
--				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
--				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
--unlock:
--	mutex_unlock(&ps->smi_mutex);
--
--	return ret;
--}
--
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
- 	struct mv88e6xxx_priv_state *ps;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 3c9cfde..430de4f 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -474,8 +474,6 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			   struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb);
--int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, u16 *vid, bool *is_static);
- int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 			    struct switchdev_obj_port_fdb *fdb,
- 			    int (*cb)(struct switchdev_obj *obj));
--- 
-2.6.1
+Please don't have empty blank lines at the end of files, GIT even
+warns about this.
+
+davem@greenl8ke:~/src/GIT/net-next$ git am --signoff net-next-v4-bnxt_en-New-Broadcom-ethernet-driver..patch 
+Applying: bnxt_en: New Broadcom ethernet driver.
+/home/davem/src/GIT/net-next/.git/rebase-apply/patch:72: new blank line at EOF.
++
+/home/davem/src/GIT/net-next/.git/rebase-apply/patch:8051: new blank line at EOF.
++
+/home/davem/src/GIT/net-next/.git/rebase-apply/patch:8075: new blank line at EOF.
++
