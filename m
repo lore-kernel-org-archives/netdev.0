@@ -1,52 +1,42 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] e1000: free skb when returning on -ENOMEM error
-Date: Thu, 22 Oct 2015 17:27:22 +0200
-Message-ID: <1445527642-15567-1-git-send-email-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Thu, 22 Oct 2015 08:38:02 -0700
+Message-ID: <562902DA.7010908@plumgrid.com>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
+ <20151022135930.GN3604@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36524 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757050AbbJVPiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 11:38:03 -0400
+Received: by pacfv9 with SMTP id fv9so93892488pac.3
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 08:38:02 -0700 (PDT)
+In-Reply-To: <20151022135930.GN3604@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-eth_skb_pad returns 0 if it was successful, or -ENOMEM if it was not. In
-that case, this function exits early. Some early exits return with
-NETDEV_TX_BUSY, which queues the skb up to be tried again, and so the
-skb should not be freed. Other early exits return with NETDEV_TX_OK,
-like this one, in which case it's imperative that the skb is freed,
-since it is not queued back up. In this case, upon receiving -ENOMEM
-from eth_skb_pad, the function exits early with NETDEV_TX_OK, but
-forgets to free the skb. This patch fixes that.
+On 10/22/15 6:59 AM, Peter Zijlstra wrote:
+>> +	if (unlikely(event->oncpu != smp_processor_id()))
+>> >+		return -EOPNOTSUPP;
+>> >+
+>> >+	perf_sample_data_init(&sample_data, 0, 0);
+>> >+	sample_data.raw = &raw;
+>> >+	perf_event_output(event, &sample_data, regs);
+>> >+	return 0;
+>> >+}
+> Note that this function also very much requires event to be local.
 
-In a low memory situation, in which the GFP_ATOMIC allocation from
-eth_skb_pad fails, if a network device is transmitting repeatedly, this
-bug could lead to rapidly leaking memory that could only be recovered by
-a reboot or crash.
-
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 74dc150..0d6b4c8 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3130,8 +3130,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	 * packets may get corrupted during padding by HW.
- 	 * To WA this issue, pad all small packets manually.
- 	 */
--	if (eth_skb_pad(skb))
-+	if (eth_skb_pad(skb)) {
-+		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
-+	}
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 	/* The controller does a simple calculation to
--- 
-2.6.2
+correct. that's why there is a dynamic check above to prevent buggy
+programs causing issues.
