@@ -1,44 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dummy: add more features
-Date: Wed, 21 Oct 2015 19:36:51 -0700 (PDT)
-Message-ID: <20151021.193651.1239717859030712355.davem@davemloft.net>
-References: <1445311079.30896.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] ipv6: gro: support sit protocol
+Date: Wed, 21 Oct 2015 19:37:02 -0700 (PDT)
+Message-ID: <20151021.193702.1623864743998748289.davem@davemloft.net>
+References: <1445009029.25595.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1445306641.30896.42.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: hkchu@google.com, jesse@nicira.com, tom@herbertland.com,
+	netdev@vger.kernel.org, kernel-team@fb.com, linux@stwm.de,
+	herbert@gondor.apana.org.au
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49980 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49985 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753269AbbJVCUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 22:20:25 -0400
-In-Reply-To: <1445311079.30896.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756326AbbJVCUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 22:20:37 -0400
+In-Reply-To: <1445312417.30896.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Oct 2015 20:17:59 -0700
+Date: Mon, 19 Oct 2015 20:40:17 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> While testing my SIT/GRO patch using netfilter TEE module and a dummy
-> device, I found some features were missing :
+> Tom Herbert added SIT support to GRO with commit
+> 19424e052fb4 ("sit: Add gro callbacks to sit_offload"),
+> later reverted by Herbert Xu.
 > 
-> TSO IPv6, UFO, and encapsulated traffic.
+> The problem came because Tom patch was building GRO
+> packets without proper meta data : If packets were locally
+> delivered, we would not care.
 > 
-> ethtool -k dummy0 now gives :
-> ...
-> tcp-segmentation-offload: on
-> 	tx-tcp-segmentation: on
-> 	tx-tcp-ecn-segmentation: on
-> 	tx-tcp6-segmentation: on
-> udp-fragmentation-offload: on
-> ...
-> tx-gre-segmentation: on
-> tx-ipip-segmentation: on
-> tx-sit-segmentation: on
-> tx-udp_tnl-segmentation: on
+> But if packets needed to be forwarded, GSO engine was not
+> able to segment individual segments.
+> 
+> With the following patch, we correctly set skb->encapsulation
+> and inner network header. We also update gso_type.
+> 
+> Tested:
+ ...
+> Checked on server traffic copied on dummy0 and verify segments were
+> properly rebuilt, with proper IP headers, TCP checksums...
+> 
+> tcpdump on eth0 shows proper GRO aggregation takes place.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
