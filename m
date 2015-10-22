@@ -1,72 +1,35 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Re: [PATCH net] ppp: don't override sk->sk_state in
- pppoe_flush_dev()
-Date: Thu, 22 Oct 2015 00:14:57 +0000
-Message-ID: <1445472897.4157.38.camel@mattb-dl>
-References: <b7fbf103cd589741e3938550e7cf0f3684d8951c.1443605079.git.g.nault@alphalink.fr>
-	 <7045c1dad4647944f61c958511d45fcd@visp.net.lb>
-	 <20151002175426.GE2911@alphalink.fr>
-	 <356ca8b8094bb2460c0182c00e120378@visp.net.lb>
-	 <20151005120844.GF2911@alphalink.fr> <20151007121232.GF2882@alphalink.fr>
-	 <85baa6ab4293c475d0b4b26192694239@visp.net.lb>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v4] bnxt_en: New Broadcom ethernet driver.
+Date: Wed, 21 Oct 2015 17:31:53 -0700
+Message-ID: <20151021173153.0aac826e@xeon-e3>
+References: <1445413508-14932-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "core@irc.lg.ua" <core@irc.lg.ua>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"paulus@samba.org" <paulus@samba.org>,
-	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
-To: "nuclearcat@nuclearcat.com" <nuclearcat@nuclearcat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <prashant@broadcom.com>,
+	<eddie.wai@broadcom.com>, <huangjw@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:33200 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752885AbbJVAPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 20:15:12 -0400
-In-Reply-To: <85baa6ab4293c475d0b4b26192694239@visp.net.lb>
-Content-Language: en-US
-Content-ID: <B8BEFC5B7F226147A4D67D8F2C2B3E59@atlnz.lc>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:37111 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753158AbbJVAbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2015 20:31:44 -0400
+Received: by igbhv6 with SMTP id hv6so49814485igb.0
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2015 17:31:44 -0700 (PDT)
+In-Reply-To: <1445413508-14932-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE1LTEwLTEzIGF0IDA1OjEzICswMzAwLCBEZW55cyBGZWRvcnlzaGNoZW5rbyB3
-cm90ZToNCj4gT24gMjAxNS0xMC0wNyAxNToxMiwgR3VpbGxhdW1lIE5hdWx0IHdyb3RlOg0KPiA+
-IE9uIE1vbiwgT2N0IDA1LCAyMDE1IGF0IDAyOjA4OjQ0UE0gKzAyMDAsIEd1aWxsYXVtZSBOYXVs
-dCB3cm90ZToNCj4gPj4gIAlpZiAocG8pIHsNCj4gPj4gIAkJc3RydWN0IHNvY2sgKnNrID0gc2tf
-cHBwb3gocG8pOw0KPiA+PiANCj4gPj4gLQkJYmhfbG9ja19zb2NrKHNrKTsNCj4gPj4gLQ0KPiA+
-PiAtCQkvKiBJZiB0aGUgdXNlciBoYXMgbG9ja2VkIHRoZSBzb2NrZXQsIGp1c3QgaWdub3JlDQo+
-ID4+IC0JCSAqIHRoZSBwYWNrZXQuICBXaXRoIHRoZSB3YXkgdHdvIHJjdiBwcm90b2NvbHMgaG9v
-ayBpbnRvDQo+ID4+IC0JCSAqIG9uZSBzb2NrZXQgZmFtaWx5IHR5cGUsIHdlIGNhbm5vdCAoZWFz
-aWx5KSBkaXN0aW5ndWlzaA0KPiA+PiAtCQkgKiB3aGF0IGtpbmQgb2YgU0tCIGl0IGlzIGR1cmlu
-ZyBiYWNrbG9nIHJjdi4NCj4gPj4gLQkJICovDQo+ID4+IC0JCWlmIChzb2NrX293bmVkX2J5X3Vz
-ZXIoc2spID09IDApIHsNCj4gPj4gLQkJCS8qIFdlJ3JlIG5vIGxvbmdlciBjb25uZWN0IGF0IHRo
-ZSBQUFBPRSBsYXllciwNCj4gPj4gLQkJCSAqIGFuZCBtdXN0IHdhaXQgZm9yIHBwcCBjaGFubmVs
-IHRvIGRpc2Nvbm5lY3QgdXMuDQo+ID4+IC0JCQkgKi8NCj4gPj4gLQkJCXNrLT5za19zdGF0ZSA9
-IFBQUE9YX1pPTUJJRTsNCj4gPj4gLQkJfQ0KPiA+PiAtDQo+ID4+IC0JCWJoX3VubG9ja19zb2Nr
-KHNrKTsNCj4gPj4gIAkJaWYgKCFzY2hlZHVsZV93b3JrKCZwby0+cHJvdG8ucHBwb2UucGFkdF93
-b3JrKSkNCj4gPj4gIAkJCXNvY2tfcHV0KHNrKTsNCj4gPj4gIAl9DQo+ID4+IA0KPiA+IEZpbmFs
-bHksIEkgdGhpbmsgSSdsbCBrZWVwIHRoaXMgYXBwcm9hY2ggZm9yIG5ldC1uZXh0LCB0byBjb21w
-bGV0ZWx5DQo+ID4gcmVtb3ZlIFBQUE9YX1pPTUJJRS4NCj4gPiBGb3Igbm93LCBsZXQncyBqdXN0
-IGF2b2lkIGFueSBhc3N1bXB0aW9uIGFib3V0IHRoZSByZWxhdGlvbnNoaXAgYmV0d2Vlbg0KPiA+
-IHRoZSBQUFBPWF9aT01CSUUgc3RhdGUgYW5kIHRoZSB2YWx1ZSBvZiBwby0+cHBwb2VfZGV2LCBh
-cyBzdWdnZXN0ZWQgYnkNCj4gPiBNYXR0Lg0KPiA+IA0KPiA+IERlbnlzLCBjYW4geW91IGxldCBt
-ZSBrbm93IGlmIHlvdXIgaXNzdWUgZ29lcyBhd2F5IHdpdGggdGhlIGZvbGxvd2luZw0KPiA+IHBh
-dGNoPw0KPiA+IC0tLQ0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHAvcHBwb2UuYyBi
-L2RyaXZlcnMvbmV0L3BwcC9wcHBvZS5jDQo+ID4gaW5kZXggMmVkNzUwNi4uNWUwYjQzMiAxMDA2
-NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9wcHAvcHBwb2UuYw0KPiA+ICsrKyBiL2RyaXZlcnMv
-bmV0L3BwcC9wcHBvZS5jDQo+ID4gQEAgLTU4OSw3ICs1ODksNyBAQCBzdGF0aWMgaW50IHBwcG9l
-X3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykNCj4gPiANCj4gPiAgCXBvID0gcHBwb3hfc2so
-c2spOw0KPiA+IA0KPiA+IC0JaWYgKHNrLT5za19zdGF0ZSAmIChQUFBPWF9DT05ORUNURUQgfCBQ
-UFBPWF9CT1VORCB8IFBQUE9YX1pPTUJJRSkpIHsNCj4gPiArCWlmIChwby0+cHBwb2VfZGV2KSB7
-DQo+ID4gIAkJZGV2X3B1dChwby0+cHBwb2VfZGV2KTsNCj4gPiAgCQlwby0+cHBwb2VfZGV2ID0g
-TlVMTDsNCj4gPiAgCX0NCj4gSSBqdXN0IGdvdCBPSyB0byB1cGdyYWRlIHNlcnZlciB5ZXN0ZXJk
-YXksIGZvciBub3cgYXJvdW5kIDEyIGhvdXJzIA0KPiB3b3JraW5nIGZpbmUuIEkgbmVlZCAxLTIg
-bW9yZSBkYXlzLCBhbmQgbWF5YmUgd2lsbCB1cGdyYWRlIGZldyBtb3JlIA0KPiBzZXJ2ZXJzIHRv
-IHNheSBmb3Igc3VyZSwgaWYgaXQgaXMgb2sgb3Igbm90Lg0KPiBTb3JyeSBmb3IgZGVsYXksIGp1
-c3QgaXQgaXMgcHJvZHVjdGlvbiBzZXJ2ZXJzIGFuZCBhdCBjdXJyZW50IHNpdHVhdGlvbiANCj4g
-dGhleSBjYW5ub3QgdG9sZXJhdGUgc2lnbmlmaWNhbnQgZG93bnRpbWUuDQo+IA0KQW55IHVwZGF0
-ZSBvbiB3aGV0aGVyIHRoaXMgaXNzdWUgaXMgZml4ZWQgd2l0aCB0aGUgc3VnZ2VzdGVkIHBhdGNo
-Pw0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAi
-dW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jk
-b21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdl
-ci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
+On Wed, 21 Oct 2015 03:45:08 -0400
+Michael Chan <mchan@broadcom.com> wrote:
+
+> +static inline void bnxt_enable_poll(struct bnxt_napi *bnapi)
+> +{
+> +#ifdef CONFIG_NET_RX_BUSY_POLL
+> +	atomic_set(&bnapi->poll_state, BNXT_STATE_IDLE);
+> +#endif
+> +}
+
+We need a better way to abstract this and get the #ifdef
+clutter out of the network drivers.
