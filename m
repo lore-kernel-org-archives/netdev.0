@@ -1,42 +1,43 @@
-From: Casper.Dik@oracle.com
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Thu, 22 Oct 2015 08:51:20 +0200
-Message-ID: <201510220651.t9M6pKs1018174@room101.nl.oracle.com>
-References: <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com> <20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net> <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH] net: dsa: mv88e6060: Fix false positive lockdep splat
+Date: Thu, 22 Oct 2015 09:33:54 +0200
+Message-ID: <56289162.4040706@baylibre.com>
+References: <5627B149.6030109@baylibre.com> <20151021161416.GG17207@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	dholland-tech@netbsd.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23670 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754748AbbJVHHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 03:07:23 -0400
-Received: from aserv0022.oracle.com (aserv0022.oracle.com [141.146.126.234])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9M77MP4004413
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 07:07:22 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by aserv0022.oracle.com (8.13.8/8.13.8) with ESMTP id t9M6sV68031255
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 07:07:21 GMT
-In-Reply-To: <20151022044458.GP22011@ZenIV.linux.org.uk> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	vivien.didelot@savoirfairelinux.com,
+	Fabian Frederick <fabf@skynet.be>,
+	Pavel Nakonechny <pavel.nakonechny@skitlab.ru>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nbd@openwrt.org,
+	sergei.shtylyov@cogentembedded.com
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151021161416.GG17207@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Andrew,
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
+On 10/21/2015 06:14 PM, Andrew Lunn wrote:
+> On Wed, Oct 21, 2015 at 05:37:45PM +0200, Neil Armstrong wrote:
+>> Like the change made for mv88e6xxx, use mutex_lock_nested() to avoid
+>> lockdep to give false positives because of nested MDIO busses.
+> 
+> Hi Neil
+> 
+> We now have three instances of this, since mdio-mux.c has the same
+> code. Maybe now would be a good time to refactor this code into
+> mdiobus_read_nested() and mdiobus_write_nested() in mdio_bus.c?  At
+> the same time, add BUG_ON(in_interrupt()) similar to the non-nested
+> versions?
+> 
+> 	Andrew
+> 
+Indeed, you are right, I will post a serie with this refactoring.
 
->Except that in this case "correctness" is the matter of rather obscure and
->ill-documented areas in POSIX.  Don't get me wrong - this semantics isn't
->inherently bad, but it's nowhere near being an absolute requirement.
-
-It would more fruitful to have such a discussion in one of the OpenGroup 
-mailing lists; people gathered there have a lot of experience and it is 
-also possible to fix the standard when it turns out that it indeed as 
-vague as you claim it is (I don't quite agree with that)
-
-Casper
+Neil
