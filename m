@@ -1,59 +1,183 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 1/2] can: xilinx: use readl/writel instead of
- ioread/iowrite
-Date: Thu, 22 Oct 2015 11:49:53 +0200
-Message-ID: <5628B141.1010307@xilinx.com>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
- <4061693.oBld7AKBIp@wuerfel>
- <C246CAC1457055469EF09E3A7AC4E11A4A4F2CDB@XAP-PVEXMBX01.xlnx.xilinx.com>
- <3847286.pUBWjpC1TL@wuerfel>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next v4 1/2] mpls: multipath route support
+Date: Thu, 22 Oct 2015 11:24:10 +0100
+Message-ID: <5628B94A.5010903@brocade.com>
+References: <1445217645-42885-2-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
- "mkl@pengutronix.de" <mkl@pengutronix.de>, Soren Brinkmann <sorenb@xilinx.com>,
- Anirudha Sarangi <anirudh@xilinx.com>, "wg@grandegger.com" <wg@grandegger.com>
-To: Arnd Bergmann <arnd@arndb.de>, <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <3847286.pUBWjpC1TL@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <ebiederm@xmission.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:34522 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757072AbbJVKYZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 06:24:25 -0400
+In-Reply-To: <1445217645-42885-2-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2015 11:02 AM, Arnd Bergmann wrote:
-> On Thursday 22 October 2015 08:34:53 Appana Durga Kedareswara Rao wrote:
->>> On Thursday 22 October 2015 10:16:02 Kedareswara rao Appana wrote:
->>>> The driver only supports memory-mapped I/O [by ioremap()], so
->>>> readl/writel is actually the right thing to do, IMO.
->>>> During the validation of this driver or IP on ARM 64-bit processor
->>>> while sending lot of packets observed that the tx packet drop with
->>>> iowrite Putting the barriers for each tx fifo register write fixes
->>>> this issue Instead of barriers using writel also fixed this issue.
->>>>
->>>> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
->>>
->>> The two should really do the same thing: iowrite32() is just a static inline calling
->>> writel() on both ARM32 and ARM64. On which kernel version did you observe the
->>> difference? It's possible that an older version used CONFIG_GENERIC_IOMAP,
->>> which made this slightly more expensive.
->>
->> I observed this issue with the 4.0.0 kernel version
-> 
-> Is it possible that you have nonstandard patches on your kernel? If so, can
-> you send a diff against the mainline version?
+On 19/10/15 02:20, Roopa Prabhu wrote:
+> @@ -159,6 +137,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>   	struct net *net = dev_net(dev);
+>   	struct mpls_shim_hdr *hdr;
+>   	struct mpls_route *rt;
+> +	struct mpls_nh *nh;
+>   	struct mpls_entry_decoded dec;
+>   	struct net_device *out_dev;
+>   	struct mpls_dev *mdev;
+> @@ -166,6 +145,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>   	unsigned int new_header_size;
+>   	unsigned int mtu;
+>   	int err;
+> +	int nhidx;
 
-Kedar: Can you please retest this on mainline kernel?
-We shouldn't have any patches which should influence this.
+nhidx looks to be unused. Remove?
+
+>
+>   	/* Careful this entire function runs inside of an rcu critical section */
+>
+> @@ -196,8 +176,12 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>   	if (!rt)
+>   		goto drop;
+>
+> +	nh = mpls_select_multipath(rt);
+> +	if (!nh)
+> +		goto drop;
+> +
+>   	/* Find the output device */
+> -	out_dev = rcu_dereference(rt->rt_dev);
+> +	out_dev = rcu_dereference(nh->nh_dev);
+>   	if (!mpls_output_possible(out_dev))
+>   		goto drop;
+>
+> @@ -212,7 +196,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>   	dec.ttl -= 1;
+>
+>   	/* Verify the destination can hold the packet */
+> -	new_header_size = mpls_rt_header_size(rt);
+> +	new_header_size = mpls_nh_header_size(nh);
+>   	mtu = mpls_dev_mtu(out_dev);
+>   	if (mpls_pkt_too_big(skb, mtu - new_header_size))
+>   		goto drop;
+> @@ -240,13 +224,14 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>   		/* Push the new labels */
+>   		hdr = mpls_hdr(skb);
+>   		bos = dec.bos;
+> -		for (i = rt->rt_labels - 1; i >= 0; i--) {
+> -			hdr[i] = mpls_entry_encode(rt->rt_label[i], dec.ttl, 0, bos);
+> +		for (i = nh->nh_labels - 1; i >= 0; i--) {
+> +			hdr[i] = mpls_entry_encode(nh->nh_label[i],
+> +						   dec.ttl, 0, bos);
+>   			bos = false;
+>   		}
+>   	}
+>
+> -	err = neigh_xmit(rt->rt_via_table, out_dev, rt->rt_via, skb);
+> +	err = neigh_xmit(nh->nh_via_table, out_dev, nh->nh_via, skb);
+>   	if (err)
+>   		net_dbg_ratelimited("%s: packet transmission failed: %d\n",
+>   				    __func__, err);
+
+>   	return dev;
+>   }
+>
+> +static int mpls_nh_assign_dev(struct net *net, struct mpls_nh *nh, int oif)
+> +{
+> +	struct net_device *dev = NULL;
+> +	int err = -ENODEV;
+> +
+> +	dev = find_outdev(net, nh, oif);
+> +	if (IS_ERR(dev)) {
+> +		err = PTR_ERR(dev);
+> +		dev = NULL;
+> +		goto errout;
+> +	}
+> +
+> +	/* Ensure this is a supported device */
+> +	err = -EINVAL;
+> +	if (!mpls_dev_get(dev))
+> +		goto errout;
+> +
+> +	/* For now just support ethernet devices */
+> +	if ((dev->type != ARPHRD_ETHER) && (dev->type != ARPHRD_LOOPBACK))
+> +		goto errout;
+> +
+> +	RCU_INIT_POINTER(nh->nh_dev, dev);
+> +	dev_put(dev);
+
+If it's safe to not keep a reference to dev (i.e. because the device 
+cannot go away while a netlink message is being processed), then why not 
+just change find_outdev to use __dev_get_by_index? If the dev can go 
+away during this, then we could end up adding an mpls route that points 
+to a freed interface, because until we've added the route to the label 
+table mpls_ifdown won't find it.
+
+> +
+> +	return 0;
+> +
+> +errout:
+> +	if (dev)
+> +		dev_put(dev);
+> +	return err;
+> +}
+> +
+
+>   }
+>   EXPORT_SYMBOL_GPL(nla_get_labels);
+>
+> +int nla_get_via(const struct nlattr *nla, u8 *via_alen,
+> +		u8 *via_table, u8 via_addr[])
+> +{
+> +	struct rtvia *via = nla_data(nla);
+> +	int err = -EINVAL;
+> +	u8 alen;
+
+This should be an int to avoid nexthop address lengths > 255 wrapping 
+and possibly accepted instead of rejected.
+
+> +
+> +	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
+> +		goto errout;
+> +	alen = nla_len(nla) -
+> +			offsetof(struct rtvia, rtvia_addr);
+> +	if (alen > MAX_VIA_ALEN)
+> +		goto errout;
+> +
+> +	/* Validate the address family */
+> +	switch(via->rtvia_family) {
+> +	case AF_PACKET:
+> +		*via_table = NEIGH_LINK_TABLE;
+> +		break;
+> +	case AF_INET:
+> +		*via_table = NEIGH_ARP_TABLE;
+> +		if (alen != 4)
+> +			goto errout;
+> +		break;
+> +	case AF_INET6:
+> +		*via_table = NEIGH_ND_TABLE;
+> +		if (alen != 16)
+> +			goto errout;
+> +		break;
+> +	default:
+> +		/* Unsupported address family */
+> +		goto errout;
+> +	}
+> +
+> +	memcpy(via_addr, via->rtvia_addr, alen);
+> +	*via_alen = alen;
+> +	err = 0;
+> +
+> +errout:
+> +	return err;
+> +}
+> +
+>   static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+>   			       struct mpls_route_config *cfg)
+>   {
+
+
+Otherwise, looks good.
 
 Thanks,
-Michal
+Rob
