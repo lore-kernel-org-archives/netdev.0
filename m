@@ -1,128 +1,94 @@
-From: Casper.Dik@oracle.com
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
-Date: Thu, 22 Oct 2015 21:50:10 +0200
-Message-ID: <201510221950.t9MJoAw0005835@room101.nl.oracle.com>
-References: <20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net> <5628636E.1020107@oracle.com> <201510220615.t9M6FL2d017592@room101.nl.oracle.com> <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com> <5628CF79.2000507@oracle.com> <1445515858.22974.113.camel@edumazet-glaptop2.roam.corp.google.com> <5628E142.7050600@oracle.com> <20151022170548.GR22011@ZenIV.linux.org.uk> <56291F56.2080906@oracle.com> <20151022185610.GU22011@ZenIV.linux.org.uk>
+From: Alan Burlison <Alan.Burlison@oracle.com>
+Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Thu, 22 Oct 2015 21:15:02 +0100
+Message-ID: <562943C6.5020402@oracle.com>
+References: <20151019095938.72ea48e6@xeon-e3>
+ <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
+ <562594E1.8040403@oracle.com>
+ <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151021034950.GL22011@ZenIV.linux.org.uk> <5627A37B.4090208@oracle.com>
+ <20151021185104.GM22011@ZenIV.linux.org.uk>
+ <201510212033.t9LKX4G8007718@room101.nl.oracle.com>
+ <20151022042100.GO22011@ZenIV.linux.org.uk> <5628C0AE.2020508@oracle.com>
+ <20151022181656.GT22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	netdev@vger.kernel.org, dholland-tech@netbsd.org
 To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45400 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:50839 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965501AbbJVUGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 16:06:15 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9MK6ETi008947
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 20:06:14 GMT
-Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9MJrNpX031101
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 20:06:13 GMT
-In-Reply-To: <20151022185610.GU22011@ZenIV.linux.org.uk> 
+	with ESMTP id S965114AbbJVUPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 16:15:10 -0400
+In-Reply-To: <20151022181656.GT22011@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 22/10/15 19:16, Al Viro wrote:
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-
->On Thu, Oct 22, 2015 at 06:39:34PM +0100, Alan Burlison wrote:
->> On 22/10/2015 18:05, Al Viro wrote:
->> 
->> >Oh, for...  Right in this thread an example of complete BS has been quoted
->> >from POSIX close(2).  The part about closing a file when the last descriptor
->> >gets closed.  _Nothing_ is POSIX-compliant in that respect (nor should
->> >it be).
->> 
->> That's not exactly what it says, we've already discussed, for
->> example in the case of pending async IO on a filehandle.
+>> Don't you have to do that anyway, to do anything useful with the file?
 >
->Sigh...  It completely fails to mention descriptor-passing.  Which
->	a) is relevant to what "last close" means and
->	b) had been there for nearly the third of a century.
+> Dirtying the cacheline that contains struct file itself is different, but
+> that's not per-descriptor.
 
-Why is that different?  These clearly count as file descriptors.
+Yes, true enough.
 
->> I agree that part could do with some polishing.
+> Usually it's per-process, but any thread could ask for a private instance
+> to work with (and then spawn more threads sharing that instance - or getting
+> independent copies).
+
+[snip]
+
+Thanks again for the info, interesting. Solaris also does things along 
+the same lines. In fact we recently extended posix_spawn so it could be 
+used by the JVM to create subprocesses without wholescale copying, and 
+Casper has done some optimisation work on posix_spawn as well.
+
+>> I don't think that it's possible to claim that a non-atomic dup2()
+>> is POSIX-compliant.
 >
->google("wire brush of enlightenment") is what comes to mind...
+> Except that it's in non-normative part of dup2(2), AFAICS.  I certainly
+> agree that it would be a standard lawyering beyond reason, but "not
+> possible to claim" is too optimistic.  Maybe I'm just more cynical...
 
-Standardese is similar to legalese; it not writing that is directly open 
-to interpretation to those who are not inducted in writing may have some 
-problem interpreting what exactly is meant by wording of the standard.
+Possibly so, and possibly justifiably so as well ;-)
 
-
-
->> I think "it shall be closed first" makes it pretty clear that what
->> is expected is the same behaviour as any direct invocation of close,
->> and that has to happen before the reassignment. What makes you
->> believe that's isn't the case?
+>> ThreadA remains sat in accept on fd1 which is now a plain file, not
+>> a socket.
 >
->So unless I'm misparsing something, you want
->thread A: accept(newfd)
->thread B: dup2(oldfd, newfd)
->have accept() bugger off before the switchover happens?
-
-Well, certainly *before* we return from dup2().
-(and clearly only once we have determined that dup2() will return
-successfully)
-
->What should happen if thread C does accept(newfd) right as B has decided that
->there's nothing more to wait?  For close(newfd) it would be simple - we are
->going to have lookup by descriptor fail with EBADF anyway, so making it do
->so as soon as we go hunting for those who are currently in accept(newfd)
->would do the trick - no new threads like that shall appear and as long as
->the descriptor is not declared free for taking by descriptor allocation nobody
->is going to be screwed by open() picking that slot of descriptor table too
->early.  Trying to do that for dup2() would lose atomicity.  I honestly don't
->know how Solaris behaves in that case, BTW - the race (if any) would probably
->be hard to hit, so in case of Linux I would have to go and RTFS before saying
->that there isn't one.  I can't do that in with Solaris; all I can do here
->is ask you guys...
-
-Solaris dup2() behaves exactly like close().
-
->Moreover, see above for record locks removal.  Should that happen prior to
->switchover?  If you have
+> No.  accept() is not an operation on file descriptors; it's an operation on
+> file descriptions (pardon for use of that terminology).  They are specified
+> by passing descriptors, but there's a hell of a difference between e.g.
+> dup() or fcntl(,F_SETFD,) (operations on descriptors) and read() or lseek()
+> (operations on descriptions).
 >
->dup(fd, fd2);
->set a record lock on fd2
->spawn a thread
->in child, try to grab the same lock on fd2
->in parent, do some work and close(fd)
+> Lookups are done once per syscall; the only exception is F_SETFL{,W}, where
+> we recheck that descriptor is refering to the same thing before granting
+> the lock.
 
->you are guaranteed that child won't see fd refering to the same file after it
->acquires the lock.
+Yes, but if you believe that dup2() requires an implicit close() within 
+it and that dup2() has to be atomic then expecting that other threads 
+waiting on the same fd in accept() will get a notification seems 
+reasonable enough.
 
-Here's you are talking about a lock held by the "parent" and that the
-"child" will only get the lock once close(fd) is done?
+> Again, POSIX is still underspecifying the semantics of shared descriptor
+> tables; back when the bulk of it had been written there had been no way
+> to have a descriptor -> description mapping changed under a syscall by
+> action of another thread.  Hell, they still hadn't picked on some things
+> that happened in early 80s, let alone early-to-mid 90s...
 
-Yes.  The final "close" is done *after* the pointer has been removed from 
-the file descriptor table.
+That's indisputably true - much of the POSIX behaviour predates threads 
+and it shows, quite badly, in some places.
 
->Replace close(fd) with dup(fd3, fd); should the same hold true in that case?
+> Linux and Solaris happen to cover these gaps differently; FreeBSD and
+> OpenBSD are probably closer to Linux variant, NetBSD - to Solaris one.
 
-Yes.
+Yes, true enough.
 
->FWIW, Linux behaviour in that area is to have record locks removal done
->between the switchover and return to userland in case of dup2() and between
->the removal from descriptor table and return to userland in case of close().
->
->> Personally I believe the spec is clear enough to allow an
->> unambiguous interpretation of the required behavior in this area. If
->> you think there are areas where the Solaris behaviour is in
->> disagreement with the spec then I'd be interested to hear them.
->
->The spec is so vague that I strongly suspect that *both* Solaris and Linux
->behaviours are not in disagreement with it (modulo shutdown(2) extension
->Linux-side and we are really stuck with that one).
-
-I'm not sure if the standard allows a handful of threads in accept() for a 
-file descriptor which has already been closed *and* can be re-issued for 
-other uses.
-
-Casper
+-- 
+Alan Burlison
+--
