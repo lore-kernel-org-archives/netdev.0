@@ -1,98 +1,56 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 2/8] mm: memcontrol: export root_mem_cgroup
-Date: Fri, 23 Oct 2015 13:32:38 +0200
-Message-ID: <20151023113237.GK2410@dhcp22.suse.cz>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-3-git-send-email-hannes@cmpxchg.org>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] drivers: net: cpsw: use module_platform_driver
+Date: Fri, 23 Oct 2015 14:41:12 +0300
+Message-ID: <1445600472-19242-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1445487696-21545-3-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, Mugunthan V N <mugunthanvnm@ti.com>,
+	<linux-omap@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	Tony Lindgren <tony@atomide.com>
+To: "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:44732 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961AbbJWLll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 07:41:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 22-10-15 00:21:30, Johannes Weiner wrote:
-> A later patch will need this symbol in files other than memcontrol.c,
-> so export it now and replace mem_cgroup_root_css at the same time.
-> 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+There is no reasons to probe cpsw from late_initcall level
+and it's not recommended. Hence, use module_platform_driver()
+to register and probe cpsw driver from module_init() level.
 
-Acked-by: Michal Hocko <mhocko@suse.com>
+Cc: Tony Lindgren <tony@atomide.com>
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-> ---
->  include/linux/memcontrol.h | 3 ++-
->  mm/backing-dev.c           | 2 +-
->  mm/memcontrol.c            | 5 ++---
->  3 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-> index 805da1f..19ff87b 100644
-> --- a/include/linux/memcontrol.h
-> +++ b/include/linux/memcontrol.h
-> @@ -275,7 +275,8 @@ struct mem_cgroup {
->  	struct mem_cgroup_per_node *nodeinfo[0];
->  	/* WARNING: nodeinfo must be the last member here */
->  };
-> -extern struct cgroup_subsys_state *mem_cgroup_root_css;
-> +
-> +extern struct mem_cgroup *root_mem_cgroup;
->  
->  /**
->   * mem_cgroup_events - count memory events against a cgroup
-> diff --git a/mm/backing-dev.c b/mm/backing-dev.c
-> index 095b23b..73ab967 100644
-> --- a/mm/backing-dev.c
-> +++ b/mm/backing-dev.c
-> @@ -702,7 +702,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
->  
->  	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
->  	if (!ret) {
-> -		bdi->wb.memcg_css = mem_cgroup_root_css;
-> +		bdi->wb.memcg_css = &root_mem_cgroup->css;
->  		bdi->wb.blkcg_css = blkcg_root_css;
->  	}
->  	return ret;
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index a8ccdbc..e54f434 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -76,9 +76,9 @@
->  struct cgroup_subsys memory_cgrp_subsys __read_mostly;
->  EXPORT_SYMBOL(memory_cgrp_subsys);
->  
-> +struct mem_cgroup *root_mem_cgroup __read_mostly;
-> +
->  #define MEM_CGROUP_RECLAIM_RETRIES	5
-> -static struct mem_cgroup *root_mem_cgroup __read_mostly;
-> -struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
->  
->  /* Whether the swap controller is active */
->  #ifdef CONFIG_MEMCG_SWAP
-> @@ -4213,7 +4213,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
->  	/* root ? */
->  	if (parent_css == NULL) {
->  		root_mem_cgroup = memcg;
-> -		mem_cgroup_root_css = &memcg->css;
->  		page_counter_init(&memcg->memory, NULL);
->  		memcg->high = PAGE_COUNTER_MAX;
->  		memcg->soft_limit = PAGE_COUNTER_MAX;
-> -- 
-> 2.6.1
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 8fc90f1..e35a34d 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2578,17 +2578,7 @@ static struct platform_driver cpsw_driver = {
+ 	.remove = cpsw_remove,
+ };
+ 
+-static int __init cpsw_init(void)
+-{
+-	return platform_driver_register(&cpsw_driver);
+-}
+-late_initcall(cpsw_init);
+-
+-static void __exit cpsw_exit(void)
+-{
+-	platform_driver_unregister(&cpsw_driver);
+-}
+-module_exit(cpsw_exit);
++module_platform_driver(cpsw_driver);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Cyril Chemparathy <cyril@ti.com>");
 -- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.6.2
