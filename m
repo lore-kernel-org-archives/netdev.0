@@ -1,40 +1,67 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net 2/3] ipv6: Export nf_ct_frag6_consume_orig()
-Date: Fri, 23 Oct 2015 16:01:50 -0700
-Message-ID: <1445641311-63081-2-git-send-email-joestringer@nicira.com>
-References: <1445641311-63081-1-git-send-email-joestringer@nicira.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Andy Zhou <azhou@nicira.com>
-To: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35954 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393AbbJWXCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 19:02:01 -0400
-Received: by pacfv9 with SMTP id fv9so135629473pac.3
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 16:02:01 -0700 (PDT)
-In-Reply-To: <1445641311-63081-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH RTF] sh_eth: fix kernel oops in skb_put()
+Date: Sat, 24 Oct 2015 02:09:47 +0300
+Message-ID: <4859772.ltR2e4ZqZH@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org, yashi@atmark-techno.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is needed in openvswitch to fix an skb leak in the next patch.
+In a low memory situation the following kernel oops occurs:
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Unable to handle kernel NULL pointer dereference at virtual address 00000050
+pgd = 8490c000
+[00000050] *pgd=4651e831, *pte=00000000, *ppte=00000000
+Internal error: Oops: 17 [#1] PREEMPT ARM
+Modules linked in:
+CPU: 0    Not tainted  (3.4-at16 #9)
+PC is at skb_put+0x10/0x98
+LR is at sh_eth_poll+0x2c8/0xa10
+pc : [<8035f780>]    lr : [<8028bf50>]    psr: 60000113
+sp : 84eb1a90  ip : 84eb1ac8  fp : 84eb1ac4
+r10: 0000003f  r9 : 000005ea  r8 : 00000000
+r7 : 00000000  r6 : 940453b0  r5 : 00030000  r4 : 9381b180
+r3 : 00000000  r2 : 00000000  r1 : 000005ea  r0 : 00000000
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 10c53c7d  Table: 4248c059  DAC: 00000015
+Process klogd (pid: 2046, stack limit = 0x84eb02e8)
+[...]
+
+This is because netdev_alloc_skb() fails and 'mdp->rx_skbuff[entry]' is left
+NULL but sh_eth_rx() later uses it without checking. Add such check...
+
+Reported-by: Yasushi SHOJI <yashi@atmark-techno.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
- 1 file changed, 1 insertion(+)
+This patch is against DaveM's 'net.git' repo.
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 701cd2bae0a9..c7196ad1d69f 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -646,6 +646,7 @@ void nf_ct_frag6_consume_orig(struct sk_buff *skb)
- 		s = s2;
+drivers/net/ethernet/renesas/sh_eth.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1502,6 +1502,8 @@ static int sh_eth_rx(struct net_device *
+ 					phys_to_virt(ALIGN(rxdesc->addr, 4)),
+ 					pkt_len + 2);
+ 			skb = mdp->rx_skbuff[entry];
++			if (!skb)
++				goto skip;
+ 			mdp->rx_skbuff[entry] = NULL;
+ 			if (mdp->cd->rpadir)
+ 				skb_reserve(skb, NET_IP_ALIGN);
+@@ -1516,6 +1518,7 @@ static int sh_eth_rx(struct net_device *
+ 			if (desc_status & RD_RFS8)
+ 				ndev->stats.multicast++;
+ 		}
++skip:
+ 		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
+ 		rxdesc = &mdp->rx_ring[entry];
  	}
- }
-+EXPORT_SYMBOL_GPL(nf_ct_frag6_consume_orig);
- 
- static int nf_ct_net_init(struct net *net)
- {
--- 
-2.1.4
+
