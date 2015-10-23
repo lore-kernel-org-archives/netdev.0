@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 3/3] switchdev: split switchdev_attr into
- individual structs
-Date: Fri, 23 Oct 2015 06:53:50 -0700 (PDT)
-Message-ID: <20151023.065350.237651970219689445.davem@davemloft.net>
-References: <1445570717-40780-1-git-send-email-sfeldma@gmail.com>
-	<1445570717-40780-3-git-send-email-sfeldma@gmail.com>
-	<20151023.063244.1017914313842957944.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] macvtap: unbreak receiving of gro skb with frag list
+Date: Fri, 23 Oct 2015 16:37:38 +0300
+Message-ID: <20151023163659-mutt-send-email-mst@redhat.com>
+References: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	vivien.didelot@savoirfairelinux.com
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35245 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958AbbJWNhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:37:20 -0400
-In-Reply-To: <20151023.063244.1017914313842957944.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyMyBP
-Y3QgMjAxNSAwNjozMjo0NCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IHNmZWxkbWFAZ21haWwuY29t
-DQo+IERhdGU6IFRodSwgMjIgT2N0IDIwMTUgMjA6MjU6MTcgLTA3MDANCj4gDQo+PiBGcm9tOiBT
-Y290dCBGZWxkbWFuIDxzZmVsZG1hQGdtYWlsLmNvbT4NCj4+IA0KPj4gVGhpcyB3YXMgYWxyZWFk
-eSBkb25lIGZvciBzd2l0Y2hkZXZfb2Jqcy4gICBDaGFuZ2luZyBzd2l0Y2hkZXZfYXR0cnMgdG8g
-bmV3DQo+PiBzdHlsZSBtYWtlcyBzd2l0Y2hkZXYgQVBJIGNvbnNpc3RlbnQgZm9yIGJvdGggYXR0
-cnMgYW5kIG9ianMuDQo+PiANCj4+IE5vIGZ1bmN0aW9uYWwgY2hhbmdlcyBoZXJlLg0KPj4gDQo+
-PiBTaWduZWQtb2ZmLWJ5OiBTY290dCBGZWxkbWFuIDxzZmVsZG1hQGdtYWlsLmNvbT4NCj4+IEFj
-a2VkLWJ5OiBKaXJpIFBpcmtvIDxqaXJpQG1lbGxhbm94LmNvbT4NCj4gDQo+IEFwcGxpZWQuDQoN
-ClRoaXMgYnJlYWtzIHRoZSBidWlsZCwgSSdtIHJldmVydGluZyB0aGlzIHBhdGNoIHNlcmllczoN
-Cg0KbmV0L2JyaWRnZS9icl9zdHBfaWYuYzogSW4gZnVuY3Rpb24goWJyX2luaXRfcG9ydKI6DQpu
-ZXQvYnJpZGdlL2JyX3N0cF9pZi5jOjQyOjM6IGVycm9yOiB1bmtub3duIGZpZWxkIKF1oiBzcGVj
-aWZpZWQgaW4gaW5pdGlhbGl6ZXINCm5ldC9icmlkZ2UvYnJfc3RwX2lmLmM6NDI6Mzogd2Fybmlu
-ZzogZXhjZXNzIGVsZW1lbnRzIGluIHN0cnVjdCBpbml0aWFsaXplciBbZW5hYmxlZCBieSBkZWZh
-dWx0XQ0KbmV0L2JyaWRnZS9icl9zdHBfaWYuYzo0MjozOiB3YXJuaW5nOiAobmVhciBpbml0aWFs
-aXphdGlvbiBmb3IgoWF0dHKiKSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0K
+On Fri, Oct 23, 2015 at 12:57:05AM -0400, Jason Wang wrote:
+> We don't have fraglist support in TAP_FEATURES. This will lead
+> software segmentation of gro skb with frag list. Fixes by having
+> frag list support in TAP_FEATURES.
+> 
+> With this patch single session of netperf receiving were restored from
+> about 5Gb/s to about 12Gb/s on mlx4.
+> 
+> Fixes a567dd6252 ("macvtap: simplify usage of tap_features")
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+Thanks!
+Does this mean we should look at re-adding NETIF_F_FRAGLIST
+to virtio-net as well?
+
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 248478c..197c939 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -137,7 +137,7 @@ static const struct proto_ops macvtap_socket_ops;
+>  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>  		      NETIF_F_TSO6 | NETIF_F_UFO)
+>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+> -#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
+> +#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
+>  
+>  static struct macvlan_dev *macvtap_get_vlan_rcu(const struct net_device *dev)
+>  {
+> -- 
+> 1.8.3.1
