@@ -1,67 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH RTF] sh_eth: fix kernel oops in skb_put()
-Date: Sat, 24 Oct 2015 02:09:47 +0300
-Message-ID: <4859772.ltR2e4ZqZH@wasted.cogentembedded.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 1/3] odp-util: Fix CT action formating.
+Date: Fri, 23 Oct 2015 16:20:05 -0700
+Message-ID: <CANr6G5zEJGf=MCu+huXyQmrw6-eouRthCa37C7kSC1Qb4mWU6w@mail.gmail.com>
+References: <1445379840-113042-1-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, yashi@atmark-techno.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1445379840-113042-1-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-In a low memory situation the following kernel oops occurs:
-
-Unable to handle kernel NULL pointer dereference at virtual address 00000050
-pgd = 8490c000
-[00000050] *pgd=4651e831, *pte=00000000, *ppte=00000000
-Internal error: Oops: 17 [#1] PREEMPT ARM
-Modules linked in:
-CPU: 0    Not tainted  (3.4-at16 #9)
-PC is at skb_put+0x10/0x98
-LR is at sh_eth_poll+0x2c8/0xa10
-pc : [<8035f780>]    lr : [<8028bf50>]    psr: 60000113
-sp : 84eb1a90  ip : 84eb1ac8  fp : 84eb1ac4
-r10: 0000003f  r9 : 000005ea  r8 : 00000000
-r7 : 00000000  r6 : 940453b0  r5 : 00030000  r4 : 9381b180
-r3 : 00000000  r2 : 00000000  r1 : 000005ea  r0 : 00000000
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-Control: 10c53c7d  Table: 4248c059  DAC: 00000015
-Process klogd (pid: 2046, stack limit = 0x84eb02e8)
-[...]
-
-This is because netdev_alloc_skb() fails and 'mdp->rx_skbuff[entry]' is left
-NULL but sh_eth_rx() later uses it without checking. Add such check...
-
-Reported-by: Yasushi SHOJI <yashi@atmark-techno.com>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-This patch is against DaveM's 'net.git' repo.
-
-drivers/net/ethernet/renesas/sh_eth.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1502,6 +1502,8 @@ static int sh_eth_rx(struct net_device *
- 					phys_to_virt(ALIGN(rxdesc->addr, 4)),
- 					pkt_len + 2);
- 			skb = mdp->rx_skbuff[entry];
-+			if (!skb)
-+				goto skip;
- 			mdp->rx_skbuff[entry] = NULL;
- 			if (mdp->cd->rpadir)
- 				skb_reserve(skb, NET_IP_ALIGN);
-@@ -1516,6 +1518,7 @@ static int sh_eth_rx(struct net_device *
- 			if (desc_status & RD_RFS8)
- 				ndev->stats.multicast++;
- 		}
-+skip:
- 		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
- 		rxdesc = &mdp->rx_ring[entry];
- 	}
-
+T24gMjAgT2N0b2JlciAyMDE1IGF0IDE1OjIzLCBKYXJubyBSYWphaGFsbWUgPGpyYWphaGFsbWVA
+bmljaXJhLmNvbT4gd3JvdGU6Cj4gQ29tbWEgd2FzIG1pc3NpbmcgYWZ0ZXIgImxhYmVsIiBhdHRy
+aWJ1dGUuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGpyYWphaGFsbWVAbmlj
+aXJhLmNvbT4KCkFja2VkLWJ5OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
