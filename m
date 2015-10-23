@@ -1,199 +1,59 @@
-From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
-Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
- in sunrpc
-Date: Fri, 23 Oct 2015 04:14:10 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A0287A7C2@BPXM09GP.gisp.nec.co.jp>
-References: <20151022163133.GB5205@fieldses.org>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH v5 1/2] geneve: implement support for IPv6-based tunnels
+Date: Fri, 23 Oct 2015 13:48:49 +0900
+Message-ID: <5629BC31.5070300@miraclelinux.com>
+References: <1445353866-32710-1-git-send-email-linville@tuxdriver.com>
+ <1445543136-8265-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151022163133.GB5205-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Content-Language: ja-JP
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Dave Miller <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>
+To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33878 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781AbbJWEsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 00:48:53 -0400
+Received: by padhk11 with SMTP id hk11so107042513pad.1
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 21:48:53 -0700 (PDT)
+In-Reply-To: <1445543136-8265-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-J. Bruce Fields wrote:
-> On Fri, Oct 16, 2015 at 02:28:10AM +0000, Kosuke Tatsukawa wrote:
->> Tatsukawa Kosuke wrote:
->> > J. Bruce Fields wrote:
->> >> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
->> >>> Tatsukawa Kosuke wrote:
->> >>> > J. Bruce Fields wrote:
->> >>> >> Thanks for the detailed investigation.
->> >>> >> 
->> >>> >> I think it would be worth adding a comment if that might help someone
->> >>> >> having to reinvestigate this again some day.
->> >>> > 
->> >>> > It would be nice, but I find it difficult to write a comment in the
->> >>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
->> >>> > of how nfsd uses it, and the current implementation of the network code.
->> >>> > 
->> >>> > Personally, I would prefer removing the call to waitqueue_active() which
->> >>> > would make the memory barrier totally unnecessary at the cost of a
->> >>> > spin_lock + spin_unlock by unconditionally calling
->> >>> > wake_up_interruptible.
->> >>> 
->> >>> On second thought, the callbacks will be called frequently from the tcp
->> >>> code, so it wouldn't be a good idea.
->> >> 
->> >> So, I was even considering documenting it like this, if it's not
->> >> overkill.
->> >> 
->> >> Hmm... but if this is right, then we may as well ask why we're doing the
->> >> wakeups at all.  Might be educational to test the code with them
->> >> removed.
->> > 
->> > sk_write_space will be called in sock_wfree() with UDP/IP each time
->> > kfree_skb() is called.  With TCP/IP, sk_write_space is only called if
->> > SOCK_NOSPACE has been set.
->> > 
->> > sk_data_ready will be called in both tcp_rcv_established() for TCP/IP
->> > and in sock_queue_rcv_skb() for UDP/IP.  The latter lacks a memory
->> > barrier with sk_data_ready called right after __skb_queue_tail().
->> > I think this hasn't caused any problems because sk_data_ready wasn't
->> > used.
->> 
->> Actually, svc_udp_data_ready() calls set_bit() which is an atomic
->> operation.  So there won't be a problem unless svsk is NULL.
-> 
-> So is it true that every caller of these socket callbacks has adequate
-> memory barriers between the time the change is made visible and the time
-> the callback is called?
-> 
-> If so, then there's nothing really specific about nfsd here.
-> 
-> In that case maybe it's the networking code that use some documentation,
-> if it doesn't already?  (Or maybe common helper functions for this
-> 
-> 	if (waitqueue_active(wq))
-> 		wake_up(wq)
-> 
-> pattern?)
+Hi,
 
-Some of the other places defining these callback functions are using
-  static inline bool wq_has_sleeper(struct socket_wq *wq)
-defined in include/net/sock.h
-
-The comment above the function explains that it was introduced for
-exactly this purpose.
-
-Even thought the argument variable uses the same name "wq", it has a
-different type from the wq used in svcsock.c (struct socket_wq *
-vs. wait_queue_head_t *).
-
-
-> --b.
+John W. Linville wrote:
+> NOTE: Link-local IPv6 addresses for remote endpoints are not supported,
+> since the driver currently has no capacity for binding a geneve
+> interface to a specific link.
 > 
->> 
->> 
->> >> --b.
->> >> 
->> >> commit 0882cfeb39e0
->> >> Author: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> >> Date:   Thu Oct 15 16:53:41 2015 -0400
->> >> 
->> >>     svcrpc: document lack of some memory barriers.
->> >>     
->> >>     Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
->> >>     here.  I think the code's correct, but it's probably worth documenting.
->> >>     
->> >>     Reported-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
->> >> 
->> >> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
->> >> index 856407fa085e..90480993ec4a 100644
->> >> --- a/net/sunrpc/svcsock.c
->> >> +++ b/net/sunrpc/svcsock.c
->> >> @@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
->> >>  	return svc_port_is_privileged(svc_addr(rqstp));
->> >>  }
->> >>  
->> >> +static void svc_no_smp_mb(void)
->> >> +{
->> >> +	/*
->> >> +	 * Kosuke Tatsukawa points out there should normally be an
->> >> +	 * smp_mb() at the callsites of this function.  (Either that or
->> >> +	 * we could just drop the waitqueue_active() checks.)
->> >> +	 *
->> >> +	 * It appears they aren't currently necessary, though, basically
->> >> +	 * because nfsd does non-blocking reads from these sockets, so
->> >> +	 * the only places we wait on this waitqueue is in sendpage and
->> >> +	 * sendmsg, which won't be waiting for wakeups on newly arrived
->> >> +	 * data.
->> >> +	 *
->> >> +	 * Maybe we should add the memory barriers anyway, but these are
->> >> +	 * hot paths so we'd need to be convinced there's no sigificant
->> >> +	 * penalty.
->> >> +	 */
->> >> +}
->> >> +
->> >>  /*
->> >>   * INET callback when data has been received on the socket.
->> >>   */
->> >> @@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
->> >>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
->> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
->> >>  	}
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq))
->> >>  		wake_up_interruptible(wq);
->> >>  }
->> >> @@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
->> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
->> >>  	}
->> >>  
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq)) {
->> >>  		dprintk("RPC svc_write_space: someone sleeping on %p\n",
->> >>  		       svsk);
->> >> @@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
->> >>  	}
->> >>  
->> >>  	wq = sk_sleep(sk);
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq))
->> >>  		wake_up_interruptible_all(wq);
->> >>  }
->> >> @@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
->> >>  		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
->> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
->> >>  	}
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq))
->> >>  		wake_up_interruptible_all(wq);
->> >>  }
->> >> @@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
->> >>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
->> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
->> >>  	}
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq))
->> >>  		wake_up_interruptible(wq);
->> >>  }
->> >> @@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
->> >>  	sk->sk_write_space = svsk->sk_owspace;
->> >>  
->> >>  	wq = sk_sleep(sk);
->> >> -	smp_mb();
->> >> +	svc_no_smp_mb();
->> >>  	if (wq && waitqueue_active(wq))
->> >>  		wake_up_interruptible(wq);
->> >>  }
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> ---
+> v5:
+> - wrap declaration of sock6 in geneve_dev with IS_ENABLED(CONFIG_IPV6)
+> - remove superfluous '!!' when assigning geneve->collect_md to bool
+> - use skb_scrub_packet in IPv4 tx path as well 
+> - check for NULL ip_tunnel_info pointer in geneve[6]_xmit_skb
+> - use ipv6_addr_equal for comparing IPv6 addresses
+> - more use of IS_ENABLED(CONFIG_IPV6) for preserving build integrity
+> - reject link-local ipv6 address for remote tunnel endpoint
+:
+
+> @@ -870,15 +1147,35 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+:
+> +
+> +		if (ipv6_addr_type(&remote.sin6.sin6_addr) &
+> +		    IPV6_ADDR_LINKLOCAL)
+> +			netdev_dbg(dev, "link-local remote is unsupported\n");
+> +			return -EINVAL;
+> +	}
+> +
+
+This always returns -EINVAL; {} is missing.
+
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
