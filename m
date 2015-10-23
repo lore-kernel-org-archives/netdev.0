@@ -1,53 +1,67 @@
-From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 7/8] mm: vmscan: report vmpressure at the level of
- reclaim activity
-Date: Fri, 23 Oct 2015 15:49:57 +0200
-Message-ID: <20151023134957.GC15375@dhcp22.suse.cz>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-8-git-send-email-hannes@cmpxchg.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Fri, 23 Oct 2015 07:13:47 -0700
+Message-ID: <1445609627.22974.150.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151021185104.GM22011@ZenIV.linux.org.uk>
+	 <20151021.182955.1434243485706993231.davem@davemloft.net>
+	 <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk>
+	 <20151022060304.GQ22011@ZenIV.linux.org.uk>
+	 <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
+	 <20151022172146.GS22011@ZenIV.linux.org.uk>
+	 <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
+	 <20151022190701.GV22011@ZenIV.linux.org.uk>
+	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
+	 <20151022215741.GW22011@ZenIV.linux.org.uk>
+	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+	 <1445605340.22974.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <201510231320.t9NDKZv9017488@room101.nl.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1445487696-21545-8-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Al Viro <viro@ZenIV.linux.org.uk>,
+	Alan Burlison <Alan.Burlison@oracle.com>,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
+To: Casper.Dik@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33885 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbbJWONu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 10:13:50 -0400
+Received: by padhk11 with SMTP id hk11so119822988pad.1
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 07:13:49 -0700 (PDT)
+In-Reply-To: <201510231320.t9NDKZv9017488@room101.nl.oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 22-10-15 00:21:35, Johannes Weiner wrote:
-> The vmpressure metric is based on reclaim efficiency, which in turn is
-> an attribute of the LRU. However, vmpressure events are currently
-> reported at the source of pressure rather than at the reclaim level.
+On Fri, 2015-10-23 at 15:20 +0200, Casper.Dik@oracle.com wrote:
 > 
-> Switch the reporting to the reclaim level to allow finer-grained
-> analysis of which memcg is having trouble reclaiming its pages.
+> >Yet another POSIX deficiency.
+> >
+> >When a server deals with 10,000,000+ socks, we absolutely do not care of
+> >this requirement.
+> >
+> >O(log(n)) is still crazy if it involves O(log(n)) cache misses.
+> 
+> You miss the fire point of the algorithm; you *always* find an available 
+> file descriptor in O(log(N)) (where N is the size of the table).
+> 
+> Does your algorithm guarantee that?
 
-I can see how this can be useful.
- 
-> As far as memory.pressure_level interface semantics go, events are
-> escalated up the hierarchy until a listener is found, so this won't
-> affect existing users that listen at higher levels.
+Its a simple bit map. Each cache line contains 64*8 = 512 bits. Lookup
+is actually quite fast thanks to hardware prefetches. 
 
-This is true but the parent will not see cumulative events anymore.
-One memcg might be fighting and barely reclaim anything so it would
-report high pressure while other would be doing just fine. The parent
-will just see conflicting events in a short time period and cannot match
-them the source memcg. This sounds really confusing. Even more confusing
-than the current semantic which allows the same behavior under certain
-configurations.
+Main problem we had until recently was that we used to acquire fd table
+lock 3 times per accept()/close() pair
 
-I dunno, have to think about it some more. Maybe we need to rethink the
-way how the pressure is signaled. If we want the breakdown of the
-particular memcgs then we should be able to identify them for this to be
-useful.
+This patch took care of the issue :
 
-[...]
--- 
-Michal Hocko
-SUSE Labs
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8a81252b774b53e628a8a0fe18e2b8fc236d92cc
+
+Then, adding a O_RANDOMFD flag (or O_DO_NOT_REQUIRE_POSIX_FD_RULES) is
+helping a lot, as it allows us to pick a random starting point during
+the bitmap search.
+
+In practice, finding a slot in fd array is O(1) : one cache line miss
+exactly.
