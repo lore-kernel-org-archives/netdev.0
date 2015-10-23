@@ -1,53 +1,36 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 8/9] powerpc: simplify csum_add(a, b) in case a or b is
- constant 0
-Date: Thu, 22 Oct 2015 22:33:27 -0500
-Message-ID: <1445571207.701.152.camel@freescale.com>
-References: <cover.1442876807.git.christophe.leroy@c-s.fr>
-	 <5549ecca2c921f34d076c47b5e2a91a3e78b20a7.1442876807.git.christophe.leroy@c-s.fr>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Fri, 23 Oct 2015 11:47:20 +0800
+Message-ID: <5629ADC8.20009@huawei.com>
+References: <1445559014-4667-1-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<netdev@vger.kernel.org>
-To: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
+	"Daniel Borkmann" <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5549ecca2c921f34d076c47b5e2a91a3e78b20a7.1442876807.git.christophe.leroy@c-s.fr>
+In-Reply-To: <1445559014-4667-1-git-send-email-ast@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-09-22 at 16:34 +0200, Christophe Leroy wrote:
-> Simplify csum_add(a, b) in case a or b is constant 0
-> 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-> ---
->  arch/powerpc/include/asm/checksum.h | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/arch/powerpc/include/asm/checksum.h 
-> b/arch/powerpc/include/asm/checksum.h
-> index 56deea8..f8a9704 100644
-> --- a/arch/powerpc/include/asm/checksum.h
-> +++ b/arch/powerpc/include/asm/checksum.h
-> @@ -119,7 +119,13 @@ static inline __wsum csum_add(__wsum csum, __wsum 
-> addend)
->  {
->  #ifdef __powerpc64__
->       u64 res = (__force u64)csum;
-> +#endif
-> +     if (__builtin_constant_p(csum) && csum == 0)
-> +             return addend;
-> +     if (__builtin_constant_p(addend) && addend == 0)
-> +             return csum;
->  
-> +#ifdef __powerpc64__
->       res += (__force u64)addend;
->       return (__force __wsum)((u32)res + (res >> 32));
->  #else
 
-How often does this happen?
 
--Scott
+On 2015/10/23 8:10, Alexei Starovoitov wrote:
+> Fix safety checks for bpf_perf_event_read():
+> - only non-inherited events can be added to perf_event_array map
+>    (do this check statically at map insertion time)
+> - dynamically check that event is local and !pmu->count
+> Otherwise buggy bpf program can cause kernel splat.
+>
+> Also fix error path after perf_event_attrs()
+> and remove redundant 'extern'.
+>
+> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+
+Tested-by: Wang Nan <wangnan0@huawei.com>
