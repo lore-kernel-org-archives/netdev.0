@@ -1,55 +1,75 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Implement FDB operations
-Date: Fri, 23 Oct 2015 18:44:16 -0400
-Message-ID: <20151023224416.GA10185@ketchup.mtl.sfl>
-References: <1445625487-16313-1-git-send-email-f.fainelli@gmail.com>
- <20151023192824.GA21943@ketchup.mtl.sfl>
- <562A968E.9020303@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension
+ headers and recalc checksum during fragmentation
+Date: Fri, 23 Oct 2015 15:48:45 -0700
+Message-ID: <1445640525.22974.195.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-	andrew@lunn.ch, linux@roeck-us.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:34914 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbbJWWoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 18:44:19 -0400
-Content-Disposition: inline
-In-Reply-To: <562A968E.9020303@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33247 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbbJWWsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 18:48:47 -0400
+Received: by pabrc13 with SMTP id rc13so129266805pab.0
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 15:48:47 -0700 (PDT)
+In-Reply-To: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct. Friday 23 (43) 01:20 PM, Florian Fainelli wrote:
-> On 23/10/15 12:28, Vivien Didelot wrote:
-> > On Oct. Friday 23 (43) 11:38 AM, Florian Fainelli wrote:
-> >> +static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
-> >> +			      const struct switchdev_obj_port_fdb *fdb)
-> >> +{
-> >> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-> >> +
-> >> +	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
-> >> +}
-> > 
-> > I'm wondering if you are populating the FDB of the invalid VLAN 0 here.
-> > 
-> > Does your ARL consider that fdb->vid == 0 means "this port's FDB" and
-> > not "FDB of VLAN 0"?
+On Fri, 2015-10-23 at 15:13 +0200, Hannes Frederic Sowa wrote:
+> CHECKSUM_PARTIAL should only be used on plain vanilla IPv6 + UDP packets
+> in ip6_append_data. Some drivers don't correctly handle extension headers,
+> especially not ipv6 fragmentation which could result in broken checksums.
 > 
-> (please trim your replies)
+> 1) This patch improves the test for fragmentation and extension headers
+> in ip6_append_data, so we set the ip_summed mode as early as possible
+> to the correct value to compute the checksum during memory copy-in from
+> user space.
+> 
+> 2) We always call skb_checksum_help on CHECKSUM_PARTIAL fragments in
+> ip6_fragment, because we don't know if the underlying hardware can deal
+> with ip6_fragments.
+> 
+> Fixes: commit 32dce968dd987 ("ipv6: Allow for partial checksums on non-ufo packets")
+> See-also: commit 72e843bb09d45 ("ipv6: ip6_fragment() should check CHECKSUM_PARTIAL")
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Benjamin Coddington <bcodding@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/ip6_output.c | 78 ++++++++++++++++++++++++---------------------------
+>  1 file changed, 37 insertions(+), 41 deletions(-)
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 8dddb45..26d2911 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -593,6 +593,10 @@ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
+>  	frag_id = ipv6_select_ident(net, &ipv6_hdr(skb)->daddr,
+>  				    &ipv6_hdr(skb)->saddr);
+>  
+> +	if ((skb->ip_summed == CHECKSUM_PARTIAL) &&
+> +	    (err = skb_checksum_help(skb)))
+> +		goto fail;
+> +
+>  	hroom = LL_RESERVED_SPACE(rt->dst.dev);
+>  	if (skb_has_frag_list(skb)) {
+>  		int first_len = skb_pagelen(skb);
+> @@ -721,10 +725,6 @@ slow_path_clean:
+>  	}
+>  
+>  slow_path:
+> -	if ((skb->ip_summed == CHECKSUM_PARTIAL) &&
+> -	    skb_checksum_help(skb))
+> -		goto fail;
+> -
 
-Noted, thanks.
 
-> I do not think this matters right now, since 802.1q is not currently
-> enabled/supported in the driver, but maybe I am trivializing this?
-
-I meant that, when you issue the following command:
-
-    bridge fdb add de:ea:be:ef:12:34 dev swp3
-
-you will get vid == 0 in bcm_sf2_sw_fdb_add(). So I was wondering if
-your code was populating the FDB of the VLAN 0, instead of the choosen
-FDB associated to the given port.
-
-Thanks,
--v
+It looks like this patch could be split in two, to ease future bisection
+maybe ?
