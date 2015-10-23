@@ -1,296 +1,144 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute RFC PATCH 3/9] tc: add a man page for flow filter
-Date: Fri, 23 Oct 2015 19:47:10 +0200
-Message-ID: <1445622436-6386-4-git-send-email-phil@nwl.cc>
+Subject: [iproute RFC PATCH 4/9] tc: add a man page for flower filter
+Date: Fri, 23 Oct 2015 19:47:11 +0200
+Message-ID: <1445622436-6386-5-git-send-email-phil@nwl.cc>
 References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:55050 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:49769 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932273AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932272AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Oct 2015 13:47:19 -0400
 In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jiri Pirko <jiri@resnulli.us>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-flow.8 | 265 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 265 insertions(+)
- create mode 100644 man/man8/tc-flow.8
+ man/man8/tc-flower.8 | 113 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 113 insertions(+)
+ create mode 100644 man/man8/tc-flower.8
 
-diff --git a/man/man8/tc-flow.8 b/man/man8/tc-flow.8
+diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
 new file mode 100644
-index 0000000..f1b7e2a
+index 0000000..df4d8e1
 --- /dev/null
-+++ b/man/man8/tc-flow.8
-@@ -0,0 +1,265 @@
-+.TH "Flow filter in tc" 8 "20 Oct 2015" "iproute2" "Linux"
++++ b/man/man8/tc-flower.8
+@@ -0,0 +1,113 @@
++.TH "Flower filter in tc" 8 "22 Oct 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+flow \- flow based traffic control filter
++flower \- flow based traffic control filter
 +.SH SYNOPSIS
-+.TP
-+Mapping mode:
-+
-+.RS
 +.in +8
 +.ti -8
-+.BR tc " " filter " ... " "flow map key "
-+.IR KEY " [ " OPS " ] [ " OPTIONS " ] "
-+.RE
-+.TP
-+Hashing mode:
-+
-+.RS
-+.in +8
-+.ti -8
-+.BR tc " " filter " ... " "flow hash keys "
-+.IR KEY_LIST " [ "
-+.B perturb
-+.IR secs " ] [ " OPTIONS " ] "
-+.RE
-+
-+.in +8
-+.ti -8
-+.IR OPS " := [ " OPS " ] " OP
-+
-+.ti -8
-+.IR OPTIONS " := [ "
-+.B divisor
-+.IR NUM " ] [ "
-+.B baseclass
-+.IR ID " ] [ "
-+.B match
-+.IR EMATCH_TREE " ] [ "
++.BR tc " " filter " ... " flower " [ "
++.IR MATCH_LIST " ] [ "
 +.B action
-+.IR ACTION_SPEC " ]"
++.IR ACTION_SPEC " ] [ "
++.B classid
++.IR CLASSID " ]"
 +
 +.ti -8
-+.IR KEY_LIST " := [ " KEY_LIST " ] " KEY
++.IR MATCH_LIST " := [ " MATCH_LIST " ] " MATCH
 +
 +.ti -8
-+.IR OP " := { "
-+.BR or " | " and " | " xor " | " rshift " | " addend " } "
-+.I NUM
-+
-+.ti -8
-+.IR ID " := " X : Y
-+
-+.ti -8
-+.IR KEY " := { "
-+.BR src " | " dst " | " proto " | " proto-src " | " proto-dst " | " iif " | "
-+.BR priority " | " mark " | " nfct " | " nfct-src " | " nfct-dst " | "
-+.BR nfct-proto-src " | " nfct-proto-dst " | " rt-classid " | " sk-uid " | "
-+.BR sk-gid " | " vlan-tag " | " rxhash " }"
++.IR MATCH " := { "
++.B indev
++.IR ifname " | { "
++.BR dst_mac " | " src_mac " } "
++.IR mac_address " | "
++.BR eth_type " { " ipv4 " | " ipv6 " | "
++.IR ETH_TYPE " } | "
++.BR ip_proto " { " tcp " | " udp " | "
++.IR IP_PROTO " } | { "
++.BR dst_ip " | " src_ip " } { "
++.IR ipv4_address " | " ipv6_address " } | { "
++.BR dst_port " | " src_port " } "
++.IR port_number " }"
 +.SH DESCRIPTION
 +The
-+.B flow
-+classifier is meant to extend the
-+.B SFQ
-+hashing capabilities without hard-coding new hash functions. It also allows
-+deterministic mappings of keys to classes.
++.B flower
++filter matches flows to the set of keys specified and assigns an arbitrarily
++chosen class ID to packets belonging to them. Additionally (or alternatively) an
++action from the generic action framework may be called.
 +.SH OPTIONS
 +.TP
 +.BI action " ACTION_SPEC"
 +Apply an action from the generic actions framework on matching packets.
 +.TP
-+.BI baseclass " ID"
-+An offset for the resulting class ID.
-+.I ID
-+may be
-+.BR root ", " none
-+or a hexadecimal class ID in the form [\fIX\fB:\fR]\fIY\fR. If \fIX\fR is
-+omitted, it is assumed to be zero.
++.BI classid " CLASSID"
++Specify a class to pass matching packets on to.
++.I CLASSID
++is in the form
++.BR X : Y ", while " X " and " Y
++are interpreted as numbers in hexadecimal format.
 +.TP
-+.BI divisor " NUM"
-+Number of buckets to use for sorting into. Keys are calculated modulo
-+.IR NUM .
++.BI indev " ifname"
++Match on incoming interface name. Obviously this makes sense only for forwarded
++flows.
++.I ifname
++is the name of an interface which must exist at the time of
++.B tc
++invocation.
 +.TP
-+.BI "hash keys " KEY-LIST
-+Perform a
-+.B jhash2
-+operation over the keys in
-+.IR KEY-LIST ,
-+the result (modulo the
-+.B divisor
-+if given) is taken as class ID, optionally offset by the value of
-+.BR baseclass .
-+It is possible to specify an interval (in seconds) after which
-+.BR jhash2 's
-+entropy source is recreated using the
-+.B perturb
-+parameter.
-+.TP
-+.BI "map key " KEY
-+Packet data identified by
-+.I KEY
-+is translated into class IDs to push the packet into. The value may be mangled by
-+.I OPS
-+before using it for the mapping. They are applied in the order listed here:
-+.RS
-+.TP 4
-+.BI and " NUM"
-+Perform bitwise
-+.B AND
-+operation with numeric value
-+.IR NUM .
-+.TP
-+.BI or " NUM"
-+Perform bitwise
-+.B OR
-+operation with numeric value
-+.IR NUM .
-+.TP
-+.BI xor " NUM"
-+Perform bitwise
-+.B XOR
-+operation with numeric value
-+.IR NUM .
-+.TP
-+.BI rshift " NUM"
-+Shift the value of
-+.I KEY
-+to the right by
-+.I NUM
-+bits.
-+.TP
-+.BI addend " NUM"
-+Add
-+.I NUM
-+to the value of
-+.IR KEY .
-+
-+.RE
-+.RS
-+For the
-+.BR or ", " and ", " xor " and " rshift
-+operations,
-+.I NUM
-+is assumed to be an unsigned, 32bit integer value. For the
-+.B addend
-+operation,
-+.I NUM
-+may be much more complex: It may be prefixed by a minus ('-') sign to cause
-+subtraction instead of addition and for keys of
-+.BR src ", " dst ", " nfct-src " and " nfct-dst
-+it may be given in IP address notation. See below for an illustrating example.
-+.RE
-+.TP
-+.BI match " EMATCH_TREE"
-+Match packets using the extended match infrastructure. See
-+.BR tc-ematch (8)
-+for a detailed description of the allowed syntax in
-+.IR EMATCH_TREE .
-+.SH KEYS
-+In mapping mode, a single key is used (after optional permutation) to build a
-+class ID. The resulting ID is deducible in most cases. In hashing more, a number
-+of keys may be specified which are then hashed and the output used as class ID.
-+This ID is not deducible in beforehand, and may even change over time for a
-+given flow if a
-+.B perturb
-+interval has been given.
-+
-+The range of class IDs can be limited by the
-+.B divisor
-+option, which is used for a modulus.
-+.TP
-+.BR src ", " dst
-+Use source or destination address as key. In case of IPv4 and TIPC, this is the
-+actual address value. For IPv6, the 128bit address is folded into a 32bit value
-+by XOR'ing the four 32bit words. In all other cases, the kernel-internal socket
-+address is used (after folding into 32bits on 64bit systems).
-+.TP
-+.B proto
-+Use the layer four protocol number as key.
-+.TP
-+.B proto-src
-+Use the layer four source port as key. If not available, the kernel-internal
-+socket address is used instead.
-+.TP
-+.B proto-dst
-+Use the layer four destination port as key. If not available, the associated
-+kernel-internal dst_entry address is used after XOR'ing with the packet's
-+layer three protocol number.
-+.TP
-+.B iif
-+Use the incoming interface index as key.
-+.TP
-+.B priority
-+Use the packet's priority as key. Usually this is the IP header's DSCP/ECN
-+value.
-+.TP
-+.B mark
-+Use the netfilter
-+.B fwmark
-+as key.
-+.TP
-+.B nfct
-+Use the associated conntrack entry address as key.
-+.TP
-+.BR nfct-src ", " nfct-dst ", " nfct-proto-src ", " nfct-proto-dst
-+These are conntrack-aware variants of
-+.BR src ", " dst ", " proto-src " and " proto-dst .
-+In case of NAT, these are basically the packet header's values before NAT was
-+applied.
-+.TP
-+.B rt-classid
-+Use the packet's destination routing table entry's realm as key.
-+.TP
-+.B sk-uid
++.BI dst_mac " mac_address"
 +.TQ
-+.B sk-gid
-+For locally generated packets, use the user or group ID the originating socket
-+belongs to as key.
++.BI src_mac " mac_address"
++Match on source or destination MAC address.
 +.TP
-+.B vlan-tag
-+Use the packet's vlan ID as key.
++.BI eth_type " ETH_TYPE"
++Match on layer three protocol.
++.I ETH_TYPE
++may be either
++.BR ipv4 , ipv6
++or an unsigned 16bit value in hexadecimal format.
 +.TP
-+.B rxhash
-+Use the flow hash as key.
-+
-+.SH EXAMPLES
++.BI ip_proto " IP_PROTO"
++Match on layer four protocol.
++.I IP_PROTO
++may be either
++.BR tcp , udp
++or an unsigned 8bit value in hexadecimal format.
 +.TP
-+Classic SFQ hash:
-+
-+.EX
-+tc filter add ... flow hash \\
-+	keys src,dst,proto,proto-src,proto-dst divisor 1024
-+.EE
++.BI dst_ip " ADDRESS"
++.TQ
++.BI src_ip " ADDRESS"
++Match on source or destination IP address.
++.I ADDRESS
++must be a valid IPv4 or IPv6 address, depending on
++.BR ether_type ,
++which has to be specified in beforehand.
 +.TP
-+Classic SFQ hash, but using information from conntrack to work properly in combination with NAT:
-+
-+.EX
-+tc filter add ... flow hash \\
-+	keys nfct-src,nfct-dst,proto,nfct-proto-src,nfct-proto-dst \\
-+	divisor 1024
-+.EE
-+.TP
-+Map destination IPs of 192.168.0.0/24 to classids 1-257:
-+
-+.EX
-+tc filter add ... flow map \\
-+	key dst addend -192.168.0.0 divisor 256
-+.EE
-+.TP
-+Alternative to the above:
-+
-+.EX
-+tc filter add ... flow map \\
-+	key dst and 0xff
-+.EE
-+.TP
-+The same, but in reverse order:
-+
-+.EX
-+tc filter add ... flow map \\
-+	key dst and 0xff xor 0xff
-+.EE
++.BI dst_port " NUMBER"
++.TQ
++.BI src_port " NUMBER"
++Match on layer 4 protocol source or destination port number. Only available for
++.BR ip_proto " values " udp " and " tcp ,
++which has to be specified in beforehand.
++.SH NOTES
++As stated above where applicable, matches of a certain layer implicitly depend
++on the matches of the next lower layer. Precisely, layer one and two matches (
++.BR indev , dst_mac , src_mac " and " eth_type )
++have no dependency, layer three matches (
++.BR ip_proto , dst_ip " and " src_ip )
++require
++.B eth_type
++being set to either
++.BR ipv4 " or " ipv6 ,
++and finally layer four matches (
++.BR dst_port " and " src_port )
++depend on
++.B ip_proto
++being set to either
++.BR tcp " or " udp .
++.P
++There can be only used one mask per one prio. If user needs to specify different
++mask, he has to use different prio.
 +.SH SEE ALSO
 +.BR tc (8),
-+.BR tc-ematch (8),
-+.BR tc-sfq (8)
++.BR tc-flow (8)
 -- 
 2.1.2
