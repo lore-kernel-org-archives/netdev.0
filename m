@@ -1,98 +1,61 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH V2 2/2] xen-netfront: limit vnic max_queues number to online
- cpus
-Date: Fri, 23 Oct 2015 17:19:02 +0800
-Message-ID: <5629FB86.7010107@oracle.com>
-References: <5629FB31.5060806@oracle.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH stable<3.19] net: handle null iovec pointer in
+ skb_copy_and_csum_datagram_iovec()
+Date: Fri, 23 Oct 2015 11:22:19 +0200
+Message-ID: <20151023092219.GA10782@bistromath.redhat.com>
+References: <20151023084609.585AEA0C18@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jan Beulich <JBeulich@suse.com>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>, Zefan Li <lizefan@huawei.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42737 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbbJWJTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:19:18 -0400
-In-Reply-To: <5629FB31.5060806@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45127 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750970AbbJWJWY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 05:22:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20151023084609.585AEA0C18@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should not allocate vnic queues number more than online cpus.
+Hello Michal,
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Cc: Jan Beulich <JBeulich@suse.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
----
- drivers/net/xen-netfront.c |   28 ++++++++++++++++++++++------
- 1 files changed, 22 insertions(+), 6 deletions(-)
+2015-10-23, 10:46:09 +0200, Michal Kubecek wrote:
+> Mainline commit 89c22d8c3b27 ("net: Fix skb csum races when peeking")
+> backport into pre-3.19 stable kernels introduces a regression causing
+> null pointer dererefence in skb_copy_and_csum_datagram_iovec().
+> 
+> This commit only sets CHECKSUM_UNNECESSARY for non-shared skb, allowing
+> udp_recvmsg() to take the "else" branch of if (skb_csum_unnecessary(skb))
+> when called with null iovec (and len=0, e.g. when peeking for datagram
+> size first). The problem is that unlike skb_copy_and_csum_datagram_msg()
+> called in this path since 3.19, skb_copy_and_csum_datagram_iovec() does
+> not handle null iov parameter and always dereferences iov->iov_len. This
+> is especially harmful when udp_recvmsg() is called in kernel context,
+> e.g. from kernel nfsd.
+> 
+> Band-aid skb_copy_and_csum_datagram_iovec() by testing iov for null and
+> only checking the checksum in this case.
+> 
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index f821a97..5cc2f4a 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -58,7 +58,9 @@
- 
- /* Module parameters */
- static unsigned int xennet_max_queues;
--module_param_named(max_queues, xennet_max_queues, uint, 0644);
-+static int xennet_set_max_queues(const char *val, struct kernel_param *kp);
-+module_param_call(max_queues, xennet_set_max_queues, param_get_uint,
-+		  &xennet_max_queues, 0644);
- MODULE_PARM_DESC(max_queues,
- 		 "Maximum number of queues per virtual interface");
- 
-@@ -164,6 +166,19 @@ struct netfront_rx_info {
- 	struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX - 1];
- };
- 
-+static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
-+{
-+	unsigned int cpus = num_online_cpus();
-+	unsigned int max_queues = simple_strtoul(val, NULL, 10);
-+
-+	if (max_queues == 0 || max_queues > cpus) {
-+		pr_err("max_queues %u is out of range [0 - %u]!\n", 
-+		       max_queues, cpus);
-+		return -ERANGE;
-+	}
-+	return param_set_uint(val, kp);
-+}
-+
- static void skb_entry_set_link(union skb_entry *list, unsigned short id)
- {
- 	list->link = id;
-@@ -2126,6 +2141,8 @@ static struct xenbus_driver netfront_driver = {
- 
- static int __init netif_init(void)
- {
-+	unsigned int cpus = num_online_cpus();
-+
- 	if (!xen_domain())
- 		return -ENODEV;
- 
-@@ -2134,11 +2151,10 @@ static int __init netif_init(void)
- 
- 	pr_info("Initialising Xen virtual ethernet driver\n");
- 
--	/* Allow as many queues as there are CPUs if user has not
--	 * specified a value.
--	 */
--	if (xennet_max_queues == 0)
--		xennet_max_queues = num_online_cpus();
-+	/* Allow at most as many queues as there are CPUs. */
-+	if (xennet_max_queues == 0 || xennet_max_queues > cpus)
-+		xennet_max_queues = cpus;
-+	pr_info("max_queues: %d\n", xennet_max_queues);
- 
- 	return xenbus_register_frontend(&netfront_driver);
- }
+I ran into this problem too and that was my initial solution to this
+problem as well, but actually, we need a more complete fix, like the
+one I submitted a few days ago:
+
+http://patchwork.ozlabs.org/patch/530642/
+
+With your solution, userspace can still receive bogus EFAULT, or the
+kernel ends up writing data to an unwanted memory location.
+
+
+Thanks,
+
 -- 
-1.7.1
+Sabrina
