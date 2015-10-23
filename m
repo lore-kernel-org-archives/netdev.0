@@ -1,111 +1,349 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v6 2/2] geneve: handle ipv6 priority like ipv4 tos
-Date: Fri, 23 Oct 2015 10:40:25 -0400
-Message-ID: <1445611225-27095-2-git-send-email-linville@tuxdriver.com>
-References: <1445543136-8265-1-git-send-email-linville@tuxdriver.com>
- <1445611225-27095-1-git-send-email-linville@tuxdriver.com>
-Cc: Dave Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>,
-	=?UTF-8?q?YOSHIFUJI=20Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<hideaki.yoshifuji@miraclelinux.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46432 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080AbbJWPDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 11:03:49 -0400
-In-Reply-To: <1445611225-27095-1-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Fri, 23 Oct 2015 17:12:05 +0200
+Message-ID: <20151023151205.GW11639@twins.programming.kicks-ass.net>
+References: <56279634.5000606@huawei.com>
+ <20151021134951.GH3604@twins.programming.kicks-ass.net>
+ <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
+ <20151021140921.GI3604@twins.programming.kicks-ass.net>
+ <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+ <20151021165758.GK3604@twins.programming.kicks-ass.net>
+ <56280175.8060404@plumgrid.com>
+ <20151022090632.GK2508@worktop.programming.kicks-ass.net>
+ <5628BA46.8060307@huawei.com>
+ <20151023125211.GB17308@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>, pi3orama <pi3orama@163.com>,
+	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net,
+	linux-kernel@vger.kernel.org, hekuang@huawei.com,
+	netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151023125211.GB17308@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Other callers of udp_tunnel6_xmit_skb just pass 0 for the prio
-argument.  Jesse Gross <jesse@nicira.com> suggested that prio is really
-the same as IPv4's tos and should be handled the same, so this is my
-interpretation of that suggestion.
+On Fri, Oct 23, 2015 at 02:52:11PM +0200, Peter Zijlstra wrote:
+> On Thu, Oct 22, 2015 at 06:28:22PM +0800, Wangnan (F) wrote:
+> > information to analysis when glitch happen. Another way we are trying to
+> > implement
+> > now is to dynamically turn events on and off, or at least enable/disable
+> > sampling dynamically because the overhead of copying those samples
+> > is a big part of perf's total overhead. After that we can trace as many
+> > event as possible, but only fetch data from them when we detect a glitch.
+> 
+> So why don't you 'fix' the flight recorder mode and just leave the data
+> in memory and not bother copying it out until a glitch happens?
+> 
+> Something like this:
+> 
+> lkml.kernel.org/r/20130708121557.GA17211@twins.programming.kicks-ass.net
+> 
+> it appears we never quite finished that.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Reported-by: Jesse Gross <jesse@nicira.com>
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+Updated to current sources, compile tested only.
+
+It obviously needs testing and performance numbers..  and some
+userspace.
+
 ---
-v6 -- same as previous revision
+Subject: perf: Update event buffer tail when overwriting old events
+From: Peter Zijlstra <peterz@infradead.org>
 
- drivers/net/geneve.c | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+> From: "Yan, Zheng" <zheng.z.yan@intel.com>
+>
+> If perf event buffer is in overwrite mode, the kernel only updates
+> the data head when it overwrites old samples. The program that owns
+> the buffer need periodically check the buffer and update a variable
+> that tracks the date tail. If the program fails to do this in time,
+> the data tail can be overwritted by new samples. The program has to
+> rewind the buffer because it does not know where is the first vaild
+> sample.
+>
+> This patch makes the kernel update the date tail when it overwrites
+> old events. So the program that owns the event buffer can always
+> read the latest samples. This is convenient for programs that use
+> perf to do branch tracing. One use case is GDB branch tracing:
+> (http://sourceware.org/ml/gdb-patches/2012-06/msg00172.html)
+> It uses perf interface to read BTS, but only cares the branches
+> before the ptrace event.
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 46d4aa714893..1327694c932e 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -755,6 +755,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 	struct geneve_dev *geneve = netdev_priv(dev);
- 	struct geneve_sock *gs6 = geneve->sock6;
- 	struct dst_entry *dst = NULL;
-+	__u8 prio;
+Original-patch-by: "Yan, Zheng" <zheng.z.yan@intel.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+---
+ arch/x86/kernel/cpu/perf_event_intel_ds.c |    2 
+ include/linux/perf_event.h                |    6 --
+ kernel/events/core.c                      |   56 +++++++++++++++++----
+ kernel/events/internal.h                  |    2 
+ kernel/events/ring_buffer.c               |   77 +++++++++++++++++++++---------
+ 5 files changed, 107 insertions(+), 36 deletions(-)
+
+--- a/arch/x86/kernel/cpu/perf_event_intel_ds.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_ds.c
+@@ -1140,7 +1140,7 @@ static void __intel_pmu_pebs_event(struc
  
- 	memset(fl6, 0, sizeof(*fl6));
- 	fl6->flowi6_mark = skb->mark;
-@@ -763,7 +764,16 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 	if (info) {
- 		fl6->daddr = info->key.u.ipv6.dst;
- 		fl6->saddr = info->key.u.ipv6.src;
-+		fl6->flowi6_tos = RT_TOS(info->key.tos);
- 	} else {
-+		prio = geneve->tos;
-+		if (prio == 1) {
-+			const struct iphdr *iip = ip_hdr(skb);
+ 	while (count > 1) {
+ 		setup_pebs_sample_data(event, iregs, at, &data, &regs);
+-		perf_event_output(event, &data, &regs);
++		event->overflow_handler(event, &data, &regs);
+ 		at += x86_pmu.pebs_record_size;
+ 		at = get_next_pebs_record_by_bit(at, top, bit);
+ 		count--;
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -828,10 +828,6 @@ extern int perf_event_overflow(struct pe
+ 				 struct perf_sample_data *data,
+ 				 struct pt_regs *regs);
+ 
+-extern void perf_event_output(struct perf_event *event,
+-				struct perf_sample_data *data,
+-				struct pt_regs *regs);
+-
+ extern void
+ perf_event_header__init_id(struct perf_event_header *header,
+ 			   struct perf_sample_data *data,
+@@ -1032,6 +1028,8 @@ static inline bool has_aux(struct perf_e
+ 
+ extern int perf_output_begin(struct perf_output_handle *handle,
+ 			     struct perf_event *event, unsigned int size);
++extern int perf_output_begin_overwrite(struct perf_output_handle *handle,
++			     struct perf_event *event, unsigned int size);
+ extern void perf_output_end(struct perf_output_handle *handle);
+ extern unsigned int perf_output_copy(struct perf_output_handle *handle,
+ 			     const void *buf, unsigned int len);
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -4515,6 +4515,8 @@ static int perf_mmap_fault(struct vm_are
+ 	return ret;
+ }
+ 
++static void perf_event_set_overflow(struct perf_event *event, struct ring_buffer *rb);
 +
-+			prio = ip_tunnel_get_dsfield(iip, skb);
-+		}
+ static void ring_buffer_attach(struct perf_event *event,
+ 			       struct ring_buffer *rb)
+ {
+@@ -4546,6 +4548,8 @@ static void ring_buffer_attach(struct pe
+ 		spin_lock_irqsave(&rb->event_lock, flags);
+ 		list_add_rcu(&event->rb_entry, &rb->event_list);
+ 		spin_unlock_irqrestore(&rb->event_lock, flags);
 +
-+		fl6->flowi6_tos = RT_TOS(prio);
- 		fl6->daddr = geneve->remote.sin6.sin6_addr;
++		perf_event_set_overflow(event, rb);
  	}
  
-@@ -884,8 +894,9 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	struct geneve_dev *geneve = netdev_priv(dev);
- 	struct geneve_sock *gs6 = geneve->sock6;
- 	struct dst_entry *dst = NULL;
-+	const struct iphdr *iip; /* interior IP header */
- 	struct flowi6 fl6;
--	__u8 ttl;
-+	__u8 prio, ttl;
- 	__be16 sport;
- 	bool udp_csum;
- 	int err;
-@@ -914,6 +925,8 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
- 	skb_reset_mac_header(skb);
- 
-+	iip = ip_hdr(skb);
-+
- 	if (info) {
- 		const struct ip_tunnel_key *key = &info->key;
- 		u8 *opts = NULL;
-@@ -930,6 +943,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (unlikely(err))
- 			goto err;
- 
-+		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
- 		ttl = key->ttl;
- 	} else {
- 		udp_csum = false;
-@@ -938,13 +952,14 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (unlikely(err))
- 			goto err;
- 
-+		prio = ip_tunnel_ecn_encap(fl6.flowi6_tos, iip, skb);
- 		ttl = geneve->ttl;
- 		if (!ttl && ipv6_addr_is_multicast(&fl6.daddr))
- 			ttl = 1;
- 		ttl = ttl ? : ip6_dst_hoplimit(dst);
+ 	rcu_assign_pointer(event->rb, rb);
+@@ -5579,9 +5583,12 @@ void perf_prepare_sample(struct perf_eve
  	}
- 	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
--				   &fl6.saddr, &fl6.daddr, 0, ttl,
-+				   &fl6.saddr, &fl6.daddr, prio, ttl,
- 				   sport, geneve->dst_port, !udp_csum);
+ }
  
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
--- 
-2.4.3
+-void perf_event_output(struct perf_event *event,
+-			struct perf_sample_data *data,
+-			struct pt_regs *regs)
++static __always_inline void
++__perf_event_output(struct perf_event *event,
++		    struct perf_sample_data *data,
++		    struct pt_regs *regs,
++		    int (*output_begin)(struct perf_output_handle *,
++			                struct perf_event *, unsigned int))
+ {
+ 	struct perf_output_handle handle;
+ 	struct perf_event_header header;
+@@ -5591,7 +5598,7 @@ void perf_event_output(struct perf_event
+ 
+ 	perf_prepare_sample(&header, data, event, regs);
+ 
+-	if (perf_output_begin(&handle, event, header.size))
++	if (output_begin(&handle, event, header.size))
+ 		goto exit;
+ 
+ 	perf_output_sample(&handle, &header, data, event);
+@@ -5602,6 +5609,33 @@ void perf_event_output(struct perf_event
+ 	rcu_read_unlock();
+ }
+ 
++static void perf_event_output(struct perf_event *event,
++				struct perf_sample_data *data,
++				struct pt_regs *regs)
++{
++	__perf_event_output(event, data, regs, perf_output_begin);
++}
++
++static void perf_event_output_overwrite(struct perf_event *event,
++				struct perf_sample_data *data,
++				struct pt_regs *regs)
++{
++	__perf_event_output(event, data, regs, perf_output_begin_overwrite);
++}
++
++static void
++perf_event_set_overflow(struct perf_event *event, struct ring_buffer *rb)
++{
++	if (event->overflow_handler != perf_event_output &&
++	    event->overflow_handler != perf_event_output_overwrite)
++		return;
++
++	if (rb->overwrite)
++		event->overflow_handler = perf_event_output_overwrite;
++	else
++		event->overflow_handler = perf_event_output;
++}
++
+ /*
+  * read event_id
+  */
+@@ -6426,10 +6460,7 @@ static int __perf_event_overflow(struct
+ 		irq_work_queue(&event->pending);
+ 	}
+ 
+-	if (event->overflow_handler)
+-		event->overflow_handler(event, data, regs);
+-	else
+-		perf_event_output(event, data, regs);
++	event->overflow_handler(event, data, regs);
+ 
+ 	if (*perf_event_fasync(event) && event->pending_kill) {
+ 		event->pending_wakeup = 1;
+@@ -7904,8 +7935,13 @@ perf_event_alloc(struct perf_event_attr
+ 		context = parent_event->overflow_handler_context;
+ 	}
+ 
+-	event->overflow_handler	= overflow_handler;
+-	event->overflow_handler_context = context;
++	if (overflow_handler) {
++		event->overflow_handler	= overflow_handler;
++		event->overflow_handler_context = context;
++	} else {
++		event->overflow_handler = perf_event_output;
++		event->overflow_handler_context = NULL;
++	}
+ 
+ 	perf_event__state_init(event);
+ 
+--- a/kernel/events/internal.h
++++ b/kernel/events/internal.h
+@@ -21,6 +21,8 @@ struct ring_buffer {
+ 
+ 	atomic_t			poll;		/* POLL_ for wakeups */
+ 
++	local_t				tail;		/* read position     */
++	local_t				next_tail;	/* next read position */
+ 	local_t				head;		/* write position    */
+ 	local_t				nest;		/* nested writers    */
+ 	local_t				events;		/* event limit       */
+--- a/kernel/events/ring_buffer.c
++++ b/kernel/events/ring_buffer.c
+@@ -102,11 +102,11 @@ static void perf_output_put_handle(struc
+ 	preempt_enable();
+ }
+ 
+-int perf_output_begin(struct perf_output_handle *handle,
+-		      struct perf_event *event, unsigned int size)
++static __always_inline int __perf_output_begin(struct perf_output_handle *handle,
++		      struct perf_event *event, unsigned int size, bool overwrite)
+ {
+ 	struct ring_buffer *rb;
+-	unsigned long tail, offset, head;
++	unsigned long tail, offset, head, max_size;
+ 	int have_lost, page_shift;
+ 	struct {
+ 		struct perf_event_header header;
+@@ -125,7 +125,8 @@ int perf_output_begin(struct perf_output
+ 	if (unlikely(!rb))
+ 		goto out;
+ 
+-	if (unlikely(!rb->nr_pages))
++	max_size = perf_data_size(rb);
++	if (unlikely(size > max_size))
+ 		goto out;
+ 
+ 	handle->rb    = rb;
+@@ -140,27 +141,49 @@ int perf_output_begin(struct perf_output
+ 
+ 	perf_output_get_handle(handle);
+ 
+-	do {
+-		tail = READ_ONCE_CTRL(rb->user_page->data_tail);
+-		offset = head = local_read(&rb->head);
+-		if (!rb->overwrite &&
+-		    unlikely(CIRC_SPACE(head, tail, perf_data_size(rb)) < size))
+-			goto fail;
++	if (overwrite) {
++		do {
++			tail = local_read(&rb->tail);
++			offset = local_read(&rb->head);
++			head = offset + size;
++			if (unlikely(CIRC_SPACE(head, tail, max_size) < size)) {
++				tail = local_read(&rb->next_tail);
++				local_set(&rb->tail, tail);
++				rb->user_page->data_tail = tail;
++			}
++		} while (local_cmpxchg(&rb->head, offset, head) != offset);
+ 
+ 		/*
+-		 * The above forms a control dependency barrier separating the
+-		 * @tail load above from the data stores below. Since the @tail
+-		 * load is required to compute the branch to fail below.
+-		 *
+-		 * A, matches D; the full memory barrier userspace SHOULD issue
+-		 * after reading the data and before storing the new tail
+-		 * position.
+-		 *
+-		 * See perf_output_put_handle().
++		 * Save the start of next event when half of the buffer
++		 * has been filled. Later when the event buffer overflows,
++		 * update the tail pointer to point to it.
+ 		 */
++		if (tail == local_read(&rb->next_tail) &&
++		    CIRC_CNT(head, tail, max_size) >= (max_size / 2))
++			local_cmpxchg(&rb->next_tail, tail, head);
++	} else {
++		do {
++			tail = READ_ONCE_CTRL(rb->user_page->data_tail);
++			offset = head = local_read(&rb->head);
++			if (!rb->overwrite &&
++			    unlikely(CIRC_SPACE(head, tail, perf_data_size(rb)) < size))
++				goto fail;
++
++			/*
++			 * The above forms a control dependency barrier separating the
++			 * @tail load above from the data stores below. Since the @tail
++			 * load is required to compute the branch to fail below.
++			 *
++			 * A, matches D; the full memory barrier userspace SHOULD issue
++			 * after reading the data and before storing the new tail
++			 * position.
++			 *
++			 * See perf_output_put_handle().
++			 */
+ 
+-		head += size;
+-	} while (local_cmpxchg(&rb->head, offset, head) != offset);
++			head += size;
++		} while (local_cmpxchg(&rb->head, offset, head) != offset);
++	}
+ 
+ 	/*
+ 	 * We rely on the implied barrier() by local_cmpxchg() to ensure
+@@ -203,6 +226,18 @@ int perf_output_begin(struct perf_output
+ 	return -ENOSPC;
+ }
+ 
++int perf_output_begin(struct perf_output_handle *handle,
++		      struct perf_event *event, unsigned int size)
++{
++	return __perf_output_begin(handle, event, size, false);
++}
++
++int perf_output_begin_overwrite(struct perf_output_handle *handle,
++		      struct perf_event *event, unsigned int size)
++{
++	return __perf_output_begin(handle, event, size, true);
++}
++
+ unsigned int perf_output_copy(struct perf_output_handle *handle,
+ 		      const void *buf, unsigned int len)
+ {
