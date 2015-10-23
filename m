@@ -1,58 +1,154 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: sh_eth.c::sh_eth_rx(): mdp->rx_skbuff[entry] can be NULL
-Date: Fri, 23 Oct 2015 14:05:45 +0300
-Message-ID: <562A1489.70804@cogentembedded.com>
-References: <87oafusy11.wl@dns1.atmark-techno.com>
- <5626A881.2080701@cogentembedded.com> <87eggosmvk.wl@dns1.atmark-techno.com>
- <56295282.7070202@cogentembedded.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 1/8] mm: page_counter: let page_counter_try_charge()
+ return bool
+Date: Fri, 23 Oct 2015 13:31:03 +0200
+Message-ID: <20151023113103.GJ2410@dhcp22.suse.cz>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-2-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yasushi SHOJI <yashi@atmark-techno.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34019 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbbJWLFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 07:05:47 -0400
-Received: by lfaz124 with SMTP id z124so79414202lfa.1
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 04:05:46 -0700 (PDT)
-In-Reply-To: <56295282.7070202@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1445487696-21545-2-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/23/2015 12:17 AM, Sergei Shtylyov wrote:
+On Thu 22-10-15 00:21:29, Johannes Weiner wrote:
+> page_counter_try_charge() currently returns 0 on success and -ENOMEM
+> on failure, which is surprising behavior given the function name.
+> 
+> Make it follow the expected pattern of try_stuff() functions that
+> return a boolean true to indicate success, or false for failure.
+> 
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 
-[...]
+Acked-by: Michal Hocko <mhocko@suse.com>
 
->> If memory is not yet available
->> when the controller is trying to use the invalid descriptor, the
->> controller will see it and DMA will stop.
->
->     That means leaving RACT=0 and that's what the driver is even doing...
->     Hm, then I don't understand how the error you've described can occur,
-> unless we encounter OOM during sh_eth_ring_format()...
->
->> Is it acceptable path to go?
->
->     I'm not seeing a bug in this function, perhaps I'm missing something?
+> ---
+>  include/linux/page_counter.h |  6 +++---
+>  mm/hugetlb_cgroup.c          |  3 ++-
+>  mm/memcontrol.c              | 11 +++++------
+>  mm/page_counter.c            | 14 +++++++-------
+>  4 files changed, 17 insertions(+), 17 deletions(-)
+> 
+> diff --git a/include/linux/page_counter.h b/include/linux/page_counter.h
+> index 17fa4f8..7e62920 100644
+> --- a/include/linux/page_counter.h
+> +++ b/include/linux/page_counter.h
+> @@ -36,9 +36,9 @@ static inline unsigned long page_counter_read(struct page_counter *counter)
+>  
+>  void page_counter_cancel(struct page_counter *counter, unsigned long nr_pages);
+>  void page_counter_charge(struct page_counter *counter, unsigned long nr_pages);
+> -int page_counter_try_charge(struct page_counter *counter,
+> -			    unsigned long nr_pages,
+> -			    struct page_counter **fail);
+> +bool page_counter_try_charge(struct page_counter *counter,
+> +			     unsigned long nr_pages,
+> +			     struct page_counter **fail);
+>  void page_counter_uncharge(struct page_counter *counter, unsigned long nr_pages);
+>  int page_counter_limit(struct page_counter *counter, unsigned long limit);
+>  int page_counter_memparse(const char *buf, const char *max,
+> diff --git a/mm/hugetlb_cgroup.c b/mm/hugetlb_cgroup.c
+> index 6a44263..d8fb10d 100644
+> --- a/mm/hugetlb_cgroup.c
+> +++ b/mm/hugetlb_cgroup.c
+> @@ -186,7 +186,8 @@ again:
+>  	}
+>  	rcu_read_unlock();
+>  
+> -	ret = page_counter_try_charge(&h_cg->hugepage[idx], nr_pages, &counter);
+> +	if (!page_counter_try_charge(&h_cg->hugepage[idx], nr_pages, &counter))
+> +		ret = -ENOMEM;
+>  	css_put(&h_cg->css);
+>  done:
+>  	*ptr = h_cg;
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index c71fe40..a8ccdbc 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -2018,8 +2018,8 @@ retry:
+>  		return 0;
+>  
+>  	if (!do_swap_account ||
+> -	    !page_counter_try_charge(&memcg->memsw, batch, &counter)) {
+> -		if (!page_counter_try_charge(&memcg->memory, batch, &counter))
+> +	    page_counter_try_charge(&memcg->memsw, batch, &counter)) {
+> +		if (page_counter_try_charge(&memcg->memory, batch, &counter))
+>  			goto done_restock;
+>  		if (do_swap_account)
+>  			page_counter_uncharge(&memcg->memsw, batch);
+> @@ -2383,14 +2383,13 @@ int __memcg_kmem_charge_memcg(struct page *page, gfp_t gfp, int order,
+>  {
+>  	unsigned int nr_pages = 1 << order;
+>  	struct page_counter *counter;
+> -	int ret = 0;
+> +	int ret;
+>  
+>  	if (!memcg_kmem_is_active(memcg))
+>  		return 0;
+>  
+> -	ret = page_counter_try_charge(&memcg->kmem, nr_pages, &counter);
+> -	if (ret)
+> -		return ret;
+> +	if (!page_counter_try_charge(&memcg->kmem, nr_pages, &counter))
+> +		return -ENOMEM;
+>  
+>  	ret = try_charge(memcg, gfp, nr_pages);
+>  	if (ret) {
+> diff --git a/mm/page_counter.c b/mm/page_counter.c
+> index 11b4bed..7c6a63d 100644
+> --- a/mm/page_counter.c
+> +++ b/mm/page_counter.c
+> @@ -56,12 +56,12 @@ void page_counter_charge(struct page_counter *counter, unsigned long nr_pages)
+>   * @nr_pages: number of pages to charge
+>   * @fail: points first counter to hit its limit, if any
+>   *
+> - * Returns 0 on success, or -ENOMEM and @fail if the counter or one of
+> - * its ancestors has hit its configured limit.
+> + * Returns %true on success, or %false and @fail if the counter or one
+> + * of its ancestors has hit its configured limit.
+>   */
+> -int page_counter_try_charge(struct page_counter *counter,
+> -			    unsigned long nr_pages,
+> -			    struct page_counter **fail)
+> +bool page_counter_try_charge(struct page_counter *counter,
+> +			     unsigned long nr_pages,
+> +			     struct page_counter **fail)
+>  {
+>  	struct page_counter *c;
+>  
+> @@ -99,13 +99,13 @@ int page_counter_try_charge(struct page_counter *counter,
+>  		if (new > c->watermark)
+>  			c->watermark = new;
+>  	}
+> -	return 0;
+> +	return true;
+>  
+>  failed:
+>  	for (c = counter; c != *fail; c = c->parent)
+>  		page_counter_cancel(c, nr_pages);
+>  
+> -	return -ENOMEM;
+> +	return false;
+>  }
+>  
+>  /**
+> -- 
+> 2.6.1
 
-    Nevermind, I'm seeing the bug now -- occurred to me before I went to bed 
-yesterday.
+-- 
+Michal Hocko
+SUSE Labs
 
->> To achieve zero copy, the driver push the sk_buffs filled with
->> received packet to the netdev core with netif_receive_skb() then
->> netdev_alloc_skb() sk_buffs in the sh_eth_rx(), the poll method of the
->> driver, and update the corresponding descriptor.
->
->> If the allocation failed, it just leave the function, leaving old
->> pointer in the descriptor as is.
->
->     Yes, but note that it also leaves RACT=0, which basically means an invalid
-> descriptor, encountering which the reception should just stop.
-
-    The problem is that the first loop has no way of identifying the bad 
-descriptors. Looks like we only can fix that by checking rx_skbuff[entry] for 
-NULL.
-
-MBR, Sergei
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
