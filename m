@@ -1,59 +1,67 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: [PATCH V2 2/2] xen-netfront: limit vnic max_queues number to
- online cpus
-Date: Fri, 23 Oct 2015 17:39:32 +0800
-Message-ID: <562A0054.1030200@oracle.com>
-References: <5629FB31.5060806@oracle.com> <5629FB86.7010107@oracle.com>
- <562A1A6E02000078000ADEFB@prv-mh.provo.novell.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH stable<3.19] net: handle null iovec pointer in
+ skb_copy_and_csum_datagram_iovec()
+Date: Fri, 23 Oct 2015 11:39:46 +0200
+Message-ID: <20151023093946.GA9789@unicorn.suse.cz>
+References: <20151023084609.585AEA0C18@unicorn.suse.cz>
+ <20151023092219.GA10782@bistromath.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>, wei.liu2@citrix.com,
-	"David S. Miller" <davem@davemloft.net>,
-	xen-devel@lists.xenproject.org,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org
-To: Jan Beulich <JBeulich@suse.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>, Zefan Li <lizefan@huawei.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:46201 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752596AbbJWJjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:39:46 -0400
-In-Reply-To: <562A1A6E02000078000ADEFB@prv-mh.provo.novell.com>
+Received: from mx2.suse.de ([195.135.220.15]:57540 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752607AbbJWJjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 05:39:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20151023092219.GA10782@bistromath.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2015 05:30 PM, Jan Beulich wrote:
->>>> On 23.10.15 at 11:19, <joe.jin@oracle.com> wrote:
->>  
->> @@ -164,6 +166,19 @@ struct netfront_rx_info {
->>  	struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX - 1];
->>  };
->>  
->> +static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
->> +{
->> +	unsigned int cpus = num_online_cpus();
->> +	unsigned int max_queues = simple_strtoul(val, NULL, 10);
->> +
->> +	if (max_queues == 0 || max_queues > cpus) {
->> +		pr_err("max_queues %u is out of range [0 - %u]!\n", 
+On Fri, Oct 23, 2015 at 11:22:19AM +0200, Sabrina Dubroca wrote:
+> Hello Michal,
 > 
-> I suppose you mean "...[1 - %u]!\n" here?
-
-Yes you are right, you catch my fault again :)
-
-Thanks so much, will resend new later.
-
-Regards,
-Joe
-
-> Jan
+> 2015-10-23, 10:46:09 +0200, Michal Kubecek wrote:
+> > Mainline commit 89c22d8c3b27 ("net: Fix skb csum races when peeking")
+> > backport into pre-3.19 stable kernels introduces a regression causing
+> > null pointer dererefence in skb_copy_and_csum_datagram_iovec().
+> > 
+> > This commit only sets CHECKSUM_UNNECESSARY for non-shared skb, allowing
+> > udp_recvmsg() to take the "else" branch of if (skb_csum_unnecessary(skb))
+> > when called with null iovec (and len=0, e.g. when peeking for datagram
+> > size first). The problem is that unlike skb_copy_and_csum_datagram_msg()
+> > called in this path since 3.19, skb_copy_and_csum_datagram_iovec() does
+> > not handle null iov parameter and always dereferences iov->iov_len. This
+> > is especially harmful when udp_recvmsg() is called in kernel context,
+> > e.g. from kernel nfsd.
+> > 
+> > Band-aid skb_copy_and_csum_datagram_iovec() by testing iov for null and
+> > only checking the checksum in this case.
+> > 
+> > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> > ---
 > 
+> I ran into this problem too and that was my initial solution to this
+> problem as well, but actually, we need a more complete fix, like the
+> one I submitted a few days ago:
+> 
+> http://patchwork.ozlabs.org/patch/530642/
+> 
+> With your solution, userspace can still receive bogus EFAULT, or the
+> kernel ends up writing data to an unwanted memory location.
 
+I must admit I wondered why skb_copy_and_csum_datagram_iovec() doesn't
+get (and check) read length and why it cannot overfill the buffer. But
+then I saw the comment "Caller _must_ check that skb will fit to this
+iovec", stopped thinking and assumed it's OK. I guess I should be less
+trusting... :-(
 
--- 
-Oracle <http://www.oracle.com>
-Joe Jin | Software Development Director | +8610.6106.5624
-ORACLE | Linux and Virtualization
-No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+Thank you for the warning.
+
+                                                        Michal Kubecek
