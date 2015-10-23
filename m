@@ -1,142 +1,437 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next V17 3/3] 802.1AD: Flow handling,
- actions, vlan parsing and netlink attributes
-Date: Fri, 23 Oct 2015 12:26:44 -0700
-Message-ID: <CALnjE+puu=KCFPjYXQv=HyNpmVuisKCTNFxXz9eN_=VU9O7JeA@mail.gmail.com>
-References: <1445130748-27671-1-git-send-email-thomasfherbert@gmail.com>
- <1445130748-27671-4-git-send-email-thomasfherbert@gmail.com>
- <CALnjE+p1NdBmSZiGoNHw1C_u+D7s1o=7U68WHpx=5t+PQB=92g@mail.gmail.com>
- <56264F12.1050004@gmail.com>
- <CALnjE+rjNNwvuRRa2hktwHukTvnTx=AC4PegiAvwOT9UGtZKFw@mail.gmail.com>
- <5627A3A9.5010708@redhat.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Implement FDB operations
+Date: Fri, 23 Oct 2015 15:28:24 -0400
+Message-ID: <20151023192824.GA21943@ketchup.mtl.sfl>
+References: <1445625487-16313-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas F Herbert <therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5627A3A9.5010708-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+	andrew@lunn.ch, linux@roeck-us.net
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:56437 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717AbbJWT2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 15:28:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1445625487-16313-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBPY3QgMjEsIDIwMTUgYXQgNzozOSBBTSwgVGhvbWFzIEYgSGVyYmVydCA8dGhlcmJl
-cnRAcmVkaGF0LmNvbT4gd3JvdGU6Cj4KPgo+IE9uIDEwLzIwLzE1IDQ6MzQgUE0sIFByYXZpbiBT
-aGVsYXIgd3JvdGU6Cj4+Cj4+IE9uIFR1ZSwgT2N0IDIwLCAyMDE1IGF0IDc6MjYgQU0sIFRob21h
-cyBGIEhlcmJlcnQKPj4gPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4gIHdyb3RlOgo+Pj4KPj4+
-IE9uIDEwLzE5LzE1IDI6MjggUE0sIFByYXZpbiBTaGVsYXIgd3JvdGU6Cj4+Pj4KPj4+PiBPbiBT
-YXQsIE9jdCAxNywgMjAxNSBhdCA2OjEyIFBNLCBUaG9tYXMgRiBIZXJiZXJ0Cj4+Pj4gPHRob21h
-c2ZoZXJiZXJ0QGdtYWlsLmNvbT4gIHdyb3RlOgo+Pj4+Pgo+Pj4+PiBBZGQgc3VwcG9ydCBmb3Ig
-ODAyLjFhZCBpbmNsdWRpbmcgdGhlIGFiaWxpdHkgdG8gcHVzaCBhbmQgcG9wIGRvdWJsZQo+Pj4+
-PiB0YWdnZWQgdmxhbnMuIEFkZCBzdXBwb3J0IGZvciA4MDIuMWFkIHRvIG5ldGxpbmsgcGFyc2lu
-ZyBhbmQgZmxvdwo+Pj4+PiBjb252ZXJzaW9uLiBVc2VzIGRvdWJsZSBuZXN0ZWQgZW5jYXAgYXR0
-cmlidXRlcyB0byByZXByZXNlbnQgZG91YmxlCj4+Pj4+IHRhZ2dlZCB2bGFuLiBJbm5lciBUUElE
-IGVuY29kZWQgYWxvbmcgd2l0aCBjdGNpIGluIG5lc3RlZCBhdHRyaWJ1dGVzLgo+Pj4+Pgo+Pj4+
-PiBTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgRiBIZXJiZXJ0PHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNv
-bT4KPj4+Pj4gLS0tCj4+Pj4+ICAgIG5ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgICAgICB8ICAg
-NiArLQo+Pj4+PiAgICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAgICAgfCAgNzYgKysrKysr
-KysrKysrKy0tLS0tCj4+Pj4+ICAgIG5ldC9vcGVudnN3aXRjaC9mbG93LmggICAgICAgICB8ICAg
-OCArLQo+Pj4+PiAgICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAxNzIKPj4+Pj4g
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0KPj4+Pj4gICAgbmV0L29w
-ZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jIHwgICA0ICstCj4+Pj4+ICAgIDUgZmlsZXMgY2hhbmdl
-ZCwgMjI3IGluc2VydGlvbnMoKyksIDM5IGRlbGV0aW9ucygtKQo+Pj4+Pgo+Pj4+PiBkaWZmIC0t
-Z2l0IGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25z
-LmMKPj4+Pj4gaW5kZXggMzE1ZjUzMy4uMDljYzFjOSAxMDA2NDQKPj4+Pgo+Pj4+IC4uLgo+Pj4+
-Cj4+Pj4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4+Pj4g
-Yi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4+Pj4gaW5kZXggYzkyZDZhMi4uOTdh
-NmQxMiAxMDA2NDQKPj4+Pj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCj4+
-Pj4+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwo+Pj4+Cj4+Pj4gLi4uCj4+
-Pj4KPj4+Pj4gQEAgLTEzMjAsNiArMTQ0Myw3IEBAIHN0YXRpYyBpbnQgX19vdnNfbmxhX3B1dF9r
-ZXkoY29uc3Qgc3RydWN0Cj4+Pj4+IHN3X2Zsb3dfa2V5ICpzd2tleSwKPj4+Pj4gICAgewo+Pj4+
-PiAgICAgICAgICAgc3RydWN0IG92c19rZXlfZXRoZXJuZXQgKmV0aF9rZXk7Cj4+Pj4+ICAgICAg
-ICAgICBzdHJ1Y3QgbmxhdHRyICpubGEsICplbmNhcDsKPj4+Pj4gKyAgICAgICBzdHJ1Y3Qgbmxh
-dHRyICppbl9lbmNhcCA9IE5VTEw7Cj4+Pj4+Cj4+Pj4+ICAgICAgICAgICBpZiAobmxhX3B1dF91
-MzIoc2tiLCBPVlNfS0VZX0FUVFJfUkVDSVJDX0lELAo+Pj4+PiBvdXRwdXQtPnJlY2lyY19pZCkp
-Cj4+Pj4+ICAgICAgICAgICAgICAgICAgIGdvdG8gbmxhX3B1dF9mYWlsdXJlOwo+Pj4+PiBAQCAt
-MTM2OCwxNyArMTQ5MiwyOSBAQCBzdGF0aWMgaW50IF9fb3ZzX25sYV9wdXRfa2V5KGNvbnN0IHN0
-cnVjdAo+Pj4+PiBzd19mbG93X2tleSAqc3drZXksCj4+Pj4+ICAgICAgICAgICBldGhlcl9hZGRy
-X2NvcHkoZXRoX2tleS0+ZXRoX3NyYywgb3V0cHV0LT5ldGguc3JjKTsKPj4+Pj4gICAgICAgICAg
-IGV0aGVyX2FkZHJfY29weShldGhfa2V5LT5ldGhfZHN0LCBvdXRwdXQtPmV0aC5kc3QpOwo+Pj4+
-Pgo+Pj4+PiAtICAgICAgIGlmIChzd2tleS0+ZXRoLnRjaSB8fCBzd2tleS0+ZXRoLnR5cGUgPT0g
-aHRvbnMoRVRIX1BfODAyMVEpKSB7Cj4+Pj4+IC0gICAgICAgICAgICAgICBfX2JlMTYgZXRoX3R5
-cGU7Cj4+Pj4+IC0gICAgICAgICAgICAgICBldGhfdHlwZSA9ICFpc19tYXNrID8gaHRvbnMoRVRI
-X1BfODAyMVEpIDoKPj4+Pj4gaHRvbnMoMHhmZmZmKTsKPj4+Pj4gLSAgICAgICAgICAgICAgIGlm
-IChubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFLCBldGhfdHlwZSkKPj4+
-Pj4gfHwKPj4+Pj4gLSAgICAgICAgICAgICAgICAgICBubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZ
-X0FUVFJfVkxBTiwKPj4+Pj4gb3V0cHV0LT5ldGgudGNpKSkKPj4+Pj4gKyAgICAgICBpZiAoc3dr
-ZXktPmV0aC52bGFuLnRjaSB8fCBldGhfdHlwZV92bGFuKHN3a2V5LT5ldGgudHlwZSkpIHsKPj4+
-Pj4gKyAgICAgICAgICAgICAgIGlmIChubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZX0FUVFJfRVRI
-RVJUWVBFLAo+Pj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdXRwdXQtPmV0
-aC52bGFuLnRwaWQpIHx8Cj4+Pj4+ICsgICAgICAgICAgICAgICAgICAgbmxhX3B1dF9iZTE2KHNr
-YiwgT1ZTX0tFWV9BVFRSX1ZMQU4sCj4+Pj4+IG91dHB1dC0+ZXRoLnZsYW4udGNpKSkKPj4+Pj4g
-ICAgICAgICAgICAgICAgICAgICAgICAgICBnb3RvIG5sYV9wdXRfZmFpbHVyZTsKPj4+Pj4gICAg
-ICAgICAgICAgICAgICAgZW5jYXAgPSBubGFfbmVzdF9zdGFydChza2IsIE9WU19LRVlfQVRUUl9F
-TkNBUCk7Cj4+Pj4+IC0gICAgICAgICAgICAgICBpZiAoIXN3a2V5LT5ldGgudGNpKQo+Pj4+PiAr
-ICAgICAgICAgICAgICAgaWYgKCFzd2tleS0+ZXRoLnZsYW4udGNpKQo+Pj4+PiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIGdvdG8gdW5lbmNhcDsKPj4+Pj4gLSAgICAgICB9IGVsc2UKPj4+Pj4g
-KyAgICAgICAgICAgICAgIGlmIChzd2tleS0+ZXRoLmN2bGFuLnRjaSkgewo+Pj4+PiArICAgICAg
-ICAgICAgICAgICAgICAgICAvKiBDdXN0b21lciB0Y2kgaXMgbmVzdGVkIGJ1dCB1c2VzIHNhbWUg
-a2V5Cj4+Pj4+IGF0dHJpYnV0ZS4KPj4+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICovCj4+
-Pj4+ICsgICAgICAgICAgICAgICAgICAgICAgIGlmIChubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZ
-X0FUVFJfRVRIRVJUWVBFLAo+Pj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIG91dHB1dC0+ZXRoLmN2bGFuLnRwaWQpIHx8Cj4+Pj4+ICsgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBubGFfcHV0X2JlMTYoc2tiLCBPVlNfS0VZX0FUVFJfVkxBTiwKPj4+Pj4gKyAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdXRwdXQtPmV0aC5jdmxhbi50
-Y2kpKQo+Pj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGdvdG8gbmxhX3B1dF9m
-YWlsdXJlOwo+Pj4+PiArICAgICAgICAgICAgICAgICAgICAgICBpbl9lbmNhcCA9IG5sYV9uZXN0
-X3N0YXJ0KHNrYiwKPj4+Pj4gT1ZTX0tFWV9BVFRSX0VOQ0FQKTsKPj4+Pj4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgaWYgKCFzd2tleS0+ZXRoLmN2bGFuLnRjaSkKPj4+Pj4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBnb3RvIHVuZW5jYXA7Cj4+Pj4+ICsgICAgICAgICAgICAgICB9
-Cj4+Pj4+ICsgICAgICAgfSBlbHNlIHsKPj4+Pj4gICAgICAgICAgICAgICAgICAgZW5jYXAgPSBO
-VUxMOwo+Pj4+PiArICAgICAgIH0KPj4+Pgo+Pj4+IEFmdGVyIHRoZSB2bGFuIHBhcnNpbmcgY2hh
-bmdlcywgd2UgbmVlZCB0byBlbmNvZGUgY3ZsYW4gaW4gb3V0ZXIKPj4+PiBuZXRsaW5rIGF0dHJp
-YnV0ZSBhbmQgdGhlbiBlbmNvZGUgcmVndWxhciB2bGFuLgo+Pj4KPj4+IEkgZG9uJ3QgdW5kZXJz
-dGFuZCB0aGlzLiBjdmxhbiBpcyBpbm5lciB2bGFuLCB3aHkgd291bGQgaXQgYmUgZW5jb2RlZCBp
-bgo+Pj4gb3V0ZXIgdmxhbiB3aXRob3V0IHRoZSAybmQgbGF5ZXIgb2YgZW5jYXBzdWxhdGlvbj8K
-Pj4+Cj4+IExldHMgc3RhcnQgd2l0aCBkb3VibGUgdGFnZ2VkIHBhY2tldC4KPj4gcGFja2V0OiBl
-dGgsIHZsYW4gMTAsIGlubmVyIHZsYW4gMjAsIGlwLgo+PiBmbG93IGtleSB3b3VsZCBiZToKPj4g
-Zmxvd19rZXk6IHZsYW4gPSAxMCwgY3ZsYW4gPSAyMAo+PiBUaGF0IHdvdWxkIGdldCBzZXJpYWxp
-emUgb3ZlciBuZXRsaW5rIGxpa2U6Cj4+Cj4+IGV0aF90eXBlKDB4ODEwMCksdmxhbih2aWQ9MTAs
-cGNwPTApLGVuY2FwKGV0aF90eXBlKDB4ODEwMCksdmxhbih2aWQ9MjAscGNwPTApLAo+PiBlbmNh
-cChldGhfdHlwZSgweDA4MDApLGlwdjQoZnJhZz1ubykpLi4uCj4+IFNvIGZhciBsb29rcyBnb29k
-Lgo+Pgo+PiBOb3cgdXNlcnNwYWNlIHNlbmRzIGJhY2sgc2FtZSBrZXkgYW5kIGluc3RhbGxzIGZs
-b3cgaW4ga2VybmVsCj4+IGRhdGFwYXRoLiBCdXQgb3ZzX25sYV9nZXRfbWF0Y2goKSBwYXJzZXMg
-bmV0aW5rIGtleSBhbmQgc2V0cyB2bGFuIGluCj4+IHJldmVyc2Ugb3JkZXIuIEFmdGVyIHBhcnNp
-bmcgbmV0bGluayBpbiBvdnNfbmxhX2dldF9tYXRjaCgpIHZsYW5zCj4+IGZsb3cta2V5IHdvdWxk
-IGxvb2sgbGlrZToKPj4gZmxvd19rZXk6IHZsYW4gPSAyMCwgY3ZsYW4gPSAxMC4gVGhpcyBpcyBu
-b3Qgd2hhdCB3ZSBzdGFydGVkIHdpdGguCj4+Cj4+IE5vdyBJIHRoaW5rIHJhdGhlciB0aGFuIGZp
-eGluZyBfX292c19ubGFfcHV0X2tleSAoKSwgd2UgbmVlZCB0byBmaXgKPj4gb3ZzX25sYV9nZXRf
-bWF0Y2goKSB0byBrZWVwIHZsYW4gb3JkZXIuCj4+IEkgYWxzbyBub3RpY2VkIHRoYXQgZXRoLnZs
-YW4udHBpZCBpcyBuZXZlciBpbml0aWFsaXplZCBmcm9tIG5ldGxpbmsKPj4gYXR0cmlidXRlcy4K
-Pgo+IFllcywgeW91IGFyZSByaWdodC4gVGhlIGNvZGUgaW4gbWFzdGVyIG5ldmVyIGVuY29kZWQg
-dGhlIHRwaWQgaW4gdGhlIGtleSBhbmQKPiBJIGRpZG4ndCBhZGQgaXQgd2hlbiBJIG1vZGlmaWVk
-IHRoZSBzd2tleSBmb3IgdGhlIGFkZGl0aW9uIG9mIHRoZSB2bGFuCj4gc3RydWN0Lgo+Cj4gWWVz
-LCB5b3UgYXJlIHJpZ2h0IHRoZSBjb2RlIGlzIHdyb25nLiBUaGUgaW50ZW50aW9uIHdhcyB0byBs
-ZWF2ZSB0aGUgb2xkCj4gY29kZSB3aGljaCBsZWZ0IHRoZSBvdXRlciB0Y2kgaW4gdGhlIGtleSBm
-b3IgbGF0ZXIgcHJvY2Vzc2luZy4gSW4gdGhlIGNvZGUKPiBpbiBtYXN0ZXIsIGFmdGVyIGNoZWNr
-aW5nIHByb3BlciB2bGFuIHRoZSBmdW5jdGlvbiBvdnNfa2V5X2Zyb21fbmxhdHRycygpCj4gZW5j
-b2RlZCB0aGUgdGNpLgo+Cj4gTm93IEkgc2VlIHRoYXQgSSBtdXN0IHJlZmFjdG9yIHRoZSBjb2Rl
-IGluIG92c19ubGFfZ2V0X21hdGNoKCkgYW5kCj4gcGFyc2Vfdmxhbl9mcm9tX25sYXR0cnMgdG8g
-ZXhwbGljaXRseSBlbmNvZGUgdGhlIG91dGVyIHZsYW4gaW5jbHVkaW5nIHRwaWQKPiBiZWZvcmUg
-dGhlIGlubmVyIHZsYW4uCj4+Cj4+IENhbGwgdG8gcGFyc2VfZmxvd19ubGF0dHJzICBpbiBwYXJz
-ZV92bGFuX2Zyb21fbmxhdHRycygpIGhhcyBubyBlZmZlY3QKPj4gc28gaXQgc2hvdWxkIGJlIHJl
-bW92ZWQKPgo+IHBhcnNlX2Zsb3dfbmxhdHRycygpIGlzIGNhbGxlZCBmb3IgZWFjaCBsZXZlbCBv
-ZiBlbmNhcHN1bGF0aW9uLiBJdCBzZXRzCj4gdl9hdHRycyB3aXRoIHRoZSBrZXlzIGZvdW5kIGlu
-IHRoZSBmbG93IGtleS4gVGhpcyBpcyB0byBpbnN1cmUgdGhhdCBJIGFtCj4gbG9va2luZyBvbmx5
-IGF0IHRoZSBrZXlzIGZvciB0aGUgY3VycmVudCBsZXZlbCBvZiBlbmNhcHN1bGF0aW9uLiBUaGVu
-IGl0IGlzCj4gY2FsbGVkIGEgZmluYWwgdGltZSB0byBwYXJzZSBvdXQgdGhlIGwzIGF0dHJpYnV0
-ZXMgZm9yIGVuY29kaW5nLgoKb3ZzX25sYV9nZXRfbWF0Y2goKSBjYWxscyBwYXJzZV9mbG93X25s
-YXR0cnMoKSBhbmQgdGhlbiBhZ2FpbiBpbgpwYXJzZV92bGFuX2Zyb21fbmxhdHRycygpLCBzZWNv
-bmQgcGFyc2VfZmxvd19ubGF0dHIoKSBjYW4gcG90ZW50aWFsbHkKb3ZlcndyaXRlIHZsYW4gYXR0
-cmlidXRlcy4gVGhlcmVmb3JlIGl0IHNob3VsZCBjYWxsZWQgYWZ0ZXIgdGhlIG91dGVyCnZsYW4g
-YXR0cmlidXRlcyBhcmUgcmVhZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
-cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On Oct. Friday 23 (43) 11:38 AM, Florian Fainelli wrote:
+> Add support for the FDB add, delete, and dump operations. The add and
+> delete operations are implemented using directed ARL operations using
+> the specified MAC address and consist in a read operation, write and
+> readback operation.
+> 
+> The dump operation consists in using the ARL search and software
+> filtering entries which are not for the desired port.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/dsa/bcm_sf2.c      | 236 +++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/dsa/bcm_sf2.h      |  56 ++++++++++
+>  drivers/net/dsa/bcm_sf2_regs.h |  43 ++++++++
+>  3 files changed, 335 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+> index 9d56515f4c4d..4f32b8a530bf 100644
+> --- a/drivers/net/dsa/bcm_sf2.c
+> +++ b/drivers/net/dsa/bcm_sf2.c
+> @@ -25,6 +25,8 @@
+>  #include <linux/ethtool.h>
+>  #include <linux/if_bridge.h>
+>  #include <linux/brcmphy.h>
+> +#include <linux/etherdevice.h>
+> +#include <net/switchdev.h>
+>  
+>  #include "bcm_sf2.h"
+>  #include "bcm_sf2_regs.h"
+> @@ -555,6 +557,236 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
+>  	return 0;
+>  }
+>  
+> +/* Address Resolution Logic routines */
+> +static int bcm_sf2_arl_op_wait(struct bcm_sf2_priv *priv)
+> +{
+> +	unsigned int timeout = 10;
+> +	u32 reg;
+> +
+> +	do {
+> +		reg = core_readl(priv, CORE_ARLA_RWCTL);
+> +		if (!(reg & ARL_STRTDN))
+> +			return 0;
+> +
+> +		usleep_range(1000, 2000);
+> +	} while (timeout--);
+> +
+> +	return -ETIMEDOUT;
+> +}
+> +
+> +static int bcm_sf2_arl_rw_op(struct bcm_sf2_priv *priv, unsigned int op)
+> +{
+> +	u32 cmd;
+> +
+> +	if (op > ARL_RW)
+> +		return -EINVAL;
+> +
+> +	cmd = core_readl(priv, CORE_ARLA_RWCTL);
+> +	cmd &= ~IVL_SVL_SELECT;
+> +	cmd |= ARL_STRTDN;
+> +	if (op)
+> +		cmd |= ARL_RW;
+> +	else
+> +		cmd &= ~ARL_RW;
+> +	core_writel(priv, cmd, CORE_ARLA_RWCTL);
+> +
+> +	return bcm_sf2_arl_op_wait(priv);
+> +}
+> +
+> +static int bcm_sf2_arl_read(struct bcm_sf2_priv *priv, u64 mac,
+> +			    u16 vid, struct bcm_sf2_arl_entry *ent, u8 *idx,
+> +			    bool is_valid)
+> +{
+> +	unsigned int i;
+> +	int ret;
+> +
+> +	ret = bcm_sf2_arl_op_wait(priv);
+> +	if (ret)
+> +		return ret;
+> +
+> +	/* Read the 4 bins */
+> +	for (i = 0; i < 4; i++) {
+> +		u64 mac_vid;
+> +		u32 fwd_entry;
+> +
+> +		mac_vid = core_readq(priv, CORE_ARLA_MACVID_ENTRY(i));
+> +		fwd_entry = core_readl(priv, CORE_ARLA_FWD_ENTRY(i));
+> +		bcm_sf2_arl_to_entry(ent, mac_vid, fwd_entry);
+> +
+> +		if (ent->is_valid && is_valid) {
+> +			*idx = i;
+> +			return 0;
+> +		}
+> +
+> +		/* This is the MAC we just deleted */
+> +		if (!is_valid && (mac_vid & mac))
+> +			return 0;
+> +	}
+> +
+> +	return -ENOENT;
+> +}
+
+What is the purpose of the "vid" parameter in bcm_sf2_arl_read?
+
+> +
+> +static int bcm_sf2_arl_op(struct bcm_sf2_priv *priv, int op, int port,
+> +			  const unsigned char *addr, u16 vid, bool is_valid)
+> +{
+> +	struct bcm_sf2_arl_entry ent;
+> +	u32 fwd_entry;
+> +	u64 mac, mac_vid = 0;
+> +	u8 idx = 0;
+> +	int ret;
+> +
+> +	/* Convert the array into a 64-bit MAC */
+> +	mac = bcm_sf2_mac_to_u64(addr);
+> +
+> +	/* Perform a read for the given MAC and VID */
+> +	core_writeq(priv, mac, CORE_ARLA_MAC);
+> +	core_writel(priv, vid, CORE_ARLA_VID);
+> +
+> +	/* Issue a read operation for this MAC */
+> +	ret = bcm_sf2_arl_rw_op(priv, 1);
+> +	if (ret)
+> +		return ret;
+> +
+> +	ret = bcm_sf2_arl_read(priv, mac, vid, &ent, &idx, is_valid);
+> +	/* If this is a read, just finish now */
+> +	if (op)
+> +		return ret;
+> +
+> +	/* We could not find a matching MAC, so reset to a new entry */
+> +	if (ret) {
+> +		fwd_entry = 0;
+> +		idx = 0;
+> +	}
+> +
+> +	memset(&ent, 0, sizeof(ent));
+> +	ent.port = port;
+> +	ent.is_valid = is_valid;
+> +	ent.vid = vid;
+> +	ent.is_static = true;
+> +	memcpy(ent.mac, addr, ETH_ALEN);
+> +	bcm_sf2_arl_from_entry(&mac_vid, &fwd_entry, &ent);
+> +
+> +	core_writeq(priv, mac_vid, CORE_ARLA_MACVID_ENTRY(idx));
+> +	core_writel(priv, fwd_entry, CORE_ARLA_FWD_ENTRY(idx));
+> +
+> +	ret = bcm_sf2_arl_rw_op(priv, 0);
+> +	if (ret)
+> +		return ret;
+> +
+> +	/* Re-read the entry to check */
+> +	return bcm_sf2_arl_read(priv, mac, vid, &ent, &idx, is_valid);
+> +}
+> +
+> +static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, int port,
+> +				  const struct switchdev_obj_port_fdb *fdb,
+> +				  struct switchdev_trans *trans)
+> +{
+> +	/* We do not need to do anything specific here yet */
+> +	return 0;
+> +}
+> +
+> +static int bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
+> +			      const struct switchdev_obj_port_fdb *fdb,
+> +			      struct switchdev_trans *trans)
+> +{
+> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+> +
+> +	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true);
+> +}
+> +
+> +static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
+> +			      const struct switchdev_obj_port_fdb *fdb)
+> +{
+> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+> +
+> +	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
+> +}
+
+I'm wondering if you are populating the FDB of the invalid VLAN 0 here.
+
+Does your ARL consider that fdb->vid == 0 means "this port's FDB" and
+not "FDB of VLAN 0"?
+
+> +
+> +static int bcm_sf2_arl_search_wait(struct bcm_sf2_priv *priv)
+> +{
+> +	unsigned timeout = 1000;
+> +	u32 reg;
+> +
+> +	do {
+> +		reg = core_readl(priv, CORE_ARLA_SRCH_CTL);
+> +		if (!(reg & ARLA_SRCH_STDN))
+> +			return 0;
+> +
+> +		if (reg & ARLA_SRCH_VLID)
+> +			return 0;
+> +
+> +		usleep_range(1000, 2000);
+> +	} while (timeout--);
+> +
+> +	return -ETIMEDOUT;
+> +}
+> +
+> +static void bcm_sf2_arl_search_rd(struct bcm_sf2_priv *priv, u8 idx,
+> +				  struct bcm_sf2_arl_entry *ent)
+> +{
+> +	u64 mac_vid;
+> +	u32 fwd_entry;
+> +
+> +	mac_vid = core_readq(priv, CORE_ARLA_SRCH_RSLT_MACVID(idx));
+> +	fwd_entry = core_readl(priv, CORE_ARLA_SRCH_RSLT(idx));
+> +	bcm_sf2_arl_to_entry(ent, mac_vid, fwd_entry);
+> +}
+> +
+> +static int bcm_sf2_sw_fdb_copy(struct net_device *dev, int port,
+> +			       const struct bcm_sf2_arl_entry *ent,
+> +			       struct switchdev_obj_port_fdb *fdb,
+> +			       int (*cb)(struct switchdev_obj *obj))
+> +{
+> +	if (!ent->is_valid)
+> +		return 0;
+> +
+> +	if (port != ent->port)
+> +		return 0;
+> +
+> +	ether_addr_copy(fdb->addr, ent->mac);
+> +	fdb->vid = ent->vid;
+> +	fdb->ndm_state = ent->is_static ? NUD_NOARP : NUD_REACHABLE;
+> +
+> +	return cb(&fdb->obj);
+> +}
+> +
+> +static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, int port,
+> +			       struct switchdev_obj_port_fdb *fdb,
+> +			       int (*cb)(struct switchdev_obj *obj))
+> +{
+> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+> +	struct net_device *dev = ds->ports[port];
+> +	struct bcm_sf2_arl_entry results[2];
+> +	unsigned int count = 0;
+> +	int ret;
+> +
+> +	/* Start search operation */
+> +	core_writel(priv, ARLA_SRCH_STDN, CORE_ARLA_SRCH_CTL);
+> +
+> +	do {
+> +		ret = bcm_sf2_arl_search_wait(priv);
+> +		if (ret)
+> +			return ret;
+> +
+> +		/* Read both entries, then return their values back */
+> +		bcm_sf2_arl_search_rd(priv, 0, &results[0]);
+> +		ret = bcm_sf2_sw_fdb_copy(dev, port, &results[0], fdb, cb);
+> +		if (ret)
+> +			return ret;
+> +
+> +		bcm_sf2_arl_search_rd(priv, 1, &results[1]);
+> +		ret = bcm_sf2_sw_fdb_copy(dev, port, &results[1], fdb, cb);
+> +		if (ret)
+> +			return ret;
+> +
+> +		if (!results[0].is_valid && !results[1].is_valid)
+> +			break;
+> +
+> +	} while (count++ < CORE_ARLA_NUM_ENTRIES);
+> +
+> +	return 0;
+> +}
+> +
+>  static irqreturn_t bcm_sf2_switch_0_isr(int irq, void *dev_id)
+>  {
+>  	struct bcm_sf2_priv *priv = dev_id;
+> @@ -1076,6 +1308,10 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+>  	.port_join_bridge	= bcm_sf2_sw_br_join,
+>  	.port_leave_bridge	= bcm_sf2_sw_br_leave,
+>  	.port_stp_update	= bcm_sf2_sw_br_set_stp_state,
+> +	.port_fdb_prepare	= bcm_sf2_sw_fdb_prepare,
+> +	.port_fdb_add		= bcm_sf2_sw_fdb_add,
+> +	.port_fdb_del		= bcm_sf2_sw_fdb_del,
+> +	.port_fdb_dump		= bcm_sf2_sw_fdb_dump,
+>  };
+>  
+>  static int __init bcm_sf2_init(void)
+> diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+> index 789d7b7737da..cc98abc0aaf3 100644
+> --- a/drivers/net/dsa/bcm_sf2.h
+> +++ b/drivers/net/dsa/bcm_sf2.h
+> @@ -19,6 +19,8 @@
+>  #include <linux/mutex.h>
+>  #include <linux/mii.h>
+>  #include <linux/ethtool.h>
+> +#include <linux/types.h>
+> +#include <linux/bitops.h>
+>  
+>  #include <net/dsa.h>
+>  
+> @@ -50,6 +52,60 @@ struct bcm_sf2_port_status {
+>  	u32 vlan_ctl_mask;
+>  };
+>  
+> +struct bcm_sf2_arl_entry {
+> +	u8 port;
+> +	u8 mac[ETH_ALEN];
+> +	u16 vid;
+> +	u8 is_valid:1;
+> +	u8 is_age:1;
+> +	u8 is_static:1;
+> +};
+> +
+> +static inline void bcm_sf2_mac_from_u64(u64 src, u8 *dst)
+> +{
+> +	unsigned int i;
+> +
+> +	for (i = 0; i < ETH_ALEN; i++)
+> +		dst[ETH_ALEN - 1 - i] = (src >> (8 * i)) & 0xff;
+> +}
+> +
+> +static inline u64 bcm_sf2_mac_to_u64(const u8 *src)
+> +{
+> +	unsigned int i;
+> +	u64 dst = 0;
+> +
+> +	for (i = 0; i < ETH_ALEN; i++)
+> +		dst |= (u64)src[ETH_ALEN - 1 - i] << (8 * i);
+> +
+> +	return dst;
+> +}
+> +
+> +static inline void bcm_sf2_arl_to_entry(struct bcm_sf2_arl_entry *ent,
+> +					u64 mac_vid, u32 fwd_entry)
+> +{
+> +	memset(ent, 0, sizeof(*ent));
+> +	ent->port = fwd_entry & PORTID_MASK;
+> +	ent->is_valid = !!(fwd_entry & ARL_VALID);
+> +	ent->is_age = !!(fwd_entry & ARL_AGE);
+> +	ent->is_static = !!(fwd_entry & ARL_STATIC);
+> +	bcm_sf2_mac_from_u64(mac_vid, ent->mac);
+> +	ent->vid = mac_vid >> VID_SHIFT;
+> +}
+> +
+> +static inline void bcm_sf2_arl_from_entry(u64 *mac_vid, u32 *fwd_entry,
+> +					  const struct bcm_sf2_arl_entry *ent)
+> +{
+> +	*mac_vid = bcm_sf2_mac_to_u64(ent->mac);
+> +	*mac_vid |= (u64)(ent->vid & VID_MASK) << VID_SHIFT;
+> +	*fwd_entry = ent->port & PORTID_MASK;
+> +	if (ent->is_valid)
+> +		*fwd_entry |= ARL_VALID;
+> +	if (ent->is_static)
+> +		*fwd_entry |= ARL_STATIC;
+> +	if (ent->is_age)
+> +		*fwd_entry |= ARL_AGE;
+> +}
+> +
+>  struct bcm_sf2_priv {
+>  	/* Base registers, keep those in order with BCM_SF2_REGS_NAME */
+>  	void __iomem			*core;
+> diff --git a/drivers/net/dsa/bcm_sf2_regs.h b/drivers/net/dsa/bcm_sf2_regs.h
+> index fa4e6e78c9ea..97780d43b5c0 100644
+> --- a/drivers/net/dsa/bcm_sf2_regs.h
+> +++ b/drivers/net/dsa/bcm_sf2_regs.h
+> @@ -231,6 +231,49 @@
+>  #define CORE_BRCM_HDR_RX_DIS		0x0980
+>  #define CORE_BRCM_HDR_TX_DIS		0x0988
+>  
+> +#define CORE_ARLA_NUM_ENTRIES		1024
+> +
+> +#define CORE_ARLA_RWCTL			0x1400
+> +#define  ARL_RW				(1 << 0)
+> +#define  IVL_SVL_SELECT			(1 << 6)
+> +#define  ARL_STRTDN			(1 << 7)
+> +
+> +#define CORE_ARLA_MAC			0x1408
+> +#define CORE_ARLA_VID			0x1420
+> +#define  ARLA_VIDTAB_INDX_MASK		0x1fff
+> +
+> +#define CORE_ARLA_MACVID0		0x1440
+> +#define  MAC_MASK			0xffffffffff
+> +#define  VID_SHIFT			48
+> +#define  VID_MASK			0xfff
+> +
+> +#define CORE_ARLA_FWD_ENTRY0		0x1460
+> +#define  PORTID_MASK			0x1ff
+> +#define  ARL_CON_SHIFT			9
+> +#define  ARL_CON_MASK			0x3
+> +#define  ARL_PRI_SHIFT			11
+> +#define  ARL_PRI_MASK			0x7
+> +#define  ARL_AGE			(1 << 14)
+> +#define  ARL_STATIC			(1 << 15)
+> +#define  ARL_VALID			(1 << 16)
+> +
+> +#define CORE_ARLA_MACVID_ENTRY(x)	(CORE_ARLA_MACVID0 + ((x) * 0x40))
+> +#define CORE_ARLA_FWD_ENTRY(x)		(CORE_ARLA_FWD_ENTRY0 + ((x) * 0x40))
+> +
+> +#define CORE_ARLA_SRCH_CTL		0x1540
+> +#define  ARLA_SRCH_VLID			(1 << 0)
+> +#define  IVL_SVL_SELECT			(1 << 6)
+> +#define  ARLA_SRCH_STDN			(1 << 7)
+> +
+> +#define CORE_ARLA_SRCH_ADR		0x1544
+> +#define  ARLA_SRCH_ADR_VALID		(1 << 15)
+> +
+> +#define CORE_ARLA_SRCH_RSLT_0_MACVID	0x1580
+> +#define CORE_ARLA_SRCH_RSLT_0		0x15a0
+> +
+> +#define CORE_ARLA_SRCH_RSLT_MACVID(x)	(CORE_ARLA_SRCH_RSLT_0_MACVID + ((x) * 0x40))
+> +#define CORE_ARLA_SRCH_RSLT(x)		(CORE_ARLA_SRCH_RSLT_0 + ((x) * 0x40))
+> +
+>  #define CORE_MEM_PSM_VDD_CTRL		0x2380
+>  #define  P_TXQ_PSM_VDD_SHIFT		2
+>  #define  P_TXQ_PSM_VDD_MASK		0x3
+> -- 
+> 2.1.0
+> 
