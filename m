@@ -1,82 +1,38 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH 3/8] net: consolidate memcg socket buffer tracking and
- accounting
-Date: Fri, 23 Oct 2015 16:42:56 +0300
-Message-ID: <20151023134256.GS18351@esperanza>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Fri, 23 Oct 2015 06:59:57 -0700 (PDT)
+Message-ID: <20151023.065957.1690815054807881760.davem@davemloft.net>
 References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-4-git-send-email-hannes@cmpxchg.org>
- <20151022184612.GN18351@esperanza>
- <20151022190943.GA20871@cmpxchg.org>
+	<1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
+	<20151023131956.GA15375@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, Andrew Morton
-	<akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.cz>, Tejun Heo
-	<tj@kernel.org>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151022190943.GA20871@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151023131956.GA15375-2MMpYkNvuYDjFM9bn6wA6Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 03:09:43PM -0400, Johannes Weiner wrote:
-> On Thu, Oct 22, 2015 at 09:46:12PM +0300, Vladimir Davydov wrote:
-> > On Thu, Oct 22, 2015 at 12:21:31AM -0400, Johannes Weiner wrote:
-> > > The tcp memory controller has extensive provisions for future memory
-> > > accounting interfaces that won't materialize after all. Cut the code
-> > > base down to what's actually used, now and in the likely future.
-> > > 
-> > > - There won't be any different protocol counters in the future, so a
-> > >   direct sock->sk_memcg linkage is enough. This eliminates a lot of
-> > >   callback maze and boilerplate code, and restores most of the socket
-> > >   allocation code to pre-tcp_memcontrol state.
-> > > 
-> > > - There won't be a tcp control soft limit, so integrating the memcg
-> > 
-> > In fact, the code is ready for the "soft" limit (I mean min, pressure,
-> > max tuple), it just lacks a knob.
+From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Fri, 23 Oct 2015 15:19:56 +0200
+
+> On Thu 22-10-15 00:21:33, Johannes Weiner wrote:
+>> Socket memory can be a significant share of overall memory consumed by
+>> common workloads. In order to provide reasonable resource isolation
+>> out-of-the-box in the unified hierarchy, this type of memory needs to
+>> be accounted and tracked per default in the memory controller.
 > 
-> Yeah, but that's not going to materialize if the entire interface for
-> dedicated tcp throttling is considered obsolete.
+> What about users who do not want to pay an additional overhead for the
+> accounting? How can they disable it?
 
-May be, it shouldn't be. My current understanding is that per memcg tcp
-window control is necessary, because:
+Yeah, this really cannot pass.
 
- - We need to be able to protect a containerized workload from its
-   growing network buffers. Using vmpressure notifications for that does
-   not look reassuring to me.
-
- - We need a way to limit network buffers of a particular container,
-   otherwise it can fill the system-wide window throttling other
-   containers, which is unfair.
-
-> 
-> > > @@ -1136,9 +1090,6 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
-> > >  	if (!sk->sk_prot->memory_pressure)
-> > >  		return false;
-> > >  
-> > > -	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
-> > > -		return !!sk->sk_cgrp->memory_pressure;
-> > > -
-> > 
-> > AFAIU, now we won't shrink the window on hitting the limit, i.e. this
-> > patch subtly changes the behavior of the existing knobs, potentially
-> > breaking them.
-> 
-> Hm, but there is no grace period in which something meaningful could
-> happen with the window shrinking, is there? Any buffer allocation is
-> still going to fail hard.
-
-AFAIU when we hit the limit, we not only throttle the socket which
-allocates, but also try to release space reserved by other sockets.
-After your patch we won't. This looks unfair to me.
-
-Thanks,
-Vladimir
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This extra overhead will be seen by %99.9999 of users, since entities
+(especially distributions) just flip on all of these config options by
+default.
