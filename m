@@ -1,78 +1,128 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ip_no_pmtu_disc and UDP
-Date: Sat, 24 Oct 2015 00:34:22 +0200
-Message-ID: <1445639662.2872263.418778169.006CB827@webmail.messagingengine.com>
-References: <CAK3+h2wFfh+HE78kHoWwgc9vyTCLWM90C4RQ=uTRk8551-jQ7A@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
+ sizeof(struct xps_map)
+Date: Fri, 23 Oct 2015 15:40:58 -0700
+Message-ID: <562AB77A.6080109@gmail.com>
+References: <32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
+ <B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
+ <trinity-eda7d55d-7234-4b29-a15c-955f8ba0c95e-1445513884942@3capp-gmx-bs32>
+ <trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
+ <1445524549.2207.1.camel@HansenPartnership.com> <5628F868.3040105@bell.net>
+ <5629404B.8090805@gmx.de>
+ <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
+ <562A8990.9000808@gmx.de>
+ <1445630588.22974.187.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151023210810.GA1969@ls3530.box> <562AAE05.5020300@gmail.com>
+ <562AB200.8030209@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Vincent Li <vincent.mc.li@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40496 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751301AbbJWWeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 18:34:23 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id CDCAC20753
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 18:34:22 -0400 (EDT)
-In-Reply-To: <CAK3+h2wFfh+HE78kHoWwgc9vyTCLWM90C4RQ=uTRk8551-jQ7A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Helge Deller <deller@gmx.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-parisc@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	John David Anglin <dave.anglin@bell.net>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <562AB200.8030209@gmx.de>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On 10/23/2015 03:17 PM, Helge Deller wrote:
+> On 24.10.2015 00:00, Alexander Duyck wrote:
+>> On 10/23/2015 02:08 PM, Helge Deller wrote:
+>>> * Eric Dumazet <eric.dumazet@gmail.com>:
+>>>> On Fri, 2015-10-23 at 21:25 +0200, Helge Deller wrote:
+>>>>
+>>>>> Then, how about simply changing it to twice of L1_CACHE_BYTES ?
+>>>>>
+>>>>> #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) / sizeof(u16))
+>>>>
+>>>>
+>>>> Seems good to me.
+>>>
+>>> Great!
+>>>
+>>> Can you then maybe give me an Acked-by or signed-off for the patch below?
+>>> It further adds a compile-time check to avoid that XPS_MIN_MAP_ALLOC
+>>> gets calculated to zero on any architecture - otherwise no queues would
+>>> be allocated.
+>>>
+>>> In addition I would like to push it for v4.3 then through my parisc-tree
+>>> (after keeping it in for-next for 1-2 days), together with the patch
+>>> which reduces L1_CACHE_BYTES to 16 on parisc.
+>>> Would that be OK too?
+>>>
+>>> Thanks!
+>>> Helge
+>>>
+>>>
+>>> [PATCH] net/xps: Increase initial number of xps queues
+>>>
+>>> Increase the number of initial allocated xps queues, so that the initial record
+>>> allocates twice the size of L1_CACHE_BYTES bytes.
+>>>
+>>> This change is needed to copy with architectures where L1_CACHE_BYTES is
+>>> defined to equal or less than 16 bytes.
+>>>
+>>> Signed-off-by: Helge Deller <deller@gmx.de>
+>>>
+>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>> index 2d15e38..d152788 100644
+>>> --- a/include/linux/netdevice.h
+>>> +++ b/include/linux/netdevice.h
+>>> @@ -718,7 +718,7 @@ struct xps_map {
+>>>        u16 queues[0];
+>>>    };
+>>>    #define XPS_MAP_SIZE(_num) (sizeof(struct xps_map) + ((_num) * sizeof(u16)))
+>>> -#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))    \
+>>> +#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) \
+>>>        / sizeof(u16))
+>>>
+>>>    /*
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 6bb6470..f6d6dd1 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -1972,6 +1972,8 @@ static struct xps_map *expand_xps_map(struct xps_map *map,
+>>>        int alloc_len = XPS_MIN_MAP_ALLOC;
+>>>        int i, pos;
+>>>
+>>> +    BUILD_BUG_ON(XPS_MIN_MAP_ALLOC == 0);
+>>> +
+>>>        for (pos = 0; map && pos < map->len; pos++) {
+>>>            if (map->queues[pos] != index)
+>>>                continue;
+>>>
+>>>
+>>
+>> Rather then leaving a potential bug you could probably rewrite the macro so that it will give you at least 1.
+>>
+>> All you need to do is something like the following
+>> #define XPS_MIN_MAP_ALLOC \
+>>      ((L1_CACHE_ALIGN(offsetof(struct xps_map, queue[1])) - \
+>>        sizeof(struct xps_map)) / sizeof(u16))
+>>
+>> That should give you at least an XPS_MIN_MAP_ALLOC of 1.
+>
+> Yes, good idea!
+> What makes me wonder though (because I have no idea about the XPS code/layer):
+> How likely is it, that more than 1 (e.g. minimum "X") queues are needed?
+> E.g. if a typical system needs at least 3 queues, then doesn't it make sense to allocate
+> at least 3 initially by using queue[3] in your proposed patch above ?
+> What would "X" be then?
 
-On Fri, Oct 23, 2015, at 18:45, Vincent Li wrote:
-> It looks ip_no_pmtu_disc setting does not affect UDP IP packet DF bit
-> setting, is that intended behavior? echo 0, 1, 2, 3 respectively to
-> ip_no_pmtu_disc, UDP IP packet always have DF bit cleared, unless use
-> IP_PMTUDISC_DO on IP_MTU_DISCOVER as ip man page says.
+The question I would have is in how many cases it it likely that 
+somebody would enable this feature and point a given CPU at more than 
+one queue.  I know the Intel drivers that make use of XPS tend to do a 
+1:1 mapping for their ATR feature.  I would think if anything most CPUs 
+would probably be mapped many:1, but you probably won't have all that 
+many cases where it is 1:many or many:many.
 
-Which size do the UDP packets have and what is your MTU? inet_create
-also creates udp sockets and thus the setting does have effect.
+I'd say starting with at least 1 should be fine.  Worst case scenario is 
+we have to make a couple more calls to expand_xps_map which will likely 
+occur as a slow path and infrequent event anyway.
 
-> 
-> in inet_create, seems to prove that.
-> 
->        if (net->ipv4.sysctl_ip_no_pmtu_disc)
->                 inet->pmtudisc = IP_PMTUDISC_DONT;
->         else
->                 inet->pmtudisc = IP_PMTUDISC_WANT;
-> 
-> so I am wondering why UDP is excluded by ip_no_pmtu_disc, why in
-> inet_create, not assign each individual ip_no_pmtu_disc setting to
-> inet->pmtudisc but only check true and assign IP_PMTUDISC_DONT or
-> IP_PMTUDISC_WANT only.
+- Alex
 
-ip_no_pmtu_disc sysctl != IP_MTU_DISCOVER setsockopt. Also we cannot
-change this as it would disrupt communication easily relying on this
-established behavior.
-
-See Documentation/ip-sysctl.txt:
-
-ip_no_pmtu_disc - INTEGER
-        Disable Path MTU Discovery. If enabled in mode 1 and a
-        fragmentation-required ICMP is received, the PMTU to this
-        destination will be set to min_pmtu (see below). You will need
-        to raise min_pmtu to the smallest interface MTU on your system
-        manually if you want to avoid locally generated fragments.
-
-        In mode 2 incoming Path MTU Discovery messages will be
-        discarded. Outgoing frames are handled the same as in mode 1,
-        implicitly setting IP_PMTUDISC_DONT on every created socket.
-
-        Mode 3 is a hardend pmtu discover mode. The kernel will only
-        accept fragmentation-needed errors if the underlying protocol
-        can verify them besides a plain socket lookup. Current
-        protocols for which pmtu events will be honored are TCP, SCTP
-        and DCCP as they verify e.g. the sequence number or the
-        association. This mode should not be enabled globally but is
-        only intended to secure e.g. name servers in namespaces where
-        TCP path mtu must still work but path MTU information of other
-        protocols should be discarded. If enabled globally this mode
-        could break other protocols.
-
-        Possible values: 0-3
-        Default: FALSE
-
-Bye,
-Hannes
