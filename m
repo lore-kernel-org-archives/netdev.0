@@ -1,119 +1,162 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Thu, 22 Oct 2015 17:10:14 -0700
-Message-ID: <1445559014-4667-1-git-send-email-ast@kernel.org>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v5 2/2] mpls: flow-based multipath selection
+Date: Thu, 22 Oct 2015 17:16:43 -0700
+Message-ID: <1445559403-15258-3-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, rshearma@brocade.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33557 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757217AbbJWAQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 20:16:50 -0400
+Received: by pabrc13 with SMTP id rc13so100236202pab.0
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 17:16:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix safety checks for bpf_perf_event_read():
-- only non-inherited events can be added to perf_event_array map
-  (do this check statically at map insertion time)
-- dynamically check that event is local and !pmu->count
-Otherwise buggy bpf program can cause kernel splat.
+From: Robert Shearman <rshearma@brocade.com>
 
-Also fix error path after perf_event_attrs()
-and remove redundant 'extern'.
+Change the selection of a multipath route to use a flow-based
+hash. This more suitable for traffic sensitive to reordering within a
+flow (e.g. TCP, L2VPN) and whilst still allowing a good distribution
+of traffic given enough flows.
 
-Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Selection of the path for a multipath route is done using a hash of:
+1. Label stack up to MAX_MP_SELECT_LABELS labels or up to and
+   including entropy label, whichever is first.
+2. 3-tuple of (L3 src, L3 dst, proto) from IPv4/IPv6 header in MPLS
+   payload, if present.
+
+Naturally, a 5-tuple hash using L4 information in addition would be
+possible and be better in some scenarios, but there is a tradeoff
+between looking deeper into the packet to achieve good distribution,
+and packet forwarding performance, and I have erred on the side of the
+latter as the default.
+
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
-v2->v3:
-. refactor checks based on Wangnan's and Peter's feedback
-while refactoring realized that these two issues need fixes as well:
-. fix perf_event_attrs() error path
-. remove redundant extern
+ net/mpls/af_mpls.c | 87 +++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 83 insertions(+), 4 deletions(-)
 
-v1->v2: fix compile in case of !CONFIG_PERF_EVENTS
-
-Even in the worst case the crash is not possible.
-Only warn_on_once, so imo net-next is ok.
-
- include/linux/bpf.h      |    1 -
- kernel/bpf/arraymap.c    |   25 ++++++++++++++++---------
- kernel/trace/bpf_trace.c |    7 ++++++-
- 3 files changed, 22 insertions(+), 11 deletions(-)
-
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index e3a51b74e275..75718fa28260 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -194,7 +194,6 @@ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
- extern const struct bpf_func_proto bpf_map_update_elem_proto;
- extern const struct bpf_func_proto bpf_map_delete_elem_proto;
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 3f95499..c6392aa 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -22,6 +22,11 @@
+ #include <net/nexthop.h>
+ #include "internal.h"
  
--extern const struct bpf_func_proto bpf_perf_event_read_proto;
- extern const struct bpf_func_proto bpf_get_prandom_u32_proto;
- extern const struct bpf_func_proto bpf_get_smp_processor_id_proto;
- extern const struct bpf_func_proto bpf_tail_call_proto;
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index e3cfe46b074f..3f4c99e06c6b 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -292,16 +292,23 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
++/* Maximum number of labels to look ahead at when selecting a path of
++ * a multipath route
++ */
++#define MAX_MP_SELECT_LABELS 4
++
+ static int zero = 0;
+ static int label_limit = (1 << 20) - 1;
  
- 	attr = perf_event_attrs(event);
- 	if (IS_ERR(attr))
--		return (void *)attr;
-+		goto err;
+@@ -77,10 +82,78 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ }
+ EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
  
--	if (attr->type != PERF_TYPE_RAW &&
--	    !(attr->type == PERF_TYPE_SOFTWARE &&
--	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
--	    attr->type != PERF_TYPE_HARDWARE) {
--		perf_event_release_kernel(event);
--		return ERR_PTR(-EINVAL);
--	}
--	return event;
-+	if (attr->inherit)
-+		goto err;
+-static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt)
++static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
++					     struct sk_buff *skb, bool bos)
+ {
+-	/* assume single nexthop for now */
+-	return &rt->rt_nh[0];
++	struct mpls_entry_decoded dec;
++	struct mpls_shim_hdr *hdr;
++	bool eli_seen = false;
++	int label_index;
++	int nh_index = 0;
++	u32 hash = 0;
 +
-+	if (attr->type == PERF_TYPE_RAW)
-+		return event;
++	/* No need to look further into packet if there's only
++	 * one path
++	 */
++	if (rt->rt_nhn == 1)
++		goto out;
 +
-+	if (attr->type == PERF_TYPE_HARDWARE)
-+		return event;
++	for (label_index = 0; label_index < MAX_MP_SELECT_LABELS && !bos;
++	     label_index++) {
++		if (!pskb_may_pull(skb, sizeof(*hdr) * label_index))
++			break;
 +
-+	if (attr->type == PERF_TYPE_SOFTWARE &&
-+	    attr->config == PERF_COUNT_SW_BPF_OUTPUT)
-+		return event;
-+err:
-+	perf_event_release_kernel(event);
-+	return ERR_PTR(-EINVAL);
++		/* Read and decode the current label */
++		hdr = mpls_hdr(skb) + label_index;
++		dec = mpls_entry_decode(hdr);
++
++		/* RFC6790 - reserved labels MUST NOT be used as keys
++		 * for the load-balancing function
++		 */
++		if (likely(dec.label >= MPLS_LABEL_FIRST_UNRESERVED)) {
++			hash = jhash_1word(dec.label, hash);
++
++			/* The entropy label follows the entropy label
++			 * indicator, so this means that the entropy
++			 * label was just added to the hash - no need to
++			 * go any deeper either in the label stack or in the
++			 * payload
++			 */
++			if (eli_seen)
++				break;
++		} else if (dec.label == MPLS_LABEL_ENTROPY) {
++			eli_seen = true;
++		}
++
++		bos = dec.bos;
++		if (bos && pskb_may_pull(skb, sizeof(*hdr) * label_index +
++					 sizeof(struct iphdr))) {
++			const struct iphdr *v4hdr;
++
++			v4hdr = (const struct iphdr *)(mpls_hdr(skb) +
++						       label_index);
++			if (v4hdr->version == 4) {
++				hash = jhash_3words(ntohl(v4hdr->saddr),
++						    ntohl(v4hdr->daddr),
++						    v4hdr->protocol, hash);
++			} else if (v4hdr->version == 6 &&
++				pskb_may_pull(skb, sizeof(*hdr) * label_index +
++					      sizeof(struct ipv6hdr))) {
++				const struct ipv6hdr *v6hdr;
++
++				v6hdr = (const struct ipv6hdr *)(mpls_hdr(skb) +
++								label_index);
++
++				hash = __ipv6_addr_jhash(&v6hdr->saddr, hash);
++				hash = __ipv6_addr_jhash(&v6hdr->daddr, hash);
++				hash = jhash_1word(v6hdr->nexthdr, hash);
++			}
++		}
++	}
++
++	nh_index = hash % rt->rt_nhn;
++out:
++	return &rt->rt_nh[nh_index];
  }
  
- static void perf_event_fd_array_put_ptr(void *ptr)
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 47febbe7998e..003df3887287 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -199,6 +199,11 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
- 	if (!event)
- 		return -ENOENT;
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+@@ -175,7 +248,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	if (!rt)
+ 		goto drop;
  
-+	/* make sure event is local and doesn't have pmu::count */
-+	if (event->oncpu != smp_processor_id() ||
-+	    event->pmu->count)
-+		return -EINVAL;
+-	nh = mpls_select_multipath(rt);
++	nh = mpls_select_multipath(rt, skb, dec.bos);
+ 	if (!nh)
+ 		goto drop;
+ 
+@@ -540,6 +613,12 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
+ 		if (!rtnh_ok(rtnh, remaining))
+ 			goto errout;
+ 
++		/* neither weighted multipath nor any flags
++		 * are supported
++		 */
++		if (rtnh->rtnh_hops || rtnh->rtnh_flags)
++			goto errout;
 +
- 	/*
- 	 * we don't know if the function is run successfully by the
- 	 * return value. It can be judged in other places, such as
-@@ -207,7 +212,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
- 	return perf_event_read_local(event);
- }
- 
--const struct bpf_func_proto bpf_perf_event_read_proto = {
-+static const struct bpf_func_proto bpf_perf_event_read_proto = {
- 	.func		= bpf_perf_event_read,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
+ 		attrlen = rtnh_attrlen(rtnh);
+ 		if (attrlen > 0) {
+ 			struct nlattr *attrs = rtnh_attrs(rtnh);
 -- 
-1.7.9.5
+1.9.1
