@@ -1,91 +1,72 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: fix the incorrect return value of throw route
-Date: Fri, 23 Oct 2015 15:36:53 +0800
-Message-ID: <13819cbd31a50ae677a94763be27e16118e90322.1445585813.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34522 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbbJWHg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 03:36:58 -0400
-Received: by padhk11 with SMTP id hk11so111183775pad.1
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 00:36:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: of_mdiobus_register_phy() and deferred probe
+Date: Fri, 23 Oct 2015 09:38:33 +0200
+Message-ID: <CAMuHMdUpeHXze=BMRsafWbzHT8WL9L+WO5xbO7niqk0wi_eRJQ@mail.gmail.com>
+References: <CAMuHMdX+_0Cf0VwmKDtcfMNwaPEN5jvjZQUXg6MKMJa+cvYz3w@mail.gmail.com>
+	<56294202.5020507@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux-sh list <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56294202.5020507-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The error condition -EAGAIN, which is signaled by throw routes, tells
-the rules framework to walk on searching for next matches. If the walk
-ends and we stop walking the rules with the result of a throw route we
-have to translate the error conditions to -ENETUNREACH.
+Hi Sergei,
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/fib6_rules.c | 19 +++++++++++++++----
- net/ipv6/ip6_fib.c    | 12 +++++++++++-
- 2 files changed, 26 insertions(+), 5 deletions(-)
+On Thu, Oct 22, 2015 at 10:07 PM, Sergei Shtylyov
+<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
+> On 10/22/2015 04:31 PM, Geert Uytterhoeven wrote:
+>
+>> Due to a probe deferral of an interrupt controller[1], the Micrel
+>> Ethernet PHY on
+>> r8a7791/koelsch started failing to get its IRQ:
+>>
+>>      no irq domain found for /interrupt-controller@e61c0000 !
+>>
+>> However, of_mdiobus_register_phy() uses irq_of_parse_and_map(), which
+>> plainly
+>> ignores EPROBE_DEFER, and it just continues.
+>>
+>> Later I get:
+>>
+>>      sh-eth ee700000.ethernet eth0: attached PHY 1 (IRQ -1) to driver
+>> Micrel KSZ8041RNLI
+>>
+>> instead of
+>>
+>>      sh-eth ee700000.ethernet eth0: attached PHY 1 (IRQ 408) to driver
+>> Micrel KSZ8041RNLI
+>>
+>> Ethernet still works, as the interrupt seems to be unneeded(?).
+>
+>    Yes, the phylib uses PHY polling anyway, IRQ isn't strictly necessary.
+>
+>> Has anyone already looked into fixing of_mdio to handle deferred probing?
+>
+>    It's the first time I hear about that. Will have to look into this...
 
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 9f777ec..ed33abf 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -32,6 +32,7 @@ struct fib6_rule {
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
-+	struct rt6_info *rt;
- 	struct fib_lookup_arg arg = {
- 		.lookup_ptr = lookup,
- 		.flags = FIB_LOOKUP_NOREF,
-@@ -40,11 +41,21 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 	fib_rules_lookup(net->ipv6.fib6_rules_ops,
- 			 flowi6_to_flowi(fl6), flags, &arg);
- 
--	if (arg.result)
--		return arg.result;
-+	rt = arg.result;
- 
--	dst_hold(&net->ipv6.ip6_null_entry->dst);
--	return &net->ipv6.ip6_null_entry->dst;
-+	if (!rt) {
-+		dst_hold(&net->ipv6.ip6_null_entry->dst);
-+		return &net->ipv6.ip6_null_entry->dst;
-+	}
-+
-+	if (rt->rt6i_flags & RTF_REJECT &&
-+	    rt->dst.error == -EAGAIN) {
-+		ip6_rt_put(rt);
-+		rt = net->ipv6.ip6_null_entry;
-+		dst_hold(&rt->dst);
-+	}
-+
-+	return &rt->dst;
- }
- 
- static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 7d2e002..6cedc62 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -285,7 +285,17 @@ struct fib6_table *fib6_get_table(struct net *net, u32 id)
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
--	return (struct dst_entry *) lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
-+	struct rt6_info *rt;
-+
-+	rt = lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
-+	if (rt->rt6i_flags & RTF_REJECT &&
-+	    rt->dst.error == -EAGAIN) {
-+		ip6_rt_put(rt);
-+		rt = net->ipv6.ip6_null_entry;
-+		dst_hold(&rt->dst);
-+	}
-+
-+	return &rt->dst;
- }
- 
- static void __net_init fib6_tables_init(struct net *net)
--- 
-2.1.0
+Thanks a lot!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
