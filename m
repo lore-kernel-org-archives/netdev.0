@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: remove debugfs interface
-Date: Thu, 22 Oct 2015 19:17:59 -0700 (PDT)
-Message-ID: <20151022.191759.1117601118927909154.davem@davemloft.net>
-References: <1445547271-28003-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v5] bnxt_en: New Broadcom ethernet driver.
+Date: Thu, 22 Oct 2015 19:33:37 -0700 (PDT)
+Message-ID: <20151022.193337.2145002034949933761.davem@davemloft.net>
+References: <1445544077-13656-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch, sfeldma@gmail.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445547271-28003-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: prashant@broadcom.com, eddie.wai@broadcom.com,
+	huangjw@broadcom.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbbJWCRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 22:17:08 -0400
+In-Reply-To: <1445544077-13656-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 22 Oct 2015 16:54:31 -0400
+From: Michael Chan <mchan@broadcom.com>
+Date: Thu, 22 Oct 2015 16:01:17 -0400
 
-> It is preferable to have a common debugfs interface for DSA or switchdev
-> instead of a driver specific one. Thus remove the mv88e6xxx debug code.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Broadcom ethernet driver for the new family of NetXtreme-C/E
+> ethernet devices.
 
-Applied, thanks.
+Applied, thanks Michael.
