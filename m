@@ -1,64 +1,213 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Implement FDB operations
-Date: Fri, 23 Oct 2015 13:20:30 -0700
-Message-ID: <562A968E.9020303@gmail.com>
-References: <1445625487-16313-1-git-send-email-f.fainelli@gmail.com> <20151023192824.GA21943@ketchup.mtl.sfl>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Fri, 23 Oct 2015 16:49:45 -0400
+Message-ID: <20151023204945.GD16137@fieldses.org>
+References: <20151022163133.GB5205@fieldses.org>
+ <17EC94B0A072C34B8DCF0D30AD16044A0287A7C2@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-	andrew@lunn.ch, linux@roeck-us.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35521 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751294AbbJWUVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 16:21:06 -0400
-Received: by pasz6 with SMTP id z6so126774052pas.2
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 13:21:05 -0700 (PDT)
-In-Reply-To: <20151023192824.GA21943@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0287A7C2-9lrffkYxhwTt6d3pZDjeaEtBU8KWyXPq@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 23/10/15 12:28, Vivien Didelot wrote:
-> On Oct. Friday 23 (43) 11:38 AM, Florian Fainelli wrote:
->> Add support for the FDB add, delete, and dump operations. The add and
->> delete operations are implemented using directed ARL operations using
->> the specified MAC address and consist in a read operation, write and
->> readback operation.
->>
->> The dump operation consists in using the ARL search and software
->> filtering entries which are not for the desired port.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
-
-[snip]
-
->> +	return -ENOENT;
->> +}
+On Fri, Oct 23, 2015 at 04:14:10AM +0000, Kosuke Tatsukawa wrote:
+> J. Bruce Fields wrote:
+> > On Fri, Oct 16, 2015 at 02:28:10AM +0000, Kosuke Tatsukawa wrote:
+> >> Tatsukawa Kosuke wrote:
+> >> > J. Bruce Fields wrote:
+> >> >> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
+> >> >>> Tatsukawa Kosuke wrote:
+> >> >>> > J. Bruce Fields wrote:
+> >> >>> >> Thanks for the detailed investigation.
+> >> >>> >> 
+> >> >>> >> I think it would be worth adding a comment if that might help someone
+> >> >>> >> having to reinvestigate this again some day.
+> >> >>> > 
+> >> >>> > It would be nice, but I find it difficult to write a comment in the
+> >> >>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
+> >> >>> > of how nfsd uses it, and the current implementation of the network code.
+> >> >>> > 
+> >> >>> > Personally, I would prefer removing the call to waitqueue_active() which
+> >> >>> > would make the memory barrier totally unnecessary at the cost of a
+> >> >>> > spin_lock + spin_unlock by unconditionally calling
+> >> >>> > wake_up_interruptible.
+> >> >>> 
+> >> >>> On second thought, the callbacks will be called frequently from the tcp
+> >> >>> code, so it wouldn't be a good idea.
+> >> >> 
+> >> >> So, I was even considering documenting it like this, if it's not
+> >> >> overkill.
+> >> >> 
+> >> >> Hmm... but if this is right, then we may as well ask why we're doing the
+> >> >> wakeups at all.  Might be educational to test the code with them
+> >> >> removed.
+> >> > 
+> >> > sk_write_space will be called in sock_wfree() with UDP/IP each time
+> >> > kfree_skb() is called.  With TCP/IP, sk_write_space is only called if
+> >> > SOCK_NOSPACE has been set.
+> >> > 
+> >> > sk_data_ready will be called in both tcp_rcv_established() for TCP/IP
+> >> > and in sock_queue_rcv_skb() for UDP/IP.  The latter lacks a memory
+> >> > barrier with sk_data_ready called right after __skb_queue_tail().
+> >> > I think this hasn't caused any problems because sk_data_ready wasn't
+> >> > used.
+> >> 
+> >> Actually, svc_udp_data_ready() calls set_bit() which is an atomic
+> >> operation.  So there won't be a problem unless svsk is NULL.
+> > 
+> > So is it true that every caller of these socket callbacks has adequate
+> > memory barriers between the time the change is made visible and the time
+> > the callback is called?
+> > 
+> > If so, then there's nothing really specific about nfsd here.
+> > 
+> > In that case maybe it's the networking code that use some documentation,
+> > if it doesn't already?  (Or maybe common helper functions for this
+> > 
+> > 	if (waitqueue_active(wq))
+> > 		wake_up(wq)
+> > 
+> > pattern?)
 > 
-> What is the purpose of the "vid" parameter in bcm_sf2_arl_read?
-
-To support an optional VID the day we have proper VLAN support in this
-driver.
-
->> +static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
->> +			      const struct switchdev_obj_port_fdb *fdb)
->> +{
->> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
->> +
->> +	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
->> +}
+> Some of the other places defining these callback functions are using
+>   static inline bool wq_has_sleeper(struct socket_wq *wq)
+> defined in include/net/sock.h
 > 
-> I'm wondering if you are populating the FDB of the invalid VLAN 0 here.
+> The comment above the function explains that it was introduced for
+> exactly this purpose.
 > 
-> Does your ARL consider that fdb->vid == 0 means "this port's FDB" and
-> not "FDB of VLAN 0"?
+> Even thought the argument variable uses the same name "wq", it has a
+> different type from the wq used in svcsock.c (struct socket_wq *
+> vs. wait_queue_head_t *).
 
-(please trim your replies)
+OK, thanks.  So, I guess it still sounds like the code is OK as is, but
+maybe my comment wasn't.  Here's another attempt.
 
-I do not think this matters right now, since 802.1q is not currently
-enabled/supported in the driver, but maybe I am trivializing this?
--- 
-Florian
+--b.
+
+commit b805ca58a81a
+Author: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Date:   Fri Oct 9 01:44:07 2015 +0000
+
+    svcrpc: document lack of some memory barriers
+    
+    We're missing memory barriers in net/sunrpc/svcsock.c in some spots we'd
+    expect them.  But it doesn't appear they're necessary in our case, and
+    this is likely a hot path--for now just document the odd behavior.
+    
+    I found this issue when I was looking through the linux source code
+    for places calling waitqueue_active() before wake_up*(), but without
+    preceding memory barriers, after sending a patch to fix a similar
+    issue in drivers/tty/n_tty.c  (Details about the original issue can be
+    found here: https://lkml.org/lkml/2015/9/28/849).
+    
+    Signed-off-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+    [bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org: document instead of adding barriers]
+    Signed-off-by: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 48923730722d..1f71eece04d3 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -399,6 +399,31 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
+ 	return svc_port_is_privileged(svc_addr(rqstp));
+ }
+ 
++static bool sunrpc_waitqueue_active(wait_queue_head_t *wq)
++{
++	if (!wq)
++		return false;
++	/*
++	 * Kosuke Tatsukawa points out there should normally be a memory
++	 * barrier here--see wq_has_sleeper().
++	 *
++	 * It appears that isn't currently necessary, though, basically
++	 * because callers all appear to have sufficient memory barriers
++	 * between the time the relevant change is made and the
++	 * time they call these callbacks.
++	 *
++	 * The nfsd code itself doesn't actually explicitly wait on
++	 * these waitqueues, but it may wait on them for example in
++	 * sendpage() or sendmsg() calls.  (And those may be the only
++	 * places, since it it uses nonblocking reads.)
++	 *
++	 * Maybe we should add the memory barriers anyway, but these are
++	 * hot paths so we'd need to be convinced there's no sigificant
++	 * penalty.
++	 */
++	return waitqueue_active(wq);
++}
++
+ /*
+  * INET callback when data has been received on the socket.
+  */
+@@ -414,7 +439,7 @@ static void svc_udp_data_ready(struct sock *sk)
+ 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	if (wq && waitqueue_active(wq))
++	if (sunrpc_waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
+ 
+@@ -432,7 +457,7 @@ static void svc_write_space(struct sock *sk)
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+ 
+-	if (wq && waitqueue_active(wq)) {
++	if (sunrpc_waitqueue_active(wq)) {
+ 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+ 		       svsk);
+ 		wake_up_interruptible(wq);
+@@ -787,7 +812,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+ 	}
+ 
+ 	wq = sk_sleep(sk);
+-	if (wq && waitqueue_active(wq))
++	if (sunrpc_waitqueue_active(wq))
+ 		wake_up_interruptible_all(wq);
+ }
+ 
+@@ -808,7 +833,7 @@ static void svc_tcp_state_change(struct sock *sk)
+ 		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	if (wq && waitqueue_active(wq))
++	if (sunrpc_waitqueue_active(wq))
+ 		wake_up_interruptible_all(wq);
+ }
+ 
+@@ -823,7 +848,7 @@ static void svc_tcp_data_ready(struct sock *sk)
+ 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+ 		svc_xprt_enqueue(&svsk->sk_xprt);
+ 	}
+-	if (wq && waitqueue_active(wq))
++	if (sunrpc_waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
+ 
+@@ -1594,7 +1619,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
+ 	sk->sk_write_space = svsk->sk_owspace;
+ 
+ 	wq = sk_sleep(sk);
+-	if (wq && waitqueue_active(wq))
++	if (sunrpc_waitqueue_active(wq))
+ 		wake_up_interruptible(wq);
+ }
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
