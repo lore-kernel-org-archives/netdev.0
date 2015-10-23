@@ -1,48 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
- sizeof(struct xps_map)
-Date: Fri, 23 Oct 2015 14:38:37 -0700
-Message-ID: <1445636317.22974.188.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
-	 <B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
-	 <trinity-eda7d55d-7234-4b29-a15c-955f8ba0c95e-1445513884942@3capp-gmx-bs32>
-	 <trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
-	 <1445524549.2207.1.camel@HansenPartnership.com> <5628F868.3040105@bell.net>
-	 <5629404B.8090805@gmx.de>
-	 <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <562A8990.9000808@gmx.de>
-	 <1445630588.22974.187.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151023210810.GA1969@ls3530.box>
+From: Brian Rak <brak@vultr.com>
+Subject: Missing IPv4 routes
+Date: Fri, 23 Oct 2015 17:34:11 -0400
+Message-ID: <562AA7D3.9030905@vultr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-parisc@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Helge Deller <deller@gmx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33877 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbbJWVij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 17:38:39 -0400
-In-Reply-To: <20151023210810.GA1969@ls3530.box>
+Received: from mail2015.choopa.net ([208.167.225.251]:37830 "EHLO
+	mail2015.choopa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbbJWVmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 17:42:52 -0400
+Received: from [IPv6:2001:19f0:a06:600:c00:daf7:a19c:28fd] (unknown [IPv6:2001:19f0:a06:600:c00:daf7:a19c:28fd])
+	by mail2015.choopa.net (Postfix) with ESMTPSA id 328345AC6396
+	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 17:34:12 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-23 at 23:08 +0200, Helge Deller wrote:
+I've got a weird situation here.  I have a route that the kernel knows 
+about, but won't display via the general RTM_GETROUTE call, but will 
+display if I query for that particular route:
 
-> Can you then maybe give me an Acked-by or signed-off for the patch below?
-> It further adds a compile-time check to avoid that XPS_MIN_MAP_ALLOC
-> gets calculated to zero on any architecture - otherwise no queues would
-> be allocated. 
-> 
-> In addition I would like to push it for v4.3 then through my parisc-tree
-> (after keeping it in for-next for 1-2 days), together with the patch
-> which reduces L1_CACHE_BYTES to 16 on parisc.
-> Would that be OK too? 
+# ip -4 route show | grep 108.61.171.x
+# ip route get 108.61.171.x
+108.61.171.x dev MYIF
+     cache
+# cat /proc/net/route | grep 108.61.171.x
+#
+# cat /proc/net/route  | grep -i 6c3dac
+#
+# ip route add 108.61.171.x dev MYIF
+RTNETLINK answers: File exists
+# ip route del 108.61.171.x  <---- it deletes successfully once
+# ip route del 108.61.171.x
+RTNETLINK answers: No such process
 
-Sure !
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+This is on a machine running 4.1.3, but I have seen it on earlier 
+versions in the past.
+
+I don't have great reproduction steps here, I've seen this 4-5 times in 
+the past few months (on different hardware).  So far, I haven't really 
+found any way of fixing it (deleting and readding the route has no 
+effect).  I thought at first this might be related to 
+e55ffaf457bcc8ec4e9d9f56f955971f834d65b3, but as far as I can tell that 
+only relates to /proc/net/route.
+
+Any suggestions on further troubleshooting here?  I'm all out of ideas 
+(and since I can't easily reproduce it yet, I can't reboot to a newer 
+kernel to see if it goes away)
