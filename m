@@ -1,57 +1,52 @@
-From: clsoto@linux.vnet.ibm.com
-Subject: [PATCH] net/mlx4: Memcpy at slave_event should copy sizeof mlx4_eqe
-Date: Fri, 23 Oct 2015 10:19:00 -0400
-Message-ID: <1445609940-12234-1-git-send-email-clsoto@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	brking@linux.vnet.ibm.com, yevgenyp@mellanox.com,
-	Carol L Soto <clsoto@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
+ for sockets in accept(3)
+Date: Fri, 23 Oct 2015 07:21:58 -0700
+Message-ID: <1445610118.22974.153.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151021185104.GM22011@ZenIV.linux.org.uk>
+	 <20151021.182955.1434243485706993231.davem@davemloft.net>
+	 <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk>
+	 <20151022060304.GQ22011@ZenIV.linux.org.uk>
+	 <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
+	 <20151022172146.GS22011@ZenIV.linux.org.uk>
+	 <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
+	 <20151022190701.GV22011@ZenIV.linux.org.uk>
+	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
+	 <20151022215741.GW22011@ZenIV.linux.org.uk>
+	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+	 <1445605340.22974.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <562A37A3.8000705@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
+To: Alan Burlison <Alan.Burlison@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp05.br.ibm.com ([32.104.18.26]:49064 "EHLO
-	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbbJWOTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 10:19:13 -0400
-Received: from /spool/local
-	by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
-	Fri, 23 Oct 2015 12:19:11 -0200
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id BD4F81DC0071
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 10:18:03 -0400 (EDT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t9NEJagm4751458
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 12:19:36 -0200
-Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t9NEJ65v006367
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 12:19:06 -0200
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33833 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139AbbJWOWC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 10:22:02 -0400
+Received: by padhk11 with SMTP id hk11so119983692pad.1
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 07:22:01 -0700 (PDT)
+In-Reply-To: <562A37A3.8000705@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+On Fri, 2015-10-23 at 14:35 +0100, Alan Burlison wrote:
 
-If the caps.eqe_size is bigger than the struct mlx4_eqe then there
-is a potential for corrupting data at the master context. We can see
-the message "Master failed to generate an EQE for slave: X" when the 
-event_eqe array wraps and we can see potential oops at the function
-mlx4_GEN_EQE. 
+> If you think it's a POSIX deficiency then logging a DR is probably the 
+> correct way of addressing that. And as I've said it's fine to decide 
+> that you don't care about what POSIX says on the subject but you can't 
+> simultaneously claim POSIX conformance. One or the other, not both.
 
-Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
----
- drivers/net/ethernet/mellanox/mlx4/eq.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I claim nothing. If you believe a man page should be fixed, please send
+a patch to man page maintainer.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index c344884..603d1c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -196,7 +196,7 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
- 		return;
- 	}
- 
--	memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
-+	memcpy(s_eqe, eqe, sizeof(struct mlx4_eqe) - 1);
- 	s_eqe->slave_id = slave;
- 	/* ensure all information is written before setting the ownersip bit */
- 	dma_wmb();
--- 
-1.8.3.1
+Have you tested the patch I sent ?
+
+The goal here is to improve things, not to say you are right or I am
+right. I am very often wrong, then what ?
+
+This list is about linux kernel development.
