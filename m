@@ -1,37 +1,39 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
- helper
-Date: Fri, 23 Oct 2015 18:42:23 +0200
-Message-ID: <20151023164223.GE17308@twins.programming.kicks-ass.net>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
- <1445396556-4854-3-git-send-email-ast@kernel.org>
- <20151023143943.GC17308@twins.programming.kicks-ass.net>
- <562A4BE8.2060603@plumgrid.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: ip_no_pmtu_disc and UDP
+Date: Fri, 23 Oct 2015 09:45:47 -0700
+Message-ID: <CAK3+h2wFfh+HE78kHoWwgc9vyTCLWM90C4RQ=uTRk8551-jQ7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <562A4BE8.2060603@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:35554 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbbJWQps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 12:45:48 -0400
+Received: by lfbn126 with SMTP id n126so55547480lfb.2
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 09:45:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2015 at 08:02:00AM -0700, Alexei Starovoitov wrote:
-> On 10/23/15 7:39 AM, Peter Zijlstra wrote:
-> >On Tue, Oct 20, 2015 at 08:02:34PM -0700, Alexei Starovoitov wrote:
-> >>>+static const struct bpf_func_proto bpf_perf_event_output_proto = {
-> >>>+	.func		= bpf_perf_event_output,
-> >>>+	.gpl_only	= false,
-> >Oh ?
-> 
-> no particular reason. key helper bpf_probe_read() is gpl, so all
-> bpf for tracing progs have to be gpl.
-> If you feel strongly about it, I can change it.
+Hi,
 
-All the perf symbols are export GPL, so I suppose this should be true.
+It looks ip_no_pmtu_disc setting does not affect UDP IP packet DF bit
+setting, is that intended behavior? echo 0, 1, 2, 3 respectively to
+ip_no_pmtu_disc, UDP IP packet always have DF bit cleared, unless use
+IP_PMTUDISC_DO on IP_MTU_DISCOVER as ip man page says.
+
+in inet_create, seems to prove that.
+
+       if (net->ipv4.sysctl_ip_no_pmtu_disc)
+                inet->pmtudisc = IP_PMTUDISC_DONT;
+        else
+                inet->pmtudisc = IP_PMTUDISC_WANT;
+
+so I am wondering why UDP is excluded by ip_no_pmtu_disc, why in
+inet_create, not assign each individual ip_no_pmtu_disc setting to
+inet->pmtudisc but only check true and assign IP_PMTUDISC_DONT or
+IP_PMTUDISC_WANT only.
+
+Thanks
+
+Vincent
