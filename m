@@ -1,67 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Fri, 23 Oct 2015 09:19:23 -0700
-Message-ID: <1445617163.22974.163.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151021185104.GM22011@ZenIV.linux.org.uk>
-	 <20151021.182955.1434243485706993231.davem@davemloft.net>
-	 <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk>
-	 <20151022060304.GQ22011@ZenIV.linux.org.uk>
-	 <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
-	 <20151022172146.GS22011@ZenIV.linux.org.uk>
-	 <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-	 <20151022190701.GV22011@ZenIV.linux.org.uk>
-	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-	 <20151022215741.GW22011@ZenIV.linux.org.uk>
-	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
-	 <1445605340.22974.140.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <562A37A3.8000705@oracle.com>
-	 <1445610118.22974.153.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <562A563D.6020600@oracle.com>
-	 <1445616011.22974.158.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] amd-xgbe: Use wmb before updating current descriptor
+ count
+Date: Fri, 23 Oct 2015 09:29:44 -0700
+Message-ID: <562A6078.9070709@gmail.com>
+References: <20151021203705.29412.11836.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Casper.Dik@oracle.com, Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Alan Burlison <Alan.Burlison@oracle.com>
+Cc: David Miller <davem@davemloft.net>,
+	Christoffer Dall <christoffer.dall@linaro.org>
+To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36339 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461AbbJWQTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 12:19:25 -0400
-Received: by pacfv9 with SMTP id fv9so127814370pac.3
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 09:19:24 -0700 (PDT)
-In-Reply-To: <1445616011.22974.158.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34050 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892AbbJWQ3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 12:29:46 -0400
+Received: by padhk11 with SMTP id hk11so122567302pad.1
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 09:29:46 -0700 (PDT)
+In-Reply-To: <20151021203705.29412.11836.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-10-23 at 09:00 -0700, Eric Dumazet wrote:
-> on the pages you think there is an error that matters.
-> 
-> > 
-> > > Have you tested the patch I sent ?
-> > 
-> > The AF_UNIX poll one? No, I don't have the means to do so, and in any 
-> > case that's not a POSIX issue, just a plain bug. I'm happy to log a bug 
-> > if that helps.
+On 10/21/2015 01:37 PM, Tom Lendacky wrote:
+> The code currently uses the lightweight dma_wmb barrier before updating
+> the current descriptor count. Under heavy load, the Tx cleanup routine
+> was seeing the updated current descriptor count before the updated
+> descriptor information. As a result, the Tx descriptor was being cleaned
+> up before it was used because it was not "owned" by the hardware yet,
+> resulting in a Tx queue hang.
+>
+> Using the wmb barrier insures that the descriptor is updated before the
+> descriptor counter preventing the Tx queue hang. For extra insurance,
+> the Tx cleanup routine is changed to grab the current decriptor count on
+> entry and uses that initial value in the processing loop rather than
+> trying to chase the current value.
+>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Tested-by: Christoffer Dall <christoffer.dall@linaro.org>
 
-BTW, there is no kernel bug here. POSIX poll() man page says :
+This shouldn't be using wmb() or dma_wmb().  It looks like you are just 
+using the barriers to synchronize between CPUs.  If that is the case you 
+should probably be using smp_wmb()/smp_rmb().
 
-POLLOUT
-    Normal data may be written without blocking. 
+> ---
+>   drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    2 +-
+>   drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 +++-
+>   2 files changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> index a4473d8..e9ab8b9 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> @@ -1595,7 +1595,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+>   				  packet->rdesc_count, 1);
+>   
+>   	/* Make sure ownership is written to the descriptor */
+> -	dma_wmb();
+> +	wmb();
+>   
+>   	ring->cur = cur_index + 1;
+>   	if (!packet->skb->xmit_more ||
 
-If you attempt to write on a listener, write() does _not_ block and
-returns -1, which seems correct behavior to me, in accordance with man
-page.
+If anything you could probably just replace it with an smp_wmb() since 
+the device doesn't ever read the ring->cur value.  Using a wmb() here is 
+just doing unnecessary harm to  your performance as you aren't dealing 
+with multiple memory domains.
 
-socket(PF_LOCAL, SOCK_STREAM, 0)        = 3
-bind(3, {sa_family=AF_LOCAL, sun_path=@""}, 110) = 0
-listen(3, 10)                           = 0
-write(3, "test", 4)                     = -1 ENOTCONN (Transport endpoint is not connected)
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> index aae9d5e..d2b77d9 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> @@ -1807,6 +1807,7 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
+>   	struct netdev_queue *txq;
+>   	int processed = 0;
+>   	unsigned int tx_packets = 0, tx_bytes = 0;
+> +	unsigned int cur;
+>   
+>   	DBGPR("-->xgbe_tx_poll\n");
+>   
+> @@ -1814,10 +1815,11 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
+>   	if (!ring)
+>   		return 0;
+>   
+> +	cur = ring->cur;
+>   	txq = netdev_get_tx_queue(netdev, channel->queue_index);
+>   
+>   	while ((processed < XGBE_TX_DESC_MAX_PROC) &&
+> -	       (ring->dirty != ring->cur)) {
+> +	       (ring->dirty != cur)) {
+>   		rdata = XGBE_GET_DESC_DATA(ring, ring->dirty);
+>   		rdesc = rdata->rdesc;
+>   
+>
 
-Could you point out which part of POSIX is mandating that af_unix
-listener MUST filter out POLLOUT ?
+I believe your bug is down here.  You likely need an smp_rmb() between 
+the read of ring->cur and rdata.  Otherwise there is nothing to prevent 
+the compiler from reordering this so that it reads the descriptor data 
+ahead of ring->cur.
 
-Thanks.
+Moving the read out of the loop likely resolves the issue as it becomes 
+harder for the compiler to optimize the read versus the code in the 
+loop.  You may want to just try reverting this patch and starting the 
+loop with a smp_rmb() here and replace the dma_wmb() with an smp_wmb() 
+above and you should see the race between the interrupt routine and the 
+transmit path resolved as I believe the current fix is still a bit racy.
+
+- Alex
