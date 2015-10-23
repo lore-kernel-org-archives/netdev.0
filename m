@@ -1,59 +1,41 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH v5 1/2] geneve: implement support for IPv6-based tunnels
-Date: Fri, 23 Oct 2015 13:48:49 +0900
-Message-ID: <5629BC31.5070300@miraclelinux.com>
-References: <1445353866-32710-1-git-send-email-linville@tuxdriver.com>
- <1445543136-8265-1-git-send-email-linville@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Dave Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>
-To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33878 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781AbbJWEsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 00:48:53 -0400
-Received: by padhk11 with SMTP id hk11so107042513pad.1
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 21:48:53 -0700 (PDT)
-In-Reply-To: <1445543136-8265-1-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] macvtap: unbreak receiving of gro skb with frag list
+Date: Fri, 23 Oct 2015 00:57:05 -0400
+Message-ID: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+We don't have fraglist support in TAP_FEATURES. This will lead
+software segmentation of gro skb with frag list. Fixes by having
+frag list support in TAP_FEATURES.
 
-John W. Linville wrote:
-> NOTE: Link-local IPv6 addresses for remote endpoints are not supported,
-> since the driver currently has no capacity for binding a geneve
-> interface to a specific link.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> v5:
-> - wrap declaration of sock6 in geneve_dev with IS_ENABLED(CONFIG_IPV6)
-> - remove superfluous '!!' when assigning geneve->collect_md to bool
-> - use skb_scrub_packet in IPv4 tx path as well 
-> - check for NULL ip_tunnel_info pointer in geneve[6]_xmit_skb
-> - use ipv6_addr_equal for comparing IPv6 addresses
-> - more use of IS_ENABLED(CONFIG_IPV6) for preserving build integrity
-> - reject link-local ipv6 address for remote tunnel endpoint
-:
+With this patch single session of netperf receiving were restored from
+about 5Gb/s to about 12Gb/s on mlx4.
 
-> @@ -870,15 +1147,35 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
-:
-> +
-> +		if (ipv6_addr_type(&remote.sin6.sin6_addr) &
-> +		    IPV6_ADDR_LINKLOCAL)
-> +			netdev_dbg(dev, "link-local remote is unsupported\n");
-> +			return -EINVAL;
-> +	}
-> +
+Fixes a567dd6252 ("macvtap: simplify usage of tap_features")
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This always returns -EINVAL; {} is missing.
-
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 248478c..197c939 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -137,7 +137,7 @@ static const struct proto_ops macvtap_socket_ops;
+ #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+ 		      NETIF_F_TSO6 | NETIF_F_UFO)
+ #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+-#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
++#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
+ 
+ static struct macvlan_dev *macvtap_get_vlan_rcu(const struct net_device *dev)
+ {
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+1.8.3.1
