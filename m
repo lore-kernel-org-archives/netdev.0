@@ -1,37 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ppp: fix pppoe_dev deletion condition in
- pppoe_release()
-Date: Fri, 23 Oct 2015 03:30:48 -0700 (PDT)
-Message-ID: <20151023.033048.1984003889137051787.davem@davemloft.net>
-References: <6a9ae28f4128939528dcf64795f1de88b39a6118.1445525554.git.g.nault@alphalink.fr>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2 net-next] xfrm: Fix unaligned access to stats in
+ copy_to_user_state()
+Date: Fri, 23 Oct 2015 12:33:17 +0200
+Message-ID: <20151023103317.GN7701@secunet.com>
+References: <20151021154722.GA14667@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org,
-	nuclearcat@nuclearcat.com, Matt.Bennett@alliedtelesis.co.nz
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33740 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbbJWKOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 06:14:18 -0400
-In-Reply-To: <6a9ae28f4128939528dcf64795f1de88b39a6118.1445525554.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<herbert@gondor.apana.org.au>, <davem@davemloft.net>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151021154722.GA14667@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 22 Oct 2015 16:57:10 +0200
-
-> We can't rely on PPPOX_ZOMBIE to decide whether to clear po->pppoe_dev.
-> PPPOX_ZOMBIE can be set by pppoe_disc_rcv() even when po->pppoe_dev is
-> NULL. So we have no guarantee that (sk->sk_state & PPPOX_ZOMBIE) implies
-> (po->pppoe_dev != NULL).
-> Since we're releasing a PPPoE socket, we want to release the pppoe_dev
-> if it exists and reset sk_state to PPPOX_DEAD, no matter the previous
-> value of sk_state. So we can just check for po->pppoe_dev and avoid any
-> assumption on sk->sk_state.
+On Wed, Oct 21, 2015 at 11:48:25AM -0400, Sowmini Varadhan wrote:
 > 
-> Fixes: 2b018d57ff18 ("pppoe: drop PPPOX_ZOMBIEs in pppoe_release")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> On sparc, deleting established SAs (e.g., by restarting ipsec)
+> results in unaligned access messages via xfrm_del_sa -> 
+> km_state_notify -> xfrm_send_state_notify().
+> 
+> Even though struct xfrm_usersa_info is aligned on 8-byte boundaries,
+> netlink attributes are fundamentally only 4 byte aligned, and this
+> cannot be changed for nla_data() that is passed up to userspace.
+> As a result, the put_unaligned() macro needs to be used to
+> set up potentially unaligned fields such as the xfrm_stats in
+> copy_to_user_state()
+> 
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> v2: review comment from thread: cannot use PTR_ALIGN as this would break
+>     userspace assumptions about 4 byte alignment. Use *_unaligned() macros
+>     as needed, instead.
 
-Applied and queued up for -stable, thanks.
+This works on intel 32-bit and 64-bit as expected.
+Patch applied to ipsec-next, thanks!
