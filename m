@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] allow dctcp alpha to drop to zero
-Date: Fri, 23 Oct 2015 02:47:20 -0700 (PDT)
-Message-ID: <20151023.024720.1261240812356446593.davem@davemloft.net>
-References: <20151019045908.GB11368@mininet-vm>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH V2 2/2] xen-netfront: limit vnic max_queues number
+ to online cpus
+Date: Fri, 23 Oct 2015 03:30:54 -0600
+Message-ID: <562A1A6E02000078000ADEFB@prv-mh.provo.novell.com>
+References: <5629FB31.5060806@oracle.com> <5629FB86.7010107@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman@redhat.com, fw@strlen.de,
-	glenn.judd@morganstanley.com
-To: agshew@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<xen-devel@lists.xenproject.org>,
+	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "Joe Jin" <joe.jin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33407 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbbJWJau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:30:50 -0400
-In-Reply-To: <20151019045908.GB11368@mininet-vm>
+Received: from prv-mh.provo.novell.com ([137.65.248.74]:55836 "EHLO
+	prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbbJWJaz convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
+	Fri, 23 Oct 2015 05:30:55 -0400
+In-Reply-To: <5629FB86.7010107@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Shewmaker <agshew@gmail.com>
-Date: Sun, 18 Oct 2015 21:59:08 -0700
+>>> On 23.10.15 at 11:19, <joe.jin@oracle.com> wrote:
+>  
+> @@ -164,6 +166,19 @@ struct netfront_rx_info {
+>  	struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX - 1];
+>  };
+>  
+> +static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
+> +{
+> +	unsigned int cpus = num_online_cpus();
+> +	unsigned int max_queues = simple_strtoul(val, NULL, 10);
+> +
+> +	if (max_queues == 0 || max_queues > cpus) {
+> +		pr_err("max_queues %u is out of range [0 - %u]!\n", 
 
-> If alpha is strictly reduced by alpha >> dctcp_shift_g and if alpha is less
-> than 1 << dctcp_shift_g, then alpha may never reach zero. For example,
-> given shift_g=4 and alpha=15, alpha >> dctcp_shift_g yields 0 and alpha
-> remains 15. The effect isn't noticeable in this case below cwnd=137, but
-> could gradually drive uncongested flows with leftover alpha down to
-> cwnd=137. A larger dctcp_shift_g would have a greater effect.
-> 
-> This change causes alpha=15 to drop to 0 instead of being decrementing by 1
-> as it would when alpha=16. However, it requires one less conditional to
-> implement since it doesn't have to guard against subtracting 1 from 0U. A
-> decay of 15 is not unreasonable since an equal or greater amount occurs at
-> alpha >= 240.
-> 
-> Signed-off-by: Andrew G. Shewmaker <agshew@gmail.com>
+I suppose you mean "...[1 - %u]!\n" here?
 
-Applied, thanks.
+Jan
