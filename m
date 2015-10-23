@@ -1,96 +1,87 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH 0/2] limit xen vnic max queues number to online cpu
- number
-Date: Fri, 23 Oct 2015 09:57:36 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02F622669@AMSPEX01CL01.citrite.net>
-References: <5629E796.5040203@oracle.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD02F6220AF@AMSPEX01CL01.citrite.net>
- <5629F851.6010309@oracle.com>
+From: Casper.Dik@oracle.com
+Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect for sockets in accept(3)
+Date: Fri, 23 Oct 2015 11:52:34 +0200
+Message-ID: <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
+References: <20151021185104.GM22011@ZenIV.linux.org.uk> <20151021.182955.1434243485706993231.davem@davemloft.net> <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk> <20151022060304.GQ22011@ZenIV.linux.org.uk> <201510220634.t9M6YJLD017883@room101.nl.oracle.com> <20151022172146.GS22011@ZenIV.linux.org.uk> <201510221824.t9MIOp6n003978@room101.nl.oracle.com> <20151022190701.GV22011@ZenIV.linux.org.uk> <201510221951.t9MJp5LC005892@room101.nl.oracle.com> <20151022215741.GW22011@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: Joe Jin <joe.jin@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Burlison <Alan.Burlison@oracle.com>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	dholland-tech@netbsd.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:60624 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbbJWJ5j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:57:39 -0400
-In-Reply-To: <5629F851.6010309@oracle.com>
-Content-Language: en-US
+Received: from userp1040.oracle.com ([156.151.31.81]:29654 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124AbbJWKIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 06:08:43 -0400
+Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
+	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t9NA8gSB008218
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 10:08:42 GMT
+Received: from room101.nl.oracle.com (room101.nl.oracle.com [10.161.249.34])
+	by userv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t9N9tl3t032221
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 10:08:41 GMT
+In-Reply-To: <20151022215741.GW22011@ZenIV.linux.org.uk> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joe Jin [mailto:joe.jin@oracle.com]
-> Sent: 23 October 2015 10:05
-> To: Paul Durrant; Wei Liu; Ian Campbell; Boris Ostrovsky; Konrad Rzeszutek
-> Wilk; David S. Miller
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org
-> Subject: Re: [PATCH 0/2] limit xen vnic max queues number to online cpu
-> number
-> 
-> On 10/23/2015 04:47 PM, Paul Durrant wrote:
-> >> -----Original Message-----
-> >> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> >> owner@vger.kernel.org] On Behalf Of Joe Jin
-> >> Sent: 23 October 2015 08:54
-> >> To: Wei Liu; Ian Campbell; Boris Ostrovsky; Konrad Rzeszutek Wilk; David
-> S.
-> >> Miller
-> >> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org
-> >> Subject: [PATCH 0/2] limit xen vnic max queues number to online cpu
-> >> number
-> >>
-> >> Currently xen vnic allowed to create lots of queues by set module param
-> >> max_queues(both netback and netfront), when queues number larger
-> than
-> >> cpu number, it does not help for performance but need more cpu time.
-> >>
-> >
-> > But it's an override, so why would you want to limit it? The parameter
-> should not be set in the common case.
-> 
-> Always we can not stop people use it because we provided it :)
-> 
 
-Indeed, and I believe it was provided largely for test purposes... to force the limit to whatever the admin wants.
 
-> If queues number is larger than cpu number, with heavy network load,
-> cpus have to take more time for interrupt, this lead others less
-> chance to be scheduled.
-> Imaging dom0 have 64 cpus, and assigned 4 vcpus to the guest, if
-> set max_queues to 64 on guest, it will consumed more cpu times
-> and bandwidth on backend, I think this is not we expected?
-> 
+>Ho-hum...  It could even be made lockless in fast path; the problems I see
+>are
+>	* descriptor-to-file lookup becomes unsafe in a lot of locking
+>conditions.  Sure, most of that happens on the entry to some syscall, with
+>very light locking environment, but... auditing every sodding ioctl that
+>might be doing such lookups is an interesting exercise, and then there are
+>->mount() instances doing the same thing.  And procfs accesses.  Probably
+>nothing impossible to deal with, but nothing pleasant either.
 
-I think that would be entirely expected.
+In the Solaris kernel code, the ioctl code is generally not handled a file 
+descriptor but instead a file pointer (i.e., the lookup is done early in 
+the system call).
 
-  Paul
+In those specific cases where a system call needs to convert a file 
+descriptor to a file pointer, there is only one routines which can be used.
 
-> Thanks,
-> Joe
-> >
-> >   Paul
-> >
-> >> This patchset limit netback and netfront max queues number to online
-> >> cpus number.
-> >>
-> >> Joe Jin (2):
-> >>   xen-netback: limit xen vif max queues number to online cpus
-> >>   xen-front: limit vnic max_queues number to online cpus
-> >>
-> >>  drivers/net/xen-netback/netback.c |   28 ++++++++++++++++++++++---
-> ---
-> >>  drivers/net/xen-netfront.c        |   27 +++++++++++++++++++++------
-> >>  2 files changed, 43 insertions(+), 12 deletions(-)
-> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>	* memory footprint.  In case of Linux on amd64 or sparc64,
+>main()
+>{
+>	int i;
+>	for (i = 0; i < 1<<24; dup2(0, i++))	// 16M descriptors
+>		;
+>}
+>will chew 132Mb of kernel data (16Mpointer + 32Mbit, assuming sufficient ulimit -n,
+>of course).  How much will Solaris eat on the same?
+
+Yeah, that is a large amount of memory.  Of course, the table is only 
+sized when it is extended and there is a reason why there is a limit on 
+file descriptors.  But we're using more data per file descriptor entry.
+
+
+>	* related to the above - how much cacheline sharing will that involve?
+>These per-descriptor use counts are bitch to pack, and giving each a cacheline
+>of its own...  <shudder>
+
+As I said, we do actually use a lock and yes that means that you really  
+want to have a single cache line for each and every entry.  It does make 
+it easy to have non-racy file description updates.  You certainly do not 
+want false sharing when there is a lot of contention.
+
+Other data is used to make sure that it only takes O(log(n)) to find the 
+lowest available file descriptor entry.  (Where n, I think, is the returned
+descriptor)
+
+Not contended locks aren't expensive.  And all is done on a single cache 
+line.
+
+One question about the Linux implementation: what happens when a socket in 
+select is closed?  I'm assuming that the kernel waits until "shutdown" is 
+given or when a connection comes in?
+
+Is it a problem that you can "hide" your listening socket with a thread in 
+accept()?  I would think so (It would be visible in netstat but you can't 
+easily find out why has it)
+
+Casper
