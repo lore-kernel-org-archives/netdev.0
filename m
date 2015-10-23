@@ -1,105 +1,55 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 1/2] xen-netback: limit xen vif max queues
- number to online cpus
-Date: Fri, 23 Oct 2015 16:33:15 +0800
-Message-ID: <5629F0CB.5030905@oracle.com>
-References: <5629E796.5040203@oracle.com> <5629E8AF.9020108@oracle.com>
- <562A09E802000078000ADDE7@prv-mh.provo.novell.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net 3/4] gianfar: Fix Rx BSY error handling
+Date: Fri, 23 Oct 2015 11:42:00 +0300
+Message-ID: <1445589721-26206-4-git-send-email-claudiu.manoil@freescale.com>
+References: <1445589721-26206-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>, wei.liu2@citrix.com,
-	"David S. Miller" <davem@davemloft.net>,
-	xen-devel@lists.xenproject.org,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org
-To: Jan Beulich <JBeulich@suse.com>
+Content-Type: text/plain
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:39699 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752092AbbJWId2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 04:33:28 -0400
-In-Reply-To: <562A09E802000078000ADDE7@prv-mh.provo.novell.com>
+Received: from mail-bn1bbn0105.outbound.protection.outlook.com ([157.56.111.105]:24500
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750847AbbJWImV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 04:42:21 -0400
+In-Reply-To: <1445589721-26206-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jan,
+The Rx BSY error interrupt indicates that a frame was
+received and discarded due to lack of buffers, so it's
+a rx ring overflow condition and has nothing to do with
+with bad rx packets.  Use the right counter.
 
-Thanks for you review, will create new patches with your comments.
+BSY conditions happen when the SoC is under performance
+stress.  Doing *more* work in stress situations by trying
+to schedule NAPI is not a good idea as the stressed system
+becomes still more stressed.  The Rx interrupt is already
+at work making sure the NAPI is scheduled.
+So calling gfar_receive() here does not help.  This issue
+was present since day 1.
 
-Regards,
-Joe
-On 10/23/2015 04:20 PM, Jan Beulich wrote:
->>>> On 23.10.15 at 09:58, <joe.jin@oracle.com> wrote:
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -68,7 +68,9 @@ unsigned int rx_stall_timeout_msecs = 60000;
->>  module_param(rx_stall_timeout_msecs, uint, 0444);
->>  
->>  unsigned int xenvif_max_queues;
->> -module_param_named(max_queues, xenvif_max_queues, uint, 0644);
->> +static int xennet_set_max_queues(const char *val, struct kernel_param *kp);
->> +module_param_call(max_queues, xennet_set_max_queues, param_get_int,
-> 
-> param_get_uint
-> 
->> +		  &xenvif_max_queues, 0600);
-> 
-> Why the change from mode 0644 to 0600?
-> 
->> @@ -107,6 +109,20 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif_queue *queue
->>  					     u16      size,
->>  					     u16      flags);
->>  
->> +static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
->> +{
->> +	unsigned int cpus = num_online_cpus();
->> +	unsigned int max_queues = simple_strtoul(val, NULL, 10);
->> +
->> +	if (max_queues == 0 || max_queues > cpus) {
->> +		pr_info("max_queues %d is out of range [0 - %d]!\n", 
-> 
-> %u in both cases.
-> 
->> +			max_queues, cpus);
->> +		return -EINVAL;
-> 
-> Considering the message: -ERANGE?
-> 
->> +	}
->> +
->> +	return param_set_int(val, kp);
-> 
-> param_set_uint()
-> 
->> @@ -2110,15 +2126,15 @@ int xenvif_dealloc_kthread(void *data)
->>  static int __init netback_init(void)
->>  {
->>  	int rc = 0;
->> +	unsigned int cpus = num_online_cpus();
->>  
->>  	if (!xen_domain())
->>  		return -ENODEV;
->>  
->> -	/* Allow as many queues as there are CPUs if user has not
->> -	 * specified a value.
->> -	 */
->> -	if (xenvif_max_queues == 0)
->> -		xenvif_max_queues = num_online_cpus();
->> +	/* Allow at most as many queues as CPUs. */
->> +	if (xenvif_max_queues == 0 || xenvif_max_queues > cpus)
->> +		xenvif_max_queues = cpus;
->> +	pr_info("vif max_queues: %d\n", xenvif_max_queues);
-> 
-> %u again.
-> 
-> Jan
-> 
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 939ed8f..ce38d26 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -3462,11 +3462,9 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
+ 		netif_dbg(priv, tx_err, dev, "Transmit Error\n");
+ 	}
+ 	if (events & IEVENT_BSY) {
+-		dev->stats.rx_errors++;
++		dev->stats.rx_over_errors++;
+ 		atomic64_inc(&priv->extra_stats.rx_bsy);
+ 
+-		gfar_receive(irq, grp_id);
+-
+ 		netif_dbg(priv, rx_err, dev, "busy error (rstat: %x)\n",
+ 			  gfar_read(&regs->rstat));
+ 	}
 -- 
-Oracle <http://www.oracle.com>
-Joe Jin | Software Development Director | +8610.6106.5624
-ORACLE | Linux and Virtualization
-No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+1.7.11.7
