@@ -1,60 +1,52 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 1/2] sh_eth: fix RX buffer size alignment
-Date: Sat, 24 Oct 2015 00:46:03 +0300
-Message-ID: <1685698.osUG5igxWz@wasted.cogentembedded.com>
+Subject: [PATCH 2/2] sh_eth: fix RX buffer size calculation
+Date: Sat, 24 Oct 2015 00:46:40 +0300
+Message-ID: <1571476.HbCo5gVB8j@wasted.cogentembedded.com>
 References: <2249923.hKhT9K6gME@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: linux-sh@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:34844 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412AbbJWVqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 17:46:43 -0400
+Received: by lfbn126 with SMTP id n126so62994367lfb.2
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 14:46:42 -0700 (PDT)
 In-Reply-To: <2249923.hKhT9K6gME@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Both  Renesas R-Car and RZ/A1 manuals state that RX buffer  length must be
-a multiple of 32 bytes, while the driver  only uses 16 byte granularity...
+The RX buffer size calulation failed to account for the length granularity
+(which is now 32 bytes)...
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/ethernet/renesas/sh_eth.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 Index: net/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1148,8 +1148,8 @@ static void sh_eth_ring_format(struct ne
+@@ -1127,7 +1127,7 @@ static void sh_eth_ring_format(struct ne
+ 	struct sh_eth_txdesc *txdesc = NULL;
+ 	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
+ 	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
+-	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
++	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN + 32 - 1;
+ 	dma_addr_t dma_addr;
  
- 		/* RX descriptor */
- 		rxdesc = &mdp->rx_ring[i];
--		/* The size of the buffer is a multiple of 16 bytes. */
--		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
-+		/* The size of the buffer is a multiple of 32 bytes. */
-+		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 32);
- 		dma_addr = dma_map_single(&ndev->dev, skb->data,
- 					  rxdesc->buffer_length,
- 					  DMA_FROM_DEVICE);
-@@ -1506,7 +1506,7 @@ static int sh_eth_rx(struct net_device *
- 			if (mdp->cd->rpadir)
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			dma_unmap_single(&ndev->dev, rxdesc->addr,
--					 ALIGN(mdp->rx_buf_sz, 16),
-+					 ALIGN(mdp->rx_buf_sz, 32),
- 					 DMA_FROM_DEVICE);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
-@@ -1524,8 +1524,8 @@ static int sh_eth_rx(struct net_device *
- 	for (; mdp->cur_rx - mdp->dirty_rx > 0; mdp->dirty_rx++) {
- 		entry = mdp->dirty_rx % mdp->num_rx_ring;
- 		rxdesc = &mdp->rx_ring[entry];
--		/* The size of the buffer is 16 byte boundary. */
--		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
-+		/* The size of the buffer is 32 byte boundary. */
-+		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 32);
+ 	mdp->cur_rx = 0;
+@@ -1450,7 +1450,7 @@ static int sh_eth_rx(struct net_device *
+ 	struct sk_buff *skb;
+ 	u16 pkt_len = 0;
+ 	u32 desc_status;
+-	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
++	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN + 32 - 1;
+ 	dma_addr_t dma_addr;
  
- 		if (mdp->rx_skbuff[entry] == NULL) {
- 			skb = netdev_alloc_skb(ndev, skbuff_size);
-
+ 	boguscnt = min(boguscnt, *quota);
