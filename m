@@ -1,121 +1,42 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 6/8] mm: vmscan: simplify memcg vs. global shrinker
- invocation
-Date: Fri, 23 Oct 2015 15:26:22 +0200
-Message-ID: <20151023132622.GB15375@dhcp22.suse.cz>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <1445487696-21545-7-git-send-email-hannes@cmpxchg.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/11] net: ipv4: hlen could be set as size_t
+Date: Fri, 23 Oct 2015 06:51:11 -0700 (PDT)
+Message-ID: <20151023.065111.918009116932115995.davem@davemloft.net>
+References: <1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
+	<20151023.060852.167547226456492975.davem@davemloft.net>
+	<20151023132100.GA16922@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1445487696-21545-7-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042AbbJWNel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:34:41 -0400
+In-Reply-To: <20151023132100.GA16922@Red>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 22-10-15 00:21:34, Johannes Weiner wrote:
-> Letting shrink_slab() handle the root_mem_cgroup, and implicitely the
-> !CONFIG_MEMCG case, allows shrink_zone() to invoke the shrinkers
-> unconditionally from within the memcg iteration loop.
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Date: Fri, 23 Oct 2015 15:21:00 +0200
+
+> I have added all mailing list given by get_maintainer but this was done per patch with --to-cmd/--cc-cmd
+> Does it is better to put all mailing list globally ?
 > 
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-
-Acked-by: Michal Hocko <mhocko@suse.com>
-
-> ---
->  include/linux/memcontrol.h |  2 ++
->  mm/vmscan.c                | 31 ++++++++++++++++---------------
->  2 files changed, 18 insertions(+), 15 deletions(-)
+> For the (0/N) mail, I forgot to add a subject on it https://lkml.org/lkml/2015/10/23/219
 > 
-> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-> index 6f1e0f8..d66ae18 100644
-> --- a/include/linux/memcontrol.h
-> +++ b/include/linux/memcontrol.h
-> @@ -482,6 +482,8 @@ void mem_cgroup_split_huge_fixup(struct page *head);
->  #else /* CONFIG_MEMCG */
->  struct mem_cgroup;
->  
-> +#define root_mem_cgroup NULL
-> +
->  static inline void mem_cgroup_events(struct mem_cgroup *memcg,
->  				     enum mem_cgroup_events_index idx,
->  				     unsigned int nr)
-> diff --git a/mm/vmscan.c b/mm/vmscan.c
-> index 9b52ecf..ecc2125 100644
-> --- a/mm/vmscan.c
-> +++ b/mm/vmscan.c
-> @@ -411,6 +411,10 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
->  	struct shrinker *shrinker;
->  	unsigned long freed = 0;
->  
-> +	/* Global shrinker mode */
-> +	if (memcg == root_mem_cgroup)
-> +		memcg = NULL;
-> +
->  	if (memcg && !memcg_kmem_is_active(memcg))
->  		return 0;
->  
-> @@ -2417,11 +2421,22 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
->  			zone_lru_pages += lru_pages;
->  
-> -			if (memcg && is_classzone)
-> +			/*
-> +			 * Shrink the slab caches in the same proportion that
-> +			 * the eligible LRU pages were scanned.
-> +			 */
-> +			if (is_classzone) {
->  				shrink_slab(sc->gfp_mask, zone_to_nid(zone),
->  					    memcg, sc->nr_scanned - scanned,
->  					    lru_pages);
->  
-> +				if (reclaim_state) {
-> +					sc->nr_reclaimed +=
-> +						reclaim_state->reclaimed_slab;
-> +					reclaim_state->reclaimed_slab = 0;
-> +				}
-> +			}
-> +
->  			/*
->  			 * Direct reclaim and kswapd have to scan all memory
->  			 * cgroups to fulfill the overall scan target for the
-> @@ -2439,20 +2454,6 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
->  			}
->  		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
->  
-> -		/*
-> -		 * Shrink the slab caches in the same proportion that
-> -		 * the eligible LRU pages were scanned.
-> -		 */
-> -		if (global_reclaim(sc) && is_classzone)
-> -			shrink_slab(sc->gfp_mask, zone_to_nid(zone), NULL,
-> -				    sc->nr_scanned - nr_scanned,
-> -				    zone_lru_pages);
-> -
-> -		if (reclaim_state) {
-> -			sc->nr_reclaimed += reclaim_state->reclaimed_slab;
-> -			reclaim_state->reclaimed_slab = 0;
-> -		}
-> -
->  		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
->  			   sc->nr_scanned - nr_scanned,
->  			   sc->nr_reclaimed - nr_reclaimed);
-> -- 
-> 2.6.1
+> I will fix all minor finding and resend a proper version.
 
--- 
-Michal Hocko
-SUSE Labs
+Ask yourself the question: who will apply my patch series and to what tree will
+they apply it.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+If you cannot answer that question, you probably need to more properly split
+up your patches into several patch series, one for each intended maintainer
+and their respective tree.
+
+It is impossible to review some subset of a patch series, if the whole series
+isn't also available to read for the purposes of context.
