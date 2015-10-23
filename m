@@ -1,128 +1,70 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
- sizeof(struct xps_map)
-Date: Fri, 23 Oct 2015 15:40:58 -0700
-Message-ID: <562AB77A.6080109@gmail.com>
-References: <32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
- <B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
- <trinity-eda7d55d-7234-4b29-a15c-955f8ba0c95e-1445513884942@3capp-gmx-bs32>
- <trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
- <1445524549.2207.1.camel@HansenPartnership.com> <5628F868.3040105@bell.net>
- <5629404B.8090805@gmx.de>
- <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
- <562A8990.9000808@gmx.de>
- <1445630588.22974.187.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151023210810.GA1969@ls3530.box> <562AAE05.5020300@gmail.com>
- <562AB200.8030209@gmx.de>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute RFC PATCH 0/9] Document tc filters
+Date: Fri, 23 Oct 2015 15:41:12 -0700
+Message-ID: <20151023154112.7e57c730@xeon-e3>
+References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Helge Deller <deller@gmx.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-parisc@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	John David Anglin <dave.anglin@bell.net>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <562AB200.8030209@gmx.de>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:8175 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751301AbbJWWle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 18:41:34 -0400
+In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2015 03:17 PM, Helge Deller wrote:
-> On 24.10.2015 00:00, Alexander Duyck wrote:
->> On 10/23/2015 02:08 PM, Helge Deller wrote:
->>> * Eric Dumazet <eric.dumazet@gmail.com>:
->>>> On Fri, 2015-10-23 at 21:25 +0200, Helge Deller wrote:
->>>>
->>>>> Then, how about simply changing it to twice of L1_CACHE_BYTES ?
->>>>>
->>>>> #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) / sizeof(u16))
->>>>
->>>>
->>>> Seems good to me.
->>>
->>> Great!
->>>
->>> Can you then maybe give me an Acked-by or signed-off for the patch below?
->>> It further adds a compile-time check to avoid that XPS_MIN_MAP_ALLOC
->>> gets calculated to zero on any architecture - otherwise no queues would
->>> be allocated.
->>>
->>> In addition I would like to push it for v4.3 then through my parisc-tree
->>> (after keeping it in for-next for 1-2 days), together with the patch
->>> which reduces L1_CACHE_BYTES to 16 on parisc.
->>> Would that be OK too?
->>>
->>> Thanks!
->>> Helge
->>>
->>>
->>> [PATCH] net/xps: Increase initial number of xps queues
->>>
->>> Increase the number of initial allocated xps queues, so that the initial record
->>> allocates twice the size of L1_CACHE_BYTES bytes.
->>>
->>> This change is needed to copy with architectures where L1_CACHE_BYTES is
->>> defined to equal or less than 16 bytes.
->>>
->>> Signed-off-by: Helge Deller <deller@gmx.de>
->>>
->>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>> index 2d15e38..d152788 100644
->>> --- a/include/linux/netdevice.h
->>> +++ b/include/linux/netdevice.h
->>> @@ -718,7 +718,7 @@ struct xps_map {
->>>        u16 queues[0];
->>>    };
->>>    #define XPS_MAP_SIZE(_num) (sizeof(struct xps_map) + ((_num) * sizeof(u16)))
->>> -#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))    \
->>> +#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) \
->>>        / sizeof(u16))
->>>
->>>    /*
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 6bb6470..f6d6dd1 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -1972,6 +1972,8 @@ static struct xps_map *expand_xps_map(struct xps_map *map,
->>>        int alloc_len = XPS_MIN_MAP_ALLOC;
->>>        int i, pos;
->>>
->>> +    BUILD_BUG_ON(XPS_MIN_MAP_ALLOC == 0);
->>> +
->>>        for (pos = 0; map && pos < map->len; pos++) {
->>>            if (map->queues[pos] != index)
->>>                continue;
->>>
->>>
->>
->> Rather then leaving a potential bug you could probably rewrite the macro so that it will give you at least 1.
->>
->> All you need to do is something like the following
->> #define XPS_MIN_MAP_ALLOC \
->>      ((L1_CACHE_ALIGN(offsetof(struct xps_map, queue[1])) - \
->>        sizeof(struct xps_map)) / sizeof(u16))
->>
->> That should give you at least an XPS_MIN_MAP_ALLOC of 1.
->
-> Yes, good idea!
-> What makes me wonder though (because I have no idea about the XPS code/layer):
-> How likely is it, that more than 1 (e.g. minimum "X") queues are needed?
-> E.g. if a typical system needs at least 3 queues, then doesn't it make sense to allocate
-> at least 3 initially by using queue[3] in your proposed patch above ?
-> What would "X" be then?
+On Fri, 23 Oct 2015 19:47:07 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-The question I would have is in how many cases it it likely that 
-somebody would enable this feature and point a given CPU at more than 
-one queue.  I know the Intel drivers that make use of XPS tend to do a 
-1:1 mapping for their ATR feature.  I would think if anything most CPUs 
-would probably be mapped many:1, but you probably won't have all that 
-many cases where it is 1:many or many:many.
+> This series adds documentation in form of a dedicated man page for every
+> available tc filter with the exception of rsvp which I simply didn't
+> understand. In addition to that, it adds a list of filters with (very) basic
+> description to tc.8, listing the specific man pages for detailed information.
+> 
+> I am not too confident of correctness in every aspect, therefore this series is
+> tagged RFC and the relevant patches are Cc'ed to the filter authors in hope for
+> review and harsh criticism in form of corrections. :)
+> 
+> Alexey or anyone else with knowledge of rsvp, you could make me very happy by
+> explaining to me how that filter is supposed to work. In turn I could serve you
+> with stupid^Wunqualified questions and ultimately tc-rsvp.8 which you would
+> then have to proof-read as well.
+> 
+> Phil Sutter (9):
+>   tc: add a man page for basic filter
+>   tc: add a man page for cgroup filter
+>   tc: add a man page for flow filter
+>   tc: add a man page for flower filter
+>   tc: add a man page for fw filter
+>   tc: add a man page for route filter
+>   tc: add a man page for tcindex filter
+>   tc: add a man page for u32 filter
+>   tc: ship filter man pages and refer to them in tc.8
+> 
+>  man/man8/Makefile     |   4 +-
+>  man/man8/tc-basic.8   |  34 +++
+>  man/man8/tc-cgroup.8  |  80 ++++++
+>  man/man8/tc-flow.8    | 265 ++++++++++++++++++++
+>  man/man8/tc-flower.8  | 113 +++++++++
+>  man/man8/tc-fw.8      |  66 +++++
+>  man/man8/tc-route.8   |  74 ++++++
+>  man/man8/tc-tcindex.8 |  58 +++++
+>  man/man8/tc-u32.8     | 663 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  man/man8/tc.8         |  52 ++++
+>  10 files changed, 1408 insertions(+), 1 deletion(-)
+>  create mode 100644 man/man8/tc-basic.8
+>  create mode 100644 man/man8/tc-cgroup.8
+>  create mode 100644 man/man8/tc-flow.8
+>  create mode 100644 man/man8/tc-flower.8
+>  create mode 100644 man/man8/tc-fw.8
+>  create mode 100644 man/man8/tc-route.8
+>  create mode 100644 man/man8/tc-tcindex.8
+>  create mode 100644 man/man8/tc-u32.8
+> 
 
-I'd say starting with at least 1 should be fine.  Worst case scenario is 
-we have to make a couple more calls to expand_xps_map which will likely 
-occur as a slow path and infrequent event anyway.
-
-- Alex
-
+Looks good applied.
+Had to one minor whitespace cleanup.
