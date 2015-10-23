@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net RESEND 0/2] overflow-arith: begin to add support
- for overflow builtins functions
-Date: Fri, 23 Oct 2015 02:50:05 -0700 (PDT)
-Message-ID: <20151023.025005.1155789583520008596.davem@davemloft.net>
-References: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv4: implement support for NOPREFIXROUTE ifa flag
+ for ipv4 address
+Date: Fri, 23 Oct 2015 02:55:20 -0700 (PDT)
+Message-ID: <20151023.025520.942186208311911968.davem@davemloft.net>
+References: <7decee4d1d1b71142460e604af6d15f0847ecd2d.1445329646.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	dvyukov@google.com
-To: hannes@stressinduktion.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1444987963-15327-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33494 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbbJWJiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:38:51 -0400
+In-Reply-To: <7decee4d1d1b71142460e604af6d15f0847ecd2d.1445329646.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 16 Oct 2015 11:32:41 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue, 20 Oct 2015 10:28:45 +0200
 
-> I add a new header, linux/overflow-arith.h, as the central place to add
-> overflow and wrap-around checking functions. The reason I am doing so
-> is that it can make use of compiler supported builtin functions which
-> can leverage hardware.
+> Currently adding a new ipv4 address always cause the creation of the
+> related network route, with default metric. When a host has multiple
+> interfaces on the same network, multiple routes with the same metric
+> are created.
 > 
-> As I need this for a fix in the ipv6 stack, which is also included in
-> this series, I propose to add it sooner than later over Davem's net
-> tree. This is also the reason why I start slowly with only the one
-> function I need at this time.
+> If the userspace wants to set specific metric on each routes, i.e.
+> giving better metric to ethernet links in respect to Wi-Fi ones,
+> the network routes must be deleted and recreated, which is error-prone.
 > 
-> Thanks for reviewing!
+> This patch implements the support for IFA_F_NOPREFIXROUTE for ipv4
+> address. When an address is added with such flag set, no associated
+> network route is created, no network route is deleted when
+> said IP is gone and it's up to the user space manage such route.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Series applied, thanks Hannes.
+Applied to net-next, thanks.
