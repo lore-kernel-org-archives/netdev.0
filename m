@@ -1,8 +1,8 @@
 From: Helge Deller <deller@gmx.de>
 Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
  sizeof(struct xps_map)
-Date: Fri, 23 Oct 2015 21:21:52 +0200
-Message-ID: <562A88D0.1010807@gmx.de>
+Date: Fri, 23 Oct 2015 21:25:04 +0200
+Message-ID: <562A8990.9000808@gmx.de>
 References: <42430464-867C-4E0B-8E95-C6CDB6D8A0B2@bell.net>
  <32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
  <B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
@@ -10,24 +10,27 @@ References: <42430464-867C-4E0B-8E95-C6CDB6D8A0B2@bell.net>
  <trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
  <1445524549.2207.1.camel@HansenPartnership.com> <5628F868.3040105@bell.net>
  <5629404B.8090805@gmx.de>
- <CALx6S351U9L43Qh88DkJSM4tmhR-7SDoC6bCEhNqxnuu8LqTNA@mail.gmail.com>
+ <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-parisc List <linux-parisc@vger.kernel.org>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
 	John David Anglin <dave.anglin@bell.net>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <CALx6S351U9L43Qh88DkJSM4tmhR-7SDoC6bCEhNqxnuu8LqTNA@mail.gmail.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:49418 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751327AbbJWTZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 15:25:16 -0400
+In-Reply-To: <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.10.2015 23:37, Tom Herbert wrote:
-> On Thu, Oct 22, 2015 at 1:00 PM, Helge Deller <deller@gmx.de> wrote:
+On 22.10.2015 23:50, Eric Dumazet wrote:
+> On Thu, 2015-10-22 at 22:00 +0200, Helge Deller wrote:
 >> Hi Tom & David,
 >>
 >> I've queued-up a patch for the parisc architecture which reduces L1_=
@@ -47,25 +50,14 @@ _MAP_ALLOC=E2=80=99
 >>    int alloc_len =3D XPS_MIN_MAP_ALLOC;
 >>
 >> Do you see an easy way to fix this ?
->>
-> How about
 >=20
->  #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - ((sizeof(struct xps_map=
-)
-> % L1_CACHE_BYTES)) \
+>=20
+> Using L2_CACHE_BYTES would be better, but it unfortunately does not
+> exist.
 
-The full line would then be:
-#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - (sizeof(struct xps_map) % =
-L1_CACHE_BYTES)) / sizeof(u16))
+Then, how about simply changing it to twice of L1_CACHE_BYTES ?
 
-The only problem I see with this is, that XPS_MIN_MAP_ALLOC might becom=
-e zero.
-In that case the call to kzalloc_node() in expand_xps_map() doesn't all=
-ocate any memory for the queues.
+#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)=
+) / sizeof(u16))
 
 Helge
---
-To unsubscribe from this list: send the line "unsubscribe linux-parisc"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
