@@ -1,52 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: fix RX buffer size calculation
-Date: Sat, 24 Oct 2015 00:46:40 +0300
-Message-ID: <1571476.HbCo5gVB8j@wasted.cogentembedded.com>
-References: <2249923.hKhT9K6gME@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34844 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbbJWVqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 17:46:43 -0400
-Received: by lfbn126 with SMTP id n126so62994367lfb.2
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 14:46:42 -0700 (PDT)
-In-Reply-To: <2249923.hKhT9K6gME@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: make tracing helpers gpl only
+Date: Fri, 23 Oct 2015 14:58:19 -0700
+Message-ID: <1445637499-11146-1-git-send-email-ast@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The RX buffer size calulation failed to account for the length granularity
-(which is now 32 bytes)...
+exported perf symbols are GPL only, mark eBPF helper functions
+used in tracing as GPL only as well.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
+Suggested-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
+this is on top of this patch that touches the same file:
+http://patchwork.ozlabs.org/patch/534664/
+
+ kernel/trace/bpf_trace.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1127,7 +1127,7 @@ static void sh_eth_ring_format(struct ne
- 	struct sh_eth_txdesc *txdesc = NULL;
- 	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
- 	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
--	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN + 32 - 1;
- 	dma_addr_t dma_addr;
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 003df3887287..4228fd3682c3 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -214,7 +214,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
  
- 	mdp->cur_rx = 0;
-@@ -1450,7 +1450,7 @@ static int sh_eth_rx(struct net_device *
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
--	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN + 32 - 1;
- 	dma_addr_t dma_addr;
+ static const struct bpf_func_proto bpf_perf_event_read_proto = {
+ 	.func		= bpf_perf_event_read,
+-	.gpl_only	= false,
++	.gpl_only	= true,
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_CONST_MAP_PTR,
+ 	.arg2_type	= ARG_ANYTHING,
+@@ -255,7 +255,7 @@ static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
  
- 	boguscnt = min(boguscnt, *quota);
+ static const struct bpf_func_proto bpf_perf_event_output_proto = {
+ 	.func		= bpf_perf_event_output,
+-	.gpl_only	= false,
++	.gpl_only	= true,
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+ 	.arg2_type	= ARG_CONST_MAP_PTR,
+-- 
+1.7.9.5
