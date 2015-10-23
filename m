@@ -1,27 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/17][pull request] Intel Wired LAN Driver Updates
- 2015-10-23
-Date: Fri, 23 Oct 2015 06:58:30 -0700 (PDT)
-Message-ID: <20151023.065830.277187357639307687.davem@davemloft.net>
-References: <1445606279-19345-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH 3/8] net: consolidate memcg socket buffer tracking and
+ accounting
+Date: Fri, 23 Oct 2015 16:42:56 +0300
+Message-ID: <20151023134256.GS18351@esperanza>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-4-git-send-email-hannes@cmpxchg.org>
+ <20151022184612.GN18351@esperanza>
+ <20151022190943.GA20871@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com, thomas.long@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35268 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443AbbJWNmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:42:01 -0400
-In-Reply-To: <1445606279-19345-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>, Andrew Morton
+	<akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.cz>, Tejun Heo
+	<tj@kernel.org>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151022190943.GA20871@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 23 Oct 2015 06:17:42 -0700
+On Thu, Oct 22, 2015 at 03:09:43PM -0400, Johannes Weiner wrote:
+> On Thu, Oct 22, 2015 at 09:46:12PM +0300, Vladimir Davydov wrote:
+> > On Thu, Oct 22, 2015 at 12:21:31AM -0400, Johannes Weiner wrote:
+> > > The tcp memory controller has extensive provisions for future memory
+> > > accounting interfaces that won't materialize after all. Cut the code
+> > > base down to what's actually used, now and in the likely future.
+> > > 
+> > > - There won't be any different protocol counters in the future, so a
+> > >   direct sock->sk_memcg linkage is enough. This eliminates a lot of
+> > >   callback maze and boilerplate code, and restores most of the socket
+> > >   allocation code to pre-tcp_memcontrol state.
+> > > 
+> > > - There won't be a tcp control soft limit, so integrating the memcg
+> > 
+> > In fact, the code is ready for the "soft" limit (I mean min, pressure,
+> > max tuple), it just lacks a knob.
+> 
+> Yeah, but that's not going to materialize if the entire interface for
+> dedicated tcp throttling is considered obsolete.
 
-> This series contains updates to i40e, i40evf, if_link, ixgbe and ixgbevf.
+May be, it shouldn't be. My current understanding is that per memcg tcp
+window control is necessary, because:
 
-Looks good, pulled, thanks a lot Jeff.
+ - We need to be able to protect a containerized workload from its
+   growing network buffers. Using vmpressure notifications for that does
+   not look reassuring to me.
+
+ - We need a way to limit network buffers of a particular container,
+   otherwise it can fill the system-wide window throttling other
+   containers, which is unfair.
+
+> 
+> > > @@ -1136,9 +1090,6 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
+> > >  	if (!sk->sk_prot->memory_pressure)
+> > >  		return false;
+> > >  
+> > > -	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+> > > -		return !!sk->sk_cgrp->memory_pressure;
+> > > -
+> > 
+> > AFAIU, now we won't shrink the window on hitting the limit, i.e. this
+> > patch subtly changes the behavior of the existing knobs, potentially
+> > breaking them.
+> 
+> Hm, but there is no grace period in which something meaningful could
+> happen with the window shrinking, is there? Any buffer allocation is
+> still going to fail hard.
+
+AFAIU when we hit the limit, we not only throttle the socket which
+allocates, but also try to release space reserved by other sockets.
+After your patch we won't. This looks unfair to me.
+
+Thanks,
+Vladimir
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
