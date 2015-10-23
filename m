@@ -1,89 +1,138 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Fw: [Bug 106241] New: shutdown(3)/close(3) behaviour is
- incorrect for sockets in accept(3)
-Date: Fri, 23 Oct 2015 20:51:51 +0100
-Message-ID: <20151023195151.GY22011@ZenIV.linux.org.uk>
-References: <20151019095938.72ea48e6@xeon-e3>
- <1445297584.30896.29.camel@edumazet-glaptop2.roam.corp.google.com>
- <562594E1.8040403@oracle.com>
- <1445305532.30896.40.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151021034950.GL22011@ZenIV.linux.org.uk>
- <5627A37B.4090208@oracle.com>
- <20151023183025.GA941@netbsd.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 00/12] IXGBE: Add live migration support for SRIOV NIC
+Date: Fri, 23 Oct 2015 13:01:10 -0700
+Message-ID: <562A9206.6040409@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <562A7E33.4080800@gmail.com> <1445627153.5050.52.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Casper Dik <casper.dik@oracle.com>
-To: David Holland <dholland-tech@netbsd.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lan Tianyu <tianyu.lan@intel.com>, bhelgaas@google.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
+	pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
+To: Alex Williamson <alex.williamson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:48111 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbbJWTv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 15:51:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20151023183025.GA941@netbsd.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35009 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbbJWUBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 16:01:13 -0400
+In-Reply-To: <1445627153.5050.52.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2015 at 06:30:25PM +0000, David Holland wrote:
+On 10/23/2015 12:05 PM, Alex Williamson wrote:
+> On Fri, 2015-10-23 at 11:36 -0700, Alexander Duyck wrote:
+>> On 10/21/2015 09:37 AM, Lan Tianyu wrote:
+>>> This patchset is to propose a new solution to add live migration support for 82599
+>>> SRIOV network card.
+>>>
+>>> Im our solution, we prefer to put all device specific operation into VF and
+>>> PF driver and make code in the Qemu more general.
+>>>
+>>>
+>>> VF status migration
+>>> =================================================================
+>>> VF status can be divided into 4 parts
+>>> 1) PCI configure regs
+>>> 2) MSIX configure
+>>> 3) VF status in the PF driver
+>>> 4) VF MMIO regs
+>>>
+>>> The first three status are all handled by Qemu.
+>>> The PCI configure space regs and MSIX configure are originally
+>>> stored in Qemu. To save and restore "VF status in the PF driver"
+>>> by Qemu during migration, adds new sysfs node "state_in_pf" under
+>>> VF sysfs directory.
+>>>
+>>> For VF MMIO regs, we introduce self emulation layer in the VF
+>>> driver to record MMIO reg values during reading or writing MMIO
+>>> and put these data in the guest memory. It will be migrated with
+>>> guest memory to new machine.
+>>>
+>>>
+>>> VF function restoration
+>>> ================================================================
+>>> Restoring VF function operation are done in the VF and PF driver.
+>>>
+>>> In order to let VF driver to know migration status, Qemu fakes VF
+>>> PCI configure regs to indicate migration status and add new sysfs
+>>> node "notify_vf" to trigger VF mailbox irq in order to notify VF
+>>> about migration status change.
+>>>
+>>> Transmit/Receive descriptor head regs are read-only and can't
+>>> be restored via writing back recording reg value directly and they
+>>> are set to 0 during VF reset. To reuse original tx/rx rings, shift
+>>> desc ring in order to move the desc pointed by original head reg to
+>>> first entry of the ring and then enable tx/rx rings. VF restarts to
+>>> receive and transmit from original head desc.
+>>>
+>>>
+>>> Tracking DMA accessed memory
+>>> =================================================================
+>>> Migration relies on tracking dirty page to migrate memory.
+>>> Hardware can't automatically mark a page as dirty after DMA
+>>> memory access. VF descriptor rings and data buffers are modified
+>>> by hardware when receive and transmit data. To track such dirty memory
+>>> manually, do dummy writes(read a byte and write it back) when receive
+>>> and transmit data.
+>>
+>> I was thinking about it and I am pretty sure the dummy write approach is
+>> problematic at best.  Specifically the issue is that while you are
+>> performing a dummy write you risk pulling in descriptors for data that
+>> hasn't been dummy written to yet.  So when you resume and restore your
+>> descriptors you will have once that may contain Rx descriptors
+>> indicating they contain data when after the migration they don't.
+>>
+>> I really think the best approach to take would be to look at
+>> implementing an emulated IOMMU so that you could track DMA mapped pages
+>> and avoid migrating the ones marked as DMA_FROM_DEVICE until they are
+>> unmapped.  The advantage to this is that in the case of the ixgbevf
+>> driver it now reuses the same pages for Rx DMA.  As a result it will be
+>> rewriting the same pages often and if you are marking those pages as
+>> dirty and transitioning them it is possible for a flow of small packets
+>> to really make a mess of things since you would be rewriting the same
+>> pages in a loop while the device is processing packets.
+>
+> I'd be concerned that an emulated IOMMU on the DMA path would reduce
+> throughput to the point where we shouldn't even bother with assigning
+> the device in the first place and should be using virtio-net instead.
+> POWER systems have a guest visible IOMMU and it's been challenging for
+> them to get to 10Gbps, requiring real-mode tricks.  virtio-net may add
+> some latency, but it's not that hard to get it to 10Gbps and it already
+> supports migration.  An emulated IOMMU in the guest is really only good
+> for relatively static mappings, the latency for anything else is likely
+> too high.  Maybe there are shadow page table tricks that could help, but
+> it's imposing overhead the whole time the guest is running, not only on
+> migration.  Thanks,
+>
 
-> So, I'm coming late to this discussion and I don't have the original
-> context; however, to me this cited behavior seems undesirable and if I
-> ran across it in the wild I would probably describe it as a bug.
+The big overhead I have seen with IOMMU implementations is the fact that 
+they almost always have some sort of locked table or tree that prevents 
+multiple CPUs from accessing resources in any kind of timely fashion. 
+As a result things like Tx is usually slowed down for network workloads 
+when multiple CPUs are enabled.
 
-Unfortunately, that's precisely what NetBSD is trying to implement (and
-that's what will happen if nothing else reopens fd).  See the logics in
-fd_close(), with ->fo_restart() and waiting for all activity to settle
-down.  As for the missing context, what fd_close() is doing is also
-unreliable - inducing ERESTART in other threads sitting in accept(2) and
-things like that and waiting for them to run into EBADF they'll get
-(barring races) on syscall restart; threads sitting in accept() et.al.
-on the same struct file, but with different descriptors will hopefully
-go into restart and continue unaffected.  All that machinery relies on
-nothing having reused the descriptor for socket(2), dup2() target, etc. while
-those threads had been going through the syscall restart - if that happens,
-you are SOL, since accept(2) _will_ restart on an unexpected socket.
+I admit doing a guest visible IOMMU would probably add some overhead, 
+but this current patch set as implemented already has some of the hints 
+of that as the descriptor rings are locked which means we cannot unmap 
+in the Tx clean-up while we are mapping on another Tx queue for instance.
 
-Moreover, if you fix dup2() atomicity, this approach will reliably shit
-itself for situations when dup2() rather than close() is used to close
-the socket.  It relies upon having at least some window where the victim
-descriptor would be yielding EBADF.
+One approach for this would be to implement or extend a lightweight DMA 
+API such as swiotlb or nommu.  The code would need to have a bit in 
+there so it can take care of marking the pages as dirty on sync_for_cpu 
+and unmap calls when set for BIDIRECTIONAL or FROM_DEVICE.  Then if we 
+could somehow have some mechanism for the hypervisor to tell us when the 
+feature is needed or not we could probably drop the overhead for page 
+dirtying as well.  That was why I even mentioned IOMMU, but the fact is 
+all we really need is some means of tracking if we should be marking the 
+pages as dirty or not.
 
-> System call processing for operations on files involves translating a
-> file descriptor (a number) into an open-file object (or "file
-> description"), struct file in BSD and I think also in Linux. The
-> actual system call logic operates on the open-file object, so once the
-> translation happens application monkeyshines involving file descriptor
-> numbers should have no effect on calls in progress. Other behavior
-> would violate the principle of least surprise, as this basic
-> architecture predates POSIX.
-
-Well, to be fair, until '93 there was no way to have descriptor table changed
-under a syscall in the first place.  The old model (everything up to and 
-ncluding 4.4BSD final) simply didn't include anything of that sort - mapping
-from descriptors to open files was not shared and all changes a syscall might
-see were ones done by the syscall itself.
-
-So this thing isn't covered by the basic architecture - it's something that
-had been significantly new merely two decades ago.  And POSIX still hasn't
-quite caught up with that newfangled 4.2BSD thing...
-
-IMO what you've described above is fine - that's how Linux works, that's
-how FreeBSD and OpenBSD work and that's how NetBSD used to work until 2008
-or so.  "Cancel syscall if any of the descriptors got dissociated from
-opened files by action of another thread, have the dissociating operation
-wait for all affected syscalls to run down" thing had been introduced then
-and it is similar to what Solaris is doing.
-
-AFAICS, the main issue with that is the memory footprint from hell and/or
-cacheline clusterfuck.  Having accept(2) bugger off with e.g. EINTR in such
-situation isn't inherently worse or better than having it sit there as if
-close() or dup2() has not happened - matter of taste, and if there had been a
-way to do it without inflicting the price on processes that do not pull that
-kind of crap in the first place... might be worth considering.
-
-As it is, the memory footprint seems to be too heavy.  I'm not entirely
-convinced that there's no clever way to avoid that, but right now I don't
-see anything that would look like a good approach.
+- Alex
