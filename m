@@ -1,107 +1,82 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
 Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
  sizeof(struct xps_map)
-Date: Fri, 23 Oct 2015 15:00:37 -0700
-Message-ID: <562AAE05.5020300@gmail.com>
-References: <32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
- <B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
- <trinity-eda7d55d-7234-4b29-a15c-955f8ba0c95e-1445513884942@3capp-gmx-bs32>
- <trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
- <1445524549.2207.1.camel@HansenPartnership.com> <5628F868.3040105@bell.net>
- <5629404B.8090805@gmx.de>
- <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
- <562A8990.9000808@gmx.de>
- <1445630588.22974.187.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151023210810.GA1969@ls3530.box>
+Date: Fri, 23 Oct 2015 15:16:17 -0700
+Message-ID: <CALx6S35H_o67LM8zuuNfxd5P=GtXH-b17dyCRO8Z-F7CEx097Q@mail.gmail.com>
+References: <42430464-867C-4E0B-8E95-C6CDB6D8A0B2@bell.net>
+	<32A3BF6F-B243-4AD4-9AE9-A5F9DAE0270A@bell.net>
+	<B8E85737-5ECD-4CBE-8730-886B098C5FA4@bell.net>
+	<trinity-eda7d55d-7234-4b29-a15c-955f8ba0c95e-1445513884942@3capp-gmx-bs32>
+	<trinity-8980ad10-b889-45cf-8f37-a33ba9cf99ef-1445514797080@3capp-gmx-bs32>
+	<1445524549.2207.1.camel@HansenPartnership.com>
+	<5628F868.3040105@bell.net>
+	<5629404B.8090805@gmx.de>
+	<CALx6S351U9L43Qh88DkJSM4tmhR-7SDoC6bCEhNqxnuu8LqTNA@mail.gmail.com>
+	<562A88D0.1010807@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Helge Deller <deller@gmx.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-parisc@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	linux-parisc List <linux-parisc@vger.kernel.org>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
 	John David Anglin <dave.anglin@bell.net>
+To: Helge Deller <deller@gmx.de>
 Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20151023210810.GA1969@ls3530.box>
+In-Reply-To: <562A88D0.1010807@gmx.de>
 Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/23/2015 02:08 PM, Helge Deller wrote:
-> * Eric Dumazet <eric.dumazet@gmail.com>:
->> On Fri, 2015-10-23 at 21:25 +0200, Helge Deller wrote:
->>
->>> Then, how about simply changing it to twice of L1_CACHE_BYTES ?
+On Fri, Oct 23, 2015 at 12:21 PM, Helge Deller <deller@gmx.de> wrote:
+> On 22.10.2015 23:37, Tom Herbert wrote:
+>> On Thu, Oct 22, 2015 at 1:00 PM, Helge Deller <deller@gmx.de> wrote:
+>>> Hi Tom & David,
 >>>
->>> #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) / sizeof(u16))
+>>> I've queued-up a patch for the parisc architecture which reduces L1=
+_CACHE_BYTES from 32 to 16:
+>>>   https://patchwork.kernel.org/patch/7399291/
+>>>
+>>> But this change will break the kernel build like this:
+>>>
+>>> In file included from net/core/dev.c:92:0:
+>>> net/core/dev.c: In function =E2=80=98expand_xps_map=E2=80=99:
+>>> include/linux/netdevice.h:721:27: warning: overflow in implicit con=
+stant conversion [-Woverflow]
+>>>    #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_m=
+ap)) \
+>>> net/core/dev.c:1972:18: note: in expansion of macro =E2=80=98XPS_MI=
+N_MAP_ALLOC=E2=80=99
+>>>    int alloc_len =3D XPS_MIN_MAP_ALLOC;
+>>>
+>>> Do you see an easy way to fix this ?
+>>>
+>> How about
 >>
->>
->> Seems good to me.
+>>  #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - ((sizeof(struct xps_ma=
+p)
+>> % L1_CACHE_BYTES)) \
 >
-> Great!
+> The full line would then be:
+> #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - (sizeof(struct xps_map) =
+% L1_CACHE_BYTES)) / sizeof(u16))
 >
-> Can you then maybe give me an Acked-by or signed-off for the patch below?
-> It further adds a compile-time check to avoid that XPS_MIN_MAP_ALLOC
-> gets calculated to zero on any architecture - otherwise no queues would
-> be allocated.
+> The only problem I see with this is, that XPS_MIN_MAP_ALLOC might bec=
+ome zero.
+> In that case the call to kzalloc_node() in expand_xps_map() doesn't a=
+llocate any memory for the queues.
 >
-> In addition I would like to push it for v4.3 then through my parisc-tree
-> (after keeping it in for-next for 1-2 days), together with the patch
-> which reduces L1_CACHE_BYTES to 16 on parisc.
-> Would that be OK too?
->
-> Thanks!
+I believe this wouldn't ever be zero (add 1 in to avoid result is 1 /
+2 possibility):
+
+#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES + 1 - (sizeof(struct
+xps_map) % L1_CACHE_BYTES)) / sizeof(u16))
+
+Tom
+
 > Helge
->
->
-> [PATCH] net/xps: Increase initial number of xps queues
->
-> Increase the number of initial allocated xps queues, so that the initial record
-> allocates twice the size of L1_CACHE_BYTES bytes.
->
-> This change is needed to copy with architectures where L1_CACHE_BYTES is
-> defined to equal or less than 16 bytes.
->
-> Signed-off-by: Helge Deller <deller@gmx.de>
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 2d15e38..d152788 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -718,7 +718,7 @@ struct xps_map {
->   	u16 queues[0];
->   };
->   #define XPS_MAP_SIZE(_num) (sizeof(struct xps_map) + ((_num) * sizeof(u16)))
-> -#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))	\
-> +#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) \
->       / sizeof(u16))
->
->   /*
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6bb6470..f6d6dd1 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1972,6 +1972,8 @@ static struct xps_map *expand_xps_map(struct xps_map *map,
->   	int alloc_len = XPS_MIN_MAP_ALLOC;
->   	int i, pos;
->
-> +	BUILD_BUG_ON(XPS_MIN_MAP_ALLOC == 0);
-> +
->   	for (pos = 0; map && pos < map->len; pos++) {
->   		if (map->queues[pos] != index)
->   			continue;
->
->
-
-Rather then leaving a potential bug you could probably rewrite the macro 
-so that it will give you at least 1.
-
-All you need to do is something like the following
-#define XPS_MIN_MAP_ALLOC \
-	((L1_CACHE_ALIGN(offsetof(struct xps_map, queue[1])) - \
-	  sizeof(struct xps_map)) / sizeof(u16))
-
-That should give you at least an XPS_MIN_MAP_ALLOC of 1.
-
-- Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-parisc"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
