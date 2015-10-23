@@ -1,69 +1,52 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next RFC 2/2] vhost_net: basic polling support
-Date: Fri, 23 Oct 2015 15:14:50 +0800
-Message-ID: <5629DE6A.9090205@redhat.com>
-References: <1445491649-62614-1-git-send-email-jasowang@redhat.com>
-	<1445491649-62614-2-git-send-email-jasowang@redhat.com>
-	<20151022113824-mutt-send-email-mst@redhat.com>
-	<562904D9.9080109@hpe.com>
-	<20151022191456-mutt-send-email-mst@redhat.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 1/1] xen-netfront: limit max queues number to
+ online cpus
+Date: Fri, 23 Oct 2015 15:19:32 +0800
+Message-ID: <5629DF84.70201@oracle.com>
+References: <5629846B.8000001@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Rick Jones <rick.jones2@hpe.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151022191456-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: boris.ostrovsky@oracle.com,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:45439 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbbJWHTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 03:19:40 -0400
+In-Reply-To: <5629846B.8000001@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We need to take care sysfs too, please ignore this patch, I'll create
+new one later for review and comment.
 
-
-On 10/23/2015 12:16 AM, Michael S. Tsirkin wrote:
-> On Thu, Oct 22, 2015 at 08:46:33AM -0700, Rick Jones wrote:
->> On 10/22/2015 02:33 AM, Michael S. Tsirkin wrote:
->>> On Thu, Oct 22, 2015 at 01:27:29AM -0400, Jason Wang wrote:
->>>> This patch tries to poll for new added tx buffer for a while at the
->>>> end of tx processing. The maximum time spent on polling were limited
->>>> through a module parameter. To avoid block rx, the loop will end it
->>>> there's new other works queued on vhost so in fact socket receive
->>>> queue is also be polled.
->>>>
->>>> busyloop_timeout = 50 gives us following improvement on TCP_RR test:
->>>>
->>>> size/session/+thu%/+normalize%
->>>>     1/     1/   +5%/  -20%
->>>>     1/    50/  +17%/   +3%
->>> Is there a measureable increase in cpu utilization
->>> with busyloop_timeout = 0?
->> And since a netperf TCP_RR test is involved, be careful about what netperf
->> reports for CPU util if that increase isn't in the context of the guest OS.
-
-Right, the cpu utilization is measured on host.
-
->>
->> For completeness, looking at the effect on TCP_STREAM and TCP_MAERTS,
->> aggregate _RR and even aggregate _RR/packets per second for many VMs on the
->> same system would be in order.
->>
->> happy benchmarking,
->>
->> rick jones
-> Absolutely, merging a new kernel API just for a specific
-> benchmark doesn't make sense.
-> I'm guessing this is just an early RFC, a fuller submission
-> will probably include more numbers.
->
-
-Yes, will run more complete tests.
-
-Thanks
+Thanks,
+Joe
+On 10/23/2015 08:50 AM, Joe Jin wrote:
+> Should not allocate queues number more than online cpus.
+> 
+> Signed-off-by: Joe Jin <joe.jin@oracle.com>
+> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/xen-netfront.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index f821a97..1eebd4e 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -2137,7 +2137,7 @@ static int __init netif_init(void)
+>  	/* Allow as many queues as there are CPUs if user has not
+>  	 * specified a value.
+>  	 */
+> -	if (xennet_max_queues == 0)
+> +	if (xennet_max_queues == 0 || xennet_max_queues > num_online_cpus())
+>  		xennet_max_queues = num_online_cpus();
+>  
+>  	return xenbus_register_frontend(&netfront_driver);
+> 
