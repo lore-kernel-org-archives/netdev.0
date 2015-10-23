@@ -1,50 +1,50 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Fri, 23 Oct 2015 14:03:35 +0200
-Message-ID: <20151023120335.GZ17308@twins.programming.kicks-ass.net>
-References: <1445559014-4667-1-git-send-email-ast@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:50005 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbbJWMDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 08:03:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1445559014-4667-1-git-send-email-ast@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: (unknown)
+Date: Fri, 23 Oct 2015 14:10:25 +0200
+Message-ID: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: linux-bluetooth@vger.kernel.org, linux-crypto@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: acme@ghostprotocols.net, al.drozdov@gmail.com,
+	alexander.h.duyck@redhat.com, daniel@iogearbox.net,
+	davem@davemloft.net, dmitry.tarnyagin@lockless.no,
+	dwmw2@infradead.org, edumazet@google.com, eyal.birger@gmail.com,
+	fw@strlen.de, gustavo@padovan.org, hannes@stressinduktion.org,
+	herbert@gondor.apana.org.au, jiri@resnulli.us, jmorris@namei.org,
+	johan.hedberg@gmail.com, kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	marcel@holtmann.org, mst@redhat.com, pablo@netfilter.org,
+	samuel@sortiz.org, tom@herbertland.com, viro@zeniv.linux.org.uk,
+	willemb@google.com, yoshfuji@linux-ipv6.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Subject: 
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2015 at 05:10:14PM -0700, Alexei Starovoitov wrote:
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -199,6 +199,11 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
->  	if (!event)
->  		return -ENOENT;
->  
-> +	/* make sure event is local and doesn't have pmu::count */
-> +	if (event->oncpu != smp_processor_id() ||
-> +	    event->pmu->count)
-> +		return -EINVAL;
-> +
->  	/*
->  	 * we don't know if the function is run successfully by the
->  	 * return value. It can be judged in other places, such as
 
-I might want to go turn that into a helper function to keep !perf code
-from poking around in the event itself, but its ok for now I suppose.
+Hello
 
-> @@ -207,7 +212,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
->  	return perf_event_read_local(event);
->  }
+This patch series was begun by my finding that memcpy_[to|from]_msg have
+a parameter len which is an int but used as size_t in whole functions.
+Without blindly changing the parameter to size_t, I have tried to see if
+anywhere in linux source code, someone give a negative argument with
+the following (unfinished) coccinnelle patch.
+virtual report
+@@
+type T;
+signed T i;
+@@
+(
+memcpy_from_msg
+|
+memcpy_to_msg
+)
+ (...,
+- i)
++ (size_t)i)
 
-So the bpf_perf_event_read() returns the count value, does this not also
-mean that returning -EINVAL here is also 'wrong'?
+With that I found many place where int variable is used to store unsigned values
+and which could be set as size_t since there are used againt size_t
+and/or given to functions that wait for size_t.
+It permit also to found a bug in net/llc/af_llc.c where a size_t variable
+stored error codes.
 
-I mean, sure an actual count value that high is unlikely, but its still
-a broken interface.
+Regards
