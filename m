@@ -1,45 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
-Date: Fri, 23 Oct 2015 15:47:56 +0200
-Message-ID: <562A3A8C.1060705@iogearbox.net>
-References: <cover.1444956943.git.daniel@iogearbox.net>	<562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>	<5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>	<1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>	<5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>	<562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>	<56253335.9000206@plumgrid.com>	<1445280385.602530.414418777.63627F89@webmail.messagingengine.com>	<562545AA.2080207@plumgrid.com>	<1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>	<56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>	<56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>	<56267FAF.60206@plumgrid.com> <87io61fjx3.fsf@x220.int.ebiederm.org>	<5627AC79.5000704@
- iogearbox.net> <87a8rabsst.fsf@x220.int.ebiederm.org>
+From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 7/8] mm: vmscan: report vmpressure at the level of
+ reclaim activity
+Date: Fri, 23 Oct 2015 15:49:57 +0200
+Message-ID: <20151023134957.GC15375@dhcp22.suse.cz>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-8-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a8rabsst.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1445487696-21545-8-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/22/2015 09:35 PM, Eric W. Biederman wrote:
-> Daniel Borkmann <daniel@iogearbox.net> writes:
->> On 10/20/2015 08:56 PM, Eric W. Biederman wrote:
->> ...
->>> Just FYI:  Using a device for this kind of interface is pretty
->>> much a non-starter as that quickly gets you into situations where
->>> things do not work in containers.  If someone gets a version of device
->>> namespaces past GregKH it might be up for discussion to use character
->>> devices.
->>
->> Okay, you are referring to this discussion here:
->>
->>    http://thread.gmane.org/gmane.linux.kernel.containers/26760
->
-> That is a piece of it.  It is an old old discussion (which generally has
-> been handled poorly).  For the forseeable future device namespaces have
-> a firm NACK by GregKH.  Which means that dynamic character device based
-> interfaces do not work in containers.  Which means if you are not
-> talking about physical hardware, character devices are a poor fit.
+On Thu 22-10-15 00:21:35, Johannes Weiner wrote:
+> The vmpressure metric is based on reclaim efficiency, which in turn is
+> an attribute of the LRU. However, vmpressure events are currently
+> reported at the source of pressure rather than at the reclaim level.
+> 
+> Switch the reporting to the reclaim level to allow finer-grained
+> analysis of which memcg is having trouble reclaiming its pages.
 
-Yes, it breaks down with real namespace support. Reworking the set with
-an improved version of the fs code is already in progress.
+I can see how this can be useful.
+ 
+> As far as memory.pressure_level interface semantics go, events are
+> escalated up the hierarchy until a listener is found, so this won't
+> affect existing users that listen at higher levels.
 
-Thanks,
-Daniel
+This is true but the parent will not see cumulative events anymore.
+One memcg might be fighting and barely reclaim anything so it would
+report high pressure while other would be doing just fine. The parent
+will just see conflicting events in a short time period and cannot match
+them the source memcg. This sounds really confusing. Even more confusing
+than the current semantic which allows the same behavior under certain
+configurations.
+
+I dunno, have to think about it some more. Maybe we need to rethink the
+way how the pressure is signaled. If we want the breakdown of the
+particular memcgs then we should be able to identify them for this to be
+useful.
+
+[...]
+-- 
+Michal Hocko
+SUSE Labs
