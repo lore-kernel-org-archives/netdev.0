@@ -1,46 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/11] net: ipv4: hlen could be set as size_t
-Date: Fri, 23 Oct 2015 06:08:52 -0700 (PDT)
-Message-ID: <20151023.060852.167547226456492975.davem@davemloft.net>
-References: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
-	<1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
+ maps trace data output when perf sampling
+Date: Fri, 23 Oct 2015 14:52:11 +0200
+Message-ID: <20151023125211.GB17308@twins.programming.kicks-ass.net>
+References: <20151021121713.GC3604@twins.programming.kicks-ass.net>
+ <56279634.5000606@huawei.com>
+ <20151021134951.GH3604@twins.programming.kicks-ass.net>
+ <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
+ <20151021140921.GI3604@twins.programming.kicks-ass.net>
+ <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
+ <20151021165758.GK3604@twins.programming.kicks-ass.net>
+ <56280175.8060404@plumgrid.com>
+ <20151022090632.GK2508@worktop.programming.kicks-ass.net>
+ <5628BA46.8060307@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>, pi3orama <pi3orama@163.com>,
+	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
+	jolsa@kernel.org, daniel@iogearbox.net,
+	linux-kernel@vger.kernel.org, hekuang@huawei.com,
 	netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34846 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbbJWMwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 08:52:24 -0400
-In-Reply-To: <1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5628BA46.8060307@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Fri, 23 Oct 2015 14:10:35 +0200
+On Thu, Oct 22, 2015 at 06:28:22PM +0800, Wangnan (F) wrote:
+> information to analysis when glitch happen. Another way we are trying to
+> implement
+> now is to dynamically turn events on and off, or at least enable/disable
+> sampling dynamically because the overhead of copying those samples
+> is a big part of perf's total overhead. After that we can trace as many
+> event as possible, but only fetch data from them when we detect a glitch.
 
-> The hlen member of raw_frag_vec is used in operation/function that wait
-> for unsigned value. So it need to be set as size_t.
-> 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+So why don't you 'fix' the flight recorder mode and just leave the data
+in memory and not bother copying it out until a glitch happens?
 
-You really need to test your changes.
+Something like this:
 
-Particularly on a platform where size_t has a different size than
-'int'.  That will generate several warnings, as shown by all of the
-build warning reports sent by the kbuild test robot in response to
-this patch series.
+lkml.kernel.org/r/20130708121557.GA17211@twins.programming.kicks-ass.net
 
-Also, you need to CC: all relevant mailing lists for the entire series
-of patches, and also provide a "Subject: [PATCH 0/N] xxx" posting
-describing at a high level and in detail what this patch series is
-doing, and why.
-
-It should also clearly state what exact tree you expect these patches
-to be merged into.
-
-Thanks.
+it appears we never quite finished that.
