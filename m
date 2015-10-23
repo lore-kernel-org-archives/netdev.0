@@ -1,52 +1,75 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Fri, 23 Oct 2015 18:09:00 +0100
-Message-ID: <20151023170900.GX22011@ZenIV.linux.org.uk>
-References: <5628636E.1020107@oracle.com>
- <201510220615.t9M6FL2d017592@room101.nl.oracle.com>
- <1445513425.22974.100.camel@edumazet-glaptop2.roam.corp.google.com>
- <5628CF79.2000507@oracle.com>
- <1445515858.22974.113.camel@edumazet-glaptop2.roam.corp.google.com>
- <5628E142.7050600@oracle.com>
- <20151022170548.GR22011@ZenIV.linux.org.uk>
- <56291F56.2080906@oracle.com>
- <20151022185610.GU22011@ZenIV.linux.org.uk>
- <201510221950.t9MJoAw0005835@room101.nl.oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Burlison <Alan.Burlison@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Casper.Dik@oracle.com
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] tc: improve filter help texts a bit
+Date: Fri, 23 Oct 2015 19:21:17 +0200
+Message-ID: <1445620877-5250-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:46802 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082AbbJWRJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 13:09:07 -0400
-Content-Disposition: inline
-In-Reply-To: <201510221950.t9MJoAw0005835@room101.nl.oracle.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:44207 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751287AbbJWRVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 13:21:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2015 at 09:50:10PM +0200, Casper.Dik@oracle.com wrote:
-> >Sigh...  It completely fails to mention descriptor-passing.  Which
-> >	a) is relevant to what "last close" means and
-> >	b) had been there for nearly the third of a century.
-> 
-> Why is that different?  These clearly count as file descriptors.
+This fixes a few syntax errors and changes route filter help text to use
+classid instead of flowid to be consistent with other filters' help
+texts.
 
-To quote your own posting upthread (Message-ID:
-<201510212033.t9LKX4G8007718@room101.nl.oracle.com>)
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ tc/f_flower.c | 4 ++--
+ tc/f_route.c  | 2 +-
+ tc/f_rsvp.c   | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-> Well, a file descriptor really only exists in the context of a process; 
-> in-flight it is no longer a file descriptor as there process context with 
-  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> a file descriptor table; so pointers to file descriptions are passed 
-> around.
-
-IMO it shows that the wording is anything but clear.  The only way to claim
-that it's accurate is, indeed, to declare that the contents of in-flight
-SCM_RIGHTS datagram should be counted as file descriptors and that's too
-much of a stretch for the reasons you've pointed to.
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 9a5ea06..a9b2c4d 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -28,7 +28,7 @@ static void explain(void)
+ 	fprintf(stderr, "                  [ action ACTION-SPEC ] [ classid CLASSID ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: MATCH-LIST := [ MATCH-LIST ] MATCH\n");
+-	fprintf(stderr, "       MATCH      := [ indev DEV-NAME | \n");
++	fprintf(stderr, "       MATCH      := { indev DEV-NAME | \n");
+ 	fprintf(stderr, "                       dst_mac MAC-ADDR | \n");
+ 	fprintf(stderr, "                       src_mac MAC-ADDR | \n");
+ 	fprintf(stderr, "                       eth_type [ipv4 | ipv6 | ETH-TYPE ] | \n");
+@@ -36,7 +36,7 @@ static void explain(void)
+ 	fprintf(stderr, "                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] | \n");
+ 	fprintf(stderr, "                       src_ip [ IPV4-ADDR | IPV6-ADDR ] | \n");
+ 	fprintf(stderr, "                       dst_port PORT-NUMBER | \n");
+-	fprintf(stderr, "                       src_port PORT-NUMBER | \n");
++	fprintf(stderr, "                       src_port PORT-NUMBER }\n");
+ 	fprintf(stderr,	"       FILTERID := X:Y:Z\n");
+ 	fprintf(stderr,	"       ACTION-SPEC := ... look at individual actions\n");
+ 	fprintf(stderr,	"\n");
+diff --git a/tc/f_route.c b/tc/f_route.c
+index 23c4ecc..4e9032c 100644
+--- a/tc/f_route.c
++++ b/tc/f_route.c
+@@ -28,7 +28,7 @@
+ static void explain(void)
+ {
+ 	fprintf(stderr, "Usage: ... route [ from REALM | fromif TAG ] [ to REALM ]\n");
+-	fprintf(stderr, "                [ flowid CLASSID ] [ action ACTION_SPEC ]]\n");
++	fprintf(stderr, "                [ classid CLASSID ] [ action ACTION_SPEC ]\n");
+ 	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
+ 	fprintf(stderr, "       CLASSID := X:Y\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
+diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
+index cb7b8fb..1fe9b15 100644
+--- a/tc/f_rsvp.c
++++ b/tc/f_rsvp.c
+@@ -27,7 +27,7 @@
+ static void explain(void)
+ {
+ 	fprintf(stderr, "Usage: ... rsvp ipproto PROTOCOL session DST[/PORT | GPI ]\n");
+-	fprintf(stderr, "                [ sender SRC[/PORT | GPI ]\n");
++	fprintf(stderr, "                [ sender SRC[/PORT | GPI ] ]\n");
+ 	fprintf(stderr, "                [ classid CLASSID ] [ action ACTION_SPEC ]\n");
+ 	fprintf(stderr, "                [ tunnelid ID ] [ tunnel ID skip NUMBER ]\n");
+ 	fprintf(stderr, "Where: GPI := { flowlabel NUMBER | spi/ah SPI | spi/esp SPI |\n");
+-- 
+2.1.2
