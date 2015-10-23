@@ -1,59 +1,39 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH 0/2] limit xen vnic max queues number
- to online cpu number
-Date: Fri, 23 Oct 2015 03:28:26 -0600
-Message-ID: <562A19DA02000078000ADEE0@prv-mh.provo.novell.com>
-References: <5629E796.5040203@oracle.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD02F6220AF@AMSPEX01CL01.citrite.net>
- <5629F851.6010309@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] allow dctcp alpha to drop to zero
+Date: Fri, 23 Oct 2015 02:47:20 -0700 (PDT)
+Message-ID: <20151023.024720.1261240812356446593.davem@davemloft.net>
+References: <20151019045908.GB11368@mininet-vm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <Ian.Campbell@citrix.com>,
-	"Paul Durrant" <Paul.Durrant@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Joe Jin" <joe.jin@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dborkman@redhat.com, fw@strlen.de,
+	glenn.judd@morganstanley.com
+To: agshew@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prv-mh.provo.novell.com ([137.65.248.74]:41835 "EHLO
-	prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbbJWJ22 convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
-	Fri, 23 Oct 2015 05:28:28 -0400
-In-Reply-To: <5629F851.6010309@oracle.com>
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:33407 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbbJWJau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:30:50 -0400
+In-Reply-To: <20151019045908.GB11368@mininet-vm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 23.10.15 at 11:05, <joe.jin@oracle.com> wrote:
-> On 10/23/2015 04:47 PM, Paul Durrant wrote:
->>> -----Original Message-----
->>> From: netdev-owner@vger.kernel.org [mailto:netdev-
->>> owner@vger.kernel.org] On Behalf Of Joe Jin
->>> Sent: 23 October 2015 08:54
->>> To: Wei Liu; Ian Campbell; Boris Ostrovsky; Konrad Rzeszutek Wilk; David S.
->>> Miller
->>> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org 
->>> Subject: [PATCH 0/2] limit xen vnic max queues number to online cpu
->>> number
->>>
->>> Currently xen vnic allowed to create lots of queues by set module param
->>> max_queues(both netback and netfront), when queues number larger than
->>> cpu number, it does not help for performance but need more cpu time.
->>>
->> 
->> But it's an override, so why would you want to limit it? The parameter 
-> should not be set in the common case.
+From: Andrew Shewmaker <agshew@gmail.com>
+Date: Sun, 18 Oct 2015 21:59:08 -0700
+
+> If alpha is strictly reduced by alpha >> dctcp_shift_g and if alpha is less
+> than 1 << dctcp_shift_g, then alpha may never reach zero. For example,
+> given shift_g=4 and alpha=15, alpha >> dctcp_shift_g yields 0 and alpha
+> remains 15. The effect isn't noticeable in this case below cwnd=137, but
+> could gradually drive uncongested flows with leftover alpha down to
+> cwnd=137. A larger dctcp_shift_g would have a greater effect.
 > 
-> Always we can not stop people use it because we provided it :)
+> This change causes alpha=15 to drop to 0 instead of being decrementing by 1
+> as it would when alpha=16. However, it requires one less conditional to
+> implement since it doesn't have to guard against subtracting 1 from 0U. A
+> decay of 15 is not unreasonable since an equal or greater amount occurs at
+> alpha >= 240.
+> 
+> Signed-off-by: Andrew G. Shewmaker <agshew@gmail.com>
 
-Well, it's always a question of whether preventing the admin to
-shoot himself in the foot makes sense: When it leads to an unusable
-system, it probably does. When it leads to a sub-optimal working
-system, perhaps we should allow them their freedom?
-
-Jan
+Applied, thanks.
