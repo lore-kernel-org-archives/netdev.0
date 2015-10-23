@@ -1,29 +1,36 @@
-From: StartUp@vger.kernel.org, loans@vger.kernel.org,
-	Company@vger.kernel.org
-Subject: START UP LOANS AVAILABLE FOR ALL!!!!!!
-Date: Fri, 23 Oct 2015 15:35:35 +0100
-Message-ID: <DM3PR1201MB1117F2237451E6F1130205D4B8260@DM3PR1201MB1117.namprd12.prod.outlook.com>
-Reply-To: <startuploansandfunds@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
+ helper
+Date: Fri, 23 Oct 2015 16:39:43 +0200
+Message-ID: <20151023143943.GC17308@twins.programming.kicks-ass.net>
+References: <1445396556-4854-1-git-send-email-ast@kernel.org>
+ <1445396556-4854-3-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1hn0253.outbound.protection.outlook.com ([157.56.110.253]:14784
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750992AbbJWOgI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 10:36:08 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445396556-4854-3-git-send-email-ast@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DO YOU NEED A LOAN??? IF YES CONACT US VIA EMAIL: startuploansandfunds@gmail.com 
+On Tue, Oct 20, 2015 at 08:02:34PM -0700, Alexei Starovoitov wrote:
+> +static const struct bpf_func_proto bpf_perf_event_output_proto = {
+> +	.func		= bpf_perf_event_output,
+> +	.gpl_only	= false,
 
-WE OFFER STARTUP LOANS, NEW YEAR LOANS, CAR LOANS ETC
+Oh ?
 
-CONTACT US VIA EMAIL: startuploansandfunds@gmail.com 
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+> +	.ret_type	= RET_INTEGER,
+> +	.arg1_type	= ARG_PTR_TO_CTX,
+> +	.arg2_type	= ARG_CONST_MAP_PTR,
+> +	.arg3_type	= ARG_ANYTHING,
+> +	.arg4_type	= ARG_PTR_TO_STACK,
+> +	.arg5_type	= ARG_CONST_STACK_SIZE,
+> +};
