@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/11] net: ipv4: hlen could be set as size_t
-Date: Fri, 23 Oct 2015 06:51:11 -0700 (PDT)
-Message-ID: <20151023.065111.918009116932115995.davem@davemloft.net>
-References: <1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
-	<20151023.060852.167547226456492975.davem@davemloft.net>
-	<20151023132100.GA16922@Red>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 04/11] net: packet: change vnet_hdr_len from int to size_t
+Date: Fri, 23 Oct 2015 16:35:02 +0300
+Message-ID: <20151023163441-mutt-send-email-mst@redhat.com>
+References: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1445602236-24130-5-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35213 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbbJWNel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:34:41 -0400
-In-Reply-To: <20151023132100.GA16922@Red>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: al.drozdov@gmail.com, daniel@iogearbox.net, davem@davemloft.net,
+	dwmw2@infradead.org, edumazet@google.com, eyal.birger@gmail.com,
+	viro@zeniv.linux.org.uk, willemb@google.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445602236-24130-5-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Fri, 23 Oct 2015 15:21:00 +0200
-
-> I have added all mailing list given by get_maintainer but this was done per patch with --to-cmd/--cc-cmd
-> Does it is better to put all mailing list globally ?
+On Fri, Oct 23, 2015 at 02:10:29PM +0200, LABBE Corentin wrote:
+> vnet_hdr_len cannot be negative and is use in operation/function that
+> wait for unsigned value.
+> This patch set vnet_hdr_len as size_t.
 > 
-> For the (0/N) mail, I forgot to add a subject on it https://lkml.org/lkml/2015/10/23/219
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+
+These things need to be done carefully.
+I'll look at this next week.
+
+> ---
+>  net/packet/af_packet.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> I will fix all minor finding and resend a proper version.
-
-Ask yourself the question: who will apply my patch series and to what tree will
-they apply it.
-
-If you cannot answer that question, you probably need to more properly split
-up your patches into several patch series, one for each intended maintainer
-and their respective tree.
-
-It is impossible to review some subset of a patch series, if the whole series
-isn't also available to read for the purposes of context.
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index aa4b15c..58a5c8f 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2632,7 +2632,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>  	int err, reserve = 0;
+>  	struct virtio_net_hdr vnet_hdr = { 0 };
+>  	int offset = 0;
+> -	int vnet_hdr_len;
+> +	size_t vnet_hdr_len;
+>  	struct packet_sock *po = pkt_sk(sk);
+>  	unsigned short gso_type = 0;
+>  	int hlen, tlen;
+> @@ -3106,7 +3106,7 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>  	struct sock *sk = sock->sk;
+>  	struct sk_buff *skb;
+>  	int copied, err;
+> -	int vnet_hdr_len = 0;
+> +	size_t vnet_hdr_len = 0;
+>  	unsigned int origlen = 0;
+>  
+>  	err = -EINVAL;
+> -- 
+> 2.4.10
