@@ -1,97 +1,89 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute RFC PATCH 5/9] tc: add a man page for fw filter
-Date: Fri, 23 Oct 2015 19:47:12 +0200
-Message-ID: <1445622436-6386-6-git-send-email-phil@nwl.cc>
+Subject: [iproute RFC PATCH 7/9] tc: add a man page for tcindex filter
+Date: Fri, 23 Oct 2015 19:47:14 +0200
+Message-ID: <1445622436-6386-8-git-send-email-phil@nwl.cc>
 References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: netdev@vger.kernel.org, Werner Almesberger <werner@almesberger.net>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:57713 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:54567 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932298AbbJWRrV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932299AbbJWRrV (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Oct 2015 13:47:21 -0400
 In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Werner Almesberger <werner@almesberger.net>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-fw.8 | 66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 66 insertions(+)
- create mode 100644 man/man8/tc-fw.8
+ man/man8/tc-tcindex.8 | 58 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 58 insertions(+)
+ create mode 100644 man/man8/tc-tcindex.8
 
-diff --git a/man/man8/tc-fw.8 b/man/man8/tc-fw.8
+diff --git a/man/man8/tc-tcindex.8 b/man/man8/tc-tcindex.8
 new file mode 100644
-index 0000000..d742b47
+index 0000000..7fcf825
 --- /dev/null
-+++ b/man/man8/tc-fw.8
-@@ -0,0 +1,66 @@
-+.TH "Firewall mark classifier in tc" 8 "21 Oct 2015" "iproute2" "Linux"
++++ b/man/man8/tc-tcindex.8
+@@ -0,0 +1,58 @@
++.TH "Traffic control index filter" 8 "21 Oct 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+fw \- fwmark traffic control filter
++tcindex \- traffic control index filter
 +.SH SYNOPSIS
 +.in +8
 +.ti -8
-+.BR tc " " filter " ... " fw " [ " classid
++.BR tc " " filter " ... " tcindex " [ " hash
++.IR SIZE " ] [ "
++.B mask
++.IR MASK " ] [ "
++.B shift
++.IR SHIFT " ] [ "
++.BR pas_on " | " fall_through " ] [ " classid
 +.IR CLASSID " ] [ "
 +.B action
-+.IR ACTION_SPEC " ]"
++.BR ACTION_SPEC " ]"
 +.SH DESCRIPTION
-+the
-+.B fw
-+filter allows to classify packets based on a previously set
-+.BR fwmark " by " iptables .
-+If it is identical to the filter's
-+.BR handle ,
-+the filter matches.
-+.B iptables
-+allows to mark single packets with the
-+.B MARK
-+target, or whole connections using
-+.BR CONNMARK .
-+The benefit of using this filter instead of doing the
-+heavy-lifting with
-+.B tc
-+itself is that on one hand it might be convenient to keep packet filtering and
-+classification in one place, possibly having to match a packet just once, and on
-+the other users familiar with
-+.BR iptables " but not " tc
-+will have a less hard time adding QoS to their setups.
++This filter allows to match packets based on their
++.B tcindex
++field value, i.e. the combination of the DSCP and ECN fields as present in IPv4
++and IPv6 headers.
 +.SH OPTIONS
-+.TP
-+.BI classid " CLASSID"
-+Push matching packets to the class identified by
-+.IR CLASSID .
 +.TP
 +.BI action " ACTION_SPEC"
 +Apply an action from the generic actions framework on matching packets.
-+.SH EXAMPLES
-+Take e.g. the following tc filter statement:
++.TP
++.BI classid " CLASSID"
++Push matching packets into the class identified by
++.IR CLASSID .
++.TP
++.BI hash " SIZE"
++Hash table size in entries to use. Defaults to 64.
++.TP
++.BI mask " MASK"
++An optional bitmask to binary
++.BR AND " to the packet's " tcindex
++field before use.
++.TP
++.BI shift " SHIFT"
++The number of bits to right-shift a packet's
++.B tcindex
++value before use. If a
++.B mask
++has been set, masking is done before shifting.
++.TP
++.B pass_on
++If this flag is set, failure to find a class for the resulting ID will make the
++filter fail and lead to the next filter being consulted.
++.TP
++.B fall_through
++This is the opposite of
++.B pass_on
++and the default. The filter will classify the packet even if there is no class
++present for the resulting class ID.
 +
-+.RS
-+.EX
-+tc filter add ... handle 6 fw classid 1:1
-+.EE
-+.RE
-+
-+will match if the packet's
-+.B fwmark
-+value is
-+.BR 6 .
-+This is a sample
-+.B iptables
-+statement marking packets coming in on eth0:
-+
-+.RS
-+.EX
-+iptables -t mangle -A PREROUTING -i eth0 -j MARK --set-mark 6
-+.EE
-+.RE
 +.SH SEE ALSO
-+.BR tc (8),
-+.BR iptables (8),
-+.BR iptables-extensions (8)
++.BR tc (8)
 -- 
 2.1.2
