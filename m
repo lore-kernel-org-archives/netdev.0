@@ -1,59 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/17] i40e/i40evf: Bump i40e to 1.3.46 and i40evf to 1.3.33
-Date: Fri, 23 Oct 2015 06:17:50 -0700
-Message-ID: <1445606279-19345-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] i40e: Fix an incorrect OEM version string
+Date: Fri, 23 Oct 2015 06:17:48 -0700
+Message-ID: <1445606279-19345-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1445606279-19345-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:13278 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751923AbbJWNSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2015 09:18:20 -0400
+	id S1752188AbbJWNST (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 09:18:19 -0400
 In-Reply-To: <1445606279-19345-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Bump up the version...
+This patch fixes a problem where the driver output of the OEM
+version string varied from the other tools.  The mask value
+and the order of operations were incorrect, per the original
+change request.  Without this patch, the version string will
+appear incorrect from the driver.
 
-Change-ID: Ib8d501021671ba20250115ed54330e2c182255b7
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: Ie1ca6485284b4ce3b57e5a99b18b7641617c7ef7
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2f117d9..3e595ad 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 7c2b2e8..4dd3e26 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -109,8 +109,10 @@
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+ #define I40E_NVM_VERSION_HI_SHIFT  12
+ #define I40E_NVM_VERSION_HI_MASK   (0xf << I40E_NVM_VERSION_HI_SHIFT)
+-#define I40E_OEM_VER_BUILD_MASK    0xff00
++#define I40E_OEM_VER_BUILD_MASK    0xffff
+ #define I40E_OEM_VER_PATCH_MASK    0xff
++#define I40E_OEM_VER_BUILD_SHIFT   8
++#define I40E_OEM_VER_SHIFT         24
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 38
-+#define DRV_VERSION_BUILD 46
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 0409383..76cd1ae 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -34,7 +34,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ /* The values in here are decimal coded as hex as is the case in the NVM map*/
+ #define I40E_CURRENT_NVM_VERSION_HI 0x2
+@@ -594,6 +596,15 @@ struct i40e_device {
+ static inline char *i40e_nvm_version_str(struct i40e_hw *hw)
+ {
+ 	static char buf[32];
++	u32 full_ver;
++	u8 ver, patch;
++	u16 build;
++
++	full_ver = hw->nvm.oem_ver;
++	ver = (u8)(full_ver >> I40E_OEM_VER_SHIFT);
++	build = (u16)((full_ver >> I40E_OEM_VER_BUILD_SHIFT)
++		 & I40E_OEM_VER_BUILD_MASK);
++	patch = (u8)(full_ver & I40E_OEM_VER_PATCH_MASK);
  
--#define DRV_VERSION "1.3.25"
-+#define DRV_VERSION "1.3.33"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2015 Intel Corporation.";
+ 	snprintf(buf, sizeof(buf),
+ 		 "%x.%02x 0x%x %d.%d.%d",
+@@ -601,9 +612,7 @@ static inline char *i40e_nvm_version_str(struct i40e_hw *hw)
+ 			I40E_NVM_VERSION_HI_SHIFT,
+ 		 (hw->nvm.version & I40E_NVM_VERSION_LO_MASK) >>
+ 			I40E_NVM_VERSION_LO_SHIFT,
+-		 hw->nvm.eetrack, (hw->nvm.oem_ver >> 24),
+-		 (hw->nvm.oem_ver & I40E_OEM_VER_BUILD_MASK) >> 8,
+-		 hw->nvm.oem_ver & I40E_OEM_VER_PATCH_MASK);
++		 hw->nvm.eetrack, ver, build, patch);
+ 
+ 	return buf;
+ }
 -- 
 2.4.3
