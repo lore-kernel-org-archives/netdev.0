@@ -1,95 +1,37 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH V2 1/2] xen-netback: limit xen vif max queues number to online
- cpus
-Date: Fri, 23 Oct 2015 17:18:23 +0800
-Message-ID: <5629FB5F.5060301@oracle.com>
-References: <5629FB31.5060806@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] macvtap: unbreak receiving of gro skb with frag
+ list
+Date: Fri, 23 Oct 2015 02:35:24 -0700 (PDT)
+Message-ID: <20151023.023524.817747898949803431.davem@davemloft.net>
+References: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jan Beulich <JBeulich@suse.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, vyasevic@redhat.com
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42321 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbbJWJSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:18:37 -0400
-In-Reply-To: <5629FB31.5060806@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33339 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752134AbbJWJS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:18:58 -0400
+In-Reply-To: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should not allocate xen vif queues number more than online cpus.
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 23 Oct 2015 00:57:05 -0400
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Cc: Jan Beulich <JBeulich@suse.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
----
- drivers/net/xen-netback/netback.c |   28 ++++++++++++++++++++++------
- 1 files changed, 22 insertions(+), 6 deletions(-)
+> We don't have fraglist support in TAP_FEATURES. This will lead
+> software segmentation of gro skb with frag list. Fixes by having
+> frag list support in TAP_FEATURES.
+> 
+> With this patch single session of netperf receiving were restored from
+> about 5Gb/s to about 12Gb/s on mlx4.
+> 
+> Fixes a567dd6252 ("macvtap: simplify usage of tap_features")
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index ec98d43..021dcb0 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -68,7 +68,9 @@ unsigned int rx_stall_timeout_msecs = 60000;
- module_param(rx_stall_timeout_msecs, uint, 0444);
- 
- unsigned int xenvif_max_queues;
--module_param_named(max_queues, xenvif_max_queues, uint, 0644);
-+static int xennet_set_max_queues(const char *val, struct kernel_param *kp);
-+module_param_call(max_queues, xennet_set_max_queues, param_get_uint,
-+		  &xenvif_max_queues, 0644);
- MODULE_PARM_DESC(max_queues,
- 		 "Maximum number of queues per virtual interface");
- 
-@@ -107,6 +109,20 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif_queue *queue
- 					     u16      size,
- 					     u16      flags);
- 
-+static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
-+{
-+	unsigned int cpus = num_online_cpus();
-+	unsigned int max_queues = simple_strtoul(val, NULL, 10);
-+
-+	if (max_queues == 0 || max_queues > cpus) {
-+		pr_info("max_queues %u is out of range [0 - %u]!\n", 
-+			max_queues, cpus);
-+		return -ERANGE;
-+	}
-+
-+	return param_set_uint(val, kp);
-+}
-+
- static inline unsigned long idx_to_pfn(struct xenvif_queue *queue,
- 				       u16 idx)
- {
-@@ -2110,15 +2126,15 @@ int xenvif_dealloc_kthread(void *data)
- static int __init netback_init(void)
- {
- 	int rc = 0;
-+	unsigned int cpus = num_online_cpus();
- 
- 	if (!xen_domain())
- 		return -ENODEV;
- 
--	/* Allow as many queues as there are CPUs if user has not
--	 * specified a value.
--	 */
--	if (xenvif_max_queues == 0)
--		xenvif_max_queues = num_online_cpus();
-+	/* Allow at most as many queues as CPUs. */
-+	if (xenvif_max_queues == 0 || xenvif_max_queues > cpus)
-+		xenvif_max_queues = cpus;
-+	pr_info("vif max_queues: %u\n", xenvif_max_queues);
- 
- 	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
- 		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
--- 
-1.7.1
+Applied and queued up for -stable, thanks Jason.
