@@ -1,204 +1,225 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net-next] bnxt_en: Fix compile errors when CONFIG_BNXT_SRIOV is not set.
-Date: Fri, 23 Oct 2015 15:06:19 -0400
-Message-ID: <1445627179-9971-1-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jim.hull@hpe.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: bcm_sf2: Unhardcode port numbers
+Date: Fri, 23 Oct 2015 12:11:08 -0700
+Message-ID: <1445627468-16084-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+	andrew@lunn.ch, linux@roeck-us.net,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:31812 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753279AbbJWTGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 15:06:52 -0400
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35858 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752715AbbJWTLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 15:11:44 -0400
+Received: by pacfv9 with SMTP id fv9so131334396pac.3
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 12:11:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct bnxt_pf_info needs to be always defined.  Move bnxt_update_vf_mac()
-to bnxt_sriov.c and add some missing #ifdef CONFIG_BNXT_SRIOV.
+While the current driver mostly supports BCM7445 which has a hardcoded
+location for its MoCA port on port 7 and port 0 for its internal PHY,
+this is not necessarily true for all other chips out there such as
+BCM3390 for instance.
 
-Reported-by: Jim Hull <jim.hull@hpe.com>
-Tested-by: Jim Hull <jim.hull@hpe.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Walk the list of ports from Device Tree, get their port number ("reg"
+property), and then parse the "phy-mode" property and initialize two
+internal variables: moca_port and a bitmask of internal PHYs. Since we
+use interrupts for the MoCA port, we introduce two helper functions to
+enable/disable interrupts and do this at the appropriate bank (INTRL2_0
+or INTRL2_1).
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 32 ++++++-------------------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h       |  4 ++--
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 31 +++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h |  1 +
- 4 files changed, 40 insertions(+), 28 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 102 +++++++++++++++++++++++++++++++++++++++++-----
+ drivers/net/dsa/bcm_sf2.h |   6 +++
+ 2 files changed, 97 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 94b11a5..9e36f83 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3645,6 +3645,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 		pf->max_rx_em_flows = le32_to_cpu(resp->max_rx_em_flows);
- 		pf->max_rx_wm_flows = le32_to_cpu(resp->max_rx_wm_flows);
- 	} else {
-+#ifdef CONFIG_BNXT_SRIOV
- 		struct bnxt_vf_info *vf = &bp->vf;
- 
- 		vf->fw_fid = le16_to_cpu(resp->fid);
-@@ -3659,6 +3660,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 		vf->max_l2_ctxs = le16_to_cpu(resp->max_l2_ctxs);
- 		vf->max_vnics = le16_to_cpu(resp->max_vnics);
- 		vf->max_stat_ctxs = le16_to_cpu(resp->max_stat_ctx);
-+#endif
- 	}
- 
- 	bp->tx_push_thresh = 0;
-@@ -3880,30 +3882,6 @@ static int bnxt_alloc_rfs_vnics(struct bnxt *bp)
- #endif
- }
- 
--static void bnxt_update_vf_mac(struct bnxt *bp)
--{
--	struct hwrm_func_qcaps_input req = {0};
--	struct hwrm_func_qcaps_output *resp = bp->hwrm_cmd_resp_addr;
--
--	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_QCAPS, -1, -1);
--	req.fid = cpu_to_le16(0xffff);
--
--	mutex_lock(&bp->hwrm_cmd_lock);
--	if (_hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT))
--		goto update_vf_mac_exit;
--
--	if (!is_valid_ether_addr(resp->perm_mac_address))
--		goto update_vf_mac_exit;
--
--	if (ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
--		goto update_vf_mac_exit;
--
--	memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
--	memcpy(bp->dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
--update_vf_mac_exit:
--	mutex_unlock(&bp->hwrm_cmd_lock);
--}
--
- static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
- {
- 	int rc = 0;
-@@ -5581,7 +5559,7 @@ static int bnxt_get_max_irq(struct pci_dev *pdev)
- 
- void bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx)
- {
--	int max_rings;
-+	int max_rings = 0;
- 
- 	if (BNXT_PF(bp)) {
- 		*max_tx = bp->pf.max_pf_tx_rings;
-@@ -5589,10 +5567,12 @@ void bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx)
- 		max_rings = min_t(int, bp->pf.max_irqs, bp->pf.max_cp_rings);
- 		max_rings = min_t(int, max_rings, bp->pf.max_stat_ctxs);
- 	} else {
-+#ifdef CONFIG_BNXT_SRIOV
- 		*max_tx = bp->vf.max_tx_rings;
- 		*max_rx = bp->vf.max_rx_rings;
- 		max_rings = min_t(int, bp->vf.max_irqs, bp->vf.max_cp_rings);
- 		max_rings = min_t(int, max_rings, bp->vf.max_stat_ctxs);
-+#endif
- 	}
- 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
- 		*max_rx >>= 1;
-@@ -5696,8 +5676,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		memcpy(dev->dev_addr, bp->pf.mac_addr, ETH_ALEN);
- 		bp->pf.max_irqs = max_irqs;
- 	} else {
-+#if defined(CONFIG_BNXT_SRIOV)
- 		memcpy(dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
- 		bp->vf.max_irqs = max_irqs;
-+#endif
- 	}
- 	bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings);
- 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 7c89367..5ee3cc2 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -709,6 +709,7 @@ struct bnxt_vf_info {
- 	void	*hwrm_cmd_req_addr;
- 	dma_addr_t	hwrm_cmd_req_dma_addr;
- };
-+#endif
- 
- struct bnxt_pf_info {
- #define BNXT_FIRST_PF_FID	1
-@@ -741,7 +742,6 @@ struct bnxt_pf_info {
- 	dma_addr_t		hwrm_cmd_req_dma_addr[4];
- 	struct bnxt_vf_info	*vf;
- };
--#endif
- 
- struct bnxt_ntuple_filter {
- 	struct hlist_node	hash;
-@@ -960,9 +960,9 @@ struct bnxt {
- #define BNXT_RESET_TASK_SP_EVENT	32
- #define BNXT_RST_RING_SP_EVENT		64
- 
-+	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
- 	int			nr_vfs;
--	struct bnxt_pf_info	pf;
- 	struct bnxt_vf_info	vf;
- 	wait_queue_head_t	sriov_cfg_wait;
- 	bool			sriov_cfg;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-index 3422147..60989e7 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-@@ -774,6 +774,31 @@ void bnxt_hwrm_exec_fwd_req(struct bnxt *bp)
- 		i = vf_id + 1;
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 9d56515f4c4d..0a284e204644 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -21,6 +21,7 @@
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_address.h>
++#include <linux/of_net.h>
+ #include <net/dsa.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_bridge.h>
+@@ -264,6 +265,50 @@ static void bcm_sf2_gphy_enable_set(struct dsa_switch *ds, bool enable)
  	}
  }
-+
-+void bnxt_update_vf_mac(struct bnxt *bp)
+ 
++static inline void bcm_sf2_port_intr_enable(struct bcm_sf2_priv *priv,
++					    int port)
 +{
-+	struct hwrm_func_qcaps_input req = {0};
-+	struct hwrm_func_qcaps_output *resp = bp->hwrm_cmd_resp_addr;
++	unsigned int off;
 +
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_QCAPS, -1, -1);
-+	req.fid = cpu_to_le16(0xffff);
++	switch (port) {
++	case 7:
++		off = P7_IRQ_OFF;
++		break;
++	case 0:
++		/* Port 0 interrupts are located on the first bank */
++		intrl2_0_mask_clear(priv, P_IRQ_MASK(P0_IRQ_OFF));
++		return;
++	default:
++		off = P_IRQ_OFF(port);
++		break;
++	}
 +
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+	if (_hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT))
-+		goto update_vf_mac_exit;
-+
-+	if (!is_valid_ether_addr(resp->perm_mac_address))
-+		goto update_vf_mac_exit;
-+
-+	if (ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
-+		goto update_vf_mac_exit;
-+
-+	memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
-+	memcpy(bp->dev->dev_addr, bp->vf.mac_addr, ETH_ALEN);
-+update_vf_mac_exit:
-+	mutex_unlock(&bp->hwrm_cmd_lock);
++	intrl2_1_mask_clear(priv, P_IRQ_MASK(off));
 +}
 +
- #else
- 
- void bnxt_sriov_disable(struct bnxt *bp)
-@@ -782,6 +807,10 @@ void bnxt_sriov_disable(struct bnxt *bp)
- 
- void bnxt_hwrm_exec_fwd_req(struct bnxt *bp)
- {
--	netdev_err(dev, "Invalid VF message received when SRIOV is not enable\n");
-+	netdev_err(bp->dev, "Invalid VF message received when SRIOV is not enable\n");
++static inline void bcm_sf2_port_intr_disable(struct bcm_sf2_priv *priv,
++					     int port)
++{
++	unsigned int off;
++
++	switch (port) {
++	case 7:
++		off = P7_IRQ_OFF;
++		break;
++	case 0:
++		/* Port 0 interrupts are located on the first bank */
++		intrl2_0_mask_set(priv, P_IRQ_MASK(P0_IRQ_OFF));
++		intrl2_0_writel(priv, P_IRQ_MASK(P0_IRQ_OFF), INTRL2_CPU_CLEAR);
++		return;
++	default:
++		off = P_IRQ_OFF(port);
++		break;
++	}
++
++	intrl2_1_mask_set(priv, P_IRQ_MASK(off));
++	intrl2_1_writel(priv, P_IRQ_MASK(off), INTRL2_CPU_CLEAR);
 +}
 +
-+void bnxt_update_vf_mac(struct bnxt *bp)
-+{
+ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
+ 			      struct phy_device *phy)
+ {
+@@ -280,7 +325,7 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
+ 	core_writel(priv, 0, CORE_G_PCTL_PORT(port));
+ 
+ 	/* Re-enable the GPHY and re-apply workarounds */
+-	if (port == 0 && priv->hw_params.num_gphy == 1) {
++	if (priv->int_phy_mask & 1 << port && priv->hw_params.num_gphy == 1) {
+ 		bcm_sf2_gphy_enable_set(ds, true);
+ 		if (phy) {
+ 			/* if phy_stop() has been called before, phy
+@@ -297,9 +342,9 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
+ 		}
+ 	}
+ 
+-	/* Enable port 7 interrupts to get notified */
+-	if (port == 7)
+-		intrl2_1_mask_clear(priv, P_IRQ_MASK(P7_IRQ_OFF));
++	/* Enable MoCA port interrupts to get notified */
++	if (port == priv->moca_port)
++		bcm_sf2_port_intr_enable(priv, port);
+ 
+ 	/* Set this port, and only this one to be in the default VLAN,
+ 	 * if member of a bridge, restore its membership prior to
+@@ -329,12 +374,10 @@ static void bcm_sf2_port_disable(struct dsa_switch *ds, int port,
+ 	if (priv->wol_ports_mask & (1 << port))
+ 		return;
+ 
+-	if (port == 7) {
+-		intrl2_1_mask_set(priv, P_IRQ_MASK(P7_IRQ_OFF));
+-		intrl2_1_writel(priv, P_IRQ_MASK(P7_IRQ_OFF), INTRL2_CPU_CLEAR);
+-	}
++	if (port == priv->moca_port)
++		bcm_sf2_port_intr_disable(priv, port);
+ 
+-	if (port == 0 && priv->hw_params.num_gphy == 1)
++	if (priv->int_phy_mask & 1 << port && priv->hw_params.num_gphy == 1)
+ 		bcm_sf2_gphy_enable_set(ds, false);
+ 
+ 	if (dsa_is_cpu_port(ds, port))
+@@ -615,6 +658,42 @@ static void bcm_sf2_intr_disable(struct bcm_sf2_priv *priv)
+ 	intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
  }
- #endif
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
-index 0b430f1..c151280 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
-@@ -19,4 +19,5 @@ int bnxt_set_vf_spoofchk(struct net_device *, int, bool);
- int bnxt_sriov_configure(struct pci_dev *pdev, int num_vfs);
- void bnxt_sriov_disable(struct bnxt *);
- void bnxt_hwrm_exec_fwd_req(struct bnxt *);
-+void bnxt_update_vf_mac(struct bnxt *);
- #endif
+ 
++static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
++				   struct device_node *dn)
++{
++	struct device_node *port;
++	const char *phy_mode_str;
++	int mode;
++	unsigned int port_num;
++	int ret;
++
++	priv->moca_port = -1;
++
++	for_each_available_child_of_node(dn, port) {
++		if (of_property_read_u32(port, "reg", &port_num))
++			continue;
++
++		/* Internal PHYs get assigned a specific 'phy-mode' property
++		 * value: "internal" to help flag them before MDIO probing
++		 * has completed, since they might be turned off at that
++		 * time
++		 */
++		mode = of_get_phy_mode(port);
++		if (mode < 0) {
++			ret = of_property_read_string(port, "phy-mode",
++						      &phy_mode_str);
++			if (ret < 0)
++				continue;
++
++			if (!strcasecmp(phy_mode_str, "internal"))
++				priv->int_phy_mask |= 1 << port_num;
++		}
++
++		if (mode == PHY_INTERFACE_MODE_MOCA)
++			priv->moca_port = port_num;
++	}
++}
++
+ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ {
+ 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+@@ -633,6 +712,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 	 * level
+ 	 */
+ 	dn = ds->pd->of_node->parent;
++	bcm_sf2_identify_ports(priv, ds->pd->of_node);
+ 
+ 	priv->irq0 = irq_of_parse_and_map(dn, 0);
+ 	priv->irq1 = irq_of_parse_and_map(dn, 1);
+@@ -913,7 +993,7 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
+ 
+ 	status->link = 0;
+ 
+-	/* Port 7 is special as we do not get link status from CORE_LNKSTS,
++	/* MoCA port is special as we do not get link status from CORE_LNKSTS,
+ 	 * which means that we need to force the link at the port override
+ 	 * level to get the data to flow. We do use what the interrupt handler
+ 	 * did determine before.
+@@ -921,7 +1001,7 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
+ 	 * For the other ports, we just force the link status, since this is
+ 	 * a fixed PHY device.
+ 	 */
+-	if (port == 7) {
++	if (port == priv->moca_port) {
+ 		status->link = priv->port_sts[port].link;
+ 		/* For MoCA interfaces, also force a link down notification
+ 		 * since some version of the user-space daemon (mocad) use
+diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+index 789d7b7737da..49289988aebe 100644
+--- a/drivers/net/dsa/bcm_sf2.h
++++ b/drivers/net/dsa/bcm_sf2.h
+@@ -78,6 +78,12 @@ struct bcm_sf2_priv {
+ 
+ 	/* Mask of ports enabled for Wake-on-LAN */
+ 	u32				wol_ports_mask;
++
++	/* MoCA port location */
++	int				moca_port;
++
++	/* Bitmask of ports having an integrated PHY */
++	unsigned int			int_phy_mask;
+ };
+ 
+ struct bcm_sf2_hw_stats {
 -- 
-1.8.3.1
+2.1.0
