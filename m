@@ -1,89 +1,61 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute RFC PATCH 7/9] tc: add a man page for tcindex filter
-Date: Fri, 23 Oct 2015 19:47:14 +0200
-Message-ID: <1445622436-6386-8-git-send-email-phil@nwl.cc>
-References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Werner Almesberger <werner@almesberger.net>
+Subject: [iproute RFC PATCH 0/9] Document tc filters
+Date: Fri, 23 Oct 2015 19:47:07 +0200
+Message-ID: <1445622436-6386-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:54567 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:52639 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932299AbbJWRrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2015 13:47:21 -0400
-In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
+	id S932275AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2015 13:47:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Werner Almesberger <werner@almesberger.net>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/tc-tcindex.8 | 58 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
- create mode 100644 man/man8/tc-tcindex.8
+This series adds documentation in form of a dedicated man page for every
+available tc filter with the exception of rsvp which I simply didn't
+understand. In addition to that, it adds a list of filters with (very) basic
+description to tc.8, listing the specific man pages for detailed information.
 
-diff --git a/man/man8/tc-tcindex.8 b/man/man8/tc-tcindex.8
-new file mode 100644
-index 0000000..7fcf825
---- /dev/null
-+++ b/man/man8/tc-tcindex.8
-@@ -0,0 +1,58 @@
-+.TH "Traffic control index filter" 8 "21 Oct 2015" "iproute2" "Linux"
-+
-+.SH NAME
-+tcindex \- traffic control index filter
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " " filter " ... " tcindex " [ " hash
-+.IR SIZE " ] [ "
-+.B mask
-+.IR MASK " ] [ "
-+.B shift
-+.IR SHIFT " ] [ "
-+.BR pas_on " | " fall_through " ] [ " classid
-+.IR CLASSID " ] [ "
-+.B action
-+.BR ACTION_SPEC " ]"
-+.SH DESCRIPTION
-+This filter allows to match packets based on their
-+.B tcindex
-+field value, i.e. the combination of the DSCP and ECN fields as present in IPv4
-+and IPv6 headers.
-+.SH OPTIONS
-+.TP
-+.BI action " ACTION_SPEC"
-+Apply an action from the generic actions framework on matching packets.
-+.TP
-+.BI classid " CLASSID"
-+Push matching packets into the class identified by
-+.IR CLASSID .
-+.TP
-+.BI hash " SIZE"
-+Hash table size in entries to use. Defaults to 64.
-+.TP
-+.BI mask " MASK"
-+An optional bitmask to binary
-+.BR AND " to the packet's " tcindex
-+field before use.
-+.TP
-+.BI shift " SHIFT"
-+The number of bits to right-shift a packet's
-+.B tcindex
-+value before use. If a
-+.B mask
-+has been set, masking is done before shifting.
-+.TP
-+.B pass_on
-+If this flag is set, failure to find a class for the resulting ID will make the
-+filter fail and lead to the next filter being consulted.
-+.TP
-+.B fall_through
-+This is the opposite of
-+.B pass_on
-+and the default. The filter will classify the packet even if there is no class
-+present for the resulting class ID.
-+
-+.SH SEE ALSO
-+.BR tc (8)
+I am not too confident of correctness in every aspect, therefore this series is
+tagged RFC and the relevant patches are Cc'ed to the filter authors in hope for
+review and harsh criticism in form of corrections. :)
+
+Alexey or anyone else with knowledge of rsvp, you could make me very happy by
+explaining to me how that filter is supposed to work. In turn I could serve you
+with stupid^Wunqualified questions and ultimately tc-rsvp.8 which you would
+then have to proof-read as well.
+
+Phil Sutter (9):
+  tc: add a man page for basic filter
+  tc: add a man page for cgroup filter
+  tc: add a man page for flow filter
+  tc: add a man page for flower filter
+  tc: add a man page for fw filter
+  tc: add a man page for route filter
+  tc: add a man page for tcindex filter
+  tc: add a man page for u32 filter
+  tc: ship filter man pages and refer to them in tc.8
+
+ man/man8/Makefile     |   4 +-
+ man/man8/tc-basic.8   |  34 +++
+ man/man8/tc-cgroup.8  |  80 ++++++
+ man/man8/tc-flow.8    | 265 ++++++++++++++++++++
+ man/man8/tc-flower.8  | 113 +++++++++
+ man/man8/tc-fw.8      |  66 +++++
+ man/man8/tc-route.8   |  74 ++++++
+ man/man8/tc-tcindex.8 |  58 +++++
+ man/man8/tc-u32.8     | 663 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/tc.8         |  52 ++++
+ 10 files changed, 1408 insertions(+), 1 deletion(-)
+ create mode 100644 man/man8/tc-basic.8
+ create mode 100644 man/man8/tc-cgroup.8
+ create mode 100644 man/man8/tc-flow.8
+ create mode 100644 man/man8/tc-flower.8
+ create mode 100644 man/man8/tc-fw.8
+ create mode 100644 man/man8/tc-route.8
+ create mode 100644 man/man8/tc-tcindex.8
+ create mode 100644 man/man8/tc-u32.8
+
 -- 
 2.1.2
