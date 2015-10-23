@@ -1,349 +1,209 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH V5 1/1] bpf: control events stored in PERF_EVENT_ARRAY
- maps trace data output when perf sampling
-Date: Fri, 23 Oct 2015 17:12:05 +0200
-Message-ID: <20151023151205.GW11639@twins.programming.kicks-ass.net>
-References: <56279634.5000606@huawei.com>
- <20151021134951.GH3604@twins.programming.kicks-ass.net>
- <1D2C9396-01CB-4981-B493-EA311F0457E7@163.com>
- <20151021140921.GI3604@twins.programming.kicks-ass.net>
- <586A5B33-C9C9-433D-B6E9-019264BF7DDB@163.com>
- <20151021165758.GK3604@twins.programming.kicks-ass.net>
- <56280175.8060404@plumgrid.com>
- <20151022090632.GK2508@worktop.programming.kicks-ass.net>
- <5628BA46.8060307@huawei.com>
- <20151023125211.GB17308@twins.programming.kicks-ass.net>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH 3/3] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
+Date: Fri, 23 Oct 2015 16:20:37 +0100
+Message-ID: <yw1xa8r9fw6y.fsf@unicorn.mansr.com>
+References: <1445522558-5808-1-git-send-email-mans@mansr.com>
+	<1445522558-5808-3-git-send-email-mans@mansr.com>
+	<56297FF9.4070801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@plumgrid.com>, pi3orama <pi3orama@163.com>,
-	xiakaixu <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net,
-	linux-kernel@vger.kernel.org, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151023125211.GB17308@twins.programming.kicks-ass.net>
+In-Reply-To: <56297FF9.4070801@gmail.com> (Florian Fainelli's message of "Thu,
+	22 Oct 2015 17:31:53 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 23, 2015 at 02:52:11PM +0200, Peter Zijlstra wrote:
-> On Thu, Oct 22, 2015 at 06:28:22PM +0800, Wangnan (F) wrote:
-> > information to analysis when glitch happen. Another way we are trying to
-> > implement
-> > now is to dynamically turn events on and off, or at least enable/disable
-> > sampling dynamically because the overhead of copying those samples
-> > is a big part of perf's total overhead. After that we can trace as many
-> > event as possible, but only fetch data from them when we detect a glitch.
-> 
-> So why don't you 'fix' the flight recorder mode and just leave the data
-> in memory and not bother copying it out until a glitch happens?
-> 
-> Something like this:
-> 
-> lkml.kernel.org/r/20130708121557.GA17211@twins.programming.kicks-ass.net
-> 
-> it appears we never quite finished that.
+=46lorian Fainelli <f.fainelli@gmail.com> writes:
 
-Updated to current sources, compile tested only.
-
-It obviously needs testing and performance numbers..  and some
-userspace.
-
----
-Subject: perf: Update event buffer tail when overwriting old events
-From: Peter Zijlstra <peterz@infradead.org>
-
-> From: "Yan, Zheng" <zheng.z.yan@intel.com>
+> On 22/10/15 07:02, Mans Rullgard wrote:
+>> This adds a driver for the Aurora VLSI NB8800 Ethernet controller.
+>> It is an almost complete rewrite of a driver originally found in
+>> a Sigma Designs 2.6.22 tree.
 >
-> If perf event buffer is in overwrite mode, the kernel only updates
-> the data head when it overwrites old samples. The program that owns
-> the buffer need periodically check the buffer and update a variable
-> that tracks the date tail. If the program fails to do this in time,
-> the data tail can be overwritted by new samples. The program has to
-> rewind the buffer because it does not know where is the first vaild
-> sample.
+> Some reviews here and there, mostly related to how you use the PHY li=
+brary.
+
+Thanks.
+
+>> +	nb8800_tx_dma_start(dev, next);
+>> +
+>> +	if (!skb->xmit_more && !timer_pending(&priv->tx_reclaim_timer))
+>> +		mod_timer(&priv->tx_reclaim_timer, jiffies + HZ / 20);
 >
-> This patch makes the kernel update the date tail when it overwrites
-> old events. So the program that owns the event buffer can always
-> read the latest samples. This is convenient for programs that use
-> perf to do branch tracing. One use case is GDB branch tracing:
-> (http://sourceware.org/ml/gdb-patches/2012-06/msg00172.html)
-> It uses perf interface to read BTS, but only cares the branches
-> before the ptrace event.
+> You do not have a TX completion interrupt? Using a timer to reclaim T=
+X
+> buffers is really not great for latency.
 
-Original-patch-by: "Yan, Zheng" <zheng.z.yan@intel.com>
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
----
- arch/x86/kernel/cpu/perf_event_intel_ds.c |    2 
- include/linux/perf_event.h                |    6 --
- kernel/events/core.c                      |   56 +++++++++++++++++----
- kernel/events/internal.h                  |    2 
- kernel/events/ring_buffer.c               |   77 +++++++++++++++++++++---------
- 5 files changed, 107 insertions(+), 36 deletions(-)
+There is an interrupt, but dev_kfree_skb() can't be called from
+interrupt context, and running a tasklet for each packet has too much
+overhead.  Someone suggested I use this approach.  If there's a better
+way, I'm all ears.
 
---- a/arch/x86/kernel/cpu/perf_event_intel_ds.c
-+++ b/arch/x86/kernel/cpu/perf_event_intel_ds.c
-@@ -1140,7 +1140,7 @@ static void __intel_pmu_pebs_event(struc
- 
- 	while (count > 1) {
- 		setup_pebs_sample_data(event, iregs, at, &data, &regs);
--		perf_event_output(event, &data, &regs);
-+		event->overflow_handler(event, &data, &regs);
- 		at += x86_pmu.pebs_record_size;
- 		at = get_next_pebs_record_by_bit(at, top, bit);
- 		count--;
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -828,10 +828,6 @@ extern int perf_event_overflow(struct pe
- 				 struct perf_sample_data *data,
- 				 struct pt_regs *regs);
- 
--extern void perf_event_output(struct perf_event *event,
--				struct perf_sample_data *data,
--				struct pt_regs *regs);
--
- extern void
- perf_event_header__init_id(struct perf_event_header *header,
- 			   struct perf_sample_data *data,
-@@ -1032,6 +1028,8 @@ static inline bool has_aux(struct perf_e
- 
- extern int perf_output_begin(struct perf_output_handle *handle,
- 			     struct perf_event *event, unsigned int size);
-+extern int perf_output_begin_overwrite(struct perf_output_handle *handle,
-+			     struct perf_event *event, unsigned int size);
- extern void perf_output_end(struct perf_output_handle *handle);
- extern unsigned int perf_output_copy(struct perf_output_handle *handle,
- 			     const void *buf, unsigned int len);
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -4515,6 +4515,8 @@ static int perf_mmap_fault(struct vm_are
- 	return ret;
- }
- 
-+static void perf_event_set_overflow(struct perf_event *event, struct ring_buffer *rb);
-+
- static void ring_buffer_attach(struct perf_event *event,
- 			       struct ring_buffer *rb)
- {
-@@ -4546,6 +4548,8 @@ static void ring_buffer_attach(struct pe
- 		spin_lock_irqsave(&rb->event_lock, flags);
- 		list_add_rcu(&event->rb_entry, &rb->event_list);
- 		spin_unlock_irqrestore(&rb->event_lock, flags);
-+
-+		perf_event_set_overflow(event, rb);
- 	}
- 
- 	rcu_assign_pointer(event->rb, rb);
-@@ -5579,9 +5583,12 @@ void perf_prepare_sample(struct perf_eve
- 	}
- }
- 
--void perf_event_output(struct perf_event *event,
--			struct perf_sample_data *data,
--			struct pt_regs *regs)
-+static __always_inline void
-+__perf_event_output(struct perf_event *event,
-+		    struct perf_sample_data *data,
-+		    struct pt_regs *regs,
-+		    int (*output_begin)(struct perf_output_handle *,
-+			                struct perf_event *, unsigned int))
- {
- 	struct perf_output_handle handle;
- 	struct perf_event_header header;
-@@ -5591,7 +5598,7 @@ void perf_event_output(struct perf_event
- 
- 	perf_prepare_sample(&header, data, event, regs);
- 
--	if (perf_output_begin(&handle, event, header.size))
-+	if (output_begin(&handle, event, header.size))
- 		goto exit;
- 
- 	perf_output_sample(&handle, &header, data, event);
-@@ -5602,6 +5609,33 @@ void perf_event_output(struct perf_event
- 	rcu_read_unlock();
- }
- 
-+static void perf_event_output(struct perf_event *event,
-+				struct perf_sample_data *data,
-+				struct pt_regs *regs)
-+{
-+	__perf_event_output(event, data, regs, perf_output_begin);
-+}
-+
-+static void perf_event_output_overwrite(struct perf_event *event,
-+				struct perf_sample_data *data,
-+				struct pt_regs *regs)
-+{
-+	__perf_event_output(event, data, regs, perf_output_begin_overwrite);
-+}
-+
-+static void
-+perf_event_set_overflow(struct perf_event *event, struct ring_buffer *rb)
-+{
-+	if (event->overflow_handler != perf_event_output &&
-+	    event->overflow_handler != perf_event_output_overwrite)
-+		return;
-+
-+	if (rb->overwrite)
-+		event->overflow_handler = perf_event_output_overwrite;
-+	else
-+		event->overflow_handler = perf_event_output;
-+}
-+
- /*
-  * read event_id
-  */
-@@ -6426,10 +6460,7 @@ static int __perf_event_overflow(struct
- 		irq_work_queue(&event->pending);
- 	}
- 
--	if (event->overflow_handler)
--		event->overflow_handler(event, data, regs);
--	else
--		perf_event_output(event, data, regs);
-+	event->overflow_handler(event, data, regs);
- 
- 	if (*perf_event_fasync(event) && event->pending_kill) {
- 		event->pending_wakeup = 1;
-@@ -7904,8 +7935,13 @@ perf_event_alloc(struct perf_event_attr
- 		context = parent_event->overflow_handler_context;
- 	}
- 
--	event->overflow_handler	= overflow_handler;
--	event->overflow_handler_context = context;
-+	if (overflow_handler) {
-+		event->overflow_handler	= overflow_handler;
-+		event->overflow_handler_context = context;
-+	} else {
-+		event->overflow_handler = perf_event_output;
-+		event->overflow_handler_context = NULL;
-+	}
- 
- 	perf_event__state_init(event);
- 
---- a/kernel/events/internal.h
-+++ b/kernel/events/internal.h
-@@ -21,6 +21,8 @@ struct ring_buffer {
- 
- 	atomic_t			poll;		/* POLL_ for wakeups */
- 
-+	local_t				tail;		/* read position     */
-+	local_t				next_tail;	/* next read position */
- 	local_t				head;		/* write position    */
- 	local_t				nest;		/* nested writers    */
- 	local_t				events;		/* event limit       */
---- a/kernel/events/ring_buffer.c
-+++ b/kernel/events/ring_buffer.c
-@@ -102,11 +102,11 @@ static void perf_output_put_handle(struc
- 	preempt_enable();
- }
- 
--int perf_output_begin(struct perf_output_handle *handle,
--		      struct perf_event *event, unsigned int size)
-+static __always_inline int __perf_output_begin(struct perf_output_handle *handle,
-+		      struct perf_event *event, unsigned int size, bool overwrite)
- {
- 	struct ring_buffer *rb;
--	unsigned long tail, offset, head;
-+	unsigned long tail, offset, head, max_size;
- 	int have_lost, page_shift;
- 	struct {
- 		struct perf_event_header header;
-@@ -125,7 +125,8 @@ int perf_output_begin(struct perf_output
- 	if (unlikely(!rb))
- 		goto out;
- 
--	if (unlikely(!rb->nr_pages))
-+	max_size = perf_data_size(rb);
-+	if (unlikely(size > max_size))
- 		goto out;
- 
- 	handle->rb    = rb;
-@@ -140,27 +141,49 @@ int perf_output_begin(struct perf_output
- 
- 	perf_output_get_handle(handle);
- 
--	do {
--		tail = READ_ONCE_CTRL(rb->user_page->data_tail);
--		offset = head = local_read(&rb->head);
--		if (!rb->overwrite &&
--		    unlikely(CIRC_SPACE(head, tail, perf_data_size(rb)) < size))
--			goto fail;
-+	if (overwrite) {
-+		do {
-+			tail = local_read(&rb->tail);
-+			offset = local_read(&rb->head);
-+			head = offset + size;
-+			if (unlikely(CIRC_SPACE(head, tail, max_size) < size)) {
-+				tail = local_read(&rb->next_tail);
-+				local_set(&rb->tail, tail);
-+				rb->user_page->data_tail = tail;
-+			}
-+		} while (local_cmpxchg(&rb->head, offset, head) != offset);
- 
- 		/*
--		 * The above forms a control dependency barrier separating the
--		 * @tail load above from the data stores below. Since the @tail
--		 * load is required to compute the branch to fail below.
--		 *
--		 * A, matches D; the full memory barrier userspace SHOULD issue
--		 * after reading the data and before storing the new tail
--		 * position.
--		 *
--		 * See perf_output_put_handle().
-+		 * Save the start of next event when half of the buffer
-+		 * has been filled. Later when the event buffer overflows,
-+		 * update the tail pointer to point to it.
- 		 */
-+		if (tail == local_read(&rb->next_tail) &&
-+		    CIRC_CNT(head, tail, max_size) >= (max_size / 2))
-+			local_cmpxchg(&rb->next_tail, tail, head);
-+	} else {
-+		do {
-+			tail = READ_ONCE_CTRL(rb->user_page->data_tail);
-+			offset = head = local_read(&rb->head);
-+			if (!rb->overwrite &&
-+			    unlikely(CIRC_SPACE(head, tail, perf_data_size(rb)) < size))
-+				goto fail;
-+
-+			/*
-+			 * The above forms a control dependency barrier separating the
-+			 * @tail load above from the data stores below. Since the @tail
-+			 * load is required to compute the branch to fail below.
-+			 *
-+			 * A, matches D; the full memory barrier userspace SHOULD issue
-+			 * after reading the data and before storing the new tail
-+			 * position.
-+			 *
-+			 * See perf_output_put_handle().
-+			 */
- 
--		head += size;
--	} while (local_cmpxchg(&rb->head, offset, head) != offset);
-+			head += size;
-+		} while (local_cmpxchg(&rb->head, offset, head) != offset);
-+	}
- 
- 	/*
- 	 * We rely on the implied barrier() by local_cmpxchg() to ensure
-@@ -203,6 +226,18 @@ int perf_output_begin(struct perf_output
- 	return -ENOSPC;
- }
- 
-+int perf_output_begin(struct perf_output_handle *handle,
-+		      struct perf_event *event, unsigned int size)
-+{
-+	return __perf_output_begin(handle, event, size, false);
-+}
-+
-+int perf_output_begin_overwrite(struct perf_output_handle *handle,
-+		      struct perf_event *event, unsigned int size)
-+{
-+	return __perf_output_begin(handle, event, size, true);
-+}
-+
- unsigned int perf_output_copy(struct perf_output_handle *handle,
- 		      const void *buf, unsigned int len)
- {
+>> +
+>> +	if (atomic_read(&priv->tx_free) <=3D NB8800_DESC_LOW)
+>> +		netif_stop_queue(dev);
+>> +
+>> +	return NETDEV_TX_OK;
+>> +}
+>> +
+>> +static void nb8800_tx_reclaim(unsigned long data)
+>> +{
+>> +	struct net_device *dev =3D (struct net_device *)data;
+>> +	struct nb8800_priv *priv =3D netdev_priv(dev);
+>> +	int packets =3D 0, bytes =3D 0;
+>> +	int reclaimed =3D 0;
+>> +	int dirty, limit;
+>> +
+>> +	dirty =3D xchg(&priv->tx_dirty, -1);
+>> +	if (dirty < 0)
+>> +		return;
+>> +
+>> +	limit =3D priv->tx_reclaim_limit;
+>> +	if (dirty =3D=3D limit)
+>> +		goto end;
+>> +
+>> +	while (dirty !=3D limit) {
+>> +		struct nb8800_dma_desc *tx =3D &priv->tx_descs[dirty];
+>> +		struct tx_buf *tx_buf =3D &priv->tx_bufs[dirty];
+>> +		struct sk_buff *skb =3D tx_buf->skb;
+>> +		struct tx_skb_data *skb_data =3D (struct tx_skb_data *)skb->cb;
+>> +		int frags =3D tx_buf->frags;
+>> +
+>> +		packets++;
+>> +		bytes +=3D skb->len;
+>> +
+>> +		dma_unmap_single(&dev->dev, skb_data->dma_addr,
+>> +				 skb_data->dma_len, DMA_TO_DEVICE);
+>> +		dev_kfree_skb(skb);
+>> +
+>> +		tx->report =3D 0;
+>> +		tx_buf->skb =3D NULL;
+>> +		tx_buf->frags =3D 0;
+>> +
+>> +		dirty =3D (dirty + frags) & (TX_DESC_COUNT - 1);
+>> +		reclaimed +=3D frags;
+>> +	}
+>> +
+>> +	priv->stats.tx_packets +=3D packets;
+>> +	priv->stats.tx_bytes +=3D bytes;
+>> +
+>> +	smp_mb__before_atomic();
+>> +	atomic_add(reclaimed, &priv->tx_free);
+>> +
+>> +	netif_wake_queue(dev);
+>
+> You can only wake up your queue if you have successfully reclaimed
+> transmitted buffers, otherwise this is giving false information to th=
+e
+> stack that there is room to push more packets.
+
+The code is correct, if a bit unclear.  I'll clean it up so it's obviou=
+s.
+
+>> +static void nb8800_mac_config(struct net_device *dev)
+>> +{
+>> +	struct nb8800_priv *priv =3D netdev_priv(dev);
+>> +
+>> +	if (priv->duplex)
+>> +		nb8800_clear_bits(b, priv, NB8800_MAC_MODE, HALF_DUPLEX);
+>> +	else
+>> +		nb8800_set_bits(b, priv, NB8800_MAC_MODE, HALF_DUPLEX);
+>> +
+>> +	if (priv->speed =3D=3D SPEED_1000) {
+>> +		nb8800_set_bits(b, priv, NB8800_MAC_MODE,
+>> +				RGMII_MODE | GMAC_MODE);
+>> +		nb8800_writeb(priv, NB8800_IC_THRESHOLD, 3);
+>
+> What is the IC_THRESHOLD value for? Is this some form of interrupt
+> coalescing? If so, there is a proper ethtool interface to configure t=
+hat.
+
+It has something to do with some clocks, and this value is quite
+possibly wrong; it's what the original driver did.  I'll do some tests.
+
+>> +		nb8800_writeb(priv, NB8800_SLOT_TIME, 255);
+>> +	} else {
+>> +		nb8800_clear_bits(b, priv, NB8800_MAC_MODE,
+>> +				  RGMII_MODE | GMAC_MODE);
+>> +		nb8800_writeb(priv, NB8800_IC_THRESHOLD, 1);
+>> +		nb8800_writeb(priv, NB8800_SLOT_TIME, 127);
+>
+> What about if you link at 10Mbits/sec, would the slot time value stil=
+l
+> make sense here?
+
+The documentation says the exact meaning on this register is different
+between gigabit and 10/100, so using the same value for 10 and 100 make=
+s
+sense.  Again, the values used here are from the original driver.
+
+>> +static void nb8800_set_rx_mode(struct net_device *dev)
+>> +{
+>> +	struct nb8800_priv *priv =3D netdev_priv(dev);
+>> +	struct netdev_hw_addr *ha;
+>> +	int af_en;
+>> +
+>> +	if ((dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) ||
+>> +	    netdev_mc_count(dev) > 64)
+>
+> 64, that's pretty generous for a perfect match filter, nice.
+
+That's bogus; I forgot to delete it.  The hardware uses a 64-entry hash
+table, and whoever wrote the old driver apparently didn't understand ho=
+w
+it works.
+
+>> +static void nb8800_tangox_init(struct net_device *dev)
+>> +{
+>> +	struct nb8800_priv *priv =3D netdev_priv(dev);
+>> +	u32 val;
+>> +
+>> +	val =3D nb8800_readb(priv, NB8800_TANGOX_PAD_MODE) & 0x78;
+>> +	if (priv->phydev->supported & PHY_1000BT_FEATURES)
+>> +		val |=3D 1;
+>> +	nb8800_writeb(priv, NB8800_TANGOX_PAD_MODE, val);
+>
+> Is this possibly a RGMII delay setting? If so, you need to look at
+> phydev->interface, not whether Gigabit is supported or not.
+
+This does something to the configuration of the external pins, the
+documentation is vague about what.
+
+>> +	phydev =3D phy_find_first(bus);
+>> +	if (!phydev || phy_read(phydev, MII_BMSR) <=3D 0) {
+>
+> What is this additional MII_MBSR read used for?
+
+On one of my boards, phylib misdetects a phy on the second ethernet por=
+t
+even though there is none.  Perhaps I should revisit that problem and
+look for a better solution.
+
+>> +static int nb8800_remove(struct platform_device *pdev)
+>> +{
+>> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+>> +	struct nb8800_priv *priv =3D netdev_priv(ndev);
+>> +
+>> +	unregister_netdev(ndev);
+>> +	free_irq(ndev->irq, ndev);
+>> +
+>> +	phy_detach(priv->phydev);
+>> +	mdiobus_unregister(priv->mii_bus);
+>> +
+>> +	clk_disable_unprepare(priv->clk);
+>> +
+>> +	nb8800_dma_free(ndev);
+>> +	free_netdev(ndev);
+>
+> Should not there be a tangox specific callback here to de-initialize =
+the HW?
+
+There's nothing specific to do for this hardware.  It's easy enough to
+add a callback should any future hardware require it.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
