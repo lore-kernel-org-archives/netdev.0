@@ -1,357 +1,119 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 1/3] ixgbe: Refactor MAC address configuration code
-Date: Thu, 22 Oct 2015 16:26:30 -0700
-Message-ID: <20151022232630.24612.50134.stgit@ahduyck-vm-fedora22>
-References: <20151022232228.24612.81341.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33460 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387AbbJVX0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 19:26:31 -0400
-Received: by pabrc13 with SMTP id rc13so99143241pab.0
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 16:26:31 -0700 (PDT)
-In-Reply-To: <20151022232228.24612.81341.stgit@ahduyck-vm-fedora22>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Thu, 22 Oct 2015 17:10:14 -0700
+Message-ID: <1445559014-4667-1-git-send-email-ast@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the process of tracking down a memory leak when adding/removing fdb
-entries I had to go through the MAC address configuration code for ixgbe.
-In the process of doing so I found a number of issues that impacted
-readability and performance.  This change updates the code in general to
-clean it up so it becomes clear what each step is doing.  From what I can
-tell there a couple of bugs cleaned up in this code.
+Fix safety checks for bpf_perf_event_read():
+- only non-inherited events can be added to perf_event_array map
+  (do this check statically at map insertion time)
+- dynamically check that event is local and !pmu->count
+Otherwise buggy bpf program can cause kernel splat.
 
-First is the fact that the MAC addresses were being double counted for the
-PF.  As a result once entries up to 63 had been used you could no longer
-add additional filters.
+Also fix error path after perf_event_attrs()
+and remove redundant 'extern'.
 
-A simple test case for this:
-  for i in `seq 0 96`
-  do
-    ip link add link ens8 name mv$i type macvlan
-    ip link set dev mv$i up
-  done
-
-Test script:
-  ethregs -s 0:8.0 | grep -e "RAH" | grep 8000....$
-
-When things are working correctly RAL/H registers 1 - 97 will be consumed.
-In the failing case it will stop at 63 and prevent any further filters from
-being added.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    7 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  163 +++++++++++++++----------
- 2 files changed, 100 insertions(+), 70 deletions(-)
+v2->v3:
+. refactor checks based on Wangnan's and Peter's feedback
+while refactoring realized that these two issues need fixes as well:
+. fix perf_event_attrs() error path
+. remove redundant extern
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index dda0f678339a..44ee7f778b07 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -579,9 +579,10 @@ static inline u16 ixgbe_desc_unused(struct ixgbe_ring *ring)
+v1->v2: fix compile in case of !CONFIG_PERF_EVENTS
+
+Even in the worst case the crash is not possible.
+Only warn_on_once, so imo net-next is ok.
+
+ include/linux/bpf.h      |    1 -
+ kernel/bpf/arraymap.c    |   25 ++++++++++++++++---------
+ kernel/trace/bpf_trace.c |    7 ++++++-
+ 3 files changed, 22 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index e3a51b74e275..75718fa28260 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -194,7 +194,6 @@ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
+ extern const struct bpf_func_proto bpf_map_update_elem_proto;
+ extern const struct bpf_func_proto bpf_map_delete_elem_proto;
  
- struct ixgbe_mac_addr {
- 	u8 addr[ETH_ALEN];
--	u16 queue;
-+	u16 pool;
- 	u16 state; /* bitmask */
- };
-+
- #define IXGBE_MAC_STATE_DEFAULT		0x1
- #define IXGBE_MAC_STATE_MODIFIED	0x2
- #define IXGBE_MAC_STATE_IN_USE		0x4
-@@ -875,9 +876,9 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- void ixgbe_full_sync_mac_table(struct ixgbe_adapter *adapter);
- #endif
- int ixgbe_add_mac_filter(struct ixgbe_adapter *adapter,
--			 u8 *addr, u16 queue);
-+			 const u8 *addr, u16 queue);
- int ixgbe_del_mac_filter(struct ixgbe_adapter *adapter,
--			 u8 *addr, u16 queue);
-+			 const u8 *addr, u16 queue);
- void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
- netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *, struct ixgbe_adapter *,
- 				  struct ixgbe_ring *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 677cde8599de..650c9526bbde 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4034,124 +4034,156 @@ static int ixgbe_write_mc_addr_list(struct net_device *netdev)
- #ifdef CONFIG_PCI_IOV
- void ixgbe_full_sync_mac_table(struct ixgbe_adapter *adapter)
- {
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int i;
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		if (adapter->mac_table[i].state & IXGBE_MAC_STATE_IN_USE)
--			hw->mac.ops.set_rar(hw, i, adapter->mac_table[i].addr,
--					    adapter->mac_table[i].queue,
-+
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		mac_table->state &= ~IXGBE_MAC_STATE_MODIFIED;
-+
-+		if (mac_table->state & IXGBE_MAC_STATE_IN_USE)
-+			hw->mac.ops.set_rar(hw, i,
-+					    mac_table->addr,
-+					    mac_table->pool,
- 					    IXGBE_RAH_AV);
- 		else
- 			hw->mac.ops.clear_rar(hw, i);
--
--		adapter->mac_table[i].state &= ~(IXGBE_MAC_STATE_MODIFIED);
- 	}
- }
--#endif
+-extern const struct bpf_func_proto bpf_perf_event_read_proto;
+ extern const struct bpf_func_proto bpf_get_prandom_u32_proto;
+ extern const struct bpf_func_proto bpf_get_smp_processor_id_proto;
+ extern const struct bpf_func_proto bpf_tail_call_proto;
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index e3cfe46b074f..3f4c99e06c6b 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -292,16 +292,23 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
  
-+#endif
- static void ixgbe_sync_mac_table(struct ixgbe_adapter *adapter)
- {
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int i;
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		if (adapter->mac_table[i].state & IXGBE_MAC_STATE_MODIFIED) {
--			if (adapter->mac_table[i].state &
--			    IXGBE_MAC_STATE_IN_USE)
--				hw->mac.ops.set_rar(hw, i,
--						adapter->mac_table[i].addr,
--						adapter->mac_table[i].queue,
--						IXGBE_RAH_AV);
--			else
--				hw->mac.ops.clear_rar(hw, i);
+ 	attr = perf_event_attrs(event);
+ 	if (IS_ERR(attr))
+-		return (void *)attr;
++		goto err;
  
--			adapter->mac_table[i].state &=
--						~(IXGBE_MAC_STATE_MODIFIED);
--		}
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		if (!(mac_table->state & IXGBE_MAC_STATE_MODIFIED))
-+			continue;
+-	if (attr->type != PERF_TYPE_RAW &&
+-	    !(attr->type == PERF_TYPE_SOFTWARE &&
+-	      attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
+-	    attr->type != PERF_TYPE_HARDWARE) {
+-		perf_event_release_kernel(event);
+-		return ERR_PTR(-EINVAL);
+-	}
+-	return event;
++	if (attr->inherit)
++		goto err;
 +
-+		mac_table->state &= ~IXGBE_MAC_STATE_MODIFIED;
++	if (attr->type == PERF_TYPE_RAW)
++		return event;
 +
-+		if (mac_table->state & IXGBE_MAC_STATE_IN_USE)
-+			hw->mac.ops.set_rar(hw, i,
-+					    mac_table->addr,
-+					    mac_table->pool,
-+					    IXGBE_RAH_AV);
-+		else
-+			hw->mac.ops.clear_rar(hw, i);
- 	}
++	if (attr->type == PERF_TYPE_HARDWARE)
++		return event;
++
++	if (attr->type == PERF_TYPE_SOFTWARE &&
++	    attr->config == PERF_COUNT_SW_BPF_OUTPUT)
++		return event;
++err:
++	perf_event_release_kernel(event);
++	return ERR_PTR(-EINVAL);
  }
  
- static void ixgbe_flush_sw_mac_table(struct ixgbe_adapter *adapter)
- {
--	int i;
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
+ static void perf_event_fd_array_put_ptr(void *ptr)
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 47febbe7998e..003df3887287 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -199,6 +199,11 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
+ 	if (!event)
+ 		return -ENOENT;
  
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		adapter->mac_table[i].state |= IXGBE_MAC_STATE_MODIFIED;
--		adapter->mac_table[i].state &= ~IXGBE_MAC_STATE_IN_USE;
--		eth_zero_addr(adapter->mac_table[i].addr);
--		adapter->mac_table[i].queue = 0;
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		mac_table->state |= IXGBE_MAC_STATE_MODIFIED;
-+		mac_table->state &= ~IXGBE_MAC_STATE_IN_USE;
- 	}
++	/* make sure event is local and doesn't have pmu::count */
++	if (event->oncpu != smp_processor_id() ||
++	    event->pmu->count)
++		return -EINVAL;
 +
- 	ixgbe_sync_mac_table(adapter);
+ 	/*
+ 	 * we don't know if the function is run successfully by the
+ 	 * return value. It can be judged in other places, such as
+@@ -207,7 +212,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
+ 	return perf_event_read_local(event);
  }
  
--static int ixgbe_available_rars(struct ixgbe_adapter *adapter)
-+static int ixgbe_available_rars(struct ixgbe_adapter *adapter, u16 pool)
- {
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int i, count = 0;
- 
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		if (adapter->mac_table[i].state == 0)
--			count++;
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		/* do not count default RAR as available */
-+		if (mac_table->state & IXGBE_MAC_STATE_DEFAULT)
-+			continue;
-+
-+		/* only count unused and addresses that belong to us */
-+		if (mac_table->state & IXGBE_MAC_STATE_IN_USE) {
-+			if (mac_table->pool != pool)
-+				continue;
-+		}
-+
-+		count++;
- 	}
-+
- 	return count;
- }
- 
- /* this function destroys the first RAR entry */
--static void ixgbe_mac_set_default_filter(struct ixgbe_adapter *adapter,
--					 u8 *addr)
-+static void ixgbe_mac_set_default_filter(struct ixgbe_adapter *adapter)
- {
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
--	memcpy(&adapter->mac_table[0].addr, addr, ETH_ALEN);
--	adapter->mac_table[0].queue = VMDQ_P(0);
--	adapter->mac_table[0].state = (IXGBE_MAC_STATE_DEFAULT |
--				       IXGBE_MAC_STATE_IN_USE);
--	hw->mac.ops.set_rar(hw, 0, adapter->mac_table[0].addr,
--			    adapter->mac_table[0].queue,
-+	memcpy(&mac_table->addr, hw->mac.addr, ETH_ALEN);
-+	mac_table->pool = VMDQ_P(0);
-+
-+	mac_table->state = IXGBE_MAC_STATE_DEFAULT | IXGBE_MAC_STATE_IN_USE;
-+
-+	hw->mac.ops.set_rar(hw, 0, mac_table->addr, mac_table->pool,
- 			    IXGBE_RAH_AV);
- }
- 
--int ixgbe_add_mac_filter(struct ixgbe_adapter *adapter, u8 *addr, u16 queue)
-+int ixgbe_add_mac_filter(struct ixgbe_adapter *adapter,
-+			 const u8 *addr, u16 pool)
- {
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int i;
- 
- 	if (is_zero_ether_addr(addr))
- 		return -EINVAL;
- 
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		if (adapter->mac_table[i].state & IXGBE_MAC_STATE_IN_USE)
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		if (mac_table->state & IXGBE_MAC_STATE_IN_USE)
- 			continue;
--		adapter->mac_table[i].state |= (IXGBE_MAC_STATE_MODIFIED |
--						IXGBE_MAC_STATE_IN_USE);
--		ether_addr_copy(adapter->mac_table[i].addr, addr);
--		adapter->mac_table[i].queue = queue;
-+
-+		ether_addr_copy(mac_table->addr, addr);
-+		mac_table->pool = pool;
-+
-+		mac_table->state |= IXGBE_MAC_STATE_MODIFIED |
-+				    IXGBE_MAC_STATE_IN_USE;
-+
- 		ixgbe_sync_mac_table(adapter);
-+
- 		return i;
- 	}
-+
- 	return -ENOMEM;
- }
- 
--int ixgbe_del_mac_filter(struct ixgbe_adapter *adapter, u8 *addr, u16 queue)
-+int ixgbe_del_mac_filter(struct ixgbe_adapter *adapter,
-+			 const u8 *addr, u16 pool)
- {
--	/* search table for addr, if found, set to 0 and sync */
--	int i;
-+	struct ixgbe_mac_addr *mac_table = &adapter->mac_table[0];
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
- 
- 	if (is_zero_ether_addr(addr))
- 		return -EINVAL;
- 
--	for (i = 0; i < hw->mac.num_rar_entries; i++) {
--		if (ether_addr_equal(addr, adapter->mac_table[i].addr) &&
--		    adapter->mac_table[i].queue == queue) {
--			adapter->mac_table[i].state |= IXGBE_MAC_STATE_MODIFIED;
--			adapter->mac_table[i].state &= ~IXGBE_MAC_STATE_IN_USE;
--			eth_zero_addr(adapter->mac_table[i].addr);
--			adapter->mac_table[i].queue = 0;
--			ixgbe_sync_mac_table(adapter);
--			return 0;
--		}
-+	/* search table for addr, if found clear IN_USE flag and sync */
-+	for (i = 0; i < hw->mac.num_rar_entries; i++, mac_table++) {
-+		/* we can only delete an entry if it is in use */
-+		if (!(mac_table->state & IXGBE_MAC_STATE_IN_USE))
-+			continue;
-+		/* we only care about entries that belong to the given pool */
-+		if (mac_table->pool != pool)
-+			continue;
-+		/* we only care about a specific MAC address */
-+		if (!ether_addr_equal(addr, mac_table->addr))
-+			continue;
-+
-+		mac_table->state |= IXGBE_MAC_STATE_MODIFIED;
-+		mac_table->state &= ~IXGBE_MAC_STATE_IN_USE;
-+
-+		ixgbe_sync_mac_table(adapter);
-+
-+		return 0;
- 	}
-+
- 	return -ENOMEM;
- }
- /**
-@@ -4169,7 +4201,7 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev, int vfn)
- 	int count = 0;
- 
- 	/* return ENOMEM indicating insufficient memory for addresses */
--	if (netdev_uc_count(netdev) > ixgbe_available_rars(adapter))
-+	if (netdev_uc_count(netdev) > ixgbe_available_rars(adapter, vfn))
- 		return -ENOMEM;
- 
- 	if (!netdev_uc_empty(netdev)) {
-@@ -5042,7 +5074,6 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
- 	int err;
--	u8 old_addr[ETH_ALEN];
- 
- 	if (ixgbe_removed(hw->hw_addr))
- 		return;
-@@ -5079,9 +5110,8 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 
- 	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
- 	/* do not flush user set addresses */
--	memcpy(old_addr, &adapter->mac_table[0].addr, netdev->addr_len);
- 	ixgbe_flush_sw_mac_table(adapter);
--	ixgbe_mac_set_default_filter(adapter, old_addr);
-+	ixgbe_mac_set_default_filter(adapter);
- 
- 	/* update SAN MAC vmdq pool selection */
- 	if (hw->mac.san_mac_rar_index)
-@@ -7659,17 +7689,16 @@ static int ixgbe_set_mac(struct net_device *netdev, void *p)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct sockaddr *addr = p;
--	int ret;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
--	ixgbe_del_mac_filter(adapter, hw->mac.addr, VMDQ_P(0));
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 	memcpy(hw->mac.addr, addr->sa_data, netdev->addr_len);
- 
--	ret = ixgbe_add_mac_filter(adapter, hw->mac.addr, VMDQ_P(0));
--	return ret > 0 ? 0 : ret;
-+	ixgbe_mac_set_default_filter(adapter);
-+
-+	return 0;
- }
- 
- static int
-@@ -8872,7 +8901,7 @@ skip_sriov:
- 		goto err_sw_init;
- 	}
- 
--	ixgbe_mac_set_default_filter(adapter, hw->mac.perm_addr);
-+	ixgbe_mac_set_default_filter(adapter);
- 
- 	setup_timer(&adapter->service_timer, &ixgbe_service_timer,
- 		    (unsigned long) adapter);
+-const struct bpf_func_proto bpf_perf_event_read_proto = {
++static const struct bpf_func_proto bpf_perf_event_read_proto = {
+ 	.func		= bpf_perf_event_read,
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+-- 
+1.7.9.5
