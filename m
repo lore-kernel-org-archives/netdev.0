@@ -1,52 +1,91 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 1/1] xen-netfront: limit max queues number to
- online cpus
-Date: Fri, 23 Oct 2015 15:19:32 +0800
-Message-ID: <5629DF84.70201@oracle.com>
-References: <5629846B.8000001@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: boris.ostrovsky@oracle.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] ipv6: fix the incorrect return value of throw route
+Date: Fri, 23 Oct 2015 15:36:53 +0800
+Message-ID: <13819cbd31a50ae677a94763be27e16118e90322.1445585813.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45439 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431AbbJWHTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 03:19:40 -0400
-In-Reply-To: <5629846B.8000001@oracle.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34522 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092AbbJWHg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 03:36:58 -0400
+Received: by padhk11 with SMTP id hk11so111183775pad.1
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 00:36:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to take care sysfs too, please ignore this patch, I'll create
-new one later for review and comment.
+The error condition -EAGAIN, which is signaled by throw routes, tells
+the rules framework to walk on searching for next matches. If the walk
+ends and we stop walking the rules with the result of a throw route we
+have to translate the error conditions to -ENETUNREACH.
 
-Thanks,
-Joe
-On 10/23/2015 08:50 AM, Joe Jin wrote:
-> Should not allocate queues number more than online cpus.
-> 
-> Signed-off-by: Joe Jin <joe.jin@oracle.com>
-> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/xen-netfront.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index f821a97..1eebd4e 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -2137,7 +2137,7 @@ static int __init netif_init(void)
->  	/* Allow as many queues as there are CPUs if user has not
->  	 * specified a value.
->  	 */
-> -	if (xennet_max_queues == 0)
-> +	if (xennet_max_queues == 0 || xennet_max_queues > num_online_cpus())
->  		xennet_max_queues = num_online_cpus();
->  
->  	return xenbus_register_frontend(&netfront_driver);
-> 
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/fib6_rules.c | 19 +++++++++++++++----
+ net/ipv6/ip6_fib.c    | 12 +++++++++++-
+ 2 files changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 9f777ec..ed33abf 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -32,6 +32,7 @@ struct fib6_rule {
+ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
+ 				   int flags, pol_lookup_t lookup)
+ {
++	struct rt6_info *rt;
+ 	struct fib_lookup_arg arg = {
+ 		.lookup_ptr = lookup,
+ 		.flags = FIB_LOOKUP_NOREF,
+@@ -40,11 +41,21 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
+ 	fib_rules_lookup(net->ipv6.fib6_rules_ops,
+ 			 flowi6_to_flowi(fl6), flags, &arg);
+ 
+-	if (arg.result)
+-		return arg.result;
++	rt = arg.result;
+ 
+-	dst_hold(&net->ipv6.ip6_null_entry->dst);
+-	return &net->ipv6.ip6_null_entry->dst;
++	if (!rt) {
++		dst_hold(&net->ipv6.ip6_null_entry->dst);
++		return &net->ipv6.ip6_null_entry->dst;
++	}
++
++	if (rt->rt6i_flags & RTF_REJECT &&
++	    rt->dst.error == -EAGAIN) {
++		ip6_rt_put(rt);
++		rt = net->ipv6.ip6_null_entry;
++		dst_hold(&rt->dst);
++	}
++
++	return &rt->dst;
+ }
+ 
+ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 7d2e002..6cedc62 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -285,7 +285,17 @@ struct fib6_table *fib6_get_table(struct net *net, u32 id)
+ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
+ 				   int flags, pol_lookup_t lookup)
+ {
+-	return (struct dst_entry *) lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
++	struct rt6_info *rt;
++
++	rt = lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
++	if (rt->rt6i_flags & RTF_REJECT &&
++	    rt->dst.error == -EAGAIN) {
++		ip6_rt_put(rt);
++		rt = net->ipv6.ip6_null_entry;
++		dst_hold(&rt->dst);
++	}
++
++	return &rt->dst;
+ }
+ 
+ static void __net_init fib6_tables_init(struct net *net)
+-- 
+2.1.0
