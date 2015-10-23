@@ -1,51 +1,77 @@
-From: Brian Rak <brak@vultr.com>
-Subject: Missing IPv4 routes
-Date: Fri, 23 Oct 2015 17:34:11 -0400
-Message-ID: <562AA7D3.9030905@vultr.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC net-next 1/2] tcp: Add DPIFL thin stream detection
+ mechanism
+Date: Fri, 23 Oct 2015 14:44:14 -0700
+Message-ID: <1445636654.22974.193.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+	 <1445633413-3532-2-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2015.choopa.net ([208.167.225.251]:37830 "EHLO
-	mail2015.choopa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbbJWVmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 17:42:52 -0400
-Received: from [IPv6:2001:19f0:a06:600:c00:daf7:a19c:28fd] (unknown [IPv6:2001:19f0:a06:600:c00:daf7:a19c:28fd])
-	by mail2015.choopa.net (Postfix) with ESMTPSA id 328345AC6396
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 17:34:12 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Paolo Abeni <pabeni@redhat.com>, Erik Kline <ek@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Lee <Longinus00@gmail.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
+	linux-doc@vger.kerne
+To: Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad <bro.devel@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1445633413-3532-2-git-send-email-bro.devel+kernel@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've got a weird situation here.  I have a route that the kernel knows 
-about, but won't display via the general RTM_GETROUTE call, but will 
-display if I query for that particular route:
+On Fri, 2015-10-23 at 22:50 +0200, Bendik R=C3=B8nning Opstad wrote:
 
-# ip -4 route show | grep 108.61.171.x
-# ip route get 108.61.171.x
-108.61.171.x dev MYIF
-     cache
-# cat /proc/net/route | grep 108.61.171.x
-#
-# cat /proc/net/route  | grep -i 6c3dac
-#
-# ip route add 108.61.171.x dev MYIF
-RTNETLINK answers: File exists
-# ip route del 108.61.171.x  <---- it deletes successfully once
-# ip route del 108.61.171.x
-RTNETLINK answers: No such process
+> =20
+> +/**
+> + * tcp_stream_is_thin_dpifl() - Tests if the stream is thin based on=
+ dynamic PIF
+> + *                              limit
+> + * @tp: the tcp_sock struct
+> + *
+> + * Return: true if current packets in flight (PIF) count is lower th=
+an
+> + *         the dynamic PIF limit, else false
+> + */
+> +static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock *t=
+p)
+> +{
+> +	u64 dpif_lim =3D tp->srtt_us >> 3;
+> +	/* Div by is_thin_min_itt_lim, the minimum allowed ITT
+> +	 * (Inter-transmission time) in usecs.
+> +	 */
+> +	do_div(dpif_lim, tp->thin_dpifl_itt_lower_bound);
+> +	return tcp_packets_in_flight(tp) < dpif_lim;
+> +}
+> +
+This is very strange :
+
+You are using a do_div() while both operands are 32bits.  A regular
+divide would be ok :
+
+u32 dpif_lim =3D (tp->srtt_us >> 3) / tp->thin_dpifl_itt_lower_bound;
+
+But then, you can avoid the divide by using a multiply, less expensive =
+:
+
+return	(u64)tcp_packets_in_flight(tp) * tp->thin_dpifl_itt_lower_bound =
+<
+	(tp->srtt_us >> 3);
 
 
-This is on a machine running 4.1.3, but I have seen it on earlier 
-versions in the past.
-
-I don't have great reproduction steps here, I've seen this 4-5 times in 
-the past few months (on different hardware).  So far, I haven't really 
-found any way of fixing it (deleting and readding the route has no 
-effect).  I thought at first this might be related to 
-e55ffaf457bcc8ec4e9d9f56f955971f834d65b3, but as far as I can tell that 
-only relates to /proc/net/route.
-
-Any suggestions on further troubleshooting here?  I'm all out of ideas 
-(and since I can't easily reproduce it yet, I can't reboot to a newer 
-kernel to see if it goes away)
