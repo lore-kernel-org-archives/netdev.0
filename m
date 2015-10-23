@@ -1,239 +1,199 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 2/4] e1000e: Add ndo_enc_hdr_len
-Date: Fri, 23 Oct 2015 12:49:31 +0900
-Message-ID: <1445572173-15402-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1445572173-15402-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:36964 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbbJWDuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 23:50:04 -0400
-In-Reply-To: <1445572173-15402-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+Subject: Re: [PATCH v2] sunrpc: fix waitqueue_active without memory barrier
+ in sunrpc
+Date: Fri, 23 Oct 2015 04:14:10 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A0287A7C2@BPXM09GP.gisp.nec.co.jp>
+References: <20151022163133.GB5205@fieldses.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Neil Brown <nfbrown-Et1tbQHTxzrQT0dZR+AlfA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151022163133.GB5205-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Content-Language: ja-JP
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-e1000e has 4 bytes additional room for vlan header, so set default
-enc_hdr_len to 4.
-Note that e1000e uses mtu to validate frame size in some places, which
-are needed to be modified to use max_frame_size as extra header room
-became variable.
+J. Bruce Fields wrote:
+> On Fri, Oct 16, 2015 at 02:28:10AM +0000, Kosuke Tatsukawa wrote:
+>> Tatsukawa Kosuke wrote:
+>> > J. Bruce Fields wrote:
+>> >> On Thu, Oct 15, 2015 at 11:44:20AM +0000, Kosuke Tatsukawa wrote:
+>> >>> Tatsukawa Kosuke wrote:
+>> >>> > J. Bruce Fields wrote:
+>> >>> >> Thanks for the detailed investigation.
+>> >>> >> 
+>> >>> >> I think it would be worth adding a comment if that might help someone
+>> >>> >> having to reinvestigate this again some day.
+>> >>> > 
+>> >>> > It would be nice, but I find it difficult to write a comment in the
+>> >>> > sunrpc layer why a memory barrier isn't necessary, using the knowledge
+>> >>> > of how nfsd uses it, and the current implementation of the network code.
+>> >>> > 
+>> >>> > Personally, I would prefer removing the call to waitqueue_active() which
+>> >>> > would make the memory barrier totally unnecessary at the cost of a
+>> >>> > spin_lock + spin_unlock by unconditionally calling
+>> >>> > wake_up_interruptible.
+>> >>> 
+>> >>> On second thought, the callbacks will be called frequently from the tcp
+>> >>> code, so it wouldn't be a good idea.
+>> >> 
+>> >> So, I was even considering documenting it like this, if it's not
+>> >> overkill.
+>> >> 
+>> >> Hmm... but if this is right, then we may as well ask why we're doing the
+>> >> wakeups at all.  Might be educational to test the code with them
+>> >> removed.
+>> > 
+>> > sk_write_space will be called in sock_wfree() with UDP/IP each time
+>> > kfree_skb() is called.  With TCP/IP, sk_write_space is only called if
+>> > SOCK_NOSPACE has been set.
+>> > 
+>> > sk_data_ready will be called in both tcp_rcv_established() for TCP/IP
+>> > and in sock_queue_rcv_skb() for UDP/IP.  The latter lacks a memory
+>> > barrier with sk_data_ready called right after __skb_queue_tail().
+>> > I think this hasn't caused any problems because sk_data_ready wasn't
+>> > used.
+>> 
+>> Actually, svc_udp_data_ready() calls set_bit() which is an atomic
+>> operation.  So there won't be a problem unless svsk is NULL.
+> 
+> So is it true that every caller of these socket callbacks has adequate
+> memory barriers between the time the change is made visible and the time
+> the callback is called?
+> 
+> If so, then there's nothing really specific about nfsd here.
+> 
+> In that case maybe it's the networking code that use some documentation,
+> if it doesn't already?  (Or maybe common helper functions for this
+> 
+> 	if (waitqueue_active(wq))
+> 		wake_up(wq)
+> 
+> pattern?)
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 79 +++++++++++++++++++++---------
- 1 file changed, 57 insertions(+), 22 deletions(-)
+Some of the other places defining these callback functions are using
+  static inline bool wq_has_sleeper(struct socket_wq *wq)
+defined in include/net/sock.h
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 0a854a4..6a54f07 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3046,7 +3046,7 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 	if (hw->mac.type >= e1000_pch2lan) {
- 		s32 ret_val;
- 
--		if (adapter->netdev->mtu > ETH_DATA_LEN)
-+		if (adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
- 			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
- 		else
- 			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
-@@ -3066,7 +3066,7 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 	rctl &= ~E1000_RCTL_SBP;
- 
- 	/* Enable Long Packet receive */
--	if (adapter->netdev->mtu <= ETH_DATA_LEN)
-+	if (adapter->max_frame_size <= VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
- 		rctl &= ~E1000_RCTL_LPE;
- 	else
- 		rctl |= E1000_RCTL_LPE;
-@@ -3286,7 +3286,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	/* With jumbo frames, excessive C-state transition latencies result
- 	 * in dropped transactions.
- 	 */
--	if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+	if (adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN) {
- 		u32 lat =
- 		    ((er32(PBA) & E1000_PBA_RXA_MASK) * 1024 -
- 		     adapter->max_frame_size) * 8 / 1000;
-@@ -3978,7 +3978,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 	switch (hw->mac.type) {
- 	case e1000_ich9lan:
- 	case e1000_ich10lan:
--		if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+		if (adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN) {
- 			pba = 14;
- 			ew32(PBA, pba);
- 			fc->high_water = 0x2800;
-@@ -3997,7 +3997,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 		/* Workaround PCH LOM adapter hangs with certain network
- 		 * loads.  If hangs persist, try disabling Tx flow control.
- 		 */
--		if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+		if (adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN) {
- 			fc->high_water = 0x3500;
- 			fc->low_water = 0x1500;
- 		} else {
-@@ -4011,7 +4011,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 	case e1000_pch_spt:
- 		fc->refresh_time = 0x0400;
- 
--		if (adapter->netdev->mtu <= ETH_DATA_LEN) {
-+		if (adapter->max_frame_size <= VLAN_ETH_FRAME_LEN + ETH_FCS_LEN) {
- 			fc->high_water = 0x05C20;
- 			fc->low_water = 0x05048;
- 			fc->pause_time = 0x0650;
-@@ -4247,7 +4247,7 @@ void e1000e_down(struct e1000_adapter *adapter, bool reset)
- 
- 	/* Disable Si errata workaround on PCHx for jumbo frame flow */
- 	if ((hw->mac.type >= e1000_pch2lan) &&
--	    (adapter->netdev->mtu > ETH_DATA_LEN) &&
-+	    (adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN) &&
- 	    e1000_lv_jumbo_workaround_ich8lan(hw, false))
- 		e_dbg("failed to disable jumbo frame workaround mode\n");
- 
-@@ -4346,7 +4346,8 @@ static int e1000_sw_init(struct e1000_adapter *adapter)
- 
- 	adapter->rx_buffer_len = VLAN_ETH_FRAME_LEN + ETH_FCS_LEN;
- 	adapter->rx_ps_bsize0 = 128;
--	adapter->max_frame_size = netdev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
-+	adapter->max_frame_size = netdev->mtu + netdev->enc_hdr_len +
-+				  ETH_HLEN + ETH_FCS_LEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
- 	adapter->tx_ring_count = E1000_DEFAULT_TXD;
- 	adapter->rx_ring_count = E1000_DEFAULT_RXD;
-@@ -5920,17 +5921,10 @@ struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
- 	return stats;
- }
- 
--/**
-- * e1000_change_mtu - Change the Maximum Transfer Unit
-- * @netdev: network interface device structure
-- * @new_mtu: new value for maximum frame size
-- *
-- * Returns 0 on success, negative on failure
-- **/
--static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
-+static int e1000_change_max_frame(struct net_device *netdev, int max_frame,
-+				  int new_mtu)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	int max_frame = new_mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
- 
- 	/* Jumbo frame support */
- 	if ((max_frame > (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)) &&
-@@ -5940,7 +5934,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	}
- 
- 	/* Supported frame sizes */
--	if ((new_mtu < (VLAN_ETH_ZLEN + ETH_FCS_LEN)) ||
-+	if ((new_mtu && new_mtu < (VLAN_ETH_ZLEN + ETH_FCS_LEN)) ||
- 	    (max_frame > adapter->max_hw_frame_size)) {
- 		e_err("Unsupported MTU setting\n");
- 		return -EINVAL;
-@@ -5949,7 +5943,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	/* Jumbo frame workaround on 82579 and newer requires CRC be stripped */
- 	if ((adapter->hw.mac.type >= e1000_pch2lan) &&
- 	    !(adapter->flags2 & FLAG2_CRC_STRIPPING) &&
--	    (new_mtu > ETH_DATA_LEN)) {
-+	    (max_frame > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)) {
- 		e_err("Jumbo Frames not supported on this device when CRC stripping is disabled.\n");
- 		return -EINVAL;
- 	}
-@@ -5957,9 +5951,14 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
- 		usleep_range(1000, 2000);
- 	/* e1000e_down -> e1000e_reset dependent on max_frame_size & mtu */
-+	if (new_mtu) {
-+		e_info("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
-+		netdev->mtu = new_mtu;
-+	} else {
-+		e_info("changing max frame size from %d to %d\n",
-+		       adapter->max_frame_size, max_frame);
-+	}
- 	adapter->max_frame_size = max_frame;
--	e_info("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
--	netdev->mtu = new_mtu;
- 
- 	pm_runtime_get_sync(netdev->dev.parent);
- 
-@@ -5995,6 +5994,20 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	return 0;
- }
- 
-+/**
-+ * e1000_change_mtu - Change the Maximum Transfer Unit
-+ * @netdev: network interface device structure
-+ * @new_mtu: new value for maximum frame size
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	int max_frame = new_mtu + netdev->enc_hdr_len + ETH_HLEN + ETH_FCS_LEN;
-+
-+	return e1000_change_max_frame(netdev, max_frame, new_mtu);
-+}
-+
- static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
- 			   int cmd)
- {
-@@ -6889,7 +6902,8 @@ static netdev_features_t e1000_fix_features(struct net_device *netdev,
- 	struct e1000_hw *hw = &adapter->hw;
- 
- 	/* Jumbo frame workaround on 82579 and newer requires CRC be stripped */
--	if ((hw->mac.type >= e1000_pch2lan) && (netdev->mtu > ETH_DATA_LEN))
-+	if (hw->mac.type >= e1000_pch2lan &&
-+	    adapter->max_frame_size > VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
- 		features &= ~NETIF_F_RXFCS;
- 
- 	return features;
-@@ -6933,6 +6947,24 @@ static int e1000_set_features(struct net_device *netdev,
- 	return 0;
- }
- 
-+/**
-+ * e1000_enc_hdr_len - Expand encapsulation header room
-+ * @netdev: network interface device structure
-+ * @new_mtu: new value for maximum encapsulation header length
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int e1000_enc_hdr_len(struct net_device *netdev, int new_len)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	int max_frame = netdev->mtu + new_len + ETH_HLEN + ETH_FCS_LEN;
-+
-+	if (max_frame <= adapter->max_frame_size)
-+		return 0;
-+
-+	return e1000_change_max_frame(netdev, max_frame, 0);
-+}
-+
- static const struct net_device_ops e1000e_netdev_ops = {
- 	.ndo_open		= e1000_open,
- 	.ndo_stop		= e1000_close,
-@@ -6953,6 +6985,7 @@ static const struct net_device_ops e1000e_netdev_ops = {
- 	.ndo_set_features = e1000_set_features,
- 	.ndo_fix_features = e1000_fix_features,
- 	.ndo_features_check	= passthru_features_check,
-+	.ndo_enc_hdr_len	= e1000_enc_hdr_len,
- };
- 
- /**
-@@ -7075,6 +7108,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->mem_start = mmio_start;
- 	netdev->mem_end = mmio_start + mmio_len;
- 
-+	netdev->enc_hdr_len = VLAN_HLEN;
-+
- 	adapter->bd_number = cards_found++;
- 
- 	e1000e_check_options(adapter);
--- 
-1.8.1.2
+The comment above the function explains that it was introduced for
+exactly this purpose.
+
+Even thought the argument variable uses the same name "wq", it has a
+different type from the wq used in svcsock.c (struct socket_wq *
+vs. wait_queue_head_t *).
+
+
+> --b.
+> 
+>> 
+>> 
+>> >> --b.
+>> >> 
+>> >> commit 0882cfeb39e0
+>> >> Author: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> >> Date:   Thu Oct 15 16:53:41 2015 -0400
+>> >> 
+>> >>     svcrpc: document lack of some memory barriers.
+>> >>     
+>> >>     Kosuke Tatsukawa points out an odd lack of memory barriers in some sites
+>> >>     here.  I think the code's correct, but it's probably worth documenting.
+>> >>     
+>> >>     Reported-by: Kosuke Tatsukawa <tatsu-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+>> >> 
+>> >> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+>> >> index 856407fa085e..90480993ec4a 100644
+>> >> --- a/net/sunrpc/svcsock.c
+>> >> +++ b/net/sunrpc/svcsock.c
+>> >> @@ -399,6 +399,25 @@ static int svc_sock_secure_port(struct svc_rqst *rqstp)
+>> >>  	return svc_port_is_privileged(svc_addr(rqstp));
+>> >>  }
+>> >>  
+>> >> +static void svc_no_smp_mb(void)
+>> >> +{
+>> >> +	/*
+>> >> +	 * Kosuke Tatsukawa points out there should normally be an
+>> >> +	 * smp_mb() at the callsites of this function.  (Either that or
+>> >> +	 * we could just drop the waitqueue_active() checks.)
+>> >> +	 *
+>> >> +	 * It appears they aren't currently necessary, though, basically
+>> >> +	 * because nfsd does non-blocking reads from these sockets, so
+>> >> +	 * the only places we wait on this waitqueue is in sendpage and
+>> >> +	 * sendmsg, which won't be waiting for wakeups on newly arrived
+>> >> +	 * data.
+>> >> +	 *
+>> >> +	 * Maybe we should add the memory barriers anyway, but these are
+>> >> +	 * hot paths so we'd need to be convinced there's no sigificant
+>> >> +	 * penalty.
+>> >> +	 */
+>> >> +}
+>> >> +
+>> >>  /*
+>> >>   * INET callback when data has been received on the socket.
+>> >>   */
+>> >> @@ -414,7 +433,7 @@ static void svc_udp_data_ready(struct sock *sk)
+>> >>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>> >>  	}
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq))
+>> >>  		wake_up_interruptible(wq);
+>> >>  }
+>> >> @@ -433,7 +452,7 @@ static void svc_write_space(struct sock *sk)
+>> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>> >>  	}
+>> >>  
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq)) {
+>> >>  		dprintk("RPC svc_write_space: someone sleeping on %p\n",
+>> >>  		       svsk);
+>> >> @@ -789,7 +808,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+>> >>  	}
+>> >>  
+>> >>  	wq = sk_sleep(sk);
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq))
+>> >>  		wake_up_interruptible_all(wq);
+>> >>  }
+>> >> @@ -811,7 +830,7 @@ static void svc_tcp_state_change(struct sock *sk)
+>> >>  		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+>> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>> >>  	}
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq))
+>> >>  		wake_up_interruptible_all(wq);
+>> >>  }
+>> >> @@ -827,7 +846,7 @@ static void svc_tcp_data_ready(struct sock *sk)
+>> >>  		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
+>> >>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>> >>  	}
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq))
+>> >>  		wake_up_interruptible(wq);
+>> >>  }
+>> >> @@ -1599,7 +1618,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
+>> >>  	sk->sk_write_space = svsk->sk_owspace;
+>> >>  
+>> >>  	wq = sk_sleep(sk);
+>> >> -	smp_mb();
+>> >> +	svc_no_smp_mb();
+>> >>  	if (wq && waitqueue_active(wq))
+>> >>  		wake_up_interruptible(wq);
+>> >>  }
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
