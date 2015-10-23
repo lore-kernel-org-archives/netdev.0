@@ -1,61 +1,65 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute RFC PATCH 0/9] Document tc filters
-Date: Fri, 23 Oct 2015 19:47:07 +0200
-Message-ID: <1445622436-6386-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [iproute RFC PATCH 1/9] tc: add a man page for basic filter
+Date: Fri, 23 Oct 2015 19:47:08 +0200
+Message-ID: <1445622436-6386-2-git-send-email-phil@nwl.cc>
+References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:52639 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:46392 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932275AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932276AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Oct 2015 13:47:19 -0400
+In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds documentation in form of a dedicated man page for every
-available tc filter with the exception of rsvp which I simply didn't
-understand. In addition to that, it adds a list of filters with (very) basic
-description to tc.8, listing the specific man pages for detailed information.
-
-I am not too confident of correctness in every aspect, therefore this series is
-tagged RFC and the relevant patches are Cc'ed to the filter authors in hope for
-review and harsh criticism in form of corrections. :)
-
-Alexey or anyone else with knowledge of rsvp, you could make me very happy by
-explaining to me how that filter is supposed to work. In turn I could serve you
-with stupid^Wunqualified questions and ultimately tc-rsvp.8 which you would
-then have to proof-read as well.
-
-Phil Sutter (9):
-  tc: add a man page for basic filter
-  tc: add a man page for cgroup filter
-  tc: add a man page for flow filter
-  tc: add a man page for flower filter
-  tc: add a man page for fw filter
-  tc: add a man page for route filter
-  tc: add a man page for tcindex filter
-  tc: add a man page for u32 filter
-  tc: ship filter man pages and refer to them in tc.8
-
- man/man8/Makefile     |   4 +-
- man/man8/tc-basic.8   |  34 +++
- man/man8/tc-cgroup.8  |  80 ++++++
- man/man8/tc-flow.8    | 265 ++++++++++++++++++++
- man/man8/tc-flower.8  | 113 +++++++++
- man/man8/tc-fw.8      |  66 +++++
- man/man8/tc-route.8   |  74 ++++++
- man/man8/tc-tcindex.8 |  58 +++++
- man/man8/tc-u32.8     | 663 ++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/tc.8         |  52 ++++
- 10 files changed, 1408 insertions(+), 1 deletion(-)
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/tc-basic.8 | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
  create mode 100644 man/man8/tc-basic.8
- create mode 100644 man/man8/tc-cgroup.8
- create mode 100644 man/man8/tc-flow.8
- create mode 100644 man/man8/tc-flower.8
- create mode 100644 man/man8/tc-fw.8
- create mode 100644 man/man8/tc-route.8
- create mode 100644 man/man8/tc-tcindex.8
- create mode 100644 man/man8/tc-u32.8
 
+diff --git a/man/man8/tc-basic.8 b/man/man8/tc-basic.8
+new file mode 100644
+index 0000000..fb39eaa
+--- /dev/null
++++ b/man/man8/tc-basic.8
+@@ -0,0 +1,34 @@
++.TH "Basic classifier in tc" 8 "21 Oct 2015" "iproute2" "Linux"
++
++.SH NAME
++basic \- basic traffic control filter
++.SH SYNOPSIS
++.in +8
++.ti -8
++.BR tc " " filter " ... " basic " [ " match
++.IR EMATCH_TREE " ] [ "
++.B action
++.IR ACTION_SPEC " ] [ "
++.B classid
++.IR CLASSID " ]"
++.SH DESCRIPTION
++The
++.B basic
++filter allows to classify packets using the extended match infrastructure.
++.SH OPTIONS
++.TP
++.BI action " ACTION_SPEC"
++Apply an action from the generic actions framework on matching packets.
++.TP
++.BI classid " CLASSID"
++Push matching packets into the class identified by
++.IR CLASSID .
++.TP
++.BI match " EMATCH_TREE"
++Match packets using the extended match infrastructure. See
++.BR tc-ematch (8)
++for a detailed description of the allowed syntax in
++.IR EMATCH_TREE .
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-ematch (8)
 -- 
 2.1.2
