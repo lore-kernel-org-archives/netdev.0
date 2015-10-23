@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: implement support for NOPREFIXROUTE ifa flag
- for ipv4 address
-Date: Fri, 23 Oct 2015 02:55:20 -0700 (PDT)
-Message-ID: <20151023.025520.942186208311911968.davem@davemloft.net>
-References: <7decee4d1d1b71142460e604af6d15f0847ecd2d.1445329646.git.pabeni@redhat.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: [PATCH V2 2/2] xen-netfront: limit vnic max_queues number to
+ online cpus
+Date: Fri, 23 Oct 2015 17:39:32 +0800
+Message-ID: <562A0054.1030200@oracle.com>
+References: <5629FB31.5060806@oracle.com> <5629FB86.7010107@oracle.com>
+ <562A1A6E02000078000ADEFB@prv-mh.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: pabeni@redhat.com
+Cc: Ian Campbell <ian.campbell@citrix.com>, wei.liu2@citrix.com,
+	"David S. Miller" <davem@davemloft.net>,
+	xen-devel@lists.xenproject.org,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	netdev@vger.kernel.org
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbbJWJiv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:38:51 -0400
-In-Reply-To: <7decee4d1d1b71142460e604af6d15f0847ecd2d.1445329646.git.pabeni@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46201 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596AbbJWJjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:39:46 -0400
+In-Reply-To: <562A1A6E02000078000ADEFB@prv-mh.provo.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Tue, 20 Oct 2015 10:28:45 +0200
+On 10/23/2015 05:30 PM, Jan Beulich wrote:
+>>>> On 23.10.15 at 11:19, <joe.jin@oracle.com> wrote:
+>>  
+>> @@ -164,6 +166,19 @@ struct netfront_rx_info {
+>>  	struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX - 1];
+>>  };
+>>  
+>> +static int xennet_set_max_queues(const char *val, struct kernel_param *kp)
+>> +{
+>> +	unsigned int cpus = num_online_cpus();
+>> +	unsigned int max_queues = simple_strtoul(val, NULL, 10);
+>> +
+>> +	if (max_queues == 0 || max_queues > cpus) {
+>> +		pr_err("max_queues %u is out of range [0 - %u]!\n", 
+> 
+> I suppose you mean "...[1 - %u]!\n" here?
 
-> Currently adding a new ipv4 address always cause the creation of the
-> related network route, with default metric. When a host has multiple
-> interfaces on the same network, multiple routes with the same metric
-> are created.
-> 
-> If the userspace wants to set specific metric on each routes, i.e.
-> giving better metric to ethernet links in respect to Wi-Fi ones,
-> the network routes must be deleted and recreated, which is error-prone.
-> 
-> This patch implements the support for IFA_F_NOPREFIXROUTE for ipv4
-> address. When an address is added with such flag set, no associated
-> network route is created, no network route is deleted when
-> said IP is gone and it's up to the user space manage such route.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Yes you are right, you catch my fault again :)
 
-Applied to net-next, thanks.
+Thanks so much, will resend new later.
+
+Regards,
+Joe
+
+> Jan
+> 
+
+
+-- 
+Oracle <http://www.oracle.com>
+Joe Jin | Software Development Director | +8610.6106.5624
+ORACLE | Linux and Virtualization
+No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
