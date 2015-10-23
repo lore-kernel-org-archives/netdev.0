@@ -1,37 +1,38 @@
 From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH 10/11] net: ipv4: hlen could be set as size_t
-Date: Fri, 23 Oct 2015 14:10:35 +0200
-Message-ID: <1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH 03/11] net: llc: change copied to size_t in llc_ui_sendmsg
+Date: Fri, 23 Oct 2015 14:10:28 +0200
+Message-ID: <1445602236-24130-4-git-send-email-clabbe.montjoie@gmail.com>
 References: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
 Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
+To: acme@ghostprotocols.net, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hlen member of raw_frag_vec is used in operation/function that wait
-for unsigned value. So it need to be set as size_t.
+The variable copied in llc_ui_sendmsg() cannot be negative and is used
+in functions that wait for unsigned value, so set it as size_t (like it
+is in llc_ui_recvmsg())
 
 Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 ---
- net/ipv4/raw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/llc/af_llc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 561cd4b..a00aaed 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -86,7 +86,7 @@ struct raw_frag_vec {
- 		struct icmphdr icmph;
- 		char c[1];
- 	} hdr;
--	int hlen;
-+	size_t hlen;
- };
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 79b915d..f435b77 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -891,7 +891,8 @@ static int llc_ui_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 	int noblock = flags & MSG_DONTWAIT;
+ 	struct sk_buff *skb;
+ 	size_t size = 0;
+-	int rc = -EINVAL, copied = 0, hdrlen;
++	int rc = -EINVAL, hdrlen;
++	size_t copied = 0;
  
- static struct raw_hashinfo raw_v4_hashinfo = {
+ 	dprintk("%s: sending from %02X to %02X\n", __func__,
+ 		llc->laddr.lsap, llc->daddr.lsap);
 -- 
 2.4.10
