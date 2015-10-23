@@ -1,97 +1,57 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH 02/11] net: llc: fix a setting of error value to size_t
-Date: Fri, 23 Oct 2015 14:10:27 +0200
-Message-ID: <1445602236-24130-3-git-send-email-clabbe.montjoie@gmail.com>
-References: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: LABBE Corentin <clabbe.montjoie@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: acme@ghostprotocols.net, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5 0/2] mpls: multipath support
+Date: Fri, 23 Oct 2015 05:14:32 -0700
+Message-ID: <562A24A8.1050006@cumulusnetworks.com>
+References: <1445559403-15258-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, rshearma@brocade.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35026 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbbJWMOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 08:14:33 -0400
+Received: by pasz6 with SMTP id z6so117244137pas.2
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 05:14:33 -0700 (PDT)
+In-Reply-To: <1445559403-15258-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variable copied is a size_t, so setting a negative value to it is
-invalid.
-The patch add an "err" variable for getting the error code.
-
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
----
- net/llc/af_llc.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index 8dab4e5..79b915d 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -719,9 +719,10 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	unsigned long used;
- 	int target;	/* Read at least this many bytes */
- 	long timeo;
-+	int err = 0;
- 
- 	lock_sock(sk);
--	copied = -ENOTCONN;
-+	err = -ENOTCONN;
- 	if (unlikely(sk->sk_type == SOCK_STREAM && sk->sk_state == TCP_LISTEN))
- 		goto out;
- 
-@@ -745,9 +746,8 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 		 * and move it down to the bottom of the loop
- 		 */
- 		if (signal_pending(current)) {
--			if (copied)
--				break;
--			copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
-+			if (!copied)
-+				err = timeo ? sock_intr_errno(timeo) : -EAGAIN;
- 			break;
- 		}
- 
-@@ -775,7 +775,7 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 				break;
- 
- 			if (sk->sk_err) {
--				copied = sock_error(sk);
-+				err = sock_error(sk);
- 				break;
- 			}
- 			if (sk->sk_shutdown & RCV_SHUTDOWN)
-@@ -787,13 +787,15 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 					 * This occurs when user tries to read
- 					 * from never connected socket.
- 					 */
--					copied = -ENOTCONN;
-+					err = -ENOTCONN;
-+					copied = 0;
- 					break;
- 				}
- 				break;
- 			}
- 			if (!timeo) {
--				copied = -EAGAIN;
-+				err = -EAGAIN;
-+				copied = 0;
- 				break;
- 			}
- 		}
-@@ -823,7 +825,7 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 			if (rc) {
- 				/* Exception. Bailout! */
- 				if (!copied)
--					copied = -EFAULT;
-+					err = -EFAULT;
- 				break;
- 			}
- 		}
-@@ -850,6 +852,8 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 
- out:
- 	release_sock(sk);
-+	if (err)
-+		return err;
- 	return copied;
- copy_uaddr:
- 	if (uaddr != NULL && skb != NULL) {
--- 
-2.4.10
+On 10/22/15, 5:16 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This patch adds support for MPLS multipath routes.
+>
+> Includes following changes to support multipath:
+> - splits struct mpls_route into 'struct mpls_route + struct mpls_nh'.
+>
+> - struct mpls_nh represents a mpls nexthop label forwarding entry
+>
+> - Adds support to parse/fill RTA_MULTIPATH netlink attribute for
+> multipath routes similar to ipv4/v6 fib
+>
+> - In the process of restructuring, this patch also consistently changes all
+> labels to u8
+>
+> $ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
+> 		nexthop as 700 via inet 10.1.1.6 dev swp2 \
+> 		nexthop as 800 via inet 40.1.1.2 dev swp3
+>
+> $ip  -f mpls route show
+> 100 
+> 	nexthop as to 200 via inet 10.1.1.2  dev swp1
+> 	nexthop as to 700 via inet 10.1.1.6  dev swp2
+> 	nexthop as to 800 via inet 40.1.1.2  dev swp3
+>
+> Roopa Prabhu (1):
+>   mpls: multipath support
+>
+> Robert Shearman (1):
+>   mpls: flow-based multipath selection
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>
+David, please ignore.  I will re-spin the series. I see a checkpatch error
