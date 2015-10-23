@@ -1,144 +1,111 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute RFC PATCH 4/9] tc: add a man page for flower filter
-Date: Fri, 23 Oct 2015 19:47:11 +0200
-Message-ID: <1445622436-6386-5-git-send-email-phil@nwl.cc>
+Subject: [iproute RFC PATCH 2/9] tc: add a man page for cgroup filter
+Date: Fri, 23 Oct 2015 19:47:09 +0200
+Message-ID: <1445622436-6386-3-git-send-email-phil@nwl.cc>
 References: <1445622436-6386-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:49769 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:55551 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932272AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932274AbbJWRrT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Oct 2015 13:47:19 -0400
 In-Reply-To: <1445622436-6386-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-flower.8 | 113 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 113 insertions(+)
- create mode 100644 man/man8/tc-flower.8
+ man/man8/tc-cgroup.8 | 80 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 80 insertions(+)
+ create mode 100644 man/man8/tc-cgroup.8
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
+diff --git a/man/man8/tc-cgroup.8 b/man/man8/tc-cgroup.8
 new file mode 100644
-index 0000000..df4d8e1
+index 0000000..2bea7d4
 --- /dev/null
-+++ b/man/man8/tc-flower.8
-@@ -0,0 +1,113 @@
-+.TH "Flower filter in tc" 8 "22 Oct 2015" "iproute2" "Linux"
++++ b/man/man8/tc-cgroup.8
+@@ -0,0 +1,80 @@
++.TH "Cgroup classifier in tc" 8 " 21 Oct 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+flower \- flow based traffic control filter
++cgroup \- control group based traffic control filter
 +.SH SYNOPSIS
 +.in +8
 +.ti -8
-+.BR tc " " filter " ... " flower " [ "
-+.IR MATCH_LIST " ] [ "
++.BR tc " " filter " ... " cgroup " [ " match
++.IR EMATCH_TREE " ] [ "
 +.B action
-+.IR ACTION_SPEC " ] [ "
-+.B classid
-+.IR CLASSID " ]"
-+
-+.ti -8
-+.IR MATCH_LIST " := [ " MATCH_LIST " ] " MATCH
-+
-+.ti -8
-+.IR MATCH " := { "
-+.B indev
-+.IR ifname " | { "
-+.BR dst_mac " | " src_mac " } "
-+.IR mac_address " | "
-+.BR eth_type " { " ipv4 " | " ipv6 " | "
-+.IR ETH_TYPE " } | "
-+.BR ip_proto " { " tcp " | " udp " | "
-+.IR IP_PROTO " } | { "
-+.BR dst_ip " | " src_ip " } { "
-+.IR ipv4_address " | " ipv6_address " } | { "
-+.BR dst_port " | " src_port " } "
-+.IR port_number " }"
++.IR ACTION_SPEC " ]"
 +.SH DESCRIPTION
-+The
-+.B flower
-+filter matches flows to the set of keys specified and assigns an arbitrarily
-+chosen class ID to packets belonging to them. Additionally (or alternatively) an
-+action from the generic action framework may be called.
++This filter serves as a hint to
++.B tc
++that the assigned class ID of the net_cls control group the process the packet
++originates from belongs to should be used for classification. Obviously, it is
++useful for locally generated packets only.
 +.SH OPTIONS
 +.TP
 +.BI action " ACTION_SPEC"
 +Apply an action from the generic actions framework on matching packets.
 +.TP
-+.BI classid " CLASSID"
-+Specify a class to pass matching packets on to.
-+.I CLASSID
-+is in the form
-+.BR X : Y ", while " X " and " Y
-+are interpreted as numbers in hexadecimal format.
-+.TP
-+.BI indev " ifname"
-+Match on incoming interface name. Obviously this makes sense only for forwarded
-+flows.
-+.I ifname
-+is the name of an interface which must exist at the time of
-+.B tc
-+invocation.
-+.TP
-+.BI dst_mac " mac_address"
-+.TQ
-+.BI src_mac " mac_address"
-+Match on source or destination MAC address.
-+.TP
-+.BI eth_type " ETH_TYPE"
-+Match on layer three protocol.
-+.I ETH_TYPE
-+may be either
-+.BR ipv4 , ipv6
-+or an unsigned 16bit value in hexadecimal format.
-+.TP
-+.BI ip_proto " IP_PROTO"
-+Match on layer four protocol.
-+.I IP_PROTO
-+may be either
-+.BR tcp , udp
-+or an unsigned 8bit value in hexadecimal format.
-+.TP
-+.BI dst_ip " ADDRESS"
-+.TQ
-+.BI src_ip " ADDRESS"
-+Match on source or destination IP address.
-+.I ADDRESS
-+must be a valid IPv4 or IPv6 address, depending on
-+.BR ether_type ,
-+which has to be specified in beforehand.
-+.TP
-+.BI dst_port " NUMBER"
-+.TQ
-+.BI src_port " NUMBER"
-+Match on layer 4 protocol source or destination port number. Only available for
-+.BR ip_proto " values " udp " and " tcp ,
-+which has to be specified in beforehand.
-+.SH NOTES
-+As stated above where applicable, matches of a certain layer implicitly depend
-+on the matches of the next lower layer. Precisely, layer one and two matches (
-+.BR indev , dst_mac , src_mac " and " eth_type )
-+have no dependency, layer three matches (
-+.BR ip_proto , dst_ip " and " src_ip )
-+require
-+.B eth_type
-+being set to either
-+.BR ipv4 " or " ipv6 ,
-+and finally layer four matches (
-+.BR dst_port " and " src_port )
-+depend on
-+.B ip_proto
-+being set to either
-+.BR tcp " or " udp .
-+.P
-+There can be only used one mask per one prio. If user needs to specify different
-+mask, he has to use different prio.
++.BI match " EMATCH_TREE"
++Match packets using the extended match infrastructure. See
++.BR tc-ematch (8)
++for a detailed description of the allowed syntax in
++.IR EMATCH_TREE .
++.SH EXAMPLES
++In order to use this filter, a net_cls control group has to be created first and
++class as well as process ID(s) assigned to it. The following creates a net_cls
++cgroup named "foobar":
++
++.RS
++.EX
++modprobe cls_cgroup
++mkdir /sys/fs/cgroup/net_cls
++mount -t cgroup -onet_cls net_cls /sys/fs/cgroup/net_cls
++mkdir /sys/fs/cgroup/net_cls/foobar
++.EE
++.RE
++
++To assign a class ID to the created cgroup, a file named
++.I net_cls.classid
++has to be created which contains the class ID to be assigned as a hexadecimal,
++64bit wide number. The upper 32bits are reserved for the major handle, the
++remaining hold the minor. So a class ID of e.g.
++.B ff:be
++has to be written like so:
++.B 0xff00be
++(leading zeroes may be omitted). To continue the above example, the following
++assigns class ID 1:2 to foobar cgroup:
++
++.RS
++.EX
++echo 0x10002 > /sys/fs/cgroup/net_cls/foobar/net_cls.classid
++.EE
++.RE
++
++Finally some PIDs can be assigned to the given cgroup:
++
++.RS
++.EX
++echo 1234 > /sys/fs/cgroup/net_cls/foobar/tasks
++echo 5678 > /sys/fs/cgroup/net_cls/foobar/tasks
++.EE
++.RE
++
++Now by simply attaching a
++.B cgroup
++filter to a
++.B qdisc
++makes packets from PIDs 1234 and 5678 be pushed into class 1:2.
++
 +.SH SEE ALSO
 +.BR tc (8),
-+.BR tc-flow (8)
++.BR tc-ematch (8),
++.br
++the file
++.I Documentation/cgroups/net_cls.txt
++of the Linux kernel tree
 -- 
 2.1.2
