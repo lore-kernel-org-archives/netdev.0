@@ -1,63 +1,121 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH 10/11] net: ipv4: hlen could be set as size_t
-Date: Fri, 23 Oct 2015 15:21:00 +0200
-Message-ID: <20151023132100.GA16922@Red>
-References: <1445602236-24130-1-git-send-email-clabbe.montjoie@gmail.com>
- <1445602236-24130-11-git-send-email-clabbe.montjoie@gmail.com>
- <20151023.060852.167547226456492975.davem@davemloft.net>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 6/8] mm: vmscan: simplify memcg vs. global shrinker
+ invocation
+Date: Fri, 23 Oct 2015 15:26:22 +0200
+Message-ID: <20151023132622.GB15375@dhcp22.suse.cz>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-7-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33163 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbbJWNVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:21:04 -0400
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20151023.060852.167547226456492975.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1445487696-21545-7-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 23, 2015 at 06:08:52AM -0700, David Miller wrote:
-> From: LABBE Corentin <clabbe.montjoie@gmail.com>
-> Date: Fri, 23 Oct 2015 14:10:35 +0200
+On Thu 22-10-15 00:21:34, Johannes Weiner wrote:
+> Letting shrink_slab() handle the root_mem_cgroup, and implicitely the
+> !CONFIG_MEMCG case, allows shrink_zone() to invoke the shrinkers
+> unconditionally from within the memcg iteration loop.
 > 
-> > The hlen member of raw_frag_vec is used in operation/function that wait
-> > for unsigned value. So it need to be set as size_t.
-> > 
-> > Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+
+Acked-by: Michal Hocko <mhocko@suse.com>
+
+> ---
+>  include/linux/memcontrol.h |  2 ++
+>  mm/vmscan.c                | 31 ++++++++++++++++---------------
+>  2 files changed, 18 insertions(+), 15 deletions(-)
 > 
-> You really need to test your changes.
-> 
-> Particularly on a platform where size_t has a different size than
-> 'int'.  That will generate several warnings, as shown by all of the
-> build warning reports sent by the kbuild test robot in response to
-> this patch series.
-> 
-> Also, you need to CC: all relevant mailing lists for the entire series
-> of patches, and also provide a "Subject: [PATCH 0/N] xxx" posting
-> describing at a high level and in detail what this patch series is
-> doing, and why.
-> 
-> It should also clearly state what exact tree you expect these patches
-> to be merged into.
-> 
-> Thanks.
+> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+> index 6f1e0f8..d66ae18 100644
+> --- a/include/linux/memcontrol.h
+> +++ b/include/linux/memcontrol.h
+> @@ -482,6 +482,8 @@ void mem_cgroup_split_huge_fixup(struct page *head);
+>  #else /* CONFIG_MEMCG */
+>  struct mem_cgroup;
+>  
+> +#define root_mem_cgroup NULL
+> +
+>  static inline void mem_cgroup_events(struct mem_cgroup *memcg,
+>  				     enum mem_cgroup_events_index idx,
+>  				     unsigned int nr)
+> diff --git a/mm/vmscan.c b/mm/vmscan.c
+> index 9b52ecf..ecc2125 100644
+> --- a/mm/vmscan.c
+> +++ b/mm/vmscan.c
+> @@ -411,6 +411,10 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
+>  	struct shrinker *shrinker;
+>  	unsigned long freed = 0;
+>  
+> +	/* Global shrinker mode */
+> +	if (memcg == root_mem_cgroup)
+> +		memcg = NULL;
+> +
+>  	if (memcg && !memcg_kmem_is_active(memcg))
+>  		return 0;
+>  
+> @@ -2417,11 +2421,22 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  			shrink_lruvec(lruvec, swappiness, sc, &lru_pages);
+>  			zone_lru_pages += lru_pages;
+>  
+> -			if (memcg && is_classzone)
+> +			/*
+> +			 * Shrink the slab caches in the same proportion that
+> +			 * the eligible LRU pages were scanned.
+> +			 */
+> +			if (is_classzone) {
+>  				shrink_slab(sc->gfp_mask, zone_to_nid(zone),
+>  					    memcg, sc->nr_scanned - scanned,
+>  					    lru_pages);
+>  
+> +				if (reclaim_state) {
+> +					sc->nr_reclaimed +=
+> +						reclaim_state->reclaimed_slab;
+> +					reclaim_state->reclaimed_slab = 0;
+> +				}
+> +			}
+> +
+>  			/*
+>  			 * Direct reclaim and kswapd have to scan all memory
+>  			 * cgroups to fulfill the overall scan target for the
+> @@ -2439,20 +2454,6 @@ static bool shrink_zone(struct zone *zone, struct scan_control *sc,
+>  			}
+>  		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
+>  
+> -		/*
+> -		 * Shrink the slab caches in the same proportion that
+> -		 * the eligible LRU pages were scanned.
+> -		 */
+> -		if (global_reclaim(sc) && is_classzone)
+> -			shrink_slab(sc->gfp_mask, zone_to_nid(zone), NULL,
+> -				    sc->nr_scanned - nr_scanned,
+> -				    zone_lru_pages);
+> -
+> -		if (reclaim_state) {
+> -			sc->nr_reclaimed += reclaim_state->reclaimed_slab;
+> -			reclaim_state->reclaimed_slab = 0;
+> -		}
+> -
+>  		vmpressure(sc->gfp_mask, sc->target_mem_cgroup,
+>  			   sc->nr_scanned - nr_scanned,
+>  			   sc->nr_reclaimed - nr_reclaimed);
+> -- 
+> 2.6.1
 
-Hello
+-- 
+Michal Hocko
+SUSE Labs
 
-I am sorry, I have badly checked my build logs.
-
-I have added all mailing list given by get_maintainer but this was done per patch with --to-cmd/--cc-cmd
-Does it is better to put all mailing list globally ?
-
-For the (0/N) mail, I forgot to add a subject on it https://lkml.org/lkml/2015/10/23/219
-
-I will fix all minor finding and resend a proper version.
-
-Thanks
-
-LABBE Corentin
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
