@@ -1,61 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 106241] New: shutdown(3)/close(3) behaviour is incorrect
- for sockets in accept(3)
-Date: Fri, 23 Oct 2015 06:48:31 -0700
-Message-ID: <1445608111.22974.146.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151021185104.GM22011@ZenIV.linux.org.uk>
-	 <20151021.182955.1434243485706993231.davem@davemloft.net>
-	 <5628636E.1020107@oracle.com> <20151022044458.GP22011@ZenIV.linux.org.uk>
-	 <20151022060304.GQ22011@ZenIV.linux.org.uk>
-	 <201510220634.t9M6YJLD017883@room101.nl.oracle.com>
-	 <20151022172146.GS22011@ZenIV.linux.org.uk>
-	 <201510221824.t9MIOp6n003978@room101.nl.oracle.com>
-	 <20151022190701.GV22011@ZenIV.linux.org.uk>
-	 <201510221951.t9MJp5LC005892@room101.nl.oracle.com>
-	 <20151022215741.GW22011@ZenIV.linux.org.uk>
-	 <201510230952.t9N9qYZJ021998@room101.nl.oracle.com>
-	 <1445605340.22974.140.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <201510231320.t9NDKZv9017488@room101.nl.oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/4] bpf: add support for persistent maps/progs
+Date: Fri, 23 Oct 2015 15:47:56 +0200
+Message-ID: <562A3A8C.1060705@iogearbox.net>
+References: <cover.1444956943.git.daniel@iogearbox.net>	<562301F9.1030702@plumgrid.com> <5623B4B4.2010703@iogearbox.net>	<5623CD8D.7000500@iogearbox.net> <56240814.8020105@plumgrid.com>	<1445240171.3728424.413797809.230D716F@webmail.messagingengine.com>	<5624BD0C.3070404@iogearbox.net> <5624FCDF.3090601@iogearbox.net>	<562518B8.2070401@plumgrid.com> <56252A43.3000706@iogearbox.net>	<56253335.9000206@plumgrid.com>	<1445280385.602530.414418777.63627F89@webmail.messagingengine.com>	<562545AA.2080207@plumgrid.com>	<1445284997.621186.414538017.6E35B341@webmail.messagingengine.com>	<56255714.2070800@plumgrid.com> <56256BF9.1090500@iogearbox.net>	<56258B11.9080505@plumgrid.com> <5625FF71.8020304@iogearbox.net>	<56267FAF.60206@plumgrid.com> <87io61fjx3.fsf@x220.int.ebiederm.org>	<5627AC79.5000704@
+ iogearbox.net> <87a8rabsst.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>,
-	Alan Burlison <Alan.Burlison@oracle.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org, dholland-tech@netbsd.org
-To: Casper.Dik@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35222 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752421AbbJWNsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 09:48:36 -0400
-Received: by pasz6 with SMTP id z6so119097065pas.2
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2015 06:48:35 -0700 (PDT)
-In-Reply-To: <201510231320.t9NDKZv9017488@room101.nl.oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, viro@ZenIV.linux.org.uk, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a8rabsst.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-10-23 at 15:20 +0200, Casper.Dik@oracle.com wrote:
+On 10/22/2015 09:35 PM, Eric W. Biederman wrote:
+> Daniel Borkmann <daniel@iogearbox.net> writes:
+>> On 10/20/2015 08:56 PM, Eric W. Biederman wrote:
+>> ...
+>>> Just FYI:  Using a device for this kind of interface is pretty
+>>> much a non-starter as that quickly gets you into situations where
+>>> things do not work in containers.  If someone gets a version of device
+>>> namespaces past GregKH it might be up for discussion to use character
+>>> devices.
+>>
+>> Okay, you are referring to this discussion here:
+>>
+>>    http://thread.gmane.org/gmane.linux.kernel.containers/26760
+>
+> That is a piece of it.  It is an old old discussion (which generally has
+> been handled poorly).  For the forseeable future device namespaces have
+> a firm NACK by GregKH.  Which means that dynamic character device based
+> interfaces do not work in containers.  Which means if you are not
+> talking about physical hardware, character devices are a poor fit.
 
-> This point was not about a 10M sockets server but in general...
-> 
+Yes, it breaks down with real namespace support. Reworking the set with
+an improved version of the fs code is already in progress.
 
-Hey, we do not design the OS only for handling desktop workloads.
-
-If netstat does not work on this typical server workload, then it is a
-joke.
-
-> Solaris has had such an option too, but that wasn't the point.  You really 
-> don't want to know which application is doing this?
-
-
-Apparently nobody had this need before you asked.
-
-My point is that instead of carrying ~30 years of legacy, we would
-better design the system properly so that we can _use_ it in all
-situations.
-
-ps used to open /dev/kmem a long time ago.
-
-fuser and similar commands having to know system internals are really
-hacks.
+Thanks,
+Daniel
