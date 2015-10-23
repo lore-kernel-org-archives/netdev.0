@@ -1,44 +1,42 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net 4/4] MAINTAINERS: Add entry for gianfar ethernet driver
-Date: Fri, 23 Oct 2015 11:42:01 +0300
-Message-ID: <1445589721-26206-5-git-send-email-claudiu.manoil@freescale.com>
-References: <1445589721-26206-1-git-send-email-claudiu.manoil@freescale.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH V2 0/2] limit xen vnic max queues number to online cpus number
+Date: Fri, 23 Oct 2015 17:17:37 +0800
+Message-ID: <5629FB31.5060806@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0105.outbound.protection.outlook.com ([65.55.169.105]:36304
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751080AbbJWJPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2015 05:15:50 -0400
-In-Reply-To: <1445589721-26206-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:41926 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbbJWJRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 05:17:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- MAINTAINERS | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Currently xen vnic allowed to create lots of queues by set module param
+max_queues(both netback and netfront), when queues number larger than
+cpus number, it does not help for performance but need more cpu time.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index fb7d2e4..9b43ef2 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4427,6 +4427,14 @@ L:	linuxppc-dev@lists.ozlabs.org
- S:	Maintained
- F:	drivers/net/ethernet/freescale/ucc_geth*
- 
-+FREESCALE eTSEC ETHERNET DRIVER (GIANFAR)
-+M:	Claudiu Manoil <claudiu.manoil@freescale.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/freescale/gianfar*
-+X:	drivers/net/ethernet/freescale/gianfar_ptp.c
-+F:	Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-+
- FREESCALE QUICC ENGINE UCC UART DRIVER
- M:	Timur Tabi <timur@tabi.org>
- L:	linuxppc-dev@lists.ozlabs.org
--- 
-1.7.11.7
+This patchset limit netback and netfront max queues number to online
+cpus number.
+
+Joe Jin (2):
+  xen-netback: limit xen vif max queues number to online cpus
+  xen-netfront: limit vnic max_queues number to online cpus
+
+---
+Changes in v2:
+  - Replace param_get_int to param_get_uint.
+  - Use '%u' for unsigned int when print.
+  - Replace EINVAL to ERANGE when out of range [0-CPUs].
+  - Reset the perm of max_queues on sysfs to 0644.
+
+ drivers/net/xen-netback/netback.c |   28 ++++++++++++++++++++++------
+ drivers/net/xen-netfront.c        |   28 ++++++++++++++++++++++------
+ 2 files changed, 44 insertions(+), 12 deletions(-)
