@@ -1,33 +1,40 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] Add ip rule save/restore
-Date: Thu, 22 Oct 2015 23:39:42 -0700
-Message-ID: <20151022233942.49576e78@xeon-e3>
-References: <56261A6C.7050907@odin.com>
+Subject: Re: [PATCH iproute2] ip, realms: also allow to pass in raw realms
+ value
+Date: Thu, 22 Oct 2015 23:41:42 -0700
+Message-ID: <20151022234142.52790676@xeon-e3>
+References: <7b438e1a9424209d64fbb77911a05af37038c74d.1444297002.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Kirill Tkhai <ktkhai@odin.com>
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33503 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbbJWGjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 02:39:36 -0400
-Received: by pabrc13 with SMTP id rc13so109384783pab.0
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 23:39:35 -0700 (PDT)
-In-Reply-To: <56261A6C.7050907@odin.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34136 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448AbbJWGle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2015 02:41:34 -0400
+Received: by padhk11 with SMTP id hk11so109793274pad.1
+        for <netdev@vger.kernel.org>; Thu, 22 Oct 2015 23:41:33 -0700 (PDT)
+In-Reply-To: <7b438e1a9424209d64fbb77911a05af37038c74d.1444297002.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Oct 2015 13:41:48 +0300
-Kirill Tkhai <ktkhai@odin.com> wrote:
+On Thu,  8 Oct 2015 12:22:39 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> This patch adds save and restore commands to "ip rule"
-> similar the same is made in commit f4ff11e3e298 for "ip route".
+> If get_rt_realms() fails, try to get a possible raw u32 realms
+> value for the u32 RTA_FLOW/FRA_FLOW attribute, as it might be
+> useful to directly configure the hex value itself. And only if
+> that fails, then bail out.
 > 
-> The feature is useful in checkpoint/restore for container
-> migration, also it may be helpful in some normal situations.
+> The source realm is provided in the upper u16 (mask: 0xffff0000)
+> and the destination realm through the lower u16 part (mask:
+> 0x0000ffff). This can be useful for tc's bpf realm matcher, but
+> also a full hex/mask param can be provided already for matching
+> through iptables' --realm cmdline option, for example.
 > 
-> Signed-off-by: Kirill Tkhai <ktkhai@odin.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Sure applied.
+This looks fine, expected some comments but none received.
+Applied.
