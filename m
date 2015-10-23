@@ -1,44 +1,47 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH 1/1] xen-netfront: limit max queues number to online cpus
-Date: Fri, 23 Oct 2015 08:50:51 +0800
-Message-ID: <5629846B.8000001@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: boris.ostrovsky@oracle.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] i40e: fix annoying message
+Date: Thu, 22 Oct 2015 18:15:53 -0700
+Message-ID: <1445562953-47496-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1445562953-47496-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36158 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965464AbbJWAu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2015 20:50:59 -0400
+Received: from mga11.intel.com ([192.55.52.93]:15283 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965724AbbJWBP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2015 21:15:57 -0400
+In-Reply-To: <1445562953-47496-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should not allocate queues number more than online cpus.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: David S. Miller <davem@davemloft.net>
+The driver was printing a message about not being able
+to assign VMDq because of a lack of MSI-X vectors.
+
+This was because a line was missing that initialized a variable,
+simply a merge error.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/xen-netfront.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index f821a97..1eebd4e 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -2137,7 +2137,7 @@ static int __init netif_init(void)
- 	/* Allow as many queues as there are CPUs if user has not
- 	 * specified a value.
- 	 */
--	if (xennet_max_queues == 0)
-+	if (xennet_max_queues == 0 || xennet_max_queues > num_online_cpus())
- 		xennet_max_queues = num_online_cpus();
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index dd44faf..3dd26cd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7911,6 +7911,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	if (pf->hw.func_caps.vmdq) {
+ 		pf->num_vmdq_vsis = I40E_DEFAULT_NUM_VMDQ_VSI;
+ 		pf->flags |= I40E_FLAG_VMDQ_ENABLED;
++		pf->num_vmdq_qps = i40e_default_queues_per_vmdq(pf);
+ 	}
  
- 	return xenbus_register_frontend(&netfront_driver);
+ #ifdef I40E_FCOE
 -- 
-1.7.1
+2.4.3
