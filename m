@@ -1,68 +1,40 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH 3/3] net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller
-Date: Sat, 24 Oct 2015 16:45:48 +0100
-Message-ID: <yw1x611wfexf.fsf@unicorn.mansr.com>
-References: <1445522558-5808-1-git-send-email-mans@mansr.com>
-	<1445522558-5808-3-git-send-email-mans@mansr.com>
-	<56297FF9.4070801@gmail.com> <yw1xa8r9fw6y.fsf@unicorn.mansr.com>
-	<562A7000.2080502@gmail.com>
+From: "Lan, Tianyu" <tianyu.lan@intel.com>
+Subject: Re: [RFC Patch 08/12] IXGBEVF: Rework code of finding the end transmit
+ desc of package
+Date: Sun, 25 Oct 2015 00:08:08 +0800
+Message-ID: <562BACE8.8070507@intel.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com> <1445445464-5056-9-git-send-email-tianyu.lan@intel.com> <20151022155650-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bhelgaas@google.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, eddie.dong@intel.com,
+	nrupal.jani@intel.com, yang.z.zhang@intel.com, agraf@suse.de,
+	kvm@vger.kernel.org, pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562A7000.2080502@gmail.com> (Florian Fainelli's message of "Fri,
-	23 Oct 2015 10:36:00 -0700")
+In-Reply-To: <20151022155650-mutt-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46lorian Fainelli <f.fainelli@gmail.com> writes:
 
->>>> +static void nb8800_set_rx_mode(struct net_device *dev)
->>>> +{
->>>> +	struct nb8800_priv *priv =3D netdev_priv(dev);
->>>> +	struct netdev_hw_addr *ha;
->>>> +	int af_en;
->>>> +
->>>> +	if ((dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) ||
->>>> +	    netdev_mc_count(dev) > 64)
->>>
->>> 64, that's pretty generous for a perfect match filter, nice.
->>=20
->> That's bogus; I forgot to delete it.  The hardware uses a 64-entry h=
-ash
->> table, and whoever wrote the old driver apparently didn't understand=
- how
->> it works.
->
-> Might be best to put the interface in promiscuous mode until you have
-> proper multicast support. Since this is for a Set-Top box chip, havin=
-g
-> proper multicast support still seems like something highly desirable.
 
-The code below should work correctly with any number of multicast
-addresses.
+On 10/22/2015 8:58 PM, Michael S. Tsirkin wrote:
+> Do you really need to play the shifting games?
+> Can't you just reset everything and re-initialize the rings?
+> It's slower but way less intrusive.
+> Also removes the need to track writes into rings.
 
->>>> +	phydev =3D phy_find_first(bus);
->>>> +	if (!phydev || phy_read(phydev, MII_BMSR) <=3D 0) {
->>>
->>> What is this additional MII_MBSR read used for?
->>=20
->> On one of my boards, phylib misdetects a phy on the second ethernet =
-port
->> even though there is none.  Perhaps I should revisit that problem an=
-d
->> look for a better solution.
->
-> I think that would be best, if you are currently using the Generic PH=
-Y
-> driver, consider writing a specific driver which would take care of
-> quirky behavior.
-
-The problem is that there is no PHY, yet for some reason reading the ID
-registers appears to succeed.
-
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+Shift ring is to avoid losing those packets in the ring.
+This may cause some race condition and so I introduced a
+lock to prevent such cases in the latter patch.
+Yes, reset everything after migration can make thing easy.
+But just like you said it would affect performance and loss
+more packets. I can do a test later to get data about these
+two way.
