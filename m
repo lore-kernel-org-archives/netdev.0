@@ -1,159 +1,156 @@
-From: Ani Sinha <ani@arista.com>
-Subject: [PATCH 1/1] commit e53376bef2cd97d3e3f61fdc677fb8da7d03d0da
- upstream.
-Date: Sat, 24 Oct 2015 10:27:10 -0700 (PDT)
-Message-ID: <alpine.OSX.2.20.1510241023160.95745@athabasca.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
-	Andrew Vagin <avagin@parallels.com>, coreteam@netfilter.org,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Zefan Li <lizefan@huawei.com>, ani@anirban.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] ipv4: fix problems from the RTNH_F_LINKDOWN introduction
+Date: Sat, 24 Oct 2015 21:20:00 +0300
+Message-ID: <1445710800-8320-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:59842 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751933AbbJXSUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Oct 2015 14:20:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-netfilter: nf_conntrack: don't release a conntrack with non-zero
-refcnt
+When fib_netdev_event calls fib_disable_ip on NETDEV_DOWN event
+we should not delete the local routes if the local address
+is still present. The confusion comes from the fact that both
+fib_netdev_event and fib_inetaddr_event use the NETDEV_DOWN
+constant. Fix it by returning back the variable 'force'.
 
-With this patch, the conntrack refcount is initially set to zero and
-it is bumped once it is added to any of the list, so we fulfill
-Eric's golden rule which is that all released objects always have a
-refcount that equals zero.
+Steps to reproduce:
+modprobe dummy
+ifconfig dummy0 192.168.168.1 up
+ip route list table local | grep dummy | grep host
+local 192.168.168.1 dev dummy0  proto kernel  scope host  src 192.168.168.1
 
-Andrey Vagin reports that nf_conntrack_free can't be called for a
-conntrack with non-zero ref-counter, because it can race with
-nf_conntrack_find_get().
+Second fix is for fib_sync_up: when nexthop is part of multipath
+route we should clear the LINKDOWN flag when link goes UP
+or when first address is added. This is needed because we always
+set LINKDOWN flag when DEAD flag is set but now the nexthop
+is not dead anymore. Examples when LINKDOWN bit can be forgotten:
 
-A conntrack slab is created with SLAB_DESTROY_BY_RCU. Non-zero
-ref-counter says that this conntrack is used. So when we release
-a conntrack with non-zero counter, we break this assumption.
+- link goes down (LINKDOWN is set), then link goes UP and device
+shows carrier OK but LINKDOWN remains set
 
-CPU1                                    CPU2
-____nf_conntrack_find()
-                                        nf_ct_put()
-                                         destroy_conntrack()
-                                        ...
-                                        init_conntrack
-                                         __nf_conntrack_alloc (set use = 1)
-atomic_inc_not_zero(&ct->use) (use = 2)
-                                         if (!l4proto->new(ct, skb, dataoff, timeouts))
-                                          nf_conntrack_free(ct); (use = 2 !!!)
-                                        ...
-                                        __nf_conntrack_alloc (set use = 1)
- if (!nf_ct_key_equal(h, tuple, zone))
-  nf_ct_put(ct); (use = 0)
-   destroy_conntrack()
-                                        /* continue to work with CT */
+- last address is deleted (LINKDOWN is set), then address is
+added and device shows carrier OK but LINKDOWN remains set
 
-After applying the path "[PATCH] netfilter: nf_conntrack: fix RCU
-race in nf_conntrack_find_get" another bug was triggered in
-destroy_conntrack():
-
-<4>[67096.759334] ------------[ cut here ]------------
-<2>[67096.759353] kernel BUG at net/netfilter/nf_conntrack_core.c:211!
-...
-<4>[67096.759837] Pid: 498649, comm: atdd veid: 666 Tainted: G         C ---------------    2.6.32-042stab084.18 #1 042stab084_18 /DQ45CB
-<4>[67096.759932] RIP: 0010:[<ffffffffa03d99ac>]  [<ffffffffa03d99ac>] destroy_conntrack+0x15c/0x190 [nf_conntrack]
-<4>[67096.760255] Call Trace:
-<4>[67096.760255]  [<ffffffff814844a7>] nf_conntrack_destroy+0x17/0x30
-<4>[67096.760255]  [<ffffffffa03d9bb5>] nf_conntrack_find_get+0x85/0x130 [nf_conntrack]
-<4>[67096.760255]  [<ffffffffa03d9fb2>] nf_conntrack_in+0x352/0xb60 [nf_conntrack]
-<4>[67096.760255]  [<ffffffffa048c771>] ipv4_conntrack_local+0x51/0x60 [nf_conntrack_ipv4]
-<4>[67096.760255]  [<ffffffff81484419>] nf_iterate+0x69/0xb0
-<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
-<4>[67096.760255]  [<ffffffff814845d4>] nf_hook_slow+0x74/0x110
-<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
-<4>[67096.760255]  [<ffffffff814b66d5>] raw_sendmsg+0x775/0x910
-<4>[67096.760255]  [<ffffffff8104c5a8>] ? flush_tlb_others_ipi+0x128/0x130
-<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
-<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
-<4>[67096.760255]  [<ffffffff814c136a>] inet_sendmsg+0x4a/0xb0
-<4>[67096.760255]  [<ffffffff81444e93>] ? sock_sendmsg+0x13/0x140
-<4>[67096.760255]  [<ffffffff81444f97>] sock_sendmsg+0x117/0x140
-<4>[67096.760255]  [<ffffffff8102e299>] ? native_smp_send_reschedule+0x49/0x60
-<4>[67096.760255]  [<ffffffff81519beb>] ? _spin_unlock_bh+0x1b/0x20
-<4>[67096.760255]  [<ffffffff8109d930>] ? autoremove_wake_function+0x0/0x40
-<4>[67096.760255]  [<ffffffff814960f0>] ? do_ip_setsockopt+0x90/0xd80
-<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
-<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
-<4>[67096.760255]  [<ffffffff814457c9>] sys_sendto+0x139/0x190
-<4>[67096.760255]  [<ffffffff810efa77>] ? audit_syscall_entry+0x1d7/0x200
-<4>[67096.760255]  [<ffffffff810ef7c5>] ? __audit_syscall_exit+0x265/0x290
-<4>[67096.760255]  [<ffffffff81474daf>] compat_sys_socketcall+0x13f/0x210
-<4>[67096.760255]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
-
-I have reused the original title for the RFC patch that Andrey posted and
-most of the original patch description.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Andrew Vagin <avagin@parallels.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Zefan Li <lizefan@huawei.com>
-Signed-off-by: Ani Sinha <ani@arista.com>
-Reported-by: Andrew Vagin <avagin@parallels.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Reviewed-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Andrew Vagin <avagin@parallels.com>
+Fixes: 8a3d03166f19 ("net: track link-status of ipv4 nexthops")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/netfilter/nf_conntrack_core.c | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ include/net/ip_fib.h     |  2 +-
+ net/ipv4/fib_frontend.c  | 13 +++++++------
+ net/ipv4/fib_semantics.c | 18 +++++++++++++++---
+ 3 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 9a171b2..9a46908 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -441,7 +441,9 @@ nf_conntrack_hash_check_insert(struct nf_conn *ct)
- 			goto out;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 727d6e9..654aec1 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -317,7 +317,7 @@ void fib_flush_external(struct net *net);
  
- 	add_timer(&ct->timeout);
--	nf_conntrack_get(&ct->ct_general);
-+	smp_wmb();
-+	/* The caller holds a reference to this object */
-+	atomic_set(&ct->ct_general.use, 2);
- 	__nf_conntrack_hash_insert(ct, hash, repl_hash);
- 	NF_CT_STAT_INC(net, insert);
- 	spin_unlock_bh(&nf_conntrack_lock);
-@@ -732,11 +734,10 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
- 		nf_ct_zone->id = zone;
- 	}
- #endif
--	/*
--	 * changes to lookup keys must be done before setting refcnt to 1
-+	/* Because we use RCU lookups, we set ct_general.use to zero before
-+	 * this is inserted in any list.
- 	 */
--	smp_wmb();
--	atomic_set(&ct->ct_general.use, 1);
-+	atomic_set(&ct->ct_general.use, 0);
- 	return ct;
+ /* Exported by fib_semantics.c */
+ int ip_fib_check_default(__be32 gw, struct net_device *dev);
+-int fib_sync_down_dev(struct net_device *dev, unsigned long event);
++int fib_sync_down_dev(struct net_device *dev, unsigned long event, int force);
+ int fib_sync_down_addr(struct net *net, __be32 local);
+ int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
+ void fib_select_multipath(struct fib_result *res);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 690bcbc..4826a22 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1110,9 +1110,10 @@ static void nl_fib_lookup_exit(struct net *net)
+ 	net->ipv4.fibnl = NULL;
+ }
  
- #ifdef CONFIG_NF_CONNTRACK_ZONES
-@@ -759,6 +760,10 @@ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
- void nf_conntrack_free(struct nf_conn *ct)
+-static void fib_disable_ip(struct net_device *dev, unsigned long event)
++static void fib_disable_ip(struct net_device *dev, unsigned long event,
++			   int force)
  {
- 	struct net *net = nf_ct_net(ct);
-+	/* A freed object has refcnt == 0, that's
-+	 * the golden rule for SLAB_DESTROY_BY_RCU
-+	 */
-+	NF_CT_ASSERT(atomic_read(&ct->ct_general.use) == 0);
+-	if (fib_sync_down_dev(dev, event))
++	if (fib_sync_down_dev(dev, event, force))
+ 		fib_flush(dev_net(dev));
+ 	rt_cache_flush(dev_net(dev));
+ 	arp_ifdown(dev);
+@@ -1140,7 +1141,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 			/* Last address was deleted from this interface.
+ 			 * Disable IP.
+ 			 */
+-			fib_disable_ip(dev, event);
++			fib_disable_ip(dev, event, 1);
+ 		} else {
+ 			rt_cache_flush(dev_net(dev));
+ 		}
+@@ -1157,7 +1158,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	unsigned int flags;
  
- 	nf_ct_ext_destroy(ct);
- 	atomic_dec(&net->ct.count);
-@@ -846,6 +851,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 		NF_CT_STAT_INC(net, new);
+ 	if (event == NETDEV_UNREGISTER) {
+-		fib_disable_ip(dev, event);
++		fib_disable_ip(dev, event, 2);
+ 		rt_flush_dev(dev);
+ 		return NOTIFY_DONE;
  	}
+@@ -1178,14 +1179,14 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 		rt_cache_flush(net);
+ 		break;
+ 	case NETDEV_DOWN:
+-		fib_disable_ip(dev, event);
++		fib_disable_ip(dev, event, 0);
+ 		break;
+ 	case NETDEV_CHANGE:
+ 		flags = dev_get_flags(dev);
+ 		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
+ 			fib_sync_up(dev, RTNH_F_LINKDOWN);
+ 		else
+-			fib_sync_down_dev(dev, event);
++			fib_sync_down_dev(dev, event, 0);
+ 		/* fall through */
+ 	case NETDEV_CHANGEMTU:
+ 		rt_cache_flush(net);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 064bd3c..f657418 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1281,7 +1281,13 @@ int fib_sync_down_addr(struct net *net, __be32 local)
+ 	return ret;
+ }
  
-+	/* Now it is inserted into the unconfirmed list, bump refcount */
-+	nf_conntrack_get(&ct->ct_general);
+-int fib_sync_down_dev(struct net_device *dev, unsigned long event)
++/* Event              force Flags           Description
++ * NETDEV_CHANGE      0     LINKDOWN        Carrier OFF, not for scope host
++ * NETDEV_DOWN        0     LINKDOWN|DEAD   Link down, not for scope host
++ * NETDEV_DOWN        1     LINKDOWN|DEAD   Last address removed
++ * NETDEV_UNREGISTER  2     LINKDOWN|DEAD   Device removed
++ */
++int fib_sync_down_dev(struct net_device *dev, unsigned long event, int force)
+ {
+ 	int ret = 0;
+ 	int scope = RT_SCOPE_NOWHERE;
+@@ -1290,8 +1296,7 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
+ 	struct hlist_head *head = &fib_info_devhash[hash];
+ 	struct fib_nh *nh;
+ 
+-	if (event == NETDEV_UNREGISTER ||
+-	    event == NETDEV_DOWN)
++	if (force)
+ 		scope = -1;
+ 
+ 	hlist_for_each_entry(nh, head, nh_hash) {
+@@ -1440,6 +1445,13 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+ 	if (!(dev->flags & IFF_UP))
+ 		return 0;
+ 
++	if (nh_flags & RTNH_F_DEAD) {
++		unsigned int flags = dev_get_flags(dev);
 +
- 	/* Overload tuple linked list to put us in unconfirmed list. */
- 	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
- 		       &net->ct.unconfirmed);
++		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
++			nh_flags |= RTNH_F_LINKDOWN;
++	}
++
+ 	prev_fi = NULL;
+ 	hash = fib_devindex_hashfn(dev->ifindex);
+ 	head = &fib_info_devhash[hash];
 -- 
-1.8.1.4
-
+1.9.3
