@@ -1,52 +1,103 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net v3] openvswitch: Fix egress tunnel info.
-Date: Sat, 24 Oct 2015 12:26:04 +0200
-Message-ID: <20151024122604.45453ac9@griffin>
-References: <1445563036-9623-1-git-send-email-pshelar@nicira.com>
-	<20151023141738.4db54324@griffin>
-	<CALnjE+oOrvGmXuW0aexHt_CO2W7DEMLJyHzW3psCFuK+aG+5Yg@mail.gmail.com>
-	<20151023202207.1533982b@griffin>
-	<CALnjE+p644A-H1Kj3cc2WE_NOwyeU-8A_8bfvjp_ykUxcUmWeg@mail.gmail.com>
+From: Jonas Markussen <jonassm@ifi.uio.no>
+Subject: Re: [PATCH RFC net-next 0/2] tcp: Redundant Data Bundling (RDB)
+Date: Sat, 24 Oct 2015 08:00:41 +0000
+Message-ID: <61F74109-9FDC-485A-978B-714B7AA27445@ifi.uio.no>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+ <CAK6E8=eSYoxo6BLPh=jpmfudcRSJ3uT3YhZ0n-XP_dnxKCNH3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999AbbJXK0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Oct 2015 06:26:08 -0400
-In-Reply-To: <CALnjE+p644A-H1Kj3cc2WE_NOwyeU-8A_8bfvjp_ykUxcUmWeg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: =?utf-8?B?QmVuZGlrIFLDuG5uaW5nIE9wc3RhZA==?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Paolo Abeni <pabeni@redhat.com>, Erik Kline <ek@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"Florian Westphal" <fw@strlen.de>,
+	Daniel Lee <Longinus00@gmail.com>,
+	"Marcelo Ricardo Leitner" <mleitner@redhat.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Willem de Bruijn" <willemb@google.com>,
+	=?utf-8?B?TGludXMgTMO8c3Npbmc=?= <linus.lue
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAK6E8=eSYoxo6BLPh=jpmfudcRSJ3uT3YhZ0n-XP_dnxKCNH3A@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <6DC9634DDA1D10488CE2582F31C8A701@mail.uio.no>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Oct 2015 12:47:09 -0700, Pravin Shelar wrote:
-> This is not complete code. I found couple of issues with it.
-
-That's likely, I didn't test it :-)
-
-> This code does not copy lwtunnel_state state into new dst.
-
-Not sure what state you mean. All the relevant state should be in
-struct ip_tunnel_info.
-
-> And it is converting lwtunnel dst into metadata dst.
-
-I did that intentionally. But your comment made me realize that I was
-too much focused on the tunnel implementation side. This function,
-should it be used outside of ovs, could be called earlier than the skb
-is handed to the tunnel. Then we of course need a valid dst->output and
-this approach (converting lwtunnel data to metadata_dst) would fail.
-This is the same problem we have with IPv6 ndisc replies.
-
-This needs more thinking and is out of scope of what you're trying to
-solve. Sorry for the noise. But at least it made me realize that the
-ndisc problem (that I still don't have a good solution for) is broader.
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
+DQoNCj4gT24gMjQgT2N0IDIwMTUsIGF0IDA4OjExLCBZdWNodW5nIENoZW5nIDx5Y2hlbmdAZ29v
+Z2xlLmNvbT4gd3JvdGU6DQo+IA0KPiBPbiBGcmksIE9jdCAyMywgMjAxNSBhdCAxOjUwIFBNLCBC
+ZW5kaWsgUsO4bm5pbmcgT3BzdGFkDQo+IDxicm8uZGV2ZWxAZ21haWwuY29tPiB3cm90ZToNCj4+
+IA0KPj4gVGhpcyBpcyBhIHJlcXVlc3QgZm9yIGNvbW1lbnRzLg0KPj4gDQo+PiBSZWR1bmRhbnQg
+RGF0YSBCdW5kbGluZyAoUkRCKSBpcyBhIG1lY2hhbmlzbSBmb3IgVENQIGFpbWVkIGF0IHJlZHVj
+aW5nDQo+PiB0aGUgbGF0ZW5jeSBmb3IgYXBwbGljYXRpb25zIHNlbmRpbmcgdGltZS1kZXBlbmRl
+bnQgZGF0YS4NCj4+IExhdGVuY3ktc2Vuc2l0aXZlIGFwcGxpY2F0aW9ucyBvciBzZXJ2aWNlcywg
+c3VjaCBhcyBvbmxpbmUgZ2FtZXMgYW5kDQo+PiByZW1vdGUgZGVza3RvcCwgcHJvZHVjZSB0cmFm
+ZmljIHdpdGggdGhpbi1zdHJlYW0gY2hhcmFjdGVyaXN0aWNzLA0KPj4gY2hhcmFjdGVyaXplZCBi
+eSBzbWFsbCBwYWNrZXRzIGFuZCBhIHJlbGF0aXZlbHkgaGlnaCBJVFQuIEJ5IGJ1bmRsaW5nDQo+
+PiBhbHJlYWR5IHNlbnQgZGF0YSBpbiBwYWNrZXRzIHdpdGggbmV3IGRhdGEsIFJEQiBhbGxldmlh
+dGVzIGhlYWQtb2YtbGluZQ0KPj4gYmxvY2tpbmcgYnkgcmVkdWNpbmcgdGhlIG5lZWQgdG8gcmV0
+cmFuc21pdCBkYXRhIHNlZ21lbnRzIHdoZW4gcGFja2V0cw0KPj4gYXJlIGxvc3QuIFJEQiBpcyBh
+IGNvbnRpbnVhdGlvbiBvbiB0aGUgd29yayBvbiBsYXRlbmN5IGltcHJvdmVtZW50cyBmb3INCj4+
+IFRDUCBpbiBMaW51eCwgcHJldmlvdXNseSByZXN1bHRpbmcgaW4gdHdvIHRoaW4tc3RyZWFtIG1l
+Y2hhbmlzbXMgaW4gdGhlDQo+PiBMaW51eCBrZXJuZWwNCj4+IChodHRwczovL2dpdGh1Yi5jb20v
+dG9ydmFsZHMvbGludXgvYmxvYi9tYXN0ZXIvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RjcC10
+aGluLnR4dCkuDQo+PiANCj4+IFRoZSBSREIgaW1wbGVtZW50YXRpb24gaGFzIGJlZW4gdGhvcm91
+Z2hseSB0ZXN0ZWQsIGFuZCBzaG93cw0KPj4gc2lnbmlmaWNhbnQgbGF0ZW5jeSByZWR1Y3Rpb25z
+IHdoZW4gcGFja2V0IGxvc3Mgb2NjdXJzWzFdLiBUaGUgdGVzdHMNCj4+IHNob3cgdGhhdCwgYnkg
+aW1wb3NpbmcgcmVzdHJpY3Rpb25zIG9uIHRoZSBidW5kbGluZyByYXRlLCBpdCBjYW4gYmUgbWFk
+ZQ0KPj4gbm90IHRvIG5lZ2F0aXZlbHkgYWZmZWN0IGNvbXBldGluZyB0cmFmZmljIGluIGFuIHVu
+ZmFpciBtYW5uZXIuDQo+PiANCj4+IE5vdGU6IEN1cnJlbnQgcGF0Y2ggc2V0IGRlcGVuZHMgb24g
+YSByZWNlbnRseSBzdWJtaXR0ZWQgcGF0Y2ggZm9yDQo+PiB0Y3Bfc2tiX2NiICh0Y3A6IHJlZmFj
+dG9yIHN0cnVjdCB0Y3Bfc2tiX2NiOiBodHRwOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gv
+NTEwNjc0KQ0KPj4gDQo+PiBUaGVzZSBwYXRjaGVzIGhhdmUgYmVlbiB0ZXN0ZWQgd2l0aCBhcyBz
+ZXQgb2YgcGFja2V0ZHJpbGwgc2NyaXB0cyBsb2NhdGVkIGF0DQo+PiBodHRwczovL2dpdGh1Yi5j
+b20vYmVuZGlrcm8vcGFja2V0ZHJpbGwvdHJlZS9tYXN0ZXIvZ3Rlc3RzL25ldC9wYWNrZXRkcmls
+bC90ZXN0cy9saW51eC9yZGINCj4+IChUaGUgdGVzdHMgcmVxdWlyZSBwYXRjaGluZyBwYWNrZXRk
+cmlsbCB3aXRoIGEgbmV3IHNvY2tldCBvcHRpb246DQo+PiBodHRwczovL2dpdGh1Yi5jb20vYmVu
+ZGlrcm8vcGFja2V0ZHJpbGwvY29tbWl0Lzk5MTZiNmM1M2UzM2RkMDQzMjlkMjliN2Q4YmFmNzAz
+YjJjMmFjMWIpDQo+PiANCj4+IERldGFpbGVkIGluZm8gYWJvdXQgdGhlIFJEQiBtZWNoYW5pc20g
+Y2FuIGJlIGZvdW5kIGF0DQo+PiBodHRwOi8vbWxhYi5uby9ibG9nLzIwMTUvMTAvcmVkdW5kYW50
+LWRhdGEtYnVuZGxpbmctaW4tdGNwLCBhcyB3ZWxsIGFzIGluIHRoZSBwYXBlcg0KPiANCj4gV2hh
+dCdzIHRoZSBkaWZmZXJlbmNlIGJldHdlZW4gUkRCIGFuZCBUQ1AgcmVwYWNrZXRpemF0aW9uDQo+
+IChodHRwOi8vZmx5bGliLmNvbS9ib29rcy9lbi8zLjIyMy4xLjIyNi8xLykgPw0KPiANCj4gUmVh
+ZGluZyB0aGUgYmxvZyBwYWdlLCBJIGFtIGNvbmNlcm5lZCB0aGUgYW1vdW50IG9mDQo+IGNoYW5n
+ZSAoZXNwIG9uIGZhc3QgcGF0aCkganVzdCB0byBidW5kbGUgbmV3IHdyaXRlcyBkdXJpbmcgdGlt
+ZW91dCAmDQo+IHJldHJhbnNtaXQsIGZvciBhIHNwZWNpZmljIHR5cGUgb2YgYXBwbGljYXRpb24/
+IHdoeSBub3QganVzdCBzZW5kIFgNCj4gcGFja2V0cyB3aXRoIHRvdGFsIGJ5dGVzIDwgTVNTIG9u
+IHRpbWVvdXQuLg0KDQpSZXBhY2tldGl6YXRpb24gaXMgb25seSBvbiByZXRyYW5zbWlzc2lvbnM7
+IFJEQiBidW5kbGVzIHByZXZpb3VzbHkgc2VudCBzZWdtZW50cyB3aXRoIHRoZSBuZXh0IOKAnG5v
+cm1hbOKAnSB0cmFuc21pc3Npb24gaW5zdGVhZC4gDQoNClRoaXMgbWFrZXMgdGhlIGZsb3cgcmVj
+b3ZlciB0aGUgbG9zdCBzZWdtZW50ICBiZWZvcmUgYSByZXRyYW5zbWlzc2lvbiBpcyB0cmlnZ2Vy
+ZWQgYnkgYW4gUlRPIG9yIGZhc3QgcmV0cmFuc21pdC4NCg0KPj4gIkxhdGVuY3kgYW5kIEZhaXJu
+ZXNzIFRyYWRlLU9mZiBmb3IgVGhpbiBTdHJlYW1zIHVzaW5nIFJlZHVuZGFudCBEYXRhDQo+PiBC
+dW5kbGluZyBpbiBUQ1AiWzJdLg0KPj4gDQo+PiBbMV0gaHR0cDovL2hvbWUuaWZpLnVpby5uby9w
+YWFsaC9zdHVkZW50cy9CZW5kaWtPcHN0YWQucGRmDQo+PiBbMl0gaHR0cDovL2hvbWUuaWZpLnVp
+by5uby9iZW5kaWtvL3JkYl9mYWlybmVzc190cmFkZW9mZi5wZGYNCj4+IA0KPj4gDQo+PiBCZW5k
+aWsgUsO4bm5pbmcgT3BzdGFkICgyKToNCj4+ICB0Y3A6IEFkZCBEUElGTCB0aGluIHN0cmVhbSBk
+ZXRlY3Rpb24gbWVjaGFuaXNtDQo+PiAgdGNwOiBBZGQgUmVkdW5kYW50IERhdGEgQnVuZGxpbmcg
+KFJEQikNCj4+IA0KPj4gRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0bC50eHQgfCAg
+MjMgKysrDQo+PiBpbmNsdWRlL2xpbnV4L3NrYnVmZi5oICAgICAgICAgICAgICAgICB8ICAgMSAr
+DQo+PiBpbmNsdWRlL2xpbnV4L3RjcC5oICAgICAgICAgICAgICAgICAgICB8ICAgOSArLQ0KPj4g
+aW5jbHVkZS9uZXQvdGNwLmggICAgICAgICAgICAgICAgICAgICAgfCAgMzQgKysrKw0KPj4gaW5j
+bHVkZS91YXBpL2xpbnV4L3RjcC5oICAgICAgICAgICAgICAgfCAgIDEgKw0KPj4gbmV0L2NvcmUv
+c2tidWZmLmMgICAgICAgICAgICAgICAgICAgICAgfCAgIDMgKy0NCj4+IG5ldC9pcHY0L01ha2Vm
+aWxlICAgICAgICAgICAgICAgICAgICAgIHwgICAzICstDQo+PiBuZXQvaXB2NC9zeXNjdGxfbmV0
+X2lwdjQuYyAgICAgICAgICAgICB8ICAzNSArKysrDQo+PiBuZXQvaXB2NC90Y3AuYyAgICAgICAg
+ICAgICAgICAgICAgICAgICB8ICAxOSArKy0NCj4+IG5ldC9pcHY0L3RjcF9pbnB1dC5jICAgICAg
+ICAgICAgICAgICAgIHwgICAzICsNCj4+IG5ldC9pcHY0L3RjcF9vdXRwdXQuYyAgICAgICAgICAg
+ICAgICAgIHwgIDExICstDQo+PiBuZXQvaXB2NC90Y3BfcmRiLmMgICAgICAgICAgICAgICAgICAg
+ICB8IDI4MSArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysNCj4+IDEyIGZpbGVzIGNo
+YW5nZWQsIDQxNSBpbnNlcnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQ0KPj4gY3JlYXRlIG1vZGUg
+MTAwNjQ0IG5ldC9pcHY0L3RjcF9yZGIuYw0KPj4gDQo+PiAtLQ0KPj4gMS45LjENCg0K
