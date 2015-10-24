@@ -1,74 +1,76 @@
-From: "Lan, Tianyu" <tianyu.lan@intel.com>
-Subject: Re: [RFC Patch 01/12] PCI: Add virtfn_index for struct pci_device
-Date: Sat, 24 Oct 2015 22:46:59 +0800
-Message-ID: <562B99E3.7020209@intel.com>
-References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com> <1445445464-5056-2-git-send-email-tianyu.lan@intel.com> <5627D45A.4040502@gmail.com>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [RFC PATCH net-next] tipc: link_is_bc_sndlink() can be static
+Date: Sat, 24 Oct 2015 22:56:01 +0800
+Message-ID: <20151024145600.GA2937@lkp-hsx03>
+References: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, bhelgaas@google.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	eddie.dong@intel.com, nrupal.jani@intel.com,
-	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
-	pbonzini@redhat.com, qemu-devel@nongnu.org,
-	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
-	linux-pci@vger.kernel.org, matthew.vick@intel.com,
-	mitch.a.williams@intel.com, netdev@vger.kernel.org,
-	shannon.nelson@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5627D45A.4040502@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: kbuild-internal@linux.intel.com, lkp@eclists.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:51714 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753124AbbJXO5I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Oct 2015 10:57:08 -0400
+Content-Disposition: inline
+In-Reply-To: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+TO: "David S. Miller" <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+CC: Jon Maloy <jon.maloy@ericsson.com>
+CC: Ying Xue <ying.xue@windriver.com>
+CC: tipc-discussion@lists.sourceforge.net
+CC: linux-kernel@vger.kernel.org
 
 
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ link.c |    8 ++++----
+ node.c |    2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-On 10/22/2015 2:07 AM, Alexander Duyck wrote:
-> On 10/21/2015 09:37 AM, Lan Tianyu wrote:
->> Add "virtfn_index" member in the struct pci_device to record VF sequence
->> of PF. This will be used in the VF sysfs node handle.
->>
->> Signed-off-by: Lan Tianyu <tianyu.lan@intel.com>
->> ---
->>   drivers/pci/iov.c   | 1 +
->>   include/linux/pci.h | 1 +
->>   2 files changed, 2 insertions(+)
->>
->> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
->> index ee0ebff..065b6bb 100644
->> --- a/drivers/pci/iov.c
->> +++ b/drivers/pci/iov.c
->> @@ -136,6 +136,7 @@ static int virtfn_add(struct pci_dev *dev, int id,
->> int reset)
->>       virtfn->physfn = pci_dev_get(dev);
->>       virtfn->is_virtfn = 1;
->>       virtfn->multifunction = 0;
->> +    virtfn->virtfn_index = id;
->>       for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
->>           res = &dev->resource[i + PCI_IOV_RESOURCES];
->> diff --git a/include/linux/pci.h b/include/linux/pci.h
->> index 353db8d..85c5531 100644
->> --- a/include/linux/pci.h
->> +++ b/include/linux/pci.h
->> @@ -356,6 +356,7 @@ struct pci_dev {
->>       unsigned int    io_window_1k:1;    /* Intel P2P bridge 1K I/O
->> windows */
->>       unsigned int    irq_managed:1;
->>       pci_dev_flags_t dev_flags;
->> +    unsigned int    virtfn_index;
->>       atomic_t    enable_cnt;    /* pci_enable_device has been called */
->>       u32        saved_config_space[16]; /* config space saved at
->> suspend time */
->>
->
-> Can't you just calculate the VF index based on the VF BDF number
-> combined with the information in the PF BDF number and VF
-> offset/stride?  Seems kind of pointless to add a variable that is only
-> used by one driver and is in a slowpath when you can just calculate it
-> pretty quickly.
-
-Good suggestion. Will try it.
-
->
-> - Alex
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 4449fa0..9efbdbd 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -163,12 +163,12 @@ bool tipc_link_is_blocked(struct tipc_link *l)
+ 	return l->state & (LINK_RESETTING | LINK_PEER_RESET | LINK_FAILINGOVER);
+ }
+ 
+-bool link_is_bc_sndlink(struct tipc_link *l)
++static bool link_is_bc_sndlink(struct tipc_link *l)
+ {
+ 	return !l->bc_sndlink;
+ }
+ 
+-bool link_is_bc_rcvlink(struct tipc_link *l)
++static bool link_is_bc_rcvlink(struct tipc_link *l)
+ {
+ 	return ((l->bc_rcvlink == l) && !link_is_bc_sndlink(l));
+ }
+@@ -1364,8 +1364,8 @@ static bool tipc_link_build_bc_proto_msg(struct tipc_link *l, bool bcast,
+  * Give a newly added peer node the sequence number where it should
+  * start receiving and acking broadcast packets.
+  */
+-void tipc_link_build_bc_init_msg(struct tipc_link *l,
+-				 struct sk_buff_head *xmitq)
++static void tipc_link_build_bc_init_msg(struct tipc_link *l,
++					struct sk_buff_head *xmitq)
+ {
+ 	struct sk_buff_head list;
+ 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 7493506..20cddec 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1083,7 +1083,7 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
+  *
+  * Invoked with no locks held.
+  */
+-void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id)
++static void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id)
+ {
+ 	int rc;
+ 	struct sk_buff_head xmitq;
