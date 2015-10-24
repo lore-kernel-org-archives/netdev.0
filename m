@@ -1,76 +1,61 @@
 From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [RFC PATCH net-next] tipc: link_is_bc_sndlink() can be static
-Date: Sat, 24 Oct 2015 22:56:01 +0800
-Message-ID: <20151024145600.GA2937@lkp-hsx03>
-References: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
+Subject: [net-next:master 1605/1613] net/tipc/link.c:166:6: sparse: symbol
+ 'link_is_bc_sndlink' was not declared. Should it be static?
+Date: Sat, 24 Oct 2015 22:56:00 +0800
+Message-ID: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: kbuild-internal@linux.intel.com, lkp@eclists.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:51714 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753124AbbJXO5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Oct 2015 10:57:08 -0400
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>,
+	tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Jon Paul Maloy <jon.maloy@ericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-TO: "David S. Miller" <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-CC: Jon Maloy <jon.maloy@ericsson.com>
-CC: Ying Xue <ying.xue@windriver.com>
-CC: tipc-discussion@lists.sourceforge.net
-CC: linux-kernel@vger.kernel.org
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   687f079addba1ac7f97ce97080c2291bbe8c8dce
+commit: 5266698661401afc5e4a1a521cf9ba10724d10dd [1605/1613] tipc: let broadcast packet reception use new link receive function
+reproduce:
+        # apt-get install sparse
+        git checkout 5266698661401afc5e4a1a521cf9ba10724d10dd
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
 
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+sparse warnings: (new ones prefixed by >>)
+
+>> net/tipc/link.c:166:6: sparse: symbol 'link_is_bc_sndlink' was not declared. Should it be static?
+>> net/tipc/link.c:171:6: sparse: symbol 'link_is_bc_rcvlink' was not declared. Should it be static?
+   net/tipc/link.c:635:6: sparse: symbol 'link_prepare_wakeup' was not declared. Should it be static?
+   net/tipc/link.c:891:6: sparse: symbol 'tipc_link_advance_backlog' was not declared. Should it be static?
+   net/tipc/link.c:967:5: sparse: symbol 'tipc_link_retrans' was not declared. Should it be static?
+>> net/tipc/link.c:1561:6: sparse: symbol 'tipc_link_build_bc_init_msg' was not declared. Should it be static?
+   include/linux/rcupdate.h:305:9: sparse: context imbalance in 'tipc_link_find_owner' - wrong count at exit
+   net/tipc/link.c:1821:5: sparse: context imbalance in 'tipc_nl_link_set' - different lock contexts for basic block
+   net/tipc/link.c:2058:5: sparse: context imbalance in 'tipc_nl_link_dump' - different lock contexts for basic block
+   net/tipc/link.c:2129:5: sparse: context imbalance in 'tipc_nl_link_get' - different lock contexts for basic block
+   net/tipc/link.c:2181:5: sparse: context imbalance in 'tipc_nl_link_reset_stats' - different lock contexts for basic block
+--
+   net/tipc/node.c:144:18: sparse: symbol 'tipc_node_create' was not declared. Should it be static?
+   net/tipc/node.c:831:6: sparse: symbol 'tipc_node_filter_pkt' was not declared. Should it be static?
+>> net/tipc/node.c:1090:6: sparse: symbol 'tipc_node_bc_rcv' was not declared. Should it be static?
+   net/tipc/node.c:237:5: sparse: context imbalance in 'tipc_node_add_conn' - different lock contexts for basic block
+   net/tipc/node.c:268:6: sparse: context imbalance in 'tipc_node_remove_conn' - different lock contexts for basic block
+   net/tipc/node.c:303:9: sparse: context imbalance in 'tipc_node_timeout' - different lock contexts for basic block
+   net/tipc/node.c:383:13: sparse: context imbalance in 'tipc_node_link_up' - wrong count at exit
+   net/tipc/node.c:463:13: sparse: context imbalance in 'tipc_node_link_down' - wrong count at exit
+   net/tipc/node.c:497:6: sparse: context imbalance in 'tipc_node_check_dest' - wrong count at exit
+   net/tipc/node.c:917:9: sparse: context imbalance in 'tipc_node_get_linkname' - different lock contexts for basic block
+   net/tipc/node.c:935:9: sparse: context imbalance in 'tipc_node_unlock' - unexpected unlock
+   net/tipc/node.c:1027:5: sparse: context imbalance in 'tipc_node_xmit' - wrong count at exit
+>> net/tipc/node.c:1090:6: sparse: context imbalance in 'tipc_node_bc_rcv' - wrong count at exit
+   net/tipc/node.c:1277:6: sparse: context imbalance in 'tipc_rcv' - different lock contexts for basic block
+   net/tipc/node.c:1348:5: sparse: context imbalance in 'tipc_nl_node_dump' - different lock contexts for basic block
+
+Please review and possibly fold the followup patch.
+
 ---
- link.c |    8 ++++----
- node.c |    2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 4449fa0..9efbdbd 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -163,12 +163,12 @@ bool tipc_link_is_blocked(struct tipc_link *l)
- 	return l->state & (LINK_RESETTING | LINK_PEER_RESET | LINK_FAILINGOVER);
- }
- 
--bool link_is_bc_sndlink(struct tipc_link *l)
-+static bool link_is_bc_sndlink(struct tipc_link *l)
- {
- 	return !l->bc_sndlink;
- }
- 
--bool link_is_bc_rcvlink(struct tipc_link *l)
-+static bool link_is_bc_rcvlink(struct tipc_link *l)
- {
- 	return ((l->bc_rcvlink == l) && !link_is_bc_sndlink(l));
- }
-@@ -1364,8 +1364,8 @@ static bool tipc_link_build_bc_proto_msg(struct tipc_link *l, bool bcast,
-  * Give a newly added peer node the sequence number where it should
-  * start receiving and acking broadcast packets.
-  */
--void tipc_link_build_bc_init_msg(struct tipc_link *l,
--				 struct sk_buff_head *xmitq)
-+static void tipc_link_build_bc_init_msg(struct tipc_link *l,
-+					struct sk_buff_head *xmitq)
- {
- 	struct sk_buff_head list;
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 7493506..20cddec 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1083,7 +1083,7 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
-  *
-  * Invoked with no locks held.
-  */
--void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id)
-+static void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id)
- {
- 	int rc;
- 	struct sk_buff_head xmitq;
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
