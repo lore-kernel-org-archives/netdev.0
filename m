@@ -1,102 +1,159 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension headers
- and recalc checksum during fragmentation
-Date: Sat, 24 Oct 2015 19:02:04 +0200
-Message-ID: <1445706124.1823412.419177649.420E8888@webmail.messagingengine.com>
-References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
- <CALx6S35of-Qpo5c+AW5h6_CXbTiZG0yn5_J0skK_LZ4UMxikiA@mail.gmail.com>
- <1445704123.1816692.419166185.45622C02@webmail.messagingengine.com>
- <CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
+From: Ani Sinha <ani@arista.com>
+Subject: [PATCH 1/1] commit e53376bef2cd97d3e3f61fdc677fb8da7d03d0da
+ upstream.
+Date: Sat, 24 Oct 2015 10:27:10 -0700 (PDT)
+Message-ID: <alpine.OSX.2.20.1510241023160.95745@athabasca.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
 	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Benjamin Coddington <bcodding@redhat.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59903 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751884AbbJXRCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2015 13:02:04 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 773692065B
-	for <netdev@vger.kernel.org>; Sat, 24 Oct 2015 13:02:04 -0400 (EDT)
-In-Reply-To: <CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org,
+	Andrew Vagin <avagin@parallels.com>, coreteam@netfilter.org,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Zefan Li <lizefan@huawei.com>, ani@anirban.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Tom,
+netfilter: nf_conntrack: don't release a conntrack with non-zero
+refcnt
 
-On Sat, Oct 24, 2015, at 18:46, Tom Herbert wrote:
-> On Sat, Oct 24, 2015 at 12:28 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > Hi Tom,
-> >
-> > On Sat, Oct 24, 2015, at 18:21, Tom Herbert wrote:
-> >> On Fri, Oct 23, 2015 at 9:13 AM, Hannes Frederic Sowa
-> >> <hannes@stressinduktion.org> wrote:
-> >> > CHECKSUM_PARTIAL should only be used on plain vanilla IPv6 + UDP packets
-> >> > in ip6_append_data. Some drivers don't correctly handle extension headers,
-> >> > especially not ipv6 fragmentation which could result in broken checksums.
-> >> >
-> >> Yes, we've seen this in some drivers, but the conclusion is that those
-> >> drivers are *broken* and need to be fixed! CHECKSUM_PARTIAL works
-> >> perfectly well in the presence of extension headers if the
-> >> driver/device is correctly implemented (simple algorithm with
-> >> csum_start and csum_offset).
-> >
-> > I will do some more research on those drivers and I agree in general
-> > with you. But if you look at the code it was clearly the intention to
-> > not use CHECKSUM_PARTIAL on fragmented IPv6 packets, just this intention
-> > has not been formulated correctly in code. I still would like to see
-> > something like that showing up in stable and we can follow more CSUM
-> > bits maybe for drivers who support or don't support that.
-> >
-> > Also as we are talking about fragments here, I would not put too much
-> > effort into that, as fragments will be slow path anyway.
-> >
-> Checksum will need to be done before fragmentation, but I see little
-> value in trying to push that back to the userspace copy. Besides, I
-> would expect that UFO should work properly with extension headers.
+With this patch, the conntrack refcount is initially set to zero and
+it is bumped once it is added to any of the list, so we fulfill
+Eric's golden rule which is that all released objects always have a
+refcount that equals zero.
 
-Sure, checksum needs to be calculated before fragmentation, but touching
-the data once during userspace copy seems to be valuable to me to
-instead doing it later in the kernel, especially if the data is cold as
-it has been on a send queue for quite some while and some context
-switches happened (MSG_MORE for example).
+Andrey Vagin reports that nf_conntrack_free can't be called for a
+conntrack with non-zero ref-counter, because it can race with
+nf_conntrack_find_get().
 
-For UFO CHECKSUM_PARTIAL is a must and we require proper checksum
-offload capabilities. But nearly no networking card does provide UFO
-offloading, there are very few of them (but heavily used due to virtual
-ones supporting that). If you use UFO during UDP output you end up doing
-CHECKSUM_PARTIAL.
+A conntrack slab is created with SLAB_DESTROY_BY_RCU. Non-zero
+ref-counter says that this conntrack is used. So when we release
+a conntrack with non-zero counter, we break this assumption.
 
-> The rule is simple: if a driver states that ids capable of support an
-> IPv6 offload, that means that it must properly handle packets with
-> extension headers which are a core part of IPv6 protocol. We do not
-> want to add any more feature bits for stuff like this.
+CPU1                                    CPU2
+____nf_conntrack_find()
+                                        nf_ct_put()
+                                         destroy_conntrack()
+                                        ...
+                                        init_conntrack
+                                         __nf_conntrack_alloc (set use = 1)
+atomic_inc_not_zero(&ct->use) (use = 2)
+                                         if (!l4proto->new(ct, skb, dataoff, timeouts))
+                                          nf_conntrack_free(ct); (use = 2 !!!)
+                                        ...
+                                        __nf_conntrack_alloc (set use = 1)
+ if (!nf_ct_key_equal(h, tuple, zone))
+  nf_ct_put(ct); (use = 0)
+   destroy_conntrack()
+                                        /* continue to work with CT */
 
-I would agree, but we don't want to disable CHECKSUM_PARTIAL for most of
-the traffic just if some drivers fail to do correct checksum offloading
-for fragmented packets.
+After applying the path "[PATCH] netfilter: nf_conntrack: fix RCU
+race in nf_conntrack_find_get" another bug was triggered in
+destroy_conntrack():
 
-> It is possible that we will be deploying IPv6 extension headers within
-> our data center at some point. I would prefer that we retain the value
-> of HW checksum offload in that, but we simply cannot have devices
-> silently sending bad checksums...
+<4>[67096.759334] ------------[ cut here ]------------
+<2>[67096.759353] kernel BUG at net/netfilter/nf_conntrack_core.c:211!
+...
+<4>[67096.759837] Pid: 498649, comm: atdd veid: 666 Tainted: G         C ---------------    2.6.32-042stab084.18 #1 042stab084_18 /DQ45CB
+<4>[67096.759932] RIP: 0010:[<ffffffffa03d99ac>]  [<ffffffffa03d99ac>] destroy_conntrack+0x15c/0x190 [nf_conntrack]
+<4>[67096.760255] Call Trace:
+<4>[67096.760255]  [<ffffffff814844a7>] nf_conntrack_destroy+0x17/0x30
+<4>[67096.760255]  [<ffffffffa03d9bb5>] nf_conntrack_find_get+0x85/0x130 [nf_conntrack]
+<4>[67096.760255]  [<ffffffffa03d9fb2>] nf_conntrack_in+0x352/0xb60 [nf_conntrack]
+<4>[67096.760255]  [<ffffffffa048c771>] ipv4_conntrack_local+0x51/0x60 [nf_conntrack_ipv4]
+<4>[67096.760255]  [<ffffffff81484419>] nf_iterate+0x69/0xb0
+<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
+<4>[67096.760255]  [<ffffffff814845d4>] nf_hook_slow+0x74/0x110
+<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
+<4>[67096.760255]  [<ffffffff814b66d5>] raw_sendmsg+0x775/0x910
+<4>[67096.760255]  [<ffffffff8104c5a8>] ? flush_tlb_others_ipi+0x128/0x130
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff814c136a>] inet_sendmsg+0x4a/0xb0
+<4>[67096.760255]  [<ffffffff81444e93>] ? sock_sendmsg+0x13/0x140
+<4>[67096.760255]  [<ffffffff81444f97>] sock_sendmsg+0x117/0x140
+<4>[67096.760255]  [<ffffffff8102e299>] ? native_smp_send_reschedule+0x49/0x60
+<4>[67096.760255]  [<ffffffff81519beb>] ? _spin_unlock_bh+0x1b/0x20
+<4>[67096.760255]  [<ffffffff8109d930>] ? autoremove_wake_function+0x0/0x40
+<4>[67096.760255]  [<ffffffff814960f0>] ? do_ip_setsockopt+0x90/0xd80
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff814457c9>] sys_sendto+0x139/0x190
+<4>[67096.760255]  [<ffffffff810efa77>] ? audit_syscall_entry+0x1d7/0x200
+<4>[67096.760255]  [<ffffffff810ef7c5>] ? __audit_syscall_exit+0x265/0x290
+<4>[67096.760255]  [<ffffffff81474daf>] compat_sys_socketcall+0x13f/0x210
+<4>[67096.760255]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
 
-Yes, sure. Btw. this patch only affects UDP and RAW sockets.
+I have reused the original title for the RFC patch that Andrey posted and
+most of the original patch description.
 
-> Please see my patch on the driver helper function to rectify device
-> capabilities with packets as they are transmitted.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Andrew Vagin <avagin@parallels.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Zefan Li <lizefan@huawei.com>
+Signed-off-by: Ani Sinha <ani@arista.com>
+Reported-by: Andrew Vagin <avagin@parallels.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Andrew Vagin <avagin@parallels.com>
+---
+ net/netfilter/nf_conntrack_core.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-I have seen that already but will have a second look.
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 9a171b2..9a46908 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -441,7 +441,9 @@ nf_conntrack_hash_check_insert(struct nf_conn *ct)
+ 			goto out;
+ 
+ 	add_timer(&ct->timeout);
+-	nf_conntrack_get(&ct->ct_general);
++	smp_wmb();
++	/* The caller holds a reference to this object */
++	atomic_set(&ct->ct_general.use, 2);
+ 	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ 	NF_CT_STAT_INC(net, insert);
+ 	spin_unlock_bh(&nf_conntrack_lock);
+@@ -732,11 +734,10 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
+ 		nf_ct_zone->id = zone;
+ 	}
+ #endif
+-	/*
+-	 * changes to lookup keys must be done before setting refcnt to 1
++	/* Because we use RCU lookups, we set ct_general.use to zero before
++	 * this is inserted in any list.
+ 	 */
+-	smp_wmb();
+-	atomic_set(&ct->ct_general.use, 1);
++	atomic_set(&ct->ct_general.use, 0);
+ 	return ct;
+ 
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+@@ -759,6 +760,10 @@ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
+ void nf_conntrack_free(struct nf_conn *ct)
+ {
+ 	struct net *net = nf_ct_net(ct);
++	/* A freed object has refcnt == 0, that's
++	 * the golden rule for SLAB_DESTROY_BY_RCU
++	 */
++	NF_CT_ASSERT(atomic_read(&ct->ct_general.use) == 0);
+ 
+ 	nf_ct_ext_destroy(ct);
+ 	atomic_dec(&net->ct.count);
+@@ -846,6 +851,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 		NF_CT_STAT_INC(net, new);
+ 	}
+ 
++	/* Now it is inserted into the unconfirmed list, bump refcount */
++	nf_conntrack_get(&ct->ct_general);
++
+ 	/* Overload tuple linked list to put us in unconfirmed list. */
+ 	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+ 		       &net->ct.unconfirmed);
+-- 
+1.8.1.4
 
-Anyway, currently it is easy to generate broken checksums on the wire
-and would like to solve that for net, we certainly can improve that in
-net-next.
-
-Bye,
-Hannes
