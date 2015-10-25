@@ -1,77 +1,99 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net/mlx4: Memcpy at slave_event should copy sizeof mlx4_eqe
-Date: Sun, 25 Oct 2015 10:26:07 +0200
-Message-ID: <CAJ3xEMiYZgGNqHffxDe4ixPECHwQ2cSbvVjHmjc49kROm=9p5g@mail.gmail.com>
-References: <1445609940-12234-1-git-send-email-clsoto@linux.vnet.ibm.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH net-next] bpf: make tracing helpers gpl only
+Date: Sun, 25 Oct 2015 10:14:11 +0100
+Message-ID: <20151025091411.GE24337@gmail.com>
+References: <1445637499-11146-1-git-send-email-ast@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Yishai Hadas <yishaih@mellanox.com>
-To: Carol L Soto <clsoto@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:36505 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359AbbJYI0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 04:26:09 -0400
-Received: by igdg1 with SMTP id g1so40928476igd.1
-        for <netdev@vger.kernel.org>; Sun, 25 Oct 2015 01:26:08 -0700 (PDT)
-In-Reply-To: <1445609940-12234-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33380 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751251AbbJYJOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 05:14:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1445637499-11146-1-git-send-email-ast@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2015 at 4:19 PM,  <clsoto@linux.vnet.ibm.com> wrote:
-> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->
-> If the caps.eqe_size is bigger than the struct mlx4_eqe then there
-> is a potential for corrupting data at the master context. We can see
-> the message "Master failed to generate an EQE for slave: X" when the
-> event_eqe array wraps and we can see potential oops at the function
-> mlx4_GEN_EQE.
->
-> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-Hi Carol,
+* Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-Does this fixes a specific commit? if yes, please add a Fixes: line
-before your signature, maybe
-one the changes to enable CQE/EQE striding introduced that?
-
-43c816c67a53 net/mlx4_core: Cache line EQE size support
-77507aa249ae net/mlx4_core: Enable CQE/EQE stride support
-
-I also added Yishai and Jack who should review your fix
-
-Or.
-
-
-
-Or.
-
+> exported perf symbols are GPL only, mark eBPF helper functions
+> used in tracing as GPL only as well.
+> 
+> Suggested-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 > ---
->  drivers/net/ethernet/mellanox/mlx4/eq.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-> index c344884..603d1c3 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-> @@ -196,7 +196,7 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
->                 return;
->         }
->
-> -       memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
-> +       memcpy(s_eqe, eqe, sizeof(struct mlx4_eqe) - 1);
->         s_eqe->slave_id = slave;
->         /* ensure all information is written before setting the ownersip bit */
->         dma_wmb();
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> this is on top of this patch that touches the same file:
+> http://patchwork.ozlabs.org/patch/534664/
+> 
+>  kernel/trace/bpf_trace.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index 003df3887287..4228fd3682c3 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -214,7 +214,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
+>  
+>  static const struct bpf_func_proto bpf_perf_event_read_proto = {
+>  	.func		= bpf_perf_event_read,
+> -	.gpl_only	= false,
+> +	.gpl_only	= true,
+>  	.ret_type	= RET_INTEGER,
+>  	.arg1_type	= ARG_CONST_MAP_PTR,
+>  	.arg2_type	= ARG_ANYTHING,
+> @@ -255,7 +255,7 @@ static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
+>  
+>  static const struct bpf_func_proto bpf_perf_event_output_proto = {
+>  	.func		= bpf_perf_event_output,
+> -	.gpl_only	= false,
+> +	.gpl_only	= true,
+>  	.ret_type	= RET_INTEGER,
+>  	.arg1_type	= ARG_PTR_TO_CTX,
+>  	.arg2_type	= ARG_CONST_MAP_PTR,
+
+So there's a lot more 'gpl_only = false' cases that I can see:
+
+triton:~/tip> git grep gpl_only | grep false
+kernel/bpf/core.c: .gpl_only    = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/bpf/helpers.c: .gpl_only = false,
+kernel/trace/bpf_trace.c:       .gpl_only   = false,
+net/core/filter.c: .gpl_only    = false,
+net/core/filter.c: .gpl_only    = false,
+net/core/filter.c: .gpl_only    = false,
+net/core/filter.c: .gpl_only       = false,
+net/core/filter.c: .gpl_only       = false,
+net/core/filter.c: .gpl_only       = false,
+net/core/filter.c: .gpl_only       = false,
+net/core/filter.c: .gpl_only    = false,
+net/core/filter.c: .gpl_only    = false,
+
+and only a handful of 'true' cases:
+
+triton:~/tip> git grep gpl_only | grep true
+kernel/bpf/helpers.c: .gpl_only = true,
+kernel/trace/bpf_trace.c:       .gpl_only   = true,
+kernel/trace/bpf_trace.c:       .gpl_only   = true,
+
+so I don't know the netfilter ones, but in particular the tracing ones I'm sure 
+should be gpl-only. Do we really, really want proprietary modules mucking with 
+such internals??
+
+Thanks,
+
+	Ingo
