@@ -1,69 +1,99 @@
-From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-Subject: [PATCH v2] net: tso: add support for IPv6
-Date: Sun, 25 Oct 2015 22:02:51 +0200
-Message-ID: <1445803371-19778-1-git-send-email-emmanuel.grumbach@intel.com>
-References: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
-Cc: linux-wireless@vger.kernel.org, egrumbach@gmail.com,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:25317 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751579AbbJYUDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Oct 2015 16:03:16 -0400
-In-Reply-To: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gerhard Wiesinger <lists@wiesinger.com>
+Subject: Re: Linux 4.2.4
+Date: Sun, 25 Oct 2015 21:08:57 +0100
+Message-ID: <562D36D9.9060504@wiesinger.com>
+References: <20151023003306.GA25388@kroah.com>
+ <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com>
+ <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com>
+ <20151025094634.GA6832@1wt.eu> <562CB396.2080509@wiesinger.com>
+ <alpine.DEB.2.10.1510252032420.14141@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	Greg KH <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
+	Jiri Slaby <jslaby@suse.cz>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1510252032420.14141@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adding IPv6 for the TSO helper API is trivial:
-* Don't play with the id (which doesn't exist in IPv6)
-* Correctly update the payload_len (don't include the
-  length of the IP header itself)
+On 25.10.2015 20:46, Jozsef Kadlecsik wrote:
+> Hi,
+>
+> On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
+>
+>> On 25.10.2015 10:46, Willy Tarreau wrote:
+>>> ipset *triggered* the problem. The whole stack dump would tell more.
+>> OK, find the stack traces in the bug report:
+>> https://bugzilla.redhat.com/show_bug.cgi?id=1272645
+>>
+>> Kernel 4.1.10 triggered also a kernel dump when playing with ipset commands
+>> and IPv6, details in the bug report  ....
+> It seems to me it is an architecture-specific alignment issue. I don't
+> have a Cortex-A7 ARM hardware and qemu doesn't seem to support it either,
+> so I'm unable to reproduce it (ipset passes all my tests on my hardware,
+> including more complex ones than what breaks here). My first wild guess is
+> that the dynamic array of the element structure is not aligned properly.
+> Could you give a try to the next patch?
+>
+> diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+> index afe905c..1cf357d 100644
+> --- a/net/netfilter/ipset/ip_set_hash_gen.h
+> +++ b/net/netfilter/ipset/ip_set_hash_gen.h
+> @@ -1211,6 +1211,9 @@ static const struct ip_set_type_variant mtype_variant = {
+>   	.same_set = mtype_same_set,
+>   };
+>   
+> +#define IP_SET_BASE_ALIGN(dtype)	\
+> +	ALIGN(sizeof(struct dtype), __alignof__(struct dtype))
+> +
+>   #ifdef IP_SET_EMIT_CREATE
+>   static int
+>   IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+> @@ -1319,12 +1322,12 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+>   #endif
+>   		set->variant = &IPSET_TOKEN(HTYPE, 4_variant);
+>   		set->dsize = ip_set_elem_len(set, tb,
+> -				sizeof(struct IPSET_TOKEN(HTYPE, 4_elem)));
+> +				IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 4_elem)));
+>   #ifndef IP_SET_PROTO_UNDEF
+>   	} else {
+>   		set->variant = &IPSET_TOKEN(HTYPE, 6_variant);
+>   		set->dsize = ip_set_elem_len(set, tb,
+> -				sizeof(struct IPSET_TOKEN(HTYPE, 6_elem)));
+> +				IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 6_elem)));
+>   	}
+>   #endif
+>   	if (tb[IPSET_ATTR_TIMEOUT]) {
+>
+> If that does not solve it, then could you help to narrow down the issue?
+> Does the bug still appear if your remove the counter extension of the set?
+>
 
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
----
-v2: add else if
+Hello Jozsef,
 
-NOTE: instead of checking the skb->protocol, I can add a bool
-	in tso_t. This might be better in terms of cache
-	handling. Let me know if you prefer that option
----
- net/core/tso.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+Patch applied well, compiling ...
 
-diff --git a/net/core/tso.c b/net/core/tso.c
-index 630b30b..bf71bdc5 100644
---- a/net/core/tso.c
-+++ b/net/core/tso.c
-@@ -14,18 +14,24 @@ EXPORT_SYMBOL(tso_count_descs);
- void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
- 		   int size, bool is_last)
- {
--	struct iphdr *iph;
- 	struct tcphdr *tcph;
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 	int mac_hdr_len = skb_network_offset(skb);
- 
- 	memcpy(hdr, skb->data, hdr_len);
--	iph = (struct iphdr *)(hdr + mac_hdr_len);
--	iph->id = htons(tso->ip_id);
--	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *iph = (void *)(hdr + mac_hdr_len);
-+
-+		iph->id = htons(tso->ip_id);
-+		iph->tot_len = htons(size + hdr_len - mac_hdr_len);
-+		tso->ip_id++;
-+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		struct ipv6hdr *iph = (void *)(hdr + mac_hdr_len);
-+
-+		iph->payload_len = htons(size + tcp_hdrlen(skb));
-+	}
- 	tcph = (struct tcphdr *)(hdr + skb_transport_offset(skb));
- 	put_unaligned_be32(tso->tcp_seq, &tcph->seq);
--	tso->ip_id++;
- 
- 	if (!is_last) {
- 		/* Clear all special flags for not last packet */
--- 
-2.1.4
+Interesting, that it didn't happen before. Device is in production for 
+more than 2 month without any issue.
+
+Also any idea regarding the second isssue? Or do you think it has the 
+same root cause?
+
+Greetings from Vienna, Austria :-)
+
+BTW: You can get the Banana Pi R1 for example at:
+http://www.aliexpress.com/item/BPI-R1-Set-1-R1-Board-Clear-Case-5dB-Antenna-Power-Adapter-Banana-PI-R1-Smart/32362127917.html
+I can really recommend it as a router. Power consumption is as less as 
+3W. Price is also IMHO very good.
+
+Ciao,
+Gerhard
+
