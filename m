@@ -1,79 +1,46 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH] net/mlx4: Memcpy at slave_event should copy sizeof
- mlx4_eqe
-Date: Sun, 25 Oct 2015 12:07:43 +0200
-Message-ID: <20151025120743.3763b796@jpm-OptiPlex-GX620>
-References: <1445609940-12234-1-git-send-email-clsoto@linux.vnet.ibm.com>
-	<CAJ3xEMiYZgGNqHffxDe4ixPECHwQ2cSbvVjHmjc49kROm=9p5g@mail.gmail.com>
+From: Gerhard Wiesinger <lists@wiesinger.com>
+Subject: Re: Linux 4.2.4
+Date: Sun, 25 Oct 2015 11:48:54 +0100
+Message-ID: <562CB396.2080509@wiesinger.com>
+References: <20151023003306.GA25388@kroah.com>
+ <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com>
+ <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com>
+ <20151025094634.GA6832@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Carol L Soto <clsoto@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:32993 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251AbbJYKHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 06:07:09 -0400
-Received: by wijp11 with SMTP id p11so128521943wij.0
-        for <netdev@vger.kernel.org>; Sun, 25 Oct 2015 03:07:08 -0700 (PDT)
-In-Reply-To: <CAJ3xEMiYZgGNqHffxDe4ixPECHwQ2cSbvVjHmjc49kROm=9p5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
+	Jiri Slaby <jslaby@suse.cz>
+To: Willy Tarreau <w@1wt.eu>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20151025094634.GA6832@1wt.eu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Carol,
+On 25.10.2015 10:46, Willy Tarreau wrote:
+> ipset *triggered* the problem. The whole stack dump would tell more. 
 
-Good catch!
+OK, find the stack traces in the bug report:
+https://bugzilla.redhat.com/show_bug.cgi?id=1272645
 
-Need to add an additional chunk to your fix -- see below.
+Kernel 4.1.10 triggered also a kernel dump when playing with ipset 
+commands and IPv6, details in the bug report  ....
 
-On Sun, 25 Oct 2015 10:26:07 +0200
-Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> Kernel 4.2 seems to me not well tested in the netfilter parts at all
+>> (Bug with already known bugfix
+>> https://lists.debian.org/debian-kernel/2015/10/msg00034.html was
+>> triggered on 2 of 3 of my machines, the new bug on 1 of 1 tested machine).
+> There's a reason why Greg maintains stable and LTS kernels :-)
 
+Stable kernels don't crash but definiton. :-)
 
-> 
-> > ---
-> >  drivers/net/ethernet/mellanox/mlx4/eq.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >
-> > diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c
-> > b/drivers/net/ethernet/mellanox/mlx4/eq.c index c344884..603d1c3
-> > 100644 --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-> > +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-> > @@ -196,7 +196,7 @@ static void slave_event(struct mlx4_dev *dev,
-> > u8 slave, struct mlx4_eqe *eqe) return;
-> >         }
-> >
-> > -       memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
-> > +       memcpy(s_eqe, eqe, sizeof(struct mlx4_eqe) - 1);
-> >         s_eqe->slave_id = slave;
-> >         /* ensure all information is written before setting the
-> > ownersip bit */ dma_wmb();
+At least triggered 2 kernel panics in 5min, even with 4.1.10 and ipset 
+commands ...
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 0a32020..2177e56 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2398,7 +2398,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 			}
- 		}
- 
--		memset(&priv->mfunc.master.cmd_eqe, 0, dev->caps.eqe_size);
-+		memset(&priv->mfunc.master.cmd_eqe, 0, sizeof(struct mlx4_eqe));
- 		priv->mfunc.master.cmd_eqe.type = MLX4_EVENT_TYPE_CMD;
- 		INIT_WORK(&priv->mfunc.master.comm_work,
- 			  mlx4_master_comm_channel);
+Ciao,
+Gerhard
 
-
-> > --
-> > 1.8.3.1
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
