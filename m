@@ -1,95 +1,74 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: Linux 4.2.4
-Date: Sun, 25 Oct 2015 22:53:54 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1510252252460.14807@blackhole.kfki.hu>
-References: <20151023003306.GA25388@kroah.com> <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com> <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com> <20151025094634.GA6832@1wt.eu> <562CB396.2080509@wiesinger.com>
- <alpine.DEB.2.10.1510252032420.14141@blackhole.kfki.hu> <562D36D9.9060504@wiesinger.com> <562D48FD.9030901@wiesinger.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: tso: add support for IPv6
+Date: Mon, 26 Oct 2015 01:34:26 +0300
+Message-ID: <562D58F2.40407@cogentembedded.com>
+References: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Willy Tarreau <w@1wt.eu>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Greg KH <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
-	Jiri Slaby <jslaby@suse.cz>
-To: Gerhard Wiesinger <lists@wiesinger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562D48FD.9030901@wiesinger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, egrumbach@gmail.com
+To: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:33344 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbbJYWea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 18:34:30 -0400
+Received: by lffv3 with SMTP id v3so129385876lff.0
+        for <netdev@vger.kernel.org>; Sun, 25 Oct 2015 15:34:28 -0700 (PDT)
+In-Reply-To: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
+Hello.
 
-> On 25.10.2015 21:08, Gerhard Wiesinger wrote:
-> > On 25.10.2015 20:46, Jozsef Kadlecsik wrote:
-> > > Hi,
-> > > 
-> > > On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
-> > > 
-> > > > On 25.10.2015 10:46, Willy Tarreau wrote:
-> > > > > ipset *triggered* the problem. The whole stack dump would tell more.
-> > > > OK, find the stack traces in the bug report:
-> > > > https://bugzilla.redhat.com/show_bug.cgi?id=1272645
-> > > > 
-> > > > Kernel 4.1.10 triggered also a kernel dump when playing with ipset
-> > > > commands
-> > > > and IPv6, details in the bug report  ....
-> > > It seems to me it is an architecture-specific alignment issue. I don't
-> > > have a Cortex-A7 ARM hardware and qemu doesn't seem to support it either,
-> > > so I'm unable to reproduce it (ipset passes all my tests on my hardware,
-> > > including more complex ones than what breaks here). My first wild guess is
-> > > that the dynamic array of the element structure is not aligned properly.
-> > > Could you give a try to the next patch?
-> > > 
-> > > diff --git a/net/netfilter/ipset/ip_set_hash_gen.h
-> > > b/net/netfilter/ipset/ip_set_hash_gen.h
-> > > index afe905c..1cf357d 100644
-> > > --- a/net/netfilter/ipset/ip_set_hash_gen.h
-> > > +++ b/net/netfilter/ipset/ip_set_hash_gen.h
-> > > @@ -1211,6 +1211,9 @@ static const struct ip_set_type_variant
-> > > mtype_variant = {
-> > >       .same_set = mtype_same_set,
-> > >   };
-> > >   +#define IP_SET_BASE_ALIGN(dtype)    \
-> > > +    ALIGN(sizeof(struct dtype), __alignof__(struct dtype))
-> > > +
-> > >   #ifdef IP_SET_EMIT_CREATE
-> > >   static int
-> > >   IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
-> > > @@ -1319,12 +1322,12 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net,
-> > > struct ip_set *set,
-> > >   #endif
-> > >           set->variant = &IPSET_TOKEN(HTYPE, 4_variant);
-> > >           set->dsize = ip_set_elem_len(set, tb,
-> > > -                sizeof(struct IPSET_TOKEN(HTYPE, 4_elem)));
-> > > +                IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 4_elem)));
-> > >   #ifndef IP_SET_PROTO_UNDEF
-> > >       } else {
-> > >           set->variant = &IPSET_TOKEN(HTYPE, 6_variant);
-> > >           set->dsize = ip_set_elem_len(set, tb,
-> > > -                sizeof(struct IPSET_TOKEN(HTYPE, 6_elem)));
-> > > +                IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 6_elem)));
-> > >       }
-> > >   #endif
-> > >       if (tb[IPSET_ATTR_TIMEOUT]) {
-> > > 
-> > > If that does not solve it, then could you help to narrow down the issue?
-> > > Does the bug still appear if your remove the counter extension of the set?
-> > > 
+On 10/25/2015 10:58 PM, Emmanuel Grumbach wrote:
+
+> Adding IPv6 for the TSO helper API is trivial:
+> * Don't play with the id (which doesn't exist in IPv6)
+> * Correctly update the payload_len (don't include the
+>    length of the IP header itself)
 >
-> Thank you for the patch it but still  crashes, see:
-> https://bugzilla.redhat.com/show_bug.cgi?id=1272645
-> 
-> Any further ideas?
+> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+> ---
+>   net/core/tso.c | 17 ++++++++++++-----
+>   1 file changed, 12 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/core/tso.c b/net/core/tso.c
+> index 630b30b..ece4605 100644
+> --- a/net/core/tso.c
+> +++ b/net/core/tso.c
+> @@ -14,18 +14,25 @@ EXPORT_SYMBOL(tso_count_descs);
+>   void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
+>   		   int size, bool is_last)
+>   {
+> -	struct iphdr *iph;
+>   	struct tcphdr *tcph;
+>   	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+>   	int mac_hdr_len = skb_network_offset(skb);
+>
+>   	memcpy(hdr, skb->data, hdr_len);
+> -	iph = (struct iphdr *)(hdr + mac_hdr_len);
+> -	iph->id = htons(tso->ip_id);
+> -	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
+> +	if (skb->protocol == htons(ETH_P_IP)) {
+> +		struct iphdr *iph = (void *)(hdr + mac_hdr_len);
+> +
+> +		iph->id = htons(tso->ip_id);
+> +		iph->tot_len = htons(size + hdr_len - mac_hdr_len);
+> +		tso->ip_id++;
+> +	}
+> +	if (skb->protocol == htons(ETH_P_IPV6)) {
 
-Does it crash without counters? That could narrow down where to look for.
+    *else* needed.
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+> +		struct ipv6hdr *iph = (void *)(hdr + mac_hdr_len);
+> +
+> +		iph->payload_len = htons(size + tcp_hdrlen(skb));
+> +	}
+
+    The above asks to be a *switch* statement.
+
+[...]
+
+MBR, Sergei
