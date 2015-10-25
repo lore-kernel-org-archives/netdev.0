@@ -1,80 +1,46 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/8] net: netcp: add missing of_node_put
-Date: Sun, 25 Oct 2015 14:57:01 +0100
-Message-ID: <1445781427-7110-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1445781427-7110-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Murali Karicheri <m-karicheri2@ti.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Jason Cooper <jason@lakedaemon.net>
-To: Wingman Kwok <w-kwok2@ti.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Sun, 25 Oct 2015 09:23:36 -0700
+Message-ID: <562D0208.7090608@plumgrid.com>
+References: <1445559014-4667-1-git-send-email-ast@kernel.org>
+ <20151023120335.GZ17308@twins.programming.kicks-ass.net>
+ <562A474E.6040401@plumgrid.com> <20151025092142.GB4380@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445781427-7110-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <20151025092142.GB4380@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-for_each_child_of_node performs an of_node_get on each iteration, so
-a break out of the loop requires an of_node_put.
+On 10/25/15 2:21 AM, Ingo Molnar wrote:
+> Then old crap can be de-emphasised and eventually removed, instead of having to
+> live with crap forever ...
 
-A simplified version of the semantic patch that fixes this problem is as
-follows (http://coccinelle.lip6.fr):
+strongly disagree. none of the helpers are 'crap'.
+bpf_perf_event_read() muxes of -EINVAL into return value, but it's non
+ambiguous to the program whether it got an error or real counter value.
+So it's not pretty, but it's a reasonable trade off.
+Properly written bpf programs will not be hitting the error path (which
+is there for safety and protection against buggy programs) and will
+consume return value without any extra checks.
+bpf_perf_event_read() could have been done via passing a pointer to
+stack where counter value can be stored, but that is much slower,
+since program would need to init the stack and pass pointers while
+helpers are not inlined, so the cost of return via stack is higher
+than returning by value. In this case bpf_perf_event_read() can be hot,
+so makes sense to optimize and sacrifice 'pretty' factor.
 
-// <smpl>
-@@
-local idexpression r.n;
-expression r,e;
-@@
-
- for_each_child_of_node(r,n) {
-   ...
-(
-   of_node_put(n);
-|
-   e = n
-|
-+  of_node_put(n);
-?  break;
-)
-   ...
- }
-... when != n
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 6bff8d8..4e70e75 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2637,8 +2637,10 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
- 			mac_phy_link = true;
- 
- 		slave->open = true;
--		if (gbe_dev->num_slaves >= gbe_dev->max_num_slaves)
-+		if (gbe_dev->num_slaves >= gbe_dev->max_num_slaves) {
-+			of_node_put(port);
- 			break;
-+		}
- 	}
- 
- 	/* of_phy_connect() is needed only for MAC-PHY interface */
-@@ -3137,8 +3139,10 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
- 			continue;
- 		}
- 		gbe_dev->num_slaves++;
--		if (gbe_dev->num_slaves >= gbe_dev->max_num_slaves)
-+		if (gbe_dev->num_slaves >= gbe_dev->max_num_slaves) {
-+			of_node_put(interface);
- 			break;
-+		}
- 	}
- 	of_node_put(interfaces);
- 
+All existing helpers have use cases behind them and none overlap,
+so not a single one can be 'deprecated'.
+In general I don't think it's worth to make an exception in the kernel
+that some interfaces are not ABI. That will give a bad impression on
+the kernel overall. Either we have generic deprecation mechanism for
+everything or none and my vote is for none.
