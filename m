@@ -1,72 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH RFT v2] sh_eth: fix kernel oops in skb_put()
-Date: Sun, 25 Oct 2015 01:42:33 +0300
-Message-ID: <2611049.bTOQ0T0Nsl@wasted.cogentembedded.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: openvswitch: net --> net-next merge
+Date: Sat, 24 Oct 2015 17:20:14 -0700
+Message-ID: <CALnjE+rBUPaKB1MHvscAEgUwwZAG+HSRJeN3RgVwmzw++gvfqg@mail.gmail.com>
+References: <20151024.065556.1808313684538753807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, yashi@atmark-techno.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Stringer <joestringer@nicira.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:33048 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752528AbbJYAUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2015 20:20:15 -0400
+Received: by igbkq10 with SMTP id kq10so54473901igb.0
+        for <netdev@vger.kernel.org>; Sat, 24 Oct 2015 17:20:14 -0700 (PDT)
+In-Reply-To: <20151024.065556.1808313684538753807.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In a low memory situation the following kernel oops occurs:
+On Sat, Oct 24, 2015 at 6:55 AM, David Miller <davem@davemloft.net> wrote:
+>
+> I needed to do a merge of 'net' into 'net-next' in order to
+> facilitate a set of tipc patches that I wanted to apply to
+> 'net-next'.
+>
+> There were several openvswitch merge conflicts, mostly to do with the
+> egress tunnel info bug fix conflicting with the simplification of the
+> vport ->send() method.
+>
+> I did my best to resolve the conflicts, but if someone would double
+> check my work I would really appreciate it.
+>
 
-Unable to handle kernel NULL pointer dereference at virtual address 00000050
-pgd = 8490c000
-[00000050] *pgd=4651e831, *pte=00000000, *ppte=00000000
-Internal error: Oops: 17 [#1] PREEMPT ARM
-Modules linked in:
-CPU: 0    Not tainted  (3.4-at16 #9)
-PC is at skb_put+0x10/0x98
-LR is at sh_eth_poll+0x2c8/0xa10
-pc : [<8035f780>]    lr : [<8028bf50>]    psr: 60000113
-sp : 84eb1a90  ip : 84eb1ac8  fp : 84eb1ac4
-r10: 0000003f  r9 : 000005ea  r8 : 00000000
-r7 : 00000000  r6 : 940453b0  r5 : 00030000  r4 : 9381b180
-r3 : 00000000  r2 : 00000000  r1 : 000005ea  r0 : 00000000
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-Control: 10c53c7d  Table: 4248c059  DAC: 00000015
-Process klogd (pid: 2046, stack limit = 0x84eb02e8)
-[...]
-
-This is because netdev_alloc_skb() fails and 'mdp->rx_skbuff[entry]' is left
-NULL but sh_eth_rx() later uses it without checking. Add such check...
-
-Reported-by: Yasushi SHOJI <yashi@atmark-techno.com>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-This patch is against DaveM's 'net.git' repo.
-
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1481,6 +1481,7 @@ static int sh_eth_rx(struct net_device *
- 		if (mdp->cd->shift_rd0)
- 			desc_status >>= 16;
- 
-+		skb = mdp->rx_skbuff[entry];
- 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
- 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
- 			ndev->stats.rx_errors++;
-@@ -1496,12 +1497,11 @@ static int sh_eth_rx(struct net_device *
- 				ndev->stats.rx_missed_errors++;
- 			if (desc_status & RD_RFS10)
- 				ndev->stats.rx_over_errors++;
--		} else {
-+		} else	if (skb) {
- 			if (!mdp->cd->hw_swap)
- 				sh_eth_soft_swap(
- 					phys_to_virt(ALIGN(rxdesc->addr, 4)),
- 					pkt_len + 2);
--			skb = mdp->rx_skbuff[entry];
- 			mdp->rx_skbuff[entry] = NULL;
- 			if (mdp->cd->rpadir)
- 				skb_reserve(skb, NET_IP_ALIGN);
-
+Resolved conflicts looks good. There is one minor issue where unused
+function (ovs_tunnel_route_lookup) is not removed, I will send out
+patch to fix it.
