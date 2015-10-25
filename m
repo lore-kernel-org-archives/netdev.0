@@ -1,77 +1,47 @@
-From: "Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad" <bro.devel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
-Date: Sun, 25 Oct 2015 06:56:29 +0100
-Message-ID: <1799007.TiMX4hfQRk@desktop>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com> <1445633413-3532-2-git-send-email-bro.devel+kernel@gmail.com> <1445636654.22974.193.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC Patch 05/12] IXGBE: Add new sysfs interface of "notify_vf"
+Date: Sat, 24 Oct 2015 23:03:04 -0700
+Message-ID: <562C7098.4030406@gmail.com>
+References: <1445445464-5056-1-git-send-email-tianyu.lan@intel.com>
+ <1445445464-5056-6-git-send-email-tianyu.lan@intel.com>
+ <5627FB20.3020003@gmail.com> <562BA729.10903@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	Yuchung Cheng <ycheng-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erik Kline <ek-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
-	Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
-	Daniel Lee <Longinus00-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Marcelo Ricardo Leitner <mleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>,
-	linux-doc-u79uwXL29TasMV2rI37PzA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445636654.22974.193.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Lan, Tianyu" <tianyu.lan@intel.com>, bhelgaas@google.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	eddie.dong@intel.com, nrupal.jani@intel.com,
+	yang.z.zhang@intel.com, agraf@suse.de, kvm@vger.kernel.org,
+	pbonzini@redhat.com, qemu-devel@nongnu.org,
+	emil.s.tantilov@intel.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, linux-kernel@vger.kernel.org,
+	linux-pci@vger.kernel.org, matthew.vick@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	shannon.nelson@intel.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <562BA729.10903@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, October 23, 2015 02:44:14 PM Eric Dumazet wrote:
-> On Fri, 2015-10-23 at 22:50 +0200, Bendik R=F8nning Opstad wrote:
->=20
-> > =20
-> > +/**
-> > + * tcp_stream_is_thin_dpifl() - Tests if the stream is thin based =
-on dynamic PIF
-> > + *                              limit
-> > + * @tp: the tcp_sock struct
-> > + *
-> > + * Return: true if current packets in flight (PIF) count is lower =
-than
-> > + *         the dynamic PIF limit, else false
-> > + */
-> > +static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock =
-*tp)
-> > +{
-> > +	u64 dpif_lim =3D tp->srtt_us >> 3;
-> > +	/* Div by is_thin_min_itt_lim, the minimum allowed ITT
-> > +	 * (Inter-transmission time) in usecs.
-> > +	 */
-> > +	do_div(dpif_lim, tp->thin_dpifl_itt_lower_bound);
-> > +	return tcp_packets_in_flight(tp) < dpif_lim;
-> > +}
-> > +
-> This is very strange :
->=20
-> You are using a do_div() while both operands are 32bits.  A regular
-> divide would be ok :
->=20
-> u32 dpif_lim =3D (tp->srtt_us >> 3) / tp->thin_dpifl_itt_lower_bound;
->=20
-> But then, you can avoid the divide by using a multiply, less expensiv=
-e :
->=20
-> return	(u64)tcp_packets_in_flight(tp) * tp->thin_dpifl_itt_lower_boun=
-d <
-> 	(tp->srtt_us >> 3);
->=20
+On 10/24/2015 08:43 AM, Lan, Tianyu wrote:
+>
+> On 10/22/2015 4:52 AM, Alexander Duyck wrote:
+>> Also have you even considered the MSI-X configuration on the VF?  I
+>> haven't seen anything anywhere that would have migrated the VF's MSI-X
+>> configuration from BAR 3 on one system to the new system.
+>
+> MSI-X migration is done by Hypervisor(Qemu).
+> Following link is my Qemu patch to do that.
+> http://marc.info/?l=kvm&m=144544706530484&w=2
 
-You are of course correct. Will fix this and use multiply. Thanks.
+I really don't like the idea of trying to migrate the MSI-X across from 
+host to host while it is still active.  I really think Qemu shouldn't be 
+moving this kind of data over in a migration.
+
+I think that having the VF do a suspend/resume is the best way to go.  
+Then it simplifies things as all you have to deal with is the dirty page 
+tracking for the Rx DMA and you should be able to do this without making 
+things too difficult.
+
+- Alex
