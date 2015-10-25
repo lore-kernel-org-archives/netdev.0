@@ -1,7 +1,7 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/8] net: phy: mdio: add missing of_node_put
-Date: Sun, 25 Oct 2015 14:57:03 +0100
-Message-ID: <1445781427-7110-5-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 3/8] netdev/phy: add missing of_node_put
+Date: Sun, 25 Oct 2015 14:57:02 +0100
+Message-ID: <1445781427-7110-4-git-send-email-Julia.Lawall@lip6.fr>
 References: <1445781427-7110-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
@@ -24,46 +24,41 @@ follows (http://coccinelle.lip6.fr):
 
 // <smpl>
 @@
-expression root,e;
-local idexpression child;
+local idexpression r.n;
+expression r,e;
 @@
 
- for_each_available_child_of_node(root, child) {
-   ... when != of_node_put(child)
-       when != e = child
+ for_each_available_child_of_node(r,n) {
+   ...
 (
-   return child;
+   of_node_put(n);
 |
-+  of_node_put(child);
-?  return ...;
+   e = n
+|
++  of_node_put(n);
+?  break;
 )
    ...
  }
+... when != n
 // </smpl>
 
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/phy/mdio-mux-mmioreg.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/phy/mdio-mux.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index 2377c13..7fde454 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -113,12 +113,14 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 		if (!iprop || len != sizeof(uint32_t)) {
- 			dev_err(&pdev->dev, "mdio-mux child node %s is "
- 				"missing a 'reg' property\n", np2->full_name);
-+			of_node_put(np2);
- 			return -ENODEV;
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 280c7c3..908e8d4 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -144,6 +144,7 @@ int mdio_mux_init(struct device *dev,
+ 			dev_err(dev,
+ 				"Error: Failed to allocate memory for child\n");
+ 			ret_val = -ENOMEM;
++			of_node_put(child_bus_node);
+ 			break;
  		}
- 		if (be32_to_cpup(iprop) & ~s->mask) {
- 			dev_err(&pdev->dev, "mdio-mux child node %s has "
- 				"a 'reg' value with unmasked bits\n",
- 				np2->full_name);
-+			of_node_put(np2);
- 			return -ENODEV;
- 		}
- 	}
+ 		cb->bus_number = v;
 
