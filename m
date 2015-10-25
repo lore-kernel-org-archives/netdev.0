@@ -1,46 +1,29 @@
-From: Gerhard Wiesinger <lists@wiesinger.com>
-Subject: Re: Linux 4.2.4
-Date: Sun, 25 Oct 2015 11:48:54 +0100
-Message-ID: <562CB396.2080509@wiesinger.com>
-References: <20151023003306.GA25388@kroah.com>
- <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com>
- <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com>
- <20151025094634.GA6832@1wt.eu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v7 01/10] qed: Add module with basic common
+ support
+Date: Sun, 25 Oct 2015 05:14:26 -0700 (PDT)
+Message-ID: <20151025.051426.2109247189070163344.davem@davemloft.net>
+References: <1445490417-8845-2-git-send-email-Yuval.Mintz@qlogic.com>
+	<20151024.051149.1911984823506391327.davem@davemloft.net>
+	<B5657A6538887040AD3A81F1008BEC63E53F6F@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
-	Jiri Slaby <jslaby@suse.cz>
-To: Willy Tarreau <w@1wt.eu>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20151025094634.GA6832@1wt.eu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51454 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032AbbJYL6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 07:58:06 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E53F6F@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25.10.2015 10:46, Willy Tarreau wrote:
-> ipset *triggered* the problem. The whole stack dump would tell more. 
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sun, 25 Oct 2015 06:18:51 +0000
 
-OK, find the stack traces in the bug report:
-https://bugzilla.redhat.com/show_bug.cgi?id=1272645
+> I'd rather leave this as-is instead of making changes I'd have to revert
+> later on, but if your 'code buds' reject this, I'll make the change.
 
-Kernel 4.1.10 triggered also a kernel dump when playing with ipset 
-commands and IPv6, details in the bug report  ....
-
->> Kernel 4.2 seems to me not well tested in the netfilter parts at all
->> (Bug with already known bugfix
->> https://lists.debian.org/debian-kernel/2015/10/msg00034.html was
->> triggered on 2 of 3 of my machines, the new bug on 1 of 1 tested machine).
-> There's a reason why Greg maintains stable and LTS kernels :-)
-
-Stable kernels don't crash but definiton. :-)
-
-At least triggered 2 kernel panics in 5min, even with 4.1.10 and ipset 
-commands ...
-
-Ciao,
-Gerhard
-
+Add facilities and flexibility when you need it rather than beforehand.
