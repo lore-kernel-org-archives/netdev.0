@@ -1,162 +1,77 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: CONFIG_XPS depends on L1_CACHE_BYTES being greater than
- sizeof(struct xps_map)
-Date: Sat, 24 Oct 2015 22:41:47 -0700
-Message-ID: <562C6B9B.3090804@gmail.com>
-References: <1445524549.2207.1.camel@HansenPartnership.com>
- <5628F868.3040105@bell.net> <5629404B.8090805@gmx.de>
- <1445550615.22974.128.camel@edumazet-glaptop2.roam.corp.google.com>
- <562A8990.9000808@gmx.de>
- <1445630588.22974.187.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151023210810.GA1969@ls3530.box> <562AAE05.5020300@gmail.com>
- <562AB200.8030209@gmx.de> <562AB77A.6080109@gmail.com>
- <20151024144312.GA26373@ls3530.box>
+From: "Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad" <bro.devel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
+Date: Sun, 25 Oct 2015 06:56:29 +0100
+Message-ID: <1799007.TiMX4hfQRk@desktop>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com> <1445633413-3532-2-git-send-email-bro.devel+kernel@gmail.com> <1445636654.22974.193.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-parisc@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	John David Anglin <dave.anglin@bell.net>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Helge Deller <deller@gmx.de>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20151024144312.GA26373@ls3530.box>
-Sender: linux-parisc-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	Yuchung Cheng <ycheng-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Erik Kline <ek-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+	Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+	Daniel Lee <Longinus00-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Marcelo Ricardo Leitner <mleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>,
+	linux-doc-u79uwXL29TasMV2rI37PzA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1445636654.22974.193.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/24/2015 07:43 AM, Helge Deller wrote:
-> * Alexander Duyck <alexander.duyck@gmail.com>:
->> On 10/23/2015 03:17 PM, Helge Deller wrote:
->>> On 24.10.2015 00:00, Alexander Duyck wrote:
->>>> On 10/23/2015 02:08 PM, Helge Deller wrote:
->>>>> * Eric Dumazet <eric.dumazet@gmail.com>:
->>>>>> On Fri, 2015-10-23 at 21:25 +0200, Helge Deller wrote:
->>>>>>
->>>>>>> Then, how about simply changing it to twice of L1_CACHE_BYTES ?
->>>>>>>
->>>>>>> #define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) / sizeof(u16))
->>>>>>
->>>>>>
->>>>>> Seems good to me.
->>>>>
->>>>> Great!
->>>>>
->>>>> Can you then maybe give me an Acked-by or signed-off for the patch below?
->>>>> It further adds a compile-time check to avoid that XPS_MIN_MAP_ALLOC
->>>>> gets calculated to zero on any architecture - otherwise no queues would
->>>>> be allocated.
->>>>>
->>>>> In addition I would like to push it for v4.3 then through my parisc-tree
->>>>> (after keeping it in for-next for 1-2 days), together with the patch
->>>>> which reduces L1_CACHE_BYTES to 16 on parisc.
->>>>> Would that be OK too?
->>>>>
->>>>> Thanks!
->>>>> Helge
->>>>>
->>>>>
->>>>> [PATCH] net/xps: Increase initial number of xps queues
->>>>>
->>>>> Increase the number of initial allocated xps queues, so that the initial record
->>>>> allocates twice the size of L1_CACHE_BYTES bytes.
->>>>>
->>>>> This change is needed to copy with architectures where L1_CACHE_BYTES is
->>>>> defined to equal or less than 16 bytes.
->>>>>
->>>>> Signed-off-by: Helge Deller <deller@gmx.de>
->>>>>
->>>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>>> index 2d15e38..d152788 100644
->>>>> --- a/include/linux/netdevice.h
->>>>> +++ b/include/linux/netdevice.h
->>>>> @@ -718,7 +718,7 @@ struct xps_map {
->>>>>        u16 queues[0];
->>>>>    };
->>>>>    #define XPS_MAP_SIZE(_num) (sizeof(struct xps_map) + ((_num) * sizeof(u16)))
->>>>> -#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))    \
->>>>> +#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES * 2 - sizeof(struct xps_map)) \
->>>>>        / sizeof(u16))
->>>>>
->>>>>    /*
->>>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>>> index 6bb6470..f6d6dd1 100644
->>>>> --- a/net/core/dev.c
->>>>> +++ b/net/core/dev.c
->>>>> @@ -1972,6 +1972,8 @@ static struct xps_map *expand_xps_map(struct xps_map *map,
->>>>>        int alloc_len = XPS_MIN_MAP_ALLOC;
->>>>>        int i, pos;
->>>>>
->>>>> +    BUILD_BUG_ON(XPS_MIN_MAP_ALLOC == 0);
->>>>> +
->>>>>        for (pos = 0; map && pos < map->len; pos++) {
->>>>>            if (map->queues[pos] != index)
->>>>>                continue;
->>>>>
->>>>>
->>>>
->>>> Rather then leaving a potential bug you could probably rewrite the macro so that it will give you at least 1.
->>>>
->>>> All you need to do is something like the following
->>>> #define XPS_MIN_MAP_ALLOC \
->>>>      ((L1_CACHE_ALIGN(offsetof(struct xps_map, queue[1])) - \
->>>>        sizeof(struct xps_map)) / sizeof(u16))
->>>>
->>>> That should give you at least an XPS_MIN_MAP_ALLOC of 1.
->>>
->>> Yes, good idea!
->>>
->>> What makes me wonder though (because I have no idea about the XPS code/layer):
->>> How likely is it, that more than 1 (e.g. minimum "X") queues are needed?
->>> E.g. if a typical system needs at least 3 queues, then doesn't it make sense to allocate
->>> at least 3 initially by using queue[3] in your proposed patch above ?
->>> What would "X" be then?
->>
->> The question I would have is in how many cases it it likely that somebody
->> would enable this feature and point a given CPU at more than one queue.  I
->> know the Intel drivers that make use of XPS tend to do a 1:1 mapping for
->> their ATR feature.  I would think if anything most CPUs would probably be
->> mapped many:1, but you probably won't have all that many cases where it is
->> 1:many or many:many.
->>
->> I'd say starting with at least 1 should be fine.  Worst case scenario is we
->> have to make a couple more calls to expand_xps_map which will likely occur
->> as a slow path and infrequent event anyway.
->
-> Ok, can I get then the signed-off or acked-by from you for this patch?
->
-> Thanks,
-> Helge
->
->
-> [PATCH] net/xps: Fix calculation of initial number of xps queues
->
-> The existing code breaks on architectures where the L1 cache size
-> (L1_CACHE_BYTES) is smaller or equal the size of struct xps_map.
->
-> The new code ensures that we get at minimum one initial xps queue, or
-> even more as long as it fits into the next multiple of L1_CACHE_SIZE.
->
-> Signed-off-by: Helge Deller <deller@gmx.de>
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 2d15e38..2212c82 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -718,8 +718,8 @@ struct xps_map {
->   	u16 queues[0];
->   };
->   #define XPS_MAP_SIZE(_num) (sizeof(struct xps_map) + ((_num) * sizeof(u16)))
-> -#define XPS_MIN_MAP_ALLOC ((L1_CACHE_BYTES - sizeof(struct xps_map))	\
-> -    / sizeof(u16))
-> +#define XPS_MIN_MAP_ALLOC ((L1_CACHE_ALIGN(offsetof(struct xps_map, queues[1])) \
-> +       - sizeof(struct xps_map)) / sizeof(u16))
->
->   /*
->    * This structure holds all XPS maps for device.  Maps are indexed by CPU.
->
+On Friday, October 23, 2015 02:44:14 PM Eric Dumazet wrote:
+> On Fri, 2015-10-23 at 22:50 +0200, Bendik R=F8nning Opstad wrote:
+>=20
+> > =20
+> > +/**
+> > + * tcp_stream_is_thin_dpifl() - Tests if the stream is thin based =
+on dynamic PIF
+> > + *                              limit
+> > + * @tp: the tcp_sock struct
+> > + *
+> > + * Return: true if current packets in flight (PIF) count is lower =
+than
+> > + *         the dynamic PIF limit, else false
+> > + */
+> > +static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock =
+*tp)
+> > +{
+> > +	u64 dpif_lim =3D tp->srtt_us >> 3;
+> > +	/* Div by is_thin_min_itt_lim, the minimum allowed ITT
+> > +	 * (Inter-transmission time) in usecs.
+> > +	 */
+> > +	do_div(dpif_lim, tp->thin_dpifl_itt_lower_bound);
+> > +	return tcp_packets_in_flight(tp) < dpif_lim;
+> > +}
+> > +
+> This is very strange :
+>=20
+> You are using a do_div() while both operands are 32bits.  A regular
+> divide would be ok :
+>=20
+> u32 dpif_lim =3D (tp->srtt_us >> 3) / tp->thin_dpifl_itt_lower_bound;
+>=20
+> But then, you can avoid the divide by using a multiply, less expensiv=
+e :
+>=20
+> return	(u64)tcp_packets_in_flight(tp) * tp->thin_dpifl_itt_lower_boun=
+d <
+> 	(tp->srtt_us >> 3);
+>=20
 
-This looks good to me.
-
-Acked-by: Alexander Duyck <aduyck@mirantis.com>
+You are of course correct. Will fix this and use multiply. Thanks.
