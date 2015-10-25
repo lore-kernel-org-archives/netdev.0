@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] tipc: link_is_bc_sndlink() can be static
-Date: Sun, 25 Oct 2015 06:34:11 -0700 (PDT)
-Message-ID: <20151025.063411.2205900041371491095.davem@davemloft.net>
-References: <201510242238.2cwVlzRz%fengguang.wu@intel.com>
-	<20151024145600.GA2937@lkp-hsx03>
+Subject: Re: [PATCH net-next] af_unix: do not report POLLOUT on listeners
+Date: Sun, 25 Oct 2015 06:45:54 -0700 (PDT)
+Message-ID: <20151025.064554.969566293457384990.davem@davemloft.net>
+References: <562A631B.6060207@oracle.com>
+	<1445622453.22974.180.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1445623156.22974.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kbuild-internal@linux.intel.com, lkp@eclists.intel.com,
-	kbuild-all@01.org, netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Cc: Alan.Burlison@oracle.com, Casper.Dik@oracle.com,
+	viro@ZenIV.linux.org.uk, stephen@networkplumber.org,
+	netdev@vger.kernel.org, dholland-tech@netbsd.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51913 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51972 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbbJYNRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 09:17:38 -0400
-In-Reply-To: <20151024145600.GA2937@lkp-hsx03>
+	with ESMTP id S1751092AbbJYN3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 09:29:19 -0400
+In-Reply-To: <1445623156.22974.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Sat, 24 Oct 2015 22:56:01 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 23 Oct 2015 10:59:16 -0700
 
-> TO: "David S. Miller" <davem@davemloft.net>
-> CC: netdev@vger.kernel.org
-> CC: Jon Maloy <jon.maloy@ericsson.com>
-> CC: Ying Xue <ying.xue@windriver.com>
-> CC: tipc-discussion@lists.sourceforge.net
-> CC: linux-kernel@vger.kernel.org
+> From: Eric Dumazet <edumazet@google.com>
 > 
+> poll(POLLOUT) on a listener should not report fd is ready for
+> a write().
 > 
-> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> This would break some applications using poll() and pfd.events = -1,
+> as they would not block in poll()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Alan Burlison <Alan.Burlison@oracle.com>
+> Tested-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied, thanks Eric.
