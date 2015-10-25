@@ -1,95 +1,102 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/2] can: xilinx: use readl/writel instead of
- ioread/iowrite
-Date: Sun, 25 Oct 2015 21:32:12 +0100
-Message-ID: <562D3C4C.60306@pengutronix.de>
-References: <1445489163-11045-1-git-send-email-appanad@xilinx.com>
- <4061693.oBld7AKBIp@wuerfel> <56289CA6.1060809@pengutronix.de>
- <8460953.p47oezaZnR@wuerfel>
+From: Gerhard Wiesinger <lists@wiesinger.com>
+Subject: Re: Linux 4.2.4
+Date: Sun, 25 Oct 2015 22:26:21 +0100
+Message-ID: <562D48FD.9030901@wiesinger.com>
+References: <20151023003306.GA25388@kroah.com>
+ <562C83FD.6010402@wiesinger.com> <20151025082547.GA22300@kroah.com>
+ <20151025090308.GA17656@1wt.eu> <562CA13C.90500@wiesinger.com>
+ <20151025094634.GA6832@1wt.eu> <562CB396.2080509@wiesinger.com>
+ <alpine.DEB.2.10.1510252032420.14141@blackhole.kfki.hu>
+ <562D36D9.9060504@wiesinger.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="ClwxVSbopbWhB9jXhkN1OciF1jgVOn3ms"
-Cc: linux-arm-kernel@lists.infradead.org,
-	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	anirudh@xilinx.com, wg@grandegger.com, michal.simek@xilinx.com,
-	soren.brinkmann@xilinx.com, appanad@xilinx.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-can@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <8460953.p47oezaZnR@wuerfel>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	Greg KH <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net,
+	Jiri Slaby <jslaby@suse.cz>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <562D36D9.9060504@wiesinger.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---ClwxVSbopbWhB9jXhkN1OciF1jgVOn3ms
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 10/22/2015 10:58 AM, Arnd Bergmann wrote:
->>> The two should really do the same thing: iowrite32() is just a static=
- inline
->>> calling writel() on both ARM32 and ARM64. On which kernel version did=
- you
->>> observe the difference? It's possible that an older version used
->>> CONFIG_GENERIC_IOMAP, which made this slightly more expensive.
->>>
->>> If there are barriers that you want to get rid of for performance rea=
-sons,
->>> you should use writel_relaxed(), but be careful to synchronize them c=
-orrectly
->>> with regard to DMA. It should be fine in this driver, as it does not
->>> perform any DMA, but be aware that there is no big-endian version of
->>> writel_relaxed() at the moment.
+On 25.10.2015 21:08, Gerhard Wiesinger wrote:
+> On 25.10.2015 20:46, Jozsef Kadlecsik wrote:
+>> Hi,
 >>
->> We don't have DMA in CAN drivers, but usually a certain write triggers=
+>> On Sun, 25 Oct 2015, Gerhard Wiesinger wrote:
+>>
+>>> On 25.10.2015 10:46, Willy Tarreau wrote:
+>>>> ipset *triggered* the problem. The whole stack dump would tell more.
+>>> OK, find the stack traces in the bug report:
+>>> https://bugzilla.redhat.com/show_bug.cgi?id=1272645
+>>>
+>>> Kernel 4.1.10 triggered also a kernel dump when playing with ipset 
+>>> commands
+>>> and IPv6, details in the bug report  ....
+>> It seems to me it is an architecture-specific alignment issue. I don't
+>> have a Cortex-A7 ARM hardware and qemu doesn't seem to support it 
+>> either,
+>> so I'm unable to reproduce it (ipset passes all my tests on my hardware,
+>> including more complex ones than what breaks here). My first wild 
+>> guess is
+>> that the dynamic array of the element structure is not aligned properly.
+>> Could you give a try to the next patch?
+>>
+>> diff --git a/net/netfilter/ipset/ip_set_hash_gen.h 
+>> b/net/netfilter/ipset/ip_set_hash_gen.h
+>> index afe905c..1cf357d 100644
+>> --- a/net/netfilter/ipset/ip_set_hash_gen.h
+>> +++ b/net/netfilter/ipset/ip_set_hash_gen.h
+>> @@ -1211,6 +1211,9 @@ static const struct ip_set_type_variant 
+>> mtype_variant = {
+>>       .same_set = mtype_same_set,
+>>   };
+>>   +#define IP_SET_BASE_ALIGN(dtype)    \
+>> +    ALIGN(sizeof(struct dtype), __alignof__(struct dtype))
+>> +
+>>   #ifdef IP_SET_EMIT_CREATE
+>>   static int
+>>   IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+>> @@ -1319,12 +1322,12 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, 
+>> struct ip_set *set,
+>>   #endif
+>>           set->variant = &IPSET_TOKEN(HTYPE, 4_variant);
+>>           set->dsize = ip_set_elem_len(set, tb,
+>> -                sizeof(struct IPSET_TOKEN(HTYPE, 4_elem)));
+>> +                IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 4_elem)));
+>>   #ifndef IP_SET_PROTO_UNDEF
+>>       } else {
+>>           set->variant = &IPSET_TOKEN(HTYPE, 6_variant);
+>>           set->dsize = ip_set_elem_len(set, tb,
+>> -                sizeof(struct IPSET_TOKEN(HTYPE, 6_elem)));
+>> +                IP_SET_BASE_ALIGN(IPSET_TOKEN(HTYPE, 6_elem)));
+>>       }
+>>   #endif
+>>       if (tb[IPSET_ATTR_TIMEOUT]) {
+>>
+>> If that does not solve it, then could you help to narrow down the issue?
+>> Does the bug still appear if your remove the counter extension of the 
+>> set?
+>>
+>
+> Hello Jozsef,
+>
+> Patch applied well, compiling ...
 
->> sending. Do we need a barrier before triggering the sending?
->=20
-> No, the relaxed writes are not well-defined across architectures. On
-> ARM, the CPU guarantees that stores to an MMIO area are still in order
-> with respect to one another, the barrier is only needed for actual DMA,=
+Hello Jozsef,
 
-> so you are fine. I would expect the same to be true everywhere,
-> otherwise a lot of other drivers would be broken too.
+Thank you for the patch it but still  crashes, see: 
+https://bugzilla.redhat.com/show_bug.cgi?id=1272645
 
-And the relaxed functions seem not to be available on all archs. This
-driver should work on microblaze. Are __raw_writeX(), __raw_readX() an
-alternative here?
+Any further ideas?
 
-> To be on the safe side, that last write() could remain a writel() inste=
-ad
-> of writel_relaxed(), and that would be guaranteed to work on all
-> architectures even if they end relax the ordering between MMIO writes.
-> If there is a measurable performance difference, just use writel_relaxe=
-d()
-> and add a comment.
+Thank you.
 
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---ClwxVSbopbWhB9jXhkN1OciF1jgVOn3ms
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWLTxMAAoJEP5prqPJtc/HPcIH/2zjYnyIiBUgX/zwfAN7QzPG
-y+zDkh6kXiCc2caGlmiNMt7VYrGhuxV1dZud9vqzbtPDhaRCe4QU15a5tMPccapW
-InPzE3/kkHnqXS0TYr91nezu2Lz+CspvpG9Jsrpc939ss3/sBBLZwATc5CgcEmlA
-eHMXf8PXUgjODUvhGJxIJvSZLHqSgUFc8BDroohi7OHiK8cqTcrhQXSfssEprQFq
-aTsPE1EBwZiygbSzvxmmk8jbHt2eMCcP9k9KOFXJt1xm/NPq2JIl2H9leo4j3Q2h
-yyJLsJQ712+/m8i887H6Db6fpuWuNXh1Dy1K5mIoi5qxMdRY7HYihsDrFB9evJI=
-=81G1
------END PGP SIGNATURE-----
-
---ClwxVSbopbWhB9jXhkN1OciF1jgVOn3ms--
+Ciao,
+Gerhard
