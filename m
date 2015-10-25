@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 01/10] qed: Add module with basic common
- support
-Date: Sun, 25 Oct 2015 05:14:26 -0700 (PDT)
-Message-ID: <20151025.051426.2109247189070163344.davem@davemloft.net>
-References: <1445490417-8845-2-git-send-email-Yuval.Mintz@qlogic.com>
-	<20151024.051149.1911984823506391327.davem@davemloft.net>
-	<B5657A6538887040AD3A81F1008BEC63E53F6F@avmb3.qlogic.org>
+Subject: Re: [RFC PATCH net-next] tipc: tipc_link_is_active() can be static
+Date: Sun, 25 Oct 2015 06:33:18 -0700 (PDT)
+Message-ID: <20151025.063318.1572658873317450844.davem@davemloft.net>
+References: <201510242340.mc7bt8l1%fengguang.wu@intel.com>
+	<20151024151100.GA46525@lkp-hsx03>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: kbuild-internal@linux.intel.com, lkp@eclists.intel.com,
+	kbuild-all@01.org, netdev@vger.kernel.org
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51454 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51897 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbbJYL6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 07:58:06 -0400
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63E53F6F@avmb3.qlogic.org>
+	with ESMTP id S1750935AbbJYNQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 09:16:48 -0400
+In-Reply-To: <20151024151100.GA46525@lkp-hsx03>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 25 Oct 2015 06:18:51 +0000
-
-> I'd rather leave this as-is instead of making changes I'd have to revert
-> later on, but if your 'code buds' reject this, I'll make the change.
-
-Add facilities and flexibility when you need it rather than beforehand.
+RnJvbToga2J1aWxkIHRlc3Qgcm9ib3QgPGZlbmdndWFuZy53dUBpbnRlbC5jb20+DQpEYXRlOiBT
+YXQsIDI0IE9jdCAyMDE1IDIzOjExOjAwICswODAwDQoNCj4gVE86ICJEYXZpZCBTLiBNaWxsZXIi
+IDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiBDQzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBD
+QzogSm9uIE1hbG95IDxqb24ubWFsb3lAZXJpY3Nzb24uY29tPg0KPiBDQzogWWluZyBYdWUgPHlp
+bmcueHVlQHdpbmRyaXZlci5jb20+DQo+IENDOiB0aXBjLWRpc2N1c3Npb25AbGlzdHMuc291cmNl
+Zm9yZ2UubmV0DQo+IENDOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IA0KPiANCj4g
+U2lnbmVkLW9mZi1ieTogRmVuZ2d1YW5nIFd1IDxmZW5nZ3Vhbmcud3VAaW50ZWwuY29tPg0KDQpX
+aHkgZG9lc24ndCB0aGUga2J1aWxkIHJvYm90IHJ1biBvbiBpdCdzIG93biBjaGFuZ2VzPyA6LS8N
+Cg0KICBDQyBbTV0gIG5ldC90aXBjL2xpbmsubw0KbmV0L3RpcGMvbGluay5jOjE3NjoxMjogd2Fy
+bmluZzogoXRpcGNfbGlua19pc19hY3RpdmWiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNl
+ZC1mdW5jdGlvbl0NCg==
