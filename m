@@ -1,75 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension headers
- and recalc checksum during fragmentation
-Date: Mon, 26 Oct 2015 22:25:58 +0100
-Message-ID: <1445894758.1029706.420869921.31DEFE4E@webmail.messagingengine.com>
-References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
- <CALx6S35of-Qpo5c+AW5h6_CXbTiZG0yn5_J0skK_LZ4UMxikiA@mail.gmail.com>
- <1445704123.1816692.419166185.45622C02@webmail.messagingengine.com>
- <CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
- <1445706124.1823412.419177649.420E8888@webmail.messagingengine.com>
- <CALx6S37krurU1nFpC-9aT_EDhZfH7p=-wSrSjUSNKvm5+s_c2Q@mail.gmail.com>
- <1445852946.87102.420207505.5C1EF1DC@webmail.messagingengine.com>
- <CALx6S34WNYxQ4HOG0hg-jO_U-OYhGABS8xaqTD1v4Q0fx-6QtQ@mail.gmail.com>
- <1445885043.985660.420718105.55D9DB7D@webmail.messagingengine.com>
- <CALx6S36zV1RHD1Z+y9Y0=zH4tTO8XJugogJ4mG9gpST7x0=2kA@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Mon, 26 Oct 2015 14:28:39 -0700
+Message-ID: <562E9B07.3020100@plumgrid.com>
+References: <1445559014-4667-1-git-send-email-ast@kernel.org>
+ <20151023120335.GZ17308@twins.programming.kicks-ass.net>
+ <562A474E.6040401@plumgrid.com> <20151025092142.GB4380@gmail.com>
+ <562D0208.7090608@plumgrid.com>
+ <20151026123200.GT2508@worktop.programming.kicks-ass.net>
+ <562E2293.5090600@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Benjamin Coddington <bcodding@redhat.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:58438 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752136AbbJZVZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 17:25:58 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 75D0320AA9
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 17:25:58 -0400 (EDT)
-In-Reply-To: <CALx6S36zV1RHD1Z+y9Y0=zH4tTO8XJugogJ4mG9gpST7x0=2kA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>,
+	Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <562E2293.5090600@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 26, 2015, at 20:39, Tom Herbert wrote:
-> On Mon, Oct 26, 2015 at 11:44 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> >
-> >
-> > On Mon, Oct 26, 2015, at 15:19, Tom Herbert wrote:
-> >> > We already concluded that drivers do have this problem and not the stack
-> >> > above ip6_fragment. The places I am aware of I fixed in this patch. Also
-> >> > IPv4 to me seems unaffected, albeit one can certainly clean up the logic
-> >> > in net-next.
-> >> >
-> >> I don't understand why checksum for IP fragments is a driver problem.
-> >> When fragments are sent to driver they should never have
-> >> CHECKSUM_PARTIAL set (or maybe that is what you are seeing?).
-> >
-> > Because either the drivers or the hardware does not correctly iterate
-> > over the extension headers to fetch the final nexthdr field which is
-> > used to compute the checksum. This is different from IPv4.
-> >
-> > I can only guess e.g. from the e1000e driver:
-> >
-> >         case cpu_to_be16(ETH_P_IPV6):
-> >                 /* XXX not handling all IPV6 headers */
-> >                 if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
-> >                         cmd_len |= E1000_TXD_CMD_TCP;
-> >                 break;
-> >
-> Yes, but in the case of a fragment that code should never be hit since
-> ip_summed shouldn't be CHECKSUM_PARTIAL for a fragment (maybe after
-> the fix in ip_output). For other cases of extension headers the e1000e
-> is broken since it apparently does call skb_checksum_help for
-> protocols it doesn't understand (the /* XXX not handling all IPV6
-> headers */ comment is worrisome!)
+On 10/26/15 5:54 AM, Wangnan (F) wrote:
+>
+>
+> On 2015/10/26 20:32, Peter Zijlstra wrote:
+>> On Sun, Oct 25, 2015 at 09:23:36AM -0700, Alexei Starovoitov wrote:
+>>> bpf_perf_event_read() muxes of -EINVAL into return value, but it's non
+>>> ambiguous to the program whether it got an error or real counter value.
+>> How can that be, the (u64)-EINVAL value is a valid counter value..
+>> unlikely maybe, but still quite possible.
+> In our real usecase we simply treat return value larger than
+> 0x7fffffffffffffff
+> as error result. We can make it even larger, for example, to
+> 0xffffffffffff0000.
 
-Agreed! I am testing with WARN_ON_ONCE in ip6_fragment if I can hit
-another path where we would have to call skb_checksum_help. I need to
-review IPv4 tomorrow if we need to do according changes there, probably.
+either above or write the program that index is valid, then you
+don't need to check for errors.
 
-Bye,
-Hannes
+> Resuling values can be pre-processed by a script to filter potential
+> error result
+> out so it is not a very big problem for our real usecases.
+>
+> For a better interface, I suggest
+>
+>   u64 bpf_perf_event_read(bool *perror);
+>
+> which still returns counter value through its return value but put error
+> code
+> to stack. Then BPF program can pass NULL to the function if BPF problem
+> doesn't want to deal with error code.
+
+no. we're not going to introduce another interface for this.
+The current one is fine. Don't pass incorrect index and you won't see
+einval. Returning ints or bools via stack is much slower.
