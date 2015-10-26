@@ -1,38 +1,55 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2] net/mlx4: Memcpy at slave_event should copy sizeof mlx4_eqe
-Date: Mon, 26 Oct 2015 19:02:46 +0200
-Message-ID: <CAJ3xEMgFjen8EY6WX3Zpk1k4pAou=HF8ZZHVVnaUtwePAZrcUg@mail.gmail.com>
-References: <1445872540-18605-1-git-send-email-clsoto@linux.vnet.ibm.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next 4/8] xen-netback: accept an L4 or L3 skb hash
+ value from the frontend
+Date: Mon, 26 Oct 2015 17:05:34 +0000
+Message-ID: <20151026170534.GE18674@zion.uk.xensource.com>
+References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
+ <1445423785-4654-5-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: Carol L Soto <clsoto@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36066 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233AbbJZRCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 13:02:47 -0400
-Received: by ioll68 with SMTP id l68so194204899iol.3
-        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 10:02:46 -0700 (PDT)
-In-Reply-To: <1445872540-18605-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Received: from [66.165.176.89] ([66.165.176.89]:19062 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751429AbbJZRFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2015 13:05:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1445423785-4654-5-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 26, 2015 at 5:15 PM,  <clsoto@linux.vnet.ibm.com> wrote:
-> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->
-> If the caps.eqe_size is bigger than the struct mlx4_eqe then there
-> is a potential for corrupting data at the master context. We can see
-> the message "Master failed to generate an EQE for slave: X" when the
-> event_eqe array wraps and we can see potential oops at the function
-> mlx4_GEN_EQE. Also correct a memset of cmd_eqe to use the sizeof
-> mlx4_eqe instead of eqe_size.
->
-> Fixes: 08ff32352d6f ('mlx4: 64-byte CQE/EQE support')
-> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+On Wed, Oct 21, 2015 at 11:36:21AM +0100, Paul Durrant wrote:
+> This patch adds an indication that netback is capable of handling hash
+> values passed from the frontend (see netif.h for details), and the code
+> necessary to process the additional xen_netif_extra_info segment and
+> set a hash on the skb.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
 
-Thanks Carol, I'd like to review this a bit more tomorrow and will
-send it with another fix/es to net
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+
+[...]
+>  
+> +		/* We support hash values. */
+> +		err = xenbus_printf(xbt, dev->nodename,
+> +				    "feature-hash", "%d", 1);
+> +		if (err) {
+> +			message = "writing feature-hash";
+> +			goto abort_transaction;
+
+Feel free to retain my reviewed-by if this changes in next version.
+
+Wei.
+
+> +		}
+> +
+>  		err = xenbus_transaction_end(xbt, 0);
+>  	} while (err == -EAGAIN);
+>  
+> -- 
+> 2.1.4
