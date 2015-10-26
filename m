@@ -1,74 +1,141 @@
-From: clsoto@linux.vnet.ibm.com
-Subject: [PATCH v2] net/mlx4: Memcpy at slave_event should copy sizeof mlx4_eqe
-Date: Mon, 26 Oct 2015 11:15:40 -0400
-Message-ID: <1445872540-18605-1-git-send-email-clsoto@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	brking@linux.vnet.ibm.com, jackm@dev.mellanox.co.il,
-	Carol L Soto <clsoto@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Missing IPv4 routes
+Date: Mon, 26 Oct 2015 08:28:58 -0700
+Message-ID: <562E46BA.7060904@gmail.com>
+References: <562AA7D3.9030905@vultr.com> <562AB578.9090107@gmail.com>
+ <562B8856.6070501@vultr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Brian Rak <brak@vultr.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:54396 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbbJZPPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 11:15:52 -0400
-Received: from /spool/local
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <clsoto@linux.vnet.ibm.com>;
-	Mon, 26 Oct 2015 13:15:48 -0200
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id EED271DC0060
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 11:14:41 -0400 (EDT)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t9QFGEC25193880
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 13:16:15 -0200
-Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t9QFFipb007011
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 11:15:44 -0400
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35669 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbbJZP3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 11:29:00 -0400
+Received: by pasz6 with SMTP id z6so191399029pas.2
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 08:28:59 -0700 (PDT)
+In-Reply-To: <562B8856.6070501@vultr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+On 10/24/2015 06:32 AM, Brian Rak wrote:
+>
+>
+> On 10/23/2015 6:32 PM, Alexander Duyck wrote:
+>> On 10/23/2015 02:34 PM, Brian Rak wrote:
+>>> I've got a weird situation here.  I have a route that the kernel knows
+>>> about, but won't display via the general RTM_GETROUTE call, but will
+>>> display if I query for that particular route:
+>>>
+>>> # ip -4 route show | grep 108.61.171.x
+>>
+>> The use of 'x' here is going to make things confusing.  I assume you
+>> are using a value of 0 here, or is this a route to a specific IP
+>> address that you have.  If not you should be using a 0 for all bits
+>> that would be outside of your subnet mask.
+>>
+> This is a route to a particular IP address:
+>
+> # ip route show | grep  108.61.171.247
+> # ip route get  108.61.171.247
+> 108.61.171.247 dev SRVID630287
+>      cache
 
-If the caps.eqe_size is bigger than the struct mlx4_eqe then there
-is a potential for corrupting data at the master context. We can see
-the message "Master failed to generate an EQE for slave: X" when the
-event_eqe array wraps and we can see potential oops at the function
-mlx4_GEN_EQE. Also correct a memset of cmd_eqe to use the sizeof
-mlx4_eqe instead of eqe_size. 
+Okay, makes sense.
 
-Fixes: 08ff32352d6f ('mlx4: 64-byte CQE/EQE support')
-Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>> # ip route get 108.61.171.x
+>>> 108.61.171.x dev MYIF
+>>>      cache
+>>
+>> The 'x' being the actual value here should work as this will perform a
+>> lookup as I recall.
+>>
+>>> # cat /proc/net/route | grep 108.61.171.x
+>>
+>> The IPs are in network order and as just hex so this won't work.
+>>
+>>> # cat /proc/net/route  | grep -i 6c3dac
+>>
+>> The byte ordering you are using is backwards here from what I can
+>> tell.  So it should be ac3d6c you are checking for, not the other way
+>> around.  So for example if I was using 192.168.1.x I would want to
+>> look for 01A8C0.
+> Oops.  This also doesn't show the route, which it should:
+>
+> # cat /proc/net/route  | grep SRVID630287
+> #
+>
 
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 2 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+So does this device have no routes on it then?  I'm just wanting to 
+confirm the behaviour you are seeing since my concern was mostly about a 
+bug I had introduced where we were losing one route if a dump was broken 
+up over multiple pages.  It seems like that isn't the case.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 0a32020..2177e56 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2398,7 +2398,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 			}
- 		}
- 
--		memset(&priv->mfunc.master.cmd_eqe, 0, dev->caps.eqe_size);
-+		memset(&priv->mfunc.master.cmd_eqe, 0, sizeof(struct mlx4_eqe));
- 		priv->mfunc.master.cmd_eqe.type = MLX4_EVENT_TYPE_CMD;
- 		INIT_WORK(&priv->mfunc.master.comm_work,
- 			  mlx4_master_comm_channel);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index c344884..603d1c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -196,7 +196,7 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
- 		return;
- 	}
- 
--	memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
-+	memcpy(s_eqe, eqe, sizeof(struct mlx4_eqe) - 1);
- 	s_eqe->slave_id = slave;
- 	/* ensure all information is written before setting the ownersip bit */
- 	dma_wmb();
--- 
-1.8.3.1
+>>
+>>> # ip route add 108.61.171.x dev MYIF
+>>> RTNETLINK answers: File exists
+>>> # ip route del 108.61.171.x  <---- it deletes successfully once
+>>> # ip route del 108.61.171.x
+>>> RTNETLINK answers: No such process
+>>>
+>>
+>> So at least we have the routes in the FIB.  It looks like this just
+>> might be a display issue.
+>>
+>>> This is on a machine running 4.1.3, but I have seen it on earlier
+>>> versions in the past.
+>>>
+>>> I don't have great reproduction steps here, I've seen this 4-5 times in
+>>> the past few months (on different hardware).  So far, I haven't really
+>>> found any way of fixing it (deleting and readding the route has no
+>>> effect).  I thought at first this might be related to
+>>> e55ffaf457bcc8ec4e9d9f56f955971f834d65b3, but as far as I can tell that
+>>> only relates to /proc/net/route.
+>>>
+>>> Any suggestions on further troubleshooting here?  I'm all out of ideas
+>>> (and since I can't easily reproduce it yet, I can't reboot to a newer
+>>> kernel to see if it goes away)
+>>
+>> How many routes do you have on your system?  I'm just wondering if it
+>> might be possible that the route could be at a boundary for the dump
+>> call and if it might be possibly losing the data there. Although I
+>> would expect
+> ip -4 route show | wc -l shows 67
+>>
+>> Also have you tried double checking to verify that grep isn't somehow
+>> missing the line?
+> Yes, so we noticed this issue because BIRD stopped picking up the
+> route.  BIRD's trying to grab these via netlink:
+> https://github.com/BIRD/bird/blob/master/sysdep/linux/netlink.c#L1045 ,
+> so I don't believe this is just an issue with grep missing the route.  I
+> also wrote a simple  python script with pyroute2, which also missed the
+> route.
+>
+> I was doing some testing to see if I could add routes for nearby IPs,
+> and ended up somehow correcting the issue:
+>
+> # ip route show | grep SRVID630287
+> # ip route add 108.61.171.200/32 dev SRVID630287
+> # ip route show | grep SRVID630287
+> 108.61.171.200 dev SRVID630287  scope link
+> 108.61.171.247 dev SRVID630287  scope link
+> # ip route del 108.61.171.200/32 dev SRVID630287
+> # ip route show | grep SRVID630287
+> 108.61.171.247 dev SRVID630287  scope link
+>
+> Does that make any sense?
+
+It might if there is a hole in what is being displayed.  One thing you 
+might try doing is to generate two dumps, one with your additional route 
+and one without and then try doing a diff between the two.  Then you 
+might look at adding a few more routes to see if that forces the missing 
+route to appear but perhaps causes another route to disappear from the dump.
+
+With that test we should be able to identify the behaviour since it 
+sounds like an issue where the route is there in memory, but for 
+whatever reason it isn't being displayed.  If we can identify a hole 
+that these routes are falling into we might be able to determine what is 
+causing the issue.
+
+- Alex
