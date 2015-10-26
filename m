@@ -1,63 +1,129 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] macvtap: unbreak receiving of gro skb with frag list
-Date: Mon, 26 Oct 2015 11:15:57 +0800
-Message-ID: <562D9AED.4060607@redhat.com>
-References: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
- <20151023163659-mutt-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151023163659-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv3 net 1/3] openvswitch: Fix double-free on ip_defrag() errors
+Date: Sun, 25 Oct 2015 20:21:48 -0700
+Message-ID: <1445829710-11292-1-git-send-email-joestringer@nicira.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Andy Zhou <azhou@nicira.com>
+To: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35235 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752644AbbJZDVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 23:21:55 -0400
+Received: by pasz6 with SMTP id z6so173633487pas.2
+        for <netdev@vger.kernel.org>; Sun, 25 Oct 2015 20:21:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+If ip_defrag() returns an error other than -EINPROGRESS, then the skb is
+freed. When handle_fragments() passes this back up to
+do_execute_actions(), it will be freed again. Prevent this double free
+by never freeing the skb in do_execute_actions() for errors returned by
+ovs_ct_execute. Always free it in ovs_ct_execute() error paths instead.
 
+Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+Reported-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+v2: Remove extraneous whitespace change.
+v3: Push skb before checking error to free
+---
+ net/openvswitch/actions.c   |  4 ++--
+ net/openvswitch/conntrack.c | 17 +++++++++++++----
+ net/openvswitch/conntrack.h |  1 +
+ 3 files changed, 16 insertions(+), 6 deletions(-)
 
-On 10/23/2015 09:37 PM, Michael S. Tsirkin wrote:
-> On Fri, Oct 23, 2015 at 12:57:05AM -0400, Jason Wang wrote:
->> We don't have fraglist support in TAP_FEATURES. This will lead
->> software segmentation of gro skb with frag list. Fixes by having
->> frag list support in TAP_FEATURES.
->>
->> With this patch single session of netperf receiving were restored from
->> about 5Gb/s to about 12Gb/s on mlx4.
->>
->> Fixes a567dd6252 ("macvtap: simplify usage of tap_features")
->> Cc: Vlad Yasevich <vyasevic@redhat.com>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Thanks!
-> Does this mean we should look at re-adding NETIF_F_FRAGLIST
-> to virtio-net as well?
-
-Not sure I get the point, but probably not. This is for receiving and
-skb_copy_datagram_iter() can deal with frag list.
-
->
->> ---
->>  drivers/net/macvtap.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->> index 248478c..197c939 100644
->> --- a/drivers/net/macvtap.c
->> +++ b/drivers/net/macvtap.c
->> @@ -137,7 +137,7 @@ static const struct proto_ops macvtap_socket_ops;
->>  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
->>  		      NETIF_F_TSO6 | NETIF_F_UFO)
->>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->> -#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
->> +#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
->>  
->>  static struct macvlan_dev *macvtap_get_vlan_rcu(const struct net_device *dev)
->>  {
->> -- 
->> 1.8.3.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 0bf0f406de52..dba635d086b2 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -1109,8 +1109,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 					     nla_data(a));
+ 
+ 			/* Hide stolen IP fragments from user space. */
+-			if (err == -EINPROGRESS)
+-				return 0;
++			if (err)
++				return err == -EINPROGRESS ? 0 : err;
+ 			break;
+ 		}
+ 
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index a5ec34f8502f..b5dcc0abde66 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -293,6 +293,9 @@ static int ovs_ct_helper(struct sk_buff *skb, u16 proto)
+ 	return helper->help(skb, protoff, ct, ctinfo);
+ }
+ 
++/* Returns 0 on success, -EINPROGRESS if 'skb' is stolen, or other nonzero
++ * value if 'skb' is freed.
++ */
+ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+ 			    u16 zone, struct sk_buff *skb)
+ {
+@@ -308,8 +311,8 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+ 			return err;
+ 
+ 		ovs_cb.mru = IPCB(skb)->frag_max_size;
+-	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
++	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		enum ip6_defrag_users user = IP6_DEFRAG_CONNTRACK_IN + zone;
+ 		struct sk_buff *reasm;
+ 
+@@ -318,17 +321,18 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+ 		if (!reasm)
+ 			return -EINPROGRESS;
+ 
+-		if (skb == reasm)
++		if (skb == reasm) {
++			kfree_skb(skb);
+ 			return -EINVAL;
++		}
+ 
+ 		key->ip.proto = ipv6_hdr(reasm)->nexthdr;
+ 		skb_morph(skb, reasm);
+ 		consume_skb(reasm);
+ 		ovs_cb.mru = IP6CB(skb)->frag_max_size;
+-#else
+-		return -EPFNOSUPPORT;
+ #endif
+ 	} else {
++		kfree_skb(skb);
+ 		return -EPFNOSUPPORT;
+ 	}
+ 
+@@ -473,6 +477,9 @@ static bool labels_nonzero(const struct ovs_key_ct_labels *labels)
+ 	return false;
+ }
+ 
++/* Returns 0 on success, -EINPROGRESS if 'skb' is stolen, or other nonzero
++ * value if 'skb' is freed.
++ */
+ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
+ 		   struct sw_flow_key *key,
+ 		   const struct ovs_conntrack_info *info)
+@@ -508,6 +515,8 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
+ 					&info->labels.mask);
+ err:
+ 	skb_push(skb, nh_ofs);
++	if (err)
++		kfree_skb(skb);
+ 	return err;
+ }
+ 
+diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
+index 82e0dfc66028..a7544f405c16 100644
+--- a/net/openvswitch/conntrack.h
++++ b/net/openvswitch/conntrack.h
+@@ -67,6 +67,7 @@ static inline int ovs_ct_execute(struct net *net, struct sk_buff *skb,
+ 				 struct sw_flow_key *key,
+ 				 const struct ovs_conntrack_info *info)
+ {
++	kfree_skb(skb);
+ 	return -ENOTSUPP;
+ }
+ 
+-- 
+2.1.4
