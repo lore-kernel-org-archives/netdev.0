@@ -1,112 +1,67 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v7 2/3] geneve: handle ipv6 priority like ipv4 tos
-Date: Mon, 26 Oct 2015 17:01:45 -0400
-Message-ID: <1445893306-31225-2-git-send-email-linville@tuxdriver.com>
-References: <1445611225-27095-1-git-send-email-linville@tuxdriver.com>
- <1445893306-31225-1-git-send-email-linville@tuxdriver.com>
-Cc: Dave Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>,
-	=?UTF-8?q?YOSHIFUJI=20Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<hideaki.yoshifuji@miraclelinux.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net] ipv4: fix problems from the RTNH_F_LINKDOWN
+ introduction
+Date: Mon, 26 Oct 2015 23:15:57 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1510262311390.1884@ja.home.ssi.bg>
+References: <1445710800-8320-1-git-send-email-ja@ssi.bg> <20151026203104.GE3567@gospo.home.greyhouse.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59260 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbbJZVPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 17:15:16 -0400
-In-Reply-To: <1445893306-31225-1-git-send-email-linville@tuxdriver.com>
+Received: from ja.ssi.bg ([178.16.129.10]:34372 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750990AbbJZVQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2015 17:16:09 -0400
+In-Reply-To: <20151026203104.GE3567@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Other callers of udp_tunnel6_xmit_skb just pass 0 for the prio
-argument.  Jesse Gross <jesse@nicira.com> suggested that prio is really
-the same as IPv4's tos and should be handled the same, so this is my
-interpretation of that suggestion.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Reported-by: Jesse Gross <jesse@nicira.com>
-Reviewed-by: Jesse Gross <jesse@nicira.com>
----
-v7 -- same as previous revisions
+	Hello,
 
- drivers/net/geneve.c | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+On Mon, 26 Oct 2015, Andy Gospodarek wrote:
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 393b0bddf7cf..44e724508c55 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -763,6 +763,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 	struct geneve_dev *geneve = netdev_priv(dev);
- 	struct geneve_sock *gs6 = geneve->sock6;
- 	struct dst_entry *dst = NULL;
-+	__u8 prio;
- 
- 	memset(fl6, 0, sizeof(*fl6));
- 	fl6->flowi6_mark = skb->mark;
-@@ -771,7 +772,16 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 	if (info) {
- 		fl6->daddr = info->key.u.ipv6.dst;
- 		fl6->saddr = info->key.u.ipv6.src;
-+		fl6->flowi6_tos = RT_TOS(info->key.tos);
- 	} else {
-+		prio = geneve->tos;
-+		if (prio == 1) {
-+			const struct iphdr *iip = ip_hdr(skb);
-+
-+			prio = ip_tunnel_get_dsfield(iip, skb);
-+		}
-+
-+		fl6->flowi6_tos = RT_TOS(prio);
- 		fl6->daddr = geneve->remote.sin6.sin6_addr;
- 	}
- 
-@@ -897,9 +907,10 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	struct geneve_dev *geneve = netdev_priv(dev);
- 	struct geneve_sock *gs6 = geneve->sock6;
- 	struct dst_entry *dst = NULL;
-+	const struct iphdr *iip; /* interior IP header */
- 	int err = -EINVAL;
- 	struct flowi6 fl6;
--	__u8 ttl;
-+	__u8 prio, ttl;
- 	__be16 sport;
- 	bool udp_csum;
- 	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
-@@ -920,6 +931,8 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
- 	skb_reset_mac_header(skb);
- 
-+	iip = ip_hdr(skb);
-+
- 	if (info) {
- 		const struct ip_tunnel_key *key = &info->key;
- 		u8 *opts = NULL;
-@@ -936,6 +949,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (unlikely(err))
- 			goto err;
- 
-+		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
- 		ttl = key->ttl;
- 	} else {
- 		udp_csum = false;
-@@ -944,13 +958,14 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (unlikely(err))
- 			goto err;
- 
-+		prio = ip_tunnel_ecn_encap(fl6.flowi6_tos, iip, skb);
- 		ttl = geneve->ttl;
- 		if (!ttl && ipv6_addr_is_multicast(&fl6.daddr))
- 			ttl = 1;
- 		ttl = ttl ? : ip6_dst_hoplimit(dst);
- 	}
- 	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
--				   &fl6.saddr, &fl6.daddr, 0, ttl,
-+				   &fl6.saddr, &fl6.daddr, prio, ttl,
- 				   sport, geneve->dst_port, !udp_csum);
- 
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
--- 
-2.4.3
+> On Sat, Oct 24, 2015 at 09:20:00PM +0300, Julian Anastasov wrote:
+> > When fib_netdev_event calls fib_disable_ip on NETDEV_DOWN event
+> > we should not delete the local routes if the local address
+> > is still present. The confusion comes from the fact that both
+> > fib_netdev_event and fib_inetaddr_event use the NETDEV_DOWN
+> > constant. Fix it by returning back the variable 'force'.
+> > 
+> > Steps to reproduce:
+> > modprobe dummy
+> > ifconfig dummy0 192.168.168.1 up
+> > ip route list table local | grep dummy | grep host
+> > local 192.168.168.1 dev dummy0  proto kernel  scope host  src 192.168.168.1
+> I tested this before and after your patch and I don't see a different
+> output.  Was I supposed to see something different?
+
+	Sorry, the test is missing one command. I'll
+split the patch and will add the missing ifconfig dummy0 down
+command. It was lost because I had problems adding '#' before
+the commands, which is comment, anyways.
+
+> > Second fix
+> I would prefer you move these two fixes into 2 separate patches as it
+> isn't totally clear which hunks fix each of these issues.
+
+	Preparing patchset...
+
+> Are you seeing this with iproute2 (or other tools) or are you just
+> seeing this by monitoring netlink messages/looking at a netlink cache
+> you have built inside an application?
+
+	ifconfig and ip route.
+
+> I have seen a problem similar to what you have reported with netlink
+> caches and have a fix I can give you if you would like to try it.  It is
+> a slightly larger structural change, but it appears to cover covers a
+> few more cases than this fix does.
+
+	No, I'm focusing just on this problem.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
