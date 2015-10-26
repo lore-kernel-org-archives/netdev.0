@@ -1,59 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Implement FDB operations
-Date: Mon, 26 Oct 2015 13:44:12 -0700
-Message-ID: <562E909C.2080606@gmail.com>
-References: <1445625487-16313-1-git-send-email-f.fainelli@gmail.com> <20151023192824.GA21943@ketchup.mtl.sfl> <562A968E.9020303@gmail.com> <20151023224416.GA10185@ketchup.mtl.sfl>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when
+ increasing MTU over IPV6_MIN_MTU
+Date: Mon, 26 Oct 2015 21:45:12 +0100
+Message-ID: <1445892312.1018239.420827817.3EC76081@webmail.messagingengine.com>
+References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org>
+ <562E4C26.3030501@gmail.com>
+ <1445877236.175039.420582401.131556D5@webmail.messagingengine.com>
+ <9831.1445887009@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-	andrew@lunn.ch, linux@roeck-us.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33182 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbbJZUow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 16:44:52 -0400
-Received: by pabla5 with SMTP id la5so5193503pab.0
-        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 13:44:51 -0700 (PDT)
-In-Reply-To: <20151023224416.GA10185@ketchup.mtl.sfl>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54552 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751136AbbJZUpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 16:45:13 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id A97AE20A17
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 16:45:12 -0400 (EDT)
+In-Reply-To: <9831.1445887009@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/10/15 15:44, Vivien Didelot wrote:
-> On Oct. Friday 23 (43) 01:20 PM, Florian Fainelli wrote:
->> On 23/10/15 12:28, Vivien Didelot wrote:
->>> On Oct. Friday 23 (43) 11:38 AM, Florian Fainelli wrote:
->>>> +static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
->>>> +			      const struct switchdev_obj_port_fdb *fdb)
->>>> +{
->>>> +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
->>>> +
->>>> +	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
->>>> +}
->>>
->>> I'm wondering if you are populating the FDB of the invalid VLAN 0 here.
->>>
->>> Does your ARL consider that fdb->vid == 0 means "this port's FDB" and
->>> not "FDB of VLAN 0"?
->>
->> (please trim your replies)
-> 
-> Noted, thanks.
-> 
->> I do not think this matters right now, since 802.1q is not currently
->> enabled/supported in the driver, but maybe I am trivializing this?
-> 
-> I meant that, when you issue the following command:
-> 
->     bridge fdb add de:ea:be:ef:12:34 dev swp3
-> 
-> you will get vid == 0 in bcm_sf2_sw_fdb_add(). So I was wondering if
-> your code was populating the FDB of the VLAN 0, instead of the choosen
-> FDB associated to the given port.
+Hi,
 
-It is populating the FDB for the given port right now, based on the
-current switch configuration done by the driver. But thanks for noting
-that, as this may need changing in the future.
--- 
-Florian
+On Mon, Oct 26, 2015, at 20:16, Jay Vosburgh wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> 
+> >Hello Alex,
+> >
+> >On Mon, Oct 26, 2015, at 16:52, Alexander Duyck wrote:
+> >> Seems like this code isn't quite correct.  You are calling ipv6_add_dev 
+> >> for slave devices, and if I understand things correctly I don't believe 
+> >> that was happening before and may be an unintended side effect.
+> >
+> >Ah, btw., autoconf and ipv6 operation on IFF_SLAVE devices is actually
+> >desired nowadays and don't think we can change this. See also:
+> ><https://patchwork.ozlabs.org/patch/531196/>
+> 
+> 	IPv6 addrconf on IFF_SLAVE devices was disabled for bonding
+> slaves in commit c2edacf80e15 because it caused issues with snooping
+> switches.
+> 
+> 	This is also referenced in
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=236750
+> 
+> 	Won't re-enabling autoconf on IFF_SLAVE devices cause that issue
+> to return?
+
+Both patches don't enable autoconf on IFF_SLAVE devices. Sorry for being
+imprecise. The referred patch was changing the behavior to whether the
+device had a master device.
+
+@Alex, I will take your patch and submit it with the necessary guards to
+not enable ipv6 again if we forcefully disable ipv6 and later on shrink
+and increase the MTU again. I will do so in your name. Thanks again for
+the patch!
+
+Bye,
+Hannes
