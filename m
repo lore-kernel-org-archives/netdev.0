@@ -1,46 +1,30 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
-Date: Mon, 26 Oct 2015 20:54:43 +0800
-Message-ID: <562E2293.5090600@huawei.com>
-References: <1445559014-4667-1-git-send-email-ast@kernel.org> <20151023120335.GZ17308@twins.programming.kicks-ass.net> <562A474E.6040401@plumgrid.com> <20151025092142.GB4380@gmail.com> <562D0208.7090608@plumgrid.com> <20151026123200.GT2508@worktop.programming.kicks-ass.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
+Date: Mon, 26 Oct 2015 14:19:28 +0100
+Message-ID: <20151026131928.GA1820@netboy>
+References: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
-	"Daniel Borkmann" <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151026123200.GT2508@worktop.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37551 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753463AbbJZNTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 09:19:33 -0400
+Received: by wicfv8 with SMTP id fv8so115663072wic.0
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 06:19:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Oct 26, 2015 at 01:51:37PM +0100, Hannes Frederic Sowa wrote:
+> netstamp_needed is toggled for all socket families if they request
+> timestamping. But some protocols don't need the lower-layer timestamping
+> code at all. This patch starts disabling it for af-unix.
 
+What problem is this patch trying to solve?
 
-On 2015/10/26 20:32, Peter Zijlstra wrote:
-> On Sun, Oct 25, 2015 at 09:23:36AM -0700, Alexei Starovoitov wrote:
->> bpf_perf_event_read() muxes of -EINVAL into return value, but it's non
->> ambiguous to the program whether it got an error or real counter value.
-> How can that be, the (u64)-EINVAL value is a valid counter value..
-> unlikely maybe, but still quite possible.
-In our real usecase we simply treat return value larger than 
-0x7fffffffffffffff
-as error result. We can make it even larger, for example, to 
-0xffffffffffff0000.
-Resuling values can be pre-processed by a script to filter potential 
-error result
-out so it is not a very big problem for our real usecases.
-
-For a better interface, I suggest
-
-  u64 bpf_perf_event_read(bool *perror);
-
-which still returns counter value through its return value but put error 
-code
-to stack. Then BPF program can pass NULL to the function if BPF problem
-doesn't want to deal with error code.
-
-Thank you.
+Thanks,
+Richard
