@@ -1,10 +1,10 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next 7/8] xen-netback: add support for a multi-queue
- hash mapping table
-Date: Mon, 26 Oct 2015 17:05:51 +0000
-Message-ID: <20151026170551.GG18674@zion.uk.xensource.com>
+Subject: Re: [PATCH net-next 2/8] xen-netback: remove GSO information from
+ xenvif_rx_meta
+Date: Mon, 26 Oct 2015 17:05:24 +0000
+Message-ID: <20151026170524.GC18674@zion.uk.xensource.com>
 References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
- <1445423785-4654-8-git-send-email-paul.durrant@citrix.com>
+ <1445423785-4654-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
@@ -12,37 +12,25 @@ Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
 	Wei Liu <wei.liu2@citrix.com>
 To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [66.165.176.89] ([66.165.176.89]:19079 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751874AbbJZRFx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2015 13:05:53 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:14380 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbbJZRGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 13:06:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1445423785-4654-8-git-send-email-paul.durrant@citrix.com>
+In-Reply-To: <1445423785-4654-3-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2015 at 11:36:24AM +0100, Paul Durrant wrote:
-> Advertise the capability to handle a hash mapping specified by the
-> frontend (see netif.h for details).
+On Wed, Oct 21, 2015 at 11:36:19AM +0100, Paul Durrant wrote:
+> The code in net_rx_action() that builds rx responses has direct access
+> to the skb so there is no need to copy this information into the meta
+> structure.
 > 
-> Add an ndo_select() entry point so that, of the frontend does specify a
-
-"if the frontend ..."
-
-> hash mapping, the skb hash is extracted and mapped to a queue. If no
-> mapping is specified then the fallback queue selection function is
-> called so there is no change in behaviour.
+> This patch removes the extraneous fields, saves space in the array and
+> removes many lines of code.
 > 
 > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-[...]
-> +static void xen_hash_mapping_changed(struct xenbus_watch *watch,
-> +				     const char **vec, unsigned int len)
-> +{
-> +	struct xenvif *vif = container_of(watch, struct xenvif,
-> +					  hash_mapping_watch);
-> +
-> +	xen_net_read_multi_queue_hash_mapping(vif);
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
 
-Is it safe / correct to not stop the vif before changing mapping table?
-
-Wei.
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
