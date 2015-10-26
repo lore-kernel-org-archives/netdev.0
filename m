@@ -1,64 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when
- increasing MTU over IPV6_MIN_MTU
-Date: Mon, 26 Oct 2015 21:45:12 +0100
-Message-ID: <1445892312.1018239.420827817.3EC76081@webmail.messagingengine.com>
-References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org>
- <562E4C26.3030501@gmail.com>
- <1445877236.175039.420582401.131556D5@webmail.messagingengine.com>
- <9831.1445887009@famine>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 0/4] Automatic adjustment of max frame size
+Date: Mon, 26 Oct 2015 20:50:45 +0000
+Message-ID: <1445892645.15482.3.camel@intel.com>
+References: <1445572173-15402-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <562B4673.7020608@gmail.com> <562D7A33.4020603@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"toshiaki.makita1@gmail.com" <toshiaki.makita1@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "makita.toshiaki@lab.ntt.co.jp" <makita.toshiaki@lab.ntt.co.jp>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54552 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751136AbbJZUpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 16:45:13 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id A97AE20A17
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 16:45:12 -0400 (EDT)
-In-Reply-To: <9831.1445887009@famine>
+Received: from mga02.intel.com ([134.134.136.20]:41943 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751964AbbJZUur (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2015 16:50:47 -0400
+In-Reply-To: <562D7A33.4020603@lab.ntt.co.jp>
+Content-Language: en-US
+Content-ID: <54428446194C2E4986B23DBEDA41E8DC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Mon, Oct 26, 2015, at 20:16, Jay Vosburgh wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
-> >Hello Alex,
-> >
-> >On Mon, Oct 26, 2015, at 16:52, Alexander Duyck wrote:
-> >> Seems like this code isn't quite correct.  You are calling ipv6_add_dev 
-> >> for slave devices, and if I understand things correctly I don't believe 
-> >> that was happening before and may be an unintended side effect.
-> >
-> >Ah, btw., autoconf and ipv6 operation on IFF_SLAVE devices is actually
-> >desired nowadays and don't think we can change this. See also:
-> ><https://patchwork.ozlabs.org/patch/531196/>
-> 
-> 	IPv6 addrconf on IFF_SLAVE devices was disabled for bonding
-> slaves in commit c2edacf80e15 because it caused issues with snooping
-> switches.
-> 
-> 	This is also referenced in
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=236750
-> 
-> 	Won't re-enabling autoconf on IFF_SLAVE devices cause that issue
-> to return?
-
-Both patches don't enable autoconf on IFF_SLAVE devices. Sorry for being
-imprecise. The referred patch was changing the behavior to whether the
-device had a master device.
-
-@Alex, I will take your patch and submit it with the necessary guards to
-not enable ipv6 again if we forcefully disable ipv6 and later on shrink
-and increase the MTU again. I will do so in your name. Thanks again for
-the patch!
-
-Bye,
-Hannes
+T24gTW9uLCAyMDE1LTEwLTI2IGF0IDA5OjU2ICswOTAwLCBUb3NoaWFraSBNYWtpdGEgd3JvdGU6
+DQo+IE9uIDIwMTUvMTAvMjQgMTc6NTAsIFRvc2hpYWtpIE1ha2l0YSB3cm90ZToNCj4gPiBEYXZp
+ZCwNCj4gPiANCj4gPiBJIGZvdW5kIG15IHBhdGNoIHNldCBpcyBtYXJrZWQgd2l0aCBDaGFuZ2Vz
+IFJlcXVlc3RlZCwgYnV0IEkNCj4gPiBoYXZlbid0DQo+ID4gc2VlbiBhbnkgZmVlZGJhY2suDQo+
+ID4gDQo+ID4gQ291bGQgeW91IGdpdmUgbWUgeW91ciBmZWVkYmFjaz8NCj4gDQo+IFNvbWVob3cg
+dGhlIG1haWwgZnJvbSBMRCBMaW51eCBDSSBTZXJ2ZXIgZGlkIG5vdCByZWFjaCBuZXRkZXYgbWFp
+bGluZw0KPiBsaXN0IHNvIEkgY291bGQgbm90IGhhdmUgc2VlbiBpdCBmcm9tIGdtYWlsLi4uDQo+
+IA0KPiBUb3NoaWFraSBNYWtpdGENCj4gDQoNCnRoZSBORCBMaW51eCBCb3QgaXMgb25seSBjaGVj
+a2luZyBhZ2FpbnN0IHRoZSBJbnRlbCBtYWlsaW5nIGxpc3QgIA0KaW50ZWwtd2lyZWQtbGFuQGxp
+c3RzLm9zdW9zbC5vcmcsIGFuZCBpc24ndCBzdWJzY3JpYmVkIHRvIG5ldGRldi4NCg0KSSBhbSBu
+b3Qgc3VyZSB3aHkgaXQgZmFpbGVkIHRvIG1haWwgdG8gaXQsIHVubGVzcyBuZXRkZXYgYmxvY2tz
+IG5vbg0Kc3Vic2NyaWJlcnMgZnJvbSBzZW5kaW5nIG1haWwgKGl0IHByb2JhYmx5IGRvZXMpDQoN
+ClRoZSBjaGVja3BhdGNoIG91dHB1dCBoZXJlIGlzIGxpa2VseSBpZ25vcmFibGUsIG5vdGUgaG93
+IGl0IHNob3dzIHVwIGFzDQphIHdhcm5pbmcuIFlvdSBjYW4gZml4IHRoZW0gaWYgeW91IGZlZWwg
+dGhlcmUgaXMgYSByZWFzb25hYmxlIHdheSB0bw0Kc2hvcnRlbiB0aGUgbGluZS4gSW4gdGhpcyBj
+YXNlLCBJIHByb2JhYmx5IHdvdWxkbid0IHVubGVzcyB5b3Ugd2FudCB0bw0KcGVyZm9ybSB0aGUg
+VkxBTiBhbmQgRVRIX0ZSQU1FIExFTiBjYWxjdWxhdGlvbiBvbmNlIHNvbWV3aGVyZSBlbHNlLi4u
+DQoNCkdlbmVyYWxseSBiZWluZyBjbG9zZSB0byA4MCwgKDgxLDgyIGV0YykgaXMgcHJvYmFibHkg
+b2ssIGFzIGxvbmcgYXMNCnRoZXJlIGlzbid0IGFuIG9idmlvdXMgbmljZXIgd2F5IHRvIHNob3J0
+ZW4gdGhlIGxpbmUuDQoNClJlZ2FyZHMsDQpKYWtl
