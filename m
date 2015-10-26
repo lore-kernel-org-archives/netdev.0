@@ -1,75 +1,39 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCHv2 net-next 1/6] arcnet: move dev_free_skb to its only user
-Date: Mon, 26 Oct 2015 09:23:15 +0100
-Message-ID: <1445847800-13975-2-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCHv2 net-next 3/6] arcnet: com20020-pci: set dev_port to the subdevice index
+Date: Mon, 26 Oct 2015 09:23:17 +0100
+Message-ID: <1445847800-13975-4-git-send-email-m.grzeschik@pengutronix.de>
 References: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47624 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60883 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753134AbbJZIXc (ORCPT
+	with ESMTP id S1753240AbbJZIXc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 04:23:32 -0400
 In-Reply-To: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The call for dev_free_skb is done only once. This patch
-moves its call to its only user and removes the obsolete
-condition variable.
+This patch sets the dev_port according to the index of
+the card. This can be used by udev to name the ports
+in userspace.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arcnet.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/arcnet/com20020-pci.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index e41dd36..542e2b4 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -515,7 +515,7 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 	struct ArcProto *proto;
- 	int txbuf;
- 	unsigned long flags;
--	int freeskb, retval;
-+	int retval;
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index a12bf83..e3b7c14e 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -96,6 +96,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 			ret = -ENOMEM;
+ 			goto out_port;
+ 		}
++		dev->dev_port = i;
  
- 	arc_printk(D_DURING, dev,
- 		   "transmit requested (status=%Xh, txbufs=%d/%d, len=%d, protocol %x)\n",
-@@ -554,15 +554,13 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 			 *  the package later - forget about it now
- 			 */
- 			dev->stats.tx_bytes += skb->len;
--			freeskb = 1;
-+			dev_kfree_skb(skb);
- 		} else {
- 			/* do it the 'split' way */
- 			lp->outgoing.proto = proto;
- 			lp->outgoing.skb = skb;
- 			lp->outgoing.pkt = pkt;
+ 		dev->netdev_ops = &com20020_netdev_ops;
  
--			freeskb = 0;
--
- 			if (proto->continue_tx &&
- 			    proto->continue_tx(dev, txbuf)) {
- 				arc_printk(D_NORMAL, dev,
-@@ -574,7 +572,6 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 		lp->next_tx = txbuf;
- 	} else {
- 		retval = NETDEV_TX_BUSY;
--		freeskb = 0;
- 	}
- 
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s, status: %x\n",
-@@ -589,9 +586,6 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 		   __FILE__, __LINE__, __func__, lp->hw.status(dev));
- 
- 	spin_unlock_irqrestore(&lp->lock, flags);
--	if (freeskb)
--		dev_kfree_skb(skb);
--
- 	return retval;		/* no need to try again */
- }
- EXPORT_SYMBOL(arcnet_send_packet);
 -- 
 2.6.1
