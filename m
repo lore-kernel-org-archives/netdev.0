@@ -1,44 +1,66 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when increasing MTU over IPV6_MIN_MTU
-Date: Mon, 26 Oct 2015 12:16:49 -0700
-Message-ID: <9831.1445887009@famine>
-References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org> <562E4C26.3030501@gmail.com> <1445877236.175039.420582401.131556D5@webmail.messagingengine.com>
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension
+ headers and recalc checksum during fragmentation
+Date: Mon, 26 Oct 2015 12:39:10 -0700
+Message-ID: <CALx6S36zV1RHD1Z+y9Y0=zH4tTO8XJugogJ4mG9gpST7x0=2kA@mail.gmail.com>
+References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
+	<CALx6S35of-Qpo5c+AW5h6_CXbTiZG0yn5_J0skK_LZ4UMxikiA@mail.gmail.com>
+	<1445704123.1816692.419166185.45622C02@webmail.messagingengine.com>
+	<CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
+	<1445706124.1823412.419177649.420E8888@webmail.messagingengine.com>
+	<CALx6S37krurU1nFpC-9aT_EDhZfH7p=-wSrSjUSNKvm5+s_c2Q@mail.gmail.com>
+	<1445852946.87102.420207505.5C1EF1DC@webmail.messagingengine.com>
+	<CALx6S34WNYxQ4HOG0hg-jO_U-OYhGABS8xaqTD1v4Q0fx-6QtQ@mail.gmail.com>
+	<1445885043.985660.420718105.55D9DB7D@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:48712 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184AbbJZTQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 15:16:53 -0400
-In-reply-to: <1445877236.175039.420582401.131556D5@webmail.messagingengine.com>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36083 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721AbbJZTjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 15:39:11 -0400
+Received: by ioll68 with SMTP id l68so199236573iol.3
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 12:39:10 -0700 (PDT)
+In-Reply-To: <1445885043.985660.420718105.55D9DB7D@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-
->Hello Alex,
+On Mon, Oct 26, 2015 at 11:44 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
 >
->On Mon, Oct 26, 2015, at 16:52, Alexander Duyck wrote:
->> Seems like this code isn't quite correct.  You are calling ipv6_add_dev 
->> for slave devices, and if I understand things correctly I don't believe 
->> that was happening before and may be an unintended side effect.
 >
->Ah, btw., autoconf and ipv6 operation on IFF_SLAVE devices is actually
->desired nowadays and don't think we can change this. See also:
-><https://patchwork.ozlabs.org/patch/531196/>
+> On Mon, Oct 26, 2015, at 15:19, Tom Herbert wrote:
+>> > We already concluded that drivers do have this problem and not the stack
+>> > above ip6_fragment. The places I am aware of I fixed in this patch. Also
+>> > IPv4 to me seems unaffected, albeit one can certainly clean up the logic
+>> > in net-next.
+>> >
+>> I don't understand why checksum for IP fragments is a driver problem.
+>> When fragments are sent to driver they should never have
+>> CHECKSUM_PARTIAL set (or maybe that is what you are seeing?).
+>
+> Because either the drivers or the hardware does not correctly iterate
+> over the extension headers to fetch the final nexthdr field which is
+> used to compute the checksum. This is different from IPv4.
+>
+> I can only guess e.g. from the e1000e driver:
+>
+>         case cpu_to_be16(ETH_P_IPV6):
+>                 /* XXX not handling all IPV6 headers */
+>                 if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+>                         cmd_len |= E1000_TXD_CMD_TCP;
+>                 break;
+>
+Yes, but in the case of a fragment that code should never be hit since
+ip_summed shouldn't be CHECKSUM_PARTIAL for a fragment (maybe after
+the fix in ip_output). For other cases of extension headers the e1000e
+is broken since it apparently does call skb_checksum_help for
+protocols it doesn't understand (the /* XXX not handling all IPV6
+headers */ comment is worrisome!)
 
-	IPv6 addrconf on IFF_SLAVE devices was disabled for bonding
-slaves in commit c2edacf80e15 because it caused issues with snooping
-switches.
-
-	This is also referenced in
-
-https://bugzilla.redhat.com/show_bug.cgi?id=236750
-
-	Won't re-enabling autoconf on IFF_SLAVE devices cause that issue
-to return?
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Tom
