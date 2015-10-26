@@ -1,31 +1,34 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce bpf_perf_event_output()
- helper
-Date: Mon, 26 Oct 2015 03:27:26 -0700
-Message-ID: <562E000E.9080705@plumgrid.com>
-References: <1445396556-4854-1-git-send-email-ast@kernel.org>
- <1445396556-4854-3-git-send-email-ast@kernel.org>
- <20151023143943.GC17308@twins.programming.kicks-ass.net>
- <562A4BE8.2060603@plumgrid.com>
- <20151023164223.GE17308@twins.programming.kicks-ass.net>
- <562A6D80.6000208@plumgrid.com> <562D860B.2060008@huawei.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next 0/8] xen-netback/core: packet hashing
+Date: Mon, 26 Oct 2015 10:38:50 +0000
+Message-ID: <562E02BA.5050301@citrix.com>
+References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
+ <20151024.045502.1977782979064243034.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, He Kuang <hekuang@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>,
-	Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <562D860B.2060008@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>, <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.63]:49888 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752531AbbJZKiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2015 06:38:55 -0400
+In-Reply-To: <20151024.045502.1977782979064243034.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/15 6:46 PM, Wangnan (F) wrote:
-> Can we (or have we already) setup some rules for licensing? Which part
-> should be GPL? Who has the response to decide it?
+On 24/10/15 12:55, David Miller wrote:
+> From: Paul Durrant <paul.durrant@citrix.com>
+> Date: Wed, 21 Oct 2015 11:36:17 +0100
+> 
+>> This series adds xen-netback support for hash negotiation with a frontend
+>> driver, and an implementation of toeplitz hashing as the initial negotiable
+>> algorithm.
+> 
+> Ping, I want to see some review from some other xen networking folks.
 
-in my mind the rules were set long ago. See my other email.
+There's been some review of the front/back protocol (on a different
+thread) and some significant changes have been suggested.
+
+David
