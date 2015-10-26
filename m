@@ -1,67 +1,63 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net-next] bnxt_en: Fix compile warnings when CONFIG_INET is not set.
-Date: Sun, 25 Oct 2015 22:27:57 -0400
-Message-ID: <1445826477-24881-1-git-send-email-mchan@broadcom.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] macvtap: unbreak receiving of gro skb with frag list
+Date: Mon, 26 Oct 2015 11:15:57 +0800
+Message-ID: <562D9AED.4060607@redhat.com>
+References: <1445576225-27710-1-git-send-email-jasowang@redhat.com>
+ <20151023163659-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:28926 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752195AbbJZC2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 22:28:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151023163659-mutt-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-bnxt_gro_skb() has unused variables when CONFIG_INET is not set.  We
-really cannot support hardware GRO if CONFIG_INET is not set, so
-compile out bnxt_gro_skb() completely and define BNXT_FLAG_GRO to be 0
-if CONFIG_INET is not set.  This will effectively always disable
-hardware GRO if CONFIG_INET is not set.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 5 +++++
- 2 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 9e36f83..6c2e0c6 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -852,6 +852,7 @@ static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
- 					   struct rx_tpa_end_cmp_ext *tpa_end1,
- 					   struct sk_buff *skb)
- {
-+#ifdef CONFIG_INET
- 	struct tcphdr *th;
- 	int payload_off, tcp_opt_len = 0;
- 	int len, nw_off;
-@@ -866,7 +867,6 @@ static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
- 	if (TPA_END_GRO_TS(tpa_end))
- 		tcp_opt_len = 12;
- 
--#ifdef CONFIG_INET
- 	if (tpa_info->gso_type == SKB_GSO_TCPV4) {
- 		struct iphdr *iph;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 5ee3cc2..4f2267c 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -855,7 +855,12 @@ struct bnxt {
- 	#define BNXT_FLAG_DCB_ENABLED	0x1
- 	#define BNXT_FLAG_VF		0x2
- 	#define BNXT_FLAG_LRO		0x4
-+#ifdef CONFIG_INET
- 	#define BNXT_FLAG_GRO		0x8
-+#else
-+	/* Cannot support hardware GRO if CONFIG_INET is not set */
-+	#define BNXT_FLAG_GRO		0x0
-+#endif
- 	#define BNXT_FLAG_TPA		(BNXT_FLAG_LRO | BNXT_FLAG_GRO)
- 	#define BNXT_FLAG_JUMBO		0x10
- 	#define BNXT_FLAG_STRIP_VLAN	0x20
--- 
-1.8.3.1
+On 10/23/2015 09:37 PM, Michael S. Tsirkin wrote:
+> On Fri, Oct 23, 2015 at 12:57:05AM -0400, Jason Wang wrote:
+>> We don't have fraglist support in TAP_FEATURES. This will lead
+>> software segmentation of gro skb with frag list. Fixes by having
+>> frag list support in TAP_FEATURES.
+>>
+>> With this patch single session of netperf receiving were restored from
+>> about 5Gb/s to about 12Gb/s on mlx4.
+>>
+>> Fixes a567dd6252 ("macvtap: simplify usage of tap_features")
+>> Cc: Vlad Yasevich <vyasevic@redhat.com>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Thanks!
+> Does this mean we should look at re-adding NETIF_F_FRAGLIST
+> to virtio-net as well?
+
+Not sure I get the point, but probably not. This is for receiving and
+skb_copy_datagram_iter() can deal with frag list.
+
+>
+>> ---
+>>  drivers/net/macvtap.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index 248478c..197c939 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -137,7 +137,7 @@ static const struct proto_ops macvtap_socket_ops;
+>>  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>>  		      NETIF_F_TSO6 | NETIF_F_UFO)
+>>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+>> -#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
+>> +#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
+>>  
+>>  static struct macvlan_dev *macvtap_get_vlan_rcu(const struct net_device *dev)
+>>  {
+>> -- 
+>> 1.8.3.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
