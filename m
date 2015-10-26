@@ -1,117 +1,102 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next 8/8] xen-netback: add support for toeplitz
- hashing
-Date: Mon, 26 Oct 2015 17:05:54 +0000
-Message-ID: <20151026170554.GH18674@zion.uk.xensource.com>
-References: <1445423785-4654-1-git-send-email-paul.durrant@citrix.com>
- <1445423785-4654-9-git-send-email-paul.durrant@citrix.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when
+ increasing MTU over IPV6_MIN_MTU
+Date: Mon, 26 Oct 2015 10:07:32 -0700
+Message-ID: <562E5DD4.40908@gmail.com>
+References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org>
+ <562E4C26.3030501@gmail.com>
+ <1445875501.168420.420547673.4BB6C209@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:3575 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752371AbbJZRGl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2015 13:06:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1445423785-4654-9-git-send-email-paul.durrant@citrix.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:32907 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751429AbbJZRHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 13:07:34 -0400
+Received: by pabla5 with SMTP id la5so623479pab.0
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 10:07:33 -0700 (PDT)
+In-Reply-To: <1445875501.168420.420547673.4BB6C209@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2015 at 11:36:25AM +0100, Paul Durrant wrote:
-> This patch adds all the necessary infrastructure to allow a frontend to
-> specify toeplitz hashing of network packets on its receive side. (See
-> netif.h for details of the xenbus protocol).
-> 
-> The toeplitz hash algorithm itself was based on pseudo-code provided by
-> Microsoft at:
-> 
-> https://msdn.microsoft.com/en-us/library/windows/hardware/ff570725.aspx
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-[...]
->  
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index 0c7da7b..38eee4f 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -142,17 +142,122 @@ void xenvif_wake_queue(struct xenvif_queue *queue)
->  	netif_tx_wake_queue(netdev_get_tx_queue(dev, id));
->  }
->  
+On 10/26/2015 09:05 AM, Hannes Frederic Sowa wrote:
+> Hi Alex,
+>
+> On Mon, Oct 26, 2015, at 16:52, Alexander Duyck wrote:
+>> On 10/26/2015 07:36 AM, Hannes Frederic Sowa wrote:
+>>> Take into consideration that the interface might be disabled for IPv6,
+>>> thus switch event type.
+>>>
+>>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>> ---
+>>>    net/ipv6/addrconf.c | 7 +++++--
+>>>    1 file changed, 5 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>> index d0c685c..c2dcebe 100644
+>>> --- a/net/ipv6/addrconf.c
+>>> +++ b/net/ipv6/addrconf.c
+>>> @@ -3149,6 +3149,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>>>    
+>>>    	case NETDEV_UP:
+>>>    	case NETDEV_CHANGE:
+>>> +netdev_change:
+>>>    		if (dev->flags & IFF_SLAVE)
+>>>    			break;
+>>>    
+>>> @@ -3244,8 +3245,10 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>>>    
+>>>    		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+>>>    			idev = ipv6_add_dev(dev);
+>>> -			if (!IS_ERR(idev))
+>>> -				break;
+>>> +			if (!IS_ERR(idev)) {
+>>> +				event = NETDEV_UP;
+>>> +				goto netdev_change;
+>>> +			}
+>>>    		}
+>>>    
+>>>    		/*
+>> Seems like this code isn't quite correct.  You are calling ipv6_add_dev
+>> for slave devices, and if I understand things correctly I don't believe
+>> that was happening before and may be an unintended side effect.
+> Hmm, could you quickly help me where I get into this situation? I made
+> sure I enter the NETDEV_UP part before the IFF_SLAVE test and
+> disable_ipv6 te
 
-I skipped the hash implementation because I don't think I know enough to
-tell if it is correct or not, and protocol negotiation because I think
-that's going to change in next version.
+I think I was getting a bit a head of myself.  I was looking over the 
+NETDEV_UP code and thinking that we could just fall into that path since 
+it is already calling ipv6_add_dev.  However now I am wondering if maybe 
+we need to look at adding an idev allocation somewhere before the 
+disable_ipv6 check.  I assume that is why you were allocating the idev 
+before you were getting into NETDEV_UP?
 
-> +
-> +
-> +static void xen_net_read_toeplitz_key(struct xenvif *vif,
-> +				      const char *node)
-> +{
-> +	struct xenbus_device *dev = xenvif_to_xenbus_device(vif);
-> +	char *str, *token;
-> +	u8 key[40];
+>> You might want to instead just make it so that you only do the jump, and
+>> perhaps change the code in the NETDEV_UP/NETDEV_CHANGE section so that
+>> you test for NETDEV_CHANGE instead of NETDEV_UP.  That should be enough
+>> to get the effect you are looking for and I believe there would be no
+>> change to behaviour other than adding IPv6 link-local addresses when the
+>> MTU is increased.
+>>
+>> Give me a bit and I can submit an alternative that may actually work out
+>> a bit better I think.
+> If you go the NETDEV_CHANGE route instead of NETDEV_UP, you end up with
+> the IF_READY flag already set from ipv6_add_dev and thus won't do any
+> initialization of the device.
 
-This should use the macro.
+What I meant was that you don't need to change the event.  If you change 
+the check inside the NETDEV_UP/CHANGE code path so that it tests for 
+event != NETDEV_CHANGE instead of event == NETDEV_UP you don't need to 
+change the event type.
 
-> +	unsigned int n, i;
-> +
-> +	str = xenbus_read(XBT_NIL, node, "key", NULL);
-> +	if (IS_ERR(str))
-> +		goto fail1;
-> +
-> +	memset(key, 0, sizeof(key));
-> +
-> +	n = 0;
-> +	while ((token = strsep(&str, ",")) != NULL) {
-> +		int rc;
-> +
-> +		if (n >= ARRAY_SIZE(vif->hash_params.toeplitz.key)) {
-> +			pr_err("%s: key too big\n",
-> +			       dev->nodename);
-> +			goto fail2;
-> +		}
-> +
-> +		rc = kstrtou8(token, 0, &key[n]);
-> +		if (rc < 0) {
-> +			pr_err("%s: invalid key value (%s at index %u)\n",
-> +			       dev->nodename, token, n);
-> +			goto fail2;
-> +		}
-> +
-> +		n++;
-> +	}
-> +
-> +	for (i = 0; i < ARRAY_SIZE(vif->hash_params.toeplitz.key); i++)
-> +		vif->hash_params.toeplitz.key[i] = key[i];
-> +
-> +	kfree(str);
-> +	return;
-> +
-> +fail2:
-> +	kfree(str);
-> +fail1:
-> +	vif->hash_params.toeplitz.types = 0;
-> +}
-> +
-[...]
-> +
-> +static void xen_hash_changed(struct xenbus_watch *watch,
-> +			     const char **vec, unsigned int len)
-> +{
-> +	struct xenvif *vif = container_of(watch, struct xenvif, hash_watch);
-> +
-> +	xen_net_read_hash(vif);
+> Sure, I wait.
 
-I think the same question for previous patch applies here, too.
+Might be a bit longer.  I just realized that I think there is another 
+bug here where you are going through the NETDEV_UP path even though the 
+interface isn't up.  I'll run through some testing this morning to work 
+out the kinks.
 
-Is there any concern of correctness and security implication that you
-just change the hash without stopping the vif?
-
-Wei.
+- Alex
