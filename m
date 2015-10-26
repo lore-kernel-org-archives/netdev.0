@@ -1,105 +1,58 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [RFC PATCH net-next] net/core: initial support for stacked dev
- feature toggles
-Date: Mon, 26 Oct 2015 10:42:13 +0100
-Message-ID: <20151026094213.GA1715@unicorn.suse.cz>
-References: <1445658019-58621-1-git-send-email-jarod@redhat.com>
- <562B1C4D.8050407@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension headers
+ and recalc checksum during fragmentation
+Date: Mon, 26 Oct 2015 10:49:06 +0100
+Message-ID: <1445852946.87102.420207505.5C1EF1DC@webmail.messagingengine.com>
+References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
+ <CALx6S35of-Qpo5c+AW5h6_CXbTiZG0yn5_J0skK_LZ4UMxikiA@mail.gmail.com>
+ <1445704123.1816692.419166185.45622C02@webmail.messagingengine.com>
+ <CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
+ <1445706124.1823412.419177649.420E8888@webmail.messagingengine.com>
+ <CALx6S37krurU1nFpC-9aT_EDhZfH7p=-wSrSjUSNKvm5+s_c2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <razor@blackwall.org>,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <562B1C4D.8050407@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Benjamin Coddington <bcodding@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46293 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753726AbbJZJtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 05:49:09 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 27473207C8
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 05:49:07 -0400 (EDT)
+In-Reply-To: <CALx6S37krurU1nFpC-9aT_EDhZfH7p=-wSrSjUSNKvm5+s_c2Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2015 at 10:51:09PM -0700, Alexander Duyck wrote:
-> On 10/23/2015 08:40 PM, Jarod Wilson wrote:
+On Sun, Oct 25, 2015, at 14:32, Tom Herbert wrote:
+> > Anyway, currently it is easy to generate broken checksums on the wire
+> > and would like to solve that for net, we certainly can improve that in
+> > net-next.
 > >
-> >+static netdev_features_t netdev_sync_upper_features(struct net_device *lower,
-> >+	struct net_device *upper, netdev_features_t features)
-> >+{
-> >+	netdev_features_t want = upper->wanted_features & lower->hw_features;
-> >+
-> >+	if (!(upper->wanted_features & NETIF_F_LRO)
-> >+	    && (features & NETIF_F_LRO)) {
-> >+		netdev_info(lower, "Dropping LRO, upper dev %s has it off.\n",
-> >+			   upper->name);
-> >+		features &= ~NETIF_F_LRO;
-> >+	} else if ((want & NETIF_F_LRO) && !(features & NETIF_F_LRO)) {
-> >+		netdev_info(lower, "Keeping LRO, upper dev %s has it on.\n",
-> >+			   upper->name);
-> >+		features |= NETIF_F_LRO;
-> >+	}
-> >+
-> >+	return features;
-> >+}
-> >+
+> Hannes,
 > 
-> I'd say to drop the second half of this statement.  LRO is a feature
-> that should be enabled explicitly per interface.  If someone enables
-> LRO on the master they may only want it on one interface.  The fact
-> is there are some implementations of LRO that work better than
-> others so you want to give the end user the option to mix and match.
+> The IPv4 fragment code is very similar to IPv6 in that both will
+> perform skb_checksum_help only in the slow_path, so it seems like
+> skb_checksum_help should be called earlier before the fragments are
+> generated in both cases. If we're not correctly setting checksum for
+> packets that are fragmented that is an issue with the stack.
 
-Agreed. IMHO it makes sense to allow setups with LRO disabled on some
-slaves and enabled on other.
+We already concluded that drivers do have this problem and not the stack
+above ip6_fragment. The places I am aware of I fixed in this patch. Also
+IPv4 to me seems unaffected, albeit one can certainly clean up the logic
+in net-next.
 
-Also, the logic seems to only consider the 1 upper : N lower scheme
-(bond, team) but we also have N upper : 1 lower setups (vlan, macvlan).
-For these, there is no way to propagate both 0 and 1 down as this would
-result in a conflict.
+Do you want to move the skb_checksum_help() check to the front of
+ip_fragment in ipv4 now too?
 
-> >+static void netdev_sync_lower_features(struct net_device *upper,
-> >+	struct net_device *lower, netdev_features_t features)
-> >+{
-> >+	netdev_features_t want = features & lower->hw_features;
-> >+
-> >+	if (!(features & NETIF_F_LRO) && (lower->features & NETIF_F_LRO)) {
-> >+		netdev_info(upper, "Disabling LRO on lower dev %s.\n",
-> >+			   lower->name);
-> >+		upper->wanted_features &= ~NETIF_F_LRO;
-> >+		lower->wanted_features &= ~NETIF_F_LRO;
-> >+		netdev_update_features(lower);
-> >+		if (unlikely(lower->features & NETIF_F_LRO))
-> >+			netdev_WARN(upper, "failed to disable LRO on %s!\n",
-> >+				    lower->name);
-> >+	} else if ((want & NETIF_F_LRO) && !(lower->features & NETIF_F_LRO)) {
-> >+		netdev_info(upper, "Enabling LRO on lower dev %s.\n",
-> >+			   lower->name);
-> >+		upper->wanted_features |= NETIF_F_LRO;
-> >+		lower->wanted_features |= NETIF_F_LRO;
-> >+		netdev_update_features(lower);
-> >+		if (unlikely(!(lower->features & NETIF_F_LRO)))
-> >+			netdev_WARN(upper, "failed to enable LRO on %s!\n",
-> >+				    lower->name);
-> >+	}
-> >+}
-> >+
-> 
-> Same thing here.  If a lower dev has it disabled then leave it
-> disabled.  I believe your goal is to make it so that
-> dev_disable_lro() can shut down LRO when it is making packets in the
-> data-path unusable.
+My patch fixed the part above ip6_fragment (in ip6_append_data) and made
+sure we don't send out packets with wrong checksums if we get to
+ip6_fragment directly.
 
-This is already the case since commit fbe168ba91f7 ("net: generic
-dev_disable_lro() stacked device handling"). That commit makes sure
-dev_disable_lro() is propagated down the stack and also makes sure new
-slaves added to a bond/team with LRO disabled have it disabled too.
-
-What it does not do is propagating LRO disabling down if it is disabled
-in ways that do not call dev_disable_lro() (e.g. via ethtool). I'm not
-sure if this should be done or not, both options have their pros and
-cons. However, I believe enabling LRO shouldn't be propagated down.
-
-                                                         Michal Kubecek
+Bye,
+Hannes
