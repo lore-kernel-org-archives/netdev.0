@@ -1,46 +1,38 @@
-From: Toshiaki Makita <makita.toshiaki-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
-Subject: Re: [PATCH v2] net: tso: add support for IPv6
-Date: Mon, 26 Oct 2015 13:03:11 +0900
-Message-ID: <562DA5FF.6040307@lab.ntt.co.jp>
-References: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
- <1445803371-19778-1-git-send-email-emmanuel.grumbach@intel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v6 1/2] geneve: implement support for IPv6-based tunnels
+Date: Mon, 26 Oct 2015 12:08:31 +0800
+Message-ID: <CAEP_g=9b-6LhaLja-m8GKQdjviBPNAni2P0-AivDYeKZXf9Y5A@mail.gmail.com>
+References: <1445543136-8265-1-git-send-email-linville@tuxdriver.com> <1445611225-27095-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445803371-19778-1-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	=?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
+	<hideaki.yoshifuji@miraclelinux.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:35165 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbbJZEIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 00:08:51 -0400
+Received: by ykaz22 with SMTP id z22so173079993yka.2
+        for <netdev@vger.kernel.org>; Sun, 25 Oct 2015 21:08:51 -0700 (PDT)
+In-Reply-To: <1445611225-27095-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/10/26 5:02, Emmanuel Grumbach wrote:
-> Adding IPv6 for the TSO helper API is trivial:
-> * Don't play with the id (which doesn't exist in IPv6)
-> * Correctly update the payload_len (don't include the
->   length of the IP header itself)
-...
->  	memcpy(hdr, skb->data, hdr_len);
-> -	iph = (struct iphdr *)(hdr + mac_hdr_len);
-> -	iph->id = htons(tso->ip_id);
-> -	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
-> +	if (skb->protocol == htons(ETH_P_IP)) {
+On Fri, Oct 23, 2015 at 10:40 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> NOTE: Link-local IPv6 addresses for remote endpoints are not supported,
+> since the driver currently has no capacity for binding a geneve
+> interface to a specific link.
+>
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-I guess this should be vlan_get_protocol(skb).
+Reviewed-by: Jesse Gross <jesse@nicira.com>
 
-> +		struct iphdr *iph = (void *)(hdr + mac_hdr_len);
-> +
-> +		iph->id = htons(tso->ip_id);
-> +		iph->tot_len = htons(size + hdr_len - mac_hdr_len);
-> +		tso->ip_id++;
-> +	} else if (skb->protocol == htons(ETH_P_IPV6)) {
+Thanks!
 
-Likewise.
-
-Toshiaki Makita
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+By the way, there are now some merge conflicts against current
+net-next due to the merge from net.
