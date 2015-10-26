@@ -1,47 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] commit c6825c0976fa7893692e0e43b09740b419b23c09
- upstream.
-Date: Mon, 26 Oct 2015 21:06:33 +0100
-Message-ID: <20151026200633.GA13476@salvia>
-References: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
+From: punit vara <punitvara@gmail.com>
+Subject: Re: [PATCH v4 14/15] net: wireless: ath: Remove unneeded variable ret
+ returning 0
+Date: Tue, 27 Oct 2015 01:30:21 +0530
+Message-ID: <CABXAfNJewoq3LL9S+cSEs3S+nQXN714JyKT_ys2+armMprVEgA@mail.gmail.com>
+References: <1445539670-4018-1-git-send-email-punitvara@gmail.com>
+	<5629316E.60106@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	netdev@vger.kernel.org, coreteam@netfilter.org,
-	Florian Westphal <fw@strlen.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Zefan Li <lizefan@huawei.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Neal P. Murphy" <neal.p.murphy@alum.wpi.edu>
-To: Ani Sinha <ani@arista.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: jirislaby@gmail.com, Nick Kossifidis <mickflemm@gmail.com>,
+	mcgrof@do-not-panic.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:34778 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbbJZUAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 16:00:22 -0400
+In-Reply-To: <5629316E.60106@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Oct 23, 2015 at 12:26 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 10/22/2015 09:47 PM, Punit Vara wrote:
+>
+>> Remove black line suggested by Sergei
+>
+>
+>    Such kind of comments should be under the --- tear line.
+>
+>>
+>> This patch is to the ath5k/eeprom.c that fixes up warning caught by
+>> coccicheck:
+>>
+>> Unneeded variable: "ret". Return "0" on line 980
+>>
+>> Remove unneeded variable ret created to return zero.
+>>
+>> Signed-off-by: Punit Vara <punitvara@gmail.com>
+>
+> [...]
+>
+> MBR, Sergei
+>
+Thanks you Sergei for review.
 
-On Mon, Oct 26, 2015 at 11:55:39AM -0700, Ani Sinha wrote:
-> netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
-
-Please, no need to Cc everyone here. Please, submit your Netfilter
-patches to netfilter-devel@vger.kernel.org.
-
-Moreover, it would be great if the subject includes something
-descriptive on what you need, for this I'd suggest:
-
-[PATCH -stable 3.4,backport] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
-
-I'm including Neal P. Murphy, he said he would help testing these
-backports, getting a Tested-by: tag usually speeds up things too.
-
-Burden is usually huge here, the easier you get it for us, the best.
-Then we can review and, if no major concerns, I can submit this to
--stable.
-
-Let me know if you have any other questions,
-Thanks.
+Actually I didnt know You have replied to this mail because this was
+gone in some other folder of my mail box .. I will send this patch
+again as you suggested . Will my other patches which are already
+correct be added to wireless tree ? or I have to resend everything ?
