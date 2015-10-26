@@ -1,66 +1,47 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] ipv6: no CHECKSUM_PARTIAL on skbs with extension
- headers and recalc checksum during fragmentation
-Date: Mon, 26 Oct 2015 12:39:10 -0700
-Message-ID: <CALx6S36zV1RHD1Z+y9Y0=zH4tTO8XJugogJ4mG9gpST7x0=2kA@mail.gmail.com>
-References: <1445605987-15625-1-git-send-email-hannes@stressinduktion.org>
-	<CALx6S35of-Qpo5c+AW5h6_CXbTiZG0yn5_J0skK_LZ4UMxikiA@mail.gmail.com>
-	<1445704123.1816692.419166185.45622C02@webmail.messagingengine.com>
-	<CALx6S35ttmhwMzbPRCkSApbgvJXcgC-kAzuiDQvOc=98mBQEnQ@mail.gmail.com>
-	<1445706124.1823412.419177649.420E8888@webmail.messagingengine.com>
-	<CALx6S37krurU1nFpC-9aT_EDhZfH7p=-wSrSjUSNKvm5+s_c2Q@mail.gmail.com>
-	<1445852946.87102.420207505.5C1EF1DC@webmail.messagingengine.com>
-	<CALx6S34WNYxQ4HOG0hg-jO_U-OYhGABS8xaqTD1v4Q0fx-6QtQ@mail.gmail.com>
-	<1445885043.985660.420718105.55D9DB7D@webmail.messagingengine.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] commit c6825c0976fa7893692e0e43b09740b419b23c09
+ upstream.
+Date: Mon, 26 Oct 2015 21:06:33 +0100
+Message-ID: <20151026200633.GA13476@salvia>
+References: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Benjamin Coddington <bcodding@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36083 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbbJZTjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 15:39:11 -0400
-Received: by ioll68 with SMTP id l68so199236573iol.3
-        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 12:39:10 -0700 (PDT)
-In-Reply-To: <1445885043.985660.420718105.55D9DB7D@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	netdev@vger.kernel.org, coreteam@netfilter.org,
+	Florian Westphal <fw@strlen.de>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Zefan Li <lizefan@huawei.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Neal P. Murphy" <neal.p.murphy@alum.wpi.edu>
+To: Ani Sinha <ani@arista.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.OSX.2.20.1510261144390.3919@athabasca.local>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 26, 2015 at 11:44 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
->
-> On Mon, Oct 26, 2015, at 15:19, Tom Herbert wrote:
->> > We already concluded that drivers do have this problem and not the stack
->> > above ip6_fragment. The places I am aware of I fixed in this patch. Also
->> > IPv4 to me seems unaffected, albeit one can certainly clean up the logic
->> > in net-next.
->> >
->> I don't understand why checksum for IP fragments is a driver problem.
->> When fragments are sent to driver they should never have
->> CHECKSUM_PARTIAL set (or maybe that is what you are seeing?).
->
-> Because either the drivers or the hardware does not correctly iterate
-> over the extension headers to fetch the final nexthdr field which is
-> used to compute the checksum. This is different from IPv4.
->
-> I can only guess e.g. from the e1000e driver:
->
->         case cpu_to_be16(ETH_P_IPV6):
->                 /* XXX not handling all IPV6 headers */
->                 if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
->                         cmd_len |= E1000_TXD_CMD_TCP;
->                 break;
->
-Yes, but in the case of a fragment that code should never be hit since
-ip_summed shouldn't be CHECKSUM_PARTIAL for a fragment (maybe after
-the fix in ip_output). For other cases of extension headers the e1000e
-is broken since it apparently does call skb_checksum_help for
-protocols it doesn't understand (the /* XXX not handling all IPV6
-headers */ comment is worrisome!)
+Hi,
 
-Tom
+On Mon, Oct 26, 2015 at 11:55:39AM -0700, Ani Sinha wrote:
+> netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
+
+Please, no need to Cc everyone here. Please, submit your Netfilter
+patches to netfilter-devel@vger.kernel.org.
+
+Moreover, it would be great if the subject includes something
+descriptive on what you need, for this I'd suggest:
+
+[PATCH -stable 3.4,backport] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
+
+I'm including Neal P. Murphy, he said he would help testing these
+backports, getting a Tested-by: tag usually speeds up things too.
+
+Burden is usually huge here, the easier you get it for us, the best.
+Then we can review and, if no major concerns, I can submit this to
+-stable.
+
+Let me know if you have any other questions,
+Thanks.
