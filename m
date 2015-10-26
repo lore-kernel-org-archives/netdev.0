@@ -1,36 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when
- increasing MTU over IPV6_MIN_MTU
-Date: Mon, 26 Oct 2015 17:33:56 +0100
-Message-ID: <1445877236.175039.420582401.131556D5@webmail.messagingengine.com>
-References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org>
- <562E4C26.3030501@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net] RDS-TCP: Recover correctly from pskb_pull()/pksb_trim()
+ failure in rds_tcp_data_recv
+Date: Mon, 26 Oct 2015 12:46:37 -0400
+Message-ID: <20151026164637.GK10039@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:55765 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751429AbbJZQd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 12:33:57 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id F38D320480
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 12:33:56 -0400 (EDT)
-In-Reply-To: <562E4C26.3030501@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: santosh.shilimkar@oracle.com, davem@davemloft.net
+To: sowmini.varadhan@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Alex,
 
-On Mon, Oct 26, 2015, at 16:52, Alexander Duyck wrote:
-> Seems like this code isn't quite correct.  You are calling ipv6_add_dev 
-> for slave devices, and if I understand things correctly I don't believe 
-> that was happening before and may be an unintended side effect.
+Either of pskb_pull() or pskb_trim() may fail under low memory conditions.
+If rds_tcp_data_recv() ignores such failures, the application will
+receive corrupted data because the skb has not been correctly
+carved to the RDS datagram size.
 
-Ah, btw., autoconf and ipv6 operation on IFF_SLAVE devices is actually
-desired nowadays and don't think we can change this. See also:
-<https://patchwork.ozlabs.org/patch/531196/>
+Avoid this by handling pskb_pull/pskb_trim failure in the same
+manner as the skb_clone failure: bail out of rds_tcp_data_recv(), and
+retry via the deferred call to rds_send_worker() that gets set up on
+ENOMEM from rds_tcp_read_sock()
 
-Bye,
-Hannes
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/rds/tcp_recv.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/rds/tcp_recv.c b/net/rds/tcp_recv.c
+index fbc5ef8..27a9921 100644
+--- a/net/rds/tcp_recv.c
++++ b/net/rds/tcp_recv.c
+@@ -214,8 +214,15 @@ static int rds_tcp_data_recv(read_descriptor_t *desc, struct sk_buff *skb,
+ 			}
+ 
+ 			to_copy = min(tc->t_tinc_data_rem, left);
+-			pskb_pull(clone, offset);
+-			pskb_trim(clone, to_copy);
++			if (!pskb_pull(clone, offset) ||
++			    pskb_trim(clone, to_copy)) {
++				pr_warn("rds_tcp_data_recv: pull/trim failed "
++					"left %zu data_rem %zu skb_len %d\n",
++					left, tc->t_tinc_data_rem, skb->len);
++				kfree_skb(clone);
++				desc->error = -ENOMEM;
++				goto out;
++			}
+ 			skb_queue_tail(&tinc->ti_skb_list, clone);
+ 
+ 			rdsdebug("skb %p data %p len %d off %u to_copy %zu -> "
+-- 
+1.7.1
