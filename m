@@ -1,61 +1,53 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [RFC PATCH net-next] tipc: tipc_link_is_active() can be static
-Date: Mon, 26 Oct 2015 09:13:22 +0800
-Message-ID: <20151026011322.GA26877@wfg-t540p.sh.intel.com>
-References: <201510242340.mc7bt8l1%fengguang.wu@intel.com>
- <20151024151100.GA46525@lkp-hsx03>
- <20151025.063318.1572658873317450844.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2] can: xilinx: use readl/writel instead of ioread/iowrite
+Date: Mon, 26 Oct 2015 02:25:30 +0100
+Message-ID: <201510260225.30934.arnd@arndb.de>
+References: <1445489163-11045-1-git-send-email-appanad@xilinx.com> <8460953.p47oezaZnR@wuerfel> <562D3C4C.60306@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36906 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752430AbbJZBNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Oct 2015 21:13:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20151025.063318.1572658873317450844.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org,
+	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	anirudh@xilinx.com, wg@grandegger.com, michal.simek@xilinx.com,
+	soren.brinkmann@xilinx.com, appanad@xilinx.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-can@vger.kernel.org
+To: "Marc Kleine-Budde" <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <562D3C4C.60306@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 25, 2015 at 06:33:18AM -0700, David Miller wrote:
-> From: kbuild test robot <fengguang.wu@intel.com>
-> Date: Sat, 24 Oct 2015 23:11:00 +0800
->=20
-> > TO: "David S. Miller" <davem@davemloft.net>
-> > CC: netdev@vger.kernel.org
-> > CC: Jon Maloy <jon.maloy@ericsson.com>
-> > CC: Ying Xue <ying.xue@windriver.com>
-> > CC: tipc-discussion@lists.sourceforge.net
-> > CC: linux-kernel@vger.kernel.org
-> >=20
-> >=20
-> > Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
->=20
-> Why doesn't the kbuild robot run on it's own changes? :-/
+On Sunday 25 October 2015, Marc Kleine-Budde wrote:
+> On 10/22/2015 10:58 AM, Arnd Bergmann wrote:
+> >>> The two should really do the same thing: iowrite32() is just a static inline
+> >>> calling writel() on both ARM32 and ARM64. On which kernel version did you
+> >>> observe the difference? It's possible that an older version used
+> >>> CONFIG_GENERIC_IOMAP, which made this slightly more expensive.
+> >>>
+> >>> If there are barriers that you want to get rid of for performance reasons,
+> >>> you should use writel_relaxed(), but be careful to synchronize them correctly
+> >>> with regard to DMA. It should be fine in this driver, as it does not
+> >>> perform any DMA, but be aware that there is no big-endian version of
+> >>> writel_relaxed() at the moment.
+> >>
+> >> We don't have DMA in CAN drivers, but usually a certain write triggers
+> >> sending. Do we need a barrier before triggering the sending?
+> > 
+> > No, the relaxed writes are not well-defined across architectures. On
+> > ARM, the CPU guarantees that stores to an MMIO area are still in order
+> > with respect to one another, the barrier is only needed for actual DMA,
+> > so you are fine. I would expect the same to be true everywhere,
+> > otherwise a lot of other drivers would be broken too.
+> 
+> And the relaxed functions seem not to be available on all archs. This
+> driver should work on microblaze. Are __raw_writeX(), __raw_readX() an
+> alternative here?
 
-It does, however it detects only build failures (which indicates a
-false sparse warning) to avoid sending bad make-it-static patch
-and the false warning.
+__raw_writeX() and __raw_readX()  are not safe to use in drivers in general.
 
-The build warning looks easier to be discovered and fixed in the
-larger loop of
+readl_relaxed() should work on all architectures nowadays, and I've checked
+that it does on microblaze.
 
-        apply patch =3D> git push =3D> 0day build test
-
->   CC [M]  net/tipc/link.o
-> net/tipc/link.c:176:12: warning: =E2=80=98tipc_link_is_active=E2=80=99=
- defined but not used [-Wunused-function]
-
-If the robot detected the above warning, it'll still need to send the
-report out. Otherwise we lose a chance to notice tipc_link_is_active()
-is not used.
-
-However it may be valuable to include possible new warnings inside
-the patch changelog, so that maintainers can immediately see the
-consequences of applying the patch.
-
-Thanks,
-=46engguang
+	Arnd
