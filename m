@@ -1,80 +1,79 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: recreate ipv6 link-local addresses when
- increasing MTU over IPV6_MIN_MTU
-Date: Mon, 26 Oct 2015 18:21:11 +0100
-Message-ID: <1445880071.1081871.420626089.581A7ED3@webmail.messagingengine.com>
-References: <1445870205-27202-1-git-send-email-hannes@stressinduktion.org>
- <562E4C26.3030501@gmail.com>
- <1445875501.168420.420547673.4BB6C209@webmail.messagingengine.com>
- <562E5DD4.40908@gmail.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
+ hierarchy
+Date: Mon, 26 Oct 2015 13:22:16 -0400
+Message-ID: <20151026172216.GC2214@cmpxchg.org>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <20151022184509.GM18351@esperanza>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:34550 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752126AbbJZRVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 13:21:11 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 6907A208E9
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 13:21:11 -0400 (EDT)
-In-Reply-To: <562E5DD4.40908@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151022184509.GM18351@esperanza>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Alex,
-
-On Mon, Oct 26, 2015, at 18:07, Alexander Duyck wrote:
-> >> Seems like this code isn't quite correct.  You are calling ipv6_add_dev
-> >> for slave devices, and if I understand things correctly I don't believe
-> >> that was happening before and may be an unintended side effect.
-> > Hmm, could you quickly help me where I get into this situation? I made
-> > sure I enter the NETDEV_UP part before the IFF_SLAVE test and
-> > disable_ipv6 te
+On Thu, Oct 22, 2015 at 09:45:10PM +0300, Vladimir Davydov wrote:
+> Hi Johannes,
 > 
-> I think I was getting a bit a head of myself.  I was looking over the 
-> NETDEV_UP code and thinking that we could just fall into that path since 
-> it is already calling ipv6_add_dev.  However now I am wondering if maybe 
-> we need to look at adding an idev allocation somewhere before the 
-> disable_ipv6 check.  I assume that is why you were allocating the idev 
-> before you were getting into NETDEV_UP?
-
-The original bug report was:
-
-If user reduces the MTU below IPV6_MIN_MTU we addrconf_ifdown the
-interface but don't reinitialize the interface if the MTU is increased
-later on.
-
-> >> You might want to instead just make it so that you only do the jump, and
-> >> perhaps change the code in the NETDEV_UP/NETDEV_CHANGE section so that
-> >> you test for NETDEV_CHANGE instead of NETDEV_UP.  That should be enough
-> >> to get the effect you are looking for and I believe there would be no
-> >> change to behaviour other than adding IPv6 link-local addresses when the
-> >> MTU is increased.
-> >>
-> >> Give me a bit and I can submit an alternative that may actually work out
-> >> a bit better I think.
-> > If you go the NETDEV_CHANGE route instead of NETDEV_UP, you end up with
-> > the IF_READY flag already set from ipv6_add_dev and thus won't do any
-> > initialization of the device.
+> On Thu, Oct 22, 2015 at 12:21:28AM -0400, Johannes Weiner wrote:
+> ...
+> > Patch #5 adds accounting and tracking of socket memory to the unified
+> > hierarchy memory controller, as described above. It uses the existing
+> > per-cpu charge caches and triggers high limit reclaim asynchroneously.
+> > 
+> > Patch #8 uses the vmpressure extension to equalize pressure between
+> > the pages tracked natively by the VM and socket buffer pages. As the
+> > pool is shared, it makes sense that while natively tracked pages are
+> > under duress the network transmit windows are also not increased.
 > 
-> What I meant was that you don't need to change the event.  If you change 
-> the check inside the NETDEV_UP/CHANGE code path so that it tests for 
-> event != NETDEV_CHANGE instead of event == NETDEV_UP you don't need to 
-> change the event type.
-
-Yeah, that would be possible, too. I just find an equal easier to
-follow. ;)
-
-> > Sure, I wait.
+> First of all, I've no experience in networking, so I'm likely to be
+> mistaken. Nevertheless I beg to disagree that this patch set is a step
+> in the right direction. Here goes why.
 > 
-> Might be a bit longer.  I just realized that I think there is another 
-> bug here where you are going through the NETDEV_UP path even though the 
-> interface isn't up.  I'll run through some testing this morning to work 
-> out the kinks.
+> I admit that your idea to get rid of explicit tcp window control knobs
+> and size it dynamically basing on memory pressure instead does sound
+> tempting, but I don't think it'd always work. The problem is that in
+> contrast to, say, dcache, we can't shrink tcp buffers AFAIU, we can only
+> stop growing them. Now suppose a system hasn't experienced memory
+> pressure for a while. If we don't have explicit tcp window limit, tcp
+> buffers on such a system might have eaten almost all available memory
+> (because of network load/problems). If a user workload that needs a
+> significant amount of memory is started suddenly then, the network code
+> will receive a notification and surely stop growing buffers, but all
+> those buffers accumulated won't disappear instantly. As a result, the
+> workload might be unable to find enough free memory and have no choice
+> but invoke OOM killer. This looks unexpected from the user POV.
 
-Ok, cool. I have a look at it again, too.
+I'm not getting rid of those knobs, I'm just reusing the old socket
+accounting infrastructure in an attempt to make the memory accounting
+feature useful to more people in cgroups v2 (unified hierarchy).
 
-Bye,
-Hannes
+We can always come back to think about per-cgroup tcp window limits in
+the unified hierarchy, my patches don't get in the way of this. I'm
+not removing the knobs in cgroups v1 and I'm not preventing them in v2.
+
+But regardless of tcp window control, we need to account socket memory
+in the main memory accounting pool where pressure is shared (to the
+best of our abilities) between all accounted memory consumers.
+
+>From an interface standpoint alone, I don't think it's reasonable to
+ask users per default to limit different consumers on a case by case
+basis. I certainly have no problem with finetuning for scenarios you
+describe above, but with memory.current, memory.high, memory.max we
+are providing a generic interface to account and contain memory
+consumption of workloads. This has to include all major memory
+consumers to make semantical sense.
+
+But also, there are people right now for whom the socket buffers cause
+system OOM, but the existing memcg's hard tcp window limitq that
+exists absolutely wrecks network performance for them. It's not usable
+the way it is. It'd be much better to have the socket buffers exert
+pressure on the shared pool, and then propagate the overall pressure
+back to individual consumers with reclaim, shrinkers, vmpressure etc.
