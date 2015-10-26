@@ -1,85 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] sock: don't enable netstamp for af_unix sockets
-Date: Mon, 26 Oct 2015 13:51:37 +0100
-Message-ID: <1445863897-22646-1-git-send-email-hannes@stressinduktion.org>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49770 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753935AbbJZMvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 08:51:46 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 76A1120383
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 08:51:45 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH v3 net-next] bpf: fix bpf_perf_event_read() helper
+Date: Mon, 26 Oct 2015 20:54:43 +0800
+Message-ID: <562E2293.5090600@huawei.com>
+References: <1445559014-4667-1-git-send-email-ast@kernel.org> <20151023120335.GZ17308@twins.programming.kicks-ass.net> <562A474E.6040401@plumgrid.com> <20151025092142.GB4380@gmail.com> <562D0208.7090608@plumgrid.com> <20151026123200.GT2508@worktop.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	He Kuang <hekuang@huawei.com>, Kaixu Xia <xiakaixu@huawei.com>,
+	"Daniel Borkmann" <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151026123200.GT2508@worktop.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netstamp_needed is toggled for all socket families if they request
-timestamping. But some protocols don't need the lower-layer timestamping
-code at all. This patch starts disabling it for af-unix.
 
-E.g. systemd enables timestamping during boot-up on the journald af-unix
-sockets, thus causing the system to globally enable timestamping in the
-lower networking stack. Still, it is very probable that timestamping
-gets activated, by e.g. dhclient or various NTP implementations.
 
-Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/core/sock.c | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+On 2015/10/26 20:32, Peter Zijlstra wrote:
+> On Sun, Oct 25, 2015 at 09:23:36AM -0700, Alexei Starovoitov wrote:
+>> bpf_perf_event_read() muxes of -EINVAL into return value, but it's non
+>> ambiguous to the program whether it got an error or real counter value.
+> How can that be, the (u64)-EINVAL value is a valid counter value..
+> unlikely maybe, but still quite possible.
+In our real usecase we simply treat return value larger than 
+0x7fffffffffffffff
+as error result. We can make it even larger, for example, to 
+0xffffffffffff0000.
+Resuling values can be pre-processed by a script to filter potential 
+error result
+out so it is not a very big problem for our real usecases.
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index dcc7d62..0ef30aa 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -422,13 +422,25 @@ static void sock_warn_obsolete_bsdism(const char *name)
- 	}
- }
- 
-+static bool sock_needs_netstamp(const struct sock *sk)
-+{
-+	switch (sk->sk_family) {
-+	case AF_UNSPEC:
-+	case AF_UNIX:
-+		return false;
-+	default:
-+		return true;
-+	}
-+}
-+
- #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
- 
- static void sock_disable_timestamp(struct sock *sk, unsigned long flags)
- {
- 	if (sk->sk_flags & flags) {
- 		sk->sk_flags &= ~flags;
--		if (!(sk->sk_flags & SK_FLAGS_TIMESTAMP))
-+		if (sock_needs_netstamp(sk) &&
-+		    !(sk->sk_flags & SK_FLAGS_TIMESTAMP))
- 			net_disable_timestamp();
- 	}
- }
-@@ -1582,7 +1594,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		if (newsk->sk_prot->sockets_allocated)
- 			sk_sockets_allocated_inc(newsk);
- 
--		if (newsk->sk_flags & SK_FLAGS_TIMESTAMP)
-+		if (sock_needs_netstamp(sk) &&
-+		    newsk->sk_flags & SK_FLAGS_TIMESTAMP)
- 			net_enable_timestamp();
- 	}
- out:
-@@ -2510,7 +2523,8 @@ void sock_enable_timestamp(struct sock *sk, int flag)
- 		 * time stamping, but time stamping might have been on
- 		 * already because of the other one
- 		 */
--		if (!(previous_flags & SK_FLAGS_TIMESTAMP))
-+		if (sock_needs_netstamp(sk) &&
-+		    !(previous_flags & SK_FLAGS_TIMESTAMP))
- 			net_enable_timestamp();
- 	}
- }
--- 
-2.5.0
+For a better interface, I suggest
+
+  u64 bpf_perf_event_read(bool *perror);
+
+which still returns counter value through its return value but put error 
+code
+to stack. Then BPF program can pass NULL to the function if BPF problem
+doesn't want to deal with error code.
+
+Thank you.
