@@ -1,79 +1,109 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 0/8] mm: memcontrol: account socket memory in unified
- hierarchy
-Date: Mon, 26 Oct 2015 13:22:16 -0400
-Message-ID: <20151026172216.GC2214@cmpxchg.org>
-References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
- <20151022184509.GM18351@esperanza>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151022184509.GM18351@esperanza>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ravi Kerur <rkerur@gmail.com>
+Subject: [PATCH v1 1/3] virtio-net: Using single MSIX IRQ for TX/RX Q pair
+Date: Mon, 26 Oct 2015 10:52:47 -0700
+Message-ID: <1445881969-24663-1-git-send-email-rkerur@gmail.com>
+Cc: jasowang@redhat.com, mst@redhat.com, rusty@rustcorp.com.au,
+	Ravi Kerur <rkerur@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36710 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbbJZRwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 13:52:38 -0400
+Received: by pacfv9 with SMTP id fv9so203438657pac.3
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 10:52:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2015 at 09:45:10PM +0300, Vladimir Davydov wrote:
-> Hi Johannes,
-> 
-> On Thu, Oct 22, 2015 at 12:21:28AM -0400, Johannes Weiner wrote:
-> ...
-> > Patch #5 adds accounting and tracking of socket memory to the unified
-> > hierarchy memory controller, as described above. It uses the existing
-> > per-cpu charge caches and triggers high limit reclaim asynchroneously.
-> > 
-> > Patch #8 uses the vmpressure extension to equalize pressure between
-> > the pages tracked natively by the VM and socket buffer pages. As the
-> > pool is shared, it makes sense that while natively tracked pages are
-> > under duress the network transmit windows are also not increased.
-> 
-> First of all, I've no experience in networking, so I'm likely to be
-> mistaken. Nevertheless I beg to disagree that this patch set is a step
-> in the right direction. Here goes why.
-> 
-> I admit that your idea to get rid of explicit tcp window control knobs
-> and size it dynamically basing on memory pressure instead does sound
-> tempting, but I don't think it'd always work. The problem is that in
-> contrast to, say, dcache, we can't shrink tcp buffers AFAIU, we can only
-> stop growing them. Now suppose a system hasn't experienced memory
-> pressure for a while. If we don't have explicit tcp window limit, tcp
-> buffers on such a system might have eaten almost all available memory
-> (because of network load/problems). If a user workload that needs a
-> significant amount of memory is started suddenly then, the network code
-> will receive a notification and surely stop growing buffers, but all
-> those buffers accumulated won't disappear instantly. As a result, the
-> workload might be unable to find enough free memory and have no choice
-> but invoke OOM killer. This looks unexpected from the user POV.
+Ported earlier patch from Jason Wang (dated 12/26/2014).
 
-I'm not getting rid of those knobs, I'm just reusing the old socket
-accounting infrastructure in an attempt to make the memory accounting
-feature useful to more people in cgroups v2 (unified hierarchy).
+This patch tries to reduce the number of MSIX irqs required for
+virtio-net by sharing a MSIX irq for each TX/RX queue pair through
+channels. If transport support channel, about half of the MSIX irqs
+were reduced.
 
-We can always come back to think about per-cgroup tcp window limits in
-the unified hierarchy, my patches don't get in the way of this. I'm
-not removing the knobs in cgroups v1 and I'm not preventing them in v2.
+Signed-off-by: Ravi Kerur <rkerur@gmail.com>
+---
+ drivers/net/virtio_net.c | 29 ++++++++++++++++++++++++++++-
+ 1 file changed, 28 insertions(+), 1 deletion(-)
 
-But regardless of tcp window control, we need to account socket memory
-in the main memory accounting pool where pressure is shared (to the
-best of our abilities) between all accounted memory consumers.
-
->From an interface standpoint alone, I don't think it's reasonable to
-ask users per default to limit different consumers on a case by case
-basis. I certainly have no problem with finetuning for scenarios you
-describe above, but with memory.current, memory.high, memory.max we
-are providing a generic interface to account and contain memory
-consumption of workloads. This has to include all major memory
-consumers to make semantical sense.
-
-But also, there are people right now for whom the socket buffers cause
-system OOM, but the existing memcg's hard tcp window limitq that
-exists absolutely wrecks network performance for them. It's not usable
-the way it is. It'd be much better to have the socket buffers exert
-pressure on the shared pool, and then propagate the overall pressure
-back to individual consumers with reclaim, shrinkers, vmpressure etc.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d8838ded..d705cce 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -72,6 +72,9 @@ struct send_queue {
+ 
+ 	/* Name of the send queue: output.$index */
+ 	char name[40];
++
++	/* Name of the channel, shared with irq. */
++	char channel_name[40];
+ };
+ 
+ /* Internal representation of a receive virtqueue */
+@@ -1529,6 +1532,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+ 	int ret = -ENOMEM;
+ 	int i, total_vqs;
+ 	const char **names;
++	const char **channel_names;
++	unsigned *channels;
+ 
+ 	/* We expect 1 RX virtqueue followed by 1 TX virtqueue, followed by
+ 	 * possible N-1 RX/TX queue pairs used in multiqueue mode, followed by
+@@ -1548,6 +1553,17 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+ 	if (!names)
+ 		goto err_names;
+ 
++	channel_names = kmalloc_array(vi->max_queue_pairs,
++				      sizeof(*channel_names),
++				      GFP_KERNEL);
++	if (!channel_names)
++		goto err_channel_names;
++
++	channels = kmalloc_array(total_vqs, sizeof(*channels),
++				 GFP_KERNEL);
++	if (!channels)
++		goto err_channels;
++
+ 	/* Parameters for control virtqueue, if any */
+ 	if (vi->has_cvq) {
+ 		callbacks[total_vqs - 1] = NULL;
+@@ -1562,10 +1578,15 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+ 		sprintf(vi->sq[i].name, "output.%d", i);
+ 		names[rxq2vq(i)] = vi->rq[i].name;
+ 		names[txq2vq(i)] = vi->sq[i].name;
++		sprintf(vi->sq[i].channel_name, "txrx.%d", i);
++		channel_names[i] = vi->sq[i].channel_name;
++		channels[rxq2vq(i)] = i;
++		channels[txq2vq(i)] = i;
+ 	}
+ 
+ 	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
+-					 names);
++					 names, channels, channel_names,
++					 vi->max_queue_pairs);
+ 	if (ret)
+ 		goto err_find;
+ 
+@@ -1580,6 +1601,8 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+ 		vi->sq[i].vq = vqs[txq2vq(i)];
+ 	}
+ 
++	kfree(channels);
++	kfree(channel_names);
+ 	kfree(names);
+ 	kfree(callbacks);
+ 	kfree(vqs);
+@@ -1587,6 +1610,10 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
+ 	return 0;
+ 
+ err_find:
++	kfree(channels);
++err_channels:
++	kfree(channel_names);
++err_channel_names:
+ 	kfree(names);
+ err_names:
+ 	kfree(callbacks);
+-- 
+1.9.1
