@@ -1,71 +1,152 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 net 2/2] ipv4: update RTNH_F_LINKDOWN flag on UP event
-Date: Mon, 26 Oct 2015 23:59:13 +0200
-Message-ID: <1445896753-14464-3-git-send-email-ja@ssi.bg>
-References: <1445896753-14464-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: ip_no_pmtu_disc and UDP
+Date: Mon, 26 Oct 2015 15:00:48 -0700
+Message-ID: <CAK3+h2y3AiN7byuw2ihBohbu+TmOs2ursBvvsL5rwd32MYDGYA@mail.gmail.com>
+References: <CAK3+h2wFfh+HE78kHoWwgc9vyTCLWM90C4RQ=uTRk8551-jQ7A@mail.gmail.com>
+	<1445639662.2872263.418778169.006CB827@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:34391 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752500AbbJZV7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2015 17:59:44 -0400
-In-Reply-To: <1445896753-14464-1-git-send-email-ja@ssi.bg>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:34845 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbbJZWAu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 18:00:50 -0400
+Received: by lbbes7 with SMTP id es7so50557961lbb.2
+        for <netdev@vger.kernel.org>; Mon, 26 Oct 2015 15:00:48 -0700 (PDT)
+In-Reply-To: <1445639662.2872263.418778169.006CB827@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When nexthop is part of multipath route we should clear the
-LINKDOWN flag when link goes UP or when first address is added.
-This is needed because we always set LINKDOWN flag when DEAD flag
-was set but now on UP the nexthop is not dead anymore. Examples when
-LINKDOWN bit can be forgotten when no NETDEV_CHANGE is delivered:
+the UDP packet size is about 768, here is how packet path  like:
 
-- link goes down (LINKDOWN is set), then link goes UP and device
-shows carrier OK but LINKDOWN remains set
+client <----------------------------------------router<-------------------------------------------------->server
+(eth0 mtu 1500 ip 10.3.72.69)     (eth0 mtu 1500 ip 10.3.72.1,
+          (eth0 mtu 1500 ip 10.2.72.99)
+                                                      eth1.1102 mtu
+567 ip 10.2.72.139)
 
-- last address is deleted (LINKDOWN is set), then address is
-added and device shows carrier OK but LINKDOWN remains set
 
-Steps to reproduce:
-modprobe dummy
-ifconfig dummy0 192.168.168.1 up
+UDP client test script:
 
-here add a multipath route where one nexthop is for dummy0:
+#!/usr/bin/perl
 
-ip route add 1.2.3.4 nexthop dummy0 nexthop SOME_OTHER_DEVICE
-ifconfig dummy0 down
-ifconfig dummy0 up
+use strict;
+use warnings;
+use IO::Socket::INET;
 
-now ip route shows nexthop that is not dead. Now set the sysctl var:
+my $socket = IO::Socket::INET->new(
+                                      PeerPort  => 9999,
+                                      PeerAddr  => '10.2.72.99',
+                                      Proto     => 'udp',
+                                      )
+                                  or die "Can't bind : $@\n";
 
-echo 1 > /proc/sys/net/ipv4/conf/dummy0/ignore_routes_with_linkdown
 
-now ip route will show a dead nexthop because the forgotten
-RTNH_F_LINKDOWN is propagated as RTNH_F_DEAD.
 
-Fixes: 8a3d03166f19 ("net: track link-status of ipv4 nexthops")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/ipv4/fib_semantics.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+$| = 1;
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index f493eff..f657418 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1445,6 +1445,13 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
- 	if (!(dev->flags & IFF_UP))
- 		return 0;
- 
-+	if (nh_flags & RTNH_F_DEAD) {
-+		unsigned int flags = dev_get_flags(dev);
-+
-+		if (flags & (IFF_RUNNING | IFF_LOWER_UP))
-+			nh_flags |= RTNH_F_LINKDOWN;
-+	}
-+
- 	prev_fi = NULL;
- 	hash = fib_devindex_hashfn(dev->ifindex);
- 	head = &fib_info_devhash[hash];
--- 
-1.9.3
+my $data = "012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567012345670123456701234567";
+
+$socket->send($data);
+
+
+sleep(10);
+
+$socket->close();
+
+so I am hoping if I echo 0, 1, 2, 3 respectively to
+/proc/sys/net/ipv4/ip_no_pmtu_disc, I am expected to see DF bit
+set/unset from the client and should have shown me on the router eth0
+interface tcpdump, but instead, DF bit never set on the client. am I
+misunderstanding something?
+
+
+for example:
+
+ two concurrent tcpdump on router eth0 (mtu 1500) and eth1.1102 (mtu
+576) interface:
+
+1 #tcpdump -nn -i eth0 -v udp and host 10.3.72.69 &
+
+14:51:11.946143 IP (tos 0x0, ttl 64, id 7193, offset 0, flags [none],
+proto UDP (17), length 796)
+    10.3.72.69.43748 > 10.2.72.99.9999: UDP, length 768
+
+
+2# tcpdump -nn -i eth1.1102 -v udp and host 10.3.72.69 &
+
+14:51:11.946164 IP (tos 0x0, ttl 63, id 7193, offset 0, flags [+],
+proto UDP (17), length 572)
+14:51:11.946176 IP (tos 0x0, ttl 63, id 7193, offset 552, flags
+[none], proto UDP (17), length 244)
+    10.3.72.69.43748 > 10.2.72.99.9999: UDP, length 768
+    10.3.72.69 > 10.2.72.99: udp
+
+as you can see, the router was fragmenting the UDP packet and not
+sending icmp frag needed message, one reason I can think of is  the DF
+bit is not set on the original UDP packet.
+
+client is on kernel 4.3.0-rc7+, router is on kernel  3.13.0-rc3
+
+On Fri, Oct 23, 2015 at 3:34 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> On Fri, Oct 23, 2015, at 18:45, Vincent Li wrote:
+>> It looks ip_no_pmtu_disc setting does not affect UDP IP packet DF bit
+>> setting, is that intended behavior? echo 0, 1, 2, 3 respectively to
+>> ip_no_pmtu_disc, UDP IP packet always have DF bit cleared, unless use
+>> IP_PMTUDISC_DO on IP_MTU_DISCOVER as ip man page says.
+>
+> Which size do the UDP packets have and what is your MTU? inet_create
+> also creates udp sockets and thus the setting does have effect.
+>
+>>
+>> in inet_create, seems to prove that.
+>>
+>>        if (net->ipv4.sysctl_ip_no_pmtu_disc)
+>>                 inet->pmtudisc = IP_PMTUDISC_DONT;
+>>         else
+>>                 inet->pmtudisc = IP_PMTUDISC_WANT;
+>>
+>> so I am wondering why UDP is excluded by ip_no_pmtu_disc, why in
+>> inet_create, not assign each individual ip_no_pmtu_disc setting to
+>> inet->pmtudisc but only check true and assign IP_PMTUDISC_DONT or
+>> IP_PMTUDISC_WANT only.
+>
+> ip_no_pmtu_disc sysctl != IP_MTU_DISCOVER setsockopt. Also we cannot
+> change this as it would disrupt communication easily relying on this
+> established behavior.
+>
+> See Documentation/ip-sysctl.txt:
+>
+> ip_no_pmtu_disc - INTEGER
+>         Disable Path MTU Discovery. If enabled in mode 1 and a
+>         fragmentation-required ICMP is received, the PMTU to this
+>         destination will be set to min_pmtu (see below). You will need
+>         to raise min_pmtu to the smallest interface MTU on your system
+>         manually if you want to avoid locally generated fragments.
+>
+>         In mode 2 incoming Path MTU Discovery messages will be
+>         discarded. Outgoing frames are handled the same as in mode 1,
+>         implicitly setting IP_PMTUDISC_DONT on every created socket.
+>
+>         Mode 3 is a hardend pmtu discover mode. The kernel will only
+>         accept fragmentation-needed errors if the underlying protocol
+>         can verify them besides a plain socket lookup. Current
+>         protocols for which pmtu events will be honored are TCP, SCTP
+>         and DCCP as they verify e.g. the sequence number or the
+>         association. This mode should not be enabled globally but is
+>         only intended to secure e.g. name servers in namespaces where
+>         TCP path mtu must still work but path MTU information of other
+>         protocols should be discarded. If enabled globally this mode
+>         could break other protocols.
+>
+>         Possible values: 0-3
+>         Default: FALSE
+>
+> Bye,
+> Hannes
