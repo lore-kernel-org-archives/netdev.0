@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] mvneta ethtool statistics
-Date: Sun, 25 Oct 2015 18:21:37 -0700 (PDT)
-Message-ID: <20151025.182137.2066098234931624844.davem@davemloft.net>
-References: <20151022173711.GA23501@n2100.arm.linux.org.uk>
+Subject: Re: [PATCH net-next] net: encx24j600: Fix mask to update LED
+ configuration
+Date: Sun, 25 Oct 2015 18:24:19 -0700 (PDT)
+Message-ID: <20151025.182419.2172459432085357434.davem@davemloft.net>
+References: <1445540944-13894-1-git-send-email-jon@ringle.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	mw@semihalf.com, netdev@vger.kernel.org
-To: linux@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, jringle@gridpoint.com
+To: jon@ringle.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55633 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55654 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918AbbJZBFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 21:05:01 -0400
-In-Reply-To: <20151022173711.GA23501@n2100.arm.linux.org.uk>
+	with ESMTP id S1752588AbbJZBHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2015 21:07:42 -0400
+In-Reply-To: <1445540944-13894-1-git-send-email-jon@ringle.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Thu, 22 Oct 2015 18:37:11 +0100
+From: jon@ringle.org
+Date: Thu, 22 Oct 2015 15:09:04 -0400
 
-> Sorry for v3 - I forgot to update the commit message on patch 1 as
-> requested by Marcin.
+> From: Jon Ringle <jringle@gridpoint.com>
 > 
-> This short series adds ethtool statistics reporting to mvneta.  Having
-> discussed with Andrew on IRC, we decided I'd pick up his patch into my
-> series.
+> This fixes the mask used to update the LED configuration so that it clears
+> the necessary bits as well as setting the bits according to the mask.
+> Also reverse the LED configuration to show the Link state + collisions in
+> LEDA and the Link state + TX/RX events in LEDB.
 > 
-> My change for patch 1 compared to the previous RFC splits out the
-> reading of the statistics from the hardware into a separate function,
-> in order to facilitate work going on elsewhere to arrange for the
-> statistics to be preserved across a suspend/resume cycle.
+> Signed-off-by: Jon Ringle <jringle@gridpoint.com>
 
-Series applied to net-next, thanks Russell.
+Applied, thanks.
