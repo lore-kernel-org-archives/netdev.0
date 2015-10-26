@@ -1,109 +1,116 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCHv2 net-next 2/6] arcnet: com20020: add enable and disable device on open/close
-Date: Mon, 26 Oct 2015 09:23:16 +0100
-Message-ID: <1445847800-13975-3-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCHv2 net-next 6/6] arcnet: add netif_carrier_on/off for reconnect
+Date: Mon, 26 Oct 2015 09:23:20 +0100
+Message-ID: <1445847800-13975-7-git-send-email-m.grzeschik@pengutronix.de>
 References: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:46846 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34905 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753161AbbJZIXc (ORCPT
+	with ESMTP id S1753253AbbJZIXc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 04:23:32 -0400
 In-Reply-To: <1445847800-13975-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the driver to properly work with the linux netif
-interface. The controller gets enabled on open and disabled on close.
-Therefor it removes every bogus start of the xceiver. It only gets
-enabled on com20020_open and disabled on com20020_close.
+The arcnet device has no interrupt to detect if the link has changed
+from disconnected to connected. This patch adds an timer to toggle the
+link detection. The timer will get retriggered as long as the
+reconnection interrupts accure. If the recon interrupts hold off
+for >1s we define the connection stable again.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
-v1 -> v2: kbuild test robot: declared com20020_netdev_{open,close} static
+ drivers/net/arcnet/arcdevice.h |  2 ++
+ drivers/net/arcnet/arcnet.c    | 25 +++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+)
 
- drivers/net/arcnet/com20020.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
-index c82f323..13d9ad4 100644
---- a/drivers/net/arcnet/com20020.c
-+++ b/drivers/net/arcnet/com20020.c
-@@ -118,7 +118,7 @@ int com20020_check(struct net_device *dev)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
- 	}
+diff --git a/drivers/net/arcnet/arcdevice.h b/drivers/net/arcnet/arcdevice.h
+index 2edc0c0..20bfb9b 100644
+--- a/drivers/net/arcnet/arcdevice.h
++++ b/drivers/net/arcnet/arcdevice.h
+@@ -267,6 +267,8 @@ struct arcnet_local {
+ 	struct led_trigger *recon_led_trig;
+ 	char recon_led_trig_name[ARCNET_LED_NAME_SZ];
  
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* set node ID to 0x42 (but transmitter is disabled, so it's okay) */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(0x42, ioaddr, COM20020_REG_W_XREG);
-@@ -131,11 +131,6 @@ int com20020_check(struct net_device *dev)
- 	}
- 	arc_printk(D_INIT_REASONS, dev, "status after reset: %X\n", status);
- 
--	/* Enable TX */
--	lp->config |= TXENcfg;
--	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
--	arcnet_outb(arcnet_inb(ioaddr, 8), ioaddr, COM20020_REG_W_XREG);
--
- 	arcnet_outb(CFLAGScmd | RESETclear | CONFIGclear,
- 		    ioaddr, COM20020_REG_W_COMMAND);
- 	status = arcnet_inb(ioaddr, COM20020_REG_R_STATUS);
-@@ -169,9 +164,33 @@ static int com20020_set_hwaddr(struct net_device *dev, void *addr)
- 	return 0;
++	struct timer_list	timer;
++
+ 	/*
+ 	 * Buffer management: an ARCnet card has 4 x 512-byte buffers, each of
+ 	 * which can be used for either sending or receiving.  The new dynamic
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index 4242522..6ea963e 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -381,6 +381,16 @@ static void arcdev_setup(struct net_device *dev)
+ 	dev->flags = IFF_BROADCAST;
  }
  
-+static int com20020_netdev_open(struct net_device *dev)
++static void arcnet_timer(unsigned long data)
 +{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
++	struct net_device *dev = (struct net_device *)data;
 +
-+	lp->config |= TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+
-+	return arcnet_open(dev);
++	if (!netif_carrier_ok(dev)) {
++		netif_carrier_on(dev);
++		netdev_info(dev, "link up\n");
++	}
 +}
 +
-+static int com20020_netdev_close(struct net_device *dev)
-+{
-+	int ioaddr = dev->base_addr;
-+	struct arcnet_local *lp = netdev_priv(dev);
-+
-+	arcnet_close(dev);
-+
-+	/* disable transmitter */
-+	lp->config &= ~TXENcfg;
-+	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
-+	return 0;
-+}
-+
- const struct net_device_ops com20020_netdev_ops = {
--	.ndo_open	= arcnet_open,
--	.ndo_stop	= arcnet_close,
-+	.ndo_open	= com20020_netdev_open,
-+	.ndo_stop	= com20020_netdev_close,
- 	.ndo_start_xmit = arcnet_send_packet,
- 	.ndo_tx_timeout = arcnet_timeout,
- 	.ndo_set_mac_address = com20020_set_hwaddr,
-@@ -215,7 +234,7 @@ int com20020_found(struct net_device *dev, int shared)
- 		arcnet_outb(STARTIOcmd, ioaddr, COM20020_REG_W_COMMAND);
+ struct net_device *alloc_arcdev(const char *name)
+ {
+ 	struct net_device *dev;
+@@ -392,6 +402,9 @@ struct net_device *alloc_arcdev(const char *name)
+ 		struct arcnet_local *lp = netdev_priv(dev);
+ 
+ 		spin_lock_init(&lp->lock);
++		init_timer(&lp->timer);
++		lp->timer.data = (unsigned long) dev;
++		lp->timer.function = arcnet_timer;
  	}
  
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
-+	lp->config = (lp->timeout << 3) | (lp->backplane << 2) | SUB_NODE;
- 	/* Default 0x38 + register: Node ID */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arcnet_outb(dev->dev_addr[0], ioaddr, COM20020_REG_W_XREG);
-@@ -274,7 +293,7 @@ static int com20020_reset(struct net_device *dev, int really_reset)
- 		   dev->name, arcnet_inb(ioaddr, COM20020_REG_R_STATUS));
+ 	return dev;
+@@ -490,7 +503,9 @@ int arcnet_open(struct net_device *dev)
+ 	lp->hw.intmask(dev, lp->intmask);
+ 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
  
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
--	lp->config = TXENcfg | (lp->timeout << 3) | (lp->backplane << 2);
-+	lp->config |= (lp->timeout << 3) | (lp->backplane << 2);
- 	/* power-up defaults */
- 	arcnet_outb(lp->config, ioaddr, COM20020_REG_W_CONFIG);
- 	arc_printk(D_DEBUG, dev, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
++	netif_carrier_off(dev);
+ 	netif_start_queue(dev);
++	mod_timer(&lp->timer, jiffies + msecs_to_jiffies(1000));
+ 
+ 	arcnet_led_event(dev, ARCNET_LED_EVENT_OPEN);
+ 	return 0;
+@@ -507,7 +522,10 @@ int arcnet_close(struct net_device *dev)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 
+ 	arcnet_led_event(dev, ARCNET_LED_EVENT_STOP);
++	del_timer_sync(&lp->timer);
++
+ 	netif_stop_queue(dev);
++	netif_carrier_off(dev);
+ 
+ 	/* flush TX and disable RX */
+ 	lp->hw.intmask(dev, 0);
+@@ -908,6 +926,12 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 
+ 			arc_printk(D_RECON, dev, "Network reconfiguration detected (status=%Xh)\n",
+ 				   status);
++			if (netif_carrier_ok(dev)) {
++				netif_carrier_off(dev);
++				netdev_info(dev, "link down\n");
++			}
++			mod_timer(&lp->timer, jiffies + msecs_to_jiffies(1000));
++
+ 			arcnet_led_event(dev, ARCNET_LED_EVENT_RECON);
+ 			/* MYRECON bit is at bit 7 of diagstatus */
+ 			if (diagstatus & 0x80)
+@@ -959,6 +983,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 			lp->num_recons = lp->network_down = 0;
+ 
+ 			arc_printk(D_DURING, dev, "not recon: clearing counters anyway.\n");
++			netif_carrier_on(dev);
+ 		}
+ 
+ 		if (didsomething)
 -- 
 2.6.1
