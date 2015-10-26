@@ -1,40 +1,84 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net] RDS-TCP: Recover correctly from
- pskb_pull()/pksb_trim() failure in rds_tcp_data_recv
-Date: Mon, 26 Oct 2015 09:56:01 -0700
-Message-ID: <562E5B21.2070509@oracle.com>
-References: <20151026164637.GK10039@oracle.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 5/8] mm: memcontrol: account socket memory on unified
+ hierarchy
+Date: Mon, 26 Oct 2015 12:56:19 -0400
+Message-ID: <20151026165619.GB2214@cmpxchg.org>
+References: <1445487696-21545-1-git-send-email-hannes@cmpxchg.org>
+ <1445487696-21545-6-git-send-email-hannes@cmpxchg.org>
+ <20151023131956.GA15375@dhcp22.suse.cz>
+ <20151023.065957.1690815054807881760.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151026164637.GK10039@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mhocko@kernel.org, akpm@linux-foundation.org, vdavydov@virtuozzo.com,
+	tj@kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151023.065957.1690815054807881760.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 10/26/2015 9:46 AM, Sowmini Varadhan wrote:
->
-> Either of pskb_pull() or pskb_trim() may fail under low memory conditions.
-> If rds_tcp_data_recv() ignores such failures, the application will
-> receive corrupted data because the skb has not been correctly
-> carved to the RDS datagram size.
->
-> Avoid this by handling pskb_pull/pskb_trim failure in the same
-> manner as the skb_clone failure: bail out of rds_tcp_data_recv(), and
-> retry via the deferred call to rds_send_worker() that gets set up on
-> ENOMEM from rds_tcp_read_sock()
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-Good one. Probably we should get this fix in stable versions as
-well. It seems to be applicable for all v2.6.32+ stable versions.
+On Fri, Oct 23, 2015 at 06:59:57AM -0700, David Miller wrote:
+> From: Michal Hocko <mhocko@kernel.org>
+> Date: Fri, 23 Oct 2015 15:19:56 +0200
+> 
+> > On Thu 22-10-15 00:21:33, Johannes Weiner wrote:
+> >> Socket memory can be a significant share of overall memory consumed by
+> >> common workloads. In order to provide reasonable resource isolation
+> >> out-of-the-box in the unified hierarchy, this type of memory needs to
+> >> be accounted and tracked per default in the memory controller.
+> > 
+> > What about users who do not want to pay an additional overhead for the
+> > accounting? How can they disable it?
+> 
+> Yeah, this really cannot pass.
+> 
+> This extra overhead will be seen by %99.9999 of users, since entities
+> (especially distributions) just flip on all of these config options by
+> default.
 
-FWIW,
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Okay, there are several layers to this issue.
 
-Regards,
-Santosh
+If you boot a machine with a CONFIG_MEMCG distribution kernel and
+don't create any cgroups, I agree there shouldn't be any overhead.
+
+I already sent a patch to generally remove memory accounting on the
+system or root level. I can easily update this patch here to not have
+any socket buffer accounting overhead for systems that don't actively
+use cgroups. Would you be okay with a branch on sk->sk_memcg in the
+network accounting path? I'd leave that NULL on the system level then.
+
+Then there is of course the case when you create cgroups for process
+organization but don't care about memory accounting. Systemd comes to
+mind. Or even if you create cgroups to track other resources like CPU
+but don't care about memory. The unified hierarchy no longer enables
+controllers on new cgroups per default, so unless you create a cgroup
+and specifically tell it to account and track memory, you won't have
+the socket memory accounting overhead, either.
+
+Then there is the third case, where you create a control group to
+specifically manage and limit the memory consumption of a workload. In
+that scenario, a major memory consumer like socket buffers, which can
+easily grow until OOM, should definitely be included in the tracking
+in order to properly contain both untrusted (possibly malicious) and
+trusted (possibly buggy) workloads. This is not a hole we can
+reasonbly leave unpatched for general purpose resource management.
+
+Now you could argue that there might exist specialized workloads that
+need to account anonymous pages and page cache, but not socket memory
+buffers. Or any other combination of pick-and-choose consumers. But
+honestly, nowadays all our paths are lockless, and the counting is an
+atomic-add-return with a per-cpu batch cache. I don't think there is a
+compelling case for an elaborate interface to make individual memory
+consumers configurable inside the memory controller.
+
+So in summary, would you be okay with this patch if networking only
+called into the memory controller when you explicitely create a cgroup
+AND tell it to track the memory footprint of the workload in it?
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
