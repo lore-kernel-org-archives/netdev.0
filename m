@@ -1,32 +1,35 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V3 1/2] xen-netback: limit xen vif max queues number to
- online cpus
-Date: Mon, 26 Oct 2015 14:54:21 +0000
-Message-ID: <20151026145421.GJ13118@zion.uk.xensource.com>
-References: <562A0108.3070501@oracle.com> <562A018C.9060708@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net: tso: add support for IPv6
+Date: Mon, 26 Oct 2015 07:56:46 -0700
+Message-ID: <1445871406.7476.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1445803107-18513-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1445848289-26106-1-git-send-email-emmanuel.grumbach@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, Ian Campbell <ian.campbell@citrix.com>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Jan Beulich" <JBeulich@suse.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>
-To: Joe Jin <joe.jin@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	egrumbach@gmail.com
+To: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:52709 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbbJZOyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 10:54:24 -0400
-Content-Disposition: inline
-In-Reply-To: <562A018C.9060708@oracle.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35653 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932203AbbJZO4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2015 10:56:49 -0400
+In-Reply-To: <1445848289-26106-1-git-send-email-emmanuel.grumbach@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2015 at 05:44:44PM +0800, Joe Jin wrote:
-> Should not allocate xen vif queues number more than online cpus.
+On Mon, 2015-10-26 at 10:31 +0200, Emmanuel Grumbach wrote:
+> Adding IPv6 for the TSO helper API is trivial:
+> * Don't play with the id (which doesn't exist in IPv6)
+> * Correctly update the payload_len (don't include the
+>   length of the IP header itself)
+> 
+> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+> ---
+> v3: use vlan_get_protocol and call it once in tso_start
+>     store the result in tso_t
 
-I think it's absolutely fine for administrators to override the value
-should they choose to.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Wei.
+Next step, adding encapsulation support ;)
